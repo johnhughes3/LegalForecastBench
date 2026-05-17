@@ -8,6 +8,13 @@ from legalforecast.publication.alpha_release_bundle import (
     AlphaReleaseBundleError,
     build_alpha_release_bundle,
 )
+from legalforecast.publication.official_aggregate import (
+    OFFICIAL_AGGREGATE_SCHEMA_VERSION,
+    OfficialAggregationConfig,
+    OfficialAggregationError,
+    OfficialAggregationResult,
+    aggregate_official_results,
+)
 from legalforecast.publication.private_store_export import (
     PRIVATE_STORE_EXPORT_SCHEMA_VERSION,
     STORAGE_MANIFEST_VERSION,
@@ -51,6 +58,7 @@ __all__ = [
     "ALPHA_RELEASE_BUNDLE_SCHEMA_VERSION",
     "ALPHA_RELEASE_CHANNEL",
     "ALPHA_RESULT_TIER",
+    "OFFICIAL_AGGREGATE_SCHEMA_VERSION",
     "PRIVATE_STORE_EXPORT_SCHEMA_VERSION",
     "PUBLIC_ERRATA_SCHEMA_VERSION",
     "STORAGE_MANIFEST_VERSION",
@@ -61,6 +69,9 @@ __all__ = [
     "ExportClassification",
     "ExportObjectRecord",
     "HashVerification",
+    "OfficialAggregationConfig",
+    "OfficialAggregationError",
+    "OfficialAggregationResult",
     "PrivateStoreExportConfig",
     "PrivateStoreExportError",
     "PrivateStoreExportResult",
@@ -74,6 +85,7 @@ __all__ = [
     "WithdrawalLedgerEntry",
     "WithdrawalReason",
     "WithdrawalScope",
+    "aggregate_official_results",
     "build_alpha_release_bundle",
     "build_private_store_export",
     "build_public_errata_record",

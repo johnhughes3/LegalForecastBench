@@ -18,6 +18,8 @@ notes belong in `tmp/`, CI logs, or issues, not in the public docs tree.
   store export command, staged object layout, and verification report.
 - [Official Evaluation Environment](official_eval_environment.md): protected
   GitHub environment, OIDC packet-reader identity, and revocation steps.
+- [Official Aggregation](official_aggregation.md): per-case artifact
+  validation, leaderboard publication bundle, and private-debug split.
 - [Withdrawal Workflow](withdrawal_workflow.md): sealing-order takedown,
   withdrawal ledger, public errata, and future-run exclusion process.
 - [Result Tiers](result_tiers.md): official, verified-community,
