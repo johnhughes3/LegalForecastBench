@@ -41,6 +41,10 @@ from legalforecast.evals.packet_builder import (
     build_model_packet,
     texts_from_mapping,
 )
+from legalforecast.evals.per_case_runner import (
+    PerCaseRunnerConfig,
+    run_per_case_evaluation,
+)
 from legalforecast.evals.scorers import (
     CalibrationBin,
     DominanceSensitivityReport,
@@ -352,6 +356,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run no-network fixture solvers over packet artifacts.",
     )
     _add_model_run_arguments(eval_run)
+    eval_run_case = eval_subparsers.add_parser(
+        "run-case",
+        help="Run one isolated official model-packet shard.",
+    )
+    _add_eval_run_case_arguments(eval_run_case)
 
     score = subparsers.add_parser(
         "score",
@@ -471,6 +480,47 @@ def _add_model_run_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--mock-output", required=True)
     parser.add_argument("--dry-run", action="store_true")
     parser.set_defaults(handler=_cmd_model_run)
+
+
+def _add_eval_run_case_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--manifest",
+        type=str,
+        required=True,
+        help="Run-input manifest path, file:// URI, or s3:// URI.",
+    )
+    parser.add_argument("--case-id", required=True)
+    parser.add_argument(
+        "--ablation",
+        choices=[ablation.value for ablation in PacketAblation],
+        default=PacketAblation.FULL_PACKET.value,
+    )
+    parser.add_argument(
+        "--packet-store-root",
+        help="Local root, file:// root, or s3:// root for manifest object keys.",
+    )
+    parser.add_argument(
+        "--results-store-root",
+        help="Optional local root, file:// root, or s3:// root for safe outputs.",
+    )
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--solver-id", default="offline:fixture")
+    parser.add_argument(
+        "--mock-output",
+        required=True,
+        help="Offline fixture solver output used by the dependency-light runner.",
+    )
+    parser.add_argument("--max-tool-calls", type=int, default=10)
+    parser.add_argument(
+        "--no-docket-tool",
+        action="store_true",
+        help="Disable the controlled docket tool for this packet shard.",
+    )
+    parser.add_argument(
+        "--evaluation-timestamp",
+        help="Deterministic UTC timestamp for accounting artifacts.",
+    )
+    parser.set_defaults(handler=_cmd_eval_run_case)
 
 
 def _add_fixture_e2e_arguments(parser: argparse.ArgumentParser) -> None:
@@ -1000,6 +1050,35 @@ def _cmd_model_run(args: argparse.Namespace) -> int:
             accounting_output,
             len(accounting),
         )
+    return 0
+
+
+def _cmd_eval_run_case(args: argparse.Namespace) -> int:
+    timestamp_text = cast(str | None, args.evaluation_timestamp)
+    artifacts = run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=cast(str, args.manifest),
+            case_id=cast(str, args.case_id),
+            ablation=cast(str, args.ablation),
+            output_dir=cast(Path, args.output_dir),
+            mock_output=cast(str, args.mock_output),
+            packet_store_root=cast(str | None, args.packet_store_root),
+            results_store_root=cast(str | None, args.results_store_root),
+            solver_id=cast(str, args.solver_id),
+            max_tool_calls=cast(int, args.max_tool_calls),
+            use_docket_tool=not cast(bool, args.no_docket_tool),
+            evaluation_timestamp=(
+                _parse_datetime(timestamp_text) if timestamp_text is not None else None
+            ),
+        )
+    )
+    _log_event(
+        "eval-run-case",
+        "artifact_written",
+        cast(Path, args.output_dir) / "metrics.json",
+        len(artifacts.local_paths),
+    )
+    print(json.dumps(artifacts.to_record(), sort_keys=True))
     return 0
 
 

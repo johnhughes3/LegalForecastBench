@@ -1,0 +1,295 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+from legalforecast.cli import main
+from legalforecast.evals.packet_builder import (
+    ModelPacket,
+    PacketAblation,
+    PacketDocument,
+)
+from legalforecast.evals.per_case_runner import (
+    PacketManifestError,
+    PerCaseRunnerConfig,
+    PerCaseRunnerError,
+    run_per_case_evaluation,
+)
+from legalforecast.ingestion.provenance import DocumentRole, sha256_text
+from legalforecast.protocol.freeze import sha256_file
+from legalforecast.unitization.schemas import (
+    ChallengeScope,
+    PredictionUnit,
+    SourceCitation,
+)
+
+
+def test_per_case_runner_verifies_packet_and_publishes_safe_outputs(
+    tmp_path: Path,
+) -> None:
+    packet_text = "Operative complaint text for the isolated packet."
+    store_root, manifest_path, packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(packet_text=packet_text),
+    )
+    output_dir = tmp_path / "runner-output"
+    results_root = tmp_path / "results-store"
+
+    artifacts = run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(results_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=output_dir,
+            solver_id="offline:fixture",
+            mock_output=_mock_output(),
+        )
+    )
+
+    assert artifacts.packet_sha256 == packet_sha256
+    assert {path.name for path in artifacts.local_paths} == {
+        "accounting.jsonl",
+        "metrics.json",
+        "runner-log.jsonl",
+        "runs.jsonl",
+    }
+    assert all(path.is_file() for path in artifacts.local_paths)
+    assert not (output_dir / "model-packet.json").exists()
+
+    runs = _read_jsonl(output_dir / "runs.jsonl")
+    assert runs[0]["case_id"] == "case-1"
+    assert "packet" not in runs[0]
+    assert "prompt" not in runs[0]
+
+    log_text = (output_dir / "runner-log.jsonl").read_text(encoding="utf-8")
+    metrics_text = (output_dir / "metrics.json").read_text(encoding="utf-8")
+    accounting_text = (output_dir / "accounting.jsonl").read_text(encoding="utf-8")
+    for text in (log_text, metrics_text, accounting_text):
+        assert packet_text not in text
+        assert "CASE_DEV_API_KEY" not in text
+
+    uploaded_paths = {
+        path.relative_to(results_root).as_posix()
+        for path in results_root.rglob("*")
+        if path.is_file()
+    }
+    assert uploaded_paths
+    assert all(path.startswith(("metrics/", "reports/")) for path in uploaded_paths)
+    assert not any(
+        path.startswith(
+            (
+                "audit-bundles/",
+                "extracted-text/",
+                "model-packets/",
+                "source-documents/",
+                "withdrawn/",
+            )
+        )
+        for path in uploaded_paths
+    )
+
+
+def test_per_case_runner_refuses_hash_mismatch_without_retaining_packet(
+    tmp_path: Path,
+) -> None:
+    packet_text = "Hash mismatch packet text must not be retained."
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(packet_text=packet_text),
+        manifest_sha256="0" * 64,
+    )
+    output_dir = tmp_path / "runner-output"
+
+    with pytest.raises(PerCaseRunnerError, match="SHA-256 mismatch"):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(store_root),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=output_dir,
+                mock_output=_mock_output(),
+            )
+        )
+
+    assert (output_dir / "runner-log.jsonl").is_file()
+    assert not (output_dir / "runs.jsonl").exists()
+    assert packet_text not in (output_dir / "runner-log.jsonl").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_per_case_runner_refuses_audit_only_packet_objects(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    _write_json(
+        manifest_path,
+        {
+            "cycle_id": "cycle-1",
+            "model_packets": [
+                {
+                    "case_id": "case-1",
+                    "ablation": "full_packet",
+                    "object_key": "audit-bundles/cycle-1/case-1/full_packet.json",
+                    "sha256": "1" * 64,
+                }
+            ],
+        },
+    )
+
+    with pytest.raises(PacketManifestError, match="model packet object key"):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(tmp_path / "store"),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=tmp_path / "runner-output",
+                mock_output=_mock_output(),
+            )
+        )
+
+
+def test_eval_run_case_cli_writes_artifact_summary(tmp_path: Path, capsys) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    output_dir = tmp_path / "cli-output"
+
+    assert (
+        main(
+            [
+                "eval",
+                "run-case",
+                "--manifest",
+                str(manifest_path),
+                "--packet-store-root",
+                str(store_root),
+                "--case-id",
+                "case-1",
+                "--ablation",
+                "full_packet",
+                "--output-dir",
+                str(output_dir),
+                "--mock-output",
+                _mock_output(),
+                "--evaluation-timestamp",
+                "2026-05-17T12:00:00Z",
+            ]
+        )
+        == 0
+    )
+
+    stdout = capsys.readouterr().out
+    summary = json.loads(stdout)
+    assert summary["case_id"] == "case-1"
+    assert (output_dir / "runs.jsonl").is_file()
+    metrics = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics["evaluation_timestamp"] == "2026-05-17T12:00:00Z"
+
+
+def _write_store_fixture(
+    tmp_path: Path,
+    *,
+    packet_record: dict[str, object],
+    manifest_sha256: str | None = None,
+) -> tuple[Path, Path, str]:
+    store_root = tmp_path / "packet-store"
+    packet_key = "model-packets/cycle-1/case-1/full_packet.json"
+    packet_path = store_root / packet_key
+    _write_json(packet_path, packet_record)
+    packet_sha256 = sha256_file(packet_path)
+    manifest_path = tmp_path / "manifest.json"
+    _write_json(
+        manifest_path,
+        {
+            "cycle_id": "cycle-1",
+            "model_packets": [
+                {
+                    "case_id": "case-1",
+                    "ablation": "full_packet",
+                    "object_key": packet_key,
+                    "sha256": manifest_sha256 or packet_sha256,
+                    "size_bytes": packet_path.stat().st_size,
+                    "content_type": "application/json",
+                }
+            ],
+        },
+    )
+    return store_root, manifest_path, packet_sha256
+
+
+def _packet_record(
+    *,
+    packet_text: str = "Fixture complaint text.",
+) -> dict[str, object]:
+    document = PacketDocument(
+        source_document_id="doc-complaint",
+        document_role=DocumentRole.COMPLAINT,
+        docket_entry_number=12,
+        source_provider="fixture",
+        source_url_or_reference="fixture://case-1/doc-complaint",
+        source_sha256=sha256_text(packet_text),
+        text=packet_text,
+        text_sha256=sha256_text(packet_text),
+        packet_section="filings",
+    )
+    unit = PredictionUnit(
+        unit_id="unit-1",
+        count="I",
+        claim_name="Breach of contract",
+        defendant_group="Example Defendant",
+        challenged_by_motion=True,
+        challenge_scope=ChallengeScope.ENTIRE_CLAIM,
+        unit_confidence=0.97,
+        source_citations=(
+            SourceCitation(
+                document_id="doc-complaint",
+                docket_entry_number=12,
+                excerpt="Breach of contract claim.",
+            ),
+        ),
+    )
+    packet = ModelPacket(
+        candidate_id="cand-1",
+        case_id="case-1",
+        court="D. Example",
+        docket_number="1:26-cv-00001",
+        ablation=PacketAblation.FULL_PACKET,
+        metadata={"fixture": "true"},
+        documents=(document,),
+        prediction_units=(unit,),
+        excluded_document_ids=(),
+    )
+    return packet.to_record()
+
+
+def _mock_output() -> str:
+    return json.dumps(
+        {
+            "case_assessment": "The motion has modest dismissal risk.",
+            "predictions": [
+                {
+                    "unit_id": "unit-1",
+                    "probability_fully_dismissed": 0.25,
+                }
+            ],
+        },
+        sort_keys=True,
+    )
+
+
+def _write_json(path: Path, payload: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def _read_jsonl(path: Path) -> list[dict[str, object]]:
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]

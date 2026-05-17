@@ -21,6 +21,11 @@ from legalforecast.evals.model_registry import (
     dump_model_registry,
     load_model_registry,
 )
+from legalforecast.evals.per_case_runner import (
+    PerCaseRunArtifacts,
+    PerCaseRunnerConfig,
+    run_per_case_evaluation,
+)
 
 __all__ = [
     "ConfiguredModelStubSolver",
@@ -30,6 +35,8 @@ __all__ = [
     "ModelRegistry",
     "ModelRegistryEntry",
     "OfflineMockSolver",
+    "PerCaseRunArtifacts",
+    "PerCaseRunnerConfig",
     "RunExecutionBackend",
     "ToolPolicy",
     "build_headline_inspect_ai_task",
@@ -38,4 +45,5 @@ __all__ = [
     "load_model_registry",
     "render_model_prompt",
     "run_inspect_fixture",
+    "run_per_case_evaluation",
 ]
