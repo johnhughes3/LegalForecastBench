@@ -1,0 +1,63 @@
+# macOS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.pyre/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Packaging / build output
+build/
+dist/
+*.egg-info/
+
+# Local run outputs
+tmp/
+artifacts/
+runs/
+outputs/
+downloads/
+local-data/
+
+# Logs
+*.log
+
+# Local databases / caches
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Beads / Dolt local runtime
+.beads/
+.dolt/
+.beads-credential-key
+
+# Local agent runtime config
+.claude/
+
+# Beads viewer local config/cache
+.bv/

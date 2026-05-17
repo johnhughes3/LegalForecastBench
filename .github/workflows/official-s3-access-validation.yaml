@@ -1,0 +1,212 @@
+name: Official S3 Access Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Optional commit SHA to validate. If set, it must be reachable from origin/main.
+        required: false
+        type: string
+      packet_object_key:
+        description: Optional model packet key to head-check under model-packets/.
+        required: false
+        type: string
+      manifest_object_key:
+        description: Optional public-safe manifest key to head-check under manifests/.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: official-s3-access-validation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-request:
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      manifest_object_key: ${{ steps.resolve.outputs.manifest_object_key }}
+      packet_object_key: ${{ steps.resolve.outputs.packet_object_key }}
+      release_sha: ${{ steps.resolve.outputs.release_sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Resolve trusted release
+        id: resolve
+        shell: bash
+        env:
+          MANIFEST_OBJECT_KEY_INPUT: ${{ inputs.manifest_object_key }}
+          PACKET_OBJECT_KEY_INPUT: ${{ inputs.packet_object_key }}
+          RELEASE_SHA_INPUT: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "Official LegalForecastBench S3 validation is allowed only from refs/heads/main." >&2
+            exit 1
+          fi
+
+          case "${PACKET_OBJECT_KEY_INPUT}" in
+            ""|model-packets/*) ;;
+            *)
+              echo "packet_object_key must be empty or start with model-packets/." >&2
+              exit 1
+              ;;
+          esac
+          case "${MANIFEST_OBJECT_KEY_INPUT}" in
+            ""|manifests/*) ;;
+            *)
+              echo "manifest_object_key must be empty or start with manifests/." >&2
+              exit 1
+              ;;
+          esac
+
+          git fetch origin main --prune
+          if [[ -z "${RELEASE_SHA_INPUT}" ]]; then
+            release_sha="$(git rev-parse --verify "origin/main^{commit}")"
+          else
+            release_sha="$(git rev-parse --verify "${RELEASE_SHA_INPUT}^{commit}")"
+          fi
+          if ! git merge-base --is-ancestor "${release_sha}" origin/main; then
+            echo "release_sha must be reachable from origin/main." >&2
+            exit 1
+          fi
+
+          {
+            echo "manifest_object_key=${MANIFEST_OBJECT_KEY_INPUT}"
+            echo "packet_object_key=${PACKET_OBJECT_KEY_INPUT}"
+            echo "release_sha=${release_sha}"
+          } >> "${GITHUB_OUTPUT}"
+
+  validate-official-s3-access:
+    needs: validate-request
+    if: github.ref == 'refs/heads/main'
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    environment: legalforecastbench-official-eval
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_MODEL_PACKET_PREFIX: ${{ vars.LFB_MODEL_PACKET_PREFIX || 'model-packets/' }}
+      LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+      LFB_RESULTS_MANIFEST_PREFIX: ${{ vars.LFB_RESULTS_MANIFEST_PREFIX || 'manifests/' }}
+      MANIFEST_OBJECT_KEY: ${{ needs.validate-request.outputs.manifest_object_key }}
+      PACKET_OBJECT_KEY: ${{ needs.validate-request.outputs.packet_object_key }}
+    steps:
+      - name: Confirm secure-gate protected environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "This job starts only after the legalforecastbench-official-eval protected environment, including secure-gate deployment protection, approves it."
+
+      - name: Validate protected environment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          required_env=(
+            AWS_REGION
+            LFB_GITHUB_PACKET_READ_ROLE_ARN
+            LFB_MODEL_PACKET_PREFIX
+            LFB_PACKET_BUCKET
+            LFB_RESULTS_BUCKET
+            LFB_RESULTS_MANIFEST_PREFIX
+          )
+          for name in "${required_env[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("${name}")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing required protected environment values:\n' >&2
+            printf '  - %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+          if [[ "${LFB_MODEL_PACKET_PREFIX}" != "model-packets/" ]]; then
+            echo "LFB_MODEL_PACKET_PREFIX must be model-packets/ for the packet-read role." >&2
+            exit 1
+          fi
+          if [[ "${LFB_RESULTS_MANIFEST_PREFIX}" != "manifests/" ]]; then
+            echo "LFB_RESULTS_MANIFEST_PREFIX must be manifests/ for public-safe manifests." >&2
+            exit 1
+          fi
+          if [[ ! "${LFB_GITHUB_PACKET_READ_ROLE_ARN}" =~ ^arn:aws[a-zA-Z-]*:iam::[0-9]{12}:role/.+ ]]; then
+            echo "LFB_GITHUB_PACKET_READ_ROLE_ARN must be an IAM role ARN." >&2
+            exit 1
+          fi
+
+      - name: Checkout trusted release
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.validate-request.outputs.release_sha }}
+
+      - name: Configure AWS OIDC credentials
+        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: lfb-official-eval-${{ github.run_id }}
+          role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+
+      - name: Validate packet-read contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity --query Arn --output text >/tmp/lfb-aws-caller.txt
+
+          aws s3api list-objects-v2 \
+            --bucket "${LFB_PACKET_BUCKET}" \
+            --prefix "${LFB_MODEL_PACKET_PREFIX}" \
+            --max-items 1 \
+            --output json >/tmp/lfb-model-packet-list.json
+
+          aws s3api list-objects-v2 \
+            --bucket "${LFB_RESULTS_BUCKET}" \
+            --prefix "${LFB_RESULTS_MANIFEST_PREFIX}" \
+            --max-items 1 \
+            --output json >/tmp/lfb-manifest-list.json
+
+          if [[ -n "${PACKET_OBJECT_KEY}" ]]; then
+            aws s3api head-object \
+              --bucket "${LFB_PACKET_BUCKET}" \
+              --key "${PACKET_OBJECT_KEY}" >/tmp/lfb-packet-head.json
+          fi
+          if [[ -n "${MANIFEST_OBJECT_KEY}" ]]; then
+            aws s3api head-object \
+              --bucket "${LFB_RESULTS_BUCKET}" \
+              --key "${MANIFEST_OBJECT_KEY}" >/tmp/lfb-manifest-head.json
+          fi
+
+      - name: Validate private-prefix denial
+        shell: bash
+        run: |
+          set -euo pipefail
+          denied_keys=(
+            source-documents/secure-gate-negative-control
+            extracted-text/secure-gate-negative-control
+            audit-bundles/secure-gate-negative-control
+            withdrawn/secure-gate-negative-control
+            quarantine/secure-gate-negative-control
+          )
+          for key in "${denied_keys[@]}"; do
+            if aws s3api head-object \
+              --bucket "${LFB_PACKET_BUCKET}" \
+              --key "${key}" >/tmp/lfb-deny-check.out 2>&1; then
+              echo "Packet-read role unexpectedly read private prefix key: ${key}" >&2
+              exit 1
+            fi
+            if ! grep -Eqi 'AccessDenied|Forbidden|403' /tmp/lfb-deny-check.out; then
+              echo "Private prefix check for ${key} failed for a reason other than access denial." >&2
+              exit 1
+            fi
+          done

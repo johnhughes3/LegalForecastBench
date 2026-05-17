@@ -1,0 +1,93 @@
+{
+  "calibration_models": [
+    "calibrated",
+    "overconfident",
+    "refusal"
+  ],
+  "pairwise_deltas": [
+    {
+      "ci_high": -0.215433,
+      "ci_low": -0.215433,
+      "model_a": "calibrated",
+      "model_b": "overconfident",
+      "observed_delta": -0.215433,
+      "probability_a_better": 1.0
+    },
+    {
+      "ci_high": -0.138467,
+      "ci_low": -0.138467,
+      "model_a": "calibrated",
+      "model_b": "refusal",
+      "observed_delta": -0.138467,
+      "probability_a_better": 1.0
+    },
+    {
+      "ci_high": 0.076967,
+      "ci_low": 0.076967,
+      "model_a": "overconfident",
+      "model_b": "refusal",
+      "observed_delta": 0.076967,
+      "probability_a_better": 0.0
+    }
+  ],
+  "pareto_accuracy_cost": [
+    "calibrated",
+    "refusal"
+  ],
+  "pareto_accuracy_tool_calls": [
+    "calibrated"
+  ],
+  "row_order": [
+    "calibrated",
+    "refusal",
+    "overconfident"
+  ],
+  "rows": [
+    {
+      "brier_skill_score": 0.51451,
+      "capped_case_micro_brier": 0.111533,
+      "cost_per_case": 0.0137,
+      "defaulted_prediction_rate": 0.0,
+      "invalid_output_rate": 0.0,
+      "mdl_family_capped_micro_brier": 0.111533,
+      "mean_tool_calls_per_case": 2.0,
+      "micro_brier": 0.111533,
+      "model_id": "calibrated",
+      "rank": 1,
+      "rank_tier": 1,
+      "refusal_rate": 0.0,
+      "related_family_capped_micro_brier": 0.111533
+    },
+    {
+      "brier_skill_score": -0.088218,
+      "capped_case_micro_brier": 0.25,
+      "cost_per_case": 0.0115,
+      "defaulted_prediction_rate": 1.0,
+      "invalid_output_rate": 1.0,
+      "mdl_family_capped_micro_brier": 0.25,
+      "mean_tool_calls_per_case": 2.0,
+      "micro_brier": 0.25,
+      "model_id": "refusal",
+      "rank": 2,
+      "rank_tier": 2,
+      "refusal_rate": 1.0,
+      "related_family_capped_micro_brier": 0.25
+    },
+    {
+      "brier_skill_score": -0.423244,
+      "capped_case_micro_brier": 0.326967,
+      "cost_per_case": 0.0131,
+      "defaulted_prediction_rate": 0.0,
+      "invalid_output_rate": 0.0,
+      "mdl_family_capped_micro_brier": 0.326967,
+      "mean_tool_calls_per_case": 4.0,
+      "micro_brier": 0.326967,
+      "model_id": "overconfident",
+      "rank": 3,
+      "rank_tier": 3,
+      "refusal_rate": 0.0,
+      "related_family_capped_micro_brier": 0.326967
+    }
+  ],
+  "title": "GA7 Integrated Fixture Leaderboard"
+}

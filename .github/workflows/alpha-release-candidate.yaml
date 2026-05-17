@@ -1,0 +1,37 @@
+name: Alpha Release Candidate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  alpha-release-check:
+    name: Alpha release check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Run release-candidate checks
+        run: uv run scripts/alpha_release_check.py
+
+      - name: Upload release-check artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alpha-release-check
+          path: tmp/alpha-release-check
+          if-no-files-found: warn
