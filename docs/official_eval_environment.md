@@ -29,6 +29,8 @@ results-writer role. Configure it only if COS deploys that role with
 
 The consumer-side validation entrypoint is
 `.github/workflows/official-s3-access-validation.yaml`.
+The official per-case matrix entrypoint is
+`.github/workflows/official-eval-matrix.yaml`.
 
 It is intentionally `workflow_dispatch` only. It has no `pull_request` trigger,
 checks `github.ref == 'refs/heads/main'`, resolves the requested `release_sha`
@@ -50,6 +52,12 @@ The packet-read role must not:
 - write or delete either bucket;
 - administer IAM, KMS, bucket policies, budgets, or account settings;
 - call acquisition services such as Case.dev, PACER, or CourtListener.
+
+The matrix workflow builds one case job per run-input manifest row for the
+selected ablation, uses `strategy.fail-fast: false`, bounds concurrency through
+the `max_parallel` dispatch input, and fails before dispatch if the matrix would
+exceed GitHub's 256-job limit. Its dry-run mode validates dispatch inputs and
+matrix construction without fetching model packets or uploading outputs.
 
 ## Maintainer Roles
 

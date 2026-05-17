@@ -1,0 +1,314 @@
+name: Official Evaluation Matrix
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Optional commit SHA to evaluate. If set, it must be reachable from origin/main.
+        required: false
+        type: string
+      cycle_id:
+        description: Frozen official cycle id.
+        required: true
+        type: string
+      run_input_manifest_uri:
+        description: s3:// URI, manifests/ key, or checked-out file path for the run-input manifest.
+        required: true
+        type: string
+      ablation:
+        description: Packet ablation to evaluate.
+        required: true
+        default: full_packet
+        type: choice
+        options:
+          - full_packet
+          - metadata_only
+          - briefs_only_redacted
+          - judge_removed
+          - no_briefs
+      solver_id:
+        description: Model/provider/run-condition identifier recorded by the runner.
+        required: true
+        default: offline:fixture
+        type: string
+      mock_output:
+        description: Offline runner output JSON until live model adapters are enabled.
+        required: true
+        default: '{"case_assessment":"dry official fixture","predictions":[]}'
+        type: string
+      max_parallel:
+        description: Maximum concurrent case jobs.
+        required: true
+        default: "4"
+        type: string
+      dry_run:
+        description: Build and validate the matrix without fetching packets or uploading outputs.
+        required: true
+        default: true
+        type: boolean
+      artifact_retention_days:
+        description: Retention for non-sensitive per-case GitHub artifacts.
+        required: true
+        default: "14"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: official-eval-matrix-${{ inputs.cycle_id }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-matrix:
+    name: Build official case matrix
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    environment: legalforecastbench-official-eval
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      artifact_retention_days: ${{ steps.validate.outputs.artifact_retention_days }}
+      case_count: ${{ steps.matrix.outputs.case_count }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      max_parallel: ${{ steps.validate.outputs.max_parallel }}
+      release_sha: ${{ steps.validate.outputs.release_sha }}
+    env:
+      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+      RUN_INPUT_MANIFEST_URI: ${{ inputs.run_input_manifest_uri }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Validate dispatch request
+        id: validate
+        shell: bash
+        env:
+          ARTIFACT_RETENTION_DAYS_INPUT: ${{ inputs.artifact_retention_days }}
+          MAX_PARALLEL_INPUT: ${{ inputs.max_parallel }}
+          RELEASE_SHA_INPUT: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "Official evaluation is allowed only from refs/heads/main." >&2
+            exit 1
+          fi
+          case "${RUN_INPUT_MANIFEST_URI}" in
+            s3://*|manifests/*|./*|/*|[A-Za-z0-9._-]*.json) ;;
+            *)
+              echo "run_input_manifest_uri must be s3://, manifests/, or a JSON file path." >&2
+              exit 1
+              ;;
+          esac
+          case "${RUN_INPUT_MANIFEST_URI}" in
+            source-documents/*|extracted-text/*|audit-bundles/*|withdrawn/*|quarantine/*)
+              echo "run_input_manifest_uri must not point at private packet prefixes." >&2
+              exit 1
+              ;;
+          esac
+          if ! [[ "${MAX_PARALLEL_INPUT}" =~ ^[0-9]+$ ]] || (( MAX_PARALLEL_INPUT < 1 || MAX_PARALLEL_INPUT > 64 )); then
+            echo "max_parallel must be an integer from 1 through 64." >&2
+            exit 1
+          fi
+          if ! [[ "${ARTIFACT_RETENTION_DAYS_INPUT}" =~ ^[0-9]+$ ]] || (( ARTIFACT_RETENTION_DAYS_INPUT < 1 || ARTIFACT_RETENTION_DAYS_INPUT > 90 )); then
+            echo "artifact_retention_days must be an integer from 1 through 90." >&2
+            exit 1
+          fi
+          git fetch origin main --prune
+          if [[ -z "${RELEASE_SHA_INPUT}" ]]; then
+            release_sha="$(git rev-parse --verify "origin/main^{commit}")"
+          else
+            release_sha="$(git rev-parse --verify "${RELEASE_SHA_INPUT}^{commit}")"
+          fi
+          if ! git merge-base --is-ancestor "${release_sha}" origin/main; then
+            echo "release_sha must be reachable from origin/main." >&2
+            exit 1
+          fi
+          {
+            echo "artifact_retention_days=${ARTIFACT_RETENTION_DAYS_INPUT}"
+            echo "max_parallel=${MAX_PARALLEL_INPUT}"
+            echo "release_sha=${release_sha}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Configure AWS OIDC credentials
+        if: ${{ startsWith(inputs.run_input_manifest_uri, 's3://') || startsWith(inputs.run_input_manifest_uri, 'manifests/') }}
+        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: lfb-official-matrix-${{ github.run_id }}
+          role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+
+      - name: Download run-input manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${RUN_INPUT_MANIFEST_URI}" in
+            s3://*)
+              aws s3 cp "${RUN_INPUT_MANIFEST_URI}" /tmp/lfb-run-inputs.json --only-show-errors
+              ;;
+            manifests/*)
+              if [[ -z "${LFB_RESULTS_BUCKET:-}" ]]; then
+                echo "LFB_RESULTS_BUCKET is required for manifests/ inputs." >&2
+                exit 1
+              fi
+              aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${RUN_INPUT_MANIFEST_URI}" /tmp/lfb-run-inputs.json --only-show-errors
+              ;;
+            *)
+              cp "${RUN_INPUT_MANIFEST_URI}" /tmp/lfb-run-inputs.json
+              ;;
+          esac
+
+      - name: Build matrix JSON
+        id: matrix
+        shell: bash
+        env:
+          ABLATION: ${{ inputs.ablation }}
+          CYCLE_ID: ${{ inputs.cycle_id }}
+          MATRIX_LIMIT: "256"
+          RUN_INPUT_MANIFEST_PATH: /tmp/lfb-run-inputs.json
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          with open(os.environ["RUN_INPUT_MANIFEST_PATH"], encoding="utf-8") as handle:
+              manifest = json.load(handle)
+          if manifest.get("cycle_id") != os.environ["CYCLE_ID"]:
+              raise SystemExit("run-input manifest cycle_id does not match dispatch input")
+          packets = manifest.get("model_packets")
+          if not isinstance(packets, list):
+              raise SystemExit("run-input manifest must contain model_packets list")
+
+          include = []
+          seen_case_ids = set()
+          for packet in packets:
+              if not isinstance(packet, dict):
+                  raise SystemExit("model_packets entries must be objects")
+              ablation = packet.get("ablation", "full_packet")
+              if ablation != os.environ["ABLATION"]:
+                  continue
+              case_id = packet.get("case_id")
+              packet_object_key = packet.get("packet_object_key")
+              if not isinstance(case_id, str) or not case_id:
+                  raise SystemExit("each matrix row requires case_id")
+              if case_id in seen_case_ids:
+                  raise SystemExit(f"duplicate case_id for ablation: {case_id}")
+              if not isinstance(packet_object_key, str) or not packet_object_key.startswith("model-packets/"):
+                  raise SystemExit("each matrix row requires model-packets/ packet_object_key")
+              seen_case_ids.add(case_id)
+              include.append(
+                  {
+                      "case_id": case_id,
+                      "ablation": ablation,
+                      "packet_object_key": packet_object_key,
+                  }
+              )
+
+          limit = int(os.environ["MATRIX_LIMIT"])
+          if not include:
+              raise SystemExit("run-input manifest produced an empty matrix")
+          if len(include) > limit:
+              raise SystemExit(f"matrix has {len(include)} rows; GitHub limit is {limit}")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"matrix={json.dumps({'include': include}, separators=(',', ':'))}\n")
+              output.write(f"case_count={len(include)}\n")
+          PY
+
+  run-case:
+    name: Evaluate ${{ matrix.case_id }} / ${{ matrix.ablation }}
+    needs: build-matrix
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 45
+    environment: legalforecastbench-official-eval
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(needs.build-matrix.outputs.max_parallel) }}
+      matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}
+    env:
+      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+      RUN_INPUT_MANIFEST_URI: ${{ inputs.run_input_manifest_uri }}
+    steps:
+      - name: Checkout trusted release
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.build-matrix.outputs.release_sha }}
+
+      - name: Dry-run matrix row
+        if: ${{ inputs.dry_run }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Dry run: would evaluate ${CASE_ID} with ${ABLATION} from ${PACKET_OBJECT_KEY}."
+        env:
+          ABLATION: ${{ matrix.ablation }}
+          CASE_ID: ${{ matrix.case_id }}
+          PACKET_OBJECT_KEY: ${{ matrix.packet_object_key }}
+
+      - name: Install uv
+        if: ${{ !inputs.dry_run }}
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Configure AWS OIDC credentials
+        if: ${{ !inputs.dry_run }}
+        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: lfb-official-case-${{ github.run_id }}-${{ strategy.job-index }}
+          role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+
+      - name: Run isolated case evaluation
+        if: ${{ !inputs.dry_run }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          required_env=(LFB_PACKET_BUCKET LFB_RESULTS_BUCKET RUN_INPUT_MANIFEST_URI)
+          for name in "${required_env[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("${name}")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing required official evaluation values:\n' >&2
+            printf '  - %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+          uv run legalforecast eval run-case \
+            --manifest "${RUN_INPUT_MANIFEST_URI}" \
+            --packet-store-root "s3://${LFB_PACKET_BUCKET}" \
+            --results-store-root "s3://${LFB_RESULTS_BUCKET}" \
+            --case-id "${CASE_ID}" \
+            --ablation "${ABLATION}" \
+            --output-dir "tmp/official-eval/${CASE_ID}/${ABLATION}" \
+            --solver-id "${SOLVER_ID}" \
+            --mock-output "${MOCK_OUTPUT}"
+        env:
+          ABLATION: ${{ matrix.ablation }}
+          CASE_ID: ${{ matrix.case_id }}
+          MOCK_OUTPUT: ${{ inputs.mock_output }}
+          SOLVER_ID: ${{ inputs.solver_id }}
+
+      - name: Upload per-case artifacts
+        if: ${{ !inputs.dry_run && always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-eval-${{ matrix.case_id }}-${{ matrix.ablation }}
+          path: tmp/official-eval/${{ matrix.case_id }}/${{ matrix.ablation }}
+          if-no-files-found: warn
+          retention-days: ${{ fromJSON(needs.build-matrix.outputs.artifact_retention_days) }}
