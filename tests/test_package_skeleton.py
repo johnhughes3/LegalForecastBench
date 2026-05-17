@@ -53,6 +53,7 @@ MODULES = [
     "legalforecast.reporting.fallback_pilot",
     "legalforecast.reporting.pilot_readiness",
     "legalforecast.publication.run_cards",
+    "legalforecast.publication.withdrawal",
 ]
 
 

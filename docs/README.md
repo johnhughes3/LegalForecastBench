@@ -16,6 +16,8 @@ notes belong in `tmp/`, CI logs, or issues, not in the public docs tree.
   prefixes, manifest contract, access roles, hash rules, and takedown state.
 - [Official Evaluation Environment](official_eval_environment.md): protected
   GitHub environment, OIDC packet-reader identity, and revocation steps.
+- [Withdrawal Workflow](withdrawal_workflow.md): sealing-order takedown,
+  withdrawal ledger, public errata, and future-run exclusion process.
 - [Result Tiers](result_tiers.md): official, verified-community,
   community-unverified, and alpha-non-canonical result handling.
 
