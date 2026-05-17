@@ -12,6 +12,8 @@ notes belong in `tmp/`, CI logs, or issues, not in the public docs tree.
   labeling, and current acquisition status.
 - [Acquisition](acquisition.md): live-data blocker, no-paid defaults,
   Case.dev/CourtListener/PACER boundaries, and production acquisition commands.
+- [Private Storage Layout](private_storage_layout.md): private packet bucket
+  prefixes, manifest contract, access roles, hash rules, and takedown state.
 - [Result Tiers](result_tiers.md): official, verified-community,
   community-unverified, and alpha-non-canonical result handling.
 
