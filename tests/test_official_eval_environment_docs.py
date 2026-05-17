@@ -7,6 +7,9 @@ DOC = (ROOT / "docs/official_eval_environment.md").read_text(encoding="utf-8")
 WORKFLOW = (ROOT / ".github/workflows/official-s3-access-validation.yaml").read_text(
     encoding="utf-8"
 )
+MATRIX_WORKFLOW = (ROOT / ".github/workflows/official-eval-matrix.yaml").read_text(
+    encoding="utf-8"
+)
 DOCS_README = (ROOT / "docs/README.md").read_text(encoding="utf-8")
 
 
@@ -47,6 +50,19 @@ def test_official_eval_environment_documents_allowed_and_denied_access() -> None
         assert denied in DOC
     assert "write or delete either bucket" in DOC
     assert "Case.dev, PACER, or CourtListener" in DOC
+
+
+def test_official_eval_environment_documents_actions_artifact_guardrails() -> None:
+    assert "artifact_retention_days" in DOC
+    assert "1 through 90 days" in DOC
+    assert "actions/upload-artifact" in DOC
+    assert "runner-log.jsonl" in DOC
+    assert "publication_guardrails" in DOC
+    assert "raw PDFs" in DOC
+    assert "provider account IDs" in DOC
+    assert "retention-days: ${{ fromJSON(" in MATRIX_WORKFLOW
+    assert "path: tmp/official-eval/" in MATRIX_WORKFLOW
+    assert "model-packet.json" not in MATRIX_WORKFLOW
 
 
 def test_official_eval_environment_documents_revocation_without_keys() -> None:

@@ -59,6 +59,23 @@ the `max_parallel` dispatch input, and fails before dispatch if the matrix would
 exceed GitHub's 256-job limit. Its dry-run mode validates dispatch inputs and
 matrix construction without fetching model packets or uploading outputs.
 
+Per-case Actions artifacts are limited to the isolated runner output directory:
+`runs.jsonl`, `accounting.jsonl`, `metrics.json`, and `runner-log.jsonl`.
+The workflow must not upload model packets, raw PDFs, source documents,
+extracted filing text, audit bundles, hidden files, provider account IDs, or
+secrets as Actions artifacts. The `artifact_retention_days` dispatch input is
+validated to 1 through 90 days and is passed directly to
+`actions/upload-artifact`.
+
+Before a public release, run the publication guardrail scanner against the
+assembled public bundle and downloaded logs/artifacts:
+
+```bash
+uv run python -m legalforecast.publication.publication_guardrails \
+  --public-dir tmp/official-results/cycle-2026-05/public \
+  --log-dir tmp/official-eval-artifacts
+```
+
 ## Maintainer Roles
 
 Maintainer upload, verification, and debug work uses the local

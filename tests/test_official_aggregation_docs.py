@@ -14,6 +14,7 @@ def test_official_aggregation_docs_describe_command_and_inputs() -> None:
     assert "--labels" in DOC
     assert "--ablation full_packet" in DOC
     assert "gh run download" in DOC
+    assert "publication_guardrails" in DOC
     assert "Official Aggregation" in DOCS_README
 
 

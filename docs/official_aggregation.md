@@ -22,6 +22,16 @@ uv run python -m legalforecast.publication.official_aggregate \
 Keep `--output-dir` outside `--per-case-dir` so repeated aggregation does not
 inspect its own private debug bundle as a per-case artifact.
 
+The aggregation command runs the publication guardrail scanner on `public/`
+before writing the final artifact manifest. The same scanner can be run
+explicitly against downloaded logs:
+
+```bash
+uv run python -m legalforecast.publication.publication_guardrails \
+  --public-dir tmp/official-results/cycle-2026-05/public \
+  --log-dir tmp/official-eval-artifacts
+```
+
 ## Validation
 
 The aggregator treats the run-input manifest as the expected matrix. It fails

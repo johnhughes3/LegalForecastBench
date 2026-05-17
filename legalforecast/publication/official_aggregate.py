@@ -21,6 +21,10 @@ from legalforecast.labeling.label_outcomes import (
     OutcomeLabel,
 )
 from legalforecast.protocol.freeze import sha256_file
+from legalforecast.publication.publication_guardrails import (
+    PublicationGuardrailConfig,
+    enforce_publication_guardrails,
+)
 from legalforecast.reporting.leaderboard import (
     build_benchmark_leaderboard_report,
     summarize_accounting_leaderboard,
@@ -172,6 +176,9 @@ def aggregate_official_results(
             summaries=summaries,
             accounting_records=accounting_records,
         ),
+    )
+    enforce_publication_guardrails(
+        PublicationGuardrailConfig(public_paths=(public_dir,))
     )
     artifact_manifest_path = _write_public_artifact_manifests(public_dir, generated_at)
 
