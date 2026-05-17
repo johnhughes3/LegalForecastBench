@@ -52,6 +52,7 @@ MODULES = [
     "legalforecast.reporting.pareto",
     "legalforecast.reporting.fallback_pilot",
     "legalforecast.reporting.pilot_readiness",
+    "legalforecast.publication.private_store_export",
     "legalforecast.publication.run_cards",
     "legalforecast.publication.withdrawal",
 ]

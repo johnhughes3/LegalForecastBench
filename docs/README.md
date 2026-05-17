@@ -14,6 +14,8 @@ notes belong in `tmp/`, CI logs, or issues, not in the public docs tree.
   Case.dev/CourtListener/PACER boundaries, and production acquisition commands.
 - [Private Storage Layout](private_storage_layout.md): private packet bucket
   prefixes, manifest contract, access roles, hash rules, and takedown state.
+- [Private Store Export](private_store_export.md): local acquisition-to-object
+  store export command, staged object layout, and verification report.
 - [Official Evaluation Environment](official_eval_environment.md): protected
   GitHub environment, OIDC packet-reader identity, and revocation steps.
 - [Withdrawal Workflow](withdrawal_workflow.md): sealing-order takedown,
