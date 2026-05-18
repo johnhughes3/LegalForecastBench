@@ -16,11 +16,25 @@ uv run python -m legalforecast.publication.official_aggregate \
   --labels tmp/locked-labels/cycle-2026-05.labels.jsonl \
   --output-dir tmp/official-results/cycle-2026-05 \
   --cycle-id cycle-2026-05 \
+  --cycle-series official \
+  --clean-motion-count 250 \
+  --prediction-unit-count 1000 \
+  --official-window-days 28 \
   --ablation full_packet
 ```
 
 Keep `--output-dir` outside `--per-case-dir` so repeated aggregation does not
 inspect its own private debug bundle as a per-case artifact.
+
+The cycle-power inputs are publication facts, not inferred from the downloaded
+per-case output folders. Use:
+
+- `--cycle-series` for the planned cadence (`pilot`, `rapid`, `official`, or
+  `annual_aggregate`);
+- `--clean-motion-count` for the adjudicated motion count after exclusions;
+- `--prediction-unit-count` for the locked prediction-unit count;
+- `--elapsed-days` for rapid cycles when the elapsed-time exception is relevant;
+- `--official-window-days` for official-cycle window length disclosure.
 
 The aggregation command runs the publication guardrail scanner on `public/`
 before writing the final artifact manifest. The same scanner can be run
@@ -53,10 +67,19 @@ before publication when:
 `public/` is the publication bundle. It contains:
 
 - `scores.json` and `unit-scores.jsonl`;
+- `cycle-power.json` with the cadence classification, claim-strength label,
+  thresholds, warnings, and strong-ranking claim flag;
 - `report/leaderboard.json`, `.csv`, `.md`, and `.html`;
 - `run-cards/aggregate-run-card.json`;
 - `artifact-index.json` with SHA-256 hashes and byte sizes;
 - `artifact-manifest.json` with the public artifact list.
+
+The same `cycle_power` object is embedded in `report/leaderboard.json` and
+`run-cards/aggregate-run-card.json` so public leaderboard consumers see the
+maximum supported claim strength next to the scores. For example, a 25-motion
+pilot fixture reports `claim_strength: feasibility_only` and
+`strong_ranking_claim_allowed: false`; it must not be described as supporting a
+strong ranking.
 
 `private-debug/` is not a publication bundle. It contains raw `runs.jsonl`,
 `accounting.jsonl`, and `case-metrics.jsonl` for maintainer review and incident

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ from legalforecast.publication.official_aggregate import (
 from legalforecast.publication.official_aggregate import (
     main as official_aggregate_main,
 )
+from legalforecast.reporting.cadence import CycleSeries
 
 
 def test_official_aggregate_writes_public_bundle_and_private_debug(
@@ -34,6 +36,9 @@ def test_official_aggregate_writes_public_bundle_and_private_debug(
             labels_path=labels_path,
             output_dir=tmp_path / "official-bundle",
             cycle_id="cycle-1",
+            cycle_series=CycleSeries.PILOT,
+            clean_motion_count=25,
+            prediction_unit_count=1,
             ablation="full_packet",
             generated_at=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
         )
@@ -42,20 +47,32 @@ def test_official_aggregate_writes_public_bundle_and_private_debug(
     assert result.expected_case_count == 1
     assert result.aggregated_case_count == 1
     assert result.artifact_manifest_path.is_file()
+    assert result.cycle_power_path.is_file()
     assert result.leaderboard_path.is_file()
     assert result.run_card_path.is_file()
     assert (result.private_debug_dir / "runs.jsonl").is_file()
     assert (result.private_debug_dir / "accounting.jsonl").is_file()
 
+    cycle_power = json.loads(result.cycle_power_path.read_text(encoding="utf-8"))
+    assert cycle_power["cycle_power"]["series"] == "pilot"
+    assert cycle_power["cycle_power"]["clean_motion_count"] == 25
+    assert cycle_power["cycle_power"]["prediction_unit_count"] == 1
+    assert cycle_power["cycle_power"]["claim_strength"] == "feasibility_only"
+    assert cycle_power["cycle_power"]["strong_ranking_claim_allowed"] is False
+
     leaderboard = json.loads(result.leaderboard_path.read_text(encoding="utf-8"))
     assert leaderboard["cycle_id"] == "cycle-1"
+    assert leaderboard["cycle_power"]["claim_strength"] == "feasibility_only"
+    assert leaderboard["cycle_power"]["strong_ranking_claim_allowed"] is False
     assert leaderboard["rows"][0]["model_id"] == "fixture-model"
-    assert leaderboard["rows"][0]["micro_brier"] == pytest.approx(0.025)
-    assert leaderboard["rows"][0]["cost_per_case"] == pytest.approx(0.02)
+    assert math.isclose(leaderboard["rows"][0]["micro_brier"], 0.025)
+    assert math.isclose(leaderboard["rows"][0]["cost_per_case"], 0.02)
 
     run_card = json.loads(result.run_card_path.read_text(encoding="utf-8"))
     assert run_card["ablation_filter"] == "full_packet"
     assert run_card["expected_matrix_rows"] == 1
+    assert run_card["cycle_power"]["claim_strength"] == "feasibility_only"
+    assert run_card["cycle_power"]["strong_ranking_claim_allowed"] is False
     assert "runs.jsonl" in run_card["private_debug_outputs"]
 
     artifact_index = json.loads(
@@ -63,6 +80,7 @@ def test_official_aggregate_writes_public_bundle_and_private_debug(
     )
     indexed_paths = {record["path"] for record in artifact_index["artifacts"]}
     assert {
+        "cycle-power.json",
         "scores.json",
         "unit-scores.jsonl",
         "report/leaderboard.json",
@@ -84,7 +102,10 @@ def test_official_aggregate_writes_public_bundle_and_private_debug(
     assert "CASE_DEV_API_KEY" not in public_text
 
 
-def test_official_aggregate_cli_writes_summary(tmp_path: Path, capsys) -> None:
+def test_official_aggregate_cli_writes_summary(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     manifest_path = _write_run_input_manifest(tmp_path)
     labels_path = _write_labels(tmp_path)
     per_case_dir = tmp_path / "downloaded-artifacts"
@@ -103,6 +124,12 @@ def test_official_aggregate_cli_writes_summary(tmp_path: Path, capsys) -> None:
                 str(tmp_path / "official-bundle"),
                 "--cycle-id",
                 "cycle-1",
+                "--cycle-series",
+                "pilot",
+                "--clean-motion-count",
+                "25",
+                "--prediction-unit-count",
+                "1",
                 "--ablation",
                 "full_packet",
             ]
@@ -112,6 +139,7 @@ def test_official_aggregate_cli_writes_summary(tmp_path: Path, capsys) -> None:
 
     summary = json.loads(capsys.readouterr().out)
     assert Path(summary["artifact_manifest"]).is_file()
+    assert Path(summary["cycle_power"]).is_file()
     assert Path(summary["leaderboard"]).is_file()
     assert summary["expected_case_count"] == 1
     assert summary["aggregated_case_count"] == 1
@@ -129,6 +157,9 @@ def test_official_aggregate_fails_on_missing_case_output(tmp_path: Path) -> None
                 labels_path=labels_path,
                 output_dir=tmp_path / "official-bundle",
                 cycle_id="cycle-1",
+                cycle_series=CycleSeries.PILOT,
+                clean_motion_count=25,
+                prediction_unit_count=1,
                 ablation="full_packet",
             )
         )
@@ -151,6 +182,9 @@ def test_official_aggregate_fails_on_hash_mismatch(tmp_path: Path) -> None:
                 labels_path=labels_path,
                 output_dir=tmp_path / "official-bundle",
                 cycle_id="cycle-1",
+                cycle_series=CycleSeries.PILOT,
+                clean_motion_count=25,
+                prediction_unit_count=1,
                 ablation="full_packet",
             )
         )
@@ -205,7 +239,7 @@ def _write_case_artifacts(per_case_dir: Path) -> Path:
         }
     )
     raw_output_sha256 = _text_sha256_prefixed(raw_output)
-    run_record = {
+    run_record: dict[str, Any] = {
         "sample_id": "sample-1",
         "candidate_id": "candidate-1",
         "case_id": "case-1",

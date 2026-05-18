@@ -33,6 +33,12 @@ from legalforecast.publication.publication_guardrails import (
     PublicationGuardrailConfig,
     enforce_publication_guardrails,
 )
+from legalforecast.reporting.cadence import (
+    CyclePowerInput,
+    CyclePowerReport,
+    CycleSeries,
+    classify_cycle_power,
+)
 from legalforecast.reporting.leaderboard import (
     build_benchmark_leaderboard_report,
     summarize_accounting_leaderboard,
@@ -57,10 +63,15 @@ class OfficialAggregationConfig:
     labels_path: Path
     output_dir: Path
     cycle_id: str
+    cycle_series: CycleSeries
+    clean_motion_count: int
+    prediction_unit_count: int
     ablation: str | None = None
     generated_at: datetime | None = None
     title: str = "LegalForecastBench Official Results"
     base_rate: float | None = None
+    elapsed_days: int | None = None
+    official_window_days: int | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty(self.cycle_id, "cycle_id")
@@ -69,6 +80,14 @@ class OfficialAggregationConfig:
             _require_non_empty(self.ablation, "ablation")
         if self.generated_at is not None:
             _require_aware_datetime(self.generated_at, "generated_at")
+        CyclePowerInput(
+            cycle_id=self.cycle_id,
+            series=self.cycle_series,
+            clean_motion_count=self.clean_motion_count,
+            prediction_unit_count=self.prediction_unit_count,
+            elapsed_days=self.elapsed_days,
+            official_window_days=self.official_window_days,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +97,7 @@ class OfficialAggregationResult:
     public_dir: Path
     private_debug_dir: Path
     artifact_manifest_path: Path
+    cycle_power_path: Path
     leaderboard_path: Path
     run_card_path: Path
     expected_case_count: int
@@ -129,6 +149,8 @@ def aggregate_official_results(
         accounting_rows=summarize_accounting_leaderboard(accounting_records),
         title=config.title,
     )
+    cycle_power = classify_cycle_power(_cycle_power_input(config))
+    cycle_power_record = _cycle_power_record(cycle_power, config=config)
 
     public_dir = config.output_dir / "public"
     private_debug_dir = config.output_dir / "private-debug"
@@ -157,6 +179,16 @@ def aggregate_official_results(
             for unit_score in summary.unit_scores
         ],
     )
+    cycle_power_path = public_dir / "cycle-power.json"
+    _write_json(
+        cycle_power_path,
+        {
+            "schema_version": OFFICIAL_AGGREGATE_SCHEMA_VERSION,
+            "cycle_id": config.cycle_id,
+            "generated_at": _format_datetime(generated_at),
+            "cycle_power": cycle_power_record,
+        },
+    )
 
     report_dir = public_dir / "report"
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -167,6 +199,7 @@ def aggregate_official_results(
             "schema_version": OFFICIAL_AGGREGATE_SCHEMA_VERSION,
             "cycle_id": config.cycle_id,
             "generated_at": _format_datetime(generated_at),
+            "cycle_power": cycle_power_record,
             **report.to_record(),
         },
     )
@@ -183,6 +216,7 @@ def aggregate_official_results(
             expected_rows=expected_rows,
             summaries=summaries,
             accounting_records=accounting_records,
+            cycle_power_record=cycle_power_record,
         ),
     )
     enforce_publication_guardrails(
@@ -194,6 +228,7 @@ def aggregate_official_results(
         public_dir=public_dir,
         private_debug_dir=private_debug_dir,
         artifact_manifest_path=artifact_manifest_path,
+        cycle_power_path=cycle_power_path,
         leaderboard_path=leaderboard_path,
         run_card_path=run_card_path,
         expected_case_count=len(expected_rows),
@@ -210,6 +245,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--labels", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--cycle-id", required=True)
+    parser.add_argument(
+        "--cycle-series",
+        choices=[series.value for series in CycleSeries],
+        required=True,
+        help="Cycle cadence used for claim-strength classification.",
+    )
+    parser.add_argument("--clean-motion-count", type=int, required=True)
+    parser.add_argument("--prediction-unit-count", type=int, required=True)
+    parser.add_argument("--elapsed-days", type=int)
+    parser.add_argument("--official-window-days", type=int)
     parser.add_argument("--ablation")
     parser.add_argument("--title", default="LegalForecastBench Official Results")
     parser.add_argument("--base-rate", type=float)
@@ -225,15 +270,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             labels_path=cast(Path, args.labels),
             output_dir=cast(Path, args.output_dir),
             cycle_id=cast(str, args.cycle_id),
+            cycle_series=CycleSeries(cast(str, args.cycle_series)),
+            clean_motion_count=cast(int, args.clean_motion_count),
+            prediction_unit_count=cast(int, args.prediction_unit_count),
             ablation=cast(str | None, args.ablation),
             title=cast(str, args.title),
             base_rate=cast(float | None, args.base_rate),
+            elapsed_days=cast(int | None, args.elapsed_days),
+            official_window_days=cast(int | None, args.official_window_days),
         )
     )
     print(
         json.dumps(
             {
                 "artifact_manifest": str(result.artifact_manifest_path),
+                "cycle_power": str(result.cycle_power_path),
                 "leaderboard": str(result.leaderboard_path),
                 "run_card": str(result.run_card_path),
                 "expected_case_count": result.expected_case_count,
@@ -495,6 +546,29 @@ def _computed_base_rate(labels: Sequence[OutcomeLabel]) -> float:
     return sum(outcomes) / len(outcomes)
 
 
+def _cycle_power_input(config: OfficialAggregationConfig) -> CyclePowerInput:
+    return CyclePowerInput(
+        cycle_id=config.cycle_id,
+        series=config.cycle_series,
+        clean_motion_count=config.clean_motion_count,
+        prediction_unit_count=config.prediction_unit_count,
+        elapsed_days=config.elapsed_days,
+        official_window_days=config.official_window_days,
+    )
+
+
+def _cycle_power_record(
+    cycle_power: CyclePowerReport,
+    *,
+    config: OfficialAggregationConfig,
+) -> JsonRecord:
+    return {
+        **cycle_power.to_record(),
+        "elapsed_days": config.elapsed_days,
+        "official_window_days": config.official_window_days,
+    }
+
+
 def _load_labels(path: Path) -> tuple[OutcomeLabel, ...]:
     labels = tuple(_outcome_label(record) for record in _read_jsonl(path))
     if not labels:
@@ -548,6 +622,7 @@ def _aggregate_run_card(
     expected_rows: Mapping[tuple[str, str], JsonRecord],
     summaries: Sequence[ScoreSummary],
     accounting_records: Sequence[Mapping[str, Any]],
+    cycle_power_record: Mapping[str, Any],
 ) -> JsonRecord:
     return {
         "schema_version": OFFICIAL_AGGREGATE_SCHEMA_VERSION,
@@ -560,9 +635,11 @@ def _aggregate_run_card(
         "ablation_count": len({_ablation for _case_id, _ablation in expected_rows}),
         "model_count": len(summaries),
         "accounting_record_count": len(accounting_records),
+        "cycle_power": dict(cycle_power_record),
         "public_outputs": [
             "scores.json",
             "unit-scores.jsonl",
+            "cycle-power.json",
             "report/leaderboard.json",
             "report/leaderboard.csv",
             "report/leaderboard.md",
@@ -619,6 +696,8 @@ def _bundle_role(relative_path: str) -> str:
         return "leaderboard_report"
     if relative_path.startswith("run-cards/"):
         return "run_card"
+    if relative_path == "cycle-power.json":
+        return "cycle_power"
     if relative_path == "scores.json":
         return "score_summary"
     if relative_path == "unit-scores.jsonl":
