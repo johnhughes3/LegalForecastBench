@@ -185,6 +185,188 @@ def test_acquisition_llm_unitize_accepts_singleton_string_list_fields(
     assert unit["defendant_group"] == "Issuer"
 
 
+def test_acquisition_llm_unitize_failure_audit_keeps_model_accounting(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    markdown_root = output_root / "markdown"
+    _write_markdown(markdown_root / "cand-1" / "complaint.md", "Count I: 10(b).")
+    _write_markdown(
+        markdown_root / "cand-1" / "mtd.md",
+        "Defendants move to dismiss Count I under Rule 12(b)(6).",
+    )
+    selection_path = tmp_path / "selection.jsonl"
+    parser_path = tmp_path / "parser.jsonl"
+    registry_path = tmp_path / "registry.json"
+    _write_jsonl(selection_path, [_selection_record()])
+    _write_jsonl(
+        parser_path,
+        [
+            _parser_record("complaint", "complaint.md"),
+            _parser_record("mtd", "mtd.md"),
+        ],
+    )
+    _write_json(registry_path, [_registry_record()])
+
+    def invalid_completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        return SolverResponse(
+            raw_output=json.dumps(
+                {
+                    "unit_seeds": [
+                        {
+                            "unit_id": "unit-1",
+                            "count": "Count I",
+                            "claim_name": "Section 10(b)",
+                            "defendant_names": ["Issuer"],
+                            "source_document_ids": {"document_id": "mtd"},
+                            "challenged_by_motion": True,
+                            "challenge_scope": "entire_claim",
+                            "unit_confidence": 0.92,
+                            "grouping": "individual",
+                            "citation_excerpt": "dismiss Count I",
+                        }
+                    ]
+                }
+            ),
+            input_tokens=123,
+            output_tokens=45,
+            estimated_cost=0.12,
+            metadata={"provider": "openai", "model_id": "gpt-test"},
+        )
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", invalid_completion)
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "llm-unitize",
+                "--selection",
+                str(selection_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--output-root",
+                str(output_root),
+                "--model-registry",
+                str(registry_path),
+                "--model-key",
+                "openai:gpt-test",
+                "--continue-on-error",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    assert _read_jsonl(output_root / "prediction-units.jsonl") == []
+    audit = _read_jsonl(output_root / "llm-unitization-audit.jsonl")[0]
+    assert audit["status"] == "failed"
+    assert audit["estimated_cost"] == 0.12
+    assert audit["input_tokens"] == 123
+    assert audit["output_tokens"] == 45
+    assert str(audit["raw_output_sha256"]).startswith("sha256:")
+    assert audit["metadata"]["model_id"] == "gpt-test"
+
+
+def test_acquisition_llm_label_failure_audit_keeps_model_accounting(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    markdown_root = output_root / "markdown"
+    _write_markdown(markdown_root / "cand-1" / "decision.md", "Count I is dismissed.")
+    selection_path = tmp_path / "selection.jsonl"
+    parser_path = tmp_path / "parser.jsonl"
+    units_path = tmp_path / "prediction-units.jsonl"
+    registry_path = tmp_path / "registry.json"
+    _write_jsonl(selection_path, [_selection_record()])
+    _write_jsonl(parser_path, [_parser_record("decision", "decision.md")])
+    _write_jsonl(
+        units_path,
+        [
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "prediction_units": [
+                    {
+                        "unit_id": "unit-1",
+                        "count": "Count I",
+                        "claim_name": "Section 10(b)",
+                        "defendant_group": "Issuer",
+                        "challenged_by_motion": True,
+                        "challenge_scope": "entire_claim",
+                        "unit_confidence": 0.9,
+                        "source_citations": [{"document_id": "mtd"}],
+                        "grouping": "individual",
+                        "grouping_rationale": None,
+                        "separable_subclaim": None,
+                        "uncertainty_notes": None,
+                    }
+                ],
+            }
+        ],
+    )
+    _write_json(registry_path, [_registry_record()])
+
+    def invalid_label_completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        return SolverResponse(
+            raw_output=json.dumps(
+                {
+                    "unit_findings": [
+                        {
+                            "unit_id": "unit-1",
+                            "resolution": "fully_dismissed",
+                            "amendment_signal": "express_denial_of_leave",
+                            "supporting_excerpt": "The motion is granted.",
+                            "labeler_confidence": 0.91,
+                        }
+                    ],
+                    "missing_unit_flags": [],
+                }
+            ),
+            input_tokens=234,
+            output_tokens=56,
+            estimated_cost=0.23,
+            metadata={"provider": "openai", "model_id": "gpt-test"},
+        )
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", invalid_label_completion)
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "llm-label",
+                "--selection",
+                str(selection_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--prediction-units",
+                str(units_path),
+                "--output-root",
+                str(output_root),
+                "--model-registry",
+                str(registry_path),
+                "--model-key",
+                "openai:gpt-test",
+                "--continue-on-error",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    assert _read_jsonl(output_root / "labels.jsonl") == []
+    audit = _read_jsonl(output_root / "llm-label-audit.jsonl")[0]
+    assert audit["status"] == "failed"
+    assert audit["estimated_cost"] == 0.23
+    assert audit["input_tokens"] == 234
+    assert audit["output_tokens"] == 56
+    assert str(audit["raw_output_sha256"]).startswith("sha256:")
+    assert audit["metadata"]["model_id"] == "gpt-test"
+
+
 def _fake_completion(*args: Any, **kwargs: Any) -> SolverResponse:
     prompt = cast(str, args[1])
     if "Construct frozen Stage A" in prompt:

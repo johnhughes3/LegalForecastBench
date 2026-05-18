@@ -146,6 +146,9 @@ The Stage A unitizer normalizes non-empty singleton strings for fields whose
 validated schema expects a string list, such as `source_document_ids` or
 `defendant_names`; malformed JSON or ambiguous non-list objects remain failures
 and should not be hand-repaired for a live pilot.
+If a provider response is received but local JSON/schema/excerpt validation
+fails, the failure audit still records token counts, estimated cost, provider
+metadata, and the raw-output hash so paid-but-rejected calls remain accountable.
 
 ```bash
 uv run legalforecast acquisition plan-packet-inputs \

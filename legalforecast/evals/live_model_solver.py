@@ -387,6 +387,7 @@ def _gemini_request(
             "temperature": entry.temperature,
             "topP": entry.top_p,
             "maxOutputTokens": entry.max_output_tokens,
+            "responseMimeType": "application/json",
         },
         "tools": [],
     }

@@ -61,6 +61,14 @@ class LlmPipelineError(ValueError):
     """Raised when an LLM response cannot produce validated benchmark artifacts."""
 
 
+class LlmResponseValidationError(LlmPipelineError):
+    """Raised when a provider response exists but fails local validation."""
+
+    def __init__(self, message: str, *, response: SolverResponse) -> None:
+        super().__init__(message)
+        self.response = response
+
+
 @dataclass(frozen=True, slots=True)
 class LlmBatchResult:
     """Records and audit rows produced by one LLM batch stage."""
@@ -133,6 +141,7 @@ def llm_unitize_cases(
     audit_records: list[JsonRecord] = []
     for selection in selection_records:
         candidate_id = _required_str(selection, "candidate_id")
+        response: SolverResponse | None = None
         try:
             documents = _predecision_documents(
                 selection,
@@ -196,15 +205,16 @@ def llm_unitize_cases(
                 }
             )
         except Exception as exc:
-            audit_records.append(
-                _failure_audit_record(
+            failure_record = _failure_audit_record(
                     stage="llm-unitize",
                     selection=selection,
                     model_key=registry_entry.registry_key,
                     error=exc,
                     model_registry_sha256=model_registry_sha256,
-                )
             )
+            if response is not None:
+                failure_record.update(_response_audit_fields(response))
+            audit_records.append(failure_record)
             if not continue_on_error:
                 raise
     return LlmBatchResult(records=tuple(records), audit_records=tuple(audit_records))
@@ -327,8 +337,7 @@ def llm_label_cases(
                 }
             )
         except Exception as exc:
-            audit_records.append(
-                _failure_audit_record(
+            failure_record = _failure_audit_record(
                     stage="llm-label",
                     selection=selection,
                     model_key=",".join(
@@ -337,7 +346,9 @@ def llm_label_cases(
                     error=exc,
                     model_registry_sha256=model_registry_sha256,
                 )
-            )
+            if isinstance(exc, LlmResponseValidationError):
+                failure_record.update(_response_audit_fields(exc.response))
+            audit_records.append(failure_record)
             if not continue_on_error:
                 raise
     return LlmBatchResult(records=tuple(records), audit_records=tuple(audit_records))
@@ -363,25 +374,31 @@ def _llm_label_one_model(
         environ=environ,
         timeout_seconds=timeout_seconds,
     )
-    payload = _json_object_from_response(response.raw_output)
-    findings = tuple(
-        _stage_b_finding(record, decision_text=decision_text)
-        for record in _record_sequence(payload.get("unit_findings"), "unit_findings")
-    )
-    missing_flags = tuple(
-        _stage_b_missing_flag(record, decision_text=decision_text)
-        for record in _optional_record_sequence(payload.get("missing_unit_flags"))
-    )
-    result = label_stage_b_outcomes(
-        StageBLabelingInput(
-            candidate_id=_required_str(selection, "candidate_id"),
-            case_id=_required_str(selection, "case_id"),
-            frozen_units=frozen_units,
-            decision_text=decision_text,
-            unit_findings=findings,
-            missing_unit_flags=missing_flags,
+    try:
+        payload = _json_object_from_response(response.raw_output)
+        findings = tuple(
+            _stage_b_finding(record, decision_text=decision_text)
+            for record in _record_sequence(
+                payload.get("unit_findings"),
+                "unit_findings",
+            )
         )
-    )
+        missing_flags = tuple(
+            _stage_b_missing_flag(record, decision_text=decision_text)
+            for record in _optional_record_sequence(payload.get("missing_unit_flags"))
+        )
+        result = label_stage_b_outcomes(
+            StageBLabelingInput(
+                candidate_id=_required_str(selection, "candidate_id"),
+                case_id=_required_str(selection, "case_id"),
+                frozen_units=frozen_units,
+                decision_text=decision_text,
+                unit_findings=findings,
+                missing_unit_flags=missing_flags,
+            )
+        )
+    except Exception as exc:
+        raise LlmResponseValidationError(str(exc), response=response) from exc
     return result.labels, response, len(findings), len(missing_flags)
 
 
@@ -411,6 +428,10 @@ def _unitization_prompt(
                 "source_document_ids, challenged_by_motion, challenge_scope, "
                 "unit_confidence, and grouping. If a pleading does not number "
                 "claims, set count to Unnumbered claim."
+            ),
+            (
+                "defendant_names and source_document_ids must always be JSON "
+                "arrays of strings, even when there is only one value."
             ),
             "Return only valid JSON. Do not wrap it in markdown fences.",
         ],
@@ -918,6 +939,16 @@ def _failure_audit_record(
         "error_type": type(error).__name__,
         "error_message": str(error),
         "estimated_cost": 0.0,
+    }
+
+
+def _response_audit_fields(response: SolverResponse) -> JsonRecord:
+    return {
+        "input_tokens": response.input_tokens,
+        "output_tokens": response.output_tokens,
+        "estimated_cost": response.estimated_cost,
+        "raw_output_sha256": response.raw_output_sha256,
+        "metadata": dict(response.metadata or {}),
     }
 
 

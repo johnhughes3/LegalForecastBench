@@ -225,6 +225,7 @@ def test_gemini_solver_posts_generate_content_request_and_maps_usage() -> None:
             "temperature": 0,
             "topP": 1,
             "maxOutputTokens": 4096,
+            "responseMimeType": "application/json",
         },
         "tools": [],
     }
