@@ -218,8 +218,8 @@ def _plan_candidate(
             units,
             original_to_packet_id=original_to_packet_id,
         ),
-        "target_docket_entry_numbers": _int_tuple(
-            selection.get("target_motion_entry_numbers")
+        "target_docket_entry_numbers": _target_docket_entry_numbers(
+            selection,
         ),
         "metadata": {
             "case_name": _optional_str(selection, "case_name") or "",
@@ -237,6 +237,21 @@ def _plan_candidate(
         ),
         extracted_text_records=tuple(extracted_texts),
     )
+
+
+def _target_docket_entry_numbers(selection: Mapping[str, Any]) -> tuple[int, ...]:
+    target_entries = set(_int_tuple(selection.get("target_motion_entry_numbers")))
+    for document in _record_sequence(selection.get("documents"), "documents"):
+        role = _optional_str(document, "document_role")
+        if role not in {
+            DocumentRole.MTD_NOTICE.value,
+            DocumentRole.MTD_MEMORANDUM.value,
+        }:
+            continue
+        entry_number = _optional_int(document, "docket_entry_number")
+        if entry_number is not None:
+            target_entries.add(entry_number)
+    return tuple(sorted(target_entries))
 
 
 def _index_by_candidate_and_document(

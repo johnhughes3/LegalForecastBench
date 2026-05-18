@@ -208,6 +208,21 @@ Use `legalforecast eval run-case --backend live --model-registry ... --model-key
 comma-separated `model_keys`, verifies that the requested keys exist in the
 frozen registry, and dispatches one job per case/model row.
 
+For Claude rows, the same `anthropic:...` registry key can use either direct
+Anthropic or AWS Bedrock:
+
+```bash
+LFB_ANTHROPIC_RUNTIME=bedrock \
+LFB_ANTHROPIC_BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-6 \
+AWS_PROFILE=cos.bedrock.inference \
+uv run legalforecast eval run-case ...
+```
+
+When `LFB_ANTHROPIC_RUNTIME=bedrock`, `ANTHROPIC_API_KEY` is not required; the
+AWS role/profile must have Bedrock `InvokeModel` permission and any required
+model entitlement. Direct Anthropic remains the default when the runtime
+variable is unset.
+
 After downloading workflow artifacts, aggregate a multi-model pilot with one
 `--model-key` per expected registry entry:
 

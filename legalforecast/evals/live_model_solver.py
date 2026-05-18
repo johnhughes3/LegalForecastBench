@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Protocol, cast
 
 from legalforecast.evals.inspect_task import (
@@ -23,6 +26,8 @@ from legalforecast.evals.model_registry import ModelRegistryEntry, ToolPolicy
 OPENAI_API_KEY_ENV = "OPENAI_API_KEY"
 ANTHROPIC_API_KEY_ENV = "ANTHROPIC_API_KEY"
 GEMINI_API_KEY_ENV = "GEMINI_API_KEY"
+ANTHROPIC_RUNTIME_ENV = "LFB_ANTHROPIC_RUNTIME"
+ANTHROPIC_BEDROCK_MODEL_ID_ENV = "LFB_ANTHROPIC_BEDROCK_MODEL_ID"
 
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
@@ -144,6 +149,15 @@ def complete_live_prompt(
         )
 
     provider = _provider_config(registry_entry.provider)
+    if _uses_bedrock_anthropic_runtime(registry_entry.provider, environ):
+        return _complete_bedrock_anthropic_prompt(
+            registry_entry,
+            prompt,
+            model_registry_sha256=model_registry_sha256,
+            environ=environ,
+            timeout_seconds=timeout_seconds,
+        )
+
     api_key = _api_key(provider.api_key_env, environ)
     provider_request = provider.build_request(registry_entry, prompt, api_key)
     started = time.perf_counter()
@@ -163,6 +177,51 @@ def complete_live_prompt(
         ),
         metadata={
             "provider": registry_entry.provider,
+            "model": registry_entry.model_id,
+            "model_id": registry_entry.model_id,
+            "model_version_or_snapshot": registry_entry.model_version_or_snapshot,
+            "execution_backend": RunExecutionBackend.INSPECT_AI.value,
+            "latency_ms": f"{latency_ms:.3f}",
+            "model_registry_sha256": model_registry_sha256 or "unrecorded",
+            "tool_policy": registry_entry.tool_policy.value,
+        },
+    )
+
+
+def _complete_bedrock_anthropic_prompt(
+    registry_entry: ModelRegistryEntry,
+    prompt: str,
+    *,
+    model_registry_sha256: str | None,
+    environ: Mapping[str, str] | None,
+    timeout_seconds: float,
+) -> SolverResponse:
+    bedrock_model_id = _bedrock_anthropic_model_id(registry_entry, environ)
+    request_payload = _bedrock_anthropic_payload(registry_entry, prompt)
+    started = time.perf_counter()
+    payload = _invoke_bedrock_runtime_json(
+        bedrock_model_id,
+        request_payload,
+        environ=environ,
+        timeout_seconds=timeout_seconds,
+    )
+    latency_ms = (time.perf_counter() - started) * 1000
+    raw_output = _anthropic_output(payload)
+    input_tokens, output_tokens = _anthropic_usage(payload)
+    return SolverResponse(
+        raw_output=raw_output,
+        request_count=1,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        estimated_cost=_estimated_cost(
+            registry_entry,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        ),
+        metadata={
+            "provider": registry_entry.provider,
+            "provider_runtime": "bedrock",
+            "bedrock_model_id": bedrock_model_id,
             "model": registry_entry.model_id,
             "model_id": registry_entry.model_id,
             "model_version_or_snapshot": registry_entry.model_version_or_snapshot,
@@ -296,6 +355,26 @@ def _anthropic_request(
     )
 
 
+def _bedrock_anthropic_payload(
+    entry: ModelRegistryEntry,
+    prompt: str,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "anthropic_version": "bedrock-2023-05-31",
+        "messages": [
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": prompt}],
+            }
+        ],
+        "max_tokens": entry.max_output_tokens,
+        "temperature": entry.temperature,
+    }
+    if entry.top_p < 1.0:
+        payload["top_p"] = entry.top_p
+    return payload
+
+
 def _gemini_request(
     entry: ModelRegistryEntry,
     prompt: str,
@@ -316,6 +395,89 @@ def _gemini_request(
         payload,
         headers={"x-goog-api-key": api_key},
     )
+
+
+def _uses_bedrock_anthropic_runtime(
+    provider: str,
+    environ: Mapping[str, str] | None,
+) -> bool:
+    if provider.strip().lower() != "anthropic":
+        return False
+    values = os.environ if environ is None else environ
+    runtime = values.get(ANTHROPIC_RUNTIME_ENV) or values.get("ANTHROPIC_RUNTIME")
+    if runtime is None:
+        return False
+    return runtime.strip().lower() in {"bedrock", "aws-bedrock", "aws_bedrock"}
+
+
+def _bedrock_anthropic_model_id(
+    entry: ModelRegistryEntry,
+    environ: Mapping[str, str] | None,
+) -> str:
+    values = os.environ if environ is None else environ
+    explicit = values.get(ANTHROPIC_BEDROCK_MODEL_ID_ENV) or values.get(
+        "ANTHROPIC_BEDROCK_MODEL_ID"
+    )
+    if explicit is not None and explicit.strip():
+        return explicit.strip()
+    if entry.model_id.startswith(("anthropic.", "us.anthropic.", "arn:aws:bedrock:")):
+        return entry.model_id
+    return f"us.anthropic.{entry.model_id}"
+
+
+def _invoke_bedrock_runtime_json(
+    model_id: str,
+    payload: JsonRecord,
+    *,
+    environ: Mapping[str, str] | None,
+    timeout_seconds: float,
+) -> JsonRecord:
+    if not model_id.strip():
+        raise LiveModelConfigError("Bedrock model id is required")
+    process_env = dict(os.environ if environ is None else environ)
+    with TemporaryDirectory(prefix="lfb-bedrock-") as tmpdir:
+        request_path = Path(tmpdir) / "request.json"
+        response_path = Path(tmpdir) / "response.json"
+        request_path.write_text(json.dumps(dict(payload)), encoding="utf-8")
+        command = [
+            "aws",
+            "bedrock-runtime",
+            "invoke-model",
+            "--model-id",
+            model_id,
+            "--content-type",
+            "application/json",
+            "--accept",
+            "application/json",
+            "--body",
+            f"fileb://{request_path}",
+            "--cli-binary-format",
+            "raw-in-base64-out",
+            str(response_path),
+        ]
+        try:
+            completed = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                env=process_env,
+                text=True,
+                timeout=timeout_seconds,
+            )
+        except FileNotFoundError as exc:
+            raise LiveModelConfigError(
+                "aws CLI is required for Bedrock runtime"
+            ) from exc
+        except subprocess.TimeoutExpired as exc:
+            raise LiveModelProviderError("Bedrock request timed out") from exc
+        if completed.returncode != 0:
+            stderr = completed.stderr.strip()
+            stdout = completed.stdout.strip()
+            detail = stderr or stdout or f"exit code {completed.returncode}"
+            raise LiveModelProviderError(f"Bedrock request failed: {detail}")
+        if not response_path.exists():
+            raise LiveModelResponseError("Bedrock response file was not written")
+        return _json_payload(response_path.read_bytes())
 
 
 def _json_request(

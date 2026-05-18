@@ -326,6 +326,8 @@ jobs:
     env:
       AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
       LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
+      LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
       LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
       MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
@@ -371,7 +373,16 @@ jobs:
           required_env=(LFB_PACKET_BUCKET LFB_RESULTS_BUCKET RUN_INPUT_MANIFEST_URI MODEL_REGISTRY_URI MODEL_KEY)
           case "${MODEL_KEY}" in
             openai:*) required_env+=(OPENAI_API_KEY) ;;
-            anthropic:*) required_env+=(ANTHROPIC_API_KEY) ;;
+            anthropic:*)
+              case "${LFB_ANTHROPIC_RUNTIME:-}" in
+                bedrock|aws-bedrock|aws_bedrock)
+                  required_env+=(AWS_REGION)
+                  ;;
+                *)
+                  required_env+=(ANTHROPIC_API_KEY)
+                  ;;
+              esac
+              ;;
             google:*|gemini:*) required_env+=(GEMINI_API_KEY) ;;
             *)
               echo "Unsupported model provider in model key: ${MODEL_KEY}" >&2
@@ -403,6 +414,8 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CASE_ID: ${{ matrix.case_id }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
+          LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
           MODEL_KEY: ${{ matrix.model_key }}
           MODEL_KEY_SLUG: ${{ matrix.model_key_slug }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

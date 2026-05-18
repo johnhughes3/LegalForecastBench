@@ -18,9 +18,18 @@ it in GitHub with:
 - variable `LFB_RESULTS_BUCKET`;
 - variable `LFB_MODEL_PACKET_PREFIX` set to `model-packets/`;
 - variable `LFB_RESULTS_MANIFEST_PREFIX` set to `manifests/`;
+- optional variable `LFB_ANTHROPIC_RUNTIME` set to `bedrock` when Anthropic
+  registry entries should run through AWS Bedrock instead of the direct
+  Anthropic Messages API;
+- optional variable `LFB_ANTHROPIC_BEDROCK_MODEL_ID` for the exact Bedrock
+  model ID when it differs from the registry model ID prefixed with
+  `us.anthropic.`;
 - secret `LFB_GITHUB_PACKET_READ_ROLE_ARN`.
 - secrets `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY` for
-  live registry-backed model calls.
+  live registry-backed model calls. `ANTHROPIC_API_KEY` is not required for
+  Anthropic rows when `LFB_ANTHROPIC_RUNTIME=bedrock`, but the AWS role must
+  have the corresponding Bedrock `InvokeModel` permission and any required
+  model-marketplace entitlement.
 
 `legalforecastbench-official-results` is reserved for the optional append-only
 results-writer role. Configure it only if COS deploys that role with
@@ -46,6 +55,8 @@ The packet-read role may:
 - list/read `model-packets/` in the private packet bucket;
 - list/read public-safe `manifests/` in the results bucket;
 - decrypt only approved S3 objects through the artifact KMS key.
+- call Bedrock `InvokeModel` only when the official environment intentionally
+  routes Anthropic registry entries through `LFB_ANTHROPIC_RUNTIME=bedrock`.
 
 The packet-read role must not:
 

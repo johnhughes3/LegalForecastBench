@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import urllib.request
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Any, cast
 
+import legalforecast.evals.live_model_solver as live_model_solver
 import pytest
 from legalforecast.evals.inspect_task import SolverKind
 from legalforecast.evals.live_model_solver import (
@@ -111,6 +113,74 @@ def test_anthropic_solver_posts_messages_request_and_maps_content() -> None:
         "Controlled docket tool transcript:"
     )
     assert "Use the benchmark packet." in body["messages"][0]["content"]
+
+
+def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    def fake_bedrock(
+        model_id: str,
+        payload: live_model_solver.JsonRecord,
+        *,
+        environ: Mapping[str, str] | None,
+        timeout_seconds: float,
+    ) -> live_model_solver.JsonRecord:
+        assert environ == {"LFB_ANTHROPIC_RUNTIME": "bedrock"}
+        assert timeout_seconds == 120.0
+        payload_dict = dict(payload)
+        calls.append((model_id, payload_dict))
+        return {
+            "content": [{"type": "text", "text": '{"bedrock":true}'}],
+            "usage": {"input_tokens": 220, "output_tokens": 55},
+        }
+
+    monkeypatch.setattr(
+        live_model_solver,
+        "_invoke_bedrock_runtime_json",
+        fake_bedrock,
+    )
+
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("anthropic", "claude-sonnet-4-6"),
+        environ={"LFB_ANTHROPIC_RUNTIME": "bedrock"},
+    )
+
+    response = solver.solve(_request("Use AWS Bedrock."))
+
+    assert response.raw_output == '{"bedrock":true}'
+    assert response.input_tokens == 220
+    assert response.output_tokens == 55
+    assert abs(response.estimated_cost - 0.00011) < 0.000000000001
+    assert response.metadata is not None
+    assert response.metadata["provider"] == "anthropic"
+    assert response.metadata["provider_runtime"] == "bedrock"
+    assert response.metadata["bedrock_model_id"] == "us.anthropic.claude-sonnet-4-6"
+
+    assert len(calls) == 1
+    model_id, body = calls[0]
+    assert model_id == "us.anthropic.claude-sonnet-4-6"
+    assert body == {
+        "anthropic_version": "bedrock-2023-05-31",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": body["messages"][0]["content"][0]["text"],
+                    }
+                ],
+            }
+        ],
+        "max_tokens": 4096,
+        "temperature": 0,
+    }
+    assert body["messages"][0]["content"][0]["text"].startswith(
+        "Controlled docket tool transcript:"
+    )
+    assert "Use AWS Bedrock." in body["messages"][0]["content"][0]["text"]
 
 
 def test_gemini_solver_posts_generate_content_request_and_maps_usage() -> None:

@@ -76,6 +76,13 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert "OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}" in WORKFLOW
     assert "ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}" in WORKFLOW
     assert "GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}" in WORKFLOW
+    assert "LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}" in WORKFLOW
+    assert (
+        "LFB_ANTHROPIC_BEDROCK_MODEL_ID: "
+        "${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}" in WORKFLOW
+    )
+    assert "bedrock|aws-bedrock|aws_bedrock)" in WORKFLOW
+    assert "required_env+=(AWS_REGION)" in WORKFLOW
 
 
 def test_official_eval_matrix_workflow_has_dry_run_and_retention_controls() -> None:

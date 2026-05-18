@@ -545,6 +545,104 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     assert packet["prediction_units"][0]["unit_id"] == "count-i-issuer"
 
 
+def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    raw_html_dir = tmp_path / "raw_html"
+    raw_html_dir.mkdir()
+    (raw_html_dir / "cand-1.html").write_text(
+        _packet_input_docket_html(),
+        encoding="utf-8",
+    )
+    selection = _packet_selection_record()
+    selection["target_motion_entry_numbers"] = [33]
+    selection_path = tmp_path / "selection.jsonl"
+    downloads_path = tmp_path / "downloads.jsonl"
+    parser_path = tmp_path / "parser.jsonl"
+    units_path = tmp_path / "units.jsonl"
+    markdown_root = output_root / "markdown"
+    for source_document_id, markdown in {
+        "complaint": "Complaint markdown",
+        "mtd-memo": "MTD markdown",
+        "decision": "Decision markdown",
+    }.items():
+        markdown_path = markdown_root / "cand-1" / f"{source_document_id}.md"
+        markdown_path.parent.mkdir(parents=True, exist_ok=True)
+        markdown_path.write_text(markdown, encoding="utf-8")
+    _write_jsonl(selection_path, [selection])
+    _write_jsonl(
+        downloads_path,
+        [
+            _download_record("complaint", "complaint", 1),
+            _download_record("mtd-memo", "motion_to_dismiss_memorandum", 34),
+            _download_record("decision", "decision", 50),
+        ],
+    )
+    _write_jsonl(
+        parser_path,
+        [
+            _parser_record("complaint"),
+            _parser_record("mtd-memo"),
+            _parser_record("decision"),
+        ],
+    )
+    _write_jsonl(
+        units_path,
+        [{"candidate_id": "cand-1", "prediction_units": [_prediction_unit()]}],
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-packet-inputs",
+                "--selection",
+                str(selection_path),
+                "--download-manifest",
+                str(downloads_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--prediction-units",
+                str(units_path),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--output-root",
+                str(output_root),
+                "--generated-at",
+                _GENERATED_AT,
+                "--search-window",
+                "2026-04-24..2026-05-18",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    packet_input = _read_jsonl(output_root / "packet-build-input.jsonl")[0]
+    assert packet_input["target_docket_entry_numbers"] == [33, 34]
+    assert (
+        main(
+            [
+                "acquisition",
+                "build-packets",
+                "--input",
+                str(output_root / "packet-build-input.jsonl"),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    packet = _read_jsonl(output_root / "packets.jsonl")[0]
+    assert [document["source_document_id"] for document in packet["documents"]] == [
+        "cand-1:controlled-docket",
+        "cand-1-complaint",
+        "cand-1-mtd-memo",
+    ]
+
+
 def test_build_packets_rejects_mounted_outcome_leakage(
     tmp_path: Path,
     capsys: CaptureFixture[str],
