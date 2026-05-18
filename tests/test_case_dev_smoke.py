@@ -76,7 +76,7 @@ def test_case_dev_smoke_runner_summarizes_fixture_results() -> None:
     assert "targeted fallback should be evaluated" in markdown
 
 
-def test_case_dev_smoke_filters_search_hits_to_date_window() -> None:
+def test_case_dev_smoke_keeps_docket_level_search_hits_before_retrieval() -> None:
     client = CaseDevClient(
         config=CaseDevConfig(api_key=None, base_url="https://api.case.dev"),
         transport=CaseDevFixtureTransport(
@@ -125,10 +125,68 @@ def test_case_dev_smoke_filters_search_hits_to_date_window() -> None:
 
     result = run_case_dev_smoke(client, config=config)
 
-    assert result.query_summaries[0].hit_count == 1
-    assert result.query_summaries[0].candidate_case_count == 1
-    assert result.unique_candidate_count == 1
+    assert result.query_summaries[0].hit_count == 3
+    assert result.query_summaries[0].candidate_case_count == 3
+    assert result.unique_candidate_count == 3
     assert result.retrieved_candidate_count == 0
+
+
+def test_case_dev_smoke_applies_date_window_to_retrieved_decision_entry() -> None:
+    client = CaseDevClient(
+        config=CaseDevConfig(api_key=None, base_url="https://api.case.dev"),
+        transport=CaseDevFixtureTransport(
+            tuple(
+                RecordedCaseDevResponse.from_record(record)
+                for record in (
+                    {
+                        "method": "POST",
+                        "path": "/legal/v1/docket",
+                        "params": {
+                            "type": "search",
+                            "query": "motion to dismiss",
+                            "limit": 2,
+                        },
+                        "status_code": 200,
+                        "payload": {
+                            "dockets": [
+                                _search_docket("case-old", "Old v. Example"),
+                                _search_docket("case-window", "Window v. Example"),
+                            ]
+                        },
+                    },
+                    *_clean_candidate_responses(
+                        "case-old",
+                        decision_date="2025-12-31",
+                    ),
+                    *_clean_candidate_responses(
+                        "case-window",
+                        decision_date="2026-02-15",
+                    ),
+                )
+            )
+        ),
+    )
+    config = CaseDevSmokeConfig(
+        query_terms=("motion to dismiss",),
+        date_window_start="2026-01-01",
+        date_window_end="2026-03-31",
+        per_query_limit=2,
+        candidate_retrieval_limit=2,
+    )
+
+    result = run_case_dev_smoke(client, config=config)
+
+    assert result.query_summaries[0].hit_count == 2
+    assert result.retrieved_candidate_count == 2
+    assert result.clean_mtd_candidate_count == 1
+    assert result.candidates[0].case_id == "case-old"
+    assert result.candidates[0].clean_packet_proxy is False
+    assert result.candidates[0].missing_document_reasons == (
+        "mtd_decision_outside_date_window",
+    )
+    assert result.candidates[1].case_id == "case-window"
+    assert result.candidates[1].clean_packet_proxy is True
+    assert result.candidates[1].missing_document_reasons == ()
 
 
 def test_case_dev_smoke_reports_unavailable_docket_entries() -> None:
@@ -440,15 +498,78 @@ def _docket_hit(
     entry_number: int,
     text: str,
     document_id: str,
+    *,
+    filed_at: str = "2026-02-01",
 ) -> JsonRecord:
     record: JsonRecord = {
         "entryNumber": entry_number,
         "description": text,
-        "date": "2026-02-01",
+        "date": filed_at,
     }
     if document_id:
         record["documents"] = [{"id": document_id}]
     return record
+
+
+def _clean_candidate_responses(
+    case_id: str,
+    *,
+    decision_date: str,
+) -> tuple[JsonRecord, ...]:
+    return (
+        {
+            "method": "POST",
+            "path": "/legal/v1/docket",
+            "params": {"type": "lookup", "docketId": case_id},
+            "status_code": 200,
+            "payload": {
+                "docket": {
+                    "id": case_id,
+                    "caseName": f"{case_id} v. Example",
+                    "court": "S.D.N.Y.",
+                    "docketNumber": f"{case_id}-number",
+                },
+            },
+        },
+        {
+            "method": "POST",
+            "path": "/legal/v1/docket",
+            "params": {
+                "type": "lookup",
+                "docketId": case_id,
+                "includeEntries": True,
+            },
+            "status_code": 200,
+            "payload": {
+                "docket": {
+                    "id": case_id,
+                    "entries": [
+                        _docket_hit(case_id, 1, "Complaint", f"{case_id}-doc-1"),
+                        _docket_hit(
+                            case_id,
+                            12,
+                            "Memorandum in support of motion to dismiss",
+                            f"{case_id}-doc-12",
+                        ),
+                        _docket_hit(
+                            case_id,
+                            99,
+                            "Opinion and order denying motion to dismiss",
+                            f"{case_id}-doc-99",
+                            filed_at=decision_date,
+                        ),
+                    ],
+                }
+            },
+        },
+        _document_response(f"{case_id}-doc-1", case_id, "Complaint text"),
+        _document_response(
+            f"{case_id}-doc-12",
+            case_id,
+            "Motion to dismiss text",
+        ),
+        _document_response(f"{case_id}-doc-99", case_id, "Decision text"),
+    )
 
 
 def _document_response(document_id: str, case_id: str, text: str) -> JsonRecord:

@@ -43,6 +43,17 @@ order denying motion for judgment on the pleadings
 
 Only pass `--query-term` when intentionally overriding the optimized defaults. If overriding, say why in the report or handoff.
 
+Live case.dev `type=search` responses are docket-level records. Their
+`dateFiled` value is the case filing date, not the MTD decision/order docket-entry
+date. For date-window pilots, `case-dev-smoke` therefore keeps docket-level
+search hits through retrieval and applies the window to the retrieved decision
+docket entry. Do not filter live docket-level search hits by case filing date.
+
+`case-dev-smoke` is a yield/readiness report, not a packet-build input stage. A
+clean smoke candidate still needs a screened-case JSONL row plus CourtListener
+raw docket HTML or embedded CourtListener-style `selected_entries` before
+`acquisition plan-public-downloads` can produce public packet requests.
+
 For a 25-candidate post-release pilot from April 24, 2026 through the current collection date:
 
 ```bash

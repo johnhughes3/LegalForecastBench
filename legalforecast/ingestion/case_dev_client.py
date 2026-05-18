@@ -223,6 +223,8 @@ class UrlLibCaseDevTransport:
                     payload=payload,
                     headers=dict(response.headers.items()),
                 )
+        except TimeoutError as exc:
+            return _synthetic_timeout_response(exc)
         except urllib.error.HTTPError as exc:
             payload = _json_payload(exc.read())
             return CaseDevHTTPResponse(
@@ -231,6 +233,8 @@ class UrlLibCaseDevTransport:
                 headers=dict(exc.headers.items()) if exc.headers else {},
             )
         except urllib.error.URLError as exc:
+            if isinstance(exc.reason, TimeoutError):
+                return _synthetic_timeout_response(exc.reason)
             raise CaseDevClientError(f"case.dev request failed: {exc.reason}") from exc
 
 
@@ -521,6 +525,13 @@ def _error_for_response(response: CaseDevHTTPResponse, path: str) -> CaseDevClie
     return CaseDevClientError(message)
 
 
+def _synthetic_timeout_response(exc: TimeoutError) -> CaseDevHTTPResponse:
+    return CaseDevHTTPResponse(
+        status_code=504,
+        payload={"error": f"case.dev request timed out: {exc}"},
+    )
+
+
 def _json_payload(raw_body: bytes) -> Mapping[str, Any]:
     if not raw_body:
         return {}
@@ -679,7 +690,7 @@ def _hit_from_legal_docket_entry_record(
         docket_id=case_id,
         docket_entry_id=docket_entry_id,
         entry_number=entry_number_text,
-        entry_text=_required_string(record, "description", "entry_text", "text"),
+        entry_text=_legal_entry_text(record, entry_number_text),
         filed_at=_optional_string(record, "date", "dateFiled", "filed_at"),
         source_url=_optional_string(record, "url"),
         source_document_ids=_document_ids_from_legal_entry(record),
@@ -687,18 +698,45 @@ def _hit_from_legal_docket_entry_record(
     )
 
 
+def _legal_entry_text(
+    record: Mapping[str, Any],
+    entry_number_text: str | None,
+) -> str:
+    entry_text = _optional_string(record, "description", "entry_text", "text")
+    if entry_text is not None:
+        return entry_text
+    document_descriptions = tuple(
+        description
+        for document in _entry_documents(record)
+        if (description := _optional_string(document, "description"))
+        is not None
+    )
+    if document_descriptions:
+        return "; ".join(document_descriptions)
+    return f"Docket entry {entry_number_text or 'unknown'}"
+
+
 def _document_ids_from_legal_entry(record: Mapping[str, Any]) -> tuple[str, ...]:
-    documents = record.get("documents")
-    if not isinstance(documents, list):
+    documents = _entry_documents(record)
+    if not documents:
         return _document_ids(record)
     ids: list[str] = []
-    for document in cast(list[object], documents):
-        if not isinstance(document, Mapping):
-            continue
-        document_id = _optional_string(cast(Mapping[str, Any], document), "id")
+    for document in documents:
+        document_id = _optional_string(document, "id")
         if document_id is not None:
             ids.append(document_id)
     return tuple(ids)
+
+
+def _entry_documents(record: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
+    documents = record.get("documents")
+    if not isinstance(documents, list):
+        return ()
+    return tuple(
+        cast(Mapping[str, Any], document)
+        for document in cast(list[object], documents)
+        if isinstance(document, Mapping)
+    )
 
 
 def _slug(value: str) -> str:

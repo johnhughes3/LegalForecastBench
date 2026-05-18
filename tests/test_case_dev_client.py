@@ -128,6 +128,44 @@ def test_search_response_missing_required_fields_fails() -> None:
         client.search_docket_entries("motion to dismiss")
 
 
+def test_docket_entries_use_doc_description_when_entry_description_missing() -> None:
+    transport = CaseDevFixtureTransport(
+        [
+            _recorded_response(
+                params={
+                    "type": "lookup",
+                    "docketId": "case-1",
+                    "includeEntries": True,
+                },
+                payload={
+                    "docket": {
+                        "id": "case-1",
+                        "entries": [
+                            {
+                                "entryNumber": 7,
+                                "date": "2026-05-01",
+                                "description": None,
+                                "documents": [
+                                    {
+                                        "id": "doc-7",
+                                        "description": "Order on Motion to Dismiss",
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                },
+            )
+        ]
+    )
+    client = CaseDevClient(config=_config(), transport=transport)
+
+    page = client.get_case_docket_entries("case-1")
+
+    assert page.items[0].entry_text == "Order on Motion to Dismiss"
+    assert page.items[0].source_document_ids == ("doc-7",)
+
+
 def test_iter_docket_entry_search_caps_results() -> None:
     transport = CaseDevFixtureTransport(
         [
@@ -177,6 +215,35 @@ def test_rate_limit_retries_before_success() -> None:
         ]
     )
     client = CaseDevClient(config=_config(), transport=transport, max_retries=1)
+
+    page = client.search_docket_entries("MTD")
+
+    assert page.items == ()
+    assert client.request_count == 2
+
+
+def test_url_timeout_retries_before_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def fake_urlopen(
+        request: urllib.request.Request,
+        *,
+        timeout: float,
+    ) -> _FakeURLResponse:
+        del request, timeout
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise TimeoutError("read operation timed out")
+        return _FakeURLResponse(b'{"dockets": []}', status=200)
+
+    monkeypatch.setattr(case_dev_client_module.urllib.request, "urlopen", fake_urlopen)
+    client = CaseDevClient(
+        config=_config(),
+        max_retries=1,
+    )
 
     page = client.search_docket_entries("MTD")
 

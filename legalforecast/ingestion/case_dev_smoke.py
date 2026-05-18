@@ -212,7 +212,7 @@ def run_case_dev_smoke(
                 max_results=smoke_config.per_query_limit,
             )
         )
-        hits = _filter_hits_by_date_window(raw_hits, smoke_config)
+        hits = _filter_search_hits_by_date_window(raw_hits, smoke_config)
         hits_by_query[query] = hits
         all_hits.extend(hits)
 
@@ -238,6 +238,7 @@ def run_case_dev_smoke(
         _summarize_candidate(
             candidate,
             pipeline=pipeline,
+            config=smoke_config,
             retrieved_at=generated_at,
         )
         for candidate in all_candidates[: smoke_config.candidate_retrieval_limit]
@@ -364,7 +365,7 @@ def _unique_docket_records(
     return tuple(records)
 
 
-def _filter_hits_by_date_window(
+def _filter_search_hits_by_date_window(
     hits: Sequence[CaseDevDocketHit],
     config: CaseDevSmokeConfig,
 ) -> tuple[CaseDevDocketHit, ...]:
@@ -372,7 +373,15 @@ def _filter_hits_by_date_window(
     end = _optional_date(config.date_window_end, "date_window_end")
     if start is None and end is None:
         return tuple(hits)
-    return tuple(hit for hit in hits if _hit_is_in_date_window(hit, start, end))
+    return tuple(
+        hit
+        for hit in hits
+        if _is_docket_level_search_hit(hit) or _hit_is_in_date_window(hit, start, end)
+    )
+
+
+def _is_docket_level_search_hit(hit: CaseDevDocketHit) -> bool:
+    return hit.entry_number is None and "legal_docket" in hit.raw
 
 
 def _hit_is_in_date_window(
@@ -397,6 +406,7 @@ def _summarize_candidate(
     candidate: MtdDiscoveryCandidate,
     *,
     pipeline: DocketRetrievalPipeline,
+    config: CaseDevSmokeConfig,
     retrieved_at: datetime,
 ) -> CaseDevSmokeCandidateSummary:
     candidate_id = f"case-dev-smoke-{candidate.case_id}"
@@ -427,27 +437,86 @@ def _summarize_candidate(
             retrieval_error=type(exc).__name__,
         )
 
-    missing_reasons = tuple(
-        sorted({missing.reason for missing in retrieval.missing_filings})
-    )
+    missing_reasons = {missing.reason for missing in retrieval.missing_filings}
+    if (
+        _date_window_is_configured(config)
+        and _has_any_decision_signal(retrieval)
+        and not _has_decision_filing_in_date_window(retrieval, config)
+    ):
+        missing_reasons.add("mtd_decision_outside_date_window")
     return CaseDevSmokeCandidateSummary(
         candidate_id=candidate_id,
         case_id=candidate.case_id,
         trigger_terms=candidate.trigger_terms,
         retrieved=True,
-        clean_packet_proxy=_has_clean_packet_proxy(retrieval),
-        missing_document_reasons=missing_reasons,
+        clean_packet_proxy=_has_clean_packet_proxy(retrieval, config),
+        missing_document_reasons=tuple(sorted(missing_reasons)),
     )
 
 
-def _has_clean_packet_proxy(retrieval: DocketRetrievalResult) -> bool:
+def _has_clean_packet_proxy(
+    retrieval: DocketRetrievalResult,
+    config: CaseDevSmokeConfig,
+) -> bool:
     roles = {filing.document_role for filing in retrieval.filings}
     has_motion = bool(roles & {DocumentRole.MTD_NOTICE, DocumentRole.MTD_MEMORANDUM})
     return (
         DocumentRole.COMPLAINT in roles
         and has_motion
-        and DocumentRole.DECISION in roles
+        and _has_decision_filing_in_date_window(retrieval, config)
     )
+
+
+def _has_decision_filing_in_date_window(
+    retrieval: DocketRetrievalResult,
+    config: CaseDevSmokeConfig,
+) -> bool:
+    start = _optional_date(config.date_window_start, "date_window_start")
+    end = _optional_date(config.date_window_end, "date_window_end")
+    entry_dates = {
+        entry.docket_entry_id: entry.filed_at for entry in retrieval.docket_entries
+    }
+    for filing in retrieval.filings:
+        if filing.document_role is not DocumentRole.DECISION:
+            continue
+        if _date_text_is_in_window(entry_dates.get(filing.docket_entry_id), start, end):
+            return True
+    return False
+
+
+def _date_window_is_configured(config: CaseDevSmokeConfig) -> bool:
+    return config.date_window_start is not None or config.date_window_end is not None
+
+
+def _has_any_decision_signal(retrieval: DocketRetrievalResult) -> bool:
+    has_decision_entry = any(
+        entry.document_role is DocumentRole.DECISION
+        for entry in retrieval.docket_entries
+    )
+    has_decision_filing = any(
+        filing.document_role is DocumentRole.DECISION for filing in retrieval.filings
+    )
+    return has_decision_entry or has_decision_filing
+
+
+def _date_text_is_in_window(
+    value: str | None,
+    start: date | None,
+    end: date | None,
+) -> bool:
+    if start is None and end is None:
+        return True
+    if value is None:
+        return False
+    try:
+        filed_at = date.fromisoformat(value[:10])
+    except ValueError:
+        return False
+    if start is not None and filed_at < start:
+        return False
+    if end is not None and filed_at > end:
+        return False
+    return True
 
 
 def _date_window_label(config: CaseDevSmokeConfig) -> str:
