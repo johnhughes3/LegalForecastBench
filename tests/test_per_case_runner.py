@@ -93,6 +93,30 @@ def test_per_case_runner_verifies_packet_and_publishes_safe_outputs(
     )
 
 
+def test_per_case_runner_accepts_exported_packet_sha256_field(
+    tmp_path: Path,
+) -> None:
+    store_root, manifest_path, packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+        hash_field="packet_sha256",
+    )
+
+    artifacts = run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "runner-output",
+            solver_id="offline:fixture",
+            mock_output=_mock_output(),
+        )
+    )
+
+    assert artifacts.packet_sha256 == packet_sha256
+
+
 def test_per_case_runner_refuses_hash_mismatch_without_retaining_packet(
     tmp_path: Path,
 ) -> None:
@@ -303,6 +327,7 @@ def _write_store_fixture(
     *,
     packet_record: dict[str, object],
     manifest_sha256: str | None = None,
+    hash_field: str = "sha256",
 ) -> tuple[Path, Path, str]:
     store_root = tmp_path / "packet-store"
     packet_key = "model-packets/cycle-1/case-1/full_packet.json"
@@ -319,7 +344,7 @@ def _write_store_fixture(
                     "case_id": "case-1",
                     "ablation": "full_packet",
                     "object_key": packet_key,
-                    "sha256": manifest_sha256 or packet_sha256,
+                    hash_field: manifest_sha256 or packet_sha256,
                     "size_bytes": packet_path.stat().st_size,
                     "content_type": "application/json",
                 }

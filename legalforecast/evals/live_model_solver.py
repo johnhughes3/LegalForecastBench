@@ -97,44 +97,17 @@ class LiveModelSolver:
         return SolverKind.INSPECT_AI
 
     def solve(self, request: HarnessRequest) -> SolverResponse:
-        provider = _provider_config(self.registry_entry.provider)
-        api_key = _api_key(provider.api_key_env, self.environ)
         prompt = _prompt_with_controlled_docket_context(
             request,
             tool_policy=self.registry_entry.tool_policy,
         )
-        provider_request = provider.build_request(
+        return complete_live_prompt(
             self.registry_entry,
             prompt,
-            api_key,
-        )
-        started = time.perf_counter()
-        payload = self._transport(provider_request, self.timeout_seconds)
-        latency_ms = (time.perf_counter() - started) * 1000
-        raw_output = provider.extract_output(payload)
-        input_tokens, output_tokens = provider.extract_usage(payload)
-        return SolverResponse(
-            raw_output=raw_output,
-            request_count=1,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            estimated_cost=_estimated_cost(
-                self.registry_entry,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-            ),
-            metadata={
-                "provider": self.registry_entry.provider,
-                "model": self.registry_entry.model_id,
-                "model_id": self.registry_entry.model_id,
-                "model_version_or_snapshot": (
-                    self.registry_entry.model_version_or_snapshot
-                ),
-                "execution_backend": RunExecutionBackend.INSPECT_AI.value,
-                "latency_ms": f"{latency_ms:.3f}",
-                "model_registry_sha256": self.model_registry_sha256 or "unrecorded",
-                "tool_policy": self.registry_entry.tool_policy.value,
-            },
+            model_registry_sha256=self.model_registry_sha256,
+            transport=self.transport,
+            environ=self.environ,
+            timeout_seconds=self.timeout_seconds,
         )
 
     def _transport(
@@ -144,6 +117,61 @@ class LiveModelSolver:
     ) -> JsonRecord:
         transport = self.transport or _urlopen_json
         return transport(request, timeout_seconds)
+
+
+def complete_live_prompt(
+    registry_entry: ModelRegistryEntry,
+    prompt: str,
+    *,
+    model_registry_sha256: str | None = None,
+    transport: LiveModelTransport | None = None,
+    environ: Mapping[str, str] | None = None,
+    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+) -> SolverResponse:
+    """Call a registry-backed provider with a raw prompt and return accounting."""
+
+    if not prompt.strip():
+        raise LiveModelConfigError("prompt is required")
+    if timeout_seconds <= 0:
+        raise LiveModelConfigError("timeout_seconds must be positive")
+    if not registry_entry.network_disabled:
+        raise LiveModelConfigError(
+            "live provider harness requires network_disabled=True"
+        )
+    if not registry_entry.search_disabled:
+        raise LiveModelConfigError(
+            "live provider harness requires search_disabled=True"
+        )
+
+    provider = _provider_config(registry_entry.provider)
+    api_key = _api_key(provider.api_key_env, environ)
+    provider_request = provider.build_request(registry_entry, prompt, api_key)
+    started = time.perf_counter()
+    payload = (transport or _urlopen_json)(provider_request, timeout_seconds)
+    latency_ms = (time.perf_counter() - started) * 1000
+    raw_output = provider.extract_output(payload)
+    input_tokens, output_tokens = provider.extract_usage(payload)
+    return SolverResponse(
+        raw_output=raw_output,
+        request_count=1,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        estimated_cost=_estimated_cost(
+            registry_entry,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        ),
+        metadata={
+            "provider": registry_entry.provider,
+            "model": registry_entry.model_id,
+            "model_id": registry_entry.model_id,
+            "model_version_or_snapshot": registry_entry.model_version_or_snapshot,
+            "execution_backend": RunExecutionBackend.INSPECT_AI.value,
+            "latency_ms": f"{latency_ms:.3f}",
+            "model_registry_sha256": model_registry_sha256 or "unrecorded",
+            "tool_policy": registry_entry.tool_policy.value,
+        },
+    )
 
 
 @dataclass(frozen=True, slots=True)

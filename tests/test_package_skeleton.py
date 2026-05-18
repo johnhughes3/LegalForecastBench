@@ -39,6 +39,7 @@ MODULES = [
     "legalforecast.unitization.adjudication",
     "legalforecast.labeling.label_outcomes",
     "legalforecast.labeling.ensemble",
+    "legalforecast.labeling.llm_pipeline",
     "legalforecast.labeling.lawyer_review",
     "legalforecast.evals.inspect_task",
     "legalforecast.evals.output_parser",

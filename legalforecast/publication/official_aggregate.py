@@ -278,7 +278,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--model-key",
         action="append",
-        default=(),
+        default=[],
         help=(
             "Expected registry key in provider:model_id form. Repeat for a "
             "multi-model matrix."

@@ -118,6 +118,32 @@ After parsing, use the packet-input planner rather than hand-building
 `packet-build-input.jsonl` or private-store manifests:
 
 ```bash
+uv run legalforecast acquisition llm-unitize \
+  --selection tmp/acquisition/public-packet-selection.jsonl \
+  --parser-manifest tmp/acquisition/mistral-markdown-conversions.jsonl \
+  --model-registry model_registries/pilot-2026-04-24_to_2026-05-18.json \
+  --model-key anthropic:claude-sonnet-4-6 \
+  --output-root tmp/acquisition \
+  --execute
+
+uv run legalforecast acquisition llm-label \
+  --selection tmp/acquisition/public-packet-selection.jsonl \
+  --parser-manifest tmp/acquisition/mistral-markdown-conversions.jsonl \
+  --prediction-units tmp/acquisition/prediction-units.jsonl \
+  --model-registry model_registries/pilot-2026-04-24_to_2026-05-18.json \
+  --model-key google:gemini-3-flash-preview \
+  --model-key openai:gpt-5.4-mini \
+  --model-key anthropic:claude-sonnet-4-6 \
+  --output-root tmp/acquisition \
+  --execute
+```
+
+`llm-unitize` and `llm-label` must use frozen model-registry keys, not ad hoc
+provider/model strings. The audit JSONL records include the registry hash, model
+keys, token counts, estimated cost, and `human_verified=false`. Treat these as
+LLM-only pilot labels unless a separate human adjudication pass is run.
+
+```bash
 uv run legalforecast acquisition plan-packet-inputs \
   --selection tmp/acquisition/public-packet-selection.jsonl \
   --download-manifest tmp/acquisition/free-document-downloads.jsonl \

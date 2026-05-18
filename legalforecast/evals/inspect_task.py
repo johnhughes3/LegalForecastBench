@@ -371,6 +371,10 @@ def render_model_prompt(packet: ModelPacket, *, use_docket_tool: bool = True) ->
     ]
     payload = {
         "task": "Predict federal motion-to-dismiss outcomes.",
+        "response_format": (
+            "Return only a valid JSON object. Do not include markdown, tables, "
+            "code fences, headings, or explanatory text outside JSON."
+        ),
         "required_output": {
             "case_assessment": "string, no more than 300 words",
             "predictions": [

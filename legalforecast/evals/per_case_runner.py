@@ -412,7 +412,7 @@ def _packet_object_from_record(
         or optional_str(record, "run_label")
         or PacketAblation.FULL_PACKET.value,
         object_key=object_key,
-        sha256=_normalize_sha256(required_str(record, "sha256")),
+        sha256=_normalize_sha256(_packet_sha256(record)),
         size_bytes=size_bytes,
         uri=optional_str(record, "uri") or optional_str(record, "s3_uri"),
         bucket=optional_str(record, "bucket")
@@ -420,6 +420,16 @@ def _packet_object_from_record(
         cycle_id=optional_str(record, "cycle_id")
         or _optional_manifest_cycle_id(manifest),
         content_type=optional_str(record, "content_type"),
+    )
+
+
+def _packet_sha256(record: Mapping[str, Any]) -> str:
+    return required_str(
+        {
+            "sha256": optional_str(record, "sha256")
+            or optional_str(record, "packet_sha256")
+        },
+        "sha256",
     )
 
 

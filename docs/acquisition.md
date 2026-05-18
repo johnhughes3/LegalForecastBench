@@ -66,6 +66,23 @@ uv run legalforecast acquisition parse-documents \
   --requests tmp/acquisition/parse-document-requests.jsonl \
   --output-root tmp/acquisition
 
+uv run legalforecast acquisition llm-unitize \
+  --selection tmp/acquisition/public-packet-selection.jsonl \
+  --parser-manifest tmp/acquisition/mistral-markdown-conversions.jsonl \
+  --model-registry model_registries/pilot-2026-04-24_to_2026-05-18.json \
+  --model-key anthropic:claude-sonnet-4-6 \
+  --output-root tmp/acquisition
+
+uv run legalforecast acquisition llm-label \
+  --selection tmp/acquisition/public-packet-selection.jsonl \
+  --parser-manifest tmp/acquisition/mistral-markdown-conversions.jsonl \
+  --prediction-units tmp/acquisition/prediction-units.jsonl \
+  --model-registry model_registries/pilot-2026-04-24_to_2026-05-18.json \
+  --model-key google:gemini-3-flash-preview \
+  --model-key openai:gpt-5.4-mini \
+  --model-key anthropic:claude-sonnet-4-6 \
+  --output-root tmp/acquisition
+
 uv run legalforecast acquisition plan-packet-inputs \
   --selection tmp/acquisition/public-packet-selection.jsonl \
   --download-manifest tmp/acquisition/free-document-downloads.jsonl \
@@ -106,6 +123,14 @@ Execution flags are intentionally explicit:
   downloaded-document manifest.
 - `parse-documents --execute` uses the configured parser, or
   `--fixture-markdown-dir` for fixture runs.
+- `llm-unitize --execute` uses a frozen model-registry entry to create Stage A
+  unit seeds from pre-decision Markdown, then validates them through the normal
+  Stage A constructor before writing `prediction-units.jsonl`.
+- `llm-label --execute` uses one or more frozen model-registry entries as
+  LLM-only Stage B label judges. It validates every finding through the normal
+  first-written-disposition labeler and writes `labels.jsonl` plus audit rows
+  with model keys, registry hash, token counts, and cost. With multiple
+  `--model-key` values, the default policy requires unanimous labels.
 - `plan-packet-inputs --execute` converts selected public-packet rows, free
   download records, parser records, raw docket HTML, and locked prediction units
   into `packet-build-input.jsonl`, `document-manifest.jsonl`,
