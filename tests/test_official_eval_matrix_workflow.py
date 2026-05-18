@@ -28,6 +28,14 @@ def test_official_eval_matrix_workflow_is_manual_and_protected() -> None:
     assert "mock_output:" not in WORKFLOW
 
 
+def test_official_eval_matrix_workflow_defaults_to_current_review_release() -> None:
+    cycle_id = "pilot-2026-05-18-review-scored-12-corrected"
+
+    assert f"default: {cycle_id}" in WORKFLOW
+    assert f"default: manifests/{cycle_id}.run-inputs.json" in WORKFLOW
+    assert f"default: manifests/{cycle_id}.model-registry.json" in WORKFLOW
+
+
 def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
     assert "matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}" in WORKFLOW
     assert (

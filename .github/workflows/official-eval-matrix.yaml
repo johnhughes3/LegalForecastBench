@@ -10,10 +10,12 @@ on:
       cycle_id:
         description: Frozen official cycle id.
         required: true
+        default: pilot-2026-05-18-review-scored-12-corrected
         type: string
       run_input_manifest_uri:
         description: s3:// URI, manifests/ key, or checked-out file path for the run-input manifest.
         required: true
+        default: manifests/pilot-2026-05-18-review-scored-12-corrected.run-inputs.json
         type: string
       ablation:
         description: Packet ablation to evaluate.
@@ -29,7 +31,7 @@ on:
       model_registry_uri:
         description: Frozen model registry s3:// URI, manifests/ key, or checked-out JSON path.
         required: true
-        default: model_registries/pilot-2026-04-24_to_2026-05-18.json
+        default: manifests/pilot-2026-05-18-review-scored-12-corrected.model-registry.json
         type: string
       model_keys:
         description: Comma-separated registry keys in provider:model_id form.
