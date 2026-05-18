@@ -160,6 +160,20 @@ This stage writes `packet-build-input.jsonl`, `document-manifest.jsonl`,
 requires locked prediction units; do not substitute placeholder units for a real
 pilot.
 
+When staging private-store objects, run the repository exporter from the
+acquisition root instead of syncing parser files by hand. If
+`mistral-markdown-conversions.jsonl` and the referenced `markdown/` tree are
+present, the exporter stages standalone Markdown and parser metadata under the
+private `extracted-text/{cycle_id}/{case_id}/` prefix alongside the source PDFs
+and model packets:
+
+```bash
+uv run python -m legalforecast.publication.private_store_export \
+  --source-dir tmp/acquisition \
+  --output-dir tmp/private-store-export \
+  --cycle-id cycle-id
+```
+
 ## Sample selection
 
 For small real pilots, select clean cases, not raw hits:

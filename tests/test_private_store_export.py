@@ -4,6 +4,7 @@ import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 import pytest
 from legalforecast.publication.private_store_export import (
@@ -36,6 +37,8 @@ def test_private_store_export_stages_objects_manifests_and_verification(
     assert {
         "source-documents/cycle_fixture/case-1/doc-1.pdf",
         "extracted-text/cycle_fixture/extracted_texts.jsonl",
+        "extracted-text/cycle_fixture/case-1/doc-1.md",
+        "extracted-text/cycle_fixture/case-1/doc-1.metadata.json",
         "model-packets/cycle_fixture/case-1/full_packet.json",
         "audit-bundles/cycle_fixture/acquisition-audit.json",
         "manifests/cycle_fixture.freeze.json",
@@ -48,6 +51,10 @@ def test_private_store_export_stages_objects_manifests_and_verification(
         / "objects/packet/model-packets/cycle_fixture/case-1/full_packet.json"
     )
     assert "Complaint text visible to model" in packet_path.read_text(encoding="utf-8")
+    markdown_path = (
+        output_dir / "objects/packet/extracted-text/cycle_fixture/case-1/doc-1.md"
+    )
+    assert markdown_path.read_text(encoding="utf-8") == "# Complaint\n\nVisible text\n"
 
     freeze_manifest = _read_json(result.freeze_manifest_path)
     assert freeze_manifest["schema_version"] == PRIVATE_STORE_EXPORT_SCHEMA_VERSION
@@ -81,7 +88,9 @@ def test_private_store_export_stages_objects_manifests_and_verification(
     assert "Complaint text visible to model" not in json.dumps(run_inputs)
 
     public_reconstruction = _read_json(result.public_reconstruction_manifest_path)
-    assert public_reconstruction["candidates"][0]["documents"][0] == {
+    candidates = cast(list[dict[str, object]], public_reconstruction["candidates"])
+    documents = cast(list[dict[str, object]], candidates[0]["documents"])
+    assert documents[0] == {
         "document_role": "complaint",
         "is_mounted_for_model": True,
         "redistribution_status": "approved-metadata-only",
@@ -95,7 +104,9 @@ def test_private_store_export_stages_objects_manifests_and_verification(
     verification = _read_json(result.verification_report_path)
     assert verification["object_count"] == len(result.objects)
     assert verification["verified_object_count"] == len(result.objects)
-    assert verification["total_size_bytes"] > 0
+    total_size_bytes = verification["total_size_bytes"]
+    assert isinstance(total_size_bytes, int)
+    assert total_size_bytes > 0
 
 
 def test_private_store_export_rejects_source_hash_mismatch(tmp_path: Path) -> None:
@@ -133,7 +144,7 @@ def test_private_store_export_module_main_writes_report(
     )
 
     stdout = json.loads(capsys.readouterr().out)
-    assert stdout["object_count"] == 7
+    assert stdout["object_count"] == 9
     assert Path(stdout["verification_report"]).is_file()
 
 
@@ -148,6 +159,16 @@ def _source_dir(
     document_path = docs_dir / "doc-1.pdf"
     document_path.write_bytes(document_bytes)
     expected_hash = _sha256_bytes(b"%PDF fixture doc\n")
+    markdown_dir = source_dir / "markdown/case-1"
+    markdown_dir.mkdir(parents=True)
+    (markdown_dir / "doc-1.md").write_text(
+        "# Complaint\n\nVisible text\n",
+        encoding="utf-8",
+    )
+    (markdown_dir / "doc-1.metadata.json").write_text(
+        json.dumps({"engine": "fixture"}, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     _write_jsonl(
         source_dir / "document-manifest.jsonl",
@@ -198,6 +219,18 @@ def _source_dir(
         source_dir / "extracted_texts.jsonl",
         [{"source_document_id": "doc-1", "text_sha256": "d" * 64}],
     )
+    _write_jsonl(
+        source_dir / "mistral-markdown-conversions.jsonl",
+        [
+            {
+                "candidate_id": "cand-1",
+                "markdown_path": "case-1/doc-1.md",
+                "metadata_path": "case-1/doc-1.metadata.json",
+                "source_document_id": "doc-1",
+                "status": "succeeded",
+            }
+        ],
+    )
     _write_jsonl(source_dir / "accounting.jsonl", [{"estimated_cost": 1.25}])
     _write_jsonl(source_dir / "retrievals.jsonl", [{"candidate_id": "cand-1"}])
     _write_jsonl(source_dir / "linkage.jsonl", [{"candidate_id": "cand-1"}])
@@ -216,7 +249,7 @@ def _read_json(path: Path) -> dict[str, object]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise AssertionError("expected JSON object")
-    return value
+    return cast(dict[str, object], value)
 
 
 def _sha256_file(path: Path) -> str:

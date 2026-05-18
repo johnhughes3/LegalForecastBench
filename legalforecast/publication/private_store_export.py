@@ -145,6 +145,7 @@ def build_private_store_export(
 
     source_objects = _export_source_documents(config, document_contexts)
     objects.extend(source_objects)
+    extracted_objects: list[ExportObjectRecord] = []
     extracted_object = _export_optional_existing_file(
         config,
         source_dir / "extracted_texts.jsonl",
@@ -156,7 +157,10 @@ def build_private_store_export(
         mounted_for_model=False,
     )
     if extracted_object is not None:
-        objects.append(extracted_object)
+        extracted_objects.append(extracted_object)
+    markdown_objects = _export_markdown_documents(config, document_contexts)
+    extracted_objects.extend(markdown_objects)
+    objects.extend(extracted_objects)
 
     packet_records = _read_jsonl(source_dir / "packets.jsonl")
     packet_objects = _export_model_packets(config, packet_records)
@@ -170,7 +174,7 @@ def build_private_store_export(
         config,
         generated_at=generated_at,
         source_objects=source_objects,
-        extracted_objects=(extracted_object,) if extracted_object else (),
+        extracted_objects=tuple(extracted_objects),
         packet_objects=packet_objects,
         audit_objects=(audit_object,),
         accounting_summary=accounting_summary,
@@ -362,6 +366,124 @@ def _export_optional_existing_file(
     )
 
 
+def _export_markdown_documents(
+    config: PrivateStoreExportConfig,
+    document_contexts: Mapping[str, _DocumentContext],
+) -> tuple[ExportObjectRecord, ...]:
+    manifest_path = config.source_dir / "mistral-markdown-conversions.jsonl"
+    if not manifest_path.is_file():
+        return ()
+
+    objects: list[ExportObjectRecord] = []
+    seen_keys: set[str] = set()
+    for record in _read_jsonl(manifest_path):
+        status = _optional_str(record.get("status"))
+        if status is not None and status != "succeeded":
+            continue
+        context = _markdown_document_context(record, document_contexts)
+        if context is None:
+            continue
+
+        markdown_path = _markdown_artifact_path(
+            config.source_dir,
+            _required_str(record.get("markdown_path")),
+        )
+        objects.append(
+            _copy_extracted_artifact(
+                config,
+                source_path=markdown_path,
+                context=context,
+                filename_suffix=".md",
+                content_type="text/markdown",
+                seen_keys=seen_keys,
+            )
+        )
+
+        metadata_path_text = _optional_str(record.get("metadata_path"))
+        if metadata_path_text is not None:
+            metadata_path = _markdown_artifact_path(
+                config.source_dir, metadata_path_text
+            )
+            objects.append(
+                _copy_extracted_artifact(
+                    config,
+                    source_path=metadata_path,
+                    context=context,
+                    filename_suffix=".metadata.json",
+                    content_type="application/json",
+                    seen_keys=seen_keys,
+                )
+            )
+    return tuple(objects)
+
+
+def _markdown_document_context(
+    record: Mapping[str, object],
+    document_contexts: Mapping[str, _DocumentContext],
+) -> _DocumentContext | None:
+    source_document_id = _required_str(record.get("source_document_id"))
+    context = document_contexts.get(source_document_id)
+    if context is not None:
+        return context
+
+    candidate_id = _optional_str(record.get("candidate_id"))
+    if candidate_id is None:
+        return None
+    return document_contexts.get(f"{candidate_id}-{source_document_id}")
+
+
+def _markdown_artifact_path(source_dir: Path, path_text: str) -> Path:
+    path = Path(path_text)
+    candidates = (
+        (path,)
+        if path.is_absolute()
+        else (source_dir / "markdown" / path, source_dir / path)
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise PrivateStoreExportError(f"markdown artifact missing: {path_text}")
+
+
+def _copy_extracted_artifact(
+    config: PrivateStoreExportConfig,
+    *,
+    source_path: Path,
+    context: _DocumentContext,
+    filename_suffix: str,
+    content_type: str,
+    seen_keys: set[str],
+) -> ExportObjectRecord:
+    safe_document_id = safe_path_component(
+        context.source_document_id,
+        field_name="source_document_id",
+    )
+    key = "/".join(
+        (
+            "extracted-text",
+            config.cycle_id,
+            safe_path_component(context.case_id, field_name="case_id"),
+            f"{safe_document_id}{filename_suffix}",
+        )
+    )
+    if key in seen_keys:
+        raise PrivateStoreExportError(f"duplicate extracted artifact key: {key}")
+    seen_keys.add(key)
+    destination = _object_path(config, ExportBucketRole.PACKET, key)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source_path, destination)
+    return _object_record(
+        bucket_role=ExportBucketRole.PACKET,
+        key=key,
+        local_path=destination,
+        classification=ExportClassification.RAW_PRIVATE,
+        content_type=content_type,
+        source_handle=context.source_url_or_reference,
+        redistribution_status="not-reviewed",
+        mounted_for_model=context.mounted_for_model,
+    )
+
+
 def _export_model_packets(
     config: PrivateStoreExportConfig,
     packet_records: Sequence[Mapping[str, object]],
@@ -407,6 +529,7 @@ def _export_audit_bundle(
         "document-manifest.jsonl",
         "candidate-manifest.jsonl",
         "extracted_texts.jsonl",
+        "mistral-markdown-conversions.jsonl",
         "retrievals.jsonl",
         "linkage.jsonl",
         "exclusion-ledger.jsonl",

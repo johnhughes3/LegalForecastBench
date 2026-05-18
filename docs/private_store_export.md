@@ -31,6 +31,7 @@ The source directory must contain:
 Optional inputs are included when present:
 
 - `extracted_texts.jsonl`;
+- `mistral-markdown-conversions.jsonl` plus the referenced `markdown/` tree;
 - `retrievals.jsonl`;
 - `linkage.jsonl`;
 - `exclusion-ledger.jsonl`;
@@ -46,6 +47,8 @@ The private packet staging tree contains:
 
 - `source-documents/{cycle_id}/{case_id}/{source_document_id}.{ext}`;
 - `extracted-text/{cycle_id}/extracted_texts.jsonl`, if present;
+- `extracted-text/{cycle_id}/{case_id}/{source_document_id}.md` and
+  `.metadata.json` parser artifacts, if present;
 - `model-packets/{cycle_id}/{case_id}/{ablation}.json`;
 - `audit-bundles/{cycle_id}/acquisition-audit.json`.
 
