@@ -61,13 +61,23 @@ def test_official_eval_matrix_workflow_uses_oidc_only_in_protected_jobs() -> Non
 
 def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() -> None:
     assert "uv run legalforecast eval run-case" in WORKFLOW
-    assert '--manifest "${RUN_INPUT_MANIFEST_URI}"' in WORKFLOW
+    assert 'run_input_manifest_for_cli="${RUN_INPUT_MANIFEST_URI}"' in WORKFLOW
+    assert 'model_registry_for_cli="${MODEL_REGISTRY_URI}"' in WORKFLOW
+    assert (
+        'run_input_manifest_for_cli="s3://${LFB_RESULTS_BUCKET}/${RUN_INPUT_MANIFEST_URI}"'
+        in WORKFLOW
+    )
+    assert (
+        'model_registry_for_cli="s3://${LFB_RESULTS_BUCKET}/${MODEL_REGISTRY_URI}"'
+        in WORKFLOW
+    )
+    assert '--manifest "${run_input_manifest_for_cli}"' in WORKFLOW
     assert '--packet-store-root "s3://${LFB_PACKET_BUCKET}"' in WORKFLOW
     assert '--results-store-root "s3://${LFB_RESULTS_BUCKET}"' in WORKFLOW
     assert '--case-id "${CASE_ID}"' in WORKFLOW
     assert '--ablation "${ABLATION}"' in WORKFLOW
     assert "--backend live" in WORKFLOW
-    assert '--model-registry "${MODEL_REGISTRY_URI}"' in WORKFLOW
+    assert '--model-registry "${model_registry_for_cli}"' in WORKFLOW
     assert '--model-key "${MODEL_KEY}"' in WORKFLOW
     assert "CASE_ID: ${{ matrix.case_id }}" in WORKFLOW
     assert "ABLATION: ${{ matrix.ablation }}" in WORKFLOW
