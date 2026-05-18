@@ -142,6 +142,10 @@ uv run legalforecast acquisition llm-label \
 provider/model strings. The audit JSONL records include the registry hash, model
 keys, token counts, estimated cost, and `human_verified=false`. Treat these as
 LLM-only pilot labels unless a separate human adjudication pass is run.
+The Stage A unitizer normalizes non-empty singleton strings for fields whose
+validated schema expects a string list, such as `source_document_ids` or
+`defendant_names`; malformed JSON or ambiguous non-list objects remain failures
+and should not be hand-repaired for a live pilot.
 
 ```bash
 uv run legalforecast acquisition plan-packet-inputs \

@@ -939,6 +939,11 @@ def _optional_record_sequence(value: object) -> tuple[Mapping[str, Any], ...]:
 
 
 def _str_tuple(value: object, field_name: str) -> tuple[str, ...]:
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped:
+            return (stripped,)
+        raise LlmPipelineError(f"{field_name} must contain strings")
     if not isinstance(value, Sequence) or isinstance(value, str):
         raise LlmPipelineError(f"{field_name} must be a list")
     values = tuple(
