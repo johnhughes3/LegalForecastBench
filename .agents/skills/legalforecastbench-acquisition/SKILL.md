@@ -240,6 +240,53 @@ Use `legalforecast eval run-case --backend live --model-registry ... --model-key
 comma-separated `model_keys`, verifies that the requested keys exist in the
 frozen registry, and dispatches one job per case/model row.
 
+Before dispatching a release or pilot matrix from GitHub, stage immutable S3
+inputs and verify them from the downloaded objects:
+
+```bash
+aws s3 cp model_registries/pilot-2026-04-24_to_2026-05-18.json \
+  s3://$LFB_RESULTS_BUCKET/manifests/${cycle_id}.model-registry.json
+
+aws s3 cp tmp/private-store-export/objects/results/manifests/${cycle_id}.run-inputs.json \
+  s3://$LFB_RESULTS_BUCKET/manifests/${cycle_id}.run-inputs.json
+
+aws s3 cp s3://$LFB_RESULTS_BUCKET/manifests/${cycle_id}.model-registry.json \
+  tmp/${cycle_id}.model-registry.s3.json
+shasum -a 256 model_registries/pilot-2026-04-24_to_2026-05-18.json \
+  tmp/${cycle_id}.model-registry.s3.json
+```
+
+Use the workflow-friendly aliases as inputs after the GitHub remote and secrets
+exist:
+
+```text
+manifests/${cycle_id}.run-inputs.json
+manifests/${cycle_id}.model-registry.json
+```
+
+The workflow resolves these `manifests/...` aliases against
+`$LFB_RESULTS_BUCKET`. Before a live run, do a non-paid S3 smoke that proves the
+manifest, packet store, registry URI, and one case row resolve together:
+
+```bash
+uv run legalforecast eval run-case \
+  --manifest s3://$LFB_RESULTS_BUCKET/manifests/${cycle_id}.run-inputs.json \
+  --packet-store-root s3://$LFB_PACKET_BUCKET \
+  --model-registry s3://$LFB_RESULTS_BUCKET/manifests/${cycle_id}.model-registry.json \
+  --model-key google:gemini-3-flash-preview \
+  --case-id <case-id> \
+  --output-root tmp/s3-registry-run-case-smoke \
+  --backend fixture \
+  --mock-output '{"predictions":[]}'
+```
+
+Also do a local matrix dry run from the downloaded S3 manifest and registry:
+confirm the expected case count, expected model count, no duplicate packet rows,
+no missing model keys, and packet keys under `model-packets/`. For current local
+handoff examples, use the ignored files `tmp/pilot-active-goal-completion-audit.md`
+and `tmp/pilot-github-dispatch-runbook.md` when present; they are not release
+artifacts.
+
 For Claude rows, the same `anthropic:...` registry key can use either direct
 Anthropic or AWS Bedrock:
 
