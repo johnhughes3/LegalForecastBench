@@ -88,6 +88,26 @@ Execution flags are intentionally explicit:
   length. That aligns the optimization target with acquisition cost.
 - Federal district courts are the intended search scope for v1.
 
+## Official Readiness Gate
+
+The live blocker is complete packet retrieval, not just credentials. Case.dev is
+currently the discovery-first surface; it should not be described as a complete
+packet source unless docket-entry and source-document retrieval are available for
+sampled candidates.
+
+A readiness pilot may use CourtListener/RECAP/PACER fallback reconstruction when
+public records are missing from the primary path. Its diagnostics must be based
+on reviewed or retained packets, not search hits. Do not start official model
+execution until the acquisition evidence shows at least 50 clean packets or a
+credible path to 50-100 clean packets, with:
+
+- source-class counts for `case.dev-only`, `case.dev-plus-fallback`, and
+  `excluded`;
+- linkage, leakage, text-quality, and document-completeness exclusion counts;
+- retained-packet case-mix diagnostics;
+- separate discovery, fallback reconstruction, and live purchase cost totals;
+- label ambiguity and lawyer review-time measurements for reviewed packets.
+
 ## Public Release Boundary
 
 The v0.1 alpha includes the acquisition code path and fixtures, not a public

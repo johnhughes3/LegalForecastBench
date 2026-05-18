@@ -84,3 +84,14 @@ def test_expected_placeholder_directories_exist() -> None:
     ]
     for path in expected:
         assert path.is_dir()
+
+
+def test_empty_fixture_directories_are_documented_from_fixture_root() -> None:
+    root = Path(__file__).resolve().parents[1]
+    fixture_readme = (root / "tests" / "fixtures" / "README.md").read_text(
+        encoding="utf-8"
+    )
+
+    for fixture_name in ("case_packet", "manifests", "protocols"):
+        assert f"`{fixture_name}/`" in fixture_readme
+        assert not (root / "tests" / "fixtures" / fixture_name / "README.md").exists()

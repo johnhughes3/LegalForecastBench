@@ -94,13 +94,9 @@ registered analysis.
 
 ## Corrections, Redactions, and Takedowns
 
-The project should maintain a correction path for label errors, unitization
+The project maintains an auditable correction path for label errors, unitization
 errors, leakage, sensitive-party concerns, sealed-material mistakes, and
-reconstruction mismatches. Corrections should be auditable: preserve prior hash
-references where possible, publish an erratum or replacement manifest hash, and
-explain the non-sensitive reason for the change.
-
-If a document should not remain in public artifacts, remove or redact the
-material and leave a non-sensitive placeholder explaining the correction. The
-benchmark should never preserve sensitive text merely to keep an old hash
-stable.
+reconstruction mismatches. `docs/withdrawal_workflow.md` owns the operational
+procedure for errata, tombstones, superseding manifests, and future-run
+exclusion. This ethics note states the public principle: sensitive text should
+not remain public merely to keep an old hash stable.

@@ -100,16 +100,13 @@ touch live Case.dev, CourtListener, RECAP, PACER, or provider credentials.
 
 ## Documentation
 
-The public docs are intentionally small:
+The root README is the public quickstart. The full map lives in the
+[documentation index](docs/README.md). Start with:
 
-- [Documentation index](docs/README.md)
-- [Methodology](docs/methodology.md)
-- [Data card](docs/data_card.md)
-- [Acquisition status](docs/acquisition.md)
-- [Result tiers](docs/result_tiers.md)
-- [Ethics and legal-risk note](docs/ethics.md)
-- [Preregistration](docs/preregistration.md)
-- [Outcome rules appendix](docs/outcome_rules_appendix.md)
+- [Methodology](docs/methodology.md) for task design, scoring, and validity.
+- [Acquisition status](docs/acquisition.md) for live-data blockers and no-paid defaults.
+- [Result tiers](docs/result_tiers.md) for what can and cannot be called canonical.
+- [Ethics and legal-risk note](docs/ethics.md) for intended use, privacy, and takedown framing.
 
 Generated smoke reports and internal release-gate notes are not tracked as
 public docs. If a command writes an exploratory report, put it under `tmp/`.
@@ -138,16 +135,10 @@ installed sdist smoke, and artifact validation.
 
 ## Result Claims
 
-Use the result tiers in [docs/result_tiers.md](docs/result_tiers.md).
-
-- `alpha-non-canonical`: synthetic or release-readiness artifacts.
-- `community-unverified`: self-reported external runs.
-- `verified-community`: externally run results reproduced or audited by a
-  maintainer.
-- `official`: maintainer-run results from frozen packets and preregistered
-  protocol artifacts.
-
-Only `official` results belong in a canonical leaderboard.
+Use the result tiers in [docs/result_tiers.md](docs/result_tiers.md). Only
+`official` results belong in a canonical leaderboard. Synthetic fixture outputs
+are `alpha-non-canonical`; self-reported external runs remain community-tier
+unless the policy's reproduction and audit requirements are met.
 
 ## License
 

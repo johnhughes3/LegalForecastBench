@@ -1,4 +1,4 @@
-# Data Card
+# Cycle Data Card Requirements
 
 This data card describes each published LegalForecast-MTD cycle. It is a scope
 and reconstruction artifact, not a claim that the benchmark sample represents
@@ -18,12 +18,10 @@ for all federal MTDs.
 
 ## Source Systems
 
-The primary discovery path is case.dev. Retrieval remains case.dev-first when
-the needed docket rows and documents are available. CourtListener/RECAP/PACER
-supplementation is optional only if the project explicitly enables the fallback
-path described in `docs/acquisition.md`; it is not a required v1 dependency. Each
-candidate must be classified as `case.dev-only`, `case.dev-plus-fallback`, or
-`excluded`. Each cycle data card must list:
+The acquisition runbook owns live-source commands and fallback policy; this data
+card records what a specific cycle actually used. Each candidate must be
+classified as `case.dev-only`, `case.dev-plus-fallback`, or `excluded`. Each
+cycle data card must list:
 
 - source systems and API versions if known;
 - discovery queries and date windows;
@@ -35,12 +33,10 @@ candidate must be classified as `case.dev-only`, `case.dev-plus-fallback`, or
 - SHA-256 hashes for docket exports, source documents, extracted text,
   prediction units, labels, packets, prompts, scorers, and manifests.
 
-The Phase 0 post-feasibility pilot means v1 reports should not describe case.dev
-as the complete packet source unless docket-entry and source-document retrieval
-become available before official ingestion. Until then, the data card should
-state that case.dev seeded discovery and that the official cycle is blocked
-unless case.dev provides retrieval/export support or the project explicitly
-chooses a public-record fallback path.
+Until `docs/acquisition.md` says the live route is unblocked, the data card
+should state that case.dev seeded discovery and that official evaluation remains
+blocked unless retrieval/export support or an approved public-record fallback
+path produced clean packets.
 
 ## Inclusion Rules
 
@@ -155,15 +151,10 @@ instructions and hashes so users with lawful access can verify the artifacts.
 
 ## Corrections and Takedowns
 
-Each cycle report should provide a contact path for:
-
-- incorrect labels or unitization;
-- leaked outcome material;
-- mistaken inclusion of sealed or restricted material;
-- sensitive-party concerns;
-- hash or reconstruction mismatches.
-
-Correction records should preserve the original manifest hash, state the reason
-for the correction, and issue a new manifest or erratum hash. If material must
-be removed from public artifacts, reports should retain a non-sensitive note
-explaining that the candidate was removed or redacted.
+Each cycle report should provide a contact path for incorrect labels,
+unitization errors, leakage, sealed or restricted material, sensitive-party
+concerns, and hash or reconstruction mismatches. The operational takedown,
+errata, tombstone, and future-run exclusion procedure lives in
+`docs/withdrawal_workflow.md`; the data card should record the public-safe
+correction status and replacement manifest or erratum hash for the affected
+cycle.

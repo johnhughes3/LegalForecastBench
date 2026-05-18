@@ -54,21 +54,14 @@ model registry hash, and a clear provisional-status label.
 
 ## Official-Cycle Readiness
 
-The Phase 0 post-feasibility pilot blocks official evaluation until the live
-retrieval path is proven. An official descriptive or ranking cycle should not be
-preregistered for model execution until the fallback pilot records:
-
-- at least 50 clean packets or a credible path to 50-100 clean packets;
-- source-class counts for `case.dev-only`, `case.dev-plus-fallback`, and
-  `excluded`;
-- retained-packet case-mix diagnostics rather than search-hit diagnostics;
-- linkage, leakage, text-quality, and document-completeness exclusion counts;
-- separate case.dev discovery cost and fallback reconstruction cost totals;
-- label ambiguity and lawyer review-time measurements for reviewed packets.
-
-If the fallback pilot shows that most retained packets require reconstruction,
-the preregistration should describe the source model as case.dev discovery plus
-public-record fallback retrieval, not as case.dev-only packet construction.
+`docs/acquisition.md` owns the live retrieval blocker and operator commands. A
+cycle should not be preregistered for official model execution until the
+acquisition evidence supports at least 50 clean packets or a credible path to
+50-100 clean packets, with source-class counts, retained-packet case-mix
+diagnostics, linkage/leakage/text-quality exclusions, separate discovery and
+fallback costs, and review-time measurements. If retained packets depend on
+fallback reconstruction, the preregistration should say so rather than describe
+the cycle as case.dev-only packet construction.
 
 ## Generated Fields
 

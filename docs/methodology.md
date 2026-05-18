@@ -45,34 +45,16 @@ Every official report should therefore state:
 - any dominance by one case, court, case family, or subject-matter category;
 - which claims are descriptive, provisional, official, or strong ranking claims.
 
-## Phase 0 Protocol Revision
+## Acquisition Status
 
-The live Phase 0 smoke and post-feasibility pilot changed the v1 ingestion
-assumption. case.dev is usable as a discovery surface, but current live
-docket-entry listing is unavailable for sampled candidates. The all-permissions
-case.dev key works for live smoke, so the blocker is an API retrieval feature
-gap, not credential scope.
-
-Until case.dev exposes ordinary docket-entry and source-document retrieval, the
-protocol is:
-
-```text
-case.dev discovery -> CourtListener public docket-page raw HTML screen
--> one-page docket exclusion -> docket-text MTD decision screen
--> briefing completeness and missing-document cost ranking
--> case.dev retrieval/export or fee-acknowledged live PACER only for essential
-missing materials -> normal LegalForecast packet workflow
-```
-
-case.dev should therefore be described as the primary discovery layer, not the
-complete packet source. The next live pilot should be a case.dev-discovered,
-CourtListener-web-screened acquisition run. It should scrape no more than 500
-CourtListener public docket pages, auto-exclude dockets with more than one page
-of visible entries, use docket text to identify recent MTD orders or decisions,
-then rank likely retained cases by the fewest missing documents that would need
-to be purchased. Do not run an official evaluation until this acquisition pilot
-produces the cheapest 150 eligible cases or a credible path to 50-100 clean
-packets with measured linkage, leakage, review-time, case-mix, and cost outputs.
+Live packet acquisition remains the blocker for official evaluation. Case.dev is
+the primary discovery layer, but the current public release should not describe
+case.dev as the complete packet source unless docket-entry and source-document
+retrieval become available. The operator commands, no-paid defaults, fallback
+path, and readiness gates live in `docs/acquisition.md`; this methodology keeps
+only the design consequence: no official cycle should begin until acquisition
+can produce clean pre-decision packets with measured linkage, leakage,
+review-time, case-mix, and cost outputs.
 
 ## Validity Standard
 
@@ -257,15 +239,8 @@ Reports should also identify:
 
 ## Result tiers
 
-Publication should follow `docs/result_tiers.md`. The official leaderboard is
-limited to maintainer or trusted-operator runs with frozen artifacts, validated
-run cards, retained outputs, and passed publication checks. Community-submitted
-rows are community-unverified unless a maintainer or trusted operator
-independently reproduces them against the same frozen artifacts. A reproduced
-community submission may be labeled verified-community, but it remains separate
-from the official table unless the maintainer rerun is itself published as the
-official source of record.
-
-Reports may include non-canonical community sections for transparency. They
-must not mix community-unverified rows into the canonical leaderboard or use
-them as evidence for benchmark claims.
+Publication should follow `docs/result_tiers.md`. This methodology treats result
+claims as part of the validity design; the tier policy owns the detailed rules
+for official, verified-community, community-unverified, and alpha-non-canonical
+outputs. Reports must not mix community-unverified rows into the canonical
+leaderboard or use them as evidence for benchmark claims.
