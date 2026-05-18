@@ -6,6 +6,7 @@ import json
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
@@ -885,14 +886,16 @@ def _json_object_from_response(
     try:
         parsed: object = json.loads(text)
     except json.JSONDecodeError as exc:
-        start = text.find("{")
-        end = text.rfind("}")
-        if start < 0 or end <= start:
+        candidate = _extract_balanced_json_value(
+            text,
+            allow_array=top_level_sequence_field is not None,
+        )
+        if candidate is None:
             raise LlmPipelineError(
                 "LLM response did not contain a JSON object"
             ) from exc
         try:
-            parsed = json.loads(text[start : end + 1])
+            parsed = json.loads(candidate)
         except json.JSONDecodeError as exc:
             raise LlmPipelineError("LLM response JSON object was invalid") from exc
     if (
@@ -910,6 +913,41 @@ def _json_object_from_response(
     if not isinstance(parsed, Mapping):
         raise LlmPipelineError("LLM response must be a JSON object")
     return cast(Mapping[str, Any], parsed)
+
+
+def _extract_balanced_json_value(text: str, *, allow_array: bool) -> str | None:
+    candidates: list[tuple[str, str]] = [("{", "}")]
+    if allow_array:
+        candidates.append(("[", "]"))
+    starts = [
+        (index, opening, closing)
+        for opening, closing in candidates
+        if (index := text.find(opening)) >= 0
+    ]
+    if not starts:
+        return None
+    start, opening, closing = min(starts, key=lambda item: item[0])
+    depth = 0
+    in_string = False
+    escaped = False
+    for index, char in enumerate(text[start:], start=start):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == opening:
+            depth += 1
+        elif char == closing:
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1]
+    return None
 
 
 def _coerced_excerpt(text: str, excerpt: str) -> str:
@@ -935,11 +973,50 @@ def _coerced_excerpt(text: str, excerpt: str) -> str:
     normalized_text = "".join(normalized_chars).strip()
     offset = normalized_text.find(normalized_excerpt)
     if offset < 0:
-        raise LlmPipelineError("supporting_excerpt does not appear in decision text")
+        fuzzy = _closest_verbatim_excerpt(text, normalized_excerpt)
+        if fuzzy is None:
+            raise LlmPipelineError(
+                "supporting_excerpt does not appear in decision text"
+            )
+        return fuzzy
     start = source_positions[offset]
     end_offset = offset + len(normalized_excerpt) - 1
     end = source_positions[min(end_offset, len(source_positions) - 1)] + 1
     return text[start:end].strip()
+
+
+def _closest_verbatim_excerpt(text: str, normalized_excerpt: str) -> str | None:
+    normalized_target = normalized_excerpt.lower()
+    if len(normalized_target) < 30:
+        return None
+    best_score = 0.0
+    best_line: str | None = None
+    for line in text.splitlines():
+        candidate = line.strip()
+        normalized_candidate = " ".join(candidate.split()).lower()
+        if len(normalized_candidate) < 30 or len(normalized_candidate) > 600:
+            continue
+        score = SequenceMatcher(None, normalized_target, normalized_candidate).ratio()
+        containment_score = _excerpt_containment_score(
+            normalized_target,
+            normalized_candidate,
+        )
+        score = max(score, containment_score)
+        if score > best_score:
+            best_score = score
+            best_line = candidate
+    if best_score < 0.88:
+        return None
+    return best_line
+
+
+def _excerpt_containment_score(target: str, candidate: str) -> float:
+    shorter, longer = (
+        (target, candidate) if len(target) <= len(candidate) else (candidate, target)
+    )
+    if shorter not in longer:
+        return 0.0
+    return len(shorter) / len(longer)
 
 
 def _failure_audit_record(

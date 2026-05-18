@@ -94,6 +94,31 @@ def test_public_packet_planner_uses_role_matched_free_documents(
     )
 
 
+def test_public_packet_planner_prefers_removal_complaint_attachment(
+    tmp_path: Path,
+) -> None:
+    raw_html_dir = tmp_path / "raw_html"
+    raw_html_dir.mkdir()
+    (raw_html_dir / "123.html").write_text(
+        _docket_html_with_notice_removal_complaint_attachment(),
+        encoding="utf-8",
+    )
+
+    plan = plan_public_packet_downloads(
+        (_screened_case(),),
+        raw_html_dir=raw_html_dir,
+        target_clean_cases=25,
+    )
+
+    assert plan.selected_case_count == 1
+    selected = plan.selected_cases[0]
+    assert selected.documents[0].document_role is DocumentRole.COMPLAINT
+    assert selected.documents[0].description == "Exhibit A-E"
+    assert selected.documents[0].source_url == (
+        "https://storage.courtlistener.com/recap/removal-exhibit-a-e.pdf"
+    )
+
+
 def test_public_packet_planner_accepts_judgment_on_pleadings_target(
     tmp_path: Path,
 ) -> None:
@@ -366,6 +391,74 @@ def _docket_html_with_procedural_false_positives() -> str:
                   <p>Exhibit 3: Timeline (Alleged in the Amended Complaint)</p>
                 </div>
                 <a href="https://storage.courtlistener.com/recap/timeline.pdf">
+                  Download PDF
+                </a>
+              </div>
+            </div>
+          </div>
+          <div class="row even" id="entry-16">
+            <div class="col-xs-1 text-center"><p>16</p></div>
+            <div class="col-xs-3 col-sm-2"><p>May 8, 2026</p></div>
+            <div class="col-xs-8 col-lg-7">
+              <p>ORDER on Motion to Dismiss.</p>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Main Document</p></div>
+                <div class="col-xs-6"><p>Order on Motion to Dismiss</p></div>
+                <a href="https://storage.courtlistener.com/recap/order.pdf">
+                  Download PDF
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+
+def _docket_html_with_notice_removal_complaint_attachment() -> str:
+    return """
+    <html>
+      <body>
+        <div class="fake-table col-xs-12" id="docket-entry-table">
+          <div class="row odd" id="entry-1">
+            <div class="col-xs-1 text-center"><p>1</p></div>
+            <div class="col-xs-3 col-sm-2"><p>Jan 1, 2026</p></div>
+            <div class="col-xs-8 col-lg-7">
+              <p>NOTICE OF REMOVAL from state court. (Attachments: # 1 Exhibit A-E)
+              Exhibit A: Complaint and all accompanying documents.</p>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Main Document</p></div>
+                <div class="col-xs-6"><p>Notice of Removal</p></div>
+                <a href="https://storage.courtlistener.com/recap/removal-main.pdf">
+                  Download PDF
+                </a>
+              </div>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Attachment 1</p></div>
+                <div class="col-xs-6"><p>Exhibit A-E</p></div>
+                <a href="https://storage.courtlistener.com/recap/removal-exhibit-a-e.pdf">
+                  Download PDF
+                </a>
+              </div>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Attachment 2</p></div>
+                <div class="col-xs-6"><p>Civil Cover Sheet</p></div>
+                <a href="https://storage.courtlistener.com/recap/cover-sheet.pdf">
+                  Download PDF
+                </a>
+              </div>
+            </div>
+          </div>
+          <div class="row odd" id="entry-5">
+            <div class="col-xs-1 text-center"><p>5</p></div>
+            <div class="col-xs-3 col-sm-2"><p>Feb 1, 2026</p></div>
+            <div class="col-xs-8 col-lg-7">
+              <p>MOTION to Dismiss filed by Defendant.</p>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Main Document</p></div>
+                <div class="col-xs-6"><p>Dismiss</p></div>
+                <a href="https://storage.courtlistener.com/recap/mtd.pdf">
                   Download PDF
                 </a>
               </div>

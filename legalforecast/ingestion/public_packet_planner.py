@@ -603,6 +603,10 @@ def _best_free_document(
     entry: CourtListenerWebDocketEntry,
     role: DocumentRole,
 ):
+    if role is DocumentRole.COMPLAINT:
+        removal_attachment = _best_free_notice_removal_complaint_attachment(entry)
+        if removal_attachment is not None:
+            return removal_attachment
     matching_documents = tuple(
         document
         for document in entry.documents
@@ -622,6 +626,39 @@ def _best_free_document(
             None,
         )
     return None
+
+
+def _best_free_notice_removal_complaint_attachment(
+    entry: CourtListenerWebDocketEntry,
+):
+    entry_text = " ".join(entry.text.lower().split())
+    if "notice of removal" not in entry_text:
+        return None
+    return next(
+        (
+            document
+            for document in entry.documents
+            if document.freely_available
+            and document.href
+            and _looks_like_notice_removal_complaint_attachment(
+                document.description
+            )
+        ),
+        None,
+    )
+
+
+def _looks_like_notice_removal_complaint_attachment(description: str) -> bool:
+    text = " ".join(description.lower().split())
+    if not text or _contains_procedural_complaint_reference(text):
+        return False
+    if re.search(r"\b(?:civil cover sheet|certificate|notice|summons|service)\b", text):
+        return False
+    if re.search(r"\b(?:amended\s+)?complaint\b", text):
+        return True
+    return bool(
+        re.fullmatch(r"(?:exhibit|exh\.?)\s+[a-z0-9](?:\s*-\s*[a-z0-9])?", text)
+    )
 
 
 def _document_matches_role(description: str, role: DocumentRole) -> bool:
