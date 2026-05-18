@@ -72,7 +72,11 @@ The aggregator treats the run-input manifest crossed with repeated
 
 `public/` is the publication bundle. It contains:
 
-- `scores.json` and `unit-scores.jsonl`;
+- `scores.json` with aggregate score summaries plus public-safe model
+  accounting fields such as total estimated cost, cost per case, cost per
+  prediction unit, prompt/completion token totals, and controlled-tool-call
+  totals;
+- `unit-scores.jsonl`;
 - `cycle-power.json` with the cadence classification, claim-strength label,
   thresholds, warnings, and strong-ranking claim flag;
 - `report/leaderboard.json`, `.csv`, `.md`, and `.html`;
