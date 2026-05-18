@@ -705,7 +705,15 @@ def _add_acquisition_plan_public_downloads_arguments(
 ) -> None:
     _add_acquisition_common_arguments(parser)
     parser.add_argument("--screened-cases", type=Path, required=True)
-    parser.add_argument("--raw-html-dir", type=Path, required=True)
+    parser.add_argument("--raw-html-dir", type=Path)
+    parser.add_argument(
+        "--use-embedded-entries",
+        action="store_true",
+        help=(
+            "If saved raw docket HTML is missing, plan from embedded "
+            "selected_entries records in the screened-cases JSONL."
+        ),
+    )
     parser.add_argument("--target-clean-cases", type=int, default=25)
     parser.add_argument(
         "--allow-inferred-target-mtd",
@@ -1453,7 +1461,7 @@ def _cmd_acquisition_plan(args: argparse.Namespace) -> int:
 def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     screened_cases_path = cast(Path, args.screened_cases)
-    raw_html_dir = cast(Path, args.raw_html_dir)
+    raw_html_dir = cast(Path | None, args.raw_html_dir)
     requests_path = _acquisition_path(
         args,
         "requests_output",
@@ -1481,11 +1489,13 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
         raw_html_dir=raw_html_dir,
         target_clean_cases=cast(int, args.target_clean_cases),
         allow_inferred_target_mtd=cast(bool, args.allow_inferred_target_mtd),
+        use_embedded_entries=cast(bool, args.use_embedded_entries),
     )
     summary = {
         **plan.summary_record(),
         "dry_run": dry_run,
-        "raw_html_dir": str(raw_html_dir),
+        "raw_html_dir": str(raw_html_dir) if raw_html_dir is not None else None,
+        "use_embedded_entries": cast(bool, args.use_embedded_entries),
     }
     _write_json(summary_path, summary)
     if dry_run:
@@ -1520,7 +1530,11 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
     _write_acquisition_completion(
         args,
         stage="plan-public-downloads",
-        input_paths=(screened_cases_path, raw_html_dir),
+        input_paths=(
+            (screened_cases_path,)
+            if raw_html_dir is None
+            else (screened_cases_path, raw_html_dir)
+        ),
         output_paths=(requests_path, selection_path, exclusions_path, summary_path),
         record_count=plan.selected_case_count,
         dry_run=dry_run,

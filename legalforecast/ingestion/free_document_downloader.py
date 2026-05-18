@@ -9,6 +9,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Protocol
 
@@ -112,6 +113,7 @@ class UrlLibFreeDocumentSource:
         *,
         retry_count: int,
         rate_limited: bool,
+        allow_landing_resolution: bool = True,
     ) -> FreeDocumentFetch:
         request = urllib.request.Request(
             source_url,
@@ -129,6 +131,20 @@ class UrlLibFreeDocumentSource:
             _validate_public_document_url(final_url)
             content = response.read()
             content_type = response.headers.get_content_type().lower()
+        if (
+            allow_landing_resolution
+            and _looks_like_html_content(content)
+            and _is_courtlistener_document_landing_url(final_url)
+        ):
+            resolved_url = _free_pdf_url_from_landing_page(final_url, content)
+            if resolved_url is not None and resolved_url != final_url:
+                _validate_public_document_url(resolved_url)
+                return self._fetch_once(
+                    resolved_url,
+                    retry_count=retry_count,
+                    rate_limited=rate_limited,
+                    allow_landing_resolution=False,
+                )
         _validate_public_document_content(
             source_url=source_url,
             content=content,
@@ -354,6 +370,27 @@ def _validate_public_document_url(source_url: str) -> None:
         raise ValueError("source_url must not specify a non-default port")
 
 
+def _free_pdf_url_from_landing_page(source_url: str, content: bytes) -> str | None:
+    parser = _CourtListenerLandingPageParser(base_url=source_url)
+    parser.feed(content.decode("utf-8", errors="ignore"))
+    parser.close()
+    return parser.best_url
+
+
+def _looks_like_html_content(content: bytes) -> bool:
+    prefix = content[:512].lstrip().lower()
+    return prefix.startswith((b"<!doctype html", b"<html"))
+
+
+def _is_courtlistener_document_landing_url(source_url: str) -> bool:
+    parsed = urllib.parse.urlparse(source_url)
+    return (
+        parsed.scheme == "https"
+        and parsed.hostname == "www.courtlistener.com"
+        and parsed.path.startswith("/docket/")
+    )
+
+
 def _validate_public_document_content(
     *,
     source_url: str,
@@ -362,8 +399,7 @@ def _validate_public_document_content(
 ) -> None:
     if not content:
         raise FreeDocumentDownloadError(f"free public document was empty: {source_url}")
-    prefix = content[:512].lstrip().lower()
-    if prefix.startswith((b"<!doctype html", b"<html")):
+    if _looks_like_html_content(content):
         raise FreeDocumentDownloadError(
             "free public document URL returned HTML instead of a document: "
             f"{source_url}"
@@ -383,3 +419,66 @@ def _validate_public_document_content(
         "free public document response did not look like a PDF "
         f"(content-type={content_type or 'unknown'}): {source_url}"
     )
+
+
+class _CourtListenerLandingPageParser(HTMLParser):
+    def __init__(self, *, base_url: str) -> None:
+        super().__init__(convert_charrefs=True)
+        self._base_url = base_url
+        self._active_href: str | None = None
+        self._active_title = ""
+        self._active_text_parts: list[str] = []
+        self._candidates: list[tuple[int, str]] = []
+
+    @property
+    def best_url(self) -> str | None:
+        if not self._candidates:
+            return None
+        return sorted(self._candidates)[0][1]
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() != "a":
+            return
+        attrs_dict = {name.lower(): value or "" for name, value in attrs}
+        href = attrs_dict.get("href")
+        if not href:
+            return
+        self._active_href = urllib.parse.urljoin(self._base_url, href)
+        self._active_title = attrs_dict.get("title", "")
+        self._active_text_parts = []
+
+    def handle_data(self, data: str) -> None:
+        if self._active_href is not None:
+            self._active_text_parts.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() != "a" or self._active_href is None:
+            return
+        score = _courtlistener_landing_link_score(
+            self._active_href,
+            " ".join((*self._active_text_parts, self._active_title)),
+        )
+        if score is not None:
+            self._candidates.append((score, self._active_href))
+        self._active_href = None
+        self._active_title = ""
+        self._active_text_parts = []
+
+
+def _courtlistener_landing_link_score(href: str, text: str) -> int | None:
+    normalized_text = " ".join(text.lower().split())
+    parsed = urllib.parse.urlparse(href)
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname not in _ALLOWED_DOCUMENT_HOSTS
+        or "buy on pacer" in normalized_text
+        or href.startswith("https://ecf.")
+    ):
+        return None
+    if parsed.hostname == "storage.courtlistener.com":
+        return 0
+    if "download pdf" in normalized_text:
+        return 1
+    if parsed.path.lower().endswith(".pdf"):
+        return 2
+    return None

@@ -134,6 +134,71 @@ def test_live_source_rejects_html_landing_pages(
         source.fetch("https://www.courtlistener.com/docket/1/5/example/")
 
 
+def test_live_source_resolves_courtlistener_landing_page_to_free_pdf(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Response:
+        def __init__(
+            self,
+            *,
+            final_url: str,
+            content_type: str,
+            content: bytes,
+        ) -> None:
+            self._final_url = final_url
+            self._content = content
+            self.headers = Message()
+            self.headers["Content-Type"] = content_type
+
+        def __enter__(self) -> _Response:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def geturl(self) -> str:
+            return self._final_url
+
+        def read(self) -> bytes:
+            return self._content
+
+    requested_urls: list[str] = []
+
+    def _urlopen(request: Any, **_kwargs: Any) -> _Response:
+        requested_urls.append(request.full_url)
+        if request.full_url == "https://www.courtlistener.com/docket/1/5/example/":
+            return _Response(
+                final_url=request.full_url,
+                content_type="text/html",
+                content=b"""
+                <html>
+                  <body>
+                    <a href="https://ecf.example.invalid/doc1">Buy on PACER</a>
+                    <a href="https://storage.courtlistener.com/recap/doc-5.pdf">
+                      Download PDF
+                    </a>
+                  </body>
+                </html>
+                """,
+            )
+        return _Response(
+            final_url="https://storage.courtlistener.com/recap/doc-5.pdf",
+            content_type="application/pdf",
+            content=b"%PDF resolved",
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", _urlopen)
+
+    source = UrlLibFreeDocumentSource(max_retries=0)
+    fetch = source.fetch("https://www.courtlistener.com/docket/1/5/example/")
+
+    assert fetch.content == b"%PDF resolved"
+    assert requested_urls == [
+        "https://www.courtlistener.com/docket/1/5/example/",
+        "https://storage.courtlistener.com/recap/doc-5.pdf",
+    ]
+
+
 def test_downloader_rejects_path_traversal_ids(tmp_path: Path) -> None:
     source = FixtureFreeDocumentSource(
         {"https://www.courtlistener.com/recap/doc-1.pdf": b"complaint pdf"}

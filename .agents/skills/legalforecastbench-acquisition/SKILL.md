@@ -94,6 +94,15 @@ The strict planner selects only candidates with free public links for an
 operative complaint, the target MTD entry, and the decision. If target entry
 numbers are stale, `--allow-inferred-target-mtd` can be used for pilot triage,
 but the run should be described as inferred-linkage rather than official.
+If the screened JSONL already contains CourtListener `selected_entries`, the
+planner can run with `--use-embedded-entries` for audit/discovery when raw HTML
+is missing. Treat that as a fallback representation, not the preferred official
+strict path; saved raw docket HTML generally preserves direct storage PDF links
+more reliably.
+
+`download-free --live-public-download` may resolve a public CourtListener
+docket-entry landing page to a free storage PDF. It still rejects PACER/ECF
+purchase links and does not use case.dev or PACER purchase endpoints.
 
 After `download-free`, derive parser requests through the CLI rather than
 hand-building JSONL:

@@ -56,9 +56,7 @@ def test_public_packet_planner_reports_public_document_shortfall(
 
     assert plan.selected_case_count == 0
     assert plan.summary_record()["shortfall"] == 25
-    assert plan.candidate_plans[0].exclusion_reasons == (
-        "no_free_target_mtd_document",
-    )
+    assert plan.candidate_plans[0].exclusion_reasons == ("no_free_target_mtd_document",)
 
 
 def test_public_packet_planner_uses_role_matched_free_documents(
@@ -96,6 +94,30 @@ def test_public_packet_planner_uses_role_matched_free_documents(
     )
 
 
+def test_public_packet_planner_can_use_embedded_selected_entries(
+    tmp_path: Path,
+) -> None:
+    raw_html_dir = tmp_path / "raw_html"
+
+    plan = plan_public_packet_downloads(
+        (_screened_case_with_embedded_entries(),),
+        raw_html_dir=raw_html_dir,
+        target_clean_cases=25,
+        use_embedded_entries=True,
+    )
+
+    assert plan.selected_case_count == 1
+    selected = plan.selected_cases[0]
+    assert [document.document_role for document in selected.documents] == [
+        DocumentRole.COMPLAINT,
+        DocumentRole.MTD_NOTICE,
+        DocumentRole.DECISION,
+    ]
+    assert selected.documents[1].source_url == (
+        "https://www.courtlistener.com/docket/123/5/example/"
+    )
+
+
 def _screened_case() -> dict[str, object]:
     return {
         "candidate": {
@@ -114,6 +136,61 @@ def _screened_case() -> dict[str, object]:
             "decision_entry_numbers": ["16"],
         },
     }
+
+
+def _screened_case_with_embedded_entries() -> dict[str, object]:
+    record = _screened_case()
+    record["selected_entries"] = [
+        {
+            "row_id": "entry-1",
+            "entry_number": "1",
+            "filed_at": "Jan 1, 2026",
+            "text": "1 Jan 1, 2026 COMPLAINT filed by Plaintiff.",
+            "documents": [
+                {
+                    "kind": "Main Document",
+                    "description": "Complaint",
+                    "href": "https://www.courtlistener.com/docket/123/1/example/",
+                    "action_label": "Download PDF",
+                    "pacer_only": False,
+                    "freely_available": True,
+                },
+            ],
+        },
+        {
+            "row_id": "entry-5",
+            "entry_number": "5",
+            "filed_at": "Feb 1, 2026",
+            "text": "5 Feb 1, 2026 MOTION to Dismiss filed by Defendant.",
+            "documents": [
+                {
+                    "kind": "Main Document",
+                    "description": "Dismiss",
+                    "href": "https://www.courtlistener.com/docket/123/5/example/",
+                    "action_label": "Download PDF",
+                    "pacer_only": False,
+                    "freely_available": True,
+                },
+            ],
+        },
+        {
+            "row_id": "entry-16",
+            "entry_number": "16",
+            "filed_at": "May 8, 2026",
+            "text": "16 May 8, 2026 ORDER on Motion to Dismiss.",
+            "documents": [
+                {
+                    "kind": "Main Document",
+                    "description": "Order on Motion to Dismiss",
+                    "href": "https://www.courtlistener.com/docket/123/16/example/",
+                    "action_label": "Download PDF",
+                    "pacer_only": False,
+                    "freely_available": True,
+                },
+            ],
+        },
+    ]
+    return record
 
 
 def _docket_html(*, include_motion: bool = True) -> str:

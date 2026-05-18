@@ -12,6 +12,7 @@ from legalforecast.ingestion.courtlistener_web import (
     CourtListenerEntryRole,
     CourtListenerWebDocketEntry,
     CourtListenerWebDocketPage,
+    CourtListenerWebDocument,
     parse_courtlistener_docket_html,
 )
 from legalforecast.ingestion.free_document_downloader import (
@@ -124,15 +125,18 @@ class PublicPacketDownloadPlan:
 def plan_public_packet_downloads(
     screened_case_records: Iterable[Mapping[str, Any]],
     *,
-    raw_html_dir: str | Path,
+    raw_html_dir: str | Path | None = None,
     target_clean_cases: int = 25,
     allow_inferred_target_mtd: bool = False,
+    use_embedded_entries: bool = False,
 ) -> PublicPacketDownloadPlan:
     """Select public/free packet candidates and emit document download requests."""
 
     if target_clean_cases <= 0:
         raise ValueError("target_clean_cases must be positive")
-    html_root = Path(raw_html_dir)
+    if raw_html_dir is None and not use_embedded_entries:
+        raise ValueError("raw_html_dir is required unless use_embedded_entries=True")
+    html_root = Path(raw_html_dir) if raw_html_dir is not None else None
     candidate_plans: list[PublicPacketCandidatePlan] = []
     selected_count = 0
     for record in screened_case_records:
@@ -141,6 +145,7 @@ def plan_public_packet_downloads(
             raw_html_dir=html_root,
             selected=selected_count < target_clean_cases,
             allow_inferred_target_mtd=allow_inferred_target_mtd,
+            use_embedded_entries=use_embedded_entries,
         )
         if plan.selected:
             selected_count += 1
@@ -160,14 +165,15 @@ def plan_public_packet_downloads(
 def _candidate_plan(
     record: Mapping[str, Any],
     *,
-    raw_html_dir: Path,
+    raw_html_dir: Path | None,
     selected: bool,
     allow_inferred_target_mtd: bool,
+    use_embedded_entries: bool,
 ) -> PublicPacketCandidatePlan:
     candidate = _mapping(record, "candidate")
     metadata = _mapping(candidate, "metadata")
     candidate_id = _required_str(candidate, "docket_id", "candidate_key")
-    html_path = raw_html_dir / f"{candidate_id}.html"
+    html_path = raw_html_dir / f"{candidate_id}.html" if raw_html_dir else None
     target_entries = _entry_number_tuple(
         _mapping(record, "ai").get("target_motion_entry_numbers")
     )
@@ -175,20 +181,31 @@ def _candidate_plan(
         _mapping(record, "ai").get("decision_entry_numbers")
     )
     source_url = _optional_str(candidate, "url")
-    if not html_path.exists():
+    page: CourtListenerWebDocketPage | None = None
+    if html_path is not None and html_path.exists():
+        page = parse_courtlistener_docket_html(
+            html_path.read_text(encoding="utf-8"),
+            source_url=source_url,
+            docket_id=candidate_id,
+        )
+    elif use_embedded_entries:
+        page = _page_from_embedded_selected_entries(
+            record,
+            candidate_id=candidate_id,
+            source_url=source_url,
+        )
+    if page is None:
+        reason = (
+            "embedded_entries_missing" if use_embedded_entries else "raw_html_missing"
+        )
         return _excluded_plan(
             candidate_id,
             metadata,
             source_url=source_url,
             target_entries=target_entries,
             decision_entries=decision_entries,
-            reason="raw_html_missing",
+            reason=reason,
         )
-    page = parse_courtlistener_docket_html(
-        html_path.read_text(encoding="utf-8"),
-        source_url=source_url,
-        docket_id=candidate_id,
-    )
     documents, reasons = _documents_for_candidate(
         candidate_id,
         page=page,
@@ -280,6 +297,84 @@ def _documents_for_candidate(
     return tuple(_dedupe_documents(documents)), ()
 
 
+def _page_from_embedded_selected_entries(
+    record: Mapping[str, Any],
+    *,
+    candidate_id: str,
+    source_url: str | None,
+) -> CourtListenerWebDocketPage | None:
+    entries_value = record.get("selected_entries")
+    if not isinstance(entries_value, Sequence) or isinstance(entries_value, str):
+        return None
+    entry_records = (
+        cast(Mapping[str, Any], entry_record)
+        for entry_record in cast(Sequence[object], entries_value)
+        if isinstance(entry_record, Mapping)
+    )
+    entries = tuple(
+        _entry_from_embedded_record(entry_record) for entry_record in entry_records
+    )
+    if not entries:
+        return None
+    return CourtListenerWebDocketPage(
+        docket_id=candidate_id,
+        source_url=source_url,
+        title=None,
+        entries=_dedupe_entries(entries),
+        has_next_page=False,
+    )
+
+
+def _entry_from_embedded_record(
+    record: Mapping[str, Any],
+) -> CourtListenerWebDocketEntry:
+    documents_value = record.get("documents")
+    documents: tuple[CourtListenerWebDocument, ...] = ()
+    if isinstance(documents_value, Sequence) and not isinstance(documents_value, str):
+        document_records = (
+            cast(Mapping[str, Any], document_record)
+            for document_record in cast(Sequence[object], documents_value)
+            if isinstance(document_record, Mapping)
+        )
+        documents = tuple(
+            _document_from_embedded_record(document_record)
+            for document_record in document_records
+        )
+    return CourtListenerWebDocketEntry(
+        row_id=_optional_str(record, "row_id") or "",
+        entry_number=_optional_str(record, "entry_number"),
+        filed_at=_optional_str(record, "filed_at"),
+        text=_optional_str(record, "text") or "",
+        documents=documents,
+    )
+
+
+def _document_from_embedded_record(
+    record: Mapping[str, Any],
+) -> CourtListenerWebDocument:
+    return CourtListenerWebDocument(
+        kind=_optional_str(record, "kind") or "",
+        description=_optional_str(record, "description") or "",
+        href=_optional_str(record, "href"),
+        action_label=_optional_str(record, "action_label"),
+        pacer_only=bool(record.get("pacer_only", False)),
+    )
+
+
+def _dedupe_entries(
+    entries: Iterable[CourtListenerWebDocketEntry],
+) -> tuple[CourtListenerWebDocketEntry, ...]:
+    seen: set[tuple[str, str | None, str]] = set()
+    deduped: list[CourtListenerWebDocketEntry] = []
+    for entry in entries:
+        key = (entry.row_id, entry.entry_number, entry.text)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(entry)
+    return tuple(deduped)
+
+
 def _operative_complaint_entry(
     page: CourtListenerWebDocketPage,
     *,
@@ -288,8 +383,7 @@ def _operative_complaint_entry(
     candidates = [
         entry
         for entry in page.entries
-        if _entry_is_before(entry, before_entry)
-        and _looks_like_complaint(entry)
+        if _entry_is_before(entry, before_entry) and _looks_like_complaint(entry)
     ]
     if not candidates:
         return None
@@ -306,16 +400,14 @@ def _target_mtd_entries(
     exact = tuple(
         entry
         for entry in page.entries
-        if _entry_number(entry) in set(target_entries)
-        and _is_mtd_entry(entry)
+        if _entry_number(entry) in set(target_entries) and _is_mtd_entry(entry)
     )
     if exact or not allow_inferred_target_mtd:
         return exact
     return tuple(
         entry
         for entry in page.entries
-        if _entry_is_before(entry, decision_floor)
-        and _is_mtd_entry(entry)
+        if _entry_is_before(entry, decision_floor) and _is_mtd_entry(entry)
     )
 
 
@@ -327,8 +419,7 @@ def _optional_brief_entries(
     return tuple(
         entry
         for entry in page.entries
-        if _entry_is_before(entry, before_entry)
-        and _is_optional_brief_entry(entry)
+        if _entry_is_before(entry, before_entry) and _is_optional_brief_entry(entry)
     )
 
 
@@ -452,8 +543,11 @@ def _looks_like_complaint(entry: CourtListenerWebDocketEntry) -> bool:
     if _contains_procedural_complaint_reference(text):
         return False
     return bool(
-        re.match(r"^\s*\d*\s*(?:[a-z]{3,9}\s+\d{1,2},\s+\d{4}\s+)?"
-        r"(?:amended\s+)?complaint\s+(?:against|filed|by|with)\b", text)
+        re.match(
+            r"^\s*\d*\s*(?:[a-z]{3,9}\s+\d{1,2},\s+\d{4}\s+)?"
+            r"(?:amended\s+)?complaint\s+(?:against|filed|by|with)\b",
+            text,
+        )
         or re.search(r"\bnotice\s+of\s+removal\s+from\b", text)
     )
 

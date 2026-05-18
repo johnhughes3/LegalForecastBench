@@ -82,11 +82,16 @@ Execution flags are intentionally explicit:
   into free-document requests, selecting only cases with a free operative
   complaint, target MTD document, and decision document. Use
   `--allow-inferred-target-mtd` only for pilot triage when target entry numbers
-  are missing or stale; the output records that weaker linkage mode.
+  are missing or stale; the output records that weaker linkage mode. Use
+  `--use-embedded-entries` only for audit/discovery runs when the screened JSONL
+  already contains CourtListener `selected_entries`; raw docket HTML remains the
+  preferred strict source because it usually preserves direct storage PDF links.
 - `download-free --execute` requires either `--fixture-documents` for offline
   fixtures or `--live-public-download` for HTTPS CourtListener/RECAP documents
-  that are already freely available. This stage must never call PACER or paid
-  case.dev purchase endpoints.
+  that are already freely available. CourtListener public docket-entry landing
+  pages may be resolved to free storage PDFs, but PACER/ECF purchase links are
+  still rejected. This stage must never call PACER or paid case.dev purchase
+  endpoints.
 - `purchase-missing --execute` additionally requires `--live-purchase` and
   `--acknowledge-pacer-fees`.
 - `plan-parse-documents --execute` derives parser request rows from the
