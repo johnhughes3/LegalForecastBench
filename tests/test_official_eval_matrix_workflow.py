@@ -3,12 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKFLOW = (ROOT / ".github/workflows/official-eval-matrix.yaml").read_text(
-    encoding="utf-8"
-)
+WORKFLOW = (ROOT / ".github/workflows/run-benchmark.yaml").read_text(encoding="utf-8")
 
 
 def test_official_eval_matrix_workflow_is_manual_and_protected() -> None:
+    assert WORKFLOW.startswith("name: Run Benchmark\n")
     assert "workflow_dispatch:" in WORKFLOW
     assert "pull_request:" not in WORKFLOW
     assert "environment: legalforecastbench-official-eval" in WORKFLOW
@@ -37,6 +36,7 @@ def test_official_eval_matrix_workflow_defaults_to_current_review_release() -> N
 
 
 def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
+    assert "run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}" in WORKFLOW
     assert "matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}" in WORKFLOW
     assert (
         "max-parallel: ${{ fromJSON(needs.build-matrix.outputs.max_parallel) }}"
@@ -53,11 +53,29 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
     assert "model_count: ${{ steps.matrix.outputs.model_count }}" in WORKFLOW
 
 
+def test_official_eval_matrix_workflow_preflights_live_provider_credentials() -> None:
+    assert "DRY_RUN_INPUT: ${{ inputs.dry_run }}" in WORKFLOW
+    assert "HAS_OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY != '' }}" in WORKFLOW
+    assert "HAS_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}" in WORKFLOW
+    assert "HAS_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY != '' }}" in WORKFLOW
+    assert 'if [[ "${DRY_RUN_INPUT}" != "true" ]]; then' in WORKFLOW
+    assert "missing_provider_values=()" in WORKFLOW
+    assert 'missing_provider_values+=("OPENAI_API_KEY")' in WORKFLOW
+    assert 'missing_provider_values+=("GEMINI_API_KEY")' in WORKFLOW
+    assert 'missing_provider_values+=("ANTHROPIC_API_KEY")' in WORKFLOW
+    assert 'missing_provider_values+=("LFB_ANTHROPIC_BEDROCK_MODEL_ID")' in WORKFLOW
+    assert (
+        "Non-dry-run official evaluation is missing provider credentials/settings:"
+        in WORKFLOW
+    )
+
+
 def test_official_eval_matrix_workflow_uses_oidc_only_in_protected_jobs() -> None:
     assert WORKFLOW.count("id-token: write") == 2
-    assert "LFB_GITHUB_PACKET_READ_ROLE_ARN" in WORKFLOW
+    assert "LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars." in WORKFLOW
+    assert "secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN" not in WORKFLOW
     assert (
-        "aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8"
+        "aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885"
         in WORKFLOW
     )
     assert "role-session-name: lfb-official-matrix-${{ github.run_id }}" in WORKFLOW
@@ -81,7 +99,7 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     )
     assert '--manifest "${run_input_manifest_for_cli}"' in WORKFLOW
     assert '--packet-store-root "s3://${LFB_PACKET_BUCKET}"' in WORKFLOW
-    assert '--results-store-root "s3://${LFB_RESULTS_BUCKET}"' in WORKFLOW
+    assert "--results-store-root" not in WORKFLOW
     assert '--case-id "${CASE_ID}"' in WORKFLOW
     assert '--ablation "${ABLATION}"' in WORKFLOW
     assert "--backend live" in WORKFLOW
@@ -107,7 +125,7 @@ def test_official_eval_matrix_workflow_has_dry_run_and_retention_controls() -> N
     assert "Dry run: would evaluate" in WORKFLOW
     assert "if: ${{ inputs.dry_run }}" in WORKFLOW
     assert "if: ${{ !inputs.dry_run }}" in WORKFLOW
-    assert "actions/upload-artifact@v4" in WORKFLOW
+    assert "actions/upload-artifact@v7" in WORKFLOW
     assert (
         "retention-days: ${{ "
         "fromJSON(needs.build-matrix.outputs.artifact_retention_days) }}" in WORKFLOW

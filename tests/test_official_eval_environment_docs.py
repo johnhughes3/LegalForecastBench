@@ -7,7 +7,7 @@ DOC = (ROOT / "docs/official_eval_environment.md").read_text(encoding="utf-8")
 WORKFLOW = (ROOT / ".github/workflows/official-s3-access-validation.yaml").read_text(
     encoding="utf-8"
 )
-MATRIX_WORKFLOW = (ROOT / ".github/workflows/official-eval-matrix.yaml").read_text(
+MATRIX_WORKFLOW = (ROOT / ".github/workflows/run-benchmark.yaml").read_text(
     encoding="utf-8"
 )
 DOCS_README = (ROOT / "docs/README.md").read_text(encoding="utf-8")
@@ -37,6 +37,7 @@ def test_official_eval_environment_matches_workflow_security_posture() -> None:
     assert "pull_request" not in WORKFLOW
     assert WORKFLOW.count("id-token: write") == 1
     assert "environment: legalforecastbench-official-eval" in WORKFLOW
+    assert "LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars." in WORKFLOW
     assert "role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}" in WORKFLOW
 
 
@@ -69,13 +70,15 @@ def test_official_eval_environment_documents_actions_artifact_guardrails() -> No
     assert "provider account IDs" in DOC
     assert "retention-days: ${{ fromJSON(" in MATRIX_WORKFLOW
     assert "path: tmp/official-eval/" in MATRIX_WORKFLOW
+    assert "--results-store-root" not in MATRIX_WORKFLOW
+    assert "They do not write directly to S3" in DOC
     assert "model-packet.json" not in MATRIX_WORKFLOW
 
 
 def test_official_eval_environment_documents_revocation_without_keys() -> None:
     normalized_doc = " ".join(DOC.split())
     assert "Rotation And Revocation" in DOC
-    assert "remove or replace `LFB_GITHUB_PACKET_READ_ROLE_ARN`" in DOC
+    assert "remove or replace variable `LFB_GITHUB_PACKET_READ_ROLE_ARN`" in DOC
     assert "private vault" in DOC
     assert "local credentials must not be used inside GitHub Actions" in normalized_doc
     assert "Official Evaluation Environment" in DOCS_README

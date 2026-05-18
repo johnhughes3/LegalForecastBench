@@ -106,9 +106,9 @@ def test_anthropic_solver_posts_messages_request_and_maps_content() -> None:
         "messages": [{"role": "user", "content": body["messages"][0]["content"]}],
         "max_tokens": 4096,
         "temperature": 0,
-        "top_p": 1,
         "tools": [],
     }
+    assert "top_p" not in body
     assert body["messages"][0]["content"].startswith(
         "Controlled docket tool transcript:"
     )

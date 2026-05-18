@@ -1,4 +1,4 @@
-name: Official Evaluation Matrix
+name: Run Benchmark
 
 on:
   workflow_dispatch:
@@ -58,12 +58,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: official-eval-matrix-${{ inputs.cycle_id }}-${{ github.ref }}
+  group: run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build-matrix:
-    name: Build official case matrix
+    name: Build benchmark matrix
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 20
     environment: legalforecastbench-official-eval
@@ -79,7 +79,7 @@ jobs:
       release_sha: ${{ steps.validate.outputs.release_sha }}
     env:
       AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
-      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
       MODEL_KEYS: ${{ inputs.model_keys }}
@@ -96,6 +96,12 @@ jobs:
         shell: bash
         env:
           ARTIFACT_RETENTION_DAYS_INPUT: ${{ inputs.artifact_retention_days }}
+          DRY_RUN_INPUT: ${{ inputs.dry_run }}
+          HAS_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          HAS_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY != '' }}
+          HAS_OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY != '' }}
+          LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
+          LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
           MAX_PARALLEL_INPUT: ${{ inputs.max_parallel }}
           RELEASE_SHA_INPUT: ${{ inputs.release_sha }}
         run: |
@@ -134,6 +140,46 @@ jobs:
             echo "model_keys must include at least one provider:model_id key." >&2
             exit 1
           fi
+          if [[ "${DRY_RUN_INPUT}" != "true" ]]; then
+            missing_provider_values=()
+            IFS=',' read -ra requested_provider_keys <<< "${MODEL_KEYS}"
+            for raw_key in "${requested_provider_keys[@]}"; do
+              key="${raw_key//[[:space:]]/}"
+              [[ -z "${key}" ]] && continue
+              case "${key}" in
+                openai:*)
+                  [[ "${HAS_OPENAI_API_KEY}" == "true" ]] || missing_provider_values+=("OPENAI_API_KEY")
+                  ;;
+                google:*|gemini:*)
+                  [[ "${HAS_GEMINI_API_KEY}" == "true" ]] || missing_provider_values+=("GEMINI_API_KEY")
+                  ;;
+                anthropic:*)
+                  case "${LFB_ANTHROPIC_RUNTIME:-}" in
+                    bedrock|aws-bedrock|aws_bedrock)
+                      [[ -n "${LFB_ANTHROPIC_BEDROCK_MODEL_ID:-}" ]] || missing_provider_values+=("LFB_ANTHROPIC_BEDROCK_MODEL_ID")
+                      ;;
+                    *)
+                      [[ "${HAS_ANTHROPIC_API_KEY}" == "true" ]] || missing_provider_values+=("ANTHROPIC_API_KEY")
+                      ;;
+                  esac
+                  ;;
+                *)
+                  echo "Unsupported model provider in model key: ${key}" >&2
+                  exit 1
+                  ;;
+              esac
+            done
+            if (( ${#missing_provider_values[@]} > 0 )); then
+              printf '%s\n' "${missing_provider_values[@]}" \
+                | sort -u \
+                | sed 's/^/  - /' \
+                | {
+                    echo "Non-dry-run official evaluation is missing provider credentials/settings:" >&2
+                    cat >&2
+                  }
+              exit 1
+            fi
+          fi
           if ! [[ "${MAX_PARALLEL_INPUT}" =~ ^[0-9]+$ ]] || (( MAX_PARALLEL_INPUT < 1 || MAX_PARALLEL_INPUT > 64 )); then
             echo "max_parallel must be an integer from 1 through 64." >&2
             exit 1
@@ -160,7 +206,7 @@ jobs:
 
       - name: Configure AWS OIDC credentials
         if: ${{ startsWith(inputs.run_input_manifest_uri, 's3://') || startsWith(inputs.run_input_manifest_uri, 'manifests/') || startsWith(inputs.model_registry_uri, 's3://') || startsWith(inputs.model_registry_uri, 'manifests/') }}
-        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: lfb-official-matrix-${{ github.run_id }}
@@ -313,7 +359,7 @@ jobs:
           PY
 
   run-case:
-    name: Evaluate ${{ matrix.case_id }} / ${{ matrix.ablation }} / ${{ matrix.model_key }}
+    name: Run ${{ matrix.case_id }} / ${{ matrix.ablation }} / ${{ matrix.model_key }}
     needs: build-matrix
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 45
@@ -327,7 +373,7 @@ jobs:
       matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}
     env:
       AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
-      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
       LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
       LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
@@ -354,13 +400,13 @@ jobs:
 
       - name: Install uv
         if: ${{ !inputs.dry_run }}
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
       - name: Configure AWS OIDC credentials
         if: ${{ !inputs.dry_run }}
-        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: lfb-official-case-${{ github.run_id }}-${{ strategy.job-index }}
@@ -416,7 +462,6 @@ jobs:
           uv run legalforecast eval run-case \
             --manifest "${run_input_manifest_for_cli}" \
             --packet-store-root "s3://${LFB_PACKET_BUCKET}" \
-            --results-store-root "s3://${LFB_RESULTS_BUCKET}" \
             --case-id "${CASE_ID}" \
             --ablation "${ABLATION}" \
             --output-dir "tmp/official-eval/${CASE_ID}/${ABLATION}/${MODEL_KEY_SLUG}" \
@@ -436,7 +481,7 @@ jobs:
 
       - name: Upload per-case artifacts
         if: ${{ !inputs.dry_run && always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: official-eval-${{ matrix.case_id }}-${{ matrix.ablation }}-${{ matrix.model_key_slug }}
           path: tmp/official-eval/${{ matrix.case_id }}/${{ matrix.ablation }}/${{ matrix.model_key_slug }}

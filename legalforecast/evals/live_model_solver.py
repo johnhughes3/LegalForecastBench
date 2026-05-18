@@ -342,9 +342,9 @@ def _anthropic_request(
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": entry.max_output_tokens,
         "temperature": entry.temperature,
-        "top_p": entry.top_p,
         "tools": [],
     }
+    # Current Claude Messages models reject requests with both sampling controls.
     return _json_request(
         ANTHROPIC_MESSAGES_URL,
         payload,

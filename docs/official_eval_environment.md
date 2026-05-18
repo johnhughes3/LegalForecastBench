@@ -24,7 +24,7 @@ it in GitHub with:
 - optional variable `LFB_ANTHROPIC_BEDROCK_MODEL_ID` for the exact Bedrock
   model ID when it differs from the registry model ID prefixed with
   `us.anthropic.`;
-- secret `LFB_GITHUB_PACKET_READ_ROLE_ARN`.
+- variable `LFB_GITHUB_PACKET_READ_ROLE_ARN`;
 - secrets `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY` for
   live registry-backed model calls. `ANTHROPIC_API_KEY` is not required for
   Anthropic rows when `LFB_ANTHROPIC_RUNTIME=bedrock`, but the AWS role must
@@ -41,7 +41,7 @@ results-writer role. Configure it only if COS deploys that role with
 The consumer-side validation entrypoint is
 `.github/workflows/official-s3-access-validation.yaml`.
 The official per-case matrix entrypoint is
-`.github/workflows/official-eval-matrix.yaml`.
+`.github/workflows/run-benchmark.yaml`.
 
 It is intentionally `workflow_dispatch` only. It has no `pull_request` trigger,
 checks `github.ref == 'refs/heads/main'`, resolves the requested `release_sha`
@@ -66,7 +66,7 @@ The packet-read role must not:
 - administer IAM, KMS, bucket policies, budgets, or account settings;
 - call acquisition services such as Case.dev, PACER, or CourtListener.
 
-The matrix workflow builds one case/model job per selected run-input manifest
+The `Run Benchmark` workflow builds one case/model job per selected run-input manifest
 row and frozen model-registry entry. Dispatch provides `model_registry_uri` and
 comma-separated `model_keys`; the workflow verifies those keys against the
 registry before it runs any case job. The per-case runner then uses
@@ -78,15 +78,19 @@ The workflow uses `strategy.fail-fast: false`, bounds concurrency through the
 `max_parallel` dispatch input, and fails before dispatch if the case/model
 matrix would exceed GitHub's 256-job limit. Its dry-run mode validates dispatch
 inputs and matrix construction without fetching model packets or uploading
-outputs.
+outputs. For non-dry-run dispatches, the protected matrix-build job also checks
+that each selected provider family has the required live credential or Bedrock
+runtime setting before it fans out per-case jobs.
 
-Per-case Actions artifacts are limited to the isolated runner output directory:
-`runs.jsonl`, `accounting.jsonl`, `metrics.json`, and `runner-log.jsonl`.
-The workflow must not upload model packets, raw PDFs, source documents,
-extracted filing text, audit bundles, hidden files, provider account IDs, or
-secrets as Actions artifacts. The `artifact_retention_days` dispatch input is
-validated to 1 through 90 days and is passed directly to
-`actions/upload-artifact`.
+Per-case jobs use the packet-read role only. They do not write directly to S3;
+maintainers download the isolated runner output artifacts and publish aggregate
+results through the separate COS artifact-operator path. Per-case Actions
+artifacts are limited to the isolated runner output directory: `runs.jsonl`,
+`accounting.jsonl`, `metrics.json`, and `runner-log.jsonl`. The workflow must
+not upload model packets, raw PDFs, source documents, extracted filing text,
+audit bundles, hidden files, provider account IDs, or secrets as Actions
+artifacts. The `artifact_retention_days` dispatch input is validated to
+1 through 90 days and is passed directly to `actions/upload-artifact`.
 
 Before a public release, run the publication guardrail scanner against the
 assembled public bundle and downloaded logs/artifacts:
@@ -112,7 +116,7 @@ for how official runs consume frozen packet manifests.
 
 If packet access must be rotated or revoked:
 
-1. remove or replace `LFB_GITHUB_PACKET_READ_ROLE_ARN` in the
+1. remove or replace variable `LFB_GITHUB_PACKET_READ_ROLE_ARN` in the
    `legalforecastbench-official-eval` environment;
 2. update the COS artifact stack trust policy or deploy a replacement role;
 3. re-run the protected COS deploy workflow and the LFB S3 access validation

@@ -22,9 +22,9 @@ def test_official_s3_workflow_scopes_oidc_to_the_protected_job() -> None:
     assert WORKFLOW.count("id-token: write") == 1
     assert "permissions:\n  contents: read" in WORKFLOW
     assert "role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}" in WORKFLOW
-    assert "LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ secrets." in WORKFLOW
+    assert "LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars." in WORKFLOW
     assert (
-        "aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8"
+        "aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885"
     ) in WORKFLOW
     assert "AWS_ACCESS_KEY_ID" not in WORKFLOW
     assert "AWS_SECRET_ACCESS_KEY" not in WORKFLOW
