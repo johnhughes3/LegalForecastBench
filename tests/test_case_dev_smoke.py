@@ -15,11 +15,22 @@ from legalforecast.ingestion.case_dev_client import (
 from legalforecast.ingestion.case_dev_config import CaseDevConfig
 from legalforecast.ingestion.case_dev_smoke import (
     CaseDevSmokeConfig,
+    case_dev_smoke_query_terms,
     render_case_dev_smoke_markdown,
     run_case_dev_smoke,
 )
 
 JsonRecord = dict[str, Any]
+
+
+def test_case_dev_smoke_defaults_to_optimized_decision_terms() -> None:
+    config = CaseDevSmokeConfig()
+
+    assert config.query_terms == case_dev_smoke_query_terms()
+    assert config.query_terms[0] == "order on motion to dismiss"
+    assert "order granting motion to dismiss" in config.query_terms
+    assert "motion to dismiss" not in config.query_terms
+    assert "Rule 12" not in config.query_terms
 
 
 def test_case_dev_smoke_runner_summarizes_fixture_results() -> None:
@@ -247,8 +258,6 @@ def test_case_dev_smoke_cli_dry_run_needs_no_credentials(tmp_path: Path) -> None
                 "--output",
                 str(output_path),
                 "--dry-run",
-                "--query-term",
-                "motion to dismiss",
                 "--date-window-start",
                 "2026-01-01",
                 "--date-window-end",
@@ -260,7 +269,8 @@ def test_case_dev_smoke_cli_dry_run_needs_no_credentials(tmp_path: Path) -> None
 
     report = output_path.read_text(encoding="utf-8")
     assert "- Dry run: yes" in report
-    assert "| motion to dismiss | 0 | 0 |" in report
+    assert "| order on motion to dismiss | 0 | 0 |" in report
+    assert "| motion to dismiss | 0 | 0 |" not in report
     assert "- case.dev request count: 0" in report
     assert "run with a fixture or CASE_DEV_API_KEY" in report
 

@@ -1,17 +1,22 @@
 from __future__ import annotations
 
 import hashlib
+from email.message import Message
+from pathlib import Path
+from typing import Any
 
 import pytest
 from legalforecast.ingestion.free_document_downloader import (
     FixtureFreeDocumentSource,
+    FreeDocumentDownloadError,
     FreeDocumentDownloadRequest,
+    UrlLibFreeDocumentSource,
     download_free_docket_documents,
 )
 from legalforecast.ingestion.provenance import DocumentRole
 
 
-def test_downloads_free_courtlistener_documents_to_safe_paths(tmp_path) -> None:
+def test_downloads_free_courtlistener_documents_to_safe_paths(tmp_path: Path) -> None:
     source = FixtureFreeDocumentSource(
         {
             "https://www.courtlistener.com/recap/doc-1.pdf": b"complaint pdf",
@@ -53,7 +58,7 @@ def test_downloads_free_courtlistener_documents_to_safe_paths(tmp_path) -> None:
     )
 
 
-def test_downloader_resumes_existing_documents_without_refetch(tmp_path) -> None:
+def test_downloader_resumes_existing_documents_without_refetch(tmp_path: Path) -> None:
     source = FixtureFreeDocumentSource(
         {"https://www.courtlistener.com/recap/doc-1.pdf": b"complaint pdf"}
     )
@@ -78,7 +83,58 @@ def test_downloader_resumes_existing_documents_without_refetch(tmp_path) -> None
     assert source.requested_urls == ("https://www.courtlistener.com/recap/doc-1.pdf",)
 
 
-def test_downloader_rejects_path_traversal_ids(tmp_path) -> None:
+def test_downloader_accepts_courtlistener_storage_pdf_urls(tmp_path: Path) -> None:
+    source = FixtureFreeDocumentSource(
+        {"https://storage.courtlistener.com/recap/doc-1.pdf": b"%PDF complaint"}
+    )
+
+    records = download_free_docket_documents(
+        (
+            _request(
+                "doc-1",
+                docket_entry_number=1,
+                role=DocumentRole.COMPLAINT,
+                url="https://storage.courtlistener.com/recap/doc-1.pdf",
+            ),
+        ),
+        output_root=tmp_path,
+        source=source,
+    )
+
+    assert records[0].byte_count == len(b"%PDF complaint")
+
+
+def test_live_source_rejects_html_landing_pages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Response:
+        status = 200
+        headers = Message()
+
+        def __enter__(self) -> _Response:
+            self.headers["Content-Type"] = "text/html"
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def geturl(self) -> str:
+            return "https://www.courtlistener.com/docket/1/5/example/"
+
+        def read(self) -> bytes:
+            return b"<html>not a pdf</html>"
+
+    def _urlopen(*_args: Any, **_kwargs: Any) -> _Response:
+        return _Response()
+
+    monkeypatch.setattr("urllib.request.urlopen", _urlopen)
+
+    source = UrlLibFreeDocumentSource(max_retries=0)
+    with pytest.raises(FreeDocumentDownloadError, match="returned HTML"):
+        source.fetch("https://www.courtlistener.com/docket/1/5/example/")
+
+
+def test_downloader_rejects_path_traversal_ids(tmp_path: Path) -> None:
     source = FixtureFreeDocumentSource(
         {"https://www.courtlistener.com/recap/doc-1.pdf": b"complaint pdf"}
     )

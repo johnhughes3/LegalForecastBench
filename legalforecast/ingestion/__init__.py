@@ -36,6 +36,7 @@ from legalforecast.ingestion.case_dev_smoke import (
     CaseDevSmokeConfig,
     CaseDevSmokeQuerySummary,
     CaseDevSmokeResult,
+    case_dev_smoke_query_terms,
     plan_case_dev_smoke,
     render_case_dev_smoke_markdown,
     run_case_dev_smoke,
@@ -89,6 +90,7 @@ from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentDownloadRequest,
     FreeDocumentFetch,
     FreeDocumentSource,
+    UrlLibFreeDocumentSource,
     download_free_docket_documents,
 )
 from legalforecast.ingestion.missing_core_budget import (
@@ -148,6 +150,12 @@ from legalforecast.ingestion.provenance import (
     RedactionOrSealStatus,
     SourceDocumentProvenance,
     sha256_text,
+)
+from legalforecast.ingestion.public_packet_planner import (
+    PublicPacketCandidatePlan,
+    PublicPacketDocumentPlan,
+    PublicPacketDownloadPlan,
+    plan_public_packet_downloads,
 )
 from legalforecast.ingestion.purchased_document_recovery import (
     PurchasedDocumentRecoveryRecord,
@@ -254,6 +262,9 @@ __all__ = [
     "ParsedMarkdownDocument",
     "ParserProcessResult",
     "ParserRunner",
+    "PublicPacketCandidatePlan",
+    "PublicPacketDocumentPlan",
+    "PublicPacketDownloadPlan",
     "PurchaseBudgetExceededError",
     "PurchasedDocumentRecoveryRecord",
     "PurchasedDocumentRecoveryRequest",
@@ -277,8 +288,10 @@ __all__ = [
     "SourceDocumentProvenance",
     "SubprocessParserRunner",
     "TargetYieldEstimate",
+    "UrlLibFreeDocumentSource",
     "assemble_model_packet",
     "build_target_yield_estimate",
+    "case_dev_smoke_query_terms",
     "contract_for_setup_runner_label",
     "convert_documents_to_markdown",
     "courtlistener_case_name_slug",
@@ -293,6 +306,7 @@ __all__ = [
     "parsed_markdown_documents_from_conversion_records",
     "plan_case_dev_smoke",
     "plan_missing_core_document_budget",
+    "plan_public_packet_downloads",
     "rank_cheapest_complete_candidates",
     "read_case_relevance_jsonl",
     "recover_purchased_documents",

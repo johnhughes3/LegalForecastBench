@@ -19,6 +19,8 @@ it in GitHub with:
 - variable `LFB_MODEL_PACKET_PREFIX` set to `model-packets/`;
 - variable `LFB_RESULTS_MANIFEST_PREFIX` set to `manifests/`;
 - secret `LFB_GITHUB_PACKET_READ_ROLE_ARN`.
+- secrets `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY` for
+  live registry-backed model calls.
 
 `legalforecastbench-official-results` is reserved for the optional append-only
 results-writer role. Configure it only if COS deploys that role with
@@ -53,11 +55,19 @@ The packet-read role must not:
 - administer IAM, KMS, bucket policies, budgets, or account settings;
 - call acquisition services such as Case.dev, PACER, or CourtListener.
 
-The matrix workflow builds one case job per run-input manifest row for the
-selected ablation, uses `strategy.fail-fast: false`, bounds concurrency through
-the `max_parallel` dispatch input, and fails before dispatch if the matrix would
-exceed GitHub's 256-job limit. Its dry-run mode validates dispatch inputs and
-matrix construction without fetching model packets or uploading outputs.
+The matrix workflow builds one case/model job per selected run-input manifest
+row and frozen model-registry entry. Dispatch provides `model_registry_uri` and
+comma-separated `model_keys`; the workflow verifies those keys against the
+registry before it runs any case job. The per-case runner then uses
+`--backend live`, `--model-registry`, and `--model-key` so model identity,
+pricing, cutoff, tool policy, and provider selection come from the registry
+instead of free-form dispatch text.
+
+The workflow uses `strategy.fail-fast: false`, bounds concurrency through the
+`max_parallel` dispatch input, and fails before dispatch if the case/model
+matrix would exceed GitHub's 256-job limit. Its dry-run mode validates dispatch
+inputs and matrix construction without fetching model packets or uploading
+outputs.
 
 Per-case Actions artifacts are limited to the isolated runner output directory:
 `runs.jsonl`, `accounting.jsonl`, `metrics.json`, and `runner-log.jsonl`.

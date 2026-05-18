@@ -26,15 +26,15 @@ on:
           - briefs_only_redacted
           - judge_removed
           - no_briefs
-      solver_id:
-        description: Model/provider/run-condition identifier recorded by the runner.
+      model_registry_uri:
+        description: Frozen model registry s3:// URI, manifests/ key, or checked-out JSON path.
         required: true
-        default: offline:fixture
+        default: model_registries/pilot-2026-04-24_to_2026-05-18.json
         type: string
-      mock_output:
-        description: Offline runner output JSON until live model adapters are enabled.
+      model_keys:
+        description: Comma-separated registry keys in provider:model_id form.
         required: true
-        default: '{"case_assessment":"dry official fixture","predictions":[]}'
+        default: google:gemini-3-flash-preview,openai:gpt-5.4-mini,anthropic:claude-sonnet-4-6
         type: string
       max_parallel:
         description: Maximum concurrent case jobs.
@@ -73,12 +73,15 @@ jobs:
       case_count: ${{ steps.matrix.outputs.case_count }}
       matrix: ${{ steps.matrix.outputs.matrix }}
       max_parallel: ${{ steps.validate.outputs.max_parallel }}
+      model_count: ${{ steps.matrix.outputs.model_count }}
       release_sha: ${{ steps.validate.outputs.release_sha }}
     env:
       AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
       LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+      MODEL_KEYS: ${{ inputs.model_keys }}
+      MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
       RUN_INPUT_MANIFEST_URI: ${{ inputs.run_input_manifest_uri }}
     steps:
       - name: Checkout
@@ -106,12 +109,29 @@ jobs:
               exit 1
               ;;
           esac
+          case "${MODEL_REGISTRY_URI}" in
+            s3://*|manifests/*|model_registries/*.json|./*|/*|[A-Za-z0-9._/-]*.json) ;;
+            *)
+              echo "model_registry_uri must be s3://, manifests/, model_registries/, or a JSON file path." >&2
+              exit 1
+              ;;
+          esac
           case "${RUN_INPUT_MANIFEST_URI}" in
             source-documents/*|extracted-text/*|audit-bundles/*|withdrawn/*|quarantine/*)
               echo "run_input_manifest_uri must not point at private packet prefixes." >&2
               exit 1
               ;;
           esac
+          case "${MODEL_REGISTRY_URI}" in
+            source-documents/*|extracted-text/*|audit-bundles/*|withdrawn/*|quarantine/*)
+              echo "model_registry_uri must not point at private packet prefixes." >&2
+              exit 1
+              ;;
+          esac
+          if [[ -z "${MODEL_KEYS//[[:space:]]/}" ]]; then
+            echo "model_keys must include at least one provider:model_id key." >&2
+            exit 1
+          fi
           if ! [[ "${MAX_PARALLEL_INPUT}" =~ ^[0-9]+$ ]] || (( MAX_PARALLEL_INPUT < 1 || MAX_PARALLEL_INPUT > 64 )); then
             echo "max_parallel must be an integer from 1 through 64." >&2
             exit 1
@@ -137,7 +157,7 @@ jobs:
           } >> "${GITHUB_OUTPUT}"
 
       - name: Configure AWS OIDC credentials
-        if: ${{ startsWith(inputs.run_input_manifest_uri, 's3://') || startsWith(inputs.run_input_manifest_uri, 'manifests/') }}
+        if: ${{ startsWith(inputs.run_input_manifest_uri, 's3://') || startsWith(inputs.run_input_manifest_uri, 'manifests/') || startsWith(inputs.model_registry_uri, 's3://') || startsWith(inputs.model_registry_uri, 'manifests/') }}
         uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -164,6 +184,26 @@ jobs:
               ;;
           esac
 
+      - name: Download frozen model registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${MODEL_REGISTRY_URI}" in
+            s3://*)
+              aws s3 cp "${MODEL_REGISTRY_URI}" /tmp/lfb-model-registry.json --only-show-errors
+              ;;
+            manifests/*)
+              if [[ -z "${LFB_RESULTS_BUCKET:-}" ]]; then
+                echo "LFB_RESULTS_BUCKET is required for manifests/ registry inputs." >&2
+                exit 1
+              fi
+              aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${MODEL_REGISTRY_URI}" /tmp/lfb-model-registry.json --only-show-errors
+              ;;
+            *)
+              cp "${MODEL_REGISTRY_URI}" /tmp/lfb-model-registry.json
+              ;;
+          esac
+
       - name: Build matrix JSON
         id: matrix
         shell: bash
@@ -171,24 +211,63 @@ jobs:
           ABLATION: ${{ inputs.ablation }}
           CYCLE_ID: ${{ inputs.cycle_id }}
           MATRIX_LIMIT: "256"
+          MODEL_KEYS: ${{ inputs.model_keys }}
+          MODEL_REGISTRY_PATH: /tmp/lfb-model-registry.json
           RUN_INPUT_MANIFEST_PATH: /tmp/lfb-run-inputs.json
         run: |
           set -euo pipefail
           python - <<'PY'
           import json
           import os
+          import re
           import sys
 
           with open(os.environ["RUN_INPUT_MANIFEST_PATH"], encoding="utf-8") as handle:
               manifest = json.load(handle)
+          with open(os.environ["MODEL_REGISTRY_PATH"], encoding="utf-8") as handle:
+              registry_records = json.load(handle)
           if manifest.get("cycle_id") != os.environ["CYCLE_ID"]:
               raise SystemExit("run-input manifest cycle_id does not match dispatch input")
           packets = manifest.get("model_packets")
           if not isinstance(packets, list):
               raise SystemExit("run-input manifest must contain model_packets list")
+          if not isinstance(registry_records, list):
+              raise SystemExit("model registry must contain a JSON array")
+
+          registry_keys = set()
+          for record in registry_records:
+              if not isinstance(record, dict):
+                  raise SystemExit("model registry entries must be objects")
+              provider = record.get("provider")
+              model_id = record.get("model_id")
+              if not isinstance(provider, str) or not isinstance(model_id, str):
+                  raise SystemExit("model registry entries require provider and model_id")
+              registry_keys.add(f"{provider}:{model_id}")
+
+          requested_model_keys = [
+              key.strip()
+              for key in os.environ["MODEL_KEYS"].split(",")
+              if key.strip()
+          ]
+          if not requested_model_keys:
+              raise SystemExit("model_keys must include at least one provider:model_id key")
+          duplicate_model_keys = sorted(
+              {
+                  key
+                  for key in requested_model_keys
+                  if requested_model_keys.count(key) > 1
+              }
+          )
+          if duplicate_model_keys:
+              raise SystemExit(f"duplicate model_keys: {duplicate_model_keys}")
+          missing_model_keys = [
+              key for key in requested_model_keys if key not in registry_keys
+          ]
+          if missing_model_keys:
+              raise SystemExit(f"model_keys missing from registry: {missing_model_keys}")
 
           include = []
-          seen_case_ids = set()
+          seen_packet_rows = set()
           for packet in packets:
               if not isinstance(packet, dict):
                   raise SystemExit("model_packets entries must be objects")
@@ -196,21 +275,29 @@ jobs:
               if ablation != os.environ["ABLATION"]:
                   continue
               case_id = packet.get("case_id")
-              packet_object_key = packet.get("packet_object_key")
+              packet_object_key = (
+                  packet.get("packet_object_key")
+                  or packet.get("object_key")
+                  or packet.get("key")
+              )
               if not isinstance(case_id, str) or not case_id:
                   raise SystemExit("each matrix row requires case_id")
-              if case_id in seen_case_ids:
-                  raise SystemExit(f"duplicate case_id for ablation: {case_id}")
+              packet_row_key = (case_id, ablation)
+              if packet_row_key in seen_packet_rows:
+                  raise SystemExit(f"duplicate packet row for ablation: {case_id}")
               if not isinstance(packet_object_key, str) or not packet_object_key.startswith("model-packets/"):
                   raise SystemExit("each matrix row requires model-packets/ packet_object_key")
-              seen_case_ids.add(case_id)
-              include.append(
-                  {
-                      "case_id": case_id,
-                      "ablation": ablation,
-                      "packet_object_key": packet_object_key,
-                  }
-              )
+              seen_packet_rows.add(packet_row_key)
+              for model_key in requested_model_keys:
+                  include.append(
+                      {
+                          "case_id": case_id,
+                          "ablation": ablation,
+                          "packet_object_key": packet_object_key,
+                          "model_key": model_key,
+                          "model_key_slug": re.sub(r"[^A-Za-z0-9._-]+", "-", model_key).strip("-"),
+                      }
+                  )
 
           limit = int(os.environ["MATRIX_LIMIT"])
           if not include:
@@ -219,11 +306,12 @@ jobs:
               raise SystemExit(f"matrix has {len(include)} rows; GitHub limit is {limit}")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"matrix={json.dumps({'include': include}, separators=(',', ':'))}\n")
-              output.write(f"case_count={len(include)}\n")
+              output.write(f"case_count={len(seen_packet_rows)}\n")
+              output.write(f"model_count={len(requested_model_keys)}\n")
           PY
 
   run-case:
-    name: Evaluate ${{ matrix.case_id }} / ${{ matrix.ablation }}
+    name: Evaluate ${{ matrix.case_id }} / ${{ matrix.ablation }} / ${{ matrix.model_key }}
     needs: build-matrix
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 45
@@ -240,6 +328,7 @@ jobs:
       LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       LFB_PACKET_BUCKET: ${{ vars.LFB_PACKET_BUCKET }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+      MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
       RUN_INPUT_MANIFEST_URI: ${{ inputs.run_input_manifest_uri }}
     steps:
       - name: Checkout trusted release
@@ -252,10 +341,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Dry run: would evaluate ${CASE_ID} with ${ABLATION} from ${PACKET_OBJECT_KEY}."
+          echo "Dry run: would evaluate ${CASE_ID} with ${ABLATION} using ${MODEL_KEY} from ${PACKET_OBJECT_KEY}."
         env:
           ABLATION: ${{ matrix.ablation }}
           CASE_ID: ${{ matrix.case_id }}
+          MODEL_KEY: ${{ matrix.model_key }}
           PACKET_OBJECT_KEY: ${{ matrix.packet_object_key }}
 
       - name: Install uv
@@ -278,7 +368,16 @@ jobs:
         run: |
           set -euo pipefail
           missing=()
-          required_env=(LFB_PACKET_BUCKET LFB_RESULTS_BUCKET RUN_INPUT_MANIFEST_URI)
+          required_env=(LFB_PACKET_BUCKET LFB_RESULTS_BUCKET RUN_INPUT_MANIFEST_URI MODEL_REGISTRY_URI MODEL_KEY)
+          case "${MODEL_KEY}" in
+            openai:*) required_env+=(OPENAI_API_KEY) ;;
+            anthropic:*) required_env+=(ANTHROPIC_API_KEY) ;;
+            google:*|gemini:*) required_env+=(GEMINI_API_KEY) ;;
+            *)
+              echo "Unsupported model provider in model key: ${MODEL_KEY}" >&2
+              exit 1
+              ;;
+          esac
           for name in "${required_env[@]}"; do
             if [[ -z "${!name:-}" ]]; then
               missing+=("${name}")
@@ -295,20 +394,24 @@ jobs:
             --results-store-root "s3://${LFB_RESULTS_BUCKET}" \
             --case-id "${CASE_ID}" \
             --ablation "${ABLATION}" \
-            --output-dir "tmp/official-eval/${CASE_ID}/${ABLATION}" \
-            --solver-id "${SOLVER_ID}" \
-            --mock-output "${MOCK_OUTPUT}"
+            --output-dir "tmp/official-eval/${CASE_ID}/${ABLATION}/${MODEL_KEY_SLUG}" \
+            --backend live \
+            --model-registry "${MODEL_REGISTRY_URI}" \
+            --model-key "${MODEL_KEY}"
         env:
           ABLATION: ${{ matrix.ablation }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CASE_ID: ${{ matrix.case_id }}
-          MOCK_OUTPUT: ${{ inputs.mock_output }}
-          SOLVER_ID: ${{ inputs.solver_id }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MODEL_KEY: ${{ matrix.model_key }}
+          MODEL_KEY_SLUG: ${{ matrix.model_key_slug }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
       - name: Upload per-case artifacts
         if: ${{ !inputs.dry_run && always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: official-eval-${{ matrix.case_id }}-${{ matrix.ablation }}
-          path: tmp/official-eval/${{ matrix.case_id }}/${{ matrix.ablation }}
+          name: official-eval-${{ matrix.case_id }}-${{ matrix.ablation }}-${{ matrix.model_key_slug }}
+          path: tmp/official-eval/${{ matrix.case_id }}/${{ matrix.ablation }}/${{ matrix.model_key_slug }}
           if-no-files-found: warn
           retention-days: ${{ fromJSON(needs.build-matrix.outputs.artifact_retention_days) }}

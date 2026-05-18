@@ -46,6 +46,9 @@ def test_official_aggregate_writes_public_bundle_and_private_debug(
 
     assert result.expected_case_count == 1
     assert result.aggregated_case_count == 1
+    assert result.expected_matrix_row_count == 1
+    assert result.aggregated_matrix_row_count == 1
+    assert result.model_count == 1
     assert result.artifact_manifest_path.is_file()
     assert result.cycle_power_path.is_file()
     assert result.leaderboard_path.is_file()
@@ -71,6 +74,7 @@ def test_official_aggregate_writes_public_bundle_and_private_debug(
     run_card = json.loads(result.run_card_path.read_text(encoding="utf-8"))
     assert run_card["ablation_filter"] == "full_packet"
     assert run_card["expected_matrix_rows"] == 1
+    assert run_card["model_keys"] == []
     assert run_card["cycle_power"]["claim_strength"] == "feasibility_only"
     assert run_card["cycle_power"]["strong_ranking_claim_allowed"] is False
     assert "runs.jsonl" in run_card["private_debug_outputs"]
@@ -143,6 +147,65 @@ def test_official_aggregate_cli_writes_summary(
     assert Path(summary["leaderboard"]).is_file()
     assert summary["expected_case_count"] == 1
     assert summary["aggregated_case_count"] == 1
+    assert summary["expected_matrix_row_count"] == 1
+    assert summary["aggregated_matrix_row_count"] == 1
+    assert summary["model_count"] == 1
+
+
+def test_official_aggregate_accepts_explicit_multi_model_matrix(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(tmp_path)
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-full_packet-model-a",
+        solver_id="fixture:model-a",
+        model_id="model-a",
+        dismissed_probability=0.9,
+        estimated_cost=0.02,
+    )
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-full_packet-model-b",
+        solver_id="fixture:model-b",
+        model_id="model-b",
+        dismissed_probability=0.6,
+        estimated_cost=0.04,
+    )
+
+    result = aggregate_official_results(
+        OfficialAggregationConfig(
+            per_case_dir=per_case_dir,
+            run_input_manifest_path=manifest_path,
+            labels_path=labels_path,
+            output_dir=tmp_path / "official-bundle",
+            cycle_id="cycle-1",
+            cycle_series=CycleSeries.PILOT,
+            clean_motion_count=25,
+            prediction_unit_count=1,
+            model_keys=("fixture:model-a", "fixture:model-b"),
+            ablation="full_packet",
+            generated_at=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
+        )
+    )
+
+    assert result.expected_case_count == 1
+    assert result.aggregated_case_count == 1
+    assert result.expected_matrix_row_count == 2
+    assert result.aggregated_matrix_row_count == 2
+    assert result.model_count == 2
+
+    leaderboard = json.loads(result.leaderboard_path.read_text(encoding="utf-8"))
+    rows_by_model = {row["model_id"]: row for row in leaderboard["rows"]}
+    assert set(rows_by_model) == {"model-a", "model-b"}
+    assert math.isclose(rows_by_model["model-a"]["cost_per_case"], 0.02)
+    assert math.isclose(rows_by_model["model-b"]["cost_per_case"], 0.04)
+
+    run_card = json.loads(result.run_card_path.read_text(encoding="utf-8"))
+    assert run_card["expected_matrix_rows"] == 2
+    assert run_card["model_keys"] == ["fixture:model-a", "fixture:model-b"]
 
 
 def test_official_aggregate_fails_on_missing_case_output(tmp_path: Path) -> None:
@@ -221,15 +284,23 @@ def _write_labels(tmp_path: Path) -> Path:
     return labels_path
 
 
-def _write_case_artifacts(per_case_dir: Path) -> Path:
-    case_dir = per_case_dir / "official-eval-case-1-full_packet"
+def _write_case_artifacts(
+    per_case_dir: Path,
+    *,
+    case_dir_name: str = "official-eval-case-1-full_packet",
+    solver_id: str = "fixture:solver",
+    model_id: str = "fixture-model",
+    dismissed_probability: float = 0.9,
+    estimated_cost: float = 0.02,
+) -> Path:
+    case_dir = per_case_dir / case_dir_name
     raw_output = json.dumps(
         {
             "case_assessment": "Fixture.",
             "predictions": [
                 {
                     "unit_id": "unit-dismissed",
-                    "probability_fully_dismissed": 0.9,
+                    "probability_fully_dismissed": dismissed_probability,
                 },
                 {
                     "unit_id": "unit-survives",
@@ -245,9 +316,9 @@ def _write_case_artifacts(per_case_dir: Path) -> Path:
         "case_id": "case-1",
         "related_family_id": None,
         "mdl_family_id": None,
-        "solver_id": "fixture:solver",
+        "solver_id": solver_id,
         "solver_kind": "offline_fixture",
-        "model_id": "fixture-model",
+        "model_id": model_id,
         "run_label": "full_packet",
         "ablation": "full_packet",
         "raw_output": raw_output,
@@ -257,7 +328,7 @@ def _write_case_artifacts(per_case_dir: Path) -> Path:
         "input_tokens": 100,
         "output_tokens": 25,
         "estimated_total_tokens": 125,
-        "estimated_cost": 0.02,
+        "estimated_cost": estimated_cost,
         "tool_call_logs": [],
         "metadata": {},
         "execution_backend": "local_fixture",
@@ -266,10 +337,10 @@ def _write_case_artifacts(per_case_dir: Path) -> Path:
         sample_id="sample-1",
         candidate_id="candidate-1",
         case_id="case-1",
-        solver_id="fixture:solver",
+        solver_id=solver_id,
         solver_kind="offline_fixture",
         provider="fixture",
-        model_id="fixture-model",
+        model_id=model_id,
         model_version_or_snapshot="2026-05-17",
         evaluation_timestamp=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
         raw_output_sha256=raw_output_sha256,
@@ -282,9 +353,9 @@ def _write_case_artifacts(per_case_dir: Path) -> Path:
         allowed_tool_call_count=0,
         denied_tool_call_count=0,
         latency_ms=250.0,
-        estimated_cost=0.02,
-        cost_per_case=0.02,
-        cost_per_prediction_unit=0.01,
+        estimated_cost=estimated_cost,
+        cost_per_case=estimated_cost,
+        cost_per_prediction_unit=estimated_cost / 2,
         invalid_output=False,
         refusal=False,
         content_filter=False,
@@ -303,7 +374,8 @@ def _write_case_artifacts(per_case_dir: Path) -> Path:
             "cycle_id": "cycle-1",
             "case_id": "case-1",
             "ablation": "full_packet",
-            "solver_id": "fixture:solver",
+            "solver_id": solver_id,
+            "model_key": solver_id,
             "evaluation_timestamp": "2026-05-17T12:00:00Z",
             "packet_object_key": "model-packets/cycle-1/case-1/full_packet.json",
             "packet_sha256": "a" * 64,

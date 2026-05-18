@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import time
+import urllib.error
 import urllib.parse
+import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,7 +15,14 @@ from typing import Protocol
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.path_safety import safe_path_component
 
-_ALLOWED_DOCUMENT_HOSTS = frozenset({"www.courtlistener.com"})
+_ALLOWED_DOCUMENT_HOSTS = frozenset(
+    {"www.courtlistener.com", "storage.courtlistener.com"}
+)
+_RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+_DEFAULT_USER_AGENT = (
+    "LegalForecastBench/0.1 "
+    "(public CourtListener/RECAP free-document retrieval; no PACER purchase)"
+)
 
 
 class FreeDocumentDownloadError(RuntimeError):
@@ -56,6 +66,82 @@ class FixtureFreeDocumentSource:
 
 
 @dataclass(frozen=True, slots=True)
+class UrlLibFreeDocumentSource:
+    """Explicit live source for free public CourtListener/RECAP documents."""
+
+    timeout_seconds: float = 60.0
+    max_retries: int = 2
+    retry_backoff_seconds: float = 1.0
+    user_agent: str = _DEFAULT_USER_AGENT
+
+    def fetch(self, source_url: str) -> FreeDocumentFetch:
+        _validate_public_document_url(source_url)
+        retry_count = 0
+        rate_limited = False
+        last_error: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            if attempt > 0:
+                retry_count += 1
+                time.sleep(self.retry_backoff_seconds * attempt)
+            try:
+                return self._fetch_once(
+                    source_url,
+                    retry_count=retry_count,
+                    rate_limited=rate_limited,
+                )
+            except urllib.error.HTTPError as exc:
+                last_error = exc
+                if exc.code == 429:
+                    rate_limited = True
+                if (
+                    exc.code not in _RETRYABLE_STATUS_CODES
+                    or attempt >= self.max_retries
+                ):
+                    break
+            except (TimeoutError, urllib.error.URLError) as exc:
+                last_error = exc
+                if attempt >= self.max_retries:
+                    break
+        raise FreeDocumentDownloadError(
+            f"failed to download free public document {source_url}: {last_error}"
+        ) from last_error
+
+    def _fetch_once(
+        self,
+        source_url: str,
+        *,
+        retry_count: int,
+        rate_limited: bool,
+    ) -> FreeDocumentFetch:
+        request = urllib.request.Request(
+            source_url,
+            headers={
+                "Accept": "application/pdf,application/octet-stream;q=0.9,*/*;q=0.1",
+                "User-Agent": self.user_agent,
+            },
+        )
+        # URL host is allowlisted above; urllib follows CourtListener redirects.
+        with urllib.request.urlopen(  # nosec B310
+            request,
+            timeout=self.timeout_seconds,
+        ) as response:
+            final_url = response.geturl()
+            _validate_public_document_url(final_url)
+            content = response.read()
+            content_type = response.headers.get_content_type().lower()
+        _validate_public_document_content(
+            source_url=source_url,
+            content=content,
+            content_type=content_type,
+        )
+        return FreeDocumentFetch(
+            content=content,
+            retry_count=retry_count,
+            rate_limited=rate_limited,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class FreeDocumentDownloadRequest:
     """One free public document that should be present in the local store."""
 
@@ -66,6 +152,17 @@ class FreeDocumentDownloadRequest:
     document_role: DocumentRole
     source_url: str
     file_extension: str = "pdf"
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "candidate_id": self.candidate_id,
+            "source_provider": self.source_provider,
+            "source_document_id": self.source_document_id,
+            "docket_entry_number": self.docket_entry_number,
+            "document_role": self.document_role.value,
+            "source_url": self.source_url,
+            "file_extension": self.file_extension,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -240,5 +337,49 @@ def _document_output_path(
 
 def _validate_public_document_url(source_url: str) -> None:
     parsed = urllib.parse.urlparse(source_url)
-    if parsed.scheme != "https" or parsed.hostname not in _ALLOWED_DOCUMENT_HOSTS:
-        raise ValueError("source_url must be an HTTPS CourtListener document URL")
+    hostname = parsed.hostname.lower() if parsed.hostname is not None else None
+    if parsed.scheme != "https" or hostname not in _ALLOWED_DOCUMENT_HOSTS:
+        allowed = ", ".join(sorted(_ALLOWED_DOCUMENT_HOSTS))
+        raise ValueError(
+            "source_url must be an HTTPS CourtListener document URL "
+            f"hosted on one of: {allowed}"
+        )
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("source_url must not include credentials")
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("source_url port must be valid") from exc
+    if port not in {None, 443}:
+        raise ValueError("source_url must not specify a non-default port")
+
+
+def _validate_public_document_content(
+    *,
+    source_url: str,
+    content: bytes,
+    content_type: str,
+) -> None:
+    if not content:
+        raise FreeDocumentDownloadError(f"free public document was empty: {source_url}")
+    prefix = content[:512].lstrip().lower()
+    if prefix.startswith((b"<!doctype html", b"<html")):
+        raise FreeDocumentDownloadError(
+            "free public document URL returned HTML instead of a document: "
+            f"{source_url}"
+        )
+    if content.lstrip().startswith(b"%PDF"):
+        return
+    if "pdf" in content_type:
+        return
+    parsed = urllib.parse.urlparse(source_url)
+    if parsed.path.lower().endswith(".pdf") and content_type in {
+        "",
+        "application/octet-stream",
+        "binary/octet-stream",
+    }:
+        return
+    raise FreeDocumentDownloadError(
+        "free public document response did not look like a PDF "
+        f"(content-type={content_type or 'unknown'}): {source_url}"
+    )

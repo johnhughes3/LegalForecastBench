@@ -23,6 +23,9 @@ def test_official_eval_environment_documents_protected_values() -> None:
         "LFB_RESULTS_BUCKET",
         "LFB_GITHUB_PACKET_READ_ROLE_ARN",
         "LFB_GITHUB_RESULTS_WRITE_ROLE_ARN",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "GEMINI_API_KEY",
     ):
         assert value in DOC
 
@@ -58,6 +61,10 @@ def test_official_eval_environment_documents_actions_artifact_guardrails() -> No
     assert "actions/upload-artifact" in DOC
     assert "runner-log.jsonl" in DOC
     assert "publication_guardrails" in DOC
+    assert "model_registry_uri" in DOC
+    assert "--backend live" in DOC
+    assert "--model-registry" in DOC
+    assert "--model-key" in DOC
     assert "raw PDFs" in DOC
     assert "provider account IDs" in DOC
     assert "retention-days: ${{ fromJSON(" in MATRIX_WORKFLOW

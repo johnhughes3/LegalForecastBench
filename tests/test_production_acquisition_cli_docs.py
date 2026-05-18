@@ -12,8 +12,10 @@ def test_acquisition_doc_covers_operator_contract() -> None:
         "does not yet publish a live benchmark corpus",
         "Development and CI must stay offline by default",
         "acquisition plan",
+        "plan-public-downloads",
         "download-free",
         "purchase-missing",
+        "plan-parse-documents",
         "parse-documents",
         "build-packets",
         "CASE_DEV_API_KEY",
@@ -28,12 +30,16 @@ def test_acquisition_doc_uses_current_cli_flags() -> None:
 
     for expected in (
         "--core-filter-results",
+        "--screened-cases",
+        "--raw-html-dir",
+        "--download-manifest",
         "--budget-plan",
         "--requests",
         "--input",
         "--live-purchase",
         "--acknowledge-pacer-fees",
         "--fixture-documents",
+        "--live-public-download",
         "--fixture-markdown-dir",
     ):
         assert expected in doc

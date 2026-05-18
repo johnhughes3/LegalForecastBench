@@ -45,7 +45,7 @@ def test_case_dev_smoke_help_describes_operational_options(capsys) -> None:
         "recorded case.dev JSONL responses",
         "CASE_DEV_API_KEY",
         "planned report skeleton",
-        "default MTD/Rule 12 term set",
+        "default optimized MTD decision-term set",
         "Inclusive filed_at lower bound",
         "Maximum docket-entry search hits",
         "Maximum discovered candidate cases",

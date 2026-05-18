@@ -5,8 +5,10 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
+import legalforecast.cli as cli
 from legalforecast.cli import main
-from pytest import CaptureFixture
+from legalforecast.ingestion.free_document_downloader import FreeDocumentFetch
+from pytest import CaptureFixture, MonkeyPatch
 
 JsonRecord = dict[str, Any]
 _GENERATED_AT = "2026-05-17T12:00:00Z"
@@ -224,6 +226,116 @@ def test_download_free_no_resume_rejects_existing_artifacts(
     assert failure["status"] == "failed"
     assert failure["paid_activity_executed"] is False
     assert failure["failure_reason"].startswith("existing document artifact")
+
+
+def test_download_free_live_public_source_requires_explicit_flag(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    requests_path = tmp_path / "free-requests.jsonl"
+    source_url = "https://storage.courtlistener.com/recap/gov.uscourts/doc-1.pdf"
+    requested_urls: list[str] = []
+
+    class _FakeLiveSource:
+        def fetch(self, source_url: str) -> FreeDocumentFetch:
+            requested_urls.append(source_url)
+            return FreeDocumentFetch(content=b"%PDF live free document")
+
+    monkeypatch.setattr(cli, "UrlLibFreeDocumentSource", _FakeLiveSource)
+    _write_jsonl(
+        requests_path,
+        [
+            {
+                "candidate_id": "cand-1",
+                "source_provider": "courtlistener",
+                "source_document_id": "complaint",
+                "docket_entry_number": 1,
+                "document_role": "complaint",
+                "source_url": source_url,
+            }
+        ],
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "download-free",
+                "--requests",
+                str(requests_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--live-public-download",
+            ]
+        )
+        == 0
+    )
+
+    assert requested_urls == [source_url]
+    records = _read_jsonl(output_root / "free-document-downloads.jsonl")
+    assert records[0]["byte_count"] == len(b"%PDF live free document")
+    assert records[0]["reused_existing"] is False
+
+
+def test_plan_parse_documents_derives_parser_requests_from_download_manifest(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    manifest_path = tmp_path / "free-document-downloads.jsonl"
+    _write_jsonl(
+        manifest_path,
+        [
+            {
+                "candidate_id": "cand-1",
+                "source_provider": "courtlistener",
+                "source_document_id": "entry-1-complaint",
+                "docket_entry_number": 1,
+                "document_role": "complaint",
+                "source_url": "https://storage.courtlistener.com/recap/doc-1.pdf",
+                "local_path": "cand-1/courtlistener/entry-1_doc-1.pdf",
+                "sha256": "0" * 64,
+                "byte_count": 10,
+                "free_or_purchased": "free",
+                "retry_count": 0,
+                "rate_limited": False,
+                "reused_existing": False,
+            }
+        ],
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-parse-documents",
+                "--download-manifest",
+                str(manifest_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    requests = _read_jsonl(output_root / "parse-document-requests.jsonl")
+    assert requests == [
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "entry-1-complaint",
+            "input_path": str(
+                output_root
+                / "documents"
+                / "free"
+                / "cand-1"
+                / "courtlistener"
+                / "entry-1_doc-1.pdf"
+            ),
+            "markdown_output_path": "markdown/cand-1/entry-1-complaint.md",
+        }
+    ]
 
 
 def test_parse_and_build_packet_acquisition_fixture_flow(tmp_path: Path) -> None:

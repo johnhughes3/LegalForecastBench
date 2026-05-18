@@ -83,6 +83,24 @@ def test_briefing_completeness_counts_judgment_on_pleadings_decision() -> None:
     assert estimate.role_counts["decision"] == 1
 
 
+def test_parser_prefers_direct_storage_pdf_over_document_landing_page() -> None:
+    html = _docket_html(next_enabled=False).replace(
+        '<a\n                    href="https://storage.courtlistener.com/recap/order.pdf"',
+        '<a href="https://www.courtlistener.com/docket/73320440/5/doe-v-abc/">'
+        "View Document</a>"
+        '<a\n                    href="https://storage.courtlistener.com/recap/order.pdf"',
+    )
+
+    page = parse_courtlistener_docket_html(
+        html,
+        source_url="https://www.courtlistener.com/docket/73320440/doe-v-abc/",
+    )
+
+    order_document = page.mtd_decision_entries[0].documents[0]
+    assert order_document.href == "https://storage.courtlistener.com/recap/order.pdf"
+    assert order_document.action_label == "Download PDF"
+
+
 def test_cheapest_candidate_ranking_prefers_fewer_missing_pacer_documents() -> None:
     cheap = parse_courtlistener_docket_html(
         _docket_html(next_enabled=False, motion_is_free=True),

@@ -48,6 +48,8 @@ OFFICIAL_AGGREGATE_SCHEMA_VERSION = "legalforecast-official-aggregate-v1"
 PER_CASE_METRICS_SCHEMA_VERSION = "legalforecast.per_case_metrics.v1"
 
 JsonRecord = dict[str, Any]
+PacketKey = tuple[str, str]
+OutputKey = tuple[str, str, str]
 
 
 class OfficialAggregationError(ValueError):
@@ -66,6 +68,7 @@ class OfficialAggregationConfig:
     cycle_series: CycleSeries
     clean_motion_count: int
     prediction_unit_count: int
+    model_keys: tuple[str, ...] = ()
     ablation: str | None = None
     generated_at: datetime | None = None
     title: str = "LegalForecastBench Official Results"
@@ -78,6 +81,10 @@ class OfficialAggregationConfig:
         _require_non_empty(self.title, "title")
         if self.ablation is not None:
             _require_non_empty(self.ablation, "ablation")
+        for model_key in self.model_keys:
+            _require_non_empty(model_key, "model_keys")
+            if ":" not in model_key:
+                raise ValueError("model_keys must use provider:model_id")
         if self.generated_at is not None:
             _require_aware_datetime(self.generated_at, "generated_at")
         CyclePowerInput(
@@ -100,8 +107,11 @@ class OfficialAggregationResult:
     cycle_power_path: Path
     leaderboard_path: Path
     run_card_path: Path
+    expected_matrix_row_count: int
+    aggregated_matrix_row_count: int
     expected_case_count: int
     aggregated_case_count: int
+    model_count: int
 
 
 def aggregate_official_results(
@@ -110,12 +120,17 @@ def aggregate_official_results(
     """Aggregate complete per-case outputs into public and debug bundles."""
 
     generated_at = config.generated_at or datetime.now(UTC)
-    expected_rows = _expected_rows(
+    expected_packet_rows = _expected_rows(
         config.run_input_manifest_path,
         config.cycle_id,
         ablation=config.ablation,
     )
     case_outputs = _discover_case_outputs(config.per_case_dir)
+    expected_rows = _expected_output_rows(
+        expected_packet_rows,
+        case_outputs=case_outputs,
+        model_keys=config.model_keys,
+    )
     _validate_coverage(expected_rows, case_outputs)
 
     run_records: list[JsonRecord] = []
@@ -231,8 +246,15 @@ def aggregate_official_results(
         cycle_power_path=cycle_power_path,
         leaderboard_path=leaderboard_path,
         run_card_path=run_card_path,
-        expected_case_count=len(expected_rows),
-        aggregated_case_count=len({case_id for case_id, _ablation in expected_rows}),
+        expected_matrix_row_count=len(expected_rows),
+        aggregated_matrix_row_count=len(case_outputs),
+        expected_case_count=len(
+            {case_id for case_id, _ablation in expected_packet_rows}
+        ),
+        aggregated_case_count=len(
+            {case_id for case_id, _ablation, _model in case_outputs}
+        ),
+        model_count=len({_model for _case_id, _ablation, _model in expected_rows}),
     )
 
 
@@ -253,6 +275,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--clean-motion-count", type=int, required=True)
     parser.add_argument("--prediction-unit-count", type=int, required=True)
+    parser.add_argument(
+        "--model-key",
+        action="append",
+        default=(),
+        help=(
+            "Expected registry key in provider:model_id form. Repeat for a "
+            "multi-model matrix."
+        ),
+    )
     parser.add_argument("--elapsed-days", type=int)
     parser.add_argument("--official-window-days", type=int)
     parser.add_argument("--ablation")
@@ -273,6 +304,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             cycle_series=CycleSeries(cast(str, args.cycle_series)),
             clean_motion_count=cast(int, args.clean_motion_count),
             prediction_unit_count=cast(int, args.prediction_unit_count),
+            model_keys=tuple(cast(Sequence[str], args.model_key)),
             ablation=cast(str | None, args.ablation),
             title=cast(str, args.title),
             base_rate=cast(float | None, args.base_rate),
@@ -287,8 +319,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "cycle_power": str(result.cycle_power_path),
                 "leaderboard": str(result.leaderboard_path),
                 "run_card": str(result.run_card_path),
+                "expected_matrix_row_count": result.expected_matrix_row_count,
+                "aggregated_matrix_row_count": result.aggregated_matrix_row_count,
                 "expected_case_count": result.expected_case_count,
                 "aggregated_case_count": result.aggregated_case_count,
+                "model_count": result.model_count,
             },
             sort_keys=True,
         )
@@ -301,11 +336,11 @@ def _expected_rows(
     cycle_id: str,
     *,
     ablation: str | None,
-) -> dict[tuple[str, str], JsonRecord]:
+) -> dict[PacketKey, JsonRecord]:
     manifest = _read_json_object(path)
     if _required_str(manifest, "cycle_id") != cycle_id:
         raise OfficialAggregationError("run-input manifest cycle_id mismatch")
-    rows: dict[tuple[str, str], JsonRecord] = {}
+    rows: dict[PacketKey, JsonRecord] = {}
     for row in _record_sequence(manifest, "model_packets"):
         case_id = _required_str(row, "case_id")
         row_ablation = _optional_str(row, "ablation") or "full_packet"
@@ -326,8 +361,43 @@ def _expected_rows(
     return rows
 
 
-def _discover_case_outputs(root: Path) -> dict[tuple[str, str], Path]:
-    outputs: dict[tuple[str, str], Path] = {}
+def _expected_output_rows(
+    expected_packet_rows: Mapping[PacketKey, JsonRecord],
+    *,
+    case_outputs: Mapping[OutputKey, Path],
+    model_keys: Sequence[str],
+) -> dict[OutputKey, JsonRecord]:
+    if model_keys:
+        return {
+            (case_id, ablation, model_key): expected_row
+            for (case_id, ablation), expected_row in expected_packet_rows.items()
+            for model_key in model_keys
+        }
+
+    outputs_by_packet: dict[PacketKey, list[OutputKey]] = defaultdict(list)
+    for output_key in case_outputs:
+        case_id, ablation, _model_key = output_key
+        outputs_by_packet[(case_id, ablation)].append(output_key)
+
+    rows: dict[OutputKey, JsonRecord] = {}
+    for packet_key, expected_row in expected_packet_rows.items():
+        output_keys = outputs_by_packet.get(packet_key, [])
+        if len(output_keys) > 1:
+            raise OfficialAggregationError(
+                "multiple model outputs found for "
+                f"case_id={packet_key[0]}, ablation={packet_key[1]}; pass "
+                "--model-key for each expected registry entry"
+            )
+        if output_keys:
+            rows[output_keys[0]] = expected_row
+        else:
+            case_id, ablation = packet_key
+            rows[(case_id, ablation, "*")] = expected_row
+    return rows
+
+
+def _discover_case_outputs(root: Path) -> dict[OutputKey, Path]:
+    outputs: dict[OutputKey, Path] = {}
     for runs_path in sorted(root.rglob("runs.jsonl")):
         case_dir = runs_path.parent
         runs = _read_jsonl(runs_path)
@@ -335,18 +405,20 @@ def _discover_case_outputs(root: Path) -> dict[tuple[str, str], Path]:
             raise OfficialAggregationError(f"empty runs artifact: {runs_path}")
         case_id = _required_str(runs[0], "case_id")
         ablation = _optional_str(runs[0], "ablation") or "full_packet"
-        key = (case_id, ablation)
+        model_key = _required_str(runs[0], "solver_id")
+        key = (case_id, ablation, model_key)
         if key in outputs:
             raise OfficialAggregationError(
-                f"duplicate per-case output: case_id={case_id}, ablation={ablation}"
+                "duplicate per-case output: "
+                f"case_id={case_id}, ablation={ablation}, model_key={model_key}"
             )
         outputs[key] = case_dir
     return outputs
 
 
 def _validate_coverage(
-    expected_rows: Mapping[tuple[str, str], JsonRecord],
-    case_outputs: Mapping[tuple[str, str], Path],
+    expected_rows: Mapping[OutputKey, JsonRecord],
+    case_outputs: Mapping[OutputKey, Path],
 ) -> None:
     expected = set(expected_rows)
     actual = set(case_outputs)
@@ -359,7 +431,7 @@ def _validate_coverage(
 
 
 def _validate_case_records(
-    key: tuple[str, str],
+    key: OutputKey,
     *,
     expected_row: Mapping[str, Any],
     runs: Sequence[Mapping[str, Any]],
@@ -388,10 +460,10 @@ def _validate_case_records(
 
 
 def _validate_common_case_fields(
-    key: tuple[str, str],
+    key: OutputKey,
     record: Mapping[str, Any],
 ) -> None:
-    case_id, ablation = key
+    case_id, ablation, model_key = key
     if _required_str(record, "case_id") != case_id:
         raise OfficialAggregationError(f"case_id mismatch in output: {key}")
     record_ablation = _optional_str(record, "ablation") or _optional_str(
@@ -400,17 +472,21 @@ def _validate_common_case_fields(
     )
     if record_ablation is not None and record_ablation != ablation:
         raise OfficialAggregationError(f"ablation mismatch in output: {key}")
+    if model_key != "*" and "solver_id" in record:
+        record_model_key = _required_str(record, "solver_id")
+        if record_model_key != model_key:
+            raise OfficialAggregationError(f"model key mismatch in output: {key}")
 
 
 def _validate_metrics_record(
-    key: tuple[str, str],
+    key: OutputKey,
     *,
     expected_row: Mapping[str, Any],
     metrics: Mapping[str, Any],
     cycle_id: str,
     run_count: int,
 ) -> None:
-    _case_id, ablation = key
+    _case_id, ablation, model_key = key
     if _required_str(metrics, "schema_version") != PER_CASE_METRICS_SCHEMA_VERSION:
         raise OfficialAggregationError(f"metrics schema mismatch in output: {key}")
     if _required_str(metrics, "cycle_id") != cycle_id:
@@ -440,6 +516,15 @@ def _validate_metrics_record(
 
     if _required_str(metrics, "ablation") != ablation:
         raise OfficialAggregationError(f"metrics ablation mismatch in output: {key}")
+    if model_key != "*":
+        metric_model_key = _optional_str(metrics, "model_key") or _required_str(
+            metrics,
+            "solver_id",
+        )
+        if metric_model_key != model_key:
+            raise OfficialAggregationError(
+                f"metrics model key mismatch in output: {key}"
+            )
 
 
 def _validate_run_raw_output_hash(record: Mapping[str, Any]) -> None:
@@ -453,7 +538,7 @@ def _validate_run_raw_output_hash(record: Mapping[str, Any]) -> None:
 
 
 def _validate_metrics_hashes(
-    key: tuple[str, str],
+    key: OutputKey,
     metrics: Mapping[str, Any],
     runs: Sequence[Mapping[str, Any]],
 ) -> None:
@@ -468,7 +553,7 @@ def _validate_metrics_hashes(
 
 
 def _validate_accounting_hashes(
-    key: tuple[str, str],
+    key: OutputKey,
     runs: Sequence[Mapping[str, Any]],
     accounting: Sequence[Mapping[str, Any]],
 ) -> None:
@@ -511,8 +596,10 @@ def _score_run_records(
             raise OfficialAggregationError(
                 f"labels missing for required units: {missing_labels}"
             )
-        model_id = _optional_str(record, "model_id") or _required_str(
-            record, "solver_id"
+        model_id = (
+            _optional_str(record, "model_id")
+            or _metadata_str(record, "model_id")
+            or _required_str(record, "solver_id")
         )
         parsed = parse_model_output(
             _required_str(record, "raw_output"),
@@ -619,7 +706,7 @@ def _aggregate_run_card(
     *,
     config: OfficialAggregationConfig,
     generated_at: datetime,
-    expected_rows: Mapping[tuple[str, str], JsonRecord],
+    expected_rows: Mapping[OutputKey, JsonRecord],
     summaries: Sequence[ScoreSummary],
     accounting_records: Sequence[Mapping[str, Any]],
     cycle_power_record: Mapping[str, Any],
@@ -629,10 +716,13 @@ def _aggregate_run_card(
         "cycle_id": config.cycle_id,
         "run_type": "official",
         "ablation_filter": config.ablation,
+        "model_keys": list(config.model_keys),
         "generated_at": _format_datetime(generated_at),
         "expected_matrix_rows": len(expected_rows),
-        "case_count": len({case_id for case_id, _ablation in expected_rows}),
-        "ablation_count": len({_ablation for _case_id, _ablation in expected_rows}),
+        "case_count": len({case_id for case_id, _ablation, _model in expected_rows}),
+        "ablation_count": len(
+            {_ablation for _case_id, _ablation, _model in expected_rows}
+        ),
         "model_count": len(summaries),
         "accounting_record_count": len(accounting_records),
         "cycle_power": dict(cycle_power_record),
@@ -784,6 +874,19 @@ def _required_str_value(value: object) -> str:
 
 def _optional_str(record: Mapping[str, Any], field_name: str) -> str | None:
     value = record.get(field_name)
+    if value is None:
+        return None
+    return _required_str_value(value)
+
+
+def _metadata_str(record: Mapping[str, Any], field_name: str) -> str | None:
+    metadata_value = record.get("metadata")
+    if metadata_value is None:
+        return None
+    if not isinstance(metadata_value, Mapping):
+        raise OfficialAggregationError("metadata must be an object")
+    metadata = cast(Mapping[str, object], metadata_value)
+    value = metadata.get(field_name)
     if value is None:
         return None
     return _required_str_value(value)

@@ -399,6 +399,9 @@ def _best_document_link(node: _Node) -> _Node | None:
     if not links:
         return None
     for link in links:
+        if _is_preferred_free_download_link(link):
+            return link
+    for link in links:
         text = _normalized_text(f"{link.text()} {link.attrs.get('title', '')}")
         classes = link.attrs.get("class", "")
         href = link.attrs.get("href", "")
@@ -409,6 +412,24 @@ def _best_document_link(node: _Node) -> _Node | None:
         ):
             return link
     return links[0]
+
+
+def _is_preferred_free_download_link(link: _Node) -> bool:
+    text = _normalized_text(f"{link.text()} {link.attrs.get('title', '')}").lower()
+    classes = link.attrs.get("class", "")
+    href = link.attrs.get("href", "")
+    parsed = urlparse(href)
+    if (
+        "open_buy_pacer_modal" in classes
+        or "buy on pacer" in text
+        or href.startswith("https://ecf.")
+    ):
+        return False
+    return (
+        "download pdf" in text
+        or parsed.hostname == "storage.courtlistener.com"
+        or parsed.path.lower().endswith(".pdf")
+    )
 
 
 def _has_enabled_next_link(root: _Node) -> bool:

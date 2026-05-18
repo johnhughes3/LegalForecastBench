@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
@@ -152,7 +153,10 @@ def test_per_case_runner_refuses_audit_only_packet_objects(tmp_path: Path) -> No
         )
 
 
-def test_eval_run_case_cli_writes_artifact_summary(tmp_path: Path, capsys) -> None:
+def test_eval_run_case_cli_writes_artifact_summary(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     store_root, manifest_path, _packet_sha256 = _write_store_fixture(
         tmp_path,
         packet_record=_packet_record(),
@@ -189,6 +193,109 @@ def test_eval_run_case_cli_writes_artifact_summary(tmp_path: Path, capsys) -> No
     assert (output_dir / "runs.jsonl").is_file()
     metrics = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
     assert metrics["evaluation_timestamp"] == "2026-05-17T12:00:00Z"
+
+
+def test_per_case_runner_resolves_model_registry_entry(tmp_path: Path) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    registry_path = tmp_path / "model-registry.json"
+    _write_json(
+        registry_path,
+        [
+            {
+                "provider": "example-provider",
+                "model_id": "example-model",
+                "display_name": "Example Model",
+                "model_version_or_snapshot": "example-model",
+                "release_timestamp": "2026-05-14T09:00:00Z",
+                "provider_training_cutoff_status": "not_disclosed",
+                "provider_training_cutoff": None,
+                "temperature": 0,
+                "top_p": 1,
+                "max_output_tokens": 4096,
+                "network_disabled": True,
+                "search_disabled": True,
+                "tool_policy": "controlled_docket_tool_only",
+                "context_limit": 200000,
+                "pricing_source": "fixture",
+                "input_token_price": 0.25,
+                "output_token_price": 1.0,
+                "known_cutoff_publicity_caveats": (),
+            }
+        ],
+    )
+
+    run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "runner-output",
+            mock_output=_mock_output(),
+            model_registry_uri=str(registry_path),
+            model_key="example-provider:example-model",
+        )
+    )
+
+    runs = _read_jsonl(tmp_path / "runner-output" / "runs.jsonl")
+    assert runs[0]["solver_id"] == "example-provider:example-model"
+    metadata = cast(dict[str, Any], runs[0]["metadata"])
+    assert metadata["provider"] == "example-provider"
+    metrics = json.loads(
+        (tmp_path / "runner-output" / "metrics.json").read_text(encoding="utf-8")
+    )
+    assert metrics["model_key"] == "example-provider:example-model"
+    assert metrics["model_registry_sha256"] == sha256_file(registry_path)
+
+
+def test_per_case_runner_rejects_unknown_model_key(tmp_path: Path) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    registry_path = tmp_path / "model-registry.json"
+    _write_json(
+        registry_path,
+        [
+            {
+                "provider": "example-provider",
+                "model_id": "example-model",
+                "display_name": "Example Model",
+                "model_version_or_snapshot": "example-model",
+                "release_timestamp": "2026-05-14T09:00:00Z",
+                "provider_training_cutoff_status": "not_disclosed",
+                "provider_training_cutoff": None,
+                "temperature": 0,
+                "top_p": 1,
+                "max_output_tokens": 4096,
+                "network_disabled": True,
+                "search_disabled": True,
+                "tool_policy": "controlled_docket_tool_only",
+                "context_limit": 200000,
+                "pricing_source": "fixture",
+                "input_token_price": 0.25,
+                "output_token_price": 1.0,
+                "known_cutoff_publicity_caveats": (),
+            }
+        ],
+    )
+
+    with pytest.raises(PerCaseRunnerError, match="model_key not found"):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(store_root),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=tmp_path / "runner-output",
+                mock_output=_mock_output(),
+                model_registry_uri=str(registry_path),
+                model_key="example-provider:missing",
+            )
+        )
 
 
 def _write_store_fixture(
@@ -287,7 +394,7 @@ def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
-def _read_jsonl(path: Path) -> list[dict[str, object]]:
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return [
         json.loads(line)
         for line in path.read_text(encoding="utf-8").splitlines()

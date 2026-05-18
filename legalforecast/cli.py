@@ -43,6 +43,7 @@ from legalforecast.evals.packet_builder import (
     texts_from_mapping,
 )
 from legalforecast.evals.per_case_runner import (
+    PerCaseExecutionBackend,
     PerCaseRunnerConfig,
     run_per_case_evaluation,
 )
@@ -68,6 +69,7 @@ from legalforecast.ingestion.case_dev_purchase import (
 )
 from legalforecast.ingestion.case_dev_smoke import (
     CaseDevSmokeConfig,
+    case_dev_smoke_query_terms,
     plan_case_dev_smoke,
     render_case_dev_smoke_markdown,
     run_case_dev_smoke,
@@ -87,6 +89,8 @@ from legalforecast.ingestion.free_document_downloader import (
     FixtureFreeDocumentSource,
     FreeDocumentDownloadError,
     FreeDocumentDownloadRequest,
+    FreeDocumentSource,
+    UrlLibFreeDocumentSource,
     download_free_docket_documents,
 )
 from legalforecast.ingestion.missing_core_budget import (
@@ -117,6 +121,7 @@ from legalforecast.ingestion.provenance import (
     SourceDocumentProvenance,
     sha256_text,
 )
+from legalforecast.ingestion.public_packet_planner import plan_public_packet_downloads
 from legalforecast.labeling.label_outcomes import (
     AmendmentClass,
     AmendmentSignal,
@@ -258,8 +263,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         dest="query_terms",
         help=(
-            "Docket search term to run; repeat to override the default MTD/Rule 12 "
-            "term set."
+            "Docket search term to run; repeat to override the default optimized "
+            "MTD decision-term set."
         ),
     )
     smoke.add_argument(
@@ -437,9 +442,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Plan missing-core paid recovery from core-document filter results.",
     )
     _add_acquisition_plan_arguments(acquisition_plan)
+    acquisition_public_downloads = acquisition_subparsers.add_parser(
+        "plan-public-downloads",
+        help="Plan free public CourtListener/RECAP packet-document downloads.",
+    )
+    _add_acquisition_plan_public_downloads_arguments(acquisition_public_downloads)
     acquisition_download = acquisition_subparsers.add_parser(
         "download-free",
-        help="Download fixture-safe free public docket documents.",
+        help="Download free public docket documents.",
     )
     _add_acquisition_download_free_arguments(acquisition_download)
     acquisition_purchase = acquisition_subparsers.add_parser(
@@ -447,6 +457,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Execute guarded case.dev/PACER missing-core purchases.",
     )
     _add_acquisition_purchase_missing_arguments(acquisition_purchase)
+    acquisition_parse_plan = acquisition_subparsers.add_parser(
+        "plan-parse-documents",
+        help="Plan Markdown parser requests from downloaded document manifests.",
+    )
+    _add_acquisition_plan_parse_documents_arguments(acquisition_parse_plan)
     acquisition_parse = acquisition_subparsers.add_parser(
         "parse-documents",
         help="Convert acquired documents to Markdown parser artifacts.",
@@ -515,7 +530,24 @@ def _add_eval_run_case_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--solver-id", default="offline:fixture")
-    mock_output_group = parser.add_mutually_exclusive_group(required=True)
+    parser.add_argument(
+        "--backend",
+        choices=[backend.value for backend in PerCaseExecutionBackend],
+        default=PerCaseExecutionBackend.FIXTURE.value,
+        help=(
+            "Execution backend: fixture for no-network tests, live for "
+            "registry-backed provider calls."
+        ),
+    )
+    parser.add_argument(
+        "--model-registry",
+        help="Frozen model registry path, file:// URI, or s3:// URI.",
+    )
+    parser.add_argument(
+        "--model-key",
+        help="Registry key in provider:model_id form.",
+    )
+    mock_output_group = parser.add_mutually_exclusive_group()
     mock_output_group.add_argument(
         "--mock-output",
         help=(
@@ -668,6 +700,28 @@ def _add_acquisition_plan_arguments(parser: argparse.ArgumentParser) -> None:
     parser.set_defaults(handler=_cmd_acquisition_plan)
 
 
+def _add_acquisition_plan_public_downloads_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--screened-cases", type=Path, required=True)
+    parser.add_argument("--raw-html-dir", type=Path, required=True)
+    parser.add_argument("--target-clean-cases", type=int, default=25)
+    parser.add_argument(
+        "--allow-inferred-target-mtd",
+        action="store_true",
+        help=(
+            "When target entry numbers are missing or stale, allow the planner to "
+            "use free pre-decision MTD entries inferred from docket text."
+        ),
+    )
+    parser.add_argument("--requests-output", type=Path)
+    parser.add_argument("--selection-output", type=Path)
+    parser.add_argument("--exclusions-output", type=Path)
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_plan_public_downloads)
+
+
 def _add_acquisition_download_free_arguments(parser: argparse.ArgumentParser) -> None:
     _add_acquisition_common_arguments(parser)
     parser.add_argument("--requests", type=Path, required=True)
@@ -677,6 +731,14 @@ def _add_acquisition_download_free_arguments(parser: argparse.ArgumentParser) ->
         "--fixture-documents",
         type=Path,
         help="JSON mapping of source URL to fixture document text or bytes text.",
+    )
+    parser.add_argument(
+        "--live-public-download",
+        action="store_true",
+        help=(
+            "Fetch HTTPS CourtListener/RECAP free public documents. This never "
+            "uses PACER or paid case.dev purchase endpoints."
+        ),
     )
     parser.set_defaults(handler=_cmd_acquisition_download_free)
 
@@ -704,6 +766,25 @@ def _add_acquisition_purchase_missing_arguments(
         default=CaseDevPacerCapability.UNKNOWN.value,
     )
     parser.set_defaults(handler=_cmd_acquisition_purchase_missing)
+
+
+def _add_acquisition_plan_parse_documents_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--download-manifest", type=Path, required=True)
+    parser.add_argument("--document-root", type=Path)
+    parser.add_argument("--requests-output", type=Path)
+    parser.add_argument(
+        "--markdown-output-root",
+        type=Path,
+        default=Path("markdown"),
+        help=(
+            "Markdown output root, relative to --output-root unless absolute. "
+            "Defaults to markdown/."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_plan_parse_documents)
 
 
 def _add_acquisition_parse_documents_arguments(
@@ -829,7 +910,7 @@ def _cmd_case_dev_smoke(args: argparse.Namespace) -> int:
     output_path = cast(Path, args.output)
     query_terms = tuple(cast(list[str] | None, args.query_terms) or ())
     config = CaseDevSmokeConfig(
-        query_terms=query_terms or mtd_discovery_search_terms(),
+        query_terms=query_terms or case_dev_smoke_query_terms(),
         date_window_start=cast(str | None, args.date_window_start),
         date_window_end=cast(str | None, args.date_window_end),
         per_query_limit=cast(int, args.per_query_limit),
@@ -1076,7 +1157,22 @@ def _cmd_model_run(args: argparse.Namespace) -> int:
 
 def _cmd_eval_run_case(args: argparse.Namespace) -> int:
     timestamp_text = cast(str | None, args.evaluation_timestamp)
-    mock_output = _mock_output_text(args)
+    backend = PerCaseExecutionBackend(cast(str, args.backend))
+    mock_output = _optional_mock_output_text(args)
+    if backend is PerCaseExecutionBackend.FIXTURE and mock_output is None:
+        print(
+            "legalforecast: eval run-case fixture backend requires --mock-output or "
+            "--mock-output-file",
+            file=sys.stderr,
+        )
+        return 2
+    if backend is PerCaseExecutionBackend.LIVE and mock_output is not None:
+        print(
+            "legalforecast: eval run-case live backend must not use fixture "
+            "mock output",
+            file=sys.stderr,
+        )
+        return 2
     artifacts = run_per_case_evaluation(
         PerCaseRunnerConfig(
             manifest_uri=cast(str, args.manifest),
@@ -1087,6 +1183,9 @@ def _cmd_eval_run_case(args: argparse.Namespace) -> int:
             packet_store_root=cast(str | None, args.packet_store_root),
             results_store_root=cast(str | None, args.results_store_root),
             solver_id=cast(str, args.solver_id),
+            backend=backend,
+            model_registry_uri=cast(str | None, args.model_registry),
+            model_key=cast(str | None, args.model_key),
             max_tool_calls=cast(int, args.max_tool_calls),
             use_docket_tool=not cast(bool, args.no_docket_tool),
             evaluation_timestamp=(
@@ -1351,6 +1450,92 @@ def _cmd_acquisition_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    screened_cases_path = cast(Path, args.screened_cases)
+    raw_html_dir = cast(Path, args.raw_html_dir)
+    requests_path = _acquisition_path(
+        args,
+        "requests_output",
+        output_root / "free-document-requests.jsonl",
+    )
+    selection_path = _acquisition_path(
+        args,
+        "selection_output",
+        output_root / "public-packet-selection.jsonl",
+    )
+    exclusions_path = _acquisition_path(
+        args,
+        "exclusions_output",
+        output_root / "public-packet-exclusions.jsonl",
+    )
+    summary_path = _acquisition_path(
+        args,
+        "summary_output",
+        output_root / "public-packet-plan-summary.json",
+    )
+    records = _read_records(screened_cases_path)
+    dry_run = _acquisition_dry_run(args)
+    plan = plan_public_packet_downloads(
+        records,
+        raw_html_dir=raw_html_dir,
+        target_clean_cases=cast(int, args.target_clean_cases),
+        allow_inferred_target_mtd=cast(bool, args.allow_inferred_target_mtd),
+    )
+    summary = {
+        **plan.summary_record(),
+        "dry_run": dry_run,
+        "raw_html_dir": str(raw_html_dir),
+    }
+    _write_json(summary_path, summary)
+    if dry_run:
+        _write_jsonl(
+            requests_path,
+            [
+                {
+                    "stage": "plan-public-downloads",
+                    "dry_run": True,
+                    "request_count": plan.download_request_count,
+                    "selected_case_count": plan.selected_case_count,
+                }
+            ],
+        )
+    else:
+        _write_jsonl(
+            requests_path,
+            [request.to_record() for request in plan.download_requests],
+        )
+        _write_jsonl(
+            selection_path,
+            [candidate.to_record() for candidate in plan.selected_cases],
+        )
+        _write_jsonl(
+            exclusions_path,
+            [
+                candidate.to_record()
+                for candidate in plan.candidate_plans
+                if not candidate.selected
+            ],
+        )
+    _write_acquisition_completion(
+        args,
+        stage="plan-public-downloads",
+        input_paths=(screened_cases_path, raw_html_dir),
+        output_paths=(requests_path, selection_path, exclusions_path, summary_path),
+        record_count=plan.selected_case_count,
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "target_clean_cases": plan.target_clean_cases,
+            "selected_case_count": plan.selected_case_count,
+            "download_request_count": plan.download_request_count,
+            "shortfall": max(0, plan.target_clean_cases - plan.selected_case_count),
+        },
+    )
+    return 0
+
+
 def _cmd_acquisition_download_free(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     requests_path = cast(Path, args.requests)
@@ -1383,16 +1568,16 @@ def _cmd_acquisition_download_free(args: argparse.Namespace) -> int:
         )
     else:
         fixture_path = cast(Path | None, args.fixture_documents)
-        if fixture_path is None:
-            raise CommandError(
-                "acquisition download-free requires --fixture-documents in this "
-                "alpha CLI path"
-            )
+        live_public_download = cast(bool, args.live_public_download)
+        source = _free_document_source(
+            fixture_path=fixture_path,
+            live_public_download=live_public_download,
+        )
         try:
             records = download_free_docket_documents(
                 requests,
                 output_root=document_root,
-                source=_fixture_free_document_source(fixture_path),
+                source=source,
                 allow_existing=cast(bool, args.resume),
             )
         except FreeDocumentDownloadError as exc:
@@ -1495,6 +1680,56 @@ def _cmd_acquisition_purchase_missing(args: argparse.Namespace) -> int:
     )
     if not dry_run and result.executed_purchase_count != result.intended_purchase_count:
         return 2
+    return 0
+
+
+def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    download_manifest_path = cast(Path, args.download_manifest)
+    document_root = _acquisition_path(
+        args,
+        "document_root",
+        output_root / "documents" / "free",
+    )
+    requests_path = _acquisition_path(
+        args,
+        "requests_output",
+        output_root / "parse-document-requests.jsonl",
+    )
+    markdown_output_root = cast(Path, args.markdown_output_root)
+    records = _read_records(download_manifest_path)
+    request_records = tuple(
+        _planned_parse_document_request(
+            record,
+            document_root=document_root,
+            markdown_output_root=markdown_output_root,
+        )
+        for record in records
+    )
+    dry_run = _acquisition_dry_run(args)
+    if dry_run:
+        _write_jsonl(
+            requests_path,
+            [
+                {
+                    "stage": "plan-parse-documents",
+                    "dry_run": True,
+                    "request_count": len(request_records),
+                }
+            ],
+        )
+    else:
+        _write_jsonl(requests_path, request_records)
+    _write_acquisition_completion(
+        args,
+        stage="plan-parse-documents",
+        input_paths=(download_manifest_path,),
+        output_paths=(requests_path,),
+        record_count=len(request_records),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+    )
     return 0
 
 
@@ -1911,6 +2146,27 @@ def _fixture_free_document_source(path: Path) -> FixtureFreeDocumentSource:
     return FixtureFreeDocumentSource(documents_by_url)
 
 
+def _free_document_source(
+    *,
+    fixture_path: Path | None,
+    live_public_download: bool,
+) -> FreeDocumentSource:
+    if fixture_path is not None and live_public_download:
+        raise CommandError(
+            "acquisition download-free accepts either --fixture-documents or "
+            "--live-public-download, not both"
+        )
+    if fixture_path is not None:
+        return _fixture_free_document_source(fixture_path)
+    if live_public_download:
+        return UrlLibFreeDocumentSource()
+    raise CommandError(
+        "acquisition download-free --execute requires --fixture-documents for "
+        "offline fixtures or --live-public-download for free public "
+        "CourtListener/RECAP documents"
+    )
+
+
 def _fixture_document_content(record: Mapping[str, Any]) -> bytes:
     for field_name in ("content", "text", "body"):
         if field_name in record:
@@ -1951,6 +2207,31 @@ def _mistral_markdown_request(
         input_path=Path(_required_str(record, "input_path")),
         markdown_output_path=markdown_output_path,
     )
+
+
+def _planned_parse_document_request(
+    record: Mapping[str, Any],
+    *,
+    document_root: Path,
+    markdown_output_root: Path,
+) -> JsonRecord:
+    candidate_id = _required_str(record, "candidate_id")
+    source_document_id = _required_str(record, "source_document_id")
+    local_path = Path(_required_str(record, "local_path"))
+    input_path = local_path if local_path.is_absolute() else document_root / local_path
+    safe_candidate_id = safe_path_component(candidate_id, field_name="candidate_id")
+    safe_document_id = safe_path_component(
+        source_document_id,
+        field_name="source_document_id",
+    )
+    return {
+        "candidate_id": candidate_id,
+        "source_document_id": source_document_id,
+        "input_path": str(input_path),
+        "markdown_output_path": str(
+            markdown_output_root / safe_candidate_id / f"{safe_document_id}.md"
+        ),
+    }
 
 
 def _fixture_markdown_conversion_records(
@@ -3514,10 +3795,17 @@ def _loads_json(payload: str) -> object:
 
 
 def _mock_output_text(args: argparse.Namespace) -> str:
+    mock_output = _optional_mock_output_text(args)
+    if mock_output is None:
+        raise ValueError("mock output is required")
+    return mock_output
+
+
+def _optional_mock_output_text(args: argparse.Namespace) -> str | None:
     mock_output_file = cast(Path | None, getattr(args, "mock_output_file", None))
     if mock_output_file is not None:
         return mock_output_file.read_text(encoding="utf-8")
-    return cast(str, args.mock_output)
+    return cast(str | None, getattr(args, "mock_output", None))
 
 
 def _resolve_under(root: Path, child: Path, *, field_name: str) -> Path:

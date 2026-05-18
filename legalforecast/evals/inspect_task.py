@@ -434,6 +434,7 @@ def run_inspect_fixture(
                     estimated_cost=response.estimated_cost,
                     tool_call_logs=tuple(docket_tool.call_log_records()),
                     metadata=response.metadata,
+                    execution_backend=_execution_backend(response.metadata),
                 )
             )
     return InspectTaskRun(results=tuple(results))
@@ -509,6 +510,17 @@ def _exercise_controlled_tool(docket_tool: ControlledDocketTool) -> None:
     if not listed.ok or not listed.available_entries:
         return
     docket_tool.read_docket_entry(listed.available_entries[0].entry_number)
+
+
+def _execution_backend(
+    metadata: Mapping[str, str] | None,
+) -> RunExecutionBackend:
+    if metadata is None:
+        return RunExecutionBackend.LOCAL_FIXTURE
+    value = metadata.get("execution_backend")
+    if value is None:
+        return RunExecutionBackend.LOCAL_FIXTURE
+    return RunExecutionBackend(value)
 
 
 def _sha256_prefixed(value: str) -> str:

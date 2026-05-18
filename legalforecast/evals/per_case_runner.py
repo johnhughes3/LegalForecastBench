@@ -11,6 +11,7 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import unquote, urlparse
@@ -25,9 +26,15 @@ from legalforecast._record_validation import (
 from legalforecast.evals.accounting import accounting_records_from_inspect_run
 from legalforecast.evals.inspect_task import (
     DEFAULT_TOOL_CALL_CAP,
+    ConfiguredModelStubSolver,
     OfflineMockSolver,
     build_inspect_samples,
     run_inspect_fixture,
+)
+from legalforecast.evals.model_registry import (
+    ModelRegistry,
+    ModelRegistryEntry,
+    load_model_registry,
 )
 from legalforecast.evals.packet_builder import (
     ModelPacket,
@@ -77,6 +84,13 @@ class PacketManifestError(PerCaseRunnerError):
     """Raised when the runner input manifest is missing or unsafe."""
 
 
+class PerCaseExecutionBackend(StrEnum):
+    """Supported per-case execution backends."""
+
+    FIXTURE = "fixture"
+    LIVE = "live"
+
+
 @dataclass(frozen=True, slots=True)
 class PerCaseRunnerConfig:
     """Inputs for one isolated model-packet evaluation."""
@@ -85,10 +99,13 @@ class PerCaseRunnerConfig:
     case_id: str
     ablation: str
     output_dir: Path
-    mock_output: str
+    mock_output: str | None = None
     packet_store_root: str | None = None
     results_store_root: str | None = None
     solver_id: str = "offline:fixture"
+    backend: PerCaseExecutionBackend = PerCaseExecutionBackend.FIXTURE
+    model_registry_uri: str | None = None
+    model_key: str | None = None
     max_tool_calls: int = DEFAULT_TOOL_CALL_CAP
     use_docket_tool: bool = True
     evaluation_timestamp: datetime | None = None
@@ -98,11 +115,25 @@ class PerCaseRunnerConfig:
             (self.manifest_uri, "manifest_uri"),
             (self.case_id, "case_id"),
             (self.ablation, "ablation"),
-            (self.mock_output, "mock_output"),
             (self.solver_id, "solver_id"),
         ):
             if not value.strip():
                 raise ValueError(f"{field_name} is required")
+        if self.backend is PerCaseExecutionBackend.FIXTURE and (
+            self.mock_output is None or not self.mock_output.strip()
+        ):
+            raise ValueError("mock_output is required for fixture backend")
+        if self.backend is PerCaseExecutionBackend.LIVE:
+            if self.model_registry_uri is None or not self.model_registry_uri.strip():
+                raise ValueError("model_registry_uri is required for live backend")
+            if self.model_key is None or not self.model_key.strip():
+                raise ValueError("model_key is required for live backend")
+        for value, field_name in (
+            (self.model_registry_uri, "model_registry_uri"),
+            (self.model_key, "model_key"),
+        ):
+            if value is not None and not value.strip():
+                raise ValueError(f"{field_name} must not be blank")
         if self.max_tool_calls <= 0:
             raise ValueError("max_tool_calls must be positive")
         if self.evaluation_timestamp is not None:
@@ -180,18 +211,27 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             case_id=config.case_id,
             ablation=config.ablation,
         )
+        registry_entry, model_registry_sha256 = _optional_registry_entry(config)
+        solver_id = (
+            registry_entry.registry_key
+            if registry_entry is not None
+            else config.solver_id
+        )
         packet_uri = _packet_object_uri(packet_object, config.packet_store_root)
         run_id = _run_id(
             cycle_id=packet_object.cycle_id or _optional_manifest_cycle_id(manifest),
             case_id=config.case_id,
             ablation=config.ablation,
-            solver_id=config.solver_id,
+            solver_id=solver_id,
         )
         log(
             "manifest_selected",
             manifest_uri=config.manifest_uri,
             packet_object_key=packet_object.object_key,
             packet_uri=packet_uri,
+            backend=config.backend.value,
+            model_key=config.model_key,
+            model_registry_sha256=model_registry_sha256,
         )
 
         with tempfile.TemporaryDirectory(prefix="lfb-per-case-") as workspace:
@@ -231,18 +271,14 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 run_label=config.ablation,
                 use_docket_tool=config.use_docket_tool,
             )
+            solver = _solver_for_config(
+                config,
+                registry_entry=registry_entry,
+                model_registry_sha256=model_registry_sha256,
+            )
             run = run_inspect_fixture(
                 samples,
-                (
-                    OfflineMockSolver(
-                        solver_id=config.solver_id,
-                        raw_output=config.mock_output,
-                        input_tokens=100,
-                        output_tokens=25,
-                        estimated_cost=0.0,
-                        use_docket_tool=config.use_docket_tool,
-                    ),
-                ),
+                (solver,),
             )
             run_records = run.to_records()
             accounting_records = accounting_records_from_inspect_run(
@@ -266,6 +302,8 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             packet_sha256=actual_sha256,
             run_records=run_records,
             evaluation_timestamp=evaluation_timestamp,
+            solver_id=solver_id,
+            model_registry_sha256=model_registry_sha256,
         )
         _write_json(metrics_path, metrics)
         local_paths = (runs_path, accounting_path, metrics_path, log_path)
@@ -450,6 +488,8 @@ def _metrics_record(
     packet_sha256: str,
     run_records: Sequence[Mapping[str, Any]],
     evaluation_timestamp: datetime,
+    solver_id: str,
+    model_registry_sha256: str | None,
 ) -> JsonRecord:
     raw_output_hashes = [
         required_str(record, "raw_output_sha256") for record in run_records
@@ -464,7 +504,11 @@ def _metrics_record(
         "cycle_id": packet_object.cycle_id,
         "case_id": config.case_id,
         "ablation": config.ablation,
-        "solver_id": config.solver_id,
+        "solver_id": solver_id,
+        "backend": config.backend.value,
+        "model_key": config.model_key,
+        "model_registry_uri": config.model_registry_uri,
+        "model_registry_sha256": model_registry_sha256,
         "evaluation_timestamp": _iso_datetime(evaluation_timestamp),
         "packet_object_key": packet_object.object_key,
         "packet_sha256": packet_sha256,
@@ -581,7 +625,76 @@ def _validate_model_packet(
         if _normalize_sha256(document.text_sha256) != sha256_text(document.text):
             raise PerCaseRunnerError(
                 f"model packet text hash mismatch: {document.source_document_id}"
+    )
+
+
+def _optional_registry_entry(
+    config: PerCaseRunnerConfig,
+) -> tuple[ModelRegistryEntry | None, str | None]:
+    if config.model_registry_uri is None:
+        return None, None
+    registry, digest = _load_model_registry_uri(config.model_registry_uri)
+    if config.model_key is None:
+        raise PerCaseRunnerError("model_key is required with model_registry_uri")
+    provider, separator, model_id = config.model_key.partition(":")
+    if separator != ":" or not provider or not model_id:
+        raise PerCaseRunnerError("model_key must use provider:model_id")
+    try:
+        return registry.get(provider, model_id), digest
+    except KeyError as exc:
+        raise PerCaseRunnerError(
+            f"model_key not found in model registry: {config.model_key}"
+        ) from exc
+
+
+def _load_model_registry_uri(uri: str) -> tuple[ModelRegistry, str]:
+    if _is_s3_uri(uri):
+        payload = _read_uri_bytes(uri)
+        loaded: object = json.loads(payload.decode("utf-8"))
+        if not isinstance(loaded, list):
+            raise PerCaseRunnerError("model registry file must contain a JSON array")
+        registry_records = cast(list[object], loaded)
+        registry = ModelRegistry.from_records(
+            tuple(_mapping(item, "model registry item") for item in registry_records)
+        )
+        return registry, hashlib.sha256(payload).hexdigest()
+    path = _local_path_from_uri(uri)
+    return load_model_registry(path), sha256_file(path)
+
+
+def _solver_for_config(
+    config: PerCaseRunnerConfig,
+    *,
+    registry_entry: ModelRegistryEntry | None,
+    model_registry_sha256: str | None,
+) -> Any:
+    if config.backend is PerCaseExecutionBackend.FIXTURE:
+        if registry_entry is None:
+            return OfflineMockSolver(
+                solver_id=config.solver_id,
+                raw_output=cast(str, config.mock_output),
+                input_tokens=100,
+                output_tokens=25,
+                estimated_cost=0.0,
+                use_docket_tool=config.use_docket_tool,
             )
+        return ConfiguredModelStubSolver(
+            registry_entry=registry_entry,
+            stub_raw_output=cast(str, config.mock_output),
+            input_tokens=100,
+            output_tokens=25,
+            estimated_cost=0.0,
+        )
+    if registry_entry is None:
+        raise PerCaseRunnerError("live backend requires a model registry entry")
+    try:
+        from legalforecast.evals.live_model_solver import LiveModelSolver
+    except ImportError as exc:  # pragma: no cover - defensive for partial installs.
+        raise PerCaseRunnerError("live model solver is not available") from exc
+    return LiveModelSolver(
+        registry_entry=registry_entry,
+        model_registry_sha256=model_registry_sha256,
+    )
 
 
 def _reject_restricted_packet_references(value: object) -> None:

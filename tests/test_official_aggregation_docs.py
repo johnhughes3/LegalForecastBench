@@ -13,6 +13,8 @@ def test_official_aggregation_docs_describe_command_and_inputs() -> None:
     assert "--run-input-manifest" in DOC
     assert "--labels" in DOC
     assert "--ablation full_packet" in DOC
+    assert "--model-key google:gemini-3-flash-preview" in DOC
+    assert "25-case, 3-model pilot" in DOC
     assert "gh run download" in DOC
     assert "publication_guardrails" in DOC
     assert "Official Aggregation" in DOCS_README
@@ -21,7 +23,8 @@ def test_official_aggregation_docs_describe_command_and_inputs() -> None:
 def test_official_aggregation_docs_pin_validation_failures() -> None:
     for phrase in (
         "missing from the downloaded artifacts",
-        "unexpected or duplicate case/ablation output",
+        "case/ablation/model row is missing",
+        "unexpected or duplicate case/ablation/model output",
         "legalforecast.per_case_metrics.v1",
         "packet object key",
         "raw_output_sha256",

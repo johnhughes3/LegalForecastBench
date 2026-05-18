@@ -14,6 +14,12 @@ from legalforecast.evals.inspect_task import (
     render_model_prompt,
     run_inspect_fixture,
 )
+from legalforecast.evals.live_model_solver import (
+    LiveModelConfigError,
+    LiveModelResponseError,
+    LiveModelSolver,
+    LiveModelSolverError,
+)
 from legalforecast.evals.model_registry import (
     ModelRegistry,
     ModelRegistryEntry,
@@ -22,6 +28,7 @@ from legalforecast.evals.model_registry import (
     load_model_registry,
 )
 from legalforecast.evals.per_case_runner import (
+    PerCaseExecutionBackend,
     PerCaseRunArtifacts,
     PerCaseRunnerConfig,
     run_per_case_evaluation,
@@ -32,9 +39,14 @@ __all__ = [
     "InspectAITaskBuild",
     "InspectTaskRun",
     "InspectTaskSample",
+    "LiveModelConfigError",
+    "LiveModelResponseError",
+    "LiveModelSolver",
+    "LiveModelSolverError",
     "ModelRegistry",
     "ModelRegistryEntry",
     "OfflineMockSolver",
+    "PerCaseExecutionBackend",
     "PerCaseRunArtifacts",
     "PerCaseRunnerConfig",
     "RunExecutionBackend",

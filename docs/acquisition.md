@@ -45,12 +45,21 @@ uv run legalforecast acquisition plan \
   --core-filter-results tmp/acquisition/core-filter-results.jsonl \
   --output-root tmp/acquisition
 
+uv run legalforecast acquisition plan-public-downloads \
+  --screened-cases tmp/acquisition/selected-cases.jsonl \
+  --raw-html-dir tmp/acquisition/raw_html \
+  --output-root tmp/acquisition
+
 uv run legalforecast acquisition download-free \
   --requests tmp/acquisition/free-document-requests.jsonl \
   --output-root tmp/acquisition
 
 uv run legalforecast acquisition purchase-missing \
   --budget-plan tmp/acquisition/missing-core-budget-plan.json \
+  --output-root tmp/acquisition
+
+uv run legalforecast acquisition plan-parse-documents \
+  --download-manifest tmp/acquisition/free-document-downloads.jsonl \
   --output-root tmp/acquisition
 
 uv run legalforecast acquisition parse-documents \
@@ -69,10 +78,19 @@ reviewed the plan, budget, and fee acknowledgement.
 Execution flags are intentionally explicit:
 
 - `plan --execute` writes a non-dry-run budget plan for later purchase review.
-- `download-free --execute` performs fixture-safe free-document downloads in
-  this alpha path and requires `--fixture-documents`.
+- `plan-public-downloads --execute` turns screened CourtListener docket HTML
+  into free-document requests, selecting only cases with a free operative
+  complaint, target MTD document, and decision document. Use
+  `--allow-inferred-target-mtd` only for pilot triage when target entry numbers
+  are missing or stale; the output records that weaker linkage mode.
+- `download-free --execute` requires either `--fixture-documents` for offline
+  fixtures or `--live-public-download` for HTTPS CourtListener/RECAP documents
+  that are already freely available. This stage must never call PACER or paid
+  case.dev purchase endpoints.
 - `purchase-missing --execute` additionally requires `--live-purchase` and
   `--acknowledge-pacer-fees`.
+- `plan-parse-documents --execute` derives parser request rows from the
+  downloaded-document manifest.
 - `parse-documents --execute` uses the configured parser, or
   `--fixture-markdown-dir` for fixture runs.
 - `build-packets --execute` writes `packets.jsonl`, `case-packets.jsonl`, and

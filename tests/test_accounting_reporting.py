@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import cast
 
 import pytest
 from legalforecast.evals.accounting import (
@@ -78,6 +79,20 @@ def test_accounting_records_fall_back_to_solver_identity_for_mock_outputs() -> N
     assert record.model_version_or_snapshot == "fixture"
     assert record.latency_ms == 0
     assert record.execution_backend == "local_fixture"
+
+
+def test_accounting_records_read_latency_from_solver_metadata() -> None:
+    harness_record = _harness_record()
+    metadata = dict(cast(dict[str, str], harness_record["metadata"]))
+    metadata["latency_ms"] = "345.25"
+    harness_record["metadata"] = metadata
+
+    record = accounting_records_from_harness_records(
+        (harness_record,),
+        evaluation_timestamp=EVALUATION_TIMESTAMP,
+    )[0]
+
+    assert record.latency_ms == 345.25
 
 
 def test_leaderboard_summarizes_tool_calls_cost_and_latency() -> None:

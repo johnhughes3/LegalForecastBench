@@ -18,20 +18,29 @@ from legalforecast.ingestion.docket_sync import (
     DocketRetrievalPipeline,
     DocketRetrievalResult,
 )
+from legalforecast.ingestion.mtd_acquisition_screen import (
+    OPTIMIZED_MTD_DECISION_SEARCH_TERMS,
+    SECONDARY_MTD_DECISION_SEARCH_TERMS,
+)
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.selection.candidate_discovery import (
     DocketEntryRecord,
     MtdDiscoveryCandidate,
     discover_mtd_candidates,
-    mtd_discovery_search_terms,
 )
+
+
+def case_dev_smoke_query_terms() -> tuple[str, ...]:
+    """Return the optimized decision-oriented case.dev smoke query terms."""
+
+    return OPTIMIZED_MTD_DECISION_SEARCH_TERMS + SECONDARY_MTD_DECISION_SEARCH_TERMS
 
 
 @dataclass(frozen=True, slots=True)
 class CaseDevSmokeConfig:
     """Runtime knobs for a bounded Phase 0 case.dev smoke pass."""
 
-    query_terms: tuple[str, ...] = field(default_factory=mtd_discovery_search_terms)
+    query_terms: tuple[str, ...] = field(default_factory=case_dev_smoke_query_terms)
     date_window_start: str | None = None
     date_window_end: str | None = None
     per_query_limit: int = 10

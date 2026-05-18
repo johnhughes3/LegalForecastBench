@@ -346,10 +346,19 @@ def _latency_for_record(
         value = latency_ms_by_result_key[result_key]
         _require_non_negative_float(value, f"latency_ms[{result_key}]")
         return value
-    value = record.get("latency_ms", 0.0)
-    if not isinstance(value, int | float) or isinstance(value, bool):
+    value = record.get("latency_ms")
+    if value is None:
+        metadata_latency = _metadata_str(record, "latency_ms")
+        value = metadata_latency if metadata_latency is not None else 0.0
+    if isinstance(value, str):
+        try:
+            latency_ms = float(value)
+        except ValueError as exc:
+            raise ValueError("latency_ms must be a number") from exc
+    elif isinstance(value, int | float) and not isinstance(value, bool):
+        latency_ms = float(value)
+    else:
         raise ValueError("latency_ms must be a number")
-    latency_ms = float(value)
     _require_non_negative_float(latency_ms, "latency_ms")
     return latency_ms
 

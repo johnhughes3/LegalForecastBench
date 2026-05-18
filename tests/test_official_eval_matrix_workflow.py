@@ -17,12 +17,15 @@ def test_official_eval_matrix_workflow_is_manual_and_protected() -> None:
         "cycle_id:",
         "run_input_manifest_uri:",
         "ablation:",
-        "solver_id:",
+        "model_registry_uri:",
+        "model_keys:",
         "max_parallel:",
         "dry_run:",
         "artifact_retention_days:",
     ):
         assert input_name in WORKFLOW
+    assert "solver_id:" not in WORKFLOW
+    assert "mock_output:" not in WORKFLOW
 
 
 def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
@@ -33,9 +36,13 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
     )
     assert "fail-fast: false" in WORKFLOW
     assert 'MATRIX_LIMIT: "256"' in WORKFLOW
-    assert "duplicate case_id for ablation" in WORKFLOW
+    assert "duplicate packet row for ablation" in WORKFLOW
+    assert "model_keys missing from registry" in WORKFLOW
     assert "run-input manifest produced an empty matrix" in WORKFLOW
     assert 'packet_object_key.startswith("model-packets/")' in WORKFLOW
+    assert '"model_key": model_key' in WORKFLOW
+    assert '"model_key_slug": re.sub' in WORKFLOW
+    assert "model_count: ${{ steps.matrix.outputs.model_count }}" in WORKFLOW
 
 
 def test_official_eval_matrix_workflow_uses_oidc_only_in_protected_jobs() -> None:
@@ -59,8 +66,16 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert '--results-store-root "s3://${LFB_RESULTS_BUCKET}"' in WORKFLOW
     assert '--case-id "${CASE_ID}"' in WORKFLOW
     assert '--ablation "${ABLATION}"' in WORKFLOW
+    assert "--backend live" in WORKFLOW
+    assert '--model-registry "${MODEL_REGISTRY_URI}"' in WORKFLOW
+    assert '--model-key "${MODEL_KEY}"' in WORKFLOW
     assert "CASE_ID: ${{ matrix.case_id }}" in WORKFLOW
     assert "ABLATION: ${{ matrix.ablation }}" in WORKFLOW
+    assert "MODEL_KEY: ${{ matrix.model_key }}" in WORKFLOW
+    assert "MODEL_KEY_SLUG: ${{ matrix.model_key_slug }}" in WORKFLOW
+    assert "OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}" in WORKFLOW
+    assert "ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}" in WORKFLOW
+    assert "GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}" in WORKFLOW
 
 
 def test_official_eval_matrix_workflow_has_dry_run_and_retention_controls() -> None:
@@ -86,3 +101,4 @@ def test_official_eval_matrix_workflow_rejects_private_manifest_prefixes() -> No
     assert (
         "run_input_manifest_uri must not point at private packet prefixes." in WORKFLOW
     )
+    assert "model_registry_uri must not point at private packet prefixes." in WORKFLOW

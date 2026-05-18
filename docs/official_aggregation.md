@@ -20,6 +20,9 @@ uv run python -m legalforecast.publication.official_aggregate \
   --clean-motion-count 250 \
   --prediction-unit-count 1000 \
   --official-window-days 28 \
+  --model-key google:gemini-3-flash-preview \
+  --model-key openai:gpt-5.4-mini \
+  --model-key anthropic:claude-sonnet-4-6 \
   --ablation full_packet
 ```
 
@@ -35,6 +38,9 @@ per-case output folders. Use:
 - `--prediction-unit-count` for the locked prediction-unit count;
 - `--elapsed-days` for rapid cycles when the elapsed-time exception is relevant;
 - `--official-window-days` for official-cycle window length disclosure.
+- repeat `--model-key` for every frozen registry entry expected in the matrix.
+  A 25-case, 3-model pilot should therefore aggregate 75 per-case/model rows
+  while still reporting 25 distinct cases.
 
 The aggregation command runs the publication guardrail scanner on `public/`
 before writing the final artifact manifest. The same scanner can be run
@@ -48,11 +54,11 @@ uv run python -m legalforecast.publication.publication_guardrails \
 
 ## Validation
 
-The aggregator treats the run-input manifest as the expected matrix. It fails
-before publication when:
+The aggregator treats the run-input manifest crossed with repeated
+`--model-key` values as the expected matrix. It fails before publication when:
 
-- a case/ablation row is missing from the downloaded artifacts;
-- an unexpected or duplicate case/ablation output is present;
+- a case/ablation/model row is missing from the downloaded artifacts;
+- an unexpected or duplicate case/ablation/model output is present;
 - `metrics.json` is not `legalforecast.per_case_metrics.v1`;
 - the metrics `cycle_id`, `case_id`, `ablation`, packet object key, packet
   SHA-256, run count, or raw-output hashes do not match the manifest and

@@ -1,0 +1,287 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from legalforecast.ingestion.provenance import DocumentRole
+from legalforecast.ingestion.public_packet_planner import (
+    plan_public_packet_downloads,
+)
+
+
+def test_public_packet_planner_selects_free_core_packet_documents(
+    tmp_path: Path,
+) -> None:
+    raw_html_dir = tmp_path / "raw_html"
+    raw_html_dir.mkdir()
+    (raw_html_dir / "123.html").write_text(_docket_html(), encoding="utf-8")
+
+    plan = plan_public_packet_downloads(
+        (_screened_case(),),
+        raw_html_dir=raw_html_dir,
+        target_clean_cases=25,
+    )
+
+    assert plan.selected_case_count == 1
+    assert plan.download_request_count == 4
+    selected = plan.selected_cases[0]
+    assert selected.exclusion_reasons == ()
+    assert [document.document_role for document in selected.documents] == [
+        DocumentRole.COMPLAINT,
+        DocumentRole.MTD_NOTICE,
+        DocumentRole.OPPOSITION,
+        DocumentRole.DECISION,
+    ]
+    assert selected.documents[-1].model_visible is False
+    assert selected.documents[-1].contains_target_outcome is True
+    assert plan.download_requests[0].source_url == (
+        "https://storage.courtlistener.com/recap/complaint.pdf"
+    )
+
+
+def test_public_packet_planner_reports_public_document_shortfall(
+    tmp_path: Path,
+) -> None:
+    raw_html_dir = tmp_path / "raw_html"
+    raw_html_dir.mkdir()
+    (raw_html_dir / "123.html").write_text(
+        _docket_html(include_motion=False),
+        encoding="utf-8",
+    )
+
+    plan = plan_public_packet_downloads(
+        (_screened_case(),),
+        raw_html_dir=raw_html_dir,
+        target_clean_cases=25,
+    )
+
+    assert plan.selected_case_count == 0
+    assert plan.summary_record()["shortfall"] == 25
+    assert plan.candidate_plans[0].exclusion_reasons == (
+        "no_free_target_mtd_document",
+    )
+
+
+def test_public_packet_planner_uses_role_matched_free_documents(
+    tmp_path: Path,
+) -> None:
+    raw_html_dir = tmp_path / "raw_html"
+    raw_html_dir.mkdir()
+    (raw_html_dir / "123.html").write_text(
+        _docket_html_with_procedural_false_positives(),
+        encoding="utf-8",
+    )
+
+    plan = plan_public_packet_downloads(
+        (_screened_case(),),
+        raw_html_dir=raw_html_dir,
+        target_clean_cases=25,
+    )
+
+    assert plan.selected_case_count == 1
+    selected = plan.selected_cases[0]
+    planned_roles = [
+        (document.document_role, document.description)
+        for document in selected.documents
+    ]
+    assert planned_roles == [
+        (DocumentRole.COMPLAINT, "Complaint"),
+        (DocumentRole.MTD_MEMORANDUM, "Memorandum of Law"),
+        (DocumentRole.DECISION, "Order on Motion to Dismiss"),
+    ]
+    assert selected.documents[0].source_url == (
+        "https://storage.courtlistener.com/recap/complaint.pdf"
+    )
+    assert selected.documents[1].source_url == (
+        "https://storage.courtlistener.com/recap/mtd-memo.pdf"
+    )
+
+
+def _screened_case() -> dict[str, object]:
+    return {
+        "candidate": {
+            "docket_id": "123",
+            "candidate_key": "123",
+            "metadata": {
+                "case_id": "123",
+                "case_name": "Example v. Defendant",
+                "court": "District Court, D. Example",
+                "docket_number": "1:26-cv-1",
+            },
+            "url": "https://www.courtlistener.com/docket/123/example/",
+        },
+        "ai": {
+            "target_motion_entry_numbers": ["5"],
+            "decision_entry_numbers": ["16"],
+        },
+    }
+
+
+def _docket_html(*, include_motion: bool = True) -> str:
+    motion = (
+        """
+          <div class="row odd" id="entry-5">
+            <div class="col-xs-1 text-center"><p>5</p></div>
+            <div class="col-xs-3 col-sm-2"><p>Feb 1, 2026</p></div>
+            <div class="col-xs-8 col-lg-7">
+              <p>MOTION to Dismiss filed by Defendant.</p>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Main Document</p></div>
+                <div class="col-xs-6"><p>Dismiss</p></div>
+                <a href="https://storage.courtlistener.com/recap/mtd.pdf">
+                  Download PDF
+                </a>
+              </div>
+            </div>
+          </div>
+        """
+        if include_motion
+        else ""
+    )
+    return f"""
+    <html>
+      <body>
+        <div class="fake-table col-xs-12" id="docket-entry-table">
+          <div class="row odd" id="entry-1">
+            <div class="col-xs-1 text-center"><p>1</p></div>
+            <div class="col-xs-3 col-sm-2"><p>Jan 1, 2026</p></div>
+            <div class="col-xs-8 col-lg-7">
+              <p>COMPLAINT filed by Plaintiff.</p>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Main Document</p></div>
+                <div class="col-xs-6"><p>Complaint</p></div>
+                <a href="https://storage.courtlistener.com/recap/complaint.pdf">
+                  Download PDF
+                </a>
+              </div>
+            </div>
+          </div>
+          {motion}
+          <div class="row even" id="entry-8">
+            <div class="col-xs-1 text-center"><p>8</p></div>
+            <div class="col-xs-3 col-sm-2"><p>Feb 15, 2026</p></div>
+            <div class="col-xs-8 col-lg-7">
+              <p>Opposition to Motion to Dismiss.</p>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Main Document</p></div>
+                <div class="col-xs-6"><p>Opposition to Motion</p></div>
+                <a href="https://storage.courtlistener.com/recap/opp.pdf">
+                  Download PDF
+                </a>
+              </div>
+            </div>
+          </div>
+          <div class="row even" id="entry-16">
+            <div class="col-xs-1 text-center"><p>16</p></div>
+            <div class="col-xs-3 col-sm-2"><p>May 8, 2026</p></div>
+            <div class="col-xs-8 col-lg-7">
+              <p>ORDER on Motion to Dismiss.</p>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Main Document</p></div>
+                <div class="col-xs-6"><p>Order on Motion to Dismiss</p></div>
+                <a href="https://storage.courtlistener.com/recap/order.pdf">
+                  Download PDF
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+
+def _docket_html_with_procedural_false_positives() -> str:
+    return """
+    <html>
+      <body>
+        <div class="fake-table col-xs-12" id="docket-entry-table">
+          <div class="row odd" id="entry-1">
+            <div class="col-xs-1 text-center"><p>1</p></div>
+            <div class="col-xs-3 col-sm-2"><p>Jan 1, 2026</p></div>
+            <div class="col-xs-8 col-lg-7">
+              <p>COMPLAINT filed by Plaintiff.</p>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Main Document</p></div>
+                <div class="col-xs-6"><p>Complaint</p></div>
+                <a href="https://storage.courtlistener.com/recap/complaint.pdf">
+                  Download PDF
+                </a>
+              </div>
+            </div>
+          </div>
+          <div class="row even" id="entry-2">
+            <div class="col-xs-1 text-center"><p>2</p></div>
+            <div class="col-xs-3 col-sm-2"><p>Jan 2, 2026</p></div>
+            <div class="col-xs-8 col-lg-7">
+              <p>STANDING ORDER upon filing of the complaint.</p>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Main Document</p></div>
+                <div class="col-xs-6">
+                  <p>Initial Order upon Filing of Complaint - form only</p>
+                </div>
+                <a href="https://storage.courtlistener.com/recap/initial-order.pdf">
+                  Download PDF
+                </a>
+              </div>
+            </div>
+          </div>
+          <div class="row odd" id="entry-5">
+            <div class="col-xs-1 text-center"><p>5</p></div>
+            <div class="col-xs-3 col-sm-2"><p>Feb 1, 2026</p></div>
+            <div class="col-xs-8 col-lg-7">
+              <p>MOTION to Dismiss filed by Defendant.</p>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Main Document</p></div>
+                <div class="col-xs-6"><p>Motion to Dismiss</p></div>
+                <a href="https://ecf.example.invalid/doc1">Buy on PACER</a>
+              </div>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Att 1 achment</p></div>
+                <div class="col-xs-6"><p>Declaration</p></div>
+                <a href="https://storage.courtlistener.com/recap/mtd-decl.pdf">
+                  Download PDF
+                </a>
+              </div>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Att 2 achment</p></div>
+                <div class="col-xs-6"><p>Memorandum of Law</p></div>
+                <a href="https://storage.courtlistener.com/recap/mtd-memo.pdf">
+                  Download PDF
+                </a>
+              </div>
+            </div>
+          </div>
+          <div class="row even" id="entry-9">
+            <div class="col-xs-1 text-center"><p>9</p></div>
+            <div class="col-xs-3 col-sm-2"><p>Mar 1, 2026</p></div>
+            <div class="col-xs-8 col-lg-7">
+              <p>Exhibit mentioning facts alleged in the amended complaint.</p>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Main Document</p></div>
+                <div class="col-xs-6">
+                  <p>Exhibit 3: Timeline (Alleged in the Amended Complaint)</p>
+                </div>
+                <a href="https://storage.courtlistener.com/recap/timeline.pdf">
+                  Download PDF
+                </a>
+              </div>
+            </div>
+          </div>
+          <div class="row even" id="entry-16">
+            <div class="col-xs-1 text-center"><p>16</p></div>
+            <div class="col-xs-3 col-sm-2"><p>May 8, 2026</p></div>
+            <div class="col-xs-8 col-lg-7">
+              <p>ORDER on Motion to Dismiss.</p>
+              <div class="row recap-documents">
+                <div class="col-xs-3"><p>Main Document</p></div>
+                <div class="col-xs-6"><p>Order on Motion to Dismiss</p></div>
+                <a href="https://storage.courtlistener.com/recap/order.pdf">
+                  Download PDF
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
