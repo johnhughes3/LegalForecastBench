@@ -156,7 +156,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if output_dir.exists():
-        shutil.rmtree(output_dir)
+        _clean_output_dir(output_dir)
+    else:
+        _validate_output_dir(output_dir)
     output_dir.mkdir(parents=True)
 
     for step in steps:
@@ -180,6 +182,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"installed fixture artifacts: {output_dir / 'installed-fixture-run'}")
     print(f"package artifacts: {output_dir / 'dist'}")
     return 0
+
+
+def _clean_output_dir(output_dir: Path) -> None:
+    _validate_output_dir(output_dir)
+    shutil.rmtree(output_dir)
+
+
+def _validate_output_dir(output_dir: Path) -> None:
+    tmp_root = (REPO_ROOT / "tmp").resolve()
+    if output_dir == tmp_root:
+        raise RuntimeError(
+            f"refusing to use tmp root directly as output dir: {output_dir}"
+        )
+    if not output_dir.is_relative_to(tmp_root):
+        raise RuntimeError(
+            f"refusing to delete output dir outside {tmp_root}: {output_dir}"
+        )
 
 
 if __name__ == "__main__":

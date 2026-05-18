@@ -587,7 +587,9 @@ def _mdl_family_dominance_group_key(unit_score: UnitScore) -> _GroupKey | None:
 
 def _brier_skill_score(micro_brier: float, base_rate_brier: float) -> float:
     if base_rate_brier == 0:
-        return 0.0 if micro_brier == 0 else float("-inf")
+        # Skill is undefined when the base-rate benchmark has no error. Keep the
+        # artifact JSON portable rather than emitting -Infinity.
+        return 0.0
     return 1 - (micro_brier / base_rate_brier)
 
 

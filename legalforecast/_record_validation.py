@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from typing import Any
 
@@ -59,7 +60,9 @@ def optional_number(record: Mapping[str, Any], field_name: str) -> float | None:
         return None
     if not isinstance(value, int | float) or isinstance(value, bool):
         raise ValueError(f"{field_name} must be a number")
-    return float(value)
+    number = float(value)
+    require_finite_float(number, field_name)
+    return number
 
 
 def require_non_empty(value: str, field_name: str) -> None:
@@ -78,5 +81,11 @@ def require_non_negative_int(value: int, field_name: str) -> None:
 
 
 def require_non_negative_float(value: float, field_name: str) -> None:
+    require_finite_float(value, field_name)
     if value < 0:
         raise ValueError(f"{field_name} cannot be negative")
+
+
+def require_finite_float(value: float, field_name: str) -> None:
+    if not math.isfinite(value):
+        raise ValueError(f"{field_name} must be finite")

@@ -68,7 +68,7 @@ benchmark results.
 
 ## CLI Shape
 
-The package exposes one CLI:
+The package exposes one primary CLI:
 
 ```bash
 uv run legalforecast <command>
@@ -84,9 +84,9 @@ uv run legalforecast link --retrievals retrievals.jsonl --output linked_motions.
 uv run legalforecast unitize --input linked_motions.jsonl --output units.jsonl
 uv run legalforecast label --input units.jsonl --output labels.jsonl
 uv run legalforecast packet build --input packet_inputs.jsonl --output packets.jsonl
-uv run legalforecast eval run --packets packets.jsonl --mock-output mock_outputs.jsonl --output runs.jsonl --accounting-output accounting.jsonl
-uv run legalforecast score --runs runs.jsonl --labels labels.jsonl --output scores.jsonl --unit-scores-output unit_scores.jsonl
-uv run legalforecast report --scores scores.jsonl --accounting accounting.jsonl --output-dir reports/
+uv run legalforecast eval run --packets packets.jsonl --mock-output-file mock_outputs.jsonl --output runs.jsonl --accounting-output accounting.jsonl
+uv run legalforecast score --runs runs.jsonl --labels labels.jsonl --output scores.json --unit-scores-output unit_scores.jsonl
+uv run legalforecast report --scores scores.json --accounting accounting.jsonl --output-dir reports/
 ```
 
 Production acquisition commands live under:
@@ -168,4 +168,7 @@ High-value alpha feedback is concrete:
 - a result-tier claim that sounds more official than it is;
 - a security, cost, or legal-record handling issue.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+Default checks must not require live credentials. Please file issues for feedback
+that could affect reproducibility, result-tier claims, security, cost, or
+legal-record handling, and avoid including secrets, account identifiers, sealed
+filings, or private source-document text in public reports.

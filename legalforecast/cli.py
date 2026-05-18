@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -477,7 +478,16 @@ def _add_model_run_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--accounting-output", type=Path)
     parser.add_argument("--solver-id", default="offline:fixture")
-    parser.add_argument("--mock-output", required=True)
+    mock_output_group = parser.add_mutually_exclusive_group(required=True)
+    mock_output_group.add_argument(
+        "--mock-output",
+        help="Literal offline fixture solver output text.",
+    )
+    mock_output_group.add_argument(
+        "--mock-output-file",
+        type=Path,
+        help="File containing offline fixture solver output text.",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.set_defaults(handler=_cmd_model_run)
 
@@ -505,10 +515,20 @@ def _add_eval_run_case_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--solver-id", default="offline:fixture")
-    parser.add_argument(
+    mock_output_group = parser.add_mutually_exclusive_group(required=True)
+    mock_output_group.add_argument(
         "--mock-output",
-        required=True,
-        help="Offline fixture solver output used by the dependency-light runner.",
+        help=(
+            "Literal offline fixture solver output used by the dependency-light runner."
+        ),
+    )
+    mock_output_group.add_argument(
+        "--mock-output-file",
+        type=Path,
+        help=(
+            "File containing offline fixture solver output used by the "
+            "dependency-light runner."
+        ),
     )
     parser.add_argument("--max-tool-calls", type=int, default=10)
     parser.add_argument(
@@ -1018,13 +1038,14 @@ def _cmd_model_run(args: argparse.Namespace) -> int:
         )
 
     packets = tuple(_model_packet(record) for record in packet_records)
+    mock_output = _mock_output_text(args)
     samples = build_inspect_samples(packets)
     run = run_inspect_fixture(
         samples,
         (
             OfflineMockSolver(
                 solver_id=cast(str, args.solver_id),
-                raw_output=cast(str, args.mock_output),
+                raw_output=mock_output,
                 input_tokens=100,
                 output_tokens=25,
                 estimated_cost=0.0,
@@ -1055,13 +1076,14 @@ def _cmd_model_run(args: argparse.Namespace) -> int:
 
 def _cmd_eval_run_case(args: argparse.Namespace) -> int:
     timestamp_text = cast(str | None, args.evaluation_timestamp)
+    mock_output = _mock_output_text(args)
     artifacts = run_per_case_evaluation(
         PerCaseRunnerConfig(
             manifest_uri=cast(str, args.manifest),
             case_id=cast(str, args.case_id),
             ablation=cast(str, args.ablation),
             output_dir=cast(Path, args.output_dir),
-            mock_output=cast(str, args.mock_output),
+            mock_output=mock_output,
             packet_store_root=cast(str | None, args.packet_store_root),
             results_store_root=cast(str | None, args.results_store_root),
             solver_id=cast(str, args.solver_id),
@@ -1865,7 +1887,7 @@ def _free_document_download_request(
 
 
 def _fixture_free_document_source(path: Path) -> FixtureFreeDocumentSource:
-    loaded = json.loads(path.read_text(encoding="utf-8"))
+    loaded = _loads_json(path.read_text(encoding="utf-8"))
     documents_by_url: dict[str, bytes] = {}
     if isinstance(loaded, Mapping):
         payload = cast(Mapping[object, object], loaded)
@@ -1914,13 +1936,14 @@ def _mistral_markdown_request(
         source_document_id,
         field_name="source_document_id",
     )
-    markdown_output_path = (
+    markdown_output_path = _resolve_under(
+        output_root,
         Path(markdown_output)
         if markdown_output is not None
-        else output_root
-        / "markdown"
+        else Path("markdown")
         / safe_path_component(candidate_id, field_name="candidate_id")
-        / f"{safe_document_id}.md"
+        / f"{safe_document_id}.md",
+        field_name="markdown_output_path",
     )
     return MistralMarkdownConversionRequest(
         candidate_id=candidate_id,
@@ -1938,7 +1961,11 @@ def _fixture_markdown_conversion_records(
 ) -> tuple[MistralMarkdownConversionRecord, ...]:
     records: list[MistralMarkdownConversionRecord] = []
     for request in requests:
-        source_path = fixture_markdown_dir / f"{request.source_document_id}.md"
+        safe_document_id = safe_path_component(
+            request.source_document_id,
+            field_name="source_document_id",
+        )
+        source_path = fixture_markdown_dir / f"{safe_document_id}.md"
         markdown_path = request.markdown_output_path
         metadata_path = markdown_path.with_suffix(".metadata.json")
         parser_config = {
@@ -3422,14 +3449,14 @@ def _read_records(path: Path) -> list[JsonRecord]:
             for line_number, line in enumerate(handle, start=1):
                 if not line.strip():
                     continue
-                loaded = json.loads(line)
+                loaded = _loads_json(line)
                 if not isinstance(loaded, Mapping):
                     raise ValueError(f"{path}:{line_number} must contain a JSON object")
                 records.append(dict(cast(Mapping[str, Any], loaded)))
         return records
 
     text = path.read_text(encoding="utf-8")
-    loaded = json.loads(text)
+    loaded = _loads_json(text)
     if isinstance(loaded, list):
         return [_mapping(item, f"{path} item") for item in cast(list[object], loaded)]
     if isinstance(loaded, Mapping):
@@ -3445,7 +3472,7 @@ def _read_records(path: Path) -> list[JsonRecord]:
 
 
 def _read_json_object(path: Path) -> JsonRecord:
-    loaded = json.loads(path.read_text(encoding="utf-8"))
+    loaded = _loads_json(path.read_text(encoding="utf-8"))
     if not isinstance(loaded, Mapping):
         raise ValueError(f"{path} must contain a JSON object")
     return dict(cast(Mapping[str, Any], loaded))
@@ -3454,7 +3481,8 @@ def _read_json_object(path: Path) -> JsonRecord:
 def _write_jsonl(path: Path, records: Iterable[Mapping[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = "".join(
-        f"{json.dumps(dict(record), sort_keys=True)}\n" for record in records
+        f"{json.dumps(dict(record), sort_keys=True, allow_nan=False)}\n"
+        for record in records
     )
     path.write_text(payload, encoding="utf-8")
 
@@ -3462,7 +3490,8 @@ def _write_jsonl(path: Path, records: Iterable[Mapping[str, Any]]) -> None:
 def _append_jsonl(path: Path, records: Iterable[Mapping[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = "".join(
-        f"{json.dumps(dict(record), sort_keys=True)}\n" for record in records
+        f"{json.dumps(dict(record), sort_keys=True, allow_nan=False)}\n"
+        for record in records
     )
     with path.open("a", encoding="utf-8") as handle:
         handle.write(payload)
@@ -3470,7 +3499,35 @@ def _append_jsonl(path: Path, records: Iterable[Mapping[str, Any]]) -> None:
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(dict(payload), indent=2, sort_keys=True) + "\n")
+    path.write_text(
+        json.dumps(dict(payload), indent=2, sort_keys=True, allow_nan=False) + "\n"
+    )
+
+
+def _loads_json(payload: str) -> object:
+    return json.loads(
+        payload,
+        parse_constant=lambda value: (_ for _ in ()).throw(
+            ValueError(f"JSON numeric constant {value} is not supported")
+        ),
+    )
+
+
+def _mock_output_text(args: argparse.Namespace) -> str:
+    mock_output_file = cast(Path | None, getattr(args, "mock_output_file", None))
+    if mock_output_file is not None:
+        return mock_output_file.read_text(encoding="utf-8")
+    return cast(str, args.mock_output)
+
+
+def _resolve_under(root: Path, child: Path, *, field_name: str) -> Path:
+    resolved_root = root.resolve()
+    resolved_child = (
+        child.resolve() if child.is_absolute() else (resolved_root / child).resolve()
+    )
+    if not resolved_child.is_relative_to(resolved_root):
+        raise ValueError(f"{field_name} must stay under {resolved_root}")
+    return resolved_child
 
 
 def _write_dry_run_plan(
@@ -3717,7 +3774,7 @@ def _required_float(record: Mapping[str, Any], field_name: str) -> float:
     value = _required(record, field_name)
     if not isinstance(value, int | float) or isinstance(value, bool):
         raise ValueError(f"{field_name} must be a number")
-    return float(value)
+    return _finite_float(float(value), field_name)
 
 
 def _optional_float(
@@ -3731,7 +3788,7 @@ def _optional_float(
         return default
     if not isinstance(value, int | float) or isinstance(value, bool):
         raise ValueError(f"{field_name} must be a number")
-    return float(value)
+    return _finite_float(float(value), field_name)
 
 
 def _optional_number(record: Mapping[str, Any], field_name: str) -> float | None:
@@ -3740,7 +3797,13 @@ def _optional_number(record: Mapping[str, Any], field_name: str) -> float | None
         return None
     if not isinstance(value, int | float) or isinstance(value, bool):
         raise ValueError(f"{field_name} must be a number")
-    return float(value)
+    return _finite_float(float(value), field_name)
+
+
+def _finite_float(value: float, field_name: str) -> float:
+    if not math.isfinite(value):
+        raise ValueError(f"{field_name} must be finite")
+    return value
 
 
 def _parse_datetime(value: str) -> datetime:

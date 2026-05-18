@@ -42,8 +42,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument(
         "--commit",
-        default=_git_head(REPO_ROOT),
-        help="Release commit SHA recorded in the bundle manifest.",
+        help=(
+            "Release commit SHA recorded in the bundle manifest. "
+            "Defaults to git rev-parse HEAD after arguments are parsed."
+        ),
     )
     parser.add_argument(
         "--version",
@@ -61,12 +63,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    try:
+        release_commit = args.commit or _git_head(REPO_ROOT)
+    except RuntimeError as exc:
+        parser.error(str(exc))
     manifest = build_alpha_release_bundle(
         AlphaReleaseBundleConfig(
             fixture_output_dir=args.fixture_output_dir.resolve(),
             output_dir=args.output_dir.resolve(),
             dist_dir=args.dist_dir.resolve() if args.dist_dir is not None else None,
-            release_commit=args.commit,
+            release_commit=release_commit,
             package_version=args.version,
             release_tag=args.tag,
             repo_root=REPO_ROOT,
@@ -90,11 +96,17 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _git_head(repo_root: Path) -> str:
-    return subprocess.check_output(
-        ("git", "rev-parse", "HEAD"),
-        cwd=repo_root,
-        text=True,
-    ).strip()
+    try:
+        return subprocess.check_output(
+            ("git", "rev-parse", "HEAD"),
+            cwd=repo_root,
+            text=True,
+            stderr=subprocess.STDOUT,
+        ).strip()
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError(
+            "could not determine git HEAD; pass --commit explicitly"
+        ) from exc
 
 
 def _parse_generated_at(value: str) -> datetime:

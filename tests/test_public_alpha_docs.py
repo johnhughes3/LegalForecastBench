@@ -19,18 +19,14 @@ def test_readme_first_screen_states_pre_data_alpha_and_no_leaderboard() -> None:
 
 def test_public_docs_link_feedback_security_and_no_paid_defaults() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
-    security = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
     docs_index = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")
 
-    assert "CONTRIBUTING.md" in readme
-    assert "SECURITY.md" in readme
     assert "docs/ethics.md" in readme
     assert "ethics.md" in docs_index
-    assert "Default checks must not require live credentials" in contributing
-    assert "result-tier" in contributing
-    assert "live, paid, or credentialed paths" in security
-    assert "security regression" in security
+    assert "Default checks must not require live credentials" in readme
+    assert "result-tier" in readme
+    assert "security, cost, or" in readme
+    assert "avoid including secrets" in readme
 
 
 def test_methodology_preregistration_and_acquisition_docs_mark_alpha_limits() -> None:

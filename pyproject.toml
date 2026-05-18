@@ -47,6 +47,6 @@ target-version = "py312"
 select = ["B", "E", "F", "I", "RUF", "UP"]
 
 [tool.pyright]
-include = ["legalforecast"]
+include = ["legalforecast", "scripts"]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
