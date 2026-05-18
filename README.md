@@ -107,6 +107,7 @@ The public docs are intentionally small:
 - [Data card](docs/data_card.md)
 - [Acquisition status](docs/acquisition.md)
 - [Result tiers](docs/result_tiers.md)
+- [Ethics and legal-risk note](docs/ethics.md)
 - [Preregistration](docs/preregistration.md)
 - [Outcome rules appendix](docs/outcome_rules_appendix.md)
 

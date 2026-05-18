@@ -36,37 +36,47 @@ The production acquisition surface is grouped under:
 uv run legalforecast acquisition --help
 ```
 
-The intended sequence is:
+The current alpha CLI is stage-oriented. Input filenames below are illustrative;
+the upstream screening/review step must produce the JSONL inputs for each stage.
+Omitting `--execute` keeps a stage in dry-run mode.
 
 ```bash
 uv run legalforecast acquisition plan \
-  --candidates candidates.jsonl \
+  --core-filter-results tmp/acquisition/core-filter-results.jsonl \
   --output-root tmp/acquisition
 
 uv run legalforecast acquisition download-free \
   --requests tmp/acquisition/free-document-requests.jsonl \
-  --output-root tmp/acquisition \
-  --execute
+  --output-root tmp/acquisition
 
 uv run legalforecast acquisition purchase-missing \
-  --plan tmp/acquisition/missing-core-plan.jsonl \
-  --output-root tmp/acquisition \
-  --dry-run
+  --budget-plan tmp/acquisition/missing-core-budget-plan.json \
+  --output-root tmp/acquisition
 
 uv run legalforecast acquisition parse-documents \
-  --manifest tmp/acquisition/document-manifest.jsonl \
+  --requests tmp/acquisition/parse-document-requests.jsonl \
   --output-root tmp/acquisition
 
 uv run legalforecast acquisition build-packets \
-  --candidates candidates.jsonl \
-  --document-manifest tmp/acquisition/document-manifest.jsonl \
-  --markdown-manifest tmp/acquisition/markdown-manifest.jsonl \
+  --input tmp/acquisition/packet-build-input.jsonl \
   --output-root tmp/acquisition
 ```
 
 Use `--dry-run` first. The only stage designed to purchase documents is
 `purchase-missing`, and it should remain dry-run unless a human operator has
 reviewed the plan, budget, and fee acknowledgement.
+
+Execution flags are intentionally explicit:
+
+- `plan --execute` writes a non-dry-run budget plan for later purchase review.
+- `download-free --execute` performs fixture-safe free-document downloads in
+  this alpha path and requires `--fixture-documents`.
+- `purchase-missing --execute` additionally requires `--live-purchase` and
+  `--acknowledge-pacer-fees`.
+- `parse-documents --execute` uses the configured parser, or
+  `--fixture-markdown-dir` for fixture runs.
+- `build-packets --execute` writes `packets.jsonl`, `case-packets.jsonl`, and
+  `packet-audit.jsonl`.
 
 ## Case.dev and PACER Guardrails
 

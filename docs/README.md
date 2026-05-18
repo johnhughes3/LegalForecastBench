@@ -24,6 +24,8 @@ notes belong in `tmp/`, CI logs, or issues, not in the public docs tree.
   withdrawal ledger, public errata, and future-run exclusion process.
 - [Result Tiers](result_tiers.md): official, verified-community,
   community-unverified, and alpha-non-canonical result handling.
+- [Ethics and Legal-Risk Note](ethics.md): intended use, public-record
+  handling, leakage, judge/party metadata, human review, and takedowns.
 
 ## Protocol Artifacts
 

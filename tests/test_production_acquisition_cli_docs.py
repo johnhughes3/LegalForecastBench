@@ -23,6 +23,31 @@ def test_acquisition_doc_covers_operator_contract() -> None:
         assert expected in doc
 
 
+def test_acquisition_doc_uses_current_cli_flags() -> None:
+    doc = (ROOT / "docs" / "acquisition.md").read_text(encoding="utf-8")
+
+    for expected in (
+        "--core-filter-results",
+        "--budget-plan",
+        "--requests",
+        "--input",
+        "--live-purchase",
+        "--acknowledge-pacer-fees",
+        "--fixture-documents",
+        "--fixture-markdown-dir",
+    ):
+        assert expected in doc
+
+    for stale in (
+        "--candidates candidates.jsonl",
+        "--plan tmp/acquisition/missing-core-plan.jsonl",
+        "--manifest tmp/acquisition/document-manifest.jsonl",
+        "--document-manifest",
+        "--markdown-manifest",
+    ):
+        assert stale not in doc
+
+
 def test_readme_links_acquisition_doc() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 

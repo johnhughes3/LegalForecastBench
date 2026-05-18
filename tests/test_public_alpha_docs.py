@@ -21,9 +21,12 @@ def test_public_docs_link_feedback_security_and_no_paid_defaults() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
     security = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
+    docs_index = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")
 
     assert "CONTRIBUTING.md" in readme
     assert "SECURITY.md" in readme
+    assert "docs/ethics.md" in readme
+    assert "ethics.md" in docs_index
     assert "Default checks must not require live credentials" in contributing
     assert "result-tier" in contributing
     assert "live, paid, or credentialed paths" in security
