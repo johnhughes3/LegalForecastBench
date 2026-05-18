@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast._hashing import is_lowercase_sha256
 from legalforecast.evals.model_registry import ModelRegistry
 from legalforecast.protocol.manifest import hash_payload
 
@@ -289,9 +290,7 @@ def _issue(path: str, message: str) -> PreregistrationValidationIssue:
 
 
 def _is_sha256(value: str) -> bool:
-    return len(value) == 64 and all(
-        character in "0123456789abcdef" for character in value
-    )
+    return is_lowercase_sha256(value)
 
 
 def _yaml_lines(text: str) -> Iterable[tuple[int, str]]:

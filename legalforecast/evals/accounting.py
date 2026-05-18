@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, cast
 
+from legalforecast._datetime import format_utc_iso_z
 from legalforecast._record_validation import (
     optional_str as _optional_str,
 )
@@ -436,4 +437,4 @@ def _require_aware_datetime(value: datetime, field_name: str) -> None:
 
 
 def _iso_datetime(value: datetime) -> str:
-    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    return format_utc_iso_z(value)

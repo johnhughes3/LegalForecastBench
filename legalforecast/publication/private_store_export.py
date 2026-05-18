@@ -12,6 +12,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import cast
 
+from legalforecast._datetime import format_utc_iso_z
+from legalforecast._hashing import is_lowercase_sha256
 from legalforecast.path_safety import safe_path_component
 from legalforecast.protocol.freeze import sha256_file
 
@@ -765,9 +767,7 @@ def _required_sha256(value: object) -> str:
 
 
 def _require_sha256(value: str, field_name: str) -> None:
-    if len(value) != 64 or any(
-        character not in "0123456789abcdef" for character in value
-    ):
+    if not is_lowercase_sha256(value):
         raise PrivateStoreExportError(
             f"{field_name} must be a lowercase SHA-256 hex digest"
         )
@@ -784,7 +784,7 @@ def _require_aware_datetime(value: datetime, field_name: str) -> None:
 
 
 def _format_datetime(value: datetime) -> str:
-    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    return format_utc_iso_z(value)
 
 
 def _safe_extension(path: Path) -> str:

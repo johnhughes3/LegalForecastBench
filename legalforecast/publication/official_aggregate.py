@@ -12,6 +12,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast._datetime import format_utc_iso_z
+from legalforecast._hashing import is_lowercase_sha256
+from legalforecast._json_io import (
+    read_json_object,
+    read_jsonl_objects,
+    write_json_object,
+    write_jsonl_objects,
+)
 from legalforecast.evals.output_parser import parse_model_output
 from legalforecast.evals.scorers import ScoreSummary, ScoringCase, score_cases
 from legalforecast.labeling.label_outcomes import (
@@ -619,45 +627,37 @@ def _bundle_role(relative_path: str) -> str:
 
 
 def _read_jsonl(path: Path) -> list[JsonRecord]:
-    if not path.is_file():
-        raise OfficialAggregationError(f"JSONL artifact missing: {path}")
-    records: list[JsonRecord] = []
-    with path.open("r", encoding="utf-8") as handle:
-        for line_number, line in enumerate(handle, start=1):
-            if not line.strip():
-                continue
-            value: object = json.loads(line)
-            if not isinstance(value, dict):
-                raise OfficialAggregationError(
-                    f"{path} line {line_number} is not an object"
-                )
-            records.append(cast(JsonRecord, value))
-    return records
+    return read_jsonl_objects(
+        path,
+        error_factory=OfficialAggregationError,
+        missing_message=lambda missing_path: f"JSONL artifact missing: {missing_path}",
+        non_object_message=lambda line_path, line_number: (
+            f"{line_path} line {line_number} is not an object"
+        ),
+    )
 
 
 def _read_json_object(path: Path) -> JsonRecord:
-    if not path.is_file():
-        raise OfficialAggregationError(f"JSON artifact missing: {path}")
-    value: object = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise OfficialAggregationError(f"{path} is not a JSON object")
-    return cast(JsonRecord, value)
+    return read_json_object(
+        path,
+        error_factory=OfficialAggregationError,
+        missing_message=lambda missing_path: f"JSON artifact missing: {missing_path}",
+        non_object_message=lambda object_path: f"{object_path} is not a JSON object",
+    )
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
+    write_json_object(
+        path,
+        payload,
+        indent=2,
+        sort_keys=True,
+        trailing_newline=True,
     )
 
 
 def _write_jsonl(path: Path, records: Sequence[Mapping[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        "".join(json.dumps(dict(record), sort_keys=True) + "\n" for record in records),
-        encoding="utf-8",
-    )
+    write_jsonl_objects(path, records, sort_keys=True)
 
 
 def _record_sequence(
@@ -777,12 +777,12 @@ def _require_aware_datetime(value: datetime, field_name: str) -> None:
 
 
 def _require_hex_sha256(value: str, field_name: str) -> None:
-    if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
+    if not is_lowercase_sha256(value):
         raise OfficialAggregationError(f"{field_name} must be a lowercase SHA-256 hex")
 
 
 def _format_datetime(value: datetime) -> str:
-    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    return format_utc_iso_z(value)
 
 
 if __name__ == "__main__":

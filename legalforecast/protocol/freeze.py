@@ -12,6 +12,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast._datetime import format_utc_iso_z
+from legalforecast._hashing import is_lowercase_sha256
 from legalforecast.protocol.manifest import hash_payload
 from legalforecast.protocol.preregistration import load_preregistration
 
@@ -558,7 +560,7 @@ def _parse_timestamp(value: str) -> datetime:
 
 def _iso_datetime(value: datetime) -> str:
     _require_aware_datetime(value, "datetime")
-    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    return format_utc_iso_z(value)
 
 
 def _require_non_empty(value: str, field_name: str) -> None:
@@ -572,7 +574,5 @@ def _require_aware_datetime(value: datetime, field_name: str) -> None:
 
 
 def _require_sha256(value: str, field_name: str) -> None:
-    if len(value) != 64 or any(
-        character not in "0123456789abcdef" for character in value
-    ):
+    if not is_lowercase_sha256(value):
         raise ValueError(f"{field_name} must be a lowercase SHA-256 hash")

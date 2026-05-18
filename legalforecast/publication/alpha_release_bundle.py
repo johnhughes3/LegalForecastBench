@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
+from legalforecast._datetime import format_utc_iso_z
 from legalforecast.protocol import sha256_file
 
 ALPHA_RELEASE_BUNDLE_SCHEMA_VERSION = "legalforecast.alpha_release_bundle.v1"
@@ -319,4 +320,4 @@ def _required_str(record: Mapping[str, object], field_name: str) -> str:
 def _iso_datetime(value: datetime) -> str:
     if value.tzinfo is None:
         raise AlphaReleaseBundleError("datetime must be timezone-aware")
-    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    return format_utc_iso_z(value)

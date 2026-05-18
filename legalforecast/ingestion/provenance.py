@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import StrEnum
 from typing import Any
+
+from legalforecast._datetime import format_utc_iso_z
+from legalforecast._hashing import is_lowercase_sha256
 
 
 class DocumentRole(StrEnum):
@@ -225,7 +228,7 @@ def sha256_text(text: str) -> str:
 
 
 def _iso_datetime(timestamp: datetime) -> str:
-    return timestamp.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    return format_utc_iso_z(timestamp)
 
 
 def _require_non_empty(value: str, field_name: str) -> None:
@@ -239,7 +242,5 @@ def _require_aware(timestamp: datetime, field_name: str) -> None:
 
 
 def _require_sha256(value: str) -> None:
-    if len(value) != 64 or any(
-        character not in "0123456789abcdef" for character in value
-    ):
+    if not is_lowercase_sha256(value):
         raise ValueError("sha256 must be a lowercase 64-character hex digest")

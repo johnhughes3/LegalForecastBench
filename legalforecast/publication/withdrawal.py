@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import cast
 
+from legalforecast._datetime import format_utc_iso_z
+from legalforecast._hashing import is_sha256_digest
+
 WITHDRAWAL_LEDGER_SCHEMA_VERSION = "legalforecast-withdrawal-ledger-v1"
 PUBLIC_ERRATA_SCHEMA_VERSION = "legalforecast-withdrawal-errata-v1"
-_SHA256_RE = re.compile(r"^(?:sha256:)?[0-9a-f]{64}$")
 
 
 class WithdrawalScope(StrEnum):
@@ -303,7 +304,7 @@ def build_public_errata_record(
 
 
 def _format_datetime(value: datetime) -> str:
-    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    return format_utc_iso_z(value)
 
 
 def _parse_datetime(value: object, field_name: str) -> datetime:
@@ -399,5 +400,5 @@ def _require_prefixed_safe_path(
 def _require_sha256_or_none(value: str | None, field_name: str) -> None:
     if value is None:
         return
-    if _SHA256_RE.fullmatch(value) is None:
+    if not is_sha256_digest(value, allow_prefix=True):
         raise ValueError(f"{field_name} must be a sha256 digest")

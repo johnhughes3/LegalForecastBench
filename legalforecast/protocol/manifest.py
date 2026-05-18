@@ -9,6 +9,7 @@ from datetime import date
 from enum import StrEnum
 from typing import Any
 
+from legalforecast._hashing import is_lowercase_sha256
 from legalforecast.ingestion.provenance import SourceDocumentProvenance
 from legalforecast.selection.case_mix_diagnostics import CaseMixCandidate
 from legalforecast.selection.eligibility import ContaminationMetadata, EligibilityStatus
@@ -276,7 +277,5 @@ def _require_non_empty(value: str, field_name: str) -> None:
 
 
 def _require_sha256(value: str, field_name: str) -> None:
-    if len(value) != 64 or any(
-        character not in "0123456789abcdef" for character in value
-    ):
+    if not is_lowercase_sha256(value):
         raise ValueError(f"{field_name} must be a lowercase SHA-256 hex digest")
