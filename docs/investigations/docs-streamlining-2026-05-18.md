@@ -1,7 +1,7 @@
 # Investigation: Documentation Streamlining
 
 ## Summary
-TBD — investigate all Markdown, HTML, and text documentation-like files and identify which docs should be kept, consolidated, trimmed, or removed.
+The documentation set is larger than ideal, but most of the file count reflects real contract-bearing boundaries rather than accidental sprawl. The safe streamlining path is to keep public/test-pinned paths stable, assign one canonical source of truth per repeated policy topic, shorten cross-references in secondary docs, and cut only placeholder fixture READMEs; no tracked `.html` or `.txt` docs-like files were found, so the practical target is Markdown plus `docs/run_card_schema.json`.
 
 ## Symptoms
 - The repository has several README files in subdirectories, plus many topic-specific docs under `docs/`.
@@ -65,10 +65,28 @@ No external fact-gathering was needed for the initial triage. This investigation
 **Conclusion:** Proceed to broad context gathering and pair investigation; no external research required.
 
 ## Root Cause
-TBD.
+Documentation grew around legitimate operational and governance checkpoints: acquisition, preregistration, official evaluation, private storage, export, aggregation, publication tiers, withdrawal, ethics, templates, and test fixtures. Those boundaries are real, but the docs do not consistently declare a single canonical owner for recurring concepts, so alpha status, acquisition blockers, result-tier language, leakage/validity framing, sensitive-material boundaries, public/private artifact rules, and takedown procedures are repeated across multiple files.
+
+A second cause is that the docs are part of the repository's executable contract. Tests assert exact phrases, links, paths, workflow claims, schema fields, CLI flags, release metadata, and public/private boundaries; the alpha release bundle also packages specific doc paths. That makes aggressive consolidation or path moves risky unless tests and packaging code are updated deliberately.
+
+A third cause is directory-local README drift. Some subdirectory READMEs are useful orientation or fixture catalogs, but a few fixture READMEs are placeholder-only and exist mainly to mark directories.
 
 ## Recommendations
-TBD.
+1. **Use stable paths and canonical owners.** Keep the public and contract-bearing paths stable: root `README.md`, `docs/README.md`, core `docs/*.md`, `docs/run_card_schema.json`, `scripts/README.md`, and `docker/docket_tool/README.md`. Renaming or deleting these is risky because tests and release packaging pin many paths, phrases, commands, schema fields, and workflow claims.
+2. **Make navigation single-purpose.** Keep `README.md` as the public landing page and quickstart. Make `docs/README.md` the complete but compact documentation index. Trim the root docs list so it points to the highest-value starting docs instead of competing with the docs index.
+3. **Canonicalize repeated topics.** Assign one source of truth per recurring policy area: alpha status in `README.md` plus release notes; acquisition commands/blockers in `docs/acquisition.md`; benchmark validity/leakage in `docs/methodology.md`; cycle data governance in `docs/data_card.md`; legal-risk framing in `docs/ethics.md`; result tiers in `docs/result_tiers.md`; withdrawal procedure in `docs/withdrawal_workflow.md`; storage/export/eval/aggregation boundaries in their respective runbooks.
+4. **Keep operational control docs separate.** Do not merge `docs/private_storage_layout.md`, `docs/private_store_export.md`, `docs/official_eval_environment.md`, `docs/official_aggregation.md`, or `docs/withdrawal_workflow.md`. They map to different safety controls and are heavily test-pinned.
+5. **Reduce boilerplate, not safety language.** Keep full public/private, prefix, ledger, and takedown lists only where the doc owns that operational boundary or tests require exact language. Elsewhere, replace repeated paragraphs with short cross-links.
+6. **Cut only placeholder fixture READMEs.** Low-risk cuts are `tests/fixtures/case_packet/README.md`, `tests/fixtures/manifests/README.md`, and `tests/fixtures/protocols/README.md`; consolidate their one-line purpose into `tests/fixtures/README.md` or use `.gitkeep` if directory retention is needed. Keep `tests/fixtures/golden_cases/README.md` and `tests/fixtures/mock_model_outputs/README.md` because they document real fixture catalogs.
+7. **Prefer title-only clarifications over path moves.** Clarify titles/roles in-place for docs like `docs/data_card.md`, `docs/acquisition.md`, `docs/private_store_export.md`, and `docs/official_aggregation.md`. Avoid moving `docs/run_card_schema.json`, `docs/preregistration_template.md`, `docs/v0.1_alpha_release_notes.md`, `docs/outcome_rules_appendix.md`, or release metadata docs unless doing a dedicated docs-contract migration.
+8. **Demote planning/internal material.** Treat `docs/target_model_release_dates.md` as a planning appendix lower in the docs index. Keep this investigation report internal and dated. Review root `plan.md` separately; if obsolete, move it to a dated investigation/archive location or remove it.
+9. **Validate with doc-contract tests.** After any streamlining patch, run the focused documentation tests plus adjacent workflow/publication tests covering public alpha docs, acquisition docs/CLI, official eval workflows, aggregation, private storage/export, result tiers, withdrawal, run cards, preregistration, scripts/docker docs, version/license, and release-bundle checks.
 
 ## Preventive Measures
-TBD.
+- Maintain a compact topic-to-canonical-doc map in `docs/README.md` or an internal maintenance note so new policy text lands in the right place.
+- Treat public docs as contract-bearing artifacts: before editing or moving them, check tests for pinned paths, phrases, fields, commands, links, and release-bundle inclusion.
+- Use a docs-change checklist: audience, canonical source, duplicate policy risk, release-bundle impact, and exact-phrase test risk.
+- Avoid placeholder README files; add a directory README only when it contains durable contributor guidance or artifact contracts.
+- Keep navigation thin: root README orients, `docs/README.md` indexes, individual docs own details.
+- Prefer cross-links over repeated policy blocks unless the phrase is a tested safety boundary or the doc owns the operational control.
+- Re-run a docs audit after major acquisition, official-evaluation, publication, or withdrawal workflow changes, since those areas are most prone to duplicate safety language.
