@@ -40,6 +40,7 @@ from legalforecast.reporting.cadence import (
     classify_cycle_power,
 )
 from legalforecast.reporting.leaderboard import (
+    AccountingLeaderboardRow,
     build_benchmark_leaderboard_report,
     summarize_accounting_leaderboard,
 )
@@ -114,6 +115,34 @@ class OfficialAggregationResult:
     model_count: int
 
 
+@dataclass(slots=True)
+class _AccountingTotals:
+    """Public-safe accounting totals for one model."""
+
+    request_count: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    tool_call_count: int = 0
+    allowed_tool_call_count: int = 0
+    denied_tool_call_count: int = 0
+
+    def add(self, record: Mapping[str, Any]) -> None:
+        self.request_count += _required_int(record, "request_count")
+        self.prompt_tokens += _required_int(record, "prompt_tokens")
+        self.completion_tokens += _required_int(record, "completion_tokens")
+        self.total_tokens += _required_int(record, "total_tokens")
+        self.tool_call_count += _required_int(record, "tool_call_count")
+        self.allowed_tool_call_count += _required_int(
+            record,
+            "allowed_tool_call_count",
+        )
+        self.denied_tool_call_count += _required_int(
+            record,
+            "denied_tool_call_count",
+        )
+
+
 def aggregate_official_results(
     config: OfficialAggregationConfig,
 ) -> OfficialAggregationResult:
@@ -159,9 +188,10 @@ def aggregate_official_results(
         labels,
         base_rate=config.base_rate,
     )
+    accounting_rows = summarize_accounting_leaderboard(accounting_records)
     report = build_benchmark_leaderboard_report(
         summaries,
-        accounting_rows=summarize_accounting_leaderboard(accounting_records),
+        accounting_rows=accounting_rows,
         title=config.title,
     )
     cycle_power = classify_cycle_power(_cycle_power_input(config))
@@ -176,7 +206,11 @@ def aggregate_official_results(
     _write_jsonl(private_debug_dir / "accounting.jsonl", accounting_records)
     _write_jsonl(private_debug_dir / "case-metrics.jsonl", metrics_records)
 
-    score_records = [summary.to_record() for summary in summaries]
+    score_records = _score_records_with_accounting(
+        summaries,
+        accounting_rows=accounting_rows,
+        accounting_records=accounting_records,
+    )
     _write_json(
         public_dir / "scores.json",
         {
@@ -256,6 +290,81 @@ def aggregate_official_results(
         ),
         model_count=len({_model for _case_id, _ablation, _model in expected_rows}),
     )
+
+
+def _score_records_with_accounting(
+    summaries: Sequence[ScoreSummary],
+    *,
+    accounting_rows: Sequence[AccountingLeaderboardRow],
+    accounting_records: Sequence[Mapping[str, Any]],
+) -> list[JsonRecord]:
+    rows_by_model = _accounting_rows_by_model(accounting_rows)
+    totals_by_model = _accounting_totals_by_model(accounting_records)
+    score_records: list[JsonRecord] = []
+    for summary in summaries:
+        row = rows_by_model.get(summary.model_id)
+        totals = totals_by_model.get(summary.model_id)
+        if row is None or totals is None:
+            raise OfficialAggregationError(
+                f"accounting summary missing for model_id={summary.model_id}"
+            )
+        record = summary.to_record()
+        record.update(_public_accounting_fields(row, totals))
+        score_records.append(record)
+    return score_records
+
+
+def _accounting_rows_by_model(
+    accounting_rows: Sequence[AccountingLeaderboardRow],
+) -> dict[str, AccountingLeaderboardRow]:
+    rows_by_model: dict[str, AccountingLeaderboardRow] = {}
+    for row in accounting_rows:
+        if row.model_id in rows_by_model:
+            raise OfficialAggregationError(
+                f"multiple accounting summaries for model_id={row.model_id}"
+            )
+        rows_by_model[row.model_id] = row
+    return rows_by_model
+
+
+def _accounting_totals_by_model(
+    accounting_records: Sequence[Mapping[str, Any]],
+) -> dict[str, _AccountingTotals]:
+    totals_by_model: dict[str, _AccountingTotals] = {}
+    for record in accounting_records:
+        model_id = _required_str(record, "model_id")
+        totals = totals_by_model.setdefault(model_id, _AccountingTotals())
+        totals.add(record)
+    return totals_by_model
+
+
+def _public_accounting_fields(
+    row: AccountingLeaderboardRow,
+    totals: _AccountingTotals,
+) -> JsonRecord:
+    return {
+        "solver_id": row.solver_id,
+        "provider": row.provider,
+        "model_version_or_snapshot": row.model_version_or_snapshot,
+        "run_label": row.run_label,
+        "run_count": row.run_count,
+        "request_count": totals.request_count,
+        "prompt_tokens": totals.prompt_tokens,
+        "completion_tokens": totals.completion_tokens,
+        "total_tokens": totals.total_tokens,
+        "tool_call_count": totals.tool_call_count,
+        "allowed_tool_call_count": totals.allowed_tool_call_count,
+        "denied_tool_call_count": totals.denied_tool_call_count,
+        "mean_tool_calls_per_case": row.mean_tool_calls_per_case,
+        "median_tool_calls_per_case": row.median_tool_calls_per_case,
+        "p95_tool_calls_per_case": row.p95_tool_calls_per_case,
+        "mean_latency_ms": row.mean_latency_ms,
+        "p95_latency_ms": row.p95_latency_ms,
+        "total_estimated_cost": row.total_estimated_cost,
+        "cost_per_case": row.cost_per_case,
+        "cost_per_prediction_unit": row.cost_per_prediction_unit,
+        "content_filter_rate": row.content_filter_rate,
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:

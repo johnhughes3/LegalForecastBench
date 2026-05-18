@@ -71,6 +71,18 @@ def test_official_aggregate_writes_public_bundle_and_private_debug(
     assert math.isclose(leaderboard["rows"][0]["micro_brier"], 0.025)
     assert math.isclose(leaderboard["rows"][0]["cost_per_case"], 0.02)
 
+    scores = json.loads((result.public_dir / "scores.json").read_text(encoding="utf-8"))
+    score_summary = scores["summaries"][0]
+    assert score_summary["model_id"] == "fixture-model"
+    assert math.isclose(score_summary["total_estimated_cost"], 0.02)
+    assert math.isclose(score_summary["cost_per_case"], 0.02)
+    assert math.isclose(score_summary["cost_per_prediction_unit"], 0.01)
+    assert score_summary["prompt_tokens"] == 100
+    assert score_summary["completion_tokens"] == 25
+    assert score_summary["total_tokens"] == 125
+    assert score_summary["allowed_tool_call_count"] == 0
+    assert score_summary["denied_tool_call_count"] == 0
+
     run_card = json.loads(result.run_card_path.read_text(encoding="utf-8"))
     assert run_card["ablation_filter"] == "full_packet"
     assert run_card["expected_matrix_rows"] == 1
