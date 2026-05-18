@@ -595,6 +595,12 @@ def _add_eval_run_case_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--max-tool-calls", type=int, default=10)
     parser.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=120.0,
+        help="Per-provider-request timeout for the registry-backed live model call.",
+    )
+    parser.add_argument(
         "--no-docket-tool",
         action="store_true",
         help="Disable the controlled docket tool for this packet shard.",
@@ -1490,6 +1496,7 @@ def _cmd_eval_run_case(args: argparse.Namespace) -> int:
             evaluation_timestamp=(
                 _parse_datetime(timestamp_text) if timestamp_text is not None else None
             ),
+            timeout_seconds=cast(float, args.timeout_seconds),
         )
     )
     _log_event(

@@ -457,6 +457,14 @@ def _decode_json_with_repair(raw_output: str) -> DecodeResult:
         except JSONDecodeError as exc:
             last_error = exc.msg
             continue
+        if isinstance(value, Sequence) and not isinstance(value, str | bytes):
+            items = cast(Sequence[Any], value)
+            if len(items) == 1 and isinstance(items[0], Mapping):
+                return DecodeResult(
+                    payload=cast(Mapping[str, Any], items[0]),
+                    repair_attempted=True,
+                    repair_applied=True,
+                )
         if not isinstance(value, Mapping):
             return DecodeResult(
                 payload=None,

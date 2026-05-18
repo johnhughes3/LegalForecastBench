@@ -109,6 +109,7 @@ class PerCaseRunnerConfig:
     max_tool_calls: int = DEFAULT_TOOL_CALL_CAP
     use_docket_tool: bool = True
     evaluation_timestamp: datetime | None = None
+    timeout_seconds: float = 120.0
 
     def __post_init__(self) -> None:
         for value, field_name in (
@@ -136,6 +137,8 @@ class PerCaseRunnerConfig:
                 raise ValueError(f"{field_name} must not be blank")
         if self.max_tool_calls <= 0:
             raise ValueError("max_tool_calls must be positive")
+        if self.timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
         if self.evaluation_timestamp is not None:
             _require_aware_datetime(
                 self.evaluation_timestamp,
@@ -635,7 +638,7 @@ def _validate_model_packet(
         if _normalize_sha256(document.text_sha256) != sha256_text(document.text):
             raise PerCaseRunnerError(
                 f"model packet text hash mismatch: {document.source_document_id}"
-    )
+            )
 
 
 def _optional_registry_entry(
@@ -704,6 +707,7 @@ def _solver_for_config(
     return LiveModelSolver(
         registry_entry=registry_entry,
         model_registry_sha256=model_registry_sha256,
+        timeout_seconds=config.timeout_seconds,
     )
 
 

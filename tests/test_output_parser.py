@@ -62,6 +62,22 @@ def test_parser_repairs_markdown_wrapped_json_deterministically() -> None:
     assert parsed.repair_applied is True
 
 
+def test_parser_repairs_singleton_top_level_list() -> None:
+    fixture = get_mock_model_output("mock_calibrated_predictions")
+    raw_output = json.dumps([json.loads(fixture.raw_output)])
+
+    parsed = parse_model_output(
+        raw_output,
+        required_unit_ids=REQUIRED_MOCK_UNIT_IDS,
+    )
+
+    assert parsed.status is ParserStatus.REPAIRED_VALID
+    assert parsed.is_valid is True
+    assert parsed.defaulted_unit_ids == ()
+    assert parsed.repair_attempted is True
+    assert parsed.repair_applied is True
+
+
 def test_parser_marks_malformed_json_and_defaults_required_units() -> None:
     fixture = get_mock_model_output("mock_invalid_json_truncated")
 

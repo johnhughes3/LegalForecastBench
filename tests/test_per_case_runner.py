@@ -206,6 +206,8 @@ def test_eval_run_case_cli_writes_artifact_summary(
                 _mock_output(),
                 "--evaluation-timestamp",
                 "2026-05-17T12:00:00Z",
+                "--timeout-seconds",
+                "300",
             ]
         )
         == 0
@@ -217,6 +219,18 @@ def test_eval_run_case_cli_writes_artifact_summary(
     assert (output_dir / "runs.jsonl").is_file()
     metrics = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
     assert metrics["evaluation_timestamp"] == "2026-05-17T12:00:00Z"
+
+
+def test_per_case_runner_rejects_nonpositive_timeout(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="timeout_seconds must be positive"):
+        PerCaseRunnerConfig(
+            manifest_uri=str(tmp_path / "manifest.json"),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "runner-output",
+            mock_output=_mock_output(),
+            timeout_seconds=0,
+        )
 
 
 def test_per_case_runner_resolves_model_registry_entry(tmp_path: Path) -> None:
