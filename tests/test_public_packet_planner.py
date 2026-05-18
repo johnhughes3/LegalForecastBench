@@ -170,6 +170,126 @@ def test_public_packet_planner_can_use_embedded_selected_entries(
     )
 
 
+def test_public_packet_planner_accepts_exact_target_mtd_memorandum_when_role_is_noisy(
+    tmp_path: Path,
+) -> None:
+    raw_html_dir = tmp_path / "raw_html"
+
+    record = _screened_case_with_embedded_entries()
+    target_entry = record["selected_entries"][1]
+    assert isinstance(target_entry, dict)
+    target_entry["text"] = (
+        "5 Feb 1, 2026 Notice of manual filing of MOTION to Dismiss by "
+        "Defendant. Text of Proposed Order."
+    )
+    target_entry["documents"] = [
+        {
+            "kind": "Main Document",
+            "description": "Dismiss for Failure to State a Claim",
+            "href": "https://ecf.example.invalid/doc1",
+            "action_label": "Buy on PACER",
+            "pacer_only": True,
+        },
+        {
+            "kind": "Att 1 attachment",
+            "description": "Memorandum",
+            "href": "https://www.courtlistener.com/docket/123/5/1/example/",
+            "action_label": "Download PDF",
+            "pacer_only": False,
+        },
+        {
+            "kind": "Att 2 attachment",
+            "description": "Text of Proposed Order",
+            "href": "https://ecf.example.invalid/doc2",
+            "action_label": "Buy on PACER",
+            "pacer_only": True,
+        },
+    ]
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=raw_html_dir,
+        target_clean_cases=25,
+        use_embedded_entries=True,
+    )
+
+    assert plan.selected_case_count == 1
+    selected = plan.selected_cases[0]
+    assert selected.documents[1].document_role is DocumentRole.MTD_MEMORANDUM
+    assert selected.documents[1].source_url == (
+        "https://www.courtlistener.com/docket/123/5/1/example/"
+    )
+
+
+def test_public_packet_planner_prefers_free_support_memo_for_pacer_only_target(
+    tmp_path: Path,
+) -> None:
+    raw_html_dir = tmp_path / "raw_html"
+    record = _screened_case_with_embedded_entries()
+    target_entry = record["selected_entries"][1]
+    assert isinstance(target_entry, dict)
+    target_entry["documents"] = [
+        {
+            "kind": "Main Document",
+            "description": "Dismiss",
+            "href": "https://ecf.example.invalid/doc1",
+            "action_label": "Buy on PACER",
+            "pacer_only": True,
+        }
+    ]
+    record["selected_entries"].insert(
+        2,
+        {
+            "row_id": "entry-6",
+            "entry_number": "6",
+            "filed_at": "Feb 2, 2026",
+            "text": "6 Feb 2, 2026 Memorandum in Support re 5 MOTION to Dismiss.",
+            "documents": [
+                {
+                    "kind": "Main Document",
+                    "description": "Memorandum",
+                    "href": "https://www.courtlistener.com/docket/123/6/example/",
+                    "action_label": "Download PDF",
+                    "pacer_only": False,
+                },
+            ],
+        },
+    )
+    record["selected_entries"].insert(
+        3,
+        {
+            "row_id": "entry-7",
+            "entry_number": "7",
+            "filed_at": "Feb 3, 2026",
+            "text": "7 Feb 3, 2026 MOTION to Dismiss unrelated crossclaim.",
+            "documents": [
+                {
+                    "kind": "Main Document",
+                    "description": "Dismiss",
+                    "href": "https://www.courtlistener.com/docket/123/7/example/",
+                    "action_label": "Download PDF",
+                    "pacer_only": False,
+                },
+            ],
+        },
+    )
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=raw_html_dir,
+        target_clean_cases=25,
+        allow_inferred_target_mtd=True,
+        use_embedded_entries=True,
+    )
+
+    assert plan.selected_case_count == 1
+    selected = plan.selected_cases[0]
+    assert selected.documents[1].document_role is DocumentRole.MTD_MEMORANDUM
+    assert selected.documents[1].source_url == (
+        "https://www.courtlistener.com/docket/123/6/example/"
+    )
+
+
 def _screened_case() -> dict[str, object]:
     return {
         "candidate": {

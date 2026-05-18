@@ -400,10 +400,19 @@ def _target_mtd_entries(
     exact = tuple(
         entry
         for entry in page.entries
-        if _entry_number(entry) in set(target_entries) and _is_mtd_entry(entry)
+        if _entry_number(entry) in set(target_entries) and _is_target_mtd_entry(entry)
     )
     if exact or not allow_inferred_target_mtd:
         return exact
+    target_support = tuple(
+        entry
+        for entry in page.entries
+        if _entry_is_before(entry, decision_floor)
+        and _is_mtd_entry(entry)
+        and _references_target_motion(entry, target_entries)
+    )
+    if target_support:
+        return target_support
     return tuple(
         entry
         for entry in page.entries
@@ -562,6 +571,44 @@ def _is_mtd_entry(entry: CourtListenerWebDocketEntry) -> bool:
         _best_free_document(entry, DocumentRole.MTD_NOTICE) is not None
         or _best_free_document(entry, DocumentRole.MTD_MEMORANDUM) is not None
     )
+
+
+def _is_target_mtd_entry(entry: CourtListenerWebDocketEntry) -> bool:
+    if _is_mtd_entry(entry):
+        return True
+    text = entry.text.lower()
+    if not (
+        re.search(r"\bmotions?\s+to\s+dismiss\b", text)
+        or re.search(r"\b12\s*\(\s*b\s*\)\s*\(\s*[126]\s*\)", text)
+        or re.search(r"\b12\s*\(\s*c\s*\)", text)
+        or re.search(r"\brule\s+12\b", text)
+        or re.search(r"\bjudgment\s+on\s+the\s+pleadings\b", text)
+    ):
+        return False
+    return (
+        _best_free_document(entry, DocumentRole.MTD_NOTICE) is not None
+        or _best_free_document(entry, DocumentRole.MTD_MEMORANDUM) is not None
+    )
+
+
+def _references_target_motion(
+    entry: CourtListenerWebDocketEntry,
+    target_entries: tuple[int, ...],
+) -> bool:
+    if not target_entries:
+        return False
+    text = " ".join(entry.text.lower().split())
+    for target_entry in target_entries:
+        escaped = re.escape(str(target_entry))
+        if re.search(
+            rf"\b(?:re|regarding|support(?:\s+of)?|opposition\s+to)\s+"
+            rf"{escaped}\b",
+            text,
+        ):
+            return True
+        if re.search(rf"\b{escaped}\s+motions?\s+to\s+dismiss\b", text):
+            return True
+    return False
 
 
 def _is_optional_brief_entry(entry: CourtListenerWebDocketEntry) -> bool:

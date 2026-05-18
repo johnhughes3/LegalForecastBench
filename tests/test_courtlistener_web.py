@@ -98,6 +98,21 @@ def test_motion_with_attachment_exhibits_stays_motion_notice() -> None:
     assert page.entries[0].role is CourtListenerEntryRole.MTD_NOTICE
 
 
+def test_joint_motion_with_proposed_order_stays_motion_notice() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(next_enabled=False).replace(
+            "MOTION TO DISMISS filed by ABC CORPORATION.",
+            (
+                "Joint MOTION TO DISMISS FOR FAILURE TO STATE A CLAIM filed by "
+                "Defendants. Memorandum, Text of Proposed Order."
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/73320440/doe-v-abc/",
+    )
+
+    assert page.entries[0].role is CourtListenerEntryRole.MTD_NOTICE
+
+
 def test_parser_prefers_direct_storage_pdf_over_document_landing_page() -> None:
     html = _docket_html(next_enabled=False).replace(
         '<a\n                    href="https://storage.courtlistener.com/recap/order.pdf"',

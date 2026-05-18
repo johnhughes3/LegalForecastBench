@@ -511,7 +511,8 @@ def _starts_with_dispositive_motion(text: str) -> bool:
         re.match(
             r"^\s*\d*\s*"
             r"(?:[a-z]{3,9}\s+\d{1,2},\s+\d{4}\s+)?"
-            r"(?:(?:amended|corrected|partial|renewed|second)\s+)*"
+            r"(?:(?:amended|corrected|defendant(?:s'?|'s)?|first|joint|partial|"
+            r"renewed|second|third)\s+)*"
             r"motions?\s+(?:to\s+dismiss|for\s+judgment\s+on\s+the\s+pleadings)\b",
             text,
             re.I,
