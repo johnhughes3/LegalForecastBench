@@ -705,6 +705,65 @@ def test_build_packets_rejects_mounted_outcome_leakage(
     assert not (output_root / "packets.jsonl").exists()
 
 
+def test_merge_artifacts_prefers_packet_buildable_inputs(tmp_path: Path) -> None:
+    base = tmp_path / "base"
+    recovered = tmp_path / "recovered"
+    output_root = tmp_path / "merged"
+    _write_merge_root(base, case_id="case-1", unit_id="unit-1")
+    _write_jsonl(
+        base / "public-packet-selection.jsonl",
+        [{"case_id": "case-1"}, {"case_id": "failed-case"}],
+    )
+    _write_jsonl(
+        base / "public-packet-selection-packet-buildable-labeled.jsonl",
+        [{"case_id": "case-1"}],
+    )
+    _write_jsonl(base / "labels-packet-buildable.jsonl", [{"unit_id": "unit-1"}])
+    _write_jsonl(
+        base / "prediction-units-packet-buildable-labeled.jsonl",
+        [{"case_id": "case-1", "prediction_units": [{"unit_id": "unit-1"}]}],
+    )
+    _write_merge_root(recovered, case_id="case-2", unit_id="unit-2")
+    _write_jsonl(recovered / "labels.jsonl", [{"unit_id": "unit-2"}])
+    _write_jsonl(
+        recovered / "prediction-units.jsonl",
+        [{"case_id": "case-2", "prediction_units": [{"unit_id": "unit-2"}]}],
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "merge-artifacts",
+                "--source-root",
+                str(base),
+                "--source-root",
+                str(recovered),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    assert [
+        record["case_id"] for record in _read_jsonl(output_root / "packets.jsonl")
+    ] == ["case-1", "case-2"]
+    assert [
+        record["unit_id"] for record in _read_jsonl(output_root / "labels.jsonl")
+    ] == ["unit-1", "unit-2"]
+    assert [
+        record["case_id"]
+        for record in _read_jsonl(output_root / "public-packet-selection.jsonl")
+    ] == ["case-1", "case-2"]
+    assert (output_root / "documents" / "free" / "case-1" / "doc-1.pdf").exists()
+    assert (output_root / "documents" / "free" / "case-2" / "doc-2.pdf").exists()
+    summary = _read_json(output_root / "merge-artifacts-summary.json")
+    assert summary["record_counts"]["packets.jsonl"] == 2
+    assert summary["record_counts"]["prediction-units.jsonl"] == 2
+
+
 def _write_execute_budget_plan(tmp_path: Path, output_root: Path) -> Path:
     core_results = tmp_path / "core-filter-results.jsonl"
     _write_jsonl(core_results, [_core_filter_result()])
@@ -723,6 +782,45 @@ def _write_execute_budget_plan(tmp_path: Path, output_root: Path) -> Path:
         == 0
     )
     return output_root / "missing-core-budget-plan.json"
+
+
+def _write_merge_root(root: Path, *, case_id: str, unit_id: str) -> None:
+    document_id = f"doc-{case_id[-1]}"
+    document_path = root / "documents" / "free" / case_id / f"{document_id}.pdf"
+    document_path.parent.mkdir(parents=True, exist_ok=True)
+    document_path.write_bytes(f"{case_id} pdf".encode())
+    markdown_path = root / "markdown" / case_id / f"{document_id}.md"
+    markdown_path.parent.mkdir(parents=True, exist_ok=True)
+    markdown_path.write_text(f"# {case_id}\n", encoding="utf-8")
+    packet = {
+        "case_id": case_id,
+        "candidate_id": case_id,
+        "ablation": "full_packet",
+        "prediction_units": [{"unit_id": unit_id}],
+    }
+    _write_jsonl(root / "packets.jsonl", [packet])
+    _write_jsonl(root / "case-packets.jsonl", [packet])
+    _write_jsonl(root / "candidate-manifest.jsonl", [{"case_id": case_id}])
+    _write_jsonl(
+        root / "document-manifest.jsonl",
+        [
+            {
+                "source_document_id": document_id,
+                "path": str(document_path.relative_to(root)),
+            }
+        ],
+    )
+    _write_jsonl(root / "extracted_texts.jsonl", [{"source_document_id": document_id}])
+    _write_jsonl(
+        root / "mistral-markdown-conversions.jsonl",
+        [{"source_document_id": document_id, "markdown_path": str(markdown_path)}],
+    )
+    _write_jsonl(root / "packet-build-input.jsonl", [{"case_id": case_id}])
+    _write_jsonl(root / "public-packet-selection.jsonl", [{"case_id": case_id}])
+    _write_jsonl(
+        root / "prediction-units.jsonl",
+        [{"case_id": case_id, "prediction_units": [{"unit_id": unit_id}]}],
+    )
 
 
 def _core_filter_result() -> JsonRecord:

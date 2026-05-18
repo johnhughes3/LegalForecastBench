@@ -157,7 +157,10 @@ def llm_unitize_cases(
                 environ=environ,
                 timeout_seconds=timeout_seconds,
             )
-            payload = _json_object_from_response(response.raw_output)
+            payload = _json_object_from_response(
+                response.raw_output,
+                top_level_sequence_field="unit_seeds",
+            )
             result = construct_stage_a_units(
                 StageAConstructionInput(
                     candidate_id=candidate_id,
@@ -375,7 +378,10 @@ def _llm_label_one_model(
         timeout_seconds=timeout_seconds,
     )
     try:
-        payload = _json_object_from_response(response.raw_output)
+        payload = _json_object_from_response(
+            response.raw_output,
+            top_level_sequence_field="unit_findings",
+        )
         findings = tuple(
             _stage_b_finding(record, decision_text=decision_text)
             for record in _record_sequence(
@@ -866,7 +872,11 @@ def _decision_date(selection: Mapping[str, Any]) -> str:
     return "not-recorded"
 
 
-def _json_object_from_response(raw_output: str) -> Mapping[str, Any]:
+def _json_object_from_response(
+    raw_output: str,
+    *,
+    top_level_sequence_field: str | None = None,
+) -> Mapping[str, Any]:
     text = raw_output.strip()
     if text.startswith("```"):
         text = text.strip("`")
@@ -885,6 +895,18 @@ def _json_object_from_response(raw_output: str) -> Mapping[str, Any]:
             parsed = json.loads(text[start : end + 1])
         except json.JSONDecodeError as exc:
             raise LlmPipelineError("LLM response JSON object was invalid") from exc
+    if (
+        top_level_sequence_field is not None
+        and isinstance(parsed, Sequence)
+        and not isinstance(parsed, str)
+    ):
+        sequence = cast(Sequence[object], parsed)
+        if all(isinstance(item, Mapping) for item in sequence):
+            return {
+                top_level_sequence_field: [
+                    cast(Mapping[str, Any], item) for item in sequence
+                ]
+            }
     if not isinstance(parsed, Mapping):
         raise LlmPipelineError("LLM response must be a JSON object")
     return cast(Mapping[str, Any], parsed)

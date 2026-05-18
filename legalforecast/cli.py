@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import shutil
 import sys
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -497,6 +498,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Build final model packets from acquisition artifacts.",
     )
     _add_acquisition_build_packets_arguments(acquisition_build)
+    acquisition_merge = acquisition_subparsers.add_parser(
+        "merge-artifacts",
+        help="Merge packet-buildable acquisition roots for a pilot cycle.",
+    )
+    _add_acquisition_merge_artifacts_arguments(acquisition_merge)
 
     return parser
 
@@ -1066,6 +1072,48 @@ def _add_acquisition_build_packets_arguments(parser: argparse.ArgumentParser) ->
         default=PacketAblation.FULL_PACKET.value,
     )
     parser.set_defaults(handler=_cmd_acquisition_build_packets)
+
+
+def _add_acquisition_merge_artifacts_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--source-root",
+        type=Path,
+        action="append",
+        required=True,
+        help="Packet-buildable acquisition root to merge. Repeat in order.",
+    )
+    parser.add_argument(
+        "--labels",
+        type=Path,
+        action="append",
+        help=(
+            "Locked labels JSONL to merge into labels.jsonl. Repeat for each "
+            "label source; defaults to source-root/labels.jsonl files."
+        ),
+    )
+    parser.add_argument(
+        "--prediction-units",
+        type=Path,
+        action="append",
+        help=(
+            "Prediction units JSONL to merge into prediction-units.jsonl. "
+            "Defaults to source-root/prediction-units.jsonl files."
+        ),
+    )
+    parser.add_argument(
+        "--selection",
+        type=Path,
+        action="append",
+        help=(
+            "Public packet selection JSONL to merge into "
+            "public-packet-selection.jsonl. Defaults to each source root's "
+            "packet-buildable selection when present."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_merge_artifacts)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -1791,6 +1839,283 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
         },
     )
     return 0
+
+
+_ACQUISITION_MERGE_JSONL_FILES = (
+    "free-document-requests.jsonl",
+    "free-document-downloads.jsonl",
+    "parse-document-requests.jsonl",
+    "mistral-markdown-conversions.jsonl",
+    "document-manifest.jsonl",
+    "candidate-manifest.jsonl",
+    "extracted_texts.jsonl",
+    "packet-build-input.jsonl",
+    "packets.jsonl",
+    "case-packets.jsonl",
+    "packet-audit.jsonl",
+    "llm-unitization-audit.jsonl",
+    "llm-label-audit.jsonl",
+)
+
+
+def _cmd_acquisition_merge_artifacts(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    source_roots = tuple(cast(Sequence[Path], args.source_root))
+    labels_paths = _explicit_or_default_merge_paths(
+        cast(Sequence[Path] | None, args.labels),
+        source_roots=source_roots,
+        filenames=("labels-packet-buildable.jsonl", "labels.jsonl"),
+    )
+    unit_paths = _explicit_or_default_merge_paths(
+        cast(Sequence[Path] | None, args.prediction_units),
+        source_roots=source_roots,
+        filenames=(
+            "prediction-units-packet-buildable-labeled.jsonl",
+            "prediction-units.jsonl",
+        ),
+    )
+    dry_run = _acquisition_dry_run(args)
+
+    _validate_merge_sources(source_roots)
+    selection_paths = _explicit_or_default_merge_paths(
+        cast(Sequence[Path] | None, args.selection),
+        source_roots=source_roots,
+        filenames=(
+            "public-packet-selection-packet-buildable-labeled.jsonl",
+            "public-packet-selection.jsonl",
+        ),
+    )
+    jsonl_outputs: list[Path] = []
+    record_counts: dict[str, int] = {}
+    packet_count = 0
+    for filename in _ACQUISITION_MERGE_JSONL_FILES:
+        records = _merge_records_from_roots(source_roots, filename=filename)
+        if filename in {"packets.jsonl", "case-packets.jsonl"}:
+            packet_count = len(records)
+        if not records:
+            continue
+        _validate_acquisition_merge_records(filename, records)
+        record_counts[filename] = len(records)
+        output_path = output_root / filename
+        jsonl_outputs.append(output_path)
+        if not dry_run:
+            _write_jsonl(output_path, records)
+
+    labels = _merge_records_from_paths(labels_paths)
+    _validate_acquisition_merge_records("labels.jsonl", labels)
+    units = _merge_records_from_paths(unit_paths)
+    _validate_acquisition_merge_records("prediction-units.jsonl", units)
+    selections = _merge_records_from_paths(selection_paths)
+    _validate_acquisition_merge_records("public-packet-selection.jsonl", selections)
+    record_counts["labels.jsonl"] = len(labels)
+    record_counts["prediction-units.jsonl"] = len(units)
+    record_counts["public-packet-selection.jsonl"] = len(selections)
+    if not dry_run:
+        _write_jsonl(output_root / "labels.jsonl", labels)
+        _write_jsonl(output_root / "prediction-units.jsonl", units)
+        _write_jsonl(output_root / "public-packet-selection.jsonl", selections)
+        for directory_name in ("documents", "markdown"):
+            _copy_merge_directory(source_roots, output_root, directory_name)
+
+    summary_path = output_root / "merge-artifacts-summary.json"
+    summary = {
+        "dry_run": dry_run,
+        "source_roots": [str(root) for root in source_roots],
+        "labels": [str(path) for path in labels_paths],
+        "prediction_units": [str(path) for path in unit_paths],
+        "selection": [str(path) for path in selection_paths],
+        "record_counts": record_counts,
+    }
+    _write_json(summary_path, summary)
+
+    _write_acquisition_completion(
+        args,
+        stage="merge-artifacts",
+        input_paths=(*source_roots, *labels_paths, *unit_paths, *selection_paths),
+        output_paths=(
+            *jsonl_outputs,
+            output_root / "labels.jsonl",
+            output_root / "prediction-units.jsonl",
+            output_root / "public-packet-selection.jsonl",
+            output_root / "documents",
+            output_root / "markdown",
+            summary_path,
+        ),
+        record_count=packet_count,
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={"record_counts": record_counts},
+    )
+    return 0
+
+
+def _validate_merge_sources(source_roots: Sequence[Path]) -> None:
+    if not source_roots:
+        raise CommandError("at least one --source-root is required")
+    seen: set[Path] = set()
+    for source_root in source_roots:
+        if not source_root.is_dir():
+            raise CommandError(f"merge source root is not a directory: {source_root}")
+        resolved = source_root.resolve()
+        if resolved in seen:
+            raise CommandError(f"duplicate merge source root: {source_root}")
+        seen.add(resolved)
+
+
+def _explicit_or_default_merge_paths(
+    explicit_paths: Sequence[Path] | None,
+    *,
+    source_roots: Sequence[Path],
+    filenames: Sequence[str],
+) -> tuple[Path, ...]:
+    if explicit_paths:
+        paths = tuple(explicit_paths)
+    else:
+        paths = tuple(
+            _default_merge_path(source_root, filenames=filenames)
+            for source_root in source_roots
+        )
+    for path in paths:
+        if not path.is_file():
+            raise CommandError(f"merge input does not exist: {path}")
+    return paths
+
+
+def _default_merge_path(source_root: Path, *, filenames: Sequence[str]) -> Path:
+    for filename in filenames:
+        path = source_root / filename
+        if path.is_file():
+            return path
+    candidates = ", ".join(filenames)
+    raise CommandError(f"merge source {source_root} has none of: {candidates}")
+
+
+def _merge_records_from_roots(
+    source_roots: Sequence[Path],
+    *,
+    filename: str,
+) -> list[JsonRecord]:
+    records: list[JsonRecord] = []
+    for source_root in source_roots:
+        path = source_root / filename
+        if path.is_file():
+            records.extend(_read_records(path))
+    return records
+
+
+def _merge_records_from_paths(paths: Sequence[Path]) -> list[JsonRecord]:
+    records: list[JsonRecord] = []
+    for path in paths:
+        records.extend(_read_records(path))
+    if not records:
+        raise CommandError("merge inputs produced no records")
+    return records
+
+
+def _copy_merge_directory(
+    source_roots: Sequence[Path],
+    output_root: Path,
+    directory_name: str,
+) -> None:
+    for source_root in source_roots:
+        source_dir = source_root / directory_name
+        if not source_dir.is_dir():
+            continue
+        shutil.copytree(source_dir, output_root / directory_name, dirs_exist_ok=True)
+
+
+def _validate_acquisition_merge_records(
+    filename: str,
+    records: Sequence[Mapping[str, Any]],
+) -> None:
+    if not records:
+        raise CommandError(f"{filename} must contain at least one record")
+    if filename in {"packets.jsonl", "case-packets.jsonl"}:
+        _require_unique_merge_keys(
+            filename,
+            (
+                (
+                    _required_str(record, "case_id"),
+                    _optional_str(record, "ablation")
+                    or PacketAblation.FULL_PACKET.value,
+                )
+                for record in records
+            ),
+        )
+    if filename in {
+        "candidate-manifest.jsonl",
+        "public-packet-selection.jsonl",
+        "packet-build-input.jsonl",
+        "prediction-units.jsonl",
+    }:
+        _require_unique_merge_keys(
+            filename,
+            (_required_str(record, "case_id") for record in records),
+        )
+    if filename in {"document-manifest.jsonl", "extracted_texts.jsonl"}:
+        _require_unique_merge_keys(
+            filename,
+            (_required_str(record, "source_document_id") for record in records),
+        )
+    if filename == "mistral-markdown-conversions.jsonl":
+        _require_unique_merge_keys(
+            filename,
+            (
+                (
+                    _optional_str(record, "candidate_id")
+                    or _optional_str(record, "case_id")
+                    or "unknown",
+                    _required_str(record, "source_document_id"),
+                )
+                for record in records
+            ),
+        )
+    if filename == "labels.jsonl":
+        _require_unique_merge_keys(
+            filename,
+            (_required_str(record, "unit_id") for record in records),
+        )
+    if filename in {"prediction-units.jsonl", "packets.jsonl", "case-packets.jsonl"}:
+        _require_unique_merge_keys(
+            f"{filename} nested prediction units",
+            (
+                _required_str(unit, "unit_id")
+                for record in records
+                for unit in _merge_prediction_unit_records(record)
+            ),
+        )
+
+
+def _merge_prediction_unit_records(
+    record: Mapping[str, Any],
+) -> tuple[Mapping[str, Any], ...]:
+    units = record.get("prediction_units")
+    if units is None:
+        return ()
+    if not isinstance(units, list):
+        raise CommandError("prediction_units must be a list")
+    merged: list[Mapping[str, Any]] = []
+    for unit in cast(list[object], units):
+        if not isinstance(unit, Mapping):
+            raise CommandError("prediction_units items must be objects")
+        merged.append(cast(Mapping[str, Any], unit))
+    return tuple(merged)
+
+
+def _require_unique_merge_keys(
+    filename: str,
+    keys: Iterable[object],
+) -> None:
+    seen: set[object] = set()
+    duplicates: set[object] = set()
+    for key in keys:
+        if key in seen:
+            duplicates.add(key)
+        seen.add(key)
+    if duplicates:
+        sample = ", ".join(str(key) for key in sorted(duplicates, key=str)[:5])
+        raise CommandError(f"{filename} has duplicate merge key(s): {sample}")
 
 
 def _cmd_acquisition_download_free(args: argparse.Namespace) -> int:

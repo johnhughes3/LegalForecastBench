@@ -634,7 +634,10 @@ def _document_matches_role(description: str, role: DocumentRole) -> bool:
         return _looks_like_complaint_document_description(text, amended=True)
     if role is DocumentRole.MTD_NOTICE:
         return bool(
-            re.search(r"\b(?:motion\s+to\s+)?dismiss(?:al)?\b", text)
+            (
+                re.search(r"\b(?:motion\s+to\s+)?dismiss(?:al)?\b", text)
+                or re.search(r"\bjudgment\s+on\s+the\s+pleadings\b", text)
+            )
             and not _contains_non_merits_motion_marker(text)
         )
     if role is DocumentRole.MTD_MEMORANDUM:

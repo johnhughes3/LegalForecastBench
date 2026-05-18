@@ -167,6 +167,20 @@ This stage writes `packet-build-input.jsonl`, `document-manifest.jsonl`,
 requires locked prediction units; do not substitute placeholder units for a real
 pilot.
 
+If a validated recovery case needs to be added to a packet-buildable pilot root,
+use the merge CLI instead of shell-concatenating manifests. The command prefers
+packet-buildable labels, prediction units, and selections when they are present,
+copies `documents/` and `markdown/`, validates duplicate cases/units, and writes
+a merge run card:
+
+```bash
+uv run legalforecast acquisition merge-artifacts \
+  --source-root tmp/acquisition-base \
+  --source-root tmp/recovered-case \
+  --output-root tmp/acquisition-expanded \
+  --execute
+```
+
 When staging private-store objects, run the repository exporter from the
 acquisition root instead of syncing parser files by hand. If
 `mistral-markdown-conversions.jsonl` and the referenced `markdown/` tree are

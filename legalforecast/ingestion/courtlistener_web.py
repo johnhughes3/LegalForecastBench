@@ -206,16 +206,18 @@ def classify_courtlistener_entry_role(
         )
     ).lower()
     references_mtd = _references_mtd(text)
-    if "exhibit" in text and references_mtd:
-        return CourtListenerEntryRole.EXHIBIT
+    if references_mtd and _starts_with_dispositive_motion(text):
+        return CourtListenerEntryRole.MTD_NOTICE
+    if references_mtd and _looks_like_decision(text):
+        return CourtListenerEntryRole.DECISION
     if "reply" in text and references_mtd:
         return CourtListenerEntryRole.REPLY
     if ("opposition" in text or "response" in text) and references_mtd:
         return CourtListenerEntryRole.OPPOSITION
-    if references_mtd and _looks_like_decision(text):
-        return CourtListenerEntryRole.DECISION
     if "memorandum" in text and references_mtd:
         return CourtListenerEntryRole.MTD_MEMORANDUM
+    if "exhibit" in text and references_mtd:
+        return CourtListenerEntryRole.EXHIBIT
     if references_mtd:
         return CourtListenerEntryRole.MTD_NOTICE
     return CourtListenerEntryRole.OTHER
@@ -501,6 +503,19 @@ def _looks_like_decision(text: str) -> bool:
         or re.search(r"\bopinion\b", text, re.I)
         or re.search(r"\bdecision\b", text, re.I)
         or re.search(r"\bmemorandum\s+(?:and\s+)?opinion\b", text, re.I)
+    )
+
+
+def _starts_with_dispositive_motion(text: str) -> bool:
+    return bool(
+        re.match(
+            r"^\s*\d*\s*"
+            r"(?:[a-z]{3,9}\s+\d{1,2},\s+\d{4}\s+)?"
+            r"(?:(?:amended|corrected|partial|renewed|second)\s+)*"
+            r"motions?\s+(?:to\s+dismiss|for\s+judgment\s+on\s+the\s+pleadings)\b",
+            text,
+            re.I,
+        )
     )
 
 

@@ -94,6 +94,33 @@ def test_public_packet_planner_uses_role_matched_free_documents(
     )
 
 
+def test_public_packet_planner_accepts_judgment_on_pleadings_target(
+    tmp_path: Path,
+) -> None:
+    raw_html_dir = tmp_path / "raw_html"
+    raw_html_dir.mkdir()
+    html = _docket_html().replace(
+        "MOTION to Dismiss filed by Defendant.",
+        "MOTION for Judgment on the Pleadings filed by Defendant.",
+    ).replace(
+        "Dismiss</p>",
+        "Judgment on the Pleadings</p>",
+        1,
+    )
+    (raw_html_dir / "123.html").write_text(html, encoding="utf-8")
+
+    plan = plan_public_packet_downloads(
+        (_screened_case(),),
+        raw_html_dir=raw_html_dir,
+        target_clean_cases=25,
+    )
+
+    assert plan.selected_case_count == 1
+    selected = plan.selected_cases[0]
+    assert selected.documents[1].document_role is DocumentRole.MTD_NOTICE
+    assert selected.documents[1].description == "Judgment on the Pleadings"
+
+
 def test_public_packet_planner_can_use_embedded_selected_entries(
     tmp_path: Path,
 ) -> None:
