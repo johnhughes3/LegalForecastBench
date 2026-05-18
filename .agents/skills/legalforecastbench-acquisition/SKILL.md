@@ -1,0 +1,326 @@
+---
+name: legalforecastbench-acquisition
+description: Use when working on LegalForecastBench MTD acquisition, case.dev smoke runs, CourtListener/RECAP packet recovery, or live-pilot sample selection.
+---
+
+# LegalForecastBench Acquisition
+
+## Source of truth
+
+- Check `legalforecast/ingestion/mtd_acquisition_screen.py` before proposing live MTD search terms.
+- `OPTIMIZED_MTD_DECISION_SEARCH_TERMS` and `SECONDARY_MTD_DECISION_SEARCH_TERMS` are the live smoke defaults.
+- `LOW_YIELD_MTD_DISCOVERY_TERMS` and `legalforecast.selection.candidate_discovery.mtd_discovery_search_terms()` are broad recall tools, not the default for live smoke collection.
+- Do not invent ad hoc query lists when these constants cover the task.
+
+## Empirical basis
+
+The May 17, 2026 full acquisition screen in `/tmp/lfb-acq-validation/mtd-gemini-full-150-20260517-014900/combined_report.md` found:
+
+- 3,668 unique processed dockets.
+- 199 deterministic actual MTD decisions.
+- 151 Gemini-good cases.
+- 150 cheapest selected cases for the target.
+- Best single term: `order on motion to dismiss`, with 1,156 scraped dockets, 114 deterministic MTD decisions, and 94 good cases.
+
+If this `/tmp` artifact is gone, search `~/.codex/sessions/2026/05/17/rollout-2026-05-17T08-19-11-019e35e0-47cd-7a72-ba09-1a7657cd2e9d.jsonl` for `151` or `Gemini-good` to recover the provenance.
+
+## Smoke runs
+
+Use `legalforecast case-dev-smoke` for bounded Phase 0 acquisition checks. By default it should use the optimized decision-oriented terms:
+
+```text
+order on motion to dismiss
+order granting motion to dismiss
+order denying motion to dismiss
+order granting in part and denying in part motion to dismiss
+opinion and order motion to dismiss
+memorandum opinion and order motion to dismiss
+decision and order motion to dismiss
+order on motion for judgment on the pleadings
+order granting motion for judgment on the pleadings
+order denying motion for judgment on the pleadings
+```
+
+Only pass `--query-term` when intentionally overriding the optimized defaults. If overriding, say why in the report or handoff.
+
+Live case.dev `type=search` responses are docket-level records. Their
+`dateFiled` value is the case filing date, not the MTD decision/order docket-entry
+date. For date-window pilots, `case-dev-smoke` therefore keeps docket-level
+search hits through retrieval and applies the window to the retrieved decision
+docket entry. Do not filter live docket-level search hits by case filing date.
+
+`case-dev-smoke` is a yield/readiness report, not a packet-build input stage. A
+clean smoke candidate still needs a screened-case JSONL row plus CourtListener
+raw docket HTML or embedded CourtListener-style `selected_entries` before
+`acquisition plan-public-downloads` can produce public packet requests.
+
+For a 25-candidate post-release pilot from April 24, 2026 through the current collection date:
+
+```bash
+uv run legalforecast case-dev-smoke \
+  --output tmp/case-dev-smoke-2026-04-24_to_YYYY-MM-DD_25.md \
+  --dry-run \
+  --date-window-start 2026-04-24 \
+  --date-window-end YYYY-MM-DD \
+  --per-query-limit 100 \
+  --candidate-retrieval-limit 25
+```
+
+Replace `--dry-run` with `--live` only after explicit user approval for live case.dev API usage.
+
+## Live and paid data guardrails
+
+- Do not run live case.dev, RECAP, CourtListener, PACER, or purchase/recovery commands unless the user has approved the live operation for this turn.
+- Do not trigger paid PACER or Case.dev purchase paths without explicit fee acknowledgement.
+- Prefer public/free CourtListener or RECAP artifacts first; keep paid acquisition separate from model-execution cost.
+- Write generated reports under `tmp/` unless the user asks for a stable doc path.
+
+`acquisition download-free --execute` has two explicit modes:
+
+```bash
+uv run legalforecast acquisition download-free \
+  --requests tmp/acquisition/free-document-requests.jsonl \
+  --output-root tmp/acquisition \
+  --execute \
+  --live-public-download
+```
+
+Use `--live-public-download` only for already-free HTTPS CourtListener/RECAP PDF
+URLs. Use `--fixture-documents` for offline tests and fixtures. This stage must
+not purchase PACER documents.
+
+When starting from a screened Case.dev/CourtListener JSONL plus saved raw docket
+HTML, use the planner first:
+
+```bash
+uv run legalforecast acquisition plan-public-downloads \
+  --screened-cases tmp/acquisition/selected-cases.jsonl \
+  --raw-html-dir tmp/acquisition/raw_html \
+  --output-root tmp/acquisition \
+  --target-clean-cases 25 \
+  --execute
+```
+
+The strict planner selects only candidates with free public links for an
+operative complaint, the target MTD entry, and the decision. If target entry
+numbers are stale, `--allow-inferred-target-mtd` can be used for pilot triage,
+but the run should be described as inferred-linkage rather than official.
+If the screened JSONL already contains CourtListener `selected_entries`, the
+planner can run with `--use-embedded-entries` for audit/discovery when raw HTML
+is missing. Treat that as a fallback representation, not the preferred official
+strict path; saved raw docket HTML generally preserves direct storage PDF links
+more reliably.
+
+`download-free --live-public-download` may resolve a public CourtListener
+docket-entry landing page to a free storage PDF. It still rejects PACER/ECF
+purchase links and does not use case.dev or PACER purchase endpoints.
+
+After `download-free`, derive parser requests through the CLI rather than
+hand-building JSONL:
+
+```bash
+uv run legalforecast acquisition plan-parse-documents \
+  --download-manifest tmp/acquisition/free-document-downloads.jsonl \
+  --output-root tmp/acquisition \
+  --execute
+```
+
+After parsing, use the packet-input planner rather than hand-building
+`packet-build-input.jsonl` or private-store manifests:
+
+```bash
+uv run legalforecast acquisition llm-unitize \
+  --selection tmp/acquisition/public-packet-selection.jsonl \
+  --parser-manifest tmp/acquisition/mistral-markdown-conversions.jsonl \
+  --model-registry model_registries/pilot-2026-04-24_to_2026-05-18.json \
+  --model-key anthropic:claude-sonnet-4-6 \
+  --output-root tmp/acquisition \
+  --execute
+
+uv run legalforecast acquisition llm-label \
+  --selection tmp/acquisition/public-packet-selection.jsonl \
+  --parser-manifest tmp/acquisition/mistral-markdown-conversions.jsonl \
+  --prediction-units tmp/acquisition/prediction-units.jsonl \
+  --model-registry model_registries/pilot-2026-04-24_to_2026-05-18.json \
+  --model-key google:gemini-3-flash-preview \
+  --model-key openai:gpt-5.4-mini \
+  --model-key anthropic:claude-sonnet-4-6 \
+  --output-root tmp/acquisition \
+  --execute
+```
+
+`llm-unitize` and `llm-label` must use frozen model-registry keys, not ad hoc
+provider/model strings. The audit JSONL records include the registry hash, model
+keys, token counts, estimated cost, and `human_verified=false`. Treat these as
+LLM-only pilot labels unless a separate human adjudication pass is run.
+The Stage A unitizer normalizes non-empty singleton strings for fields whose
+validated schema expects a string list, such as `source_document_ids` or
+`defendant_names`; malformed JSON or ambiguous non-list objects remain failures
+and should not be hand-repaired for a live pilot.
+If a provider response is received but local JSON/schema/excerpt validation
+fails, the failure audit still records token counts, estimated cost, provider
+metadata, and the raw-output hash so paid-but-rejected calls remain accountable.
+
+```bash
+uv run legalforecast acquisition plan-packet-inputs \
+  --selection tmp/acquisition/public-packet-selection.jsonl \
+  --download-manifest tmp/acquisition/free-document-downloads.jsonl \
+  --parser-manifest tmp/acquisition/mistral-markdown-conversions.jsonl \
+  --prediction-units tmp/acquisition/prediction-units.jsonl \
+  --raw-html-dir tmp/acquisition/raw_html \
+  --output-root tmp/acquisition \
+  --search-window 2026-04-24..YYYY-MM-DD \
+  --execute
+```
+
+This stage writes `packet-build-input.jsonl`, `document-manifest.jsonl`,
+`candidate-manifest.jsonl`, and `extracted_texts.jsonl`. It intentionally
+requires locked prediction units; do not substitute placeholder units for a real
+pilot.
+
+If a validated recovery case needs to be added to a packet-buildable pilot root,
+use the merge CLI instead of shell-concatenating manifests. The command prefers
+packet-buildable labels, prediction units, and selections when they are present,
+copies `documents/` and `markdown/`, validates duplicate cases/units, and writes
+a merge run card:
+
+```bash
+uv run legalforecast acquisition merge-artifacts \
+  --source-root tmp/acquisition-base \
+  --source-root tmp/recovered-case \
+  --output-root tmp/acquisition-expanded \
+  --execute
+```
+
+When staging private-store objects, run the repository exporter from the
+acquisition root instead of syncing parser files by hand. If
+`mistral-markdown-conversions.jsonl` and the referenced `markdown/` tree are
+present, the exporter stages standalone Markdown and parser metadata under the
+private `extracted-text/{cycle_id}/{case_id}/` prefix alongside the source PDFs
+and model packets:
+
+```bash
+uv run python -m legalforecast.publication.private_store_export \
+  --source-dir tmp/acquisition \
+  --output-dir tmp/private-store-export \
+  --cycle-id cycle-id
+```
+
+## Sample selection
+
+For small real pilots, select clean cases, not raw hits:
+
+- Use the decision/order docket-entry date for the date window.
+- Deduplicate by case.
+- Sort deterministically by decision entry date, court, and docket number.
+- Screen for federal civil MTD or MTD-adjacent written dispositions.
+- Exclude sealed/restricted records, non-civil matters, habeas/immigration detention, bankruptcy, criminal, standing orders, extensions, voluntary dismissals, and cases without reconstructable pre-decision packets.
+- Log every exclusion reason so the acquisition yield is auditable.
+
+## Registry-backed pilot execution
+
+Live pilot runs should use frozen registry keys, not ad hoc solver IDs. The
+current 25-case pilot registry is:
+
+```text
+model_registries/pilot-2026-04-24_to_2026-05-18.json
+```
+
+Default pilot model keys:
+
+```text
+google:gemini-3-flash-preview
+openai:gpt-5.4-mini
+anthropic:claude-sonnet-4-6
+```
+
+Use `legalforecast eval run-case --backend live --model-registry ... --model-key
+...` for one isolated case/model job. The GitHub matrix workflow
+`.github/workflows/official-eval-matrix.yaml` takes `model_registry_uri` and
+comma-separated `model_keys`, verifies that the requested keys exist in the
+frozen registry, and dispatches one job per case/model row.
+
+Before dispatching a release or pilot matrix from GitHub, stage immutable S3
+inputs and verify them from the downloaded objects:
+
+```bash
+aws s3 cp model_registries/pilot-2026-04-24_to_2026-05-18.json \
+  s3://$LFB_RESULTS_BUCKET/manifests/${cycle_id}.model-registry.json
+
+aws s3 cp tmp/private-store-export/objects/results/manifests/${cycle_id}.run-inputs.json \
+  s3://$LFB_RESULTS_BUCKET/manifests/${cycle_id}.run-inputs.json
+
+aws s3 cp s3://$LFB_RESULTS_BUCKET/manifests/${cycle_id}.model-registry.json \
+  tmp/${cycle_id}.model-registry.s3.json
+shasum -a 256 model_registries/pilot-2026-04-24_to_2026-05-18.json \
+  tmp/${cycle_id}.model-registry.s3.json
+```
+
+Use the workflow-friendly aliases as inputs after the GitHub remote and secrets
+exist:
+
+```text
+manifests/${cycle_id}.run-inputs.json
+manifests/${cycle_id}.model-registry.json
+```
+
+The workflow resolves these `manifests/...` aliases against
+`$LFB_RESULTS_BUCKET`. Before a live run, do a non-paid S3 smoke that proves the
+manifest, packet store, registry URI, and one case row resolve together:
+
+```bash
+uv run legalforecast eval run-case \
+  --manifest s3://$LFB_RESULTS_BUCKET/manifests/${cycle_id}.run-inputs.json \
+  --packet-store-root s3://$LFB_PACKET_BUCKET \
+  --model-registry s3://$LFB_RESULTS_BUCKET/manifests/${cycle_id}.model-registry.json \
+  --model-key google:gemini-3-flash-preview \
+  --case-id <case-id> \
+  --output-root tmp/s3-registry-run-case-smoke \
+  --backend fixture \
+  --mock-output '{"predictions":[]}'
+```
+
+Also do a local matrix dry run from the downloaded S3 manifest and registry:
+confirm the expected case count, expected model count, no duplicate packet rows,
+no missing model keys, and packet keys under `model-packets/`. For current local
+handoff examples, use the ignored files `tmp/pilot-active-goal-completion-audit.md`
+and `tmp/pilot-github-dispatch-runbook.md` when present; they are not release
+artifacts.
+
+For Claude rows, the same `anthropic:...` registry key can use either direct
+Anthropic or AWS Bedrock:
+
+```bash
+LFB_ANTHROPIC_RUNTIME=bedrock \
+LFB_ANTHROPIC_BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-6 \
+AWS_PROFILE=cos.bedrock.inference \
+uv run legalforecast eval run-case ...
+```
+
+When `LFB_ANTHROPIC_RUNTIME=bedrock`, `ANTHROPIC_API_KEY` is not required; the
+AWS role/profile must have Bedrock `InvokeModel` permission and any required
+model entitlement. Direct Anthropic remains the default when the runtime
+variable is unset.
+
+After downloading workflow artifacts, aggregate a multi-model pilot with one
+`--model-key` per expected registry entry:
+
+```bash
+uv run python -m legalforecast.publication.official_aggregate \
+  --per-case-dir tmp/official-eval-artifacts \
+  --run-input-manifest tmp/private-store-export/objects/results/manifests/cycle-id.run-inputs.json \
+  --labels tmp/locked-labels/cycle-id.labels.jsonl \
+  --output-dir tmp/official-results/cycle-id \
+  --cycle-id cycle-id \
+  --cycle-series pilot \
+  --clean-motion-count 25 \
+  --prediction-unit-count <locked-unit-count> \
+  --model-key google:gemini-3-flash-preview \
+  --model-key openai:gpt-5.4-mini \
+  --model-key anthropic:claude-sonnet-4-6 \
+  --ablation full_packet
+```
+
+For a 25-case, 3-model pilot, aggregation should expect 75 case/model outputs
+but still report 25 distinct cases. `cycle-power.json` should classify the
+result as a pilot/feasibility output, not a strong-ranking claim.

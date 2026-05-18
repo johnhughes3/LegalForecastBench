@@ -1,0 +1,45 @@
+cycle_id: ""
+claim_level: ""  # pilot | rapid | official_descriptive | strong_ranking | annual_aggregate
+public_registration:
+  provider: ""  # osf | aspredicted
+  url: ""
+  timestamp: ""
+freeze_timestamp: ""
+publication_claim_language: ""
+anchors:
+  model_release: ""
+  decision_window_start: ""
+  decision_window_end: ""
+  eligible_courts: []
+  candidate_source_provider: "case.dev"
+eligibility_rules: []
+exclusion_rules: []
+contamination_filters: []
+unitization_rules: []
+labeling_rules: []
+metrics:
+  primary: "micro_brier"
+  secondary: []
+inference:
+  method: "paired_clustered_bootstrap"
+  bootstrap_replicates: 0
+  pairwise_comparison_plan: ""
+dominance:
+  capping_sensitivity_rule: ""
+case_mix_diagnostics: []
+model_registry:
+  path: ""
+  sha256: ""
+baselines:
+  path: ""
+  sha256: ""
+frozen_artifacts:
+  manifest_sha256: ""
+  units_sha256: ""
+  labels_sha256: ""
+  prompt_sha256: ""
+  scorer_sha256: ""
+  harness_sha256: ""
+validation:
+  timestamp: ""
+  passed: false

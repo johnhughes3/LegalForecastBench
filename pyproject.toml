@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "legalforecast-mtd"
+version = "0.1.0a1"
+description = "Pre-data alpha tooling for the LegalForecast-MTD benchmark."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+  { name = "John Hughes" },
+]
+classifiers = [
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = []
+
+[project.scripts]
+legalforecast = "legalforecast.cli:main"
+
+[dependency-groups]
+dev = [
+  "pyright>=1.1.409",
+  "pytest>=8.4",
+  "ruff>=0.15.12",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["legalforecast"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+log_level = "INFO"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+src = ["legalforecast", "tests"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "RUF", "UP"]
+
+[tool.pyright]
+include = ["legalforecast", "scripts"]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
