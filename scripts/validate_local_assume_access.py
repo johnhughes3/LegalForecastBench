@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate local Granted profiles for LegalForecastBench AWS access."""
+"""Validate local Granted profile access for LegalForecastBench S3 artifacts."""
 
 from __future__ import annotations
 
@@ -24,13 +24,11 @@ DEFAULT_RESULTS_PREFIX = "manifests/"
 @dataclass(frozen=True, slots=True)
 class LocalAccessConfig:
     aws_region: str
-    bedrock_profile: str
     s3_profile: str
     packet_bucket: str
     results_bucket: str
     packet_prefix: str
     results_prefix: str
-    skip_bedrock_identity: bool
     dry_run: bool
 
 
@@ -44,18 +42,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Validate local LegalForecastBench AWS access through Granted assume "
-            "profiles without printing bucket names or account IDs."
+            "without printing bucket names or account IDs."
         )
     )
     parser.add_argument(
         "--aws-region",
         default=os.environ.get("LFB_AWS_REGION", DEFAULT_AWS_REGION),
         help="AWS region for validation calls; defaults to LFB_AWS_REGION.",
-    )
-    parser.add_argument(
-        "--bedrock-profile",
-        default=os.environ.get("LFB_BEDROCK_ASSUME_PROFILE", ""),
-        help="Granted profile used for Bedrock runtime identity checks.",
     )
     parser.add_argument(
         "--s3-profile",
@@ -71,11 +64,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--results-prefix",
         default=os.environ.get("LFB_RESULTS_MANIFEST_PREFIX", DEFAULT_RESULTS_PREFIX),
         help="Results bucket prefix to list.",
-    )
-    parser.add_argument(
-        "--skip-bedrock-identity",
-        action="store_true",
-        help="Skip the non-mutating STS identity check for the Bedrock profile.",
     )
     parser.add_argument(
         "--dry-run",
@@ -115,12 +103,8 @@ def config_from_env(
         joined = ", ".join(missing)
         raise RuntimeError(f"missing required environment variable(s): {joined}")
 
-    skip_bedrock_identity = bool(args["skip_bedrock_identity"])
-    bedrock_profile = str(args["bedrock_profile"]).strip()
     s3_profile = str(args["s3_profile"]).strip()
     missing_profiles: list[str] = []
-    if not skip_bedrock_identity and bedrock_profile == "":
-        missing_profiles.append("LFB_BEDROCK_ASSUME_PROFILE")
     if s3_profile == "":
         missing_profiles.append("LFB_LOCAL_S3_ASSUME_PROFILE")
     if missing_profiles:
@@ -129,30 +113,21 @@ def config_from_env(
 
     return LocalAccessConfig(
         aws_region=str(args["aws_region"]),
-        bedrock_profile=bedrock_profile,
         s3_profile=s3_profile,
         packet_bucket=packet_bucket,
         results_bucket=results_bucket,
         packet_prefix=str(args["packet_prefix"]),
         results_prefix=str(args["results_prefix"]),
-        skip_bedrock_identity=skip_bedrock_identity,
         dry_run=bool(args["dry_run"]),
     )
 
 
 def validate_config(config: LocalAccessConfig) -> None:
-    if config.s3_profile == config.bedrock_profile:
-        raise RuntimeError(
-            "S3 artifact validation must use a distinct artifacts profile; "
-            "do not reuse the Bedrock runtime profile for packet/result S3."
-        )
+    if config.s3_profile == "":
+        raise RuntimeError("S3 artifact validation requires a local assume profile.")
 
 
 def print_plan(config: LocalAccessConfig) -> None:
-    if config.skip_bedrock_identity:
-        print("bedrock identity: skipped")
-    else:
-        print(f"bedrock identity: assume {config.bedrock_profile}")
     print(f"packet bucket prefix: assume {config.s3_profile} -> {config.packet_prefix}")
     print(
         f"results bucket prefix: assume {config.s3_profile} -> {config.results_prefix}"
@@ -161,25 +136,6 @@ def print_plan(config: LocalAccessConfig) -> None:
 
 def run_checks(config: LocalAccessConfig) -> None:
     secrets = (config.packet_bucket, config.results_bucket)
-    if config.skip_bedrock_identity:
-        print("bedrock identity: skipped")
-    else:
-        _run_assume_json(
-            profile=config.bedrock_profile,
-            aws_command=(
-                "aws",
-                "sts",
-                "get-caller-identity",
-                "--region",
-                config.aws_region,
-                "--output",
-                "json",
-            ),
-            label="bedrock identity",
-            secrets=secrets,
-        )
-        print(f"bedrock identity: assume {config.bedrock_profile} ok")
-
     packet_payload = _run_assume_json(
         profile=config.s3_profile,
         aws_command=(

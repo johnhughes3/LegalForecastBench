@@ -35,13 +35,11 @@ checkout but do not belong in the installed `legalforecast` CLI.
   Add `--verify-dir tmp/reconstructed-documents` to write a verification report
   and return nonzero when any reconstructed document is missing or mismatched.
 
-- `validate_local_assume_access.py`: runs a non-mutating local Granted/AWS
-  smoke test for the maintainer profile split without printing bucket names or
-  account IDs. Profile and bucket values come from the private runbook or local
-  vault, not from this repository.
+- `validate_local_assume_access.py`: runs a non-mutating local Granted/AWS S3
+  smoke test without printing bucket names or account IDs. Profile and bucket
+  values come from the private runbook or local vault, not from this repository.
 
   ```bash
-  export LFB_BEDROCK_ASSUME_PROFILE=<from-private-runbook>
   export LFB_LOCAL_S3_ASSUME_PROFILE=<from-private-runbook>
   export LFB_PACKET_BUCKET=<from-private-vault>
   export LFB_RESULTS_BUCKET=<from-private-vault>
