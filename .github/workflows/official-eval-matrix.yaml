@@ -399,15 +399,27 @@ jobs:
             printf '  - %s\n' "${missing[@]}" >&2
             exit 1
           fi
+          run_input_manifest_for_cli="${RUN_INPUT_MANIFEST_URI}"
+          model_registry_for_cli="${MODEL_REGISTRY_URI}"
+          case "${RUN_INPUT_MANIFEST_URI}" in
+            manifests/*)
+              run_input_manifest_for_cli="s3://${LFB_RESULTS_BUCKET}/${RUN_INPUT_MANIFEST_URI}"
+              ;;
+          esac
+          case "${MODEL_REGISTRY_URI}" in
+            manifests/*)
+              model_registry_for_cli="s3://${LFB_RESULTS_BUCKET}/${MODEL_REGISTRY_URI}"
+              ;;
+          esac
           uv run legalforecast eval run-case \
-            --manifest "${RUN_INPUT_MANIFEST_URI}" \
+            --manifest "${run_input_manifest_for_cli}" \
             --packet-store-root "s3://${LFB_PACKET_BUCKET}" \
             --results-store-root "s3://${LFB_RESULTS_BUCKET}" \
             --case-id "${CASE_ID}" \
             --ablation "${ABLATION}" \
             --output-dir "tmp/official-eval/${CASE_ID}/${ABLATION}/${MODEL_KEY_SLUG}" \
             --backend live \
-            --model-registry "${MODEL_REGISTRY_URI}" \
+            --model-registry "${model_registry_for_cli}" \
             --model-key "${MODEL_KEY}"
         env:
           ABLATION: ${{ matrix.ablation }}
