@@ -45,12 +45,12 @@ def test_private_storage_layout_documents_manifest_hash_fields() -> None:
 
 
 def test_private_storage_layout_keeps_access_boundaries_explicit() -> None:
+    normalized_doc = " ".join(DOC.split())
     assert "GitHub packet-read role can list/read only" in DOC
     assert "cannot write or" in DOC
     assert "delete either bucket" in DOC
     assert "optional GitHub results-writer role" in DOC
-    assert "cos.benchmark.data-operator" in DOC
-    assert "cos.benchmark.data-steward" in DOC
+    assert "operational role assignments stay in the private runbook" in normalized_doc
     assert "audit-only disposition is marked `mounted_for_model: true`" in DOC
 
 

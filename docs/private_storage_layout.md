@@ -137,10 +137,10 @@ The optional GitHub results-writer role can write only tagged non-sensitive
 objects under `run-cards/`, `manifests/`, `metrics/`, and `reports/`. It cannot
 read or mutate packet-bucket objects and cannot delete result objects.
 
-The local `cos.benchmark.data-operator` profile is for upload, download, hash
-verification, and debug reads. The local `cos.benchmark.data-steward` profile is
-separate and is used only for sealed-case takedown, quarantine, deletion, and
-tombstone operations.
+Maintainer upload, download, hash verification, debug reads, and takedown work
+use private COS operational roles documented outside this repository. Public
+docs should describe the bucket contract and access boundaries; operational role
+assignments stay in the private runbook.
 
 ## Retention And Takedown
 

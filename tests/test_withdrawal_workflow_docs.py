@@ -65,5 +65,6 @@ def test_withdrawal_workflow_keeps_public_private_boundary_explicit() -> None:
         "raw filing text",
     ):
         assert forbidden_public_detail in DOC
+    assert "break-glass process" in DOC
     assert "Withdrawal Workflow" in DOCS_README
     assert re.search(r"\b\d{12}\b", DOC) is None

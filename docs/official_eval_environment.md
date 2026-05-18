@@ -78,10 +78,9 @@ uv run python -m legalforecast.publication.publication_guardrails \
 
 ## Maintainer Roles
 
-Maintainer upload, verification, and debug work uses the local
-`cos.benchmark.data-operator` profile documented in the COS runbook. Sealed-case
-withdrawal and destructive takedown work uses the separate
-`cos.benchmark.data-steward` profile. Do not use those local profiles inside
+Maintainer upload, verification, debug, and withdrawal work is governed by the
+private COS runbook and separate operational roles. Private runbook details do
+not belong in this repository, and local credentials must not be used inside
 GitHub Actions jobs.
 
 COS owns the AWS account, buckets, KMS key, GitHub OIDC trust, and IAM roles.

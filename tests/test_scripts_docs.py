@@ -12,9 +12,11 @@ def test_scripts_readme_documents_current_entrypoints() -> None:
         "alpha_release_check.py",
         "build_alpha_release_bundle.py",
         "reconstruct_packets.py",
+        "validate_local_assume_access.py",
         "uv run scripts/alpha_release_check.py",
         "uv run scripts/build_alpha_release_bundle.py",
         "uv run scripts/reconstruct_packets.py",
+        "uv run scripts/validate_local_assume_access.py",
     ):
         assert expected in readme
 

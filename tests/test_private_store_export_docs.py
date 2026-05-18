@@ -10,6 +10,7 @@ DOCS_README = (ROOT / "docs/README.md").read_text(encoding="utf-8")
 
 def test_private_store_export_docs_describe_command_and_inputs() -> None:
     assert "python -m legalforecast.publication.private_store_export" in DOC
+    assert "private runbook" in DOC
     for artifact in (
         "document-manifest.jsonl",
         "candidate-manifest.jsonl",

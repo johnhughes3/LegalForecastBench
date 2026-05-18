@@ -10,9 +10,7 @@ private object-store URLs do not belong in this repository or in public errata.
 
 ## Roles And Inputs
 
-The data steward owns destructive withdrawal work through the
-`cos.benchmark.data-steward` profile. The data operator may help identify and
-hash affected objects through `cos.benchmark.data-operator`, but ordinary
+The COS steward or break-glass process owns destructive withdrawal work. Ordinary
 evaluation jobs and packet-read roles must not read `source-documents/`,
 `extracted-text/`, `audit-bundles/`, `withdrawn/`, or `quarantine/`.
 

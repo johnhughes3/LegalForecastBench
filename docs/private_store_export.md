@@ -15,8 +15,9 @@ uv run python -m legalforecast.publication.private_store_export \
 
 The command writes local object-store staging paths under
 `objects/packet/` and `objects/results/`. Maintainers can sync those staged
-objects to the COS-managed packet and results buckets with the
-`cos.benchmark.data-operator` profile after checking the verification report.
+objects to the private packet and results buckets under the maintainer runbook
+after checking the verification report. Live bucket names and private runbook
+details do not belong in this repository.
 
 ## Inputs
 

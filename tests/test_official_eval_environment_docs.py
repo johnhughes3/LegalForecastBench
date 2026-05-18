@@ -66,9 +66,11 @@ def test_official_eval_environment_documents_actions_artifact_guardrails() -> No
 
 
 def test_official_eval_environment_documents_revocation_without_keys() -> None:
+    normalized_doc = " ".join(DOC.split())
     assert "Rotation And Revocation" in DOC
     assert "remove or replace `LFB_GITHUB_PACKET_READ_ROLE_ARN`" in DOC
     assert "private vault" in DOC
+    assert "local credentials must not be used inside GitHub Actions" in normalized_doc
     assert "Official Evaluation Environment" in DOCS_README
     assert "AWS_ACCESS_KEY_ID" not in DOC
     assert "AWS_SECRET_ACCESS_KEY" not in DOC
