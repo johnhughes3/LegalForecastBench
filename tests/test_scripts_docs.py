@@ -5,19 +5,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_scripts_readme_documents_current_entrypoints() -> None:
-    readme = (ROOT / "scripts" / "README.md").read_text(encoding="utf-8")
+def test_scripts_agents_docs_current_entrypoints() -> None:
+    docs = (ROOT / "scripts" / "AGENTS.md").read_text(encoding="utf-8")
 
     for expected in (
-        "alpha_release_check.py",
-        "build_alpha_release_bundle.py",
+        "release_check.py",
+        "build_release_bundle.py",
         "reconstruct_packets.py",
         "validate_local_assume_access.py",
-        "uv run scripts/alpha_release_check.py",
-        "uv run scripts/build_alpha_release_bundle.py",
+        "uv run scripts/release_check.py",
+        "uv run scripts/build_release_bundle.py",
         "uv run scripts/reconstruct_packets.py",
         "uv run scripts/validate_local_assume_access.py",
     ):
-        assert expected in readme
+        assert expected in docs
 
-    assert "once those implementation beads are started" not in readme
+    assert "once those implementation beads are started" not in docs

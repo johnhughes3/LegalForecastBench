@@ -75,10 +75,6 @@ def test_cli_placeholder_prints_help(capsys) -> None:
 def test_expected_placeholder_directories_exist() -> None:
     root = Path(__file__).resolve().parents[1]
     expected = [
-        root / "docs",
-        root / "manifests",
-        root / "protocols",
-        root / "docker" / "docket_tool",
         root / "tests" / "fixtures" / "case_packet",
         root / "tests" / "fixtures" / "manifests",
         root / "tests" / "fixtures" / "protocols",

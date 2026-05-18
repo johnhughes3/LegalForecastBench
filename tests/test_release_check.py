@@ -9,7 +9,7 @@ from types import ModuleType
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_alpha_release_check_plans_full_gate(tmp_path: Path) -> None:
+def test_release_check_plans_full_gate(tmp_path: Path) -> None:
     module = _load_release_check_module()
     steps = module.build_steps(tmp_path)
     labels = [step.label for step in steps]
@@ -31,7 +31,7 @@ def test_alpha_release_check_plans_full_gate(tmp_path: Path) -> None:
     assert any("uv build --out-dir" in command for command in commands)
 
 
-def test_alpha_release_check_plans_installed_artifact_smokes(tmp_path: Path) -> None:
+def test_release_check_plans_installed_artifact_smokes(tmp_path: Path) -> None:
     module = _load_release_check_module()
     steps = module.build_installed_cli_steps(
         tmp_path,
@@ -50,7 +50,7 @@ def test_alpha_release_check_plans_installed_artifact_smokes(tmp_path: Path) -> 
     assert any("legalforecast fixture e2e" in command for command in commands)
 
 
-def test_alpha_release_check_validates_required_artifacts(tmp_path: Path) -> None:
+def test_release_check_validates_required_artifacts(tmp_path: Path) -> None:
     module = _load_release_check_module()
     fixture_dir = tmp_path / "fixture-run"
     report_dir = fixture_dir / "report"
@@ -81,10 +81,10 @@ def test_alpha_release_check_validates_required_artifacts(tmp_path: Path) -> Non
 
 
 def _load_release_check_module() -> ModuleType:
-    script_path = ROOT / "scripts" / "alpha_release_check.py"
-    spec = importlib.util.spec_from_file_location("alpha_release_check", script_path)
+    script_path = ROOT / "scripts" / "release_check.py"
+    spec = importlib.util.spec_from_file_location("release_check", script_path)
     if spec is None or spec.loader is None:
-        raise AssertionError("could not load alpha_release_check.py")
+        raise AssertionError("could not load release_check.py")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     try:

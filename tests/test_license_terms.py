@@ -20,11 +20,7 @@ def test_apache_license_metadata_matches_license_file() -> None:
 def test_public_docs_link_license_and_citation() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     citation = (ROOT / "CITATION.cff").read_text(encoding="utf-8")
-    release_notes = (ROOT / "docs" / "v0.1_alpha_release_notes.md").read_text(
-        encoding="utf-8"
-    )
 
     assert "Apache License 2.0" in readme
     assert "CITATION.cff" in readme
     assert 'license: "Apache-2.0"' in citation
-    assert "License: Apache-2.0" in release_notes

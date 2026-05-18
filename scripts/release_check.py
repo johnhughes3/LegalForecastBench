@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUTPUT_DIR = REPO_ROOT / "tmp" / "alpha-release-check"
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "tmp" / "release-check"
 
 
 @dataclass(frozen=True, slots=True)

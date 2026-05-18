@@ -1,5 +1,0 @@
-services:
-  docket-tool:
-    build:
-      context: .
-    network_mode: "none"

@@ -5,22 +5,22 @@ checkout but do not belong in the installed `legalforecast` CLI.
 
 ## Current Scripts
 
-- `alpha_release_check.py`: runs the full v0.1 alpha release gate.
+- `release_check.py`: runs the full v0.1 alpha release gate.
 
   ```bash
-  uv run scripts/alpha_release_check.py
+  uv run scripts/release_check.py
   ```
 
   Use `--dry-run` to print the planned checks without executing them.
 
-- `build_alpha_release_bundle.py`: copies fixture E2E artifacts, selected
+- `build_release_bundle.py`: copies fixture E2E artifacts, selected
   release metadata, and optional package artifacts into an alpha release bundle.
 
   ```bash
-  uv run scripts/build_alpha_release_bundle.py \
-    --fixture-output-dir tmp/alpha-release-check/fixture-run \
-    --dist-dir tmp/alpha-release-check/dist \
-    --output-dir tmp/alpha-release-bundle
+  uv run scripts/build_release_bundle.py \
+    --fixture-output-dir tmp/release-check/fixture-run \
+    --dist-dir tmp/release-check/dist \
+    --output-dir tmp/release-bundle
   ```
 
 - `reconstruct_packets.py`: builds source-handle reconstruction plans from

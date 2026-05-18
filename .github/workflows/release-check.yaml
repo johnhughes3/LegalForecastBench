@@ -26,7 +26,7 @@ jobs:
           enable-cache: true
 
       - name: Run release checks
-        run: uv run scripts/alpha_release_check.py --output-dir tmp/release-check
+        run: uv run scripts/release_check.py --output-dir tmp/release-check
 
       - name: Upload release-check artifacts
         uses: actions/upload-artifact@v7

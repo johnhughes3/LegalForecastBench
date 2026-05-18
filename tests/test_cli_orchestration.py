@@ -666,29 +666,6 @@ def test_hyphenated_cli_aliases_remain_supported(tmp_path: Path) -> None:
     )
 
 
-def test_console_entrypoint_preserves_legacy_protocol_commands(
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        [
-            "legalforecast",
-            "validate-preregistration",
-            "protocols/cycle_2026_05_official.preregistration.yaml",
-        ],
-    )
-
-    assert main() == 1
-    validation = json.loads(capsys.readouterr().out)
-    assert validation["passed"] is False
-    assert {
-        "message": "required field is missing or empty",
-        "path": "public_registration.url",
-    } in validation["issues"]
-
-
 def test_console_entrypoint_preserves_freeze_help(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

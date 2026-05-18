@@ -1,13 +1,5 @@
 """Publication and reconstruction helpers."""
 
-from legalforecast.publication.alpha_release_bundle import (
-    ALPHA_RELEASE_BUNDLE_SCHEMA_VERSION,
-    ALPHA_RELEASE_CHANNEL,
-    ALPHA_RESULT_TIER,
-    AlphaReleaseBundleConfig,
-    AlphaReleaseBundleError,
-    build_alpha_release_bundle,
-)
 from legalforecast.publication.official_aggregate import (
     OFFICIAL_AGGREGATE_SCHEMA_VERSION,
     OfficialAggregationConfig,
@@ -43,6 +35,14 @@ from legalforecast.publication.reconstruction import (
     load_reconstruction_plans,
     verify_reconstructed_documents,
 )
+from legalforecast.publication.release_bundle import (
+    RELEASE_BUNDLE_SCHEMA_VERSION,
+    RELEASE_CHANNEL,
+    RESULT_TIER,
+    ReleaseBundleConfig,
+    ReleaseBundleError,
+    build_release_bundle,
+)
 from legalforecast.publication.run_cards import (
     RunCardArtifacts,
     RunCardValidationIssue,
@@ -64,17 +64,15 @@ from legalforecast.publication.withdrawal import (
 )
 
 __all__ = [
-    "ALPHA_RELEASE_BUNDLE_SCHEMA_VERSION",
-    "ALPHA_RELEASE_CHANNEL",
-    "ALPHA_RESULT_TIER",
     "OFFICIAL_AGGREGATE_SCHEMA_VERSION",
     "PRIVATE_STORE_EXPORT_SCHEMA_VERSION",
     "PUBLICATION_GUARDRAIL_SCHEMA_VERSION",
     "PUBLIC_ERRATA_SCHEMA_VERSION",
+    "RELEASE_BUNDLE_SCHEMA_VERSION",
+    "RELEASE_CHANNEL",
+    "RESULT_TIER",
     "STORAGE_MANIFEST_VERSION",
     "WITHDRAWAL_LEDGER_SCHEMA_VERSION",
-    "AlphaReleaseBundleConfig",
-    "AlphaReleaseBundleError",
     "ExportBucketRole",
     "ExportClassification",
     "ExportObjectRecord",
@@ -91,6 +89,8 @@ __all__ = [
     "PublicationGuardrailFinding",
     "ReconstructionDocumentHandle",
     "ReconstructionPlan",
+    "ReleaseBundleConfig",
+    "ReleaseBundleError",
     "RunCardArtifacts",
     "RunCardValidationIssue",
     "RunCardValidationResult",
@@ -100,9 +100,9 @@ __all__ = [
     "WithdrawalReason",
     "WithdrawalScope",
     "aggregate_official_results",
-    "build_alpha_release_bundle",
     "build_private_store_export",
     "build_public_errata_record",
+    "build_release_bundle",
     "build_run_card_record",
     "enforce_publication_guardrails",
     "filter_withdrawn_run_inputs",

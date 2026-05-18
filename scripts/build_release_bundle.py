@@ -9,13 +9,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from legalforecast import __version__
-from legalforecast.publication.alpha_release_bundle import (
-    AlphaReleaseBundleConfig,
-    build_alpha_release_bundle,
+from legalforecast.publication.release_bundle import (
+    ReleaseBundleConfig,
+    build_release_bundle,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUTPUT_DIR = REPO_ROOT / "tmp" / "alpha-release-bundle"
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "tmp" / "release-bundle"
 DEFAULT_RELEASE_TAG = "v0.1.0-alpha.1"
 
 
@@ -33,7 +33,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--output-dir",
         type=Path,
         default=DEFAULT_OUTPUT_DIR,
-        help="Directory where the bundle and alpha-release-manifest.json are written.",
+        help="Directory where the bundle and release-manifest.json are written.",
     )
     parser.add_argument(
         "--dist-dir",
@@ -67,8 +67,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         release_commit = args.commit or _git_head(REPO_ROOT)
     except RuntimeError as exc:
         parser.error(str(exc))
-    manifest = build_alpha_release_bundle(
-        AlphaReleaseBundleConfig(
+    manifest = build_release_bundle(
+        ReleaseBundleConfig(
             fixture_output_dir=args.fixture_output_dir.resolve(),
             output_dir=args.output_dir.resolve(),
             dist_dir=args.dist_dir.resolve() if args.dist_dir is not None else None,
@@ -86,7 +86,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(
         json.dumps(
             {
-                "manifest": str(args.output_dir / "alpha-release-manifest.json"),
+                "manifest": str(args.output_dir / "release-manifest.json"),
                 "artifact_count": manifest["artifact_count"],
             },
             sort_keys=True,

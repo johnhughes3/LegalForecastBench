@@ -1,74 +1,40 @@
 # LegalForecast-MTD
 
-LegalForecast-MTD is a pre-data alpha for a public benchmark of model forecasts
-on federal motion-to-dismiss outcomes. The benchmark target is narrow: predict
-claim-defendant outcomes from the same pre-decision docket materials a model
-would have seen before the court ruled.
-
-This repository is the benchmark machinery, not a completed benchmark corpus.
-It has typed pipeline stages, frozen artifact formats, synthetic fixture runs,
-scoring, reporting, no-paid defaults, and release checks. It does not yet publish
-public cases, human labels, model scores, or an official leaderboard.
+LegalForecast-MTD is a contamination-controlled benchmark of frontier models on a high-value legal task: predicting how federal judges will rule on motions to dismiss, from the same written record the judge sees. Each benchmark version is anchored to a set of model release dates and uses only cases decided after the latest model release being evaluated, so there's no chance that any model in a given run was contaminated by seeing the judge's actual ruling during its training. The prediction unit is a claim-defendant pair (i.e., whether the judge granted or denied a motion to dismiss a specific claim as to a specific defendant or group of similarly situated defendants). The headline metric is micro-Brier with case-clustered confidence intervals.
 
 ## Why This Exists
 
-I am a practicing lawyer, and my view is that the legal profession is
-systematically underestimating what current AI models can do. Existing
-legal-reasoning benchmarks tend to focus on tasks a junior associate could
-handle: bar-style questions, contract clause classification, citation lookup.
-Those tasks have unambiguous right answers, which is good for scoring, but as
-frontier models have improved the benchmarks have approached saturation, and
-the gaps they reveal between top systems are small and shrinking.
+Existing legal-reasoning benchmarks tend to test models on tasks a junior associate can handle: bar exam questions, contract clause classification, citation lookup, basic drafting. These tasks have objective correct answers, which is good for scoring — but frontier models have largely saturated them, and the gaps they reveal between current models are modest. The current generation of models is already demonstrating capabilities in the legal context far beyond what existing legal benchmarks are testing.
 
-The reason most legal benchmarks stay at the junior level is that higher-stakes
-legal work is laden with subjectivity and value judgments, which is hard to
-score. This benchmark takes a different route. It asks models to *predict* how
-a real federal judge ruled on a real motion, given the same record the judge
-saw. Prediction has an objective ground truth (the judge either granted or
-denied the motion) but sits closer to the work clients actually pay senior
-lawyers for: assessing the likely outcome of a dispute, not declaring what the
-outcome ought to be.
+Higher-value legal work is harder to benchmark because it is laden with subjective judgments. This benchmark addresses that problem by testing prediction rather than analysis: given the same written record a federal judge received, the model is asked to predict how that judge will rule — not to opine on how the motion should be decided. Prediction has objective ground truth (the judge either granted or denied the motion as to each claim and defendant) but it is still a critical task that clients pay senior lawyers to do. Partners and counsel routinely have to assess the likely outcomes of a case, or of specific motions they might file, to advise clients on what motions to pursue and whether to settle or litigate. Although prediction is distinct from objective legal reasoning, rigorously understanding the facts and law (as presented to the judge) is the most reliable way to predict the outcome — so performance on this benchmark should proxy models' legal reasoning ability.
 
-Federal motions to dismiss are the starting point because hundreds are decided
-each week. Even after excluding cases that could create training-data
-contamination (oral argument, written questions to the parties, tentative
-rulings, and similar pre-ruling signals from the judge), there is more than
-enough volume to build a comparison set within a week or two of a new model
-release.
+This benchmark focuses on federal motions to dismiss because hundreds are decided each week, which yields usable sample sizes in the weeks following any new model release. They involve a broad range of substantive legal reasoning over a self-contained written record, and they resolve to a clear binary outcome on each challenged claim against each challenged defendant.
 
-A reliable prediction tool would also be useful in its own right. Litigation
-persists in large part because parties disagree about its likely outcome;
-well-calibrated probability estimates would make settlement easier and the
-system less wasteful. The same capability matters to litigation funders,
-plaintiffs' attorneys deciding whether to take a case, and investors in
-litigation-affected instruments.
+AI models that can predict litigation outcomes well would be useful in a range of circumstances: litigation finance firms deciding whether to finance a litigation, plaintiffs' attorneys deciding whether to take a case on contingency, investors in litigation-affected instruments, and defendants facing settlement decisions. More broadly, parties often persist in zero-sum litigation because they have significantly different views of the likely outcome. Tools that help both sides form more realistic assessments could help resolve disputes earlier, on terms that better serve everyone involved.
 
-I have no formal AI background, and this work is still in development. The
-current version is being shared mainly to get feedback from researchers with
-experience building benchmarks.
+## Approach
 
-## What Exists Today
+### Prediction unit and metric
 
-- A deterministic no-network fixture pipeline.
-- Candidate, retrieval, extraction, unitization, labeling, packet, run, score,
-  and report schemas.
-- Micro-Brier scoring, calibration summaries, cost/tool accounting, and
-  leaderboard rendering.
-- Preregistration, run-card, model-card, and result-tier artifacts.
-- A guarded acquisition pipeline for the future live corpus.
-- CI-equivalent local release checks.
+The benchmark predicts, for each challenged claim against each challenged defendant, the probability that the claim will be dismissed in full. The prediction unit is the claim-defendant pair, not the motion as a whole. The headline metric is micro-Brier over prediction units, with confidence intervals clustered by case to account for within-motion correlation.
 
-## What Does Not Exist Yet
+### Contamination control
 
-- No public case corpus.
-- No audited public labels.
-- No real model submissions.
-- No canonical leaderboard.
-- No claim that the synthetic fixture results say anything about model quality.
+For a given universe of model releases being compared, eligible cases are those with written MTD decisions entered after the latest release. Pre-decision materials (complaint, motion, briefing, docket history) may predate the release; those are legitimate forecasting inputs and are made available to all models. Outcome leakage — pre-run access to a tentative ruling, oral-argument transcript, or related-case order resolving the same issue — is a hard exclusion. Models run without network access or web search.
 
-The main blocker is live packet acquisition. Case.dev discovery is useful, but
-the project still needs a reliable route for docket entries and source
-documents before an official cycle can run.
+### Versioned artifact
+
+Each benchmark run is a versioned artifact tied to a specific set of model releases. When a new generation of frontier models ships, the benchmark ingests fresh cases — all decided after the new releases — and compares predictions on that cohort. The tradeoff is that the benchmark cannot run immediately on a new model (it takes time for enough post-release decisions to accumulate), and it cannot cleanly demonstrate absolute capability gains across generations because the case mix differs each version. What it does well is compare the relative capabilities of frontier models within a generation, which is the question most useful to practitioners deciding which model to rely on.
+
+Release-date anchors for current frontier models are tracked in [MODEL_RELEASE_DATES.md](MODEL_RELEASE_DATES.md).
+
+### Pilot
+
+A pilot run has scored Gemini Flash 3, Claude Sonnet 4.5, and GPT-5.5-mini on twelve cases to validate the end-to-end infrastructure. The pilot is too small to support claims about relative model capability and is not a published benchmark result; it confirms that ingestion, unitization, packet construction, model invocation, and scoring run together on real cases. We are seeking feedback from researchers experienced with benchmark design before incurring the cost of a full model run.
+
+## How Runs Are Executed
+
+Each official run is driven by a GitHub Actions matrix job, with one matrix cell per (model, case) pair. The matrix structure isolates failures per cell, lets runs resume without rerunning successful cells, and produces a uniform per-cell audit trail.
 
 ## Quickstart
 
@@ -95,13 +61,12 @@ Useful outputs:
 - `tmp/fixture-run/scores.json`
 - `tmp/fixture-run/report/leaderboard.md`
 
-Those files prove the pipeline can run end to end. They are not public
-benchmark results.
+Those files prove the pipeline can run end to end. They are not public benchmark results.
 
 Before cutting a release candidate:
 
 ```bash
-uv run scripts/alpha_release_check.py
+uv run scripts/release_check.py
 ```
 
 Default checks must not require live credentials.
@@ -135,53 +100,21 @@ Production acquisition commands live under:
 uv run legalforecast acquisition --help
 ```
 
-See [docs/acquisition.md](docs/acquisition.md) before running anything that can
-touch live Case.dev, CourtListener, RECAP, PACER, or provider credentials.
+Treat acquisition commands as live-credential paths; default checks must not require Case.dev, CourtListener, RECAP, PACER, or provider credentials.
 
-## Documentation
+## Public Records and Recusal
 
-The root README is the public quickstart. The full map lives in the
-[documentation index](docs/README.md). Start with:
+The benchmark sources only from court filings that are already public. As a practicing attorney, I reserve the right but do not assume the obligation of excluding from benchmark sets any cases with which I or any entity I am associated with may be involved.
 
-- [Methodology](docs/methodology.md) for task design, scoring, and validity.
-- [Acquisition status](docs/acquisition.md) for live-data blockers and no-paid defaults.
-- [Result tiers](docs/result_tiers.md) for what can and cannot be called canonical.
-- [Ethics and legal-risk note](docs/ethics.md) for intended use, privacy, and takedown framing.
+## Withdrawals
 
-Generated smoke reports and internal release-gate notes are not tracked as
-public docs. If a command writes an exploratory report, put it under `tmp/`.
+If a case is later sealed, redacted, or otherwise must be removed from the public corpus, the package provides a withdrawal path that records the removal in public errata.
 
 ## Repository Map
 
-- `legalforecast/`: Python package for ingestion, selection, unitization,
-  labeling, evaluation, scoring, reporting, and publication artifacts.
-- `docs/`: public methodology and protocol references.
-- `protocols/`: preregistration templates and cycle protocol examples.
-- `manifests/`: frozen manifest examples.
+- `legalforecast/`: Python package for ingestion, selection, unitization, labeling, evaluation, scoring, reporting, and publication artifacts.
 - `tests/`: synthetic fixtures and regression coverage.
-- `docker/docket_tool/`: sandboxed docket-tool container scaffold.
-
-## Result Claims
-
-Use the result tiers in [docs/result_tiers.md](docs/result_tiers.md). Only
-`official` results belong in a canonical leaderboard. Synthetic fixture outputs
-are `alpha-non-canonical`; self-reported external runs remain community-tier
-unless the policy's reproduction and audit requirements are met.
-
-## Feedback
-
-High-value alpha feedback is concrete:
-
-- a command that fails from a clean checkout;
-- a stale or contradictory document reference;
-- a fixture artifact missing provenance needed for audit;
-- a result-tier claim that sounds more official than it is;
-- a security, cost, or legal-record handling issue.
-
-Please file issues for feedback that could affect reproducibility, result-tier
-claims, security, cost, or legal-record handling, and avoid including secrets,
-account identifiers, sealed filings, or private source-document text in public
-reports.
+- `MODEL_RELEASE_DATES.md`: tracked frontier-model release anchors.
 
 ## License
 
@@ -189,5 +122,4 @@ Apache License 2.0. See [LICENSE](LICENSE).
 
 ## Citation
 
-Citation metadata is in [CITATION.cff](CITATION.cff). There is no preprint or
-published benchmark cycle yet.
+Citation metadata is in [CITATION.cff](CITATION.cff). There is no preprint or published benchmark cycle yet.

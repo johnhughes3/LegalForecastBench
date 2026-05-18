@@ -2,16 +2,18 @@
 
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 
-> **Architecture in one line:** Issues live in a local Dolt database
-> (`.beads/dolt/`); cross-machine sync uses `bd dolt push/pull` (a
-> git-compatible protocol), stored under `refs/dolt/data` on your git
-> remote — separate from `refs/heads/*` where your code lives.
-> `.beads/issues.jsonl` is a passive export, not the wire protocol.
+> **Architecture in one line:** Issues live in a local Dolt database (`.beads/dolt/`); cross-machine sync uses `bd dolt push/pull` (a git-compatible protocol), stored under `refs/dolt/data` on your git remote — separate from `refs/heads/*` where your code lives. `.beads/issues.jsonl` is a passive export, not the wire protocol.
 >
-> See [SYNC_CONCEPTS.md](https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md)
-> for the one-screen overview and anti-patterns (don't treat JSONL as the
-> source of truth; don't `bd import` during normal operation; don't
-> reach for third-party Dolt hosting before trying the default).
+> See [SYNC_CONCEPTS.md](https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md) for the one-screen overview and anti-patterns (don't treat JSONL as the source of truth; don't `bd import` during normal operation; don't reach for third-party Dolt hosting before trying the default).
+
+## Scope Decisions
+
+This benchmark is intentionally **not** adopting:
+
+- Preregistration protocols
+- Result-tier classification (official / verified-community / community-unverified / alpha-non-canonical)
+
+Existing code and tests that reference those concepts are deprecated and scheduled for removal; do not add new dependencies on them. The **acquisition** and **withdrawal** code paths are kept — acquisition is core pipeline, withdrawal handles sealed/redacted cases.
 
 ## Quick Reference
 
