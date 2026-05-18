@@ -15,9 +15,7 @@ from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.selection import TrainingCutoffStatus
 
 ROOT = Path(__file__).resolve().parents[1]
-PILOT_REGISTRY = (
-    ROOT / "model_registries" / "pilot-2026-04-24_to_2026-05-18.json"
-)
+PILOT_REGISTRY = ROOT / "model_registries" / "pilot-2026-04-24_to_2026-05-18.json"
 
 
 def _registry_record() -> dict[str, object]:
@@ -113,9 +111,7 @@ def test_registry_file_load_and_dump(tmp_path) -> None:
 def test_pilot_registry_contains_requested_model_matrix() -> None:
     registry = load_model_registry(PILOT_REGISTRY)
 
-    assert {
-        entry.registry_key for entry in registry.entries
-    } == {
+    assert {entry.registry_key for entry in registry.entries} == {
         "google:gemini-3-flash-preview",
         "openai:gpt-5.4-mini",
         "anthropic:claude-sonnet-4-6",

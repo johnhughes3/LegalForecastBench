@@ -178,9 +178,7 @@ def test_acquisition_llm_unitize_accepts_singleton_string_list_fields(
         == 0
     )
 
-    unit = _read_jsonl(output_root / "prediction-units.jsonl")[0][
-        "prediction_units"
-    ][0]
+    unit = _read_jsonl(output_root / "prediction-units.jsonl")[0]["prediction_units"][0]
     assert unit["source_citations"][0]["document_id"] == "mtd"
     assert unit["defendant_group"] == "Issuer"
 
@@ -256,9 +254,7 @@ def test_acquisition_llm_unitize_accepts_top_level_seed_array(
         == 0
     )
 
-    unit = _read_jsonl(output_root / "prediction-units.jsonl")[0][
-        "prediction_units"
-    ][0]
+    unit = _read_jsonl(output_root / "prediction-units.jsonl")[0]["prediction_units"][0]
     assert unit["unit_id"] == "unit-1"
 
 
@@ -305,7 +301,7 @@ def test_acquisition_llm_unitize_accepts_first_balanced_json_object(
 
     def fake_completion(*args: Any, **kwargs: Any) -> SolverResponse:
         return SolverResponse(
-            raw_output=f"{json.dumps(payload)}\n{{\"debug\": true}}",
+            raw_output=f'{json.dumps(payload)}\n{{"debug": true}}',
             input_tokens=100,
             output_tokens=50,
             estimated_cost=0.01,
@@ -335,9 +331,7 @@ def test_acquisition_llm_unitize_accepts_first_balanced_json_object(
         == 0
     )
 
-    unit = _read_jsonl(output_root / "prediction-units.jsonl")[0][
-        "prediction_units"
-    ][0]
+    unit = _read_jsonl(output_root / "prediction-units.jsonl")[0]["prediction_units"][0]
     assert unit["unit_id"] == "unit-1"
 
 

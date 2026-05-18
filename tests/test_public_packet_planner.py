@@ -124,13 +124,17 @@ def test_public_packet_planner_accepts_judgment_on_pleadings_target(
 ) -> None:
     raw_html_dir = tmp_path / "raw_html"
     raw_html_dir.mkdir()
-    html = _docket_html().replace(
-        "MOTION to Dismiss filed by Defendant.",
-        "MOTION for Judgment on the Pleadings filed by Defendant.",
-    ).replace(
-        "Dismiss</p>",
-        "Judgment on the Pleadings</p>",
-        1,
+    html = (
+        _docket_html()
+        .replace(
+            "MOTION to Dismiss filed by Defendant.",
+            "MOTION for Judgment on the Pleadings filed by Defendant.",
+        )
+        .replace(
+            "Dismiss</p>",
+            "Judgment on the Pleadings</p>",
+            1,
+        )
     )
     (raw_html_dir / "123.html").write_text(html, encoding="utf-8")
 

@@ -210,11 +210,11 @@ def llm_unitize_cases(
             )
         except Exception as exc:
             failure_record = _failure_audit_record(
-                    stage="llm-unitize",
-                    selection=selection,
-                    model_key=registry_entry.registry_key,
-                    error=exc,
-                    model_registry_sha256=model_registry_sha256,
+                stage="llm-unitize",
+                selection=selection,
+                model_key=registry_entry.registry_key,
+                error=exc,
+                model_registry_sha256=model_registry_sha256,
             )
             if response is not None:
                 failure_record.update(_response_audit_fields(response))
@@ -273,11 +273,11 @@ def llm_label_cases(
                         decision_text=decision_text,
                         frozen_units=tuple(frozen_units),
                         registry_entry=entry,
-                    model_registry_sha256=model_registry_sha256,
-                    transport=transport,
-                    environ=environ,
-                    timeout_seconds=timeout_seconds,
-                )
+                        model_registry_sha256=model_registry_sha256,
+                        transport=transport,
+                        environ=environ,
+                        timeout_seconds=timeout_seconds,
+                    )
                 )
                 labels_by_model[entry.registry_key] = labels
                 model_outputs.append(
@@ -342,14 +342,12 @@ def llm_label_cases(
             )
         except Exception as exc:
             failure_record = _failure_audit_record(
-                    stage="llm-label",
-                    selection=selection,
-                    model_key=",".join(
-                        entry.registry_key for entry in registry_entries
-                    ),
-                    error=exc,
-                    model_registry_sha256=model_registry_sha256,
-                )
+                stage="llm-label",
+                selection=selection,
+                model_key=",".join(entry.registry_key for entry in registry_entries),
+                error=exc,
+                model_registry_sha256=model_registry_sha256,
+            )
             if isinstance(exc, LlmResponseValidationError):
                 failure_record.update(_response_audit_fields(exc.response))
             audit_records.append(failure_record)
@@ -510,9 +508,7 @@ def _labeling_prompt(
                 "If resolution is survives_in_material_respect or "
                 "partial_dismissal_only, amendment_signal must be not_applicable."
             ),
-            (
-                "If resolution is ambiguous, amendment_signal must be ambiguous."
-            ),
+            ("If resolution is ambiguous, amendment_signal must be ambiguous."),
             (
                 "Return only a JSON object with unit_findings and "
                 "missing_unit_flags arrays."

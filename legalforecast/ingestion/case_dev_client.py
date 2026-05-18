@@ -708,8 +708,7 @@ def _legal_entry_text(
     document_descriptions = tuple(
         description
         for document in _entry_documents(record)
-        if (description := _optional_string(document, "description"))
-        is not None
+        if (description := _optional_string(document, "description")) is not None
     )
     if document_descriptions:
         return "; ".join(document_descriptions)

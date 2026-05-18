@@ -687,9 +687,7 @@ def _best_free_notice_removal_complaint_attachment(
             for document in entry.documents
             if document.freely_available
             and document.href
-            and _looks_like_notice_removal_complaint_attachment(
-                document.description
-            )
+            and _looks_like_notice_removal_complaint_attachment(document.description)
         ),
         None,
     )
