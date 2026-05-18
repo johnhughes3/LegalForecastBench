@@ -112,6 +112,7 @@ from legalforecast.ingestion.model_packet_assembly import (
     assemble_model_packet,
     parsed_markdown_documents_from_conversion_records,
 )
+from legalforecast.ingestion.packet_input_planner import plan_packet_build_inputs
 from legalforecast.ingestion.provenance import (
     AvailabilityStatus,
     CasePacketSchema,
@@ -467,6 +468,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Convert acquired documents to Markdown parser artifacts.",
     )
     _add_acquisition_parse_documents_arguments(acquisition_parse)
+    acquisition_packet_inputs = acquisition_subparsers.add_parser(
+        "plan-packet-inputs",
+        help="Plan packet-build and private-store inputs from acquisition manifests.",
+    )
+    _add_acquisition_plan_packet_inputs_arguments(acquisition_packet_inputs)
     acquisition_build = acquisition_subparsers.add_parser(
         "build-packets",
         help="Build final model packets from acquisition artifacts.",
@@ -809,6 +815,91 @@ def _add_acquisition_parse_documents_arguments(
         help="Directory with <source_document_id>.md files for fixture runs.",
     )
     parser.set_defaults(handler=_cmd_acquisition_parse_documents)
+
+
+def _add_acquisition_plan_packet_inputs_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--selection",
+        type=Path,
+        required=True,
+        help="JSONL from acquisition plan-public-downloads.",
+    )
+    parser.add_argument(
+        "--download-manifest",
+        type=Path,
+        required=True,
+        help="JSONL from acquisition download-free.",
+    )
+    parser.add_argument(
+        "--parser-manifest",
+        type=Path,
+        required=True,
+        help="JSONL from acquisition parse-documents.",
+    )
+    parser.add_argument(
+        "--prediction-units",
+        type=Path,
+        required=True,
+        help=(
+            "JSONL with candidate_id and locked prediction_units; placeholder "
+            "units are not appropriate for real pilots."
+        ),
+    )
+    parser.add_argument(
+        "--raw-html-dir",
+        type=Path,
+        required=True,
+        help="Directory containing saved CourtListener docket HTML by candidate ID.",
+    )
+    parser.add_argument(
+        "--document-root",
+        type=Path,
+        help="Root for downloaded source documents; defaults to documents/free.",
+    )
+    parser.add_argument(
+        "--markdown-root",
+        type=Path,
+        help="Root for parser Markdown artifacts; defaults to markdown.",
+    )
+    parser.add_argument(
+        "--packet-build-input-output",
+        type=Path,
+        help="Output JSONL for acquisition build-packets.",
+    )
+    parser.add_argument(
+        "--document-manifest-output",
+        type=Path,
+        help="Output document-manifest.jsonl for private-store export.",
+    )
+    parser.add_argument(
+        "--candidate-manifest-output",
+        type=Path,
+        help="Output candidate-manifest.jsonl for private-store export.",
+    )
+    parser.add_argument(
+        "--extracted-texts-output",
+        type=Path,
+        help="Output extracted_texts.jsonl for private-store export.",
+    )
+    parser.add_argument(
+        "--generated-at",
+        default=None,
+        help="Optional UTC timestamp for deterministic packet input records.",
+    )
+    parser.add_argument(
+        "--search-query",
+        default="refined MTD decision terms",
+        help="Search-query provenance string for controlled docket markdown.",
+    )
+    parser.add_argument(
+        "--search-window",
+        default="not recorded",
+        help="Search-window provenance string for controlled docket markdown.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_plan_packet_inputs)
 
 
 def _add_acquisition_build_packets_arguments(parser: argparse.ArgumentParser) -> None:
@@ -1801,6 +1892,97 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
         input_paths=(requests_path,),
         output_paths=(manifest_path,),
         record_count=len(requests),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+    )
+    return 0
+
+
+def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    selection_path = cast(Path, args.selection)
+    download_manifest_path = cast(Path, args.download_manifest)
+    parser_manifest_path = cast(Path, args.parser_manifest)
+    prediction_units_path = cast(Path, args.prediction_units)
+    raw_html_dir = cast(Path, args.raw_html_dir)
+    document_root = cast(Path | None, args.document_root) or (
+        output_root / "documents" / "free"
+    )
+    markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
+    packet_build_input_path = _acquisition_path(
+        args,
+        "packet_build_input_output",
+        output_root / "packet-build-input.jsonl",
+    )
+    document_manifest_path = _acquisition_path(
+        args,
+        "document_manifest_output",
+        output_root / "document-manifest.jsonl",
+    )
+    candidate_manifest_path = _acquisition_path(
+        args,
+        "candidate_manifest_output",
+        output_root / "candidate-manifest.jsonl",
+    )
+    extracted_texts_path = _acquisition_path(
+        args,
+        "extracted_texts_output",
+        output_root / "extracted_texts.jsonl",
+    )
+    records = _read_records(selection_path)
+    dry_run = _acquisition_dry_run(args)
+    if dry_run:
+        _write_jsonl(
+            packet_build_input_path,
+            [
+                {
+                    "stage": "plan-packet-inputs",
+                    "dry_run": True,
+                    "selection_count": len(records),
+                }
+            ],
+        )
+    else:
+        generated_at = (
+            _parse_datetime(cast(str, args.generated_at))
+            if cast(str | None, args.generated_at)
+            else datetime.now(UTC)
+        )
+        plan = plan_packet_build_inputs(
+            selection_records=records,
+            download_records=_read_records(download_manifest_path),
+            parser_records=_read_records(parser_manifest_path),
+            prediction_unit_records=_read_records(prediction_units_path),
+            raw_html_dir=raw_html_dir,
+            document_root=document_root,
+            markdown_root=markdown_root,
+            source_dir=output_root,
+            generated_at=generated_at,
+            search_query=cast(str, args.search_query),
+            search_window=cast(str, args.search_window),
+        )
+        _write_jsonl(packet_build_input_path, plan.packet_build_records)
+        _write_jsonl(document_manifest_path, plan.document_manifest_records)
+        _write_jsonl(candidate_manifest_path, plan.candidate_manifest_records)
+        _write_jsonl(extracted_texts_path, plan.extracted_text_records)
+    _write_acquisition_completion(
+        args,
+        stage="plan-packet-inputs",
+        input_paths=(
+            selection_path,
+            download_manifest_path,
+            parser_manifest_path,
+            prediction_units_path,
+            raw_html_dir,
+        ),
+        output_paths=(
+            packet_build_input_path,
+            document_manifest_path,
+            candidate_manifest_path,
+            extracted_texts_path,
+        ),
+        record_count=len(records),
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,

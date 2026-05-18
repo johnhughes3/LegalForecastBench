@@ -141,6 +141,11 @@ from legalforecast.ingestion.mtd_acquisition_screen import (
     screen_courtlistener_docket_for_mtd_decision,
     screen_courtlistener_entry_for_mtd_decision,
 )
+from legalforecast.ingestion.packet_input_planner import (
+    PacketInputPlan,
+    PacketInputPlanningError,
+    plan_packet_build_inputs,
+)
 from legalforecast.ingestion.provenance import (
     AvailabilityStatus,
     CasePacketSchema,
@@ -259,6 +264,8 @@ __all__ = [
     "MtdDocketScreenStatus",
     "PacketAssemblyError",
     "PacketExclusionNote",
+    "PacketInputPlan",
+    "PacketInputPlanningError",
     "ParsedMarkdownDocument",
     "ParserProcessResult",
     "ParserRunner",
@@ -306,6 +313,7 @@ __all__ = [
     "parsed_markdown_documents_from_conversion_records",
     "plan_case_dev_smoke",
     "plan_missing_core_document_budget",
+    "plan_packet_build_inputs",
     "plan_public_packet_downloads",
     "rank_cheapest_complete_candidates",
     "read_case_relevance_jsonl",

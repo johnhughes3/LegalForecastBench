@@ -444,6 +444,107 @@ def test_parse_and_build_packet_acquisition_fixture_flow(tmp_path: Path) -> None
     )
 
 
+def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    raw_html_dir = tmp_path / "raw_html"
+    raw_html_dir.mkdir()
+    (raw_html_dir / "cand-1.html").write_text(
+        _packet_input_docket_html(),
+        encoding="utf-8",
+    )
+    selection_path = tmp_path / "selection.jsonl"
+    downloads_path = tmp_path / "downloads.jsonl"
+    parser_path = tmp_path / "parser.jsonl"
+    units_path = tmp_path / "units.jsonl"
+    markdown_root = output_root / "markdown"
+    for source_document_id, markdown in {
+        "complaint": "Complaint markdown",
+        "mtd-memo": "MTD markdown",
+        "decision": "Decision markdown",
+    }.items():
+        markdown_path = markdown_root / "cand-1" / f"{source_document_id}.md"
+        markdown_path.parent.mkdir(parents=True, exist_ok=True)
+        markdown_path.write_text(markdown, encoding="utf-8")
+    _write_jsonl(selection_path, [_packet_selection_record()])
+    _write_jsonl(
+        downloads_path,
+        [
+            _download_record("complaint", "complaint", 1),
+            _download_record("mtd-memo", "motion_to_dismiss_memorandum", 34),
+            _download_record("decision", "decision", 50),
+        ],
+    )
+    _write_jsonl(
+        parser_path,
+        [
+            _parser_record("complaint"),
+            _parser_record("mtd-memo"),
+            _parser_record("decision"),
+        ],
+    )
+    _write_jsonl(
+        units_path,
+        [{"candidate_id": "cand-1", "prediction_units": [_prediction_unit()]}],
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-packet-inputs",
+                "--selection",
+                str(selection_path),
+                "--download-manifest",
+                str(downloads_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--prediction-units",
+                str(units_path),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--output-root",
+                str(output_root),
+                "--generated-at",
+                _GENERATED_AT,
+                "--search-window",
+                "2026-04-24..2026-05-18",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    packet_input = _read_jsonl(output_root / "packet-build-input.jsonl")[0]
+    assert packet_input["documents"][0]["source_document_id"] == "cand-1-complaint"
+    assert packet_input["prediction_units"][0]["source_citations"] == [
+        {"document_id": "cand-1-complaint", "page": 1}
+    ]
+    assert len(_read_jsonl(output_root / "document-manifest.jsonl")) == 3
+    candidate_manifest = _read_jsonl(output_root / "candidate-manifest.jsonl")[0]
+    assert candidate_manifest["manifest_record_hash"]
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "build-packets",
+                "--input",
+                str(output_root / "packet-build-input.jsonl"),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    packet = _read_jsonl(output_root / "packets.jsonl")[0]
+    assert "cand-1-decision" in packet["excluded_document_ids"]
+    assert packet["prediction_units"][0]["unit_id"] == "count-i-issuer"
+
+
 def test_build_packets_rejects_mounted_outcome_leakage(
     tmp_path: Path,
     capsys: CaptureFixture[str],
@@ -539,6 +640,127 @@ def _core_filter_result() -> JsonRecord:
         "core_missing_documents": ["mtd-memo"],
         "exclusion_reasons": [],
     }
+
+
+def _packet_selection_record() -> JsonRecord:
+    return {
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "case_name": "Example v. Defendant",
+        "court": "S.D.N.Y.",
+        "docket_number": "1:26-cv-1",
+        "source_url": "https://www.courtlistener.com/docket/cand-1/example/",
+        "selected": True,
+        "exclusion_reasons": [],
+        "target_motion_entry_numbers": [34],
+        "decision_entry_numbers": [50],
+        "documents": [
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": "complaint",
+                "docket_entry_number": 1,
+                "document_role": "complaint",
+                "source_url": "https://storage.courtlistener.com/complaint.pdf",
+                "description": "Complaint",
+                "model_visible": True,
+                "contains_target_outcome": False,
+            },
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": "mtd-memo",
+                "docket_entry_number": 34,
+                "document_role": "motion_to_dismiss_memorandum",
+                "source_url": "https://storage.courtlistener.com/mtd.pdf",
+                "description": "Memorandum",
+                "model_visible": True,
+                "contains_target_outcome": False,
+            },
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": "decision",
+                "docket_entry_number": 50,
+                "document_role": "decision",
+                "source_url": "https://storage.courtlistener.com/decision.pdf",
+                "description": "Decision",
+                "model_visible": False,
+                "contains_target_outcome": True,
+            },
+        ],
+    }
+
+
+def _download_record(
+    source_document_id: str,
+    role: str,
+    docket_entry_number: int,
+) -> JsonRecord:
+    return {
+        "candidate_id": "cand-1",
+        "source_provider": "courtlistener",
+        "source_document_id": source_document_id,
+        "docket_entry_number": docket_entry_number,
+        "document_role": role,
+        "source_url": f"https://storage.courtlistener.com/{source_document_id}.pdf",
+        "local_path": f"cand-1/courtlistener/{source_document_id}.pdf",
+        "sha256": hashlib.sha256(source_document_id.encode()).hexdigest(),
+        "byte_count": 10,
+        "free_or_purchased": "free",
+        "retry_count": 0,
+        "rate_limited": False,
+        "reused_existing": False,
+    }
+
+
+def _parser_record(source_document_id: str) -> JsonRecord:
+    markdown_path = f"cand-1/{source_document_id}.md"
+    markdown = {
+        "complaint": "Complaint markdown",
+        "mtd-memo": "MTD markdown",
+        "decision": "Decision markdown",
+    }[source_document_id]
+    return {
+        "candidate_id": "cand-1",
+        "source_document_id": source_document_id,
+        "status": "succeeded",
+        "input_path": f"/tmp/{source_document_id}.pdf",
+        "markdown_path": markdown_path,
+        "metadata_path": f"{markdown_path}.metadata.json",
+        "parser_config": {"engine": "fixture"},
+        "quality_flags": [],
+        "extracted_text": {
+            "source_document_id": source_document_id,
+            "extracted_at": _GENERATED_AT,
+            "extraction_method": "fixture_markdown",
+            "text_sha256": hashlib.sha256(markdown.encode()).hexdigest(),
+            "quality_flags": [],
+        },
+    }
+
+
+def _packet_input_docket_html() -> str:
+    return """
+    <html>
+      <body>
+        <div id="docket-entry-table">
+          <div class="row odd" id="entry-1">
+            <div class="col-xs-1"><p>1</p></div>
+            <div class="col-xs-3"><p>Jan 1, 2026</p></div>
+            <div class="col-xs-8"><p>COMPLAINT filed by Plaintiff.</p></div>
+          </div>
+          <div class="row even" id="entry-34">
+            <div class="col-xs-1"><p>34</p></div>
+            <div class="col-xs-3"><p>Feb 1, 2026</p></div>
+            <div class="col-xs-8"><p>MOTION to Dismiss.</p></div>
+          </div>
+          <div class="row odd" id="entry-50">
+            <div class="col-xs-1"><p>50</p></div>
+            <div class="col-xs-3"><p>May 8, 2026</p></div>
+            <div class="col-xs-8"><p>ORDER on Motion to Dismiss.</p></div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
 
 
 def _provenance(document_id: str, role: str, docket_entry_number: int) -> JsonRecord:

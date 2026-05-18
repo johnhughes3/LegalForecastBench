@@ -66,6 +66,14 @@ uv run legalforecast acquisition parse-documents \
   --requests tmp/acquisition/parse-document-requests.jsonl \
   --output-root tmp/acquisition
 
+uv run legalforecast acquisition plan-packet-inputs \
+  --selection tmp/acquisition/public-packet-selection.jsonl \
+  --download-manifest tmp/acquisition/free-document-downloads.jsonl \
+  --parser-manifest tmp/acquisition/mistral-markdown-conversions.jsonl \
+  --prediction-units tmp/acquisition/prediction-units.jsonl \
+  --raw-html-dir tmp/acquisition/raw_html \
+  --output-root tmp/acquisition
+
 uv run legalforecast acquisition build-packets \
   --input tmp/acquisition/packet-build-input.jsonl \
   --output-root tmp/acquisition
@@ -98,6 +106,10 @@ Execution flags are intentionally explicit:
   downloaded-document manifest.
 - `parse-documents --execute` uses the configured parser, or
   `--fixture-markdown-dir` for fixture runs.
+- `plan-packet-inputs --execute` converts selected public-packet rows, free
+  download records, parser records, raw docket HTML, and locked prediction units
+  into `packet-build-input.jsonl`, `document-manifest.jsonl`,
+  `candidate-manifest.jsonl`, and `extracted_texts.jsonl`.
 - `build-packets --execute` writes `packets.jsonl`, `case-packets.jsonl`, and
   `packet-audit.jsonl`.
 

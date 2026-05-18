@@ -114,6 +114,26 @@ uv run legalforecast acquisition plan-parse-documents \
   --execute
 ```
 
+After parsing, use the packet-input planner rather than hand-building
+`packet-build-input.jsonl` or private-store manifests:
+
+```bash
+uv run legalforecast acquisition plan-packet-inputs \
+  --selection tmp/acquisition/public-packet-selection.jsonl \
+  --download-manifest tmp/acquisition/free-document-downloads.jsonl \
+  --parser-manifest tmp/acquisition/mistral-markdown-conversions.jsonl \
+  --prediction-units tmp/acquisition/prediction-units.jsonl \
+  --raw-html-dir tmp/acquisition/raw_html \
+  --output-root tmp/acquisition \
+  --search-window 2026-04-24..YYYY-MM-DD \
+  --execute
+```
+
+This stage writes `packet-build-input.jsonl`, `document-manifest.jsonl`,
+`candidate-manifest.jsonl`, and `extracted_texts.jsonl`. It intentionally
+requires locked prediction units; do not substitute placeholder units for a real
+pilot.
+
 ## Sample selection
 
 For small real pilots, select clean cases, not raw hits:
