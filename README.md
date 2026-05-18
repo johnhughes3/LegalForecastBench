@@ -10,6 +10,43 @@ It has typed pipeline stages, frozen artifact formats, synthetic fixture runs,
 scoring, reporting, no-paid defaults, and release checks. It does not yet publish
 public cases, human labels, model scores, or an official leaderboard.
 
+## Why This Exists
+
+I am a practicing lawyer, and my view is that the legal profession is
+systematically underestimating what current AI models can do. Existing
+legal-reasoning benchmarks tend to focus on tasks a junior associate could
+handle: bar-style questions, contract clause classification, citation lookup.
+Those tasks have unambiguous right answers, which is good for scoring, but as
+frontier models have improved the benchmarks have approached saturation, and
+the gaps they reveal between top systems are small and shrinking.
+
+The reason most legal benchmarks stay at the junior level is that higher-stakes
+legal work is laden with subjectivity and value judgments, which is hard to
+score. This benchmark takes a different route. It asks models to *predict* how
+a real federal judge ruled on a real motion, given the same record the judge
+saw. Prediction has an objective ground truth (the judge either granted or
+denied the motion) but sits closer to the work clients actually pay senior
+lawyers for: assessing the likely outcome of a dispute, not declaring what the
+outcome ought to be.
+
+Federal motions to dismiss are the starting point because hundreds are decided
+each week. Even after excluding cases that could create training-data
+contamination (oral argument, written questions to the parties, tentative
+rulings, and similar pre-ruling signals from the judge), there is more than
+enough volume to build a comparison set within a week or two of a new model
+release.
+
+A reliable prediction tool would also be useful in its own right. Litigation
+persists in large part because parties disagree about its likely outcome;
+well-calibrated probability estimates would make settlement easier and the
+system less wasteful. The same capability matters to litigation funders,
+plaintiffs' attorneys deciding whether to take a case, and investors in
+litigation-affected instruments.
+
+I have no formal AI background, and this work is still in development. The
+current version is being shared mainly to get feedback from researchers with
+experience building benchmarks.
+
 ## What Exists Today
 
 - A deterministic no-network fixture pipeline.
@@ -37,15 +74,10 @@ documents before an official cycle can run.
 
 Version: `0.1.0a1` / `v0.1.0-alpha.1`.
 
-Install with `uv` and run the local checks:
+See the package help with:
 
 ```bash
-uv sync
 uv run legalforecast --help
-uv run pytest -q
-uv run ruff check .
-uv run ruff format --check .
-uv run pyright
 ```
 
 Run the synthetic fixture workflow:
@@ -65,6 +97,14 @@ Useful outputs:
 
 Those files prove the pipeline can run end to end. They are not public
 benchmark results.
+
+Before cutting a release candidate:
+
+```bash
+uv run scripts/alpha_release_check.py
+```
+
+Default checks must not require live credentials.
 
 ## CLI Shape
 
@@ -121,33 +161,12 @@ public docs. If a command writes an exploratory report, put it under `tmp/`.
 - `tests/`: synthetic fixtures and regression coverage.
 - `docker/docket_tool/`: sandboxed docket-tool container scaffold.
 
-## Release Check
-
-Before cutting a release candidate:
-
-```bash
-uv run scripts/alpha_release_check.py
-```
-
-That command runs dependency sync, formatting, lint, pyright, pytest, CLI help,
-fixture E2E, package build, installed wheel smoke, installed wheel fixture E2E,
-installed sdist smoke, and artifact validation.
-
 ## Result Claims
 
 Use the result tiers in [docs/result_tiers.md](docs/result_tiers.md). Only
 `official` results belong in a canonical leaderboard. Synthetic fixture outputs
 are `alpha-non-canonical`; self-reported external runs remain community-tier
 unless the policy's reproduction and audit requirements are met.
-
-## License
-
-Apache License 2.0. See [LICENSE](LICENSE).
-
-## Citation
-
-Citation metadata is in [CITATION.cff](CITATION.cff). There is no preprint or
-published benchmark cycle yet.
 
 ## Feedback
 
@@ -159,7 +178,16 @@ High-value alpha feedback is concrete:
 - a result-tier claim that sounds more official than it is;
 - a security, cost, or legal-record handling issue.
 
-Default checks must not require live credentials. Please file issues for feedback
-that could affect reproducibility, result-tier claims, security, cost, or
-legal-record handling, and avoid including secrets, account identifiers, sealed
-filings, or private source-document text in public reports.
+Please file issues for feedback that could affect reproducibility, result-tier
+claims, security, cost, or legal-record handling, and avoid including secrets,
+account identifiers, sealed filings, or private source-document text in public
+reports.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).
+
+## Citation
+
+Citation metadata is in [CITATION.cff](CITATION.cff). There is no preprint or
+published benchmark cycle yet.
