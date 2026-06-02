@@ -206,7 +206,7 @@ jobs:
 
       - name: Configure AWS OIDC credentials
         if: ${{ startsWith(inputs.run_input_manifest_uri, 's3://') || startsWith(inputs.run_input_manifest_uri, 'manifests/') || startsWith(inputs.model_registry_uri, 's3://') || startsWith(inputs.model_registry_uri, 'manifests/') }}
-        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: lfb-official-matrix-${{ github.run_id }}
@@ -406,7 +406,7 @@ jobs:
 
       - name: Configure AWS OIDC credentials
         if: ${{ !inputs.dry_run }}
-        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: lfb-official-case-${{ github.run_id }}-${{ strategy.job-index }}
