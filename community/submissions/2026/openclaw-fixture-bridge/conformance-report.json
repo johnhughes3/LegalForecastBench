@@ -1,0 +1,60 @@
+{
+  "adapter_id": "openclaw-fixture-bridge",
+  "adapter_version": "0.1.0",
+  "artifacts": [
+    {
+      "artifact_id": "adapter-capabilities",
+      "media_type": "application/json",
+      "path": "adapter-capabilities.json",
+      "public": true,
+      "sha256": "sha256:d74553eb8aefb29e519d2e85babb844e5492e03c4bc385423a415cc84a265e14",
+      "size_bytes": 428
+    },
+    {
+      "artifact_id": "sandbox-negative-control",
+      "media_type": "application/json",
+      "path": "sandbox-negative-control.json",
+      "public": true,
+      "sha256": "sha256:f823c604ba13681578449eb6f5024aa99b18aa3ebe682ca27dad5583d849dab1",
+      "size_bytes": 234
+    },
+    {
+      "artifact_id": "lfb-fixture-result",
+      "media_type": "application/json",
+      "path": "lfb-fixture/result.json",
+      "public": true,
+      "sha256": "sha256:03917d969cc2da4f596bc46389804fb29dab46268c4a0c1fc4f41a63449f4b9a",
+      "size_bytes": 1301
+    },
+    {
+      "artifact_id": "lab-fixture-result",
+      "media_type": "application/json",
+      "path": "lab-fixture/result.json",
+      "public": true,
+      "sha256": "sha256:12305bfded1afc4f4177f4b708ef6a8c473459417639820aa0516b32429743ed",
+      "size_bytes": 1288
+    },
+    {
+      "artifact_id": "conformance-report-md",
+      "media_type": "text/markdown",
+      "path": "conformance-report.md",
+      "public": true,
+      "sha256": "sha256:56c1e84df0ec1d23d2bb54899a395718b27427ec1f3ce706d386d8a270706c91",
+      "size_bytes": 842
+    }
+  ],
+  "checks": {
+    "capabilities_validation": "passed: adapter capabilities match the manifest",
+    "lab_fixture_run": "passed: harvey_lab fixture returned a valid result",
+    "lab_public_safety_scan": "passed: result record passed public-safety validation",
+    "lab_sandbox_policy_receipt": "passed: result public_summary echoed sandbox_policy_id",
+    "lfb_fixture_run": "passed: legalforecast_mtd fixture returned a valid result",
+    "lfb_public_safety_scan": "passed: result record passed public-safety validation",
+    "lfb_sandbox_policy_receipt": "passed: result public_summary echoed sandbox_policy_id",
+    "manifest_validation": "passed: manifest openclaw-fixture-bridge@0.1.0 is valid",
+    "sandbox_negative_control": "passed: recorded no-provider sandbox negative control"
+  },
+  "report_id": "conformance:openclaw-fixture-bridge:0.1.0",
+  "schema_version": "legalforecast.multiharness.conformance_report.v1",
+  "status": "passed"
+}

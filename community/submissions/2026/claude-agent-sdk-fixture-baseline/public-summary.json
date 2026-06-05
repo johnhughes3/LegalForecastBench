@@ -1,0 +1,34 @@
+{
+  "conformance": {
+    "adapter_id": "claude-agent-sdk-fixture-baseline",
+    "adapter_version": "0.1.0",
+    "report_id": "conformance:claude-agent-sdk-fixture-baseline:0.1.0",
+    "status": "passed"
+  },
+  "run_summary": {
+    "adapter_ids": [
+      "claude-agent-sdk-fixture-baseline"
+    ],
+    "families": [
+      "legalforecast_mtd"
+    ],
+    "model_keys": [
+      "claude-agent-sdk-fixture-baseline-model"
+    ],
+    "result_status_counts": {
+      "succeeded": 1
+    },
+    "row_count": 1,
+    "run_config_sha256": "sha256:4df50f0cca1b60d841eb4169b3d4eed6802f25a6fe14f331fd6136feac6b217d",
+    "run_id": "claude-agent-sdk-fixture-baseline-run",
+    "run_manifest_sha256": "sha256:5d9606d76b9f782f8e1b958aee4f4a5531c0b1bb0741c231c28b9a0a23210f4c",
+    "schema_version": "legalforecast.multiharness.community_run_summary.v1",
+    "scoring_modes": [
+      "lfb_brier"
+    ],
+    "selection_label": "submitted-run",
+    "selection_sha256": "035ef85370ec7a238200e10203ec03a70685d20e3601e30f0294e5f6e5a242a8"
+  },
+  "schema_version": "legalforecast.multiharness.community_public_summary.v1",
+  "submission_id": "claude-agent-sdk-fixture-baseline"
+}
