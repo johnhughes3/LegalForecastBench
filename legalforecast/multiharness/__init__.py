@@ -1,5 +1,15 @@
 """Repo-owned multi-harness benchmark contracts."""
 
+from legalforecast.multiharness.adapters import (
+    AdapterError,
+    AdapterPreparation,
+    HarnessAdapter,
+)
+from legalforecast.multiharness.command_adapter import (
+    CommandAdapter,
+    CommandAdapterError,
+    CommandExecutionLog,
+)
 from legalforecast.multiharness.sandbox import (
     BACKEND_DOCKER,
     BACKEND_PODMAN,
@@ -68,15 +78,21 @@ __all__ = [
     "TASK_INDEX_SCHEMA_VERSION",
     "TASK_SCHEMA_VERSION",
     "AdapterCapabilities",
+    "AdapterError",
     "AdapterManifest",
+    "AdapterPreparation",
     "ArtifactRecord",
     "CanonicalTask",
+    "CommandAdapter",
+    "CommandAdapterError",
+    "CommandExecutionLog",
     "CommunityAggregate",
     "CommunitySubmission",
     "ComparisonGroup",
     "ConformanceReport",
     "ContainerRuntimePlan",
     "ContributorCredit",
+    "HarnessAdapter",
     "HarveyLabTaskLoader",
     "LfbTaskLoader",
     "RunManifest",
