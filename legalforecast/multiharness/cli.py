@@ -15,6 +15,12 @@ from legalforecast._json_io import (
 )
 from legalforecast.multiharness.adapters import HarnessAdapter
 from legalforecast.multiharness.command_adapter import CommandAdapter
+from legalforecast.multiharness.community import (
+    REQUIRED_ATTESTATIONS,
+    CommunityPackageConfig,
+    package_community_submission,
+    validate_submission_file,
+)
 from legalforecast.multiharness.conformance import run_adapter_conformance
 from legalforecast.multiharness.harvey_lab_adapter import HarveyLabCliAdapter
 from legalforecast.multiharness.lfb_native import LfbNativeAdapter
@@ -34,6 +40,7 @@ from legalforecast.multiharness.sandbox import (
 from legalforecast.multiharness.selection import TaskSelection
 from legalforecast.multiharness.spec import (
     AdapterManifest,
+    ContributorCredit,
     TaskIndex,
 )
 from legalforecast.multiharness.task_loaders import (
@@ -219,6 +226,23 @@ def add_multiharness_parser(subparsers: Any) -> None:
     package.add_argument("--run-dir", type=Path, required=True)
     package.add_argument("--output-dir", type=Path, required=True)
     package.add_argument("--submission-id")
+    package.add_argument("--conformance-report", type=Path)
+    package.add_argument("--submitter-name")
+    package.add_argument("--submitter-github")
+    package.add_argument("--run-operator-name")
+    package.add_argument("--adapter-author-name")
+    package.add_argument("--task-source-credit-name")
+    package.add_argument("--benchmark-credit-name")
+    package.add_argument("--compute-sponsor-name")
+    package.add_argument("--attestation", action="append", default=[])
+    package.add_argument(
+        "--acknowledge-required-attestations",
+        action="store_true",
+        help=(
+            "Include all required non-official/private-material/rights/terms "
+            "attestations."
+        ),
+    )
     package.add_argument("--hf-upload-plan", action="store_true")
     package.add_argument("--dry-run", action="store_true")
     package.set_defaults(handler=_cmd_community_package)
@@ -437,48 +461,46 @@ def _cmd_report(args: argparse.Namespace) -> int:
 def _cmd_community_package(args: argparse.Namespace) -> int:
     output_dir = cast(Path, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    if not cast(bool, args.dry_run):
-        raise ValueError(_COMMUNITY_DEFERRED_MESSAGE)
-    write_json_object(
-        output_dir / "community-package-plan.json",
-        {
-            "schema_version": _CLI_PLAN_SCHEMA_VERSION,
-            "command": "community package",
-            "dry_run": True,
-            "run_dir": cast(Path, args.run_dir).as_posix(),
-            "submission_id": cast(str | None, args.submission_id),
-            "hf_upload_plan": cast(bool, args.hf_upload_plan),
-            "expected_outputs": [
-                "submission.json",
-                "public-summary.json",
-                "conformance-report.json",
-                "selection-manifest.json",
-                "artifact-manifest.json",
-            ],
-        },
-    )
+    if cast(bool, args.dry_run):
+        write_json_object(
+            output_dir / "community-package-plan.json",
+            {
+                "schema_version": _CLI_PLAN_SCHEMA_VERSION,
+                "command": "community package",
+                "dry_run": True,
+                "run_dir": cast(Path, args.run_dir).as_posix(),
+                "submission_id": cast(str | None, args.submission_id),
+                "hf_upload_plan": cast(bool, args.hf_upload_plan),
+                "required_attestations": sorted(REQUIRED_ATTESTATIONS),
+                "expected_outputs": [
+                    "submission.json",
+                    "public-summary.json",
+                    "conformance-report.json",
+                    "selection-manifest.json",
+                    "artifact-manifest.json",
+                ],
+            },
+        )
+        return 0
+    package_community_submission(_community_package_config_from_args(args))
     return 0
 
 
 def _cmd_community_validate_submission(args: argparse.Namespace) -> int:
-    if not cast(bool, args.dry_run):
-        raise ValueError(_COMMUNITY_DEFERRED_MESSAGE)
+    submission = cast(Path, args.submission)
     write_json_object(
         cast(Path, args.output),
         {
             "schema_version": _CLI_PLAN_SCHEMA_VERSION,
             "command": "community validate-submission",
-            "dry_run": True,
-            "submission": cast(Path, args.submission).as_posix(),
-            "checks": [
-                "required attestations",
-                "artifact hashes",
-                "safe public paths",
-                "deprecated taxonomy",
-                "contributor credits",
-            ],
+            "dry_run": cast(bool, args.dry_run),
+            "submission": submission.as_posix(),
+            "status": "planned" if cast(bool, args.dry_run) else "passed",
+            "checks": _community_validation_checks(),
         },
     )
+    if not cast(bool, args.dry_run):
+        validate_submission_file(submission)
     return 0
 
 
@@ -503,6 +525,97 @@ def _cmd_community_aggregate(args: argparse.Namespace) -> int:
         },
     )
     return 0
+
+
+def _community_package_config_from_args(
+    args: argparse.Namespace,
+) -> CommunityPackageConfig:
+    submitter_name = _required_optional_str_arg(args, "submitter_name")
+    benchmark_name = _required_optional_str_arg(args, "benchmark_credit_name")
+    contributors = [
+        ContributorCredit(
+            role="run_operator",
+            name=_required_optional_str_arg(args, "run_operator_name"),
+        ),
+        ContributorCredit(
+            role="adapter_author",
+            name=_required_optional_str_arg(args, "adapter_author_name"),
+        ),
+        ContributorCredit(
+            role="task_source",
+            name=_required_optional_str_arg(args, "task_source_credit_name"),
+        ),
+        ContributorCredit(
+            role="benchmark_infrastructure",
+            name=benchmark_name,
+        ),
+    ]
+    compute_sponsor = cast(str | None, args.compute_sponsor_name)
+    if compute_sponsor is not None and compute_sponsor.strip():
+        contributors.append(
+            ContributorCredit(role="compute_sponsor", name=compute_sponsor)
+        )
+    attestations = set(_str_tuple_arg(args, "attestation"))
+    if cast(bool, args.acknowledge_required_attestations):
+        attestations.update(REQUIRED_ATTESTATIONS)
+    return CommunityPackageConfig(
+        run_dir=cast(Path, args.run_dir),
+        output_dir=cast(Path, args.output_dir),
+        submission_id=_community_submission_id(args),
+        submitter=ContributorCredit(
+            role="submitter",
+            name=submitter_name,
+            identifiers=_submitter_identifiers(args),
+        ),
+        contributors=tuple(contributors),
+        benchmark_credit=(
+            ContributorCredit(role="benchmark_infrastructure", name=benchmark_name),
+        ),
+        attestations=tuple(sorted(attestations)),
+        conformance_report_path=cast(Path | None, args.conformance_report),
+        hf_upload_plan=cast(bool, args.hf_upload_plan),
+    )
+
+
+def _community_submission_id(args: argparse.Namespace) -> str:
+    value = cast(str | None, args.submission_id)
+    if value is not None and value.strip():
+        return value
+    operator_slug = (
+        _required_optional_str_arg(
+            args,
+            "run_operator_name",
+        )
+        .lower()
+        .replace(" ", "-")
+    )
+    return f"{operator_slug}-submission"
+
+
+def _submitter_identifiers(args: argparse.Namespace) -> dict[str, str]:
+    github = cast(str | None, args.submitter_github)
+    if github is None or not github.strip():
+        return {}
+    return {"github": github}
+
+
+def _required_optional_str_arg(args: argparse.Namespace, name: str) -> str:
+    value = cast(str | None, getattr(args, name))
+    if value is None or not value.strip():
+        raise ValueError(f"--{name.replace('_', '-')} is required")
+    return value
+
+
+def _community_validation_checks() -> list[str]:
+    return [
+        "required attestations",
+        "artifact hashes",
+        "safe public paths",
+        "publication guardrails",
+        "deprecated taxonomy",
+        "shard compatibility",
+        "contributor credits",
+    ]
 
 
 def _task_index_from_args(args: argparse.Namespace) -> TaskIndex:
