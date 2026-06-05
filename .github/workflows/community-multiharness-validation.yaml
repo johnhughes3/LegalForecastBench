@@ -1,0 +1,142 @@
+name: Community Multi-Harness Validation
+
+on:
+  pull_request:
+    paths:
+      - community/submissions/**
+      - docs/**
+      - legalforecast/multiharness/**
+      - legalforecast/publication/community_aggregate.py
+      - tests/test_community_*.py
+      - tests/test_multiharness_*.py
+      - .github/workflows/community-multiharness-validation.yaml
+  push:
+    branches: [main]
+    paths:
+      - community/submissions/**
+      - docs/**
+      - legalforecast/multiharness/**
+      - legalforecast/publication/community_aggregate.py
+      - tests/test_community_*.py
+      - tests/test_multiharness_*.py
+      - .github/workflows/community-multiharness-validation.yaml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: community-multiharness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate community multi-harness surfaces
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync --locked
+
+      - name: Check formatting
+        run: uv run ruff format --check legalforecast/multiharness legalforecast/publication tests
+
+      - name: Lint
+        run: uv run ruff check legalforecast/multiharness legalforecast/publication tests
+
+      - name: Type-check
+        run: uv run pyright
+
+      - name: Run community and multi-harness tests
+        run: |
+          uv run pytest -q \
+            tests/test_multiharness_spec.py \
+            tests/test_multiharness_task_loaders.py \
+            tests/test_multiharness_selection.py \
+            tests/test_multiharness_sandbox.py \
+            tests/test_multiharness_command_adapter.py \
+            tests/test_multiharness_conformance.py \
+            tests/test_multiharness_runner.py \
+            tests/test_multiharness_lfb_native.py \
+            tests/test_multiharness_harvey_lab_adapter.py \
+            tests/test_multiharness_cli.py \
+            tests/test_community_submission.py \
+            tests/test_community_publication.py \
+            tests/test_community_multiharness_workflow.py
+
+      - name: Validate reviewed community submissions
+        run: |
+          uv run python - <<'PY'
+          from pathlib import Path
+          from legalforecast.multiharness.community import validate_submission_file
+
+          paths = tuple(sorted(Path("community/submissions").rglob("submission.json")))
+          for path in paths:
+              validate_submission_file(path)
+          print(f"validated {len(paths)} community submission(s)")
+          PY
+
+      - name: Scan community submission public artifacts
+        run: |
+          uv run python - <<'PY'
+          from pathlib import Path
+          from legalforecast.publication.publication_guardrails import (
+              PublicationGuardrailConfig,
+              enforce_publication_guardrails,
+          )
+
+          roots = tuple(
+              sorted({path.parent for path in Path("community/submissions").rglob("submission.json")})
+          )
+          if roots:
+              enforce_publication_guardrails(PublicationGuardrailConfig(public_paths=roots))
+          print(f"guardrail-scanned {len(roots)} community submission package(s)")
+          PY
+
+      - name: Plan community aggregate
+        run: |
+          uv run legalforecast multiharness community aggregate \
+            --submissions-dir community/submissions \
+            --output-dir tmp/community-aggregate-plan \
+            --dry-run
+
+  publish-community-static-site:
+    name: Build community static-site artifact
+    needs: validate
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync --locked
+
+      - name: Rebuild community registry and static reports
+        run: |
+          uv run legalforecast multiharness community aggregate \
+            --submissions-dir community/submissions \
+            --output-dir tmp/community-site
+
+      - name: Upload community static-site artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: community-multiharness-static-site
+          path: tmp/community-site
+          if-no-files-found: error
