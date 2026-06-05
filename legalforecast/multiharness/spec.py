@@ -328,6 +328,14 @@ class SandboxPolicy:
     image: str
     network_policy: str
     timeout_seconds: int
+    mounts: tuple[Mapping[str, str], ...] = ()
+    working_directory: str = "/workspace"
+    uid_gid: str | None = None
+    cap_drop: tuple[str, ...] = ("ALL",)
+    no_new_privileges: bool = True
+    pids_limit: int | None = 256
+    memory_limit: str | None = None
+    cpu_limit: str | None = None
     allowed_provider_env_vars: tuple[str, ...] = ()
     policy_sha256: str | None = None
 
@@ -338,6 +346,19 @@ class SandboxPolicy:
         _require_non_empty(self.network_policy, "network_policy")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
+        _require_non_empty(self.working_directory, "working_directory")
+        if self.uid_gid is not None:
+            _require_non_empty(self.uid_gid, "uid_gid")
+        for index, mount in enumerate(self.mounts):
+            _validate_mount_record(mount, index)
+        for cap in self.cap_drop:
+            _require_non_empty(cap, "cap_drop")
+        if self.pids_limit is not None and self.pids_limit <= 0:
+            raise ValueError("pids_limit must be positive")
+        if self.memory_limit is not None:
+            _require_non_empty(self.memory_limit, "memory_limit")
+        if self.cpu_limit is not None:
+            _require_non_empty(self.cpu_limit, "cpu_limit")
         validate_env_var_names(
             self.allowed_provider_env_vars,
             "allowed_provider_env_vars",
@@ -353,6 +374,14 @@ class SandboxPolicy:
             "image": self.image,
             "network_policy": self.network_policy,
             "timeout_seconds": self.timeout_seconds,
+            "mounts": [dict(sorted(mount.items())) for mount in self.mounts],
+            "working_directory": self.working_directory,
+            "uid_gid": self.uid_gid,
+            "cap_drop": list(self.cap_drop),
+            "no_new_privileges": self.no_new_privileges,
+            "pids_limit": self.pids_limit,
+            "memory_limit": self.memory_limit,
+            "cpu_limit": self.cpu_limit,
             "allowed_provider_env_vars": list(self.allowed_provider_env_vars),
         }
         if self.policy_sha256 is not None:
@@ -371,6 +400,17 @@ class SandboxPolicy:
             image=require_str(record, "image"),
             network_policy=require_str(record, "network_policy"),
             timeout_seconds=timeout,
+            mounts=_mount_tuple(optional_sequence(record, "mounts") or ()),
+            working_directory=require_str(record, "working_directory"),
+            uid_gid=optional_str(record, "uid_gid"),
+            cap_drop=_str_tuple(
+                optional_sequence(record, "cap_drop") or (),
+                "cap_drop",
+            ),
+            no_new_privileges=optional_bool(record, "no_new_privileges"),
+            pids_limit=optional_non_negative_int(record, "pids_limit"),
+            memory_limit=optional_str(record, "memory_limit"),
+            cpu_limit=optional_str(record, "cpu_limit"),
             allowed_provider_env_vars=_str_tuple(
                 optional_sequence(record, "allowed_provider_env_vars") or (),
                 "allowed_provider_env_vars",
@@ -668,6 +708,13 @@ def _task_tuple(records: Sequence[Any]) -> tuple[CanonicalTask, ...]:
     )
 
 
+def _mount_tuple(records: Sequence[Any]) -> tuple[Mapping[str, str], ...]:
+    return tuple(
+        _str_mapping(_require_item_mapping(item, "mounts"), "mounts")
+        for item in records
+    )
+
+
 def _str_tuple(records: Sequence[Any], field_name: str) -> tuple[str, ...]:
     values: list[str] = []
     for index, value in enumerate(records):
@@ -705,3 +752,12 @@ def _require_member(
 def _require_non_empty(value: str, field_name: str) -> None:
     if not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string")
+
+
+def _validate_mount_record(record: Mapping[str, str], index: int) -> None:
+    for field_name in ("source", "target", "mode"):
+        if field_name not in record:
+            raise ValueError(f"mounts[{index}].{field_name} is required")
+        _require_non_empty(record[field_name], f"mounts[{index}].{field_name}")
+    if record["mode"] not in {"ro", "rw"}:
+        raise ValueError(f"mounts[{index}].mode must be ro or rw")
