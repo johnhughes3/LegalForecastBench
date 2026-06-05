@@ -145,6 +145,7 @@ from legalforecast.labeling.llm_pipeline import (
     llm_label_cases,
     llm_unitize_cases,
 )
+from legalforecast.multiharness.cli import add_multiharness_parser
 from legalforecast.path_safety import safe_path_component
 from legalforecast.protocol import (
     FrozenArtifactName,
@@ -439,6 +440,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Render or run an optional bounded fallback reconstruction pilot.",
     )
     _add_pilot_fallback_arguments(pilot_fallback)
+
+    add_multiharness_parser(subparsers)
 
     acquisition = subparsers.add_parser(
         "acquisition",
