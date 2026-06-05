@@ -1,0 +1,18 @@
+{
+  "adapter_id": "lq-ai-fixture-bridge",
+  "adapter_version": "0.1.0",
+  "command": [
+    "../fixture_bridge.py",
+    "--profile",
+    "lq-ai"
+  ],
+  "contributors": [
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench maintainers",
+      "role": "adapter_author"
+    }
+  ],
+  "display_name": "LQ.AI Fixture Bridge",
+  "schema_version": "legalforecast.multiharness.adapter_manifest.v1"
+}

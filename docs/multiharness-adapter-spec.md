@@ -53,6 +53,10 @@ uv run legalforecast multiharness tasks select \
 
 The LAB examples require a user-supplied LAB checkout. Harvey LAB is a separate Harvey AI project and task corpus; credit and license language for any public-facing use must remain explicit, and final branding is subject to John Hughes/Legal Quants approval.
 
+## First-Class Adapter Examples
+
+The first-class adapter examples live under `examples/adapters/`. The LQ.AI fixture bridge is documented in `docs/adapters/lq-ai.md` and can be checked with `uv run legalforecast multiharness conformance --adapter-manifest examples/adapters/lq-ai/adapter-manifest.json --output-dir tmp/lq-ai-conformance`.
+
 ## Command Adapter Protocol
 
 Community adapters can be ordinary command-line programs. The host never invokes adapters through `shell=True`; commands are argv arrays from `AdapterManifest.command`.
