@@ -31,6 +31,7 @@ from legalforecast.publication.publication_guardrails import (
     PublicationGuardrailConfig,
     enforce_publication_guardrails,
 )
+from legalforecast.publication.static_sites import render_community_results_site
 
 COMMUNITY_AGGREGATE_BUNDLE_SCHEMA_VERSION = (
     "legalforecast.multiharness.community_aggregate_bundle.v1"
@@ -110,6 +111,10 @@ def build_community_aggregate(
         )
 
     _write_reports(reports_dir, rows)
+    render_community_results_site(
+        community_aggregate_dir=config.output_dir,
+        output_dir=config.output_dir / "site",
+    )
     enforce_publication_guardrails(
         PublicationGuardrailConfig(public_paths=(config.output_dir,))
     )
