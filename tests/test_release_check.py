@@ -23,11 +23,34 @@ def test_release_check_plans_full_gate(tmp_path: Path) -> None:
         "test",
         "CLI help smoke",
         "fixture E2E",
+        "multi-harness schema validation",
+        "multi-harness task indexing smoke",
+        "multi-harness conformance fixture adapter",
+        "multi-harness run dry-run",
+        "community aggregate dry-run",
         "build package",
     ]
     assert "uv sync --locked" in commands
     assert "uv run pyright" in commands
     assert any("legalforecast fixture e2e" in command for command in commands)
+    assert any(
+        "legalforecast multiharness adapters inspect" in command for command in commands
+    )
+    assert any(
+        "legalforecast multiharness tasks index" in command for command in commands
+    )
+    assert any(
+        "legalforecast multiharness conformance" in command for command in commands
+    )
+    assert any(
+        "legalforecast multiharness run" in command and "--dry-run" in command
+        for command in commands
+    )
+    assert any(
+        "legalforecast multiharness community aggregate" in command
+        and "--dry-run" in command
+        for command in commands
+    )
     assert any("uv build --out-dir" in command for command in commands)
 
 
@@ -56,9 +79,14 @@ def test_release_check_validates_required_artifacts(tmp_path: Path) -> None:
     report_dir = fixture_dir / "report"
     manifests_dir = fixture_dir / "manifests"
     dist_dir = tmp_path / "dist"
+    multiharness = module.multiharness_smoke_paths(tmp_path)
     report_dir.mkdir(parents=True)
     manifests_dir.mkdir(parents=True)
     dist_dir.mkdir(parents=True)
+    multiharness.adapter_inspect_dir.mkdir(parents=True)
+    multiharness.conformance_dir.mkdir(parents=True)
+    multiharness.run_plan_dir.mkdir(parents=True)
+    multiharness.community_aggregate_dir.mkdir(parents=True)
 
     (fixture_dir / "artifact-index.json").write_text(
         json.dumps({"artifact_count": 1}),
@@ -72,10 +100,79 @@ def test_release_check_validates_required_artifacts(tmp_path: Path) -> None:
         report_dir / "leaderboard.html",
         manifests_dir / "cycle_fixture_e2e.freeze.json",
         fixture_dir / "preregistration-validation.json",
-        dist_dir / "legalforecast_mtd-0.1.0a1-py3-none-any.whl",
-        dist_dir / "legalforecast_mtd-0.1.0a1.tar.gz",
     ):
         path.write_text("ok", encoding="utf-8")
+    (dist_dir / "legalforecast_mtd-0.1.0a1-py3-none-any.whl").write_text(
+        "wheel",
+        encoding="utf-8",
+    )
+    (dist_dir / "legalforecast_mtd-0.1.0a1.tar.gz").write_text(
+        "sdist",
+        encoding="utf-8",
+    )
+    (multiharness.task_index).write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.multiharness.task_index.v1",
+                "index_id": "release-smoke",
+                "selection_namespace": "legalforecast_mtd",
+                "index_sha256": "sha256:" + "1" * 64,
+                "tasks": [
+                    {
+                        "schema_version": "legalforecast.multiharness.task.v1",
+                        "task_id": "lfb:release-smoke:full_packet",
+                        "family": "legalforecast_mtd",
+                        "scoring_mode": "lfb_brier",
+                        "suite_version": "release-smoke",
+                        "source_id": "release-smoke",
+                        "task_sha256": "sha256:" + "2" * 64,
+                        "metadata": {},
+                        "artifacts": [],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (multiharness.adapter_inspect_dir / "adapter-capabilities.json").write_text(
+        json.dumps(
+            {
+                "schema_version": (
+                    "legalforecast.multiharness.adapter_capabilities.v1"
+                ),
+                "adapter_id": "release-fixture-cli",
+                "adapter_version": "0.1.0",
+                "supported_families": ["legalforecast_mtd", "harvey_lab"],
+                "supported_scoring_modes": ["lfb_brier", "lab_native"],
+                "supports_sandbox_policy": True,
+                "capabilities_sha256": "sha256:" + "3" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (multiharness.conformance_dir / "conformance-report.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.multiharness.conformance_report.v1",
+                "report_id": "release-fixture-cli:0.1.0:conformance",
+                "adapter_id": "release-fixture-cli",
+                "adapter_version": "0.1.0",
+                "status": "passed",
+                "checks": {"manifest_validation": "passed: ok"},
+                "artifacts": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (multiharness.run_plan_dir / "run-plan.json").write_text(
+        json.dumps({"dry_run": True}),
+        encoding="utf-8",
+    )
+    (multiharness.community_aggregate_dir / "community-aggregate-plan.json").write_text(
+        json.dumps({"dry_run": True}),
+        encoding="utf-8",
+    )
+    module.write_package_hashes(dist_dir)
 
     module.validate_artifacts(tmp_path)
 
