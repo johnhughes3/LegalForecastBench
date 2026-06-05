@@ -1,5 +1,10 @@
 """Repo-owned multi-harness benchmark contracts."""
 
+from legalforecast.multiharness.selection import (
+    ComparisonGroup,
+    SelectionResult,
+    TaskSelection,
+)
 from legalforecast.multiharness.spec import (
     ADAPTER_CAPABILITIES_SCHEMA_VERSION,
     ADAPTER_MANIFEST_SCHEMA_VERSION,
@@ -51,6 +56,7 @@ __all__ = [
     "CanonicalTask",
     "CommunityAggregate",
     "CommunitySubmission",
+    "ComparisonGroup",
     "ConformanceReport",
     "ContributorCredit",
     "HarveyLabTaskLoader",
@@ -59,5 +65,7 @@ __all__ = [
     "RunRequest",
     "RunResult",
     "SandboxPolicy",
+    "SelectionResult",
     "TaskIndex",
+    "TaskSelection",
 ]
