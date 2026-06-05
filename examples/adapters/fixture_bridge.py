@@ -37,6 +37,32 @@ PROFILE_RECORDS: dict[str, dict[str, Any]] = {
             "artifact_safety": "public fixture summary only",
         },
     },
+    "hermes-agent": {
+        "adapter_id": "hermes-agent-fixture-bridge",
+        "display_name": "Hermes Agent Fixture Bridge",
+        "adapter_version": "0.1.0",
+        "public_summary": {
+            "external_harness": "Hermes Agent",
+            "fixture_bridge": True,
+            "hermes_version": "fixture",
+            "hermes_commit": "fixture",
+            "hermes_home_isolated": True,
+            "hermes_profile": "fixture-profile",
+            "provider_runtime_resolution": "fixture-provider/fixture-model",
+            "enabled_toolsets": ["read", "write", "bash"],
+            "terminal_backend": "fixture-terminal",
+            "memory_session_policy": "reset-per-run",
+            "mcp_configuration": "fixture-no-network",
+            "trajectory_export_reference": "fixture://hermes/trajectory",
+            "trajectory_export_sha256": "sha256:" + "3" * 64,
+            "session_export_reference": "fixture://hermes/session",
+            "session_export_sha256": "sha256:" + "4" * 64,
+            "auth_mode": "api-key-by-user-environment",
+            "provider_terms_assumption": "user supplied API access is permitted",
+            "official_infrastructure_required": False,
+            "artifact_safety": "public fixture summary only",
+        },
+    },
 }
 
 

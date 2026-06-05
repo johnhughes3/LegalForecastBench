@@ -55,7 +55,10 @@ The LAB examples require a user-supplied LAB checkout. Harvey LAB is a separate 
 
 ## First-Class Adapter Examples
 
-The first-class adapter examples live under `examples/adapters/`. The LQ.AI fixture bridge is documented in `docs/adapters/lq-ai.md` and can be checked with `uv run legalforecast multiharness conformance --adapter-manifest examples/adapters/lq-ai/adapter-manifest.json --output-dir tmp/lq-ai-conformance`.
+The first-class adapter examples live under `examples/adapters/`.
+
+- The LQ.AI fixture bridge is documented in `docs/adapters/lq-ai.md` and can be checked with `uv run legalforecast multiharness conformance --adapter-manifest examples/adapters/lq-ai/adapter-manifest.json --output-dir tmp/lq-ai-conformance`.
+- The Hermes Agent fixture bridge is documented in `docs/adapters/hermes-agent.md` and can be checked with `uv run legalforecast multiharness conformance --adapter-manifest examples/adapters/hermes-agent/adapter-manifest.json --output-dir tmp/hermes-agent-conformance`.
 
 ## Command Adapter Protocol
 

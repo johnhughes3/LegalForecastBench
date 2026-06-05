@@ -1,0 +1,18 @@
+{
+  "adapter_id": "hermes-agent-fixture-bridge",
+  "adapter_version": "0.1.0",
+  "command": [
+    "../fixture_bridge.py",
+    "--profile",
+    "hermes-agent"
+  ],
+  "contributors": [
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench maintainers",
+      "role": "adapter_author"
+    }
+  ],
+  "display_name": "Hermes Agent Fixture Bridge",
+  "schema_version": "legalforecast.multiharness.adapter_manifest.v1"
+}
