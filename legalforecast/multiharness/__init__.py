@@ -28,6 +28,14 @@ from legalforecast.multiharness.lfb_native import (
     lfb_native_capabilities,
     lfb_native_manifest,
 )
+from legalforecast.multiharness.runner import (
+    INCOMPLETE_RUN_POLICIES,
+    ModelConfig,
+    MultiHarnessRun,
+    MultiHarnessRunConfig,
+    MultiHarnessRunRow,
+    run_multi_harness,
+)
 from legalforecast.multiharness.sandbox import (
     BACKEND_DOCKER,
     BACKEND_PODMAN,
@@ -85,6 +93,7 @@ __all__ = [
     "COMMUNITY_AGGREGATE_SCHEMA_VERSION",
     "COMMUNITY_SUBMISSION_SCHEMA_VERSION",
     "CONFORMANCE_REPORT_SCHEMA_VERSION",
+    "INCOMPLETE_RUN_POLICIES",
     "LFB_NATIVE_ADAPTER_ID",
     "LFB_NATIVE_ADAPTER_VERSION",
     "NETWORK_NONE",
@@ -120,6 +129,10 @@ __all__ = [
     "LfbNativeAdapterError",
     "LfbNativeFixtureRun",
     "LfbTaskLoader",
+    "ModelConfig",
+    "MultiHarnessRun",
+    "MultiHarnessRunConfig",
+    "MultiHarnessRunRow",
     "RunManifest",
     "RunRequest",
     "RunResult",
@@ -135,5 +148,6 @@ __all__ = [
     "project_lfb_adapter_record",
     "require_container_backend",
     "run_adapter_conformance",
+    "run_multi_harness",
     "sandbox_policy",
 ]

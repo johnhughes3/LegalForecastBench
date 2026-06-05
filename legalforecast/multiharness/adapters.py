@@ -30,8 +30,10 @@ class AdapterPreparation:
 class HarnessAdapter(Protocol):
     """Protocol implemented by in-process and command adapters."""
 
-    manifest: AdapterManifest
-    """Public adapter manifest."""
+    @property
+    def manifest(self) -> AdapterManifest:
+        """Public adapter manifest."""
+        ...
 
     def capabilities(self, workspace: Path) -> AdapterCapabilities:
         """Return adapter capabilities, writing private artifacts under workspace."""
