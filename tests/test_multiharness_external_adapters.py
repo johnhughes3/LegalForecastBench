@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, cast
 
 from legalforecast.multiharness.command_adapter import CommandAdapter
 from legalforecast.multiharness.conformance import run_adapter_conformance
@@ -12,6 +13,12 @@ HERMES_MANIFEST = (
 )
 OPENCLAW_MANIFEST = (
     ROOT / "examples" / "adapters" / "openclaw" / "adapter-manifest.json"
+)
+OPENAI_RESPONSES_MANIFEST = (
+    ROOT / "examples" / "adapters" / "openai-responses" / "adapter-manifest.json"
+)
+CLAUDE_AGENT_SDK_MANIFEST = (
+    ROOT / "examples" / "adapters" / "claude-agent-sdk" / "adapter-manifest.json"
 )
 
 
@@ -94,3 +101,52 @@ def test_openclaw_fixture_capabilities_record_required_provenance(
         "harvey_lab",
     }
     assert set(capabilities.supported_scoring_modes) == {"lfb_brier", "lab_native"}
+
+
+def test_provider_runtime_baseline_manifests_pass_conformance(
+    tmp_path: Path,
+) -> None:
+    expected_ids = {
+        OPENAI_RESPONSES_MANIFEST: "openai-responses-fixture-baseline",
+        CLAUDE_AGENT_SDK_MANIFEST: "claude-agent-sdk-fixture-baseline",
+    }
+    for manifest, adapter_id in expected_ids.items():
+        run = run_adapter_conformance(
+            adapter_manifest_path=manifest,
+            output_dir=tmp_path / adapter_id,
+            timeout_seconds=30,
+        )
+
+        assert run.report.status == "passed"
+        assert run.report.adapter_id == adapter_id
+        assert run.report.checks["lfb_fixture_run"].startswith("passed:")
+        assert run.report.checks["lab_fixture_run"].startswith("passed:")
+
+
+def test_provider_runtime_baselines_record_api_auth_assumptions(
+    tmp_path: Path,
+) -> None:
+    for manifest in (OPENAI_RESPONSES_MANIFEST, CLAUDE_AGENT_SDK_MANIFEST):
+        run = run_adapter_conformance(
+            adapter_manifest_path=manifest,
+            output_dir=tmp_path / manifest.parent.name,
+            timeout_seconds=30,
+        )
+        lfb_result = _read_json(
+            run.output_dir / "lfb-fixture" / "result.json",
+        )
+        public_summary = cast(dict[str, Any], lfb_result["public_summary"])
+
+        assert public_summary["provider_runtime_baseline"] is True
+        assert public_summary["auth_mode"] == "api-key-by-user-environment"
+        assert public_summary["subscription_login_claimed"] is False
+        assert "provider_terms_assumption" in public_summary
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    import json
+
+    record = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(record, dict):
+        raise AssertionError(f"{path} must contain a JSON object")
+    return record
