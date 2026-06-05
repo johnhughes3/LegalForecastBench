@@ -12,7 +12,6 @@ from legalforecast._json_io import read_json_object, write_json_object
 from legalforecast.multiharness.adapters import (
     AdapterError,
     AdapterPreparation,
-    HarnessAdapter,
 )
 from legalforecast.multiharness.spec import (
     AdapterCapabilities,
@@ -46,7 +45,7 @@ class CommandExecutionLog:
 
 
 @dataclass(frozen=True, slots=True)
-class CommandAdapter(HarnessAdapter):
+class CommandAdapter:
     """Run an adapter described by an argv-array command manifest."""
 
     manifest: AdapterManifest
