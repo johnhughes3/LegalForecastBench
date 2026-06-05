@@ -27,6 +27,10 @@ from legalforecast.multiharness.spec import (
     SandboxPolicy,
     TaskIndex,
 )
+from legalforecast.multiharness.task_loaders import (
+    HarveyLabTaskLoader,
+    LfbTaskLoader,
+)
 
 __all__ = [
     "ADAPTER_CAPABILITIES_SCHEMA_VERSION",
@@ -49,6 +53,8 @@ __all__ = [
     "CommunitySubmission",
     "ConformanceReport",
     "ContributorCredit",
+    "HarveyLabTaskLoader",
+    "LfbTaskLoader",
     "RunManifest",
     "RunRequest",
     "RunResult",
