@@ -1,0 +1,20 @@
+{
+  "families": [
+    "legalforecast_mtd"
+  ],
+  "run_id": "hermes-agent-fixture-bridge-run",
+  "schema_version": "legalforecast.multiharness.community_selection_manifest.v1",
+  "scoring_modes": [
+    "lfb_brier"
+  ],
+  "selection_label": "submitted-run",
+  "selection_sha256": "035ef85370ec7a238200e10203ec03a70685d20e3601e30f0294e5f6e5a242a8",
+  "task_ids": [
+    "lfb:cand_case_1:full_packet"
+  ],
+  "task_selectors": {
+    "task_ids": [
+      "lfb:cand_case_1:full_packet"
+    ]
+  }
+}

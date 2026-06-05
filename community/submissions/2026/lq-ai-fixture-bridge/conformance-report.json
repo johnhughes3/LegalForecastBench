@@ -1,0 +1,60 @@
+{
+  "adapter_id": "lq-ai-fixture-bridge",
+  "adapter_version": "0.1.0",
+  "artifacts": [
+    {
+      "artifact_id": "adapter-capabilities",
+      "media_type": "application/json",
+      "path": "adapter-capabilities.json",
+      "public": true,
+      "sha256": "sha256:8ddab82cbc765735eb5fb175df6ca1c05816beaf28e42e957cf9f9ec7b1ca953",
+      "size_bytes": 425
+    },
+    {
+      "artifact_id": "sandbox-negative-control",
+      "media_type": "application/json",
+      "path": "sandbox-negative-control.json",
+      "public": true,
+      "sha256": "sha256:f823c604ba13681578449eb6f5024aa99b18aa3ebe682ca27dad5583d849dab1",
+      "size_bytes": 234
+    },
+    {
+      "artifact_id": "lfb-fixture-result",
+      "media_type": "application/json",
+      "path": "lfb-fixture/result.json",
+      "public": true,
+      "sha256": "sha256:336a901f643fa05771b755bcd416959437d3b82800541e44f7edd9449a7a7270",
+      "size_bytes": 1231
+    },
+    {
+      "artifact_id": "lab-fixture-result",
+      "media_type": "application/json",
+      "path": "lab-fixture/result.json",
+      "public": true,
+      "sha256": "sha256:3cfdd19a9d2a3996554278ec0e2125ed6ef7cb0bc7bed36058d8bd0a4c127ca7",
+      "size_bytes": 1218
+    },
+    {
+      "artifact_id": "conformance-report-md",
+      "media_type": "text/markdown",
+      "path": "conformance-report.md",
+      "public": true,
+      "sha256": "sha256:61e9fc4fdae73b5472e768c6942d140f246c53f5089be57db856f98b3a82ac09",
+      "size_bytes": 836
+    }
+  ],
+  "checks": {
+    "capabilities_validation": "passed: adapter capabilities match the manifest",
+    "lab_fixture_run": "passed: harvey_lab fixture returned a valid result",
+    "lab_public_safety_scan": "passed: result record passed public-safety validation",
+    "lab_sandbox_policy_receipt": "passed: result public_summary echoed sandbox_policy_id",
+    "lfb_fixture_run": "passed: legalforecast_mtd fixture returned a valid result",
+    "lfb_public_safety_scan": "passed: result record passed public-safety validation",
+    "lfb_sandbox_policy_receipt": "passed: result public_summary echoed sandbox_policy_id",
+    "manifest_validation": "passed: manifest lq-ai-fixture-bridge@0.1.0 is valid",
+    "sandbox_negative_control": "passed: recorded no-provider sandbox negative control"
+  },
+  "report_id": "conformance:lq-ai-fixture-bridge:0.1.0",
+  "schema_version": "legalforecast.multiharness.conformance_report.v1",
+  "status": "passed"
+}

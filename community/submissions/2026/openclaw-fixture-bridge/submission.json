@@ -1,0 +1,172 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "run-manifest",
+      "media_type": "application/json",
+      "path": "run-manifest.json",
+      "public": true,
+      "sha256": "sha256:516db616dc2ddd076fa09dbf8b624cb6ffbd4a8f400f64be6dd319e13a3bd9d2",
+      "size_bytes": 408
+    },
+    {
+      "artifact_id": "row-results",
+      "media_type": "application/jsonl",
+      "path": "row-results.jsonl",
+      "public": true,
+      "sha256": "sha256:1ebe30c56a5e64be951cd9caef95b6cad06267932b02df50ba02b4ab8b538b03",
+      "size_bytes": 569
+    },
+    {
+      "artifact_id": "canonical-runs",
+      "media_type": "application/jsonl",
+      "path": "canonical-runs.jsonl",
+      "public": true,
+      "sha256": "sha256:c779c1ae2dac07b21fd1602822aaa9747ac8afd322567b18aaf4bfacc35f1e38",
+      "size_bytes": 1179
+    },
+    {
+      "artifact_id": "conformance-report",
+      "media_type": "application/json",
+      "path": "conformance-report.json",
+      "public": true,
+      "sha256": "sha256:6a3594650332cfa69cde8048cebf605726b2dbc9b587252b2faae0ec0faa0aa6",
+      "size_bytes": 2431
+    },
+    {
+      "artifact_id": "public-summary",
+      "media_type": "application/json",
+      "path": "public-summary.json",
+      "public": true,
+      "sha256": "sha256:edea9b1863cef21a26d6e9030ff145d37b733db73819ea133c1f28a91497d3b3",
+      "size_bytes": 1094
+    },
+    {
+      "artifact_id": "selection-manifest",
+      "media_type": "application/json",
+      "path": "selection-manifest.json",
+      "public": true,
+      "sha256": "sha256:b19d5bc532c26b69ad68247e40a2199a88e62f2edbbc88d02c9d45c41fce9d8e",
+      "size_bytes": 485
+    },
+    {
+      "artifact_id": "artifact-manifest",
+      "media_type": "application/json",
+      "path": "artifact-manifest.json",
+      "public": true,
+      "sha256": "sha256:17484386134d43f5b5b454004386e51b2a7312b84de11b899b17cee670e2aa81",
+      "size_bytes": 1714
+    }
+  ],
+  "attestations": [
+    "no_private_or_sealed_material_in_public_artifacts",
+    "not_official_legalforecastbench_result",
+    "provider_terms_acknowledged",
+    "right_to_submit_artifacts"
+  ],
+  "benchmark_credit": [
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench",
+      "role": "benchmark_infrastructure"
+    }
+  ],
+  "contributors": [
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench maintainers",
+      "role": "run_operator"
+    },
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench maintainers",
+      "role": "adapter_author"
+    },
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench fixture corpus",
+      "role": "task_source"
+    },
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench",
+      "role": "benchmark_infrastructure"
+    }
+  ],
+  "run_summary": {
+    "adapter_ids": [
+      "openclaw-fixture-bridge"
+    ],
+    "families": [
+      "legalforecast_mtd"
+    ],
+    "model_keys": [
+      "openclaw-fixture-bridge-model"
+    ],
+    "result_status_counts": {
+      "succeeded": 1
+    },
+    "row_count": 1,
+    "run_config_sha256": "sha256:6f719c4c94b8a169bf46ad1d4e5514e15b59faeebdacb1d65d283831be2fa19c",
+    "run_id": "openclaw-fixture-bridge-run",
+    "run_manifest_sha256": "sha256:74000a41db1fc1e42fc427ed557735127d18f969eea2de3fb97605ed93801e16",
+    "schema_version": "legalforecast.multiharness.community_run_summary.v1",
+    "scoring_modes": [
+      "lfb_brier"
+    ],
+    "selection_label": "submitted-run",
+    "selection_sha256": "035ef85370ec7a238200e10203ec03a70685d20e3601e30f0294e5f6e5a242a8"
+  },
+  "schema_version": "legalforecast.multiharness.community_submission_manifest.v1",
+  "shards": [
+    {
+      "adapter_id": "openclaw-fixture-bridge",
+      "adapter_version": "0.1.0",
+      "compatible_shard_group_id": "legalforecast_mtd:lfb_brier:035ef85370ec7a238200e10203ec03a70685d20e3601e30f0294e5f6e5a242a8",
+      "contributor_credits": [
+        {
+          "identifiers": {},
+          "name": "LegalForecastBench maintainers",
+          "role": "run_operator"
+        },
+        {
+          "identifiers": {},
+          "name": "LegalForecastBench maintainers",
+          "role": "adapter_author"
+        },
+        {
+          "identifiers": {},
+          "name": "LegalForecastBench fixture corpus",
+          "role": "task_source"
+        },
+        {
+          "identifiers": {},
+          "name": "LegalForecastBench",
+          "role": "benchmark_infrastructure"
+        }
+      ],
+      "model_key": "openclaw-fixture-bridge-model",
+      "run_config_hash": "sha256:6f719c4c94b8a169bf46ad1d4e5514e15b59faeebdacb1d65d283831be2fa19c",
+      "sandbox_policy_hash": "sha256:c0ad0bbb47805d01bc71296dd407f3b7b3ffe335d453153c9a7c1c41ff14c453",
+      "schema_version": "legalforecast.multiharness.community_shard.v1",
+      "selection_label": "submitted-run",
+      "selection_sha256": "035ef85370ec7a238200e10203ec03a70685d20e3601e30f0294e5f6e5a242a8",
+      "shard_id": "shard-001",
+      "source_suite": "legalforecast_mtd",
+      "suite_version": "legalforecast-mtd-v1",
+      "task_ids": [
+        "lfb:cand_case_1:full_packet"
+      ],
+      "task_selectors": {
+        "task_ids": [
+          "lfb:cand_case_1:full_packet"
+        ]
+      }
+    }
+  ],
+  "submission_id": "openclaw-fixture-bridge",
+  "submitter": {
+    "identifiers": {},
+    "name": "LegalForecastBench maintainers",
+    "role": "submitter"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "request_ids": [
+    "row-929acccd7eea64e8"
+  ],
+  "result_ids": [
+    "row-929acccd7eea64e8:result"
+  ],
+  "run_config_sha256": "sha256:23c9aaebc5dae7f9169e7f2e5a51a8a777679efd1c6f1bd077b570b1f83df911",
+  "run_id": "lq-ai-fixture-bridge-run",
+  "schema_version": "legalforecast.multiharness.run_manifest.v1",
+  "selection_sha256": "035ef85370ec7a238200e10203ec03a70685d20e3601e30f0294e5f6e5a242a8"
+}

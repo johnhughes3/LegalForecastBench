@@ -24,6 +24,8 @@ uv run legalforecast multiharness community package \
 
 The package command writes `submission.json`, `public-summary.json`, `conformance-report.json`, `selection-manifest.json`, `artifact-manifest.json`, and optionally `hf-upload-plan.json`.
 
+Checked-in examples live under `community/submissions/2026/`. They cover the first-class LQ.AI, Hermes Agent, OpenClaw, OpenAI Responses, and Claude Agent SDK fixture adapters. These are no-network community examples, not official LegalForecastBench results.
+
 Validate before opening a pull request:
 
 ```bash

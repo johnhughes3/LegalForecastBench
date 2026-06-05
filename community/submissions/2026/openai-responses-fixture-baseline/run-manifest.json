@@ -1,0 +1,12 @@
+{
+  "request_ids": [
+    "row-4a8cab8d7783f1a0"
+  ],
+  "result_ids": [
+    "row-4a8cab8d7783f1a0:result"
+  ],
+  "run_config_sha256": "sha256:387aa8b600dc105b740e1520cd5c2bdc31400616ed30a157d25eec69509b36a8",
+  "run_id": "openai-responses-fixture-baseline-run",
+  "schema_version": "legalforecast.multiharness.run_manifest.v1",
+  "selection_sha256": "035ef85370ec7a238200e10203ec03a70685d20e3601e30f0294e5f6e5a242a8"
+}

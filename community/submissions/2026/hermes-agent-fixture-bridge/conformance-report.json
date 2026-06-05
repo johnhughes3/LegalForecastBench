@@ -1,0 +1,60 @@
+{
+  "adapter_id": "hermes-agent-fixture-bridge",
+  "adapter_version": "0.1.0",
+  "artifacts": [
+    {
+      "artifact_id": "adapter-capabilities",
+      "media_type": "application/json",
+      "path": "adapter-capabilities.json",
+      "public": true,
+      "sha256": "sha256:b1174222bb8da87cd0a9ec23900c2d02d279d9207a22fd1f9d8146183323605b",
+      "size_bytes": 432
+    },
+    {
+      "artifact_id": "sandbox-negative-control",
+      "media_type": "application/json",
+      "path": "sandbox-negative-control.json",
+      "public": true,
+      "sha256": "sha256:f823c604ba13681578449eb6f5024aa99b18aa3ebe682ca27dad5583d849dab1",
+      "size_bytes": 234
+    },
+    {
+      "artifact_id": "lfb-fixture-result",
+      "media_type": "application/json",
+      "path": "lfb-fixture/result.json",
+      "public": true,
+      "sha256": "sha256:b8ee9d53886bbf04116581a2006070dcfa88b48bf3bacbf4864553aa94e1eeb1",
+      "size_bytes": 1556
+    },
+    {
+      "artifact_id": "lab-fixture-result",
+      "media_type": "application/json",
+      "path": "lab-fixture/result.json",
+      "public": true,
+      "sha256": "sha256:7a404bd953dd0ccf703b8398e048b5a926c991c194344cc717cd4ff11f7c2ce1",
+      "size_bytes": 1543
+    },
+    {
+      "artifact_id": "conformance-report-md",
+      "media_type": "text/markdown",
+      "path": "conformance-report.md",
+      "public": true,
+      "sha256": "sha256:038295628c975b203d13b4a328ba3d7880f9963d840b994ca777f3380c00d598",
+      "size_bytes": 850
+    }
+  ],
+  "checks": {
+    "capabilities_validation": "passed: adapter capabilities match the manifest",
+    "lab_fixture_run": "passed: harvey_lab fixture returned a valid result",
+    "lab_public_safety_scan": "passed: result record passed public-safety validation",
+    "lab_sandbox_policy_receipt": "passed: result public_summary echoed sandbox_policy_id",
+    "lfb_fixture_run": "passed: legalforecast_mtd fixture returned a valid result",
+    "lfb_public_safety_scan": "passed: result record passed public-safety validation",
+    "lfb_sandbox_policy_receipt": "passed: result public_summary echoed sandbox_policy_id",
+    "manifest_validation": "passed: manifest hermes-agent-fixture-bridge@0.1.0 is valid",
+    "sandbox_negative_control": "passed: recorded no-provider sandbox negative control"
+  },
+  "report_id": "conformance:hermes-agent-fixture-bridge:0.1.0",
+  "schema_version": "legalforecast.multiharness.conformance_report.v1",
+  "status": "passed"
+}
