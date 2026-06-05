@@ -5,10 +5,24 @@ from legalforecast.multiharness.adapters import (
     AdapterPreparation,
     HarnessAdapter,
 )
+from legalforecast.multiharness.artifacts import (
+    AdapterRunResult,
+    community_model_id,
+    project_lfb_adapter_record,
+)
 from legalforecast.multiharness.command_adapter import (
     CommandAdapter,
     CommandAdapterError,
     CommandExecutionLog,
+)
+from legalforecast.multiharness.lfb_native import (
+    LFB_NATIVE_ADAPTER_ID,
+    LFB_NATIVE_ADAPTER_VERSION,
+    LfbNativeAdapter,
+    LfbNativeAdapterError,
+    LfbNativeFixtureRun,
+    lfb_native_capabilities,
+    lfb_native_manifest,
 )
 from legalforecast.multiharness.sandbox import (
     BACKEND_DOCKER,
@@ -67,6 +81,8 @@ __all__ = [
     "COMMUNITY_AGGREGATE_SCHEMA_VERSION",
     "COMMUNITY_SUBMISSION_SCHEMA_VERSION",
     "CONFORMANCE_REPORT_SCHEMA_VERSION",
+    "LFB_NATIVE_ADAPTER_ID",
+    "LFB_NATIVE_ADAPTER_VERSION",
     "NETWORK_NONE",
     "PROVIDER_EGRESS_HOST_ONLY",
     "RUN_MANIFEST_SCHEMA_VERSION",
@@ -81,6 +97,7 @@ __all__ = [
     "AdapterError",
     "AdapterManifest",
     "AdapterPreparation",
+    "AdapterRunResult",
     "ArtifactRecord",
     "CanonicalTask",
     "CommandAdapter",
@@ -94,6 +111,9 @@ __all__ = [
     "ContributorCredit",
     "HarnessAdapter",
     "HarveyLabTaskLoader",
+    "LfbNativeAdapter",
+    "LfbNativeAdapterError",
+    "LfbNativeFixtureRun",
     "LfbTaskLoader",
     "RunManifest",
     "RunRequest",
@@ -104,6 +124,10 @@ __all__ = [
     "TaskIndex",
     "TaskSelection",
     "build_container_plan",
+    "community_model_id",
+    "lfb_native_capabilities",
+    "lfb_native_manifest",
+    "project_lfb_adapter_record",
     "require_container_backend",
     "sandbox_policy",
 ]
