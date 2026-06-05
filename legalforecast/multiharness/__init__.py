@@ -15,6 +15,10 @@ from legalforecast.multiharness.command_adapter import (
     CommandAdapterError,
     CommandExecutionLog,
 )
+from legalforecast.multiharness.conformance import (
+    ConformanceRun,
+    run_adapter_conformance,
+)
 from legalforecast.multiharness.lfb_native import (
     LFB_NATIVE_ADAPTER_ID,
     LFB_NATIVE_ADAPTER_VERSION,
@@ -107,6 +111,7 @@ __all__ = [
     "CommunitySubmission",
     "ComparisonGroup",
     "ConformanceReport",
+    "ConformanceRun",
     "ContainerRuntimePlan",
     "ContributorCredit",
     "HarnessAdapter",
@@ -129,5 +134,6 @@ __all__ = [
     "lfb_native_manifest",
     "project_lfb_adapter_record",
     "require_container_backend",
+    "run_adapter_conformance",
     "sandbox_policy",
 ]
