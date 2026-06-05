@@ -71,6 +71,23 @@ uv run scripts/release_check.py
 
 Default checks must not require live credentials.
 
+## Community Multi-Harness
+
+The repo includes a separate non-official community multi-harness layer for comparing LegalForecastBench fixture/subset tasks, Harvey LAB tasks, and contributor adapters without weakening official benchmark boundaries.
+
+Start with:
+
+```bash
+uv run legalforecast multiharness --help
+```
+
+Contributor docs:
+
+- [Multi-Harness Adapter Spec](docs/multiharness-adapter-spec.md)
+- [Community Submissions](docs/community-submissions.md)
+
+Community submissions live under `community/submissions/` and are rebuilt into a separate community registry/site. They are not official LegalForecastBench results.
+
 ## CLI Shape
 
 The package exposes one primary CLI:
