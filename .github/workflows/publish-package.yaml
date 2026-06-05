@@ -1,0 +1,79 @@
+name: Publish Python Package
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish to PyPI after the release check passes.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-check:
+    name: Release check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Run release checks
+        run: uv run scripts/release_check.py --output-dir tmp/release-check
+
+      - name: Upload release-check artifacts
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-check
+          path: tmp/release-check
+          if-no-files-found: error
+
+  publish:
+    name: Publish package
+    needs: release-check
+    if: github.event_name == 'push' || inputs.publish == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      id-token: write
+    environment:
+      name: pypi
+
+    steps:
+      - name: Download release-check artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: release-check
+          path: tmp/release-check
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: tmp/release-check/dist
+          skip-existing: true
+
+      - name: Publish GitHub release metadata
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: ${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'alpha') }}
+          files: |
+            tmp/release-check/dist/*.whl
+            tmp/release-check/dist/*.tar.gz
+            tmp/release-check/dist/package-artifact-hashes.json
