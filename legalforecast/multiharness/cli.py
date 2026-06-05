@@ -49,6 +49,10 @@ from legalforecast.multiharness.task_loaders import (
     HarveyLabTaskLoader,
     LfbTaskLoader,
 )
+from legalforecast.publication.community_aggregate import (
+    CommunityAggregateConfig,
+    build_community_aggregate,
+)
 
 _CLI_PLAN_SCHEMA_VERSION = "legalforecast.multiharness.cli_plan.v1"
 _SELECTION_MANIFEST_SCHEMA_VERSION = "legalforecast.multiharness.selection_manifest.v1"
@@ -508,7 +512,13 @@ def _cmd_community_aggregate(args: argparse.Namespace) -> int:
     output_dir = cast(Path, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     if not cast(bool, args.dry_run):
-        raise ValueError(_COMMUNITY_DEFERRED_MESSAGE)
+        build_community_aggregate(
+            CommunityAggregateConfig(
+                submissions_dir=cast(Path, args.submissions_dir),
+                output_dir=output_dir,
+            )
+        )
+        return 0
     write_json_object(
         output_dir / "community-aggregate-plan.json",
         {
