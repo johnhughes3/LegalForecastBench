@@ -63,6 +63,29 @@ PROFILE_RECORDS: dict[str, dict[str, Any]] = {
             "artifact_safety": "public fixture summary only",
         },
     },
+    "openclaw": {
+        "adapter_id": "openclaw-fixture-bridge",
+        "display_name": "OpenClaw Fixture Bridge",
+        "adapter_version": "0.1.0",
+        "public_summary": {
+            "external_harness": "OpenClaw",
+            "fixture_bridge": True,
+            "openclaw_version": "fixture",
+            "openclaw_commit": "fixture",
+            "provider_model_route": "fixture-provider/fixture-model",
+            "harness_id": "fixture-openclaw-harness",
+            "runtime_plan_policy": "fixture-runtime-plan",
+            "tool_policy": "fixture-read-write-bash",
+            "transcript_mirror_behavior": "public summary only",
+            "selected_native_runtime": "fixture-native-runtime",
+            "fail_closed_when_harness_unavailable": True,
+            "fail_closed_proof_reference": "fixture://openclaw/fail-closed",
+            "auth_mode": "api-key-by-user-environment",
+            "provider_terms_assumption": "user supplied API access is permitted",
+            "official_infrastructure_required": False,
+            "artifact_safety": "public fixture summary only",
+        },
+    },
 }
 
 
