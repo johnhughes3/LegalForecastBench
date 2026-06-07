@@ -75,7 +75,7 @@ def test_official_eval_matrix_workflow_uses_oidc_only_in_protected_jobs() -> Non
     assert "LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars." in WORKFLOW
     assert "secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN" not in WORKFLOW
     assert (
-        "aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885"
+        "aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b"
         in WORKFLOW
     )
     assert "role-session-name: lfb-official-matrix-${{ github.run_id }}" in WORKFLOW
