@@ -5,7 +5,10 @@ checkout but do not belong in the installed `legalforecast` CLI.
 
 ## Current Scripts
 
-- `release_check.py`: runs the full v0.1 alpha release gate.
+- `release_check.py`: runs the full v0.1 alpha release gate: locked sync,
+  formatting, linting, type checking, tests, CLI smokes, fixture E2E,
+  multi-harness no-network smokes, package build, package hashes, and installed
+  wheel/sdist smokes.
 
   ```bash
   uv run scripts/release_check.py

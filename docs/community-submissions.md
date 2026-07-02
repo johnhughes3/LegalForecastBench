@@ -22,7 +22,7 @@ uv run legalforecast multiharness community package \
   --hf-upload-plan
 ```
 
-The package command writes `submission.json`, `public-summary.json`, `conformance-report.json`, `selection-manifest.json`, `artifact-manifest.json`, and optionally `hf-upload-plan.json`.
+The package command writes `submission.json`, `public-summary.json`, `conformance-report.json`, `run-manifest.json`, `selection-manifest.json`, `artifact-manifest.json`, `row-results.jsonl`, `canonical-runs.jsonl`, and optionally `hf-upload-plan.json`. If the source run contains projected public artifacts such as `lfb/runs.jsonl` or `lab/task-results.jsonl`, those are copied into the package and referenced from `artifact-manifest.json`.
 
 Checked-in examples live under `community/submissions/2026/`. They cover the first-class LQ.AI, Hermes Agent, OpenClaw, OpenAI Responses, and Claude Agent SDK fixture adapters. These are no-network community examples, not official LegalForecastBench results.
 
@@ -82,8 +82,12 @@ Partial-run shards include:
 
 Composite rows can roll up compatible shards only when suite version, scoring mode, selection namespace/group, adapter ID/version, model key, sandbox policy hash, and run config hash match, and task IDs do not overlap. Composite rows credit each underlying shard and link back to every submission.
 
+## Community Aggregate Outputs
+
+`legalforecast multiharness community aggregate` rebuilds a public bundle under the requested output directory. Current outputs include `registry/` indexes, `reports/` JSON/CSV/Markdown/HTML comparisons, per-submission public JSON under `submissions/`, a generated `site/`, and root `artifact-index.json` / `artifact-manifest.json` files.
+
 ## Pull Request Intake
 
-Open a PR that adds only the submission package under `community/submissions/<year>/<submission_id>/`. The community validation workflow runs with read-only repository permissions and without official benchmark environments, OIDC, AWS credentials, or provider secrets. On merge to `main`, the community registry and static reports are rebuilt from accepted submission metadata.
+Open a PR that adds only the submission package under `community/submissions/<year>/<submission_id>/`. The community validation workflow runs with read-only repository permissions and without official benchmark environments, OIDC, AWS credentials, or provider secrets. On merge to `main`, the workflow rebuilds the community aggregate and uploads the generated registry, reports, and static site as a build artifact from accepted submission metadata.
 
 Harvey LAB is a separate Harvey AI project and task corpus. Any submission using Harvey LAB tasks must preserve Harvey LAB credit/license language. Final public branding and positioning for LegalForecastBench, Legal Quants, and any Harvey LAB comparison remains subject to John Hughes/Legal Quants approval.

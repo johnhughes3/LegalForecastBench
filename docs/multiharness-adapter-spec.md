@@ -13,7 +13,9 @@ Canonical records live in `legalforecast.multiharness.spec`.
 - `AdapterCapabilities`: declared task families, scoring modes, sandbox-policy support, and a capabilities hash.
 - `SandboxPolicy`: host-owned execution policy recorded for every row. The tool container network is disabled; provider egress, when allowed, is only a recorded host-adapter assumption.
 - `RunRequest` and `RunResult`: canonical per-row request/result records.
+- `RunManifest`: deterministic run-level provenance for the scheduled task, adapter, model, selection, and sandbox matrix.
 - `ConformanceReport`: fixture-only adapter conformance result.
+- `CommunitySubmission` and `CommunityAggregate`: reviewed community metadata and generated comparison bundles. Community package files use the versioned schemas in `legalforecast.multiharness.community`.
 
 All public records are scanned by multi-harness validation for secret-like fields, provider account IDs, deprecated result-tier fields, and banned values such as `verified-community`, `community-unverified`, and `alpha-non-canonical`.
 
@@ -88,7 +90,9 @@ example-adapter capabilities --output adapter-capabilities.json
 example-adapter run --request request.json --output result.json --workspace row-workspace
 ```
 
-`capabilities` writes a valid `AdapterCapabilities` JSON object. `run` reads a `RunRequest`, writes a `RunResult`, and keeps stdout/stderr/private logs out of public summaries. Public artifacts must use safe relative paths and SHA-256 hashes.
+`capabilities` writes a valid `AdapterCapabilities` JSON object. The conformance suite currently requires `supports_sandbox_policy: true`, because every fixture request includes a host-owned `SandboxPolicy`.
+
+`run` reads a `RunRequest`, writes a `RunResult`, and keeps stdout/stderr/private logs out of public summaries. Each result public summary must echo the received `sandbox_policy_id` so reviewers can verify which host policy was recorded for the row. Public artifacts must use safe relative paths and SHA-256 hashes.
 
 Inspect and run conformance:
 
