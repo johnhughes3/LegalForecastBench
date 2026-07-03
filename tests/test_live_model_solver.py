@@ -425,6 +425,7 @@ def _registry_record(
             model_version_or_snapshot or f"{model_id}-2026-05-14"
         ),
         "release_timestamp": "2026-05-14T09:00:00Z",
+        "release_timestamp_source": "fixture release note",
         "provider_training_cutoff_status": "known",
         "provider_training_cutoff": "2026-04-01",
         "temperature": 0,

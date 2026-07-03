@@ -5,8 +5,9 @@ import json
 import math
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
+import legalforecast.publication.official_aggregate as official_aggregate
 import pytest
 from legalforecast.evals.accounting import ModelRunAccountingRecord
 from legalforecast.evals.bootstrap import BONFERRONI_RANK_TIER_METHOD
@@ -42,6 +43,7 @@ def test_official_aggregate_writes_public_bundle_and_private_debug(
             clean_motion_count=25,
             prediction_unit_count=1,
             model_registry_path=registry_path,
+            allow_no_baselines=True,
             ablation="full_packet",
             generated_at=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
         )
@@ -93,6 +95,7 @@ def test_official_aggregate_writes_public_bundle_and_private_debug(
     assert run_card["registry_model_keys"] == ["fixture:solver"]
     assert run_card["expected_model_keys"] == ["fixture:solver"]
     assert run_card["allow_incomplete_model_set"] is False
+    assert run_card["allow_no_baselines"] is True
     packet_budget = run_card["packet_token_budget"]
     assert packet_budget["overall"]["max"] == 1_024
     assert packet_budget["by_ablation"]["full_packet"]["count"] == 1
@@ -174,6 +177,7 @@ def test_official_aggregate_cli_writes_summary(
                 "25",
                 "--prediction-unit-count",
                 "1",
+                "--allow-no-baselines",
                 "--ablation",
                 "full_packet",
             ]
@@ -236,6 +240,15 @@ def test_official_aggregate_scores_historical_baselines_as_pseudo_models(
     assert rows_by_model["fixture-model"]["brier_skill_score_over_reference"] > 0
     assert rows_by_model["judge_history"]["cost_per_case"] == 0
     assert (result.private_debug_dir / "baseline-predictions.jsonl").is_file()
+    cycle_training_rows = _read_jsonl(
+        result.public_dir / "baseline-training-examples.jsonl"
+    )
+    assert [row["features"]["unit_id"] for row in cycle_training_rows] == [
+        "unit-dismissed",
+        "unit-survives",
+    ]
+    assert [row["fully_dismissed"] for row in cycle_training_rows] == [True, False]
+    assert {row["decision_date"] for row in cycle_training_rows} == {"2026-05-17"}
 
     run_card = json.loads(result.run_card_path.read_text(encoding="utf-8"))
     assert run_card["baseline_model_ids"] == [
@@ -245,6 +258,17 @@ def test_official_aggregate_scores_historical_baselines_as_pseudo_models(
         "judge_history",
     ]
     assert run_card["brier_skill_score_reference_model_id"] == "judge_history"
+    assert run_card["cycle_baseline_training_example_count"] == 2
+    assert "baseline-training-examples.jsonl" in run_card["public_outputs"]
+    assert run_card["first_cycle_ablation_plan"] == {
+        "required_ablations": ["full_packet", "metadata_only"],
+        "deferred_ablations": ["judge_removed"],
+        "defer_reason": (
+            "judge_removed roughly doubles full-document model cost and is "
+            "deferred until budget sign-off; metadata_only remains the "
+            "required low-cost run-1 ablation."
+        ),
+    }
     assert run_card["baseline_training_period"] == {
         "training_period_start": "2024-01-01",
         "training_period_end": "2024-01-30",
@@ -252,6 +276,69 @@ def test_official_aggregate_scores_historical_baselines_as_pseudo_models(
             "judge_history_usage"
         ],
     }
+
+
+def test_official_aggregate_fails_without_baselines_by_default(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(tmp_path)
+    registry_path = _write_model_registry(tmp_path, ("fixture:solver",))
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(per_case_dir)
+
+    with pytest.raises(
+        OfficialAggregationError,
+        match="baseline_training_examples_path is required",
+    ):
+        aggregate_official_results(
+            OfficialAggregationConfig(
+                per_case_dir=per_case_dir,
+                run_input_manifest_path=manifest_path,
+                labels_path=labels_path,
+                output_dir=tmp_path / "official-bundle",
+                cycle_id="cycle-1",
+                cycle_series=CycleSeries.PILOT,
+                clean_motion_count=25,
+                prediction_unit_count=1,
+                model_registry_path=registry_path,
+                ablation="full_packet",
+            )
+        )
+
+
+def test_ablation_delta_report_compares_full_packet_to_metadata_only() -> None:
+    full_packet = {
+        "candidate_id": "candidate-1",
+        "case_id": "case-1",
+        "model_id": "fixture-model",
+        "run_label": "full_packet",
+        "ablation": "full_packet",
+        "raw_output": _fixture_raw_output(0.9),
+        "required_unit_ids": ["unit-dismissed", "unit-survives"],
+    }
+    metadata_only = {
+        **full_packet,
+        "run_label": "metadata_only",
+        "ablation": "metadata_only",
+        "raw_output": _fixture_raw_output(0.6),
+    }
+
+    report = cast(Any, official_aggregate)._ablation_delta_report(
+        [full_packet, metadata_only],
+        (_label("unit-dismissed", True), _label("unit-survives", False)),
+        cycle_id="cycle-1",
+        generated_at=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
+        base_rate=None,
+    )
+
+    assert report["comparison"] == "full_packet_minus_metadata_only_micro_brier"
+    [row] = report["rows"]
+    assert row["model_id"] == "fixture-model"
+    assert math.isclose(row["full_packet_micro_brier"], 0.025)
+    assert math.isclose(row["metadata_only_micro_brier"], 0.1)
+    assert math.isclose(row["full_packet_minus_metadata_only_micro_brier"], -0.075)
+    assert row["record_text_improves_brier"] is True
 
 
 def test_official_aggregate_accepts_explicit_multi_model_matrix(
@@ -293,6 +380,7 @@ def test_official_aggregate_accepts_explicit_multi_model_matrix(
             prediction_unit_count=1,
             model_registry_path=registry_path,
             model_keys=("fixture:model-a", "fixture:model-b"),
+            allow_no_baselines=True,
             ablation="full_packet",
             generated_at=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
         )
@@ -353,6 +441,7 @@ def test_official_aggregate_rejects_strict_subset_explicit_model_set(
                 prediction_unit_count=1,
                 model_registry_path=registry_path,
                 model_keys=("fixture:model-a",),
+                allow_no_baselines=True,
                 ablation="full_packet",
             )
         )
@@ -388,6 +477,7 @@ def test_official_aggregate_allows_explicit_partial_debug_bundle(
             model_registry_path=registry_path,
             model_keys=("fixture:model-a",),
             allow_incomplete_model_set=True,
+            allow_no_baselines=True,
             ablation="full_packet",
         )
     )
@@ -417,6 +507,7 @@ def test_official_aggregate_requires_expected_model_set_by_default(
                 cycle_series=CycleSeries.PILOT,
                 clean_motion_count=25,
                 prediction_unit_count=1,
+                allow_no_baselines=True,
                 ablation="full_packet",
             )
         )
@@ -451,6 +542,7 @@ def test_official_aggregate_uses_registry_as_expected_model_set(
                 clean_motion_count=25,
                 prediction_unit_count=1,
                 model_registry_path=registry_path,
+                allow_no_baselines=True,
                 ablation="full_packet",
             )
         )
@@ -477,6 +569,7 @@ def test_official_aggregate_rejects_packet_over_smallest_context_budget(
                 clean_motion_count=25,
                 prediction_unit_count=1,
                 model_registry_path=registry_path,
+                allow_no_baselines=True,
                 ablation="full_packet",
             )
         )
@@ -502,6 +595,7 @@ def test_official_aggregate_reports_repeat_sampling_variance(
             clean_motion_count=25,
             prediction_unit_count=1,
             model_registry_path=registry_path,
+            allow_no_baselines=True,
             ablation="full_packet",
             generated_at=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
         )
@@ -558,6 +652,7 @@ def test_official_aggregate_fails_on_missing_case_output(tmp_path: Path) -> None
                 clean_motion_count=25,
                 prediction_unit_count=1,
                 model_registry_path=registry_path,
+                allow_no_baselines=True,
                 ablation="full_packet",
             )
         )
@@ -585,6 +680,7 @@ def test_official_aggregate_fails_on_hash_mismatch(tmp_path: Path) -> None:
                 clean_motion_count=25,
                 prediction_unit_count=1,
                 model_registry_path=registry_path,
+                allow_no_baselines=True,
                 ablation="full_packet",
             )
         )
@@ -594,27 +690,31 @@ def _write_run_input_manifest(
     tmp_path: Path,
     *,
     include_baseline_features: bool = False,
+    ablations: tuple[str, ...] = ("full_packet",),
     packet_size_bytes: int = 4_096,
 ) -> Path:
     manifest_path = tmp_path / "run-inputs.json"
-    packet_row: dict[str, Any] = {
-        "case_id": "case-1",
-        "ablation": "full_packet",
-        "object_key": "model-packets/cycle-1/case-1/full_packet.json",
-        "sha256": "a" * 64,
-        "packet_size_bytes": packet_size_bytes,
-    }
-    if include_baseline_features:
-        packet_row["candidate_id"] = "candidate-1"
-        packet_row["baseline_features"] = [
-            _baseline_feature_record("unit-dismissed"),
-            _baseline_feature_record("unit-survives"),
-        ]
+    packet_rows: list[dict[str, Any]] = []
+    for ablation in ablations:
+        packet_row: dict[str, Any] = {
+            "case_id": "case-1",
+            "ablation": ablation,
+            "object_key": f"model-packets/cycle-1/case-1/{ablation}.json",
+            "sha256": "a" * 64,
+            "packet_size_bytes": packet_size_bytes,
+        }
+        if include_baseline_features:
+            packet_row["candidate_id"] = "candidate-1"
+            packet_row["baseline_features"] = [
+                _baseline_feature_record("unit-dismissed"),
+                _baseline_feature_record("unit-survives"),
+            ]
+        packet_rows.append(packet_row)
     _write_json(
         manifest_path,
         {
             "cycle_id": "cycle-1",
-            "model_packets": [packet_row],
+            "model_packets": packet_rows,
         },
     )
     return manifest_path
@@ -687,6 +787,7 @@ def _write_model_registry(tmp_path: Path, model_keys: tuple[str, ...]) -> Path:
                 "display_name": model_id,
                 "model_version_or_snapshot": "2026-05-14",
                 "release_timestamp": "2026-05-14T09:00:00Z",
+                "release_timestamp_source": "fixture release note",
                 "provider_training_cutoff_status": "known",
                 "provider_training_cutoff": "2026-04-01",
                 "temperature": 0,
@@ -712,6 +813,7 @@ def _write_case_artifacts(
     case_dir_name: str = "official-eval-case-1-full_packet",
     solver_id: str = "fixture:solver",
     model_id: str = "fixture-model",
+    ablation: str = "full_packet",
     dismissed_probability: float = 0.9,
     estimated_cost: float = 0.02,
 ) -> Path:
@@ -727,8 +829,8 @@ def _write_case_artifacts(
         "solver_id": solver_id,
         "solver_kind": "offline_fixture",
         "model_id": model_id,
-        "run_label": "full_packet",
-        "ablation": "full_packet",
+        "run_label": ablation,
+        "ablation": ablation,
         "raw_output": raw_output,
         "raw_output_sha256": raw_output_sha256,
         "required_unit_ids": ["unit-dismissed", "unit-survives"],
@@ -769,8 +871,8 @@ def _write_case_artifacts(
         refusal=False,
         content_filter=False,
         invalid_output_reason=None,
-        run_label="full_packet",
-        ablation="full_packet",
+        run_label=ablation,
+        ablation=ablation,
         execution_backend="local_fixture",
     )
     _write_jsonl(case_dir / "runs.jsonl", [run_record])
@@ -779,14 +881,14 @@ def _write_case_artifacts(
         case_dir / "metrics.json",
         {
             "schema_version": "legalforecast.per_case_metrics.v1",
-            "run_id": "cycle-1-case-1-full_packet-fixture",
+            "run_id": f"cycle-1-case-1-{ablation}-fixture",
             "cycle_id": "cycle-1",
             "case_id": "case-1",
-            "ablation": "full_packet",
+            "ablation": ablation,
             "solver_id": solver_id,
             "model_key": solver_id,
             "evaluation_timestamp": "2026-05-17T12:00:00Z",
-            "packet_object_key": "model-packets/cycle-1/case-1/full_packet.json",
+            "packet_object_key": f"model-packets/cycle-1/case-1/{ablation}.json",
             "packet_sha256": "a" * 64,
             "run_record_count": 1,
             "raw_output_sha256": [raw_output_sha256],

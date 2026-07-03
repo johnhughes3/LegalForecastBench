@@ -194,6 +194,7 @@ def _registry_record() -> dict[str, object]:
         "display_name": "Example Model",
         "model_version_or_snapshot": "2026-05-14",
         "release_timestamp": "2026-05-14T09:00:00Z",
+        "release_timestamp_source": "fixture release note",
         "provider_training_cutoff_status": "known",
         "provider_training_cutoff": "2026-04-01",
         "temperature": 0,

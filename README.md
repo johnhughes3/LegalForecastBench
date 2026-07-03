@@ -34,7 +34,7 @@ Current pilot model anchors are tracked in [MODEL_RELEASE_DATES.md](MODEL_RELEAS
 
 ### Pilot
 
-A pilot run has scored Gemini 3 Flash Preview, GPT-5.4 mini, and Claude Sonnet 4.6 on twelve cases to validate the end-to-end infrastructure. The pilot is too small to support claims about relative model capability and is not a published benchmark result; it confirms that ingestion, unitization, packet construction, model invocation, and scoring run together on real cases. We are seeking feedback from researchers experienced with benchmark design before incurring the cost of a full model run.
+A pilot run has scored Gemini 3 Flash Preview, GPT-5.4 mini, and Claude Sonnet 4.6 on twelve cases to validate the end-to-end infrastructure. The current anchored pilot registry defaults to GPT-5.4 mini and Claude Sonnet 4.6; Gemini 3 Flash Preview is excluded until its registry entry can use a source-backed pinned snapshot rather than a mutable preview ID. The pilot is too small to support claims about relative model capability and is not a published benchmark result; it confirms that ingestion, unitization, packet construction, model invocation, and scoring run together on real cases. We are seeking feedback from researchers experienced with benchmark design before incurring the cost of a full model run.
 
 ## How Runs Are Executed
 

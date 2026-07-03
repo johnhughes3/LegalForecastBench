@@ -38,6 +38,7 @@ class ModelRegistryEntry:
     input_token_price: float
     output_token_price: float
     release_timestamp: datetime | None = None
+    release_timestamp_source: str | None = None
     provider_training_cutoff: date | None = None
     known_cutoff_publicity_caveats: tuple[str, ...] = ()
 
@@ -50,6 +51,13 @@ class ModelRegistryEntry:
 
         if self.release_timestamp is not None:
             _require_aware(self.release_timestamp, "release_timestamp")
+            _require_non_empty(
+                self.release_timestamp_source, "release_timestamp_source"
+            )
+        elif self.release_timestamp_source is not None:
+            _require_non_empty(
+                self.release_timestamp_source, "release_timestamp_source"
+            )
         if self.provider_training_cutoff_status is TrainingCutoffStatus.KNOWN:
             if self.provider_training_cutoff is None:
                 raise ValueError(
@@ -94,6 +102,7 @@ class ModelRegistryEntry:
                 if self.release_timestamp is not None
                 else None
             ),
+            "release_timestamp_source": self.release_timestamp_source,
             "provider_training_cutoff_status": (
                 self.provider_training_cutoff_status.value
             ),
@@ -125,6 +134,7 @@ class ModelRegistryEntry:
                 record, "model_version_or_snapshot"
             ),
             release_timestamp=_optional_datetime(record, "release_timestamp"),
+            release_timestamp_source=_optional_str(record, "release_timestamp_source"),
             provider_training_cutoff_status=TrainingCutoffStatus(
                 _required_str(record, "provider_training_cutoff_status")
             ),
@@ -301,6 +311,16 @@ def _optional_date(record: Mapping[str, Any], field_name: str) -> date | None:
     return date.fromisoformat(value)
 
 
+def _optional_str(record: Mapping[str, Any], field_name: str) -> str | None:
+    value = record.get(field_name)
+    if value in {None, ""}:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a string")
+    _require_non_empty(value, field_name)
+    return value
+
+
 def _optional_string_tuple(
     record: Mapping[str, Any], field_name: str
 ) -> tuple[str, ...]:
@@ -324,8 +344,8 @@ def _iso_datetime(value: datetime) -> str:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _require_non_empty(value: str, field_name: str) -> None:
-    if not value.strip():
+def _require_non_empty(value: str | None, field_name: str) -> None:
+    if value is None or not value.strip():
         raise ValueError(f"{field_name} is required")
 
 

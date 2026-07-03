@@ -144,6 +144,8 @@ from legalforecast.labeling.label_outcomes import (
 )
 from legalforecast.labeling.llm_pipeline import (
     LlmConsensusPolicy,
+    apply_adjudicated_reviews,
+    lawyer_review_queue_records,
     llm_label_cases,
     llm_unitize_cases,
 )
@@ -493,6 +495,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use registry-backed LLM judges to create Stage B labels.",
     )
     _add_acquisition_llm_label_arguments(acquisition_llm_label)
+    acquisition_apply_lawyer_review = acquisition_subparsers.add_parser(
+        "apply-lawyer-review",
+        help="Apply checked-in lawyer adjudications to pending Stage B labels.",
+    )
+    _add_acquisition_apply_lawyer_review_arguments(acquisition_apply_lawyer_review)
     acquisition_packet_inputs = acquisition_subparsers.add_parser(
         "plan-packet-inputs",
         help="Plan packet-build and private-store inputs from acquisition manifests.",
@@ -968,6 +975,11 @@ def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> Non
         help="Output JSONL with LLM label judge audit/accounting rows.",
     )
     parser.add_argument(
+        "--lawyer-review-queue-output",
+        type=Path,
+        help="Output JSONL with units pending lawyer adjudication.",
+    )
+    parser.add_argument(
         "--consensus-policy",
         choices=[policy.value for policy in LlmConsensusPolicy],
         default=LlmConsensusPolicy.UNANIMOUS.value,
@@ -994,6 +1006,35 @@ def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> Non
         help="Per-provider-request timeout for each registry-backed LLM judge call.",
     )
     parser.set_defaults(handler=_cmd_acquisition_llm_label)
+
+
+def _add_acquisition_apply_lawyer_review_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--labels",
+        type=Path,
+        required=True,
+        help="Existing labels.jsonl containing auto-accepted labels.",
+    )
+    parser.add_argument(
+        "--adjudications",
+        type=Path,
+        required=True,
+        help="Checked-in lawyer adjudication JSONL.",
+    )
+    parser.add_argument(
+        "--labels-output",
+        type=Path,
+        help="Output JSONL with auto labels plus adjudicated labels.",
+    )
+    parser.add_argument(
+        "--audit-output",
+        type=Path,
+        help="Output JSONL with lawyer-review resume audit rows.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_apply_lawyer_review)
 
 
 def _add_acquisition_plan_packet_inputs_arguments(
@@ -2495,6 +2536,11 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         "audit_output",
         output_root / "llm-label-audit.jsonl",
     )
+    lawyer_review_queue_path = _acquisition_path(
+        args,
+        "lawyer_review_queue_output",
+        output_root / "lawyer-review-queue.jsonl",
+    )
     selection_records = _read_records(selection_path)
     model_keys = tuple(cast(list[str], args.model_key))
     dry_run = _acquisition_dry_run(args)
@@ -2511,6 +2557,7 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
                 }
             ],
         )
+        _write_jsonl(lawyer_review_queue_path, [])
     else:
         registry_entries, registry_sha256 = _registry_entries_for_keys(
             model_registry_path,
@@ -2530,6 +2577,10 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         )
         _write_jsonl(labels_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
+        _write_jsonl(
+            lawyer_review_queue_path,
+            lawyer_review_queue_records(result.audit_records),
+        )
     _write_acquisition_completion(
         args,
         stage="llm-label",
@@ -2539,8 +2590,56 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             prediction_units_path,
             model_registry_path,
         ),
-        output_paths=(labels_path, audit_path),
+        output_paths=(labels_path, audit_path, lawyer_review_queue_path),
         record_count=len(selection_records),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+    )
+    return 0
+
+
+def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    labels_path = cast(Path, args.labels)
+    adjudications_path = cast(Path, args.adjudications)
+    labels_output_path = _acquisition_path(
+        args,
+        "labels_output",
+        output_root / "labels-adjudicated.jsonl",
+    )
+    audit_path = _acquisition_path(
+        args,
+        "audit_output",
+        output_root / "lawyer-review-resume-audit.jsonl",
+    )
+    dry_run = _acquisition_dry_run(args)
+    if dry_run:
+        _write_jsonl(
+            labels_output_path,
+            [
+                {
+                    "stage": "apply-lawyer-review",
+                    "dry_run": True,
+                    "labels": str(labels_path),
+                    "adjudications": str(adjudications_path),
+                }
+            ],
+        )
+        _write_jsonl(audit_path, [])
+    else:
+        result = apply_adjudicated_reviews(
+            label_records=_read_records(labels_path),
+            adjudication_records=_read_records(adjudications_path),
+        )
+        _write_jsonl(labels_output_path, result.records)
+        _write_jsonl(audit_path, result.audit_records)
+    _write_acquisition_completion(
+        args,
+        stage="apply-lawyer-review",
+        input_paths=(labels_path, adjudications_path),
+        output_paths=(labels_output_path, audit_path),
+        record_count=len(_read_records(adjudications_path)) if not dry_run else 0,
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
@@ -3839,6 +3938,7 @@ def _fixture_model_registry_records() -> list[JsonRecord]:
             "display_name": display_name,
             "model_version_or_snapshot": "2026-05-14-fixture",
             "release_timestamp": "2026-05-14T09:00:00Z",
+            "release_timestamp_source": "fixture release note",
             "provider_training_cutoff_status": TrainingCutoffStatus.UNKNOWN.value,
             "provider_training_cutoff": None,
             "temperature": 0,

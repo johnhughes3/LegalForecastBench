@@ -30,6 +30,7 @@ def _registry_record() -> dict[str, object]:
         "display_name": "Example Model",
         "model_version_or_snapshot": "2026-05-14",
         "release_timestamp": "2026-05-14T09:00:00Z",
+        "release_timestamp_source": "fixture release note",
         "provider_training_cutoff_status": "known",
         "provider_training_cutoff": "2026-04-01",
         "temperature": 0,
@@ -63,6 +64,7 @@ def test_model_registry_entry_round_trips_plan_fields() -> None:
 
     record = entry.to_record()
     assert record["release_timestamp"] == "2026-05-14T09:00:00Z"
+    assert record["release_timestamp_source"] == "fixture release note"
     assert record["provider_training_cutoff"] == "2026-04-01"
     assert record["temperature"] == 0.0
     json.dumps(record)
@@ -96,6 +98,14 @@ def test_registry_rejects_unknown_cutoff_date() -> None:
         ModelRegistryEntry.from_record(record)
 
 
+def test_registry_rejects_release_timestamp_without_source() -> None:
+    record = _registry_record()
+    del record["release_timestamp_source"]
+
+    with pytest.raises(ValueError, match="release_timestamp_source is required"):
+        ModelRegistryEntry.from_record(record)
+
+
 def test_registry_rejects_duplicate_provider_model_ids() -> None:
     record = _registry_record()
 
@@ -123,11 +133,11 @@ def test_pilot_registry_contains_requested_model_matrix() -> None:
     registry = load_model_registry(PILOT_REGISTRY)
 
     assert {entry.registry_key for entry in registry.entries} == {
-        "google:gemini-3-flash-preview",
         "openai:gpt-5.4-mini",
         "anthropic:claude-sonnet-4-6",
     }
     for entry in registry.entries:
+        assert entry.release_timestamp_source
         assert entry.network_disabled is True
         assert entry.search_disabled is True
         assert entry.tool_policy is ToolPolicy.CONTROLLED_DOCKET_TOOL_ONLY

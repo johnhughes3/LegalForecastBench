@@ -9,7 +9,7 @@ import math
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -25,6 +25,7 @@ from legalforecast.evals.baselines import (
     BaselineId,
     BaselinePrediction,
     BaselineSuite,
+    BaselineTrainingExample,
     BaselineUnitFeatures,
     fit_baseline_suite_from_training_examples,
     load_baseline_training_examples,
@@ -57,6 +58,10 @@ from legalforecast.reporting.cadence import (
     CyclePowerInput,
     CyclePowerReport,
     CycleSeries,
+    DEFAULT_PAIRED_DELTA_SD,
+    DEFAULT_POWER,
+    DEFAULT_TARGET_MDE,
+    DEFAULT_TWO_SIDED_ALPHA,
     classify_cycle_power,
 )
 from legalforecast.reporting.leaderboard import (
@@ -112,12 +117,18 @@ class OfficialAggregationConfig:
     baseline_training_examples_path: Path | None = None
     model_keys: tuple[str, ...] = ()
     allow_incomplete_model_set: bool = False
+    allow_no_baselines: bool = False
+    deferred_ablations: tuple[str, ...] = ()
     ablation: str | None = None
     generated_at: datetime | None = None
     title: str = "LegalForecastBench Official Results"
     base_rate: float | None = None
     elapsed_days: int | None = None
     official_window_days: int | None = None
+    paired_delta_sd: float | None = None
+    target_mde: float = DEFAULT_TARGET_MDE
+    target_power: float = DEFAULT_POWER
+    two_sided_alpha: float = DEFAULT_TWO_SIDED_ALPHA
 
     def __post_init__(self) -> None:
         _require_non_empty(self.cycle_id, "cycle_id")
@@ -137,6 +148,14 @@ class OfficialAggregationConfig:
             prediction_unit_count=self.prediction_unit_count,
             elapsed_days=self.elapsed_days,
             official_window_days=self.official_window_days,
+            paired_delta_sd=(
+                self.paired_delta_sd
+                if self.paired_delta_sd is not None
+                else DEFAULT_PAIRED_DELTA_SD
+            ),
+            target_mde=self.target_mde,
+            target_power=self.target_power,
+            two_sided_alpha=self.two_sided_alpha,
         )
 
 
@@ -155,6 +174,13 @@ class OfficialAggregationResult:
     expected_case_count: int
     aggregated_case_count: int
     model_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class _CyclePowerInputResolution:
+    cycle_input: CyclePowerInput
+    paired_delta_sd_source: str
+    warning: str | None = None
 
 
 @dataclass(slots=True)
@@ -242,6 +268,10 @@ def aggregate_official_results(
         metrics_records.append(metrics)
 
     labels = _load_labels(config.labels_path)
+    cycle_baseline_training_examples = _cycle_baseline_training_examples(
+        expected_packet_rows,
+        labels,
+    )
     baseline_artifacts = _baseline_aggregate_artifacts(
         config,
         expected_packet_rows=expected_packet_rows,
@@ -254,6 +284,13 @@ def aggregate_official_results(
         labels,
         cycle_id=config.cycle_id,
         generated_at=generated_at,
+    )
+    ablation_delta_report = _ablation_delta_report(
+        _primary_run_records(run_records),
+        labels,
+        cycle_id=config.cycle_id,
+        generated_at=generated_at,
+        base_rate=config.base_rate,
     )
     summaries = _score_run_records(
         _primary_run_records(run_records),
@@ -269,8 +306,18 @@ def aggregate_official_results(
         repeat_variance_rows=_repeat_variance_summary_rows(repeat_variance_report),
         title=config.title,
     )
-    cycle_power = classify_cycle_power(_cycle_power_input(config))
-    cycle_power_record = _cycle_power_record(cycle_power, config=config)
+    cycle_power_inputs = _cycle_power_input(
+        config,
+        inference=inference,
+        repeat_variance_report=repeat_variance_report,
+    )
+    cycle_power = classify_cycle_power(cycle_power_inputs.cycle_input)
+    cycle_power_record = _cycle_power_record(
+        cycle_power,
+        config=config,
+        paired_delta_sd_source=cycle_power_inputs.paired_delta_sd_source,
+        warning=cycle_power_inputs.warning,
+    )
 
     public_dir = config.output_dir / "public"
     private_debug_dir = config.output_dir / "private-debug"
@@ -284,6 +331,14 @@ def aggregate_official_results(
         _write_jsonl(
             private_debug_dir / "baseline-predictions.jsonl",
             baseline_artifacts.prediction_records,
+        )
+    if cycle_baseline_training_examples:
+        _write_jsonl(
+            public_dir / "baseline-training-examples.jsonl",
+            [
+                example.to_record()
+                for example in cycle_baseline_training_examples
+            ],
         )
 
     score_records = _score_records_with_accounting(
@@ -321,6 +376,8 @@ def aggregate_official_results(
     variance_dir = public_dir / "variance"
     variance_dir.mkdir(parents=True, exist_ok=True)
     _write_json(variance_dir / "repeat-sampling.json", repeat_variance_report)
+    if ablation_delta_report["rows"]:
+        _write_json(public_dir / "ablation-deltas.json", ablation_delta_report)
 
     report_dir = public_dir / "report"
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -353,6 +410,10 @@ def aggregate_official_results(
             accounting_records=accounting_records,
             cycle_power_record=cycle_power_record,
             baseline_artifacts=baseline_artifacts,
+            cycle_baseline_training_example_count=(
+                len(cycle_baseline_training_examples)
+            ),
+            ablation_delta_count=len(ablation_delta_report["rows"]),
             repeat_variance_report=repeat_variance_report,
         ),
     )
@@ -464,6 +525,12 @@ def _baseline_aggregate_artifacts(
     generated_at: datetime,
 ) -> _BaselineAggregateArtifacts:
     if config.baseline_training_examples_path is None:
+        if not config.allow_no_baselines:
+            raise OfficialAggregationError(
+                "baseline_training_examples_path is required for official "
+                "aggregation; pass --allow-no-baselines only for partial/debug "
+                "or explicitly disclosed first-cycle bundles"
+            )
         return _BaselineAggregateArtifacts()
     training_examples = load_baseline_training_examples(
         config.baseline_training_examples_path
@@ -520,6 +587,38 @@ def _baseline_aggregate_artifacts(
         training_period=suite.training_period_record()
         | {"judge_history_usage": json.dumps(usage.to_record(), sort_keys=True)},
     )
+
+
+def _cycle_baseline_training_examples(
+    expected_packet_rows: Mapping[PacketKey, JsonRecord],
+    labels: Sequence[OutcomeLabel],
+) -> tuple[BaselineTrainingExample, ...]:
+    labels_by_unit = {label.unit_id: label for label in labels}
+    examples: list[BaselineTrainingExample] = []
+    for (case_id, _ablation), row in sorted(expected_packet_rows.items()):
+        if "baseline_features" not in row:
+            continue
+        for features in _baseline_features_for_packet_row(row, case_id=case_id):
+            label = labels_by_unit.get(features.unit_id)
+            if label is None or label.fully_dismissed is None:
+                continue
+            examples.append(
+                BaselineTrainingExample(
+                    features=features,
+                    fully_dismissed=label.fully_dismissed,
+                    decision_date=_label_decision_date(label),
+                )
+            )
+    return tuple(examples)
+
+
+def _label_decision_date(label: OutcomeLabel) -> date:
+    try:
+        return date.fromisoformat(label.first_written_disposition_date)
+    except ValueError as exc:
+        raise OfficialAggregationError(
+            "baseline training export requires ISO decision dates in labels"
+        ) from exc
 
 
 def _scored_baseline_ids() -> tuple[BaselineId, ...]:
@@ -888,8 +987,54 @@ def build_parser() -> argparse.ArgumentParser:
             "run card."
         ),
     )
+    parser.add_argument(
+        "--allow-no-baselines",
+        action="store_true",
+        help=(
+            "Permit aggregation without baseline-training examples. Intended only "
+            "for partial/debug or explicitly disclosed first-cycle bundles and "
+            "recorded in the run card."
+        ),
+    )
+    parser.add_argument(
+        "--deferred-ablation",
+        action="append",
+        default=[],
+        help=(
+            "A planned ablation intentionally deferred from this cycle, recorded "
+            "in the run card for publication disclosure."
+        ),
+    )
     parser.add_argument("--elapsed-days", type=int)
     parser.add_argument("--official-window-days", type=int)
+    parser.add_argument(
+        "--paired-delta-sd",
+        type=float,
+        help=(
+            "Override the paired delta standard deviation used for MDE analysis. "
+            "When omitted, aggregation derives it from observed bootstrap deltas "
+            "or repeat-variance summaries before falling back to the documented "
+            f"default {DEFAULT_PAIRED_DELTA_SD:g}."
+        ),
+    )
+    parser.add_argument(
+        "--target-mde",
+        type=float,
+        default=DEFAULT_TARGET_MDE,
+        help="Target minimum detectable effect for cycle-power analysis.",
+    )
+    parser.add_argument(
+        "--target-power",
+        type=float,
+        default=DEFAULT_POWER,
+        help="Target statistical power for cycle-power analysis.",
+    )
+    parser.add_argument(
+        "--two-sided-alpha",
+        type=float,
+        default=DEFAULT_TWO_SIDED_ALPHA,
+        help="Two-sided alpha for cycle-power analysis.",
+    )
     parser.add_argument("--ablation")
     parser.add_argument("--title", default="LegalForecastBench Official Results")
     parser.add_argument("--base-rate", type=float)
@@ -915,11 +1060,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             model_keys=tuple(cast(Sequence[str], args.model_key)),
             allow_incomplete_model_set=cast(bool, args.allow_incomplete_model_set),
+            allow_no_baselines=cast(bool, args.allow_no_baselines),
+            deferred_ablations=tuple(cast(Sequence[str], args.deferred_ablation)),
             ablation=cast(str | None, args.ablation),
             title=cast(str, args.title),
             base_rate=cast(float | None, args.base_rate),
             elapsed_days=cast(int | None, args.elapsed_days),
             official_window_days=cast(int | None, args.official_window_days),
+            paired_delta_sd=cast(float | None, args.paired_delta_sd),
+            target_mde=cast(float, args.target_mde),
+            target_power=cast(float, args.target_power),
+            two_sided_alpha=cast(float, args.two_sided_alpha),
         )
     )
     print(
@@ -1590,6 +1741,104 @@ def _score_run_records(
     )
 
 
+def _ablation_delta_report(
+    run_records: Sequence[Mapping[str, Any]],
+    labels: tuple[OutcomeLabel, ...],
+    *,
+    cycle_id: str,
+    generated_at: datetime,
+    base_rate: float | None,
+) -> JsonRecord:
+    summaries = _score_run_records_by_model_ablation(
+        run_records,
+        labels,
+        base_rate=base_rate,
+    )
+    rows: list[JsonRecord] = []
+    grouped: dict[str, dict[str, ScoreSummary]] = defaultdict(dict)
+    for (model_id, ablation), summary in summaries.items():
+        grouped[model_id][ablation] = summary
+    for model_id, by_ablation in sorted(grouped.items()):
+        full_packet = by_ablation.get("full_packet")
+        metadata_only = by_ablation.get("metadata_only")
+        if full_packet is None or metadata_only is None:
+            continue
+        delta = full_packet.micro_brier - metadata_only.micro_brier
+        rows.append(
+            {
+                "model_id": model_id,
+                "full_packet_micro_brier": full_packet.micro_brier,
+                "metadata_only_micro_brier": metadata_only.micro_brier,
+                "full_packet_minus_metadata_only_micro_brier": delta,
+                "record_text_improves_brier": delta < 0,
+                "case_count": min(full_packet.case_count, metadata_only.case_count),
+                "prediction_unit_count": min(
+                    full_packet.unit_count,
+                    metadata_only.unit_count,
+                ),
+            }
+        )
+    return {
+        "schema_version": OFFICIAL_AGGREGATE_SCHEMA_VERSION,
+        "cycle_id": cycle_id,
+        "generated_at": _format_datetime(generated_at),
+        "comparison": "full_packet_minus_metadata_only_micro_brier",
+        "rows": rows,
+    }
+
+
+def _score_run_records_by_model_ablation(
+    run_records: Sequence[Mapping[str, Any]],
+    labels: tuple[OutcomeLabel, ...],
+    *,
+    base_rate: float | None,
+) -> dict[tuple[str, str], ScoreSummary]:
+    if not run_records:
+        return {}
+    labels_by_unit_id = {label.unit_id: label for label in labels}
+    effective_base_rate = (
+        _computed_base_rate(labels) if base_rate is None else base_rate
+    )
+
+    cases_by_key: dict[tuple[str, str], list[ScoringCase]] = defaultdict(list)
+    for record in run_records:
+        required_unit_ids = tuple(
+            _required_str_value(value) for value in _list(record, "required_unit_ids")
+        )
+        missing_labels = sorted(set(required_unit_ids) - set(labels_by_unit_id))
+        if missing_labels:
+            raise OfficialAggregationError(
+                f"labels missing for required units: {missing_labels}"
+            )
+        model_id = _record_model_id(record)
+        ablation = (
+            _optional_str(record, "ablation")
+            or _optional_str(record, "run_label")
+            or "full_packet"
+        )
+        parsed = parse_model_output(
+            _required_str(record, "raw_output"),
+            required_unit_ids=required_unit_ids,
+        )
+        cases_by_key[(model_id, ablation)].append(
+            ScoringCase(
+                case_id=_required_str(record, "case_id"),
+                candidate_id=_optional_str(record, "candidate_id"),
+                model_id=f"{model_id}::{ablation}",
+                related_family_id=_optional_str(record, "related_family_id"),
+                mdl_family_id=_optional_str(record, "mdl_family_id"),
+                parsed_output=parsed,
+                outcome_labels=tuple(
+                    labels_by_unit_id[unit_id] for unit_id in required_unit_ids
+                ),
+            )
+        )
+    return {
+        key: score_cases(tuple(cases), base_rate=effective_base_rate)
+        for key, cases in sorted(cases_by_key.items())
+    }
+
+
 def _official_bootstrap_inference(
     summaries: Sequence[ScoreSummary],
 ) -> BootstrapInferenceResult | None:
@@ -1696,6 +1945,8 @@ def _aggregate_run_card(
     accounting_records: Sequence[Mapping[str, Any]],
     cycle_power_record: Mapping[str, Any],
     baseline_artifacts: _BaselineAggregateArtifacts,
+    cycle_baseline_training_example_count: int,
+    ablation_delta_count: int,
     repeat_variance_report: Mapping[str, Any],
 ) -> JsonRecord:
     baseline_reference = _baseline_reference_summary(summaries)
@@ -1706,6 +1957,20 @@ def _aggregate_run_card(
     ]
     if baseline_artifacts.prediction_records:
         private_debug_outputs.append("baseline-predictions.jsonl")
+    public_outputs = [
+        "scores.json",
+        "unit-scores.jsonl",
+        "cycle-power.json",
+        "variance/repeat-sampling.json",
+        "report/leaderboard.json",
+        "report/leaderboard.csv",
+        "report/leaderboard.md",
+        "report/leaderboard.html",
+    ]
+    if cycle_baseline_training_example_count:
+        public_outputs.append("baseline-training-examples.jsonl")
+    if ablation_delta_count:
+        public_outputs.append("ablation-deltas.json")
     return {
         "schema_version": OFFICIAL_AGGREGATE_SCHEMA_VERSION,
         "cycle_id": config.cycle_id,
@@ -1738,6 +2003,21 @@ def _aggregate_run_card(
         "registry_model_keys": list(registry_model_keys),
         "expected_model_keys": list(expected_model_keys),
         "allow_incomplete_model_set": config.allow_incomplete_model_set,
+        "allow_no_baselines": config.allow_no_baselines,
+        "deferred_ablations": list(config.deferred_ablations),
+        "cycle_baseline_training_example_count": (
+            cycle_baseline_training_example_count
+        ),
+        "ablation_delta_count": ablation_delta_count,
+        "first_cycle_ablation_plan": {
+            "required_ablations": ["full_packet", "metadata_only"],
+            "deferred_ablations": ["judge_removed"],
+            "defer_reason": (
+                "judge_removed roughly doubles full-document model cost and is "
+                "deferred until budget sign-off; metadata_only remains the "
+                "required low-cost run-1 ablation."
+            ),
+        },
         "packet_token_budget": dict(packet_token_budget),
         "generated_at": _format_datetime(generated_at),
         "expected_matrix_rows": len(expected_rows),
@@ -1751,16 +2031,7 @@ def _aggregate_run_card(
         "repeat_variance_summary": [
             dict(row) for row in _repeat_variance_summary_rows(repeat_variance_report)
         ],
-        "public_outputs": [
-            "scores.json",
-            "unit-scores.jsonl",
-            "cycle-power.json",
-            "variance/repeat-sampling.json",
-            "report/leaderboard.json",
-            "report/leaderboard.csv",
-            "report/leaderboard.md",
-            "report/leaderboard.html",
-        ],
+        "public_outputs": public_outputs,
         "private_debug_outputs": private_debug_outputs,
         "notes": [
             "Raw per-case model outputs are kept under private-debug.",

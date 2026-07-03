@@ -41,7 +41,7 @@ on:
       model_keys:
         description: Comma-separated registry keys in provider:model_id form.
         required: true
-        default: google:gemini-3-flash-preview,openai:gpt-5.4-mini,anthropic:claude-sonnet-4-6
+        default: openai:gpt-5.4-mini,anthropic:claude-sonnet-4-6
         type: string
       cycle_series:
         description: Cadence classification for the aggregate cycle-power report.
