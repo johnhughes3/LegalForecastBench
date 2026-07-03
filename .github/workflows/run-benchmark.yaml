@@ -17,6 +17,11 @@ on:
         required: true
         default: manifests/pilot-2026-05-18-review-scored-12-corrected.run-inputs.json
         type: string
+      labels_uri:
+        description: s3:// URI, manifests/ key, or checked-out JSONL path for locked labels.
+        required: true
+        default: manifests/pilot-2026-05-18-review-scored-12-corrected.labels.jsonl
+        type: string
       ablation:
         description: Packet ablation to evaluate.
         required: true
@@ -38,6 +43,46 @@ on:
         required: true
         default: google:gemini-3-flash-preview,openai:gpt-5.4-mini,anthropic:claude-sonnet-4-6
         type: string
+      cycle_series:
+        description: Cadence classification for the aggregate cycle-power report.
+        required: true
+        default: pilot
+        type: choice
+        options:
+          - pilot
+          - rapid
+          - official
+          - annual_aggregate
+      clean_motion_count:
+        description: Clean motion count for the aggregate cycle-power report.
+        required: true
+        default: "25"
+        type: string
+      prediction_unit_count:
+        description: Prediction-unit count for the aggregate cycle-power report.
+        required: true
+        default: "1"
+        type: string
+      elapsed_days:
+        description: Optional elapsed days for rapid-cycle power classification.
+        required: false
+        default: ""
+        type: string
+      official_window_days:
+        description: Optional official window length in days.
+        required: false
+        default: ""
+        type: string
+      repeat_sample_case_ids:
+        description: Optional comma-separated case IDs to run with repeat_count for within-model variance measurement.
+        required: false
+        default: ""
+        type: string
+      repeat_count:
+        description: Independent provider calls for each selected repeat-sample case.
+        required: true
+        default: "1"
+        type: string
       max_parallel:
         description: Maximum concurrent case jobs.
         required: true
@@ -52,6 +97,11 @@ on:
         description: Retention for non-sensitive per-case GitHub artifacts.
         required: true
         default: "14"
+        type: string
+      max_projected_model_cost_usd:
+        description: Optional hard cap for projected model API spend before the matrix fans out.
+        required: false
+        default: ""
         type: string
 
 permissions:
@@ -76,6 +126,7 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
       max_parallel: ${{ steps.validate.outputs.max_parallel }}
       model_count: ${{ steps.matrix.outputs.model_count }}
+      projected_model_cost_usd: ${{ steps.matrix.outputs.projected_model_cost_usd }}
       release_sha: ${{ steps.validate.outputs.release_sha }}
     env:
       AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
@@ -96,13 +147,20 @@ jobs:
         shell: bash
         env:
           ARTIFACT_RETENTION_DAYS_INPUT: ${{ inputs.artifact_retention_days }}
+          CLEAN_MOTION_COUNT_INPUT: ${{ inputs.clean_motion_count }}
           DRY_RUN_INPUT: ${{ inputs.dry_run }}
+          ELAPSED_DAYS_INPUT: ${{ inputs.elapsed_days }}
           HAS_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
           HAS_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY != '' }}
           HAS_OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY != '' }}
+          LABELS_URI: ${{ inputs.labels_uri }}
           LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
           LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
+          MAX_PROJECTED_MODEL_COST_USD_INPUT: ${{ inputs.max_projected_model_cost_usd }}
           MAX_PARALLEL_INPUT: ${{ inputs.max_parallel }}
+          OFFICIAL_WINDOW_DAYS_INPUT: ${{ inputs.official_window_days }}
+          PREDICTION_UNIT_COUNT_INPUT: ${{ inputs.prediction_unit_count }}
+          REPEAT_COUNT_INPUT: ${{ inputs.repeat_count }}
           RELEASE_SHA_INPUT: ${{ inputs.release_sha }}
         run: |
           set -euo pipefail
@@ -117,6 +175,13 @@ jobs:
               exit 1
               ;;
           esac
+          case "${LABELS_URI}" in
+            s3://*|manifests/*|./*|/*|[A-Za-z0-9._-]*.jsonl) ;;
+            *)
+              echo "labels_uri must be s3://, manifests/, or a JSONL file path." >&2
+              exit 1
+              ;;
+          esac
           case "${MODEL_REGISTRY_URI}" in
             s3://*|manifests/*|model_registries/*.json|./*|/*|[A-Za-z0-9._/-]*.json) ;;
             *)
@@ -127,6 +192,12 @@ jobs:
           case "${RUN_INPUT_MANIFEST_URI}" in
             source-documents/*|extracted-text/*|audit-bundles/*|withdrawn/*|quarantine/*)
               echo "run_input_manifest_uri must not point at private packet prefixes." >&2
+              exit 1
+              ;;
+          esac
+          case "${LABELS_URI}" in
+            source-documents/*|extracted-text/*|audit-bundles/*|withdrawn/*|quarantine/*)
+              echo "labels_uri must not point at private packet prefixes." >&2
               exit 1
               ;;
           esac
@@ -188,6 +259,32 @@ jobs:
             echo "artifact_retention_days must be an integer from 1 through 90." >&2
             exit 1
           fi
+          if ! [[ "${CLEAN_MOTION_COUNT_INPUT}" =~ ^[0-9]+$ ]]; then
+            echo "clean_motion_count must be a non-negative integer." >&2
+            exit 1
+          fi
+          if ! [[ "${PREDICTION_UNIT_COUNT_INPUT}" =~ ^[0-9]+$ ]]; then
+            echo "prediction_unit_count must be a non-negative integer." >&2
+            exit 1
+          fi
+          if [[ -n "${ELAPSED_DAYS_INPUT//[[:space:]]/}" ]] && ! [[ "${ELAPSED_DAYS_INPUT}" =~ ^[0-9]+$ ]]; then
+            echo "elapsed_days must be blank or a non-negative integer." >&2
+            exit 1
+          fi
+          if [[ -n "${OFFICIAL_WINDOW_DAYS_INPUT//[[:space:]]/}" ]]; then
+            if ! [[ "${OFFICIAL_WINDOW_DAYS_INPUT}" =~ ^[0-9]+$ ]] || [[ "${OFFICIAL_WINDOW_DAYS_INPUT}" == "0" ]]; then
+              echo "official_window_days must be blank or a positive integer." >&2
+              exit 1
+            fi
+          fi
+          if ! [[ "${REPEAT_COUNT_INPUT}" =~ ^[0-9]+$ ]] || (( REPEAT_COUNT_INPUT < 1 || REPEAT_COUNT_INPUT > 10 )); then
+            echo "repeat_count must be an integer from 1 through 10." >&2
+            exit 1
+          fi
+          if [[ -n "${MAX_PROJECTED_MODEL_COST_USD_INPUT//[[:space:]]/}" ]] && ! [[ "${MAX_PROJECTED_MODEL_COST_USD_INPUT}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+            echo "max_projected_model_cost_usd must be a non-negative decimal amount." >&2
+            exit 1
+          fi
           git fetch origin main --prune
           if [[ -z "${RELEASE_SHA_INPUT}" ]]; then
             release_sha="$(git rev-parse --verify "origin/main^{commit}")"
@@ -205,7 +302,7 @@ jobs:
           } >> "${GITHUB_OUTPUT}"
 
       - name: Configure AWS OIDC credentials
-        if: ${{ startsWith(inputs.run_input_manifest_uri, 's3://') || startsWith(inputs.run_input_manifest_uri, 'manifests/') || startsWith(inputs.model_registry_uri, 's3://') || startsWith(inputs.model_registry_uri, 'manifests/') }}
+        if: ${{ startsWith(inputs.run_input_manifest_uri, 's3://') || startsWith(inputs.run_input_manifest_uri, 'manifests/') || startsWith(inputs.model_registry_uri, 's3://') || startsWith(inputs.model_registry_uri, 'manifests/') || startsWith(inputs.labels_uri, 's3://') || startsWith(inputs.labels_uri, 'manifests/') }}
         uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -259,16 +356,22 @@ jobs:
           ABLATION: ${{ inputs.ablation }}
           CYCLE_ID: ${{ inputs.cycle_id }}
           MATRIX_LIMIT: "256"
+          MAX_PROJECTED_MODEL_COST_USD: ${{ inputs.max_projected_model_cost_usd }}
           MODEL_KEYS: ${{ inputs.model_keys }}
           MODEL_REGISTRY_PATH: /tmp/lfb-model-registry.json
+          REPEAT_COUNT: ${{ inputs.repeat_count }}
+          REPEAT_SAMPLE_CASE_IDS: ${{ inputs.repeat_sample_case_ids }}
           RUN_INPUT_MANIFEST_PATH: /tmp/lfb-run-inputs.json
         run: |
           set -euo pipefail
           python - <<'PY'
           import json
+          import math
           import os
           import re
           import sys
+
+          PRICE_UNITS_PER_TOKEN = 1_000_000
 
           with open(os.environ["RUN_INPUT_MANIFEST_PATH"], encoding="utf-8") as handle:
               manifest = json.load(handle)
@@ -282,7 +385,7 @@ jobs:
           if not isinstance(registry_records, list):
               raise SystemExit("model registry must contain a JSON array")
 
-          registry_keys = set()
+          registry_by_key = {}
           for record in registry_records:
               if not isinstance(record, dict):
                   raise SystemExit("model registry entries must be objects")
@@ -290,7 +393,8 @@ jobs:
               model_id = record.get("model_id")
               if not isinstance(provider, str) or not isinstance(model_id, str):
                   raise SystemExit("model registry entries require provider and model_id")
-              registry_keys.add(f"{provider}:{model_id}")
+              registry_key = f"{provider}:{model_id}"
+              registry_by_key[registry_key] = record
 
           requested_model_keys = [
               key.strip()
@@ -309,12 +413,69 @@ jobs:
           if duplicate_model_keys:
               raise SystemExit(f"duplicate model_keys: {duplicate_model_keys}")
           missing_model_keys = [
-              key for key in requested_model_keys if key not in registry_keys
+              key for key in requested_model_keys if key not in registry_by_key
           ]
           if missing_model_keys:
               raise SystemExit(f"model_keys missing from registry: {missing_model_keys}")
+          repeat_sample_case_ids = {
+              case_id.strip()
+              for case_id in os.environ["REPEAT_SAMPLE_CASE_IDS"].split(",")
+              if case_id.strip()
+          }
+          repeat_count = int(os.environ["REPEAT_COUNT"])
+
+          def packet_input_tokens(packet):
+              for field_name in (
+                  "estimated_input_tokens",
+                  "input_tokens",
+                  "prompt_tokens",
+                  "estimated_prompt_tokens",
+                  "packet_token_count",
+                  "token_count",
+              ):
+                  value = packet.get(field_name)
+                  if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                      return value
+              packet_size_bytes = packet.get("packet_size_bytes")
+              if isinstance(packet_size_bytes, int) and packet_size_bytes >= 0:
+                  return math.ceil(packet_size_bytes / 4)
+              raise SystemExit(
+                  "each matrix row requires packet token counts or packet_size_bytes "
+                  "for cost projection"
+              )
+
+          def projected_cost_for_row(*, input_tokens, registry_record):
+              input_price = required_nonnegative_number(
+                  registry_record,
+                  "input_token_price",
+              )
+              output_price = required_nonnegative_number(
+                  registry_record,
+                  "output_token_price",
+              )
+              max_output_tokens = required_nonnegative_int(
+                  registry_record,
+                  "max_output_tokens",
+              )
+              return (
+                  (input_tokens * input_price)
+                  + (max_output_tokens * output_price)
+              ) / PRICE_UNITS_PER_TOKEN
+
+          def required_nonnegative_number(record, field_name):
+              value = record.get(field_name)
+              if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0:
+                  raise SystemExit(f"model registry {field_name} must be non-negative")
+              return float(value)
+
+          def required_nonnegative_int(record, field_name):
+              value = record.get(field_name)
+              if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                  raise SystemExit(f"model registry {field_name} must be a non-negative integer")
+              return value
 
           include = []
+          projected_model_cost = 0.0
           seen_packet_rows = set()
           for packet in packets:
               if not isinstance(packet, dict):
@@ -335,8 +496,13 @@ jobs:
                   raise SystemExit(f"duplicate packet row for ablation: {case_id}")
               if not isinstance(packet_object_key, str) or not packet_object_key.startswith("model-packets/"):
                   raise SystemExit("each matrix row requires model-packets/ packet_object_key")
+              input_tokens = packet_input_tokens(packet)
               seen_packet_rows.add(packet_row_key)
               for model_key in requested_model_keys:
+                  projected_model_cost += projected_cost_for_row(
+                      input_tokens=input_tokens,
+                      registry_record=registry_by_key[model_key],
+                  )
                   include.append(
                       {
                           "case_id": case_id,
@@ -344,6 +510,7 @@ jobs:
                           "packet_object_key": packet_object_key,
                           "model_key": model_key,
                           "model_key_slug": re.sub(r"[^A-Za-z0-9._-]+", "-", model_key).strip("-"),
+                          "repeat_count": repeat_count if case_id in repeat_sample_case_ids else 1,
                       }
                   )
 
@@ -352,10 +519,19 @@ jobs:
               raise SystemExit("run-input manifest produced an empty matrix")
           if len(include) > limit:
               raise SystemExit(f"matrix has {len(include)} rows; GitHub limit is {limit}")
+          budget_raw = os.environ.get("MAX_PROJECTED_MODEL_COST_USD", "").strip()
+          if budget_raw:
+              budget = float(budget_raw)
+              if projected_model_cost > budget:
+                  raise SystemExit(
+                      f"projected model cost ${projected_model_cost:.2f} exceeds "
+                      f"budget ${budget:.2f}"
+                  )
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"matrix={json.dumps({'include': include}, separators=(',', ':'))}\n")
               output.write(f"case_count={len(seen_packet_rows)}\n")
               output.write(f"model_count={len(requested_model_keys)}\n")
+              output.write(f"projected_model_cost_usd={projected_model_cost:.6f}\n")
           PY
 
   run-case:
@@ -462,6 +638,8 @@ jobs:
           uv run legalforecast eval run-case \
             --manifest "${run_input_manifest_for_cli}" \
             --packet-store-root "s3://${LFB_PACKET_BUCKET}" \
+            --results-store-root "s3://${LFB_RESULTS_BUCKET}/per-case/${CYCLE_ID}" \
+            --repeat-count "${REPEAT_COUNT}" \
             --case-id "${CASE_ID}" \
             --ablation "${ABLATION}" \
             --output-dir "tmp/official-eval/${CASE_ID}/${ABLATION}/${MODEL_KEY_SLUG}" \
@@ -472,12 +650,14 @@ jobs:
           ABLATION: ${{ matrix.ablation }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CASE_ID: ${{ matrix.case_id }}
+          CYCLE_ID: ${{ inputs.cycle_id }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
           LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
           MODEL_KEY: ${{ matrix.model_key }}
           MODEL_KEY_SLUG: ${{ matrix.model_key_slug }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          REPEAT_COUNT: ${{ matrix.repeat_count }}
 
       - name: Upload per-case artifacts
         if: ${{ !inputs.dry_run && always() }}
@@ -487,3 +667,131 @@ jobs:
           path: tmp/official-eval/${{ matrix.case_id }}/${{ matrix.ablation }}/${{ matrix.model_key_slug }}
           if-no-files-found: warn
           retention-days: ${{ fromJSON(needs.build-matrix.outputs.artifact_retention_days) }}
+
+  aggregate-results:
+    name: Aggregate official results
+    needs:
+      - build-matrix
+      - run-case
+    if: ${{ !inputs.dry_run && needs.run-case.result == 'success' }}
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    environment: legalforecastbench-official-eval
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ABLATION: ${{ inputs.ablation }}
+      ARTIFACT_RETENTION_DAYS: ${{ needs.build-matrix.outputs.artifact_retention_days }}
+      AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      CLEAN_MOTION_COUNT: ${{ inputs.clean_motion_count }}
+      CYCLE_ID: ${{ inputs.cycle_id }}
+      CYCLE_SERIES: ${{ inputs.cycle_series }}
+      ELAPSED_DAYS: ${{ inputs.elapsed_days }}
+      LABELS_URI: ${{ inputs.labels_uri }}
+      LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+      LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
+      MODEL_KEYS: ${{ inputs.model_keys }}
+      MODEL_REGISTRY_URI: ${{ inputs.model_registry_uri }}
+      OFFICIAL_WINDOW_DAYS: ${{ inputs.official_window_days }}
+      PREDICTION_UNIT_COUNT: ${{ inputs.prediction_unit_count }}
+      RUN_INPUT_MANIFEST_URI: ${{ inputs.run_input_manifest_uri }}
+    steps:
+      - name: Checkout trusted release
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.build-matrix.outputs.release_sha }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Configure AWS OIDC credentials
+        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: lfb-official-aggregate-${{ github.run_id }}
+          role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
+
+      - name: Download aggregate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          download_input() {
+            local uri="$1"
+            local destination="$2"
+            case "${uri}" in
+              s3://*)
+                aws s3 cp "${uri}" "${destination}" --only-show-errors
+                ;;
+              manifests/*)
+                if [[ -z "${LFB_RESULTS_BUCKET:-}" ]]; then
+                  echo "LFB_RESULTS_BUCKET is required for manifests/ inputs." >&2
+                  exit 1
+                fi
+                aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${uri}" "${destination}" --only-show-errors
+                ;;
+              *)
+                cp "${uri}" "${destination}"
+                ;;
+            esac
+          }
+          download_input "${RUN_INPUT_MANIFEST_URI}" /tmp/lfb-run-inputs.json
+          download_input "${MODEL_REGISTRY_URI}" /tmp/lfb-model-registry.json
+          download_input "${LABELS_URI}" /tmp/lfb-labels.jsonl
+
+      - name: Download per-case artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: official-eval-*
+          path: /tmp/lfb-per-case-artifacts
+
+      - name: Aggregate official bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          model_key_args=()
+          IFS=',' read -ra requested_provider_keys <<< "${MODEL_KEYS}"
+          for raw_key in "${requested_provider_keys[@]}"; do
+            key="${raw_key//[[:space:]]/}"
+            [[ -z "${key}" ]] && continue
+            model_key_args+=(--model-key "${key}")
+          done
+          optional_args=()
+          if [[ -n "${ELAPSED_DAYS//[[:space:]]/}" ]]; then
+            optional_args+=(--elapsed-days "${ELAPSED_DAYS}")
+          fi
+          if [[ -n "${OFFICIAL_WINDOW_DAYS//[[:space:]]/}" ]]; then
+            optional_args+=(--official-window-days "${OFFICIAL_WINDOW_DAYS}")
+          fi
+          uv run python -m legalforecast.publication.official_aggregate \
+            --per-case-dir /tmp/lfb-per-case-artifacts \
+            --run-input-manifest /tmp/lfb-run-inputs.json \
+            --model-registry /tmp/lfb-model-registry.json \
+            --labels /tmp/lfb-labels.jsonl \
+            --output-dir tmp/official-aggregate \
+            --cycle-id "${CYCLE_ID}" \
+            --cycle-series "${CYCLE_SERIES}" \
+            --clean-motion-count "${CLEAN_MOTION_COUNT}" \
+            --prediction-unit-count "${PREDICTION_UNIT_COUNT}" \
+            --ablation "${ABLATION}" \
+            "${model_key_args[@]}" \
+            "${optional_args[@]}"
+
+      - name: Publish aggregate bundle to S3
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws s3 sync \
+            tmp/official-aggregate/public \
+            "s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/${ABLATION}/" \
+            --only-show-errors
+
+      - name: Upload aggregate artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: official-aggregate-${{ inputs.cycle_id }}-${{ inputs.ablation }}
+          path: tmp/official-aggregate
+          if-no-files-found: error
+          retention-days: ${{ fromJSON(env.ARTIFACT_RETENTION_DAYS) }}
