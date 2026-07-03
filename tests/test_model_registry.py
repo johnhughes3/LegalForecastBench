@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
@@ -11,7 +11,12 @@ from legalforecast.evals import (
     dump_model_registry,
     load_model_registry,
 )
-from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast.evals.model_registry import (
+    ModelRegistryEntry,
+    earliest_buffered_decision_date,
+    latest_release_timestamp,
+    require_official_registry_entries,
+)
 from legalforecast.selection import TrainingCutoffStatus
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,6 +44,12 @@ def _registry_record() -> dict[str, object]:
         "output_token_price": 1.0,
         "known_cutoff_publicity_caveats": ["no stable public cutoff"],
     }
+
+
+def _entry(**overrides: object) -> ModelRegistryEntry:
+    record = _registry_record()
+    record.update(overrides)
+    return ModelRegistryEntry.from_record(record)
 
 
 def test_model_registry_entry_round_trips_plan_fields() -> None:
@@ -122,3 +133,70 @@ def test_pilot_registry_contains_requested_model_matrix() -> None:
         assert entry.tool_policy is ToolPolicy.CONTROLLED_DOCKET_TOOL_ONLY
         assert entry.input_token_price > 0
         assert entry.output_token_price > 0
+
+
+def test_latest_release_timestamp_uses_latest_official_model_release() -> None:
+    older = _entry(
+        provider="older-provider",
+        model_id="older-model",
+        release_timestamp="2026-05-14T09:00:00Z",
+    )
+    newer = _entry(
+        provider="newer-provider",
+        model_id="newer-model",
+        release_timestamp="2026-05-16T03:30:00Z",
+    )
+
+    assert latest_release_timestamp((older, newer)) == datetime(
+        2026,
+        5,
+        16,
+        3,
+        30,
+        tzinfo=UTC,
+    )
+
+
+def test_latest_release_timestamp_rejects_missing_release_anchor() -> None:
+    missing = _entry(
+        provider="missing-provider",
+        model_id="missing-model",
+        release_timestamp=None,
+    )
+
+    with pytest.raises(ValueError, match="missing-provider:missing-model"):
+        latest_release_timestamp((missing,))
+
+
+def test_earliest_buffered_decision_date_skips_release_and_buffer_days() -> None:
+    late_utc_release = _entry(release_timestamp="2026-05-14T23:59:59Z")
+
+    assert earliest_buffered_decision_date((late_utc_release,)) == date(2026, 5, 16)
+
+
+def test_official_registry_rejects_mutable_preview_or_latest_aliases() -> None:
+    preview = _entry(
+        provider="preview-provider",
+        model_id="model-preview",
+        model_version_or_snapshot="model-preview",
+    )
+    latest = _entry(
+        provider="latest-provider",
+        model_id="model-latest",
+        model_version_or_snapshot="model-latest",
+    )
+
+    with pytest.raises(ValueError, match="preview-provider:model-preview"):
+        require_official_registry_entries((preview,))
+    with pytest.raises(ValueError, match="latest-provider:model-latest"):
+        require_official_registry_entries((latest,))
+
+
+def test_official_registry_accepts_dated_preview_snapshot() -> None:
+    dated_preview = _entry(
+        provider="preview-provider",
+        model_id="model-preview",
+        model_version_or_snapshot="model-preview-2026-05-14",
+    )
+
+    assert require_official_registry_entries((dated_preview,)) == (dated_preview,)
