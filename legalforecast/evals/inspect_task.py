@@ -352,7 +352,6 @@ def render_model_prompt(packet: ModelPacket, *, use_docket_tool: bool = True) ->
             "count": unit.count,
             "claim_name": unit.claim_name,
             "defendant_group": unit.defendant_group,
-            "challenge_scope": unit.challenge_scope.value,
         }
         for unit in packet.prediction_units
         if unit.should_score

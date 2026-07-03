@@ -45,6 +45,16 @@ def test_render_model_prompt_exposes_packet_but_not_excluded_decision() -> None:
     assert "read_docket_entry(entry_number)" in prompt
 
 
+def test_render_model_prompt_omits_challenge_scope_label_leak() -> None:
+    packet = _model_packet(challenge_scope=ChallengeScope.PARTIAL_THEORY_ONLY)
+
+    prompt = render_model_prompt(packet)
+    payload = json.loads(prompt)
+
+    assert "challenge_scope" not in payload["prediction_units"][0]
+    assert ChallengeScope.PARTIAL_THEORY_ONLY.value not in prompt
+
+
 def test_no_tool_run_mode_has_distinct_label_and_empty_tool_prompt() -> None:
     fixture = get_mock_model_output("mock_calibrated_predictions")
     samples = build_inspect_samples(
@@ -161,7 +171,7 @@ def test_sample_rejects_packets_without_controlled_docket_entries() -> None:
         sample.build_docket_tool()
 
 
-def _model_packet():
+def _model_packet(*, challenge_scope: ChallengeScope = ChallengeScope.ENTIRE_CLAIM):
     return build_model_packet(
         case_packet=CasePacketSchema(
             candidate_id="cand-1",
@@ -182,7 +192,7 @@ def _model_packet():
                 ),
             ),
         ),
-        prediction_units=(_unit(),),
+        prediction_units=(_unit(challenge_scope=challenge_scope),),
         texts=(
             PacketText(source_document_id="complaint", text="complaint text"),
             PacketText(source_document_id="mtd-memo", text="motion text"),
@@ -218,14 +228,16 @@ def _document(
     )
 
 
-def _unit() -> PredictionUnit:
+def _unit(
+    *, challenge_scope: ChallengeScope = ChallengeScope.ENTIRE_CLAIM
+) -> PredictionUnit:
     return PredictionUnit(
         unit_id="count_i_issuer",
         count="I",
         claim_name="Section 10(b)",
         defendant_group="Issuer",
         challenged_by_motion=True,
-        challenge_scope=ChallengeScope.ENTIRE_CLAIM,
+        challenge_scope=challenge_scope,
         unit_confidence=0.95,
         source_citations=(SourceCitation(document_id="complaint", page=1),),
     )
