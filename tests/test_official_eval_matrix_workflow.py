@@ -185,7 +185,25 @@ def test_official_eval_matrix_workflow_aggregates_after_matrix_success() -> None
     assert "--run-input-manifest /tmp/lfb-run-inputs.json" in WORKFLOW
     assert "--model-registry /tmp/lfb-model-registry.json" in WORKFLOW
     assert "--labels /tmp/lfb-labels.jsonl" in WORKFLOW
-    assert "--allow-no-baselines" in WORKFLOW
+    # The baseline bypass is a dispatch-time choice, not a hardcoded flag: the
+    # workflow declares an allow_no_baselines input (default true for run-1) and
+    # the aggregate step only forwards --allow-no-baselines when that input is set.
+    assert "allow_no_baselines:" in WORKFLOW
+    assert "ALLOW_NO_BASELINES: ${{ inputs.allow_no_baselines }}" in WORKFLOW
+    assert 'if [[ "${ALLOW_NO_BASELINES}" == "true" ]]; then' in WORKFLOW
+    assert "optional_args+=(--allow-no-baselines)" in WORKFLOW
+    # The hardcoded, unconditional flag must be gone.
+    assert "\n            --allow-no-baselines \\\n" not in WORKFLOW
+    # A frozen baseline corpus can be supplied at dispatch without a workflow edit.
+    assert "baseline_training_examples_uri:" in WORKFLOW
+    assert (
+        "BASELINE_TRAINING_EXAMPLES_URI: ${{ inputs.baseline_training_examples_uri }}"
+        in WORKFLOW
+    )
+    assert (
+        "optional_args+=(--baseline-training-examples /tmp/lfb-baseline-training.jsonl)"
+        in WORKFLOW
+    )
     assert '--deferred-ablation "judge_removed"' in WORKFLOW
     assert 'model_key_args+=(--model-key "${key}")' in WORKFLOW
     assert (

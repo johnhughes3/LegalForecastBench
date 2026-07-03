@@ -364,15 +364,49 @@ def check_v2_4() -> tuple[bool, str]:
 
 
 def check_v2_5() -> tuple[bool, str]:
+    # Intent: aggregation fails loud without baselines unless the bypass is an
+    # explicit, dispatch-time override. Require both halves: (1) the aggregation
+    # library still raises when baselines are missing and allow_no_baselines is
+    # not set, and (2) the official workflow exposes the override as a
+    # workflow_dispatch INPUT and forwards --allow-no-baselines conditionally on
+    # it, rather than hardcoding the flag unconditionally.
     text = (PACKAGE / "publication" / "official_aggregate.py").read_text(
         encoding="utf-8"
     )
-    ok = bool(re.search(r"allow[_-]no[_-]baselines", text))
-    return ok, (
-        "aggregation fails loud without baselines unless explicitly overridden"
-        if ok
-        else "aggregation silently proceeds with zero baseline rows"
+    library_guard = bool(
+        re.search(r"allow_no_baselines", text)
+        and re.search(r"not\s+config\.allow_no_baselines", text)
     )
+    workflow = (REPO / ".github" / "workflows" / "run-benchmark.yaml").read_text(
+        encoding="utf-8"
+    )
+    has_input = "allow_no_baselines:" in workflow and (
+        "${{ inputs.allow_no_baselines }}" in workflow
+    )
+    conditional_flag = (
+        '[[ "${ALLOW_NO_BASELINES}" == "true" ]]' in workflow
+        and "optional_args+=(--allow-no-baselines)" in workflow
+    )
+    # The old unconditional hardcoded flag must be gone from the aggregate step.
+    hardcoded = "\n            --allow-no-baselines \\\n" in workflow
+    ok = library_guard and has_input and conditional_flag and not hardcoded
+    if ok:
+        detail = (
+            "aggregation fails loud without baselines unless the allow_no_baselines"
+            " workflow input explicitly overrides it"
+        )
+    else:
+        missing = []
+        if not library_guard:
+            missing.append("library allow_no_baselines guard")
+        if not has_input:
+            missing.append("workflow allow_no_baselines input")
+        if not conditional_flag:
+            missing.append("conditional --allow-no-baselines forwarding")
+        if hardcoded:
+            missing.append("hardcoded --allow-no-baselines still present")
+        detail = f"baseline override is not a dispatch-time input: {missing}"
+    return ok, detail
 
 
 def check_v2_6() -> tuple[bool, str]:
