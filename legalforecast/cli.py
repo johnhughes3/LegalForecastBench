@@ -32,7 +32,9 @@ from legalforecast.evals.inspect_task import (
 )
 from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
+    earliest_buffered_decision_date,
     load_model_registry,
+    require_official_registry_entries,
 )
 from legalforecast.evals.output_parser import (
     ParserIssueCode,
@@ -562,6 +564,16 @@ def _add_eval_run_case_arguments(parser: argparse.ArgumentParser) -> None:
         "--results-store-root",
         help="Optional local root, file:// root, or s3:// root for safe outputs.",
     )
+    parser.add_argument(
+        "--repeat-count",
+        type=int,
+        default=1,
+        help=(
+            "Number of independent provider calls to run for this case/model row. "
+            "Use values greater than 1 only for a pre-budgeted repeat-sampling "
+            "subset."
+        ),
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--solver-id", default="offline:fixture")
     parser.add_argument(
@@ -1016,6 +1028,14 @@ def _add_acquisition_plan_packet_inputs_arguments(
         ),
     )
     parser.add_argument(
+        "--model-registry",
+        type=Path,
+        help=(
+            "Optional frozen model registry. When supplied, plan-packet-inputs "
+            "enforces the buffered post-release decision window for official runs."
+        ),
+    )
+    parser.add_argument(
         "--raw-html-dir",
         type=Path,
         required=True,
@@ -1050,6 +1070,11 @@ def _add_acquisition_plan_packet_inputs_arguments(
         "--extracted-texts-output",
         type=Path,
         help="Output extracted_texts.jsonl for private-store export.",
+    )
+    parser.add_argument(
+        "--exclusion-ledger-output",
+        type=Path,
+        help="Output exclusion-ledger.jsonl for packet-time leakage/date gates.",
     )
     parser.add_argument(
         "--generated-at",
@@ -1490,6 +1515,7 @@ def _cmd_eval_run_case(args: argparse.Namespace) -> int:
             mock_output=mock_output,
             packet_store_root=cast(str | None, args.packet_store_root),
             results_store_root=cast(str | None, args.results_store_root),
+            repeat_count=cast(int, args.repeat_count),
             solver_id=cast(str, args.solver_id),
             backend=backend,
             model_registry_uri=cast(str | None, args.model_registry),
@@ -2547,6 +2573,11 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         "extracted_texts_output",
         output_root / "extracted_texts.jsonl",
     )
+    exclusion_ledger_path = _acquisition_path(
+        args,
+        "exclusion_ledger_output",
+        output_root / "exclusion-ledger.jsonl",
+    )
     records = _read_records(selection_path)
     dry_run = _acquisition_dry_run(args)
     if dry_run:
@@ -2566,6 +2597,14 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             if cast(str | None, args.generated_at)
             else datetime.now(UTC)
         )
+        model_registry_path = cast(Path | None, args.model_registry)
+        decision_filed_on_or_after = None
+        if model_registry_path is not None:
+            registry = load_model_registry(model_registry_path)
+            official_entries = require_official_registry_entries(registry.entries)
+            decision_filed_on_or_after = earliest_buffered_decision_date(
+                official_entries
+            )
         plan = plan_packet_build_inputs(
             selection_records=records,
             download_records=_read_records(download_manifest_path),
@@ -2578,11 +2617,13 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             generated_at=generated_at,
             search_query=cast(str, args.search_query),
             search_window=cast(str, args.search_window),
+            decision_filed_on_or_after=decision_filed_on_or_after,
         )
         _write_jsonl(packet_build_input_path, plan.packet_build_records)
         _write_jsonl(document_manifest_path, plan.document_manifest_records)
         _write_jsonl(candidate_manifest_path, plan.candidate_manifest_records)
         _write_jsonl(extracted_texts_path, plan.extracted_text_records)
+        _write_jsonl(exclusion_ledger_path, plan.exclusion_ledger_records)
     _write_acquisition_completion(
         args,
         stage="plan-packet-inputs",
@@ -2598,6 +2639,7 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             document_manifest_path,
             candidate_manifest_path,
             extracted_texts_path,
+            exclusion_ledger_path,
         ),
         record_count=len(records),
         dry_run=dry_run,
@@ -3140,6 +3182,12 @@ def _model_packet_assembly(
     *,
     ablation: PacketAblation,
 ) -> ModelPacketAssembly:
+    exclusion_entries = _optional_record_sequence(record, "exclusion_ledger_entries")
+    if exclusion_entries:
+        raise CommandError(
+            "packet-build input contains exclusion-ledger entries; excluded "
+            "candidates must not be assembled into model-visible packets"
+        )
     parsed_documents = tuple(
         _parsed_markdown_document(item)
         for item in _optional_record_sequence(record, "parsed_documents")

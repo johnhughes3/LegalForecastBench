@@ -20,7 +20,11 @@ from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.labeling.ensemble import (
     DEFAULT_HIGH_CONFIDENCE_THRESHOLD,
+    EnsembleDecisionStatus,
     EnsembleLabelVote,
+    EnsembleRunResult,
+    audit_ensemble_labels,
+    enforce_label_audit_acceptance,
     evaluate_labeling_ensemble,
 )
 from legalforecast.labeling.label_outcomes import (
@@ -33,8 +37,19 @@ from legalforecast.labeling.label_outcomes import (
     UnitResolution,
     label_stage_b_outcomes,
 )
+from legalforecast.labeling.lawyer_review import (
+    LawyerReviewPacket,
+    ReviewMaterial,
+    ReviewMaterialKind,
+)
+from legalforecast.selection.exclusion_ledger import (
+    ExclusionLedgerEntry,
+    ExclusionReason,
+    ExclusionStage,
+)
 from legalforecast.unitization.construct_units import (
     StageAConstructionInput,
+    StageAConstructionResult,
     StageADocumentRole,
     StageASourceDocument,
     StageAUnitSeed,
@@ -195,7 +210,7 @@ def llm_unitize_cases(
                     "case_id": _required_str(selection, "case_id"),
                     "model_key": registry_entry.registry_key,
                     "model_registry_sha256": model_registry_sha256 or "unrecorded",
-                    "human_verified": False,
+                    "human_verified": _unitization_human_verified(result),
                     "unit_count": len(result.units),
                     "scorable_unit_count": sum(
                         unit.should_score for unit in result.units
@@ -308,6 +323,15 @@ def llm_label_cases(
                 high_confidence_threshold=high_confidence_threshold,
                 required_model_count=len(registry_entries),
             )
+            lawyer_review_packets = _lawyer_review_packets(
+                candidate_id=candidate_id,
+                ensemble=ensemble,
+            )
+            if lawyer_review_packets:
+                raise LlmPipelineError(
+                    "LLM labels require lawyer adjudication for units: "
+                    f"{[packet.unit_id for packet in lawyer_review_packets]}"
+                )
             selected_labels = _selected_labels(
                 labels_by_model,
                 votes,
@@ -328,7 +352,13 @@ def llm_label_cases(
                     "case_id": _required_str(selection, "case_id"),
                     "model_keys": [entry.registry_key for entry in registry_entries],
                     "model_registry_sha256": model_registry_sha256 or "unrecorded",
-                    "human_verified": False,
+                    "human_verified": _labeling_human_verified(
+                        lawyer_review_packets,
+                    ),
+                    "lawyer_review_packets": [
+                        packet.to_record() for packet in lawyer_review_packets
+                    ],
+                    "label_audit_gate": _planned_label_audit_gate(ensemble),
                     "consensus_policy": consensus_policy.value,
                     "label_count": len(selected_labels),
                     "unit_count": len(frozen_units),
@@ -702,16 +732,9 @@ def _stage_a_seed(record: Mapping[str, Any]) -> StageAUnitSeed:
             record.get("source_document_ids"),
             "source_document_ids",
         ),
-        challenged_by_motion=_optional_bool(
-            record,
-            "challenged_by_motion",
-            default=True,
-        ),
-        challenge_scope=ChallengeScope(
-            _optional_str(record, "challenge_scope")
-            or ChallengeScope.ENTIRE_CLAIM.value
-        ),
-        unit_confidence=_optional_float(record, "unit_confidence", default=0.8),
+        challenged_by_motion=_required_bool(record, "challenged_by_motion"),
+        challenge_scope=ChallengeScope(_required_str(record, "challenge_scope")),
+        unit_confidence=_required_float(record, "unit_confidence"),
         grouping=DefendantGrouping(
             _optional_str(record, "grouping") or DefendantGrouping.INDIVIDUAL.value
         ),
@@ -804,6 +827,84 @@ def _selected_labels(
             raise LlmPipelineError(f"LLM judges had no majority for {unit_id}")
         selected.append(max(best, key=lambda vote: vote.confidence).label)
     return tuple(selected)
+
+
+def _unitization_human_verified(result: StageAConstructionResult) -> bool:
+    return False
+
+
+def _lawyer_review_packets(
+    *,
+    candidate_id: str,
+    ensemble: EnsembleRunResult,
+) -> tuple[LawyerReviewPacket, ...]:
+    packets: list[LawyerReviewPacket] = []
+    for decision in ensemble.decisions:
+        if decision.status is not EnsembleDecisionStatus.LAWYER_ADJUDICATION:
+            continue
+        packets.append(
+            LawyerReviewPacket(
+                review_id=f"{candidate_id}:{decision.unit_id}:lawyer-adjudication",
+                candidate_id=candidate_id,
+                unit_id=decision.unit_id,
+                review_reason=decision.route_reason.value,
+                materials=(
+                    ReviewMaterial(
+                        material_id=f"{decision.unit_id}:disagreement-summary",
+                        kind=ReviewMaterialKind.DISAGREEMENT_SUMMARY,
+                        text=(
+                            "LAWYER_ADJUDICATION required because the LLM label "
+                            "ensemble routed this unit for "
+                            f"{decision.route_reason.value}."
+                        ),
+                    ),
+                ),
+            )
+        )
+    return tuple(packets)
+
+
+def _planned_label_audit_gate(ensemble: EnsembleRunResult) -> JsonRecord:
+    auto_label_ids = [label.unit_id for label in ensemble.auto_labels]
+    return {
+        "required": True,
+        "status": "awaiting_human_adjudicated_labels",
+        "audit_function": audit_ensemble_labels.__name__,
+        "acceptance_function": enforce_label_audit_acceptance.__name__,
+        "unanimous_auto_label_count": len(auto_label_ids),
+        "sample_unit_ids": auto_label_ids[: min(10, len(auto_label_ids))],
+    }
+
+
+def _labeling_human_verified(
+    lawyer_review_packets: Sequence[LawyerReviewPacket],
+) -> bool:
+    return False
+
+
+def _failure_human_verified(error: Exception) -> bool:
+    return False
+
+
+def _label_difficulty_exclusion_entries(
+    selection: Mapping[str, Any],
+    error: Exception,
+) -> list[JsonRecord]:
+    if not isinstance(error, LlmPipelineError):
+        return []
+    entry = ExclusionLedgerEntry(
+        candidate_id=_optional_str(selection, "candidate_id") or "unknown-candidate",
+        case_id=_optional_str(selection, "case_id") or "unknown-case",
+        court=_optional_str(selection, "court"),
+        decision_date=None,
+        stage=ExclusionStage.LABELING,
+        reason=ExclusionReason.LABEL_DIFFICULTY.value,
+        source_entry_ids=tuple(
+            str(item) for item in _int_tuple(selection.get("decision_entry_numbers"))
+        ),
+        notes=f"LLM labeling/unitization failed closed: {error}",
+    )
+    return [entry.to_record()]
 
 
 def _prediction_unit(record: Mapping[str, Any]) -> PredictionUnit:
@@ -1030,7 +1131,11 @@ def _failure_audit_record(
         "case_id": _optional_str(selection, "case_id"),
         "model_key": model_key,
         "model_registry_sha256": model_registry_sha256 or "unrecorded",
-        "human_verified": False,
+        "human_verified": _failure_human_verified(error),
+        "exclusion_ledger_entries": _label_difficulty_exclusion_entries(
+            selection,
+            error,
+        ),
         "error_type": type(error).__name__,
         "error_message": str(error),
         "estimated_cost": 0.0,
@@ -1113,16 +1218,6 @@ def _required_bool(record: Mapping[str, Any], key: str) -> bool:
     return value
 
 
-def _optional_bool(
-    record: Mapping[str, Any],
-    key: str,
-    *,
-    default: bool,
-) -> bool:
-    value = record.get(key)
-    return value if isinstance(value, bool) else default
-
-
 def _bool(value: object) -> bool:
     return value if isinstance(value, bool) else False
 
@@ -1142,18 +1237,6 @@ def _required_float(record: Mapping[str, Any], key: str) -> float:
     value = record.get(key)
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise LlmPipelineError(f"{key} must be a number")
-    return float(value)
-
-
-def _optional_float(
-    record: Mapping[str, Any],
-    key: str,
-    *,
-    default: float,
-) -> float:
-    value = record.get(key)
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        return default
     return float(value)
 
 

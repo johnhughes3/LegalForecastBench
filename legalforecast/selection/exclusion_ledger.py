@@ -19,6 +19,7 @@ class ExclusionStage(StrEnum):
     MOTION_LINKAGE = "motion_linkage"
     ELIGIBILITY = "eligibility"
     UNITIZATION = "unitization"
+    LABELING = "labeling"
     CASE_MIX = "case_mix"
     LEAKAGE = "leakage"
 
@@ -32,6 +33,8 @@ class ExclusionReason(StrEnum):
     INSUFFICIENT_TEXT_QUALITY = "insufficient_text_quality"
     UNIT_MISSING_FROM_STAGE_A = "unit_missing_from_stage_a"
     UNCLEAN_LINKAGE = "unclean_linkage"
+    LABEL_DIFFICULTY = "label_difficulty"
+    CONFLICT_OF_INTEREST = "conflict_of_interest"
 
 
 @dataclass(frozen=True, slots=True)

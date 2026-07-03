@@ -643,6 +643,92 @@ def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
     ]
 
 
+def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    raw_html_dir = tmp_path / "raw_html"
+    raw_html_dir.mkdir()
+    (raw_html_dir / "cand-1.html").write_text(
+        _adversarial_packet_input_docket_html(),
+        encoding="utf-8",
+    )
+    selection_path = tmp_path / "selection.jsonl"
+    downloads_path = tmp_path / "downloads.jsonl"
+    parser_path = tmp_path / "parser.jsonl"
+    units_path = tmp_path / "units.jsonl"
+    markdown_root = output_root / "markdown"
+    for source_document_id, markdown in {
+        "complaint": "Complaint markdown",
+        "mtd-memo": "MTD markdown",
+        "decision": "Decision markdown",
+    }.items():
+        markdown_path = markdown_root / "cand-1" / f"{source_document_id}.md"
+        markdown_path.parent.mkdir(parents=True, exist_ok=True)
+        markdown_path.write_text(markdown, encoding="utf-8")
+    _write_jsonl(selection_path, [_packet_selection_record()])
+    _write_jsonl(
+        downloads_path,
+        [
+            _download_record("complaint", "complaint", 1),
+            _download_record("mtd-memo", "motion_to_dismiss_memorandum", 34),
+            _download_record("decision", "decision", 50),
+        ],
+    )
+    _write_jsonl(
+        parser_path,
+        [
+            _parser_record("complaint"),
+            _parser_record("mtd-memo"),
+            _parser_record("decision"),
+        ],
+    )
+    _write_jsonl(
+        units_path,
+        [{"candidate_id": "cand-1", "prediction_units": [_prediction_unit()]}],
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-packet-inputs",
+                "--selection",
+                str(selection_path),
+                "--download-manifest",
+                str(downloads_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--prediction-units",
+                str(units_path),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--output-root",
+                str(output_root),
+                "--generated-at",
+                _GENERATED_AT,
+                "--search-window",
+                "2026-04-24..2026-05-18",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    packet_input = _read_jsonl(output_root / "packet-build-input.jsonl")[0]
+    model_visible = packet_input["docket_markdown"]["model_visible_markdown"]
+    assert "Minute order granting the motion to dismiss" not in model_visible
+    assert "Report and recommendation recommends granting" not in model_visible
+    assert "Tentative ruling granting the MTD" not in model_visible
+    ledger = _read_jsonl(output_root / "exclusion-ledger.jsonl")
+    assert ledger[0]["primary_exclusion_reason"] == "outcome_leakage"
+    assert {
+        "minute_order_resolving_target",
+        "rr_already_resolving_target",
+        "tentative_ruling_revealing_target",
+    }.issubset(set(ledger[0]["secondary_exclusion_reasons"]))
+
+
 def test_build_packets_rejects_mounted_outcome_leakage(
     tmp_path: Path,
     capsys: CaptureFixture[str],
@@ -949,6 +1035,53 @@ def _packet_input_docket_html() -> str:
             <div class="col-xs-8"><p>MOTION to Dismiss.</p></div>
           </div>
           <div class="row odd" id="entry-50">
+            <div class="col-xs-1"><p>50</p></div>
+            <div class="col-xs-3"><p>May 8, 2026</p></div>
+            <div class="col-xs-8"><p>ORDER on Motion to Dismiss.</p></div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+
+def _adversarial_packet_input_docket_html() -> str:
+    return """
+    <html>
+      <body>
+        <div id="docket-entry-table">
+          <div class="row odd" id="entry-1">
+            <div class="col-xs-1"><p>1</p></div>
+            <div class="col-xs-3"><p>Jan 1, 2026</p></div>
+            <div class="col-xs-8"><p>COMPLAINT filed by Plaintiff.</p></div>
+          </div>
+          <div class="row even" id="entry-20">
+            <div class="col-xs-1"><p>20</p></div>
+            <div class="col-xs-3"><p>Mar 1, 2026</p></div>
+            <div class="col-xs-8">
+              <p>Minute order granting the motion to dismiss after hearing.</p>
+            </div>
+          </div>
+          <div class="row odd" id="entry-21">
+            <div class="col-xs-1"><p>21</p></div>
+            <div class="col-xs-3"><p>Mar 2, 2026</p></div>
+            <div class="col-xs-8">
+              <p>
+                Report and recommendation recommends granting the motion to dismiss.
+              </p>
+            </div>
+          </div>
+          <div class="row even" id="entry-22">
+            <div class="col-xs-1"><p>22</p></div>
+            <div class="col-xs-3"><p>Mar 3, 2026</p></div>
+            <div class="col-xs-8"><p>Tentative ruling granting the MTD.</p></div>
+          </div>
+          <div class="row odd" id="entry-34">
+            <div class="col-xs-1"><p>34</p></div>
+            <div class="col-xs-3"><p>Apr 1, 2026</p></div>
+            <div class="col-xs-8"><p>MOTION to Dismiss.</p></div>
+          </div>
+          <div class="row even" id="entry-50">
             <div class="col-xs-1"><p>50</p></div>
             <div class="col-xs-3"><p>May 8, 2026</p></div>
             <div class="col-xs-8"><p>ORDER on Motion to Dismiss.</p></div>

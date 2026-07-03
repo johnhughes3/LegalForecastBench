@@ -152,8 +152,14 @@ def detect_outcome_leakage(
     return OutcomeLeakageFilterResult(findings=tuple(findings))
 
 
-_RESULT_VERB = r"(grant(?:ed|ing)?|den(?:y|ied|ying)|dismiss(?:ed|ing)?|surviv(?:e|ed))"
-_TARGET_MOTION = r"(motion(?:s)? to dismiss|mtd|rule 12|12\(b\)(?:\(6\))?)"
+_RESULT_VERB = (
+    r"(grant(?:s|ed|ing)?|den(?:y|ies|ied|ying)|dismiss(?:es|ed|ing)?|"
+    r"surviv(?:e|ed)|recommend(?:s|ed|ing)?)"
+)
+_TARGET_MOTION = (
+    r"(motion(?:s)? to dismiss|mtd|rule 12|12\(b\)(?:\(6\))?|"
+    r"judgment on the pleadings)"
+)
 _TARGET_MOTION_OR_CONTEXT = rf"(?:{_TARGET_MOTION}|the motion)"
 _IDENTICAL_UNIT = (
     r"(identical|same|materially identical|substantially identical|related-case)"
@@ -163,8 +169,9 @@ _LEAKAGE_PATTERNS = (
     _LeakagePattern(
         leakage_type=OutcomeLeakageType.MINUTE_ORDER,
         pattern=re.compile(
-            rf"\bminute order\b.*(?:{_RESULT_VERB}).*(?:{_TARGET_MOTION})|"
-            rf"(?:{_TARGET_MOTION}).*\b(?:{_RESULT_VERB})\b.*\bminute order\b",
+            rf"\bminute (?:order|entry)\b.*(?:{_RESULT_VERB}).*(?:{_TARGET_MOTION})|"
+            rf"(?:{_TARGET_MOTION}).*\b(?:{_RESULT_VERB})\b.*"
+            rf"\bminute (?:order|entry)\b",
             re.IGNORECASE,
         ),
         reason="minute order already grants or denies the target motion",
@@ -188,9 +195,9 @@ _LEAKAGE_PATTERNS = (
     _LeakagePattern(
         leakage_type=OutcomeLeakageType.REPORT_AND_RECOMMENDATION,
         pattern=re.compile(
-            rf"\b(?:report and recommendation|r&r)\b.*"
-            rf"(?:recommend(?:s|ed|ing)?\s+)?(?:{_RESULT_VERB}).*"
-            rf"(?:{_TARGET_MOTION})",
+            rf"\b(?:report and recommendation|r&r|findings and recommendation)\b.*"
+            rf"(?:(?:{_RESULT_VERB}).*(?:{_TARGET_MOTION})|"
+            rf"(?:{_TARGET_MOTION}).*(?:{_RESULT_VERB}))",
             re.IGNORECASE,
         ),
         reason="R&R already resolves the target motion before adoption",
@@ -205,7 +212,9 @@ _LEAKAGE_PATTERNS = (
     _LeakagePattern(
         leakage_type=OutcomeLeakageType.TENTATIVE_RULING,
         pattern=re.compile(
-            rf"\btentative ruling\b.*(?:{_RESULT_VERB}).*(?:{_TARGET_MOTION})",
+            rf"\b(?:tentative ruling|tentative decision)\b.*"
+            rf"(?:(?:{_RESULT_VERB}).*(?:{_TARGET_MOTION})|"
+            rf"(?:{_TARGET_MOTION}).*(?:{_RESULT_VERB}))",
             re.IGNORECASE,
         ),
         reason="tentative ruling reveals the likely target disposition",

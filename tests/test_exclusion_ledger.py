@@ -81,6 +81,7 @@ def test_ledger_exports_jsonl_records(tmp_path) -> None:
         ExclusionReason.OUTCOME_LEAKAGE,
         ExclusionReason.DUPLICATE_RELATED_CASE_INFLATION,
         ExclusionReason.INSUFFICIENT_TEXT_QUALITY,
+        ExclusionReason.CONFLICT_OF_INTEREST,
     ],
 )
 def test_required_exclusion_reasons_are_first_class(reason: ExclusionReason) -> None:
@@ -116,6 +117,24 @@ def test_outcome_leakage_filter_converts_to_primary_ledger_entry() -> None:
     assert entry.source_entry_ids == ("entry-44",)
     assert entry.related_family_id == "family-1"
     assert entry.secondary_reasons == ("minute_order_resolving_target",)
+
+
+def test_conflict_of_interest_exclusion_is_auditable_without_private_detail() -> None:
+    entry = ExclusionLedgerEntry(
+        candidate_id="cand-recusal",
+        case_id="case-recusal",
+        court="D.D.C.",
+        stage=ExclusionStage.ELIGIBILITY,
+        reason=ExclusionReason.CONFLICT_OF_INTEREST.value,
+        source_entry_ids=("entry-1",),
+        notes="Maintainer recusal or conflict policy exclusion; no merits detail.",
+    )
+
+    record = entry.to_record()
+
+    assert record["primary_exclusion_reason"] == "conflict_of_interest"
+    assert record["stage"] == "eligibility"
+    assert "recusal" in record["notes"]
 
 
 def _entry(

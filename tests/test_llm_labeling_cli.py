@@ -258,6 +258,85 @@ def test_acquisition_llm_unitize_accepts_top_level_seed_array(
     assert unit["unit_id"] == "unit-1"
 
 
+def test_acquisition_llm_unitize_rejects_missing_required_unit_fields(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    markdown_root = output_root / "markdown"
+    _write_markdown(markdown_root / "cand-1" / "complaint.md", "Count I: 10(b).")
+    _write_markdown(
+        markdown_root / "cand-1" / "mtd.md",
+        "Defendants move to dismiss Count I under Rule 12(b)(6).",
+    )
+    selection_path = tmp_path / "selection.jsonl"
+    parser_path = tmp_path / "parser.jsonl"
+    registry_path = tmp_path / "registry.json"
+    _write_jsonl(selection_path, [_selection_record()])
+    _write_jsonl(
+        parser_path,
+        [
+            _parser_record("complaint", "complaint.md"),
+            _parser_record("mtd", "mtd.md"),
+        ],
+    )
+    _write_json(registry_path, [_registry_record()])
+
+    def incomplete_completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        return SolverResponse(
+            raw_output=json.dumps(
+                {
+                    "unit_seeds": [
+                        {
+                            "unit_id": "unit-1",
+                            "count": "Count I",
+                            "claim_name": "Section 10(b)",
+                            "defendant_names": ["Issuer"],
+                            "source_document_ids": ["mtd"],
+                            "unit_confidence": 0.92,
+                            "grouping": "individual",
+                            "citation_excerpt": "dismiss Count I",
+                        }
+                    ]
+                }
+            ),
+            input_tokens=100,
+            output_tokens=50,
+            estimated_cost=0.01,
+            metadata={"provider": "openai", "model_id": "gpt-test"},
+        )
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", incomplete_completion)
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "llm-unitize",
+                "--selection",
+                str(selection_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--output-root",
+                str(output_root),
+                "--model-registry",
+                str(registry_path),
+                "--model-key",
+                "openai:gpt-test",
+                "--continue-on-error",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    assert _read_jsonl(output_root / "prediction-units.jsonl") == []
+    audit = _read_jsonl(output_root / "llm-unitization-audit.jsonl")[0]
+    assert audit["status"] == "failed"
+    assert "challenged_by_motion" in audit["error_message"]
+    assert audit["exclusion_ledger_entries"][0]["stage"] == "labeling"
+
+
 def test_acquisition_llm_unitize_accepts_first_balanced_json_object(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
