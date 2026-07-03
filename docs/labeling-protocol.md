@@ -56,9 +56,17 @@ If the same disposition both declares a motion moot and separately dismisses the
 
 Use `ambiguous` when the first written disposition cannot be mapped reliably to a frozen unit. Ambiguous labels omit `fully_dismissed`, use the ambiguous amendment class, and are excluded from primary scoring.
 
-If the decision resolves a material unit that Stage A failed to freeze, do not create a new scored unit at Stage B. Record a missing-unit flag and route the case to frozen-unit repair or exclusion.
+If the decision resolves a material unit that Stage A failed to freeze, do not create a new scored unit at Stage B. Record a missing-unit flag and exclude the affected frozen unit from scoring under the v0.1 policy below.
 
-If a frozen unit is not addressed by the first written disposition, do not infer an outcome from silence. Route it for review, repair, or exclusion under the current cycle's adjudication policy.
+If a frozen unit is not addressed by the first written disposition, do not infer an outcome from silence. Route it for review or exclusion under the current cycle's adjudication policy.
+
+## Frozen-Unit Repair Policy (v0.1: Exclusion-Only)
+
+The v0.1 benchmark policy is **exclusion-only**. When Stage B reports that the decision resolved a material unit missing from the frozen Stage A set, the affected frozen unit is excluded from scoring rather than repaired. Exclusion is the conservative direction: it removes a unit the model was never given a fair chance to forecast instead of retroactively adding a scored unit informed by the decision text.
+
+Blinded frozen-unit repair — reconstructing the missing unit from the pre-decision record only, without exposing the disposition to the Stage A unitizer — is planned as **future work**. The data structures for blinded repair exist (`BlindedUnitRepairRequest`, `repair_frozen_units` in `legalforecast/unitization/adjudication.py`), but v0.1 has no production repair path or CLI and does not invoke one. Until a blinded repair workflow is built and validated, every missing-Stage-A case takes the exclusion branch.
+
+Each such exclusion is recorded in the exclusion ledger with the primary reason `unit_missing_from_stage_a`, so the count of frozen-unit exclusions is auditable rather than silent.
 
 ## Public Accounting
 
@@ -67,7 +75,7 @@ Released artifacts should let reviewers distinguish at least these categories:
 - scored fully dismissed units
 - scored surviving or partially surviving units
 - ambiguous units excluded from primary scoring
-- units or cases routed to frozen-unit repair
+- frozen units excluded because a material unit was missing from Stage A (exclusion ledger reason `unit_missing_from_stage_a`; blinded repair is future work, so v0.1 counts these as exclusions)
 - units or cases excluded because the first written disposition did not support a reliable label
 
-The public artifact should include enough citation metadata for an auditor to trace every scored label back to the first written disposition without exposing non-public material.
+Frozen-unit exclusion counts, keyed by exclusion-ledger reason (including `unit_missing_from_stage_a`), should be reported as aggregate counts in the released public accounting so an auditor can see how many units were dropped and why, without exposing non-public candidate material. The underlying per-candidate exclusion ledger stays in the private audit bundle; only the aggregate counts are public. The public artifact should include enough citation metadata for an auditor to trace every scored label back to the first written disposition without exposing non-public material.
