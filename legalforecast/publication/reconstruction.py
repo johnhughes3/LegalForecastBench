@@ -184,14 +184,42 @@ def load_reconstruction_plans(path: str | Path) -> tuple[ReconstructionPlan, ...
     """Load reconstruction handles from manifest JSONL records."""
 
     manifest_path = Path(path)
+    text = manifest_path.read_text(encoding="utf-8")
+    try:
+        payload: object = json.loads(text)
+    except json.JSONDecodeError:
+        return _load_reconstruction_plans_jsonl(text)
+    return tuple(
+        _plan_from_manifest_record(record)
+        for record in _reconstruction_records_from_payload(payload)
+    )
+
+
+def _load_reconstruction_plans_jsonl(text: str) -> tuple[ReconstructionPlan, ...]:
     plans: list[ReconstructionPlan] = []
-    with manifest_path.open("r", encoding="utf-8") as handle:
-        for line_number, line in enumerate(handle, start=1):
-            if not line.strip():
-                continue
-            record = _as_mapping(json.loads(line), f"manifest line {line_number}")
-            plans.append(_plan_from_manifest_record(record))
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        if not line.strip():
+            continue
+        record = _as_mapping(json.loads(line), f"manifest line {line_number}")
+        plans.append(_plan_from_manifest_record(record))
     return tuple(plans)
+
+
+def _reconstruction_records_from_payload(
+    payload: object,
+) -> tuple[Mapping[str, Any], ...]:
+    if isinstance(payload, Mapping):
+        candidates = payload.get("candidates")
+        if candidates is None:
+            return (_as_mapping(payload, "manifest"),)
+        return tuple(
+            _as_mapping(candidate, "candidate")
+            for candidate in _as_sequence(candidates, "candidates")
+        )
+    return tuple(
+        _as_mapping(record, "manifest entry")
+        for record in _as_sequence(payload, "manifest")
+    )
 
 
 def verify_reconstructed_documents(

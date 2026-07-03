@@ -45,6 +45,27 @@ def test_load_reconstruction_plans_from_manifest_jsonl(tmp_path) -> None:
     assert record["packet_render"]["packet_sha256"] == _sha256(b"packet json")
 
 
+def test_load_reconstruction_plans_from_public_manifest(tmp_path) -> None:
+    manifest = tmp_path / "public-reconstruction.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast-private-store-export-v1",
+                "cycle_id": "cycle-fixture",
+                "candidates": [_manifest_record()],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    plans = load_reconstruction_plans(manifest)
+
+    assert plans[0].candidate_id == "cand-1"
+    assert plans[0].packet_render is not None
+    assert plans[0].packet_render.packet_json_path == "packets/cand-1.json"
+
+
 def test_write_reconstruction_plan_emits_source_handles_without_text(tmp_path) -> None:
     manifest = tmp_path / "manifest.jsonl"
     manifest.write_text(json.dumps(_manifest_record()) + "\n", encoding="utf-8")
