@@ -1033,11 +1033,18 @@ def apply_adjudicated_reviews(
     *,
     label_records: Iterable[Mapping[str, Any]],
     adjudication_records: Iterable[Mapping[str, Any]],
+    decision_texts: Mapping[str, StageBDecisionText],
     label_audit_records: Iterable[Mapping[str, Any]] = (),
     audit_sample_size: int = DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
     human_blind_disagreement_rate: float = 0.0,
 ) -> LlmBatchResult:
-    """Merge lawyer adjudication records into the locked label JSONL."""
+    """Merge lawyer adjudication records into the locked label JSONL.
+
+    ``decision_texts`` maps first-written-disposition ``document_id`` to the
+    decision text. Every adjudicated citation excerpt is validated against it,
+    the same verbatim-excerpt check applied to LLM Stage B findings, so every
+    published label -- human or LLM -- carries a citation an auditor can check.
+    """
 
     if audit_sample_size <= 0:
         raise ValueError("audit_sample_size must be positive")
@@ -1048,6 +1055,7 @@ def apply_adjudicated_reviews(
     adjudications_by_unit_id: dict[str, AdjudicatedReview] = {}
     for record in adjudication_records:
         adjudication = _adjudicated_review(record)
+        _validate_adjudicated_excerpts(adjudication, decision_texts)
         if adjudication.unit_id in adjudications_by_unit_id:
             raise ValueError(
                 f"duplicate adjudication records for unit: {adjudication.unit_id}"
@@ -1157,6 +1165,38 @@ def _label_audit_gate_records(
             }
         )
     return tuple(records)
+
+
+def _validate_adjudicated_excerpts(
+    adjudication: AdjudicatedReview,
+    decision_texts: Mapping[str, StageBDecisionText],
+) -> None:
+    """Reject an adjudicated label whose citation excerpts are not verbatim.
+
+    Mirrors ``label_outcomes._validate_excerpts`` for LLM Stage B findings.
+    Human adjudications were previously trusted without checking that
+    ``supporting_citations[].excerpt`` actually appears in the decision text;
+    this closes that gap so every published label has a checkable citation.
+    Fail-closed: a cited document with no decision text to verify against is an
+    error, not a skip.
+    """
+
+    for citation in adjudication.adjudicated_label.supporting_citations:
+        excerpt = citation.excerpt
+        if excerpt is None or not excerpt.strip():
+            continue
+        decision_text = decision_texts.get(citation.document_id)
+        if decision_text is None:
+            raise ValueError(
+                "adjudicated citation references document_id "
+                f"{citation.document_id!r} with no decision text to verify the "
+                f"supporting excerpt for unit {adjudication.unit_id}"
+            )
+        if not decision_text.contains_excerpt(excerpt):
+            raise ValueError(
+                "adjudicated supporting excerpt must appear verbatim in the "
+                f"decision text for unit {adjudication.unit_id}"
+            )
 
 
 def _adjudicated_review(record: Mapping[str, Any]) -> AdjudicatedReview:

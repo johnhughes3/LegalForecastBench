@@ -1026,6 +1026,16 @@ def _add_acquisition_apply_lawyer_review_arguments(
         help="Checked-in lawyer adjudication JSONL.",
     )
     parser.add_argument(
+        "--decision-texts",
+        type=Path,
+        required=True,
+        help=(
+            "JSONL of first-written-disposition decision texts (one record per "
+            "document_id, with document_id/entered_date/text). Adjudicated "
+            "citation excerpts are validated verbatim against these."
+        ),
+    )
+    parser.add_argument(
         "--llm-label-audit",
         type=Path,
         required=True,
@@ -2622,6 +2632,7 @@ def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     labels_path = cast(Path, args.labels)
     adjudications_path = cast(Path, args.adjudications)
+    decision_texts_path = cast(Path, args.decision_texts)
     llm_label_audit_path = cast(Path, args.llm_label_audit)
     labels_output_path = _acquisition_path(
         args,
@@ -2655,6 +2666,7 @@ def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
         result = apply_adjudicated_reviews(
             label_records=_read_records(labels_path),
             adjudication_records=_read_records(adjudications_path),
+            decision_texts=_load_decision_texts(decision_texts_path),
             label_audit_records=llm_label_audit_records,
             audit_sample_size=cast(int, args.audit_sample_size),
             human_blind_disagreement_rate=cast(
@@ -2667,7 +2679,12 @@ def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
     _write_acquisition_completion(
         args,
         stage="apply-lawyer-review",
-        input_paths=(labels_path, adjudications_path, llm_label_audit_path),
+        input_paths=(
+            labels_path,
+            adjudications_path,
+            decision_texts_path,
+            llm_label_audit_path,
+        ),
         output_paths=(labels_output_path, audit_path),
         record_count=len(_read_records(adjudications_path)) if not dry_run else 0,
         dry_run=dry_run,
@@ -4417,6 +4434,18 @@ def _stage_b_input(record: Mapping[str, Any]) -> StageBLabelingInput:
             for flag in _optional_record_sequence(record, "missing_unit_flags")
         ),
     )
+
+
+def _load_decision_texts(path: Path) -> dict[str, StageBDecisionText]:
+    decision_texts: dict[str, StageBDecisionText] = {}
+    for record in _read_records(path):
+        decision_text = _stage_b_decision(record)
+        if decision_text.document_id in decision_texts:
+            raise CommandError(
+                f"duplicate decision text for document_id {decision_text.document_id!r}"
+            )
+        decision_texts[decision_text.document_id] = decision_text
+    return decision_texts
 
 
 def _stage_b_decision(record: Mapping[str, Any]) -> StageBDecisionText:

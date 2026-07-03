@@ -8,7 +8,7 @@ import legalforecast.labeling.llm_pipeline as llm_pipeline
 from legalforecast.cli import main
 from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.unitization import ChallengeScope, PredictionUnit, SourceCitation
-from pytest import MonkeyPatch
+from pytest import MonkeyPatch, raises
 
 JsonRecord = dict[str, Any]
 
@@ -228,6 +228,7 @@ def test_acquisition_apply_lawyer_review_merges_checked_in_adjudication(
     output_root = tmp_path / "acquisition"
     labels_path = tmp_path / "labels.jsonl"
     adjudications_path = tmp_path / "adjudications.jsonl"
+    decision_texts_path = _write_decision_texts(tmp_path / "decision-texts.jsonl")
     llm_label_audit_path = tmp_path / "llm-label-audit.jsonl"
     auto_label = _label_record(
         "unit-auto",
@@ -274,6 +275,8 @@ def test_acquisition_apply_lawyer_review_merges_checked_in_adjudication(
                 str(labels_path),
                 "--adjudications",
                 str(adjudications_path),
+                "--decision-texts",
+                str(decision_texts_path),
                 "--llm-label-audit",
                 str(llm_label_audit_path),
                 "--output-root",
@@ -306,12 +309,65 @@ def test_acquisition_apply_lawyer_review_merges_checked_in_adjudication(
     assert gate["label_audit_gate"]["audit_summary"]["passes_acceptance"] is True
 
 
+def test_apply_adjudicated_reviews_rejects_nonverbatim_excerpt() -> None:
+    # A lawyer-adjudicated label whose citation excerpt is not present verbatim in
+    # the first written disposition must be rejected, exactly like an LLM Stage B
+    # finding excerpt, so no published label ships an uncheckable citation.
+    adjudicated_label = _label_record(
+        "unit-review",
+        dismissed=True,
+        excerpt="Count II is dismissed.",
+    )
+    adjudication = _adjudication_record(
+        "cand-1:unit-review:lawyer-adjudication",
+        "unit-review",
+        adjudicated_label,
+    )
+    decision_texts = {
+        "decision": llm_pipeline.StageBDecisionText(
+            document_id="decision",
+            entered_date="2026-05-18",
+            text="The Court denies the motion in full. No count was dismissed.",
+        )
+    }
+
+    with raises(ValueError, match="must appear verbatim"):
+        llm_pipeline.apply_adjudicated_reviews(
+            label_records=[adjudicated_label],
+            adjudication_records=[adjudication],
+            decision_texts=decision_texts,
+        )
+
+
+def test_apply_adjudicated_reviews_rejects_uncited_document() -> None:
+    # Fail-closed: an adjudicated citation whose document has no decision text to
+    # verify against is an error, not a silent skip.
+    adjudicated_label = _label_record(
+        "unit-review",
+        dismissed=True,
+        excerpt="Count II is dismissed.",
+    )
+    adjudication = _adjudication_record(
+        "cand-1:unit-review:lawyer-adjudication",
+        "unit-review",
+        adjudicated_label,
+    )
+
+    with raises(ValueError, match="no decision text"):
+        llm_pipeline.apply_adjudicated_reviews(
+            label_records=[adjudicated_label],
+            adjudication_records=[adjudication],
+            decision_texts={},
+        )
+
+
 def test_acquisition_apply_lawyer_review_fails_without_audited_auto_label(
     tmp_path: Path,
 ) -> None:
     output_root = tmp_path / "acquisition"
     labels_path = tmp_path / "labels.jsonl"
     adjudications_path = tmp_path / "adjudications.jsonl"
+    decision_texts_path = _write_decision_texts(tmp_path / "decision-texts.jsonl")
     llm_label_audit_path = tmp_path / "llm-label-audit.jsonl"
     auto_label = _label_record(
         "unit-auto",
@@ -348,6 +404,8 @@ def test_acquisition_apply_lawyer_review_fails_without_audited_auto_label(
                 str(labels_path),
                 "--adjudications",
                 str(adjudications_path),
+                "--decision-texts",
+                str(decision_texts_path),
                 "--llm-label-audit",
                 str(llm_label_audit_path),
                 "--output-root",
@@ -367,6 +425,7 @@ def test_acquisition_apply_lawyer_review_fails_closed_on_audit_error(
     output_root = tmp_path / "acquisition"
     labels_path = tmp_path / "labels.jsonl"
     adjudications_path = tmp_path / "adjudications.jsonl"
+    decision_texts_path = _write_decision_texts(tmp_path / "decision-texts.jsonl")
     llm_label_audit_path = tmp_path / "llm-label-audit.jsonl"
     auto_label = _label_record(
         "unit-auto",
@@ -413,6 +472,8 @@ def test_acquisition_apply_lawyer_review_fails_closed_on_audit_error(
                 str(labels_path),
                 "--adjudications",
                 str(adjudications_path),
+                "--decision-texts",
+                str(decision_texts_path),
                 "--llm-label-audit",
                 str(llm_label_audit_path),
                 "--human-blind-disagreement-rate",
@@ -1421,6 +1482,27 @@ def _ensemble_vote_record(
 def _write_markdown(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+_DECISION_TEXT = (
+    "The Court rules as follows. Count I survives. Count I is dismissed. "
+    "Count II is dismissed."
+)
+
+
+def _write_decision_texts(path: Path, *, text: str = _DECISION_TEXT) -> Path:
+    _write_jsonl(
+        path,
+        [
+            {
+                "document_id": "decision",
+                "entered_date": "2026-05-18",
+                "text": text,
+                "is_first_written_disposition": True,
+            }
+        ],
+    )
+    return path
 
 
 def _write_jsonl(path: Path, records: list[JsonRecord]) -> None:
