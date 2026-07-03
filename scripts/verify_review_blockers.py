@@ -17,6 +17,7 @@ Exit code 0 iff all checks pass.
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 import sys
@@ -127,34 +128,64 @@ def check_b1_6() -> tuple[bool, str]:
 
 
 def check_b2_1() -> tuple[bool, str]:
+    # v2 hardening: the v1 symbol-reference check was satisfied by reading
+    # `.__name__` off the audit functions without calling them. Require an
+    # actual invocation (name followed by an open paren) outside ensemble.py.
     hits = _files_referencing(
-        r"\baudit_ensemble_labels\b|\benforce_label_audit_acceptance\b",
+        r"\b(?:audit_ensemble_labels|enforce_label_audit_acceptance)\(",
         frozenset({"legalforecast/labeling/ensemble.py"}),
     )
-    return bool(hits), f"production references: {hits or 'none'}"
+    return bool(
+        hits
+    ), f"production call sites: {hits or 'none (name-only refs do not count)'}"
 
 
 def check_b2_2() -> tuple[bool, str]:
-    targets = (
-        PACKAGE / "labeling" / "llm_pipeline.py",
-        PACKAGE / "cli.py",
+    # v2 hardening: routing that constructs LawyerReviewPacket and then throws
+    # it away is not adjudication. Require (a) a durable queue write and (b) a
+    # consumer for adjudicated responses (resume path).
+    targets = (PACKAGE / "labeling" / "llm_pipeline.py", PACKAGE / "cli.py")
+    combined = "\n".join(path.read_text(encoding="utf-8") for path in targets)
+    queue = bool(re.search(r"lawyer[_-]review[_-]queue", combined))
+    consumer = bool(
+        re.search(r"\b(?:AdjudicatedReview|LawyerReviewResponse)\b", combined)
     )
-    hits = [
-        path.relative_to(REPO).as_posix()
-        for path in targets
-        if re.search(
-            r"\bLAWYER_ADJUDICATION\b|\bLawyerReviewPacket\b",
-            path.read_text(encoding="utf-8"),
-        )
-    ]
-    return bool(hits), f"adjudication routing referenced in: {hits or 'none'}"
+    problems: list[str] = []
+    if not queue:
+        problems.append("no durable lawyer-review queue write in pipeline/CLI")
+    if not consumer:
+        problems.append("no consumer for adjudicated responses (resume path missing)")
+    return not problems, "; ".join(
+        problems
+    ) or "queue write and resume consumer present"
 
 
 def check_b2_3() -> tuple[bool, str]:
-    text = (PACKAGE / "labeling" / "llm_pipeline.py").read_text(encoding="utf-8")
-    ok = '"human_verified": False' not in text
+    # v2 hardening: the v1 literal-string check was defeated by wrapping the
+    # constant in helper functions that ignore their inputs. Use the AST: any
+    # function whose name mentions human_verified and whose body is a bare
+    # `return False` is a stub; additionally, some code path must be able to
+    # produce a True value.
+    path = PACKAGE / "labeling" / "llm_pipeline.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    stubs: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        if "human_verified" not in node.name:
+            continue
+        body = [stmt for stmt in node.body if not isinstance(stmt, ast.Expr)]
+        if (
+            len(body) == 1
+            and isinstance(body[0], ast.Return)
+            and isinstance(body[0].value, ast.Constant)
+        ):
+            stubs.append(f"{node.name} (constant return {body[0].value.value!r})")
+    if stubs:
+        return False, f"human_verified stub functions detected: {stubs}"
+    ok = '"human_verified": False' not in path.read_text(encoding="utf-8")
     return ok, (
-        "human_verified is no longer hardcoded False"
+        "human_verified is derived, not constant"
         if ok
         else 'llm_pipeline.py still hardcodes "human_verified": False'
     )
@@ -240,6 +271,193 @@ def check_b3_3() -> tuple[bool, str]:
         if "model_visible" in text and any(marker in text for marker in markers):
             hits.append(path.relative_to(REPO).as_posix())
     return bool(hits), f"adversarial leakage fixtures in: {hits or 'none'}"
+
+
+# --- V2 checks (post-implementation review, 2026-07-03 second pass) ---------
+# The first fix round satisfied several v1 checks with changes shaped to the
+# grep rather than the intent (stub functions, name-only references). These
+# checks are keyed to the FIX-round beads and gated by LegalForecastBench-48k.
+
+
+def check_v2_1() -> tuple[bool, str]:
+    # Scope to the plan-packet-inputs parser: its --model-registry help text
+    # currently reads "Optional frozen model registry". The gate is enforced
+    # when that argument is required=True or the handler raises when absent.
+    text = (PACKAGE / "cli.py").read_text(encoding="utf-8")
+    lines = text.splitlines()
+    flag_lines = [
+        index for index, line in enumerate(lines) if "--model-registry" in line
+    ]
+    enforced = False
+    optional_help = False
+    for index in flag_lines:
+        window = "\n".join(lines[index : index + 10])
+        if "plan-packet-inputs" not in window and "plan_packet" not in window:
+            # Identify the plan-packet-inputs flag by its distinctive help text.
+            if "When supplied, plan-packet-inputs" not in window:
+                continue
+        optional_help = "Optional frozen model registry" in window
+        if "required=True" in window:
+            enforced = True
+    if not enforced:
+        enforced = bool(
+            re.search(
+                r"model_registry\s+is\s+None[\s\S]{0,300}?raise"
+                r"[\s\S]{0,200}?plan[-_]packet",
+                text,
+            )
+            or re.search(
+                r"plan[-_]packet[\s\S]{0,600}?model_registry\s+is\s+None"
+                r"[\s\S]{0,200}?raise",
+                text,
+            )
+        )
+    ok = enforced and not optional_help
+    return ok, (
+        "plan-packet-inputs refuses to run without a frozen registry"
+        if ok
+        else "--model-registry is still optional; eligibility screening is opt-in"
+    )
+
+
+def check_v2_2() -> tuple[bool, str]:
+    path = PACKAGE / "evals" / "per_case_runner.py"
+    text = path.read_text(encoding="utf-8").lower()
+    ok = ("decision" in text) and any(
+        marker in text for marker in ("release", "anchor", "eligib")
+    )
+    return ok, (
+        "eval path re-verifies case eligibility against the release anchor"
+        if ok
+        else "per_case_runner never re-verifies case decision date vs release anchor"
+    )
+
+
+def check_v2_3() -> tuple[bool, str]:
+    ledger_text = (PACKAGE / "selection" / "exclusion_ledger.py").read_text(
+        encoding="utf-8"
+    )
+    reason = "release_anchor" in ledger_text.lower()
+    return reason, (
+        "release-anchor exclusion reason exists in the ledger taxonomy"
+        if reason
+        else (
+            "no release-anchor exclusion reason; out-of-window candidates"
+            " still batch-fatal"
+        )
+    )
+
+
+def check_v2_4() -> tuple[bool, str]:
+    text = (PACKAGE / "publication" / "official_aggregate.py").read_text(
+        encoding="utf-8"
+    )
+    ok = bool(re.search(r"\bpaired_clustered_bootstrap\(", text))
+    return ok, (
+        "official aggregation computes bootstrap inference for the leaderboard"
+        if ok
+        else (
+            "official_aggregate never calls paired_clustered_bootstrap;"
+            " leaderboards ship without CIs"
+        )
+    )
+
+
+def check_v2_5() -> tuple[bool, str]:
+    text = (PACKAGE / "publication" / "official_aggregate.py").read_text(
+        encoding="utf-8"
+    )
+    ok = bool(re.search(r"allow[_-]no[_-]baselines", text))
+    return ok, (
+        "aggregation fails loud without baselines unless explicitly overridden"
+        if ok
+        else "aggregation silently proceeds with zero baseline rows"
+    )
+
+
+def check_v2_6() -> tuple[bool, str]:
+    tests_text = (TESTS / "test_official_aggregate.py").read_text(encoding="utf-8")
+    ok = "subset" in tests_text
+    return ok, (
+        "registry-coverage subset case is tested"
+        if ok
+        else (
+            "--model-key strict-subset-of-registry still aggregates as"
+            " complete (untested)"
+        )
+    )
+
+
+def check_v2_7() -> tuple[bool, str]:
+    text = (PACKAGE / "evals" / "packet_builder.py").read_text(encoding="utf-8")
+    match = re.search(
+        r"def _model_visible_unit_record[\s\S]*?\n(?=\ndef |\nclass |\Z)", text
+    )
+    body = match.group(0) if match else ""
+    leaks = [
+        field for field in ("challenge_scope", "challenged_by_motion") if field in body
+    ]
+    return not leaks, (
+        f"model-visible packet record still serializes: {leaks}"
+        if leaks
+        else "model-visible packet record omits challenge scope fields"
+    )
+
+
+def check_v2_8() -> tuple[bool, str]:
+    problems: list[str] = []
+    for registry_path in sorted((REPO / "model_registries").glob("*.json")):
+        entries = json.loads(registry_path.read_text(encoding="utf-8"))
+        for entry in entries:
+            if entry.get("release_timestamp") is None:
+                continue
+            if not str(entry.get("release_timestamp_source") or "").strip():
+                key = f"{entry.get('provider')}:{entry.get('model_id')}"
+                problems.append(f"{registry_path.name}: {key}")
+    return not problems, (
+        "every release_timestamp carries a source citation"
+        if not problems
+        else f"release timestamps without source citations: {problems}"
+    )
+
+
+def check_v2_9() -> tuple[bool, str]:
+    text = (PACKAGE / "labeling" / "llm_pipeline.py").read_text(encoding="utf-8")
+    ok = "requires_frozen_unit_workflow" in text
+    return ok, (
+        "missing-unit flags gate the pipeline"
+        if ok
+        else "requires_frozen_unit_workflow is still ignored by the labeling pipeline"
+    )
+
+
+def check_v2_10() -> tuple[bool, str]:
+    hits = _files_referencing(
+        r"\bpacket_render\b",
+        frozenset({"legalforecast/publication/reconstruction.py"}),
+    )
+    workflow = (REPO / ".github" / "workflows" / "run-benchmark.yaml").read_text(
+        encoding="utf-8"
+    )
+    wired = bool(hits) or "verify-packet-render" in workflow
+    return wired, (
+        f"packet-render verification producers/consumers: {hits or 'workflow step'}"
+        if wired
+        else "packet-render verification has no producer or workflow step; cannot run"
+    )
+
+
+def check_v2_11() -> tuple[bool, str]:
+    combined = "\n".join(
+        path.read_text(encoding="utf-8") for path in sorted(TESTS.glob("*.py"))
+    )
+    names = ("latest_release_timestamp", "require_official_registry_entries")
+    missing = [name for name in names if name not in combined]
+    return not missing, (
+        "release-anchor gate functions have direct tests"
+        if not missing
+        else f"untested anchor-gate functions: {missing}"
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -340,6 +558,72 @@ CHECKS: tuple[Check, ...] = (
         "LegalForecastBench-9v8",
         "adversarial leakage fixtures (minute order / R&R / tentative) exist",
         check_b3_3,
+    ),
+    Check(
+        "V2-1",
+        "LegalForecastBench-c57",
+        "plan-packet-inputs cannot run without a frozen model registry",
+        check_v2_1,
+    ),
+    Check(
+        "V2-2",
+        "LegalForecastBench-c57",
+        "eval path re-verifies per-case eligibility against the release anchor",
+        check_v2_2,
+    ),
+    Check(
+        "V2-3",
+        "LegalForecastBench-av2",
+        "anchor-window exclusions produce ledger entries instead of batch aborts",
+        check_v2_3,
+    ),
+    Check(
+        "V2-4",
+        "LegalForecastBench-csu",
+        "official aggregation wires bootstrap inference into the leaderboard",
+        check_v2_4,
+    ),
+    Check(
+        "V2-5",
+        "LegalForecastBench-wie",
+        "aggregation without baselines fails loud unless explicitly overridden",
+        check_v2_5,
+    ),
+    Check(
+        "V2-6",
+        "LegalForecastBench-30l",
+        "--model-key strict subset of the registry is rejected (tested)",
+        check_v2_6,
+    ),
+    Check(
+        "V2-7",
+        "LegalForecastBench-1vl",
+        "model-visible packet record omits challenge_scope/challenged_by_motion",
+        check_v2_7,
+    ),
+    Check(
+        "V2-8",
+        "LegalForecastBench-550",
+        "every non-null release_timestamp carries a source citation field",
+        check_v2_8,
+    ),
+    Check(
+        "V2-9",
+        "LegalForecastBench-t62",
+        "Stage B missing-unit flags gate the labeling pipeline",
+        check_v2_9,
+    ),
+    Check(
+        "V2-10",
+        "LegalForecastBench-89o",
+        "packet-render verification has a production producer or workflow step",
+        check_v2_10,
+    ),
+    Check(
+        "V2-11",
+        "LegalForecastBench-614",
+        "release-anchor gate functions have direct unit tests",
+        check_v2_11,
     ),
 )
 

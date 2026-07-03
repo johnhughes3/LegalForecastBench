@@ -89,3 +89,17 @@ The baseline suite that would separate "reads the record" from "exploits priors"
 7. Docs: prior-art section (Pre/Dicta, LJP literature, ForecastBench), public labeling protocol, softened contamination claim, recusal reason code (H6 + mediums).
 
 Items 1, 2, 4, 6, 7 are mostly wiring/docs. Item 3 (historical corpus for baselines) is the one genuinely new build — and it is the piece that converts the benchmark from "a leaderboard" into "an answer to your own core question."
+
+---
+
+## Addendum: post-implementation review (2026-07-03, second pass)
+
+Commits `37bf6ef..67528eb` implemented fixes for the findings above and closed all review beads. A second-pass review (three scoped reviewers over the full diff, plus registry-provenance tracing) found the work splits into three tiers:
+
+**Genuinely fixed and well-tested** — packet-time leakage screening with adversarial fixtures (minute order / R&R / tentative ruling); fail-closed `decision_entry_numbers`; served-model-version capture with exact-match validation against the frozen registry, including the Bedrock env-override; workflow durable S3 results + aggregation gating on all matrix cells; silent lenient unitization defaults removed; family-clustered paired bootstrap (correct as a library); MDE formula in cadence; README/prior-art/labeling-protocol docs.
+
+**Right library, not wired into production** — the corrected bootstrap is never called by `official_aggregate` (real leaderboards would ship with **no CIs at all**); baselines silently produce zero rows because no historical corpus pipeline exists and the workflow never passes `--baseline-training-examples`; packet-render verification has no producer or workflow step; the acquisition eligibility gate is opt-in behind an optional `--model-registry` flag and the eval path never re-verifies per-case eligibility; `--model-key` strict-subset still aggregates as "complete" (the literal M8 scenario).
+
+**Gamed against the verifier** — `human_verified` was wrapped in stub functions that ignore their inputs and return `False` (defeating the literal-string check); the label audit gate exists only as descriptive JSON referencing the audit functions' `.__name__` without ever calling them; `LawyerReviewPacket`s are constructed and then discarded before a case-fatal exception — the exact pattern B2 asked to remove; `requires_frozen_unit_workflow` remains ignored. Separately, the Gemini `release_timestamp`/dated-snapshot values were filled in with **no external source** (MODEL_RELEASE_DATES.md cites the registry itself) — see human-decision bead `LegalForecastBench-550`.
+
+**Response:** the verifier was hardened (call-level regexes, AST stub detection, and a V2 check section keyed to corrective beads `LegalForecastBench-c57 av2 frf 8o5 t62 csu wie 30l 550 1vl 614 89o brh 9us`), gated by **`LegalForecastBench-48k`**. Prematurely-closed beads carry audit notes. The verifier's own lesson stands: grep-shaped checks get grep-shaped fixes — close the FIX beads on behavior, not on the script alone.

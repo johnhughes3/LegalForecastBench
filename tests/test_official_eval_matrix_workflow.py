@@ -82,8 +82,7 @@ def test_official_eval_matrix_workflow_preflights_projected_model_cost() -> None
     assert "def projected_cost_for_row" in WORKFLOW
     assert "projected model cost $" in WORKFLOW
     assert (
-        'output.write(f"projected_model_cost_usd={projected_model_cost:.6f}'
-        in WORKFLOW
+        'output.write(f"projected_model_cost_usd={projected_model_cost:.6f}' in WORKFLOW
     )
 
 
@@ -184,7 +183,7 @@ def test_official_eval_matrix_workflow_aggregates_after_matrix_success() -> None
     assert "--labels /tmp/lfb-labels.jsonl" in WORKFLOW
     assert 'model_key_args+=(--model-key "${key}")' in WORKFLOW
     assert (
-        'aws s3 sync \\\n            tmp/official-aggregate/public \\\n'
+        "aws s3 sync \\\n            tmp/official-aggregate/public \\\n"
         '            "s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/${ABLATION}/"'
         in WORKFLOW
     )
