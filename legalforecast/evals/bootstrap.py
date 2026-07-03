@@ -12,6 +12,17 @@ from legalforecast.evals.scorers import UnitScore
 
 DEFAULT_BOOTSTRAP_REPLICATES = 5000
 DEFAULT_CI_LEVEL = 0.95
+BONFERRONI_RANK_TIER_METHOD = "bonferroni_pairwise_bootstrap_confidence_intervals"
+UNADJUSTED_RANK_TIER_METHOD = "unadjusted_pairwise_bootstrap_confidence_intervals"
+BONFERRONI_RANK_TIER_CAVEAT = (
+    "Rank tiers use Bonferroni-adjusted pairwise bootstrap confidence intervals "
+    "when there are multiple model comparisons; they are descriptive tiers, not "
+    "a full simultaneous ranking model."
+)
+UNADJUSTED_RANK_TIER_CAVEAT = (
+    "Rank tiers use unadjusted pairwise bootstrap confidence intervals; they are "
+    "descriptive and not simultaneous multiple-comparison-adjusted intervals."
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,12 +32,15 @@ class BootstrapConfig:
     replicates: int = DEFAULT_BOOTSTRAP_REPLICATES
     seed: int = 20260514
     ci_level: float = DEFAULT_CI_LEVEL
+    rank_tier_correction: str = "bonferroni"
 
     def __post_init__(self) -> None:
         if self.replicates <= 0:
             raise ValueError("replicates must be positive")
         if not 0 < self.ci_level < 1:
             raise ValueError("ci_level must be between 0 and 1")
+        if self.rank_tier_correction not in {"bonferroni", "none"}:
+            raise ValueError("rank_tier_correction must be 'bonferroni' or 'none'")
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,17 +57,29 @@ class ModelScoreInput:
 
 
 @dataclass(frozen=True, slots=True)
+class _BootstrapSamplingFrame:
+    """Validated paired units and the independence clusters to resample."""
+
+    case_ids: tuple[str, ...]
+    cluster_ids: tuple[str, ...]
+    case_ids_by_cluster: dict[str, tuple[str, ...]]
+    cluster_id_by_unit_key: dict[tuple[str, str], str]
+
+
+@dataclass(frozen=True, slots=True)
 class BootstrapReplicate:
     """One paired cluster-resampled replicate."""
 
     replicate_index: int
     sampled_case_ids: tuple[str, ...]
     micro_briers: dict[str, float]
+    sampled_cluster_ids: tuple[str, ...] = ()
 
     def to_record(self) -> dict[str, Any]:
         return {
             "replicate_index": self.replicate_index,
             "sampled_case_ids": list(self.sampled_case_ids),
+            "sampled_cluster_ids": list(self.sampled_cluster_ids),
             "micro_briers": dict(self.micro_briers),
         }
 
@@ -108,6 +134,16 @@ class BootstrapInferenceResult:
     pairwise_deltas: tuple[PairwiseDelta, ...]
     ranks: tuple[ModelRank, ...]
     replicates: tuple[BootstrapReplicate, ...]
+    cluster_ids: tuple[str, ...] = ()
+    rank_tier_ci_level: float = DEFAULT_CI_LEVEL
+
+    @property
+    def rank_tier_method(self) -> str:
+        return _rank_tier_method(self.config.rank_tier_correction)
+
+    @property
+    def rank_tier_caveat(self) -> str:
+        return _rank_tier_caveat(self.config.rank_tier_correction)
 
     def to_record(self) -> dict[str, Any]:
         return {
@@ -115,8 +151,13 @@ class BootstrapInferenceResult:
                 "replicates": self.config.replicates,
                 "seed": self.config.seed,
                 "ci_level": self.config.ci_level,
+                "rank_tier_correction": self.config.rank_tier_correction,
             },
             "case_ids": list(self.case_ids),
+            "cluster_ids": list(self.cluster_ids),
+            "rank_tier_ci_level": self.rank_tier_ci_level,
+            "rank_tier_method": self.rank_tier_method,
+            "rank_tier_caveat": self.rank_tier_caveat,
             "observed_micro_briers": dict(self.observed_micro_briers),
             "pairwise_deltas": [delta.to_record() for delta in self.pairwise_deltas],
             "ranks": [rank.to_record() for rank in self.ranks],
@@ -129,41 +170,51 @@ def paired_clustered_bootstrap(
     *,
     config: BootstrapConfig | None = None,
 ) -> BootstrapInferenceResult:
-    """Run paired clustered bootstrap over case/motion clusters.
+    """Run paired clustered bootstrap over case, related-family, or MDL clusters.
 
-    Every replicate samples case IDs with replacement and includes all unit
-    scores for each sampled case. The same sampled cases are used for every
-    model, so pairwise deltas are paired by construction.
+    Every replicate samples the coarsest declared independence unit with
+    replacement: MDL family when present, otherwise related-case family when
+    present, otherwise case ID. It includes all unit scores for each sampled
+    cluster. The same sampled clusters are used for every model, so pairwise
+    deltas are paired by construction.
     """
 
     effective_config = config or BootstrapConfig()
-    case_ids = _validate_model_score_inputs(model_scores)
+    frame = _validate_model_score_inputs(model_scores)
     observed = {
         model.model_id: _mean(score.brier for score in model.unit_scores)
         for model in model_scores
     }
-    scores_by_model_case = {
-        model.model_id: _scores_by_case(model.unit_scores) for model in model_scores
+    scores_by_model_cluster = {
+        model.model_id: _scores_by_cluster(
+            model.unit_scores,
+            frame.cluster_id_by_unit_key,
+        )
+        for model in model_scores
     }
 
-    sampled_case_sets = draw_cluster_samples(
-        case_ids,
+    sampled_cluster_sets = draw_cluster_samples(
+        frame.cluster_ids,
         replicates=effective_config.replicates,
         seed=effective_config.seed,
     )
     replicates = tuple(
         BootstrapReplicate(
             replicate_index=index,
-            sampled_case_ids=sampled_case_ids,
+            sampled_case_ids=_sampled_case_ids(
+                frame.case_ids_by_cluster,
+                sampled_cluster_ids,
+            ),
+            sampled_cluster_ids=sampled_cluster_ids,
             micro_briers={
                 model.model_id: _resampled_micro_brier(
-                    scores_by_model_case[model.model_id],
-                    sampled_case_ids,
+                    scores_by_model_cluster[model.model_id],
+                    sampled_cluster_ids,
                 )
                 for model in model_scores
             },
         )
-        for index, sampled_case_ids in enumerate(sampled_case_sets)
+        for index, sampled_cluster_ids in enumerate(sampled_cluster_sets)
     )
     pairwise_deltas = _pairwise_deltas(
         model_scores,
@@ -171,12 +222,29 @@ def paired_clustered_bootstrap(
         replicates=replicates,
         ci_level=effective_config.ci_level,
     )
+    rank_tier_ci_level = _rank_tier_ci_level(
+        ci_level=effective_config.ci_level,
+        model_count=len(model_scores),
+        correction=effective_config.rank_tier_correction,
+    )
+    rank_tier_deltas = (
+        pairwise_deltas
+        if rank_tier_ci_level == effective_config.ci_level
+        else _pairwise_deltas(
+            model_scores,
+            observed_micro_briers=observed,
+            replicates=replicates,
+            ci_level=rank_tier_ci_level,
+        )
+    )
     return BootstrapInferenceResult(
         config=effective_config,
-        case_ids=case_ids,
+        case_ids=frame.case_ids,
+        cluster_ids=frame.cluster_ids,
+        rank_tier_ci_level=rank_tier_ci_level,
         observed_micro_briers=observed,
         pairwise_deltas=pairwise_deltas,
-        ranks=_rank_tiers(observed, pairwise_deltas),
+        ranks=_rank_tiers(observed, rank_tier_deltas),
         replicates=replicates,
     )
 
@@ -187,7 +255,7 @@ def draw_cluster_samples(
     replicates: int,
     seed: int,
 ) -> tuple[tuple[str, ...], ...]:
-    """Draw deterministic bootstrap samples of case IDs with replacement."""
+    """Draw deterministic bootstrap samples of cluster IDs with replacement."""
 
     if not case_ids:
         raise ValueError("case_ids must not be empty")
@@ -271,6 +339,31 @@ def _rank_tiers(
     )
 
 
+def _rank_tier_ci_level(
+    *,
+    ci_level: float,
+    model_count: int,
+    correction: str,
+) -> float:
+    if correction == "none" or model_count < 3:
+        return ci_level
+    pair_count = model_count * (model_count - 1) // 2
+    familywise_alpha = 1 - ci_level
+    return 1 - (familywise_alpha / pair_count)
+
+
+def _rank_tier_method(correction: str) -> str:
+    if correction == "bonferroni":
+        return BONFERRONI_RANK_TIER_METHOD
+    return UNADJUSTED_RANK_TIER_METHOD
+
+
+def _rank_tier_caveat(correction: str) -> str:
+    if correction == "bonferroni":
+        return BONFERRONI_RANK_TIER_CAVEAT
+    return UNADJUSTED_RANK_TIER_CAVEAT
+
+
 def _delta_ci(
     model_a: str,
     model_b: str,
@@ -286,7 +379,7 @@ def _delta_ci(
 
 def _validate_model_score_inputs(
     model_scores: tuple[ModelScoreInput, ...],
-) -> tuple[str, ...]:
+) -> _BootstrapSamplingFrame:
     if len(model_scores) < 2:
         raise ValueError("paired bootstrap requires at least two models")
     model_ids = [model.model_id for model in model_scores]
@@ -294,42 +387,119 @@ def _validate_model_score_inputs(
         raise ValueError("model_id values must be unique")
 
     reference_keys: tuple[tuple[str, str], ...] | None = None
-    case_ids: tuple[str, ...] | None = None
+    reference_clusters: dict[tuple[str, str], str] | None = None
+    case_ids_by_cluster: dict[str, tuple[str, ...]] | None = None
     for model in model_scores:
         keys = tuple(
             sorted((score.case_id, score.unit_id) for score in model.unit_scores)
         )
+        clusters = _cluster_id_by_unit_key(model.unit_scores)
         if reference_keys is None:
             reference_keys = keys
-            case_ids = tuple(sorted({case_id for case_id, _unit_id in keys}))
+            reference_clusters = clusters
+            case_ids_by_cluster = _case_ids_by_cluster(
+                model.unit_scores,
+                clusters,
+            )
             continue
         if keys != reference_keys:
             raise ValueError("paired bootstrap requires matching case/unit keys")
-    if case_ids is None or not case_ids:
+        if clusters != reference_clusters:
+            raise ValueError(
+                "paired bootstrap requires matching bootstrap cluster metadata"
+            )
+    if (
+        reference_keys is None
+        or reference_clusters is None
+        or case_ids_by_cluster is None
+    ):
         raise ValueError("model_scores must include at least one case")
-    return case_ids
+    case_ids = tuple(sorted({case_id for case_id, _unit_id in reference_keys}))
+    if not case_ids:
+        raise ValueError("model_scores must include at least one case")
+    return _BootstrapSamplingFrame(
+        case_ids=case_ids,
+        cluster_ids=tuple(sorted(case_ids_by_cluster)),
+        case_ids_by_cluster=case_ids_by_cluster,
+        cluster_id_by_unit_key=reference_clusters,
+    )
 
 
-def _scores_by_case(
+def _cluster_id_by_unit_key(
     unit_scores: tuple[UnitScore, ...],
-) -> dict[str, tuple[UnitScore, ...]]:
-    grouped: dict[str, list[UnitScore]] = {}
+) -> dict[tuple[str, str], str]:
+    cluster_by_unit_key: dict[tuple[str, str], str] = {}
+    cluster_by_case_id: dict[str, str] = {}
     for unit_score in unit_scores:
-        grouped.setdefault(unit_score.case_id, []).append(unit_score)
+        cluster_id = _bootstrap_cluster_id(unit_score)
+        existing_case_cluster = cluster_by_case_id.setdefault(
+            unit_score.case_id,
+            cluster_id,
+        )
+        if existing_case_cluster != cluster_id:
+            raise ValueError(
+                "paired bootstrap requires one cluster per case_id; "
+                f"{unit_score.case_id} has conflicting metadata"
+            )
+        cluster_by_unit_key[(unit_score.case_id, unit_score.unit_id)] = cluster_id
+    return cluster_by_unit_key
+
+
+def _case_ids_by_cluster(
+    unit_scores: tuple[UnitScore, ...],
+    cluster_id_by_unit_key: dict[tuple[str, str], str],
+) -> dict[str, tuple[str, ...]]:
+    grouped: dict[str, set[str]] = {}
+    for unit_score in unit_scores:
+        cluster_id = cluster_id_by_unit_key[(unit_score.case_id, unit_score.unit_id)]
+        grouped.setdefault(cluster_id, set()).add(unit_score.case_id)
     return {
-        case_id: tuple(scores)
-        for case_id, scores in sorted(grouped.items(), key=lambda item: item[0])
+        cluster_id: tuple(sorted(case_ids))
+        for cluster_id, case_ids in sorted(grouped.items(), key=lambda item: item[0])
     }
 
 
+def _bootstrap_cluster_id(unit_score: UnitScore) -> str:
+    if unit_score.mdl_family_id is not None:
+        return f"mdl_family:{unit_score.mdl_family_id}"
+    if unit_score.related_family_id is not None:
+        return f"related_family:{unit_score.related_family_id}"
+    return f"case:{unit_score.case_id}"
+
+
+def _scores_by_cluster(
+    unit_scores: tuple[UnitScore, ...],
+    cluster_id_by_unit_key: dict[tuple[str, str], str],
+) -> dict[str, tuple[UnitScore, ...]]:
+    grouped: dict[str, list[UnitScore]] = {}
+    for unit_score in unit_scores:
+        cluster_id = cluster_id_by_unit_key[(unit_score.case_id, unit_score.unit_id)]
+        grouped.setdefault(cluster_id, []).append(unit_score)
+    return {
+        cluster_id: tuple(scores)
+        for cluster_id, scores in sorted(grouped.items(), key=lambda item: item[0])
+    }
+
+
+def _sampled_case_ids(
+    case_ids_by_cluster: dict[str, tuple[str, ...]],
+    sampled_cluster_ids: tuple[str, ...],
+) -> tuple[str, ...]:
+    return tuple(
+        case_id
+        for cluster_id in sampled_cluster_ids
+        for case_id in case_ids_by_cluster[cluster_id]
+    )
+
+
 def _resampled_micro_brier(
-    scores_by_case: dict[str, tuple[UnitScore, ...]],
-    sampled_case_ids: tuple[str, ...],
+    scores_by_cluster: dict[str, tuple[UnitScore, ...]],
+    sampled_cluster_ids: tuple[str, ...],
 ) -> float:
     return _mean(
         unit_score.brier
-        for case_id in sampled_case_ids
-        for unit_score in scores_by_case[case_id]
+        for cluster_id in sampled_cluster_ids
+        for unit_score in scores_by_cluster[cluster_id]
     )
 
 
