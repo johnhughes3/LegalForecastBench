@@ -29,6 +29,11 @@ from legalforecast.evals.baselines import (
     fit_baseline_suite_from_training_examples,
     load_baseline_training_examples,
 )
+from legalforecast.evals.bootstrap import (
+    BootstrapInferenceResult,
+    ModelScoreInput,
+    paired_clustered_bootstrap,
+)
 from legalforecast.evals.model_registry import ModelRegistryEntry, load_model_registry
 from legalforecast.evals.output_parser import parse_model_output
 from legalforecast.evals.scorers import (
@@ -255,10 +260,12 @@ def aggregate_official_results(
         labels,
         base_rate=config.base_rate,
     )
+    inference = _official_bootstrap_inference(summaries)
     accounting_rows = summarize_accounting_leaderboard(accounting_records)
     report = build_benchmark_leaderboard_report(
         summaries,
         accounting_rows=accounting_rows,
+        inference=inference,
         repeat_variance_rows=_repeat_variance_summary_rows(repeat_variance_report),
         title=config.title,
     )
@@ -977,6 +984,13 @@ def _expected_model_key_sets(
                 raise OfficialAggregationError(
                     f"model_keys missing from registry: {missing}"
                 )
+            omitted = sorted(set(registry_model_keys) - set(config.model_keys))
+            if omitted and not config.allow_incomplete_model_set:
+                raise OfficialAggregationError(
+                    "incomplete model set: explicit model_keys omit registry "
+                    f"entries {omitted}; pass --allow-incomplete-model-set only "
+                    "for partial/debug bundles"
+                )
         return config.model_keys, registry_model_keys
     if registry_model_keys:
         return registry_model_keys, registry_model_keys
@@ -1573,6 +1587,22 @@ def _score_run_records(
     return tuple(
         score_cases(tuple(cases), base_rate=effective_base_rate)
         for _model_id, cases in sorted(cases_by_model.items())
+    )
+
+
+def _official_bootstrap_inference(
+    summaries: Sequence[ScoreSummary],
+) -> BootstrapInferenceResult | None:
+    if len(summaries) < 2:
+        return None
+    return paired_clustered_bootstrap(
+        tuple(
+            ModelScoreInput(
+                model_id=summary.model_id,
+                unit_scores=summary.unit_scores,
+            )
+            for summary in summaries
+        )
     )
 
 

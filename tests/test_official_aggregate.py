@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 from legalforecast.evals.accounting import ModelRunAccountingRecord
+from legalforecast.evals.bootstrap import BONFERRONI_RANK_TIER_METHOD
 from legalforecast.labeling import AmendmentClass, OutcomeCitation, OutcomeLabel
 from legalforecast.publication.official_aggregate import (
     OfficialAggregationConfig,
@@ -304,8 +305,14 @@ def test_official_aggregate_accepts_explicit_multi_model_matrix(
     assert result.model_count == 2
 
     leaderboard = json.loads(result.leaderboard_path.read_text(encoding="utf-8"))
+    assert leaderboard["rank_tier_method"] == BONFERRONI_RANK_TIER_METHOD
+    assert leaderboard["pairwise_deltas"]
     rows_by_model = {row["model_id"]: row for row in leaderboard["rows"]}
     assert set(rows_by_model) == {"model-a", "model-b"}
+    assert rows_by_model["model-a"]["rank_tier"] == 1
+    assert rows_by_model["model-b"]["rank_tier"] == 2
+    assert rows_by_model["model-b"]["delta_vs_best"] > 0
+    assert rows_by_model["model-b"]["delta_vs_best_ci_low"] > 0
     assert math.isclose(rows_by_model["model-a"]["cost_per_case"], 0.02)
     assert math.isclose(rows_by_model["model-b"]["cost_per_case"], 0.04)
 
@@ -314,6 +321,81 @@ def test_official_aggregate_accepts_explicit_multi_model_matrix(
     assert run_card["model_keys"] == ["fixture:model-a", "fixture:model-b"]
     assert run_card["registry_model_keys"] == ["fixture:model-a", "fixture:model-b"]
     assert run_card["expected_model_keys"] == ["fixture:model-a", "fixture:model-b"]
+
+
+def test_official_aggregate_rejects_strict_subset_explicit_model_set(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(tmp_path)
+    registry_path = _write_model_registry(
+        tmp_path,
+        ("fixture:model-a", "fixture:model-b"),
+    )
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-full_packet-model-a",
+        solver_id="fixture:model-a",
+        model_id="model-a",
+    )
+
+    with pytest.raises(OfficialAggregationError, match="incomplete model set"):
+        aggregate_official_results(
+            OfficialAggregationConfig(
+                per_case_dir=per_case_dir,
+                run_input_manifest_path=manifest_path,
+                labels_path=labels_path,
+                output_dir=tmp_path / "official-bundle",
+                cycle_id="cycle-1",
+                cycle_series=CycleSeries.PILOT,
+                clean_motion_count=25,
+                prediction_unit_count=1,
+                model_registry_path=registry_path,
+                model_keys=("fixture:model-a",),
+                ablation="full_packet",
+            )
+        )
+
+
+def test_official_aggregate_allows_explicit_partial_debug_bundle(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(tmp_path)
+    registry_path = _write_model_registry(
+        tmp_path,
+        ("fixture:model-a", "fixture:model-b"),
+    )
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-full_packet-model-a",
+        solver_id="fixture:model-a",
+        model_id="model-a",
+    )
+
+    result = aggregate_official_results(
+        OfficialAggregationConfig(
+            per_case_dir=per_case_dir,
+            run_input_manifest_path=manifest_path,
+            labels_path=labels_path,
+            output_dir=tmp_path / "official-bundle",
+            cycle_id="cycle-1",
+            cycle_series=CycleSeries.PILOT,
+            clean_motion_count=25,
+            prediction_unit_count=1,
+            model_registry_path=registry_path,
+            model_keys=("fixture:model-a",),
+            allow_incomplete_model_set=True,
+            ablation="full_packet",
+        )
+    )
+
+    run_card = json.loads(result.run_card_path.read_text(encoding="utf-8"))
+    assert run_card["allow_incomplete_model_set"] is True
+    assert run_card["registry_model_keys"] == ["fixture:model-a", "fixture:model-b"]
+    assert run_card["expected_model_keys"] == ["fixture:model-a"]
 
 
 def test_official_aggregate_requires_expected_model_set_by_default(
