@@ -136,7 +136,7 @@ If a case is later sealed, redacted, or otherwise must be removed from the publi
 - `community/submissions/`: reviewed community submission examples and future accepted metadata packages.
 - `docs/`: contributor-facing multi-harness, community submission, adapter, and planning docs.
 - `tests/`: synthetic fixtures and regression coverage.
-- `MODEL_RELEASE_DATES.md`: tracked current pilot model anchors.
+- `MODEL_RELEASE_DATES.md`: tracked pilot anchors and additional release-date candidates.
 
 ## License
 
