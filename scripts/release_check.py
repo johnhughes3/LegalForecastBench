@@ -65,6 +65,10 @@ def build_steps(output_dir: Path) -> tuple[CheckStep, ...]:
         CheckStep("lint", ("uv", "run", "ruff", "check", ".")),
         CheckStep("type-check", ("uv", "run", "pyright")),
         CheckStep("test", ("uv", "run", "pytest", "-q")),
+        CheckStep(
+            "review blocker verifier",
+            ("uv", "run", "scripts/verify_review_blockers.py"),
+        ),
         CheckStep("CLI help smoke", ("uv", "run", "legalforecast", "--help")),
         CheckStep(
             "fixture E2E",

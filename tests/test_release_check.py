@@ -21,6 +21,7 @@ def test_release_check_plans_full_gate(tmp_path: Path) -> None:
         "lint",
         "type-check",
         "test",
+        "review blocker verifier",
         "CLI help smoke",
         "fixture E2E",
         "multi-harness schema validation",
@@ -32,6 +33,7 @@ def test_release_check_plans_full_gate(tmp_path: Path) -> None:
     ]
     assert "uv sync --locked" in commands
     assert "uv run pyright" in commands
+    assert "uv run scripts/verify_review_blockers.py" in commands
     assert any("legalforecast fixture e2e" in command for command in commands)
     assert any(
         "legalforecast multiharness adapters inspect" in command for command in commands
