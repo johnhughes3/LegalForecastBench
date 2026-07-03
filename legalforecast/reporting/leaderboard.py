@@ -44,6 +44,12 @@ from legalforecast.evals.scorers import ScoreSummary
 from legalforecast.reporting.calibration import calibration_records, calibration_svg
 from legalforecast.reporting.pareto import pareto_frontier_records
 
+OBSERVED_RANK_TIER_METHOD = "observed_micro_brier_order"
+OBSERVED_RANK_TIER_CAVEAT = (
+    "No bootstrap inference was supplied; rank tiers equal observed micro-Brier "
+    "rank order only."
+)
+
 
 @dataclass(frozen=True, slots=True)
 class AccountingLeaderboardRow:
@@ -230,6 +236,11 @@ class HeadlineLeaderboardRow:
     delta_vs_best: float | None = None
     delta_vs_best_ci_low: float | None = None
     delta_vs_best_ci_high: float | None = None
+    repeat_sample_case_count: int = 0
+    repeat_sample_run_count: int = 0
+    within_model_micro_brier_stddev: float | None = None
+    brier_skill_score_reference_model_id: str | None = None
+    brier_skill_score_over_reference: float | None = None
 
     def to_record(self) -> dict[str, Any]:
         return {
@@ -238,6 +249,10 @@ class HeadlineLeaderboardRow:
             "model_id": self.model_id,
             "micro_brier": self.micro_brier,
             "brier_skill_score": self.brier_skill_score,
+            "brier_skill_score_reference_model_id": (
+                self.brier_skill_score_reference_model_id
+            ),
+            "brier_skill_score_over_reference": (self.brier_skill_score_over_reference),
             "log_loss": self.log_loss,
             "ece": self.ece,
             "macro_brier": self.macro_brier,
@@ -258,6 +273,9 @@ class HeadlineLeaderboardRow:
             "delta_vs_best": self.delta_vs_best,
             "delta_vs_best_ci_low": self.delta_vs_best_ci_low,
             "delta_vs_best_ci_high": self.delta_vs_best_ci_high,
+            "repeat_sample_case_count": self.repeat_sample_case_count,
+            "repeat_sample_run_count": self.repeat_sample_run_count,
+            "within_model_micro_brier_stddev": self.within_model_micro_brier_stddev,
         }
 
 
@@ -267,6 +285,8 @@ class BenchmarkLeaderboardReport:
 
     title: str
     rows: tuple[HeadlineLeaderboardRow, ...]
+    rank_tier_method: str = OBSERVED_RANK_TIER_METHOD
+    rank_tier_caveat: str = OBSERVED_RANK_TIER_CAVEAT
     pairwise_deltas: tuple[PairwiseDelta, ...] = ()
     calibration_tables: tuple[Mapping[str, Any], ...] = ()
     calibration_plot_svg: str = ""
@@ -281,6 +301,8 @@ class BenchmarkLeaderboardReport:
     def to_record(self) -> dict[str, Any]:
         return {
             "title": self.title,
+            "rank_tier_method": self.rank_tier_method,
+            "rank_tier_caveat": self.rank_tier_caveat,
             "rows": [row.to_record() for row in self.rows],
             "pairwise_deltas": [delta.to_record() for delta in self.pairwise_deltas],
             "calibration_tables": [dict(table) for table in self.calibration_tables],
@@ -312,17 +334,35 @@ class BenchmarkLeaderboardReport:
             "Model",
             "Micro-Brier",
             "BSS",
+            "BSS vs Ref",
             "Log loss",
             "ECE",
             "Cost/case",
             "Tool calls/case",
+            "Repeat stddev",
             "Invalid %",
         )
         lines = [
             f"# {self.title}",
             "",
             "| " + " | ".join(headers) + " |",
-            "| ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            "| "
+            + " | ".join(
+                (
+                    "---:",
+                    "---:",
+                    "---",
+                    "---:",
+                    "---:",
+                    "---:",
+                    "---:",
+                    "---:",
+                    "---:",
+                    "---:",
+                    "---:",
+                )
+            )
+            + " |",
         ]
         for row in self.rows:
             lines.append(
@@ -332,12 +372,16 @@ class BenchmarkLeaderboardReport:
                 f"{row.model_id} | "
                 f"{row.micro_brier:.4f} | "
                 f"{row.brier_skill_score:.4f} | "
+                f"{_fmt_optional(row.brier_skill_score_over_reference)} | "
                 f"{row.log_loss:.4f} | "
                 f"{row.ece:.4f} | "
                 f"{_fmt_optional(row.cost_per_case)} | "
                 f"{_fmt_optional(row.mean_tool_calls_per_case)} | "
+                f"{_fmt_optional(row.within_model_micro_brier_stddev)} | "
                 f"{row.invalid_output_rate:.2%} |"
             )
+        if self.rank_tier_caveat:
+            lines.extend(["", f"_Rank tier note: {self.rank_tier_caveat}_"])
         if self.pairwise_deltas:
             lines.extend(["", "## Pairwise CIs", ""])
             for delta in self.pairwise_deltas:
@@ -366,10 +410,12 @@ class BenchmarkLeaderboardReport:
             f"<td>{html.escape(row.model_id)}</td>"
             f"<td>{row.micro_brier:.4f}</td>"
             f"<td>{row.brier_skill_score:.4f}</td>"
+            f"<td>{_fmt_optional(row.brier_skill_score_over_reference)}</td>"
             f"<td>{row.log_loss:.4f}</td>"
             f"<td>{row.ece:.4f}</td>"
             f"<td>{_fmt_optional(row.cost_per_case)}</td>"
             f"<td>{_fmt_optional(row.mean_tool_calls_per_case)}</td>"
+            f"<td>{_fmt_optional(row.within_model_micro_brier_stddev)}</td>"
             f"<td>{row.invalid_output_rate:.2%}</td>"
             "</tr>"
             for row in self.rows
@@ -388,11 +434,14 @@ class BenchmarkLeaderboardReport:
             "<table>"
             "<thead><tr>"
             "<th>Rank</th><th>Tier</th><th>Model</th><th>Micro-Brier</th>"
-            "<th>BSS</th><th>Log loss</th><th>ECE</th><th>Cost/case</th>"
-            "<th>Tool calls/case</th><th>Invalid %</th>"
+            "<th>BSS</th><th>BSS vs Ref</th><th>Log loss</th><th>ECE</th>"
+            "<th>Cost/case</th>"
+            "<th>Tool calls/case</th><th>Repeat stddev</th><th>Invalid %</th>"
             "</tr></thead>"
             f"<tbody>{rows}</tbody>"
             "</table>"
+            "<p><strong>Rank tier note:</strong> "
+            f"{html.escape(self.rank_tier_caveat)}</p>"
             "<h2>Calibration</h2>"
             f"{self.calibration_plot_svg}"
             "<h2>Pareto Frontier</h2>"
@@ -408,6 +457,7 @@ def build_benchmark_leaderboard_report(
     *,
     accounting_rows: Sequence[AccountingLeaderboardRow] = (),
     inference: BootstrapInferenceResult | None = None,
+    repeat_variance_rows: Sequence[Mapping[str, Any]] = (),
     title: str = "LegalForecast-MTD Leaderboard",
 ) -> BenchmarkLeaderboardReport:
     """Join scoring, inference, calibration, Pareto, and accounting outputs."""
@@ -415,19 +465,25 @@ def build_benchmark_leaderboard_report(
     if not score_summaries:
         raise ValueError("score_summaries must not be empty")
     accounting_by_model = {row.model_id: row for row in accounting_rows}
+    repeat_variance_by_model = {
+        _required_str(row, "model_id"): row for row in repeat_variance_rows
+    }
     ranks = _rank_lookup(score_summaries, inference)
     sorted_summaries = sorted(
         score_summaries,
         key=lambda summary: (ranks[summary.model_id].rank, summary.model_id),
     )
     best_model_id = sorted_summaries[0].model_id
+    reference_summary = _baseline_reference_summary(score_summaries)
     rows = tuple(
         _headline_row(
             summary,
             rank=ranks[summary.model_id].rank,
             rank_tier=ranks[summary.model_id].tier,
             accounting=accounting_by_model.get(summary.model_id),
+            repeat_variance=repeat_variance_by_model.get(summary.model_id),
             best_model_id=best_model_id,
+            reference_summary=reference_summary,
             inference=inference,
         )
         for summary in sorted_summaries
@@ -436,6 +492,16 @@ def build_benchmark_leaderboard_report(
     return BenchmarkLeaderboardReport(
         title=title,
         rows=rows,
+        rank_tier_method=(
+            inference.rank_tier_method
+            if inference is not None
+            else OBSERVED_RANK_TIER_METHOD
+        ),
+        rank_tier_caveat=(
+            inference.rank_tier_caveat
+            if inference is not None
+            else OBSERVED_RANK_TIER_CAVEAT
+        ),
         pairwise_deltas=inference.pairwise_deltas if inference is not None else (),
         calibration_tables=tuple(calibration_records(tuple(score_summaries))),
         calibration_plot_svg=calibration_svg(tuple(score_summaries)),
@@ -459,6 +525,7 @@ def benchmark_leaderboard_records(
     *,
     accounting_rows: Sequence[AccountingLeaderboardRow] = (),
     inference: BootstrapInferenceResult | None = None,
+    repeat_variance_rows: Sequence[Mapping[str, Any]] = (),
 ) -> list[dict[str, Any]]:
     """Return leaderboard rows as JSON-serializable records."""
 
@@ -466,6 +533,7 @@ def benchmark_leaderboard_records(
         score_summaries,
         accounting_rows=accounting_rows,
         inference=inference,
+        repeat_variance_rows=repeat_variance_rows,
     )
     return [row.to_record() for row in report.rows]
 
@@ -511,7 +579,9 @@ def _headline_row(
     rank: int,
     rank_tier: int,
     accounting: AccountingLeaderboardRow | None,
+    repeat_variance: Mapping[str, Any] | None,
     best_model_id: str,
+    reference_summary: ScoreSummary | None,
     inference: BootstrapInferenceResult | None,
 ) -> HeadlineLeaderboardRow:
     delta = _delta_against_best(
@@ -549,7 +619,53 @@ def _headline_row(
         delta_vs_best=delta[0],
         delta_vs_best_ci_low=delta[1],
         delta_vs_best_ci_high=delta[2],
+        repeat_sample_case_count=(
+            _required_int(repeat_variance, "repeated_case_count")
+            if repeat_variance is not None
+            else 0
+        ),
+        repeat_sample_run_count=(
+            _required_int(repeat_variance, "repeat_run_count")
+            if repeat_variance is not None
+            else 0
+        ),
+        within_model_micro_brier_stddev=(
+            _optional_number(repeat_variance, "root_mean_within_case_variance")
+            if repeat_variance is not None
+            else None
+        ),
+        brier_skill_score_reference_model_id=(
+            reference_summary.model_id if reference_summary is not None else None
+        ),
+        brier_skill_score_over_reference=_skill_over_reference(
+            summary,
+            reference_summary,
+        ),
     )
+
+
+def _baseline_reference_summary(
+    summaries: Sequence[ScoreSummary],
+) -> ScoreSummary | None:
+    by_model = {summary.model_id: summary for summary in summaries}
+    for model_id in (
+        "judge_history",
+        "metadata_only",
+        "court_nos_motion_base_rate",
+        "global_base_rate",
+    ):
+        if model_id in by_model:
+            return by_model[model_id]
+    return None
+
+
+def _skill_over_reference(
+    summary: ScoreSummary,
+    reference_summary: ScoreSummary | None,
+) -> float | None:
+    if reference_summary is None or reference_summary.micro_brier == 0:
+        return None
+    return 1 - (summary.micro_brier / reference_summary.micro_brier)
 
 
 def _delta_against_best(

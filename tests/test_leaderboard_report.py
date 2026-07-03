@@ -184,6 +184,7 @@ def _accounting_record(
         provider="provider",
         model_id=model_id,
         model_version_or_snapshot="2026-05-14",
+        served_model_version=None,
         evaluation_timestamp=timestamp,
         raw_output_sha256="sha256:" + model_id.replace("-", "") + ("0" * 57),
         prediction_unit_count=2,

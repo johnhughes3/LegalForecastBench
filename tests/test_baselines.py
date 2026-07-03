@@ -9,6 +9,8 @@ from legalforecast.evals.baselines import (
     BaselineTrainingExample,
     BaselineUnitFeatures,
     fit_baseline_suite,
+    fit_baseline_suite_from_training_examples,
+    load_baseline_training_examples,
     required_llm_run_labels,
 )
 
@@ -112,6 +114,24 @@ def test_required_llm_run_labels_are_pre_registered_baselines() -> None:
         BaselineId.NO_BRIEF_LLM,
         BaselineId.FULL_PACKET_LLM,
     )
+
+
+def test_load_baseline_training_examples_from_jsonl(tmp_path) -> None:
+    path = tmp_path / "baseline-training.jsonl"
+    path.write_text(
+        "\n".join(
+            json.dumps(example.to_record()) for example in _training_examples()[:2]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    examples = load_baseline_training_examples(path)
+    suite = fit_baseline_suite_from_training_examples(examples)
+
+    assert len(examples) == 2
+    assert suite.training_period_start == examples[0].decision_date
+    assert suite.training_period_end == examples[-1].decision_date
 
 
 def test_baseline_suite_validates_training_period_and_examples() -> None:

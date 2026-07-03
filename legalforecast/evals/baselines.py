@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import json
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
-from typing import Any
+from pathlib import Path
+from typing import Any, cast
 
 JUDGE_HISTORY_MIN_DECISIONS = 30
 
@@ -85,6 +87,30 @@ class BaselineUnitFeatures:
             "docket_entry_count": self.docket_entry_count,
         }
 
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> BaselineUnitFeatures:
+        return cls(
+            unit_id=_required_str(record, "unit_id"),
+            case_id=_required_str(record, "case_id"),
+            court=_required_str(record, "court"),
+            district=_required_str(record, "district"),
+            circuit=_required_str(record, "circuit"),
+            nos_macro_category=_required_str(record, "nos_macro_category"),
+            motion_type=_required_str(record, "motion_type"),
+            judge_id=_optional_str(record, "judge_id"),
+            represented_party_status=_optional_str(
+                record,
+                "represented_party_status",
+            ),
+            government_party_status=_optional_str(record, "government_party_status"),
+            claim_count=_optional_int(record, "claim_count"),
+            defendant_count=_optional_int(record, "defendant_count"),
+            motion_length_tokens=_optional_int(record, "motion_length_tokens"),
+            complaint_length_tokens=_optional_int(record, "complaint_length_tokens"),
+            case_age_days=_optional_int(record, "case_age_days"),
+            docket_entry_count=_optional_int(record, "docket_entry_count"),
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class BaselineTrainingExample:
@@ -100,6 +126,16 @@ class BaselineTrainingExample:
             "fully_dismissed": self.fully_dismissed,
             "decision_date": self.decision_date.isoformat(),
         }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> BaselineTrainingExample:
+        return cls(
+            features=BaselineUnitFeatures.from_record(
+                _required_record(record, "features")
+            ),
+            fully_dismissed=_required_bool(record, "fully_dismissed"),
+            decision_date=_required_date(record, "decision_date"),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -571,6 +607,66 @@ def fit_baseline_suite(
     )
 
 
+def load_baseline_training_examples(
+    path: str | Path,
+) -> tuple[BaselineTrainingExample, ...]:
+    """Load historical baseline examples from JSONL or JSON artifacts."""
+
+    artifact_path = Path(path)
+    if artifact_path.suffix == ".jsonl":
+        records = tuple(
+            _jsonl_record(line, artifact_path=artifact_path, line_number=line_number)
+            for line_number, line in enumerate(
+                artifact_path.read_text(encoding="utf-8").splitlines(),
+                start=1,
+            )
+            if line.strip()
+        )
+    else:
+        loaded: object = json.loads(artifact_path.read_text(encoding="utf-8"))
+        if isinstance(loaded, list):
+            records = _mapping_records(
+                cast(list[object], loaded),
+                "baseline training examples",
+            )
+        elif isinstance(loaded, Mapping):
+            loaded_mapping = cast(Mapping[str, Any], loaded)
+            examples: object | None = loaded_mapping.get("training_examples")
+            if examples is None:
+                examples = loaded_mapping.get("examples")
+            if not isinstance(examples, list):
+                raise ValueError(
+                    "baseline training JSON object must include training_examples"
+                )
+            records = _mapping_records(
+                cast(list[object], examples),
+                "baseline training examples",
+            )
+        else:
+            raise ValueError(
+                "baseline training artifact must be a JSON object or array"
+            )
+    if not records:
+        raise ValueError("baseline training artifact must not be empty")
+    return tuple(BaselineTrainingExample.from_record(record) for record in records)
+
+
+def fit_baseline_suite_from_training_examples(
+    examples: tuple[BaselineTrainingExample, ...],
+    *,
+    judge_min_decisions: int = JUDGE_HISTORY_MIN_DECISIONS,
+) -> BaselineSuite:
+    if not examples:
+        raise ValueError("baseline training examples must not be empty")
+    dates = tuple(example.decision_date for example in examples)
+    return fit_baseline_suite(
+        examples,
+        training_period_start=min(dates),
+        training_period_end=max(dates),
+        judge_min_decisions=judge_min_decisions,
+    )
+
+
 def required_llm_run_labels() -> tuple[BaselineId, BaselineId]:
     return (BaselineId.NO_BRIEF_LLM, BaselineId.FULL_PACKET_LLM)
 
@@ -691,6 +787,82 @@ def _share(numerator: int, denominator: int) -> float:
 def _require_non_empty(value: str, field_name: str) -> None:
     if not value.strip():
         raise ValueError(f"{field_name} is required")
+
+
+def _required_str(record: Mapping[str, Any], field_name: str) -> str:
+    value = record.get(field_name)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} is required")
+    return value
+
+
+def _optional_str(record: Mapping[str, Any], field_name: str) -> str | None:
+    value = record.get(field_name)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} is required")
+    return value
+
+
+def _optional_int(record: Mapping[str, Any], field_name: str) -> int | None:
+    value = record.get(field_name)
+    if value is None:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"{field_name} must be an integer")
+    return value
+
+
+def _required_bool(record: Mapping[str, Any], field_name: str) -> bool:
+    value = record.get(field_name)
+    if not isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a boolean")
+    return value
+
+
+def _required_date(record: Mapping[str, Any], field_name: str) -> date:
+    value = _required_str(record, field_name)
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be an ISO date") from exc
+
+
+def _required_record(record: Mapping[str, Any], field_name: str) -> Mapping[str, Any]:
+    value = record.get(field_name)
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{field_name} must be an object")
+    return cast(Mapping[str, Any], value)
+
+
+def _jsonl_record(
+    line: str,
+    *,
+    artifact_path: Path,
+    line_number: int,
+) -> Mapping[str, Any]:
+    try:
+        loaded: object = json.loads(line)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"{artifact_path} line {line_number} is not valid JSON"
+        ) from exc
+    if not isinstance(loaded, Mapping):
+        raise ValueError(f"{artifact_path} line {line_number} must be an object")
+    return cast(Mapping[str, Any], loaded)
+
+
+def _mapping_records(
+    values: list[object],
+    field_name: str,
+) -> tuple[Mapping[str, Any], ...]:
+    records: list[Mapping[str, Any]] = []
+    for index, value in enumerate(values):
+        if not isinstance(value, Mapping):
+            raise ValueError(f"{field_name}[{index}] must be an object")
+        records.append(cast(Mapping[str, Any], value))
+    return tuple(records)
 
 
 def _optional_non_empty(value: str | None, field_name: str) -> None:
