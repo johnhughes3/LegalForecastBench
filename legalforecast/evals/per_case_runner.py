@@ -655,8 +655,12 @@ def _prediction_unit(record: Mapping[str, Any]) -> PredictionUnit:
         count=required_str(record, "count"),
         claim_name=required_str(record, "claim_name"),
         defendant_group=required_str(record, "defendant_group"),
-        challenged_by_motion=required_bool(record, "challenged_by_motion"),
-        challenge_scope=ChallengeScope(required_str(record, "challenge_scope")),
+        challenged_by_motion=_optional_public_packet_bool(
+            record,
+            "challenged_by_motion",
+            default=True,
+        ),
+        challenge_scope=_optional_public_packet_challenge_scope(record),
         unit_confidence=_optional_float(record, "unit_confidence", default=1.0),
         source_citations=source_citations,
         grouping=DefendantGrouping(
@@ -666,6 +670,25 @@ def _prediction_unit(record: Mapping[str, Any]) -> PredictionUnit:
         separable_subclaim=optional_str(record, "separable_subclaim"),
         uncertainty_notes=optional_str(record, "uncertainty_notes"),
     )
+
+
+def _optional_public_packet_bool(
+    record: Mapping[str, Any],
+    field_name: str,
+    *,
+    default: bool,
+) -> bool:
+    if field_name not in record:
+        return default
+    return required_bool(record, field_name)
+
+
+def _optional_public_packet_challenge_scope(
+    record: Mapping[str, Any],
+) -> ChallengeScope:
+    if "challenge_scope" not in record:
+        return ChallengeScope.ENTIRE_CLAIM
+    return ChallengeScope(required_str(record, "challenge_scope"))
 
 
 def _source_citation(record: Mapping[str, Any]) -> SourceCitation:

@@ -375,8 +375,6 @@ def _model_visible_unit_record(unit: PredictionUnit) -> dict[str, Any]:
         "count": unit.count,
         "claim_name": unit.claim_name,
         "defendant_group": unit.defendant_group,
-        "challenged_by_motion": unit.challenged_by_motion,
-        "challenge_scope": unit.challenge_scope.value,
         "should_score": unit.should_score,
     }
 

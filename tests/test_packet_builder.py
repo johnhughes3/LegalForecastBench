@@ -59,7 +59,8 @@ def test_full_packet_excludes_decision_and_includes_predecision_hashes() -> None
     assert record["source_hashes"]["complaint"] == sha256_text("complaint source")
     assert record["metadata"]["judge"] == "Judge Example"
     assert "source_citations" not in record["prediction_units"][0]
-    assert record["prediction_units"][0]["challenge_scope"] == "entire_claim"
+    assert "challenged_by_motion" not in record["prediction_units"][0]
+    assert "challenge_scope" not in record["prediction_units"][0]
 
 
 def test_no_briefs_ablation_keeps_complaint_and_notice_only() -> None:
