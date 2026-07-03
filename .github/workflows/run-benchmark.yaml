@@ -57,6 +57,25 @@ on:
         required: true
         default: "1"
         type: string
+      allow_no_baselines:
+        description: >-
+          Permit aggregation without a statistical baseline corpus. Defaults to
+          true for run-1: no historical baseline training corpus has been frozen
+          yet, so the first cycle ships model rows only and discloses the absence
+          in the run card. Set to false once baseline_training_examples_uri
+          points at a real corpus so aggregation fails loud on a missing baseline.
+        required: true
+        default: true
+        type: boolean
+      baseline_training_examples_uri:
+        description: >-
+          Optional s3:// URI, manifests/ key, or checked-out path to the frozen
+          baseline-training corpus. When set, global, court/NOS/motion,
+          metadata-only, and judge-history baselines are scored as pseudo-model
+          rows. Leave empty for run-1 until a baseline corpus is frozen.
+        required: false
+        default: ""
+        type: string
       elapsed_days:
         description: Optional elapsed days for rapid-cycle power classification.
         required: false
@@ -728,8 +747,10 @@ jobs:
       id-token: write
     env:
       ABLATIONS: ${{ inputs.ablations }}
+      ALLOW_NO_BASELINES: ${{ inputs.allow_no_baselines }}
       ARTIFACT_RETENTION_DAYS: ${{ needs.build-matrix.outputs.artifact_retention_days }}
       AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
+      BASELINE_TRAINING_EXAMPLES_URI: ${{ inputs.baseline_training_examples_uri }}
       CLEAN_MOTION_COUNT: ${{ inputs.clean_motion_count }}
       CYCLE_ID: ${{ inputs.cycle_id }}
       CYCLE_SERIES: ${{ inputs.cycle_series }}
@@ -786,6 +807,9 @@ jobs:
           download_input "${RUN_INPUT_MANIFEST_URI}" /tmp/lfb-run-inputs.json
           download_input "${MODEL_REGISTRY_URI}" /tmp/lfb-model-registry.json
           download_input "${LABELS_URI}" /tmp/lfb-labels.jsonl
+          if [[ -n "${BASELINE_TRAINING_EXAMPLES_URI//[[:space:]]/}" ]]; then
+            download_input "${BASELINE_TRAINING_EXAMPLES_URI}" /tmp/lfb-baseline-training.jsonl
+          fi
 
       - name: Download per-case artifacts
         uses: actions/download-artifact@v7
@@ -811,6 +835,12 @@ jobs:
           if [[ -n "${OFFICIAL_WINDOW_DAYS//[[:space:]]/}" ]]; then
             optional_args+=(--official-window-days "${OFFICIAL_WINDOW_DAYS}")
           fi
+          if [[ -n "${BASELINE_TRAINING_EXAMPLES_URI//[[:space:]]/}" ]]; then
+            optional_args+=(--baseline-training-examples /tmp/lfb-baseline-training.jsonl)
+          fi
+          if [[ "${ALLOW_NO_BASELINES}" == "true" ]]; then
+            optional_args+=(--allow-no-baselines)
+          fi
           uv run python -m legalforecast.publication.official_aggregate \
             --per-case-dir /tmp/lfb-per-case-artifacts \
             --run-input-manifest /tmp/lfb-run-inputs.json \
@@ -821,7 +851,6 @@ jobs:
             --cycle-series "${CYCLE_SERIES}" \
             --clean-motion-count "${CLEAN_MOTION_COUNT}" \
             --prediction-unit-count "${PREDICTION_UNIT_COUNT}" \
-            --allow-no-baselines \
             --deferred-ablation "judge_removed" \
             "${model_key_args[@]}" \
             "${optional_args[@]}"
