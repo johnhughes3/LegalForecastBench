@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -35,6 +35,7 @@ from legalforecast.evals.model_registry import (
     ModelRegistry,
     ModelRegistryEntry,
     load_model_registry,
+    require_official_registry_entries,
 )
 from legalforecast.evals.packet_builder import (
     ModelPacket,
@@ -102,6 +103,7 @@ class PerCaseRunnerConfig:
     mock_output: str | None = None
     packet_store_root: str | None = None
     results_store_root: str | None = None
+    repeat_count: int = 1
     solver_id: str = "offline:fixture"
     backend: PerCaseExecutionBackend = PerCaseExecutionBackend.FIXTURE
     model_registry_uri: str | None = None
@@ -137,6 +139,8 @@ class PerCaseRunnerConfig:
                 raise ValueError(f"{field_name} must not be blank")
         if self.max_tool_calls <= 0:
             raise ValueError("max_tool_calls must be positive")
+        if self.repeat_count <= 0:
+            raise ValueError("repeat_count must be positive")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
         if self.evaluation_timestamp is not None:
@@ -274,6 +278,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 run_label=config.ablation,
                 use_docket_tool=config.use_docket_tool,
             )
+            samples = _repeat_samples(samples, repeat_count=config.repeat_count)
             solver = _solver_for_config(
                 config,
                 registry_entry=registry_entry,
@@ -283,10 +288,19 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 samples,
                 (solver,),
             )
-            run_records = run.to_records()
-            accounting_records = accounting_records_from_inspect_run(
-                run,
-                evaluation_timestamp=evaluation_timestamp,
+            run_records = _annotate_repeat_records(
+                run.to_records(),
+                repeat_count=config.repeat_count,
+            )
+            accounting_records = _annotate_repeat_records(
+                [
+                    record.to_record()
+                    for record in accounting_records_from_inspect_run(
+                        run,
+                        evaluation_timestamp=evaluation_timestamp,
+                    )
+                ],
+                repeat_count=config.repeat_count,
             )
 
         runs_path = config.output_dir / "runs.jsonl"
@@ -294,10 +308,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
         metrics_path = config.output_dir / "metrics.json"
 
         _write_jsonl(runs_path, run_records)
-        _write_jsonl(
-            accounting_path,
-            [record.to_record() for record in accounting_records],
-        )
+        _write_jsonl(accounting_path, accounting_records)
         metrics = _metrics_record(
             config=config,
             packet_object=packet_object,
@@ -525,10 +536,66 @@ def _metrics_record(
         "evaluation_timestamp": _iso_datetime(evaluation_timestamp),
         "packet_object_key": packet_object.object_key,
         "packet_sha256": packet_sha256,
+        "repeat_count": config.repeat_count,
+        "primary_run_record_count": sum(
+            1 for record in run_records if _repeat_index(record) == 1
+        ),
         "run_record_count": len(run_records),
         "raw_output_sha256": raw_output_hashes,
         "tool_call_count": tool_call_count,
     }
+
+
+def _repeat_samples(
+    samples: Sequence[Any],
+    *,
+    repeat_count: int,
+) -> tuple[Any, ...]:
+    if repeat_count == 1:
+        return tuple(samples)
+    repeated: list[Any] = []
+    for sample in samples:
+        for index in range(1, repeat_count + 1):
+            repeated.append(
+                replace(
+                    sample,
+                    sample_id=f"{sample.sample_id}__repeat_{index:02d}",
+                )
+            )
+    return tuple(repeated)
+
+
+def _annotate_repeat_records(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    repeat_count: int,
+) -> list[JsonRecord]:
+    annotated: list[JsonRecord] = []
+    for record in records:
+        copy = dict(record)
+        repeat_index = _repeat_index(copy)
+        if repeat_count > 1:
+            sample_id = required_str(copy, "sample_id")
+            repeat_group_id = sample_id.rsplit("__repeat_", 1)[0]
+            copy["repeat_group_id"] = repeat_group_id
+            copy["repeat_index"] = repeat_index
+            copy["repeat_count"] = repeat_count
+            copy["repeat_sampling_role"] = "primary" if repeat_index == 1 else "repeat"
+        annotated.append(copy)
+    return annotated
+
+
+def _repeat_index(record: Mapping[str, Any]) -> int:
+    existing = record.get("repeat_index")
+    if isinstance(existing, int) and not isinstance(existing, bool) and existing > 0:
+        return existing
+    sample_id = required_str(record, "sample_id")
+    if "__repeat_" not in sample_id:
+        return 1
+    suffix = sample_id.rsplit("__repeat_", 1)[1]
+    if suffix.isdigit() and int(suffix) > 0:
+        return int(suffix)
+    raise PerCaseRunnerError(f"invalid repeat sample_id suffix: {sample_id}")
 
 
 def _model_packet_from_record(record: Mapping[str, Any]) -> ModelPacket:
@@ -647,6 +714,8 @@ def _optional_registry_entry(
     if config.model_registry_uri is None:
         return None, None
     registry, digest = _load_model_registry_uri(config.model_registry_uri)
+    if config.backend is PerCaseExecutionBackend.LIVE:
+        require_official_registry_entries(registry.entries)
     if config.model_key is None:
         raise PerCaseRunnerError("model_key is required with model_registry_uri")
     provider, separator, model_id = config.model_key.partition(":")

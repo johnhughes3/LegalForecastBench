@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import time
@@ -37,11 +38,13 @@ GEMINI_GENERATE_CONTENT_URL_TEMPLATE = (
 
 DEFAULT_TIMEOUT_SECONDS = 120.0
 _PRICE_UNITS_PER_TOKEN = 1_000_000
+_TOKEN_ESTIMATE_BYTES_PER_TOKEN = 4
 
 JsonRecord = Mapping[str, object]
 BuildRequest = Callable[[ModelRegistryEntry, str, str], urllib.request.Request]
 ExtractOutput = Callable[[JsonRecord], str]
 ExtractUsage = Callable[[JsonRecord], tuple[int, int]]
+ExtractServedVersion = Callable[[JsonRecord], str]
 
 
 class LiveModelSolverError(RuntimeError):
@@ -147,6 +150,10 @@ def complete_live_prompt(
         raise LiveModelConfigError(
             "live provider harness requires search_disabled=True"
         )
+    estimated_prompt_tokens, prompt_input_token_budget = _validate_prompt_token_budget(
+        registry_entry,
+        prompt,
+    )
 
     provider = _provider_config(registry_entry.provider)
     if _uses_bedrock_anthropic_runtime(registry_entry.provider, environ):
@@ -165,6 +172,8 @@ def complete_live_prompt(
     latency_ms = (time.perf_counter() - started) * 1000
     raw_output = provider.extract_output(payload)
     input_tokens, output_tokens = provider.extract_usage(payload)
+    served_model_version = provider.extract_served_version(payload)
+    _validate_served_model_version(registry_entry, served_model_version)
     return SolverResponse(
         raw_output=raw_output,
         request_count=1,
@@ -180,6 +189,12 @@ def complete_live_prompt(
             "model": registry_entry.model_id,
             "model_id": registry_entry.model_id,
             "model_version_or_snapshot": registry_entry.model_version_or_snapshot,
+            "served_model_version": served_model_version,
+            "estimated_prompt_input_tokens": str(estimated_prompt_tokens),
+            "prompt_input_token_budget": str(prompt_input_token_budget),
+            "context_limit": str(registry_entry.context_limit),
+            "max_output_tokens": str(registry_entry.max_output_tokens),
+            "temperature": _format_number(registry_entry.temperature),
             "execution_backend": RunExecutionBackend.INSPECT_AI.value,
             "latency_ms": f"{latency_ms:.3f}",
             "model_registry_sha256": model_registry_sha256 or "unrecorded",
@@ -208,6 +223,8 @@ def _complete_bedrock_anthropic_prompt(
     latency_ms = (time.perf_counter() - started) * 1000
     raw_output = _anthropic_output(payload)
     input_tokens, output_tokens = _anthropic_usage(payload)
+    served_model_version = _optional_str_field(payload, "model") or bedrock_model_id
+    _validate_served_model_version(registry_entry, served_model_version)
     return SolverResponse(
         raw_output=raw_output,
         request_count=1,
@@ -225,6 +242,14 @@ def _complete_bedrock_anthropic_prompt(
             "model": registry_entry.model_id,
             "model_id": registry_entry.model_id,
             "model_version_or_snapshot": registry_entry.model_version_or_snapshot,
+            "served_model_version": served_model_version,
+            "estimated_prompt_input_tokens": str(estimated_prompt_tokens(prompt)),
+            "prompt_input_token_budget": str(
+                _prompt_input_token_budget(registry_entry)
+            ),
+            "context_limit": str(registry_entry.context_limit),
+            "max_output_tokens": str(registry_entry.max_output_tokens),
+            "temperature": _format_number(registry_entry.temperature),
             "execution_backend": RunExecutionBackend.INSPECT_AI.value,
             "latency_ms": f"{latency_ms:.3f}",
             "model_registry_sha256": model_registry_sha256 or "unrecorded",
@@ -239,6 +264,7 @@ class _ProviderConfig:
     build_request: BuildRequest
     extract_output: ExtractOutput
     extract_usage: ExtractUsage
+    extract_served_version: ExtractServedVersion
 
 
 def _provider_config(provider: str) -> _ProviderConfig:
@@ -249,6 +275,7 @@ def _provider_config(provider: str) -> _ProviderConfig:
             build_request=_openai_request,
             extract_output=_openai_output,
             extract_usage=_openai_usage,
+            extract_served_version=_openai_served_model_version,
         )
     if normalized == "anthropic":
         return _ProviderConfig(
@@ -256,6 +283,7 @@ def _provider_config(provider: str) -> _ProviderConfig:
             build_request=_anthropic_request,
             extract_output=_anthropic_output,
             extract_usage=_anthropic_usage,
+            extract_served_version=_anthropic_served_model_version,
         )
     if normalized in {"google", "gemini"}:
         return _ProviderConfig(
@@ -263,6 +291,7 @@ def _provider_config(provider: str) -> _ProviderConfig:
             build_request=_gemini_request,
             extract_output=_gemini_output,
             extract_usage=_gemini_usage,
+            extract_served_version=_gemini_served_model_version,
         )
     raise LiveModelConfigError(f"unsupported provider: {provider}")
 
@@ -420,7 +449,9 @@ def _bedrock_anthropic_model_id(
         "ANTHROPIC_BEDROCK_MODEL_ID"
     )
     if explicit is not None and explicit.strip():
-        return explicit.strip()
+        explicit_model_id = explicit.strip()
+        _validate_bedrock_model_id_override(entry, explicit_model_id)
+        return explicit_model_id
     if entry.model_id.startswith(("anthropic.", "us.anthropic.", "arn:aws:bedrock:")):
         return entry.model_id
     return f"us.anthropic.{entry.model_id}"
@@ -583,6 +614,124 @@ def _gemini_output(payload: JsonRecord) -> str:
                     if text_parts:
                         return "".join(text_parts)
     raise LiveModelResponseError("Gemini response did not include candidate text")
+
+
+def _openai_served_model_version(payload: JsonRecord) -> str:
+    return _required_str_field(payload, "model", provider_name="OpenAI")
+
+
+def _anthropic_served_model_version(payload: JsonRecord) -> str:
+    return _required_str_field(payload, "model", provider_name="Anthropic")
+
+
+def _gemini_served_model_version(payload: JsonRecord) -> str:
+    return _required_str_field(payload, "modelVersion", provider_name="Gemini")
+
+
+def _validate_served_model_version(
+    entry: ModelRegistryEntry,
+    served_model_version: str,
+    *,
+    source: str = "provider served model version",
+) -> None:
+    if not _same_model_version(served_model_version, entry.model_version_or_snapshot):
+        raise LiveModelResponseError(
+            f"{source} {served_model_version!r} did not match frozen registry "
+            f"version {entry.model_version_or_snapshot!r} for {entry.registry_key}"
+        )
+
+
+def _validate_bedrock_model_id_override(
+    entry: ModelRegistryEntry,
+    model_id: str,
+) -> None:
+    if not _same_model_version(model_id, entry.model_version_or_snapshot):
+        raise LiveModelConfigError(
+            f"Bedrock model-ID override {model_id!r} did not match frozen "
+            f"registry version {entry.model_version_or_snapshot!r} for "
+            f"{entry.registry_key}"
+        )
+
+
+def _same_model_version(left: str, right: str) -> bool:
+    return _canonical_model_version(left) == _canonical_model_version(right)
+
+
+def _canonical_model_version(value: str) -> str:
+    normalized = value.strip()
+    if normalized.startswith("arn:aws:bedrock:") and "/" in normalized:
+        normalized = normalized.rsplit("/", maxsplit=1)[1]
+    if normalized.startswith("foundation-model/"):
+        normalized = normalized.removeprefix("foundation-model/")
+    if normalized.startswith("models/"):
+        normalized = normalized.removeprefix("models/")
+    if normalized.startswith("us.anthropic."):
+        normalized = normalized.removeprefix("us.anthropic.")
+    if normalized.startswith("anthropic."):
+        normalized = normalized.removeprefix("anthropic.")
+    return normalized.lower()
+
+
+def _validate_prompt_token_budget(
+    entry: ModelRegistryEntry,
+    prompt: str,
+) -> tuple[int, int]:
+    budget = _prompt_input_token_budget(entry)
+    if budget <= 0:
+        raise LiveModelConfigError(
+            "registry context_limit must exceed max_output_tokens for "
+            f"{entry.registry_key}"
+        )
+    estimated_tokens = estimated_prompt_tokens(prompt)
+    if estimated_tokens > budget:
+        raise LiveModelConfigError(
+            "estimated prompt input tokens exceed registry prompt budget for "
+            f"{entry.registry_key}: estimated={estimated_tokens}, budget={budget}, "
+            f"context_limit={entry.context_limit}, "
+            f"max_output_tokens={entry.max_output_tokens}"
+        )
+    return estimated_tokens, budget
+
+
+def estimated_prompt_tokens(prompt: str) -> int:
+    """Conservative tokenizer-free prompt-token estimate for budget gating."""
+
+    return math.ceil(len(prompt.encode("utf-8")) / _TOKEN_ESTIMATE_BYTES_PER_TOKEN)
+
+
+def _prompt_input_token_budget(entry: ModelRegistryEntry) -> int:
+    return entry.context_limit - entry.max_output_tokens
+
+
+def _format_number(value: float) -> str:
+    numeric = float(value)
+    if numeric.is_integer():
+        return str(int(numeric))
+    return str(numeric)
+
+
+def _required_str_field(
+    record: JsonRecord,
+    field_name: str,
+    *,
+    provider_name: str,
+) -> str:
+    value = _optional_str_field(record, field_name)
+    if value is None:
+        raise LiveModelResponseError(
+            f"{provider_name} response did not include served model version "
+            f"field {field_name}"
+        )
+    return value
+
+
+def _optional_str_field(record: JsonRecord, field_name: str) -> str | None:
+    value = record.get(field_name)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise LiveModelResponseError(f"{field_name} must be a non-empty string")
+    return value.strip()
 
 
 def _text_parts(parts: list[object]) -> list[str]:

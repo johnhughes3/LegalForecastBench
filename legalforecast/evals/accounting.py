@@ -73,6 +73,7 @@ class ModelRunAccountingRecord:
     provider: str
     model_id: str
     model_version_or_snapshot: str
+    served_model_version: str | None
     evaluation_timestamp: datetime
     raw_output_sha256: str
     prediction_unit_count: int
@@ -142,6 +143,8 @@ class ModelRunAccountingRecord:
             _require_non_empty(self.invalid_output_reason, "invalid_output_reason")
             if not self.invalid_output:
                 raise ValueError("invalid_output_reason requires invalid_output=True")
+        if self.served_model_version is not None:
+            _require_non_empty(self.served_model_version, "served_model_version")
         if (self.refusal or self.content_filter) and not self.invalid_output:
             raise ValueError("refusal/content_filter requires invalid_output=True")
         if self.run_label is not None:
@@ -161,6 +164,7 @@ class ModelRunAccountingRecord:
             "provider": self.provider,
             "model_id": self.model_id,
             "model_version_or_snapshot": self.model_version_or_snapshot,
+            "served_model_version": self.served_model_version,
             "evaluation_timestamp": _iso_datetime(self.evaluation_timestamp),
             "raw_output_sha256": self.raw_output_sha256,
             "prediction_unit_count": self.prediction_unit_count,
@@ -251,6 +255,7 @@ def accounting_records_from_harness_records(
                 provider=_provider(record),
                 model_id=_model_id(record),
                 model_version_or_snapshot=_model_version(record),
+                served_model_version=_served_model_version(record),
                 evaluation_timestamp=evaluation_timestamp.astimezone(UTC),
                 raw_output_sha256=raw_hash,
                 prediction_unit_count=prediction_unit_count,
@@ -322,6 +327,13 @@ def _model_version(record: Mapping[str, Any]) -> str:
     if _required_str(record, "solver_kind") == "offline_mock":
         return "fixture"
     return "unknown"
+
+
+def _served_model_version(record: Mapping[str, Any]) -> str | None:
+    return _optional_str(record, "served_model_version") or _metadata_str(
+        record,
+        "served_model_version",
+    )
 
 
 def _execution_backend(record: Mapping[str, Any]) -> str:

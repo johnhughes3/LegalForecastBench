@@ -221,6 +221,43 @@ def test_eval_run_case_cli_writes_artifact_summary(
     assert metrics["evaluation_timestamp"] == "2026-05-17T12:00:00Z"
 
 
+def test_per_case_runner_repeats_prebudgeted_subset_rows(tmp_path: Path) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    output_dir = tmp_path / "runner-output"
+
+    run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=output_dir,
+            mock_output=_mock_output(),
+            repeat_count=3,
+        )
+    )
+
+    runs = _read_jsonl(output_dir / "runs.jsonl")
+    accounting = _read_jsonl(output_dir / "accounting.jsonl")
+    metrics = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
+
+    assert [record["repeat_index"] for record in runs] == [1, 2, 3]
+    assert [record["repeat_sampling_role"] for record in runs] == [
+        "primary",
+        "repeat",
+        "repeat",
+    ]
+    assert {record["repeat_group_id"] for record in runs} == {"cand-1"}
+    assert len(accounting) == 3
+    assert all(record["repeat_count"] == 3 for record in accounting)
+    assert metrics["repeat_count"] == 3
+    assert metrics["primary_run_record_count"] == 1
+    assert metrics["run_record_count"] == 3
+
+
 def test_per_case_runner_rejects_nonpositive_timeout(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="timeout_seconds must be positive"):
         PerCaseRunnerConfig(
@@ -230,6 +267,18 @@ def test_per_case_runner_rejects_nonpositive_timeout(tmp_path: Path) -> None:
             output_dir=tmp_path / "runner-output",
             mock_output=_mock_output(),
             timeout_seconds=0,
+        )
+
+
+def test_per_case_runner_rejects_nonpositive_repeat_count(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="repeat_count must be positive"):
+        PerCaseRunnerConfig(
+            manifest_uri=str(tmp_path / "manifest.json"),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "runner-output",
+            mock_output=_mock_output(),
+            repeat_count=0,
         )
 
 

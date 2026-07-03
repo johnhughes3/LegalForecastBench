@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
@@ -176,6 +176,54 @@ class ModelRegistry:
     @classmethod
     def from_records(cls, records: Sequence[Mapping[str, Any]]) -> ModelRegistry:
         return cls(tuple(ModelRegistryEntry.from_record(record) for record in records))
+
+
+def latest_release_timestamp(entries: Sequence[ModelRegistryEntry]) -> datetime:
+    """Return the latest release timestamp for an official evaluated model set."""
+
+    if not entries:
+        raise ValueError("at least one model registry entry is required")
+    missing = sorted(
+        entry.registry_key for entry in entries if entry.release_timestamp is None
+    )
+    if missing:
+        raise ValueError(
+            "official runs require release_timestamp for every model registry entry: "
+            f"{missing}"
+        )
+    timestamps = tuple(
+        entry.release_timestamp
+        for entry in entries
+        if entry.release_timestamp is not None
+    )
+    return max(timestamps)
+
+
+def earliest_buffered_decision_date(entries: Sequence[ModelRegistryEntry]) -> date:
+    """Return the first allowed decision date after the release-anchor buffer."""
+
+    latest_release = latest_release_timestamp(entries)
+    return latest_release.astimezone(UTC).date() + timedelta(days=2)
+
+
+def require_official_registry_entries(
+    entries: Sequence[ModelRegistryEntry],
+) -> tuple[ModelRegistryEntry, ...]:
+    """Fail closed unless registry entries are anchored for official evaluation."""
+
+    latest_release_timestamp(entries)
+    mutable_aliases = sorted(
+        entry.registry_key
+        for entry in entries
+        if entry.model_version_or_snapshot == entry.model_id
+        and any(marker in entry.model_id.lower() for marker in ("preview", "latest"))
+    )
+    if mutable_aliases:
+        raise ValueError(
+            "official runs require pinned dated snapshots, not mutable aliases: "
+            f"{mutable_aliases}"
+        )
+    return tuple(entries)
 
 
 def load_model_registry(path: str | Path) -> ModelRegistry:
