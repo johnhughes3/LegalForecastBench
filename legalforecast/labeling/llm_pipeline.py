@@ -22,10 +22,13 @@ from legalforecast.labeling.ensemble import (
     DEFAULT_HIGH_CONFIDENCE_THRESHOLD,
     EnsembleDecisionStatus,
     EnsembleLabelVote,
+    EnsembleRouteReason,
     EnsembleRunResult,
+    EnsembleUnitDecision,
     audit_ensemble_labels,
     enforce_label_audit_acceptance,
     evaluate_labeling_ensemble,
+    sample_unanimous_labels_for_audit,
 )
 from legalforecast.labeling.label_outcomes import (
     AmendmentClass,
@@ -75,6 +78,7 @@ from legalforecast.unitization.schemas import (
 )
 
 JsonRecord = dict[str, Any]
+DEFAULT_LABEL_AUDIT_SAMPLE_SIZE = 30
 
 
 class LlmConsensusPolicy(StrEnum):
@@ -386,9 +390,7 @@ def llm_label_cases(
                 {
                     "stage": "llm-label",
                     "status": (
-                        "adjudication_pending"
-                        if lawyer_review_packets
-                        else "succeeded"
+                        "adjudication_pending" if lawyer_review_packets else "succeeded"
                     ),
                     "candidate_id": candidate_id,
                     "case_id": _required_str(selection, "case_id"),
@@ -1019,9 +1021,10 @@ def lawyer_review_queue_records(
 
     records: list[JsonRecord] = []
     for audit_record in audit_records:
-        for queue_record in _optional_record_sequence(
-            audit_record.get("lawyer_review_queue")
-        ):
+        queue_value = audit_record.get("lawyer_review_queue")
+        if queue_value is None:
+            continue
+        for queue_record in _record_sequence(queue_value, "lawyer_review_queue"):
             records.append(dict(queue_record))
     return tuple(records)
 
@@ -1030,15 +1033,26 @@ def apply_adjudicated_reviews(
     *,
     label_records: Iterable[Mapping[str, Any]],
     adjudication_records: Iterable[Mapping[str, Any]],
+    label_audit_records: Iterable[Mapping[str, Any]] = (),
+    audit_sample_size: int = DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
+    human_blind_disagreement_rate: float = 0.0,
 ) -> LlmBatchResult:
     """Merge lawyer adjudication records into the locked label JSONL."""
 
+    if audit_sample_size <= 0:
+        raise ValueError("audit_sample_size must be positive")
     labels_by_unit = {
         _required_str(record, "unit_id"): dict(record) for record in label_records
     }
     audit_records: list[JsonRecord] = []
+    adjudications_by_unit_id: dict[str, AdjudicatedReview] = {}
     for record in adjudication_records:
         adjudication = _adjudicated_review(record)
+        if adjudication.unit_id in adjudications_by_unit_id:
+            raise ValueError(
+                f"duplicate adjudication records for unit: {adjudication.unit_id}"
+            )
+        adjudications_by_unit_id[adjudication.unit_id] = adjudication
         labels_by_unit[adjudication.unit_id] = (
             adjudication.adjudicated_label.to_record()
         )
@@ -1056,10 +1070,93 @@ def apply_adjudicated_reviews(
                 "adjudicated_review": adjudication.to_record(),
             }
         )
+    audit_records.extend(
+        _label_audit_gate_records(
+            label_audit_records,
+            adjudications_by_unit_id=adjudications_by_unit_id,
+            audit_sample_size=audit_sample_size,
+            human_blind_disagreement_rate=human_blind_disagreement_rate,
+        )
+    )
     return LlmBatchResult(
         records=tuple(labels_by_unit[unit_id] for unit_id in sorted(labels_by_unit)),
         audit_records=tuple(audit_records),
     )
+
+
+def _label_audit_gate_records(
+    label_audit_records: Iterable[Mapping[str, Any]],
+    *,
+    adjudications_by_unit_id: Mapping[str, AdjudicatedReview],
+    audit_sample_size: int,
+    human_blind_disagreement_rate: float,
+) -> tuple[JsonRecord, ...]:
+    records: list[JsonRecord] = []
+    for audit_record in label_audit_records:
+        if audit_record.get("stage") != "llm-label":
+            continue
+        ensemble = _ensemble_run_result(
+            _mapping(audit_record.get("ensemble"), "ensemble")
+        )
+        sample_decisions = sample_unanimous_labels_for_audit(
+            ensemble,
+            sample_size=audit_sample_size,
+        )
+        sampled_unit_ids = [decision.unit_id for decision in sample_decisions]
+        if not sampled_unit_ids:
+            records.append(
+                {
+                    "stage": "label-audit-gate",
+                    "status": "skipped",
+                    "candidate_id": _optional_str(audit_record, "candidate_id"),
+                    "case_id": _optional_str(audit_record, "case_id"),
+                    "human_verified": _human_verified_from_review_counts(
+                        adjudicated_review_count=0,
+                        pending_review_count=0,
+                    ),
+                    "reason": "no_unanimous_auto_labels",
+                    "audited_label_error_rate": None,
+                    "sample_unit_ids": [],
+                }
+            )
+            continue
+
+        missing_unit_ids = [
+            unit_id
+            for unit_id in sampled_unit_ids
+            if unit_id not in adjudications_by_unit_id
+        ]
+        if missing_unit_ids:
+            raise ValueError(
+                "label audit gate missing adjudications for sampled auto-label "
+                f"units: {missing_unit_ids}"
+            )
+
+        gate = _label_audit_gate_record(
+            ensemble,
+            adjudicated_labels_by_unit_id={
+                unit_id: adjudications_by_unit_id[unit_id].adjudicated_label
+                for unit_id in sampled_unit_ids
+            },
+            human_blind_disagreement_rate=human_blind_disagreement_rate,
+            sample_size=audit_sample_size,
+        )
+        records.append(
+            {
+                "stage": "label-audit-gate",
+                "status": gate["status"],
+                "candidate_id": _optional_str(audit_record, "candidate_id"),
+                "case_id": _optional_str(audit_record, "case_id"),
+                "human_verified": _human_verified_from_review_counts(
+                    adjudicated_review_count=len(sampled_unit_ids),
+                    pending_review_count=0,
+                ),
+                "audited_label_error_rate": gate["audited_label_error_rate"],
+                "sample_unit_ids": gate["sample_unit_ids"],
+                "label_audit_gate": gate,
+            }
+        )
+    return tuple(records)
 
 
 def _adjudicated_review(record: Mapping[str, Any]) -> AdjudicatedReview:
@@ -1096,6 +1193,13 @@ def _lawyer_review_response(record: Mapping[str, Any]) -> LawyerReviewResponse:
 
 
 def _outcome_label(record: Mapping[str, Any]) -> OutcomeLabel:
+    first_written_disposition_locked = _optional_bool(
+        record,
+        "first_written_disposition_locked",
+        default=True,
+    )
+    if first_written_disposition_locked is None:
+        first_written_disposition_locked = True
     return OutcomeLabel(
         unit_id=_required_str(record, "unit_id"),
         fully_dismissed=_optional_bool(record, "fully_dismissed"),
@@ -1117,11 +1221,7 @@ def _outcome_label(record: Mapping[str, Any]) -> OutcomeLabel:
             record,
             "first_written_disposition_date",
         ),
-        first_written_disposition_locked=_optional_bool(
-            record,
-            "first_written_disposition_locked",
-            default=True,
-        ),
+        first_written_disposition_locked=first_written_disposition_locked,
         later_procedural_changes=tuple(
             LaterProceduralChange(_required_str_value(change))
             for change in _optional_sequence(record.get("later_procedural_changes"))
@@ -1139,15 +1239,87 @@ def _outcome_citation(record: Mapping[str, Any]) -> OutcomeCitation:
     )
 
 
-def _planned_label_audit_gate(ensemble: EnsembleRunResult) -> JsonRecord:
-    auto_label_ids = [label.unit_id for label in ensemble.auto_labels]
+def _ensemble_run_result(record: Mapping[str, Any]) -> EnsembleRunResult:
+    return EnsembleRunResult(
+        decisions=tuple(
+            _ensemble_unit_decision(decision)
+            for decision in _record_sequence(record.get("decisions"), "decisions")
+        ),
+        high_confidence_threshold=_required_float(
+            record,
+            "high_confidence_threshold",
+        ),
+        required_model_count=_required_int(record, "required_model_count"),
+    )
+
+
+def _ensemble_unit_decision(record: Mapping[str, Any]) -> EnsembleUnitDecision:
+    unanimous_label_value = record.get("unanimous_label")
+    unanimous_label = (
+        _outcome_label(_mapping(unanimous_label_value, "unanimous_label"))
+        if unanimous_label_value is not None
+        else None
+    )
+    return EnsembleUnitDecision(
+        unit_id=_required_str(record, "unit_id"),
+        votes=tuple(
+            _ensemble_label_vote(vote)
+            for vote in _record_sequence(record.get("votes"), "votes")
+        ),
+        status=EnsembleDecisionStatus(_required_str(record, "status")),
+        route_reason=EnsembleRouteReason(_required_str(record, "route_reason")),
+        unanimous_label=unanimous_label,
+    )
+
+
+def _ensemble_label_vote(record: Mapping[str, Any]) -> EnsembleLabelVote:
+    return EnsembleLabelVote(
+        model_id=_required_str(record, "model_id"),
+        unit_id=_required_str(record, "unit_id"),
+        label=_outcome_label(_mapping(record.get("label"), "label")),
+        confidence=_required_float(record, "confidence"),
+        rationale=_required_str(record, "rationale"),
+        raw_response_id=_optional_str(record, "raw_response_id"),
+    )
+
+
+def _label_audit_sample_decisions(
+    ensemble: EnsembleRunResult,
+    *,
+    sample_size: int,
+) -> tuple[EnsembleUnitDecision, ...]:
+    if ensemble.auto_label_count == 0:
+        return ()
+    return sample_unanimous_labels_for_audit(
+        ensemble,
+        sample_size=min(sample_size, ensemble.auto_label_count),
+    )
+
+
+def _planned_label_audit_gate(
+    ensemble: EnsembleRunResult,
+    *,
+    sample_size: int = DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
+) -> JsonRecord:
+    sample_decisions = _label_audit_sample_decisions(
+        ensemble,
+        sample_size=sample_size,
+    )
+    sample_unit_ids = [decision.unit_id for decision in sample_decisions]
     return {
         "required": True,
-        "status": "awaiting_human_adjudicated_labels",
+        "status": (
+            "awaiting_human_adjudicated_labels"
+            if sample_unit_ids
+            else "no_unanimous_auto_labels"
+        ),
         "audit_function": audit_ensemble_labels.__name__,
         "acceptance_function": enforce_label_audit_acceptance.__name__,
-        "unanimous_auto_label_count": len(auto_label_ids),
-        "sample_unit_ids": auto_label_ids[: min(10, len(auto_label_ids))],
+        "requested_sample_size": sample_size,
+        "audit_sample_size": len(sample_unit_ids),
+        "unanimous_auto_label_count": ensemble.auto_label_count,
+        "sample_unit_ids": sample_unit_ids,
+        "audited_label_error_rate": None,
     }
 
 
@@ -1156,20 +1328,37 @@ def _label_audit_gate_record(
     *,
     adjudicated_labels_by_unit_id: Mapping[str, OutcomeLabel],
     human_blind_disagreement_rate: float = 0.0,
+    sample_size: int = DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
 ) -> JsonRecord:
-    record = _planned_label_audit_gate(ensemble)
-    if not adjudicated_labels_by_unit_id:
+    record = _planned_label_audit_gate(ensemble, sample_size=sample_size)
+    sample_unit_ids = list(cast(list[str], record["sample_unit_ids"]))
+    if not sample_unit_ids or not adjudicated_labels_by_unit_id:
         return record
+    missing_unit_ids = [
+        unit_id
+        for unit_id in sample_unit_ids
+        if unit_id not in adjudicated_labels_by_unit_id
+    ]
+    if missing_unit_ids:
+        raise ValueError(
+            "label audit gate missing adjudications for sampled auto-label units: "
+            f"{missing_unit_ids}"
+        )
     summary = audit_ensemble_labels(
         ensemble,
-        adjudicated_labels_by_unit_id=adjudicated_labels_by_unit_id,
+        adjudicated_labels_by_unit_id={
+            unit_id: adjudicated_labels_by_unit_id[unit_id]
+            for unit_id in sample_unit_ids
+        },
         human_blind_disagreement_rate=human_blind_disagreement_rate,
     )
     enforce_label_audit_acceptance(summary)
     return {
         **record,
-        "status": "accepted",
+        "status": "passed",
         "audit_summary": summary.to_record(),
+        "audited_label_error_rate": summary.llm_audited_error_rate,
+        "sample_unit_ids": sample_unit_ids,
     }
 
 
@@ -1578,6 +1767,13 @@ def _optional_int(record: Mapping[str, Any], key: str) -> int | None:
     if isinstance(value, str) and value.strip().isdigit():
         return int(value.strip())
     return None
+
+
+def _required_int(record: Mapping[str, Any], key: str) -> int:
+    value = _optional_int(record, key)
+    if value is None:
+        raise LlmPipelineError(f"{key} must be an integer")
+    return value
 
 
 def _required_float(record: Mapping[str, Any], key: str) -> float:

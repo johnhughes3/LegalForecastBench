@@ -143,6 +143,7 @@ from legalforecast.labeling.label_outcomes import (
     label_stage_b_outcomes,
 )
 from legalforecast.labeling.llm_pipeline import (
+    DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
     LlmConsensusPolicy,
     apply_adjudicated_reviews,
     lawyer_review_queue_records,
@@ -1025,6 +1026,12 @@ def _add_acquisition_apply_lawyer_review_arguments(
         help="Checked-in lawyer adjudication JSONL.",
     )
     parser.add_argument(
+        "--llm-label-audit",
+        type=Path,
+        required=True,
+        help="Audit JSONL emitted by acquisition llm-label.",
+    )
+    parser.add_argument(
         "--labels-output",
         type=Path,
         help="Output JSONL with auto labels plus adjudicated labels.",
@@ -1033,6 +1040,18 @@ def _add_acquisition_apply_lawyer_review_arguments(
         "--audit-output",
         type=Path,
         help="Output JSONL with lawyer-review resume audit rows.",
+    )
+    parser.add_argument(
+        "--audit-sample-size",
+        type=int,
+        default=DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
+        help="Deterministic unanimous-label audit sample size to enforce.",
+    )
+    parser.add_argument(
+        "--human-blind-disagreement-rate",
+        type=float,
+        default=0.0,
+        help="Human-human blind disagreement rate ceiling for label-audit acceptance.",
     )
     parser.set_defaults(handler=_cmd_acquisition_apply_lawyer_review)
 
@@ -2603,6 +2622,7 @@ def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     labels_path = cast(Path, args.labels)
     adjudications_path = cast(Path, args.adjudications)
+    llm_label_audit_path = cast(Path, args.llm_label_audit)
     labels_output_path = _acquisition_path(
         args,
         "labels_output",
@@ -2623,21 +2643,31 @@ def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
                     "dry_run": True,
                     "labels": str(labels_path),
                     "adjudications": str(adjudications_path),
+                    "llm_label_audit": str(llm_label_audit_path),
                 }
             ],
         )
         _write_jsonl(audit_path, [])
     else:
+        llm_label_audit_records = _read_records(llm_label_audit_path)
+        if not llm_label_audit_records:
+            raise CommandError("llm-label audit must include at least one record")
         result = apply_adjudicated_reviews(
             label_records=_read_records(labels_path),
             adjudication_records=_read_records(adjudications_path),
+            label_audit_records=llm_label_audit_records,
+            audit_sample_size=cast(int, args.audit_sample_size),
+            human_blind_disagreement_rate=cast(
+                float,
+                args.human_blind_disagreement_rate,
+            ),
         )
         _write_jsonl(labels_output_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
     _write_acquisition_completion(
         args,
         stage="apply-lawyer-review",
-        input_paths=(labels_path, adjudications_path),
+        input_paths=(labels_path, adjudications_path, llm_label_audit_path),
         output_paths=(labels_output_path, audit_path),
         record_count=len(_read_records(adjudications_path)) if not dry_run else 0,
         dry_run=dry_run,
