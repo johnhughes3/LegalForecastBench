@@ -16,7 +16,7 @@ def test_official_eval_matrix_workflow_is_manual_and_protected() -> None:
         "cycle_id:",
         "run_input_manifest_uri:",
         "labels_uri:",
-        "ablation:",
+        "ablations:",
         "model_registry_uri:",
         "model_keys:",
         "cycle_series:",
@@ -43,6 +43,7 @@ def test_official_eval_matrix_workflow_defaults_to_current_review_release() -> N
     assert f"default: manifests/{cycle_id}.run-inputs.json" in WORKFLOW
     assert f"default: manifests/{cycle_id}.labels.jsonl" in WORKFLOW
     assert f"default: manifests/{cycle_id}.model-registry.json" in WORKFLOW
+    assert "default: full_packet,metadata_only" in WORKFLOW
 
 
 def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
@@ -54,6 +55,9 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
     )
     assert "fail-fast: false" in WORKFLOW
     assert 'MATRIX_LIMIT: "256"' in WORKFLOW
+    assert "ABLATIONS: ${{ inputs.ablations }}" in WORKFLOW
+    assert "requested_ablations = [" in WORKFLOW
+    assert "requested_ablation_set = set(requested_ablations)" in WORKFLOW
     assert "duplicate packet row for ablation" in WORKFLOW
     assert "model_keys missing from registry" in WORKFLOW
     assert "run-input manifest produced an empty matrix" in WORKFLOW
@@ -181,12 +185,19 @@ def test_official_eval_matrix_workflow_aggregates_after_matrix_success() -> None
     assert "--run-input-manifest /tmp/lfb-run-inputs.json" in WORKFLOW
     assert "--model-registry /tmp/lfb-model-registry.json" in WORKFLOW
     assert "--labels /tmp/lfb-labels.jsonl" in WORKFLOW
+    assert "--allow-no-baselines" in WORKFLOW
+    assert '--deferred-ablation "judge_removed"' in WORKFLOW
     assert 'model_key_args+=(--model-key "${key}")' in WORKFLOW
     assert (
+        '--ablation "${ABLATION}"'
+        not in WORKFLOW[WORKFLOW.index("aggregate-results:") :]
+    )
+    assert (
         "aws s3 sync \\\n            tmp/official-aggregate/public \\\n"
-        '            "s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/${ABLATION}/"'
+        '            "s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/multi-ablation/"'
         in WORKFLOW
     )
+    assert "official-aggregate-${{ inputs.cycle_id }}-multi-ablation" in WORKFLOW
 
 
 def test_official_eval_matrix_workflow_has_dry_run_and_retention_controls() -> None:

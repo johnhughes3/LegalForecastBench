@@ -22,17 +22,11 @@ on:
         required: true
         default: manifests/pilot-2026-05-18-review-scored-12-corrected.labels.jsonl
         type: string
-      ablation:
-        description: Packet ablation to evaluate.
+      ablations:
+        description: Comma-separated packet ablations to evaluate.
         required: true
-        default: full_packet
-        type: choice
-        options:
-          - full_packet
-          - metadata_only
-          - briefs_only_redacted
-          - judge_removed
-          - no_briefs
+        default: full_packet,metadata_only
+        type: string
       model_registry_uri:
         description: Frozen model registry s3:// URI, manifests/ key, or checked-out JSON path.
         required: true
@@ -147,6 +141,7 @@ jobs:
         shell: bash
         env:
           ARTIFACT_RETENTION_DAYS_INPUT: ${{ inputs.artifact_retention_days }}
+          ABLATIONS_INPUT: ${{ inputs.ablations }}
           CLEAN_MOTION_COUNT_INPUT: ${{ inputs.clean_motion_count }}
           DRY_RUN_INPUT: ${{ inputs.dry_run }}
           ELAPSED_DAYS_INPUT: ${{ inputs.elapsed_days }}
@@ -211,6 +206,28 @@ jobs:
             echo "model_keys must include at least one provider:model_id key." >&2
             exit 1
           fi
+          if [[ -z "${ABLATIONS_INPUT//[[:space:]]/}" ]]; then
+            echo "ablations must include at least one packet ablation." >&2
+            exit 1
+          fi
+          IFS=',' read -ra requested_ablations <<< "${ABLATIONS_INPUT}"
+          declare -A seen_ablations=()
+          for raw_ablation in "${requested_ablations[@]}"; do
+            ablation="${raw_ablation//[[:space:]]/}"
+            [[ -z "${ablation}" ]] && continue
+            case "${ablation}" in
+              full_packet|metadata_only|briefs_only_redacted|judge_removed|no_briefs) ;;
+              *)
+                echo "Unsupported ablation: ${ablation}" >&2
+                exit 1
+                ;;
+            esac
+            if [[ -n "${seen_ablations[${ablation}]:-}" ]]; then
+              echo "duplicate ablation: ${ablation}" >&2
+              exit 1
+            fi
+            seen_ablations["${ablation}"]=1
+          done
           if [[ "${DRY_RUN_INPUT}" != "true" ]]; then
             missing_provider_values=()
             IFS=',' read -ra requested_provider_keys <<< "${MODEL_KEYS}"
@@ -353,7 +370,7 @@ jobs:
         id: matrix
         shell: bash
         env:
-          ABLATION: ${{ inputs.ablation }}
+          ABLATIONS: ${{ inputs.ablations }}
           CYCLE_ID: ${{ inputs.cycle_id }}
           MATRIX_LIMIT: "256"
           MAX_PROJECTED_MODEL_COST_USD: ${{ inputs.max_projected_model_cost_usd }}
@@ -417,6 +434,35 @@ jobs:
           ]
           if missing_model_keys:
               raise SystemExit(f"model_keys missing from registry: {missing_model_keys}")
+          requested_ablations = [
+              ablation.strip()
+              for ablation in os.environ["ABLATIONS"].split(",")
+              if ablation.strip()
+          ]
+          if not requested_ablations:
+              raise SystemExit("ablations must include at least one packet ablation")
+          duplicate_ablations = sorted(
+              {
+                  ablation
+                  for ablation in requested_ablations
+                  if requested_ablations.count(ablation) > 1
+              }
+          )
+          if duplicate_ablations:
+              raise SystemExit(f"duplicate ablations: {duplicate_ablations}")
+          supported_ablations = {
+              "full_packet",
+              "metadata_only",
+              "briefs_only_redacted",
+              "judge_removed",
+              "no_briefs",
+          }
+          unsupported_ablations = sorted(
+              set(requested_ablations) - supported_ablations
+          )
+          if unsupported_ablations:
+              raise SystemExit(f"unsupported ablations: {unsupported_ablations}")
+          requested_ablation_set = set(requested_ablations)
           repeat_sample_case_ids = {
               case_id.strip()
               for case_id in os.environ["REPEAT_SAMPLE_CASE_IDS"].split(",")
@@ -481,7 +527,7 @@ jobs:
               if not isinstance(packet, dict):
                   raise SystemExit("model_packets entries must be objects")
               ablation = packet.get("ablation", "full_packet")
-              if ablation != os.environ["ABLATION"]:
+              if ablation not in requested_ablation_set:
                   continue
               case_id = packet.get("case_id")
               packet_object_key = (
@@ -681,7 +727,7 @@ jobs:
       contents: read
       id-token: write
     env:
-      ABLATION: ${{ inputs.ablation }}
+      ABLATIONS: ${{ inputs.ablations }}
       ARTIFACT_RETENTION_DAYS: ${{ needs.build-matrix.outputs.artifact_retention_days }}
       AWS_REGION: ${{ vars.LFB_AWS_REGION || 'us-east-1' }}
       CLEAN_MOTION_COUNT: ${{ inputs.clean_motion_count }}
@@ -775,7 +821,8 @@ jobs:
             --cycle-series "${CYCLE_SERIES}" \
             --clean-motion-count "${CLEAN_MOTION_COUNT}" \
             --prediction-unit-count "${PREDICTION_UNIT_COUNT}" \
-            --ablation "${ABLATION}" \
+            --allow-no-baselines \
+            --deferred-ablation "judge_removed" \
             "${model_key_args[@]}" \
             "${optional_args[@]}"
 
@@ -785,13 +832,13 @@ jobs:
           set -euo pipefail
           aws s3 sync \
             tmp/official-aggregate/public \
-            "s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/${ABLATION}/" \
+            "s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/multi-ablation/" \
             --only-show-errors
 
       - name: Upload aggregate artifact
         uses: actions/upload-artifact@v7
         with:
-          name: official-aggregate-${{ inputs.cycle_id }}-${{ inputs.ablation }}
+          name: official-aggregate-${{ inputs.cycle_id }}-multi-ablation
           path: tmp/official-aggregate
           if-no-files-found: error
           retention-days: ${{ fromJSON(env.ARTIFACT_RETENTION_DAYS) }}
