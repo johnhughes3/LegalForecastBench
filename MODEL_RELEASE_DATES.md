@@ -11,6 +11,10 @@ This file tracks the model-release anchors used or queued for LegalForecastBench
 
 The GitHub Actions benchmark workflow currently defaults to the same two registry keys in `.github/workflows/run-benchmark.yaml`. Gemini 3 Flash Preview is excluded from the anchored pilot registry until a source-backed pinned snapshot convention is available; Google Cloud currently documents only the mutable `gemini-3-flash-preview` preview ID with a December 17, 2025 release date.
 
+### Filename Window Versus Computed Release Anchor
+
+The registry **filename window** (for example `pilot-2026-04-24_to_2026-05-18.json`) names the case *collection window* — the date range of the disposition/labeling cohort for that cycle — and is not the model release anchor. The eligibility **anchor** used to gate contamination is computed at runtime from each registry entry's `release_timestamp` (plus a buffer), independent of the filename. The two can legitimately diverge: after GPT-5.4 mini's sourced release date was corrected to 2026-03-17, its computed anchor (2026-03-19 with buffer) falls earlier than the `2026-04-24` filename window. That is expected and carries no contamination risk — an earlier true release only widens the window in which a case's decision post-dates the model, and the checked-in manifests already use the later collection window — but the filename should be read as the collection window, never as the release anchor. John should spot-check the two `release_timestamp_source` URLs in the pilot registry, since those citations were authored by agents.
+
 ## Additional Tracked Release Dates
 
 These anchors are recorded for future cycle planning. They are not yet active workflow defaults and do not have complete checked-in registry entries.
