@@ -55,13 +55,13 @@ from legalforecast.publication.publication_guardrails import (
     enforce_publication_guardrails,
 )
 from legalforecast.reporting.cadence import (
-    CyclePowerInput,
-    CyclePowerReport,
-    CycleSeries,
     DEFAULT_PAIRED_DELTA_SD,
     DEFAULT_POWER,
     DEFAULT_TARGET_MDE,
     DEFAULT_TWO_SIDED_ALPHA,
+    CyclePowerInput,
+    CyclePowerReport,
+    CycleSeries,
     classify_cycle_power,
 )
 from legalforecast.reporting.leaderboard import (
@@ -279,6 +279,8 @@ def aggregate_official_results(
     )
     run_records.extend(baseline_artifacts.run_records)
     accounting_records.extend(baseline_artifacts.accounting_records)
+    primary_run_records = _primary_run_records(run_records)
+    multi_ablation_bundle = len(_ablations_in_run_records(primary_run_records)) > 1
     repeat_variance_report = _repeat_variance_report(
         tuple(run_records),
         labels,
@@ -286,16 +288,17 @@ def aggregate_official_results(
         generated_at=generated_at,
     )
     ablation_delta_report = _ablation_delta_report(
-        _primary_run_records(run_records),
+        primary_run_records,
         labels,
         cycle_id=config.cycle_id,
         generated_at=generated_at,
         base_rate=config.base_rate,
     )
     summaries = _score_run_records(
-        _primary_run_records(run_records),
+        primary_run_records,
         labels,
         base_rate=config.base_rate,
+        include_ablation_in_model_id=multi_ablation_bundle,
     )
     inference = _official_bootstrap_inference(summaries)
     accounting_rows = summarize_accounting_leaderboard(accounting_records)
@@ -335,16 +338,14 @@ def aggregate_official_results(
     if cycle_baseline_training_examples:
         _write_jsonl(
             public_dir / "baseline-training-examples.jsonl",
-            [
-                example.to_record()
-                for example in cycle_baseline_training_examples
-            ],
+            [example.to_record() for example in cycle_baseline_training_examples],
         )
 
     score_records = _score_records_with_accounting(
         summaries,
         accounting_rows=accounting_rows,
         accounting_records=accounting_records,
+        include_ablation_in_model_id=multi_ablation_bundle,
     )
     _write_json(
         public_dir / "scores.json",
@@ -446,9 +447,16 @@ def _score_records_with_accounting(
     *,
     accounting_rows: Sequence[AccountingLeaderboardRow],
     accounting_records: Sequence[Mapping[str, Any]],
+    include_ablation_in_model_id: bool = False,
 ) -> list[JsonRecord]:
-    rows_by_model = _accounting_rows_by_model(accounting_rows)
-    totals_by_model = _accounting_totals_by_model(accounting_records)
+    rows_by_model = _accounting_rows_by_model(
+        accounting_rows,
+        include_ablation_in_model_id=include_ablation_in_model_id,
+    )
+    totals_by_model = _accounting_totals_by_model(
+        accounting_records,
+        include_ablation_in_model_id=include_ablation_in_model_id,
+    )
     reference_summary = _baseline_reference_summary(summaries)
     score_records: list[JsonRecord] = []
     for summary in summaries:
@@ -467,23 +475,36 @@ def _score_records_with_accounting(
 
 def _accounting_rows_by_model(
     accounting_rows: Sequence[AccountingLeaderboardRow],
+    *,
+    include_ablation_in_model_id: bool = False,
 ) -> dict[str, AccountingLeaderboardRow]:
     rows_by_model: dict[str, AccountingLeaderboardRow] = {}
     for row in accounting_rows:
-        if row.model_id in rows_by_model:
+        model_id = _display_model_id(
+            row.model_id,
+            _ablation_label(row.run_label),
+            include_ablation=include_ablation_in_model_id,
+        )
+        if model_id in rows_by_model:
             raise OfficialAggregationError(
-                f"multiple accounting summaries for model_id={row.model_id}"
+                f"multiple accounting summaries for model_id={model_id}"
             )
-        rows_by_model[row.model_id] = row
+        rows_by_model[model_id] = row
     return rows_by_model
 
 
 def _accounting_totals_by_model(
     accounting_records: Sequence[Mapping[str, Any]],
+    *,
+    include_ablation_in_model_id: bool = False,
 ) -> dict[str, _AccountingTotals]:
     totals_by_model: dict[str, _AccountingTotals] = {}
     for record in accounting_records:
-        model_id = _required_str(record, "model_id")
+        model_id = _display_model_id(
+            _required_str(record, "model_id"),
+            _record_ablation(record),
+            include_ablation=include_ablation_in_model_id,
+        )
         totals = totals_by_model.setdefault(model_id, _AccountingTotals())
         totals.add(record)
     return totals_by_model
@@ -516,6 +537,33 @@ def _public_accounting_fields(
         "cost_per_prediction_unit": row.cost_per_prediction_unit,
         "content_filter_rate": row.content_filter_rate,
     }
+
+
+def _ablations_in_run_records(
+    run_records: Sequence[Mapping[str, Any]],
+) -> tuple[str, ...]:
+    return tuple(sorted({_record_ablation(record) for record in run_records}))
+
+
+def _record_ablation(record: Mapping[str, Any]) -> str:
+    return (
+        _optional_str(record, "ablation")
+        or _optional_str(record, "run_label")
+        or "full_packet"
+    )
+
+
+def _ablation_label(value: str | None) -> str:
+    return value or "full_packet"
+
+
+def _display_model_id(
+    model_id: str,
+    ablation: str,
+    *,
+    include_ablation: bool,
+) -> str:
+    return f"{model_id}::{ablation}" if include_ablation else model_id
 
 
 def _baseline_aggregate_artifacts(
@@ -1699,6 +1747,7 @@ def _score_run_records(
     labels: tuple[OutcomeLabel, ...],
     *,
     base_rate: float | None,
+    include_ablation_in_model_id: bool = False,
 ) -> tuple[ScoreSummary, ...]:
     if not run_records:
         raise OfficialAggregationError("at least one run record is required")
@@ -1717,7 +1766,11 @@ def _score_run_records(
             raise OfficialAggregationError(
                 f"labels missing for required units: {missing_labels}"
             )
-        model_id = _record_model_id(record)
+        model_id = _display_model_id(
+            _record_model_id(record),
+            _record_ablation(record),
+            include_ablation=include_ablation_in_model_id,
+        )
         parsed = parse_model_output(
             _required_str(record, "raw_output"),
             required_unit_ids=required_unit_ids,
@@ -1764,12 +1817,28 @@ def _ablation_delta_report(
         if full_packet is None or metadata_only is None:
             continue
         delta = full_packet.micro_brier - metadata_only.micro_brier
+        inference = paired_clustered_bootstrap(
+            (
+                ModelScoreInput(
+                    model_id="full_packet",
+                    unit_scores=full_packet.unit_scores,
+                ),
+                ModelScoreInput(
+                    model_id="metadata_only",
+                    unit_scores=metadata_only.unit_scores,
+                ),
+            )
+        )
+        [pairwise_delta] = inference.pairwise_deltas
         rows.append(
             {
                 "model_id": model_id,
                 "full_packet_micro_brier": full_packet.micro_brier,
                 "metadata_only_micro_brier": metadata_only.micro_brier,
                 "full_packet_minus_metadata_only_micro_brier": delta,
+                "full_packet_minus_metadata_only_ci_low": pairwise_delta.ci_low,
+                "full_packet_minus_metadata_only_ci_high": pairwise_delta.ci_high,
+                "probability_full_packet_better": (pairwise_delta.probability_a_better),
                 "record_text_improves_brier": delta < 0,
                 "case_count": min(full_packet.case_count, metadata_only.case_count),
                 "prediction_unit_count": min(
@@ -1783,6 +1852,7 @@ def _ablation_delta_report(
         "cycle_id": cycle_id,
         "generated_at": _format_datetime(generated_at),
         "comparison": "full_packet_minus_metadata_only_micro_brier",
+        "confidence_interval_method": "paired_clustered_bootstrap",
         "rows": rows,
     }
 
@@ -1864,27 +1934,107 @@ def _computed_base_rate(labels: Sequence[OutcomeLabel]) -> float:
     return sum(outcomes) / len(outcomes)
 
 
-def _cycle_power_input(config: OfficialAggregationConfig) -> CyclePowerInput:
-    return CyclePowerInput(
-        cycle_id=config.cycle_id,
-        series=config.cycle_series,
-        clean_motion_count=config.clean_motion_count,
-        prediction_unit_count=config.prediction_unit_count,
-        elapsed_days=config.elapsed_days,
-        official_window_days=config.official_window_days,
+def _cycle_power_input(
+    config: OfficialAggregationConfig,
+    *,
+    inference: BootstrapInferenceResult | None,
+    repeat_variance_report: Mapping[str, Any],
+) -> _CyclePowerInputResolution:
+    paired_delta_sd = config.paired_delta_sd
+    source = "explicit_config"
+    warning: str | None = None
+    if paired_delta_sd is None:
+        paired_delta_sd = _paired_delta_sd_from_bootstrap(
+            inference,
+            clean_motion_count=config.clean_motion_count,
+        )
+        source = "observed_pairwise_bootstrap_deltas"
+    if paired_delta_sd is None:
+        paired_delta_sd = _paired_delta_sd_from_repeat_variance(repeat_variance_report)
+        source = "repeat_variance_report"
+    if paired_delta_sd is None:
+        paired_delta_sd = DEFAULT_PAIRED_DELTA_SD
+        source = "default_fallback"
+        warning = (
+            "paired_delta_sd fell back to the default 0.05 because no explicit "
+            "value, observed pairwise bootstrap estimate, or repeat-variance "
+            "estimate was available"
+        )
+    return _CyclePowerInputResolution(
+        cycle_input=CyclePowerInput(
+            cycle_id=config.cycle_id,
+            series=config.cycle_series,
+            clean_motion_count=config.clean_motion_count,
+            prediction_unit_count=config.prediction_unit_count,
+            elapsed_days=config.elapsed_days,
+            official_window_days=config.official_window_days,
+            paired_delta_sd=paired_delta_sd,
+            target_mde=config.target_mde,
+            target_power=config.target_power,
+            two_sided_alpha=config.two_sided_alpha,
+        ),
+        paired_delta_sd_source=source,
+        warning=warning,
     )
+
+
+def _paired_delta_sd_from_bootstrap(
+    inference: BootstrapInferenceResult | None,
+    *,
+    clean_motion_count: int,
+) -> float | None:
+    if inference is None or clean_motion_count <= 0 or len(inference.replicates) < 2:
+        return None
+    model_ids = tuple(sorted(inference.observed_micro_briers))
+    estimates: list[float] = []
+    for index, model_a in enumerate(model_ids):
+        for model_b in model_ids[index + 1 :]:
+            deltas = [
+                replicate.micro_briers[model_a] - replicate.micro_briers[model_b]
+                for replicate in inference.replicates
+                if model_a in replicate.micro_briers
+                and model_b in replicate.micro_briers
+            ]
+            if len(deltas) < 2:
+                continue
+            estimate = math.sqrt(_sample_variance(deltas)) * math.sqrt(
+                clean_motion_count
+            )
+            if estimate > 0:
+                estimates.append(estimate)
+    return max(estimates) if estimates else None
+
+
+def _paired_delta_sd_from_repeat_variance(
+    repeat_variance_report: Mapping[str, Any],
+) -> float | None:
+    estimates = [
+        _required_float(row, "root_mean_within_case_variance")
+        for row in _repeat_variance_summary_rows(repeat_variance_report)
+    ]
+    positive_estimates = [estimate for estimate in estimates if estimate > 0]
+    return max(positive_estimates) if positive_estimates else None
 
 
 def _cycle_power_record(
     cycle_power: CyclePowerReport,
     *,
     config: OfficialAggregationConfig,
+    paired_delta_sd_source: str,
+    warning: str | None,
 ) -> JsonRecord:
-    return {
-        **cycle_power.to_record(),
-        "elapsed_days": config.elapsed_days,
-        "official_window_days": config.official_window_days,
-    }
+    record = cycle_power.to_record()
+    record["elapsed_days"] = config.elapsed_days
+    record["official_window_days"] = config.official_window_days
+    mde_analysis = dict(_mapping(record["mde_analysis"], "mde_analysis"))
+    mde_analysis["paired_delta_sd_source"] = paired_delta_sd_source
+    mde_analysis["target_power_source"] = "explicit_config"
+    mde_analysis["target_mde_source"] = "explicit_config"
+    mde_analysis["two_sided_alpha_source"] = "explicit_config"
+    record["mde_analysis"] = mde_analysis
+    if warning is not None:
+        record["warnings"] = [*list(_list(record, "warnings")), warning]
+    return record
 
 
 def _load_labels(path: Path) -> tuple[OutcomeLabel, ...]:

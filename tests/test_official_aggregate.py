@@ -67,6 +67,13 @@ def test_official_aggregate_writes_public_bundle_and_private_debug(
     assert cycle_power["cycle_power"]["prediction_unit_count"] == 1
     assert cycle_power["cycle_power"]["claim_strength"] == "feasibility_only"
     assert cycle_power["cycle_power"]["strong_ranking_claim_allowed"] is False
+    mde = cycle_power["cycle_power"]["mde_analysis"]
+    assert mde["paired_delta_sd_source"] == "default_fallback"
+    assert math.isclose(mde["paired_delta_sd"], 0.05)
+    assert any(
+        "paired_delta_sd fell back to the default 0.05" in warning
+        for warning in cycle_power["cycle_power"]["warnings"]
+    )
 
     leaderboard = json.loads(result.leaderboard_path.read_text(encoding="utf-8"))
     assert leaderboard["cycle_id"] == "cycle-1"
@@ -177,6 +184,10 @@ def test_official_aggregate_cli_writes_summary(
                 "25",
                 "--prediction-unit-count",
                 "1",
+                "--paired-delta-sd",
+                "0.08",
+                "--target-mde",
+                "0.02",
                 "--allow-no-baselines",
                 "--ablation",
                 "full_packet",
@@ -187,13 +198,26 @@ def test_official_aggregate_cli_writes_summary(
 
     summary = json.loads(capsys.readouterr().out)
     assert Path(summary["artifact_manifest"]).is_file()
-    assert Path(summary["cycle_power"]).is_file()
+    cycle_power_path = Path(summary["cycle_power"])
+    assert cycle_power_path.is_file()
     assert Path(summary["leaderboard"]).is_file()
     assert summary["expected_case_count"] == 1
     assert summary["aggregated_case_count"] == 1
     assert summary["expected_matrix_row_count"] == 1
     assert summary["aggregated_matrix_row_count"] == 1
+    cycle_power = json.loads(cycle_power_path.read_text(encoding="utf-8"))
+    mde = cycle_power["cycle_power"]["mde_analysis"]
+    assert math.isclose(mde["paired_delta_sd"], 0.08)
+    assert math.isclose(mde["target_mde"], 0.02)
+    assert mde["paired_delta_sd_source"] == "explicit_config"
+    assert mde["target_mde_source"] == "explicit_config"
+    assert mde["target_power_source"] == "explicit_config"
+    assert mde["two_sided_alpha_source"] == "explicit_config"
     assert summary["model_count"] == 1
+    assert not any(
+        "paired_delta_sd fell back" in warning
+        for warning in cycle_power["cycle_power"]["warnings"]
+    )
 
 
 def test_official_aggregate_scores_historical_baselines_as_pseudo_models(
@@ -339,6 +363,71 @@ def test_ablation_delta_report_compares_full_packet_to_metadata_only() -> None:
     assert math.isclose(row["metadata_only_micro_brier"], 0.1)
     assert math.isclose(row["full_packet_minus_metadata_only_micro_brier"], -0.075)
     assert row["record_text_improves_brier"] is True
+
+
+def test_official_aggregate_writes_multi_ablation_scores_and_delta_report(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(
+        tmp_path,
+        ablations=("full_packet", "metadata_only"),
+    )
+    registry_path = _write_model_registry(tmp_path, ("fixture:solver",))
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-full_packet",
+        ablation="full_packet",
+        dismissed_probability=0.9,
+    )
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-metadata_only",
+        ablation="metadata_only",
+        dismissed_probability=0.6,
+    )
+
+    result = aggregate_official_results(
+        OfficialAggregationConfig(
+            per_case_dir=per_case_dir,
+            run_input_manifest_path=manifest_path,
+            labels_path=labels_path,
+            output_dir=tmp_path / "official-bundle",
+            cycle_id="cycle-1",
+            cycle_series=CycleSeries.PILOT,
+            clean_motion_count=25,
+            prediction_unit_count=2,
+            model_registry_path=registry_path,
+            allow_no_baselines=True,
+            deferred_ablations=("judge_removed",),
+            generated_at=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
+        )
+    )
+
+    scores = json.loads((result.public_dir / "scores.json").read_text(encoding="utf-8"))
+    assert {row["model_id"] for row in scores["summaries"]} == {
+        "fixture-model::full_packet",
+        "fixture-model::metadata_only",
+    }
+    delta_report = json.loads(
+        (result.public_dir / "ablation-deltas.json").read_text(encoding="utf-8")
+    )
+    assert delta_report["confidence_interval_method"] == "paired_clustered_bootstrap"
+    [delta_row] = delta_report["rows"]
+    assert delta_row["model_id"] == "fixture-model"
+    assert math.isclose(
+        delta_row["full_packet_minus_metadata_only_micro_brier"],
+        -0.075,
+    )
+    assert "full_packet_minus_metadata_only_ci_low" in delta_row
+    assert "full_packet_minus_metadata_only_ci_high" in delta_row
+    assert "probability_full_packet_better" in delta_row
+
+    run_card = json.loads(result.run_card_path.read_text(encoding="utf-8"))
+    assert run_card["ablation_delta_count"] == 1
+    assert run_card["deferred_ablations"] == ["judge_removed"]
+    assert "ablation-deltas.json" in run_card["public_outputs"]
 
 
 def test_official_aggregate_accepts_explicit_multi_model_matrix(
@@ -614,6 +703,13 @@ def test_official_aggregate_reports_repeat_sampling_variance(
     assert summary["model_id"] == "fixture-model"
     assert summary["repeated_case_count"] == 1
     assert summary["repeat_run_count"] == 3
+    cycle_power = json.loads(result.cycle_power_path.read_text(encoding="utf-8"))
+    cycle_power_mde = cycle_power["cycle_power"]["mde_analysis"]
+    assert cycle_power_mde["paired_delta_sd_source"] == "repeat_variance_report"
+    assert math.isclose(
+        cycle_power_mde["paired_delta_sd"],
+        summary["root_mean_within_case_variance"],
+    )
 
     scores = json.loads((result.public_dir / "scores.json").read_text(encoding="utf-8"))
     score_summary = scores["summaries"][0]

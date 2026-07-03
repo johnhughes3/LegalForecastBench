@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from enum import StrEnum
+from statistics import NormalDist
 from typing import Any
 
 PILOT_MOTION_TARGET = 50
@@ -178,9 +179,8 @@ def classify_cycle_power(cycle: CyclePowerInput) -> CyclePowerReport:
         mde_analysis.required_motion_count_for_target_mde,
     )
     meets_strong_minimum = cycle.clean_motion_count >= strong_min_motion_target
-    meets_strong_preferred = (
-        cycle.clean_motion_count
-        >= max(STRONG_RANKING_PREFERRED_MOTIONS, strong_min_motion_target)
+    meets_strong_preferred = cycle.clean_motion_count >= max(
+        STRONG_RANKING_PREFERRED_MOTIONS, strong_min_motion_target
     )
     meets_paper_level = cycle.clean_motion_count >= PAPER_LEVEL_MOTIONS
 
@@ -254,13 +254,13 @@ def _minimum_detectable_effect_analysis(
 def _z_alpha_over_two(two_sided_alpha: float) -> float:
     if two_sided_alpha == DEFAULT_TWO_SIDED_ALPHA:
         return Z_975
-    raise ValueError("only two_sided_alpha=0.05 is currently supported")
+    return NormalDist().inv_cdf(1 - (two_sided_alpha / 2))
 
 
 def _z_power(target_power: float) -> float:
     if target_power == DEFAULT_POWER:
         return Z_80
-    raise ValueError("only target_power=0.80 is currently supported")
+    return NormalDist().inv_cdf(target_power)
 
 
 def _meets_rapid_target(cycle: CyclePowerInput) -> bool:

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
+import math
 
-import pytest
 from legalforecast.reporting.cadence import (
     ClaimStrength,
     CycleClassification,
@@ -80,7 +80,11 @@ def test_official_cycle_needs_motion_and_unit_thresholds() -> None:
     record = report.to_record()
     assert record["mde_analysis"]["method"] == "paired_normal_approximation"
     assert record["mde_analysis"]["required_motion_count_for_target_mde"] == 197
-    assert record["mde_analysis"]["mde"] == pytest.approx(0.014007926)
+    assert math.isclose(
+        float(record["mde_analysis"]["mde"]),
+        0.014007926,
+        rel_tol=1e-8,
+    )
 
 
 def test_official_cycle_below_descriptive_threshold_is_preliminary() -> None:
@@ -135,6 +139,26 @@ def test_mde_analysis_can_raise_strong_ranking_motion_requirement() -> None:
         report.mde_analysis.required_motion_count_for_target_mde
         > report.clean_motion_count
     )
+
+
+def test_mde_analysis_accepts_custom_power_and_alpha() -> None:
+    report = classify_cycle_power(
+        CyclePowerInput(
+            cycle_id="official-custom-mde",
+            series=CycleSeries.OFFICIAL,
+            clean_motion_count=200,
+            prediction_unit_count=900,
+            official_window_days=28,
+            paired_delta_sd=0.07,
+            target_mde=0.02,
+            target_power=0.9,
+            two_sided_alpha=0.01,
+        )
+    )
+
+    assert math.isclose(report.mde_analysis.target_power, 0.9)
+    assert math.isclose(report.mde_analysis.two_sided_alpha, 0.01)
+    assert report.mde_analysis.required_motion_count_for_target_mde > 0
 
 
 def test_preferred_strong_ranking_cycle_has_no_thin_power_warning() -> None:
