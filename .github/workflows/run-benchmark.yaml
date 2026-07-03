@@ -365,6 +365,57 @@ jobs:
               ;;
           esac
 
+      - name: Verify labels frozen before scoring
+        shell: bash
+        env:
+          LABELS_URI: ${{ inputs.labels_uri }}
+        run: |
+          set -euo pipefail
+          case "${LABELS_URI}" in
+            s3://*)
+              aws s3 cp "${LABELS_URI}" /tmp/lfb-labels.jsonl --only-show-errors
+              ;;
+            manifests/*)
+              if [[ -z "${LFB_RESULTS_BUCKET:-}" ]]; then
+                echo "LFB_RESULTS_BUCKET is required for manifests/ labels." >&2
+                exit 1
+              fi
+              aws s3 cp "s3://${LFB_RESULTS_BUCKET}/${LABELS_URI}" /tmp/lfb-labels.jsonl --only-show-errors
+              ;;
+            *)
+              cp "${LABELS_URI}" /tmp/lfb-labels.jsonl
+              ;;
+          esac
+          # Fail-closed at dispatch, before any model output exists: the frozen
+          # run-input manifest must record labels_sha256 and it must match the
+          # labels file that will later be scored. Aggregation re-checks this, but
+          # verifying here proves the labels were locked before the run fanned out.
+          python - <<'PY'
+          import hashlib
+          import json
+          import sys
+
+          with open("/tmp/lfb-run-inputs.json", encoding="utf-8") as handle:
+              manifest = json.load(handle)
+          frozen = manifest.get("labels_sha256")
+          if not isinstance(frozen, str) or not frozen:
+              sys.exit(
+                  "run-input manifest is missing labels_sha256; labels must be "
+                  "frozen before scoring"
+              )
+          digest = hashlib.sha256()
+          with open("/tmp/lfb-labels.jsonl", "rb") as handle:
+              for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                  digest.update(chunk)
+          actual = digest.hexdigest()
+          if actual != frozen:
+              sys.exit(
+                  f"labels hash drift: manifest froze {frozen} but labels file "
+                  f"hashes to {actual}; refusing to run"
+              )
+          print(f"labels frozen: {actual}")
+          PY
+
       - name: Download frozen model registry
         shell: bash
         run: |
