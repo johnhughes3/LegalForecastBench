@@ -7,6 +7,7 @@ from typing import Any, cast
 import legalforecast.labeling.llm_pipeline as llm_pipeline
 from legalforecast.cli import main
 from legalforecast.evals.inspect_task import SolverResponse
+from legalforecast.unitization import ChallengeScope, PredictionUnit, SourceCitation
 from pytest import MonkeyPatch
 
 JsonRecord = dict[str, Any]
@@ -430,6 +431,67 @@ def test_llm_label_excerpt_coercion_uses_verbatim_near_match() -> None:
     assert excerpt == decision_text
 
 
+def test_labeling_prompt_explains_not_addressed_resolution() -> None:
+    prompt = json.loads(
+        cast(Any, llm_pipeline)._labeling_prompt(
+            _selection_record(),
+            llm_pipeline.StageBDecisionText(
+                document_id="decision",
+                entered_date="2026-05-18",
+                text="The motion is granted as to Count I.",
+            ),
+            (_prediction_unit(),),
+        )
+    )
+
+    rules = "\n".join(prompt["rules"])
+
+    assert "not_addressed_by_this_disposition" in rules
+    assert "amendment_signal not_applicable" in rules
+    assert "do not infer an outcome from silence" in rules
+
+
+def test_labeling_failure_ledger_uses_specific_reason_codes() -> None:
+    response = SolverResponse(
+        raw_output='{"unit_findings": "bad"}',
+        input_tokens=1,
+        output_tokens=1,
+        estimated_cost=0.01,
+    )
+    cases = [
+        (
+            llm_pipeline.LlmResponseValidationError(
+                "unit_findings must be a list",
+                response=response,
+            ),
+            "parse_error",
+        ),
+        (
+            llm_pipeline.LlmPipelineError(
+                "LLM labels require lawyer adjudication for units: ['unit-1']"
+            ),
+            "adjudication_pending",
+        ),
+        (
+            llm_pipeline.LlmPipelineError("LLM judges were not unanimous for unit-1"),
+            "judge_disagreement",
+        ),
+        (
+            llm_pipeline.LlmPipelineError(
+                "LLM-only labels include ambiguous units: ['unit-1']"
+            ),
+            "ambiguous",
+        ),
+    ]
+
+    entries_for = cast(Any, llm_pipeline)._labeling_exclusion_entries
+
+    for error, reason in cases:
+        [entry] = entries_for(_selection_record(), error)
+        assert entry["primary_exclusion_reason"] == reason
+        assert entry["reason"] == reason
+
+
 def test_acquisition_llm_unitize_failure_audit_keeps_model_accounting(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
@@ -612,6 +674,122 @@ def test_acquisition_llm_label_failure_audit_keeps_model_accounting(
     assert audit["metadata"]["model_id"] == "gpt-test"
 
 
+def test_acquisition_llm_label_missing_unit_flags_gate_frozen_unit_workflow(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    markdown_root = output_root / "markdown"
+    _write_markdown(
+        markdown_root / "cand-1" / "decision.md",
+        "Count I is dismissed. The court also dismisses Count II.",
+    )
+    selection_path = tmp_path / "selection.jsonl"
+    parser_path = tmp_path / "parser.jsonl"
+    units_path = tmp_path / "prediction-units.jsonl"
+    registry_path = tmp_path / "registry.json"
+    _write_jsonl(selection_path, [_selection_record()])
+    _write_jsonl(parser_path, [_parser_record("decision", "decision.md")])
+    _write_jsonl(
+        units_path,
+        [
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "prediction_units": [
+                    {
+                        "unit_id": "unit-1",
+                        "count": "Count I",
+                        "claim_name": "Section 10(b)",
+                        "defendant_group": "Issuer",
+                        "challenged_by_motion": True,
+                        "challenge_scope": "entire_claim",
+                        "unit_confidence": 0.9,
+                        "source_citations": [{"document_id": "mtd"}],
+                        "grouping": "individual",
+                        "grouping_rationale": None,
+                        "separable_subclaim": None,
+                        "uncertainty_notes": None,
+                    }
+                ],
+            }
+        ],
+    )
+    _write_json(registry_path, [_registry_record()])
+
+    def missing_unit_completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        return SolverResponse(
+            raw_output=json.dumps(
+                {
+                    "unit_findings": [
+                        {
+                            "unit_id": "unit-1",
+                            "resolution": "fully_dismissed",
+                            "amendment_signal": "express_denial_of_leave",
+                            "supporting_excerpt": "Count I is dismissed.",
+                            "labeler_confidence": 0.91,
+                        }
+                    ],
+                    "missing_unit_flags": [
+                        {
+                            "missing_unit_description": (
+                                "Decision resolved Count II, which was absent from "
+                                "frozen Stage A units."
+                            ),
+                            "supporting_excerpt": (
+                                "The court also dismisses Count II."
+                            ),
+                        }
+                    ],
+                }
+            ),
+            input_tokens=345,
+            output_tokens=67,
+            estimated_cost=0.34,
+            metadata={"provider": "openai", "model_id": "gpt-test"},
+        )
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", missing_unit_completion)
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "llm-label",
+                "--selection",
+                str(selection_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--prediction-units",
+                str(units_path),
+                "--output-root",
+                str(output_root),
+                "--model-registry",
+                str(registry_path),
+                "--model-key",
+                "openai:gpt-test",
+                "--continue-on-error",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    assert _read_jsonl(output_root / "labels.jsonl") == []
+    audit = _read_jsonl(output_root / "llm-label-audit.jsonl")[0]
+    assert audit["status"] == "failed"
+    assert audit["error_type"] == "FrozenUnitWorkflowRequiredError"
+    assert audit["requires_frozen_unit_workflow"] is True
+    assert audit["missing_unit_flag_count"] == 1
+    assert audit["frozen_unit_excluded_count"] == 1
+    assert audit["frozen_unit_repaired_count"] == 0
+    assert audit["frozen_unit_workflow"]["frozen_unit_status"] == "excluded"
+    assert audit["estimated_cost"] == 0.34
+    [entry] = audit["exclusion_ledger_entries"]
+    assert entry["stage"] == "unitization"
+    assert entry["primary_exclusion_reason"] == "unit_missing_from_stage_a"
+
+
 def _fake_completion(*args: Any, **kwargs: Any) -> SolverResponse:
     prompt = cast(str, args[1])
     if "Construct frozen Stage A" in prompt:
@@ -691,6 +869,25 @@ def _selection_document(
         "model_visible": model_visible,
         "contains_target_outcome": contains_target_outcome,
     }
+
+
+def _prediction_unit() -> PredictionUnit:
+    return PredictionUnit(
+        unit_id="unit-1",
+        count="Count I",
+        claim_name="Section 10(b)",
+        defendant_group="Issuer",
+        challenged_by_motion=True,
+        challenge_scope=ChallengeScope.ENTIRE_CLAIM,
+        unit_confidence=0.9,
+        source_citations=(
+            SourceCitation(
+                document_id="mtd",
+                docket_entry_number=5,
+                excerpt="Defendants move to dismiss Count I.",
+            ),
+        ),
+    )
 
 
 def _parser_record(source_document_id: str, filename: str) -> JsonRecord:

@@ -32,6 +32,7 @@ from legalforecast.labeling.label_outcomes import (
     OutcomeLabel,
     StageBDecisionText,
     StageBLabelingInput,
+    StageBLabelingResult,
     StageBMissingUnitFlag,
     StageBUnitFinding,
     UnitResolution,
@@ -46,6 +47,11 @@ from legalforecast.selection.exclusion_ledger import (
     ExclusionLedgerEntry,
     ExclusionReason,
     ExclusionStage,
+)
+from legalforecast.unitization.adjudication import (
+    FrozenUnitRepairResult,
+    FrozenUnitStatus,
+    exclude_for_missing_stage_a_unit,
 )
 from legalforecast.unitization.construct_units import (
     StageAConstructionInput,
@@ -83,6 +89,25 @@ class LlmResponseValidationError(LlmPipelineError):
     def __init__(self, message: str, *, response: SolverResponse) -> None:
         super().__init__(message)
         self.response = response
+
+
+class FrozenUnitWorkflowRequiredError(LlmPipelineError):
+    """Raised when Stage B labels expose a missing frozen unit."""
+
+    def __init__(
+        self,
+        *,
+        response: SolverResponse,
+        labeling_result: StageBLabelingResult,
+        repair_result: FrozenUnitRepairResult,
+    ) -> None:
+        super().__init__(
+            "requires_frozen_unit_workflow: Stage B reported missing_unit_flags; "
+            "route through blinded frozen-unit repair or exclusion before scoring"
+        )
+        self.response = response
+        self.labeling_result = labeling_result
+        self.repair_result = repair_result
 
 
 @dataclass(frozen=True, slots=True)
@@ -380,6 +405,9 @@ def llm_label_cases(
             )
             if isinstance(exc, LlmResponseValidationError):
                 failure_record.update(_response_audit_fields(exc.response))
+            elif isinstance(exc, FrozenUnitWorkflowRequiredError):
+                failure_record.update(_response_audit_fields(exc.response))
+                failure_record.update(_frozen_unit_workflow_audit_fields(exc))
             audit_records.append(failure_record)
             if not continue_on_error:
                 raise
@@ -432,6 +460,16 @@ def _llm_label_one_model(
                 missing_unit_flags=missing_flags,
             )
         )
+        if result.requires_frozen_unit_workflow:
+            raise _frozen_unit_workflow_required_error(
+                selection=selection,
+                decision_text=decision_text,
+                frozen_units=frozen_units,
+                response=response,
+                labeling_result=result,
+            )
+    except FrozenUnitWorkflowRequiredError:
+        raise
     except Exception as exc:
         raise LlmResponseValidationError(str(exc), response=response) from exc
     return result.labels, response, len(findings), len(missing_flags)
@@ -538,6 +576,12 @@ def _labeling_prompt(
                 "If resolution is survives_in_material_respect or "
                 "partial_dismissal_only, amendment_signal must be not_applicable."
             ),
+            (
+                "If the first written disposition does not address a frozen unit, "
+                "use resolution not_addressed_by_this_disposition with "
+                "amendment_signal not_applicable; do not infer an outcome from "
+                "silence or later docket activity."
+            ),
             ("If resolution is ambiguous, amendment_signal must be ambiguous."),
             (
                 "Return only a JSON object with unit_findings and "
@@ -580,6 +624,57 @@ def _labeling_prompt(
         },
     }
     return json.dumps(payload, sort_keys=True, indent=2)
+
+
+def _frozen_unit_workflow_required_error(
+    *,
+    selection: Mapping[str, Any],
+    decision_text: StageBDecisionText,
+    frozen_units: tuple[PredictionUnit, ...],
+    response: SolverResponse,
+    labeling_result: StageBLabelingResult,
+) -> FrozenUnitWorkflowRequiredError:
+    missing_descriptions = "; ".join(
+        flag.missing_unit_description for flag in labeling_result.missing_unit_flags
+    )
+    source_entry_ids = tuple(
+        str(item) for item in _int_tuple(selection.get("decision_entry_numbers"))
+    ) or (decision_text.document_id,)
+    repair_result = exclude_for_missing_stage_a_unit(
+        candidate_id=_required_str(selection, "candidate_id"),
+        case_id=_required_str(selection, "case_id"),
+        court=_optional_str(selection, "court"),
+        frozen_units=frozen_units,
+        source_entry_ids=source_entry_ids,
+        source_document_ids=(decision_text.document_id,),
+        notes=(
+            "Stage B judge reported material missing units; blinded frozen-unit "
+            "repair or exclusion is required before scoring: "
+            f"{missing_descriptions}"
+        ),
+    )
+    return FrozenUnitWorkflowRequiredError(
+        response=response,
+        labeling_result=labeling_result,
+        repair_result=repair_result,
+    )
+
+
+def _frozen_unit_workflow_audit_fields(
+    error: FrozenUnitWorkflowRequiredError,
+) -> JsonRecord:
+    status = error.repair_result.status
+    return {
+        "requires_frozen_unit_workflow": True,
+        "missing_unit_flag_count": len(error.labeling_result.missing_unit_flags),
+        "missing_unit_flags": [
+            flag.to_record(error.labeling_result.decision_text)
+            for flag in error.labeling_result.missing_unit_flags
+        ],
+        "frozen_unit_workflow": error.repair_result.to_manifest_fields(),
+        "frozen_unit_repaired_count": int(status is FrozenUnitStatus.REPAIRED),
+        "frozen_unit_excluded_count": int(status is FrozenUnitStatus.EXCLUDED),
+    }
 
 
 def _predecision_documents(
@@ -886,25 +981,42 @@ def _failure_human_verified(error: Exception) -> bool:
     return False
 
 
-def _label_difficulty_exclusion_entries(
+def _labeling_exclusion_entries(
     selection: Mapping[str, Any],
     error: Exception,
 ) -> list[JsonRecord]:
     if not isinstance(error, LlmPipelineError):
         return []
+    if isinstance(error, FrozenUnitWorkflowRequiredError):
+        exclusion_entry = error.repair_result.exclusion_entry
+        return [exclusion_entry.to_record()] if exclusion_entry is not None else []
+    reason = _labeling_exclusion_reason(error)
     entry = ExclusionLedgerEntry(
         candidate_id=_optional_str(selection, "candidate_id") or "unknown-candidate",
         case_id=_optional_str(selection, "case_id") or "unknown-case",
         court=_optional_str(selection, "court"),
         decision_date=None,
         stage=ExclusionStage.LABELING,
-        reason=ExclusionReason.LABEL_DIFFICULTY.value,
+        reason=reason,
         source_entry_ids=tuple(
             str(item) for item in _int_tuple(selection.get("decision_entry_numbers"))
         ),
-        notes=f"LLM labeling/unitization failed closed: {error}",
+        notes=f"LLM labeling/unitization failed closed ({reason}): {error}",
     )
     return [entry.to_record()]
+
+
+def _labeling_exclusion_reason(error: LlmPipelineError) -> str:
+    message = str(error).lower()
+    if isinstance(error, LlmResponseValidationError):
+        return ExclusionReason.PARSE_ERROR.value
+    if "lawyer adjudication" in message:
+        return ExclusionReason.ADJUDICATION_PENDING.value
+    if "not unanimous" in message or "no majority" in message:
+        return ExclusionReason.JUDGE_DISAGREEMENT.value
+    if "ambiguous" in message:
+        return ExclusionReason.AMBIGUOUS.value
+    return ExclusionReason.LABEL_DIFFICULTY.value
 
 
 def _prediction_unit(record: Mapping[str, Any]) -> PredictionUnit:
@@ -1132,7 +1244,7 @@ def _failure_audit_record(
         "model_key": model_key,
         "model_registry_sha256": model_registry_sha256 or "unrecorded",
         "human_verified": _failure_human_verified(error),
-        "exclusion_ledger_entries": _label_difficulty_exclusion_entries(
+        "exclusion_ledger_entries": _labeling_exclusion_entries(
             selection,
             error,
         ),

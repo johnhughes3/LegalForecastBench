@@ -32,7 +32,11 @@ from legalforecast.selection.contamination_filters import (
     OutcomeLeakageFilterResult,
     detect_outcome_leakage,
 )
-from legalforecast.selection.exclusion_ledger import ExclusionLedgerEntry
+from legalforecast.selection.exclusion_ledger import (
+    ExclusionLedgerEntry,
+    ExclusionReason,
+    ExclusionStage,
+)
 
 
 class PacketInputPlanningError(ValueError):
@@ -104,7 +108,8 @@ def plan_packet_build_inputs(
             search_window=search_window,
             decision_filed_on_or_after=decision_filed_on_or_after,
         )
-        packet_build.append(planned.packet_build_record)
+        if planned.packet_build_record is not None:
+            packet_build.append(planned.packet_build_record)
         document_manifest.extend(planned.document_manifest_records)
         candidate_manifest.append(planned.candidate_manifest_record)
         extracted_texts.extend(planned.extracted_text_records)
@@ -121,7 +126,7 @@ def plan_packet_build_inputs(
 
 @dataclass(frozen=True, slots=True)
 class _PlannedCandidate:
-    packet_build_record: dict[str, Any]
+    packet_build_record: dict[str, Any] | None
     document_manifest_records: tuple[dict[str, Any], ...]
     candidate_manifest_record: dict[str, Any]
     extracted_text_records: tuple[dict[str, Any], ...]
@@ -172,9 +177,22 @@ def _plan_candidate(
         decision_filed_on_or_after is not None
         and docket_screen.status is MtdDocketScreenStatus.EXCLUDED
     ):
-        raise PacketInputPlanningError(
-            "candidate decision failed anchored acquisition screen: "
-            f"{candidate_id}; reasons={docket_screen.exclusion_reasons}"
+        exclusion_record = _release_anchor_exclusion_record(
+            selection,
+            docket_screen=docket_screen.to_record(),
+            decision_filed_on_or_after=decision_filed_on_or_after,
+        )
+        return _PlannedCandidate(
+            packet_build_record=None,
+            document_manifest_records=(),
+            candidate_manifest_record=_candidate_manifest_record(
+                selection,
+                documents=(),
+                mtd_decision_screen=docket_screen.to_record(),
+                exclusion_ledger_entries=(exclusion_record,),
+            ),
+            extracted_text_records=(),
+            exclusion_ledger_records=(exclusion_record,),
         )
 
     original_to_packet_id: dict[str, str] = {}
@@ -268,6 +286,7 @@ def _plan_candidate(
         "case_id": _required_str(selection, "case_id"),
         "court": _required_str(selection, "court"),
         "docket_number": _required_str(selection, "docket_number"),
+        "decision_date": _format_optional_date(_selection_decision_date(selection)),
         "generated_at": _format_datetime(generated_at),
         "docket_markdown": _controlled_docket_record(
             render_controlled_docket_markdown(
@@ -291,12 +310,13 @@ def _plan_candidate(
         "target_docket_entry_numbers": _target_docket_entry_numbers(
             selection,
         ),
-        "metadata": {
-            "case_name": _optional_str(selection, "case_name") or "",
-            "source_url": _optional_str(selection, "source_url") or "",
-            "search_query": search_query,
-            "search_window": search_window,
-        },
+        "metadata": _packet_metadata(
+            selection,
+            docket_screen=docket_screen.to_record(),
+            search_query=search_query,
+            search_window=search_window,
+            decision_filed_on_or_after=decision_filed_on_or_after,
+        ),
     }
     return _PlannedCandidate(
         packet_build_record=packet_build_record,
@@ -471,11 +491,83 @@ def _candidate_manifest_record(
         "mtd_decision_screen": (
             dict(mtd_decision_screen) if mtd_decision_screen is not None else None
         ),
-        "exclusion_ledger_entries": [
-            dict(entry) for entry in exclusion_ledger_entries
-        ],
+        "exclusion_ledger_entries": [dict(entry) for entry in exclusion_ledger_entries],
     }
     return {**record, "manifest_record_hash": _record_hash(record)}
+
+
+def _packet_metadata(
+    selection: Mapping[str, Any],
+    *,
+    docket_screen: Mapping[str, Any],
+    search_query: str,
+    search_window: str,
+    decision_filed_on_or_after: date | None,
+) -> dict[str, str]:
+    metadata = {
+        "case_name": _optional_str(selection, "case_name") or "",
+        "source_url": _optional_str(selection, "source_url") or "",
+        "search_query": search_query,
+        "search_window": search_window,
+        "mtd_decision_screen_status": _required_str(docket_screen, "status"),
+    }
+    decision_date = _selection_decision_date(selection)
+    if decision_date is not None:
+        metadata["decision_date"] = decision_date.isoformat()
+    if decision_filed_on_or_after is not None:
+        metadata["decision_filed_on_or_after"] = decision_filed_on_or_after.isoformat()
+    return metadata
+
+
+def _selection_decision_date(selection: Mapping[str, Any]) -> date | None:
+    return _optional_date(selection, "decision_date") or _optional_date(
+        selection,
+        "decision_entered_date",
+    )
+
+
+def _format_optional_date(value: date | None) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+def _release_anchor_exclusion_record(
+    selection: Mapping[str, Any],
+    *,
+    docket_screen: Mapping[str, Any],
+    decision_filed_on_or_after: date,
+) -> dict[str, Any]:
+    screen_reasons = tuple(_str_tuple(docket_screen.get("exclusion_reasons")))
+    return ExclusionLedgerEntry(
+        candidate_id=_required_str(selection, "candidate_id"),
+        case_id=_required_str(selection, "case_id"),
+        court=_optional_str(selection, "court"),
+        decision_date=_optional_date(selection, "decision_date")
+        or _optional_date(selection, "decision_entered_date"),
+        stage=ExclusionStage.ELIGIBILITY,
+        reason=ExclusionReason.DECISION_BEFORE_RELEASE_ANCHOR.value,
+        secondary_reasons=screen_reasons,
+        source_entry_ids=tuple(_decision_entry_source_ids(docket_screen)),
+        notes=(
+            "Candidate excluded because no screened MTD decision was filed on or "
+            f"after {decision_filed_on_or_after.isoformat()}; "
+            f"screen_status={_required_str(docket_screen, 'status')}"
+        ),
+    ).to_record()
+
+
+def _decision_entry_source_ids(docket_screen: Mapping[str, Any]) -> tuple[str, ...]:
+    source_ids: list[str] = []
+    for entry in _record_sequence(
+        docket_screen.get("decision_entries"),
+        "decision_entries",
+    ):
+        row_id = _optional_str(entry, "row_id")
+        entry_number = _optional_str(entry, "entry_number")
+        if row_id is not None:
+            source_ids.append(row_id)
+        elif entry_number is not None:
+            source_ids.append(f"entry-{entry_number}")
+    return tuple(source_ids)
 
 
 def _parsed_document_record(
@@ -583,9 +675,8 @@ def _docket_entries(
         )
         docket_entry_id = entry.row_id or f"entry-{entry.entry_number or 'unknown'}"
         contains_target_outcome = (
-            (entry_number in decision_entries if entry_number is not None else False)
-            or docket_entry_id in leakage_source_ids
-        )
+            entry_number in decision_entries if entry_number is not None else False
+        ) or docket_entry_id in leakage_source_ids
         rendered.append(
             ControlledDocketMarkdownEntry(
                 docket_entry_id=docket_entry_id,

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import legalforecast.cli as cli
+import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.free_document_downloader import FreeDocumentFetch
 from pytest import CaptureFixture, MonkeyPatch
@@ -458,6 +459,7 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     downloads_path = tmp_path / "downloads.jsonl"
     parser_path = tmp_path / "parser.jsonl"
     units_path = tmp_path / "units.jsonl"
+    registry_path = _write_model_registry(tmp_path)
     markdown_root = output_root / "markdown"
     for source_document_id, markdown in {
         "complaint": "Complaint markdown",
@@ -502,6 +504,8 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
                 str(parser_path),
                 "--prediction-units",
                 str(units_path),
+                "--model-registry",
+                str(registry_path),
                 "--raw-html-dir",
                 str(raw_html_dir),
                 "--output-root",
@@ -517,6 +521,8 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     )
 
     packet_input = _read_jsonl(output_root / "packet-build-input.jsonl")[0]
+    assert packet_input["decision_date"] == "2026-05-18"
+    assert packet_input["metadata"]["decision_date"] == "2026-05-18"
     assert packet_input["documents"][0]["source_document_id"] == "cand-1-complaint"
     assert packet_input["prediction_units"][0]["source_citations"] == [
         {"document_id": "cand-1-complaint", "page": 1}
@@ -541,8 +547,38 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     )
 
     packet = _read_jsonl(output_root / "packets.jsonl")[0]
+    assert packet["decision_date"] == "2026-05-18"
     assert "cand-1-decision" in packet["excluded_document_ids"]
     assert packet["prediction_units"][0]["unit_id"] == "count-i-issuer"
+
+
+def test_plan_packet_inputs_requires_model_registry(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(
+            [
+                "acquisition",
+                "plan-packet-inputs",
+                "--selection",
+                str(tmp_path / "selection.jsonl"),
+                "--download-manifest",
+                str(tmp_path / "downloads.jsonl"),
+                "--parser-manifest",
+                str(tmp_path / "parser.jsonl"),
+                "--prediction-units",
+                str(tmp_path / "units.jsonl"),
+                "--raw-html-dir",
+                str(tmp_path / "raw-html"),
+                "--output-root",
+                str(tmp_path / "out"),
+                "--execute",
+            ]
+        )
+
+    assert exc_info.value.code == 2
+    assert "--model-registry" in capsys.readouterr().err
 
 
 def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
@@ -561,6 +597,7 @@ def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
     downloads_path = tmp_path / "downloads.jsonl"
     parser_path = tmp_path / "parser.jsonl"
     units_path = tmp_path / "units.jsonl"
+    registry_path = _write_model_registry(tmp_path)
     markdown_root = output_root / "markdown"
     for source_document_id, markdown in {
         "complaint": "Complaint markdown",
@@ -605,6 +642,8 @@ def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
                 str(parser_path),
                 "--prediction-units",
                 str(units_path),
+                "--model-registry",
+                str(registry_path),
                 "--raw-html-dir",
                 str(raw_html_dir),
                 "--output-root",
@@ -657,6 +696,7 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
     downloads_path = tmp_path / "downloads.jsonl"
     parser_path = tmp_path / "parser.jsonl"
     units_path = tmp_path / "units.jsonl"
+    registry_path = _write_model_registry(tmp_path)
     markdown_root = output_root / "markdown"
     for source_document_id, markdown in {
         "complaint": "Complaint markdown",
@@ -701,6 +741,8 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
                 str(parser_path),
                 "--prediction-units",
                 str(units_path),
+                "--model-registry",
+                str(registry_path),
                 "--raw-html-dir",
                 str(raw_html_dir),
                 "--output-root",
@@ -931,6 +973,7 @@ def _packet_selection_record() -> JsonRecord:
         "case_name": "Example v. Defendant",
         "court": "S.D.N.Y.",
         "docket_number": "1:26-cv-1",
+        "decision_date": "2026-05-18",
         "source_url": "https://www.courtlistener.com/docket/cand-1/example/",
         "selected": True,
         "exclusion_reasons": [],
@@ -969,6 +1012,35 @@ def _packet_selection_record() -> JsonRecord:
             },
         ],
     }
+
+
+def _write_model_registry(tmp_path: Path) -> Path:
+    registry_path = tmp_path / "model-registry.json"
+    records: list[JsonRecord] = [
+        {
+            "provider": "fixture",
+            "model_id": "fixture-model",
+            "display_name": "Fixture Model",
+            "model_version_or_snapshot": "fixture-model-2026-05-05",
+            "release_timestamp": "2026-05-05T09:00:00Z",
+            "release_timestamp_source": "fixture test registry",
+            "provider_training_cutoff_status": "known",
+            "provider_training_cutoff": "2026-04-01",
+            "temperature": 0,
+            "top_p": 1,
+            "max_output_tokens": 4096,
+            "network_disabled": True,
+            "search_disabled": True,
+            "tool_policy": "controlled_docket_tool_only",
+            "context_limit": 200000,
+            "pricing_source": "fixture",
+            "input_token_price": 0.25,
+            "output_token_price": 1.0,
+            "known_cutoff_publicity_caveats": [],
+        }
+    ]
+    _write_json(registry_path, records)
+    return registry_path
 
 
 def _download_record(
@@ -1133,7 +1205,7 @@ def _write_jsonl(path: Path, records: list[JsonRecord]) -> None:
     )
 
 
-def _write_json(path: Path, record: JsonRecord) -> None:
+def _write_json(path: Path, record: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
 

@@ -638,30 +638,43 @@ def _run_input_manifest(
         raise PrivateStoreExportError("packet record/object count mismatch")
     for packet, packet_object in zip(packet_records, packet_objects, strict=True):
         source_document_ids = _packet_source_document_ids(packet)
-        packet_inputs.append(
-            {
-                "case_id": _required_str(packet.get("case_id")),
-                "candidate_id": _required_str(packet.get("candidate_id")),
-                "ablation": _optional_str(packet.get("ablation")) or "default",
-                "packet_object_key": packet_object.key,
-                "packet_sha256": packet_object.sha256,
-                "packet_size_bytes": packet_object.size_bytes,
-                "source_document_ids": source_document_ids,
-                "source_hashes": {
-                    source_document_id: document_contexts[
-                        source_document_id
-                    ].manifest_sha256
-                    for source_document_id in source_document_ids
-                    if source_document_id in document_contexts
-                },
-            }
-        )
+        packet_input: JsonRecord = {
+            "case_id": _required_str(packet.get("case_id")),
+            "candidate_id": _required_str(packet.get("candidate_id")),
+            "ablation": _optional_str(packet.get("ablation")) or "default",
+            "packet_object_key": packet_object.key,
+            "packet_sha256": packet_object.sha256,
+            "packet_size_bytes": packet_object.size_bytes,
+            "source_document_ids": source_document_ids,
+            "source_hashes": {
+                source_document_id: document_contexts[
+                    source_document_id
+                ].manifest_sha256
+                for source_document_id in source_document_ids
+                if source_document_id in document_contexts
+            },
+        }
+        decision_date = _packet_decision_date(packet)
+        if decision_date is not None:
+            packet_input["decision_date"] = decision_date
+        packet_inputs.append(packet_input)
     return {
         "schema_version": PRIVATE_STORE_EXPORT_SCHEMA_VERSION,
         "cycle_id": config.cycle_id,
         "generated_at": _format_datetime(generated_at),
         "model_packets": packet_inputs,
     }
+
+
+def _packet_decision_date(packet: Mapping[str, object]) -> str | None:
+    decision_date = _optional_str(packet.get("decision_date"))
+    if decision_date is not None:
+        return decision_date
+    metadata = packet.get("metadata")
+    if isinstance(metadata, Mapping):
+        metadata_mapping = cast(Mapping[str, object], metadata)
+        return _optional_str(metadata_mapping.get("decision_date"))
+    return None
 
 
 def _public_reconstruction_manifest(

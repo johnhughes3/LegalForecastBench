@@ -1030,9 +1030,10 @@ def _add_acquisition_plan_packet_inputs_arguments(
     parser.add_argument(
         "--model-registry",
         type=Path,
+        required=True,
         help=(
-            "Optional frozen model registry. When supplied, plan-packet-inputs "
-            "enforces the buffered post-release decision window for official runs."
+            "Frozen model registry; plan-packet-inputs uses it to enforce the "
+            "buffered post-release decision window for official runs."
         ),
     )
     parser.add_argument(
@@ -1417,6 +1418,11 @@ def _cmd_packet_build(args: argparse.Namespace) -> int:
             ablation=ablation,
             target_docket_entry_numbers=_optional_int_tuple(
                 record.get("target_docket_entry_numbers")
+            ),
+            decision_date=_optional_str(record, "decision_date")
+            or _optional_str(
+                _optional_record(record.get("metadata"), "metadata"),
+                "decision_date",
             ),
             related_family_id=_optional_str(record, "related_family_id"),
             mdl_family_id=_optional_str(record, "mdl_family_id"),
@@ -2597,14 +2603,10 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             if cast(str | None, args.generated_at)
             else datetime.now(UTC)
         )
-        model_registry_path = cast(Path | None, args.model_registry)
-        decision_filed_on_or_after = None
-        if model_registry_path is not None:
-            registry = load_model_registry(model_registry_path)
-            official_entries = require_official_registry_entries(registry.entries)
-            decision_filed_on_or_after = earliest_buffered_decision_date(
-                official_entries
-            )
+        model_registry_path = cast(Path, args.model_registry)
+        registry = load_model_registry(model_registry_path)
+        official_entries = require_official_registry_entries(registry.entries)
+        decision_filed_on_or_after = earliest_buffered_decision_date(official_entries)
         plan = plan_packet_build_inputs(
             selection_records=records,
             download_records=_read_records(download_manifest_path),
@@ -3229,6 +3231,11 @@ def _model_packet_assembly(
         ablation=ablation,
         target_docket_entry_numbers=_optional_int_tuple(
             record.get("target_docket_entry_numbers")
+        ),
+        decision_date=_optional_str(record, "decision_date")
+        or _optional_str(
+            _optional_record(record.get("metadata"), "metadata"),
+            "decision_date",
         ),
         related_family_id=_optional_str(record, "related_family_id"),
         mdl_family_id=_optional_str(record, "mdl_family_id"),
@@ -4439,6 +4446,7 @@ def _model_packet(record: Mapping[str, Any]) -> ModelPacket:
         excluded_document_ids=_required_str_tuple(record, "excluded_document_ids")
         if "excluded_document_ids" in record
         else (),
+        decision_date=_optional_str(record, "decision_date"),
         missing_optional_sections=_required_str_tuple(
             record,
             "missing_optional_sections",
@@ -4821,6 +4829,12 @@ def _mapping(value: object, field_name: str) -> JsonRecord:
     if not isinstance(value, Mapping):
         raise ValueError(f"{field_name} must be an object")
     return dict(cast(Mapping[str, Any], value))
+
+
+def _optional_record(value: object, field_name: str) -> JsonRecord:
+    if value is None:
+        return {}
+    return _mapping(value, field_name)
 
 
 def _required_record(record: Mapping[str, Any], field_name: str) -> JsonRecord:

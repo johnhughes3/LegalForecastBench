@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
@@ -34,6 +34,7 @@ from legalforecast.evals.inspect_task import (
 from legalforecast.evals.model_registry import (
     ModelRegistry,
     ModelRegistryEntry,
+    earliest_buffered_decision_date,
     load_model_registry,
     require_official_registry_entries,
 )
@@ -159,6 +160,7 @@ class ModelPacketObject:
     object_key: str
     sha256: str
     size_bytes: int | None = None
+    decision_date: date | None = None
     uri: str | None = None
     bucket: str | None = None
     cycle_id: str | None = None
@@ -271,6 +273,11 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             _reject_restricted_packet_references(packet_record)
             packet = _model_packet_from_record(packet_record)
             _validate_model_packet(packet, config=config)
+            _validate_packet_release_anchor(
+                packet,
+                packet_object=packet_object,
+                config=config,
+            )
 
             samples = build_inspect_samples(
                 (packet,),
@@ -428,6 +435,7 @@ def _packet_object_from_record(
         object_key=object_key,
         sha256=_normalize_sha256(_packet_sha256(record)),
         size_bytes=size_bytes,
+        decision_date=_optional_date(record, "decision_date"),
         uri=optional_str(record, "uri") or optional_str(record, "s3_uri"),
         bucket=optional_str(record, "bucket")
         or optional_str(manifest, "packet_bucket"),
@@ -445,6 +453,10 @@ def _packet_sha256(record: Mapping[str, Any]) -> str:
         },
         "sha256",
     )
+
+
+def _optional_date(record: Mapping[str, Any], field_name: str) -> date | None:
+    return _optional_iso_date(optional_str(record, field_name), field_name)
 
 
 def _object_key(record: Mapping[str, Any]) -> str:
@@ -615,6 +627,7 @@ def _model_packet_from_record(record: Mapping[str, Any]) -> ModelPacket:
             for unit in _record_sequence(record, "prediction_units")
         ),
         excluded_document_ids=_str_tuple(record.get("excluded_document_ids", ())),
+        decision_date=optional_str(record, "decision_date"),
         missing_optional_sections=_str_tuple(
             record.get("missing_optional_sections", ())
         ),
@@ -729,6 +742,65 @@ def _validate_model_packet(
             raise PerCaseRunnerError(
                 f"model packet text hash mismatch: {document.source_document_id}"
             )
+
+
+def _validate_packet_release_anchor(
+    packet: ModelPacket,
+    *,
+    packet_object: ModelPacketObject,
+    config: PerCaseRunnerConfig,
+) -> None:
+    """Re-verify packet decision-date eligibility against the frozen registry."""
+
+    if config.model_registry_uri is None:
+        return
+    registry, _digest = _load_model_registry_uri(config.model_registry_uri)
+    official_entries = require_official_registry_entries(registry.entries)
+    release_anchor_date = earliest_buffered_decision_date(official_entries)
+    packet_decision_date = _packet_decision_date(packet, packet_object=packet_object)
+    if packet_decision_date is None:
+        raise PerCaseRunnerError(
+            "model packet decision_date is required when model_registry_uri is set"
+        )
+    if packet_decision_date < release_anchor_date:
+        raise PerCaseRunnerError(
+            "model packet decision_date precedes release anchor: "
+            f"decision_date={packet_decision_date.isoformat()}, "
+            f"release_anchor={release_anchor_date.isoformat()}"
+        )
+
+
+def _packet_decision_date(
+    packet: ModelPacket,
+    *,
+    packet_object: ModelPacketObject,
+) -> date | None:
+    packet_date = _optional_iso_date(
+        packet.decision_date
+        or packet.metadata.get("decision_date")
+        or packet.metadata.get("decision_entered_date"),
+        "model packet decision_date",
+    )
+    manifest_date = packet_object.decision_date
+    if (
+        packet_date is not None
+        and manifest_date is not None
+        and packet_date != manifest_date
+    ):
+        raise PerCaseRunnerError(
+            "model packet decision_date mismatch between manifest and packet: "
+            f"manifest={manifest_date.isoformat()}, packet={packet_date.isoformat()}"
+        )
+    return manifest_date or packet_date
+
+
+def _optional_iso_date(value: str | None, field_name: str) -> date | None:
+    if value is None:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise PerCaseRunnerError(f"{field_name} must be ISO date: {value}") from exc
 
 
 def _optional_registry_entry(
