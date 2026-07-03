@@ -56,6 +56,44 @@ class ReconstructionDocumentHandle:
 
 
 @dataclass(frozen=True, slots=True)
+class PacketRenderHandle:
+    """Deterministic model-visible packet render metadata for auditors."""
+
+    packet_sha256: str
+    rebuild_command: tuple[str, ...]
+    packet_json_path: str | None = None
+    prompt_sha256: str | None = None
+    prompt_path: str | None = None
+
+    def __post_init__(self) -> None:
+        _require_sha256(self.packet_sha256, "packet_sha256")
+        if self.prompt_sha256 is not None:
+            _require_sha256(self.prompt_sha256, "prompt_sha256")
+        if not self.rebuild_command:
+            raise ValueError("rebuild_command must not be empty")
+        for index, token in enumerate(self.rebuild_command):
+            _require_non_empty(token, f"rebuild_command[{index}]")
+        if self.packet_json_path is not None:
+            _require_safe_relative_path(self.packet_json_path, "packet_json_path")
+        if self.prompt_path is not None:
+            _require_safe_relative_path(self.prompt_path, "prompt_path")
+
+    @property
+    def redistribution_policy(self) -> str:
+        return "deterministic_model_visible_packet_rebuild"
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "packet_sha256": self.packet_sha256,
+            "packet_json_path": self.packet_json_path,
+            "prompt_sha256": self.prompt_sha256,
+            "prompt_path": self.prompt_path,
+            "rebuild_command": list(self.rebuild_command),
+            "redistribution_policy": self.redistribution_policy,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class ReconstructionPlan:
     """Reconstruction handles for one candidate manifest row."""
 
@@ -63,6 +101,7 @@ class ReconstructionPlan:
     case_id: str
     manifest_record_hash: str | None
     documents: tuple[ReconstructionDocumentHandle, ...]
+    packet_render: PacketRenderHandle | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty(self.candidate_id, "candidate_id")
@@ -78,6 +117,11 @@ class ReconstructionPlan:
             "case_id": self.case_id,
             "manifest_record_hash": self.manifest_record_hash,
             "documents": [document.to_record() for document in self.documents],
+            "packet_render": (
+                self.packet_render.to_record()
+                if self.packet_render is not None
+                else None
+            ),
         }
 
 
@@ -100,6 +144,35 @@ class HashVerification:
     def to_record(self) -> dict[str, Any]:
         return {
             "source_document_id": self.source_document_id,
+            "expected_sha256": self.expected_sha256,
+            "actual_sha256": self.actual_sha256,
+            "status": self.status.value,
+            "path": self.path,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class PacketRenderVerification:
+    """Verification result for one rebuilt packet-render artifact."""
+
+    candidate_id: str
+    artifact: str
+    expected_sha256: str
+    status: VerificationStatus
+    path: str | None = None
+    actual_sha256: str | None = None
+
+    def __post_init__(self) -> None:
+        _require_non_empty(self.candidate_id, "candidate_id")
+        _require_non_empty(self.artifact, "artifact")
+        _require_sha256(self.expected_sha256, "expected_sha256")
+        if self.actual_sha256 is not None:
+            _require_sha256(self.actual_sha256, "actual_sha256")
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "candidate_id": self.candidate_id,
+            "artifact": self.artifact,
             "expected_sha256": self.expected_sha256,
             "actual_sha256": self.actual_sha256,
             "status": self.status.value,
@@ -162,6 +235,49 @@ def verify_reconstructed_documents(
     return tuple(verifications)
 
 
+def verify_reconstructed_packet_renders(
+    plans: Sequence[ReconstructionPlan],
+    render_root: str | Path,
+) -> tuple[PacketRenderVerification, ...]:
+    """Verify rebuilt model-visible packet renders against published hashes."""
+
+    root = Path(render_root)
+    verifications: list[PacketRenderVerification] = []
+    for plan in plans:
+        if plan.packet_render is None:
+            continue
+        packet_path = _find_packet_render_file(
+            root,
+            candidate_id=plan.candidate_id,
+            explicit_path=plan.packet_render.packet_json_path,
+            default_suffixes=(".packet.json", ".json"),
+        )
+        verifications.append(
+            _packet_render_verification(
+                candidate_id=plan.candidate_id,
+                artifact="model_visible_packet",
+                expected_sha256=plan.packet_render.packet_sha256,
+                path=packet_path,
+            )
+        )
+        if plan.packet_render.prompt_sha256 is not None:
+            prompt_path = _find_packet_render_file(
+                root,
+                candidate_id=plan.candidate_id,
+                explicit_path=plan.packet_render.prompt_path,
+                default_suffixes=(".prompt.md", ".prompt.txt", ".prompt.json"),
+            )
+            verifications.append(
+                _packet_render_verification(
+                    candidate_id=plan.candidate_id,
+                    artifact="model_visible_prompt",
+                    expected_sha256=plan.packet_render.prompt_sha256,
+                    path=prompt_path,
+                )
+            )
+    return tuple(verifications)
+
+
 def write_reconstruction_plan(
     plans: Sequence[ReconstructionPlan],
     path: str | Path,
@@ -195,26 +311,55 @@ def cli(argv: Sequence[str] | None = None) -> int:
             "or source_document_id plus .pdf/.txt/.json."
         ),
     )
+    parser.add_argument(
+        "--verify-packet-render-dir",
+        help=(
+            "Directory containing rebuilt model-visible packet/prompt files "
+            "referenced by packet_render paths in the reconstruction plan."
+        ),
+    )
     args = parser.parse_args(argv)
     plans = load_reconstruction_plans(cast(str, args.manifest))
-    if args.verify_dir:
-        verifications = verify_reconstructed_documents(
-            plans, cast(str, args.verify_dir)
+    if args.verify_dir or args.verify_packet_render_dir:
+        document_verifications = (
+            verify_reconstructed_documents(plans, cast(str, args.verify_dir))
+            if args.verify_dir
+            else ()
+        )
+        packet_render_verifications = (
+            verify_reconstructed_packet_renders(
+                plans,
+                cast(str, args.verify_packet_render_dir),
+            )
+            if args.verify_packet_render_dir
+            else ()
         )
         output_path = Path(cast(str, args.output))
-        output_path.write_text(
-            json.dumps(
-                [verification.to_record() for verification in verifications],
-                indent=2,
-            )
-            + "\n",
-            encoding="utf-8",
+        payload: object = (
+            {
+                "documents": [
+                    verification.to_record() for verification in document_verifications
+                ],
+                "packet_renders": [
+                    verification.to_record()
+                    for verification in packet_render_verifications
+                ],
+            }
+            if args.verify_dir and args.verify_packet_render_dir
+            else [
+                verification.to_record()
+                for verification in (
+                    document_verifications or packet_render_verifications
+                )
+            ]
         )
+        output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        all_verifications = (*document_verifications, *packet_render_verifications)
         return (
             0
             if all(
                 verification.status is VerificationStatus.VERIFIED
-                for verification in verifications
+                for verification in all_verifications
             )
             else 1
         )
@@ -233,6 +378,7 @@ def _plan_from_manifest_record(record: Mapping[str, Any]) -> ReconstructionPlan:
         case_id=_required_str(record, "case_id"),
         manifest_record_hash=_optional_str(record.get("manifest_record_hash")),
         documents=documents,
+        packet_render=_packet_render_from_record(record),
     )
 
 
@@ -262,6 +408,77 @@ def _find_reconstructed_file(root: Path, source_document_id: str) -> Path | None
         if candidate.is_file():
             return candidate
     return None
+
+
+def _find_packet_render_file(
+    root: Path,
+    *,
+    candidate_id: str,
+    explicit_path: str | None,
+    default_suffixes: tuple[str, ...],
+) -> Path | None:
+    resolved_root = root.resolve()
+    if explicit_path is not None:
+        candidate = _resolve_under_root(resolved_root, explicit_path)
+        return candidate if candidate.is_file() else None
+    safe_candidate_id = safe_path_component(candidate_id, field_name="candidate_id")
+    for suffix in default_suffixes:
+        candidate = (resolved_root / f"{safe_candidate_id}{suffix}").resolve()
+        if not candidate.is_relative_to(resolved_root):
+            raise ValueError("packet render path escaped verify directory")
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _packet_render_verification(
+    *,
+    candidate_id: str,
+    artifact: str,
+    expected_sha256: str,
+    path: Path | None,
+) -> PacketRenderVerification:
+    if path is None:
+        return PacketRenderVerification(
+            candidate_id=candidate_id,
+            artifact=artifact,
+            expected_sha256=expected_sha256,
+            status=VerificationStatus.MISSING,
+        )
+    actual = _sha256_file(path)
+    return PacketRenderVerification(
+        candidate_id=candidate_id,
+        artifact=artifact,
+        expected_sha256=expected_sha256,
+        actual_sha256=actual,
+        status=(
+            VerificationStatus.VERIFIED
+            if actual == expected_sha256
+            else VerificationStatus.MISMATCH
+        ),
+        path=str(path),
+    )
+
+
+def _packet_render_from_record(
+    record: Mapping[str, Any],
+) -> PacketRenderHandle | None:
+    value = record.get("packet_render")
+    if value is None:
+        return None
+    packet_render = _as_mapping(value, "packet_render")
+    return PacketRenderHandle(
+        packet_sha256=_required_sha256_value(packet_render, "packet_sha256"),
+        packet_json_path=_optional_str(packet_render.get("packet_json_path")),
+        prompt_sha256=_optional_sha256_value(packet_render.get("prompt_sha256")),
+        prompt_path=_optional_str(packet_render.get("prompt_path")),
+        rebuild_command=tuple(
+            _required_str_value(token, f"rebuild_command[{index}]")
+            for index, token in enumerate(
+                _as_sequence(packet_render.get("rebuild_command"), "rebuild_command")
+            )
+        ),
+    )
 
 
 def _sha256_file(path: Path) -> str:
@@ -306,6 +523,47 @@ def _required_bool(record: Mapping[str, Any], field_name: str) -> bool:
     if not isinstance(value, bool):
         raise ValueError(f"{field_name} is required")
     return value
+
+
+def _required_str_value(value: Any, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} is required")
+    _require_non_empty(value, field_name)
+    return value
+
+
+def _required_sha256_value(record: Mapping[str, Any], field_name: str) -> str:
+    return _normalize_sha256(_required_str(record, field_name), field_name)
+
+
+def _optional_sha256_value(value: Any) -> str | None:
+    if value is None:
+        return None
+    return _normalize_sha256(
+        _required_str_value(value, "optional sha256"),
+        "optional sha256",
+    )
+
+
+def _normalize_sha256(value: str, field_name: str) -> str:
+    digest = value.removeprefix("sha256:")
+    _require_sha256(digest, field_name)
+    return digest
+
+
+def _resolve_under_root(root: Path, relative_path: str) -> Path:
+    _require_safe_relative_path(relative_path, "relative_path")
+    candidate = (root / relative_path).resolve()
+    if not candidate.is_relative_to(root):
+        raise ValueError("packet render path escaped verify directory")
+    return candidate
+
+
+def _require_safe_relative_path(value: str, field_name: str) -> None:
+    _require_non_empty(value, field_name)
+    path = Path(value)
+    if path.is_absolute() or ".." in path.parts:
+        raise ValueError(f"{field_name} must be a safe relative path")
 
 
 def _require_non_empty(value: str, field_name: str) -> None:
