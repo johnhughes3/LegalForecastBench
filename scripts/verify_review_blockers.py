@@ -396,7 +396,7 @@ def check_v2_5() -> tuple[bool, str]:
             " workflow input explicitly overrides it"
         )
     else:
-        missing = []
+        missing: list[str] = []
         if not library_guard:
             missing.append("library allow_no_baselines guard")
         if not has_input:
