@@ -209,9 +209,10 @@ def _reconstruction_records_from_payload(
     payload: object,
 ) -> tuple[Mapping[str, Any], ...]:
     if isinstance(payload, Mapping):
-        candidates = payload.get("candidates")
+        manifest = cast(Mapping[str, Any], payload)
+        candidates = manifest.get("candidates")
         if candidates is None:
-            return (_as_mapping(payload, "manifest"),)
+            return (_as_mapping(manifest, "manifest"),)
         return tuple(
             _as_mapping(candidate, "candidate")
             for candidate in _as_sequence(candidates, "candidates")
