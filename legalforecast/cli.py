@@ -4604,8 +4604,15 @@ def _model_packet_prediction_unit(record: Mapping[str, Any]) -> PredictionUnit:
         count=_required_str(record, "count"),
         claim_name=_required_str(record, "claim_name"),
         defendant_group=_required_str(record, "defendant_group"),
-        challenged_by_motion=_required_bool(record, "challenged_by_motion"),
-        challenge_scope=ChallengeScope(_required_str(record, "challenge_scope")),
+        challenged_by_motion=_optional_bool(
+            record,
+            "challenged_by_motion",
+            default=True,
+        ),
+        challenge_scope=ChallengeScope(
+            _optional_str(record, "challenge_scope")
+            or ChallengeScope.ENTIRE_CLAIM.value
+        ),
         unit_confidence=_optional_float(record, "unit_confidence", default=1.0),
         source_citations=source_citations,
         grouping=DefendantGrouping(
