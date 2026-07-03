@@ -103,6 +103,7 @@ def test_official_aggregate_writes_public_bundle_and_private_debug(
     assert run_card["expected_model_keys"] == ["fixture:solver"]
     assert run_card["allow_incomplete_model_set"] is False
     assert run_card["allow_no_baselines"] is True
+    assert run_card["labels_sha256"] == _labels_sha256(_default_label_records())
     packet_budget = run_card["packet_token_budget"]
     assert packet_budget["overall"]["max"] == 1_024
     assert packet_budget["by_ablation"]["full_packet"]["count"] == 1
@@ -500,6 +501,71 @@ def test_official_aggregate_accepts_explicit_multi_model_matrix(
     assert run_card["expected_model_keys"] == ["fixture:model-a", "fixture:model-b"]
 
 
+def test_official_aggregate_refuses_when_labels_hash_drifts(
+    tmp_path: Path,
+) -> None:
+    # The run-input manifest froze a labels sha256 that does not match the labels
+    # file handed to aggregation: labels were not locked before scoring, so
+    # aggregation must fail closed instead of scoring a swapped label set.
+    manifest_path = _write_run_input_manifest(
+        tmp_path,
+        labels_sha256="0" * 64,
+    )
+    registry_path = _write_model_registry(tmp_path, ("fixture:solver",))
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(per_case_dir)
+
+    with pytest.raises(OfficialAggregationError, match="labels hash drift"):
+        aggregate_official_results(
+            OfficialAggregationConfig(
+                per_case_dir=per_case_dir,
+                run_input_manifest_path=manifest_path,
+                labels_path=labels_path,
+                output_dir=tmp_path / "official-bundle",
+                cycle_id="cycle-1",
+                cycle_series=CycleSeries.PILOT,
+                clean_motion_count=25,
+                prediction_unit_count=1,
+                model_registry_path=registry_path,
+                allow_no_baselines=True,
+                ablation="full_packet",
+            )
+        )
+
+
+def test_official_aggregate_refuses_when_labels_hash_missing(
+    tmp_path: Path,
+) -> None:
+    # A manifest that never froze a labels hash cannot prove labels-before-scoring
+    # ordering; aggregation refuses rather than trusting operator discipline.
+    manifest_path = _write_run_input_manifest(tmp_path)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    del manifest["labels_sha256"]
+    _write_json(manifest_path, manifest)
+    registry_path = _write_model_registry(tmp_path, ("fixture:solver",))
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(per_case_dir)
+
+    with pytest.raises(OfficialAggregationError, match="missing labels_sha256"):
+        aggregate_official_results(
+            OfficialAggregationConfig(
+                per_case_dir=per_case_dir,
+                run_input_manifest_path=manifest_path,
+                labels_path=labels_path,
+                output_dir=tmp_path / "official-bundle",
+                cycle_id="cycle-1",
+                cycle_series=CycleSeries.PILOT,
+                clean_motion_count=25,
+                prediction_unit_count=1,
+                model_registry_path=registry_path,
+                allow_no_baselines=True,
+                ablation="full_packet",
+            )
+        )
+
+
 def test_official_aggregate_rejects_strict_subset_explicit_model_set(
     tmp_path: Path,
 ) -> None:
@@ -782,12 +848,25 @@ def test_official_aggregate_fails_on_hash_mismatch(tmp_path: Path) -> None:
         )
 
 
+def _default_label_records() -> list[dict[str, Any]]:
+    return [
+        _label("unit-dismissed", True).to_record(),
+        _label("unit-survives", False).to_record(),
+    ]
+
+
+def _labels_sha256(records: list[dict[str, Any]]) -> str:
+    payload = "".join(json.dumps(record, sort_keys=True) + "\n" for record in records)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def _write_run_input_manifest(
     tmp_path: Path,
     *,
     include_baseline_features: bool = False,
     ablations: tuple[str, ...] = ("full_packet",),
     packet_size_bytes: int = 4_096,
+    labels_sha256: str | None = None,
 ) -> Path:
     manifest_path = tmp_path / "run-inputs.json"
     packet_rows: list[dict[str, Any]] = []
@@ -810,6 +889,11 @@ def _write_run_input_manifest(
         manifest_path,
         {
             "cycle_id": "cycle-1",
+            "labels_sha256": (
+                labels_sha256
+                if labels_sha256 is not None
+                else _labels_sha256(_default_label_records())
+            ),
             "model_packets": packet_rows,
         },
     )
@@ -861,13 +945,7 @@ def _baseline_feature_record(
 
 def _write_labels(tmp_path: Path) -> Path:
     labels_path = tmp_path / "labels.jsonl"
-    _write_jsonl(
-        labels_path,
-        [
-            _label("unit-dismissed", True).to_record(),
-            _label("unit-survives", False).to_record(),
-        ],
-    )
+    _write_jsonl(labels_path, _default_label_records())
     return labels_path
 
 

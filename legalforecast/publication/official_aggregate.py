@@ -267,6 +267,10 @@ def aggregate_official_results(
         accounting_records.extend(accounting)
         metrics_records.append(metrics)
 
+    labels_sha256 = _labels_frozen_sha256(
+        config.run_input_manifest_path,
+        labels_path=config.labels_path,
+    )
     labels = _load_labels(config.labels_path)
     cycle_baseline_training_examples = _cycle_baseline_training_examples(
         expected_packet_rows,
@@ -416,6 +420,7 @@ def aggregate_official_results(
             ),
             ablation_delta_count=len(ablation_delta_report["rows"]),
             repeat_variance_report=repeat_variance_report,
+            labels_sha256=labels_sha256,
         ),
     )
     enforce_publication_guardrails(
@@ -2037,6 +2042,40 @@ def _cycle_power_record(
     return record
 
 
+def _labels_frozen_sha256(
+    run_input_manifest_path: Path,
+    *,
+    labels_path: Path,
+) -> str:
+    """Enforce labels-frozen-before-scoring and return the labels sha256.
+
+    Blind-to-predictions scoring requires that the labels are locked before any
+    model output exists. The frozen run-input manifest records the labels
+    artifact sha256 at dispatch/build time; aggregation recomputes the hash of
+    the labels file it was handed and refuses to score on any drift. Fail-closed:
+    a manifest that never froze a labels hash, or a labels file that no longer
+    matches the frozen hash, aborts aggregation instead of silently scoring a
+    swapped label set.
+    """
+
+    manifest = _read_json_object(run_input_manifest_path)
+    frozen = _optional_str(manifest, "labels_sha256")
+    if frozen is None:
+        raise OfficialAggregationError(
+            "run-input manifest is missing labels_sha256; labels must be frozen "
+            "(hashed into the run-input manifest) before scoring"
+        )
+    _require_hex_sha256(frozen, "run-input labels_sha256")
+    actual = sha256_file(labels_path)
+    if actual != frozen:
+        raise OfficialAggregationError(
+            "labels hash drift: run-input manifest froze labels_sha256="
+            f"{frozen} but the scored labels file hashes to {actual}; refusing to "
+            "score a label set that was not frozen before model outputs existed"
+        )
+    return actual
+
+
 def _load_labels(path: Path) -> tuple[OutcomeLabel, ...]:
     labels = tuple(_outcome_label(record) for record in _read_jsonl(path))
     if not labels:
@@ -2098,6 +2137,7 @@ def _aggregate_run_card(
     cycle_baseline_training_example_count: int,
     ablation_delta_count: int,
     repeat_variance_report: Mapping[str, Any],
+    labels_sha256: str,
 ) -> JsonRecord:
     baseline_reference = _baseline_reference_summary(summaries)
     private_debug_outputs = [
@@ -2126,6 +2166,7 @@ def _aggregate_run_card(
         "cycle_id": config.cycle_id,
         "run_type": "official",
         "ablation_filter": config.ablation,
+        "labels_sha256": labels_sha256,
         "model_keys": list(config.model_keys),
         "model_registry_path": (
             str(config.model_registry_path)
