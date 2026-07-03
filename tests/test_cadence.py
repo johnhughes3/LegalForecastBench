@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from legalforecast.reporting.cadence import (
     ClaimStrength,
     CycleClassification,
@@ -76,6 +77,10 @@ def test_official_cycle_needs_motion_and_unit_thresholds() -> None:
     assert report.meets_official_descriptive_threshold is True
     assert report.strong_ranking_claim_allowed is False
     assert any("too thin for strong ranking" in warning for warning in report.warnings)
+    record = report.to_record()
+    assert record["mde_analysis"]["method"] == "paired_normal_approximation"
+    assert record["mde_analysis"]["required_motion_count_for_target_mde"] == 197
+    assert record["mde_analysis"]["mde"] == pytest.approx(0.014007926)
 
 
 def test_official_cycle_below_descriptive_threshold_is_preliminary() -> None:
@@ -109,6 +114,27 @@ def test_strong_ranking_minimum_warns_when_below_preferred_range() -> None:
     assert report.claim_strength is ClaimStrength.STRONG_RANKING_MINIMUM
     assert report.strong_ranking_claim_allowed is True
     assert any("300-500" in warning for warning in report.warnings)
+
+
+def test_mde_analysis_can_raise_strong_ranking_motion_requirement() -> None:
+    report = classify_cycle_power(
+        CyclePowerInput(
+            cycle_id="official-high-variance",
+            series=CycleSeries.OFFICIAL,
+            clean_motion_count=250,
+            prediction_unit_count=1200,
+            official_window_days=28,
+            paired_delta_sd=0.08,
+        )
+    )
+
+    assert report.classification is CycleClassification.OFFICIAL_DESCRIPTIVE
+    assert report.claim_strength is ClaimStrength.DESCRIPTIVE_ONLY
+    assert report.strong_ranking_claim_allowed is False
+    assert (
+        report.mde_analysis.required_motion_count_for_target_mde
+        > report.clean_motion_count
+    )
 
 
 def test_preferred_strong_ranking_cycle_has_no_thin_power_warning() -> None:

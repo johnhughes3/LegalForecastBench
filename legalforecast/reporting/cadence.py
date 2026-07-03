@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -14,6 +15,12 @@ OFFICIAL_DESCRIPTIVE_UNITS = 400
 STRONG_RANKING_MIN_MOTIONS = 250
 STRONG_RANKING_PREFERRED_MOTIONS = 300
 PAPER_LEVEL_MOTIONS = 500
+DEFAULT_PAIRED_DELTA_SD = 0.05
+DEFAULT_TARGET_MDE = 0.01
+DEFAULT_POWER = 0.80
+DEFAULT_TWO_SIDED_ALPHA = 0.05
+Z_975 = 1.959963984540054
+Z_80 = 0.8416212335729143
 
 
 class CycleSeries(StrEnum):
@@ -57,6 +64,10 @@ class CyclePowerInput:
     prediction_unit_count: int
     elapsed_days: int | None = None
     official_window_days: int | None = None
+    paired_delta_sd: float = DEFAULT_PAIRED_DELTA_SD
+    target_mde: float = DEFAULT_TARGET_MDE
+    target_power: float = DEFAULT_POWER
+    two_sided_alpha: float = DEFAULT_TWO_SIDED_ALPHA
 
     def __post_init__(self) -> None:
         _require_non_empty(self.cycle_id, "cycle_id")
@@ -66,6 +77,45 @@ class CyclePowerInput:
             _require_non_negative(self.elapsed_days, "elapsed_days")
         if self.official_window_days is not None:
             _require_positive(self.official_window_days, "official_window_days")
+        _require_positive_float(self.paired_delta_sd, "paired_delta_sd")
+        _require_positive_float(self.target_mde, "target_mde")
+        _require_unit_interval(self.target_power, "target_power")
+        _require_unit_interval(self.two_sided_alpha, "two_sided_alpha")
+
+
+@dataclass(frozen=True, slots=True)
+class MinimumDetectableEffectAnalysis:
+    """Paired-design MDE calculation used to justify cadence thresholds."""
+
+    clean_motion_count: int
+    paired_delta_sd: float
+    target_mde: float
+    target_power: float
+    two_sided_alpha: float
+    z_alpha_over_two: float
+    z_power: float
+    mde: float | None
+    required_motion_count_for_target_mde: int
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "method": "paired_normal_approximation",
+            "formula": (
+                "mde = (z_alpha_over_two + z_power) * paired_delta_sd / "
+                "sqrt(clean_motion_count)"
+            ),
+            "clean_motion_count": self.clean_motion_count,
+            "paired_delta_sd": self.paired_delta_sd,
+            "target_mde": self.target_mde,
+            "target_power": self.target_power,
+            "two_sided_alpha": self.two_sided_alpha,
+            "z_alpha_over_two": self.z_alpha_over_two,
+            "z_power": self.z_power,
+            "mde": self.mde,
+            "required_motion_count_for_target_mde": (
+                self.required_motion_count_for_target_mde
+            ),
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +134,7 @@ class CyclePowerReport:
     meets_strong_ranking_minimum: bool
     meets_strong_ranking_preferred: bool
     meets_paper_level_threshold: bool
+    mde_analysis: MinimumDetectableEffectAnalysis
     warnings: tuple[str, ...] = ()
 
     @property
@@ -107,6 +158,7 @@ class CyclePowerReport:
             "meets_strong_ranking_preferred": self.meets_strong_ranking_preferred,
             "meets_paper_level_threshold": self.meets_paper_level_threshold,
             "strong_ranking_claim_allowed": self.strong_ranking_claim_allowed,
+            "mde_analysis": self.mde_analysis.to_record(),
             "warnings": list(self.warnings),
         }
 
@@ -120,9 +172,15 @@ def classify_cycle_power(cycle: CyclePowerInput) -> CyclePowerReport:
         cycle.clean_motion_count >= OFFICIAL_DESCRIPTIVE_MOTIONS
         and cycle.prediction_unit_count >= OFFICIAL_DESCRIPTIVE_UNITS
     )
-    meets_strong_minimum = cycle.clean_motion_count >= STRONG_RANKING_MIN_MOTIONS
+    mde_analysis = _minimum_detectable_effect_analysis(cycle)
+    strong_min_motion_target = max(
+        STRONG_RANKING_MIN_MOTIONS,
+        mde_analysis.required_motion_count_for_target_mde,
+    )
+    meets_strong_minimum = cycle.clean_motion_count >= strong_min_motion_target
     meets_strong_preferred = (
-        cycle.clean_motion_count >= STRONG_RANKING_PREFERRED_MOTIONS
+        cycle.clean_motion_count
+        >= max(STRONG_RANKING_PREFERRED_MOTIONS, strong_min_motion_target)
     )
     meets_paper_level = cycle.clean_motion_count >= PAPER_LEVEL_MOTIONS
 
@@ -161,8 +219,48 @@ def classify_cycle_power(cycle: CyclePowerInput) -> CyclePowerReport:
         meets_strong_ranking_minimum=meets_strong_minimum,
         meets_strong_ranking_preferred=meets_strong_preferred,
         meets_paper_level_threshold=meets_paper_level,
+        mde_analysis=mde_analysis,
         warnings=warnings,
     )
+
+
+def _minimum_detectable_effect_analysis(
+    cycle: CyclePowerInput,
+) -> MinimumDetectableEffectAnalysis:
+    z_alpha_over_two = _z_alpha_over_two(cycle.two_sided_alpha)
+    z_power = _z_power(cycle.target_power)
+    z_total = z_alpha_over_two + z_power
+    mde = (
+        None
+        if cycle.clean_motion_count == 0
+        else z_total * cycle.paired_delta_sd / math.sqrt(cycle.clean_motion_count)
+    )
+    required_motion_count = math.ceil(
+        ((z_total * cycle.paired_delta_sd) / cycle.target_mde) ** 2
+    )
+    return MinimumDetectableEffectAnalysis(
+        clean_motion_count=cycle.clean_motion_count,
+        paired_delta_sd=cycle.paired_delta_sd,
+        target_mde=cycle.target_mde,
+        target_power=cycle.target_power,
+        two_sided_alpha=cycle.two_sided_alpha,
+        z_alpha_over_two=z_alpha_over_two,
+        z_power=z_power,
+        mde=mde,
+        required_motion_count_for_target_mde=required_motion_count,
+    )
+
+
+def _z_alpha_over_two(two_sided_alpha: float) -> float:
+    if two_sided_alpha == DEFAULT_TWO_SIDED_ALPHA:
+        return Z_975
+    raise ValueError("only two_sided_alpha=0.05 is currently supported")
+
+
+def _z_power(target_power: float) -> float:
+    if target_power == DEFAULT_POWER:
+        return Z_80
+    raise ValueError("only target_power=0.80 is currently supported")
 
 
 def _meets_rapid_target(cycle: CyclePowerInput) -> bool:
@@ -277,3 +375,13 @@ def _require_non_negative(value: int, field_name: str) -> None:
 def _require_positive(value: int, field_name: str) -> None:
     if value <= 0:
         raise ValueError(f"{field_name} must be positive")
+
+
+def _require_positive_float(value: float, field_name: str) -> None:
+    if value <= 0:
+        raise ValueError(f"{field_name} must be positive")
+
+
+def _require_unit_interval(value: float, field_name: str) -> None:
+    if not 0 < value < 1:
+        raise ValueError(f"{field_name} must be between 0 and 1")
