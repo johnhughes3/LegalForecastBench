@@ -409,12 +409,16 @@ def _validate_lab_root(path: Path) -> None:
 
 
 def _lab_commit(path: Path) -> str:
-    completed = subprocess.run(
-        ["git", "-C", str(path), "rev-parse", "HEAD"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(path), "rev-parse", "HEAD"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return "unknown"
     value = completed.stdout.strip()
     if completed.returncode != 0 or not value:
         return "unknown"
@@ -443,6 +447,11 @@ def _run_subprocess(
     except subprocess.TimeoutExpired as exc:
         raise HarveyLabCliAdapterError(
             f"LAB command timed out after {timeout_seconds}s"
+        ) from exc
+    except OSError as exc:
+        command = " ".join(str(part) for part in argv)
+        raise HarveyLabCliAdapterError(
+            f"LAB command could not start: {command}: {exc}"
         ) from exc
 
 

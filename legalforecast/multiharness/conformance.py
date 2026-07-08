@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from legalforecast._json_io import read_json_object, write_json_object
 from legalforecast.multiharness.command_adapter import (
@@ -32,6 +33,13 @@ _SKIP = "skipped"
 _WARNING = "warning"
 _LFB_FIXTURE_REQUEST_ID = "conformance:lfb-fixture"
 _LAB_FIXTURE_REQUEST_ID = "conformance:lab-fixture"
+_ADAPTER_SPEC_PATH = "docs/multiharness-adapter-spec.md"
+_PROVIDER_CREDENTIAL_ENV_PATTERN = re.compile(
+    r"\b(?:OPENAI|ANTHROPIC|GEMINI|GOOGLE|AZURE|AWS|MISTRAL|COHERE|"
+    r"TOGETHER|DEEPSEEK|XAI|HF|HUGGINGFACE|FIREWORKS|OPENROUTER|"
+    r"PERPLEXITY|GROQ)[A-Z0-9_]*(?:API_?KEY|ACCESS_?TOKEN|AUTH_?TOKEN|"
+    r"SECRET|TOKEN|KEY)\b"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +48,13 @@ class ConformanceRun:
 
     report: ConformanceReport
     output_dir: Path
+
+
+@dataclass(frozen=True, slots=True)
+class _FixtureEvidence:
+    fixture_name: str
+    request: RunRequest
+    result: RunResult
 
 
 def run_adapter_conformance(
@@ -71,6 +86,7 @@ class _ConformanceSuite:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         checks: dict[str, str] = {}
         artifacts: list[ArtifactRecord] = []
+        fixture_evidence: list[_FixtureEvidence] = []
         manifest: AdapterManifest | None = None
         capabilities: AdapterCapabilities | None = None
 
@@ -117,30 +133,6 @@ class _ConformanceSuite:
                 manifest=manifest,
             )
 
-        sandbox_path = self.output_dir / "sandbox-negative-control.json"
-        write_json_object(
-            sandbox_path,
-            {
-                "purpose": "sandbox-policy negative control",
-                "network_policy": "provider_egress_host_only",
-                "allowed_provider_env_vars": [],
-                "expectation": (
-                    "adapter must not require provider credentials for default "
-                    "conformance fixtures"
-                ),
-            },
-        )
-        artifacts.append(
-            _artifact_for(
-                self.output_dir,
-                sandbox_path,
-                artifact_id="sandbox-negative-control",
-            )
-        )
-        checks["sandbox_negative_control"] = _passed(
-            "recorded no-provider sandbox negative control"
-        )
-
         lfb_request = _fixture_request(
             manifest=manifest,
             family="legalforecast_mtd",
@@ -164,6 +156,13 @@ class _ConformanceSuite:
                 check_prefix="lfb",
             )
             if result is not None:
+                fixture_evidence.append(
+                    _FixtureEvidence(
+                        fixture_name="lfb-fixture",
+                        request=lfb_request,
+                        result=result,
+                    )
+                )
                 artifacts.append(
                     _artifact_for(
                         self.output_dir,
@@ -192,6 +191,13 @@ class _ConformanceSuite:
                     check_prefix="lab",
                 )
                 if result is not None:
+                    fixture_evidence.append(
+                        _FixtureEvidence(
+                            fixture_name="lab-fixture",
+                            request=lab_request,
+                            result=result,
+                        )
+                    )
                     artifacts.append(
                         _artifact_for(
                             self.output_dir,
@@ -203,6 +209,12 @@ class _ConformanceSuite:
             checks["lab_fixture_run"] = _skipped(
                 "adapter does not declare harvey_lab support"
             )
+
+        self._write_sandbox_negative_control(
+            checks=checks,
+            artifacts=artifacts,
+            fixture_evidence=fixture_evidence,
+        )
 
         return self._write_report(
             checks=checks,
@@ -245,6 +257,58 @@ class _ConformanceSuite:
         except Exception as exc:
             checks[f"{check_prefix}_public_safety_scan"] = _failed(_plain_error(exc))
         return result
+
+    def _write_sandbox_negative_control(
+        self,
+        *,
+        checks: dict[str, str],
+        artifacts: list[ArtifactRecord],
+        fixture_evidence: Sequence[_FixtureEvidence],
+    ) -> None:
+        sandbox_path = self.output_dir / "sandbox-negative-control.json"
+        evidence_records = [
+            {
+                "fixture": evidence.fixture_name,
+                "request_id": evidence.request.request_id,
+                "result_status": evidence.result.status,
+                "sandbox_policy_id": evidence.request.sandbox_policy.policy_id,
+                "allowed_provider_env_vars": list(
+                    evidence.request.sandbox_policy.allowed_provider_env_vars
+                ),
+                "public_summary_provider_env_refs": list(
+                    _provider_credential_env_refs(evidence.result.public_summary)
+                ),
+            }
+            for evidence in fixture_evidence
+        ]
+        write_json_object(
+            sandbox_path,
+            {
+                "purpose": "sandbox-policy negative control",
+                "network_policy": "provider_egress_host_only",
+                "allowed_provider_env_vars": [],
+                "expectation": (
+                    "adapter must not require provider credentials for default "
+                    "conformance fixtures"
+                ),
+                "evidence": evidence_records,
+            },
+        )
+        artifacts.append(
+            _artifact_for(
+                self.output_dir,
+                sandbox_path,
+                artifact_id="sandbox-negative-control",
+            )
+        )
+        violations = _sandbox_negative_control_violations(fixture_evidence)
+        if violations:
+            checks["sandbox_negative_control"] = _failed("; ".join(violations))
+            return
+        checks["sandbox_negative_control"] = _passed(
+            "default conformance fixtures completed without provider "
+            "credential env vars"
+        )
 
     def _run_or_resume_fixture(
         self,
@@ -454,6 +518,60 @@ def _failed(message: str) -> str:
 
 def _skipped(message: str) -> str:
     return f"{_SKIP}: {message}"
+
+
+def _sandbox_negative_control_violations(
+    fixture_evidence: Sequence[_FixtureEvidence],
+) -> tuple[str, ...]:
+    violations: list[str] = []
+    if not fixture_evidence:
+        violations.append("no conformance fixture completed successfully")
+        return tuple(violations)
+    for evidence in fixture_evidence:
+        env_vars = evidence.request.sandbox_policy.allowed_provider_env_vars
+        if env_vars:
+            formatted = ", ".join(sorted(env_vars))
+            violations.append(
+                f"{evidence.fixture_name} requested provider env vars: {formatted}"
+            )
+        if evidence.result.status != "succeeded":
+            violations.append(
+                f"{evidence.fixture_name} result status is {evidence.result.status}"
+            )
+        env_refs = _provider_credential_env_refs(evidence.result.public_summary)
+        if env_refs:
+            formatted = ", ".join(env_refs)
+            violations.append(
+                f"{evidence.fixture_name} public summary references provider "
+                f"credential env vars: {formatted}"
+            )
+    return tuple(violations)
+
+
+def _provider_credential_env_refs(value: object) -> tuple[str, ...]:
+    refs: set[str] = set()
+
+    def visit(item: object) -> None:
+        if isinstance(item, Mapping):
+            mapping = cast(Mapping[object, object], item)
+            for key, child in mapping.items():
+                find_refs(str(key))
+                visit(child)
+            return
+        if isinstance(item, Sequence) and not isinstance(item, str | bytes):
+            sequence = cast(Sequence[object], item)
+            for child in sequence:
+                visit(child)
+            return
+        if isinstance(item, str):
+            find_refs(item)
+
+    def find_refs(text: str) -> None:
+        for match in _PROVIDER_CREDENTIAL_ENV_PATTERN.finditer(text):
+            refs.add(match.group(0))
+
+    visit(value)
+    return tuple(sorted(refs))
 
 
 def _file_sha256(path: Path) -> str:

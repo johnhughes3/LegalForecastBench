@@ -12,7 +12,9 @@ from legalforecast.multiharness.community import (
     ATTEST_PROVIDER_TERMS,
     ATTEST_RIGHT_TO_SUBMIT,
     REQUIRED_ATTESTATIONS,
+    CommunityPackageConfig,
     CommunitySubmissionManifest,
+    package_community_submission,
     validate_submission_file,
 )
 from legalforecast.multiharness.spec import (
@@ -146,6 +148,46 @@ def test_shard_compatibility_fields_are_required(tmp_path: Path) -> None:
         CommunitySubmissionManifest.from_record(record)
 
 
+def test_package_splits_shards_by_suite_version(tmp_path: Path) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    _append_run_row(
+        run_dir,
+        row_id="row-2",
+        suite_version="harvey-lab-fixture-v2",
+    )
+    output_dir = tmp_path / "submission-package"
+
+    result = package_community_submission(_package_config(run_dir, output_dir))
+
+    manifest = validate_submission_file(result.submission_path)
+    assert len(manifest.shards) == 2
+    assert sorted(shard.suite_version for shard in manifest.shards) == [
+        "harvey-lab-fixture",
+        "harvey-lab-fixture-v2",
+    ]
+    assert all(
+        f":{shard.suite_version}:" in shard.compatible_shard_group_id
+        for shard in manifest.shards
+    )
+
+
+def test_package_rejects_mixed_sandbox_policy_hash_in_one_shard(
+    tmp_path: Path,
+) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    _append_run_row(
+        run_dir,
+        row_id="row-2",
+        suite_version="harvey-lab-fixture",
+        sandbox_timeout_seconds=31,
+    )
+
+    with pytest.raises(MultiHarnessValidationError, match="sandbox_policy_hash"):
+        package_community_submission(
+            _package_config(run_dir, tmp_path / "submission-package")
+        )
+
+
 def test_required_credit_roles_are_enforced(tmp_path: Path) -> None:
     record = _valid_submission_record(tmp_path)
     record["contributors"] = [
@@ -203,6 +245,32 @@ def _write_valid_package(tmp_path: Path) -> Path:
         == 0
     )
     return output_dir
+
+
+def _package_config(run_dir: Path, output_dir: Path) -> CommunityPackageConfig:
+    return CommunityPackageConfig(
+        run_dir=run_dir,
+        output_dir=output_dir,
+        submission_id="fixture-submission",
+        submitter=ContributorCredit(role="submitter", name="John Hughes"),
+        contributors=(
+            ContributorCredit(role="run_operator", name="John Hughes"),
+            ContributorCredit(role="adapter_author", name="Fixture Adapter Authors"),
+            ContributorCredit(role="task_source", name="Harvey LAB"),
+            ContributorCredit(
+                role="benchmark_infrastructure",
+                name="LegalForecastBench",
+            ),
+        ),
+        benchmark_credit=(
+            ContributorCredit(
+                role="benchmark_infrastructure",
+                name="LegalForecastBench",
+            ),
+        ),
+        attestations=tuple(sorted(REQUIRED_ATTESTATIONS)),
+        conformance_report_path=run_dir / "conformance-report.json",
+    )
 
 
 def _write_run_dir(tmp_path: Path) -> Path:
@@ -309,6 +377,66 @@ def _write_run_dir(tmp_path: Path) -> Path:
     return run_dir
 
 
+def _append_run_row(
+    run_dir: Path,
+    *,
+    row_id: str,
+    suite_version: str,
+    sandbox_timeout_seconds: int = 30,
+) -> None:
+    row_dir = run_dir / "rows" / row_id
+    row_dir.mkdir(parents=True)
+    task_id = f"harvey_lab:corporate/{row_id}"
+    rows = _read_jsonl(run_dir / "row-results.jsonl")
+    row = dict(rows[0])
+    row.update(
+        {
+            "row_id": row_id,
+            "task_id": task_id,
+            "request_id": row_id,
+            "result_id": f"{row_id}:result",
+            "workspace": row_dir.as_posix(),
+        }
+    )
+    rows.append(row)
+    _write_jsonl(run_dir / "row-results.jsonl", rows)
+
+    canonical_runs = _read_jsonl(run_dir / "canonical-runs.jsonl")
+    canonical_result = dict(canonical_runs[0])
+    canonical_result.update(
+        {
+            "result_id": f"{row_id}:result",
+            "request_id": row_id,
+            "public_summary": {"task_id": task_id},
+        }
+    )
+    canonical_runs.append(canonical_result)
+    _write_jsonl(run_dir / "canonical-runs.jsonl", canonical_runs)
+
+    run_manifest = _read_json(run_dir / "run-manifest.json")
+    request_ids = cast(list[str], run_manifest["request_ids"])
+    result_ids = cast(list[str], run_manifest["result_ids"])
+    request_ids.append(row_id)
+    result_ids.append(f"{row_id}:result")
+    _write_json(run_dir / "run-manifest.json", run_manifest)
+
+    request = _read_json(run_dir / "rows" / "row-1" / "request.json")
+    request["request_id"] = row_id
+    request["request_sha256"] = SHA3
+    task = cast(JsonRecord, request["task"])
+    task["task_id"] = task_id
+    task["suite_version"] = suite_version
+    task["source_id"] = f"merger-review-{row_id}"
+    sandbox_policy = cast(JsonRecord, request["sandbox_policy"])
+    sandbox_policy["policy_id"] = f"{row_id}-sandbox"
+    sandbox_policy["timeout_seconds"] = sandbox_timeout_seconds
+    _write_json(row_dir / "request.json", request)
+    _write_json(
+        row_dir / "sandbox.plan.json",
+        {"backend": "docker", "argv": [], "policy": request["sandbox_policy"]},
+    )
+
+
 def _write_json(path: Path, payload: JsonRecord) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", "utf-8")
@@ -320,6 +448,15 @@ def _write_jsonl(path: Path, records: list[JsonRecord]) -> None:
         "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),
         "utf-8",
     )
+
+
+def _read_jsonl(path: Path) -> list[JsonRecord]:
+    records: list[JsonRecord] = []
+    for line in path.read_text("utf-8").splitlines():
+        value = json.loads(line)
+        assert isinstance(value, dict)
+        records.append(cast(JsonRecord, value))
+    return records
 
 
 def _read_json(path: Path) -> JsonRecord:

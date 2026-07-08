@@ -114,6 +114,36 @@ def test_conformance_fails_on_secret_like_public_summary(tmp_path: Path) -> None
     assert "secret field" in run.report.checks["lfb_fixture_run"]
 
 
+def test_conformance_fails_when_fixture_requests_provider_env(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_manifest(
+        tmp_path,
+        capabilities=_capabilities(
+            supported_families=("legalforecast_mtd",),
+            supported_scoring_modes=("lfb_brier",),
+        ),
+        require_provider_env=True,
+    )
+
+    run = run_adapter_conformance(
+        adapter_manifest_path=manifest_path,
+        output_dir=tmp_path / "conformance",
+    )
+
+    assert run.report.status == "failed"
+    assert run.report.checks["sandbox_negative_control"].startswith("failed:")
+    assert "OPENAI_API_KEY" in run.report.checks["sandbox_negative_control"]
+    evidence = json.loads(
+        (tmp_path / "conformance" / "sandbox-negative-control.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert evidence["evidence"][0]["public_summary_provider_env_refs"] == [
+        "OPENAI_API_KEY"
+    ]
+
+
 def test_conformance_fails_on_capability_manifest_mismatch(tmp_path: Path) -> None:
     manifest_path = _write_manifest(
         tmp_path,
@@ -142,12 +172,14 @@ def _write_manifest(
     capabilities: dict[str, object],
     omit_sandbox_echo: bool = False,
     leak_secret_field: bool = False,
+    require_provider_env: bool = False,
 ) -> Path:
     script = _write_adapter_script(
         root,
         capabilities=capabilities,
         omit_sandbox_echo=omit_sandbox_echo,
         leak_secret_field=leak_secret_field,
+        require_provider_env=require_provider_env,
     )
     manifest = {
         "schema_version": "legalforecast.multiharness.adapter_manifest.v1",
@@ -168,6 +200,7 @@ def _write_adapter_script(
     capabilities: dict[str, object],
     omit_sandbox_echo: bool,
     leak_secret_field: bool,
+    require_provider_env: bool,
 ) -> Path:
     script = root / "fixture_adapter.py"
     script.write_text(
@@ -179,6 +212,7 @@ def _write_adapter_script(
                 f"CAPABILITIES = {capabilities!r}",
                 f"OMIT_SANDBOX_ECHO = {omit_sandbox_echo!r}",
                 f"LEAK_SECRET_FIELD = {leak_secret_field!r}",
+                f"REQUIRE_PROVIDER_ENV = {require_provider_env!r}",
                 "parser = argparse.ArgumentParser()",
                 "sub = parser.add_subparsers(dest='command', required=True)",
                 "cap = sub.add_parser('capabilities')",
@@ -211,6 +245,10 @@ def _write_adapter_script(
                 "        )",
                 "    if LEAK_SECRET_FIELD:",
                 "        public_summary['api_key'] = 'sk-test-secret-value'",
+                "    if REQUIRE_PROVIDER_ENV:",
+                "        public_summary['required_provider_env_vars'] = [",
+                "            'OPENAI_API_KEY'",
+                "        ]",
                 "    result = {",
                 "        'schema_version': 'legalforecast.multiharness.run_result.v1',",
                 "        'result_id': request['request_id'] + ':result',",
