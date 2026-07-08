@@ -1,0 +1,18 @@
+{
+  "adapter_id": "openai-responses-fixture-baseline",
+  "adapter_version": "0.1.0",
+  "command": [
+    "../fixture_bridge.py",
+    "--profile",
+    "openai-responses"
+  ],
+  "contributors": [
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench maintainers",
+      "role": "adapter_author"
+    }
+  ],
+  "display_name": "OpenAI Responses Fixture Baseline",
+  "schema_version": "legalforecast.multiharness.adapter_manifest.v1"
+}

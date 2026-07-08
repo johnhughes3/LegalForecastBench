@@ -38,7 +38,7 @@ from legalforecast.publication.reconstruction import (
 from legalforecast.publication.release_bundle import (
     RELEASE_BUNDLE_SCHEMA_VERSION,
     RELEASE_CHANNEL,
-    RESULT_TIER,
+    RELEASE_STATUS,
     ReleaseBundleConfig,
     ReleaseBundleError,
     build_release_bundle,
@@ -70,7 +70,7 @@ __all__ = [
     "PUBLIC_ERRATA_SCHEMA_VERSION",
     "RELEASE_BUNDLE_SCHEMA_VERSION",
     "RELEASE_CHANNEL",
-    "RESULT_TIER",
+    "RELEASE_STATUS",
     "STORAGE_MANIFEST_VERSION",
     "WITHDRAWAL_LEDGER_SCHEMA_VERSION",
     "ExportBucketRole",

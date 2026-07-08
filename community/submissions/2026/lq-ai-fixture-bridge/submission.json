@@ -1,0 +1,172 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "run-manifest",
+      "media_type": "application/json",
+      "path": "run-manifest.json",
+      "public": true,
+      "sha256": "sha256:5c601d7eb1eb669457b899d55e6b75b92c107b39a4baa9dd69511beeaf6fefe2",
+      "size_bytes": 405
+    },
+    {
+      "artifact_id": "row-results",
+      "media_type": "application/jsonl",
+      "path": "row-results.jsonl",
+      "public": true,
+      "sha256": "sha256:db3b6a0fcb6e4e621e4419a1f2828f72bdd9c9c0477b5fc367e6005c24add24c",
+      "size_bytes": 560
+    },
+    {
+      "artifact_id": "canonical-runs",
+      "media_type": "application/jsonl",
+      "path": "canonical-runs.jsonl",
+      "public": true,
+      "sha256": "sha256:431af99b7d7fec50adcd165ae1b4ef233ea38e5640fe3ecabfeff49fcde032b7",
+      "size_bytes": 1109
+    },
+    {
+      "artifact_id": "conformance-report",
+      "media_type": "application/json",
+      "path": "conformance-report.json",
+      "public": true,
+      "sha256": "sha256:f45c800d09979c633aa569d26b3e1611372ff0accc1100efaf3097cbd70a136a",
+      "size_bytes": 2422
+    },
+    {
+      "artifact_id": "public-summary",
+      "media_type": "application/json",
+      "path": "public-summary.json",
+      "public": true,
+      "sha256": "sha256:cad2464ab94abe3f9c045c1233024d9eb211925cd2ab9255ef77348930da48d6",
+      "size_bytes": 1076
+    },
+    {
+      "artifact_id": "selection-manifest",
+      "media_type": "application/json",
+      "path": "selection-manifest.json",
+      "public": true,
+      "sha256": "sha256:376b7d3430b610607cdffa4786674382f804506b9d1008133582f1b0d6b898c9",
+      "size_bytes": 482
+    },
+    {
+      "artifact_id": "artifact-manifest",
+      "media_type": "application/json",
+      "path": "artifact-manifest.json",
+      "public": true,
+      "sha256": "sha256:8ee1db56e79681634b3726cf3fba97dcb6d83b84172b456baa961eb9622aff61",
+      "size_bytes": 1714
+    }
+  ],
+  "attestations": [
+    "no_private_or_sealed_material_in_public_artifacts",
+    "not_official_legalforecastbench_result",
+    "provider_terms_acknowledged",
+    "right_to_submit_artifacts"
+  ],
+  "benchmark_credit": [
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench",
+      "role": "benchmark_infrastructure"
+    }
+  ],
+  "contributors": [
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench maintainers",
+      "role": "run_operator"
+    },
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench maintainers",
+      "role": "adapter_author"
+    },
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench fixture corpus",
+      "role": "task_source"
+    },
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench",
+      "role": "benchmark_infrastructure"
+    }
+  ],
+  "run_summary": {
+    "adapter_ids": [
+      "lq-ai-fixture-bridge"
+    ],
+    "families": [
+      "legalforecast_mtd"
+    ],
+    "model_keys": [
+      "lq-ai-fixture-bridge-model"
+    ],
+    "result_status_counts": {
+      "succeeded": 1
+    },
+    "row_count": 1,
+    "run_config_sha256": "sha256:23c9aaebc5dae7f9169e7f2e5a51a8a777679efd1c6f1bd077b570b1f83df911",
+    "run_id": "lq-ai-fixture-bridge-run",
+    "run_manifest_sha256": "sha256:6fd72007a0283dcc014aa1b7c98ea40753f8aa959877e3689787f6f5d367c2e4",
+    "schema_version": "legalforecast.multiharness.community_run_summary.v1",
+    "scoring_modes": [
+      "lfb_brier"
+    ],
+    "selection_label": "submitted-run",
+    "selection_sha256": "035ef85370ec7a238200e10203ec03a70685d20e3601e30f0294e5f6e5a242a8"
+  },
+  "schema_version": "legalforecast.multiharness.community_submission_manifest.v1",
+  "shards": [
+    {
+      "adapter_id": "lq-ai-fixture-bridge",
+      "adapter_version": "0.1.0",
+      "compatible_shard_group_id": "legalforecast_mtd:lfb_brier:035ef85370ec7a238200e10203ec03a70685d20e3601e30f0294e5f6e5a242a8",
+      "contributor_credits": [
+        {
+          "identifiers": {},
+          "name": "LegalForecastBench maintainers",
+          "role": "run_operator"
+        },
+        {
+          "identifiers": {},
+          "name": "LegalForecastBench maintainers",
+          "role": "adapter_author"
+        },
+        {
+          "identifiers": {},
+          "name": "LegalForecastBench fixture corpus",
+          "role": "task_source"
+        },
+        {
+          "identifiers": {},
+          "name": "LegalForecastBench",
+          "role": "benchmark_infrastructure"
+        }
+      ],
+      "model_key": "lq-ai-fixture-bridge-model",
+      "run_config_hash": "sha256:23c9aaebc5dae7f9169e7f2e5a51a8a777679efd1c6f1bd077b570b1f83df911",
+      "sandbox_policy_hash": "sha256:c0ad0bbb47805d01bc71296dd407f3b7b3ffe335d453153c9a7c1c41ff14c453",
+      "schema_version": "legalforecast.multiharness.community_shard.v1",
+      "selection_label": "submitted-run",
+      "selection_sha256": "035ef85370ec7a238200e10203ec03a70685d20e3601e30f0294e5f6e5a242a8",
+      "shard_id": "shard-001",
+      "source_suite": "legalforecast_mtd",
+      "suite_version": "legalforecast-mtd-v1",
+      "task_ids": [
+        "lfb:cand_case_1:full_packet"
+      ],
+      "task_selectors": {
+        "task_ids": [
+          "lfb:cand_case_1:full_packet"
+        ]
+      }
+    }
+  ],
+  "submission_id": "lq-ai-fixture-bridge",
+  "submitter": {
+    "identifiers": {},
+    "name": "LegalForecastBench maintainers",
+    "role": "submitter"
+  }
+}

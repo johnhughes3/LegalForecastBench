@@ -26,11 +26,11 @@ For a given universe of model releases being compared, eligible cases are those 
 
 Each benchmark run is a versioned artifact tied to a specific set of model releases. When a new generation of frontier models ships, the benchmark ingests fresh cases — all decided after the new releases — and compares predictions on that cohort. The tradeoff is that the benchmark cannot run immediately on a new model (it takes time for enough post-release decisions to accumulate), and it cannot cleanly demonstrate absolute capability gains across generations because the case mix differs each version. What it does well is compare the relative capabilities of frontier models within a generation, which is the question most useful to practitioners deciding which model to rely on.
 
-Release-date anchors for current frontier models are tracked in [MODEL_RELEASE_DATES.md](MODEL_RELEASE_DATES.md).
+Current pilot model anchors are tracked in [MODEL_RELEASE_DATES.md](MODEL_RELEASE_DATES.md).
 
 ### Pilot
 
-A pilot run has scored Gemini Flash 3, Claude Sonnet 4.5, and GPT-5.5-mini on twelve cases to validate the end-to-end infrastructure. The pilot is too small to support claims about relative model capability and is not a published benchmark result; it confirms that ingestion, unitization, packet construction, model invocation, and scoring run together on real cases. We are seeking feedback from researchers experienced with benchmark design before incurring the cost of a full model run.
+A pilot run has scored Gemini 3 Flash Preview, GPT-5.4 mini, and Claude Sonnet 4.6 on twelve cases to validate the end-to-end infrastructure. The pilot is too small to support claims about relative model capability and is not a published benchmark result; it confirms that ingestion, unitization, packet construction, model invocation, and scoring run together on real cases. We are seeking feedback from researchers experienced with benchmark design before incurring the cost of a full model run.
 
 ## How Runs Are Executed
 
@@ -69,7 +69,26 @@ Before cutting a release candidate:
 uv run scripts/release_check.py
 ```
 
-Default checks must not require live credentials.
+Default checks must not require live credentials. The release check runs locked dependency sync, formatting, linting, type checking, tests, CLI smokes, fixture E2E, multi-harness no-network smokes, package build, package hashes, and installed wheel/sdist smokes.
+
+Tags matching `v*` run the package-publish workflow. That workflow reruns the release check, publishes the built wheel/sdist from `tmp/release-check/dist` to PyPI with trusted publishing, and attaches the wheel, sdist, and package hash file to the GitHub release. Manual dispatch can run the same workflow without publishing unless `publish` is set.
+
+## Community Multi-Harness
+
+The repo includes a separate non-official community multi-harness layer for comparing LegalForecastBench fixture/subset tasks, Harvey LAB tasks, and contributor adapters without weakening official benchmark boundaries.
+
+Start with:
+
+```bash
+uv run legalforecast multiharness --help
+```
+
+Contributor docs:
+
+- [Multi-Harness Adapter Spec](docs/multiharness-adapter-spec.md)
+- [Community Submissions](docs/community-submissions.md)
+
+Community submissions live under `community/submissions/` and are rebuilt into a separate community registry/site. They are not official LegalForecastBench results.
 
 ## CLI Shape
 
@@ -113,8 +132,11 @@ If a case is later sealed, redacted, or otherwise must be removed from the publi
 ## Repository Map
 
 - `legalforecast/`: Python package for ingestion, selection, unitization, labeling, evaluation, scoring, reporting, and publication artifacts.
+- `examples/adapters/`: no-network fixture manifests for first-class community multi-harness adapter tracks.
+- `community/submissions/`: reviewed community submission examples and future accepted metadata packages.
+- `docs/`: contributor-facing multi-harness, community submission, adapter, and planning docs.
 - `tests/`: synthetic fixtures and regression coverage.
-- `MODEL_RELEASE_DATES.md`: tracked frontier-model release anchors.
+- `MODEL_RELEASE_DATES.md`: tracked current pilot model anchors.
 
 ## License
 

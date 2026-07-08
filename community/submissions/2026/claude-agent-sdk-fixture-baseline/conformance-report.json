@@ -1,0 +1,60 @@
+{
+  "adapter_id": "claude-agent-sdk-fixture-baseline",
+  "adapter_version": "0.1.0",
+  "artifacts": [
+    {
+      "artifact_id": "adapter-capabilities",
+      "media_type": "application/json",
+      "path": "adapter-capabilities.json",
+      "public": true,
+      "sha256": "sha256:e0e46e5fb780b5b8efbe875002432dc2be6ebb50cd1937ea7552608f64d4b7a0",
+      "size_bytes": 438
+    },
+    {
+      "artifact_id": "sandbox-negative-control",
+      "media_type": "application/json",
+      "path": "sandbox-negative-control.json",
+      "public": true,
+      "sha256": "sha256:f823c604ba13681578449eb6f5024aa99b18aa3ebe682ca27dad5583d849dab1",
+      "size_bytes": 234
+    },
+    {
+      "artifact_id": "lfb-fixture-result",
+      "media_type": "application/json",
+      "path": "lfb-fixture/result.json",
+      "public": true,
+      "sha256": "sha256:95a736c16d6efc226c9da3a2c58cfd49e3c8f9a874319774c3cb4d2aa9b8d192",
+      "size_bytes": 1043
+    },
+    {
+      "artifact_id": "lab-fixture-result",
+      "media_type": "application/json",
+      "path": "lab-fixture/result.json",
+      "public": true,
+      "sha256": "sha256:14adbb877183ac91caffab51300db5f1e8465bd1a01b4f713c3a340f8001f3ca",
+      "size_bytes": 1030
+    },
+    {
+      "artifact_id": "conformance-report-md",
+      "media_type": "text/markdown",
+      "path": "conformance-report.md",
+      "public": true,
+      "sha256": "sha256:a931a3c6e2d4aea94fab5aff33cefe22f765f5afb26e5220aa00ae0103d5d2c0",
+      "size_bytes": 862
+    }
+  ],
+  "checks": {
+    "capabilities_validation": "passed: adapter capabilities match the manifest",
+    "lab_fixture_run": "passed: harvey_lab fixture returned a valid result",
+    "lab_public_safety_scan": "passed: result record passed public-safety validation",
+    "lab_sandbox_policy_receipt": "passed: result public_summary echoed sandbox_policy_id",
+    "lfb_fixture_run": "passed: legalforecast_mtd fixture returned a valid result",
+    "lfb_public_safety_scan": "passed: result record passed public-safety validation",
+    "lfb_sandbox_policy_receipt": "passed: result public_summary echoed sandbox_policy_id",
+    "manifest_validation": "passed: manifest claude-agent-sdk-fixture-baseline@0.1.0 is valid",
+    "sandbox_negative_control": "passed: recorded no-provider sandbox negative control"
+  },
+  "report_id": "conformance:claude-agent-sdk-fixture-baseline:0.1.0",
+  "schema_version": "legalforecast.multiharness.conformance_report.v1",
+  "status": "passed"
+}

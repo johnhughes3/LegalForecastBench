@@ -1,0 +1,172 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "run-manifest",
+      "media_type": "application/json",
+      "path": "run-manifest.json",
+      "public": true,
+      "sha256": "sha256:4ba0dd9d472c116b33d356a58633ace9c740fef44de94653dc8b7bb35b409312",
+      "size_bytes": 418
+    },
+    {
+      "artifact_id": "row-results",
+      "media_type": "application/jsonl",
+      "path": "row-results.jsonl",
+      "public": true,
+      "sha256": "sha256:bf4cf2ff4cf9869c320a060be74bd7382f2109f4b4c5560d849ed45e224a26b5",
+      "size_bytes": 599
+    },
+    {
+      "artifact_id": "canonical-runs",
+      "media_type": "application/jsonl",
+      "path": "canonical-runs.jsonl",
+      "public": true,
+      "sha256": "sha256:1759a9d42a5744c77cc298290bf22229039010cadc614bd10176ff368f5f6530",
+      "size_bytes": 937
+    },
+    {
+      "artifact_id": "conformance-report",
+      "media_type": "application/json",
+      "path": "conformance-report.json",
+      "public": true,
+      "sha256": "sha256:a6958cb40c582d22795626857b71397ca13a75a3e9123e4b17f5f2e2ed0cd9c5",
+      "size_bytes": 2461
+    },
+    {
+      "artifact_id": "public-summary",
+      "media_type": "application/json",
+      "path": "public-summary.json",
+      "public": true,
+      "sha256": "sha256:3d366bd5f8538f56dd62d68bd149f107a0bbfd5ce456850facb02a602f6718c4",
+      "size_bytes": 1154
+    },
+    {
+      "artifact_id": "selection-manifest",
+      "media_type": "application/json",
+      "path": "selection-manifest.json",
+      "public": true,
+      "sha256": "sha256:0d978327e5e8dbda9f0c445d4e8a928973943a207614f176fecf381576e178c2",
+      "size_bytes": 495
+    },
+    {
+      "artifact_id": "artifact-manifest",
+      "media_type": "application/json",
+      "path": "artifact-manifest.json",
+      "public": true,
+      "sha256": "sha256:28c03b49e5dd0332b1d0a01845f1d09032130ec87888fb622cca1cffe14f4d3a",
+      "size_bytes": 1713
+    }
+  ],
+  "attestations": [
+    "no_private_or_sealed_material_in_public_artifacts",
+    "not_official_legalforecastbench_result",
+    "provider_terms_acknowledged",
+    "right_to_submit_artifacts"
+  ],
+  "benchmark_credit": [
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench",
+      "role": "benchmark_infrastructure"
+    }
+  ],
+  "contributors": [
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench maintainers",
+      "role": "run_operator"
+    },
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench maintainers",
+      "role": "adapter_author"
+    },
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench fixture corpus",
+      "role": "task_source"
+    },
+    {
+      "identifiers": {},
+      "name": "LegalForecastBench",
+      "role": "benchmark_infrastructure"
+    }
+  ],
+  "run_summary": {
+    "adapter_ids": [
+      "claude-agent-sdk-fixture-baseline"
+    ],
+    "families": [
+      "legalforecast_mtd"
+    ],
+    "model_keys": [
+      "claude-agent-sdk-fixture-baseline-model"
+    ],
+    "result_status_counts": {
+      "succeeded": 1
+    },
+    "row_count": 1,
+    "run_config_sha256": "sha256:4df50f0cca1b60d841eb4169b3d4eed6802f25a6fe14f331fd6136feac6b217d",
+    "run_id": "claude-agent-sdk-fixture-baseline-run",
+    "run_manifest_sha256": "sha256:5d9606d76b9f782f8e1b958aee4f4a5531c0b1bb0741c231c28b9a0a23210f4c",
+    "schema_version": "legalforecast.multiharness.community_run_summary.v1",
+    "scoring_modes": [
+      "lfb_brier"
+    ],
+    "selection_label": "submitted-run",
+    "selection_sha256": "035ef85370ec7a238200e10203ec03a70685d20e3601e30f0294e5f6e5a242a8"
+  },
+  "schema_version": "legalforecast.multiharness.community_submission_manifest.v1",
+  "shards": [
+    {
+      "adapter_id": "claude-agent-sdk-fixture-baseline",
+      "adapter_version": "0.1.0",
+      "compatible_shard_group_id": "legalforecast_mtd:lfb_brier:035ef85370ec7a238200e10203ec03a70685d20e3601e30f0294e5f6e5a242a8",
+      "contributor_credits": [
+        {
+          "identifiers": {},
+          "name": "LegalForecastBench maintainers",
+          "role": "run_operator"
+        },
+        {
+          "identifiers": {},
+          "name": "LegalForecastBench maintainers",
+          "role": "adapter_author"
+        },
+        {
+          "identifiers": {},
+          "name": "LegalForecastBench fixture corpus",
+          "role": "task_source"
+        },
+        {
+          "identifiers": {},
+          "name": "LegalForecastBench",
+          "role": "benchmark_infrastructure"
+        }
+      ],
+      "model_key": "claude-agent-sdk-fixture-baseline-model",
+      "run_config_hash": "sha256:4df50f0cca1b60d841eb4169b3d4eed6802f25a6fe14f331fd6136feac6b217d",
+      "sandbox_policy_hash": "sha256:c0ad0bbb47805d01bc71296dd407f3b7b3ffe335d453153c9a7c1c41ff14c453",
+      "schema_version": "legalforecast.multiharness.community_shard.v1",
+      "selection_label": "submitted-run",
+      "selection_sha256": "035ef85370ec7a238200e10203ec03a70685d20e3601e30f0294e5f6e5a242a8",
+      "shard_id": "shard-001",
+      "source_suite": "legalforecast_mtd",
+      "suite_version": "legalforecast-mtd-v1",
+      "task_ids": [
+        "lfb:cand_case_1:full_packet"
+      ],
+      "task_selectors": {
+        "task_ids": [
+          "lfb:cand_case_1:full_packet"
+        ]
+      }
+    }
+  ],
+  "submission_id": "claude-agent-sdk-fixture-baseline",
+  "submitter": {
+    "identifiers": {},
+    "name": "LegalForecastBench maintainers",
+    "role": "submitter"
+  }
+}

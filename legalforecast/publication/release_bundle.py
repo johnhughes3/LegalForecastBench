@@ -16,7 +16,7 @@ from legalforecast.protocol import sha256_file
 
 RELEASE_BUNDLE_SCHEMA_VERSION = "legalforecast.release_bundle.v1"
 RELEASE_CHANNEL = "v0.1-public-feedback-alpha"
-RESULT_TIER = "alpha-non-canonical"
+RELEASE_STATUS = "public-feedback-alpha"
 ALLOWED_SOURCE_CLASSES = ("package_build", "release_metadata", "synthetic_fixture")
 REQUIRED_FIXTURE_ARTIFACTS = (
     "artifact-index.json",
@@ -28,12 +28,16 @@ REQUIRED_FIXTURE_ARTIFACTS = (
 )
 RELEASE_METADATA_PATHS = (
     Path("README.md"),
-    Path("docs/README.md"),
-    Path("docs/acquisition.md"),
-    Path("docs/methodology.md"),
-    Path("docs/run_card_template.md"),
-    Path("docs/run_card_schema.json"),
-    Path("docs/result_tiers.md"),
+    Path("MODEL_RELEASE_DATES.md"),
+    Path("CITATION.cff"),
+    Path("LICENSE"),
+    Path("docs/multiharness-adapter-spec.md"),
+    Path("docs/community-submissions.md"),
+    Path("docs/adapters/provider-baselines.md"),
+    Path("docs/adapters/hermes-agent.md"),
+    Path("docs/adapters/lq-ai.md"),
+    Path("docs/adapters/openclaw.md"),
+    Path("docs/plans/multi-harness-community-benchmark-2026-05-29.md"),
 )
 _COMMIT_RE = re.compile(r"^[0-9a-f]{7,64}$")
 
@@ -78,7 +82,7 @@ def build_release_bundle(config: ReleaseBundleConfig) -> JsonRecord:
         "package_version": config.package_version,
         "release_commit": config.release_commit,
         "generated_at": _iso_datetime(config.generated_at or datetime.now(UTC)),
-        "result_tier": RESULT_TIER,
+        "release_status": RELEASE_STATUS,
         "canonical_leaderboard": False,
         "paid_source_material_included": False,
         "allowed_source_classes": list(ALLOWED_SOURCE_CLASSES),
@@ -254,12 +258,22 @@ def _fixture_bundle_role(relative_path: str) -> str:
 
 
 def _release_metadata_role(relative_path: Path) -> str:
-    if relative_path.name == "run_card_template.md":
-        return "run_card_example"
-    if relative_path.name == "run_card_schema.json":
-        return "run_card_schema"
-    if relative_path.name == "result_tiers.md":
-        return "result_tier_policy"
+    if relative_path.name == "README.md":
+        return "readme"
+    if relative_path.name == "MODEL_RELEASE_DATES.md":
+        return "model_release_anchors"
+    if relative_path.name == "CITATION.cff":
+        return "citation_metadata"
+    if relative_path.name == "LICENSE":
+        return "license"
+    if relative_path.name == "multiharness-adapter-spec.md":
+        return "adapter_spec"
+    if relative_path.name == "community-submissions.md":
+        return "community_submission_docs"
+    if "adapters" in relative_path.parts:
+        return "adapter_documentation"
+    if "plans" in relative_path.parts:
+        return "implementation_plan"
     return "release_metadata"
 
 

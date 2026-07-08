@@ -1,0 +1,53 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "run-manifest",
+      "media_type": "application/json",
+      "path": "run-manifest.json",
+      "public": true,
+      "sha256": "sha256:516db616dc2ddd076fa09dbf8b624cb6ffbd4a8f400f64be6dd319e13a3bd9d2",
+      "size_bytes": 408
+    },
+    {
+      "artifact_id": "row-results",
+      "media_type": "application/jsonl",
+      "path": "row-results.jsonl",
+      "public": true,
+      "sha256": "sha256:1ebe30c56a5e64be951cd9caef95b6cad06267932b02df50ba02b4ab8b538b03",
+      "size_bytes": 569
+    },
+    {
+      "artifact_id": "canonical-runs",
+      "media_type": "application/jsonl",
+      "path": "canonical-runs.jsonl",
+      "public": true,
+      "sha256": "sha256:c779c1ae2dac07b21fd1602822aaa9747ac8afd322567b18aaf4bfacc35f1e38",
+      "size_bytes": 1179
+    },
+    {
+      "artifact_id": "conformance-report",
+      "media_type": "application/json",
+      "path": "conformance-report.json",
+      "public": true,
+      "sha256": "sha256:6a3594650332cfa69cde8048cebf605726b2dbc9b587252b2faae0ec0faa0aa6",
+      "size_bytes": 2431
+    },
+    {
+      "artifact_id": "public-summary",
+      "media_type": "application/json",
+      "path": "public-summary.json",
+      "public": true,
+      "sha256": "sha256:edea9b1863cef21a26d6e9030ff145d37b733db73819ea133c1f28a91497d3b3",
+      "size_bytes": 1094
+    },
+    {
+      "artifact_id": "selection-manifest",
+      "media_type": "application/json",
+      "path": "selection-manifest.json",
+      "public": true,
+      "sha256": "sha256:b19d5bc532c26b69ad68247e40a2199a88e62f2edbbc88d02c9d45c41fce9d8e",
+      "size_bytes": 485
+    }
+  ],
+  "schema_version": "legalforecast.multiharness.community_artifact_manifest.v1"
+}
