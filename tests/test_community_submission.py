@@ -78,8 +78,8 @@ def test_community_package_cli_writes_pr_ready_submission(tmp_path: Path) -> Non
     assert manifest.submission_id == "fixture-submission"
     assert set(manifest.attestations) == REQUIRED_ATTESTATIONS
     assert manifest.run_summary.row_count == 1
-    assert manifest.shards[0].compatible_shard_group_id.endswith(
-        manifest.run_summary.selection_sha256
+    assert manifest.shards[0].compatible_shard_group_id == (
+        "harvey_lab:lab_native:harvey-lab-fixture"
     )
     assert (output_dir / "public-summary.json").is_file()
     assert (output_dir / "conformance-report.json").is_file()
@@ -166,8 +166,64 @@ def test_package_splits_shards_by_suite_version(tmp_path: Path) -> None:
         "harvey-lab-fixture-v2",
     ]
     assert all(
-        f":{shard.suite_version}:" in shard.compatible_shard_group_id
+        shard.compatible_shard_group_id.endswith(f":{shard.suite_version}")
         for shard in manifest.shards
+    )
+
+
+def test_package_group_id_is_independent_of_partial_selection_hash(
+    tmp_path: Path,
+) -> None:
+    first_run = _write_run_dir(tmp_path / "first")
+    second_run = _write_run_dir(tmp_path / "second")
+    _set_run_selection_sha256(second_run, SHA4)
+
+    first = package_community_submission(
+        _package_config(first_run, tmp_path / "first-package")
+    ).manifest
+    second = package_community_submission(
+        _package_config(second_run, tmp_path / "second-package")
+    ).manifest
+
+    assert first.run_summary.selection_sha256 != second.run_summary.selection_sha256
+    assert first.shards[0].compatible_shard_group_id == (
+        second.shards[0].compatible_shard_group_id
+    )
+    assert first.shards[0].compatible_shard_group_id == (
+        "harvey_lab:lab_native:harvey-lab-fixture"
+    )
+
+
+def test_package_scrubs_lfb_raw_output_from_public_submission(
+    tmp_path: Path,
+) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    lfb_runs_path = run_dir / "lfb" / "runs.jsonl"
+    _write_jsonl(
+        lfb_runs_path,
+        [
+            {
+                "sample_id": "sample-1",
+                "raw_output": "private chain of thought and provider transcript",
+                "raw_output_sha256": SHA4,
+                "score": 0.12,
+            }
+        ],
+    )
+    output_dir = tmp_path / "submission-package"
+
+    package_community_submission(_package_config(run_dir, output_dir))
+
+    copied = _read_jsonl(output_dir / "lfb" / "runs.jsonl")
+    assert copied == [
+        {
+            "sample_id": "sample-1",
+            "raw_output_sha256": SHA4,
+            "score": 0.12,
+        }
+    ]
+    assert '"raw_output"' not in (output_dir / "lfb" / "runs.jsonl").read_text(
+        encoding="utf-8"
     )
 
 
@@ -375,6 +431,12 @@ def _write_run_dir(tmp_path: Path) -> Path:
         },
     )
     return run_dir
+
+
+def _set_run_selection_sha256(run_dir: Path, selection_sha256: str) -> None:
+    run_manifest = _read_json(run_dir / "run-manifest.json")
+    run_manifest["selection_sha256"] = selection_sha256
+    _write_json(run_dir / "run-manifest.json", run_manifest)
 
 
 def _append_run_row(

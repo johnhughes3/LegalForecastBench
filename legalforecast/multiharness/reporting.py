@@ -117,8 +117,9 @@ def render_community_comparison_markdown(
         (
             "Community results are non-official. LegalForecastBench/LFB rows use "
             "forecast scoring such as Brier-style metrics; Harvey LAB rows use "
-            "rubric/native task criteria. Rows are grouped by family, scoring mode, "
-            "and selection hash and are not ranked across incompatible metrics."
+            "rubric/native task criteria. Compatible composites are grouped by "
+            "family, scoring mode, and suite version and are not ranked across "
+            "incompatible metrics."
         ),
     ]
     for family, scoring_mode in _family_sections(rows):
@@ -179,8 +180,8 @@ def render_community_comparison_html(rows: Sequence[CommunityComparisonRow]) -> 
     return (
         "<!doctype html><html><body>"
         "<h1>LegalForecastBench Community Harness Comparisons</h1>"
-        "<p>Community results are non-official and are grouped by compatible "
-        "family, scoring mode, and selection hash.</p>"
+        "<p>Community results are non-official. Compatible composites are grouped "
+        "by family, scoring mode, and suite version.</p>"
         f"{''.join(sections)}"
         "</body></html>"
     )

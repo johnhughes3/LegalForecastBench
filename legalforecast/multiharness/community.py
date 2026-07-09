@@ -16,6 +16,7 @@ from legalforecast._json_io import (
     read_json_object,
     read_jsonl_objects,
     write_json_object,
+    write_jsonl_objects,
 )
 from legalforecast.multiharness.spec import (
     ArtifactRecord,
@@ -577,9 +578,61 @@ def _copy_run_public_artifacts(run_dir: Path, output_dir: Path) -> list[Path]:
             continue
         destination = output_dir / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, destination)
+        if relative == "lfb/runs.jsonl":
+            _copy_scrubbed_jsonl(source, destination, forbidden_fields={"raw_output"})
+        else:
+            shutil.copy2(source, destination)
         copied.append(destination)
     return copied
+
+
+def _copy_scrubbed_jsonl(
+    source: Path,
+    destination: Path,
+    *,
+    forbidden_fields: set[str],
+) -> None:
+    records = _read_jsonl(source, "public run artifact")
+    scrubbed = [
+        _scrub_public_json_record(record, forbidden_fields=forbidden_fields)
+        for record in records
+    ]
+    write_jsonl_objects(destination, scrubbed)
+
+
+def _scrub_public_json_record(
+    record: Mapping[str, Any],
+    *,
+    forbidden_fields: set[str],
+) -> dict[str, Any]:
+    scrubbed: dict[str, Any] = {}
+    for key, value in record.items():
+        if key in forbidden_fields:
+            continue
+        scrubbed[key] = _scrub_public_json_value(
+            value,
+            forbidden_fields=forbidden_fields,
+        )
+    return scrubbed
+
+
+def _scrub_public_json_value(
+    value: Any,
+    *,
+    forbidden_fields: set[str],
+) -> Any:
+    if isinstance(value, Mapping):
+        return _scrub_public_json_record(
+            cast(Mapping[str, Any], value),
+            forbidden_fields=forbidden_fields,
+        )
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes):
+        items = cast(Sequence[Any], value)
+        return [
+            _scrub_public_json_value(item, forbidden_fields=forbidden_fields)
+            for item in items
+        ]
+    return value
 
 
 def _public_summary_record(
@@ -700,9 +753,10 @@ def _submission_shards(
         shards.append(
             CommunitySubmissionShard(
                 shard_id=f"shard-{index:03d}",
-                compatible_shard_group_id=(
-                    f"{family}:{scoring_mode}:{suite_version}:"
-                    f"{run_manifest.selection_sha256}"
+                compatible_shard_group_id=_compatible_shard_group_id(
+                    family=family,
+                    scoring_mode=scoring_mode,
+                    suite_version=suite_version,
                 ),
                 selection_sha256=run_manifest.selection_sha256,
                 selection_label=_selection_label(requests),
@@ -719,6 +773,15 @@ def _submission_shards(
             )
         )
     return tuple(shards)
+
+
+def _compatible_shard_group_id(
+    *,
+    family: str,
+    scoring_mode: str,
+    suite_version: str,
+) -> str:
+    return f"{family}:{scoring_mode}:{suite_version}"
 
 
 def _request_records_for_rows(

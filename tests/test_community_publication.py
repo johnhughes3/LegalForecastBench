@@ -32,6 +32,7 @@ JsonRecord = dict[str, Any]
 SHA1 = "sha256:" + "1" * 64
 SHA2 = "sha256:" + "2" * 64
 SHA3 = "sha256:" + "3" * 64
+SHA4 = "sha256:" + "4" * 64
 
 
 def test_community_aggregate_outputs_registry_reports_and_composites(
@@ -125,6 +126,8 @@ def test_community_reports_keep_lfb_and_lab_sections_separate(tmp_path: Path) ->
     )
     assert "Harvey LAB (lab_native)" in markdown
     assert "LegalForecastBench/LFB (lfb_brier)" in markdown
+    assert "family, scoring mode, and suite version" in markdown
+    assert "selection hash" not in markdown
     assert "not ranked across incompatible metrics" in markdown
 
 
@@ -168,6 +171,45 @@ def test_community_aggregate_skips_overlapping_composite(tmp_path: Path) -> None
     assert [row.row_type for row in result.rows] == ["single-shard", "single-shard"]
 
 
+def test_community_aggregate_composes_disjoint_selection_run_configs(
+    tmp_path: Path,
+) -> None:
+    submissions_dir = tmp_path / "submissions"
+    _write_submission(
+        submissions_dir,
+        submission_id="fixture-one",
+        task_ids=("task-1",),
+        selection_sha256=SHA2,
+        run_config_hash=SHA3,
+    )
+    _write_submission(
+        submissions_dir,
+        submission_id="fixture-two",
+        task_ids=("task-2",),
+        selection_sha256=SHA4,
+        run_config_hash=SHA4,
+    )
+    output_dir = tmp_path / "aggregate"
+
+    result = build_community_aggregate(
+        CommunityAggregateConfig(
+            submissions_dir=submissions_dir,
+            output_dir=output_dir,
+        )
+    )
+
+    composite_rows = [
+        row for row in result.rows if row.row_type == "compatible-composite"
+    ]
+    assert len(composite_rows) == 1
+    assert composite_rows[0].task_count == 2
+    submissions = _read_jsonl(output_dir / "registry" / "submissions.jsonl")
+    assert {
+        record["submission_id"]: record["shards"][0]["run_config_hash"]
+        for record in submissions
+    } == {"fixture-one": SHA3, "fixture-two": SHA4}
+
+
 def test_community_aggregate_does_not_use_official_aggregate() -> None:
     source = inspect.getsource(community_aggregate)
     assert "official_aggregate" not in source
@@ -181,6 +223,8 @@ def _write_submission(
     family: str = "harvey_lab",
     scoring_mode: str = "lab_native",
     public_summary_text: str | None = None,
+    selection_sha256: str = SHA2,
+    run_config_hash: str = SHA3,
 ) -> Path:
     root = submissions_dir / "2026" / submission_id
     root.mkdir(parents=True)
@@ -222,9 +266,9 @@ def _write_submission(
     run_summary = CommunityRunSummary(
         run_id=f"{submission_id}-run",
         run_manifest_sha256=SHA1,
-        selection_sha256=SHA2,
+        selection_sha256=selection_sha256,
         selection_label="fixture-selection",
-        run_config_sha256=SHA3,
+        run_config_sha256=run_config_hash,
         row_count=len(task_ids),
         result_status_counts={"succeeded": len(task_ids)},
         families=(family,),
@@ -234,8 +278,8 @@ def _write_submission(
     )
     shard = CommunitySubmissionShard(
         shard_id="shard-001",
-        compatible_shard_group_id=f"{family}:{scoring_mode}:{SHA2}",
-        selection_sha256=SHA2,
+        compatible_shard_group_id=(f"{family}:{scoring_mode}:{family}-fixture"),
+        selection_sha256=selection_sha256,
         selection_label="fixture-selection",
         source_suite=family,
         suite_version=f"{family}-fixture",
@@ -245,7 +289,7 @@ def _write_submission(
         adapter_version="0.1.0",
         model_key="fixture-model",
         sandbox_policy_hash=SHA1,
-        run_config_hash=SHA3,
+        run_config_hash=run_config_hash,
         contributor_credits=contributors,
     )
     manifest = CommunitySubmissionManifest(

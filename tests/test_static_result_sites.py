@@ -47,7 +47,7 @@ def test_official_results_site_uses_official_only_copy(tmp_path: Path) -> None:
 
 def test_community_results_site_uses_non_official_sections(tmp_path: Path) -> None:
     aggregate_dir = _write_community_aggregate(tmp_path)
-    output_dir = tmp_path / "community-site"
+    output_dir = aggregate_dir / "site"
 
     render_community_results_site(
         community_aggregate_dir=aggregate_dir,
@@ -62,6 +62,8 @@ def test_community_results_site_uses_non_official_sections(tmp_path: Path) -> No
     assert "Adapter and Conformance Cards" in html
     assert "Coverage matrices and shard/composite views" in html
     assert "Official Results" not in html
+    assert "href='../reports/community-comparison.json'" in html
+    assert "href='reports/community-comparison.json'" not in html
 
 
 def test_static_site_guardrails_reject_secret_content(tmp_path: Path) -> None:

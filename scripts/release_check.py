@@ -310,12 +310,21 @@ def _validate_multiharness_smoke_artifacts(paths: MultiHarnessSmokePaths) -> Non
         raise RuntimeError("community aggregate smoke must be a dry-run plan")
 
 
-def write_package_hashes(dist_dir: Path) -> Path:
+def package_hashes_path(dist_dir: Path) -> Path:
+    return dist_dir.parent / "package-artifact-hashes.json"
+
+
+def write_package_hashes(dist_dir: Path, *, output_path: Path | None = None) -> Path:
+    output_path = output_path or package_hashes_path(dist_dir)
+    excluded_paths = {
+        output_path.resolve(),
+        (dist_dir / "package-artifact-hashes.json").resolve(),
+    }
     artifacts: list[dict[str, object]] = []
     for artifact_path in sorted(dist_dir.iterdir()):
         if not artifact_path.is_file():
             continue
-        if artifact_path.name == "package-artifact-hashes.json":
+        if artifact_path.resolve() in excluded_paths:
             continue
         artifacts.append(
             {
@@ -326,7 +335,6 @@ def write_package_hashes(dist_dir: Path) -> Path:
         )
     if not artifacts:
         raise RuntimeError("no package artifacts found for hashing")
-    output_path = dist_dir / "package-artifact-hashes.json"
     output_path.write_text(
         json.dumps(
             {
@@ -342,9 +350,12 @@ def write_package_hashes(dist_dir: Path) -> Path:
     return output_path
 
 
-def _validate_package_hashes(dist_dir: Path) -> None:
+def _validate_package_hashes(
+    dist_dir: Path, *, hashes_path: Path | None = None
+) -> None:
+    hashes_path = hashes_path or package_hashes_path(dist_dir)
     record = _read_json_object(
-        dist_dir / "package-artifact-hashes.json",
+        hashes_path,
         "package artifact hashes",
     )
     if record.get("schema_version") != PACKAGE_HASHES_SCHEMA_VERSION:
@@ -353,10 +364,14 @@ def _validate_package_hashes(dist_dir: Path) -> None:
     if not isinstance(raw_artifacts, list) or not raw_artifacts:
         raise RuntimeError("package artifact hashes must include package artifacts")
     artifacts = cast(list[object], raw_artifacts)
+    excluded_paths = {
+        hashes_path.resolve(),
+        (dist_dir / "package-artifact-hashes.json").resolve(),
+    }
     by_name = {
         path.name: path
         for path in dist_dir.iterdir()
-        if path.is_file() and path.name != "package-artifact-hashes.json"
+        if path.is_file() and path.resolve() not in excluded_paths
     }
     for item in artifacts:
         if not isinstance(item, dict):

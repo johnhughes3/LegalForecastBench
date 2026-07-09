@@ -30,7 +30,8 @@ def test_publish_package_uses_trusted_publishing_and_records_hashes() -> None:
     assert "pypa/gh-action-pypi-publish@release/v1" in WORKFLOW
     assert "packages-dir: tmp/release-check/dist" in WORKFLOW
     assert "softprops/action-gh-release@v2" in WORKFLOW
-    assert "tmp/release-check/dist/package-artifact-hashes.json" in WORKFLOW
+    assert "tmp/release-check/package-artifact-hashes.json" in WORKFLOW
+    assert "tmp/release-check/dist/package-artifact-hashes.json" not in WORKFLOW
 
 
 def test_publish_package_workflow_does_not_use_official_eval_credentials() -> None:
