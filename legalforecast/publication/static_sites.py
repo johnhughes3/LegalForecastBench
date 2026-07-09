@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import html
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -98,7 +99,7 @@ def render_official_results_site(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     rows = _official_rows(official_artifacts_dir)
-    artifact_links = _artifact_links(official_artifacts_dir)
+    artifact_links = _artifact_links(official_artifacts_dir, href_base=output_dir)
     body = [
         "<main>",
         "<h1>LegalForecastBench Official Results</h1>",
@@ -137,7 +138,7 @@ def render_community_results_site(
         "community site summary",
     )
     rows = _rows(summary)
-    artifact_links = _artifact_links(community_aggregate_dir)
+    artifact_links = _artifact_links(community_aggregate_dir, href_base=output_dir)
     body = [
         "<main>",
         "<h1>LegalForecastBench Community Harness Comparisons</h1>",
@@ -302,7 +303,7 @@ def _mapping_rows(value: object) -> tuple[Mapping[str, Any], ...]:
     return tuple(records)
 
 
-def _artifact_links(root: Path) -> tuple[tuple[str, str], ...]:
+def _artifact_links(root: Path, *, href_base: Path) -> tuple[tuple[str, str], ...]:
     links: list[tuple[str, str]] = []
     for path in sorted(root.rglob("*")):
         if not path.is_file():
@@ -310,7 +311,8 @@ def _artifact_links(root: Path) -> tuple[tuple[str, str], ...]:
         relative = path.relative_to(root).as_posix()
         if any(part.startswith(".") for part in relative.split("/")):
             continue
-        links.append((relative, relative))
+        href = os.path.relpath(path, start=href_base).replace(os.sep, "/")
+        links.append((href, relative))
     return tuple(links)
 
 

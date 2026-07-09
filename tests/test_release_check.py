@@ -174,8 +174,10 @@ def test_release_check_validates_required_artifacts(tmp_path: Path) -> None:
         json.dumps({"dry_run": True}),
         encoding="utf-8",
     )
-    module.write_package_hashes(dist_dir)
+    hashes_path = module.write_package_hashes(dist_dir)
 
+    assert hashes_path == tmp_path / "package-artifact-hashes.json"
+    assert not (dist_dir / "package-artifact-hashes.json").exists()
     module.validate_artifacts(tmp_path)
 
 

@@ -310,12 +310,16 @@ def _validate_multiharness_smoke_artifacts(paths: MultiHarnessSmokePaths) -> Non
         raise RuntimeError("community aggregate smoke must be a dry-run plan")
 
 
-def write_package_hashes(dist_dir: Path) -> Path:
+def package_hashes_path(dist_dir: Path) -> Path:
+    return dist_dir.parent / "package-artifact-hashes.json"
+
+
+def write_package_hashes(dist_dir: Path, *, output_path: Path | None = None) -> Path:
     artifacts: list[dict[str, object]] = []
     for artifact_path in sorted(dist_dir.iterdir()):
         if not artifact_path.is_file():
             continue
-        if artifact_path.name == "package-artifact-hashes.json":
+        if output_path is not None and artifact_path == output_path:
             continue
         artifacts.append(
             {
@@ -326,7 +330,7 @@ def write_package_hashes(dist_dir: Path) -> Path:
         )
     if not artifacts:
         raise RuntimeError("no package artifacts found for hashing")
-    output_path = dist_dir / "package-artifact-hashes.json"
+    output_path = output_path or package_hashes_path(dist_dir)
     output_path.write_text(
         json.dumps(
             {
@@ -342,9 +346,11 @@ def write_package_hashes(dist_dir: Path) -> Path:
     return output_path
 
 
-def _validate_package_hashes(dist_dir: Path) -> None:
+def _validate_package_hashes(
+    dist_dir: Path, *, hashes_path: Path | None = None
+) -> None:
     record = _read_json_object(
-        dist_dir / "package-artifact-hashes.json",
+        hashes_path or package_hashes_path(dist_dir),
         "package artifact hashes",
     )
     if record.get("schema_version") != PACKAGE_HASHES_SCHEMA_VERSION:

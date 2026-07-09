@@ -66,7 +66,7 @@ All public artifact paths must be safe relative paths. Public files are scanned 
 
 ## Partial Runs And Composite Rows
 
-Community comparisons are grouped by `(family, scoring_mode, selection_sha256)`. LegalForecastBench Brier-style rows and Harvey LAB rubric/native rows are not ranked against each other.
+Community comparisons are grouped by compatible-shard group ID, which is derived from family, scoring mode, and suite version rather than a single partial-run selection hash. LegalForecastBench Brier-style rows and Harvey LAB rubric/native rows are not ranked against each other.
 
 Partial-run shards include:
 
