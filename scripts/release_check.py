@@ -315,11 +315,16 @@ def package_hashes_path(dist_dir: Path) -> Path:
 
 
 def write_package_hashes(dist_dir: Path, *, output_path: Path | None = None) -> Path:
+    output_path = output_path or package_hashes_path(dist_dir)
+    excluded_paths = {
+        output_path.resolve(),
+        (dist_dir / "package-artifact-hashes.json").resolve(),
+    }
     artifacts: list[dict[str, object]] = []
     for artifact_path in sorted(dist_dir.iterdir()):
         if not artifact_path.is_file():
             continue
-        if output_path is not None and artifact_path == output_path:
+        if artifact_path.resolve() in excluded_paths:
             continue
         artifacts.append(
             {
@@ -330,7 +335,6 @@ def write_package_hashes(dist_dir: Path, *, output_path: Path | None = None) -> 
         )
     if not artifacts:
         raise RuntimeError("no package artifacts found for hashing")
-    output_path = output_path or package_hashes_path(dist_dir)
     output_path.write_text(
         json.dumps(
             {
@@ -349,8 +353,9 @@ def write_package_hashes(dist_dir: Path, *, output_path: Path | None = None) -> 
 def _validate_package_hashes(
     dist_dir: Path, *, hashes_path: Path | None = None
 ) -> None:
+    hashes_path = hashes_path or package_hashes_path(dist_dir)
     record = _read_json_object(
-        hashes_path or package_hashes_path(dist_dir),
+        hashes_path,
         "package artifact hashes",
     )
     if record.get("schema_version") != PACKAGE_HASHES_SCHEMA_VERSION:
@@ -359,10 +364,14 @@ def _validate_package_hashes(
     if not isinstance(raw_artifacts, list) or not raw_artifacts:
         raise RuntimeError("package artifact hashes must include package artifacts")
     artifacts = cast(list[object], raw_artifacts)
+    excluded_paths = {
+        hashes_path.resolve(),
+        (dist_dir / "package-artifact-hashes.json").resolve(),
+    }
     by_name = {
         path.name: path
         for path in dist_dir.iterdir()
-        if path.is_file() and path.name != "package-artifact-hashes.json"
+        if path.is_file() and path.resolve() not in excluded_paths
     }
     for item in artifacts:
         if not isinstance(item, dict):

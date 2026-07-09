@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -179,6 +181,51 @@ def test_release_check_validates_required_artifacts(tmp_path: Path) -> None:
     assert hashes_path == tmp_path / "package-artifact-hashes.json"
     assert not (dist_dir / "package-artifact-hashes.json").exists()
     module.validate_artifacts(tmp_path)
+
+
+def test_package_hashes_ignore_stale_legacy_manifest(tmp_path: Path) -> None:
+    module = _load_release_check_module()
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    wheel_path = dist_dir / "legalforecast_mtd-0.1.0a1-py3-none-any.whl"
+    wheel_path.write_text("wheel", encoding="utf-8")
+    (dist_dir / "package-artifact-hashes.json").write_text(
+        '{"stale": true}\n',
+        encoding="utf-8",
+    )
+
+    hashes_path = module.write_package_hashes(dist_dir)
+    record = json.loads(hashes_path.read_text(encoding="utf-8"))
+
+    assert [artifact["filename"] for artifact in record["artifacts"]] == [
+        wheel_path.name
+    ]
+    module._validate_package_hashes(dist_dir, hashes_path=hashes_path)
+
+
+def test_package_hash_validation_excludes_custom_manifest_path(tmp_path: Path) -> None:
+    module = _load_release_check_module()
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    hashes_path = dist_dir / "custom-hashes.json"
+    hashes_path.write_text(
+        json.dumps(
+            {
+                "schema_version": module.PACKAGE_HASHES_SCHEMA_VERSION,
+                "artifacts": [
+                    {
+                        "filename": hashes_path.name,
+                        "sha256": "sha256:" + "1" * 64,
+                        "size_bytes": 0,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="unknown package artifact hash entry"):
+        module._validate_package_hashes(dist_dir, hashes_path=hashes_path)
 
 
 def _load_release_check_module() -> ModuleType:
