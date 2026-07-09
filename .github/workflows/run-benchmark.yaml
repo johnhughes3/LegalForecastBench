@@ -614,8 +614,11 @@ jobs:
                   raise SystemExit("each matrix row requires model-packets/ packet_object_key")
               input_tokens = packet_input_tokens(packet)
               seen_packet_rows.add(packet_row_key)
+              row_repeat_count = (
+                  repeat_count if case_id in repeat_sample_case_ids else 1
+              )
               for model_key in requested_model_keys:
-                  projected_model_cost += projected_cost_for_row(
+                  projected_model_cost += row_repeat_count * projected_cost_for_row(
                       input_tokens=input_tokens,
                       registry_record=registry_by_key[model_key],
                   )
@@ -626,7 +629,7 @@ jobs:
                           "packet_object_key": packet_object_key,
                           "model_key": model_key,
                           "model_key_slug": re.sub(r"[^A-Za-z0-9._-]+", "-", model_key).strip("-"),
-                          "repeat_count": repeat_count if case_id in repeat_sample_case_ids else 1,
+                          "repeat_count": row_repeat_count,
                       }
                   )
 
@@ -892,9 +895,46 @@ jobs:
           if [[ "${ALLOW_NO_BASELINES}" == "true" ]]; then
             optional_args+=(--allow-no-baselines)
           fi
+          python - <<'PY'
+          import json
+          import os
+
+          requested_ablations = [
+              ablation.strip()
+              for ablation in os.environ["ABLATIONS"].split(",")
+              if ablation.strip()
+          ]
+          if not requested_ablations:
+              raise SystemExit("ablations must include at least one packet ablation")
+          requested_ablation_set = set(requested_ablations)
+          with open("/tmp/lfb-run-inputs.json", encoding="utf-8") as handle:
+              manifest = json.load(handle)
+          packets = manifest.get("model_packets")
+          if not isinstance(packets, list):
+              raise SystemExit("run-input manifest must contain model_packets list")
+          filtered_packets = []
+          for packet in packets:
+              if not isinstance(packet, dict):
+                  raise SystemExit("model_packets entries must be objects")
+              packet_ablation = packet.get("ablation") or "full_packet"
+              if packet_ablation in requested_ablation_set:
+                  filtered_packets.append(packet)
+          if not filtered_packets:
+              raise SystemExit(
+                  "run-input manifest has no model packets for requested ablations"
+              )
+          manifest["model_packets"] = filtered_packets
+          with open(
+              "/tmp/lfb-run-inputs-requested-ablations.json",
+              "w",
+              encoding="utf-8",
+          ) as handle:
+              json.dump(manifest, handle, indent=2, sort_keys=True)
+              handle.write("\n")
+          PY
           uv run python -m legalforecast.publication.official_aggregate \
             --per-case-dir /tmp/lfb-per-case-artifacts \
-            --run-input-manifest /tmp/lfb-run-inputs.json \
+            --run-input-manifest /tmp/lfb-run-inputs-requested-ablations.json \
             --model-registry /tmp/lfb-model-registry.json \
             --labels /tmp/lfb-labels.jsonl \
             --output-dir tmp/official-aggregate \
