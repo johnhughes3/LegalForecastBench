@@ -84,6 +84,9 @@ def test_official_eval_matrix_workflow_preflights_projected_model_cost() -> None
     assert "def packet_input_tokens(packet):" in WORKFLOW
     assert '"packet_size_bytes"' in WORKFLOW
     assert "def projected_cost_for_row" in WORKFLOW
+    assert (
+        "projected_model_cost += row_repeat_count * projected_cost_for_row" in WORKFLOW
+    )
     assert "projected model cost $" in WORKFLOW
     assert (
         'output.write(f"projected_model_cost_usd={projected_model_cost:.6f}' in WORKFLOW
@@ -96,9 +99,11 @@ def test_official_eval_matrix_workflow_marks_repeat_sampling_subset() -> None:
     assert "REPEAT_COUNT: ${{ inputs.repeat_count }}" in WORKFLOW
     assert "repeat_sample_case_ids = {" in WORKFLOW
     assert (
-        '"repeat_count": repeat_count if case_id in repeat_sample_case_ids else 1'
-        in WORKFLOW
+        "row_repeat_count = (\n"
+        "                  repeat_count if case_id in repeat_sample_case_ids else 1\n"
+        "              )" in WORKFLOW
     )
+    assert '"repeat_count": row_repeat_count' in WORKFLOW
     assert '--repeat-count "${REPEAT_COUNT}"' in WORKFLOW
     assert "REPEAT_COUNT: ${{ matrix.repeat_count }}" in WORKFLOW
 
@@ -182,7 +187,11 @@ def test_official_eval_matrix_workflow_aggregates_after_matrix_success() -> None
     assert "pattern: official-eval-*" in WORKFLOW
     assert "uv run python -m legalforecast.publication.official_aggregate" in WORKFLOW
     assert "--per-case-dir /tmp/lfb-per-case-artifacts" in WORKFLOW
-    assert "--run-input-manifest /tmp/lfb-run-inputs.json" in WORKFLOW
+    assert "/tmp/lfb-run-inputs-requested-ablations.json" in WORKFLOW
+    assert 'manifest["model_packets"] = filtered_packets' in WORKFLOW
+    assert (
+        "--run-input-manifest /tmp/lfb-run-inputs-requested-ablations.json" in WORKFLOW
+    )
     assert "--model-registry /tmp/lfb-model-registry.json" in WORKFLOW
     assert "--labels /tmp/lfb-labels.jsonl" in WORKFLOW
     # The baseline bypass is a dispatch-time choice, not a hardcoded flag: the

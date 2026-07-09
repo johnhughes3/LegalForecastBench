@@ -303,6 +303,58 @@ def test_official_aggregate_scores_historical_baselines_as_pseudo_models(
     }
 
 
+def test_official_aggregate_deduplicates_cycle_baseline_training_examples(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(
+        tmp_path,
+        include_baseline_features=True,
+        ablations=("full_packet", "metadata_only"),
+    )
+    registry_path = _write_model_registry(tmp_path, ("fixture:solver",))
+    labels_path = _write_labels(tmp_path)
+    baseline_training_path = _write_baseline_training_examples(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-full_packet",
+        ablation="full_packet",
+        dismissed_probability=0.9,
+    )
+    _write_case_artifacts(
+        per_case_dir,
+        case_dir_name="official-eval-case-1-metadata_only",
+        ablation="metadata_only",
+        dismissed_probability=0.6,
+    )
+
+    result = aggregate_official_results(
+        OfficialAggregationConfig(
+            per_case_dir=per_case_dir,
+            run_input_manifest_path=manifest_path,
+            labels_path=labels_path,
+            output_dir=tmp_path / "official-bundle",
+            cycle_id="cycle-1",
+            cycle_series=CycleSeries.PILOT,
+            clean_motion_count=25,
+            prediction_unit_count=2,
+            model_registry_path=registry_path,
+            baseline_training_examples_path=baseline_training_path,
+            generated_at=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
+        )
+    )
+
+    cycle_training_rows = _read_jsonl(
+        result.public_dir / "baseline-training-examples.jsonl"
+    )
+    assert [row["features"]["unit_id"] for row in cycle_training_rows] == [
+        "unit-dismissed",
+        "unit-survives",
+    ]
+    run_card = json.loads(result.run_card_path.read_text(encoding="utf-8"))
+    assert run_card["cycle_baseline_training_example_count"] == 2
+
+
 def test_official_aggregate_fails_without_baselines_by_default(
     tmp_path: Path,
 ) -> None:

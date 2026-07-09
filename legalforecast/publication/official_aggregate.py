@@ -648,6 +648,7 @@ def _cycle_baseline_training_examples(
 ) -> tuple[BaselineTrainingExample, ...]:
     labels_by_unit = {label.unit_id: label for label in labels}
     examples: list[BaselineTrainingExample] = []
+    seen_unit_ids: set[str] = set()
     for (case_id, _ablation), row in sorted(expected_packet_rows.items()):
         if "baseline_features" not in row:
             continue
@@ -655,6 +656,9 @@ def _cycle_baseline_training_examples(
             label = labels_by_unit.get(features.unit_id)
             if label is None or label.fully_dismissed is None:
                 continue
+            if features.unit_id in seen_unit_ids:
+                continue
+            seen_unit_ids.add(features.unit_id)
             examples.append(
                 BaselineTrainingExample(
                     features=features,

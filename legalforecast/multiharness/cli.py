@@ -57,10 +57,6 @@ from legalforecast.publication.community_aggregate import (
 _CLI_PLAN_SCHEMA_VERSION = "legalforecast.multiharness.cli_plan.v1"
 _SELECTION_MANIFEST_SCHEMA_VERSION = "legalforecast.multiharness.selection_manifest.v1"
 _REPORT_SCHEMA_VERSION = "legalforecast.multiharness.report.v1"
-_COMMUNITY_DEFERRED_MESSAGE = (
-    "community submission packaging and aggregation are implemented in the "
-    "community-publication phase; rerun with --dry-run to write a stable plan"
-)
 
 
 def add_multiharness_parser(subparsers: Any) -> None:
