@@ -5,9 +5,8 @@ import json
 import math
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
-import legalforecast.publication.official_aggregate as official_aggregate
 import pytest
 from legalforecast.evals.accounting import ModelRunAccountingRecord
 from legalforecast.evals.bootstrap import BONFERRONI_RANK_TIER_METHOD
@@ -15,6 +14,7 @@ from legalforecast.labeling import AmendmentClass, OutcomeCitation, OutcomeLabel
 from legalforecast.publication.official_aggregate import (
     OfficialAggregationConfig,
     OfficialAggregationError,
+    _ablation_delta_report,
     aggregate_official_results,
 )
 from legalforecast.publication.official_aggregate import (
@@ -401,7 +401,7 @@ def test_ablation_delta_report_compares_full_packet_to_metadata_only() -> None:
         "raw_output": _fixture_raw_output(0.6),
     }
 
-    report = cast(Any, official_aggregate)._ablation_delta_report(
+    report = _ablation_delta_report(
         [full_packet, metadata_only],
         (_label("unit-dismissed", True), _label("unit-survives", False)),
         cycle_id="cycle-1",
