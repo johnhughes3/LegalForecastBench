@@ -10,7 +10,7 @@ Canonical records live in `legalforecast.multiharness.spec`.
 - `TaskIndex`: ordered task collection with `index_sha256` and `selection_namespace`.
 - `TaskSelection`: deterministic selectors for family, task ID, case ID, candidate ID, ablation, LAB module, practice area, tags, seed, and limit.
 - `AdapterManifest`: public adapter identity and command metadata.
-- `AdapterCapabilities`: declared task families, scoring modes, sandbox-policy support, and a capabilities hash.
+- `AdapterCapabilities`: declared task families, scoring modes, sandbox-policy support, and a capabilities hash. The hash commits to semantic capability inputs and must be stable across equivalent checkouts; absolute roots, launcher paths, workspaces, and other machine-local paths belong only in private probe artifacts. The Harvey LAB bridge derives its public-safe identity from the checkout's Git subtree plus its exact dirty/untracked overlay and a path-normalized digest of the launcher argv and file bytes. It rechecks that identity immediately before execution, writes the path-bearing probe only under `private-logs/`, and materializes only task bytes whose size and SHA-256 match the indexed artifacts.
 - `SandboxPolicy`: host-owned execution policy recorded for every row. The tool container network is disabled; provider egress, when allowed, is only a recorded host-adapter assumption.
 - `RunRequest` and `RunResult`: canonical per-row request/result records.
 - `RunManifest`: deterministic run-level provenance for the scheduled task, adapter, model, selection, and sandbox matrix.
@@ -144,4 +144,6 @@ If a provider CLI or subscription is used, the adapter must record the auth mode
 - `run result request_id does not match request`: the adapter did not echo the exact request row.
 - `result record passed public-safety validation` failure: remove secret-like fields, provider account IDs, deprecated tier labels, or unsafe public artifact paths.
 - LAB bridge reports missing `--lab-root` or `--output-dir`: the supplied LAB command does not expose the root/output controls this bridge needs. Use a fixture command or update the command manifest until the real LAB CLI supports those flags.
+- `LAB root must be a tracked path in a readable Git checkout`: use a Git checkout whose selected LAB root exists at `HEAD`; untracked standalone directories are intentionally rejected because they cannot provide a cheap, stable publication identity.
+- `LAB capabilities changed after run planning`: the LAB source overlay, launcher, or semantic command arguments changed after the manifest was created. Start a new run so its compatibility hash describes the bytes that will execute.
 - Container backend unavailable: current CI coverage is fixture-only. Live tool-container enforcement is host-owned and should be tested separately before a real public run.

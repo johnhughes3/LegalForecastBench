@@ -54,9 +54,11 @@ class HarveyLabCommandCapabilities:
 
     lab_root: str
     lab_commit: str
+    lab_source_sha256: str
     harness_run_help_sha256: str
     supported_flags: tuple[str, ...]
     evaluation_command: tuple[str, ...]
+    evaluation_command_sha256: str
     sandbox_expectation: str
     blockers: tuple[str, ...] = ()
 
@@ -64,15 +66,30 @@ class HarveyLabCommandCapabilities:
         return {
             "lab_root": self.lab_root,
             "lab_commit": self.lab_commit,
+            "lab_source_sha256": self.lab_source_sha256,
             "harness_run_help_sha256": self.harness_run_help_sha256,
             "supported_flags": list(self.supported_flags),
             "evaluation_command": list(self.evaluation_command),
+            "evaluation_command_sha256": self.evaluation_command_sha256,
+            "sandbox_expectation": self.sandbox_expectation,
+            "blockers": list(self.blockers),
+        }
+
+    def to_compatibility_record(self) -> dict[str, Any]:
+        """Return path-independent capability semantics for public hashing."""
+
+        return {
+            "identity_version": 1,
+            "lab_commit": self.lab_commit,
+            "lab_source_sha256": self.lab_source_sha256,
+            "evaluation_command_sha256": self.evaluation_command_sha256,
+            "supported_flags": list(self.supported_flags),
             "sandbox_expectation": self.sandbox_expectation,
             "blockers": list(self.blockers),
         }
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class HarveyLabCliAdapter:
     """Run selected Harvey LAB tasks through a LAB-compatible CLI command."""
 
@@ -80,22 +97,44 @@ class HarveyLabCliAdapter:
     lab_root: Path | None = None
     manifest: AdapterManifest = field(default_factory=harvey_lab_manifest)
     timeout_seconds: float = 300
+    _planned_capabilities_sha256: str | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
 
     def capabilities(self, workspace: Path) -> AdapterCapabilities:
         workspace.mkdir(parents=True, exist_ok=True)
         command_capabilities = self.command_capabilities(workspace)
+        return self._record_capabilities(workspace, command_capabilities)
+
+    def _record_capabilities(
+        self,
+        workspace: Path,
+        command_capabilities: HarveyLabCommandCapabilities,
+    ) -> AdapterCapabilities:
         write_json_object(
-            workspace / "lab-command-capabilities.json",
+            workspace / "private-logs" / "lab-command-capabilities.json",
             command_capabilities.to_record(),
         )
-        return AdapterCapabilities(
+        capabilities = AdapterCapabilities(
             adapter_id=self.manifest.adapter_id,
             adapter_version=self.manifest.adapter_version,
             supported_families=("harvey_lab",),
             supported_scoring_modes=("lab_native",),
             supports_sandbox_policy=True,
-            capabilities_sha256=_record_sha256(command_capabilities.to_record()),
+            capabilities_sha256=_record_sha256(
+                command_capabilities.to_compatibility_record()
+            ),
         )
+        expected_sha256 = self._planned_capabilities_sha256
+        if expected_sha256 is None:
+            self._planned_capabilities_sha256 = capabilities.capabilities_sha256
+        elif capabilities.capabilities_sha256 != expected_sha256:
+            raise HarveyLabCliAdapterError(
+                "LAB capabilities changed after run planning; start a new run"
+            )
+        return capabilities
 
     def command_capabilities(self, workspace: Path) -> HarveyLabCommandCapabilities:
         lab_root = self._resolved_lab_root()
@@ -107,12 +146,18 @@ class HarveyLabCliAdapter:
             for flag in _REQUIRED_FLAGS
             if flag not in supported_flags
         )
+        lab_commit, lab_source_sha256 = _lab_source_identity(lab_root)
         return HarveyLabCommandCapabilities(
             lab_root=lab_root.as_posix(),
-            lab_commit=_lab_commit(lab_root),
+            lab_commit=lab_commit,
+            lab_source_sha256=lab_source_sha256,
             harness_run_help_sha256=_sha256_text(help_text),
             supported_flags=supported_flags,
             evaluation_command=self.lab_command,
+            evaluation_command_sha256=_evaluation_command_sha256(
+                self.lab_command,
+                lab_root,
+            ),
             sandbox_expectation=(
                 "host adapter invokes LAB command; tool/container sandbox policy "
                 "is recorded separately by the multi-harness runner"
@@ -121,7 +166,19 @@ class HarveyLabCliAdapter:
         )
 
     def prepare(self, request: RunRequest, workspace: Path) -> AdapterPreparation:
-        capabilities = self.capabilities(workspace)
+        self._validate_request(request)
+        command_capabilities = self.command_capabilities(workspace)
+        capabilities = self._record_capabilities(workspace, command_capabilities)
+        if command_capabilities.blockers:
+            formatted = "; ".join(command_capabilities.blockers)
+            raise HarveyLabCliAdapterError(formatted)
+        return AdapterPreparation(
+            manifest=self.manifest,
+            capabilities=capabilities,
+            workspace=workspace,
+        )
+
+    def _validate_request(self, request: RunRequest) -> None:
         if request.adapter.adapter_id != self.manifest.adapter_id:
             raise HarveyLabCliAdapterError(
                 "run request adapter ID does not match manifest"
@@ -138,32 +195,23 @@ class HarveyLabCliAdapter:
             raise HarveyLabCliAdapterError(
                 "Harvey LAB adapter requires lab_native mode"
             )
-        command_capabilities = self.command_capabilities(workspace)
-        if command_capabilities.blockers:
-            formatted = "; ".join(command_capabilities.blockers)
-            raise HarveyLabCliAdapterError(formatted)
-        return AdapterPreparation(
-            manifest=self.manifest,
-            capabilities=capabilities,
-            workspace=workspace,
-        )
 
     def run(self, request: RunRequest, workspace: Path) -> RunResult:
-        self.prepare(request, workspace)
+        self._validate_request(request)
         lab_root = self._resolved_lab_root()
         workspace.mkdir(parents=True, exist_ok=True)
         materialized_root = workspace / "lab-root"
         output_dir = workspace / "lab-output"
         private_logs = workspace / "private-logs"
-        materialized_root.mkdir(parents=True, exist_ok=True)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        private_logs.mkdir(parents=True, exist_ok=True)
+        for directory in (materialized_root, output_dir, private_logs):
+            _ensure_safe_workspace_directory(workspace, directory)
         _materialize_task(
             request,
             lab_root=lab_root,
             materialized_root=materialized_root,
         )
         write_json_object(workspace / "request.json", request.to_record())
+        self.prepare(request, workspace)
         self._invoke_lab_command(
             lab_root=materialized_root,
             output_dir=output_dir,
@@ -210,10 +258,11 @@ class HarveyLabCliAdapter:
 
     def _run_help_probe(self, workspace: Path) -> str:
         private_logs = workspace / "private-logs"
-        private_logs.mkdir(parents=True, exist_ok=True)
+        _ensure_safe_workspace_directory(workspace, private_logs)
         completed = _run_subprocess(
             (*self.lab_command, "--help"),
             timeout_seconds=self.timeout_seconds,
+            cwd=self._resolved_lab_root(),
         )
         (private_logs / "lab-help-stdout.log").write_text(
             completed.stdout,
@@ -245,6 +294,7 @@ class HarveyLabCliAdapter:
                 str(output_dir),
             ),
             timeout_seconds=self.timeout_seconds,
+            cwd=self._resolved_lab_root(),
         )
         (private_logs / "lab-run-stdout.log").write_text(
             completed.stdout,
@@ -300,15 +350,105 @@ def _materialize_task(
 ) -> None:
     if not request.task.artifacts:
         raise HarveyLabCliAdapterError("Harvey LAB task has no source artifacts")
+    resolved_lab_root = lab_root.resolve()
+    resolved_materialized_root = materialized_root.resolve()
     for artifact in request.task.artifacts:
         source = lab_root / artifact.path
         if not source.is_file():
             raise HarveyLabCliAdapterError(
                 f"LAB task artifact is missing: {artifact.path}"
             )
+        try:
+            source.resolve(strict=True).relative_to(resolved_lab_root)
+        except (FileNotFoundError, RuntimeError, ValueError) as exc:
+            raise HarveyLabCliAdapterError(
+                f"LAB task artifact escapes the LAB root: {artifact.path}"
+            ) from exc
+        expected_sha256 = artifact.sha256.removeprefix("sha256:")
         destination = materialized_root / artifact.path
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, destination)
+        _ensure_safe_destination_parent(materialized_root, Path(artifact.path).parent)
+        try:
+            destination.parent.resolve().relative_to(resolved_materialized_root)
+        except (RuntimeError, ValueError) as exc:
+            raise HarveyLabCliAdapterError(
+                f"LAB task destination escapes the run workspace: {artifact.path}"
+            ) from exc
+        _copy_verified_artifact(
+            source,
+            destination,
+            expected_sha256=expected_sha256,
+            expected_size=artifact.size_bytes,
+            artifact_path=artifact.path,
+        )
+
+
+def _ensure_safe_workspace_directory(workspace: Path, directory: Path) -> None:
+    workspace.mkdir(parents=True, exist_ok=True)
+    if directory.is_symlink():
+        raise HarveyLabCliAdapterError("LAB workspace directory must not be a symlink")
+    directory.mkdir(parents=True, exist_ok=True)
+    try:
+        directory.resolve().relative_to(workspace.resolve())
+    except (RuntimeError, ValueError) as exc:
+        raise HarveyLabCliAdapterError(
+            "LAB workspace directory escapes the run workspace"
+        ) from exc
+
+
+def _ensure_safe_destination_parent(root: Path, relative_parent: Path) -> None:
+    current = root
+    for part in relative_parent.parts:
+        current /= part
+        if current.is_symlink():
+            raise HarveyLabCliAdapterError("LAB task destination contains a symlink")
+        current.mkdir(exist_ok=True)
+        if not current.is_dir():
+            raise HarveyLabCliAdapterError(
+                "LAB task destination parent is not a directory"
+            )
+
+
+def _copy_verified_artifact(
+    source: Path,
+    destination: Path,
+    *,
+    expected_sha256: str,
+    expected_size: int | None,
+    artifact_path: str,
+) -> None:
+    if destination.is_symlink():
+        raise HarveyLabCliAdapterError(
+            f"LAB task destination must not be a symlink: {artifact_path}"
+        )
+    digest = hashlib.sha256()
+    size_bytes = 0
+    destination_created = False
+    try:
+        with (
+            source.open("rb") as source_handle,
+            destination.open("xb") as destination_handle,
+        ):
+            destination_created = True
+            for chunk in iter(lambda: source_handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+                size_bytes += len(chunk)
+                destination_handle.write(chunk)
+    except OSError as exc:
+        if destination_created:
+            destination.unlink(missing_ok=True)
+        raise HarveyLabCliAdapterError(
+            f"could not materialize LAB task artifact: {artifact_path}"
+        ) from exc
+    if digest.hexdigest() != expected_sha256:
+        destination.unlink(missing_ok=True)
+        raise HarveyLabCliAdapterError(
+            f"LAB task artifact hash mismatch: {artifact_path}"
+        )
+    if expected_size is not None and size_bytes != expected_size:
+        destination.unlink(missing_ok=True)
+        raise HarveyLabCliAdapterError(
+            f"LAB task artifact size mismatch: {artifact_path}"
+        )
 
 
 def _result_artifacts(
@@ -408,21 +548,263 @@ def _validate_lab_root(path: Path) -> None:
         raise HarveyLabCliAdapterError(f"LAB root is missing tasks/: {path}")
 
 
-def _lab_commit(path: Path) -> str:
+def _lab_source_identity(path: Path) -> tuple[str, str]:
+    lab_root = path.resolve(strict=True)
+    git_root = Path(
+        os.fsdecode(_git_output(lab_root, "rev-parse", "--show-toplevel")).strip()
+    ).resolve(strict=True)
+    try:
+        lab_relative = lab_root.relative_to(git_root)
+    except ValueError as exc:
+        raise HarveyLabCliAdapterError(
+            "LAB root is not contained by its Git worktree"
+        ) from exc
+    commit = os.fsdecode(_git_output(git_root, "rev-parse", "HEAD")).strip()
+    tree_spec = (
+        "HEAD^{tree}" if not lab_relative.parts else f"HEAD:{lab_relative.as_posix()}"
+    )
+    subtree_oid = os.fsdecode(_git_output(git_root, "rev-parse", tree_spec)).strip()
+    scope = lab_relative.as_posix() if lab_relative.parts else "."
+    unmerged = _git_paths(
+        git_root,
+        "diff",
+        "--name-only",
+        "-z",
+        "--diff-filter=U",
+        "--",
+        scope,
+    )
+    if unmerged:
+        raise HarveyLabCliAdapterError("LAB root contains unmerged Git paths")
+    overlay_paths = set(
+        _git_paths(
+            git_root,
+            "diff",
+            "--name-only",
+            "-z",
+            "--no-renames",
+            "HEAD",
+            "--",
+            scope,
+        )
+    )
+    overlay_paths.update(
+        _git_paths(
+            git_root,
+            "ls-files",
+            "-z",
+            "--others",
+            "--exclude-standard",
+            "--",
+            scope,
+        )
+    )
+    overlay_records = [
+        _source_path_record(
+            lab_root,
+            _lab_scoped_path(git_root, lab_root, repo_relative),
+        )
+        for repo_relative in sorted(overlay_paths)
+    ]
+    special_records = _tracked_special_records(git_root, lab_root, scope)
+    overlay_sha256 = _record_sha256({"files": overlay_records})
+    source_sha256 = _record_sha256(
+        {
+            "identity_version": 1,
+            "head_commit": commit,
+            "head_subtree_oid": subtree_oid,
+            "working_overlay_sha256": overlay_sha256,
+            "tracked_symlinks": special_records,
+        }
+    )
+    return commit, source_sha256
+
+
+def _git_output(cwd: Path, *args: str) -> bytes:
     try:
         completed = subprocess.run(
-            ["git", "-C", str(path), "rev-parse", "HEAD"],
+            ("git", "-C", str(cwd), *args),
             check=False,
             capture_output=True,
-            text=True,
             timeout=10,
         )
-    except (subprocess.TimeoutExpired, OSError):
-        return "unknown"
-    value = completed.stdout.strip()
-    if completed.returncode != 0 or not value:
-        return "unknown"
-    return value
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        raise HarveyLabCliAdapterError(
+            "could not inspect the LAB Git checkout"
+        ) from exc
+    if completed.returncode != 0:
+        raise HarveyLabCliAdapterError(
+            "LAB root must be a tracked path in a readable Git checkout"
+        )
+    return completed.stdout
+
+
+def _git_paths(cwd: Path, *args: str) -> tuple[Path, ...]:
+    return tuple(
+        Path(os.fsdecode(value))
+        for value in _git_output(cwd, *args).split(b"\0")
+        if value
+    )
+
+
+def _lab_scoped_path(git_root: Path, lab_root: Path, repo_relative: Path) -> Path:
+    candidate = git_root / repo_relative
+    try:
+        candidate.relative_to(lab_root)
+    except ValueError as exc:
+        raise HarveyLabCliAdapterError(
+            "Git returned a path outside the LAB root"
+        ) from exc
+    return candidate
+
+
+def _tracked_special_records(
+    git_root: Path,
+    lab_root: Path,
+    scope: str,
+) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for entry in _git_output(
+        git_root,
+        "ls-files",
+        "-s",
+        "-z",
+        "--",
+        scope,
+    ).split(b"\0"):
+        if not entry:
+            continue
+        metadata, separator, raw_path = entry.partition(b"\t")
+        fields = metadata.split()
+        if not separator or len(fields) != 3:
+            raise HarveyLabCliAdapterError("Git returned malformed LAB index data")
+        mode, _object_id, stage = fields
+        if stage != b"0":
+            raise HarveyLabCliAdapterError("LAB root contains unmerged Git paths")
+        repo_relative = Path(os.fsdecode(raw_path))
+        if mode == b"160000":
+            raise HarveyLabCliAdapterError("LAB root must not contain Git submodules")
+        if mode == b"120000":
+            records.append(
+                _source_path_record(
+                    lab_root,
+                    _lab_scoped_path(git_root, lab_root, repo_relative),
+                )
+            )
+    return records
+
+
+def _source_path_record(root: Path, path: Path) -> dict[str, Any]:
+    relative = path.relative_to(root).as_posix()
+    if path.is_symlink():
+        if Path(os.readlink(path)).is_absolute():
+            raise HarveyLabCliAdapterError(
+                f"LAB source symlinks must use relative targets: {relative}"
+            )
+        try:
+            resolved = path.resolve(strict=True)
+            target = resolved.relative_to(root)
+        except (FileNotFoundError, RuntimeError, ValueError) as exc:
+            raise HarveyLabCliAdapterError(
+                f"LAB source symlink must resolve inside the LAB root: {relative}"
+            ) from exc
+        if resolved.is_dir():
+            raise HarveyLabCliAdapterError(
+                f"LAB source directory symlinks are not supported: {relative}"
+            )
+        if not resolved.is_file():
+            raise HarveyLabCliAdapterError(
+                f"LAB source symlinks must target regular files: {relative}"
+            )
+        return {
+            "path": relative,
+            "type": "symlink",
+            "target": target.as_posix(),
+            "target_sha256": _file_sha256(resolved),
+            "target_executable": bool(resolved.stat().st_mode & 0o111),
+        }
+    if not path.exists():
+        return {"path": relative, "type": "missing"}
+    if not path.is_file():
+        raise HarveyLabCliAdapterError(
+            f"LAB source contains an unsupported non-file entry: {relative}"
+        )
+    return {
+        "path": relative,
+        "type": "file",
+        "sha256": _file_sha256(path),
+        "size_bytes": path.stat().st_size,
+        "executable": bool(path.stat().st_mode & 0o111),
+    }
+
+
+def _evaluation_command_sha256(command: tuple[str, ...], lab_root: Path) -> str:
+    arguments = [
+        _command_argument_record(index, value, lab_root.resolve())
+        for index, value in enumerate(command)
+    ]
+    return _record_sha256({"arguments": arguments})
+
+
+def _command_argument_record(
+    index: int,
+    value: str,
+    lab_root: Path,
+) -> dict[str, Any]:
+    candidate = _command_path(index, value, lab_root)
+    if candidate is None:
+        return {"index": index, "value": value}
+    try:
+        resolved = candidate.resolve(strict=True)
+    except (FileNotFoundError, RuntimeError) as exc:
+        raise HarveyLabCliAdapterError(
+            f"LAB command path argument does not resolve: position {index}"
+        ) from exc
+    if resolved.is_dir():
+        try:
+            relative = resolved.relative_to(lab_root)
+        except ValueError as exc:
+            raise HarveyLabCliAdapterError(
+                "LAB command directory arguments must resolve inside the LAB root"
+            ) from exc
+        return {
+            "index": index,
+            "type": "lab-directory",
+            "path": relative.as_posix(),
+        }
+    if not resolved.is_file():
+        raise HarveyLabCliAdapterError(
+            f"LAB command argument is not a regular file: {candidate.name}"
+        )
+    try:
+        relative = resolved.relative_to(lab_root)
+    except ValueError:
+        identity = {"name": candidate.name}
+    else:
+        identity = {"lab_path": relative.as_posix()}
+    return {
+        "index": index,
+        "type": "file",
+        **identity,
+        "sha256": _file_sha256(resolved),
+        "size_bytes": resolved.stat().st_size,
+        "executable": bool(resolved.stat().st_mode & 0o111),
+    }
+
+
+def _command_path(index: int, value: str, lab_root: Path) -> Path | None:
+    if index == 0:
+        candidate = Path(value).expanduser()
+        if "/" in value and not candidate.is_absolute():
+            return lab_root / candidate
+        resolved = shutil.which(value)
+        return Path(resolved) if resolved is not None else candidate
+    candidate = Path(value).expanduser()
+    if not candidate.is_absolute():
+        candidate = lab_root / candidate
+    if Path(value).is_absolute() or candidate.exists() or "/" in value:
+        return candidate
+    return None
 
 
 def _supported_flags(help_text: str) -> tuple[str, ...]:
@@ -433,6 +815,7 @@ def _run_subprocess(
     argv: Sequence[str],
     *,
     timeout_seconds: float,
+    cwd: Path,
 ) -> subprocess.CompletedProcess[str]:
     if timeout_seconds <= 0:
         raise HarveyLabCliAdapterError("timeout_seconds must be positive")
@@ -443,6 +826,7 @@ def _run_subprocess(
             capture_output=True,
             text=True,
             timeout=timeout_seconds,
+            cwd=cwd,
         )
     except subprocess.TimeoutExpired as exc:
         raise HarveyLabCliAdapterError(
@@ -505,7 +889,11 @@ def _sha256_text(value: str) -> str:
 
 
 def _file_sha256(path: Path) -> str:
-    return f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return f"sha256:{digest.hexdigest()}"
 
 
 def _record_sha256(record: Mapping[str, Any]) -> str:

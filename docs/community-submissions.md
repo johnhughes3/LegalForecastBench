@@ -22,7 +22,7 @@ uv run legalforecast multiharness community package \
   --hf-upload-plan
 ```
 
-The package command writes `submission.json`, `public-summary.json`, `conformance-report.json`, `run-manifest.json`, `selection-manifest.json`, `artifact-manifest.json`, `row-results.jsonl`, `canonical-runs.jsonl`, and optionally `hf-upload-plan.json`. If the source run contains projected public artifacts such as `lfb/runs.jsonl` or `lab/task-results.jsonl`, those are copied into the package and referenced from `artifact-manifest.json`.
+The package command writes `submission.json`, `public-summary.json`, `conformance-report.json`, `run-manifest.json`, `run-compatibility.json`, `selection-manifest.json`, `artifact-manifest.json`, `row-results.jsonl`, `canonical-runs.jsonl`, and optionally `hf-upload-plan.json`. If the source run contains projected public artifacts such as `lfb/runs.jsonl` or `lab/task-results.jsonl`, those are copied into the package and referenced from `artifact-manifest.json`.
 
 Checked-in examples live under `community/submissions/2026/`. They cover the first-class LQ.AI, Hermes Agent, OpenClaw, OpenAI Responses, and Claude Agent SDK fixture adapters. These are no-network community examples, not official LegalForecastBench results.
 
@@ -77,10 +77,11 @@ Partial-run shards include:
 - model key
 - sandbox policy hash
 - run config hash
+- run compatibility hash
 - compatible-shard group ID
 - contributor credit per shard
 
-Composite rows can roll up compatible shards only when their compatible-shard group (family, scoring mode, and suite version), adapter ID/version, model key, and sandbox policy hash match, and task IDs do not overlap. The run config hash remains in each source shard for provenance, but it is not a composite key because it includes the partial selection and run identity. Composite rows credit each underlying shard and link back to every submission.
+Composite rows can roll up compatible shards only when their compatible-shard group (family, scoring mode, and suite version), adapter ID/version, model key, sandbox policy hash, and run compatibility hash match, and task IDs do not overlap. The canonical `run-compatibility.json` preimage retains the task-index identity, adapter identities, resolved adapter capabilities, model configuration, a sandbox-policy commitment, and incomplete-run policy while excluding the partial selection, run ID, scheduling parallelism, local command paths, mount paths, and provider environment-variable names. Its digest is cross-checked against the hashed local run manifest before aggregation, and the full run config hash remains in each source shard as provenance. Older submissions without a compatibility hash remain valid as single-shard rows but do not compose until they are repackaged with the new provenance field. Composite rows publish a deterministic hash and label for the combined task selection, retain every source selection and run hash, credit each underlying shard, and link back to every submission.
 
 ## Community Aggregate Outputs
 

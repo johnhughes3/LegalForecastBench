@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ from typing import Any
 
 from legalforecast._json_io import (
     read_json_object,
+    read_jsonl_objects,
     write_json_object,
     write_jsonl_objects,
 )
@@ -25,7 +27,7 @@ from legalforecast.multiharness.reporting import (
     render_community_comparison_json,
     render_community_comparison_markdown,
 )
-from legalforecast.multiharness.spec import ArtifactRecord
+from legalforecast.multiharness.spec import RUN_RESULT_STATUSES, ArtifactRecord
 from legalforecast.multiharness.validation import validate_public_record
 from legalforecast.publication.publication_guardrails import (
     PublicationGuardrailConfig,
@@ -67,8 +69,7 @@ class CommunityAggregateResult:
 @dataclass(slots=True)
 class _GroupAccumulator:
     compatible_shard_group_id: str
-    selection_sha256: str
-    selection_label: str
+    selections: set[tuple[str, str]]
     shards: list[dict[str, Any]]
     task_ids: set[str]
 
@@ -162,9 +163,13 @@ def _comparison_rows(
     strict_groups: dict[
         tuple[str, ...], list[tuple[CommunitySubmissionInput, int]]
     ] = {}
+    shard_status_counts: dict[tuple[Path, int], Mapping[str, int]] = {}
     for item in submissions:
         conformance_status = _conformance_status(item)
+        item_status_counts = _submission_shard_status_counts(item)
         for index, shard in enumerate(item.manifest.shards):
+            status_counts = item_status_counts[index]
+            shard_status_counts[(item.path, index)] = status_counts
             family, scoring_mode = _family_and_scoring(shard.compatible_shard_group_id)
             group_size = len(group_task_ids[shard.compatible_shard_group_id])
             coverage = 100 * len(shard.task_ids) / group_size
@@ -185,7 +190,7 @@ def _comparison_rows(
                     conformance_status=conformance_status,
                     task_count=len(shard.task_ids),
                     coverage_percentage=coverage,
-                    status_counts=item.manifest.run_summary.result_status_counts,
+                    status_counts=status_counts,
                     contributor_credit=tuple(
                         credit.to_record() for credit in shard.contributor_credits
                     ),
@@ -194,10 +199,20 @@ def _comparison_rows(
                     ),
                 )
             )
-            strict_groups.setdefault(_strict_composite_key(shard), []).append(
-                (item, index)
-            )
-    rows.extend(_composite_rows(strict_groups, group_task_ids))
+            strict_groups.setdefault(
+                _strict_composite_key(
+                    shard,
+                    legacy_identity=f"{item.path.as_posix()}:{index}",
+                ),
+                [],
+            ).append((item, index))
+    rows.extend(
+        _composite_rows(
+            strict_groups,
+            group_task_ids,
+            shard_status_counts,
+        )
+    )
     return sorted(rows, key=lambda row: (row.family, row.model_key, row.row_id))
 
 
@@ -206,6 +221,7 @@ def _composite_rows(
         tuple[str, ...], Sequence[tuple[CommunitySubmissionInput, int]]
     ],
     group_task_ids: Mapping[str, set[str]],
+    shard_status_counts: Mapping[tuple[Path, int], Mapping[str, int]],
 ) -> list[CommunityComparisonRow]:
     rows: list[CommunityComparisonRow] = []
     for key, items in sorted(strict_groups.items()):
@@ -220,21 +236,30 @@ def _composite_rows(
         first = first_item.manifest.shards[first_index]
         family, scoring_mode = _family_and_scoring(first.compatible_shard_group_id)
         group_size = len(group_task_ids[first.compatible_shard_group_id])
+        selection_count = len(
+            {item.manifest.shards[index].selection_sha256 for item, index in items}
+        )
         status_counts: Counter[str] = Counter()
-        for item, _shard_index in items:
-            status_counts.update(item.manifest.run_summary.result_status_counts)
+        for item, shard_index in items:
+            status_counts.update(shard_status_counts[(item.path, shard_index)])
         submission_ids = tuple(item.manifest.submission_id for item, _ in items)
         shard_ids = tuple(item.manifest.shards[index].shard_id for item, index in items)
         rows.append(
             CommunityComparisonRow(
-                row_id=f"composite:{_digest(':'.join(key))}",
+                row_id=f"composite:{_digest_parts(key)}",
                 row_type="compatible-composite",
                 submission_ids=submission_ids,
                 shard_ids=shard_ids,
                 family=family,
                 scoring_mode=scoring_mode,
-                selection_sha256=first.selection_sha256,
-                selection_label=first.selection_label,
+                selection_sha256=_combined_selection_sha256(
+                    first.compatible_shard_group_id,
+                    all_task_ids,
+                ),
+                selection_label=(
+                    "compatible composite "
+                    f"({selection_count} {_selection_word(selection_count)})"
+                ),
                 suite_version=first.suite_version,
                 adapter_id=first.adapter_id,
                 adapter_version=first.adapter_version,
@@ -340,40 +365,87 @@ def _compatible_shard_groups(
     rows: Sequence[CommunityComparisonRow],
 ) -> dict[str, Any]:
     groups: dict[str, _GroupAccumulator] = {}
+    shard_group_ids: dict[tuple[str, str], str] = {}
     for item in submissions:
         for shard in item.manifest.shards:
+            shard_identity = (item.manifest.submission_id, shard.shard_id)
+            if shard_identity in shard_group_ids:
+                raise ValueError(
+                    f"duplicate community submission shard identity: {shard_identity!r}"
+                )
+            shard_group_ids[shard_identity] = shard.compatible_shard_group_id
             entry = groups.setdefault(
                 shard.compatible_shard_group_id,
                 _GroupAccumulator(
                     compatible_shard_group_id=shard.compatible_shard_group_id,
-                    selection_sha256=shard.selection_sha256,
-                    selection_label=shard.selection_label,
+                    selections=set(),
                     shards=[],
                     task_ids=set(),
                 ),
             )
+            entry.selections.add((shard.selection_sha256, shard.selection_label))
             entry.shards.append(
                 {
                     "submission_id": item.manifest.submission_id,
                     "shard_id": shard.shard_id,
+                    "selection_sha256": shard.selection_sha256,
+                    "selection_label": shard.selection_label,
+                    "run_config_hash": shard.run_config_hash,
+                    "run_compatibility_hash": shard.run_compatibility_hash,
                     "task_ids": list(shard.task_ids),
                 }
             )
             entry.task_ids.update(shard.task_ids)
     composite_rows = [row for row in rows if row.row_type == "compatible-composite"]
+    composite_rows_by_group: dict[str, list[CommunityComparisonRow]] = {}
+    for row in composite_rows:
+        if len(row.submission_ids) != len(row.shard_ids):
+            raise ValueError(f"composite row has mismatched source IDs: {row.row_id}")
+        source_group_ids = {
+            shard_group_ids[(submission_id, shard_id)]
+            for submission_id, shard_id in zip(
+                row.submission_ids,
+                row.shard_ids,
+                strict=True,
+            )
+        }
+        if len(source_group_ids) != 1:
+            raise ValueError(
+                f"composite row spans incompatible shard groups: {row.row_id}"
+            )
+        group_id = next(iter(source_group_ids))
+        composite_rows_by_group.setdefault(group_id, []).append(row)
     output_groups: list[dict[str, Any]] = []
     for entry in groups.values():
+        selection_count = len(
+            {selection_sha256 for selection_sha256, _label in entry.selections}
+        )
         output_groups.append(
             {
                 "compatible_shard_group_id": entry.compatible_shard_group_id,
-                "selection_sha256": entry.selection_sha256,
-                "selection_label": entry.selection_label,
+                "selection_sha256": _combined_selection_sha256(
+                    entry.compatible_shard_group_id,
+                    entry.task_ids,
+                ),
+                "selection_label": (
+                    "compatible shard group "
+                    f"({selection_count} {_selection_word(selection_count)})"
+                ),
+                "selections": [
+                    {
+                        "selection_sha256": selection_sha256,
+                        "selection_label": selection_label,
+                    }
+                    for selection_sha256, selection_label in sorted(entry.selections)
+                ],
                 "shards": entry.shards,
                 "task_ids": sorted(entry.task_ids),
                 "composite_rows": [
                     row.to_record()
-                    for row in composite_rows
-                    if row.selection_sha256 == entry.selection_sha256
+                    for row in composite_rows_by_group.get(
+                        entry.compatible_shard_group_id,
+                        (),
+                    )
                 ],
             }
         )
@@ -449,10 +521,14 @@ def _artifact_for(root: Path, path: Path) -> ArtifactRecord:
     )
 
 
-def _strict_composite_key(shard: Any) -> tuple[str, ...]:
-    # run_config_hash includes selection and run identity, so it is provenance rather
-    # than a compatibility boundary for disjoint shards. The remaining fields capture
-    # the execution properties that must agree before shard results can be composed.
+def _strict_composite_key(
+    shard: Any,
+    *,
+    legacy_identity: str,
+) -> tuple[str, ...]:
+    # New packages carry a hash of compatibility-critical run configuration that
+    # excludes only selection and run-local identity. Older packages receive a unique
+    # per-shard identity so they remain visible but cannot compose without that hash.
     return (
         shard.compatible_shard_group_id,
         shard.suite_version,
@@ -460,7 +536,165 @@ def _strict_composite_key(shard: Any) -> tuple[str, ...]:
         shard.adapter_version,
         shard.model_key,
         shard.sandbox_policy_hash,
+        shard.run_compatibility_hash or f"legacy-noncomposable:{legacy_identity}",
     )
+
+
+def _submission_shard_status_counts(
+    item: CommunitySubmissionInput,
+) -> dict[int, dict[str, int]]:
+    artifacts = [
+        artifact
+        for artifact in item.manifest.artifacts
+        if artifact.path == "row-results.jsonl"
+    ]
+    if len(artifacts) > 1:
+        raise ValueError(
+            f"submission {item.manifest.submission_id} has multiple "
+            "row-results.jsonl artifacts"
+        )
+    if not artifacts or artifacts[0].source_url is not None:
+        return _single_shard_status_fallback(item)
+
+    rows = read_jsonl_objects(
+        item.root / artifacts[0].path,
+        error_factory=ValueError,
+        missing_message=lambda path: f"row results missing: {path}",
+        non_object_message=lambda path, line: (
+            f"row results line {line} must be an object: {path}"
+        ),
+    )
+    expected: dict[tuple[str, ...], int] = {}
+    for shard_index, shard in enumerate(item.manifest.shards):
+        family, scoring_mode = _family_and_scoring(shard.compatible_shard_group_id)
+        for task_id in shard.task_ids:
+            key = (
+                family,
+                scoring_mode,
+                shard.adapter_id,
+                shard.adapter_version,
+                shard.model_key,
+                task_id,
+            )
+            if key in expected:
+                raise ValueError(
+                    f"submission {item.manifest.submission_id} has ambiguous "
+                    f"shard row identity: {key!r}"
+                )
+            expected[key] = shard_index
+
+    counts = {index: Counter[str]() for index in range(len(item.manifest.shards))}
+    seen: set[tuple[str, ...]] = set()
+    total_counts: Counter[str] = Counter()
+    for row_number, row in enumerate(rows, start=1):
+        key = tuple(
+            _required_row_result_str(row, field_name, row_number=row_number)
+            for field_name in (
+                "family",
+                "scoring_mode",
+                "adapter_id",
+                "adapter_version",
+                "model_key",
+                "task_id",
+            )
+        )
+        status = _required_row_result_str(row, "status", row_number=row_number)
+        if status not in RUN_RESULT_STATUSES:
+            allowed = ", ".join(sorted(RUN_RESULT_STATUSES))
+            raise ValueError(
+                f"row results line {row_number} has invalid status {status!r}; "
+                f"expected one of: {allowed}"
+            )
+        if key not in expected:
+            raise ValueError(
+                f"row results line {row_number} does not match a declared shard: "
+                f"{key!r}"
+            )
+        if key in seen:
+            raise ValueError(
+                f"row results contain duplicate shard row identity: {key!r}"
+            )
+        seen.add(key)
+        counts[expected[key]][status] += 1
+        total_counts[status] += 1
+
+    missing = sorted(set(expected) - seen)
+    if missing:
+        raise ValueError(
+            f"row results are missing {len(missing)} declared shard row(s): "
+            f"{missing[0]!r}"
+        )
+    summary = item.manifest.run_summary
+    if len(rows) != summary.row_count:
+        raise ValueError(
+            f"row results count {len(rows)} does not match run summary row_count "
+            f"{summary.row_count} for {item.manifest.submission_id}"
+        )
+    if total_counts != Counter(summary.result_status_counts):
+        raise ValueError(
+            "row results status counts do not match run summary for "
+            f"{item.manifest.submission_id}"
+        )
+    return {index: dict(sorted(value.items())) for index, value in counts.items()}
+
+
+def _single_shard_status_fallback(
+    item: CommunitySubmissionInput,
+) -> dict[int, dict[str, int]]:
+    if len(item.manifest.shards) != 1:
+        raise ValueError(
+            f"multi-shard submission {item.manifest.submission_id} requires a "
+            "local row-results.jsonl artifact"
+        )
+    summary = item.manifest.run_summary
+    shard = item.manifest.shards[0]
+    if summary.row_count != len(shard.task_ids):
+        raise ValueError(
+            f"single-shard submission {item.manifest.submission_id} cannot use "
+            "run-summary status fallback because row_count does not match task_ids"
+        )
+    if sum(summary.result_status_counts.values()) != summary.row_count:
+        raise ValueError(
+            f"run summary status counts do not match row_count for "
+            f"{item.manifest.submission_id}"
+        )
+    invalid_statuses = set(summary.result_status_counts) - RUN_RESULT_STATUSES
+    if invalid_statuses:
+        raise ValueError(
+            "run summary contains invalid result status(es): "
+            f"{', '.join(sorted(invalid_statuses))}"
+        )
+    return {0: dict(sorted(summary.result_status_counts.items()))}
+
+
+def _required_row_result_str(
+    row: Mapping[str, Any],
+    field_name: str,
+    *,
+    row_number: int,
+) -> str:
+    value = row.get(field_name)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(
+            f"row results line {row_number} requires non-empty {field_name}"
+        )
+    return value
+
+
+def _combined_selection_sha256(
+    compatible_shard_group_id: str,
+    task_ids: Iterable[str],
+) -> str:
+    payload = {
+        "compatible_shard_group_id": compatible_shard_group_id,
+        "task_ids": sorted(set(task_ids)),
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _selection_word(selection_count: int) -> str:
+    return "selection" if selection_count == 1 else "selections"
 
 
 def _family_and_scoring(group_id: str) -> tuple[str, str]:
@@ -508,8 +742,9 @@ def _dedupe_credit(
     return tuple(deduped[key] for key in sorted(deduped))
 
 
-def _digest(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+def _digest_parts(values: Sequence[str]) -> str:
+    encoded = json.dumps(list(values), separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()[:16]
 
 
 def _file_sha256(path: Path) -> str:

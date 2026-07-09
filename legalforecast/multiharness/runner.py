@@ -23,6 +23,7 @@ from legalforecast.multiharness.lfb_native import LfbNativeAdapter
 from legalforecast.multiharness.sandbox import build_container_plan
 from legalforecast.multiharness.selection import SelectionResult, TaskSelection
 from legalforecast.multiharness.spec import (
+    RUN_COMPATIBILITY_SCHEMA_VERSION,
     AdapterCapabilities,
     AdapterManifest,
     ArtifactRecord,
@@ -183,11 +184,24 @@ class _MultiHarnessRunner:
         capabilities = self._load_capabilities(adapters)
         row_plans = self._build_row_plans(selection, adapters, capabilities)
         run_config_sha256 = _record_sha256(self.config.to_record(), prefixed=True)
+        run_compatibility_record = _run_compatibility_record(
+            self.config,
+            capabilities,
+        )
+        run_compatibility_sha256 = _record_sha256(
+            run_compatibility_record,
+            prefixed=True,
+        )
+        write_json_object(
+            self.config.output_dir / "run-compatibility.json",
+            run_compatibility_record,
+        )
         initial_manifest = RunManifest(
             run_id=self.config.run_id,
             selection_sha256=selection.selection_sha256,
             run_config_sha256=run_config_sha256,
             request_ids=tuple(plan.request.request_id for plan in row_plans),
+            run_compatibility_sha256=run_compatibility_sha256,
         )
         write_json_object(
             self.config.output_dir / "run-manifest.json",
@@ -204,6 +218,7 @@ class _MultiHarnessRunner:
             run_config_sha256=run_config_sha256,
             request_ids=tuple(plan.request.request_id for plan in row_plans),
             result_ids=tuple(row.result.result_id for row in rows),
+            run_compatibility_sha256=run_compatibility_sha256,
         )
         self._write_run_outputs(final_manifest, tuple(rows))
         return MultiHarnessRun(
@@ -566,13 +581,22 @@ def _artifact_index(root: Path) -> list[dict[str, Any]]:
                 path=relative,
                 sha256=_file_sha256(path),
                 media_type=_media_type(path),
-                public=(
-                    not relative.startswith("rows/") or "/private-logs/" not in relative
-                ),
+                public=_is_public_artifact(relative),
                 size_bytes=path.stat().st_size,
             ).to_record()
         )
     return artifacts
+
+
+def _is_public_artifact(relative_path: str) -> bool:
+    """Keep private diagnostics out of the public artifact set by default."""
+
+    parts = relative_path.split("/")
+    if "private-logs" in parts or parts[-1] == "lab-command-capabilities.json":
+        return False
+    if parts[0] == "adapter-capabilities":
+        return len(parts) == 3 and parts[-1] == "adapter-capabilities.json"
+    return True
 
 
 def _read_json(path: Path, label: str) -> Mapping[str, Any]:
@@ -621,6 +645,42 @@ def _record_sha256(record: Mapping[str, Any], *, prefixed: bool) -> str:
     if prefixed:
         return f"sha256:{digest}"
     return digest
+
+
+def _run_compatibility_record(
+    config: MultiHarnessRunConfig,
+    capabilities: Mapping[str, AdapterCapabilities],
+) -> dict[str, Any]:
+    """Record execution semantics while excluding selection and run-local identity."""
+
+    record = config.to_record()
+    compatibility_record: dict[str, Any] = {
+        "schema_version": RUN_COMPATIBILITY_SCHEMA_VERSION,
+        "run_config": {
+            "task_index": record["task_index"],
+            "adapters": [
+                {
+                    "adapter_id": adapter.manifest.adapter_id,
+                    "adapter_version": adapter.manifest.adapter_version,
+                }
+                for adapter in _ordered_adapters(config.adapters)
+            ],
+            "model_configs": record["model_configs"],
+            "sandbox_policy": {
+                "policy_id": config.sandbox_policy.policy_id,
+                "policy_sha256": _record_sha256(
+                    config.sandbox_policy.to_record(),
+                    prefixed=True,
+                ),
+            },
+            "incomplete_run_policy": config.incomplete_run_policy,
+        },
+        "adapter_capabilities": [
+            capabilities[adapter_id].to_record() for adapter_id in sorted(capabilities)
+        ],
+    }
+    validate_public_record(compatibility_record, "run_compatibility")
+    return compatibility_record
 
 
 def _require_non_empty(value: str, field_name: str) -> None:

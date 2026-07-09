@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, cast
@@ -20,6 +21,7 @@ from legalforecast.multiharness.community import (
 from legalforecast.multiharness.spec import (
     ADAPTER_MANIFEST_SCHEMA_VERSION,
     CONFORMANCE_REPORT_SCHEMA_VERSION,
+    RUN_COMPATIBILITY_SCHEMA_VERSION,
     RUN_MANIFEST_SCHEMA_VERSION,
     RUN_REQUEST_SCHEMA_VERSION,
     RUN_RESULT_SCHEMA_VERSION,
@@ -80,6 +82,10 @@ def test_community_package_cli_writes_pr_ready_submission(tmp_path: Path) -> Non
     assert manifest.run_summary.row_count == 1
     assert manifest.shards[0].compatible_shard_group_id == (
         "harvey_lab:lab_native:harvey-lab-fixture"
+    )
+    compatibility_record = _read_json(output_dir / "run-compatibility.json")
+    assert manifest.shards[0].run_compatibility_hash == _record_sha256(
+        compatibility_record
     )
     assert (output_dir / "public-summary.json").is_file()
     assert (output_dir / "conformance-report.json").is_file()
@@ -333,11 +339,54 @@ def _write_run_dir(tmp_path: Path) -> Path:
     run_dir = tmp_path / "run"
     row_dir = run_dir / "rows" / "row-1"
     row_dir.mkdir(parents=True)
+    run_compatibility = {
+        "schema_version": RUN_COMPATIBILITY_SCHEMA_VERSION,
+        "run_config": {
+            "task_index": {
+                "index_id": "fixture-index",
+                "index_sha256": SHA1,
+                "selection_namespace": "fixture",
+            },
+            "adapters": [
+                {
+                    "adapter_id": "fixture-cli",
+                    "adapter_version": "0.1.0",
+                }
+            ],
+            "model_configs": [
+                {
+                    "adapter_id": None,
+                    "model_key": "fixture-model",
+                    "lfb_fixture": False,
+                }
+            ],
+            "sandbox_policy": {
+                "policy_id": "fixture",
+                "policy_sha256": SHA2,
+            },
+            "incomplete_run_policy": "record_failure",
+        },
+        "adapter_capabilities": [
+            {
+                "schema_version": (
+                    "legalforecast.multiharness.adapter_capabilities.v1"
+                ),
+                "adapter_id": "fixture-cli",
+                "adapter_version": "0.1.0",
+                "supported_families": ["harvey_lab"],
+                "supported_scoring_modes": ["lab_native"],
+                "supports_sandbox_policy": True,
+                "capabilities_sha256": SHA1,
+            }
+        ],
+    }
+    _write_json(run_dir / "run-compatibility.json", run_compatibility)
     run_manifest = {
         "schema_version": RUN_MANIFEST_SCHEMA_VERSION,
         "run_id": "fixture-run",
         "selection_sha256": SHA1,
         "run_config_sha256": SHA2,
+        "run_compatibility_sha256": _record_sha256(run_compatibility),
         "request_ids": ["row-1"],
         "result_ids": ["row-1:result"],
     }
@@ -510,6 +559,11 @@ def _write_jsonl(path: Path, records: list[JsonRecord]) -> None:
         "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),
         "utf-8",
     )
+
+
+def _record_sha256(record: JsonRecord) -> str:
+    encoded = json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def _read_jsonl(path: Path) -> list[JsonRecord]:

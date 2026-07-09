@@ -33,6 +33,7 @@ SANDBOX_POLICY_SCHEMA_VERSION = "legalforecast.multiharness.sandbox_policy.v1"
 RUN_REQUEST_SCHEMA_VERSION = "legalforecast.multiharness.run_request.v1"
 RUN_RESULT_SCHEMA_VERSION = "legalforecast.multiharness.run_result.v1"
 RUN_MANIFEST_SCHEMA_VERSION = "legalforecast.multiharness.run_manifest.v1"
+RUN_COMPATIBILITY_SCHEMA_VERSION = "legalforecast.multiharness.run_compatibility.v1"
 CONFORMANCE_REPORT_SCHEMA_VERSION = "legalforecast.multiharness.conformance_report.v1"
 COMMUNITY_SUBMISSION_SCHEMA_VERSION = (
     "legalforecast.multiharness.community_submission.v1"
@@ -48,6 +49,7 @@ SCHEMA_VERSIONS: Mapping[str, str] = {
     "run_request": RUN_REQUEST_SCHEMA_VERSION,
     "run_result": RUN_RESULT_SCHEMA_VERSION,
     "run_manifest": RUN_MANIFEST_SCHEMA_VERSION,
+    "run_compatibility": RUN_COMPATIBILITY_SCHEMA_VERSION,
     "conformance_report": CONFORMANCE_REPORT_SCHEMA_VERSION,
     "community_submission": COMMUNITY_SUBMISSION_SCHEMA_VERSION,
     "community_aggregate": COMMUNITY_AGGREGATE_SCHEMA_VERSION,
@@ -512,16 +514,22 @@ class RunManifest:
     run_config_sha256: str
     request_ids: tuple[str, ...]
     result_ids: tuple[str, ...] = ()
+    run_compatibility_sha256: str | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty(self.run_id, "run_id")
         validate_sha256(self.selection_sha256, "selection_sha256")
         validate_sha256(self.run_config_sha256, "run_config_sha256")
+        if self.run_compatibility_sha256 is not None:
+            validate_sha256(
+                self.run_compatibility_sha256,
+                "run_compatibility_sha256",
+            )
         validate_unique_ids(self.request_ids, "request_ids")
         validate_unique_ids(self.result_ids, "result_ids")
 
     def to_record(self) -> dict[str, Any]:
-        return {
+        record: dict[str, Any] = {
             "schema_version": RUN_MANIFEST_SCHEMA_VERSION,
             "run_id": self.run_id,
             "selection_sha256": self.selection_sha256,
@@ -529,6 +537,9 @@ class RunManifest:
             "request_ids": list(self.request_ids),
             "result_ids": list(self.result_ids),
         }
+        if self.run_compatibility_sha256 is not None:
+            record["run_compatibility_sha256"] = self.run_compatibility_sha256
+        return record
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> Self:
@@ -543,6 +554,10 @@ class RunManifest:
             result_ids=_str_tuple(
                 optional_sequence(record, "result_ids") or (),
                 "result_ids",
+            ),
+            run_compatibility_sha256=optional_str(
+                record,
+                "run_compatibility_sha256",
             ),
         )
 
