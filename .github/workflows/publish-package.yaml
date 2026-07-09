@@ -76,4 +76,4 @@ jobs:
           files: |
             tmp/release-check/dist/*.whl
             tmp/release-check/dist/*.tar.gz
-            tmp/release-check/dist/package-artifact-hashes.json
+            tmp/release-check/package-artifact-hashes.json
