@@ -170,6 +170,56 @@ def test_reconstruction_cli_verifies_packet_render_dir(tmp_path) -> None:
     assert {record["status"] for record in payload} == {"verified"}
 
 
+def test_reconstruction_cli_fails_packet_render_verification_with_no_records(
+    tmp_path,
+) -> None:
+    manifest = tmp_path / "manifest.jsonl"
+    record = _manifest_record()
+    record.pop("packet_render")
+    manifest.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    output = tmp_path / "packet-render-verification.json"
+
+    status = cli(
+        (
+            "--manifest",
+            str(manifest),
+            "--output",
+            str(output),
+            "--verify-packet-render-dir",
+            str(tmp_path / "renders"),
+        )
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+
+    assert status == 1
+    assert payload == []
+
+
+def test_reconstruction_cli_fails_document_verification_with_no_records(
+    tmp_path,
+) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text("[]\n", encoding="utf-8")
+    output = tmp_path / "document-verification.json"
+
+    status = cli(
+        (
+            "--manifest",
+            str(manifest),
+            "--output",
+            str(output),
+            "--verify-dir",
+            str(tmp_path / "docs"),
+        )
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+
+    assert status == 1
+    assert payload == []
+
+
 def test_verify_reconstructed_documents_rejects_path_like_source_document_id(
     tmp_path,
 ) -> None:

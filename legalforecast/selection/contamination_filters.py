@@ -154,7 +154,7 @@ def detect_outcome_leakage(
 
 _RESULT_VERB = (
     r"(grant(?:s|ed|ing)?|den(?:y|ies|ied|ying)|dismiss(?:es|ed|ing)?|"
-    r"surviv(?:e|ed)|recommend(?:s|ed|ing)?)"
+    r"surviv(?:e|es|ed|ing)|recommend(?:s|ed|ing)?)"
 )
 _TARGET_MOTION = (
     r"(motion(?:s)? to dismiss|mtd|rule 12|12\(b\)(?:\(6\))?|"

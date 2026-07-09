@@ -300,7 +300,6 @@ def _plan_candidate(
             )
         ),
         "mtd_decision_screen": docket_screen.to_record(),
-        "exclusion_ledger_entries": exclusion_ledger_records,
         "documents": source_documents,
         "parsed_documents": parsed_documents,
         "prediction_units": _prediction_units_with_packet_document_ids(

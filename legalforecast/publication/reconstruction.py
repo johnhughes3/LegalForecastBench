@@ -384,6 +384,10 @@ def cli(argv: Sequence[str] | None = None) -> int:
         )
         output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         all_verifications = (*document_verifications, *packet_render_verifications)
+        if (args.verify_dir and not document_verifications) or (
+            args.verify_packet_render_dir and not packet_render_verifications
+        ):
+            return 1
         return (
             0
             if all(

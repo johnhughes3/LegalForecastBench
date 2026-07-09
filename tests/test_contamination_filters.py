@@ -46,6 +46,20 @@ def test_minute_order_granting_or_denying_target_motion_is_leakage() -> None:
     assert result.findings[0].leakage_type is OutcomeLeakageType.MINUTE_ORDER
 
 
+def test_minute_order_survives_target_motion_is_leakage() -> None:
+    result = detect_outcome_leakage(
+        (
+            _source(
+                "Minute order: plaintiff's claim is surviving the motion to dismiss.",
+            ),
+        ),
+        evaluation_timestamp=_evaluation_time(),
+    )
+
+    assert result.outcome_leakage_detected is True
+    assert result.findings[0].leakage_type is OutcomeLeakageType.MINUTE_ORDER
+
+
 def test_oral_ruling_transcript_is_hard_excluded() -> None:
     result = detect_outcome_leakage(
         (
@@ -131,6 +145,21 @@ def test_public_reporting_before_evaluation_is_leakage() -> None:
 
     assert result.findings[0].leakage_type is OutcomeLeakageType.PUBLIC_REPORTING
     assert result.to_manifest_fields()["outcome_leakage_source_ids"] == ["source-1"]
+
+
+def test_public_reporting_surviving_target_motion_is_leakage() -> None:
+    result = detect_outcome_leakage(
+        (
+            _source(
+                "News story: the motion to dismiss left the core claims surviving.",
+                source_kind=LeakageSourceKind.PUBLIC_REPORTING,
+            ),
+        ),
+        evaluation_timestamp=_evaluation_time(),
+    )
+
+    assert result.outcome_leakage_detected is True
+    assert result.findings[0].leakage_type is OutcomeLeakageType.PUBLIC_REPORTING
 
 
 def test_post_evaluation_reporting_does_not_leak_pre_run_packet() -> None:

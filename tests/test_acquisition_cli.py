@@ -701,17 +701,34 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
     for source_document_id, markdown in {
         "complaint": "Complaint markdown",
         "mtd-memo": "MTD markdown",
+        "opposition": (
+            "Press report: the motion to dismiss survives as to the core claim."
+        ),
         "decision": "Decision markdown",
     }.items():
         markdown_path = markdown_root / "cand-1" / f"{source_document_id}.md"
         markdown_path.parent.mkdir(parents=True, exist_ok=True)
         markdown_path.write_text(markdown, encoding="utf-8")
-    _write_jsonl(selection_path, [_packet_selection_record()])
+    selection = _packet_selection_record()
+    cast(list[JsonRecord], selection["documents"]).append(
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "opposition",
+            "docket_entry_number": 34,
+            "document_role": "opposition",
+            "source_url": "https://storage.courtlistener.com/opposition.pdf",
+            "description": "Opposition",
+            "model_visible": True,
+            "contains_target_outcome": False,
+        }
+    )
+    _write_jsonl(selection_path, [selection])
     _write_jsonl(
         downloads_path,
         [
             _download_record("complaint", "complaint", 1),
             _download_record("mtd-memo", "motion_to_dismiss_memorandum", 34),
+            _download_record("opposition", "opposition", 34),
             _download_record("decision", "decision", 50),
         ],
     )
@@ -720,6 +737,7 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
         [
             _parser_record("complaint"),
             _parser_record("mtd-memo"),
+            _parser_record("opposition"),
             _parser_record("decision"),
         ],
     )
@@ -758,17 +776,50 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
     )
 
     packet_input = _read_jsonl(output_root / "packet-build-input.jsonl")[0]
+    assert "exclusion_ledger_entries" not in packet_input
     model_visible = packet_input["docket_markdown"]["model_visible_markdown"]
     assert "Minute order granting the motion to dismiss" not in model_visible
     assert "Report and recommendation recommends granting" not in model_visible
     assert "Tentative ruling granting the MTD" not in model_visible
     ledger = _read_jsonl(output_root / "exclusion-ledger.jsonl")
-    assert ledger[0]["primary_exclusion_reason"] == "outcome_leakage"
+    assert {record["primary_exclusion_reason"] for record in ledger} == {
+        "outcome_leakage"
+    }
+    secondary_reasons = {
+        reason
+        for record in ledger
+        for reason in cast(list[str], record["secondary_exclusion_reasons"])
+    }
     assert {
         "minute_order_resolving_target",
         "rr_already_resolving_target",
         "tentative_ruling_revealing_target",
-    }.issubset(set(ledger[0]["secondary_exclusion_reasons"]))
+        "public_reporting_revealing_target",
+    }.issubset(secondary_reasons)
+    candidate_manifest = _read_jsonl(output_root / "candidate-manifest.jsonl")[0]
+    assert candidate_manifest["exclusion_ledger_entries"] == ledger
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "build-packets",
+                "--input",
+                str(output_root / "packet-build-input.jsonl"),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    packet = _read_jsonl(output_root / "packets.jsonl")[0]
+    assert [document["source_document_id"] for document in packet["documents"]] == [
+        "cand-1:controlled-docket",
+        "cand-1-complaint",
+        "cand-1-mtd-memo",
+    ]
+    assert "cand-1-opposition" in packet["excluded_document_ids"]
 
 
 def test_build_packets_rejects_mounted_outcome_leakage(
@@ -1070,6 +1121,9 @@ def _parser_record(source_document_id: str) -> JsonRecord:
     markdown = {
         "complaint": "Complaint markdown",
         "mtd-memo": "MTD markdown",
+        "opposition": (
+            "Press report: the motion to dismiss survives as to the core claim."
+        ),
         "decision": "Decision markdown",
     }[source_document_id]
     return {

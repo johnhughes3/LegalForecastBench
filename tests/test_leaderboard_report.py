@@ -73,6 +73,12 @@ def test_benchmark_report_renders_csv_markdown_and_html() -> None:
     assert "micro_brier" in csv_output
     assert "# Fixture Leaderboard" in markdown
     assert "model-a" in markdown
+    table_lines = [line for line in markdown.splitlines() if line.startswith("|")]
+    assert len(table_lines[1].strip("|").split("|")) == len(
+        table_lines[0].strip("|").split("|")
+    )
+    assert table_lines[1].count("---:") == 11
+    assert table_lines[1].count("---") == 12
     assert "<table>" in html
     assert "model-a" in html
 
