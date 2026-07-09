@@ -40,6 +40,7 @@ class UnitResolution(StrEnum):
     FULLY_DISMISSED = "fully_dismissed"
     SURVIVES_IN_MATERIAL_RESPECT = "survives_in_material_respect"
     PARTIAL_DISMISSAL_ONLY = "partial_dismissal_only"
+    NOT_ADDRESSED_BY_THIS_DISPOSITION = "not_addressed_by_this_disposition"
     AMBIGUOUS = "ambiguous"
 
 
@@ -123,6 +124,13 @@ class StageBUnitFinding:
             if self.amendment_signal is not AmendmentSignal.AMBIGUOUS:
                 raise ValueError(
                     "ambiguous findings must use ambiguous amendment_signal"
+                )
+            return
+
+        if self.resolution is UnitResolution.NOT_ADDRESSED_BY_THIS_DISPOSITION:
+            if self.amendment_signal is not AmendmentSignal.NOT_APPLICABLE:
+                raise ValueError(
+                    "not-addressed findings must use not_applicable amendment_signal"
                 )
             return
 
@@ -447,7 +455,11 @@ def _label_from_finding(
         unit_id=finding.unit_id,
         fully_dismissed=fully_dismissed,
         amendment_class=_amendment_class(finding),
-        ambiguous=finding.resolution is UnitResolution.AMBIGUOUS,
+        ambiguous=finding.resolution
+        in {
+            UnitResolution.AMBIGUOUS,
+            UnitResolution.NOT_ADDRESSED_BY_THIS_DISPOSITION,
+        },
         label_confidence=_label_confidence(finding),
         supporting_citations=(
             OutcomeCitation(
@@ -475,7 +487,10 @@ def _fully_dismissed(resolution: UnitResolution) -> bool | None:
 
 
 def _amendment_class(finding: StageBUnitFinding) -> AmendmentClass:
-    if finding.resolution is UnitResolution.AMBIGUOUS:
+    if finding.resolution in {
+        UnitResolution.AMBIGUOUS,
+        UnitResolution.NOT_ADDRESSED_BY_THIS_DISPOSITION,
+    }:
         return AmendmentClass.AMBIGUOUS
     if finding.resolution is not UnitResolution.FULLY_DISMISSED:
         return AmendmentClass.NOT_FULLY_DISMISSED
@@ -493,7 +508,10 @@ def _amendment_class(finding: StageBUnitFinding) -> AmendmentClass:
 
 
 def _label_confidence(finding: StageBUnitFinding) -> float:
-    if finding.resolution is UnitResolution.AMBIGUOUS:
+    if finding.resolution in {
+        UnitResolution.AMBIGUOUS,
+        UnitResolution.NOT_ADDRESSED_BY_THIS_DISPOSITION,
+    }:
         return min(finding.labeler_confidence, 0.5)
     return finding.labeler_confidence
 

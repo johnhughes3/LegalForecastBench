@@ -19,12 +19,14 @@ class ExclusionStage(StrEnum):
     MOTION_LINKAGE = "motion_linkage"
     ELIGIBILITY = "eligibility"
     UNITIZATION = "unitization"
+    LABELING = "labeling"
     CASE_MIX = "case_mix"
     LEAKAGE = "leakage"
 
 
 class ExclusionReason(StrEnum):
     AMBIGUOUS_MOTION_TO_ORDER_LINKAGE = "ambiguous_motion_to_order_linkage"
+    DECISION_BEFORE_RELEASE_ANCHOR = "decision_before_release_anchor"
     MISSING_CORE_FILING = "missing_core_filing"
     AMBIGUOUS_ORDER = "ambiguous_order"
     OUTCOME_LEAKAGE = "outcome_leakage"
@@ -32,6 +34,12 @@ class ExclusionReason(StrEnum):
     INSUFFICIENT_TEXT_QUALITY = "insufficient_text_quality"
     UNIT_MISSING_FROM_STAGE_A = "unit_missing_from_stage_a"
     UNCLEAN_LINKAGE = "unclean_linkage"
+    LABEL_DIFFICULTY = "label_difficulty"
+    PARSE_ERROR = "parse_error"
+    JUDGE_DISAGREEMENT = "judge_disagreement"
+    ADJUDICATION_PENDING = "adjudication_pending"
+    AMBIGUOUS = "ambiguous"
+    CONFLICT_OF_INTEREST = "conflict_of_interest"
 
 
 @dataclass(frozen=True, slots=True)

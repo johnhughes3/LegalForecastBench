@@ -37,6 +37,17 @@ class HarveyLabCliAdapterError(AdapterError):
     """Raised when the Harvey LAB CLI bridge cannot run safely."""
 
 
+def harvey_lab_manifest() -> AdapterManifest:
+    """Return the built-in Harvey LAB CLI adapter manifest."""
+
+    return AdapterManifest(
+        adapter_id=HARVEY_LAB_ADAPTER_ID,
+        display_name="Harvey LAB CLI Adapter",
+        adapter_version=HARVEY_LAB_ADAPTER_VERSION,
+        command=("harness.run",),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class HarveyLabCommandCapabilities:
     """Private probe record for a LAB CLI command."""
@@ -67,7 +78,7 @@ class HarveyLabCliAdapter:
 
     lab_command: tuple[str, ...]
     lab_root: Path | None = None
-    manifest: AdapterManifest = field(default_factory=lambda: harvey_lab_manifest())
+    manifest: AdapterManifest = field(default_factory=harvey_lab_manifest)
     timeout_seconds: float = 300
 
     def capabilities(self, workspace: Path) -> AdapterCapabilities:
@@ -248,17 +259,6 @@ class HarveyLabCliAdapter:
                 f"LAB command failed with exit code {completed.returncode}; "
                 "see private logs"
             )
-
-
-def harvey_lab_manifest() -> AdapterManifest:
-    """Return the built-in Harvey LAB CLI adapter manifest."""
-
-    return AdapterManifest(
-        adapter_id=HARVEY_LAB_ADAPTER_ID,
-        display_name="Harvey LAB CLI Adapter",
-        adapter_version=HARVEY_LAB_ADAPTER_VERSION,
-        command=("harness.run",),
-    )
 
 
 def normalize_lab_scores(

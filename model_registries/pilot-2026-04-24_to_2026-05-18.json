@@ -1,27 +1,5 @@
 [
   {
-    "context_limit": 1000000,
-    "display_name": "Gemini 3 Flash Preview",
-    "input_token_price": 0.5,
-    "known_cutoff_publicity_caveats": [
-      "Preview model; provider may change rate limits or availability before stable release."
-    ],
-    "max_output_tokens": 65536,
-    "model_id": "gemini-3-flash-preview",
-    "model_version_or_snapshot": "gemini-3-flash-preview",
-    "network_disabled": true,
-    "output_token_price": 3.0,
-    "pricing_source": "https://ai.google.dev/gemini-api/docs/pricing, Gemini 3 Flash Preview standard text pricing, checked 2026-05-18",
-    "provider": "google",
-    "provider_training_cutoff": null,
-    "provider_training_cutoff_status": "not_disclosed",
-    "release_timestamp": null,
-    "search_disabled": true,
-    "temperature": 0.0,
-    "tool_policy": "controlled_docket_tool_only",
-    "top_p": 1.0
-  },
-  {
     "context_limit": 400000,
     "display_name": "GPT-5.4 mini",
     "input_token_price": 0.75,
@@ -37,7 +15,8 @@
     "provider": "openai",
     "provider_training_cutoff": "2025-08-31",
     "provider_training_cutoff_status": "known",
-    "release_timestamp": "2026-04-24T00:00:00Z",
+    "release_timestamp": "2026-03-17T00:00:00Z",
+    "release_timestamp_source": "https://developers.openai.com/api/docs/changelog, Mar 17 2026 GPT-5.4 mini API release, checked 2026-07-03",
     "search_disabled": true,
     "temperature": 0.0,
     "tool_policy": "controlled_docket_tool_only",
@@ -60,6 +39,7 @@
     "provider_training_cutoff": null,
     "provider_training_cutoff_status": "not_disclosed",
     "release_timestamp": "2026-02-17T00:00:00Z",
+    "release_timestamp_source": "https://www.anthropic.com/news/claude-sonnet-4-6, Feb 17 2026 Claude Sonnet 4.6 launch, checked 2026-07-03",
     "search_disabled": true,
     "temperature": 0.0,
     "tool_policy": "controlled_docket_tool_only",

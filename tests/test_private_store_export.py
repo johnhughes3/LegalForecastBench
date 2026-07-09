@@ -16,6 +16,11 @@ from legalforecast.publication.private_store_export import (
 from legalforecast.publication.private_store_export import (
     main as private_store_export_main,
 )
+from legalforecast.publication.reconstruction import (
+    VerificationStatus,
+    load_reconstruction_plans,
+    verify_reconstructed_packet_renders,
+)
 
 
 def test_private_store_export_stages_objects_manifests_and_verification(
@@ -90,6 +95,7 @@ def test_private_store_export_stages_objects_manifests_and_verification(
     public_reconstruction = _read_json(result.public_reconstruction_manifest_path)
     candidates = cast(list[dict[str, object]], public_reconstruction["candidates"])
     documents = cast(list[dict[str, object]], candidates[0]["documents"])
+    packet_render = cast(dict[str, object], candidates[0]["packet_render"])
     assert documents[0] == {
         "document_role": "complaint",
         "is_mounted_for_model": True,
@@ -99,7 +105,34 @@ def test_private_store_export_stages_objects_manifests_and_verification(
         "source_provider": "case.dev",
         "source_url_or_reference": "case-dev:case-1:doc-1",
     }
+    assert packet_render["packet_sha256"] == _sha256_file(packet_path)
+    assert packet_render["packet_json_path"] == (
+        "model-packets/cycle_fixture/case-1/full_packet.json"
+    )
+    assert packet_render["rebuild_command"] == [
+        "uv",
+        "run",
+        "legalforecast",
+        "acquisition",
+        "build-packets",
+        "--input",
+        "packet-build-input.jsonl",
+        "--packets-output",
+        "packets.jsonl",
+        "--case-packets-output",
+        "case-packets.jsonl",
+        "--audit-output",
+        "packet-audit.jsonl",
+        "--ablation",
+        "full_packet",
+    ]
     assert "Complaint text visible to model" not in json.dumps(public_reconstruction)
+    plans = load_reconstruction_plans(result.public_reconstruction_manifest_path)
+    packet_verifications = verify_reconstructed_packet_renders(
+        plans,
+        output_dir / "objects/packet",
+    )
+    assert packet_verifications[0].status is VerificationStatus.VERIFIED
 
     verification = _read_json(result.verification_report_path)
     assert verification["object_count"] == len(result.objects)

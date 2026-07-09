@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from datetime import date
 from enum import StrEnum
 from typing import Any
 
@@ -116,6 +117,7 @@ class ModelPacket:
     documents: tuple[PacketDocument, ...]
     prediction_units: tuple[PredictionUnit, ...]
     excluded_document_ids: tuple[str, ...]
+    decision_date: str | None = None
     missing_optional_sections: tuple[str, ...] = ()
     related_family_id: str | None = None
     mdl_family_id: str | None = None
@@ -132,6 +134,9 @@ class ModelPacket:
         for key, value in self.metadata.items():
             _require_non_empty(key, "metadata key")
             _require_non_empty(value, f"metadata[{key}]")
+        if self.decision_date is not None:
+            _require_non_empty(self.decision_date, "decision_date")
+            date.fromisoformat(self.decision_date)
         if self.related_family_id is not None:
             _require_non_empty(self.related_family_id, "related_family_id")
         if self.mdl_family_id is not None:
@@ -152,6 +157,7 @@ class ModelPacket:
             "docket_number": self.docket_number,
             "ablation": self.ablation.value,
             "metadata": dict(self.metadata),
+            "decision_date": self.decision_date,
             "related_family_id": self.related_family_id,
             "mdl_family_id": self.mdl_family_id,
             "documents": [document.to_record() for document in self.documents],
@@ -172,6 +178,7 @@ def build_model_packet(
     metadata: Mapping[str, str] | None = None,
     ablation: PacketAblation = PacketAblation.FULL_PACKET,
     target_docket_entry_numbers: Iterable[int] | None = None,
+    decision_date: str | None = None,
     related_family_id: str | None = None,
     mdl_family_id: str | None = None,
 ) -> ModelPacket:
@@ -214,6 +221,7 @@ def build_model_packet(
         documents=tuple(documents),
         prediction_units=units,
         excluded_document_ids=tuple(excluded_document_ids),
+        decision_date=decision_date,
         missing_optional_sections=_missing_optional_sections(case_packet),
         related_family_id=related_family_id,
         mdl_family_id=mdl_family_id,
@@ -375,8 +383,6 @@ def _model_visible_unit_record(unit: PredictionUnit) -> dict[str, Any]:
         "count": unit.count,
         "claim_name": unit.claim_name,
         "defendant_group": unit.defendant_group,
-        "challenged_by_motion": unit.challenged_by_motion,
-        "challenge_scope": unit.challenge_scope.value,
         "should_score": unit.should_score,
     }
 

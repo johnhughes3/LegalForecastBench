@@ -9,8 +9,8 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
-from datetime import UTC, datetime
+from dataclasses import dataclass, replace
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
@@ -34,7 +34,9 @@ from legalforecast.evals.inspect_task import (
 from legalforecast.evals.model_registry import (
     ModelRegistry,
     ModelRegistryEntry,
+    earliest_buffered_decision_date,
     load_model_registry,
+    require_official_registry_entries,
 )
 from legalforecast.evals.packet_builder import (
     ModelPacket,
@@ -102,6 +104,7 @@ class PerCaseRunnerConfig:
     mock_output: str | None = None
     packet_store_root: str | None = None
     results_store_root: str | None = None
+    repeat_count: int = 1
     solver_id: str = "offline:fixture"
     backend: PerCaseExecutionBackend = PerCaseExecutionBackend.FIXTURE
     model_registry_uri: str | None = None
@@ -137,6 +140,8 @@ class PerCaseRunnerConfig:
                 raise ValueError(f"{field_name} must not be blank")
         if self.max_tool_calls <= 0:
             raise ValueError("max_tool_calls must be positive")
+        if self.repeat_count <= 0:
+            raise ValueError("repeat_count must be positive")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
         if self.evaluation_timestamp is not None:
@@ -155,6 +160,7 @@ class ModelPacketObject:
     object_key: str
     sha256: str
     size_bytes: int | None = None
+    decision_date: date | None = None
     uri: str | None = None
     bucket: str | None = None
     cycle_id: str | None = None
@@ -267,6 +273,11 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             _reject_restricted_packet_references(packet_record)
             packet = _model_packet_from_record(packet_record)
             _validate_model_packet(packet, config=config)
+            _validate_packet_release_anchor(
+                packet,
+                packet_object=packet_object,
+                config=config,
+            )
 
             samples = build_inspect_samples(
                 (packet,),
@@ -274,6 +285,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 run_label=config.ablation,
                 use_docket_tool=config.use_docket_tool,
             )
+            samples = _repeat_samples(samples, repeat_count=config.repeat_count)
             solver = _solver_for_config(
                 config,
                 registry_entry=registry_entry,
@@ -283,10 +295,19 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 samples,
                 (solver,),
             )
-            run_records = run.to_records()
-            accounting_records = accounting_records_from_inspect_run(
-                run,
-                evaluation_timestamp=evaluation_timestamp,
+            run_records = _annotate_repeat_records(
+                run.to_records(),
+                repeat_count=config.repeat_count,
+            )
+            accounting_records = _annotate_repeat_records(
+                [
+                    record.to_record()
+                    for record in accounting_records_from_inspect_run(
+                        run,
+                        evaluation_timestamp=evaluation_timestamp,
+                    )
+                ],
+                repeat_count=config.repeat_count,
             )
 
         runs_path = config.output_dir / "runs.jsonl"
@@ -294,10 +315,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
         metrics_path = config.output_dir / "metrics.json"
 
         _write_jsonl(runs_path, run_records)
-        _write_jsonl(
-            accounting_path,
-            [record.to_record() for record in accounting_records],
-        )
+        _write_jsonl(accounting_path, accounting_records)
         metrics = _metrics_record(
             config=config,
             packet_object=packet_object,
@@ -417,6 +435,7 @@ def _packet_object_from_record(
         object_key=object_key,
         sha256=_normalize_sha256(_packet_sha256(record)),
         size_bytes=size_bytes,
+        decision_date=_optional_date(record, "decision_date"),
         uri=optional_str(record, "uri") or optional_str(record, "s3_uri"),
         bucket=optional_str(record, "bucket")
         or optional_str(manifest, "packet_bucket"),
@@ -434,6 +453,10 @@ def _packet_sha256(record: Mapping[str, Any]) -> str:
         },
         "sha256",
     )
+
+
+def _optional_date(record: Mapping[str, Any], field_name: str) -> date | None:
+    return _optional_iso_date(optional_str(record, field_name), field_name)
 
 
 def _object_key(record: Mapping[str, Any]) -> str:
@@ -525,10 +548,66 @@ def _metrics_record(
         "evaluation_timestamp": _iso_datetime(evaluation_timestamp),
         "packet_object_key": packet_object.object_key,
         "packet_sha256": packet_sha256,
+        "repeat_count": config.repeat_count,
+        "primary_run_record_count": sum(
+            1 for record in run_records if _repeat_index(record) == 1
+        ),
         "run_record_count": len(run_records),
         "raw_output_sha256": raw_output_hashes,
         "tool_call_count": tool_call_count,
     }
+
+
+def _repeat_samples(
+    samples: Sequence[Any],
+    *,
+    repeat_count: int,
+) -> tuple[Any, ...]:
+    if repeat_count == 1:
+        return tuple(samples)
+    repeated: list[Any] = []
+    for sample in samples:
+        for index in range(1, repeat_count + 1):
+            repeated.append(
+                replace(
+                    sample,
+                    sample_id=f"{sample.sample_id}__repeat_{index:02d}",
+                )
+            )
+    return tuple(repeated)
+
+
+def _annotate_repeat_records(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    repeat_count: int,
+) -> list[JsonRecord]:
+    annotated: list[JsonRecord] = []
+    for record in records:
+        copy = dict(record)
+        repeat_index = _repeat_index(copy)
+        if repeat_count > 1:
+            sample_id = required_str(copy, "sample_id")
+            repeat_group_id = sample_id.rsplit("__repeat_", 1)[0]
+            copy["repeat_group_id"] = repeat_group_id
+            copy["repeat_index"] = repeat_index
+            copy["repeat_count"] = repeat_count
+            copy["repeat_sampling_role"] = "primary" if repeat_index == 1 else "repeat"
+        annotated.append(copy)
+    return annotated
+
+
+def _repeat_index(record: Mapping[str, Any]) -> int:
+    existing = record.get("repeat_index")
+    if isinstance(existing, int) and not isinstance(existing, bool) and existing > 0:
+        return existing
+    sample_id = required_str(record, "sample_id")
+    if "__repeat_" not in sample_id:
+        return 1
+    suffix = sample_id.rsplit("__repeat_", 1)[1]
+    if suffix.isdigit() and int(suffix) > 0:
+        return int(suffix)
+    raise PerCaseRunnerError(f"invalid repeat sample_id suffix: {sample_id}")
 
 
 def _model_packet_from_record(record: Mapping[str, Any]) -> ModelPacket:
@@ -548,6 +627,7 @@ def _model_packet_from_record(record: Mapping[str, Any]) -> ModelPacket:
             for unit in _record_sequence(record, "prediction_units")
         ),
         excluded_document_ids=_str_tuple(record.get("excluded_document_ids", ())),
+        decision_date=optional_str(record, "decision_date"),
         missing_optional_sections=_str_tuple(
             record.get("missing_optional_sections", ())
         ),
@@ -588,8 +668,12 @@ def _prediction_unit(record: Mapping[str, Any]) -> PredictionUnit:
         count=required_str(record, "count"),
         claim_name=required_str(record, "claim_name"),
         defendant_group=required_str(record, "defendant_group"),
-        challenged_by_motion=required_bool(record, "challenged_by_motion"),
-        challenge_scope=ChallengeScope(required_str(record, "challenge_scope")),
+        challenged_by_motion=_optional_public_packet_bool(
+            record,
+            "challenged_by_motion",
+            default=True,
+        ),
+        challenge_scope=_optional_public_packet_challenge_scope(record),
         unit_confidence=_optional_float(record, "unit_confidence", default=1.0),
         source_citations=source_citations,
         grouping=DefendantGrouping(
@@ -599,6 +683,25 @@ def _prediction_unit(record: Mapping[str, Any]) -> PredictionUnit:
         separable_subclaim=optional_str(record, "separable_subclaim"),
         uncertainty_notes=optional_str(record, "uncertainty_notes"),
     )
+
+
+def _optional_public_packet_bool(
+    record: Mapping[str, Any],
+    field_name: str,
+    *,
+    default: bool,
+) -> bool:
+    if field_name not in record:
+        return default
+    return required_bool(record, field_name)
+
+
+def _optional_public_packet_challenge_scope(
+    record: Mapping[str, Any],
+) -> ChallengeScope:
+    if "challenge_scope" not in record:
+        return ChallengeScope.ENTIRE_CLAIM
+    return ChallengeScope(required_str(record, "challenge_scope"))
 
 
 def _source_citation(record: Mapping[str, Any]) -> SourceCitation:
@@ -641,12 +744,73 @@ def _validate_model_packet(
             )
 
 
+def _validate_packet_release_anchor(
+    packet: ModelPacket,
+    *,
+    packet_object: ModelPacketObject,
+    config: PerCaseRunnerConfig,
+) -> None:
+    """Re-verify packet decision-date eligibility against the frozen registry."""
+
+    if config.model_registry_uri is None:
+        return
+    registry, _digest = _load_model_registry_uri(config.model_registry_uri)
+    official_entries = require_official_registry_entries(registry.entries)
+    release_anchor_date = earliest_buffered_decision_date(official_entries)
+    packet_decision_date = _packet_decision_date(packet, packet_object=packet_object)
+    if packet_decision_date is None:
+        raise PerCaseRunnerError(
+            "model packet decision_date is required when model_registry_uri is set"
+        )
+    if packet_decision_date < release_anchor_date:
+        raise PerCaseRunnerError(
+            "model packet decision_date precedes release anchor: "
+            f"decision_date={packet_decision_date.isoformat()}, "
+            f"release_anchor={release_anchor_date.isoformat()}"
+        )
+
+
+def _packet_decision_date(
+    packet: ModelPacket,
+    *,
+    packet_object: ModelPacketObject,
+) -> date | None:
+    packet_date = _optional_iso_date(
+        packet.decision_date
+        or packet.metadata.get("decision_date")
+        or packet.metadata.get("decision_entered_date"),
+        "model packet decision_date",
+    )
+    manifest_date = packet_object.decision_date
+    if (
+        packet_date is not None
+        and manifest_date is not None
+        and packet_date != manifest_date
+    ):
+        raise PerCaseRunnerError(
+            "model packet decision_date mismatch between manifest and packet: "
+            f"manifest={manifest_date.isoformat()}, packet={packet_date.isoformat()}"
+        )
+    return manifest_date or packet_date
+
+
+def _optional_iso_date(value: str | None, field_name: str) -> date | None:
+    if value is None:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise PerCaseRunnerError(f"{field_name} must be ISO date: {value}") from exc
+
+
 def _optional_registry_entry(
     config: PerCaseRunnerConfig,
 ) -> tuple[ModelRegistryEntry | None, str | None]:
     if config.model_registry_uri is None:
         return None, None
     registry, digest = _load_model_registry_uri(config.model_registry_uri)
+    if config.backend is PerCaseExecutionBackend.LIVE:
+        require_official_registry_entries(registry.entries)
     if config.model_key is None:
         raise PerCaseRunnerError("model_key is required with model_registry_uri")
     provider, separator, model_id = config.model_key.partition(":")

@@ -221,6 +221,43 @@ def test_eval_run_case_cli_writes_artifact_summary(
     assert metrics["evaluation_timestamp"] == "2026-05-17T12:00:00Z"
 
 
+def test_per_case_runner_repeats_prebudgeted_subset_rows(tmp_path: Path) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    output_dir = tmp_path / "runner-output"
+
+    run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=output_dir,
+            mock_output=_mock_output(),
+            repeat_count=3,
+        )
+    )
+
+    runs = _read_jsonl(output_dir / "runs.jsonl")
+    accounting = _read_jsonl(output_dir / "accounting.jsonl")
+    metrics = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
+
+    assert [record["repeat_index"] for record in runs] == [1, 2, 3]
+    assert [record["repeat_sampling_role"] for record in runs] == [
+        "primary",
+        "repeat",
+        "repeat",
+    ]
+    assert {record["repeat_group_id"] for record in runs} == {"cand-1"}
+    assert len(accounting) == 3
+    assert all(record["repeat_count"] == 3 for record in accounting)
+    assert metrics["repeat_count"] == 3
+    assert metrics["primary_run_record_count"] == 1
+    assert metrics["run_record_count"] == 3
+
+
 def test_per_case_runner_rejects_nonpositive_timeout(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="timeout_seconds must be positive"):
         PerCaseRunnerConfig(
@@ -230,6 +267,18 @@ def test_per_case_runner_rejects_nonpositive_timeout(tmp_path: Path) -> None:
             output_dir=tmp_path / "runner-output",
             mock_output=_mock_output(),
             timeout_seconds=0,
+        )
+
+
+def test_per_case_runner_rejects_nonpositive_repeat_count(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="repeat_count must be positive"):
+        PerCaseRunnerConfig(
+            manifest_uri=str(tmp_path / "manifest.json"),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "runner-output",
+            mock_output=_mock_output(),
+            repeat_count=0,
         )
 
 
@@ -248,6 +297,7 @@ def test_per_case_runner_resolves_model_registry_entry(tmp_path: Path) -> None:
                 "display_name": "Example Model",
                 "model_version_or_snapshot": "example-model",
                 "release_timestamp": "2026-05-14T09:00:00Z",
+                "release_timestamp_source": "fixture release note",
                 "provider_training_cutoff_status": "not_disclosed",
                 "provider_training_cutoff": None,
                 "temperature": 0,
@@ -304,6 +354,7 @@ def test_per_case_runner_rejects_unknown_model_key(tmp_path: Path) -> None:
                 "display_name": "Example Model",
                 "model_version_or_snapshot": "example-model",
                 "release_timestamp": "2026-05-14T09:00:00Z",
+                "release_timestamp_source": "fixture release note",
                 "provider_training_cutoff_status": "not_disclosed",
                 "provider_training_cutoff": None,
                 "temperature": 0,
@@ -336,6 +387,54 @@ def test_per_case_runner_rejects_unknown_model_key(tmp_path: Path) -> None:
         )
 
 
+def test_per_case_runner_rejects_packet_before_release_anchor(tmp_path: Path) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(decision_date="2026-05-15"),
+    )
+    registry_path = tmp_path / "model-registry.json"
+    _write_json(
+        registry_path,
+        [
+            {
+                "provider": "example-provider",
+                "model_id": "example-model",
+                "display_name": "Example Model",
+                "model_version_or_snapshot": "example-model",
+                "release_timestamp": "2026-05-14T09:00:00Z",
+                "release_timestamp_source": "fixture release note",
+                "provider_training_cutoff_status": "not_disclosed",
+                "provider_training_cutoff": None,
+                "temperature": 0,
+                "top_p": 1,
+                "max_output_tokens": 4096,
+                "network_disabled": True,
+                "search_disabled": True,
+                "tool_policy": "controlled_docket_tool_only",
+                "context_limit": 200000,
+                "pricing_source": "fixture",
+                "input_token_price": 0.25,
+                "output_token_price": 1.0,
+                "known_cutoff_publicity_caveats": (),
+            }
+        ],
+    )
+
+    with pytest.raises(PerCaseRunnerError, match="precedes release anchor"):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(store_root),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=tmp_path / "runner-output",
+                mock_output=_mock_output(),
+                model_registry_uri=str(registry_path),
+                model_key="example-provider:example-model",
+            )
+        )
+
+
 def _write_store_fixture(
     tmp_path: Path,
     *,
@@ -361,6 +460,7 @@ def _write_store_fixture(
                     hash_field: manifest_sha256 or packet_sha256,
                     "size_bytes": packet_path.stat().st_size,
                     "content_type": "application/json",
+                    "decision_date": packet_record.get("decision_date"),
                 }
             ],
         },
@@ -370,6 +470,7 @@ def _write_store_fixture(
 
 def _packet_record(
     *,
+    decision_date: str = "2026-05-17",
     packet_text: str = "Fixture complaint text.",
 ) -> dict[str, object]:
     document = PacketDocument(
@@ -405,10 +506,11 @@ def _packet_record(
         court="D. Example",
         docket_number="1:26-cv-00001",
         ablation=PacketAblation.FULL_PACKET,
-        metadata={"fixture": "true"},
+        metadata={"decision_date": decision_date, "fixture": "true"},
         documents=(document,),
         prediction_units=(unit,),
         excluded_document_ids=(),
+        decision_date=decision_date,
     )
     return packet.to_record()
 

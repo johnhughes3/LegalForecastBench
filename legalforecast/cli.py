@@ -32,7 +32,9 @@ from legalforecast.evals.inspect_task import (
 )
 from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
+    earliest_buffered_decision_date,
     load_model_registry,
+    require_official_registry_entries,
 )
 from legalforecast.evals.output_parser import (
     ParserIssueCode,
@@ -141,7 +143,10 @@ from legalforecast.labeling.label_outcomes import (
     label_stage_b_outcomes,
 )
 from legalforecast.labeling.llm_pipeline import (
+    DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
     LlmConsensusPolicy,
+    apply_adjudicated_reviews,
+    lawyer_review_queue_records,
     llm_label_cases,
     llm_unitize_cases,
 )
@@ -491,6 +496,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use registry-backed LLM judges to create Stage B labels.",
     )
     _add_acquisition_llm_label_arguments(acquisition_llm_label)
+    acquisition_apply_lawyer_review = acquisition_subparsers.add_parser(
+        "apply-lawyer-review",
+        help="Apply checked-in lawyer adjudications to pending Stage B labels.",
+    )
+    _add_acquisition_apply_lawyer_review_arguments(acquisition_apply_lawyer_review)
     acquisition_packet_inputs = acquisition_subparsers.add_parser(
         "plan-packet-inputs",
         help="Plan packet-build and private-store inputs from acquisition manifests.",
@@ -561,6 +571,16 @@ def _add_eval_run_case_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--results-store-root",
         help="Optional local root, file:// root, or s3:// root for safe outputs.",
+    )
+    parser.add_argument(
+        "--repeat-count",
+        type=int,
+        default=1,
+        help=(
+            "Number of independent provider calls to run for this case/model row. "
+            "Use values greater than 1 only for a pre-budgeted repeat-sampling "
+            "subset."
+        ),
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--solver-id", default="offline:fixture")
@@ -956,6 +976,11 @@ def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> Non
         help="Output JSONL with LLM label judge audit/accounting rows.",
     )
     parser.add_argument(
+        "--lawyer-review-queue-output",
+        type=Path,
+        help="Output JSONL with units pending lawyer adjudication.",
+    )
+    parser.add_argument(
         "--consensus-policy",
         choices=[policy.value for policy in LlmConsensusPolicy],
         default=LlmConsensusPolicy.UNANIMOUS.value,
@@ -982,6 +1007,63 @@ def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> Non
         help="Per-provider-request timeout for each registry-backed LLM judge call.",
     )
     parser.set_defaults(handler=_cmd_acquisition_llm_label)
+
+
+def _add_acquisition_apply_lawyer_review_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--labels",
+        type=Path,
+        required=True,
+        help="Existing labels.jsonl containing auto-accepted labels.",
+    )
+    parser.add_argument(
+        "--adjudications",
+        type=Path,
+        required=True,
+        help="Checked-in lawyer adjudication JSONL.",
+    )
+    parser.add_argument(
+        "--decision-texts",
+        type=Path,
+        required=True,
+        help=(
+            "JSONL of first-written-disposition decision texts (one record per "
+            "document_id, with document_id/entered_date/text). Adjudicated "
+            "citation excerpts are validated verbatim against these."
+        ),
+    )
+    parser.add_argument(
+        "--llm-label-audit",
+        type=Path,
+        required=True,
+        help="Audit JSONL emitted by acquisition llm-label.",
+    )
+    parser.add_argument(
+        "--labels-output",
+        type=Path,
+        help="Output JSONL with auto labels plus adjudicated labels.",
+    )
+    parser.add_argument(
+        "--audit-output",
+        type=Path,
+        help="Output JSONL with lawyer-review resume audit rows.",
+    )
+    parser.add_argument(
+        "--audit-sample-size",
+        type=int,
+        default=DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
+        help="Deterministic unanimous-label audit sample size to enforce.",
+    )
+    parser.add_argument(
+        "--human-blind-disagreement-rate",
+        type=float,
+        default=0.0,
+        help="Human-human blind disagreement rate ceiling for label-audit acceptance.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_apply_lawyer_review)
 
 
 def _add_acquisition_plan_packet_inputs_arguments(
@@ -1013,6 +1095,15 @@ def _add_acquisition_plan_packet_inputs_arguments(
         help=(
             "JSONL with candidate_id and locked prediction_units; placeholder "
             "units are not appropriate for real pilots."
+        ),
+    )
+    parser.add_argument(
+        "--model-registry",
+        type=Path,
+        required=True,
+        help=(
+            "Frozen model registry; plan-packet-inputs uses it to enforce the "
+            "buffered post-release decision window for official runs."
         ),
     )
     parser.add_argument(
@@ -1050,6 +1141,11 @@ def _add_acquisition_plan_packet_inputs_arguments(
         "--extracted-texts-output",
         type=Path,
         help="Output extracted_texts.jsonl for private-store export.",
+    )
+    parser.add_argument(
+        "--exclusion-ledger-output",
+        type=Path,
+        help="Output exclusion-ledger.jsonl for packet-time leakage/date gates.",
     )
     parser.add_argument(
         "--generated-at",
@@ -1393,6 +1489,11 @@ def _cmd_packet_build(args: argparse.Namespace) -> int:
             target_docket_entry_numbers=_optional_int_tuple(
                 record.get("target_docket_entry_numbers")
             ),
+            decision_date=_optional_str(record, "decision_date")
+            or _optional_str(
+                _optional_record(record.get("metadata"), "metadata"),
+                "decision_date",
+            ),
             related_family_id=_optional_str(record, "related_family_id"),
             mdl_family_id=_optional_str(record, "mdl_family_id"),
         )
@@ -1490,6 +1591,7 @@ def _cmd_eval_run_case(args: argparse.Namespace) -> int:
             mock_output=mock_output,
             packet_store_root=cast(str | None, args.packet_store_root),
             results_store_root=cast(str | None, args.results_store_root),
+            repeat_count=cast(int, args.repeat_count),
             solver_id=cast(str, args.solver_id),
             backend=backend,
             model_registry_uri=cast(str | None, args.model_registry),
@@ -2463,6 +2565,11 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         "audit_output",
         output_root / "llm-label-audit.jsonl",
     )
+    lawyer_review_queue_path = _acquisition_path(
+        args,
+        "lawyer_review_queue_output",
+        output_root / "lawyer-review-queue.jsonl",
+    )
     selection_records = _read_records(selection_path)
     model_keys = tuple(cast(list[str], args.model_key))
     dry_run = _acquisition_dry_run(args)
@@ -2479,6 +2586,7 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
                 }
             ],
         )
+        _write_jsonl(lawyer_review_queue_path, [])
     else:
         registry_entries, registry_sha256 = _registry_entries_for_keys(
             model_registry_path,
@@ -2498,6 +2606,10 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         )
         _write_jsonl(labels_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
+        _write_jsonl(
+            lawyer_review_queue_path,
+            lawyer_review_queue_records(result.audit_records),
+        )
     _write_acquisition_completion(
         args,
         stage="llm-label",
@@ -2507,8 +2619,74 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             prediction_units_path,
             model_registry_path,
         ),
-        output_paths=(labels_path, audit_path),
+        output_paths=(labels_path, audit_path, lawyer_review_queue_path),
         record_count=len(selection_records),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+    )
+    return 0
+
+
+def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    labels_path = cast(Path, args.labels)
+    adjudications_path = cast(Path, args.adjudications)
+    decision_texts_path = cast(Path, args.decision_texts)
+    llm_label_audit_path = cast(Path, args.llm_label_audit)
+    labels_output_path = _acquisition_path(
+        args,
+        "labels_output",
+        output_root / "labels-adjudicated.jsonl",
+    )
+    audit_path = _acquisition_path(
+        args,
+        "audit_output",
+        output_root / "lawyer-review-resume-audit.jsonl",
+    )
+    dry_run = _acquisition_dry_run(args)
+    if dry_run:
+        _write_jsonl(
+            labels_output_path,
+            [
+                {
+                    "stage": "apply-lawyer-review",
+                    "dry_run": True,
+                    "labels": str(labels_path),
+                    "adjudications": str(adjudications_path),
+                    "llm_label_audit": str(llm_label_audit_path),
+                }
+            ],
+        )
+        _write_jsonl(audit_path, [])
+    else:
+        llm_label_audit_records = _read_records(llm_label_audit_path)
+        if not llm_label_audit_records:
+            raise CommandError("llm-label audit must include at least one record")
+        result = apply_adjudicated_reviews(
+            label_records=_read_records(labels_path),
+            adjudication_records=_read_records(adjudications_path),
+            decision_texts=_load_decision_texts(decision_texts_path),
+            label_audit_records=llm_label_audit_records,
+            audit_sample_size=cast(int, args.audit_sample_size),
+            human_blind_disagreement_rate=cast(
+                float,
+                args.human_blind_disagreement_rate,
+            ),
+        )
+        _write_jsonl(labels_output_path, result.records)
+        _write_jsonl(audit_path, result.audit_records)
+    _write_acquisition_completion(
+        args,
+        stage="apply-lawyer-review",
+        input_paths=(
+            labels_path,
+            adjudications_path,
+            decision_texts_path,
+            llm_label_audit_path,
+        ),
+        output_paths=(labels_output_path, audit_path),
+        record_count=len(_read_records(adjudications_path)) if not dry_run else 0,
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
@@ -2547,6 +2725,11 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         "extracted_texts_output",
         output_root / "extracted_texts.jsonl",
     )
+    exclusion_ledger_path = _acquisition_path(
+        args,
+        "exclusion_ledger_output",
+        output_root / "exclusion-ledger.jsonl",
+    )
     records = _read_records(selection_path)
     dry_run = _acquisition_dry_run(args)
     if dry_run:
@@ -2566,6 +2749,10 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             if cast(str | None, args.generated_at)
             else datetime.now(UTC)
         )
+        model_registry_path = cast(Path, args.model_registry)
+        registry = load_model_registry(model_registry_path)
+        official_entries = require_official_registry_entries(registry.entries)
+        decision_filed_on_or_after = earliest_buffered_decision_date(official_entries)
         plan = plan_packet_build_inputs(
             selection_records=records,
             download_records=_read_records(download_manifest_path),
@@ -2578,11 +2765,13 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             generated_at=generated_at,
             search_query=cast(str, args.search_query),
             search_window=cast(str, args.search_window),
+            decision_filed_on_or_after=decision_filed_on_or_after,
         )
         _write_jsonl(packet_build_input_path, plan.packet_build_records)
         _write_jsonl(document_manifest_path, plan.document_manifest_records)
         _write_jsonl(candidate_manifest_path, plan.candidate_manifest_records)
         _write_jsonl(extracted_texts_path, plan.extracted_text_records)
+        _write_jsonl(exclusion_ledger_path, plan.exclusion_ledger_records)
     _write_acquisition_completion(
         args,
         stage="plan-packet-inputs",
@@ -2598,6 +2787,7 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             document_manifest_path,
             candidate_manifest_path,
             extracted_texts_path,
+            exclusion_ledger_path,
         ),
         record_count=len(records),
         dry_run=dry_run,
@@ -3140,6 +3330,12 @@ def _model_packet_assembly(
     *,
     ablation: PacketAblation,
 ) -> ModelPacketAssembly:
+    exclusion_entries = _optional_record_sequence(record, "exclusion_ledger_entries")
+    if exclusion_entries:
+        raise CommandError(
+            "packet-build input contains exclusion-ledger entries; excluded "
+            "candidates must not be assembled into model-visible packets"
+        )
     parsed_documents = tuple(
         _parsed_markdown_document(item)
         for item in _optional_record_sequence(record, "parsed_documents")
@@ -3181,6 +3377,11 @@ def _model_packet_assembly(
         ablation=ablation,
         target_docket_entry_numbers=_optional_int_tuple(
             record.get("target_docket_entry_numbers")
+        ),
+        decision_date=_optional_str(record, "decision_date")
+        or _optional_str(
+            _optional_record(record.get("metadata"), "metadata"),
+            "decision_date",
         ),
         related_family_id=_optional_str(record, "related_family_id"),
         mdl_family_id=_optional_str(record, "mdl_family_id"),
@@ -3784,6 +3985,7 @@ def _fixture_model_registry_records() -> list[JsonRecord]:
             "display_name": display_name,
             "model_version_or_snapshot": "2026-05-14-fixture",
             "release_timestamp": "2026-05-14T09:00:00Z",
+            "release_timestamp_source": "fixture release note",
             "provider_training_cutoff_status": TrainingCutoffStatus.UNKNOWN.value,
             "provider_training_cutoff": None,
             "temperature": 0,
@@ -4234,6 +4436,18 @@ def _stage_b_input(record: Mapping[str, Any]) -> StageBLabelingInput:
     )
 
 
+def _load_decision_texts(path: Path) -> dict[str, StageBDecisionText]:
+    decision_texts: dict[str, StageBDecisionText] = {}
+    for record in _read_records(path):
+        decision_text = _stage_b_decision(record)
+        if decision_text.document_id in decision_texts:
+            raise CommandError(
+                f"duplicate decision text for document_id {decision_text.document_id!r}"
+            )
+        decision_texts[decision_text.document_id] = decision_text
+    return decision_texts
+
+
 def _stage_b_decision(record: Mapping[str, Any]) -> StageBDecisionText:
     return StageBDecisionText(
         document_id=_required_str(record, "document_id"),
@@ -4391,6 +4605,7 @@ def _model_packet(record: Mapping[str, Any]) -> ModelPacket:
         excluded_document_ids=_required_str_tuple(record, "excluded_document_ids")
         if "excluded_document_ids" in record
         else (),
+        decision_date=_optional_str(record, "decision_date"),
         missing_optional_sections=_required_str_tuple(
             record,
             "missing_optional_sections",
@@ -4418,8 +4633,15 @@ def _model_packet_prediction_unit(record: Mapping[str, Any]) -> PredictionUnit:
         count=_required_str(record, "count"),
         claim_name=_required_str(record, "claim_name"),
         defendant_group=_required_str(record, "defendant_group"),
-        challenged_by_motion=_required_bool(record, "challenged_by_motion"),
-        challenge_scope=ChallengeScope(_required_str(record, "challenge_scope")),
+        challenged_by_motion=_optional_bool(
+            record,
+            "challenged_by_motion",
+            default=True,
+        ),
+        challenge_scope=ChallengeScope(
+            _optional_str(record, "challenge_scope")
+            or ChallengeScope.ENTIRE_CLAIM.value
+        ),
         unit_confidence=_optional_float(record, "unit_confidence", default=1.0),
         source_citations=source_citations,
         grouping=DefendantGrouping(
@@ -4773,6 +4995,12 @@ def _mapping(value: object, field_name: str) -> JsonRecord:
     if not isinstance(value, Mapping):
         raise ValueError(f"{field_name} must be an object")
     return dict(cast(Mapping[str, Any], value))
+
+
+def _optional_record(value: object, field_name: str) -> JsonRecord:
+    if value is None:
+        return {}
+    return _mapping(value, field_name)
 
 
 def _required_record(record: Mapping[str, Any], field_name: str) -> JsonRecord:

@@ -188,6 +188,17 @@ def validate_run_card_record(record: Mapping[str, Any]) -> RunCardValidationResu
         _required_str(model, "display_name", issues, prefix="model")
         _required_str(model, "model_version_or_snapshot", issues, prefix="model")
         _optional_iso_datetime(model, "release_timestamp", issues, prefix="model")
+        release_timestamp_source = _optional_str(model, "release_timestamp_source")
+        if (
+            model.get("release_timestamp") is not None
+            and release_timestamp_source is None
+        ):
+            issues.append(
+                RunCardValidationIssue(
+                    path="model.release_timestamp_source",
+                    message="is required when model.release_timestamp is present",
+                )
+            )
         cutoff_status = _required_str(
             model,
             "provider_training_cutoff_status",
@@ -294,6 +305,7 @@ def _model_record(entry: ModelRegistryEntry) -> dict[str, Any]:
             if entry.release_timestamp is not None
             else None
         ),
+        "release_timestamp_source": entry.release_timestamp_source,
         "provider_training_cutoff_status": (
             entry.provider_training_cutoff_status.value
         ),

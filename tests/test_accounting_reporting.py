@@ -45,6 +45,7 @@ def test_accounting_records_emit_complete_operational_fields() -> None:
     assert record["provider"] == "example-provider"
     assert record["model_id"] == "example-model"
     assert record["model_version_or_snapshot"] == "2026-05-14"
+    assert record["served_model_version"] == "example-model-2026-05-14"
     assert record["evaluation_timestamp"] == "2026-05-14T18:30:00Z"
     assert record["prompt_tokens"] == 1_000
     assert record["completion_tokens"] == 200
@@ -297,6 +298,7 @@ def _harness_record(
             "provider": "example-provider",
             "model_id": "example-model",
             "model_version_or_snapshot": "2026-05-14",
+            "served_model_version": "example-model-2026-05-14",
         },
     }
 
@@ -321,6 +323,7 @@ def _accounting_record(
         provider="example-provider",
         model_id="example-model",
         model_version_or_snapshot="2026-05-14",
+        served_model_version=None,
         evaluation_timestamp=EVALUATION_TIMESTAMP,
         raw_output_sha256=f"sha256:{case_id.replace('-', '')}",
         prediction_unit_count=prediction_unit_count,

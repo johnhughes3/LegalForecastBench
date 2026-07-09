@@ -33,16 +33,18 @@ class HarnessAdapter(Protocol):
     @property
     def manifest(self) -> AdapterManifest:
         """Public adapter manifest."""
-        ...
+        raise NotImplementedError("adapter manifest is provided by implementations")
 
     def capabilities(self, workspace: Path) -> AdapterCapabilities:
         """Return adapter capabilities, writing private artifacts under workspace."""
-        ...
+        raise NotImplementedError(
+            "adapter capabilities are provided by implementations"
+        )
 
     def prepare(self, request: RunRequest, workspace: Path) -> AdapterPreparation:
         """Validate and prepare a request before execution."""
-        ...
+        raise NotImplementedError("adapter preparation is provided by implementations")
 
     def run(self, request: RunRequest, workspace: Path) -> RunResult:
         """Run one request and return a validated canonical result."""
-        ...
+        raise NotImplementedError("adapter execution is provided by implementations")

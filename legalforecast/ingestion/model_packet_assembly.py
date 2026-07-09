@@ -186,6 +186,7 @@ def assemble_model_packet(
     metadata: Mapping[str, str] | None = None,
     ablation: PacketAblation = PacketAblation.FULL_PACKET,
     target_docket_entry_numbers: Iterable[int] | None = None,
+    decision_date: str | None = None,
     related_family_id: str | None = None,
     mdl_family_id: str | None = None,
 ) -> ModelPacketAssembly:
@@ -257,6 +258,7 @@ def assemble_model_packet(
             metadata=metadata,
             ablation=ablation,
             target_docket_entry_numbers=target_entries,
+            decision_date=decision_date,
             related_family_id=related_family_id,
             mdl_family_id=mdl_family_id,
         )

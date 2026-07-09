@@ -210,6 +210,8 @@ def build_private_store_export(
         config,
         generated_at=generated_at,
         candidate_records=candidate_records,
+        packet_records=packet_records,
+        packet_objects=packet_objects,
     )
     public_reconstruction_path, public_reconstruction_record = _write_json_object(
         config,
@@ -636,24 +638,26 @@ def _run_input_manifest(
         raise PrivateStoreExportError("packet record/object count mismatch")
     for packet, packet_object in zip(packet_records, packet_objects, strict=True):
         source_document_ids = _packet_source_document_ids(packet)
-        packet_inputs.append(
-            {
-                "case_id": _required_str(packet.get("case_id")),
-                "candidate_id": _required_str(packet.get("candidate_id")),
-                "ablation": _optional_str(packet.get("ablation")) or "default",
-                "packet_object_key": packet_object.key,
-                "packet_sha256": packet_object.sha256,
-                "packet_size_bytes": packet_object.size_bytes,
-                "source_document_ids": source_document_ids,
-                "source_hashes": {
-                    source_document_id: document_contexts[
-                        source_document_id
-                    ].manifest_sha256
-                    for source_document_id in source_document_ids
-                    if source_document_id in document_contexts
-                },
-            }
-        )
+        packet_input: JsonRecord = {
+            "case_id": _required_str(packet.get("case_id")),
+            "candidate_id": _required_str(packet.get("candidate_id")),
+            "ablation": _optional_str(packet.get("ablation")) or "default",
+            "packet_object_key": packet_object.key,
+            "packet_sha256": packet_object.sha256,
+            "packet_size_bytes": packet_object.size_bytes,
+            "source_document_ids": source_document_ids,
+            "source_hashes": {
+                source_document_id: document_contexts[
+                    source_document_id
+                ].manifest_sha256
+                for source_document_id in source_document_ids
+                if source_document_id in document_contexts
+            },
+        }
+        decision_date = _packet_decision_date(packet)
+        if decision_date is not None:
+            packet_input["decision_date"] = decision_date
+        packet_inputs.append(packet_input)
     return {
         "schema_version": PRIVATE_STORE_EXPORT_SCHEMA_VERSION,
         "cycle_id": config.cycle_id,
@@ -662,14 +666,32 @@ def _run_input_manifest(
     }
 
 
+def _packet_decision_date(packet: Mapping[str, object]) -> str | None:
+    decision_date = _optional_str(packet.get("decision_date"))
+    if decision_date is not None:
+        return decision_date
+    metadata = packet.get("metadata")
+    if isinstance(metadata, Mapping):
+        metadata_mapping = cast(Mapping[str, object], metadata)
+        return _optional_str(metadata_mapping.get("decision_date"))
+    return None
+
+
 def _public_reconstruction_manifest(
     config: PrivateStoreExportConfig,
     *,
     generated_at: datetime,
     candidate_records: Sequence[Mapping[str, object]],
+    packet_records: Sequence[Mapping[str, object]],
+    packet_objects: Sequence[ExportObjectRecord],
 ) -> JsonRecord:
     candidates: list[JsonRecord] = []
+    packet_renders = _packet_render_records(
+        packet_records=packet_records,
+        packet_objects=packet_objects,
+    )
     for candidate in candidate_records:
+        candidate_id = _required_str(candidate.get("candidate_id"))
         documents: list[JsonRecord] = []
         for document in _record_sequence(candidate.get("documents"), "documents"):
             documents.append(
@@ -691,12 +713,13 @@ def _public_reconstruction_manifest(
             )
         candidates.append(
             {
-                "candidate_id": _required_str(candidate.get("candidate_id")),
+                "candidate_id": candidate_id,
                 "case_id": _required_str(candidate.get("case_id")),
                 "manifest_record_hash": _optional_str(
                     candidate.get("manifest_record_hash")
                 ),
                 "documents": documents,
+                "packet_render": packet_renders.get(candidate_id),
             }
         )
     return {
@@ -774,6 +797,49 @@ def _packet_source_document_ids(packet: Mapping[str, object]) -> list[str]:
     for document in _record_sequence(packet.get("documents"), "packet.documents"):
         ids.append(_required_str(document.get("source_document_id")))
     return ids
+
+
+def _packet_render_records(
+    *,
+    packet_records: Sequence[Mapping[str, object]],
+    packet_objects: Sequence[ExportObjectRecord],
+) -> dict[str, JsonRecord]:
+    if len(packet_records) != len(packet_objects):
+        raise PrivateStoreExportError("packet record/object count mismatch")
+    renders: dict[str, JsonRecord] = {}
+    selected_ablation: dict[str, str] = {}
+    for packet, packet_object in zip(packet_records, packet_objects, strict=True):
+        candidate_id = _required_str(packet.get("candidate_id"))
+        ablation = _optional_str(packet.get("ablation")) or "default"
+        if candidate_id in renders and selected_ablation[candidate_id] == "full_packet":
+            continue
+        if candidate_id in renders and ablation != "full_packet":
+            continue
+        selected_ablation[candidate_id] = ablation
+        renders[candidate_id] = {
+            "packet_sha256": packet_object.sha256,
+            "packet_json_path": packet_object.key,
+            "prompt_sha256": None,
+            "prompt_path": None,
+            "rebuild_command": [
+                "uv",
+                "run",
+                "legalforecast",
+                "acquisition",
+                "build-packets",
+                "--input",
+                "packet-build-input.jsonl",
+                "--packets-output",
+                "packets.jsonl",
+                "--case-packets-output",
+                "case-packets.jsonl",
+                "--audit-output",
+                "packet-audit.jsonl",
+                "--ablation",
+                ablation,
+            ],
+        }
+    return renders
 
 
 def _records(

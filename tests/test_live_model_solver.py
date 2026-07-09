@@ -25,6 +25,7 @@ from legalforecast.evals.tools import ControlledDocketEntry, ControlledDocketToo
 def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     transport = _FixtureTransport(
         {
+            "model": "gpt-test-2026-05-14",
             "output_text": '{"predictions":[]}',
             "usage": {"input_tokens": 1000, "output_tokens": 250},
         }
@@ -50,7 +51,12 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
     assert response.metadata["provider"] == "openai"
     assert response.metadata["model"] == "gpt-test"
     assert response.metadata["model_id"] == "gpt-test"
-    assert response.metadata["model_version_or_snapshot"] == "2026-05-14"
+    assert response.metadata["model_version_or_snapshot"] == "gpt-test-2026-05-14"
+    assert response.metadata["served_model_version"] == "gpt-test-2026-05-14"
+    assert response.metadata["context_limit"] == "200000"
+    assert response.metadata["max_output_tokens"] == "4096"
+    assert response.metadata["prompt_input_token_budget"] == "195904"
+    assert response.metadata["temperature"] == "0"
     assert response.metadata["execution_backend"] == "inspect_ai"
     assert response.metadata["model_registry_sha256"] == "unrecorded"
     assert response.metadata["tool_policy"] == "controlled_docket_tool_only"
@@ -77,6 +83,7 @@ def test_openai_solver_posts_responses_request_and_maps_usage() -> None:
 def test_anthropic_solver_posts_messages_request_and_maps_content() -> None:
     transport = _FixtureTransport(
         {
+            "model": "claude-test-2026-05-14",
             "content": [{"type": "text", "text": '{"anthropic":true}'}],
             "usage": {"input_tokens": 200, "output_tokens": 40},
         }
@@ -132,6 +139,7 @@ def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
         payload_dict = dict(payload)
         calls.append((model_id, payload_dict))
         return {
+            "model": "claude-sonnet-4-6",
             "content": [{"type": "text", "text": '{"bedrock":true}'}],
             "usage": {"input_tokens": 220, "output_tokens": 55},
         }
@@ -143,7 +151,11 @@ def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
     )
 
     solver = LiveModelSolver(
-        registry_entry=_registry_entry("anthropic", "claude-sonnet-4-6"),
+        registry_entry=_registry_entry(
+            "anthropic",
+            "claude-sonnet-4-6",
+            model_version_or_snapshot="claude-sonnet-4-6",
+        ),
         environ={"LFB_ANTHROPIC_RUNTIME": "bedrock"},
     )
 
@@ -157,6 +169,7 @@ def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
     assert response.metadata["provider"] == "anthropic"
     assert response.metadata["provider_runtime"] == "bedrock"
     assert response.metadata["bedrock_model_id"] == "us.anthropic.claude-sonnet-4-6"
+    assert response.metadata["served_model_version"] == "claude-sonnet-4-6"
 
     assert len(calls) == 1
     model_id, body = calls[0]
@@ -186,6 +199,7 @@ def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
 def test_gemini_solver_posts_generate_content_request_and_maps_usage() -> None:
     transport = _FixtureTransport(
         {
+            "modelVersion": "models/gemini-test-2026-05-14",
             "candidates": [{"content": {"parts": [{"text": '{"gemini":true}'}]}}],
             "usageMetadata": {
                 "promptTokenCount": 300,
@@ -260,6 +274,64 @@ def test_solver_requires_the_matching_provider_api_key() -> None:
         solver.solve(_request("prompt"))
 
 
+def test_solver_rejects_prompt_that_exceeds_registry_context_budget() -> None:
+    transport = _FixtureTransport(
+        {
+            "model": "gpt-test-2026-05-14",
+            "output_text": "{}",
+            "usage": {"input_tokens": 1, "output_tokens": 1},
+        }
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry(
+            "openai",
+            "gpt-test",
+            context_limit=32,
+            max_output_tokens=8,
+        ),
+        transport=transport,
+        environ={"OPENAI_API_KEY": "openai-secret"},
+    )
+
+    with pytest.raises(LiveModelConfigError, match="prompt input tokens exceed"):
+        solver.solve(_request("x" * 500))
+    assert transport.requests == []
+
+
+def test_solver_rejects_provider_served_model_version_mismatch() -> None:
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        transport=_FixtureTransport(
+            {
+                "model": "gpt-test-latest",
+                "output_text": "{}",
+                "usage": {"input_tokens": 1, "output_tokens": 1},
+            }
+        ),
+        environ={"OPENAI_API_KEY": "openai-secret"},
+    )
+
+    with pytest.raises(LiveModelResponseError, match="did not match frozen registry"):
+        solver.solve(_request("prompt"))
+
+
+def test_anthropic_bedrock_model_override_must_match_registry() -> None:
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry(
+            "anthropic",
+            "claude-sonnet-4-6",
+            model_version_or_snapshot="claude-sonnet-4-6",
+        ),
+        environ={
+            "LFB_ANTHROPIC_RUNTIME": "bedrock",
+            "LFB_ANTHROPIC_BEDROCK_MODEL_ID": "us.anthropic.claude-opus-4-6",
+        },
+    )
+
+    with pytest.raises(LiveModelConfigError, match="Bedrock model-ID override"):
+        solver.solve(_request("prompt"))
+
+
 def test_solver_rejects_malformed_provider_output() -> None:
     solver = LiveModelSolver(
         registry_entry=_registry_entry("anthropic", "claude-test"),
@@ -318,26 +390,51 @@ def _json_body(request: urllib.request.Request) -> dict[str, Any]:
     return cast(dict[str, Any], payload)
 
 
-def _registry_entry(provider: str, model_id: str) -> ModelRegistryEntry:
-    return ModelRegistryEntry.from_record(_registry_record(provider, model_id))
+def _registry_entry(
+    provider: str,
+    model_id: str,
+    *,
+    model_version_or_snapshot: str | None = None,
+    context_limit: int = 200000,
+    max_output_tokens: int = 4096,
+) -> ModelRegistryEntry:
+    return ModelRegistryEntry.from_record(
+        _registry_record(
+            provider,
+            model_id,
+            model_version_or_snapshot=model_version_or_snapshot,
+            context_limit=context_limit,
+            max_output_tokens=max_output_tokens,
+        )
+    )
 
 
-def _registry_record(provider: str, model_id: str) -> dict[str, object]:
+def _registry_record(
+    provider: str,
+    model_id: str,
+    *,
+    model_version_or_snapshot: str | None = None,
+    context_limit: int = 200000,
+    max_output_tokens: int = 4096,
+) -> dict[str, object]:
     return {
         "provider": provider,
         "model_id": model_id,
         "display_name": f"{provider} {model_id}",
-        "model_version_or_snapshot": "2026-05-14",
+        "model_version_or_snapshot": (
+            model_version_or_snapshot or f"{model_id}-2026-05-14"
+        ),
         "release_timestamp": "2026-05-14T09:00:00Z",
+        "release_timestamp_source": "fixture release note",
         "provider_training_cutoff_status": "known",
         "provider_training_cutoff": "2026-04-01",
         "temperature": 0,
         "top_p": 1,
-        "max_output_tokens": 4096,
+        "max_output_tokens": max_output_tokens,
         "network_disabled": True,
         "search_disabled": True,
         "tool_policy": "controlled_docket_tool_only",
-        "context_limit": 200000,
+        "context_limit": context_limit,
         "pricing_source": "provider-price-sheet-2026-05-14",
         "input_token_price": 0.25,
         "output_token_price": 1.0,

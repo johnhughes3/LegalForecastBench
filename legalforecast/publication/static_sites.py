@@ -111,8 +111,11 @@ def render_official_results_site(
         _official_table(rows),
         "</section>",
         "<section><h2>Methodology and Run Cards</h2>",
-        "<p>Use the linked run cards and methodology artifacts to inspect the "
-        "frozen cycle, model registry, scoring configuration, and release bundle.</p>",
+        (
+            "<p>Use the linked run cards and methodology artifacts to inspect the "
+            + "frozen cycle, model registry, scoring configuration, and release "
+            + "bundle.</p>"
+        ),
         _link_list(artifact_links),
         "</section>",
         "</main>",

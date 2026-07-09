@@ -6,7 +6,7 @@ import json
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -20,8 +20,23 @@ from legalforecast.ingestion.docket_markdown import (
     DocketMarkdownMetadata,
     render_controlled_docket_markdown,
 )
+from legalforecast.ingestion.mtd_acquisition_screen import (
+    MtdDocketScreenStatus,
+    screen_courtlistener_docket_for_mtd_decision,
+)
 from legalforecast.ingestion.provenance import DocumentRole, sha256_text
 from legalforecast.path_safety import safe_path_component
+from legalforecast.selection.contamination_filters import (
+    LeakageSource,
+    LeakageSourceKind,
+    OutcomeLeakageFilterResult,
+    detect_outcome_leakage,
+)
+from legalforecast.selection.exclusion_ledger import (
+    ExclusionLedgerEntry,
+    ExclusionReason,
+    ExclusionStage,
+)
 
 
 class PacketInputPlanningError(ValueError):
@@ -36,6 +51,7 @@ class PacketInputPlan:
     document_manifest_records: tuple[dict[str, Any], ...]
     candidate_manifest_records: tuple[dict[str, Any], ...]
     extracted_text_records: tuple[dict[str, Any], ...]
+    exclusion_ledger_records: tuple[dict[str, Any], ...] = ()
 
     @property
     def case_count(self) -> int:
@@ -55,6 +71,7 @@ def plan_packet_build_inputs(
     generated_at: datetime | None = None,
     search_query: str = "refined MTD decision terms",
     search_window: str = "not recorded",
+    decision_filed_on_or_after: date | None = None,
 ) -> PacketInputPlan:
     """Create packet-build and private-store manifest rows from acquisition rows."""
 
@@ -74,6 +91,7 @@ def plan_packet_build_inputs(
     document_manifest: list[dict[str, Any]] = []
     candidate_manifest: list[dict[str, Any]] = []
     extracted_texts: list[dict[str, Any]] = []
+    exclusion_ledger: list[dict[str, Any]] = []
 
     for selection in selection_records:
         planned = _plan_candidate(
@@ -88,26 +106,37 @@ def plan_packet_build_inputs(
             generated_at=timestamp,
             search_query=search_query,
             search_window=search_window,
+            decision_filed_on_or_after=decision_filed_on_or_after,
         )
-        packet_build.append(planned.packet_build_record)
+        if planned.packet_build_record is not None:
+            packet_build.append(planned.packet_build_record)
         document_manifest.extend(planned.document_manifest_records)
         candidate_manifest.append(planned.candidate_manifest_record)
         extracted_texts.extend(planned.extracted_text_records)
+        exclusion_ledger.extend(planned.exclusion_ledger_records)
 
     return PacketInputPlan(
         packet_build_records=tuple(packet_build),
         document_manifest_records=tuple(document_manifest),
         candidate_manifest_records=tuple(candidate_manifest),
         extracted_text_records=tuple(extracted_texts),
+        exclusion_ledger_records=tuple(exclusion_ledger),
     )
 
 
 @dataclass(frozen=True, slots=True)
 class _PlannedCandidate:
-    packet_build_record: dict[str, Any]
+    packet_build_record: dict[str, Any] | None
     document_manifest_records: tuple[dict[str, Any], ...]
     candidate_manifest_record: dict[str, Any]
     extracted_text_records: tuple[dict[str, Any], ...]
+    exclusion_ledger_records: tuple[dict[str, Any], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class _DocketEntryPlan:
+    entries: tuple[ControlledDocketMarkdownEntry, ...]
+    exclusion_ledger_records: tuple[dict[str, Any], ...]
 
 
 def _plan_candidate(
@@ -123,6 +152,7 @@ def _plan_candidate(
     generated_at: datetime,
     search_query: str,
     search_window: str,
+    decision_filed_on_or_after: date | None,
 ) -> _PlannedCandidate:
     candidate_id = _required_str(selection, "candidate_id")
     units = prediction_units.get(candidate_id)
@@ -138,6 +168,32 @@ def _plan_candidate(
         source_url=_optional_str(selection, "source_url"),
         docket_id=candidate_id,
     )
+    docket_screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text=_optional_str(selection, "case_name"),
+        decision_filed_on_or_after=decision_filed_on_or_after,
+    )
+    if (
+        decision_filed_on_or_after is not None
+        and docket_screen.status is MtdDocketScreenStatus.EXCLUDED
+    ):
+        exclusion_record = _release_anchor_exclusion_record(
+            selection,
+            docket_screen=docket_screen.to_record(),
+            decision_filed_on_or_after=decision_filed_on_or_after,
+        )
+        return _PlannedCandidate(
+            packet_build_record=None,
+            document_manifest_records=(),
+            candidate_manifest_record=_candidate_manifest_record(
+                selection,
+                documents=(),
+                mtd_decision_screen=docket_screen.to_record(),
+                exclusion_ledger_entries=(exclusion_record,),
+            ),
+            extracted_text_records=(),
+            exclusion_ledger_records=(exclusion_record,),
+        )
 
     original_to_packet_id: dict[str, str] = {}
     source_documents: list[dict[str, Any]] = []
@@ -145,6 +201,7 @@ def _plan_candidate(
     candidate_documents: list[dict[str, Any]] = []
     document_manifest: list[dict[str, Any]] = []
     extracted_texts: list[dict[str, Any]] = []
+    exclusion_ledger_records: list[dict[str, Any]] = []
 
     for document in _record_sequence(selection.get("documents"), "documents"):
         original_id = _required_str(document, "source_document_id")
@@ -164,8 +221,6 @@ def _plan_candidate(
             packet_document_id=packet_document_id,
             generated_at=generated_at,
         )
-        source_documents.append(source_record)
-        candidate_documents.append(_candidate_document_record(source_record))
         document_manifest.append(
             {
                 "source_document_id": packet_document_id,
@@ -179,6 +234,34 @@ def _plan_candidate(
             parser_record is not None
             and _optional_str(parser_record, "status") == "succeeded"
         ):
+            if _required_bool(source_record, "is_mounted_for_model"):
+                document_leakage = _document_leakage_result(
+                    parser_record,
+                    packet_document_id=packet_document_id,
+                    markdown_root=markdown_root,
+                    evaluation_timestamp=generated_at,
+                )
+                if document_leakage.findings:
+                    exclusion_ledger_records.append(
+                        ExclusionLedgerEntry.from_outcome_leakage(
+                            candidate_id=candidate_id,
+                            case_id=_required_str(selection, "case_id"),
+                            court=_optional_str(selection, "court"),
+                            decision_date=_optional_date(selection, "decision_date")
+                            or _optional_date(selection, "decision_entered_date"),
+                            leakage_result=document_leakage,
+                        ).to_record()
+                    )
+                    source_record = {
+                        **source_record,
+                        "is_mounted_for_model": False,
+                        "contains_target_outcome": True,
+                        "packet_section": "post_decision",
+                        "notes": (
+                            f"{_required_str(source_record, 'notes')}; excluded "
+                            "from model packet by packet-time outcome leakage screen"
+                        ),
+                    }
             parsed = _parsed_document_record(
                 parser_record,
                 packet_document_id=packet_document_id,
@@ -188,12 +271,22 @@ def _plan_candidate(
             extracted_text = parsed.get("extracted_text")
             if isinstance(extracted_text, Mapping):
                 extracted_texts.append(dict(cast(Mapping[str, Any], extracted_text)))
+        source_documents.append(source_record)
+        candidate_documents.append(_candidate_document_record(source_record))
 
+    docket_entry_plan = _docket_entries(
+        page.entries,
+        selection=selection,
+        source_document_ids_by_entry=_source_document_ids_by_entry(source_documents),
+        generated_at=generated_at,
+    )
+    exclusion_ledger_records.extend(docket_entry_plan.exclusion_ledger_records)
     packet_build_record = {
         "candidate_id": candidate_id,
         "case_id": _required_str(selection, "case_id"),
         "court": _required_str(selection, "court"),
         "docket_number": _required_str(selection, "docket_number"),
+        "decision_date": _format_optional_date(_selection_decision_date(selection)),
         "generated_at": _format_datetime(generated_at),
         "docket_markdown": _controlled_docket_record(
             render_controlled_docket_markdown(
@@ -203,15 +296,10 @@ def _plan_candidate(
                     search_query=search_query,
                     search_window=search_window,
                 ),
-                _docket_entries(
-                    page.entries,
-                    selection=selection,
-                    source_document_ids_by_entry=_source_document_ids_by_entry(
-                        source_documents
-                    ),
-                ),
+                docket_entry_plan.entries,
             )
         ),
+        "mtd_decision_screen": docket_screen.to_record(),
         "documents": source_documents,
         "parsed_documents": parsed_documents,
         "prediction_units": _prediction_units_with_packet_document_ids(
@@ -221,12 +309,13 @@ def _plan_candidate(
         "target_docket_entry_numbers": _target_docket_entry_numbers(
             selection,
         ),
-        "metadata": {
-            "case_name": _optional_str(selection, "case_name") or "",
-            "source_url": _optional_str(selection, "source_url") or "",
-            "search_query": search_query,
-            "search_window": search_window,
-        },
+        "metadata": _packet_metadata(
+            selection,
+            docket_screen=docket_screen.to_record(),
+            search_query=search_query,
+            search_window=search_window,
+            decision_filed_on_or_after=decision_filed_on_or_after,
+        ),
     }
     return _PlannedCandidate(
         packet_build_record=packet_build_record,
@@ -234,8 +323,11 @@ def _plan_candidate(
         candidate_manifest_record=_candidate_manifest_record(
             selection,
             documents=candidate_documents,
+            mtd_decision_screen=docket_screen.to_record(),
+            exclusion_ledger_entries=exclusion_ledger_records,
         ),
         extracted_text_records=tuple(extracted_texts),
+        exclusion_ledger_records=tuple(exclusion_ledger_records),
     )
 
 
@@ -384,6 +476,8 @@ def _candidate_manifest_record(
     selection: Mapping[str, Any],
     *,
     documents: Sequence[Mapping[str, Any]],
+    mtd_decision_screen: Mapping[str, Any] | None = None,
+    exclusion_ledger_entries: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     record: dict[str, Any] = {
         "candidate_id": _required_str(selection, "candidate_id"),
@@ -393,8 +487,86 @@ def _candidate_manifest_record(
         "docket_number": _required_str(selection, "docket_number"),
         "source_url": _optional_str(selection, "source_url"),
         "documents": [dict(document) for document in documents],
+        "mtd_decision_screen": (
+            dict(mtd_decision_screen) if mtd_decision_screen is not None else None
+        ),
+        "exclusion_ledger_entries": [dict(entry) for entry in exclusion_ledger_entries],
     }
     return {**record, "manifest_record_hash": _record_hash(record)}
+
+
+def _packet_metadata(
+    selection: Mapping[str, Any],
+    *,
+    docket_screen: Mapping[str, Any],
+    search_query: str,
+    search_window: str,
+    decision_filed_on_or_after: date | None,
+) -> dict[str, str]:
+    metadata = {
+        "case_name": _optional_str(selection, "case_name") or "",
+        "source_url": _optional_str(selection, "source_url") or "",
+        "search_query": search_query,
+        "search_window": search_window,
+        "mtd_decision_screen_status": _required_str(docket_screen, "status"),
+    }
+    decision_date = _selection_decision_date(selection)
+    if decision_date is not None:
+        metadata["decision_date"] = decision_date.isoformat()
+    if decision_filed_on_or_after is not None:
+        metadata["decision_filed_on_or_after"] = decision_filed_on_or_after.isoformat()
+    return metadata
+
+
+def _selection_decision_date(selection: Mapping[str, Any]) -> date | None:
+    return _optional_date(selection, "decision_date") or _optional_date(
+        selection,
+        "decision_entered_date",
+    )
+
+
+def _format_optional_date(value: date | None) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+def _release_anchor_exclusion_record(
+    selection: Mapping[str, Any],
+    *,
+    docket_screen: Mapping[str, Any],
+    decision_filed_on_or_after: date,
+) -> dict[str, Any]:
+    screen_reasons = tuple(_str_tuple(docket_screen.get("exclusion_reasons")))
+    return ExclusionLedgerEntry(
+        candidate_id=_required_str(selection, "candidate_id"),
+        case_id=_required_str(selection, "case_id"),
+        court=_optional_str(selection, "court"),
+        decision_date=_optional_date(selection, "decision_date")
+        or _optional_date(selection, "decision_entered_date"),
+        stage=ExclusionStage.ELIGIBILITY,
+        reason=ExclusionReason.DECISION_BEFORE_RELEASE_ANCHOR.value,
+        secondary_reasons=screen_reasons,
+        source_entry_ids=tuple(_decision_entry_source_ids(docket_screen)),
+        notes=(
+            "Candidate excluded because no screened MTD decision was filed on or "
+            f"after {decision_filed_on_or_after.isoformat()}; "
+            f"screen_status={_required_str(docket_screen, 'status')}"
+        ),
+    ).to_record()
+
+
+def _decision_entry_source_ids(docket_screen: Mapping[str, Any]) -> tuple[str, ...]:
+    source_ids: list[str] = []
+    for entry in _record_sequence(
+        docket_screen.get("decision_entries"),
+        "decision_entries",
+    ):
+        row_id = _optional_str(entry, "row_id")
+        entry_number = _optional_str(entry, "entry_number")
+        if row_id is not None:
+            source_ids.append(row_id)
+        elif entry_number is not None:
+            source_ids.append(f"entry-{entry_number}")
+    return tuple(source_ids)
 
 
 def _parsed_document_record(
@@ -465,19 +637,45 @@ def _docket_entries(
     *,
     selection: Mapping[str, Any],
     source_document_ids_by_entry: Mapping[int, tuple[str, ...]],
-) -> tuple[ControlledDocketMarkdownEntry, ...]:
-    decision_entries = set(_int_tuple(selection.get("decision_entry_numbers")))
+    generated_at: datetime,
+) -> _DocketEntryPlan:
+    decision_entry_numbers = _required_int_tuple(selection, "decision_entry_numbers")
+    if not decision_entry_numbers:
+        raise PacketInputPlanningError("decision_entry_numbers must not be empty")
+    decision_entries = set(decision_entry_numbers)
     decision_floor = min(decision_entries) if decision_entries else None
     rendered: list[ControlledDocketMarkdownEntry] = []
-    for entry in entries:
+    leakage_sources: list[LeakageSource] = []
+    docket_entries = tuple(entries)
+    for entry in docket_entries:
         entry_number = _entry_number(entry)
         predecision = entry_number is not None and (
             decision_floor is None or entry_number < decision_floor
         )
-        contains_target_outcome = (
-            entry_number in decision_entries if entry_number is not None else False
+        docket_entry_id = entry.row_id or f"entry-{entry.entry_number or 'unknown'}"
+        if predecision and entry.text.strip():
+            leakage_sources.append(
+                LeakageSource(
+                    source_id=docket_entry_id,
+                    source_kind=LeakageSourceKind.DOCKET_ENTRY,
+                    text=entry.text,
+                    observed_at=generated_at,
+                )
+            )
+    leakage_result = detect_outcome_leakage(
+        tuple(leakage_sources),
+        evaluation_timestamp=generated_at,
+    )
+    leakage_source_ids = {finding.source_id for finding in leakage_result.findings}
+    for entry in docket_entries:
+        entry_number = _entry_number(entry)
+        predecision = entry_number is not None and (
+            decision_floor is None or entry_number < decision_floor
         )
         docket_entry_id = entry.row_id or f"entry-{entry.entry_number or 'unknown'}"
+        contains_target_outcome = (
+            entry_number in decision_entries if entry_number is not None else False
+        ) or docket_entry_id in leakage_source_ids
         rendered.append(
             ControlledDocketMarkdownEntry(
                 docket_entry_id=docket_entry_id,
@@ -495,7 +693,47 @@ def _docket_entries(
                 free_text_available=True,
             )
         )
-    return tuple(rendered)
+    ledger_records: tuple[dict[str, Any], ...] = ()
+    if leakage_result.findings:
+        ledger_records = (
+            ExclusionLedgerEntry.from_outcome_leakage(
+                candidate_id=_required_str(selection, "candidate_id"),
+                case_id=_required_str(selection, "case_id"),
+                court=_optional_str(selection, "court"),
+                decision_date=_optional_date(selection, "decision_date")
+                or _optional_date(selection, "decision_entered_date"),
+                leakage_result=leakage_result,
+            ).to_record(),
+        )
+    return _DocketEntryPlan(
+        entries=tuple(rendered),
+        exclusion_ledger_records=ledger_records,
+    )
+
+
+def _document_leakage_result(
+    parser_record: Mapping[str, Any],
+    *,
+    packet_document_id: str,
+    markdown_root: Path,
+    evaluation_timestamp: datetime,
+) -> OutcomeLeakageFilterResult:
+    markdown_path = Path(_required_str(parser_record, "markdown_path"))
+    resolved_markdown_path = (
+        markdown_path if markdown_path.is_absolute() else markdown_root / markdown_path
+    )
+    text = resolved_markdown_path.read_text(encoding="utf-8")
+    return detect_outcome_leakage(
+        (
+            LeakageSource(
+                source_id=packet_document_id,
+                source_kind=LeakageSourceKind.DOCUMENT_TEXT,
+                text=text,
+                observed_at=evaluation_timestamp,
+            ),
+        ),
+        evaluation_timestamp=evaluation_timestamp,
+    )
 
 
 def _source_document_ids_by_entry(
@@ -614,6 +852,38 @@ def _optional_int(record: Mapping[str, Any], key: str) -> int | None:
     if isinstance(value, str) and value.strip().isdigit():
         return int(value.strip())
     return None
+
+
+def _optional_date(record: Mapping[str, Any], key: str) -> date | None:
+    value = _optional_str(record, key)
+    if value is None:
+        return None
+    try:
+        return date.fromisoformat(value[:10])
+    except ValueError:
+        return None
+
+
+def _required_int_tuple(
+    record: Mapping[str, Any],
+    key: str,
+) -> tuple[int, ...]:
+    value = record.get(key)
+    if not isinstance(value, Sequence) or isinstance(value, str):
+        raise PacketInputPlanningError(f"{key} must be a non-empty list of integers")
+    numbers: list[int] = []
+    for item in cast(Sequence[object], value):
+        if isinstance(item, int) and not isinstance(item, bool):
+            numbers.append(item)
+        elif isinstance(item, str) and item.strip().isdigit():
+            numbers.append(int(item.strip()))
+        else:
+            raise PacketInputPlanningError(
+                f"{key} must contain only positive integer entry numbers"
+            )
+    if not numbers:
+        raise PacketInputPlanningError(f"{key} must not be empty")
+    return tuple(numbers)
 
 
 def _int_tuple(value: object) -> tuple[int, ...]:

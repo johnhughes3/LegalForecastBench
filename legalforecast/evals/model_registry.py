@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
@@ -38,6 +38,7 @@ class ModelRegistryEntry:
     input_token_price: float
     output_token_price: float
     release_timestamp: datetime | None = None
+    release_timestamp_source: str | None = None
     provider_training_cutoff: date | None = None
     known_cutoff_publicity_caveats: tuple[str, ...] = ()
 
@@ -50,6 +51,13 @@ class ModelRegistryEntry:
 
         if self.release_timestamp is not None:
             _require_aware(self.release_timestamp, "release_timestamp")
+            _require_non_empty(
+                self.release_timestamp_source, "release_timestamp_source"
+            )
+        elif self.release_timestamp_source is not None:
+            _require_non_empty(
+                self.release_timestamp_source, "release_timestamp_source"
+            )
         if self.provider_training_cutoff_status is TrainingCutoffStatus.KNOWN:
             if self.provider_training_cutoff is None:
                 raise ValueError(
@@ -94,6 +102,7 @@ class ModelRegistryEntry:
                 if self.release_timestamp is not None
                 else None
             ),
+            "release_timestamp_source": self.release_timestamp_source,
             "provider_training_cutoff_status": (
                 self.provider_training_cutoff_status.value
             ),
@@ -125,6 +134,7 @@ class ModelRegistryEntry:
                 record, "model_version_or_snapshot"
             ),
             release_timestamp=_optional_datetime(record, "release_timestamp"),
+            release_timestamp_source=_optional_str(record, "release_timestamp_source"),
             provider_training_cutoff_status=TrainingCutoffStatus(
                 _required_str(record, "provider_training_cutoff_status")
             ),
@@ -176,6 +186,54 @@ class ModelRegistry:
     @classmethod
     def from_records(cls, records: Sequence[Mapping[str, Any]]) -> ModelRegistry:
         return cls(tuple(ModelRegistryEntry.from_record(record) for record in records))
+
+
+def latest_release_timestamp(entries: Sequence[ModelRegistryEntry]) -> datetime:
+    """Return the latest release timestamp for an official evaluated model set."""
+
+    if not entries:
+        raise ValueError("at least one model registry entry is required")
+    missing = sorted(
+        entry.registry_key for entry in entries if entry.release_timestamp is None
+    )
+    if missing:
+        raise ValueError(
+            "official runs require release_timestamp for every model registry entry: "
+            f"{missing}"
+        )
+    timestamps = tuple(
+        entry.release_timestamp
+        for entry in entries
+        if entry.release_timestamp is not None
+    )
+    return max(timestamps)
+
+
+def earliest_buffered_decision_date(entries: Sequence[ModelRegistryEntry]) -> date:
+    """Return the first allowed decision date after the release-anchor buffer."""
+
+    latest_release = latest_release_timestamp(entries)
+    return latest_release.astimezone(UTC).date() + timedelta(days=2)
+
+
+def require_official_registry_entries(
+    entries: Sequence[ModelRegistryEntry],
+) -> tuple[ModelRegistryEntry, ...]:
+    """Fail closed unless registry entries are anchored for official evaluation."""
+
+    latest_release_timestamp(entries)
+    mutable_aliases = sorted(
+        entry.registry_key
+        for entry in entries
+        if entry.model_version_or_snapshot == entry.model_id
+        and any(marker in entry.model_id.lower() for marker in ("preview", "latest"))
+    )
+    if mutable_aliases:
+        raise ValueError(
+            "official runs require pinned dated snapshots, not mutable aliases: "
+            f"{mutable_aliases}"
+        )
+    return tuple(entries)
 
 
 def load_model_registry(path: str | Path) -> ModelRegistry:
@@ -253,6 +311,16 @@ def _optional_date(record: Mapping[str, Any], field_name: str) -> date | None:
     return date.fromisoformat(value)
 
 
+def _optional_str(record: Mapping[str, Any], field_name: str) -> str | None:
+    value = record.get(field_name)
+    if value in {None, ""}:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a string")
+    _require_non_empty(value, field_name)
+    return value
+
+
 def _optional_string_tuple(
     record: Mapping[str, Any], field_name: str
 ) -> tuple[str, ...]:
@@ -276,8 +344,8 @@ def _iso_datetime(value: datetime) -> str:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _require_non_empty(value: str, field_name: str) -> None:
-    if not value.strip():
+def _require_non_empty(value: str | None, field_name: str) -> None:
+    if value is None or not value.strip():
         raise ValueError(f"{field_name} is required")
 
 

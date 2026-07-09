@@ -40,6 +40,14 @@ def test_leaderboard_report_emits_json_csv_markdown_and_html() -> None:
             _accounting("model-c", cost_per_case=0.040, tool_calls=5.0),
         ),
         inference=_inference(),
+        repeat_variance_rows=(
+            {
+                "model_id": "model-a",
+                "repeated_case_count": 2,
+                "repeat_run_count": 6,
+                "root_mean_within_case_variance": 0.015,
+            },
+        ),
     )
 
     record = report.to_record()
@@ -54,6 +62,9 @@ def test_leaderboard_report_emits_json_csv_markdown_and_html() -> None:
     assert model_a["cost_per_case"] == 0.030
     assert model_a["mean_tool_calls_per_case"] == 2.0
     assert model_a["capped_case_micro_brier"] == 0.11
+    assert model_a["repeat_sample_case_count"] == 2
+    assert model_a["repeat_sample_run_count"] == 6
+    assert model_a["within_model_micro_brier_stddev"] == 0.015
     assert model_b["delta_vs_best"] == 0.02
     assert model_b["delta_vs_best_ci_low"] == -0.01
     assert model_b["delta_vs_best_ci_high"] == 0.05
@@ -61,6 +72,10 @@ def test_leaderboard_report_emits_json_csv_markdown_and_html() -> None:
         "model-a",
         "model-b",
     }
+    assert record["rank_tier_method"] == (
+        "bonferroni_pairwise_bootstrap_confidence_intervals"
+    )
+    assert "not a full simultaneous ranking model" in record["rank_tier_caveat"]
 
     assert json.loads(report.to_json())["rows"][0]["model_id"] == "model-a"
 
@@ -68,15 +83,20 @@ def test_leaderboard_report_emits_json_csv_markdown_and_html() -> None:
     assert csv_rows[0]["model_id"] == "model-a"
     assert csv_rows[0]["micro_brier"] == "0.1"
     assert "delta_vs_best_ci_low" in csv_rows[0]
+    assert csv_rows[0]["within_model_micro_brier_stddev"] == "0.015"
 
     markdown = report.to_markdown()
     assert "| Rank | Tier | Model | Micro-Brier | BSS |" in markdown
+    assert "Repeat stddev" in markdown
+    assert "Rank tiers use Bonferroni-adjusted pairwise bootstrap" in markdown
     assert "## Pareto Frontier" in markdown
     assert "model-b" in markdown
 
     html = report.to_html()
     assert "<table" in html
     assert "<svg" in html
+    assert "Repeat stddev" in html
+    assert "Rank tiers use Bonferroni-adjusted pairwise bootstrap" in html
     assert "Pareto Frontier" in html
 
 

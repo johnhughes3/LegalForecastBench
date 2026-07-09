@@ -37,6 +37,17 @@ class LfbNativeAdapterError(AdapterError):
     """Raised when the fixture-only native adapter is misused."""
 
 
+def lfb_native_manifest() -> AdapterManifest:
+    """Return the built-in adapter manifest for LFB native fixture runs."""
+
+    return AdapterManifest(
+        adapter_id=LFB_NATIVE_ADAPTER_ID,
+        display_name="LegalForecastBench Native Fixture Adapter",
+        adapter_version=LFB_NATIVE_ADAPTER_VERSION,
+        command=("legalforecast.multiharness.lfb_native:LfbNativeAdapter",),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class LfbNativeFixtureRun:
     """Complete native fixture run with private inspect and public result rows."""
@@ -57,7 +68,7 @@ class LfbNativeFixtureRun:
 class LfbNativeAdapter:
     """Run LFB packets through the repo's local no-network fixture harness."""
 
-    manifest: AdapterManifest = field(default_factory=lambda: lfb_native_manifest())
+    manifest: AdapterManifest = field(default_factory=lfb_native_manifest)
 
     def capabilities(self, workspace: Path) -> AdapterCapabilities:
         workspace.mkdir(parents=True, exist_ok=True)
@@ -130,17 +141,6 @@ class LfbNativeAdapter:
             inspect_run=inspect_run,
             projected_results=projected_results,
         )
-
-
-def lfb_native_manifest() -> AdapterManifest:
-    """Return the built-in adapter manifest for LFB native fixture runs."""
-
-    return AdapterManifest(
-        adapter_id=LFB_NATIVE_ADAPTER_ID,
-        display_name="LegalForecastBench Native Fixture Adapter",
-        adapter_version=LFB_NATIVE_ADAPTER_VERSION,
-        command=("legalforecast.multiharness.lfb_native:LfbNativeAdapter",),
-    )
 
 
 def lfb_native_capabilities(

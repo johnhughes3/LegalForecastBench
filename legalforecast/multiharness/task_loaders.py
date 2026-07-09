@@ -314,14 +314,18 @@ def _prediction_unit_from_record(
     if not isinstance(value, Mapping):
         raise ValueError("prediction_units entries must be objects")
     record = cast(Mapping[str, Any], value)
-    challenge_scope = ChallengeScope(require_str(record, "challenge_scope"))
+    challenge_scope = _optional_public_packet_challenge_scope(record)
     citation_document_id = documents[0].source_document_id if documents else "metadata"
     return PredictionUnit(
         unit_id=require_str(record, "unit_id"),
         count=require_str(record, "count"),
         claim_name=require_str(record, "claim_name"),
         defendant_group=require_str(record, "defendant_group"),
-        challenged_by_motion=_required_bool(record, "challenged_by_motion"),
+        challenged_by_motion=_optional_public_packet_bool(
+            record,
+            "challenged_by_motion",
+            default=True,
+        ),
         challenge_scope=challenge_scope,
         unit_confidence=1.0,
         source_citations=(SourceCitation(document_id=citation_document_id),),
@@ -475,3 +479,22 @@ def _required_bool(record: Mapping[str, Any], field_name: str) -> bool:
     if not isinstance(value, bool):
         raise ValueError(f"{field_name} must be a boolean")
     return value
+
+
+def _optional_public_packet_bool(
+    record: Mapping[str, Any],
+    field_name: str,
+    *,
+    default: bool,
+) -> bool:
+    if field_name not in record:
+        return default
+    return _required_bool(record, field_name)
+
+
+def _optional_public_packet_challenge_scope(
+    record: Mapping[str, Any],
+) -> ChallengeScope:
+    if "challenge_scope" not in record:
+        return ChallengeScope.ENTIRE_CLAIM
+    return ChallengeScope(require_str(record, "challenge_scope"))
