@@ -450,6 +450,9 @@ def _artifact_for(root: Path, path: Path) -> ArtifactRecord:
 
 
 def _strict_composite_key(shard: Any) -> tuple[str, ...]:
+    # run_config_hash includes selection and run identity, so it is provenance rather
+    # than a compatibility boundary for disjoint shards. The remaining fields capture
+    # the execution properties that must agree before shard results can be composed.
     return (
         shard.compatible_shard_group_id,
         shard.suite_version,
@@ -457,7 +460,6 @@ def _strict_composite_key(shard: Any) -> tuple[str, ...]:
         shard.adapter_version,
         shard.model_key,
         shard.sandbox_policy_hash,
-        shard.run_config_hash,
     )
 
 

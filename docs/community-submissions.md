@@ -80,7 +80,7 @@ Partial-run shards include:
 - compatible-shard group ID
 - contributor credit per shard
 
-Composite rows can roll up compatible shards only when suite version, scoring mode, selection namespace/group, adapter ID/version, model key, sandbox policy hash, and run config hash match, and task IDs do not overlap. Composite rows credit each underlying shard and link back to every submission.
+Composite rows can roll up compatible shards only when their compatible-shard group (family, scoring mode, and suite version), adapter ID/version, model key, and sandbox policy hash match, and task IDs do not overlap. The run config hash remains in each source shard for provenance, but it is not a composite key because it includes the partial selection and run identity. Composite rows credit each underlying shard and link back to every submission.
 
 ## Community Aggregate Outputs
 
