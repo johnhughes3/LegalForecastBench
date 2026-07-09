@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+from legalforecast.multiharness import harvey_lab_adapter as lab_adapter_module
 from legalforecast.multiharness.harvey_lab_adapter import (
     HarveyLabCliAdapter,
     HarveyLabCliAdapterError,
@@ -77,6 +79,37 @@ def test_harvey_lab_adapter_validates_lab_root(tmp_path: Path) -> None:
 
     with pytest.raises(HarveyLabCliAdapterError, match="LAB root does not exist"):
         adapter.capabilities(tmp_path / "workspace")
+
+
+def test_harvey_lab_adapter_maps_missing_command_to_domain_error(
+    tmp_path: Path,
+) -> None:
+    adapter = HarveyLabCliAdapter(
+        lab_command=("missing-harvey-lab-command-for-test",),
+        lab_root=_lab_root(tmp_path),
+    )
+
+    with pytest.raises(HarveyLabCliAdapterError, match="could not start"):
+        adapter.capabilities(tmp_path / "workspace")
+
+
+@pytest.mark.parametrize("failure", ["timeout", "oserror"])
+def test_lab_commit_returns_unknown_when_git_probe_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    def fail_git_probe(
+        *_args: object,
+        **_kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        if failure == "timeout":
+            raise subprocess.TimeoutExpired(cmd=("git",), timeout=10)
+        raise OSError("git unavailable")
+
+    monkeypatch.setattr(lab_adapter_module.subprocess, "run", fail_git_probe)
+
+    assert lab_adapter_module._lab_commit(tmp_path) == "unknown"
 
 
 def _request(adapter: HarveyLabCliAdapter, task: CanonicalTask) -> RunRequest:

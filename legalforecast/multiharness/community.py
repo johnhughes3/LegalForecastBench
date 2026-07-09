@@ -656,35 +656,53 @@ def _submission_shards(
     requests: Mapping[str, Mapping[str, Any]],
     contributors: tuple[ContributorCredit, ...],
 ) -> tuple[CommunitySubmissionShard, ...]:
-    groups: dict[tuple[str, str, str, str, str], list[Mapping[str, Any]]] = {}
+    groups: dict[tuple[str, str, str, str, str, str], list[Mapping[str, Any]]] = {}
     for row in rows:
         request = requests[_required_row_str(row, "row_id")]
         family = _required_row_str(row, "family")
         scoring_mode = _request_task_field(request, "scoring_mode")
+        suite_version = _request_task_field(request, "suite_version")
         adapter_id = _required_row_str(row, "adapter_id")
         adapter_version = _required_row_str(row, "adapter_version")
         model_key = _required_row_str(row, "model_key")
         groups.setdefault(
-            (family, scoring_mode, adapter_id, adapter_version, model_key),
+            (
+                family,
+                scoring_mode,
+                suite_version,
+                adapter_id,
+                adapter_version,
+                model_key,
+            ),
             [],
         ).append(row)
 
     shards: list[CommunitySubmissionShard] = []
     for index, (key, shard_rows) in enumerate(sorted(groups.items()), start=1):
-        family, scoring_mode, adapter_id, adapter_version, model_key = key
+        (
+            family,
+            scoring_mode,
+            suite_version,
+            adapter_id,
+            adapter_version,
+            model_key,
+        ) = key
         task_ids = tuple(_required_row_str(row, "task_id") for row in shard_rows)
-        request = requests[_required_row_str(shard_rows[0], "row_id")]
-        sandbox_policy = require_mapping(request, "sandbox_policy")
-        sandbox_policy_hash = _file_or_record_sha256(
-            _row_workspace(shard_rows[0]) / "sandbox.plan.json",
-            sandbox_policy,
+        sandbox_policy_hashes = tuple(
+            sorted({_sandbox_policy_hash_for_row(row, requests) for row in shard_rows})
         )
-        suite_version = _request_task_field(request, "suite_version")
+        if len(sandbox_policy_hashes) != 1:
+            raise MultiHarnessValidationError(
+                "shard rows disagree on sandbox_policy_hash for "
+                f"{family}:{scoring_mode}:{suite_version}:{adapter_id}:"
+                f"{adapter_version}:{model_key}"
+            )
         shards.append(
             CommunitySubmissionShard(
                 shard_id=f"shard-{index:03d}",
                 compatible_shard_group_id=(
-                    f"{family}:{scoring_mode}:{run_manifest.selection_sha256}"
+                    f"{family}:{scoring_mode}:{suite_version}:"
+                    f"{run_manifest.selection_sha256}"
                 ),
                 selection_sha256=run_manifest.selection_sha256,
                 selection_label=_selection_label(requests),
@@ -695,7 +713,7 @@ def _submission_shards(
                 adapter_id=adapter_id,
                 adapter_version=adapter_version,
                 model_key=model_key,
-                sandbox_policy_hash=sandbox_policy_hash,
+                sandbox_policy_hash=sandbox_policy_hashes[0],
                 run_config_hash=run_manifest.run_config_sha256,
                 contributor_credits=contributors,
             )
@@ -894,6 +912,18 @@ def _required_row_str(record: Mapping[str, Any], field_name: str) -> str:
 def _request_task_field(request: Mapping[str, Any], field_name: str) -> str:
     task = require_mapping(request, "task")
     return require_str(task, field_name)
+
+
+def _sandbox_policy_hash_for_row(
+    row: Mapping[str, Any],
+    requests: Mapping[str, Mapping[str, Any]],
+) -> str:
+    request = requests[_required_row_str(row, "row_id")]
+    sandbox_policy = require_mapping(request, "sandbox_policy")
+    return _file_or_record_sha256(
+        _row_workspace(row) / "sandbox.plan.json",
+        sandbox_policy,
+    )
 
 
 def _selection_label(requests: Mapping[str, Mapping[str, Any]]) -> str:
