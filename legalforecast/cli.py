@@ -156,9 +156,7 @@ from legalforecast.protocol import (
     FrozenArtifactName,
     build_candidate_manifest_record,
     freeze_cycle,
-    load_preregistration,
     sha256_file,
-    validate_preregistration_record,
 )
 from legalforecast.reporting.fallback_pilot import (
     FallbackCredentialStatus,
@@ -1249,10 +1247,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         from legalforecast.protocol.freeze import cli_freeze
 
         return cli_freeze(args[1:])
-    if args and args[0] == "validate-preregistration":
-        from legalforecast.protocol.preregistration import cli_validate_preregistration
-
-        return cli_validate_preregistration(args[1:])
 
     parser = build_parser()
     parsed = parser.parse_args(args)
@@ -3901,7 +3895,6 @@ def _run_fixture_e2e(output_dir: Path) -> None:
     harness_path = output_dir / "harness.txt"
     model_registry_path = output_dir / "model-registry.json"
     baselines_path = output_dir / "baselines.json"
-    protocol_path = output_dir / "protocols" / "cycle_fixture_e2e.preregistration.yaml"
     bundle_path = output_dir / "manifests" / "cycle_fixture_e2e.freeze.json"
     _write_text(prompt_path, _fixture_prompt_text())
     _write_text(scorer_path, _fixture_scorer_text())
@@ -3924,21 +3917,9 @@ def _run_fixture_e2e(output_dir: Path) -> None:
             FrozenArtifactName.BASELINES: baselines_path,
         },
         freeze_timestamp=datetime(2026, 5, 14, 12, 5, tzinfo=UTC),
-        base_protocol_record=_fixture_base_protocol_record(),
-        protocol_output_path=protocol_path,
         bundle_output_path=bundle_path,
     )
     _log_event("freeze", "artifact_written", bundle_path, len(bundle.artifacts))
-
-    validation = validate_preregistration_record(
-        load_preregistration(protocol_path),
-        expected_hashes=bundle.frozen_artifact_hashes(),
-        template_text=_fixture_preregistration_template_text(),
-    )
-    validation_path = output_dir / "preregistration-validation.json"
-    _write_json(validation_path, validation.to_record())
-    validation.raise_for_errors()
-    _log_event("preregistration", "artifact_written", validation_path, 1)
 
     artifact_paths = _fixture_artifact_paths(output_dir)
     _write_json(
@@ -4052,52 +4033,6 @@ def _fixture_baselines_record(labels: tuple[OutcomeLabel, ...]) -> JsonRecord:
     }
 
 
-def _fixture_base_protocol_record() -> JsonRecord:
-    return {
-        "cycle_id": "cycle_fixture_e2e",
-        "claim_level": "official_descriptive",
-        "public_registration": {
-            "provider": "osf",
-            "url": "https://osf.io/legalforecast-fixture/",
-            "timestamp": "2026-05-14T12:00:00Z",
-        },
-        "freeze_timestamp": "",
-        "anchors": {
-            "model_release": "2026-05-14T09:00:00Z",
-            "decision_window_start": "2026-05-14",
-            "decision_window_end": "2026-06-14",
-            "candidate_source_provider": "case.dev",
-        },
-        "eligibility_rules": ["post_release_decision", "outcome_leakage_exclusion"],
-        "exclusion_rules": ["ambiguous_linkage", "missing_core_filing"],
-        "contamination_filters": ["related_case_publicity"],
-        "unitization_rules": ["frozen_stage_a_units"],
-        "labeling_rules": ["first_written_disposition_lock"],
-        "metrics": {"primary": "micro_brier"},
-        "inference": {
-            "method": "paired_clustered_bootstrap",
-            "bootstrap_replicates": 30,
-        },
-        "model_registry": {
-            "path": "",
-            "sha256": "",
-            "models": ["fixture:model-a", "fixture:model-b"],
-        },
-        "baselines": {
-            "path": "",
-            "sha256": "",
-        },
-        "frozen_artifacts": {
-            "manifest_sha256": "",
-            "units_sha256": "",
-            "labels_sha256": "",
-            "prompt_sha256": "",
-            "scorer_sha256": "",
-            "harness_sha256": "",
-        },
-    }
-
-
 def _fixture_prompt_text() -> str:
     return (
         "Predict the probability that each frozen claim-defendant unit is fully "
@@ -4125,18 +4060,6 @@ def _fixture_harness_text() -> str:
     )
 
 
-def _fixture_preregistration_template_text() -> str:
-    return """
-Cycle ID
-Public registration provider
-Candidate manifest
-Prediction units
-Outcome labels
-Model registry SHA-256
-Case-mix diagnostics
-"""
-
-
 def _fixture_artifact_index(output_dir: Path, paths: Sequence[Path]) -> JsonRecord:
     index_path = output_dir / "artifact-index.json"
     artifact_records: list[JsonRecord] = []
@@ -4162,8 +4085,6 @@ def _fixture_artifact_index(output_dir: Path, paths: Sequence[Path]) -> JsonReco
 def _fixture_artifact_category(relative_path: str) -> str:
     if relative_path.startswith("report/"):
         return "leaderboard_report"
-    if relative_path.startswith("protocols/"):
-        return "preregistration"
     if relative_path.startswith("manifests/"):
         return "freeze_bundle"
     if relative_path in {"scores.json", "runs.jsonl", "accounting.jsonl"}:
@@ -5007,9 +4928,7 @@ def _fixture_artifact_paths(output_dir: Path) -> tuple[Path, ...]:
         output_dir / "harness.txt",
         output_dir / "model-registry.json",
         output_dir / "baselines.json",
-        output_dir / "protocols" / "cycle_fixture_e2e.preregistration.yaml",
         output_dir / "manifests" / "cycle_fixture_e2e.freeze.json",
-        output_dir / "preregistration-validation.json",
         output_dir / "report" / "leaderboard.json",
         output_dir / "report" / "leaderboard.csv",
         output_dir / "report" / "leaderboard.md",

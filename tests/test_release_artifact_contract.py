@@ -29,7 +29,6 @@ def test_fixture_e2e_artifact_index_is_release_safe(tmp_path: Path) -> None:
     assert {
         "candidate-manifest.jsonl",
         "manifests/cycle_fixture_e2e.freeze.json",
-        "protocols/cycle_fixture_e2e.preregistration.yaml",
         "report/leaderboard.json",
         "report/leaderboard.md",
     } <= indexed_paths
@@ -41,7 +40,6 @@ def test_fixture_e2e_artifact_index_is_release_safe(tmp_path: Path) -> None:
         "freeze_bundle",
         "leaderboard_report",
         "manifest",
-        "preregistration",
         "workflow",
     } <= categories
 
