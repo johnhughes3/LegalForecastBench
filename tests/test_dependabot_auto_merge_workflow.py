@@ -38,3 +38,19 @@ def test_dependabot_auto_merge_workflow_queues_only_non_major_updates() -> None:
     assert "steps.metadata.outputs.eligible == 'true'" in WORKFLOW
     assert "Unknown Dependabot update type" in WORKFLOW
     assert 'gh pr merge --auto --squash "$PR_URL"' in WORKFLOW
+
+
+def test_dependabot_auto_merge_workflow_skips_when_repo_setting_is_disabled() -> None:
+    merge_step = WORKFLOW.split(
+        "      - name: Enable auto-merge for patch and minor updates\n",
+        maxsplit=1,
+    )[1]
+
+    assert "REPOSITORY: ${{ github.repository }}" in merge_step
+    assert "set -euo pipefail" in merge_step
+    assert "--jq '.allow_auto_merge'" in merge_step
+    assert 'if [[ "${allow_auto_merge}" != "true" ]]; then' in merge_step
+    assert "::notice::Repository auto-merge is disabled; skipping." in merge_step
+    assert "exit 0" in merge_step
+    assert "|| true" not in merge_step
+    assert merge_step.index("if [[") < merge_step.index("gh pr merge --auto")
