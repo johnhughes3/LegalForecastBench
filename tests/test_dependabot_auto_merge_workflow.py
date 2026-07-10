@@ -16,6 +16,7 @@ def test_dependabot_auto_merge_workflow_is_narrowly_privileged() -> None:
     assert "contents: write" in WORKFLOW
     assert "pull-requests: write" in WORKFLOW
     assert "actions/checkout" not in WORKFLOW
+    assert "uses:" not in WORKFLOW
 
 
 def test_dependabot_auto_merge_workflow_gates_the_trusted_source() -> None:
@@ -23,13 +24,17 @@ def test_dependabot_auto_merge_workflow_gates_the_trusted_source() -> None:
     assert "github.repository == 'johnhughes3/LegalForecastBench'" in WORKFLOW
     assert "github.event.pull_request.base.ref == 'main'" in WORKFLOW
     assert "github.event.pull_request.draft == false" in WORKFLOW
-    assert (
-        "dependabot/fetch-metadata@d7267f607e9d3fb96fc2fbe83e0af444713e90b7" in WORKFLOW
-    )
+    assert "pulls/${PR_NUMBER}/commits?per_page=1" in WORKFLOW
+    assert ".author.login" in WORKFLOW
+    assert ".commit.verification.verified" in WORKFLOW
+    assert "not a verified Dependabot commit" in WORKFLOW
 
 
 def test_dependabot_auto_merge_workflow_queues_only_non_major_updates() -> None:
     assert "version-update:semver-patch" in WORKFLOW
     assert "version-update:semver-minor" in WORKFLOW
-    assert "version-update:semver-major" not in WORKFLOW
+    assert "version-update:semver-major" in WORKFLOW
+    assert "eligible=false" in WORKFLOW
+    assert "steps.metadata.outputs.eligible == 'true'" in WORKFLOW
+    assert "Unknown Dependabot update type" in WORKFLOW
     assert 'gh pr merge --auto --squash "$PR_URL"' in WORKFLOW
