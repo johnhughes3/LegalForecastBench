@@ -48,16 +48,11 @@ def test_pilot_readiness_rendering_keeps_failed_live_pilot_truthful(
 def test_pilot_readiness_reports_missing_fixture_artifacts(tmp_path: Path) -> None:
     fixture_dir = tmp_path / "fixture"
     fixture_dir.mkdir()
-    (fixture_dir / "preregistration-validation.json").write_text(
-        json.dumps({"passed": True}),
-        encoding="utf-8",
-    )
 
     status = inspect_fixture_workflow(fixture_dir)
 
     assert status.status == "missing"
     assert "candidate-manifest.jsonl" in status.missing_artifacts
-    assert status.validation_passed is True
 
 
 def test_pilot_readiness_rejects_missing_smoke_metrics() -> None:
@@ -76,15 +71,12 @@ def _fixture_output_dir(tmp_path: Path) -> Path:
         (fixture_dir / relative_path).write_text("", encoding="utf-8")
     for relative_path in (
         "scores.json",
+        "manifests/cycle_fixture_e2e.freeze.json",
         "report/leaderboard.json",
     ):
         path = fixture_dir / relative_path
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("{}", encoding="utf-8")
-    (fixture_dir / "preregistration-validation.json").write_text(
-        json.dumps({"passed": True}),
-        encoding="utf-8",
-    )
     (fixture_dir / "artifact-index.json").write_text(
         json.dumps({"artifact_count": 7}),
         encoding="utf-8",

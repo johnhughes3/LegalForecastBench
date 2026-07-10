@@ -39,7 +39,6 @@ from legalforecast.selection.exclusion_ledger import (
 def test_manifest_record_serializes_required_fields_for_jsonl_and_consumers() -> None:
     manifest = _manifest_record()
     record = manifest.to_record()
-    prereg = manifest.to_preregistration_fields()
     packet = manifest.to_packet_build_fields()
 
     assert record["manifest_schema_version"] == MANIFEST_SCHEMA_VERSION
@@ -50,9 +49,12 @@ def test_manifest_record_serializes_required_fields_for_jsonl_and_consumers() ->
     assert record["label_hash"] == hash_records((_label_record(),))
     assert record["eligibility_status"] == "eligible"
     assert record["exclusion_status"] == "included"
-    assert prereg["manifest_record_hash"] == manifest.manifest_record_hash
     assert packet["model_packet_document_ids"] == ["doc-complaint"]
     assert json.loads(manifest.to_jsonl_line())["candidate_id"] == "cand-1"
+
+
+def test_manifest_record_has_no_preregistration_projection() -> None:
+    assert not hasattr(_manifest_record(), "to_preregistration_fields")
 
 
 def test_manifest_hashes_are_deterministic_for_mapping_order() -> None:

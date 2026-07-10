@@ -114,11 +114,11 @@ def test_fixture_e2e_cli_writes_benchmark_artifacts(tmp_path: Path) -> None:
         "candidate-manifest.jsonl",
         "case-mix-diagnostics.json",
         "manifests/cycle_fixture_e2e.freeze.json",
-        "protocols/cycle_fixture_e2e.preregistration.yaml",
-        "preregistration-validation.json",
         "artifact-index.json",
     ):
         assert artifact in manifest["artifacts"]
+    assert not any("preregistration" in artifact for artifact in manifest["artifacts"])
+    assert not (output_dir / "protocols").exists()
     assert "packets.jsonl" in manifest["artifacts"]
     assert "report/leaderboard.json" in manifest["artifacts"]
 
@@ -136,11 +136,6 @@ def test_fixture_e2e_cli_writes_benchmark_artifacts(tmp_path: Path) -> None:
     assert diagnostics["tables"]["press_publicity_tags"][0]["bucket"] == (
         "major_public_company_party"
     )
-
-    validation = json.loads(
-        (output_dir / "preregistration-validation.json").read_text(encoding="utf-8")
-    )
-    assert validation == {"issues": [], "passed": True}
 
     freeze_bundle = json.loads(
         (output_dir / "manifests" / "cycle_fixture_e2e.freeze.json").read_text(
@@ -781,9 +776,7 @@ def _fixture_output_paths(output_dir: Path) -> list[str]:
         str(output_dir / "harness.txt"),
         str(output_dir / "model-registry.json"),
         str(output_dir / "baselines.json"),
-        str(output_dir / "protocols" / "cycle_fixture_e2e.preregistration.yaml"),
         str(output_dir / "manifests" / "cycle_fixture_e2e.freeze.json"),
-        str(output_dir / "preregistration-validation.json"),
         str(output_dir / "report" / "leaderboard.json"),
         str(output_dir / "report" / "leaderboard.csv"),
         str(output_dir / "report" / "leaderboard.md"),

@@ -41,7 +41,7 @@ class FixtureEdgeCase(StrEnum):
     RELATED_CASES = "related_cases"
     OCR_NOISE = "ocr_noise"
     MALFORMED_MODEL_OUTPUT = "malformed_model_output"
-    MINIMAL_PROTOCOL = "minimal_protocol"
+    MINIMAL_MANIFEST = "minimal_manifest"
 
 
 @dataclass(frozen=True, slots=True)
@@ -417,20 +417,20 @@ _GOLDEN_CASES: tuple[GoldenCase, ...] = (
         malformed_model_output='{"unit_id": "u1", "probability": 1.4',
     ),
     GoldenCase(
-        case_id="fixture_minimal_protocol",
-        title="Synthetic Protocol Fixture",
-        edge_case=FixtureEdgeCase.MINIMAL_PROTOCOL,
+        case_id="fixture_minimal_manifest",
+        title="Synthetic Manifest Fixture",
+        edge_case=FixtureEdgeCase.MINIMAL_MANIFEST,
         docket_entries=(
-            _entry(1, "2026-03-05", "Synthetic manifest and protocol smoke fixture."),
+            _entry(1, "2026-03-05", "Synthetic manifest and freeze smoke fixture."),
         ),
         documents=(
             _doc(
-                "fixture-minimal-protocol",
+                "fixture-minimal-manifest",
                 1,
-                "Protocol fixture used for manifest/hash validation tests.",
+                "Fixture used for manifest and hash validation tests.",
             ),
         ),
-        expected_decision="manifest_protocol_smoke_fixture",
+        expected_decision="manifest_freeze_smoke_fixture",
     ),
 )
 

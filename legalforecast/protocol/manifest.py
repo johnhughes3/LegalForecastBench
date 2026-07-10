@@ -162,16 +162,6 @@ class CandidateManifestRecord:
     def to_jsonl_line(self) -> str:
         return f"{canonical_json(self.to_record())}\n"
 
-    def to_preregistration_fields(self) -> dict[str, Any]:
-        return {
-            "candidate_id": self.candidate_id,
-            "protocol_version": self.protocol_version,
-            "manifest_record_hash": self.manifest_record_hash,
-            "unit_hash": self.unit_hash,
-            "label_hash": self.label_hash,
-            "eligibility_status": self.eligibility_status.value,
-        }
-
     def to_packet_build_fields(self) -> dict[str, Any]:
         return {
             "candidate_id": self.candidate_id,

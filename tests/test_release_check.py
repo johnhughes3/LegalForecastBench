@@ -109,7 +109,6 @@ def test_release_check_validates_required_artifacts(tmp_path: Path) -> None:
         report_dir / "leaderboard.md",
         report_dir / "leaderboard.html",
         manifests_dir / "cycle_fixture_e2e.freeze.json",
-        fixture_dir / "preregistration-validation.json",
     ):
         path.write_text("ok", encoding="utf-8")
     (dist_dir / "legalforecast_mtd-0.1.0a1-py3-none-any.whl").write_text(

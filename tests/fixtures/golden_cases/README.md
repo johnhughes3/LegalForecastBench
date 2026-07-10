@@ -17,7 +17,7 @@ tests, scoring tests, and future CLI smoke tests can reuse the same cases.
 | `fixture_related_cases` | Related cases | Related-family flags, capped-case sensitivity, and contamination checks. |
 | `fixture_ocr_noise` | OCR noise | Extraction normalization and review flags. |
 | `fixture_malformed_model_output` | Malformed model output | Parser, invalid-output penalty, and refusal/error accounting tests. |
-| `fixture_minimal_protocol` | Minimal protocol / manifest | Freeze/hash and preregistration smoke tests. |
+| `fixture_minimal_manifest` | Minimal manifest | Freeze and hash smoke tests. |
 
 Structured test logs should use the canonical field names exported as
 `REQUIRED_PIPELINE_LOG_FIELDS`:

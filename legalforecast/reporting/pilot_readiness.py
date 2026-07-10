@@ -34,7 +34,6 @@ class FixtureWorkflowReadiness:
 
     status: str
     missing_artifacts: tuple[str, ...]
-    validation_passed: bool | None
     artifact_count: int | None
 
     @property
@@ -127,7 +126,6 @@ def inspect_fixture_workflow(output_dir: Path | None) -> FixtureWorkflowReadines
         return FixtureWorkflowReadiness(
             status="not_supplied",
             missing_artifacts=(),
-            validation_passed=None,
             artifact_count=None,
         )
     required_paths = (
@@ -135,20 +133,14 @@ def inspect_fixture_workflow(output_dir: Path | None) -> FixtureWorkflowReadines
         Path("packets.jsonl"),
         Path("runs.jsonl"),
         Path("scores.json"),
-        Path("preregistration-validation.json"),
+        Path("manifests/cycle_fixture_e2e.freeze.json"),
         Path("report/leaderboard.json"),
         Path("artifact-index.json"),
     )
     missing = tuple(
         str(path) for path in required_paths if not (output_dir / path).is_file()
     )
-    validation_passed: bool | None = None
     artifact_count: int | None = None
-    if (output_dir / "preregistration-validation.json").is_file():
-        validation = _read_json_object(output_dir / "preregistration-validation.json")
-        validation_passed_value = validation.get("passed")
-        if isinstance(validation_passed_value, bool):
-            validation_passed = validation_passed_value
     if (output_dir / "artifact-index.json").is_file():
         artifact_index = _read_json_object(output_dir / "artifact-index.json")
         artifact_count_value = artifact_index.get("artifact_count")
@@ -161,12 +153,9 @@ def inspect_fixture_workflow(output_dir: Path | None) -> FixtureWorkflowReadines
     status = "passed"
     if missing:
         status = "missing"
-    elif validation_passed is not True:
-        status = "failed"
     return FixtureWorkflowReadiness(
         status=status,
         missing_artifacts=missing,
-        validation_passed=validation_passed,
         artifact_count=artifact_count,
     )
 
@@ -297,7 +286,7 @@ def render_pilot_readiness_markdown(report: PilotReadinessReport) -> str:
         f"| Estimated case.dev cost | {metrics.estimated_cost} |\n"
         "| Cost per clean packet | Undefined because clean packet count is zero |\n\n"
         "The completed fixture E2E command is still valuable: it proves the "
-        "local manifest, freeze, preregistration, packet, mock-run, scoring, "
+        "local manifest, freeze, packet, mock-run, scoring, "
         "diagnostics, and leaderboard path works. It does not substitute for a "
         "live clean-packet pilot.\n\n"
         "## Failure Modes\n\n"

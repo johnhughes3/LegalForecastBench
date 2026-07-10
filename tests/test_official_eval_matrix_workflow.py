@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -130,10 +131,16 @@ def test_official_eval_matrix_workflow_uses_oidc_only_in_protected_jobs() -> Non
     assert WORKFLOW.count("id-token: write") == 3
     assert "LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars." in WORKFLOW
     assert "secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN" not in WORKFLOW
-    assert (
-        "aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885"
-        in WORKFLOW
+    configure_aws_pins = re.findall(
+        r"uses: aws-actions/configure-aws-credentials@([0-9a-f]{40})(?=\s|$)",
+        WORKFLOW,
     )
+    assert (
+        len(configure_aws_pins)
+        == WORKFLOW.count("uses: aws-actions/configure-aws-credentials@")
+        == 3
+    )
+    assert len(set(configure_aws_pins)) == 1
     assert "role-session-name: lfb-official-matrix-${{ github.run_id }}" in WORKFLOW
     assert (
         "role-session-name: lfb-official-case-${{ github.run_id }}-${{ "

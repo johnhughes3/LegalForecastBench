@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 from pathlib import Path
 
 from legalforecast.cli import main
@@ -31,8 +32,6 @@ MODULES = [
     "legalforecast.selection.exclusion_ledger",
     "legalforecast.selection.motion_linkage",
     "legalforecast.selection.case_mix_diagnostics",
-    "legalforecast.protocol.evaluation_gate",
-    "legalforecast.protocol.preregistration",
     "legalforecast.protocol.freeze",
     "legalforecast.unitization.construct_units",
     "legalforecast.unitization.schemas",
@@ -70,6 +69,12 @@ def test_cli_placeholder_prints_help(capsys) -> None:
     assert main([]) == 0
     captured = capsys.readouterr()
     assert "LegalForecast-MTD benchmark utilities" in captured.out
+    assert "preregistration" not in captured.out.lower()
+
+
+def test_deprecated_preregistration_modules_are_absent() -> None:
+    assert importlib.util.find_spec("legalforecast.protocol.evaluation_gate") is None
+    assert importlib.util.find_spec("legalforecast.protocol.preregistration") is None
 
 
 def test_expected_placeholder_directories_exist() -> None:
@@ -77,7 +82,6 @@ def test_expected_placeholder_directories_exist() -> None:
     expected = [
         root / "tests" / "fixtures" / "case_packet",
         root / "tests" / "fixtures" / "manifests",
-        root / "tests" / "fixtures" / "protocols",
     ]
     for path in expected:
         assert path.is_dir()
@@ -89,6 +93,8 @@ def test_empty_fixture_directories_are_documented_from_fixture_root() -> None:
         encoding="utf-8"
     )
 
-    for fixture_name in ("case_packet", "manifests", "protocols"):
+    for fixture_name in ("case_packet", "manifests"):
         assert f"`{fixture_name}/`" in fixture_readme
         assert not (root / "tests" / "fixtures" / fixture_name / "README.md").exists()
+
+    assert not (root / "tests" / "fixtures" / "protocols").exists()
