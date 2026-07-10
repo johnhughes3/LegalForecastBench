@@ -624,6 +624,14 @@ def _add_eval_run_case_arguments(parser: argparse.ArgumentParser) -> None:
         help="Per-provider-request timeout for the registry-backed live model call.",
     )
     parser.add_argument(
+        "--resume-existing",
+        action="store_true",
+        help=(
+            "Reuse a complete matching per-case output already present in "
+            "--results-store-root or --output-dir instead of calling the provider."
+        ),
+    )
+    parser.add_argument(
         "--no-docket-tool",
         action="store_true",
         help="Disable the controlled docket tool for this packet shard.",
@@ -1602,6 +1610,7 @@ def _cmd_eval_run_case(args: argparse.Namespace) -> int:
                 _parse_datetime(timestamp_text) if timestamp_text is not None else None
             ),
             timeout_seconds=cast(float, args.timeout_seconds),
+            resume_existing=cast(bool, args.resume_existing),
         )
     )
     _log_event(

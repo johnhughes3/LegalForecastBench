@@ -113,6 +113,7 @@ class PerCaseRunnerConfig:
     use_docket_tool: bool = True
     evaluation_timestamp: datetime | None = None
     timeout_seconds: float = 120.0
+    resume_existing: bool = False
 
     def __post_init__(self) -> None:
         for value, field_name in (
@@ -233,6 +234,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             ablation=config.ablation,
             solver_id=solver_id,
         )
+        output_keys = _output_keys(packet_object, run_id=run_id)
         log(
             "manifest_selected",
             manifest_uri=config.manifest_uri,
@@ -242,6 +244,19 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             model_key=config.model_key,
             model_registry_sha256=model_registry_sha256,
         )
+        if config.resume_existing:
+            resumed = _try_resume_existing_outputs(
+                config=config,
+                packet_object=packet_object,
+                run_id=run_id,
+                output_keys=output_keys,
+                solver_id=solver_id,
+                model_registry_sha256=model_registry_sha256,
+                log=log,
+            )
+            if resumed is not None:
+                _write_jsonl(log_path, logs)
+                return resumed
 
         with tempfile.TemporaryDirectory(prefix="lfb-per-case-") as workspace:
             workspace_path = Path(workspace)
@@ -339,18 +354,9 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             packet_object=packet_object,
             run_id=run_id,
             local_outputs=(
-                (
-                    runs_path,
-                    f"metrics/{_cycle_slug(packet_object)}/{run_id}.runs.jsonl",
-                ),
-                (
-                    accounting_path,
-                    f"metrics/{_cycle_slug(packet_object)}/{run_id}.accounting.jsonl",
-                ),
-                (
-                    metrics_path,
-                    f"metrics/{_cycle_slug(packet_object)}/{run_id}.metrics.json",
-                ),
+                (runs_path, output_keys.runs),
+                (accounting_path, output_keys.accounting),
+                (metrics_path, output_keys.metrics),
             ),
             log=log,
         )
@@ -386,6 +392,213 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
         if isinstance(exc, PerCaseRunnerError):
             raise
         raise PerCaseRunnerError(str(exc)) from exc
+
+
+@dataclass(frozen=True, slots=True)
+class _OutputKeys:
+    runs: str
+    accounting: str
+    metrics: str
+
+
+@dataclass(frozen=True, slots=True)
+class _ExistingOutputBytes:
+    runs: bytes
+    accounting: bytes
+    metrics: bytes
+    source: str
+    uris: tuple[str, ...]
+
+
+def _output_keys(packet_object: ModelPacketObject, *, run_id: str) -> _OutputKeys:
+    cycle_slug = _cycle_slug(packet_object)
+    return _OutputKeys(
+        runs=f"metrics/{cycle_slug}/{run_id}.runs.jsonl",
+        accounting=f"metrics/{cycle_slug}/{run_id}.accounting.jsonl",
+        metrics=f"metrics/{cycle_slug}/{run_id}.metrics.json",
+    )
+
+
+def _try_resume_existing_outputs(
+    *,
+    config: PerCaseRunnerConfig,
+    packet_object: ModelPacketObject,
+    run_id: str,
+    output_keys: _OutputKeys,
+    solver_id: str,
+    model_registry_sha256: str | None,
+    log: Any,
+) -> PerCaseRunArtifacts | None:
+    existing = _read_existing_output_bytes(config, output_keys=output_keys, log=log)
+    if existing is None:
+        return None
+
+    runs_path = config.output_dir / "runs.jsonl"
+    accounting_path = config.output_dir / "accounting.jsonl"
+    metrics_path = config.output_dir / "metrics.json"
+    runs_path.write_bytes(existing.runs)
+    accounting_path.write_bytes(existing.accounting)
+    metrics_path.write_bytes(existing.metrics)
+    runs = _read_jsonl_path(runs_path)
+    accounting = _read_jsonl_path(accounting_path)
+    metrics = _read_json_path(metrics_path)
+    _validate_resumed_outputs(
+        config=config,
+        packet_object=packet_object,
+        run_id=run_id,
+        solver_id=solver_id,
+        model_registry_sha256=model_registry_sha256,
+        runs=runs,
+        accounting=accounting,
+        metrics=metrics,
+    )
+    log(
+        "resumed_existing_artifacts",
+        run_id=run_id,
+        source=existing.source,
+        output_dir=str(config.output_dir),
+    )
+    return PerCaseRunArtifacts(
+        run_id=run_id,
+        case_id=config.case_id,
+        ablation=config.ablation,
+        packet_object_key=packet_object.object_key,
+        packet_sha256=packet_object.sha256,
+        output_dir=config.output_dir,
+        local_paths=(
+            runs_path,
+            accounting_path,
+            metrics_path,
+            config.output_dir / "runner-log.jsonl",
+        ),
+        uploaded_uris=existing.uris,
+    )
+
+
+def _read_existing_output_bytes(
+    config: PerCaseRunnerConfig,
+    *,
+    output_keys: _OutputKeys,
+    log: Any,
+) -> _ExistingOutputBytes | None:
+    key_by_name = {
+        "runs": output_keys.runs,
+        "accounting": output_keys.accounting,
+        "metrics": output_keys.metrics,
+    }
+    if config.results_store_root is not None:
+        payloads: dict[str, bytes] = {}
+        uris: list[str] = []
+        for name, object_key in key_by_name.items():
+            uri = _join_uri(config.results_store_root, object_key)
+            payload = _try_read_uri_bytes(uri)
+            if payload is None:
+                log("resume_existing_miss", missing_uri=uri)
+                return None
+            payloads[name] = payload
+            uris.append(uri)
+        return _ExistingOutputBytes(
+            runs=payloads["runs"],
+            accounting=payloads["accounting"],
+            metrics=payloads["metrics"],
+            source=config.results_store_root,
+            uris=tuple(uris),
+        )
+
+    local_payloads: dict[str, bytes] = {}
+    for name, path in (
+        ("runs", config.output_dir / "runs.jsonl"),
+        ("accounting", config.output_dir / "accounting.jsonl"),
+        ("metrics", config.output_dir / "metrics.json"),
+    ):
+        if not path.is_file():
+            log("resume_existing_miss", missing_path=str(path))
+            return None
+        local_payloads[name] = path.read_bytes()
+    return _ExistingOutputBytes(
+        runs=local_payloads["runs"],
+        accounting=local_payloads["accounting"],
+        metrics=local_payloads["metrics"],
+        source=str(config.output_dir),
+        uris=(),
+    )
+
+
+def _try_read_uri_bytes(uri: str) -> bytes | None:
+    try:
+        return _read_uri_bytes(uri)
+    except (OSError, PerCaseRunnerError):
+        return None
+
+
+def _validate_resumed_outputs(
+    *,
+    config: PerCaseRunnerConfig,
+    packet_object: ModelPacketObject,
+    run_id: str,
+    solver_id: str,
+    model_registry_sha256: str | None,
+    runs: Sequence[Mapping[str, Any]],
+    accounting: Sequence[Mapping[str, Any]],
+    metrics: Mapping[str, Any],
+) -> None:
+    if not runs:
+        raise PerCaseRunnerError("resumed runs artifact is empty")
+    if not accounting:
+        raise PerCaseRunnerError("resumed accounting artifact is empty")
+    if required_str(metrics, "schema_version") != "legalforecast.per_case_metrics.v1":
+        raise PerCaseRunnerError("resumed metrics schema version is invalid")
+    expected_cycle_id = packet_object.cycle_id
+    if (
+        expected_cycle_id is not None
+        and optional_str(metrics, "cycle_id") != expected_cycle_id
+    ):
+        raise PerCaseRunnerError("resumed metrics cycle_id does not match manifest")
+    expected_pairs = (
+        ("run_id", run_id),
+        ("case_id", config.case_id),
+        ("ablation", config.ablation),
+        ("packet_object_key", packet_object.object_key),
+        ("packet_sha256", packet_object.sha256),
+        ("solver_id", solver_id),
+    )
+    for field_name, expected in expected_pairs:
+        if required_str(metrics, field_name) != expected:
+            raise PerCaseRunnerError(f"resumed metrics {field_name} does not match")
+    if (
+        config.model_key is not None
+        and optional_str(metrics, "model_key") != config.model_key
+    ):
+        raise PerCaseRunnerError("resumed metrics model_key does not match")
+    if (
+        model_registry_sha256 is not None
+        and optional_str(metrics, "model_registry_sha256") != model_registry_sha256
+    ):
+        raise PerCaseRunnerError("resumed metrics model_registry_sha256 does not match")
+    if required_int(metrics, "repeat_count") != config.repeat_count:
+        raise PerCaseRunnerError("resumed metrics repeat_count does not match")
+    if required_int(metrics, "run_record_count") != len(runs):
+        raise PerCaseRunnerError("resumed metrics run_record_count does not match")
+    if required_int(metrics, "primary_run_record_count") != sum(
+        1 for record in runs if _repeat_index(record) == 1
+    ):
+        raise PerCaseRunnerError(
+            "resumed metrics primary_run_record_count does not match"
+        )
+    raw_hashes = [required_str(record, "raw_output_sha256") for record in runs]
+    if _str_tuple(metrics.get("raw_output_sha256", ())) != tuple(raw_hashes):
+        raise PerCaseRunnerError("resumed metrics raw_output_sha256 does not match")
+    for record in (*runs, *accounting):
+        if required_str(record, "case_id") != config.case_id:
+            raise PerCaseRunnerError("resumed record case_id does not match")
+        record_ablation = optional_str(record, "ablation") or optional_str(
+            record,
+            "run_label",
+        )
+        if record_ablation != config.ablation:
+            raise PerCaseRunnerError("resumed record ablation does not match")
+        if "solver_id" in record and required_str(record, "solver_id") != solver_id:
+            raise PerCaseRunnerError("resumed record solver_id does not match")
 
 
 def _select_packet_object(
@@ -936,6 +1149,21 @@ def _read_json_path(path: Path) -> JsonRecord:
     if not isinstance(loaded, Mapping):
         raise PerCaseRunnerError(f"{path} must contain a JSON object")
     return dict(cast(Mapping[str, Any], loaded))
+
+
+def _read_jsonl_path(path: Path) -> list[JsonRecord]:
+    records: list[JsonRecord] = []
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(),
+        start=1,
+    ):
+        if not line.strip():
+            continue
+        loaded: object = json.loads(line)
+        if not isinstance(loaded, Mapping):
+            raise PerCaseRunnerError(f"{path} line {line_number} must be an object")
+        records.append(dict(cast(Mapping[str, Any], loaded)))
+    return records
 
 
 def _read_uri_bytes(uri: str) -> bytes:

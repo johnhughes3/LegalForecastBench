@@ -15,6 +15,7 @@ from legalforecast.evals.live_model_solver import (
     GEMINI_GENERATE_CONTENT_URL_TEMPLATE,
     OPENAI_RESPONSES_URL,
     LiveModelConfigError,
+    LiveModelProviderError,
     LiveModelResponseError,
     LiveModelSolver,
 )
@@ -343,6 +344,56 @@ def test_solver_rejects_malformed_provider_output() -> None:
         solver.solve(_request("prompt"))
 
 
+def test_solver_retries_transient_provider_failures() -> None:
+    transport = _RetryTransport(
+        (
+            LiveModelProviderError(
+                "provider returned HTTP 503: temporarily unavailable",
+                status_code=503,
+            ),
+            {
+                "model": "gpt-test-2026-05-14",
+                "output_text": '{"predictions":[]}',
+                "usage": {"input_tokens": 1000, "output_tokens": 250},
+            },
+        )
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        transport=transport,
+        environ={"OPENAI_API_KEY": "openai-secret"},
+        retry_backoff_seconds=0,
+    )
+
+    response = solver.solve(_request("prompt"))
+
+    assert response.request_count == 2
+    assert response.metadata is not None
+    assert response.metadata["provider_attempt_count"] == "2"
+    assert len(transport.requests) == 2
+
+
+def test_solver_does_not_retry_nonrecoverable_credit_failures() -> None:
+    transport = _RetryTransport(
+        (
+            LiveModelProviderError(
+                "provider returned HTTP 429: insufficient_quota credit balance",
+                status_code=429,
+            ),
+        )
+    )
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        transport=transport,
+        environ={"OPENAI_API_KEY": "openai-secret"},
+        retry_backoff_seconds=0,
+    )
+
+    with pytest.raises(LiveModelProviderError, match="insufficient_quota"):
+        solver.solve(_request("prompt"))
+    assert len(transport.requests) == 1
+
+
 @dataclass(slots=True)
 class _FixtureTransport:
     payload: dict[str, Any]
@@ -360,6 +411,24 @@ class _FixtureTransport:
     def only_request(self) -> urllib.request.Request:
         assert len(self.requests) == 1
         return self.requests[0]
+
+
+@dataclass(slots=True)
+class _RetryTransport:
+    outcomes: tuple[dict[str, Any] | BaseException, ...]
+    requests: list[urllib.request.Request] = field(default_factory=lambda: [])
+
+    def __call__(
+        self,
+        request: urllib.request.Request,
+        timeout_seconds: float,
+    ) -> dict[str, Any]:
+        assert timeout_seconds == 120.0
+        self.requests.append(request)
+        outcome = self.outcomes[len(self.requests) - 1]
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
 
 
 def _request(prompt: str) -> Any:

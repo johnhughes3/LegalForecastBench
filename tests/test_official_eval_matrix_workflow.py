@@ -28,6 +28,7 @@ def test_official_eval_matrix_workflow_is_manual_and_protected() -> None:
         "repeat_count:",
         "max_parallel:",
         "dry_run:",
+        "resume_existing_results:",
         "artifact_retention_days:",
         "max_projected_model_cost_usd:",
     ):
@@ -164,6 +165,9 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert "--backend live" in WORKFLOW
     assert '--model-registry "${model_registry_for_cli}"' in WORKFLOW
     assert '--model-key "${MODEL_KEY}"' in WORKFLOW
+    assert "RESUME_EXISTING_RESULTS: ${{ inputs.resume_existing_results }}" in WORKFLOW
+    assert "resume_args+=(--resume-existing)" in WORKFLOW
+    assert '"${resume_args[@]}"' in WORKFLOW
     assert "CASE_ID: ${{ matrix.case_id }}" in WORKFLOW
     assert "ABLATION: ${{ matrix.ablation }}" in WORKFLOW
     assert "MODEL_KEY: ${{ matrix.model_key }}" in WORKFLOW
@@ -232,6 +236,7 @@ def test_official_eval_matrix_workflow_has_dry_run_and_retention_controls() -> N
     assert "if: ${{ inputs.dry_run }}" in WORKFLOW
     assert "if: ${{ !inputs.dry_run }}" in WORKFLOW
     assert "actions/upload-artifact@v7" in WORKFLOW
+    assert "overwrite: true" in WORKFLOW
     assert (
         "retention-days: ${{ "
         "fromJSON(needs.build-matrix.outputs.artifact_retention_days) }}" in WORKFLOW
