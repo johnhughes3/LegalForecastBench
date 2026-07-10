@@ -29,6 +29,7 @@ from legalforecast.multiharness.runner import (
     ModelConfig,
     MultiHarnessRunConfig,
     run_multi_harness,
+    validate_provider_environment_scope,
 )
 from legalforecast.multiharness.sandbox import (
     BACKEND_DOCKER,
@@ -186,7 +187,7 @@ def add_multiharness_parser(subparsers: Any) -> None:
         "--provider-env-var",
         action="append",
         default=[],
-        help="Provider credential env var name to record for host adapter use.",
+        help="Provider env var to allow into the host adapter process.",
     )
     run.add_argument(
         "--allow-provider-egress",
@@ -383,6 +384,11 @@ def _cmd_run(args: argparse.Namespace) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     manifests = _adapter_manifests_from_paths(_path_tuple_arg(args, "adapter_manifest"))
     policy = _sandbox_policy_from_args(args)
+    validate_provider_environment_scope(
+        sandbox_policy=policy,
+        adapter_count=len(manifests),
+        model_count=len(_str_tuple_arg(args, "model_key")),
+    )
     if cast(bool, args.dry_run):
         write_json_object(
             output_dir / "run-plan.json",

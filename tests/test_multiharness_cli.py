@@ -173,6 +173,56 @@ def test_multiharness_run_dry_run_does_not_invoke_adapter(tmp_path: Path) -> Non
     assert not (output_dir / "adapter-capabilities").exists()
 
 
+def test_multiharness_run_dry_run_rejects_provider_env_without_egress(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    lab_root = _lab_root(tmp_path)
+    task_index = tmp_path / "task-index.json"
+    manifest = _adapter_manifest(
+        tmp_path / "fixture-manifest.json",
+        command=("fixture-adapter",),
+    )
+    assert (
+        main(
+            [
+                "multiharness",
+                "tasks",
+                "index",
+                "--suite",
+                "harvey-lab",
+                "--lab-root",
+                str(lab_root),
+                "--output",
+                str(task_index),
+            ]
+        )
+        == 0
+    )
+
+    assert (
+        main(
+            [
+                "multiharness",
+                "run",
+                "--task-index",
+                str(task_index),
+                "--adapter-manifest",
+                str(manifest),
+                "--model-key",
+                "fixture-model",
+                "--output-dir",
+                str(tmp_path / "run"),
+                "--provider-env-var",
+                "OPENAI_API_KEY",
+                "--dry-run",
+            ]
+        )
+        == 2
+    )
+    assert "--allow-provider-egress" in capsys.readouterr().err
+
+
 def test_multiharness_synthetic_run_and_report(tmp_path: Path) -> None:
     lab_root = _lab_root(tmp_path)
     task_index = tmp_path / "task-index.json"

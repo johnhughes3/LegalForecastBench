@@ -155,12 +155,11 @@ def _policy_warnings(policy: SandboxPolicy) -> tuple[str, ...]:
     warnings: list[str] = []
     if policy.network_policy == PROVIDER_EGRESS_HOST_ONLY:
         warnings.append(
-            "provider API calls are host-adapter only; tool container network is none"
+            "provider API calls are host-adapter only; planned tool container network "
+            "is none, but live container execution is not implemented"
         )
     if policy.allowed_provider_env_vars:
-        warnings.append(
-            "allowed provider env vars are recorded for host adapter processes only"
-        )
+        warnings.append("provider env allowlist applies to host adapter processes only")
     return tuple(warnings)
 
 

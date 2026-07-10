@@ -217,6 +217,38 @@ def validate_public_record(
     _scan_public_value(record, field_name)
 
 
+def validate_no_secret_values(
+    value: Any,
+    secret_values: Sequence[str],
+    field_name: str,
+) -> None:
+    """Reject public data containing any exact runtime secret value."""
+
+    secrets = tuple(secret for secret in secret_values if secret)
+    if not secrets:
+        return
+    if _contains_secret_value(value, secrets):
+        raise MultiHarnessValidationError(
+            f"{field_name} contains a declared provider environment value"
+        )
+
+
+def _contains_secret_value(value: Any, secret_values: Sequence[str]) -> bool:
+    if isinstance(value, Mapping):
+        mapping = cast(Mapping[object, Any], value)
+        return any(
+            _contains_secret_value(key, secret_values)
+            or _contains_secret_value(child, secret_values)
+            for key, child in mapping.items()
+        )
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        sequence = cast(Sequence[Any], value)
+        return any(_contains_secret_value(child, secret_values) for child in sequence)
+    if isinstance(value, str):
+        return any(secret in value for secret in secret_values)
+    return False
+
+
 def _scan_public_value(value: Any, path: str) -> None:
     if isinstance(value, Mapping):
         mapping = cast(Mapping[object, Any], value)

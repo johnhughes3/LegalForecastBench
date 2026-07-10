@@ -2,18 +2,28 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import textwrap
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from legalforecast.multiharness import harvey_lab_adapter as lab_adapter_module
+from legalforecast.multiharness import runner as runner_module
 from legalforecast.multiharness.harvey_lab_adapter import (
     HarveyLabCliAdapter,
     HarveyLabCliAdapterError,
+)
+from legalforecast.multiharness.runner import (
+    ModelConfig,
+    MultiHarnessRunConfig,
+    run_multi_harness,
 )
 from legalforecast.multiharness.sandbox import sandbox_policy
 from legalforecast.multiharness.spec import CanonicalTask, RunRequest
@@ -66,6 +76,410 @@ def test_harvey_lab_cli_adapter_runs_fixture_and_keeps_private_outputs(
     assert "SECRET_TRANSCRIPT" not in json.dumps(result.to_record(), sort_keys=True)
 
 
+def test_harvey_lab_command_uses_provider_environment_allowlist(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lab_root = _lab_root(tmp_path)
+    command = _lab_command(tmp_path, capture_environment=True)
+    adapter = HarveyLabCliAdapter(
+        lab_command=(sys.executable, str(command)),
+        lab_root=lab_root,
+    )
+    task = HarveyLabTaskLoader(lab_root).load_task_index().tasks[0]
+    workspace = tmp_path / "workspace"
+    monkeypatch.setenv("DECLARED_PROVIDER_VALUE", "allowed-value")
+    monkeypatch.setenv("UNDECLARED_HOST_SECRET", "must-not-leak")
+
+    adapter.run(
+        _request(
+            adapter,
+            task,
+            allowed_provider_env_vars=("DECLARED_PROVIDER_VALUE",),
+        ),
+        workspace,
+    )
+
+    environment = json.loads(
+        (workspace / "private-logs" / "lab-output" / "environment.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert environment["DECLARED_PROVIDER_VALUE"] == "allowed-value"
+    assert "UNDECLARED_HOST_SECRET" not in environment
+    assert environment["HOME"] == str(workspace / "private-logs" / "adapter-home")
+    help_environment = json.loads(
+        command.with_name(f"{command.stem}-help-environment.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert "DECLARED_PROVIDER_VALUE" not in help_environment
+    assert "UNDECLARED_HOST_SECRET" not in help_environment
+    assert help_environment["HOME"] == str(workspace / "private-logs" / "adapter-home")
+
+
+def test_harvey_lab_rejects_provider_value_in_ignored_raw_scores_field(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    secret = "opaque-provider-value-7Jx9"
+    monkeypatch.setenv("DECLARED_PROVIDER_VALUE", secret)
+    lab_root = _lab_root(tmp_path)
+    command = _lab_command(
+        tmp_path,
+        provider_dump_env_name="DECLARED_PROVIDER_VALUE",
+    )
+    adapter = HarveyLabCliAdapter(
+        lab_command=(sys.executable, str(command)),
+        lab_root=lab_root,
+    )
+    task = HarveyLabTaskLoader(lab_root).load_task_index().tasks[0]
+    workspace = tmp_path / "workspace"
+
+    with pytest.raises(ValueError, match="declared provider environment value"):
+        adapter.run(
+            _request(
+                adapter,
+                task,
+                allowed_provider_env_vars=("DECLARED_PROVIDER_VALUE",),
+            ),
+            workspace,
+        )
+
+    assert not (workspace / "lab-output" / "scores.json").exists()
+    assert not (workspace / "lab-task-results.jsonl").exists()
+    assert not (workspace / "result.json").exists()
+    private_scores = workspace / "private-logs" / "lab-output" / "scores.json"
+    assert private_scores.is_file()
+    assert secret in private_scores.read_text(encoding="utf-8")
+
+
+def test_harvey_lab_clears_stale_outputs_before_request_validation(
+    tmp_path: Path,
+) -> None:
+    lab_root = _lab_root(tmp_path)
+    adapter = HarveyLabCliAdapter(
+        lab_command=(sys.executable, str(_lab_command(tmp_path))),
+        lab_root=lab_root,
+    )
+    task = HarveyLabTaskLoader(lab_root).load_task_index().tasks[0]
+    invalid_task = replace(
+        task,
+        family="legalforecast_mtd",
+        scoring_mode="lfb_brier",
+    )
+    workspace = tmp_path / "workspace"
+    _write_stale_public_lab_outputs(workspace)
+    external = tmp_path / "external"
+    external.mkdir()
+    marker = external / "keep.txt"
+    marker.write_text("external target", encoding="utf-8")
+    (workspace / "lab-output" / "escape").symlink_to(
+        external,
+        target_is_directory=True,
+    )
+
+    with pytest.raises(HarveyLabCliAdapterError, match="requires harvey_lab task"):
+        adapter.run(
+            replace(_request(adapter, task), task=invalid_task),
+            workspace,
+        )
+
+    _assert_no_public_lab_outputs(workspace)
+    assert marker.read_text(encoding="utf-8") == "external target"
+
+
+def test_harvey_lab_clears_stale_outputs_before_resolving_lab_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lab_root = _lab_root(tmp_path)
+    adapter = HarveyLabCliAdapter(
+        lab_command=(sys.executable, str(_lab_command(tmp_path))),
+        lab_root=None,
+    )
+    task = HarveyLabTaskLoader(lab_root).load_task_index().tasks[0]
+    workspace = tmp_path / "workspace"
+    _write_stale_public_lab_outputs(workspace)
+    monkeypatch.delenv("HARVEY_LAB_ROOT", raising=False)
+
+    with pytest.raises(HarveyLabCliAdapterError, match="LAB root must be supplied"):
+        adapter.run(_request(adapter, task), workspace)
+
+    _assert_no_public_lab_outputs(workspace)
+
+
+def test_harvey_lab_cleans_public_output_root_symlink_without_following(
+    tmp_path: Path,
+) -> None:
+    lab_root = _lab_root(tmp_path)
+    adapter = HarveyLabCliAdapter(
+        lab_command=(sys.executable, str(_lab_command(tmp_path))),
+        lab_root=lab_root,
+    )
+    task = HarveyLabTaskLoader(lab_root).load_task_index().tasks[0]
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    marker = external / "keep.txt"
+    marker.write_text("external target", encoding="utf-8")
+    (workspace / "lab-output").symlink_to(external, target_is_directory=True)
+    (workspace / "lab-task-results.jsonl").write_text(
+        "stale normalized scores",
+        encoding="utf-8",
+    )
+    (workspace / "result.json").write_text("stale result", encoding="utf-8")
+
+    result = adapter.run(_request(adapter, task), workspace)
+
+    assert result.status == "succeeded"
+    assert marker.read_text(encoding="utf-8") == "external target"
+    assert (workspace / "lab-output").is_dir()
+    assert not (workspace / "lab-output").is_symlink()
+    assert "stale normalized scores" not in (
+        workspace / "lab-task-results.jsonl"
+    ).read_text(encoding="utf-8")
+    result_record = json.loads((workspace / "result.json").read_text(encoding="utf-8"))
+    assert result_record["status"] == "succeeded"
+
+
+def test_harvey_lab_non_cleanup_directory_setup_rejects_root_symlink(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    marker = external / "keep.txt"
+    marker.write_text("external target", encoding="utf-8")
+    private_logs = workspace / "private-logs"
+    private_logs.symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(HarveyLabCliAdapterError, match="must not be a symlink"):
+        lab_adapter_module._ensure_safe_workspace_directory(workspace, private_logs)
+
+    assert private_logs.is_symlink()
+    assert marker.read_text(encoding="utf-8") == "external target"
+
+
+@pytest.mark.parametrize("incomplete_run_policy", ["fail_fast", "record_failure"])
+def test_harvey_lab_runner_clears_stale_outputs_before_row_root_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    incomplete_run_policy: str,
+) -> None:
+    lab_root = _lab_root(tmp_path)
+    adapter = HarveyLabCliAdapter(
+        lab_command=(sys.executable, str(_lab_command(tmp_path))),
+        lab_root=lab_root,
+    )
+    task_index = HarveyLabTaskLoader(lab_root).load_task_index()
+    output_dir = tmp_path / "run"
+    config = MultiHarnessRunConfig(
+        task_index=task_index,
+        adapters=(adapter,),
+        model_configs=(
+            ModelConfig(
+                adapter_id=adapter.manifest.adapter_id,
+                model_key="fixture-model",
+            ),
+        ),
+        sandbox_policy=sandbox_policy(
+            policy_id="fixture",
+            backend="docker",
+            image="python:3.12-slim",
+            mounts=(),
+            timeout_seconds=30,
+        ),
+        output_dir=output_dir,
+    )
+    first = run_multi_harness(config)
+    row_directory = first.rows[0].workspace
+    external = tmp_path / "external"
+    external.mkdir()
+    marker = external / "keep.txt"
+    marker.write_text("external target", encoding="utf-8")
+    (row_directory / "lab-output" / "escape").symlink_to(
+        external,
+        target_is_directory=True,
+    )
+    capabilities = adapter.capabilities(tmp_path / "saved-capabilities")
+    adapter.lab_root = None
+    monkeypatch.delenv("HARVEY_LAB_ROOT", raising=False)
+    monkeypatch.setattr(
+        HarveyLabCliAdapter,
+        "capabilities",
+        lambda _adapter, _workspace: capabilities,
+    )
+    second_config = replace(
+        config,
+        incomplete_run_policy=incomplete_run_policy,
+    )
+
+    if incomplete_run_policy == "fail_fast":
+        with pytest.raises(
+            HarveyLabCliAdapterError,
+            match="LAB root must be supplied",
+        ):
+            run_multi_harness(second_config)
+    else:
+        second = run_multi_harness(second_config)
+        assert second.rows[0].result.status == "failed"
+
+    assert not (row_directory / "lab-output" / "scores.json").exists()
+    assert not (row_directory / "lab-task-results.jsonl").exists()
+    result_path = row_directory / "result.json"
+    if incomplete_run_policy == "fail_fast":
+        assert not result_path.exists()
+    else:
+        result_record = json.loads(result_path.read_text(encoding="utf-8"))
+        assert result_record["status"] == "failed"
+    assert marker.read_text(encoding="utf-8") == "external target"
+    artifact_index_path = output_dir / "artifact-index.json"
+    if incomplete_run_policy == "fail_fast":
+        assert not artifact_index_path.exists()
+    else:
+        artifact_index = json.loads(artifact_index_path.read_text(encoding="utf-8"))
+        row_output_prefix = f"rows/{first.rows[0].row_id}/lab-output/"
+        assert all(
+            not record["path"].startswith(row_output_prefix)
+            for record in artifact_index["artifacts"]
+        )
+
+
+def test_harvey_lab_runner_does_not_index_external_file_root_symlink(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lab_root = _lab_root(tmp_path)
+    adapter = HarveyLabCliAdapter(
+        lab_command=(sys.executable, str(_lab_command(tmp_path))),
+        lab_root=lab_root,
+    )
+    task_index = HarveyLabTaskLoader(lab_root).load_task_index()
+    output_dir = tmp_path / "run"
+    config = MultiHarnessRunConfig(
+        task_index=task_index,
+        adapters=(adapter,),
+        model_configs=(
+            ModelConfig(
+                adapter_id=adapter.manifest.adapter_id,
+                model_key="fixture-model",
+            ),
+        ),
+        sandbox_policy=sandbox_policy(
+            policy_id="fixture",
+            backend="docker",
+            image="python:3.12-slim",
+            mounts=(),
+            timeout_seconds=30,
+        ),
+        output_dir=output_dir,
+    )
+    first = run_multi_harness(config)
+    row_directory = first.rows[0].workspace
+    shutil.rmtree(row_directory / "lab-output")
+    external = tmp_path / "external-result.txt"
+    external.write_text("external provider output", encoding="utf-8")
+    external_sha256 = hashlib.sha256(external.read_bytes()).hexdigest()
+    (row_directory / "lab-output").symlink_to(external)
+
+    capabilities = adapter.capabilities(tmp_path / "saved-capabilities")
+    adapter.lab_root = None
+    monkeypatch.delenv("HARVEY_LAB_ROOT", raising=False)
+    monkeypatch.setattr(
+        HarveyLabCliAdapter,
+        "capabilities",
+        lambda _adapter, _workspace: capabilities,
+    )
+
+    second = run_multi_harness(replace(config, incomplete_run_policy="record_failure"))
+
+    assert second.rows[0].result.status == "failed"
+    assert external.read_text(encoding="utf-8") == "external provider output"
+    assert (row_directory / "lab-output").is_dir()
+    assert not (row_directory / "lab-output").is_symlink()
+    artifact_index_text = (output_dir / "artifact-index.json").read_text(
+        encoding="utf-8"
+    )
+    artifact_index = json.loads(artifact_index_text)
+    assert all(
+        record["path"] != f"rows/{first.rows[0].row_id}/lab-output"
+        for record in artifact_index["artifacts"]
+    )
+    assert external_sha256 not in artifact_index_text
+
+
+def test_multiharness_artifact_index_skips_file_symlinks(tmp_path: Path) -> None:
+    run_root = tmp_path / "run"
+    run_root.mkdir()
+    (run_root / "ordinary.json").write_text("{}", encoding="utf-8")
+    external = tmp_path / "external.txt"
+    external.write_text("external provider output", encoding="utf-8")
+    (run_root / "external-link").symlink_to(external)
+
+    artifact_paths = {
+        record["path"] for record in runner_module._artifact_index(run_root)
+    }
+
+    assert artifact_paths == {"ordinary.json"}
+
+
+def test_harvey_lab_runner_indexes_only_validated_derivatives_as_public(
+    tmp_path: Path,
+) -> None:
+    lab_root = _lab_root(tmp_path)
+    adapter = HarveyLabCliAdapter(
+        lab_command=(sys.executable, str(_lab_command(tmp_path))),
+        lab_root=lab_root,
+    )
+    task_index = HarveyLabTaskLoader(lab_root).load_task_index()
+    output_dir = tmp_path / "run"
+
+    run = run_multi_harness(
+        MultiHarnessRunConfig(
+            task_index=task_index,
+            adapters=(adapter,),
+            model_configs=(
+                ModelConfig(
+                    adapter_id=adapter.manifest.adapter_id,
+                    model_key="fixture-model",
+                ),
+            ),
+            sandbox_policy=sandbox_policy(
+                policy_id="fixture",
+                backend="docker",
+                image="python:3.12-slim",
+                mounts=(),
+                timeout_seconds=30,
+            ),
+            output_dir=output_dir,
+        )
+    )
+
+    artifact_index = json.loads(
+        (output_dir / "artifact-index.json").read_text(encoding="utf-8")
+    )
+    artifacts = {
+        record["path"]: record["public"] for record in artifact_index["artifacts"]
+    }
+    row_root = f"rows/{run.rows[0].row_id}"
+    assert artifacts[f"{row_root}/lab-output/scores.json"] is True
+    assert artifacts[f"{row_root}/lab-task-results.jsonl"] is True
+    assert artifacts[f"{row_root}/private-logs/lab-output/scores.json"] is False
+    assert artifacts[f"{row_root}/private-logs/lab-output/report.html"] is False
+    assert artifacts[f"{row_root}/private-logs/lab-output/transcripts/run.txt"] is False
+    materialized_paths = {
+        path: public for path, public in artifacts.items() if "/lab-root/" in path
+    }
+    assert materialized_paths
+    assert all(public is False for public in materialized_paths.values())
+    assert all("/private-logs/lab-root/" in path for path in materialized_paths)
+    assert f"{row_root}/lab-output/report.html" not in artifacts
+    assert f"{row_root}/lab-output/transcripts/run.txt" not in artifacts
+
+
 def test_harvey_lab_adapter_reports_missing_required_flags(tmp_path: Path) -> None:
     lab_root = _lab_root(tmp_path)
     command = _lab_command(tmp_path, include_output_flag=False)
@@ -97,6 +511,7 @@ def test_harvey_lab_capabilities_reuse_the_initial_probe(
         *,
         timeout_seconds: float,
         cwd: Path,
+        environment: dict[str, str],
     ) -> subprocess.CompletedProcess[str]:
         nonlocal help_probes
         if argv[-1] == "--help":
@@ -105,6 +520,7 @@ def test_harvey_lab_capabilities_reuse_the_initial_probe(
             argv,
             timeout_seconds=timeout_seconds,
             cwd=cwd,
+            environment=environment,
         )
 
     monkeypatch.setattr(lab_adapter_module, "_run_subprocess", count_help_probes)
@@ -305,7 +721,8 @@ def test_harvey_lab_rejects_changed_task_artifact(tmp_path: Path) -> None:
         adapter.run(_request(adapter, task), workspace)
 
     assert not (
-        workspace / "lab-root/tasks/corporate/merger/documents/agreement.md"
+        workspace
+        / "private-logs/lab-root/tasks/corporate/merger/documents/agreement.md"
     ).exists()
 
 
@@ -383,7 +800,9 @@ def test_copy_verified_artifact_preserves_preexisting_destination(
     assert destination.read_bytes() == b"trusted payload"
 
 
-def test_harvey_lab_rejects_destination_parent_symlink(tmp_path: Path) -> None:
+def test_harvey_lab_cleanup_unlinks_descendant_symlink_without_following(
+    tmp_path: Path,
+) -> None:
     lab_root = _lab_root(tmp_path)
     command = _lab_command(tmp_path)
     adapter = HarveyLabCliAdapter(
@@ -392,16 +811,71 @@ def test_harvey_lab_rejects_destination_parent_symlink(tmp_path: Path) -> None:
     )
     task = HarveyLabTaskLoader(lab_root).load_task_index().tasks[0]
     workspace = tmp_path / "workspace"
-    materialized_root = workspace / "lab-root"
+    materialized_root = workspace / "private-logs" / "lab-root"
     materialized_root.mkdir(parents=True)
     external = tmp_path / "external"
     external.mkdir()
+    marker = external / "keep.txt"
+    marker.write_text("external target", encoding="utf-8")
     (materialized_root / "tasks").symlink_to(external, target_is_directory=True)
 
-    with pytest.raises(HarveyLabCliAdapterError, match="contains a symlink"):
-        adapter.run(_request(adapter, task), workspace)
+    result = adapter.run(_request(adapter, task), workspace)
 
-    assert list(external.iterdir()) == []
+    assert result.status == "succeeded"
+    assert marker.read_text(encoding="utf-8") == "external target"
+    assert not (materialized_root / "tasks").is_symlink()
+
+
+def test_harvey_lab_git_probes_use_restricted_capability_environment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lab_root = _lab_root(tmp_path)
+    adapter = HarveyLabCliAdapter(
+        lab_command=(sys.executable, str(_lab_command(tmp_path))),
+        lab_root=lab_root,
+    )
+    workspace = tmp_path / "workspace"
+    ambient_home = tmp_path / "ambient-home"
+    ambient_home.mkdir()
+    monkeypatch.setenv("HOME", str(ambient_home))
+    monkeypatch.setenv("DECLARED_PROVIDER_VALUE", "must-not-reach-git")
+    monkeypatch.setenv("UNDECLARED_HOST_SECRET", "must-not-reach-git")
+    original_run = subprocess.run
+    git_environments: list[object] = []
+
+    def capture_git_environment(
+        *args: object,
+        **kwargs: object,
+    ) -> subprocess.CompletedProcess[object]:
+        argv = args[0]
+        if isinstance(argv, (list, tuple)) and argv and argv[0] == "git":
+            git_environments.append(kwargs.get("env"))
+        return original_run(*args, **kwargs)
+
+    monkeypatch.setattr(lab_adapter_module.subprocess, "run", capture_git_environment)
+
+    adapter.capabilities(workspace)
+
+    assert git_environments
+    isolated_home = workspace / "private-logs" / "adapter-home"
+    for value in git_environments:
+        assert isinstance(value, dict)
+        environment = value
+        assert environment["HOME"] == str(isolated_home)
+        assert "DECLARED_PROVIDER_VALUE" not in environment
+        assert "UNDECLARED_HOST_SECRET" not in environment
+        assert set(environment).issubset(
+            {
+                "PATH",
+                "HOME",
+                "LC_CTYPE",
+                "XDG_CACHE_HOME",
+                "XDG_CONFIG_HOME",
+                "XDG_DATA_HOME",
+                "XDG_STATE_HOME",
+            }
+        )
 
 
 def test_harvey_lab_adapter_validates_lab_root(tmp_path: Path) -> None:
@@ -443,7 +917,7 @@ def test_lab_identity_rejects_git_probe_failures(
     monkeypatch.setattr(lab_adapter_module.subprocess, "run", fail_git_probe)
 
     with pytest.raises(HarveyLabCliAdapterError, match="inspect the LAB Git"):
-        lab_adapter_module._lab_source_identity(tmp_path)
+        _lab_source_identity(tmp_path)
 
 
 def test_lab_source_identity_supports_nested_and_dirty_git_roots(
@@ -452,13 +926,13 @@ def test_lab_source_identity_supports_nested_and_dirty_git_roots(
     parent = tmp_path / "parent"
     nested_root = _lab_root(parent, initialize_git=False)
     _init_git_repository(parent)
-    clean_commit, clean_sha256 = lab_adapter_module._lab_source_identity(nested_root)
+    clean_commit, clean_sha256 = _lab_source_identity(nested_root)
 
     (nested_root / "tasks/corporate/merger/documents/agreement.md").write_text(
         "dirty agreement",
         encoding="utf-8",
     )
-    dirty_commit, dirty_sha256 = lab_adapter_module._lab_source_identity(nested_root)
+    dirty_commit, dirty_sha256 = _lab_source_identity(nested_root)
 
     assert clean_commit == dirty_commit
     assert clean_sha256 != dirty_sha256
@@ -474,8 +948,8 @@ def test_lab_source_identity_distinguishes_nested_subtrees(tmp_path: Path) -> No
     )
     _init_git_repository(parent)
 
-    first_commit, first_sha256 = lab_adapter_module._lab_source_identity(first_root)
-    second_commit, second_sha256 = lab_adapter_module._lab_source_identity(second_root)
+    first_commit, first_sha256 = _lab_source_identity(first_root)
+    second_commit, second_sha256 = _lab_source_identity(second_root)
 
     assert first_commit == second_commit
     assert first_sha256 != second_sha256
@@ -492,7 +966,7 @@ def test_clean_lab_source_identity_does_not_rehash_tracked_files(
 
     monkeypatch.setattr(lab_adapter_module, "_file_sha256", fail_file_hash)
 
-    _commit, source_sha256 = lab_adapter_module._lab_source_identity(lab_root)
+    _commit, source_sha256 = _lab_source_identity(lab_root)
 
     assert source_sha256.startswith("sha256:")
 
@@ -506,10 +980,7 @@ def test_lab_source_hash_normalizes_internal_relative_symlinks(
     _init_git_repository(first_root)
     second_root = _clone_lab_root(first_root, tmp_path / "second")
 
-    assert (
-        lab_adapter_module._lab_source_identity(first_root)[1]
-        == lab_adapter_module._lab_source_identity(second_root)[1]
-    )
+    assert _lab_source_identity(first_root)[1] == _lab_source_identity(second_root)[1]
 
 
 def test_lab_source_hash_rejects_external_symlinks(tmp_path: Path) -> None:
@@ -520,7 +991,7 @@ def test_lab_source_hash_rejects_external_symlinks(tmp_path: Path) -> None:
     _init_git_repository(lab_root)
 
     with pytest.raises(HarveyLabCliAdapterError, match="resolve inside"):
-        lab_adapter_module._lab_source_identity(lab_root)
+        _lab_source_identity(lab_root)
 
 
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="requires POSIX FIFOs")
@@ -533,10 +1004,15 @@ def test_lab_source_hash_rejects_special_file_symlink_targets(tmp_path: Path) ->
     _init_git_repository(lab_root)
 
     with pytest.raises(HarveyLabCliAdapterError, match="regular files"):
-        lab_adapter_module._lab_source_identity(lab_root)
+        _lab_source_identity(lab_root)
 
 
-def _request(adapter: HarveyLabCliAdapter, task: CanonicalTask) -> RunRequest:
+def _request(
+    adapter: HarveyLabCliAdapter,
+    task: CanonicalTask,
+    *,
+    allowed_provider_env_vars: tuple[str, ...] = (),
+) -> RunRequest:
     return RunRequest(
         request_id="lab-request-1",
         task=task,
@@ -548,9 +1024,48 @@ def _request(adapter: HarveyLabCliAdapter, task: CanonicalTask) -> RunRequest:
             image="python:3.12-slim",
             mounts=(),
             timeout_seconds=30,
+            allowed_provider_env_vars=allowed_provider_env_vars,
         ),
         request_sha256="sha256:" + "b" * 64,
     )
+
+
+def _lab_source_identity(path: Path) -> tuple[str, str]:
+    with tempfile.TemporaryDirectory(prefix="legalforecast-git-probe-") as root:
+        environment = lab_adapter_module._host_environment(Path(root))
+        return lab_adapter_module._lab_source_identity(
+            path,
+            environment=environment,
+        )
+
+
+def _write_stale_public_lab_outputs(workspace: Path) -> None:
+    lab_output = workspace / "lab-output"
+    (lab_output / "transcripts").mkdir(parents=True)
+    (lab_output / "scores.json").write_text("stale scores", encoding="utf-8")
+    (lab_output / "report.html").write_text("stale report", encoding="utf-8")
+    (lab_output / "transcripts" / "run.txt").write_text(
+        "stale transcript",
+        encoding="utf-8",
+    )
+    (workspace / "lab-task-results.jsonl").write_text(
+        "stale normalized scores",
+        encoding="utf-8",
+    )
+    (workspace / "result.json").write_text("stale result", encoding="utf-8")
+    legacy_lab_root = workspace / "lab-root"
+    legacy_lab_root.mkdir()
+    (legacy_lab_root / "stale-task.txt").write_text(
+        "stale materialized task",
+        encoding="utf-8",
+    )
+
+
+def _assert_no_public_lab_outputs(workspace: Path) -> None:
+    assert not tuple((workspace / "lab-output").rglob("*"))
+    assert not (workspace / "lab-task-results.jsonl").exists()
+    assert not (workspace / "result.json").exists()
+    assert not (workspace / "lab-root").exists()
 
 
 def _init_git_repository(path: Path) -> None:
@@ -610,28 +1125,48 @@ def _lab_root(tmp_path: Path, *, initialize_git: bool = True) -> Path:
     return lab_root
 
 
-def _lab_command(tmp_path: Path, *, include_output_flag: bool = True) -> Path:
+def _lab_command(
+    tmp_path: Path,
+    *,
+    include_output_flag: bool = True,
+    capture_environment: bool = False,
+    provider_dump_env_name: str | None = None,
+) -> Path:
     script = tmp_path / f"lab_command_{include_output_flag}.py"
+    help_environment_path = script.with_name(f"{script.stem}-help-environment.json")
+    help_environment_value = str(help_environment_path) if capture_environment else ""
     help_flags = "--lab-root --output-dir" if include_output_flag else "--lab-root"
     script.write_text(
         textwrap.dedent(
             f"""\
             #!/usr/bin/env python3
             from __future__ import annotations
-            import argparse, json
+            import argparse, json, os, pathlib
             HELP_FLAGS = {help_flags!r}
+            CAPTURE_ENVIRONMENT = {capture_environment!r}
+            HELP_ENVIRONMENT_PATH = {help_environment_value!r}
+            PROVIDER_DUMP_ENV_NAME = {provider_dump_env_name!r}
             parser = argparse.ArgumentParser(add_help=False)
             parser.add_argument('--help', action='store_true')
             parser.add_argument('--lab-root')
             parser.add_argument('--output-dir')
             args = parser.parse_args()
             if args.help:
+                if CAPTURE_ENVIRONMENT:
+                    pathlib.Path(HELP_ENVIRONMENT_PATH).write_text(
+                        json.dumps(dict(os.environ), sort_keys=True),
+                        encoding='utf-8',
+                    )
                 print('usage: harness.run ' + HELP_FLAGS)
                 raise SystemExit(0)
             out = args.output_dir
-            import pathlib
             output = pathlib.Path(out)
             output.mkdir(parents=True, exist_ok=True)
+            if CAPTURE_ENVIRONMENT:
+                (output / 'environment.json').write_text(
+                    json.dumps(dict(os.environ), sort_keys=True),
+                    encoding='utf-8',
+                )
             (output / 'transcripts').mkdir(exist_ok=True)
             (output / 'report.html').write_text(
                 'SECRET_REPORT', encoding='utf-8'
@@ -643,6 +1178,8 @@ def _lab_command(tmp_path: Path, *, include_output_flag: bool = True) -> Path:
               {{'criterion_id': 'accuracy', 'score': 0.8, 'max_score': 1.0}},
               {{'criterion_id': 'citation', 'score': 0.7, 'max_score': 1.0}},
             ]}}
+            if PROVIDER_DUMP_ENV_NAME:
+                scores['provider_dump'] = os.environ[PROVIDER_DUMP_ENV_NAME]
             (output / 'scores.json').write_text(
                 json.dumps(scores), encoding='utf-8'
             )
