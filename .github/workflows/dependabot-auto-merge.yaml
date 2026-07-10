@@ -74,4 +74,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge --auto --squash "$PR_URL"
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          allow_auto_merge="$(
+            gh api "repos/${REPOSITORY}" --jq '.allow_auto_merge'
+          )"
+          if [[ "${allow_auto_merge}" != "true" ]]; then
+            echo "::notice::Repository auto-merge is disabled; skipping. Enable Settings > General > Pull requests > Allow auto-merge to activate this workflow."
+            exit 0
+          fi
+
+          gh pr merge --auto --squash "$PR_URL"
