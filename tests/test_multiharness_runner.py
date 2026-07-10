@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -81,6 +83,15 @@ def test_runner_writes_deterministic_artifacts_and_lfb_projection(
     )
 
     assert first.manifest.request_ids == second.manifest.request_ids
+    assert first.manifest.run_compatibility_sha256 == (
+        second.manifest.run_compatibility_sha256
+    )
+    assert first.manifest.run_compatibility_sha256 is not None
+    compatibility_path = first.output_dir / "run-compatibility.json"
+    compatibility_record = json.loads(compatibility_path.read_text(encoding="utf-8"))
+    assert first.manifest.run_compatibility_sha256 == _record_sha256(
+        compatibility_record
+    )
     row = first.rows[0]
     row_dir = first.output_dir / "rows" / row.row_id
     request_record = json.loads((row_dir / "request.json").read_text(encoding="utf-8"))
@@ -102,6 +113,7 @@ def test_runner_writes_deterministic_artifacts_and_lfb_projection(
     assert lfb_rows[0]["model_id"] == "lfb-native:fixture-model"
     assert "lfb/runs.jsonl" in artifact_paths
     assert "canonical-runs.jsonl" in artifact_paths
+    assert "run-compatibility.json" in artifact_paths
     assert f"rows/{row.row_id}/request.json" in artifact_paths
 
 
@@ -124,9 +136,118 @@ def test_runner_resumes_matching_request_hash(tmp_path: Path) -> None:
     assert second.rows[0].resumed is True
     assert first.rows[0].result.result_id == second.rows[0].result.result_id
     assert first.manifest.run_config_sha256 == second.manifest.run_config_sha256
+    assert first.manifest.run_compatibility_sha256 == (
+        second.manifest.run_compatibility_sha256
+    )
     assert (first.rows[0].workspace / "run-count.txt").read_text(
         encoding="utf-8"
     ) == "1"
+
+
+def test_run_compatibility_hash_excludes_selection_and_run_identity(
+    tmp_path: Path,
+) -> None:
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    first_config = _command_config(
+        output_dir=tmp_path / "run-a",
+        task=task,
+        adapter=adapter,
+    )
+    second_config = replace(
+        first_config,
+        output_dir=tmp_path / "run-b",
+        selection=TaskSelection.full(label="different-selection-label"),
+        run_id="different-run-id",
+        max_parallelism=2,
+    )
+    incompatible_config = replace(
+        first_config,
+        output_dir=tmp_path / "run-c",
+        incomplete_run_policy="fail_fast",
+    )
+
+    first = run_multi_harness(first_config)
+    second = run_multi_harness(second_config)
+    incompatible = run_multi_harness(incompatible_config)
+
+    assert first.manifest.run_config_sha256 != second.manifest.run_config_sha256
+    assert first.manifest.run_compatibility_sha256 == (
+        second.manifest.run_compatibility_sha256
+    )
+    assert first.manifest.run_compatibility_sha256 != (
+        incompatible.manifest.run_compatibility_sha256
+    )
+
+
+def test_run_compatibility_hash_includes_resolved_adapter_capabilities(
+    tmp_path: Path,
+) -> None:
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    first = run_multi_harness(
+        _command_config(
+            output_dir=tmp_path / "run-a",
+            task=task,
+            adapter=adapter,
+        )
+    )
+    script_path = Path(adapter.manifest.command[1])
+    script_path.write_text(
+        script_path.read_text(encoding="utf-8").replace("'a' * 64", "'c' * 64"),
+        encoding="utf-8",
+    )
+    second = run_multi_harness(
+        _command_config(
+            output_dir=tmp_path / "run-b",
+            task=task,
+            adapter=adapter,
+        )
+    )
+
+    assert first.manifest.run_config_sha256 == second.manifest.run_config_sha256
+    assert first.manifest.run_compatibility_sha256 != (
+        second.manifest.run_compatibility_sha256
+    )
+
+
+def test_runner_marks_capability_probe_artifacts_private(tmp_path: Path) -> None:
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+        write_private_capability_probe=True,
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+
+    run = run_multi_harness(
+        _command_config(output_dir=tmp_path / "run", task=task, adapter=adapter)
+    )
+
+    artifact_index = json.loads(
+        (run.output_dir / "artifact-index.json").read_text(encoding="utf-8")
+    )
+    artifacts = {
+        artifact["path"]: artifact["public"]
+        for artifact in cast(list[dict[str, object]], artifact_index["artifacts"])
+    }
+    capability_root = "adapter-capabilities/command-fixture"
+    assert artifacts[f"{capability_root}/adapter-capabilities.json"] is True
+    assert artifacts[f"{capability_root}/lab-command-capabilities.json"] is False
+    assert artifacts[f"{capability_root}/private-logs/capabilities-stdout.log"] is False
+    assert artifacts[f"{capability_root}/private-logs/capabilities-stderr.log"] is False
+    row_root = f"rows/{run.rows[0].row_id}"
+    assert artifacts[f"{row_root}/adapter-capabilities.json"] is True
+    assert artifacts[f"{row_root}/lab-command-capabilities.json"] is False
+    assert artifacts[f"{row_root}/private-logs/capabilities-stdout.log"] is False
 
 
 def test_runner_records_failures_and_keeps_lab_outputs_separate(
@@ -222,6 +343,7 @@ def _command_adapter(
     supported_families: tuple[str, ...],
     supported_scoring_modes: tuple[str, ...],
     fail_run: bool = False,
+    write_private_capability_probe: bool = False,
 ) -> CommandAdapter:
     script = tmp_path / f"adapter_{len(list(tmp_path.glob('adapter_*.py')))}.py"
     script.write_text(
@@ -233,6 +355,7 @@ def _command_adapter(
                 f"SUPPORTED_FAMILIES = {supported_families!r}",
                 f"SUPPORTED_SCORING_MODES = {supported_scoring_modes!r}",
                 f"FAIL_RUN = {fail_run!r}",
+                f"WRITE_PRIVATE_CAPABILITY_PROBE = {write_private_capability_probe!r}",
                 "parser = argparse.ArgumentParser()",
                 "sub = parser.add_subparsers(dest='command', required=True)",
                 "cap = sub.add_parser('capabilities')",
@@ -254,6 +377,14 @@ def _command_adapter(
                 "        'supports_sandbox_policy': True,",
                 "        'capabilities_sha256': 'sha256:' + 'a' * 64,",
                 "    }",
+                "    if WRITE_PRIVATE_CAPABILITY_PROBE:",
+                "        probe_path = str(args.output).replace(",
+                "            'adapter-capabilities.json',",
+                "            'lab-command-capabilities.json',",
+                "        )",
+                "        open(probe_path, 'w', encoding='utf-8').write(",
+                "            json.dumps({'lab_root': '/private/local/checkout'})",
+                "        )",
                 "    open(args.output, 'w', encoding='utf-8').write(",
                 "        json.dumps(payload)",
                 "    )",
@@ -404,3 +535,8 @@ def _jsonl(path: Path) -> list[dict[str, Any]]:
         missing_message=lambda item: f"missing JSONL: {item}",
         non_object_message=lambda item, line: f"bad JSONL row {line} in {item}",
     )
+
+
+def _record_sha256(record: object) -> str:
+    encoded = json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"

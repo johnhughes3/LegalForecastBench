@@ -37,6 +37,7 @@ def test_schema_versions_are_explicit_for_public_contracts() -> None:
         "run_request",
         "run_result",
         "run_manifest",
+        "run_compatibility",
         "conformance_report",
         "community_submission",
         "community_aggregate",
@@ -108,6 +109,7 @@ def test_adapter_and_run_records_round_trip() -> None:
         run_id="run-1",
         selection_sha256=SHA256,
         run_config_sha256=OTHER_SHA256,
+        run_compatibility_sha256=SHA256,
         request_ids=(request.request_id,),
         result_ids=(result.result_id,),
     )
@@ -118,6 +120,9 @@ def test_adapter_and_run_records_round_trip() -> None:
     assert RunRequest.from_record(request.to_record()) == request
     assert RunResult.from_record(result.to_record()) == result
     assert RunManifest.from_record(manifest.to_record()) == manifest
+    legacy_manifest = manifest.to_record()
+    legacy_manifest.pop("run_compatibility_sha256")
+    assert RunManifest.from_record(legacy_manifest).run_compatibility_sha256 is None
 
 
 def test_conformance_submission_and_aggregate_round_trip() -> None:

@@ -19,6 +19,9 @@ from legalforecast._json_io import (
     write_jsonl_objects,
 )
 from legalforecast.multiharness.spec import (
+    RUN_COMPATIBILITY_SCHEMA_VERSION,
+    SCORING_MODES,
+    AdapterCapabilities,
     ArtifactRecord,
     ConformanceReport,
     ContributorCredit,
@@ -248,6 +251,7 @@ class CommunitySubmissionShard:
     sandbox_policy_hash: str
     run_config_hash: str
     contributor_credits: tuple[ContributorCredit, ...]
+    run_compatibility_hash: str | None = None
 
     def __post_init__(self) -> None:
         for field_name, value in (
@@ -264,6 +268,31 @@ class CommunitySubmissionShard:
         validate_sha256(self.selection_sha256, "selection_sha256")
         validate_sha256(self.sandbox_policy_hash, "sandbox_policy_hash")
         validate_sha256(self.run_config_hash, "run_config_hash")
+        group_parts = self.compatible_shard_group_id.split(":", 2)
+        if len(group_parts) != 3:
+            raise MultiHarnessValidationError(
+                "compatible_shard_group_id must contain family, scoring mode, "
+                "and suite identity"
+            )
+        group_family, group_scoring_mode, group_suite_identity = group_parts
+        if group_family != self.source_suite:
+            raise MultiHarnessValidationError(
+                "compatible_shard_group_id family must match source_suite"
+            )
+        if group_scoring_mode not in SCORING_MODES:
+            raise MultiHarnessValidationError(
+                "compatible_shard_group_id scoring mode is invalid"
+            )
+        if self.run_compatibility_hash is not None:
+            validate_sha256(
+                self.run_compatibility_hash,
+                "run_compatibility_hash",
+            )
+            if group_suite_identity != self.suite_version:
+                raise MultiHarnessValidationError(
+                    "compatible_shard_group_id suite identity must match "
+                    "suite_version when run_compatibility_hash is present"
+                )
         _require_non_empty_tuple(self.task_ids, "task_ids")
         validate_unique_ids(self.task_ids, "task_ids")
         _require_contributor_roles(
@@ -275,7 +304,7 @@ class CommunitySubmissionShard:
         validate_public_record(self.to_record(), "community_shard")
 
     def to_record(self) -> dict[str, Any]:
-        return {
+        record: dict[str, Any] = {
             "schema_version": COMMUNITY_SHARD_SCHEMA_VERSION,
             "shard_id": self.shard_id,
             "compatible_shard_group_id": self.compatible_shard_group_id,
@@ -294,6 +323,9 @@ class CommunitySubmissionShard:
                 credit.to_record() for credit in self.contributor_credits
             ],
         }
+        if self.run_compatibility_hash is not None:
+            record["run_compatibility_hash"] = self.run_compatibility_hash
+        return record
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> Self:
@@ -318,6 +350,7 @@ class CommunitySubmissionShard:
             contributor_credits=_credit_tuple(
                 require_sequence(record, "contributor_credits")
             ),
+            run_compatibility_hash=optional_str(record, "run_compatibility_hash"),
         )
 
 
@@ -560,14 +593,298 @@ def validate_submission_manifest(
             )
         if artifact.public:
             public_paths.append(artifact_path)
+    _validate_local_run_provenance(manifest, root)
     if public_paths:
         enforce_publication_guardrails(PublicationGuardrailConfig(public_paths=(root,)))
+
+
+def _validate_local_run_provenance(
+    manifest: CommunitySubmissionManifest,
+    root: Path,
+) -> None:
+    run_manifest_artifacts = [
+        artifact
+        for artifact in manifest.artifacts
+        if artifact.path == "run-manifest.json"
+    ]
+    if len(run_manifest_artifacts) > 1:
+        raise ValueError("submission has multiple run-manifest.json artifacts")
+    if not run_manifest_artifacts or run_manifest_artifacts[0].source_url is not None:
+        if any(shard.run_compatibility_hash is not None for shard in manifest.shards):
+            raise ValueError(
+                "run_compatibility_hash requires a local run-manifest.json artifact"
+            )
+        return
+
+    run_manifest = RunManifest.from_record(
+        _read_json(root / run_manifest_artifacts[0].path, "run manifest")
+    )
+    run_compatibility_artifacts = [
+        artifact
+        for artifact in manifest.artifacts
+        if artifact.path == "run-compatibility.json"
+    ]
+    if len(run_compatibility_artifacts) > 1:
+        raise ValueError("submission has multiple run-compatibility.json artifacts")
+    if run_manifest.run_compatibility_sha256 is None:
+        if run_compatibility_artifacts:
+            raise ValueError(
+                "legacy run manifest must not include run-compatibility.json"
+            )
+    else:
+        if (
+            not run_compatibility_artifacts
+            or run_compatibility_artifacts[0].source_url is not None
+        ):
+            raise ValueError(
+                "run compatibility hash requires a local "
+                "run-compatibility.json artifact"
+            )
+        compatibility_record = _read_json(
+            root / run_compatibility_artifacts[0].path,
+            "run compatibility",
+        )
+        require_schema_version(
+            compatibility_record,
+            RUN_COMPATIBILITY_SCHEMA_VERSION,
+        )
+        validate_public_record(compatibility_record, "run_compatibility")
+        _require_exact_fields(
+            compatibility_record,
+            frozenset({"schema_version", "run_config", "adapter_capabilities"}),
+            "run_compatibility",
+        )
+        compatibility_run_config = require_mapping(
+            compatibility_record,
+            "run_config",
+        )
+        _require_exact_fields(
+            compatibility_run_config,
+            frozenset(
+                {
+                    "task_index",
+                    "adapters",
+                    "model_configs",
+                    "sandbox_policy",
+                    "incomplete_run_policy",
+                }
+            ),
+            "run_compatibility.run_config",
+        )
+        task_index = require_mapping(compatibility_run_config, "task_index")
+        _require_exact_fields(
+            task_index,
+            frozenset({"index_id", "index_sha256", "selection_namespace"}),
+            "run_compatibility.task_index",
+        )
+        require_str(task_index, "index_id")
+        validate_sha256(require_str(task_index, "index_sha256"), "index_sha256")
+        require_str(task_index, "selection_namespace")
+        adapters = require_sequence(compatibility_run_config, "adapters")
+        model_configs = require_sequence(
+            compatibility_run_config,
+            "model_configs",
+        )
+        sandbox_policy = require_mapping(
+            compatibility_run_config,
+            "sandbox_policy",
+        )
+        _require_exact_fields(
+            sandbox_policy,
+            frozenset({"policy_id", "policy_sha256"}),
+            "run_compatibility.sandbox_policy",
+        )
+        require_str(sandbox_policy, "policy_id")
+        validate_sha256(
+            require_str(sandbox_policy, "policy_sha256"),
+            "policy_sha256",
+        )
+        incomplete_run_policy = require_str(
+            compatibility_run_config,
+            "incomplete_run_policy",
+        )
+        if incomplete_run_policy not in {"fail_fast", "record_failure"}:
+            raise ValueError(
+                "incomplete_run_policy must be one of: fail_fast, record_failure"
+            )
+        if not adapters or not model_configs:
+            raise ValueError(
+                "run-compatibility.json adapters and model_configs must not be empty"
+            )
+        adapter_keys: set[tuple[str, str]] = set()
+        adapter_ids: set[str] = set()
+        for adapter in adapters:
+            adapter_record = _require_item_mapping(adapter, "adapters")
+            _require_exact_fields(
+                adapter_record,
+                frozenset({"adapter_id", "adapter_version"}),
+                "run_compatibility.adapter",
+            )
+            adapter_id = require_str(adapter_record, "adapter_id")
+            adapter_key = (
+                adapter_id,
+                require_str(adapter_record, "adapter_version"),
+            )
+            if adapter_id in adapter_ids:
+                raise ValueError("run-compatibility.json contains duplicate adapter_id")
+            adapter_ids.add(adapter_id)
+            adapter_keys.add(adapter_key)
+
+        model_routes: set[tuple[str, str | None]] = set()
+        for model in model_configs:
+            model_record = _require_item_mapping(model, "model_configs")
+            _require_exact_fields(
+                model_record,
+                frozenset({"adapter_id", "model_key", "lfb_fixture"}),
+                "run_compatibility.model_config",
+            )
+            optional_bool(model_record, "lfb_fixture")
+            model_route = (
+                require_str(model_record, "model_key"),
+                optional_str(model_record, "adapter_id"),
+            )
+            route_adapter_id = model_route[1]
+            if route_adapter_id is not None and route_adapter_id not in adapter_ids:
+                raise ValueError(
+                    "run-compatibility.json model route references unknown adapter_id"
+                )
+            if model_route in model_routes:
+                raise ValueError(
+                    "run-compatibility.json contains duplicate model route"
+                )
+            model_key = model_route[0]
+            if (
+                route_adapter_id is None
+                and any(route[0] == model_key for route in model_routes)
+            ) or (route_adapter_id is not None and (model_key, None) in model_routes):
+                raise ValueError(
+                    "run-compatibility.json contains overlapping model routes"
+                )
+            model_routes.add(model_route)
+        capabilities = require_sequence(
+            compatibility_record,
+            "adapter_capabilities",
+        )
+        if not capabilities:
+            raise ValueError(
+                "run-compatibility.json adapter_capabilities must not be empty"
+            )
+        parsed_capabilities_list: list[AdapterCapabilities] = []
+        for capability in capabilities:
+            capability_record = _require_item_mapping(
+                capability,
+                "adapter_capabilities",
+            )
+            _require_exact_fields(
+                capability_record,
+                frozenset(
+                    {
+                        "schema_version",
+                        "adapter_id",
+                        "adapter_version",
+                        "supported_families",
+                        "supported_scoring_modes",
+                        "supports_sandbox_policy",
+                        "capabilities_sha256",
+                    }
+                ),
+                "run_compatibility.adapter_capability",
+            )
+            parsed_capabilities_list.append(
+                AdapterCapabilities.from_record(capability_record)
+            )
+        parsed_capabilities = tuple(parsed_capabilities_list)
+        capability_keys = {
+            (capability.adapter_id, capability.adapter_version)
+            for capability in parsed_capabilities
+        }
+        if len(capability_keys) != len(parsed_capabilities):
+            raise ValueError(
+                "run-compatibility.json contains duplicate adapter capabilities"
+            )
+        if capability_keys != adapter_keys:
+            raise ValueError(
+                "run-compatibility.json adapter capabilities do not match adapters"
+            )
+        capabilities_by_adapter = {
+            (capability.adapter_id, capability.adapter_version): capability
+            for capability in parsed_capabilities
+        }
+        for shard in manifest.shards:
+            adapter_key = (shard.adapter_id, shard.adapter_version)
+            if adapter_key not in adapter_keys:
+                raise ValueError(
+                    f"shard {shard.shard_id} adapter is absent from "
+                    "run-compatibility.json"
+                )
+            if not any(
+                model_key == shard.model_key
+                and (adapter_id is None or adapter_id == shard.adapter_id)
+                for model_key, adapter_id in model_routes
+            ):
+                raise ValueError(
+                    f"shard {shard.shard_id} model route is absent from "
+                    "run-compatibility.json"
+                )
+            scoring_mode = shard.compatible_shard_group_id.split(":", 2)[1]
+            capability = capabilities_by_adapter[adapter_key]
+            if (
+                shard.source_suite not in capability.supported_families
+                or scoring_mode not in capability.supported_scoring_modes
+            ):
+                raise ValueError(
+                    f"adapter capability does not support shard {shard.shard_id} "
+                    f"family {shard.source_suite} and scoring mode {scoring_mode}"
+                )
+        actual_compatibility_sha256 = _file_sha256_from_record(compatibility_record)
+        if actual_compatibility_sha256 != run_manifest.run_compatibility_sha256:
+            raise ValueError(
+                "run_compatibility_sha256 does not match run-compatibility.json"
+            )
+    summary = manifest.run_summary
+    expected_summary_fields = {
+        "run_id": run_manifest.run_id,
+        "run_manifest_sha256": _file_sha256_from_record(run_manifest.to_record()),
+        "selection_sha256": run_manifest.selection_sha256,
+        "run_config_sha256": run_manifest.run_config_sha256,
+    }
+    actual_summary_fields = {
+        "run_id": summary.run_id,
+        "run_manifest_sha256": summary.run_manifest_sha256,
+        "selection_sha256": summary.selection_sha256,
+        "run_config_sha256": summary.run_config_sha256,
+    }
+    for field_name, expected in expected_summary_fields.items():
+        actual = actual_summary_fields[field_name]
+        if actual != expected:
+            raise ValueError(
+                f"run summary {field_name} does not match run-manifest.json: "
+                f"expected {expected}, got {actual}"
+            )
+
+    for shard in manifest.shards:
+        if shard.selection_sha256 != run_manifest.selection_sha256:
+            raise ValueError(
+                f"shard {shard.shard_id} selection_sha256 does not match "
+                "run-manifest.json"
+            )
+        if shard.run_config_hash != run_manifest.run_config_sha256:
+            raise ValueError(
+                f"shard {shard.shard_id} run_config_hash does not match "
+                "run-manifest.json"
+            )
+        if shard.run_compatibility_hash != run_manifest.run_compatibility_sha256:
+            raise ValueError(
+                f"shard {shard.shard_id} run_compatibility_hash does not match "
+                "run-manifest.json"
+            )
 
 
 def _copy_run_public_artifacts(run_dir: Path, output_dir: Path) -> list[Path]:
     copied: list[Path] = []
     for relative in (
         "run-manifest.json",
+        "run-compatibility.json",
         "row-results.jsonl",
         "canonical-runs.jsonl",
         "lab/task-results.jsonl",
@@ -770,6 +1087,7 @@ def _submission_shards(
                 sandbox_policy_hash=sandbox_policy_hashes[0],
                 run_config_hash=run_manifest.run_config_sha256,
                 contributor_credits=contributors,
+                run_compatibility_hash=run_manifest.run_compatibility_sha256,
             )
         )
     return tuple(shards)
@@ -884,6 +1202,23 @@ def _require_item_mapping(item: Any, field_name: str) -> Mapping[str, Any]:
     if not isinstance(item, Mapping):
         raise MultiHarnessValidationError(f"{field_name} entries must be objects")
     return cast(Mapping[str, Any], item)
+
+
+def _require_exact_fields(
+    record: Mapping[str, Any],
+    expected: frozenset[str],
+    field_name: str,
+) -> None:
+    missing = sorted(expected.difference(record))
+    if missing:
+        raise MultiHarnessValidationError(
+            f"{field_name} has missing field(s): {', '.join(missing)}"
+        )
+    unexpected = sorted(set(record).difference(expected))
+    if unexpected:
+        raise MultiHarnessValidationError(
+            f"{field_name} has unexpected field(s): {', '.join(unexpected)}"
+        )
 
 
 def _str_tuple(records: Sequence[Any], field_name: str) -> tuple[str, ...]:
