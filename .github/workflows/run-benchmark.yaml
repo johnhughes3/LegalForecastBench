@@ -158,6 +158,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Validate dispatch request
@@ -684,6 +685,7 @@ jobs:
       - name: Checkout trusted release
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           ref: ${{ needs.build-matrix.outputs.release_sha }}
 
       - name: Dry-run matrix row
@@ -833,6 +835,7 @@ jobs:
       - name: Checkout trusted release
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           ref: ${{ needs.build-matrix.outputs.release_sha }}
 
       - name: Install uv
