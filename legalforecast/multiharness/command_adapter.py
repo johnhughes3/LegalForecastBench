@@ -13,13 +13,21 @@ from legalforecast.multiharness.adapters import (
     AdapterError,
     AdapterPreparation,
 )
+from legalforecast.multiharness.host_environment import (
+    HostEnvironmentError,
+    build_host_subprocess_environment,
+    require_provider_environment_values,
+)
 from legalforecast.multiharness.spec import (
     AdapterCapabilities,
     AdapterManifest,
     RunRequest,
     RunResult,
 )
-from legalforecast.multiharness.validation import validate_safe_relative_path
+from legalforecast.multiharness.validation import (
+    validate_no_secret_values,
+    validate_safe_relative_path,
+)
 
 
 class CommandAdapterError(AdapterError):
@@ -114,9 +122,13 @@ class CommandAdapter:
         )
 
     def run(self, request: RunRequest, workspace: Path) -> RunResult:
-        self.prepare(request, workspace)
+        workspace.mkdir(parents=True, exist_ok=True)
         request_path = workspace / "request.json"
         output_path = workspace / "result.json"
+        private_output_path = workspace / "private-logs" / "run-result.raw.json"
+        output_path.unlink(missing_ok=True)
+        self.prepare(request, workspace)
+        private_output_path.unlink(missing_ok=True)
         write_json_object(request_path, request.to_record())
         self._invoke(
             "run",
@@ -125,16 +137,30 @@ class CommandAdapter:
                 "--request",
                 str(request_path),
                 "--output",
-                str(output_path),
+                str(private_output_path),
                 "--workspace",
                 str(workspace),
             ),
             workspace=workspace,
+            allowed_provider_env_vars=(
+                request.sandbox_policy.allowed_provider_env_vars
+            ),
         )
-        result = RunResult.from_record(_read_command_json(output_path, "run result"))
+        result = RunResult.from_record(
+            _read_command_json(private_output_path, "run result")
+        )
         if result.request_id != request.request_id:
             raise CommandAdapterError("run result request_id does not match request")
         _validate_result_artifacts(result)
+        provider_values = require_provider_environment_values(
+            request.sandbox_policy.allowed_provider_env_vars
+        )
+        validate_no_secret_values(
+            result.to_record(),
+            tuple(provider_values.values()),
+            "run result",
+        )
+        write_json_object(output_path, result.to_record())
         return result
 
     def _invoke(
@@ -143,6 +169,7 @@ class CommandAdapter:
         args: Sequence[str],
         *,
         workspace: Path,
+        allowed_provider_env_vars: Sequence[str] = (),
     ) -> CommandExecutionLog:
         if self.timeout_seconds <= 0:
             raise CommandAdapterError("timeout_seconds must be positive")
@@ -153,13 +180,22 @@ class CommandAdapter:
         stderr_path = private_logs / f"{phase}-stderr.log"
         argv = (*self._resolved_command(), *args)
         try:
+            environment = build_host_subprocess_environment(
+                private_logs,
+                allowed_provider_env_vars,
+            )
             completed = subprocess.run(
                 argv,
                 check=False,
                 capture_output=True,
+                encoding="utf-8",
+                env=environment,
+                errors="replace",
                 text=True,
                 timeout=self.timeout_seconds,
             )
+        except HostEnvironmentError as exc:
+            raise CommandAdapterError(str(exc)) from exc
         except subprocess.TimeoutExpired as exc:
             stdout_path.write_text(_stream_text(exc.stdout), encoding="utf-8")
             stderr_path.write_text(_stream_text(exc.stderr), encoding="utf-8")

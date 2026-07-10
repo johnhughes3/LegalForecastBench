@@ -22,16 +22,25 @@ from legalforecast.ingestion.provenance import (
     SourceDocumentProvenance,
     sha256_text,
 )
-from legalforecast.multiharness.command_adapter import CommandAdapter
+from legalforecast.multiharness.command_adapter import (
+    CommandAdapter,
+    CommandAdapterError,
+)
+from legalforecast.multiharness.host_environment import HostEnvironmentError
 from legalforecast.multiharness.lfb_native import LfbNativeAdapter
 from legalforecast.multiharness.runner import (
     ModelConfig,
     MultiHarnessRunConfig,
     run_multi_harness,
 )
-from legalforecast.multiharness.sandbox import sandbox_policy
+from legalforecast.multiharness.sandbox import (
+    NETWORK_NONE,
+    PROVIDER_EGRESS_HOST_ONLY,
+    sandbox_policy,
+)
 from legalforecast.multiharness.selection import TaskSelection
 from legalforecast.multiharness.spec import (
+    AdapterCapabilities,
     AdapterManifest,
     CanonicalTask,
     ContributorCredit,
@@ -144,6 +153,325 @@ def test_runner_resumes_matching_request_hash(tmp_path: Path) -> None:
     ) == "1"
 
 
+def test_runner_does_not_resume_after_provider_environment_policy_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    output_dir = tmp_path / "run"
+    base_config = _command_config(
+        output_dir=output_dir,
+        task=task,
+        adapter=adapter,
+    )
+    monkeypatch.setenv("FIRST_PROVIDER_KEY", "first-provider-value")
+    first_config = replace(
+        base_config,
+        sandbox_policy=replace(
+            base_config.sandbox_policy,
+            allowed_provider_env_vars=("FIRST_PROVIDER_KEY",),
+        ),
+    )
+    first = run_multi_harness(first_config)
+
+    monkeypatch.setenv("SECOND_PROVIDER_KEY", "second-provider-value")
+    second_config = replace(
+        base_config,
+        resume=True,
+        sandbox_policy=replace(
+            base_config.sandbox_policy,
+            allowed_provider_env_vars=("SECOND_PROVIDER_KEY",),
+        ),
+    )
+    second = run_multi_harness(second_config)
+
+    assert second.rows[0].resumed is False
+    assert first.rows[0].request.request_sha256 != second.rows[0].request.request_sha256
+    assert (second.rows[0].workspace / "run-count.txt").read_text(
+        encoding="utf-8"
+    ) == "2"
+
+
+def test_runner_does_not_resume_failed_result(tmp_path: Path) -> None:
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+        fail_run=True,
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    output_dir = tmp_path / "run"
+    first = run_multi_harness(
+        _command_config(output_dir=output_dir, task=task, adapter=adapter)
+    )
+    assert first.rows[0].result.status == "failed"
+    script_path = Path(adapter.manifest.command[1])
+    script_path.write_text(
+        script_path.read_text(encoding="utf-8").replace(
+            "FAIL_RUN = True",
+            "FAIL_RUN = False",
+        ),
+        encoding="utf-8",
+    )
+
+    second = run_multi_harness(
+        _command_config(
+            output_dir=output_dir,
+            task=task,
+            adapter=adapter,
+            resume=True,
+        )
+    )
+
+    assert second.rows[0].resumed is False
+    assert second.rows[0].result.status == "succeeded"
+    assert (second.rows[0].workspace / "run-count.txt").read_text(
+        encoding="utf-8"
+    ) == "1"
+
+
+def test_config_rejects_provider_environment_without_host_egress(
+    tmp_path: Path,
+) -> None:
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    config = _command_config(output_dir=tmp_path / "run", task=task, adapter=adapter)
+
+    with pytest.raises(ValueError, match="provider egress"):
+        replace(
+            config,
+            sandbox_policy=replace(
+                config.sandbox_policy,
+                network_policy=NETWORK_NONE,
+                allowed_provider_env_vars=("OPENAI_API_KEY",),
+            ),
+        )
+
+
+def test_runner_rejects_missing_provider_environment_before_capability_probe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    output_dir = tmp_path / "run"
+    config = _command_config(output_dir=output_dir, task=task, adapter=adapter)
+    config = replace(
+        config,
+        sandbox_policy=replace(
+            config.sandbox_policy,
+            allowed_provider_env_vars=("MISSING_PROVIDER_KEY",),
+        ),
+    )
+    monkeypatch.delenv("MISSING_PROVIDER_KEY", raising=False)
+
+    with pytest.raises(HostEnvironmentError, match="MISSING_PROVIDER_KEY"):
+        run_multi_harness(config)
+
+    assert not output_dir.exists()
+
+
+def test_runner_redacts_provider_values_from_public_failure_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    secret = "opaque-provider-value-7Jx9"
+    monkeypatch.setenv("DECLARED_PROVIDER_VALUE", secret)
+    adapter = _ProviderValueErrorAdapter(secret)
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    config = MultiHarnessRunConfig(
+        task_index=_task_index(task),
+        adapters=(adapter,),
+        model_configs=(
+            ModelConfig(
+                adapter_id=adapter.manifest.adapter_id,
+                model_key="fixture-model",
+            ),
+        ),
+        sandbox_policy=replace(
+            _sandbox(),
+            allowed_provider_env_vars=("DECLARED_PROVIDER_VALUE",),
+        ),
+        output_dir=tmp_path / "run",
+    )
+
+    run = run_multi_harness(config)
+
+    public_result = json.dumps(run.rows[0].result.to_record(), sort_keys=True)
+    assert run.rows[0].result.status == "failed"
+    assert secret not in public_result
+    assert run.rows[0].result.public_summary["error_message"] == (
+        "adapter failed; see private logs"
+    )
+
+
+def test_runner_redacts_provider_value_that_occurs_in_generic_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    secret = "private logs"
+    monkeypatch.setenv("DECLARED_PROVIDER_VALUE", secret)
+    adapter = _ProviderValueErrorAdapter(secret)
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    config = MultiHarnessRunConfig(
+        task_index=_task_index(task),
+        adapters=(adapter,),
+        model_configs=(
+            ModelConfig(
+                adapter_id=adapter.manifest.adapter_id,
+                model_key="fixture-model",
+            ),
+        ),
+        sandbox_policy=replace(
+            _sandbox(),
+            allowed_provider_env_vars=("DECLARED_PROVIDER_VALUE",),
+        ),
+        output_dir=tmp_path / "run",
+    )
+
+    run = run_multi_harness(config)
+
+    public_result = json.dumps(run.rows[0].result.to_record(), sort_keys=True)
+    assert run.rows[0].result.status == "failed"
+    assert secret not in public_result
+    assert run.rows[0].result.public_summary == {}
+
+
+def test_runner_fail_fast_keeps_rejected_command_result_private(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    secret = "opaque-provider-value-7Jx9"
+    monkeypatch.setenv("DECLARED_PROVIDER_VALUE", secret)
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+        public_summary_env_name="DECLARED_PROVIDER_VALUE",
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    base_config = _command_config(
+        output_dir=tmp_path / "run",
+        task=task,
+        adapter=adapter,
+    )
+    config = replace(
+        base_config,
+        incomplete_run_policy="fail_fast",
+        sandbox_policy=replace(
+            base_config.sandbox_policy,
+            allowed_provider_env_vars=("DECLARED_PROVIDER_VALUE",),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="declared provider environment value"):
+        run_multi_harness(config)
+
+    row_directories = tuple((config.output_dir / "rows").iterdir())
+    assert len(row_directories) == 1
+    row_directory = row_directories[0]
+    assert not (row_directory / "result.json").exists()
+    private_result = row_directory / "private-logs" / "run-result.raw.json"
+    assert private_result.is_file()
+    assert secret in private_result.read_text(encoding="utf-8")
+
+
+def test_runner_fail_fast_clears_stale_result_before_row_prepare(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    config = _command_config(
+        output_dir=tmp_path / "run",
+        task=task,
+        adapter=adapter,
+    )
+    first = run_multi_harness(config)
+    row_directory = first.rows[0].workspace
+    result_path = row_directory / "result.json"
+    assert result_path.is_file()
+    original_capabilities = CommandAdapter.capabilities
+
+    def fail_row_capabilities(
+        current_adapter: CommandAdapter,
+        workspace: Path,
+    ) -> AdapterCapabilities:
+        if "rows" in workspace.parts:
+            raise CommandAdapterError("fixture row capability failure")
+        return original_capabilities(current_adapter, workspace)
+
+    monkeypatch.setattr(CommandAdapter, "capabilities", fail_row_capabilities)
+
+    with pytest.raises(CommandAdapterError, match="row capability failure"):
+        run_multi_harness(replace(config, incomplete_run_policy="fail_fast"))
+
+    assert not result_path.exists()
+
+
+def test_config_rejects_matrix_global_credentials_for_multiple_models(
+    tmp_path: Path,
+) -> None:
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    config = _command_config(output_dir=tmp_path / "run", task=task, adapter=adapter)
+
+    with pytest.raises(ValueError, match="one adapter and one model"):
+        replace(
+            config,
+            model_configs=(ModelConfig("first"), ModelConfig("second")),
+            sandbox_policy=replace(
+                config.sandbox_policy,
+                network_policy=PROVIDER_EGRESS_HOST_ONLY,
+                allowed_provider_env_vars=("OPENAI_API_KEY",),
+            ),
+        )
+
+
+def test_config_rejects_matrix_global_credentials_for_multiple_adapters(
+    tmp_path: Path,
+) -> None:
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    config = _command_config(output_dir=tmp_path / "run", task=task, adapter=adapter)
+
+    with pytest.raises(ValueError, match="one adapter and one model"):
+        replace(
+            config,
+            adapters=(adapter, adapter),
+            sandbox_policy=replace(
+                config.sandbox_policy,
+                network_policy=PROVIDER_EGRESS_HOST_ONLY,
+                allowed_provider_env_vars=("OPENAI_API_KEY",),
+            ),
+        )
+
+
 def test_run_compatibility_hash_excludes_selection_and_run_identity(
     tmp_path: Path,
 ) -> None:
@@ -248,6 +576,8 @@ def test_runner_marks_capability_probe_artifacts_private(tmp_path: Path) -> None
     assert artifacts[f"{row_root}/adapter-capabilities.json"] is True
     assert artifacts[f"{row_root}/lab-command-capabilities.json"] is False
     assert artifacts[f"{row_root}/private-logs/capabilities-stdout.log"] is False
+    assert artifacts[f"{row_root}/private-logs/run-result.raw.json"] is False
+    assert artifacts[f"{row_root}/result.json"] is True
 
 
 def test_runner_records_failures_and_keeps_lab_outputs_separate(
@@ -344,6 +674,7 @@ def _command_adapter(
     supported_scoring_modes: tuple[str, ...],
     fail_run: bool = False,
     write_private_capability_probe: bool = False,
+    public_summary_env_name: str | None = None,
 ) -> CommandAdapter:
     script = tmp_path / f"adapter_{len(list(tmp_path.glob('adapter_*.py')))}.py"
     script.write_text(
@@ -351,11 +682,12 @@ def _command_adapter(
             [
                 "#!/usr/bin/env python3",
                 "from __future__ import annotations",
-                "import argparse, json, sys",
+                "import argparse, json, os, sys",
                 f"SUPPORTED_FAMILIES = {supported_families!r}",
                 f"SUPPORTED_SCORING_MODES = {supported_scoring_modes!r}",
                 f"FAIL_RUN = {fail_run!r}",
                 f"WRITE_PRIVATE_CAPABILITY_PROBE = {write_private_capability_probe!r}",
+                f"PUBLIC_SUMMARY_ENV_NAME = {public_summary_env_name!r}",
                 "parser = argparse.ArgumentParser()",
                 "sub = parser.add_subparsers(dest='command', required=True)",
                 "cap = sub.add_parser('capabilities')",
@@ -408,6 +740,10 @@ def _command_adapter(
                 "        'artifacts': [],",
                 "        'public_summary': {'run_count': count},",
                 "    }",
+                "    if PUBLIC_SUMMARY_ENV_NAME:",
+                "        result['public_summary']['provider_value'] = (",
+                "            os.environ[PUBLIC_SUMMARY_ENV_NAME]",
+                "        )",
                 "    open(args.output, 'w', encoding='utf-8').write(",
                 "        json.dumps(result)",
                 "    )",
@@ -423,6 +759,29 @@ def _command_adapter(
         contributors=(ContributorCredit(role="adapter_author", name="Fixture"),),
     )
     return CommandAdapter(manifest=manifest)
+
+
+class _ProviderValueErrorAdapter:
+    def __init__(self, secret: str) -> None:
+        self.secret = secret
+        self.manifest = AdapterManifest(
+            adapter_id="provider-value-error",
+            display_name="Provider Value Error",
+            adapter_version="0.1.0",
+            command=("provider-value-error",),
+        )
+
+    def capabilities(self, _workspace: Path) -> AdapterCapabilities:
+        return AdapterCapabilities(
+            adapter_id=self.manifest.adapter_id,
+            adapter_version=self.manifest.adapter_version,
+            supported_families=("legalforecast_mtd",),
+            supported_scoring_modes=("lfb_brier",),
+            capabilities_sha256=SHA256,
+        )
+
+    def run(self, _request: object, _workspace: Path) -> object:
+        raise RuntimeError(self.secret)
 
 
 def _task_index(task: CanonicalTask) -> TaskIndex:

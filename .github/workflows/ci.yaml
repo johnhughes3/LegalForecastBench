@@ -42,6 +42,13 @@ jobs:
       - name: Type-check
         run: uv run pyright
 
+      - name: Check public API docstring coverage
+        run: >-
+          uv run interrogate
+          legalforecast/publication
+          legalforecast/labeling
+          scripts
+
       - name: Test
         run: uv run pytest -q
 
