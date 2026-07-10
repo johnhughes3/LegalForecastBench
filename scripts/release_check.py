@@ -1,3 +1,5 @@
+"""Run and validate the repository's complete alpha-release quality gate."""
+
 from __future__ import annotations
 
 import argparse
@@ -37,12 +39,16 @@ PACKAGE_HASHES_SCHEMA_VERSION = "legalforecast.release.package_hashes.v1"
 
 @dataclass(frozen=True, slots=True)
 class CheckStep:
+    """One named command in the release-check sequence."""
+
     label: str
     command: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
 class MultiHarnessSmokePaths:
+    """Filesystem contract for release-check multi-harness smoke artifacts."""
+
     root: Path
     packet_jsonl: Path
     adapter_script: Path
@@ -56,6 +62,8 @@ class MultiHarnessSmokePaths:
 
 
 def build_steps(output_dir: Path) -> tuple[CheckStep, ...]:
+    """Build the source-tree checks that run before installed-package smokes."""
+
     fixture_dir = output_dir / "fixture-run"
     dist_dir = output_dir / "dist"
     multiharness = multiharness_smoke_paths(output_dir)
@@ -64,6 +72,17 @@ def build_steps(output_dir: Path) -> tuple[CheckStep, ...]:
         CheckStep("check formatting", ("uv", "run", "ruff", "format", "--check", ".")),
         CheckStep("lint", ("uv", "run", "ruff", "check", ".")),
         CheckStep("type-check", ("uv", "run", "pyright")),
+        CheckStep(
+            "public API docstring coverage",
+            (
+                "uv",
+                "run",
+                "interrogate",
+                "legalforecast/publication",
+                "legalforecast/labeling",
+                "scripts/release_check.py",
+            ),
+        ),
         CheckStep("test", ("uv", "run", "pytest", "-q")),
         CheckStep(
             "review blocker verifier",
@@ -177,6 +196,8 @@ def build_installed_cli_steps(
     wheel_path: Path,
     sdist_path: Path,
 ) -> tuple[CheckStep, ...]:
+    """Build CLI smoke checks for the wheel and source distribution."""
+
     installed_fixture_dir = output_dir / "installed-fixture-run"
     python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
     base_command = ("uv", "run", "--no-project", "--python", python_version)
@@ -206,6 +227,8 @@ def build_installed_cli_steps(
 
 
 def validate_artifacts(output_dir: Path) -> None:
+    """Validate fixture, multi-harness, and package artifacts from a release run."""
+
     fixture_dir = output_dir / "fixture-run"
     _validate_fixture_artifacts(fixture_dir)
     _validate_multiharness_smoke_artifacts(multiharness_smoke_paths(output_dir))
@@ -217,6 +240,8 @@ def validate_artifacts(output_dir: Path) -> None:
 
 
 def _validate_fixture_artifacts(fixture_dir: Path) -> None:
+    """Require the complete fixture-E2E artifact set and a nonempty index."""
+
     required_paths = (
         fixture_dir / "artifact-index.json",
         fixture_dir / "artifact-manifest.json",
@@ -239,6 +264,8 @@ def _validate_fixture_artifacts(fixture_dir: Path) -> None:
 
 
 def multiharness_smoke_paths(output_dir: Path) -> MultiHarnessSmokePaths:
+    """Resolve every multi-harness smoke path below a release output directory."""
+
     root = output_dir / "multiharness"
     inputs_dir = root / "inputs"
     return MultiHarnessSmokePaths(
@@ -256,6 +283,8 @@ def multiharness_smoke_paths(output_dir: Path) -> MultiHarnessSmokePaths:
 
 
 def prepare_multiharness_smoke_inputs(output_dir: Path) -> MultiHarnessSmokePaths:
+    """Write deterministic packet and adapter inputs for multi-harness smokes."""
+
     paths = multiharness_smoke_paths(output_dir)
     paths.packet_jsonl.parent.mkdir(parents=True, exist_ok=True)
     paths.community_submissions_dir.mkdir(parents=True, exist_ok=True)
@@ -284,6 +313,8 @@ def prepare_multiharness_smoke_inputs(output_dir: Path) -> MultiHarnessSmokePath
 
 
 def _validate_multiharness_smoke_artifacts(paths: MultiHarnessSmokePaths) -> None:
+    """Validate schemas and success markers emitted by multi-harness smokes."""
+
     TaskIndex.from_record(_read_json_object(paths.task_index, "task index"))
     AdapterCapabilities.from_record(
         _read_json_object(
@@ -311,10 +342,25 @@ def _validate_multiharness_smoke_artifacts(paths: MultiHarnessSmokePaths) -> Non
 
 
 def package_hashes_path(dist_dir: Path) -> Path:
+    """Return the canonical package-hash manifest path beside the dist directory."""
+
     return dist_dir.parent / "package-artifact-hashes.json"
 
 
 def write_package_hashes(dist_dir: Path, *, output_path: Path | None = None) -> Path:
+    """Hash package artifacts without recursively including a hash manifest.
+
+    Args:
+        dist_dir: Directory containing built wheel and source artifacts.
+        output_path: Optional manifest destination; defaults beside ``dist_dir``.
+
+    Returns:
+        The path of the written package-hash manifest.
+
+    Raises:
+        RuntimeError: If ``dist_dir`` contains no package artifacts to hash.
+    """
+
     output_path = output_path or package_hashes_path(dist_dir)
     excluded_paths = {
         output_path.resolve(),
@@ -353,6 +399,12 @@ def write_package_hashes(dist_dir: Path, *, output_path: Path | None = None) -> 
 def _validate_package_hashes(
     dist_dir: Path, *, hashes_path: Path | None = None
 ) -> None:
+    """Verify each declared package hash and size against the current artifacts.
+
+    The active manifest and the legacy in-directory manifest location are excluded
+    from the artifact set so a manifest can never authenticate itself.
+    """
+
     hashes_path = hashes_path or package_hashes_path(dist_dir)
     record = _read_json_object(
         hashes_path,
@@ -390,6 +442,8 @@ def _validate_package_hashes(
 
 
 def _read_json_object(path: Path, label: str) -> dict[str, object]:
+    """Read a required JSON object or raise a release-check error with context."""
+
     if not path.is_file():
         raise RuntimeError(f"{label} does not exist: {path}")
     record = json.loads(path.read_text(encoding="utf-8"))
@@ -399,6 +453,8 @@ def _read_json_object(path: Path, label: str) -> dict[str, object]:
 
 
 def _sha256_file(path: Path) -> str:
+    """Return the lowercase SHA-256 hex digest for a file."""
+
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -407,6 +463,8 @@ def _sha256_file(path: Path) -> str:
 
 
 def _wheel_path(dist_dir: Path) -> Path:
+    """Return the first built wheel, failing when the build produced none."""
+
     wheels = sorted(dist_dir.glob("*.whl"))
     if not wheels:
         raise RuntimeError("package build did not produce a wheel")
@@ -414,6 +472,8 @@ def _wheel_path(dist_dir: Path) -> Path:
 
 
 def _sdist_path(dist_dir: Path) -> Path:
+    """Return the first built source distribution, failing when none exists."""
+
     sdists = sorted(dist_dir.glob("*.tar.gz"))
     if not sdists:
         raise RuntimeError("package build did not produce an sdist")
@@ -421,6 +481,8 @@ def _sdist_path(dist_dir: Path) -> Path:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Run the release gate or print its deterministic plan for ``--dry-run``."""
+
     parser = argparse.ArgumentParser(
         description="Run the full LegalForecast-MTD v0.1 alpha release check."
     )
@@ -483,6 +545,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _release_smoke_packet_record() -> dict[str, object]:
+    """Build the deterministic packet record used by release multi-harness smokes."""
+
     packet = build_model_packet(
         case_packet=CasePacketSchema(
             candidate_id="release-smoke-candidate",
@@ -541,6 +605,8 @@ def _release_smoke_document(
     predecision: bool = True,
     outcome: bool = False,
 ) -> SourceDocumentProvenance:
+    """Build one synthetic source-document provenance record for release smokes."""
+
     return SourceDocumentProvenance(
         source_provider="release-check-fixture",
         source_case_id="release-smoke-case",
@@ -560,6 +626,8 @@ def _release_smoke_document(
 
 
 def _fixture_adapter_script() -> str:
+    """Render the deterministic command-adapter script used by release smokes."""
+
     return "\n".join(
         (
             "from __future__ import annotations",
@@ -627,11 +695,15 @@ def _fixture_adapter_script() -> str:
 
 
 def _clean_output_dir(output_dir: Path) -> None:
+    """Delete a previously validated release output directory."""
+
     _validate_output_dir(output_dir)
     shutil.rmtree(output_dir)
 
 
 def _validate_output_dir(output_dir: Path) -> None:
+    """Require release output to be a child of the repository's temporary root."""
+
     tmp_root = (REPO_ROOT / "tmp").resolve()
     if output_dir == tmp_root:
         raise RuntimeError(

@@ -25,6 +25,7 @@ legalforecast = "legalforecast.cli:main"
 
 [dependency-groups]
 dev = [
+  "interrogate>=1.7.0",
   "pyright>=1.1.409",
   "pytest>=8.4",
   "ruff>=0.15.12",
@@ -50,3 +51,13 @@ select = ["B", "E", "F", "I", "RUF", "UP"]
 include = ["legalforecast", "scripts"]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
+
+[tool.interrogate]
+# CI supplies the intentionally scoped publication, labeling, and release paths.
+fail-under = 50
+ignore-nested-classes = true
+ignore-nested-functions = true
+ignore-private = true
+ignore-semiprivate = true
+style = "google"
+verbose = 1
