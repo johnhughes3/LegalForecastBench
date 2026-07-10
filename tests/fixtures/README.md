@@ -28,6 +28,7 @@ Directory roles:
 - `protocols/`: reserved for protocol fixtures.
 - `golden_cases/`: catalog of reusable synthetic legal edge cases.
 - `mock_model_outputs/`: catalog of deterministic model-output scenarios.
+- `packet_render_ci/`: minimal acquisition export used by the packet-render workflow gate.
 
 See `tests/fixtures/golden_cases/README.md` for fixture IDs and expected uses.
 

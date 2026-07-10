@@ -37,6 +37,20 @@ checkout but do not belong in the installed `legalforecast` CLI.
 
   Add `--verify-dir tmp/reconstructed-documents` to write a verification report
   and return nonzero when any reconstructed document is missing or mismatched.
+  Use `--verify-packet-render-dir tmp/rebuilt-packets` to verify packet and prompt
+  renders against the hashes published by the private-store exporter.
+
+- `legalforecast.publication.run_input_manifest`: records late-bound locked-label
+  hashes after packet export and before an official matrix fans out. It emits a
+  new manifest, preserves the packet inputs, and refuses to replace a different
+  existing labels commitment.
+
+  ```bash
+  uv run python -m legalforecast.publication.run_input_manifest freeze-labels \
+    --manifest tmp/cycle.run-inputs.json \
+    --labels tmp/cycle.labels.jsonl \
+    --output tmp/cycle.run-inputs.frozen.json
+  ```
 
 - `validate_local_assume_access.py`: runs a non-mutating local Granted/AWS S3
   smoke test without printing bucket names or account IDs. Profile and bucket

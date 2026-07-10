@@ -1,0 +1,1 @@
+{"ablation":"full_packet","candidate_id":"ci-candidate","case_id":"ci-case","documents":[{"source_document_id":"ci-doc","source_sha256":"b2a8d2787ac2b8b9d26a97d35bf66a7f5f4aacc628ecb724d389e78cec8b3a56","text":"Complaint fixture text visible to model","text_sha256":"48c6e6313cacb400b9884e5d20178030de177647946f95053514e2277d561844"}],"prediction_units":[{"unit_id":"ci-unit"}]}

@@ -21,6 +21,7 @@ from legalforecast.publication.reconstruction import (
     load_reconstruction_plans,
     verify_reconstructed_packet_renders,
 )
+from legalforecast.publication.run_input_manifest import freeze_run_input_labels
 
 
 def test_private_store_export_stages_objects_manifests_and_verification(
@@ -153,6 +154,33 @@ def test_private_store_export_rejects_source_hash_mismatch(tmp_path: Path) -> No
                 cycle_id="cycle_fixture",
             )
         )
+
+
+def test_exported_run_input_manifest_can_freeze_late_bound_labels(
+    tmp_path: Path,
+) -> None:
+    result = build_private_store_export(
+        PrivateStoreExportConfig(
+            source_dir=_source_dir(tmp_path),
+            output_dir=tmp_path / "export",
+            cycle_id="cycle_fixture",
+        )
+    )
+    labels_path = tmp_path / "labels.jsonl"
+    labels_path.write_text('{"unit_id":"unit-1"}\n', encoding="utf-8")
+    frozen_manifest_path = tmp_path / "cycle_fixture.run-inputs.frozen.json"
+
+    freeze_run_input_labels(
+        result.run_input_manifest_path,
+        labels_path=labels_path,
+        output_path=frozen_manifest_path,
+    )
+
+    exported = _read_json(result.run_input_manifest_path)
+    frozen = _read_json(frozen_manifest_path)
+    assert "labels_sha256" not in exported
+    assert frozen["labels_sha256"] == _sha256_file(labels_path)
+    assert frozen["model_packets"] == exported["model_packets"]
 
 
 def test_private_store_export_module_main_writes_report(

@@ -72,6 +72,28 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
     )
 
 
+def test_official_eval_matrix_workflow_freezes_labels_before_fanout() -> None:
+    freeze_step = WORKFLOW.index("- name: Freeze labels into run-input manifest")
+    verify_step = WORKFLOW.index("- name: Verify labels frozen before scoring")
+    matrix_step = WORKFLOW.index("- name: Build matrix JSON")
+
+    assert freeze_step < verify_step < matrix_step
+    assert (
+        "uv run python -m legalforecast.publication.run_input_manifest "
+        "freeze-labels" in WORKFLOW
+    )
+    assert "--output /tmp/lfb-run-inputs-frozen.json" in WORKFLOW
+    assert 'with open("/tmp/lfb-run-inputs-frozen.json", encoding="utf-8")' in WORKFLOW
+    assert "name: official-run-input-manifest-${{ github.run_id }}" in WORKFLOW
+    assert "path: /tmp/lfb-run-inputs-frozen.json" in WORKFLOW
+    assert "name: Download frozen run-input manifest" in WORKFLOW
+    assert "path: /tmp/lfb-frozen-run-input" in WORKFLOW
+    assert (
+        "cp /tmp/lfb-frozen-run-input/lfb-run-inputs-frozen.json "
+        "/tmp/lfb-run-inputs.json" in WORKFLOW
+    )
+
+
 def test_official_eval_matrix_workflow_preflights_projected_model_cost() -> None:
     assert (
         "max_projected_model_cost_usd must be a non-negative decimal amount."

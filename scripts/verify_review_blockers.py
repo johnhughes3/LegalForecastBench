@@ -470,14 +470,21 @@ def check_v2_10() -> tuple[bool, str]:
         r"\bpacket_render\b",
         frozenset({"legalforecast/publication/reconstruction.py"}),
     )
-    workflow = (REPO / ".github" / "workflows" / "run-benchmark.yaml").read_text(
-        encoding="utf-8"
-    )
-    wired = bool(hits) or "verify-packet-render" in workflow
+    workflow_hits = [
+        path.name
+        for path in sorted((REPO / ".github" / "workflows").glob("*.y*ml"))
+        if "--verify-packet-render-dir" in path.read_text(encoding="utf-8")
+    ]
+    workflow_wired = bool(workflow_hits)
+    wired = bool(hits) and workflow_wired
     return wired, (
-        f"packet-render verification producers/consumers: {hits or 'workflow step'}"
+        f"packet-render producer(s): {hits}; workflow(s): {workflow_hits}"
         if wired
-        else "packet-render verification has no producer or workflow step; cannot run"
+        else (
+            "packet-render verification requires both a production producer and "
+            f"workflow invocation; producers={hits or 'none'}, "
+            f"workflows={workflow_hits or 'none'}"
+        )
     )
 
 
@@ -650,7 +657,7 @@ CHECKS: tuple[Check, ...] = (
     Check(
         "V2-10",
         "LegalForecastBench-89o",
-        "packet-render verification has a production producer or workflow step",
+        "packet-render verification has a production producer and workflow invocation",
         check_v2_10,
     ),
     Check(
