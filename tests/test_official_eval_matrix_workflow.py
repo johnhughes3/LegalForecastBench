@@ -4,6 +4,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github/workflows/run-benchmark.yaml").read_text(encoding="utf-8")
+BUILD_MATRIX_JOB = WORKFLOW[
+    WORKFLOW.index("  build-matrix:") : WORKFLOW.index("  run-case:")
+]
+AGGREGATE_RESULTS_JOB = WORKFLOW[WORKFLOW.index("  aggregate-results:") :]
 
 
 def test_official_eval_matrix_workflow_is_manual_and_protected() -> None:
@@ -73,25 +77,64 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
 
 
 def test_official_eval_matrix_workflow_freezes_labels_before_fanout() -> None:
-    freeze_step = WORKFLOW.index("- name: Freeze labels into run-input manifest")
-    verify_step = WORKFLOW.index("- name: Verify labels frozen before scoring")
-    matrix_step = WORKFLOW.index("- name: Build matrix JSON")
+    download_step = BUILD_MATRIX_JOB.index("- name: Download labels")
+    freeze_step = BUILD_MATRIX_JOB.index(
+        "- name: Freeze labels into run-input manifest"
+    )
+    verify_step = BUILD_MATRIX_JOB.index("- name: Verify labels frozen before scoring")
+    matrix_step = BUILD_MATRIX_JOB.index("- name: Build matrix JSON")
 
-    assert freeze_step < verify_step < matrix_step
+    assert download_step < freeze_step < verify_step < matrix_step
+    assert "uses: astral-sh/setup-uv" not in BUILD_MATRIX_JOB
+    assert "legalforecast.publication.run_input_manifest" not in BUILD_MATRIX_JOB
+    assert "id: freeze_labels" in BUILD_MATRIX_JOB
+    assert 'frozen_manifest["labels_sha256"] = labels_sha256' in BUILD_MATRIX_JOB
     assert (
-        "uv run python -m legalforecast.publication.run_input_manifest "
-        "freeze-labels" in WORKFLOW
+        "frozen_manifest_sha256: "
+        "${{ steps.freeze_labels.outputs.frozen_manifest_sha256 }}" in BUILD_MATRIX_JOB
     )
-    assert "--output /tmp/lfb-run-inputs-frozen.json" in WORKFLOW
-    assert 'with open("/tmp/lfb-run-inputs-frozen.json", encoding="utf-8")' in WORKFLOW
-    assert "name: official-run-input-manifest-${{ github.run_id }}" in WORKFLOW
-    assert "path: /tmp/lfb-run-inputs-frozen.json" in WORKFLOW
-    assert "name: Download frozen run-input manifest" in WORKFLOW
-    assert "path: /tmp/lfb-frozen-run-input" in WORKFLOW
     assert (
-        "cp /tmp/lfb-frozen-run-input/lfb-run-inputs-frozen.json "
-        "/tmp/lfb-run-inputs.json" in WORKFLOW
+        "labels_sha256: ${{ steps.freeze_labels.outputs.labels_sha256 }}"
+        in BUILD_MATRIX_JOB
     )
+    assert 'output.write(f"labels_sha256={labels_sha256}\\n")' in BUILD_MATRIX_JOB
+    assert 'f"frozen_manifest_sha256={frozen_manifest_sha256}\\n"' in BUILD_MATRIX_JOB
+    assert "official-run-input-manifest" not in WORKFLOW
+
+
+def test_official_eval_matrix_workflow_rebuilds_frozen_manifest_for_aggregate() -> None:
+    download_step = AGGREGATE_RESULTS_JOB.index("- name: Download aggregate inputs")
+    rebuild_step = AGGREGATE_RESULTS_JOB.index(
+        "- name: Rebuild and verify frozen run-input manifest"
+    )
+    artifacts_step = AGGREGATE_RESULTS_JOB.index("- name: Download per-case artifacts")
+    aggregate_step = AGGREGATE_RESULTS_JOB.index("- name: Aggregate official bundle")
+
+    assert download_step < rebuild_step < artifacts_step < aggregate_step
+    assert (
+        "EXPECTED_LABELS_SHA256: "
+        "${{ needs.build-matrix.outputs.labels_sha256 }}" in AGGREGATE_RESULTS_JOB
+    )
+    assert (
+        "EXPECTED_FROZEN_MANIFEST_SHA256: "
+        "${{ needs.build-matrix.outputs.frozen_manifest_sha256 }}"
+        in AGGREGATE_RESULTS_JOB
+    )
+    assert (
+        'download_input "${RUN_INPUT_MANIFEST_URI}" '
+        "/tmp/lfb-run-inputs-original.json" in AGGREGATE_RESULTS_JOB
+    )
+    assert (
+        "labels changed after matrix construction; refusing aggregation"
+        in AGGREGATE_RESULTS_JOB
+    )
+    assert "if frozen_manifest_sha256 != expected_manifest:" in AGGREGATE_RESULTS_JOB
+    assert (
+        "run-input manifest changed after matrix construction" in AGGREGATE_RESULTS_JOB
+    )
+    assert "frozen_path.write_bytes(frozen_bytes)" in AGGREGATE_RESULTS_JOB
+    assert "name: Download frozen run-input manifest" not in AGGREGATE_RESULTS_JOB
+    assert "/tmp/lfb-frozen-run-input" not in AGGREGATE_RESULTS_JOB
 
 
 def test_official_eval_matrix_workflow_preflights_projected_model_cost() -> None:
