@@ -1,0 +1,77 @@
+name: Dependabot Auto-Merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  enable-auto-merge:
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.repository == 'johnhughes3/LegalForecastBench' &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Classify verified Dependabot update
+        id: metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          first_commit="$(
+            gh api \
+              "repos/${REPOSITORY}/pulls/${PR_NUMBER}/commits?per_page=1" \
+              --jq '.[0] | {
+                author: (.author.login // ""),
+                verified: (.commit.verification.verified // false),
+                message: (.commit.message // "")
+              }'
+          )"
+          author="$(jq -r '.author' <<<"${first_commit}")"
+          verified="$(jq -r '.verified' <<<"${first_commit}")"
+          if [[ "${author}" != "dependabot[bot]" || "${verified}" != "true" ]]; then
+            echo "The first pull request commit is not a verified Dependabot commit." >&2
+            exit 1
+          fi
+
+          mapfile -t update_types < <(
+            jq -r '.message' <<<"${first_commit}" |
+              sed -n 's/^[[:space:]]*update-type:[[:space:]]*//p'
+          )
+          if ((${#update_types[@]} == 0)); then
+            echo "The verified Dependabot commit has no update-type metadata." >&2
+            exit 1
+          fi
+
+          eligible=true
+          for update_type in "${update_types[@]}"; do
+            case "${update_type}" in
+              version-update:semver-patch | version-update:semver-minor) ;;
+              version-update:semver-major) eligible=false ;;
+              *)
+                echo "Unknown Dependabot update type: ${update_type}" >&2
+                exit 1
+                ;;
+            esac
+          done
+          echo "eligible=${eligible}" >>"${GITHUB_OUTPUT}"
+
+      - name: Enable auto-merge for patch and minor updates
+        if: steps.metadata.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"
