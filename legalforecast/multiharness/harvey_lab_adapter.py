@@ -102,10 +102,20 @@ class HarveyLabCliAdapter:
         init=False,
         repr=False,
     )
+    _cached_command_capabilities: HarveyLabCommandCapabilities | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
 
     def capabilities(self, workspace: Path) -> AdapterCapabilities:
         workspace.mkdir(parents=True, exist_ok=True)
-        command_capabilities = self.command_capabilities(workspace)
+        command_capabilities = self._cached_command_capabilities
+        if command_capabilities is None:
+            command_capabilities = self.command_capabilities(workspace)
+            capabilities = self._record_capabilities(workspace, command_capabilities)
+            self._cached_command_capabilities = command_capabilities
+            return capabilities
         return self._record_capabilities(workspace, command_capabilities)
 
     def _record_capabilities(

@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -76,6 +77,46 @@ def test_harvey_lab_adapter_reports_missing_required_flags(tmp_path: Path) -> No
 
     with pytest.raises(HarveyLabCliAdapterError, match="--output-dir"):
         adapter.run(_request(adapter, task), tmp_path / "workspace")
+
+
+def test_harvey_lab_capabilities_reuse_the_initial_probe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lab_root = _lab_root(tmp_path)
+    command = _lab_command(tmp_path)
+    adapter = HarveyLabCliAdapter(
+        lab_command=(sys.executable, str(command)),
+        lab_root=lab_root,
+    )
+    original_run_subprocess = lab_adapter_module._run_subprocess
+    help_probes = 0
+
+    def count_help_probes(
+        argv: tuple[str, ...],
+        *,
+        timeout_seconds: float,
+        cwd: Path,
+    ) -> subprocess.CompletedProcess[str]:
+        nonlocal help_probes
+        if argv[-1] == "--help":
+            help_probes += 1
+        return original_run_subprocess(
+            argv,
+            timeout_seconds=timeout_seconds,
+            cwd=cwd,
+        )
+
+    monkeypatch.setattr(lab_adapter_module, "_run_subprocess", count_help_probes)
+
+    first = adapter.capabilities(tmp_path / "first-workspace")
+    second = adapter.capabilities(tmp_path / "second-workspace")
+
+    assert second == first
+    assert help_probes == 1
+    assert (
+        tmp_path / "second-workspace" / "private-logs" / "lab-command-capabilities.json"
+    ).is_file()
 
 
 def test_harvey_lab_capability_hash_ignores_local_paths(
@@ -573,40 +614,40 @@ def _lab_command(tmp_path: Path, *, include_output_flag: bool = True) -> Path:
     script = tmp_path / f"lab_command_{include_output_flag}.py"
     help_flags = "--lab-root --output-dir" if include_output_flag else "--lab-root"
     script.write_text(
-        "\n".join(
-            [
-                "#!/usr/bin/env python3",
-                "from __future__ import annotations",
-                "import argparse, json",
-                f"HELP_FLAGS = {help_flags!r}",
-                "parser = argparse.ArgumentParser(add_help=False)",
-                "parser.add_argument('--help', action='store_true')",
-                "parser.add_argument('--lab-root')",
-                "parser.add_argument('--output-dir')",
-                "args = parser.parse_args()",
-                "if args.help:",
-                "    print('usage: harness.run ' + HELP_FLAGS)",
-                "    raise SystemExit(0)",
-                "out = args.output_dir",
-                "import pathlib",
-                "output = pathlib.Path(out)",
-                "output.mkdir(parents=True, exist_ok=True)",
-                "(output / 'transcripts').mkdir(exist_ok=True)",
-                "(output / 'report.html').write_text(",
-                "    'SECRET_REPORT', encoding='utf-8'",
-                ")",
-                "(output / 'transcripts' / 'run.txt').write_text(",
-                "    'SECRET_TRANSCRIPT', encoding='utf-8'",
-                ")",
-                "scores = {'scores': [",
-                "  {'criterion_id': 'accuracy', 'score': 0.8, 'max_score': 1.0},",
-                "  {'criterion_id': 'citation', 'score': 0.7, 'max_score': 1.0},",
-                "]}",
-                "(output / 'scores.json').write_text(",
-                "    json.dumps(scores), encoding='utf-8'",
-                ")",
-            ]
-        ),
+        textwrap.dedent(
+            f"""\
+            #!/usr/bin/env python3
+            from __future__ import annotations
+            import argparse, json
+            HELP_FLAGS = {help_flags!r}
+            parser = argparse.ArgumentParser(add_help=False)
+            parser.add_argument('--help', action='store_true')
+            parser.add_argument('--lab-root')
+            parser.add_argument('--output-dir')
+            args = parser.parse_args()
+            if args.help:
+                print('usage: harness.run ' + HELP_FLAGS)
+                raise SystemExit(0)
+            out = args.output_dir
+            import pathlib
+            output = pathlib.Path(out)
+            output.mkdir(parents=True, exist_ok=True)
+            (output / 'transcripts').mkdir(exist_ok=True)
+            (output / 'report.html').write_text(
+                'SECRET_REPORT', encoding='utf-8'
+            )
+            (output / 'transcripts' / 'run.txt').write_text(
+                'SECRET_TRANSCRIPT', encoding='utf-8'
+            )
+            scores = {{'scores': [
+              {{'criterion_id': 'accuracy', 'score': 0.8, 'max_score': 1.0}},
+              {{'criterion_id': 'citation', 'score': 0.7, 'max_score': 1.0}},
+            ]}}
+            (output / 'scores.json').write_text(
+                json.dumps(scores), encoding='utf-8'
+            )
+            """
+        ).strip(),
         encoding="utf-8",
     )
     return script
