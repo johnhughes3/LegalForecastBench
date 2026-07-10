@@ -47,14 +47,18 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf tmp/ci-packet-render
-          uv run python legalforecast/publication/private_store_export.py \
-            --source-dir tests/fixtures/packet_render_ci \
-            --output-dir tmp/ci-packet-render \
-            --cycle-id ci-packet-render
+          uv run legalforecast acquisition build-packets \
+            --input tests/fixtures/packet_render_ci/packet-build-input.jsonl \
+            --output-root tmp/ci-packet-render \
+            --packets-output tmp/ci-packet-render/packets.jsonl \
+            --case-packets-output tmp/ci-packet-render/case-packets.jsonl \
+            --audit-output tmp/ci-packet-render/packet-audit.jsonl \
+            --execute
+          diff -u tests/fixtures/packet_render_ci/expected-packets.jsonl tmp/ci-packet-render/packets.jsonl
           uv run scripts/reconstruct_packets.py \
-            --manifest tmp/ci-packet-render/objects/results/manifests/ci-packet-render.public-reconstruction.json \
+            --manifest tests/fixtures/packet_render_ci/expected-packet-render.json \
             --output tmp/ci-packet-render/packet-render-verification.json \
-            --verify-packet-render-dir tmp/ci-packet-render/objects/packet
+            --verify-packet-render-dir tmp/ci-packet-render
 
       - name: Build package
         run: uv build --out-dir tmp/ci-dist

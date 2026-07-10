@@ -702,6 +702,32 @@ jobs:
                   raise SystemExit(f"duplicate packet row for ablation: {case_id}")
               if not isinstance(packet_object_key, str) or not packet_object_key.startswith("model-packets/"):
                   raise SystemExit("each matrix row requires model-packets/ packet_object_key")
+              sha256_value = packet.get("sha256")
+              packet_sha256_value = packet.get("packet_sha256")
+              for field_name, value in (
+                  ("sha256", sha256_value),
+                  ("packet_sha256", packet_sha256_value),
+              ):
+                  if value is not None and (
+                      not isinstance(value, str)
+                      or re.fullmatch(r"[0-9a-f]{64}", value) is None
+                  ):
+                      raise SystemExit(
+                          f"each matrix row {field_name} must be a lowercase SHA-256"
+                      )
+              if sha256_value is None and packet_sha256_value is None:
+                  raise SystemExit(
+                      "each matrix row requires sha256 or packet_sha256"
+                  )
+              if (
+                  sha256_value is not None
+                  and packet_sha256_value is not None
+                  and sha256_value != packet_sha256_value
+              ):
+                  raise SystemExit(
+                      "matrix row has conflicting sha256 and packet_sha256"
+                  )
+              packet_sha256 = sha256_value or packet_sha256_value
               input_tokens = packet_input_tokens(packet)
               seen_packet_rows.add(packet_row_key)
               row_repeat_count = (
@@ -717,6 +743,7 @@ jobs:
                           "case_id": case_id,
                           "ablation": ablation,
                           "packet_object_key": packet_object_key,
+                          "packet_sha256": packet_sha256,
                           "model_key": model_key,
                           "model_key_slug": re.sub(r"[^A-Za-z0-9._-]+", "-", model_key).strip("-"),
                           "repeat_count": row_repeat_count,
@@ -776,12 +803,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Dry run: would evaluate ${CASE_ID} with ${ABLATION} using ${MODEL_KEY} from ${PACKET_OBJECT_KEY}."
+          echo "Dry run: would evaluate ${CASE_ID} with ${ABLATION} using ${MODEL_KEY} from ${PACKET_OBJECT_KEY} (${PACKET_SHA256})."
         env:
           ABLATION: ${{ matrix.ablation }}
           CASE_ID: ${{ matrix.case_id }}
           MODEL_KEY: ${{ matrix.model_key }}
           PACKET_OBJECT_KEY: ${{ matrix.packet_object_key }}
+          PACKET_SHA256: ${{ matrix.packet_sha256 }}
 
       - name: Install uv
         if: ${{ !inputs.dry_run }}
@@ -803,7 +831,7 @@ jobs:
         run: |
           set -euo pipefail
           missing=()
-          required_env=(LFB_PACKET_BUCKET LFB_RESULTS_BUCKET RUN_INPUT_MANIFEST_URI MODEL_REGISTRY_URI MODEL_KEY)
+          required_env=(LFB_PACKET_BUCKET LFB_RESULTS_BUCKET RUN_INPUT_MANIFEST_URI MODEL_REGISTRY_URI MODEL_KEY EXPECTED_PACKET_OBJECT_KEY EXPECTED_PACKET_SHA256)
           case "${MODEL_KEY}" in
             openai:*) required_env+=(OPENAI_API_KEY) ;;
             anthropic:*)
@@ -851,6 +879,8 @@ jobs:
           uv run legalforecast eval run-case \
             --manifest "${run_input_manifest_for_cli}" \
             --packet-store-root "s3://${LFB_PACKET_BUCKET}" \
+            --expected-packet-object-key "${EXPECTED_PACKET_OBJECT_KEY}" \
+            --expected-packet-sha256 "${EXPECTED_PACKET_SHA256}" \
             --results-store-root "s3://${LFB_RESULTS_BUCKET}/per-case/${CYCLE_ID}" \
             --repeat-count "${REPEAT_COUNT}" \
             --case-id "${CASE_ID}" \
@@ -865,6 +895,8 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CASE_ID: ${{ matrix.case_id }}
           CYCLE_ID: ${{ inputs.cycle_id }}
+          EXPECTED_PACKET_OBJECT_KEY: ${{ matrix.packet_object_key }}
+          EXPECTED_PACKET_SHA256: ${{ matrix.packet_sha256 }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
           LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
