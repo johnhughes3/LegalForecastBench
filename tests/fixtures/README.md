@@ -1,9 +1,6 @@
 # Fixtures
 
-Fixture roots are split by artifact type so tests can exercise case packets,
-manifests, protocol validation, and end-to-end benchmark workflows
-independently. Empty or placeholder fixture directories are documented here
-rather than through one-line nested README files.
+Fixture roots are split by artifact type so tests can exercise case packets, manifests, freeze validation, and end-to-end benchmark workflows independently. Empty or placeholder fixture directories are documented here rather than through one-line nested README files.
 
 The shared golden corpus is synthetic and lives in
 `legalforecast.testing.golden_fixtures`. Keep reusable edge cases there instead
@@ -19,13 +16,12 @@ covers:
 - related cases;
 - OCR noise;
 - malformed model outputs;
-- minimal manifest/protocol smoke data.
+- minimal manifest/freeze smoke data.
 
 Directory roles:
 
 - `case_packet/`: reserved for clean pre-decision case-packet fixtures.
 - `manifests/`: reserved for manifest fixtures.
-- `protocols/`: reserved for protocol fixtures.
 - `golden_cases/`: catalog of reusable synthetic legal edge cases.
 - `mock_model_outputs/`: catalog of deterministic model-output scenarios.
 
