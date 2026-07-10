@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github/workflows/official-s3-access-validation.yaml").read_text(
+    encoding="utf-8",
+)
+RUN_BENCHMARK_WORKFLOW = (ROOT / ".github/workflows/run-benchmark.yaml").read_text(
     encoding="utf-8",
 )
 
@@ -23,11 +27,28 @@ def test_official_s3_workflow_scopes_oidc_to_the_protected_job() -> None:
     assert "permissions:\n  contents: read" in WORKFLOW
     assert "role-to-assume: ${{ env.LFB_GITHUB_PACKET_READ_ROLE_ARN }}" in WORKFLOW
     assert "LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars." in WORKFLOW
+    configure_aws_pins = re.findall(
+        r"uses: aws-actions/configure-aws-credentials@([0-9a-f]{40})(?=\s|$)",
+        WORKFLOW,
+    )
     assert (
-        "aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885"
-    ) in WORKFLOW
+        len(configure_aws_pins)
+        == WORKFLOW.count("uses: aws-actions/configure-aws-credentials@")
+        == 1
+    )
     assert "AWS_ACCESS_KEY_ID" not in WORKFLOW
     assert "AWS_SECRET_ACCESS_KEY" not in WORKFLOW
+
+
+def test_official_workflows_share_one_configure_aws_credentials_pin() -> None:
+    action_pin_pattern = (
+        r"uses: aws-actions/configure-aws-credentials@([0-9a-f]{40})(?=\s|$)"
+    )
+    pins = re.findall(action_pin_pattern, WORKFLOW)
+    pins.extend(re.findall(action_pin_pattern, RUN_BENCHMARK_WORKFLOW))
+
+    assert len(pins) == 4
+    assert len(set(pins)) == 1
 
 
 def test_official_s3_workflow_consumes_only_the_read_contract() -> None:
