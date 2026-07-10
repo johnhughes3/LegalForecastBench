@@ -17,6 +17,8 @@ def test_golden_corpus_covers_required_edge_cases() -> None:
     covered = {case.edge_case for case in iter_golden_cases()}
 
     assert covered == set(FixtureEdgeCase)
+    assert "fixture_minimal_manifest" in golden_case_ids()
+    assert "fixture_minimal_protocol" not in golden_case_ids()
 
 
 def test_golden_cases_have_stable_unique_hashes() -> None:

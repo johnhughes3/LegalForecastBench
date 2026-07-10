@@ -225,7 +225,6 @@ def _validate_fixture_artifacts(fixture_dir: Path) -> None:
         fixture_dir / "report" / "leaderboard.md",
         fixture_dir / "report" / "leaderboard.html",
         fixture_dir / "manifests" / "cycle_fixture_e2e.freeze.json",
-        fixture_dir / "preregistration-validation.json",
     )
     missing = [path for path in required_paths if not path.is_file()]
     if missing:

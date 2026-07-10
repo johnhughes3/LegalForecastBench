@@ -22,7 +22,6 @@ REQUIRED_FIXTURE_ARTIFACTS = (
     "artifact-index.json",
     "artifact-manifest.json",
     "manifests/cycle_fixture_e2e.freeze.json",
-    "protocols/cycle_fixture_e2e.preregistration.yaml",
     "report/leaderboard.json",
     "report/leaderboard.md",
 )
@@ -251,8 +250,6 @@ def _fixture_bundle_role(relative_path: str) -> str:
         return "fixture_report"
     if relative_path.startswith("manifests/"):
         return "freeze_bundle"
-    if relative_path.startswith("protocols/"):
-        return "protocol_example"
     if relative_path in {"artifact-index.json", "artifact-manifest.json"}:
         return "fixture_manifest"
     return "fixture_workflow"
