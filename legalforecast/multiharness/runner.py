@@ -19,8 +19,14 @@ from legalforecast.evals.inspect_task import HarnessSolver
 from legalforecast.evals.packet_builder import ModelPacket
 from legalforecast.multiharness.adapters import HarnessAdapter
 from legalforecast.multiharness.artifacts import AdapterRunResult
+from legalforecast.multiharness.host_environment import (
+    require_provider_environment_values,
+)
 from legalforecast.multiharness.lfb_native import LfbNativeAdapter
-from legalforecast.multiharness.sandbox import build_container_plan
+from legalforecast.multiharness.sandbox import (
+    PROVIDER_EGRESS_HOST_ONLY,
+    build_container_plan,
+)
 from legalforecast.multiharness.selection import SelectionResult, TaskSelection
 from legalforecast.multiharness.spec import (
     RUN_COMPATIBILITY_SCHEMA_VERSION,
@@ -34,7 +40,10 @@ from legalforecast.multiharness.spec import (
     SandboxPolicy,
     TaskIndex,
 )
-from legalforecast.multiharness.validation import validate_public_record
+from legalforecast.multiharness.validation import (
+    validate_no_secret_values,
+    validate_public_record,
+)
 
 INCOMPLETE_RUN_POLICIES = frozenset({"record_failure", "fail_fast"})
 
@@ -89,6 +98,11 @@ class MultiHarnessRunConfig:
         if self.incomplete_run_policy not in INCOMPLETE_RUN_POLICIES:
             allowed = ", ".join(sorted(INCOMPLETE_RUN_POLICIES))
             raise ValueError(f"incomplete_run_policy must be one of: {allowed}")
+        validate_provider_environment_scope(
+            sandbox_policy=self.sandbox_policy,
+            adapter_count=len(self.adapters),
+            model_count=len(self.model_configs),
+        )
 
     def to_record(self) -> dict[str, Any]:
         return {
@@ -172,11 +186,38 @@ def run_multi_harness(config: MultiHarnessRunConfig) -> MultiHarnessRun:
     return _MultiHarnessRunner(config).run()
 
 
+def validate_provider_environment_scope(
+    *,
+    sandbox_policy: SandboxPolicy,
+    adapter_count: int,
+    model_count: int,
+) -> None:
+    """Fail closed until credential grants can be scoped to individual rows."""
+
+    if not sandbox_policy.allowed_provider_env_vars:
+        return
+    if sandbox_policy.network_policy != PROVIDER_EGRESS_HOST_ONLY:
+        raise ValueError(
+            "allowed_provider_env_vars requires provider egress "
+            "(--allow-provider-egress in the CLI)"
+        )
+    if adapter_count != 1 or model_count != 1:
+        raise ValueError(
+            "allowed_provider_env_vars currently supports one adapter and one model "
+            "per run; use separate runs until row-scoped credential grants exist"
+        )
+
+
 @dataclass(slots=True)
 class _MultiHarnessRunner:
     config: MultiHarnessRunConfig
 
     def run(self) -> MultiHarnessRun:
+        (self.config.output_dir / "artifact-index.json").unlink(missing_ok=True)
+        provider_values = require_provider_environment_values(
+            self.config.sandbox_policy.allowed_provider_env_vars
+        )
+        secret_values = tuple(provider_values.values())
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
         build_container_plan(self.config.sandbox_policy)
         selection = self.config.selection.select(self.config.task_index)
@@ -187,6 +228,11 @@ class _MultiHarnessRunner:
         run_compatibility_record = _run_compatibility_record(
             self.config,
             capabilities,
+        )
+        validate_no_secret_values(
+            run_compatibility_record,
+            secret_values,
+            "run compatibility",
         )
         run_compatibility_sha256 = _record_sha256(
             run_compatibility_record,
@@ -247,6 +293,14 @@ class _MultiHarnessRunner:
                 raise ValueError("adapter capabilities ID does not match manifest")
             if value.adapter_version != adapter.manifest.adapter_version:
                 raise ValueError("adapter capabilities version does not match manifest")
+            provider_values = require_provider_environment_values(
+                self.config.sandbox_policy.allowed_provider_env_vars
+            )
+            validate_no_secret_values(
+                value.to_record(),
+                tuple(provider_values.values()),
+                "adapter capabilities",
+            )
             capabilities[adapter_id] = value
             write_json_object(
                 workspace / "adapter-capabilities.json",
@@ -328,21 +382,29 @@ class _MultiHarnessRunner:
         plan.workspace.mkdir(parents=True, exist_ok=True)
         private_logs = plan.workspace / "private-logs"
         private_logs.mkdir(parents=True, exist_ok=True)
-        write_json_object(plan.workspace / "request.json", plan.request.to_record())
-        write_json_object(
-            plan.workspace / "sandbox.plan.json",
-            build_container_plan(plan.request.sandbox_policy).to_record(),
-        )
 
         resumed = False
         lfb_record: Mapping[str, Any] | None = None
         try:
             resumed_result = self._resume_result(plan)
+            write_json_object(plan.workspace / "request.json", plan.request.to_record())
+            write_json_object(
+                plan.workspace / "sandbox.plan.json",
+                build_container_plan(plan.request.sandbox_policy).to_record(),
+            )
             if resumed_result is not None:
                 result, lfb_record = resumed_result
                 resumed = True
             else:
                 result, lfb_record = self._run_adapter(plan)
+            provider_values = require_provider_environment_values(
+                plan.request.sandbox_policy.allowed_provider_env_vars
+            )
+            validate_no_secret_values(
+                result.to_record(),
+                tuple(provider_values.values()),
+                "run result",
+            )
         except Exception as exc:
             if self.config.incomplete_run_policy == "fail_fast":
                 raise
@@ -372,11 +434,16 @@ class _MultiHarnessRunner:
         result_path = plan.workspace / "result.json"
         if not request_path.is_file() or not result_path.is_file():
             return None
-        existing_request = RunRequest.from_record(_read_json(request_path, "request"))
-        if existing_request.request_sha256 != plan.request.request_sha256:
+        try:
+            existing_request = RunRequest.from_record(
+                _read_json(request_path, "request")
+            )
+            result = RunResult.from_record(_read_json(result_path, "result"))
+        except (OSError, ValueError):
             return None
-        result = RunResult.from_record(_read_json(result_path, "result"))
-        if result.request_id != plan.request.request_id:
+        if existing_request.to_record() != plan.request.to_record():
+            return None
+        if result.request_id != plan.request.request_id or result.status != "succeeded":
             return None
         lfb_record_path = plan.workspace / "lfb-inspect-record.json"
         if lfb_record_path.is_file():
@@ -419,6 +486,16 @@ class _MultiHarnessRunner:
         manifest: RunManifest,
         rows: tuple[MultiHarnessRunRow, ...],
     ) -> None:
+        provider_values = require_provider_environment_values(
+            self.config.sandbox_policy.allowed_provider_env_vars
+        )
+        secret_values = tuple(provider_values.values())
+        for row in rows:
+            validate_no_secret_values(
+                row.to_record(),
+                secret_values,
+                "run row",
+            )
         write_json_object(
             self.config.output_dir / "run-manifest.json",
             manifest.to_record(),
@@ -537,6 +614,10 @@ def _row_id(
 
 
 def _failure_result(plan: _RowPlan, exc: Exception) -> RunResult:
+    provider_values = require_provider_environment_values(
+        plan.request.sandbox_policy.allowed_provider_env_vars
+    )
+    secret_values = tuple(provider_values.values())
     summary = {
         "task_id": plan.task.task_id,
         "adapter_id": plan.adapter.manifest.adapter_id,
@@ -546,8 +627,24 @@ def _failure_result(plan: _RowPlan, exc: Exception) -> RunResult:
     }
     try:
         validate_public_record(summary, "failure.public_summary")
+        validate_no_secret_values(
+            summary,
+            secret_values,
+            "failure.public_summary",
+        )
     except ValueError:
-        summary["error_message"] = "adapter failed; see private logs"
+        summary = {
+            "error_type": exc.__class__.__name__,
+            "error_message": "adapter failed; see private logs",
+        }
+        try:
+            validate_no_secret_values(
+                summary,
+                secret_values,
+                "failure.public_summary",
+            )
+        except ValueError:
+            summary = {}
     return RunResult(
         result_id=f"{plan.row_id}:result",
         request_id=plan.request.request_id,
@@ -571,7 +668,9 @@ def _lab_result_record(row: MultiHarnessRunRow) -> dict[str, Any]:
 
 def _artifact_index(root: Path) -> list[dict[str, Any]]:
     artifacts: list[dict[str, Any]] = []
-    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+    for path in sorted(
+        item for item in root.rglob("*") if not item.is_symlink() and item.is_file()
+    ):
         if path.name == "artifact-index.json":
             continue
         relative = path.relative_to(root).as_posix()

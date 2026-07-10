@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -61,6 +62,179 @@ def test_command_adapter_run_invocation_and_private_log_handling(
     ).strip() == "SECRET_STDOUT"
     assert (workspace / "request.json").is_file()
     assert (workspace / "result.json").is_file()
+    assert (workspace / "private-logs" / "run-result.raw.json").is_file()
+
+
+def test_command_adapter_run_uses_declared_provider_environment_allowlist(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    script = _write_adapter_script(tmp_path, capture_environment=True)
+    manifest = _manifest(command=(sys.executable, str(script)))
+    adapter = CommandAdapter(manifest=manifest)
+    workspace = tmp_path / "workspace"
+    ambient_home = tmp_path / "ambient-home"
+    ambient_home.mkdir()
+    (ambient_home / ".provider-token").write_text(
+        "ambient credential store",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HOME", str(ambient_home))
+    monkeypatch.setenv("DECLARED_PROVIDER_VALUE", "allowed-value")
+    monkeypatch.setenv("UNDECLARED_HOST_SECRET", "must-not-leak")
+
+    adapter.run(
+        _run_request(
+            manifest,
+            allowed_provider_env_vars=("DECLARED_PROVIDER_VALUE",),
+        ),
+        workspace,
+    )
+
+    captured = json.loads(
+        (workspace / "private-logs" / "run-environment.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert captured["DECLARED_PROVIDER_VALUE"] == "allowed-value"
+    assert "UNDECLARED_HOST_SECRET" not in captured
+    assert captured["PATH"] == os.environ["PATH"]
+    isolated_home = workspace / "private-logs" / "adapter-home"
+    assert captured["HOME"] == str(isolated_home)
+    assert captured["XDG_CACHE_HOME"] == str(isolated_home / ".cache")
+    assert captured["XDG_CONFIG_HOME"] == str(isolated_home / ".config")
+    assert captured["XDG_DATA_HOME"] == str(isolated_home / ".local" / "share")
+    assert captured["XDG_STATE_HOME"] == str(isolated_home / ".local" / "state")
+    assert isolated_home.is_dir()
+    assert not (isolated_home / ".provider-token").exists()
+    if "LC_CTYPE" in os.environ:
+        assert captured.get("LC_CTYPE") == os.environ["LC_CTYPE"]
+    assert set(captured).issubset(
+        {
+            "PATH",
+            "HOME",
+            "LC_CTYPE",
+            "XDG_CACHE_HOME",
+            "XDG_CONFIG_HOME",
+            "XDG_DATA_HOME",
+            "XDG_STATE_HOME",
+            "DECLARED_PROVIDER_VALUE",
+        }
+    )
+    capability_environment = json.loads(
+        (workspace / "private-logs" / "capabilities-environment.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert "DECLARED_PROVIDER_VALUE" not in capability_environment
+    assert "UNDECLARED_HOST_SECRET" not in capability_environment
+    assert capability_environment["HOME"] == str(isolated_home)
+    assert set(capability_environment).issubset(
+        {
+            "PATH",
+            "HOME",
+            "LC_CTYPE",
+            "XDG_CACHE_HOME",
+            "XDG_CONFIG_HOME",
+            "XDG_DATA_HOME",
+            "XDG_STATE_HOME",
+        }
+    )
+
+
+def test_command_adapter_rejects_missing_declared_provider_environment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    script = _write_adapter_script(tmp_path)
+    adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
+    monkeypatch.delenv("MISSING_PROVIDER_KEY", raising=False)
+
+    with pytest.raises(CommandAdapterError, match="MISSING_PROVIDER_KEY"):
+        adapter.run(
+            _run_request(
+                adapter.manifest,
+                allowed_provider_env_vars=("MISSING_PROVIDER_KEY",),
+            ),
+            tmp_path / "workspace",
+        )
+
+
+def test_command_adapter_rejects_provider_value_in_public_result(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    script = _write_adapter_script(
+        tmp_path,
+        public_summary_env_name="DECLARED_PROVIDER_VALUE",
+    )
+    adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
+    secret = "opaque-provider-value-7Jx9"
+    monkeypatch.setenv("DECLARED_PROVIDER_VALUE", secret)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "result.json").write_text("stale public result", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="declared provider environment value") as exc:
+        adapter.run(
+            _run_request(
+                adapter.manifest,
+                allowed_provider_env_vars=("DECLARED_PROVIDER_VALUE",),
+            ),
+            workspace,
+        )
+
+    assert secret not in str(exc.value)
+    assert not (workspace / "result.json").exists()
+    private_result = workspace / "private-logs" / "run-result.raw.json"
+    assert private_result.is_file()
+    assert secret in private_result.read_text(encoding="utf-8")
+
+
+def test_command_adapter_clears_stale_result_before_capability_probe(
+    tmp_path: Path,
+) -> None:
+    script = _write_adapter_script(tmp_path, fail=True)
+    adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    result_path = workspace / "result.json"
+    result_path.write_text("stale public result", encoding="utf-8")
+
+    with pytest.raises(CommandAdapterError, match="capabilities failed"):
+        adapter.run(_run_request(adapter.manifest), workspace)
+
+    assert not result_path.exists()
+
+
+def test_command_adapter_rejects_planted_home_symlink(tmp_path: Path) -> None:
+    script = _write_adapter_script(tmp_path)
+    adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
+    workspace = tmp_path / "workspace"
+    private_logs = workspace / "private-logs"
+    private_logs.mkdir(parents=True)
+    ambient_home = tmp_path / "ambient-home"
+    ambient_home.mkdir()
+    (private_logs / "adapter-home").symlink_to(ambient_home, target_is_directory=True)
+
+    with pytest.raises(CommandAdapterError, match="must not be symlinks"):
+        adapter.capabilities(workspace)
+
+
+def test_command_adapter_rejects_planted_home_subdirectory_symlink(
+    tmp_path: Path,
+) -> None:
+    script = _write_adapter_script(tmp_path)
+    adapter = CommandAdapter(manifest=_manifest(command=(sys.executable, str(script))))
+    workspace = tmp_path / "workspace"
+    adapter_home = workspace / "private-logs" / "adapter-home"
+    adapter_home.mkdir(parents=True)
+    ambient_home = tmp_path / "ambient-home"
+    ambient_home.mkdir()
+    (adapter_home / ".local").symlink_to(ambient_home, target_is_directory=True)
+
+    with pytest.raises(CommandAdapterError, match="must not be symlinks"):
+        adapter.capabilities(workspace)
 
 
 def test_command_adapter_timeout_is_enforced(tmp_path: Path) -> None:
@@ -103,6 +277,8 @@ def _write_adapter_script(
     sleep_seconds: float = 0,
     unsafe_artifact: bool = False,
     fail: bool = False,
+    capture_environment: bool = False,
+    public_summary_env_name: str | None = None,
 ) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     script = root / "fixture_adapter.py"
@@ -111,10 +287,12 @@ def _write_adapter_script(
             [
                 "#!/usr/bin/env python3",
                 "from __future__ import annotations",
-                "import argparse, json, sys, time",
+                "import argparse, json, os, pathlib, sys, time",
                 f"SLEEP_SECONDS = {sleep_seconds!r}",
                 f"UNSAFE_ARTIFACT = {unsafe_artifact!r}",
                 f"FAIL = {fail!r}",
+                f"CAPTURE_ENVIRONMENT = {capture_environment!r}",
+                f"PUBLIC_SUMMARY_ENV_NAME = {public_summary_env_name!r}",
                 f"SHA256 = {SHA256!r}",
                 f"OTHER_SHA256 = {OTHER_SHA256!r}",
                 "CAP_SCHEMA = 'legalforecast.multiharness.adapter_capabilities.v1'",
@@ -134,6 +312,14 @@ def _write_adapter_script(
                 "    print('SECRET_STDERR', file=sys.stderr)",
                 "    raise SystemExit(2)",
                 "if args.command == 'capabilities':",
+                "    if CAPTURE_ENVIRONMENT:",
+                "        private_logs = pathlib.Path(args.output).parent",
+                "        private_logs /= 'private-logs'",
+                "        private_logs.mkdir(parents=True, exist_ok=True)",
+                "        (private_logs / 'capabilities-environment.json').write_text(",
+                "            json.dumps(dict(os.environ), sort_keys=True),",
+                "            encoding='utf-8',",
+                "        )",
                 "    payload = {",
                 "      'schema_version': CAP_SCHEMA,",
                 "      'adapter_id': 'fixture-adapter',",
@@ -147,6 +333,13 @@ def _write_adapter_script(
                 "        handle.write(json.dumps(payload))",
                 "else:",
                 "    request = json.load(open(args.request, encoding='utf-8'))",
+                "    if CAPTURE_ENVIRONMENT:",
+                "        private_logs = pathlib.Path(args.workspace) / 'private-logs'",
+                "        private_logs.mkdir(parents=True, exist_ok=True)",
+                "        (private_logs / 'run-environment.json').write_text(",
+                "            json.dumps(dict(os.environ), sort_keys=True),",
+                "            encoding='utf-8',",
+                "        )",
                 "    if UNSAFE_ARTIFACT:",
                 "        artifact_path = '../private.txt'",
                 "    else:",
@@ -166,7 +359,13 @@ def _write_adapter_script(
                 "          'public': False,",
                 "        }",
                 "      ],",
-                "      'public_summary': {'summary': 'ok'},",
+                "      'public_summary': {",
+                "          'summary': (",
+                "              os.environ.get(PUBLIC_SUMMARY_ENV_NAME, '')",
+                "              if PUBLIC_SUMMARY_ENV_NAME",
+                "              else 'ok'",
+                "          ),",
+                "      },",
                 "    }",
                 "    print('SECRET_STDOUT')",
                 "    with open(args.output, 'w', encoding='utf-8') as handle:",
@@ -198,7 +397,11 @@ def _manifest(*, command: tuple[str, ...]) -> AdapterManifest:
     )
 
 
-def _run_request(manifest: AdapterManifest) -> RunRequest:
+def _run_request(
+    manifest: AdapterManifest,
+    *,
+    allowed_provider_env_vars: tuple[str, ...] = (),
+) -> RunRequest:
     return RunRequest(
         request_id="request-1",
         task=CanonicalTask(
@@ -219,6 +422,7 @@ def _run_request(manifest: AdapterManifest) -> RunRequest:
             network_policy="provider_egress_host_only",
             timeout_seconds=30,
             working_directory="/workspace",
+            allowed_provider_env_vars=allowed_provider_env_vars,
         ),
         request_sha256=OTHER_SHA256,
     )

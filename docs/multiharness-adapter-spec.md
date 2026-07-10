@@ -11,7 +11,7 @@ Canonical records live in `legalforecast.multiharness.spec`.
 - `TaskSelection`: deterministic selectors for family, task ID, case ID, candidate ID, ablation, LAB module, practice area, tags, seed, and limit.
 - `AdapterManifest`: public adapter identity and command metadata.
 - `AdapterCapabilities`: declared task families, scoring modes, sandbox-policy support, and a capabilities hash. The hash commits to semantic capability inputs and must be stable across equivalent checkouts; absolute roots, launcher paths, workspaces, and other machine-local paths belong only in private probe artifacts. The Harvey LAB bridge derives its public-safe identity from the checkout's Git subtree plus its exact dirty/untracked overlay and a path-normalized digest of the launcher argv and file bytes. It rechecks that identity immediately before execution, writes the path-bearing probe only under `private-logs/`, and materializes only task bytes whose size and SHA-256 match the indexed artifacts.
-- `SandboxPolicy`: host-owned execution policy recorded for every row. The tool container network is disabled; provider egress, when allowed, is only a recorded host-adapter assumption.
+- `SandboxPolicy`: host-owned execution policy recorded for every row. The planned tool container uses no network; live tool-container enforcement remains unimplemented, and provider egress, when allowed, is a host-adapter assumption.
 - `RunRequest` and `RunResult`: canonical per-row request/result records.
 - `RunManifest`: deterministic run-level provenance for the scheduled task, adapter, model, selection, and sandbox matrix.
 - `ConformanceReport`: fixture-only adapter conformance result.
@@ -67,6 +67,8 @@ The first-class adapter examples live under `examples/adapters/`.
 ## Command Adapter Protocol
 
 Community adapters can be ordinary command-line programs. The host never invokes adapters through `shell=True`; commands are argv arrays from `AdapterManifest.command`.
+
+Command-adapter and Harvey LAB subprocesses receive an environment allowlist, not the caller's full host environment. The `run` phase receives only provider variables named by `SandboxPolicy.allowed_provider_env_vars`, plus `PATH`, `LC_CTYPE`, and private per-workspace `HOME`/XDG directories. Capability probes receive only those runtime essentials because they must not require provider credentials. The caller's normal home directory is therefore unavailable through ordinary home/config credential discovery; live adapters must use explicitly allowed environment variables until a separate file-credential policy exists. Declared variables must be set and nonempty, and their exact values are rejected from public result/error records. Because provider-variable grants are currently run-wide rather than row-scoped, credentialed runs require `provider_egress_host_only` and exactly one adapter/model pair; use separate runs for additional pairs.
 
 Minimal manifest:
 
@@ -136,6 +138,8 @@ uv run legalforecast multiharness run \
   --output-dir tmp/multiharness/run
 ```
 
+Live tool-container execution remains open. The current adapter protocol defines host-side `capabilities` and `run` commands, but it does not define a tool command or RPC that the host can execute inside the planned container and connect back to the adapter. Launching an unrelated image entrypoint would not create a meaningful execution boundary, so the runner continues to record `sandbox.plan.json` without claiming that adapter/tool work ran there.
+
 If a provider CLI or subscription is used, the adapter must record the auth mode and terms assumption in its public-safe metadata. Do not put API keys, account IDs, refresh tokens, raw transcripts, private logs, sealed material, or source documents in public artifacts.
 
 ## Troubleshooting
@@ -146,4 +150,4 @@ If a provider CLI or subscription is used, the adapter must record the auth mode
 - LAB bridge reports missing `--lab-root` or `--output-dir`: the supplied LAB command does not expose the root/output controls this bridge needs. Use a fixture command or update the command manifest until the real LAB CLI supports those flags.
 - `LAB root must be a tracked path in a readable Git checkout`: use a Git checkout whose selected LAB root exists at `HEAD`; untracked standalone directories are intentionally rejected because they cannot provide a cheap, stable publication identity.
 - `LAB capabilities changed after run planning`: the LAB source overlay, launcher, or semantic command arguments changed after the manifest was created. Start a new run so its compatibility hash describes the bytes that will execute.
-- Container backend unavailable: current CI coverage is fixture-only. Live tool-container enforcement is host-owned and should be tested separately before a real public run.
+- Container backend unavailable: the runner currently records a plan without checking or invoking the backend. Do not treat that plan as container-execution evidence; live tool-container enforcement still needs a tool command or RPC contract.

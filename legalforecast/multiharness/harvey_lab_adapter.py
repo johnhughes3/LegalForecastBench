@@ -19,6 +19,11 @@ from legalforecast._json_io import (
     write_jsonl_objects,
 )
 from legalforecast.multiharness.adapters import AdapterError, AdapterPreparation
+from legalforecast.multiharness.host_environment import (
+    HostEnvironmentError,
+    build_host_subprocess_environment,
+    require_provider_environment_values,
+)
 from legalforecast.multiharness.spec import (
     AdapterCapabilities,
     AdapterManifest,
@@ -26,7 +31,10 @@ from legalforecast.multiharness.spec import (
     RunRequest,
     RunResult,
 )
-from legalforecast.multiharness.validation import validate_public_record
+from legalforecast.multiharness.validation import (
+    validate_no_secret_values,
+    validate_public_record,
+)
 
 HARVEY_LAB_ADAPTER_ID = "harvey-lab-cli"
 HARVEY_LAB_ADAPTER_VERSION = "0.1.0"
@@ -149,14 +157,18 @@ class HarveyLabCliAdapter:
     def command_capabilities(self, workspace: Path) -> HarveyLabCommandCapabilities:
         lab_root = self._resolved_lab_root()
         _validate_lab_root(lab_root)
-        help_text = self._run_help_probe(workspace)
+        environment = _host_environment(workspace / "private-logs")
+        help_text = self._run_help_probe(workspace, environment=environment)
         supported_flags = _supported_flags(help_text)
         blockers = tuple(
             f"missing required LAB command flag {flag}"
             for flag in _REQUIRED_FLAGS
             if flag not in supported_flags
         )
-        lab_commit, lab_source_sha256 = _lab_source_identity(lab_root)
+        lab_commit, lab_source_sha256 = _lab_source_identity(
+            lab_root,
+            environment=environment,
+        )
         return HarveyLabCommandCapabilities(
             lab_root=lab_root.as_posix(),
             lab_commit=lab_commit,
@@ -207,14 +219,22 @@ class HarveyLabCliAdapter:
             )
 
     def run(self, request: RunRequest, workspace: Path) -> RunResult:
+        workspace.mkdir(parents=True, exist_ok=True)
+        public_output_dir = workspace / "lab-output"
+        normalized_path = workspace / "lab-task-results.jsonl"
+        result_path = workspace / "result.json"
+        normalized_path.unlink(missing_ok=True)
+        result_path.unlink(missing_ok=True)
+        _reset_workspace_directory(workspace, public_output_dir)
+        _remove_workspace_directory(workspace, workspace / "lab-root")
         self._validate_request(request)
         lab_root = self._resolved_lab_root()
-        workspace.mkdir(parents=True, exist_ok=True)
-        materialized_root = workspace / "lab-root"
-        output_dir = workspace / "lab-output"
         private_logs = workspace / "private-logs"
-        for directory in (materialized_root, output_dir, private_logs):
-            _ensure_safe_workspace_directory(workspace, directory)
+        materialized_root = private_logs / "lab-root"
+        private_output_dir = private_logs / "lab-output"
+        _ensure_safe_workspace_directory(workspace, private_logs)
+        _reset_workspace_directory(workspace, materialized_root)
+        _reset_workspace_directory(workspace, private_output_dir)
         _materialize_task(
             request,
             lab_root=lab_root,
@@ -224,36 +244,71 @@ class HarveyLabCliAdapter:
         self.prepare(request, workspace)
         self._invoke_lab_command(
             lab_root=materialized_root,
-            output_dir=output_dir,
+            output_dir=private_output_dir,
             private_logs=private_logs,
-        )
-        scores_path = output_dir / "scores.json"
-        scores = _read_json(scores_path, "LAB scores.json")
-        normalized = normalize_lab_scores(scores, request)
-        normalized_path = workspace / "lab-task-results.jsonl"
-        write_jsonl_objects(normalized_path, normalized)
-        artifacts = _result_artifacts(
-            workspace,
-            output_dir,
-            scores_path,
-            normalized_path,
-        )
-        public_summary = _public_summary(request, scores_path, normalized)
-        result = RunResult(
-            result_id=f"{request.request_id}:harvey-lab-result",
-            request_id=request.request_id,
-            status="succeeded",
-            result_sha256=_record_sha256(
-                {
-                    "public_summary": public_summary,
-                    "normalized": normalized,
-                    "scores_sha256": _file_sha256(scores_path),
-                }
+            allowed_provider_env_vars=(
+                request.sandbox_policy.allowed_provider_env_vars
             ),
-            artifacts=artifacts,
-            public_summary=public_summary,
         )
-        write_json_object(workspace / "result.json", result.to_record())
+        raw_scores_path = private_output_dir / "scores.json"
+        scores = _read_json(raw_scores_path, "LAB scores.json")
+        provider_values = require_provider_environment_values(
+            request.sandbox_policy.allowed_provider_env_vars
+        )
+        secret_values = tuple(provider_values.values())
+        validate_no_secret_values(
+            scores,
+            secret_values,
+            "Harvey LAB raw scores",
+        )
+        validate_public_record(scores, "Harvey LAB raw scores")
+        normalized = normalize_lab_scores(scores, request)
+        validate_no_secret_values(
+            normalized,
+            secret_values,
+            "Harvey LAB normalized scores",
+        )
+        scores_path = public_output_dir / "scores.json"
+        try:
+            write_json_object(scores_path, scores)
+            write_jsonl_objects(normalized_path, normalized)
+            artifacts = _result_artifacts(
+                workspace,
+                private_output_dir,
+                scores_path,
+                normalized_path,
+            )
+            public_summary = _public_summary(request, scores_path, normalized)
+            validate_no_secret_values(
+                public_summary,
+                secret_values,
+                "Harvey LAB public summary",
+            )
+            result = RunResult(
+                result_id=f"{request.request_id}:harvey-lab-result",
+                request_id=request.request_id,
+                status="succeeded",
+                result_sha256=_record_sha256(
+                    {
+                        "public_summary": public_summary,
+                        "normalized": normalized,
+                        "scores_sha256": _file_sha256(scores_path),
+                    }
+                ),
+                artifacts=artifacts,
+                public_summary=public_summary,
+            )
+            validate_no_secret_values(
+                result.to_record(),
+                secret_values,
+                "Harvey LAB run result",
+            )
+            write_json_object(result_path, result.to_record())
+        except Exception:
+            scores_path.unlink(missing_ok=True)
+            normalized_path.unlink(missing_ok=True)
+            result_path.unlink(missing_ok=True)
+            raise
         return result
 
     def _resolved_lab_root(self) -> Path:
@@ -266,13 +321,19 @@ class HarveyLabCliAdapter:
             )
         return Path(value)
 
-    def _run_help_probe(self, workspace: Path) -> str:
+    def _run_help_probe(
+        self,
+        workspace: Path,
+        *,
+        environment: Mapping[str, str],
+    ) -> str:
         private_logs = workspace / "private-logs"
         _ensure_safe_workspace_directory(workspace, private_logs)
         completed = _run_subprocess(
             (*self.lab_command, "--help"),
             timeout_seconds=self.timeout_seconds,
             cwd=self._resolved_lab_root(),
+            environment=environment,
         )
         (private_logs / "lab-help-stdout.log").write_text(
             completed.stdout,
@@ -294,6 +355,7 @@ class HarveyLabCliAdapter:
         lab_root: Path,
         output_dir: Path,
         private_logs: Path,
+        allowed_provider_env_vars: Sequence[str],
     ) -> None:
         completed = _run_subprocess(
             (
@@ -305,6 +367,10 @@ class HarveyLabCliAdapter:
             ),
             timeout_seconds=self.timeout_seconds,
             cwd=self._resolved_lab_root(),
+            environment=_host_environment(
+                private_logs,
+                allowed_provider_env_vars,
+            ),
         )
         (private_logs / "lab-run-stdout.log").write_text(
             completed.stdout,
@@ -403,6 +469,29 @@ def _ensure_safe_workspace_directory(workspace: Path, directory: Path) -> None:
         raise HarveyLabCliAdapterError(
             "LAB workspace directory escapes the run workspace"
         ) from exc
+
+
+def _reset_workspace_directory(workspace: Path, directory: Path) -> None:
+    _remove_workspace_directory(workspace, directory)
+    _ensure_safe_workspace_directory(workspace, directory)
+
+
+def _remove_workspace_directory(workspace: Path, directory: Path) -> None:
+    if directory.is_symlink():
+        directory.unlink()
+        return
+    if directory.exists():
+        if not directory.is_dir():
+            raise HarveyLabCliAdapterError(
+                "LAB workspace directory must be a directory"
+            )
+        try:
+            directory.resolve().relative_to(workspace.resolve())
+        except (RuntimeError, ValueError) as exc:
+            raise HarveyLabCliAdapterError(
+                "LAB workspace directory escapes the run workspace"
+            ) from exc
+        shutil.rmtree(directory)
 
 
 def _ensure_safe_destination_parent(root: Path, relative_parent: Path) -> None:
@@ -558,10 +647,21 @@ def _validate_lab_root(path: Path) -> None:
         raise HarveyLabCliAdapterError(f"LAB root is missing tasks/: {path}")
 
 
-def _lab_source_identity(path: Path) -> tuple[str, str]:
+def _lab_source_identity(
+    path: Path,
+    *,
+    environment: Mapping[str, str],
+) -> tuple[str, str]:
     lab_root = path.resolve(strict=True)
     git_root = Path(
-        os.fsdecode(_git_output(lab_root, "rev-parse", "--show-toplevel")).strip()
+        os.fsdecode(
+            _git_output(
+                lab_root,
+                "rev-parse",
+                "--show-toplevel",
+                environment=environment,
+            )
+        ).strip()
     ).resolve(strict=True)
     try:
         lab_relative = lab_root.relative_to(git_root)
@@ -569,11 +669,15 @@ def _lab_source_identity(path: Path) -> tuple[str, str]:
         raise HarveyLabCliAdapterError(
             "LAB root is not contained by its Git worktree"
         ) from exc
-    commit = os.fsdecode(_git_output(git_root, "rev-parse", "HEAD")).strip()
+    commit = os.fsdecode(
+        _git_output(git_root, "rev-parse", "HEAD", environment=environment)
+    ).strip()
     tree_spec = (
         "HEAD^{tree}" if not lab_relative.parts else f"HEAD:{lab_relative.as_posix()}"
     )
-    subtree_oid = os.fsdecode(_git_output(git_root, "rev-parse", tree_spec)).strip()
+    subtree_oid = os.fsdecode(
+        _git_output(git_root, "rev-parse", tree_spec, environment=environment)
+    ).strip()
     scope = lab_relative.as_posix() if lab_relative.parts else "."
     unmerged = _git_paths(
         git_root,
@@ -583,6 +687,7 @@ def _lab_source_identity(path: Path) -> tuple[str, str]:
         "--diff-filter=U",
         "--",
         scope,
+        environment=environment,
     )
     if unmerged:
         raise HarveyLabCliAdapterError("LAB root contains unmerged Git paths")
@@ -596,6 +701,7 @@ def _lab_source_identity(path: Path) -> tuple[str, str]:
             "HEAD",
             "--",
             scope,
+            environment=environment,
         )
     )
     overlay_paths.update(
@@ -607,6 +713,7 @@ def _lab_source_identity(path: Path) -> tuple[str, str]:
             "--exclude-standard",
             "--",
             scope,
+            environment=environment,
         )
     )
     overlay_records = [
@@ -616,7 +723,12 @@ def _lab_source_identity(path: Path) -> tuple[str, str]:
         )
         for repo_relative in sorted(overlay_paths)
     ]
-    special_records = _tracked_special_records(git_root, lab_root, scope)
+    special_records = _tracked_special_records(
+        git_root,
+        lab_root,
+        scope,
+        environment=environment,
+    )
     overlay_sha256 = _record_sha256({"files": overlay_records})
     source_sha256 = _record_sha256(
         {
@@ -630,12 +742,17 @@ def _lab_source_identity(path: Path) -> tuple[str, str]:
     return commit, source_sha256
 
 
-def _git_output(cwd: Path, *args: str) -> bytes:
+def _git_output(
+    cwd: Path,
+    *args: str,
+    environment: Mapping[str, str],
+) -> bytes:
     try:
         completed = subprocess.run(
             ("git", "-C", str(cwd), *args),
             check=False,
             capture_output=True,
+            env=dict(environment),
             timeout=10,
         )
     except (subprocess.TimeoutExpired, OSError) as exc:
@@ -649,10 +766,14 @@ def _git_output(cwd: Path, *args: str) -> bytes:
     return completed.stdout
 
 
-def _git_paths(cwd: Path, *args: str) -> tuple[Path, ...]:
+def _git_paths(
+    cwd: Path,
+    *args: str,
+    environment: Mapping[str, str],
+) -> tuple[Path, ...]:
     return tuple(
         Path(os.fsdecode(value))
-        for value in _git_output(cwd, *args).split(b"\0")
+        for value in _git_output(cwd, *args, environment=environment).split(b"\0")
         if value
     )
 
@@ -672,6 +793,8 @@ def _tracked_special_records(
     git_root: Path,
     lab_root: Path,
     scope: str,
+    *,
+    environment: Mapping[str, str],
 ) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for entry in _git_output(
@@ -681,6 +804,7 @@ def _tracked_special_records(
         "-z",
         "--",
         scope,
+        environment=environment,
     ).split(b"\0"):
         if not entry:
             continue
@@ -826,6 +950,7 @@ def _run_subprocess(
     *,
     timeout_seconds: float,
     cwd: Path,
+    environment: Mapping[str, str],
 ) -> subprocess.CompletedProcess[str]:
     if timeout_seconds <= 0:
         raise HarveyLabCliAdapterError("timeout_seconds must be positive")
@@ -834,6 +959,9 @@ def _run_subprocess(
             tuple(argv),
             check=False,
             capture_output=True,
+            encoding="utf-8",
+            env=dict(environment),
+            errors="replace",
             text=True,
             timeout=timeout_seconds,
             cwd=cwd,
@@ -847,6 +975,19 @@ def _run_subprocess(
         raise HarveyLabCliAdapterError(
             f"LAB command could not start: {command}: {exc}"
         ) from exc
+
+
+def _host_environment(
+    private_logs: Path,
+    allowed_provider_env_vars: Sequence[str] = (),
+) -> dict[str, str]:
+    try:
+        return build_host_subprocess_environment(
+            private_logs,
+            allowed_provider_env_vars,
+        )
+    except HostEnvironmentError as exc:
+        raise HarveyLabCliAdapterError(str(exc)) from exc
 
 
 def _read_json(path: Path, label: str) -> Mapping[str, Any]:
