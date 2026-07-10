@@ -93,6 +93,88 @@ def test_per_case_runner_verifies_packet_and_publishes_safe_outputs(
     )
 
 
+def test_per_case_runner_resumes_complete_durable_outputs_without_rerun(
+    tmp_path: Path,
+) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    results_root = tmp_path / "results-store"
+
+    first = run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(results_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "first-output",
+            solver_id="offline:fixture",
+            mock_output=_mock_output(probability=0.25),
+        )
+    )
+
+    second = run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(results_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "second-output",
+            solver_id="offline:fixture",
+            mock_output=_mock_output(probability=0.91),
+            resume_existing=True,
+        )
+    )
+
+    assert second.run_id == first.run_id
+    assert second.uploaded_uris == first.uploaded_uris[:3]
+    runs = _read_jsonl(tmp_path / "second-output" / "runs.jsonl")
+    assert "0.25" in runs[0]["raw_output"]
+    assert "0.91" not in runs[0]["raw_output"]
+    log_text = (tmp_path / "second-output" / "runner-log.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "resumed_existing_artifacts" in log_text
+
+
+def test_per_case_runner_does_not_resume_incomplete_durable_outputs(
+    tmp_path: Path,
+) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    results_root = tmp_path / "results-store"
+    partial_dir = results_root / "metrics" / "cycle-1"
+    partial_dir.mkdir(parents=True)
+    (
+        partial_dir / "case-1-full_packet-offline-fixture-d2945393d77a.runs.jsonl"
+    ).write_text(
+        "",
+        encoding="utf-8",
+    )
+
+    run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(results_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "runner-output",
+            solver_id="offline:fixture",
+            mock_output=_mock_output(probability=0.91),
+            resume_existing=True,
+        )
+    )
+
+    runs = _read_jsonl(tmp_path / "runner-output" / "runs.jsonl")
+    assert "0.91" in runs[0]["raw_output"]
+
+
 def test_per_case_runner_accepts_exported_packet_sha256_field(
     tmp_path: Path,
 ) -> None:
@@ -515,14 +597,14 @@ def _packet_record(
     return packet.to_record()
 
 
-def _mock_output() -> str:
+def _mock_output(*, probability: float = 0.25) -> str:
     return json.dumps(
         {
             "case_assessment": "The motion has modest dismissal risk.",
             "predictions": [
                 {
                     "unit_id": "unit-1",
-                    "probability_fully_dismissed": 0.25,
+                    "probability_fully_dismissed": probability,
                 }
             ],
         },

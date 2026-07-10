@@ -40,6 +40,8 @@ A pilot run has scored Gemini 3 Flash Preview, GPT-5.4 mini, and Claude Sonnet 4
 
 Each official run is driven by a GitHub Actions matrix job, with one matrix cell per (model, case) pair. The matrix structure isolates failures per cell, lets runs resume without rerunning successful cells, and produces a uniform per-cell audit trail.
 
+The official workflow keeps per-cell outputs in the durable results store under deterministic keys and defaults `resume_existing_results` to true. If a temporary provider outage, rate limit, or exhausted API-credit balance stops part of a run, replenish credentials or credits and rerun the failed jobs, or redispatch the same cycle with resume enabled; completed matching cells are reused as the canonical outputs rather than called again. Repeat-sampling is separate: `repeat_sample_case_ids` plus `repeat_count` intentionally performs multiple provider calls for a prebudgeted variance subset, while headline scores use the `repeat_index=1` row.
+
 ## Quickstart
 
 Version: `0.1.0a1` / `v0.1.0-alpha.1`.

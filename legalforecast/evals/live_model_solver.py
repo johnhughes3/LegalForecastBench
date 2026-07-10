@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import socket
 import subprocess
 import time
 import urllib.error
@@ -37,6 +38,8 @@ GEMINI_GENERATE_CONTENT_URL_TEMPLATE = (
 )
 
 DEFAULT_TIMEOUT_SECONDS = 120.0
+DEFAULT_MAX_ATTEMPTS = 3
+DEFAULT_RETRY_BACKOFF_SECONDS = 2.0
 _PRICE_UNITS_PER_TOKEN = 1_000_000
 _TOKEN_ESTIMATE_BYTES_PER_TOKEN = 4
 
@@ -57,6 +60,17 @@ class LiveModelConfigError(LiveModelSolverError):
 
 class LiveModelProviderError(LiveModelSolverError):
     """Raised when a provider request fails."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        retryable: bool | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.retryable = retryable
 
 
 class LiveModelResponseError(LiveModelSolverError):
@@ -82,6 +96,8 @@ class LiveModelSolver:
     transport: LiveModelTransport | None = None
     environ: Mapping[str, str] | None = None
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS
+    retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS
 
     def __post_init__(self) -> None:
         if not self.registry_entry.network_disabled:
@@ -94,6 +110,10 @@ class LiveModelSolver:
             )
         if self.timeout_seconds <= 0:
             raise LiveModelConfigError("timeout_seconds must be positive")
+        if self.max_attempts <= 0:
+            raise LiveModelConfigError("max_attempts must be positive")
+        if self.retry_backoff_seconds < 0:
+            raise LiveModelConfigError("retry_backoff_seconds cannot be negative")
         _provider_config(self.registry_entry.provider)
 
     @property
@@ -116,6 +136,8 @@ class LiveModelSolver:
             transport=self.transport,
             environ=self.environ,
             timeout_seconds=self.timeout_seconds,
+            max_attempts=self.max_attempts,
+            retry_backoff_seconds=self.retry_backoff_seconds,
         )
 
     def _transport(
@@ -135,6 +157,8 @@ def complete_live_prompt(
     transport: LiveModelTransport | None = None,
     environ: Mapping[str, str] | None = None,
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
 ) -> SolverResponse:
     """Call a registry-backed provider with a raw prompt and return accounting."""
 
@@ -142,6 +166,10 @@ def complete_live_prompt(
         raise LiveModelConfigError("prompt is required")
     if timeout_seconds <= 0:
         raise LiveModelConfigError("timeout_seconds must be positive")
+    if max_attempts <= 0:
+        raise LiveModelConfigError("max_attempts must be positive")
+    if retry_backoff_seconds < 0:
+        raise LiveModelConfigError("retry_backoff_seconds cannot be negative")
     if not registry_entry.network_disabled:
         raise LiveModelConfigError(
             "live provider harness requires network_disabled=True"
@@ -163,12 +191,18 @@ def complete_live_prompt(
             model_registry_sha256=model_registry_sha256,
             environ=environ,
             timeout_seconds=timeout_seconds,
+            max_attempts=max_attempts,
+            retry_backoff_seconds=retry_backoff_seconds,
         )
 
     api_key = _api_key(provider.api_key_env, environ)
     provider_request = provider.build_request(registry_entry, prompt, api_key)
     started = time.perf_counter()
-    payload = (transport or _urlopen_json)(provider_request, timeout_seconds)
+    payload, request_count = _call_with_provider_retries(
+        lambda: (transport or _urlopen_json)(provider_request, timeout_seconds),
+        max_attempts=max_attempts,
+        retry_backoff_seconds=retry_backoff_seconds,
+    )
     latency_ms = (time.perf_counter() - started) * 1000
     raw_output = provider.extract_output(payload)
     input_tokens, output_tokens = provider.extract_usage(payload)
@@ -176,7 +210,7 @@ def complete_live_prompt(
     _validate_served_model_version(registry_entry, served_model_version)
     return SolverResponse(
         raw_output=raw_output,
-        request_count=1,
+        request_count=request_count,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         estimated_cost=_estimated_cost(
@@ -197,6 +231,7 @@ def complete_live_prompt(
             "temperature": _format_number(registry_entry.temperature),
             "execution_backend": RunExecutionBackend.INSPECT_AI.value,
             "latency_ms": f"{latency_ms:.3f}",
+            "provider_attempt_count": str(request_count),
             "model_registry_sha256": model_registry_sha256 or "unrecorded",
             "tool_policy": registry_entry.tool_policy.value,
         },
@@ -210,15 +245,21 @@ def _complete_bedrock_anthropic_prompt(
     model_registry_sha256: str | None,
     environ: Mapping[str, str] | None,
     timeout_seconds: float,
+    max_attempts: int,
+    retry_backoff_seconds: float,
 ) -> SolverResponse:
     bedrock_model_id = _bedrock_anthropic_model_id(registry_entry, environ)
     request_payload = _bedrock_anthropic_payload(registry_entry, prompt)
     started = time.perf_counter()
-    payload = _invoke_bedrock_runtime_json(
-        bedrock_model_id,
-        request_payload,
-        environ=environ,
-        timeout_seconds=timeout_seconds,
+    payload, request_count = _call_with_provider_retries(
+        lambda: _invoke_bedrock_runtime_json(
+            bedrock_model_id,
+            request_payload,
+            environ=environ,
+            timeout_seconds=timeout_seconds,
+        ),
+        max_attempts=max_attempts,
+        retry_backoff_seconds=retry_backoff_seconds,
     )
     latency_ms = (time.perf_counter() - started) * 1000
     raw_output = _anthropic_output(payload)
@@ -227,7 +268,7 @@ def _complete_bedrock_anthropic_prompt(
     _validate_served_model_version(registry_entry, served_model_version)
     return SolverResponse(
         raw_output=raw_output,
-        request_count=1,
+        request_count=request_count,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         estimated_cost=_estimated_cost(
@@ -252,6 +293,7 @@ def _complete_bedrock_anthropic_prompt(
             "temperature": _format_number(registry_entry.temperature),
             "execution_backend": RunExecutionBackend.INSPECT_AI.value,
             "latency_ms": f"{latency_ms:.3f}",
+            "provider_attempt_count": str(request_count),
             "model_registry_sha256": model_registry_sha256 or "unrecorded",
             "tool_policy": registry_entry.tool_policy.value,
         },
@@ -501,12 +543,18 @@ def _invoke_bedrock_runtime_json(
                 "aws CLI is required for Bedrock runtime"
             ) from exc
         except subprocess.TimeoutExpired as exc:
-            raise LiveModelProviderError("Bedrock request timed out") from exc
+            raise LiveModelProviderError(
+                "Bedrock request timed out",
+                retryable=True,
+            ) from exc
         if completed.returncode != 0:
             stderr = completed.stderr.strip()
             stdout = completed.stdout.strip()
             detail = stderr or stdout or f"exit code {completed.returncode}"
-            raise LiveModelProviderError(f"Bedrock request failed: {detail}")
+            raise LiveModelProviderError(
+                f"Bedrock request failed: {detail}",
+                retryable=_retryable_provider_message(detail),
+            )
         if not response_path.exists():
             raise LiveModelResponseError("Bedrock response file was not written")
         return _json_payload(response_path.read_bytes())
@@ -544,10 +592,116 @@ def _urlopen_json(
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
         raise LiveModelProviderError(
-            f"provider returned HTTP {exc.code}: {body}"
+            f"provider returned HTTP {exc.code}: {body}",
+            status_code=exc.code,
+            retryable=_retryable_http_error(exc.code, body),
         ) from exc
     except urllib.error.URLError as exc:
-        raise LiveModelProviderError(f"provider request failed: {exc.reason}") from exc
+        raise LiveModelProviderError(
+            f"provider request failed: {exc.reason}",
+            retryable=_retryable_url_error(exc.reason),
+        ) from exc
+
+
+def _call_with_provider_retries(
+    call: Callable[[], JsonRecord],
+    *,
+    max_attempts: int,
+    retry_backoff_seconds: float,
+) -> tuple[JsonRecord, int]:
+    """Retry provider transport failures that are plausibly temporary."""
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return call(), attempt
+        except LiveModelProviderError as exc:
+            if attempt >= max_attempts or not _is_retryable_provider_error(exc):
+                raise
+            if retry_backoff_seconds:
+                time.sleep(retry_backoff_seconds * (2 ** (attempt - 1)))
+    raise LiveModelProviderError("provider request retry loop exhausted")
+
+
+def _is_retryable_provider_error(exc: LiveModelProviderError) -> bool:
+    if exc.retryable is not None:
+        return exc.retryable
+    if exc.status_code is not None:
+        return _retryable_http_error(exc.status_code, str(exc))
+    return _retryable_provider_message(str(exc))
+
+
+def _retryable_http_error(status_code: int, body: str) -> bool:
+    if _nonretryable_provider_message(body):
+        return False
+    return status_code in {408, 409, 425, 429, 500, 502, 503, 504}
+
+
+def _retryable_url_error(reason: object) -> bool:
+    if isinstance(reason, TimeoutError | socket.timeout):
+        return True
+    return _retryable_provider_message(str(reason))
+
+
+def _retryable_provider_message(message: str) -> bool:
+    if _nonretryable_provider_message(message):
+        return False
+    normalized = message.lower()
+    retry_markers = (
+        "rate limit",
+        "rate_limit",
+        "too many requests",
+        "timeout",
+        "timed out",
+        "temporarily unavailable",
+        "try again",
+        "connection reset",
+        "connection aborted",
+        "connection refused",
+        "remote end closed connection",
+        "dns",
+        "name resolution",
+        "temporary failure",
+        "throttl",
+        "service unavailable",
+        "internal server error",
+        "bad gateway",
+        "gateway timeout",
+        "429",
+        "500",
+        "502",
+        "503",
+        "504",
+    )
+    return any(marker in normalized for marker in retry_markers)
+
+
+def _nonretryable_provider_message(message: str) -> bool:
+    normalized = message.lower()
+    nonretry_markers = (
+        "insufficient_quota",
+        "insufficient quota",
+        "insufficient credits",
+        "exceeded your current quota",
+        "quota exceeded",
+        "check your plan",
+        "credit balance",
+        "prepaid credits",
+        "billing hard limit",
+        "billing details",
+        "payment required",
+        "invalid api key",
+        "incorrect api key",
+        "unauthorized",
+        "permission denied",
+        "forbidden",
+        "model_not_found",
+        "model not found",
+        "context_length_exceeded",
+        "maximum context length",
+        "invalid_request_error",
+        "bad request",
+    )
+    return any(marker in normalized for marker in nonretry_markers)
 
 
 def _json_payload(raw: bytes) -> JsonRecord:
