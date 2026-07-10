@@ -43,5 +43,18 @@ jobs:
       - name: Test
         run: uv run pytest -q
 
+      - name: Rebuild and verify packet renders
+        run: |
+          set -euo pipefail
+          rm -rf tmp/ci-packet-render
+          uv run python legalforecast/publication/private_store_export.py \
+            --source-dir tests/fixtures/packet_render_ci \
+            --output-dir tmp/ci-packet-render \
+            --cycle-id ci-packet-render
+          uv run scripts/reconstruct_packets.py \
+            --manifest tmp/ci-packet-render/objects/results/manifests/ci-packet-render.public-reconstruction.json \
+            --output tmp/ci-packet-render/packet-render-verification.json \
+            --verify-packet-render-dir tmp/ci-packet-render/objects/packet
+
       - name: Build package
         run: uv build --out-dir tmp/ci-dist

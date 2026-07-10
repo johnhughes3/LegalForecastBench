@@ -141,6 +141,8 @@ jobs:
     outputs:
       artifact_retention_days: ${{ steps.validate.outputs.artifact_retention_days }}
       case_count: ${{ steps.matrix.outputs.case_count }}
+      frozen_manifest_sha256: ${{ steps.freeze_labels.outputs.frozen_manifest_sha256 }}
+      labels_sha256: ${{ steps.freeze_labels.outputs.labels_sha256 }}
       matrix: ${{ steps.matrix.outputs.matrix }}
       max_parallel: ${{ steps.validate.outputs.max_parallel }}
       model_count: ${{ steps.matrix.outputs.model_count }}
@@ -370,7 +372,7 @@ jobs:
               ;;
           esac
 
-      - name: Verify labels frozen before scoring
+      - name: Download labels
         shell: bash
         env:
           LABELS_URI: ${{ inputs.labels_uri }}
@@ -391,6 +393,80 @@ jobs:
               cp "${LABELS_URI}" /tmp/lfb-labels.jsonl
               ;;
           esac
+
+      - name: Freeze labels into run-input manifest
+        id: freeze_labels
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Keep this security-sensitive transform visible in the workflow. The
+          # standalone CLI implements the same operation for operators, but this
+          # OIDC-enabled job deliberately executes only Python's standard library.
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          manifest_path = Path("/tmp/lfb-run-inputs.json")
+          labels_path = Path("/tmp/lfb-labels.jsonl")
+          frozen_path = Path("/tmp/lfb-run-inputs-frozen.json")
+
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          if not isinstance(manifest, dict):
+              raise SystemExit("run-input manifest must be a JSON object")
+          cycle_id = manifest.get("cycle_id")
+          if not isinstance(cycle_id, str) or not cycle_id.strip():
+              raise SystemExit("run-input manifest requires cycle_id")
+          if not isinstance(manifest.get("model_packets"), list):
+              raise SystemExit("run-input manifest requires model_packets list")
+
+          digest = hashlib.sha256()
+          with labels_path.open("rb") as handle:
+              for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                  digest.update(chunk)
+          labels_sha256 = digest.hexdigest()
+          existing = manifest.get("labels_sha256")
+          if existing not in (None, ""):
+              if not isinstance(existing, str) or re.fullmatch(
+                  r"[0-9a-f]{64}", existing
+              ) is None:
+                  raise SystemExit(
+                      "existing labels_sha256 must be a lowercase SHA-256 hex digest"
+                  )
+              if existing != labels_sha256:
+                  raise SystemExit(
+                      "run-input manifest already commits to different labels; "
+                      "refusing to replace labels_sha256"
+                  )
+
+          frozen_manifest = dict(manifest)
+          frozen_manifest["labels_sha256"] = labels_sha256
+          frozen_bytes = (
+              json.dumps(frozen_manifest, indent=2, sort_keys=True) + "\n"
+          ).encode("utf-8")
+          frozen_path.write_bytes(frozen_bytes)
+          frozen_manifest_sha256 = hashlib.sha256(frozen_bytes).hexdigest()
+
+          with Path(os.environ["GITHUB_OUTPUT"]).open(
+              "a", encoding="utf-8"
+          ) as output:
+              output.write(f"labels_sha256={labels_sha256}\n")
+              output.write(
+                  f"frozen_manifest_sha256={frozen_manifest_sha256}\n"
+              )
+          print(f"labels frozen: {labels_sha256}")
+          print(f"frozen manifest: {frozen_manifest_sha256}")
+          PY
+
+      - name: Verify labels frozen before scoring
+        shell: bash
+        env:
+          EXPECTED_FROZEN_MANIFEST_SHA256: ${{ steps.freeze_labels.outputs.frozen_manifest_sha256 }}
+          EXPECTED_LABELS_SHA256: ${{ steps.freeze_labels.outputs.labels_sha256 }}
+        run: |
+          set -euo pipefail
           # Fail-closed at dispatch, before any model output exists: the frozen
           # run-input manifest must record labels_sha256 and it must match the
           # labels file that will later be scored. Aggregation re-checks this, but
@@ -398,25 +474,34 @@ jobs:
           python - <<'PY'
           import hashlib
           import json
+          import os
           import sys
 
-          with open("/tmp/lfb-run-inputs.json", encoding="utf-8") as handle:
+          with open("/tmp/lfb-run-inputs-frozen.json", encoding="utf-8") as handle:
               manifest = json.load(handle)
+          expected_labels = os.environ["EXPECTED_LABELS_SHA256"]
           frozen = manifest.get("labels_sha256")
-          if not isinstance(frozen, str) or not frozen:
+          if frozen != expected_labels:
               sys.exit(
-                  "run-input manifest is missing labels_sha256; labels must be "
-                  "frozen before scoring"
+                  "frozen run-input manifest does not contain the labels hash "
+                  "produced before fanout"
               )
           digest = hashlib.sha256()
           with open("/tmp/lfb-labels.jsonl", "rb") as handle:
               for chunk in iter(lambda: handle.read(1024 * 1024), b""):
                   digest.update(chunk)
           actual = digest.hexdigest()
-          if actual != frozen:
+          if actual != expected_labels:
               sys.exit(
-                  f"labels hash drift: manifest froze {frozen} but labels file "
+                  f"labels hash drift: manifest froze {expected_labels} but labels file "
                   f"hashes to {actual}; refusing to run"
+              )
+          with open("/tmp/lfb-run-inputs-frozen.json", "rb") as handle:
+              frozen_manifest_sha256 = hashlib.sha256(handle.read()).hexdigest()
+          expected_manifest = os.environ["EXPECTED_FROZEN_MANIFEST_SHA256"]
+          if frozen_manifest_sha256 != expected_manifest:
+              sys.exit(
+                  "frozen run-input manifest hash changed before fanout; refusing to run"
               )
           print(f"labels frozen: {actual}")
           PY
@@ -453,7 +538,7 @@ jobs:
           MODEL_REGISTRY_PATH: /tmp/lfb-model-registry.json
           REPEAT_COUNT: ${{ inputs.repeat_count }}
           REPEAT_SAMPLE_CASE_IDS: ${{ inputs.repeat_sample_case_ids }}
-          RUN_INPUT_MANIFEST_PATH: /tmp/lfb-run-inputs.json
+          RUN_INPUT_MANIFEST_PATH: /tmp/lfb-run-inputs-frozen.json
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -821,6 +906,8 @@ jobs:
       CYCLE_ID: ${{ inputs.cycle_id }}
       CYCLE_SERIES: ${{ inputs.cycle_series }}
       ELAPSED_DAYS: ${{ inputs.elapsed_days }}
+      EXPECTED_FROZEN_MANIFEST_SHA256: ${{ needs.build-matrix.outputs.frozen_manifest_sha256 }}
+      EXPECTED_LABELS_SHA256: ${{ needs.build-matrix.outputs.labels_sha256 }}
       LABELS_URI: ${{ inputs.labels_uri }}
       LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars.LFB_GITHUB_PACKET_READ_ROLE_ARN }}
       LFB_RESULTS_BUCKET: ${{ vars.LFB_RESULTS_BUCKET }}
@@ -870,12 +957,86 @@ jobs:
                 ;;
             esac
           }
-          download_input "${RUN_INPUT_MANIFEST_URI}" /tmp/lfb-run-inputs.json
+          download_input "${RUN_INPUT_MANIFEST_URI}" /tmp/lfb-run-inputs-original.json
           download_input "${MODEL_REGISTRY_URI}" /tmp/lfb-model-registry.json
           download_input "${LABELS_URI}" /tmp/lfb-labels.jsonl
           if [[ -n "${BASELINE_TRAINING_EXAMPLES_URI//[[:space:]]/}" ]]; then
             download_input "${BASELINE_TRAINING_EXAMPLES_URI}" /tmp/lfb-baseline-training.jsonl
           fi
+
+      - name: Rebuild and verify frozen run-input manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Re-download the mutable inputs and independently reproduce the exact
+          # pre-fanout manifest. Only the two expected hashes cross between jobs.
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          manifest_path = Path("/tmp/lfb-run-inputs-original.json")
+          labels_path = Path("/tmp/lfb-labels.jsonl")
+          frozen_path = Path("/tmp/lfb-run-inputs.json")
+
+          expected_labels = os.environ["EXPECTED_LABELS_SHA256"]
+          expected_manifest = os.environ["EXPECTED_FROZEN_MANIFEST_SHA256"]
+          for label, value in (
+              ("labels", expected_labels),
+              ("frozen manifest", expected_manifest),
+          ):
+              if re.fullmatch(r"[0-9a-f]{64}", value) is None:
+                  raise SystemExit(f"expected {label} SHA-256 output is invalid")
+
+          digest = hashlib.sha256()
+          with labels_path.open("rb") as handle:
+              for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                  digest.update(chunk)
+          labels_sha256 = digest.hexdigest()
+          if labels_sha256 != expected_labels:
+              raise SystemExit(
+                  "labels changed after matrix construction; refusing aggregation"
+              )
+
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          if not isinstance(manifest, dict):
+              raise SystemExit("run-input manifest must be a JSON object")
+          cycle_id = manifest.get("cycle_id")
+          if not isinstance(cycle_id, str) or not cycle_id.strip():
+              raise SystemExit("run-input manifest requires cycle_id")
+          if not isinstance(manifest.get("model_packets"), list):
+              raise SystemExit("run-input manifest requires model_packets list")
+          existing = manifest.get("labels_sha256")
+          if existing not in (None, ""):
+              if not isinstance(existing, str) or re.fullmatch(
+                  r"[0-9a-f]{64}", existing
+              ) is None:
+                  raise SystemExit(
+                      "existing labels_sha256 must be a lowercase SHA-256 hex digest"
+                  )
+              if existing != labels_sha256:
+                  raise SystemExit(
+                      "run-input manifest commits to different labels; "
+                      "refusing aggregation"
+                  )
+
+          frozen_manifest = dict(manifest)
+          frozen_manifest["labels_sha256"] = labels_sha256
+          frozen_bytes = (
+              json.dumps(frozen_manifest, indent=2, sort_keys=True) + "\n"
+          ).encode("utf-8")
+          frozen_manifest_sha256 = hashlib.sha256(frozen_bytes).hexdigest()
+          if frozen_manifest_sha256 != expected_manifest:
+              raise SystemExit(
+                  "run-input manifest changed after matrix construction; "
+                  "refusing aggregation"
+              )
+          frozen_path.write_bytes(frozen_bytes)
+          print(f"verified labels: {labels_sha256}")
+          print(f"verified frozen manifest: {frozen_manifest_sha256}")
+          PY
 
       - name: Download per-case artifacts
         uses: actions/download-artifact@v7
