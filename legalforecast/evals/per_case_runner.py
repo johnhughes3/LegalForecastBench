@@ -109,6 +109,8 @@ class PerCaseRunnerConfig:
     backend: PerCaseExecutionBackend = PerCaseExecutionBackend.FIXTURE
     model_registry_uri: str | None = None
     model_key: str | None = None
+    expected_packet_object_key: str | None = None
+    expected_packet_sha256: str | None = None
     max_tool_calls: int = DEFAULT_TOOL_CALL_CAP
     use_docket_tool: bool = True
     evaluation_timestamp: datetime | None = None
@@ -136,9 +138,32 @@ class PerCaseRunnerConfig:
         for value, field_name in (
             (self.model_registry_uri, "model_registry_uri"),
             (self.model_key, "model_key"),
+            (self.expected_packet_object_key, "expected_packet_object_key"),
+            (self.expected_packet_sha256, "expected_packet_sha256"),
         ):
             if value is not None and not value.strip():
                 raise ValueError(f"{field_name} must not be blank")
+        expected_identity = (
+            self.expected_packet_object_key,
+            self.expected_packet_sha256,
+        )
+        if (expected_identity[0] is None) != (expected_identity[1] is None):
+            raise ValueError(
+                "expected_packet_object_key and expected_packet_sha256 must be "
+                "provided together"
+            )
+        if (
+            self.backend is PerCaseExecutionBackend.LIVE
+            and expected_identity[0] is None
+        ):
+            raise ValueError(
+                "live backend requires pre-fanout packet identity "
+                "(expected_packet_object_key and expected_packet_sha256)"
+            )
+        if self.expected_packet_object_key is not None:
+            _ensure_packet_key(self.expected_packet_object_key)
+        if self.expected_packet_sha256 is not None:
+            _normalize_sha256(self.expected_packet_sha256)
         if self.max_tool_calls <= 0:
             raise ValueError("max_tool_calls must be positive")
         if self.repeat_count <= 0:
@@ -221,6 +246,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             case_id=config.case_id,
             ablation=config.ablation,
         )
+        _validate_expected_packet_identity(config, packet_object)
         registry_entry, model_registry_sha256 = _optional_registry_entry(config)
         solver_id = (
             registry_entry.registry_key
@@ -631,6 +657,27 @@ def _packet_object_records(
     if "object_key" in manifest or "packet_object_key" in manifest or "uri" in manifest:
         return (manifest,)
     raise PacketManifestError("manifest must include model_packets")
+
+
+def _validate_expected_packet_identity(
+    config: PerCaseRunnerConfig,
+    packet_object: ModelPacketObject,
+) -> None:
+    expected_object_key = config.expected_packet_object_key
+    expected_sha256 = config.expected_packet_sha256
+    if expected_object_key is None or expected_sha256 is None:
+        return
+    if packet_object.object_key != expected_object_key:
+        raise PerCaseRunnerError(
+            "manifest packet object key does not match pre-fanout packet object key: "
+            f"expected {expected_object_key}, got {packet_object.object_key}"
+        )
+    normalized_expected_sha256 = _normalize_sha256(expected_sha256)
+    if packet_object.sha256 != normalized_expected_sha256:
+        raise PerCaseRunnerError(
+            "manifest packet SHA-256 does not match pre-fanout packet SHA-256: "
+            f"expected {normalized_expected_sha256}, got {packet_object.sha256}"
+        )
 
 
 def _packet_object_from_record(

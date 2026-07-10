@@ -7,6 +7,9 @@ WORKFLOW = (ROOT / ".github/workflows/run-benchmark.yaml").read_text(encoding="u
 BUILD_MATRIX_JOB = WORKFLOW[
     WORKFLOW.index("  build-matrix:") : WORKFLOW.index("  run-case:")
 ]
+RUN_CASE_JOB = WORKFLOW[
+    WORKFLOW.index("  run-case:") : WORKFLOW.index("  aggregate-results:")
+]
 AGGREGATE_RESULTS_JOB = WORKFLOW[WORKFLOW.index("  aggregate-results:") :]
 
 
@@ -67,6 +70,8 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
     assert "model_keys missing from registry" in WORKFLOW
     assert "run-input manifest produced an empty matrix" in WORKFLOW
     assert 'packet_object_key.startswith("model-packets/")' in WORKFLOW
+    assert 'packet.get("packet_sha256")' in BUILD_MATRIX_JOB
+    assert '"packet_sha256": packet_sha256' in BUILD_MATRIX_JOB
     assert '"model_key": model_key' in WORKFLOW
     assert '"model_key_slug": re.sub' in WORKFLOW
     assert "model_count: ${{ steps.matrix.outputs.model_count }}" in WORKFLOW
@@ -230,6 +235,8 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert "--backend live" in WORKFLOW
     assert '--model-registry "${model_registry_for_cli}"' in WORKFLOW
     assert '--model-key "${MODEL_KEY}"' in WORKFLOW
+    assert '--expected-packet-object-key "${EXPECTED_PACKET_OBJECT_KEY}"' in WORKFLOW
+    assert '--expected-packet-sha256 "${EXPECTED_PACKET_SHA256}"' in WORKFLOW
     assert "RESUME_EXISTING_RESULTS: ${{ inputs.resume_existing_results }}" in WORKFLOW
     assert "resume_args+=(--resume-existing)" in WORKFLOW
     assert '"${resume_args[@]}"' in WORKFLOW
@@ -237,6 +244,13 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert "ABLATION: ${{ matrix.ablation }}" in WORKFLOW
     assert "MODEL_KEY: ${{ matrix.model_key }}" in WORKFLOW
     assert "MODEL_KEY_SLUG: ${{ matrix.model_key_slug }}" in WORKFLOW
+    assert "EXPECTED_PACKET_OBJECT_KEY: ${{ matrix.packet_object_key }}" in RUN_CASE_JOB
+    assert "EXPECTED_PACKET_SHA256: ${{ matrix.packet_sha256 }}" in RUN_CASE_JOB
+    assert (
+        "required_env=(LFB_PACKET_BUCKET LFB_RESULTS_BUCKET RUN_INPUT_MANIFEST_URI "
+        "MODEL_REGISTRY_URI MODEL_KEY EXPECTED_PACKET_OBJECT_KEY "
+        "EXPECTED_PACKET_SHA256)" in RUN_CASE_JOB
+    )
     assert "OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}" in WORKFLOW
     assert "ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}" in WORKFLOW
     assert "GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}" in WORKFLOW

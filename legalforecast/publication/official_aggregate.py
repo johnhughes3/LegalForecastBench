@@ -1499,13 +1499,11 @@ def _validate_metrics_record(
                 f"packet object key mismatch in output: {key}"
             )
 
-    expected_sha256 = _optional_str(expected_row, "sha256")
-    if expected_sha256 is not None:
-        _require_hex_sha256(expected_sha256, "run-input sha256")
-        actual_sha256 = _required_str(metrics, "packet_sha256")
-        _require_hex_sha256(actual_sha256, "metrics packet_sha256")
-        if actual_sha256 != expected_sha256:
-            raise OfficialAggregationError(f"packet SHA-256 mismatch in output: {key}")
+    expected_sha256 = _expected_packet_sha256(expected_row)
+    actual_sha256 = _required_str(metrics, "packet_sha256")
+    _require_hex_sha256(actual_sha256, "metrics packet_sha256")
+    if actual_sha256 != expected_sha256:
+        raise OfficialAggregationError(f"packet SHA-256 mismatch in output: {key}")
 
     if _required_str(metrics, "ablation") != ablation:
         raise OfficialAggregationError(f"metrics ablation mismatch in output: {key}")
@@ -1518,6 +1516,26 @@ def _validate_metrics_record(
             raise OfficialAggregationError(
                 f"metrics model key mismatch in output: {key}"
             )
+
+
+def _expected_packet_sha256(expected_row: Mapping[str, Any]) -> str:
+    sha256 = _optional_str(expected_row, "sha256")
+    packet_sha256 = _optional_str(expected_row, "packet_sha256")
+    if sha256 is None and packet_sha256 is None:
+        raise OfficialAggregationError(
+            "run-input packet row requires sha256 or packet_sha256"
+        )
+    for field_name, value in (
+        ("sha256", sha256),
+        ("packet_sha256", packet_sha256),
+    ):
+        if value is not None:
+            _require_hex_sha256(value, f"run-input {field_name}")
+    if sha256 is not None and packet_sha256 is not None and sha256 != packet_sha256:
+        raise OfficialAggregationError(
+            "run-input packet row has conflicting sha256 and packet_sha256"
+        )
+    return sha256 or cast(str, packet_sha256)
 
 
 def _validate_run_raw_output_hash(record: Mapping[str, Any]) -> None:

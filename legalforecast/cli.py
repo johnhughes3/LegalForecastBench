@@ -569,6 +569,20 @@ def _add_eval_run_case_arguments(parser: argparse.ArgumentParser) -> None:
         help="Local root, file:// root, or s3:// root for manifest object keys.",
     )
     parser.add_argument(
+        "--expected-packet-object-key",
+        help=(
+            "Exact model-packets/ object key committed by the pre-fanout matrix; "
+            "required with --expected-packet-sha256 for live runs."
+        ),
+    )
+    parser.add_argument(
+        "--expected-packet-sha256",
+        help=(
+            "Exact lowercase SHA-256 committed by the pre-fanout matrix; required "
+            "with --expected-packet-object-key for live runs."
+        ),
+    )
+    parser.add_argument(
         "--results-store-root",
         help="Optional local root, file:// root, or s3:// root for safe outputs.",
     )
@@ -1604,6 +1618,11 @@ def _cmd_eval_run_case(args: argparse.Namespace) -> int:
             backend=backend,
             model_registry_uri=cast(str | None, args.model_registry),
             model_key=cast(str | None, args.model_key),
+            expected_packet_object_key=cast(
+                str | None,
+                args.expected_packet_object_key,
+            ),
+            expected_packet_sha256=cast(str | None, args.expected_packet_sha256),
             max_tool_calls=cast(int, args.max_tool_calls),
             use_docket_tool=not cast(bool, args.no_docket_tool),
             evaluation_timestamp=(

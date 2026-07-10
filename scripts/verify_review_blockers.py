@@ -18,6 +18,7 @@ Exit code 0 iff all checks pass.
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import re
 import sys
@@ -466,23 +467,77 @@ def check_v2_9() -> tuple[bool, str]:
 
 
 def check_v2_10() -> tuple[bool, str]:
-    hits = _files_referencing(
-        r"\bpacket_render\b",
-        frozenset({"legalforecast/publication/reconstruction.py"}),
+    builder_path = PACKAGE / "cli.py"
+    builder_text = builder_path.read_text(encoding="utf-8")
+    builder_wired = all(
+        needle in builder_text
+        for needle in (
+            "def _cmd_acquisition_build_packets",
+            "assembly.model_packet.to_record()",
+        )
     )
-    workflow_hits = [
-        path.name
-        for path in sorted((REPO / ".github" / "workflows").glob("*.y*ml"))
-        if "--verify-packet-render-dir" in path.read_text(encoding="utf-8")
-    ]
-    workflow_wired = bool(workflow_hits)
-    wired = bool(hits) and workflow_wired
+
+    fixture_root = TESTS / "fixtures" / "packet_render_ci"
+    expected_packets_path = fixture_root / "expected-packets.jsonl"
+    expected_manifest_path = fixture_root / "expected-packet-render.json"
+    golden_valid = False
+    golden_detail = "missing or malformed packet-render golden"
+    try:
+        manifest = json.loads(expected_manifest_path.read_text(encoding="utf-8"))
+        candidates = manifest["candidates"]
+        expected_sha256 = candidates[0]["packet_render"]["packet_sha256"]
+        actual_sha256 = hashlib.sha256(expected_packets_path.read_bytes()).hexdigest()
+        golden_valid = (
+            isinstance(expected_sha256, str)
+            and re.fullmatch(r"[0-9a-f]{64}", expected_sha256) is not None
+            and expected_sha256 == actual_sha256
+        )
+        golden_detail = (
+            f"reviewed golden sha256={expected_sha256}"
+            if golden_valid
+            else "expected-packets.jsonl does not match expected-packet-render.json"
+        )
+    except (IndexError, KeyError, OSError, TypeError, json.JSONDecodeError):
+        pass
+
+    workflow_hits: list[str] = []
+    for path in sorted((REPO / ".github" / "workflows").glob("*.y*ml")):
+        text = path.read_text(encoding="utf-8")
+        workflow_step_pattern = (
+            r"- name: Rebuild and verify packet renders\n"
+            r"(?P<body>.*?)(?=\n\s+- name:|\Z)"
+        )
+        match = re.search(
+            workflow_step_pattern,
+            text,
+            flags=re.DOTALL,
+        )
+        if match is None:
+            continue
+        body = match.group("body")
+        if (
+            all(
+                needle in body
+                for needle in (
+                    "uv run legalforecast acquisition build-packets",
+                    "expected-packets.jsonl",
+                    "expected-packet-render.json",
+                    "--verify-packet-render-dir",
+                )
+            )
+            and "private_store_export.py" not in body
+        ):
+            workflow_hits.append(path.name)
+
+    wired = builder_wired and golden_valid and bool(workflow_hits)
     return wired, (
-        f"packet-render producer(s): {hits}; workflow(s): {workflow_hits}"
+        "production acquisition builder, independent reviewed golden, and "
+        f"compare-only workflow are wired; {golden_detail}; workflows={workflow_hits}"
         if wired
         else (
-            "packet-render verification requires both a production producer and "
-            f"workflow invocation; producers={hits or 'none'}, "
+            "packet-render verification requires the production acquisition builder, "
+            "an independently frozen matching golden, and a compare-only workflow; "
+            f"builder={builder_wired}, golden={golden_detail}, "
             f"workflows={workflow_hits or 'none'}"
         )
     )
@@ -657,7 +712,7 @@ CHECKS: tuple[Check, ...] = (
     Check(
         "V2-10",
         "LegalForecastBench-89o",
-        "packet-render verification has a production producer and workflow invocation",
+        "CI compares a production packet rebuild with independent reviewed goldens",
         check_v2_10,
     ),
     Check(

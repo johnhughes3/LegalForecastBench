@@ -28,7 +28,7 @@ Directory roles:
 - `protocols/`: reserved for protocol fixtures.
 - `golden_cases/`: catalog of reusable synthetic legal edge cases.
 - `mock_model_outputs/`: catalog of deterministic model-output scenarios.
-- `packet_render_ci/`: minimal acquisition export used by the packet-render workflow gate.
+- `packet_render_ci/`: deterministic production packet-builder input plus independently reviewed exact-output and SHA-256 goldens used by the packet-render workflow gate.
 
 See `tests/fixtures/golden_cases/README.md` for fixture IDs and expected uses.
 
@@ -36,3 +36,23 @@ Offline mock-model responses live in
 `legalforecast.testing.mock_model_outputs`; see
 `tests/fixtures/mock_model_outputs/README.md` for parser, scorer, refusal, and
 tool-accounting fixture IDs.
+
+## Packet-render golden provenance
+
+`packet_render_ci/packet-build-input.jsonl` is a synthetic, timestamp-fixed production acquisition input. `expected-packets.jsonl` is the byte-for-byte reviewed output of `legalforecast acquisition build-packets`; `expected-packet-render.json` independently freezes its SHA-256 for `reconstruct_packets --verify-packet-render-dir`. The compared packet contains no runtime timestamp, temporary path, UUID, or platform-dependent field.
+
+Generate a review candidate outside the fixture directory with:
+
+```bash
+rm -rf tmp/packet-render-golden-review
+uv run legalforecast acquisition build-packets \
+  --input tests/fixtures/packet_render_ci/packet-build-input.jsonl \
+  --output-root tmp/packet-render-golden-review \
+  --execute
+diff -u \
+  tests/fixtures/packet_render_ci/expected-packets.jsonl \
+  tmp/packet-render-golden-review/packets.jsonl
+sha256sum tmp/packet-render-golden-review/packets.jsonl
+```
+
+An intentional builder change requires reviewing the complete diff, replacing `expected-packets.jsonl`, and updating `packet_sha256` in `expected-packet-render.json` in the same commit. CI only generates an actual packet and compares it with these checked-in expectations; it must never update either golden.
