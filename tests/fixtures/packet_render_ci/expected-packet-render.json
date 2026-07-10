@@ -1,0 +1,43 @@
+{
+  "schema_version": "legalforecast.packet-render-golden.v1",
+  "candidates": [
+    {
+      "candidate_id": "ci-candidate",
+      "case_id": "ci-case",
+      "documents": [
+        {
+          "source_document_id": "ci-complaint",
+          "source_provider": "workflow-fixture",
+          "document_role": "complaint",
+          "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "source_url_or_reference": "fixture://ci-complaint",
+          "is_mounted_for_model": true
+        },
+        {
+          "source_document_id": "ci-motion",
+          "source_provider": "workflow-fixture",
+          "document_role": "motion_to_dismiss_memorandum",
+          "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+          "source_url_or_reference": "fixture://ci-motion",
+          "is_mounted_for_model": true
+        }
+      ],
+      "packet_render": {
+        "packet_sha256": "c0e683d7e54448a4dc3a73b0edc2838c66009f1960d297150efcc43fd9204b9d",
+        "packet_json_path": "packets.jsonl",
+        "rebuild_command": [
+          "uv",
+          "run",
+          "legalforecast",
+          "acquisition",
+          "build-packets",
+          "--input",
+          "tests/fixtures/packet_render_ci/packet-build-input.jsonl",
+          "--output-root",
+          "tmp/packet-render-golden-review",
+          "--execute"
+        ]
+      }
+    }
+  ]
+}

@@ -1177,14 +1177,17 @@ def _validate_adjudicated_excerpts(
     Human adjudications were previously trusted without checking that
     ``supporting_citations[].excerpt`` actually appears in the decision text;
     this closes that gap so every published label has a checkable citation.
-    Fail-closed: a cited document with no decision text to verify against is an
-    error, not a skip.
+    Fail-closed: every adjudicated label needs at least one non-empty excerpt,
+    and a cited document with no decision text to verify against is an error,
+    not a skip.
     """
 
+    found_excerpt = False
     for citation in adjudication.adjudicated_label.supporting_citations:
         excerpt = citation.excerpt
         if excerpt is None or not excerpt.strip():
             continue
+        found_excerpt = True
         decision_text = decision_texts.get(citation.document_id)
         if decision_text is None:
             raise ValueError(
@@ -1197,6 +1200,11 @@ def _validate_adjudicated_excerpts(
                 "adjudicated supporting excerpt must appear verbatim in the "
                 f"decision text for unit {adjudication.unit_id}"
             )
+    if not found_excerpt:
+        raise ValueError(
+            "adjudicated label must include at least one non-empty supporting "
+            f"excerpt for unit {adjudication.unit_id}"
+        )
 
 
 def _adjudicated_review(record: Mapping[str, Any]) -> AdjudicatedReview:

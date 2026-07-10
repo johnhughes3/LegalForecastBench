@@ -900,6 +900,65 @@ def test_official_aggregate_fails_on_hash_mismatch(tmp_path: Path) -> None:
         )
 
 
+def test_official_aggregate_rejects_exporter_packet_sha256_mismatch(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(
+        tmp_path,
+        packet_hash_field="packet_sha256",
+        packet_sha256="b" * 64,
+    )
+    registry_path = _write_model_registry(tmp_path, ("fixture:solver",))
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(per_case_dir)
+
+    with pytest.raises(OfficialAggregationError, match="packet SHA-256 mismatch"):
+        aggregate_official_results(
+            OfficialAggregationConfig(
+                per_case_dir=per_case_dir,
+                run_input_manifest_path=manifest_path,
+                labels_path=labels_path,
+                output_dir=tmp_path / "official-bundle",
+                cycle_id="cycle-1",
+                cycle_series=CycleSeries.PILOT,
+                clean_motion_count=25,
+                prediction_unit_count=1,
+                model_registry_path=registry_path,
+                allow_no_baselines=True,
+                ablation="full_packet",
+            )
+        )
+
+
+def test_official_aggregate_requires_packet_hash_commitment(tmp_path: Path) -> None:
+    manifest_path = _write_run_input_manifest(tmp_path, packet_hash_field=None)
+    registry_path = _write_model_registry(tmp_path, ("fixture:solver",))
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    _write_case_artifacts(per_case_dir)
+
+    with pytest.raises(
+        OfficialAggregationError,
+        match="requires sha256 or packet_sha256",
+    ):
+        aggregate_official_results(
+            OfficialAggregationConfig(
+                per_case_dir=per_case_dir,
+                run_input_manifest_path=manifest_path,
+                labels_path=labels_path,
+                output_dir=tmp_path / "official-bundle",
+                cycle_id="cycle-1",
+                cycle_series=CycleSeries.PILOT,
+                clean_motion_count=25,
+                prediction_unit_count=1,
+                model_registry_path=registry_path,
+                allow_no_baselines=True,
+                ablation="full_packet",
+            )
+        )
+
+
 def _default_label_records() -> list[dict[str, Any]]:
     return [
         _label("unit-dismissed", True).to_record(),
@@ -919,6 +978,8 @@ def _write_run_input_manifest(
     ablations: tuple[str, ...] = ("full_packet",),
     packet_size_bytes: int = 4_096,
     labels_sha256: str | None = None,
+    packet_hash_field: str | None = "sha256",
+    packet_sha256: str = "a" * 64,
 ) -> Path:
     manifest_path = tmp_path / "run-inputs.json"
     packet_rows: list[dict[str, Any]] = []
@@ -927,9 +988,10 @@ def _write_run_input_manifest(
             "case_id": "case-1",
             "ablation": ablation,
             "object_key": f"model-packets/cycle-1/case-1/{ablation}.json",
-            "sha256": "a" * 64,
             "packet_size_bytes": packet_size_bytes,
         }
+        if packet_hash_field is not None:
+            packet_row[packet_hash_field] = packet_sha256
         if include_baseline_features:
             packet_row["candidate_id"] = "candidate-1"
             packet_row["baseline_features"] = [

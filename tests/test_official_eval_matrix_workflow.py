@@ -5,6 +5,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github/workflows/run-benchmark.yaml").read_text(encoding="utf-8")
+BUILD_MATRIX_JOB = WORKFLOW[
+    WORKFLOW.index("  build-matrix:") : WORKFLOW.index("  run-case:")
+]
+RUN_CASE_JOB = WORKFLOW[
+    WORKFLOW.index("  run-case:") : WORKFLOW.index("  aggregate-results:")
+]
+AGGREGATE_RESULTS_JOB = WORKFLOW[WORKFLOW.index("  aggregate-results:") :]
 
 
 def test_official_eval_matrix_workflow_is_manual_and_protected() -> None:
@@ -64,6 +71,8 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
     assert "model_keys missing from registry" in WORKFLOW
     assert "run-input manifest produced an empty matrix" in WORKFLOW
     assert 'packet_object_key.startswith("model-packets/")' in WORKFLOW
+    assert 'packet.get("packet_sha256")' in BUILD_MATRIX_JOB
+    assert '"packet_sha256": packet_sha256' in BUILD_MATRIX_JOB
     assert '"model_key": model_key' in WORKFLOW
     assert '"model_key_slug": re.sub' in WORKFLOW
     assert "model_count: ${{ steps.matrix.outputs.model_count }}" in WORKFLOW
@@ -71,6 +80,67 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
         "projected_model_cost_usd: ${{ steps.matrix.outputs.projected_model_cost_usd }}"
         in WORKFLOW
     )
+
+
+def test_official_eval_matrix_workflow_freezes_labels_before_fanout() -> None:
+    download_step = BUILD_MATRIX_JOB.index("- name: Download labels")
+    freeze_step = BUILD_MATRIX_JOB.index(
+        "- name: Freeze labels into run-input manifest"
+    )
+    verify_step = BUILD_MATRIX_JOB.index("- name: Verify labels frozen before scoring")
+    matrix_step = BUILD_MATRIX_JOB.index("- name: Build matrix JSON")
+
+    assert download_step < freeze_step < verify_step < matrix_step
+    assert "uses: astral-sh/setup-uv" not in BUILD_MATRIX_JOB
+    assert "legalforecast.publication.run_input_manifest" not in BUILD_MATRIX_JOB
+    assert "id: freeze_labels" in BUILD_MATRIX_JOB
+    assert 'frozen_manifest["labels_sha256"] = labels_sha256' in BUILD_MATRIX_JOB
+    assert (
+        "frozen_manifest_sha256: "
+        "${{ steps.freeze_labels.outputs.frozen_manifest_sha256 }}" in BUILD_MATRIX_JOB
+    )
+    assert (
+        "labels_sha256: ${{ steps.freeze_labels.outputs.labels_sha256 }}"
+        in BUILD_MATRIX_JOB
+    )
+    assert 'output.write(f"labels_sha256={labels_sha256}\\n")' in BUILD_MATRIX_JOB
+    assert 'f"frozen_manifest_sha256={frozen_manifest_sha256}\\n"' in BUILD_MATRIX_JOB
+    assert "official-run-input-manifest" not in WORKFLOW
+
+
+def test_official_eval_matrix_workflow_rebuilds_frozen_manifest_for_aggregate() -> None:
+    download_step = AGGREGATE_RESULTS_JOB.index("- name: Download aggregate inputs")
+    rebuild_step = AGGREGATE_RESULTS_JOB.index(
+        "- name: Rebuild and verify frozen run-input manifest"
+    )
+    artifacts_step = AGGREGATE_RESULTS_JOB.index("- name: Download per-case artifacts")
+    aggregate_step = AGGREGATE_RESULTS_JOB.index("- name: Aggregate official bundle")
+
+    assert download_step < rebuild_step < artifacts_step < aggregate_step
+    assert (
+        "EXPECTED_LABELS_SHA256: "
+        "${{ needs.build-matrix.outputs.labels_sha256 }}" in AGGREGATE_RESULTS_JOB
+    )
+    assert (
+        "EXPECTED_FROZEN_MANIFEST_SHA256: "
+        "${{ needs.build-matrix.outputs.frozen_manifest_sha256 }}"
+        in AGGREGATE_RESULTS_JOB
+    )
+    assert (
+        'download_input "${RUN_INPUT_MANIFEST_URI}" '
+        "/tmp/lfb-run-inputs-original.json" in AGGREGATE_RESULTS_JOB
+    )
+    assert (
+        "labels changed after matrix construction; refusing aggregation"
+        in AGGREGATE_RESULTS_JOB
+    )
+    assert "if frozen_manifest_sha256 != expected_manifest:" in AGGREGATE_RESULTS_JOB
+    assert (
+        "run-input manifest changed after matrix construction" in AGGREGATE_RESULTS_JOB
+    )
+    assert "frozen_path.write_bytes(frozen_bytes)" in AGGREGATE_RESULTS_JOB
+    assert "name: Download frozen run-input manifest" not in AGGREGATE_RESULTS_JOB
+    assert "/tmp/lfb-frozen-run-input" not in AGGREGATE_RESULTS_JOB
 
 
 def test_official_eval_matrix_workflow_preflights_projected_model_cost() -> None:
@@ -172,6 +242,8 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert "--backend live" in WORKFLOW
     assert '--model-registry "${model_registry_for_cli}"' in WORKFLOW
     assert '--model-key "${MODEL_KEY}"' in WORKFLOW
+    assert '--expected-packet-object-key "${EXPECTED_PACKET_OBJECT_KEY}"' in WORKFLOW
+    assert '--expected-packet-sha256 "${EXPECTED_PACKET_SHA256}"' in WORKFLOW
     assert "RESUME_EXISTING_RESULTS: ${{ inputs.resume_existing_results }}" in WORKFLOW
     assert "resume_args+=(--resume-existing)" in WORKFLOW
     assert '"${resume_args[@]}"' in WORKFLOW
@@ -179,6 +251,13 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
     assert "ABLATION: ${{ matrix.ablation }}" in WORKFLOW
     assert "MODEL_KEY: ${{ matrix.model_key }}" in WORKFLOW
     assert "MODEL_KEY_SLUG: ${{ matrix.model_key_slug }}" in WORKFLOW
+    assert "EXPECTED_PACKET_OBJECT_KEY: ${{ matrix.packet_object_key }}" in RUN_CASE_JOB
+    assert "EXPECTED_PACKET_SHA256: ${{ matrix.packet_sha256 }}" in RUN_CASE_JOB
+    assert (
+        "required_env=(LFB_PACKET_BUCKET LFB_RESULTS_BUCKET RUN_INPUT_MANIFEST_URI "
+        "MODEL_REGISTRY_URI MODEL_KEY EXPECTED_PACKET_OBJECT_KEY "
+        "EXPECTED_PACKET_SHA256)" in RUN_CASE_JOB
+    )
     assert "OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}" in WORKFLOW
     assert "ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}" in WORKFLOW
     assert "GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}" in WORKFLOW

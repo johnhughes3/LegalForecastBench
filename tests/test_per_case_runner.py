@@ -6,6 +6,7 @@ from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
+from legalforecast.evals import per_case_runner
 from legalforecast.evals.packet_builder import (
     ModelPacket,
     PacketAblation,
@@ -199,6 +200,71 @@ def test_per_case_runner_accepts_exported_packet_sha256_field(
     assert artifacts.packet_sha256 == packet_sha256
 
 
+@pytest.mark.parametrize(
+    ("expected_object_key", "expected_sha256", "error_match"),
+    (
+        (
+            "model-packets/cycle-1/case-1/drifted.json",
+            None,
+            "pre-fanout packet object key",
+        ),
+        (
+            None,
+            "0" * 64,
+            "pre-fanout packet SHA-256",
+        ),
+    ),
+)
+def test_per_case_runner_rejects_pre_fanout_packet_identity_drift_before_fetch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    expected_object_key: str | None,
+    expected_sha256: str | None,
+    error_match: str,
+) -> None:
+    store_root, manifest_path, packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+        hash_field="packet_sha256",
+    )
+    packet_object_key = "model-packets/cycle-1/case-1/full_packet.json"
+
+    def reject_fetch(_uri: str, _destination: Path) -> None:
+        raise AssertionError("packet fetch occurred before identity verification")
+
+    monkeypatch.setattr(per_case_runner, "_fetch_uri", reject_fetch)
+
+    with pytest.raises(PerCaseRunnerError, match=error_match):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(store_root),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=tmp_path / "runner-output",
+                solver_id="offline:fixture",
+                mock_output=_mock_output(),
+                expected_packet_object_key=(expected_object_key or packet_object_key),
+                expected_packet_sha256=expected_sha256 or packet_sha256,
+            )
+        )
+
+
+def test_live_per_case_runner_requires_pre_fanout_packet_identity(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="pre-fanout packet identity"):
+        PerCaseRunnerConfig(
+            manifest_uri=str(tmp_path / "manifest.json"),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "runner-output",
+            backend=per_case_runner.PerCaseExecutionBackend.LIVE,
+            model_registry_uri=str(tmp_path / "registry.json"),
+            model_key="provider:model",
+        )
+
+
 def test_per_case_runner_refuses_hash_mismatch_without_retaining_packet(
     tmp_path: Path,
 ) -> None:
@@ -263,7 +329,7 @@ def test_eval_run_case_cli_writes_artifact_summary(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+    store_root, manifest_path, packet_sha256 = _write_store_fixture(
         tmp_path,
         packet_record=_packet_record(),
     )
@@ -278,6 +344,10 @@ def test_eval_run_case_cli_writes_artifact_summary(
                 str(manifest_path),
                 "--packet-store-root",
                 str(store_root),
+                "--expected-packet-object-key",
+                "model-packets/cycle-1/case-1/full_packet.json",
+                "--expected-packet-sha256",
+                packet_sha256,
                 "--case-id",
                 "case-1",
                 "--ablation",

@@ -339,6 +339,33 @@ def test_apply_adjudicated_reviews_rejects_nonverbatim_excerpt() -> None:
         )
 
 
+def test_apply_adjudicated_reviews_rejects_label_without_excerpt() -> None:
+    adjudicated_label = _label_record(
+        "unit-review",
+        dismissed=True,
+        excerpt=None,
+    )
+    adjudication = _adjudication_record(
+        "cand-1:unit-review:lawyer-adjudication",
+        "unit-review",
+        adjudicated_label,
+    )
+    decision_texts = {
+        "decision": llm_pipeline.StageBDecisionText(
+            document_id="decision",
+            entered_date="2026-05-18",
+            text="Count II is dismissed.",
+        )
+    }
+
+    with raises(ValueError, match="at least one non-empty supporting excerpt"):
+        llm_pipeline.apply_adjudicated_reviews(
+            label_records=[adjudicated_label],
+            adjudication_records=[adjudication],
+            decision_texts=decision_texts,
+        )
+
+
 def test_apply_adjudicated_reviews_rejects_uncited_document() -> None:
     # Fail-closed: an adjudicated citation whose document has no decision text to
     # verify against is an error, not a silent skip.
@@ -1334,7 +1361,7 @@ def _label_record(
     unit_id: str,
     *,
     dismissed: bool,
-    excerpt: str,
+    excerpt: str | None,
 ) -> JsonRecord:
     return {
         "unit_id": unit_id,
