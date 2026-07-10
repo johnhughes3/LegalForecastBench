@@ -80,7 +80,7 @@ def build_steps(output_dir: Path) -> tuple[CheckStep, ...]:
                 "interrogate",
                 "legalforecast/publication",
                 "legalforecast/labeling",
-                "scripts/release_check.py",
+                "scripts",
             ),
         ),
         CheckStep("test", ("uv", "run", "pytest", "-q")),

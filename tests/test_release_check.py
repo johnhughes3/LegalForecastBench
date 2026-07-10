@@ -59,7 +59,7 @@ def test_release_check_plans_full_gate(tmp_path: Path) -> None:
     assert any("uv build --out-dir" in command for command in commands)
     assert any(
         "uv run interrogate legalforecast/publication legalforecast/labeling "
-        "scripts/release_check.py" in command
+        "scripts" in command
         for command in commands
     )
 

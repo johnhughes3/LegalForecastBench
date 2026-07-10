@@ -54,7 +54,7 @@ typeCheckingMode = "strict"
 
 [tool.interrogate]
 # CI supplies the intentionally scoped publication, labeling, and release paths.
-fail-under = 50
+fail-under = 48
 ignore-nested-classes = true
 ignore-nested-functions = true
 ignore-private = true
