@@ -68,6 +68,8 @@ class CommunityAggregateResult:
 
 @dataclass(slots=True)
 class _GroupAccumulator:
+    """Mutable assembly state for one compatible community shard group."""
+
     compatible_shard_group_id: str
     selections: set[tuple[str, str]]
     shards: list[dict[str, Any]]
@@ -159,6 +161,8 @@ def _comparison_rows(
     submissions: Sequence[CommunitySubmissionInput],
     group_task_ids: Mapping[str, set[str]],
 ) -> list[CommunityComparisonRow]:
+    """Build single-shard rows and safe composites for reviewed submissions."""
+
     rows: list[CommunityComparisonRow] = []
     strict_groups: dict[
         tuple[str, ...], list[tuple[CommunitySubmissionInput, int]]
@@ -223,6 +227,8 @@ def _composite_rows(
     group_task_ids: Mapping[str, set[str]],
     shard_status_counts: Mapping[tuple[Path, int], Mapping[str, int]],
 ) -> list[CommunityComparisonRow]:
+    """Combine only strictly compatible shards with disjoint task selections."""
+
     rows: list[CommunityComparisonRow] = []
     for key, items in sorted(strict_groups.items()):
         if len(items) < 2:
@@ -526,6 +532,12 @@ def _strict_composite_key(
     *,
     legacy_identity: str,
 ) -> tuple[str, ...]:
+    """Return the compatibility identity required for safe shard composition.
+
+    Legacy shards without a run-compatibility hash receive a unique identity so
+    they remain publishable as single rows but cannot be composed accidentally.
+    """
+
     # New packages carry a hash of compatibility-critical run configuration that
     # excludes only selection and run-local identity. Older packages receive a unique
     # per-shard identity so they remain visible but cannot compose without that hash.
@@ -543,6 +555,8 @@ def _strict_composite_key(
 def _submission_shard_status_counts(
     item: CommunitySubmissionInput,
 ) -> dict[int, dict[str, int]]:
+    """Validate row results and return result-status counts for each shard."""
+
     artifacts = [
         artifact
         for artifact in item.manifest.artifacts
@@ -641,6 +655,8 @@ def _submission_shard_status_counts(
 def _single_shard_status_fallback(
     item: CommunitySubmissionInput,
 ) -> dict[int, dict[str, int]]:
+    """Use run-summary counts only when a submission declares exactly one shard."""
+
     if len(item.manifest.shards) != 1:
         raise ValueError(
             f"multi-shard submission {item.manifest.submission_id} requires a "
