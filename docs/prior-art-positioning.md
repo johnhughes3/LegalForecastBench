@@ -20,7 +20,7 @@ CLC-UKET is the closest recent legal benchmark analogue because it constructs a 
 
 [ForecastBench](https://openreview.net/forum?id=lfPkGWXLLf) is the closest benchmark-design analogue outside law: dynamic question sets, post-cutoff evaluation, Brier scoring, and human comparison groups. LegalForecast-MTD borrows the contamination-resistant forecasting pattern but applies it to a court-record task with objective public resolutions and a fixed legal unit of prediction.
 
-The contamination guarantee should be stated retrospectively. The release-date anchor means a model whose served weights were frozen at the recorded release date could not have trained on later rulings. It does not prove that a provider never updated a mutable alias after release. That is why official runs must pin registry metadata, record provider-served model versions, and publish residual-risk language.
+The contamination guarantee should be stated retrospectively. The anchor is the first documented external deployment of the evaluated artifact, including a restricted preview. It deliberately uses a later, independently observable event than the provider-stated knowledge cutoff and applies no extra calendar-day buffer. A temporary suspension, re-release, or later general availability does not move it. The deployment anchor means a model whose served weights were frozen at that point could not have trained on later rulings, but it does not prove that a provider never updated a mutable alias afterward. That is why official runs must pin registry metadata, record provider-served model versions, and publish residual-risk language.
 
 ## Harvey LAB
 

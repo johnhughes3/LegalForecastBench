@@ -13,7 +13,7 @@ from legalforecast.evals import (
 )
 from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
-    earliest_buffered_decision_date,
+    earliest_eligible_decision_date,
     latest_release_timestamp,
     require_official_registry_entries,
 )
@@ -178,10 +178,10 @@ def test_latest_release_timestamp_rejects_missing_release_anchor() -> None:
         latest_release_timestamp((missing,))
 
 
-def test_earliest_buffered_decision_date_skips_release_and_buffer_days() -> None:
+def test_earliest_eligible_decision_date_uses_first_deployment_date() -> None:
     late_utc_release = _entry(release_timestamp="2026-05-14T23:59:59Z")
 
-    assert earliest_buffered_decision_date((late_utc_release,)) == date(2026, 5, 16)
+    assert earliest_eligible_decision_date((late_utc_release,)) == date(2026, 5, 14)
 
 
 def test_official_registry_rejects_mutable_preview_or_latest_aliases() -> None:
