@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import re
@@ -42,6 +43,10 @@ from legalforecast.evals.packet_builder import (
     ModelPacket,
     PacketAblation,
     PacketDocument,
+)
+from legalforecast.evals.response_verification import (
+    output_statuses_from_run_records,
+    response_verification_summary_from_run_records,
 )
 from legalforecast.ingestion.provenance import DocumentRole, sha256_text
 from legalforecast.path_safety import safe_path_component
@@ -340,12 +345,18 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 run.to_records(),
                 repeat_count=config.repeat_count,
             )
+            response_verification = response_verification_summary_from_run_records(
+                run_records
+            )
+            _require_publishable_response_verification(response_verification)
+            output_status_by_raw_hash = output_statuses_from_run_records(run_records)
             accounting_records = _annotate_repeat_records(
                 [
                     record.to_record()
                     for record in accounting_records_from_inspect_run(
                         run,
                         evaluation_timestamp=evaluation_timestamp,
+                        output_status_by_raw_hash=output_status_by_raw_hash,
                     )
                 ],
                 repeat_count=config.repeat_count,
@@ -425,6 +436,7 @@ class _OutputKeys:
     runs: str
     accounting: str
     metrics: str
+    recovery: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -434,6 +446,7 @@ class _ExistingOutputBytes:
     metrics: bytes
     source: str
     uris: tuple[str, ...]
+    needs_republish: bool = False
 
 
 def _output_keys(packet_object: ModelPacketObject, *, run_id: str) -> _OutputKeys:
@@ -442,6 +455,7 @@ def _output_keys(packet_object: ModelPacketObject, *, run_id: str) -> _OutputKey
         runs=f"metrics/{cycle_slug}/{run_id}.runs.jsonl",
         accounting=f"metrics/{cycle_slug}/{run_id}.accounting.jsonl",
         metrics=f"metrics/{cycle_slug}/{run_id}.metrics.json",
+        recovery=f"metrics/{cycle_slug}/{run_id}.recovery.json",
     )
 
 
@@ -462,22 +476,46 @@ def _try_resume_existing_outputs(
     runs_path = config.output_dir / "runs.jsonl"
     accounting_path = config.output_dir / "accounting.jsonl"
     metrics_path = config.output_dir / "metrics.json"
-    runs_path.write_bytes(existing.runs)
-    accounting_path.write_bytes(existing.accounting)
-    metrics_path.write_bytes(existing.metrics)
-    runs = _read_jsonl_path(runs_path)
-    accounting = _read_jsonl_path(accounting_path)
-    metrics = _read_json_path(metrics_path)
-    _validate_resumed_outputs(
-        config=config,
-        packet_object=packet_object,
-        run_id=run_id,
-        solver_id=solver_id,
-        model_registry_sha256=model_registry_sha256,
-        runs=runs,
-        accounting=accounting,
-        metrics=metrics,
-    )
+    try:
+        runs_path.write_bytes(existing.runs)
+        accounting_path.write_bytes(existing.accounting)
+        metrics_path.write_bytes(existing.metrics)
+        runs = _read_jsonl_path(runs_path)
+        accounting = _read_jsonl_path(accounting_path)
+        metrics = _read_json_path(metrics_path)
+        _validate_resumed_outputs(
+            config=config,
+            packet_object=packet_object,
+            run_id=run_id,
+            solver_id=solver_id,
+            model_registry_sha256=model_registry_sha256,
+            runs=runs,
+            accounting=accounting,
+            metrics=metrics,
+        )
+    except (OSError, ValueError, PerCaseRunnerError) as exc:
+        log(
+            "resume_existing_rejected",
+            run_id=run_id,
+            source=existing.source,
+            reason=_safe_error_message(exc),
+        )
+        return None
+    if existing.needs_republish:
+        log("resumed_recovery_bundle", run_id=run_id, source=existing.source)
+        uploaded_uris = _publish_outputs(
+            config=config,
+            packet_object=packet_object,
+            run_id=run_id,
+            local_outputs=(
+                (runs_path, output_keys.runs),
+                (accounting_path, output_keys.accounting),
+                (metrics_path, output_keys.metrics),
+            ),
+            log=log,
+        )
+    else:
+        uploaded_uris = existing.uris
     log(
         "resumed_existing_artifacts",
         run_id=run_id,
@@ -497,7 +535,7 @@ def _try_resume_existing_outputs(
             metrics_path,
             config.output_dir / "runner-log.jsonl",
         ),
-        uploaded_uris=existing.uris,
+        uploaded_uris=uploaded_uris,
     )
 
 
@@ -515,20 +553,49 @@ def _read_existing_output_bytes(
     if config.results_store_root is not None:
         payloads: dict[str, bytes] = {}
         uris: list[str] = []
+        missing_uri: str | None = None
         for name, object_key in key_by_name.items():
             uri = _join_uri(config.results_store_root, object_key)
             payload = _try_read_uri_bytes(uri)
             if payload is None:
-                log("resume_existing_miss", missing_uri=uri)
-                return None
+                missing_uri = uri
+                break
             payloads[name] = payload
             uris.append(uri)
+        if missing_uri is None:
+            return _ExistingOutputBytes(
+                runs=payloads["runs"],
+                accounting=payloads["accounting"],
+                metrics=payloads["metrics"],
+                source=config.results_store_root,
+                uris=tuple(uris),
+            )
+        log("resume_existing_miss", missing_uri=missing_uri)
+        recovery_uri = _join_uri(config.results_store_root, output_keys.recovery)
+        recovery_payload = _try_read_uri_bytes(recovery_uri)
+        if recovery_payload is None:
+            log("resume_recovery_miss", missing_uri=recovery_uri)
+            return None
+        try:
+            recovered = _decode_recovery_bundle(recovery_payload)
+        except (ValueError, PerCaseRunnerError) as exc:
+            log(
+                "resume_recovery_rejected",
+                recovery_uri=recovery_uri,
+                reason=_safe_error_message(exc),
+            )
+            return None
+        canonical_uris = tuple(
+            _join_uri(config.results_store_root, object_key)
+            for object_key in key_by_name.values()
+        )
         return _ExistingOutputBytes(
-            runs=payloads["runs"],
-            accounting=payloads["accounting"],
-            metrics=payloads["metrics"],
-            source=config.results_store_root,
-            uris=tuple(uris),
+            runs=recovered["runs"],
+            accounting=recovered["accounting"],
+            metrics=recovered["metrics"],
+            source=recovery_uri,
+            uris=canonical_uris,
+            needs_republish=True,
         )
 
     local_payloads: dict[str, bytes] = {}
@@ -555,6 +622,38 @@ def _try_read_uri_bytes(uri: str) -> bytes | None:
         return _read_uri_bytes(uri)
     except (OSError, PerCaseRunnerError):
         return None
+
+
+def _decode_recovery_bundle(payload: bytes) -> dict[str, bytes]:
+    loaded: object = json.loads(payload)
+    if not isinstance(loaded, Mapping):
+        raise PerCaseRunnerError("resume recovery bundle must be an object")
+    bundle = cast(Mapping[str, Any], loaded)
+    if optional_str(bundle, "schema_version") != "legalforecast.resume_recovery.v1":
+        raise PerCaseRunnerError("resume recovery bundle schema version is invalid")
+    raw_artifacts = bundle.get("artifacts")
+    if not isinstance(raw_artifacts, Mapping):
+        raise PerCaseRunnerError("resume recovery bundle artifacts must be an object")
+    artifacts = cast(Mapping[str, object], raw_artifacts)
+    recovered: dict[str, bytes] = {}
+    for name in ("runs", "accounting", "metrics"):
+        raw_artifact = artifacts.get(name)
+        if not isinstance(raw_artifact, Mapping):
+            raise PerCaseRunnerError(f"resume recovery bundle is missing {name}")
+        artifact = cast(Mapping[str, Any], raw_artifact)
+        encoded = required_str(artifact, "base64")
+        try:
+            decoded = base64.b64decode(encoded, validate=True)
+        except ValueError as exc:
+            raise PerCaseRunnerError(
+                f"resume recovery bundle {name} encoding is invalid"
+            ) from exc
+        if hashlib.sha256(decoded).hexdigest() != required_str(artifact, "sha256"):
+            raise PerCaseRunnerError(
+                f"resume recovery bundle {name} SHA-256 does not match"
+            )
+        recovered[name] = decoded
+    return recovered
 
 
 def _validate_resumed_outputs(
@@ -755,6 +854,29 @@ def _publish_outputs(
 ) -> tuple[str, ...]:
     if config.results_store_root is None:
         return ()
+    recovery_path = config.output_dir / ".resume-recovery.json"
+    recovery_artifacts = {
+        _recovery_artifact_name(object_key): {
+            "base64": base64.b64encode(source_path.read_bytes()).decode("ascii"),
+            "sha256": sha256_file(source_path),
+        }
+        for source_path, object_key in local_outputs
+    }
+    _write_json(
+        recovery_path,
+        {
+            "schema_version": "legalforecast.resume_recovery.v1",
+            "artifacts": recovery_artifacts,
+        },
+    )
+    recovery_key = _output_keys(packet_object, run_id=run_id).recovery
+    recovery_uri = _join_uri(config.results_store_root, recovery_key)
+    _ensure_result_key(recovery_key)
+    try:
+        _upload_path(recovery_path, recovery_uri, content_type="application/json")
+    finally:
+        recovery_path.unlink(missing_ok=True)
+    log("recovery_bundle_uploaded", run_id=run_id, destination_uri=recovery_uri)
     uploaded: list[str] = []
     for source_path, object_key in local_outputs:
         _ensure_result_key(object_key)
@@ -774,6 +896,17 @@ def _publish_outputs(
             artifact_sha256=sha256_file(source_path),
         )
     return tuple(uploaded)
+
+
+def _recovery_artifact_name(object_key: str) -> str:
+    for name, suffix in (
+        ("runs", ".runs.jsonl"),
+        ("accounting", ".accounting.jsonl"),
+        ("metrics", ".metrics.json"),
+    ):
+        if object_key.endswith(suffix):
+            return name
+    raise PerCaseRunnerError(f"unsupported recovery artifact key: {object_key}")
 
 
 def _metrics_record(
@@ -815,7 +948,25 @@ def _metrics_record(
         "run_record_count": len(run_records),
         "raw_output_sha256": raw_output_hashes,
         "tool_call_count": tool_call_count,
+        "response_verification": response_verification_summary_from_run_records(
+            run_records
+        ),
     }
+
+
+def _require_publishable_response_verification(
+    verification: Mapping[str, Any],
+) -> None:
+    if required_bool(verification, "grounding_artifacts_detected"):
+        raise PerCaseRunnerError(
+            "provider response included prohibited grounding or search artifacts"
+        )
+    retryable_count = required_int(verification, "retryable_ops_event_count")
+    if retryable_count:
+        raise PerCaseRunnerError(
+            "provider response requires retry after a transient response event: "
+            f"{retryable_count} affected output(s)"
+        )
 
 
 def _repeat_samples(

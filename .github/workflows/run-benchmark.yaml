@@ -527,6 +527,26 @@ jobs:
               ;;
           esac
 
+      - name: Verify pre-run freeze commitment
+        shell: bash
+        env:
+          CYCLE_ID: ${{ inputs.cycle_id }}
+          FREEZE_COMMITMENT_PATH: manifests/${{ inputs.cycle_id }}.freeze.json
+          LABELS_PATH: /tmp/lfb-labels.jsonl
+          MODEL_REGISTRY_PATH: /tmp/lfb-model-registry.json
+        run: |
+          set -euo pipefail
+          if [[ ! -f "${FREEZE_COMMITMENT_PATH}" ]]; then
+            echo "pre-run freeze commitment is missing: ${FREEZE_COMMITMENT_PATH}" >&2
+            exit 1
+          fi
+          python -m legalforecast.protocol.freeze verify \
+            --bundle "${FREEZE_COMMITMENT_PATH}" \
+            --cycle-id "${CYCLE_ID}" \
+            --root "." \
+            --artifact-path "labels=${LABELS_PATH}" \
+            --artifact-path "model_registry=${MODEL_REGISTRY_PATH}"
+
       - name: Build matrix JSON
         id: matrix
         shell: bash

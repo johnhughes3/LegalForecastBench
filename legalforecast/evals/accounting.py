@@ -43,6 +43,8 @@ class OutputValidityStatus:
     refusal: bool = False
     content_filter: bool = False
     invalid_output_reason: str | None = None
+    retryable_ops_event: bool = False
+    retryable_ops_event_reason: str | None = None
 
     def __post_init__(self) -> None:
         if self.invalid_output_reason is not None:
@@ -51,6 +53,15 @@ class OutputValidityStatus:
                 raise ValueError("invalid_output_reason requires invalid_output=True")
         if (self.refusal or self.content_filter) and not self.invalid_output:
             raise ValueError("refusal/content_filter requires invalid_output=True")
+        if self.retryable_ops_event_reason is not None:
+            _require_non_empty(
+                self.retryable_ops_event_reason,
+                "retryable_ops_event_reason",
+            )
+            if not self.retryable_ops_event:
+                raise ValueError(
+                    "retryable_ops_event_reason requires retryable_ops_event=True"
+                )
 
     def to_record(self) -> dict[str, Any]:
         return {
@@ -58,6 +69,8 @@ class OutputValidityStatus:
             "refusal": self.refusal,
             "content_filter": self.content_filter,
             "invalid_output_reason": self.invalid_output_reason,
+            "retryable_ops_event": self.retryable_ops_event,
+            "retryable_ops_event_reason": self.retryable_ops_event_reason,
         }
 
 
@@ -92,6 +105,8 @@ class ModelRunAccountingRecord:
     refusal: bool
     content_filter: bool
     invalid_output_reason: str | None
+    retryable_ops_event: bool = False
+    retryable_ops_event_reason: str | None = None
     run_label: str | None = None
     ablation: str | None = None
     execution_backend: str | None = None
@@ -147,6 +162,15 @@ class ModelRunAccountingRecord:
             _require_non_empty(self.served_model_version, "served_model_version")
         if (self.refusal or self.content_filter) and not self.invalid_output:
             raise ValueError("refusal/content_filter requires invalid_output=True")
+        if self.retryable_ops_event_reason is not None:
+            _require_non_empty(
+                self.retryable_ops_event_reason,
+                "retryable_ops_event_reason",
+            )
+            if not self.retryable_ops_event:
+                raise ValueError(
+                    "retryable_ops_event_reason requires retryable_ops_event=True"
+                )
         if self.run_label is not None:
             _require_non_empty(self.run_label, "run_label")
         if self.ablation is not None:
@@ -183,6 +207,8 @@ class ModelRunAccountingRecord:
             "refusal": self.refusal,
             "content_filter": self.content_filter,
             "invalid_output_reason": self.invalid_output_reason,
+            "retryable_ops_event": self.retryable_ops_event,
+            "retryable_ops_event_reason": self.retryable_ops_event_reason,
             "run_label": self.run_label,
             "ablation": self.ablation,
             "execution_backend": self.execution_backend,
@@ -282,6 +308,8 @@ def accounting_records_from_harness_records(
                 refusal=status.refusal,
                 content_filter=status.content_filter,
                 invalid_output_reason=status.invalid_output_reason,
+                retryable_ops_event=status.retryable_ops_event,
+                retryable_ops_event_reason=status.retryable_ops_event_reason,
                 run_label=_optional_str(record, "run_label"),
                 ablation=_optional_str(record, "ablation"),
                 execution_backend=_execution_backend(record),

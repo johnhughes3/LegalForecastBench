@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -36,6 +37,7 @@ class FrozenArtifactName(StrEnum):
     HARNESS = "harness"
     MODEL_REGISTRY = "model_registry"
     BASELINES = "baselines"
+    EXCLUSION_LEDGER = "exclusion_ledger"
 
 
 REQUIRED_FREEZE_ARTIFACTS: tuple[FrozenArtifactName, ...] = (
@@ -47,6 +49,7 @@ REQUIRED_FREEZE_ARTIFACTS: tuple[FrozenArtifactName, ...] = (
     FrozenArtifactName.HARNESS,
     FrozenArtifactName.MODEL_REGISTRY,
     FrozenArtifactName.BASELINES,
+    FrozenArtifactName.EXCLUSION_LEDGER,
 )
 _FREEZE_HASH_FIELDS: Mapping[FrozenArtifactName, str] = {
     FrozenArtifactName.MANIFEST: "manifest_sha256",
@@ -55,7 +58,13 @@ _FREEZE_HASH_FIELDS: Mapping[FrozenArtifactName, str] = {
     FrozenArtifactName.PROMPT: "prompt_sha256",
     FrozenArtifactName.SCORER: "scorer_sha256",
     FrozenArtifactName.HARNESS: "harness_sha256",
+    FrozenArtifactName.EXCLUSION_LEDGER: "exclusion_ledger_sha256",
 }
+ArtifactPathMap = (
+    Mapping[FrozenArtifactName, str | Path]
+    | Mapping[str, str | Path]
+    | Mapping[FrozenArtifactName | str, str | Path]
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,6 +179,13 @@ class FreezeBundle:
                 ),
                 "sha256": self.artifact(FrozenArtifactName.BASELINES).sha256,
             },
+            "exclusion_ledger": {
+                "path": _path_for_record(
+                    self.artifact(FrozenArtifactName.EXCLUSION_LEDGER).path,
+                    root_path=root_path,
+                ),
+                "sha256": self.artifact(FrozenArtifactName.EXCLUSION_LEDGER).sha256,
+            },
         }
         if include_bundle_hash:
             record["hash_bundle_sha256"] = hash_payload(record)
@@ -191,7 +207,7 @@ def sha256_file(path: str | Path) -> str:
 
 def freeze_cycle(
     cycle_id: str,
-    artifact_paths: Mapping[FrozenArtifactName | str, str | Path],
+    artifact_paths: ArtifactPathMap,
     *,
     freeze_timestamp: datetime | None = None,
     required_artifacts: Sequence[FrozenArtifactName] = REQUIRED_FREEZE_ARTIFACTS,
@@ -227,6 +243,65 @@ def write_hash_bundle(
         encoding="utf-8",
     )
     return record
+
+
+def load_freeze_bundle(
+    path: str | Path,
+    *,
+    root_path: str | Path | None = None,
+    artifact_path_overrides: ArtifactPathMap | None = None,
+) -> FreezeBundle:
+    """Load a freeze bundle and validate its own commitment hash."""
+
+    bundle_path = Path(path)
+    try:
+        raw_record = json.loads(bundle_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise MissingFreezeArtifactError(
+            f"pre-run freeze commitment is missing: {bundle_path}"
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise FreezeProtocolError(
+            f"pre-run freeze commitment is invalid JSON: {bundle_path}"
+        ) from exc
+    if not isinstance(raw_record, Mapping):
+        raise FreezeProtocolError("pre-run freeze commitment must be a JSON object")
+    record = cast(Mapping[str, Any], raw_record)
+
+    _verify_bundle_commitment_hash(record)
+    cycle_id = _required_string(record, "cycle_id")
+    freeze_timestamp = _required_timestamp(record, "freeze_timestamp")
+    root = Path(root_path) if root_path is not None else None
+    overrides = _coerce_artifact_path_overrides(artifact_path_overrides)
+    artifacts = _load_record_artifacts(record, root_path=root, overrides=overrides)
+    _require_all_freeze_artifacts(artifacts)
+    return FreezeBundle(
+        cycle_id=cycle_id,
+        freeze_timestamp=freeze_timestamp,
+        artifacts=artifacts,
+    )
+
+
+def verify_freeze_bundle(
+    path: str | Path,
+    *,
+    cycle_id: str | None = None,
+    root_path: str | Path | None = None,
+    artifact_path_overrides: ArtifactPathMap | None = None,
+) -> FreezeBundle:
+    """Load a freeze bundle and raise if any required artifact has drifted."""
+
+    bundle = load_freeze_bundle(
+        path,
+        root_path=root_path,
+        artifact_path_overrides=artifact_path_overrides,
+    )
+    if cycle_id is not None and bundle.cycle_id != cycle_id:
+        raise FreezeProtocolError(
+            "pre-run freeze commitment cycle_id does not match dispatch input"
+        )
+    verify_no_freeze_drift(bundle)
+    return bundle
 
 
 def detect_freeze_drift(bundle: FreezeBundle) -> tuple[FreezeDrift, ...]:
@@ -289,12 +364,37 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--harness", required=True)
     parser.add_argument("--model-registry", required=True)
     parser.add_argument("--baselines", required=True)
+    parser.add_argument("--exclusion-ledger", required=True)
     parser.add_argument("--timestamp")
     parser.add_argument("--bundle-output")
     return parser
 
 
+def build_verify_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="legalforecast freeze verify",
+        description="Verify a frozen LegalForecast-MTD cycle commitment.",
+    )
+    parser.add_argument("--bundle", required=True)
+    parser.add_argument("--cycle-id")
+    parser.add_argument("--root")
+    parser.add_argument(
+        "--artifact-path",
+        action="append",
+        default=[],
+        metavar="NAME=PATH",
+        help=(
+            "Override an artifact path from the bundle, for artifacts downloaded "
+            "to workflow-local paths."
+        ),
+    )
+    return parser
+
+
 def cli_freeze(argv: Sequence[str]) -> int:
+    if argv and argv[0] == "verify":
+        return _cli_verify_freeze(argv[1:])
+
     parser = build_arg_parser()
     args = parser.parse_args(argv)
     cycle_id = cast(str, args.cycle_id)
@@ -315,6 +415,7 @@ def cli_freeze(argv: Sequence[str]) -> int:
             FrozenArtifactName.HARNESS: Path(cast(str, args.harness)),
             FrozenArtifactName.MODEL_REGISTRY: Path(cast(str, args.model_registry)),
             FrozenArtifactName.BASELINES: Path(cast(str, args.baselines)),
+            FrozenArtifactName.EXCLUSION_LEDGER: Path(cast(str, args.exclusion_ledger)),
         },
         freeze_timestamp=(
             _parse_timestamp(cast(str, args.timestamp))
@@ -327,8 +428,27 @@ def cli_freeze(argv: Sequence[str]) -> int:
     return 0
 
 
+def _cli_verify_freeze(argv: Sequence[str]) -> int:
+    parser = build_verify_arg_parser()
+    args = parser.parse_args(argv)
+    try:
+        verify_freeze_bundle(
+            cast(str, args.bundle),
+            cycle_id=cast(str | None, args.cycle_id),
+            root_path=cast(str | None, args.root),
+            artifact_path_overrides=_parse_artifact_path_overrides(
+                cast(Sequence[str], args.artifact_path)
+            ),
+        )
+    except (FreezeProtocolError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print("pre-run freeze commitment verified for all frozen artifacts")
+    return 0
+
+
 def _collect_artifacts(
-    artifact_paths: Mapping[FrozenArtifactName | str, str | Path],
+    artifact_paths: ArtifactPathMap,
     required_artifacts: Sequence[FrozenArtifactName],
 ) -> tuple[FrozenArtifact, ...]:
     paths_by_name: dict[FrozenArtifactName, Path] = {}
@@ -366,6 +486,199 @@ def _collect_artifacts(
             )
         )
     return tuple(artifacts)
+
+
+def _verify_bundle_commitment_hash(record: Mapping[str, Any]) -> None:
+    expected_bundle_sha256 = record.get("hash_bundle_sha256")
+    if not isinstance(expected_bundle_sha256, str):
+        raise FreezeProtocolError(
+            "pre-run freeze commitment missing hash_bundle_sha256"
+        )
+    _require_sha256(expected_bundle_sha256, "hash_bundle_sha256")
+    record_without_hash = dict(record)
+    del record_without_hash["hash_bundle_sha256"]
+    if hash_payload(record_without_hash) != expected_bundle_sha256:
+        raise FreezeProtocolError(
+            "pre-run freeze commitment hash_bundle_sha256 mismatch"
+        )
+
+
+def _load_record_artifacts(
+    record: Mapping[str, Any],
+    *,
+    root_path: Path | None,
+    overrides: Mapping[FrozenArtifactName, Path],
+) -> tuple[FrozenArtifact, ...]:
+    artifacts = record.get("artifacts")
+    if not isinstance(artifacts, list):
+        raise FreezeProtocolError("pre-run freeze commitment missing artifacts list")
+
+    loaded: list[FrozenArtifact] = []
+    for index, raw_artifact in enumerate(cast(list[Any], artifacts), start=1):
+        if not isinstance(raw_artifact, Mapping):
+            raise FreezeProtocolError(
+                f"pre-run freeze commitment artifact {index} must be a JSON object"
+            )
+        artifact_record = cast(Mapping[str, Any], raw_artifact)
+        name = _required_artifact_name(artifact_record, index)
+        loaded.append(
+            FrozenArtifact(
+                name=name,
+                path=_record_artifact_path(
+                    artifact_record,
+                    name=name,
+                    root_path=root_path,
+                    overrides=overrides,
+                ),
+                sha256=_required_sha256_string(artifact_record, name),
+                size_bytes=_required_size_bytes(artifact_record, name),
+            )
+        )
+    return tuple(loaded)
+
+
+def _record_artifact_path(
+    artifact_record: Mapping[str, Any],
+    *,
+    name: FrozenArtifactName,
+    root_path: Path | None,
+    overrides: Mapping[FrozenArtifactName, Path],
+) -> Path:
+    override = overrides.get(name)
+    if override is not None:
+        return override
+    path = artifact_record.get("path")
+    if not isinstance(path, str) or not path.strip():
+        raise FreezeProtocolError(
+            f"pre-run freeze commitment artifact {name.value} is missing path"
+        )
+    record_path = Path(path)
+    if root_path is not None and not record_path.is_absolute():
+        return root_path / record_path
+    return record_path
+
+
+def _require_all_freeze_artifacts(artifacts: Sequence[FrozenArtifact]) -> None:
+    present = {artifact.name for artifact in artifacts}
+    missing_names = [
+        artifact_name.value
+        for artifact_name in REQUIRED_FREEZE_ARTIFACTS
+        if artifact_name not in present
+    ]
+    if missing_names:
+        raise FreezeProtocolError(
+            "pre-run freeze commitment missing required artifacts: "
+            f"{', '.join(missing_names)}"
+        )
+
+
+def _coerce_artifact_path_overrides(
+    artifact_path_overrides: ArtifactPathMap | None,
+) -> dict[FrozenArtifactName, Path]:
+    if artifact_path_overrides is None:
+        return {}
+    overrides: dict[FrozenArtifactName, Path] = {}
+    for raw_name, raw_path in artifact_path_overrides.items():
+        name = (
+            raw_name
+            if isinstance(raw_name, FrozenArtifactName)
+            else FrozenArtifactName(raw_name)
+        )
+        if name in overrides:
+            raise ValueError(f"duplicate freeze artifact override: {name.value}")
+        overrides[name] = Path(raw_path)
+    return overrides
+
+
+def _parse_artifact_path_overrides(
+    values: Sequence[str],
+) -> dict[FrozenArtifactName, Path]:
+    overrides: dict[FrozenArtifactName, Path] = {}
+    for value in values:
+        if "=" not in value:
+            raise FreezeProtocolError(
+                "artifact path overrides must use NAME=PATH syntax"
+            )
+        raw_name, raw_path = value.split("=", 1)
+        if not raw_name.strip() or not raw_path.strip():
+            raise FreezeProtocolError(
+                "artifact path overrides must use NAME=PATH syntax"
+            )
+        try:
+            name = FrozenArtifactName(raw_name)
+        except ValueError as exc:
+            raise FreezeProtocolError(
+                f"unknown freeze artifact override: {raw_name}"
+            ) from exc
+        if name in overrides:
+            raise FreezeProtocolError(
+                f"duplicate freeze artifact override: {name.value}"
+            )
+        overrides[name] = Path(raw_path)
+    return overrides
+
+
+def _required_artifact_name(
+    artifact_record: Mapping[str, Any],
+    index: int,
+) -> FrozenArtifactName:
+    name = artifact_record.get("name")
+    if not isinstance(name, str):
+        raise FreezeProtocolError(
+            f"pre-run freeze commitment artifact {index} is missing name"
+        )
+    try:
+        return FrozenArtifactName(name)
+    except ValueError as exc:
+        raise FreezeProtocolError(
+            f"pre-run freeze commitment artifact {index} has unknown name: {name}"
+        ) from exc
+
+
+def _required_sha256_string(
+    artifact_record: Mapping[str, Any],
+    name: FrozenArtifactName,
+) -> str:
+    sha256 = artifact_record.get("sha256")
+    if not isinstance(sha256, str):
+        raise FreezeProtocolError(
+            f"pre-run freeze commitment artifact {name.value} is missing sha256"
+        )
+    _require_sha256(sha256, f"{name.value}.sha256")
+    return sha256
+
+
+def _required_size_bytes(
+    artifact_record: Mapping[str, Any],
+    name: FrozenArtifactName,
+) -> int:
+    size_bytes = artifact_record.get("size_bytes")
+    if (
+        isinstance(size_bytes, bool)
+        or not isinstance(size_bytes, int)
+        or size_bytes < 0
+    ):
+        raise FreezeProtocolError(
+            f"pre-run freeze commitment artifact {name.value} has invalid size_bytes"
+        )
+    return size_bytes
+
+
+def _required_string(record: Mapping[str, Any], field_name: str) -> str:
+    value = record.get(field_name)
+    if not isinstance(value, str) or not value.strip():
+        raise FreezeProtocolError(f"pre-run freeze commitment missing {field_name}")
+    return value
+
+
+def _required_timestamp(record: Mapping[str, Any], field_name: str) -> datetime:
+    value = _required_string(record, field_name)
+    try:
+        return _parse_timestamp(value)
+    except ValueError as exc:
+        raise FreezeProtocolError(
+            f"pre-run freeze commitment has invalid {field_name}"
+        ) from exc
 
 
 def _artifact_sort_key(artifact: FrozenArtifact) -> int:
@@ -408,3 +721,7 @@ def _require_aware_datetime(value: datetime, field_name: str) -> None:
 def _require_sha256(value: str, field_name: str) -> None:
     if not is_lowercase_sha256(value):
         raise ValueError(f"{field_name} must be a lowercase SHA-256 hash")
+
+
+if __name__ == "__main__":
+    raise SystemExit(cli_freeze(sys.argv[1:]))

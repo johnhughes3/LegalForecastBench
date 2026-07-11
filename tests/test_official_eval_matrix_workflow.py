@@ -91,6 +91,8 @@ def test_official_eval_matrix_workflow_freezes_labels_before_fanout() -> None:
     matrix_step = BUILD_MATRIX_JOB.index("- name: Build matrix JSON")
 
     assert download_step < freeze_step < verify_step < matrix_step
+    commitment_step = BUILD_MATRIX_JOB.index("- name: Verify pre-run freeze commitment")
+    assert verify_step < commitment_step < matrix_step
     assert "uses: astral-sh/setup-uv" not in BUILD_MATRIX_JOB
     assert "legalforecast.publication.run_input_manifest" not in BUILD_MATRIX_JOB
     assert "id: freeze_labels" in BUILD_MATRIX_JOB
@@ -106,6 +108,16 @@ def test_official_eval_matrix_workflow_freezes_labels_before_fanout() -> None:
     assert 'output.write(f"labels_sha256={labels_sha256}\\n")' in BUILD_MATRIX_JOB
     assert 'f"frozen_manifest_sha256={frozen_manifest_sha256}\\n"' in BUILD_MATRIX_JOB
     assert "official-run-input-manifest" not in WORKFLOW
+    assert "python -m legalforecast.protocol.freeze verify" in BUILD_MATRIX_JOB
+    assert '--bundle "${FREEZE_COMMITMENT_PATH}"' in BUILD_MATRIX_JOB
+    assert '--cycle-id "${CYCLE_ID}"' in BUILD_MATRIX_JOB
+    assert '--root "."' in BUILD_MATRIX_JOB
+    assert '--artifact-path "manifest=' not in BUILD_MATRIX_JOB
+    assert (
+        "RUN_INPUT_MANIFEST_PATH:" not in BUILD_MATRIX_JOB[commitment_step:matrix_step]
+    )
+    assert '--artifact-path "labels=${LABELS_PATH}"' in BUILD_MATRIX_JOB
+    assert '--artifact-path "model_registry=${MODEL_REGISTRY_PATH}"' in BUILD_MATRIX_JOB
 
 
 def test_official_eval_matrix_workflow_rebuilds_frozen_manifest_for_aggregate() -> None:

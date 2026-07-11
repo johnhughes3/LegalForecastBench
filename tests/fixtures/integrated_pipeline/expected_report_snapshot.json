@@ -54,7 +54,7 @@
       "micro_brier": 0.111533,
       "model_id": "calibrated",
       "rank": 1,
-      "rank_tier": 1,
+      "rank_tier": null,
       "refusal_rate": 0.0,
       "related_family_capped_micro_brier": 0.111533
     },
@@ -69,7 +69,7 @@
       "micro_brier": 0.25,
       "model_id": "refusal",
       "rank": 2,
-      "rank_tier": 2,
+      "rank_tier": null,
       "refusal_rate": 1.0,
       "related_family_capped_micro_brier": 0.25
     },
@@ -84,7 +84,7 @@
       "micro_brier": 0.326967,
       "model_id": "overconfident",
       "rank": 3,
-      "rank_tier": 3,
+      "rank_tier": null,
       "refusal_rate": 0.0,
       "related_family_capped_micro_brier": 0.326967
     }

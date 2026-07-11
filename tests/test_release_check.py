@@ -80,6 +80,7 @@ def test_release_check_plans_installed_artifact_smokes(tmp_path: Path) -> None:
         "installed sdist CLI help smoke",
     ]
     assert all("--no-project" in command for command in commands)
+    assert all("--no-cache" in command for command in commands)
     assert any("legalforecast fixture e2e" in command for command in commands)
 
 
@@ -108,9 +109,14 @@ def test_release_check_validates_required_artifacts(tmp_path: Path) -> None:
         report_dir / "leaderboard.csv",
         report_dir / "leaderboard.md",
         report_dir / "leaderboard.html",
-        manifests_dir / "cycle_fixture_e2e.freeze.json",
     ):
         path.write_text("ok", encoding="utf-8")
+    (manifests_dir / "cycle_fixture_e2e.freeze.json").write_text(
+        json.dumps(
+            {"artifacts": [{"name": f"artifact-{index}"} for index in range(9)]}
+        ),
+        encoding="utf-8",
+    )
     (dist_dir / "legalforecast_mtd-0.1.0a1-py3-none-any.whl").write_text(
         "wheel",
         encoding="utf-8",

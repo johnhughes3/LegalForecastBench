@@ -9,7 +9,9 @@ from legalforecast.protocol.freeze import (
     MissingFreezeArtifactError,
     detect_freeze_drift,
     freeze_cycle,
+    load_freeze_bundle,
     sha256_file,
+    verify_freeze_bundle,
     verify_no_freeze_drift,
     write_hash_bundle,
 )
@@ -43,7 +45,9 @@ __all__ = [
     "hash_payload",
     "hash_record",
     "hash_records",
+    "load_freeze_bundle",
     "sha256_file",
+    "verify_freeze_bundle",
     "verify_no_freeze_drift",
     "write_hash_bundle",
 ]

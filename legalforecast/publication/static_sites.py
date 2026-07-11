@@ -194,12 +194,20 @@ def _site_result(output_dir: Path) -> StaticSiteResult:
 
 
 def _official_rows(root: Path) -> tuple[Mapping[str, Any], ...]:
-    for name in ("leaderboard.json", "scores.json", "score-summary.json"):
-        path = root / name
+    for relative_path in (
+        Path("report/leaderboard.json"),
+        Path("leaderboard.json"),
+        Path("scores.json"),
+        Path("score-summary.json"),
+    ):
+        path = root / relative_path
         if not path.is_file():
             continue
-        record = _read_json(path, name)
-        rows = record.get("rows", record.get("scores", ()))
+        record = _read_json(path, relative_path.as_posix())
+        rows = record.get(
+            "rows",
+            record.get("summaries", record.get("scores", ())),
+        )
         parsed = _mapping_rows(rows)
         if parsed:
             return parsed

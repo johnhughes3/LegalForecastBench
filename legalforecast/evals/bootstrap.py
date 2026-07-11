@@ -33,6 +33,7 @@ class BootstrapConfig:
     seed: int = 20260514
     ci_level: float = DEFAULT_CI_LEVEL
     rank_tier_correction: str = "bonferroni"
+    small_cluster_threshold: int = 30
 
     def __post_init__(self) -> None:
         if self.replicates <= 0:
@@ -41,6 +42,8 @@ class BootstrapConfig:
             raise ValueError("ci_level must be between 0 and 1")
         if self.rank_tier_correction not in {"bonferroni", "none"}:
             raise ValueError("rank_tier_correction must be 'bonferroni' or 'none'")
+        if self.small_cluster_threshold <= 0:
+            raise ValueError("small_cluster_threshold must be positive")
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,7 +116,7 @@ class ModelRank:
     model_id: str
     observed_micro_brier: float
     rank: int
-    tier: int
+    tier: int | None
 
     def to_record(self) -> dict[str, Any]:
         return {
@@ -135,6 +138,8 @@ class BootstrapInferenceResult:
     ranks: tuple[ModelRank, ...]
     replicates: tuple[BootstrapReplicate, ...]
     cluster_ids: tuple[str, ...] = ()
+    cluster_dimension: str = "case"
+    small_cluster_warning: str | None = None
     rank_tier_ci_level: float = DEFAULT_CI_LEVEL
 
     @property
@@ -152,9 +157,12 @@ class BootstrapInferenceResult:
                 "seed": self.config.seed,
                 "ci_level": self.config.ci_level,
                 "rank_tier_correction": self.config.rank_tier_correction,
+                "small_cluster_threshold": self.config.small_cluster_threshold,
             },
             "case_ids": list(self.case_ids),
             "cluster_ids": list(self.cluster_ids),
+            "cluster_dimension": self.cluster_dimension,
+            "small_cluster_warning": self.small_cluster_warning,
             "rank_tier_ci_level": self.rank_tier_ci_level,
             "rank_tier_method": self.rank_tier_method,
             "rank_tier_caveat": self.rank_tier_caveat,
@@ -237,14 +245,26 @@ def paired_clustered_bootstrap(
             ci_level=rank_tier_ci_level,
         )
     )
+    cluster_dimension = _cluster_dimension(frame.cluster_ids)
+    small_cluster_warning = _small_cluster_warning(
+        cluster_count=len(frame.cluster_ids),
+        threshold=effective_config.small_cluster_threshold,
+        cluster_dimension=cluster_dimension,
+    )
     return BootstrapInferenceResult(
         config=effective_config,
         case_ids=frame.case_ids,
         cluster_ids=frame.cluster_ids,
+        cluster_dimension=cluster_dimension,
+        small_cluster_warning=small_cluster_warning,
         rank_tier_ci_level=rank_tier_ci_level,
         observed_micro_briers=observed,
         pairwise_deltas=pairwise_deltas,
-        ranks=_rank_tiers(observed, rank_tier_deltas),
+        ranks=_rank_tiers(
+            observed,
+            rank_tier_deltas,
+            assign_tiers=small_cluster_warning is None,
+        ),
         replicates=replicates,
     )
 
@@ -293,10 +313,7 @@ def _pairwise_deltas(
                 ),
                 ci_low=_quantile(replicate_deltas, alpha / 2),
                 ci_high=_quantile(replicate_deltas, 1 - (alpha / 2)),
-                probability_a_better=(
-                    sum(1 for delta in replicate_deltas if delta < 0)
-                    / len(replicate_deltas)
-                ),
+                probability_a_better=_probability_lower_brier_better(replicate_deltas),
             )
         )
     return tuple(deltas)
@@ -305,11 +322,23 @@ def _pairwise_deltas(
 def _rank_tiers(
     observed_micro_briers: dict[str, float],
     pairwise_deltas: tuple[PairwiseDelta, ...],
+    *,
+    assign_tiers: bool = True,
 ) -> tuple[ModelRank, ...]:
     sorted_models = sorted(observed_micro_briers, key=observed_micro_briers.__getitem__)
     rank_by_model = {
         model_id: index + 1 for index, model_id in enumerate(sorted_models)
     }
+    if not assign_tiers:
+        return tuple(
+            ModelRank(
+                model_id=model_id,
+                observed_micro_brier=observed_micro_briers[model_id],
+                rank=rank_by_model[model_id],
+                tier=None,
+            )
+            for model_id in sorted_models
+        )
     remaining = list(sorted_models)
     tier_by_model: dict[str, int] = {}
     tier = 1
@@ -336,6 +365,34 @@ def _rank_tiers(
             tier=tier_by_model[model_id],
         )
         for model_id in sorted_models
+    )
+
+
+def _probability_lower_brier_better(deltas: tuple[float, ...]) -> float:
+    if not deltas:
+        raise ValueError("deltas must not be empty")
+    strict_wins = sum(1 for delta in deltas if delta < 0)
+    ties = sum(1 for delta in deltas if delta == 0)
+    return (strict_wins + (0.5 * ties)) / len(deltas)
+
+
+def _cluster_dimension(cluster_ids: tuple[str, ...]) -> str:
+    if any(cluster_id.startswith("mdl_family:") for cluster_id in cluster_ids):
+        return "mdl_family"
+    if any(cluster_id.startswith("related_family:") for cluster_id in cluster_ids):
+        return "related_family"
+    return "case"
+
+
+def _small_cluster_warning(
+    *, cluster_count: int, threshold: int, cluster_dimension: str
+) -> str | None:
+    if cluster_count >= threshold:
+        return None
+    return (
+        f"Only {cluster_count} independent {cluster_dimension} clusters are "
+        f"available, below the configured small-cluster threshold of {threshold}; "
+        "confidence intervals are unstable and uncertainty tiers are suppressed."
     )
 
 

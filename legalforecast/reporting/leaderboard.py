@@ -39,6 +39,7 @@ from legalforecast._record_validation import (
 from legalforecast._record_validation import (
     required_str as _required_str,
 )
+from legalforecast.evals.baselines import BaselineId
 from legalforecast.evals.bootstrap import BootstrapInferenceResult, PairwiseDelta
 from legalforecast.evals.scorers import ScoreSummary
 from legalforecast.reporting.calibration import calibration_records, calibration_svg
@@ -214,8 +215,9 @@ class HeadlineLeaderboardRow:
     """One report row combining scoring, inference, and operational metrics."""
 
     rank: int
-    rank_tier: int
+    rank_tier: int | None
     model_id: str
+    row_type: str
     micro_brier: float
     brier_skill_score: float
     log_loss: float
@@ -247,6 +249,7 @@ class HeadlineLeaderboardRow:
             "rank": self.rank,
             "rank_tier": self.rank_tier,
             "model_id": self.model_id,
+            "row_type": self.row_type,
             "micro_brier": self.micro_brier,
             "brier_skill_score": self.brier_skill_score,
             "brier_skill_score_reference_model_id": (
@@ -292,6 +295,7 @@ class BenchmarkLeaderboardReport:
     calibration_plot_svg: str = ""
     pareto_accuracy_cost: tuple[Mapping[str, Any], ...] = ()
     pareto_accuracy_tool_calls: tuple[Mapping[str, Any], ...] = ()
+    small_cluster_warning: str | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty(self.title, "title")
@@ -313,6 +317,7 @@ class BenchmarkLeaderboardReport:
             "pareto_accuracy_tool_calls": [
                 dict(point) for point in self.pareto_accuracy_tool_calls
             ],
+            "small_cluster_warning": self.small_cluster_warning,
         }
 
     def to_json(self) -> str:
@@ -332,6 +337,7 @@ class BenchmarkLeaderboardReport:
             "Rank",
             "Tier",
             "Model",
+            "Type",
             "Micro-Brier",
             "BSS",
             "BSS vs Ref",
@@ -352,6 +358,7 @@ class BenchmarkLeaderboardReport:
                     "---:",
                     "---:",
                     "---",
+                    "---",
                     "---:",
                     "---:",
                     "---:",
@@ -369,8 +376,9 @@ class BenchmarkLeaderboardReport:
             lines.append(
                 "| "
                 f"{row.rank} | "
-                f"{row.rank_tier} | "
+                f"{row.rank_tier if row.rank_tier is not None else ''} | "
                 f"{row.model_id} | "
+                f"{row.row_type} | "
                 f"{row.micro_brier:.4f} | "
                 f"{row.brier_skill_score:.4f} | "
                 f"{_fmt_optional(row.brier_skill_score_over_reference)} | "
@@ -383,6 +391,8 @@ class BenchmarkLeaderboardReport:
             )
         if self.rank_tier_caveat:
             lines.extend(["", f"_Rank tier note: {self.rank_tier_caveat}_"])
+        if self.small_cluster_warning is not None:
+            lines.extend(["", f"**CI warning:** {self.small_cluster_warning}"])
         if self.pairwise_deltas:
             lines.extend(["", "## Pairwise CIs", ""])
             for delta in self.pairwise_deltas:
@@ -407,8 +417,9 @@ class BenchmarkLeaderboardReport:
         rows = "\n".join(
             "<tr>"
             f"<td>{row.rank}</td>"
-            f"<td>{row.rank_tier}</td>"
+            f"<td>{row.rank_tier if row.rank_tier is not None else ''}</td>"
             f"<td>{html.escape(row.model_id)}</td>"
+            f"<td>{row.row_type}</td>"
             f"<td>{row.micro_brier:.4f}</td>"
             f"<td>{row.brier_skill_score:.4f}</td>"
             f"<td>{_fmt_optional(row.brier_skill_score_over_reference)}</td>"
@@ -429,12 +440,19 @@ class BenchmarkLeaderboardReport:
             "</tr>"
             for point in self.pareto_accuracy_cost
         )
+        warning_html = (
+            "<p><strong>CI warning:</strong> "
+            f"{html.escape(self.small_cluster_warning)}</p>"
+            if self.small_cluster_warning is not None
+            else ""
+        )
         return (
             "<!doctype html><html><body>"
             f"<h1>{html.escape(self.title)}</h1>"
             "<table>"
             "<thead><tr>"
-            "<th>Rank</th><th>Tier</th><th>Model</th><th>Micro-Brier</th>"
+            "<th>Rank</th><th>Tier</th><th>Model</th><th>Type</th>"
+            "<th>Micro-Brier</th>"
             "<th>BSS</th><th>BSS vs Ref</th><th>Log loss</th><th>ECE</th>"
             "<th>Cost/case</th>"
             "<th>Tool calls/case</th><th>Repeat stddev</th><th>Invalid %</th>"
@@ -443,6 +461,7 @@ class BenchmarkLeaderboardReport:
             "</table>"
             "<p><strong>Rank tier note:</strong> "
             f"{html.escape(self.rank_tier_caveat)}</p>"
+            f"{warning_html}"
             "<h2>Calibration</h2>"
             f"{self.calibration_plot_svg}"
             "<h2>Pareto Frontier</h2>"
@@ -472,9 +491,25 @@ def build_benchmark_leaderboard_report(
     ranks = _rank_lookup(score_summaries, inference)
     sorted_summaries = sorted(
         score_summaries,
-        key=lambda summary: (ranks[summary.model_id].rank, summary.model_id),
+        key=lambda summary: (
+            1 if _leaderboard_row_type(summary.model_id) == "baseline" else 0,
+            ranks[summary.model_id].rank,
+            summary.model_id,
+        ),
     )
-    best_model_id = sorted_summaries[0].model_id
+    model_summaries = [
+        summary
+        for summary in score_summaries
+        if _leaderboard_row_type(summary.model_id) == "model"
+    ]
+    best_model_id = (
+        min(
+            model_summaries,
+            key=lambda summary: (summary.micro_brier, summary.model_id),
+        ).model_id
+        if model_summaries
+        else None
+    )
     reference_summary = _baseline_reference_summary(score_summaries)
     rows = tuple(
         _headline_row(
@@ -483,7 +518,11 @@ def build_benchmark_leaderboard_report(
             rank_tier=ranks[summary.model_id].tier,
             accounting=accounting_by_model.get(summary.model_id),
             repeat_variance=repeat_variance_by_model.get(summary.model_id),
-            best_model_id=best_model_id,
+            best_model_id=(
+                best_model_id
+                if _leaderboard_row_type(summary.model_id) == "model"
+                else None
+            ),
             reference_summary=reference_summary,
             inference=inference,
         )
@@ -517,6 +556,9 @@ def build_benchmark_leaderboard_report(
                 row_records,
                 objective_fields=("micro_brier", "mean_tool_calls_per_case"),
             )
+        ),
+        small_cluster_warning=(
+            inference.small_cluster_warning if inference is not None else None
         ),
     )
 
@@ -552,36 +594,91 @@ def _nearest_rank_percentile(values: Sequence[int | float], percentile: int) -> 
 @dataclass(frozen=True, slots=True)
 class _RankFacts:
     rank: int
-    tier: int
+    tier: int | None
 
 
 def _rank_lookup(
     summaries: Sequence[ScoreSummary],
     inference: BootstrapInferenceResult | None,
 ) -> dict[str, _RankFacts]:
-    if inference is not None:
+    grouped: dict[str, list[ScoreSummary]] = {"model": [], "baseline": []}
+    for summary in summaries:
+        grouped[_leaderboard_row_type(summary.model_id)].append(summary)
+    facts: dict[str, _RankFacts] = {}
+    for group in grouped.values():
+        ordered = sorted(
+            group,
+            key=lambda summary: (summary.micro_brier, summary.model_id),
+        )
+        tiers = _tier_lookup_for_group(ordered, inference)
+        for index, summary in enumerate(ordered, start=1):
+            facts[summary.model_id] = _RankFacts(
+                rank=index,
+                tier=tiers[summary.model_id],
+            )
+    return facts
+
+
+def _tier_lookup_for_group(
+    ordered: Sequence[ScoreSummary],
+    inference: BootstrapInferenceResult | None,
+) -> dict[str, int | None]:
+    if inference is None:
         return {
-            rank.model_id: _RankFacts(rank=rank.rank, tier=rank.tier)
-            for rank in inference.ranks
+            summary.model_id: index for index, summary in enumerate(ordered, start=1)
         }
-    sorted_summaries = sorted(
-        summaries,
-        key=lambda summary: (summary.micro_brier, summary.model_id),
-    )
-    return {
-        summary.model_id: _RankFacts(rank=index + 1, tier=index + 1)
-        for index, summary in enumerate(sorted_summaries)
-    }
+    if inference.small_cluster_warning is not None:
+        return {summary.model_id: None for summary in ordered}
+    remaining = [summary.model_id for summary in ordered]
+    tiers: dict[str, int | None] = {}
+    tier = 1
+    while remaining:
+        best = remaining[0]
+        current = [best]
+        for model_id in remaining[1:]:
+            ci = _pairwise_delta_ci(model_id, best, inference.pairwise_deltas)
+            if ci is None:
+                return {summary.model_id: None for summary in ordered}
+            if ci[0] <= 0:
+                current.append(model_id)
+        for model_id in current:
+            tiers[model_id] = tier
+        remaining = [model_id for model_id in remaining if model_id not in current]
+        tier += 1
+    return tiers
+
+
+def _pairwise_delta_ci(
+    model_a: str,
+    model_b: str,
+    pairwise_deltas: tuple[PairwiseDelta, ...],
+) -> tuple[float, float] | None:
+    for delta in pairwise_deltas:
+        if delta.model_a == model_a and delta.model_b == model_b:
+            return (delta.ci_low, delta.ci_high)
+        if delta.model_a == model_b and delta.model_b == model_a:
+            return (-delta.ci_high, -delta.ci_low)
+    return None
+
+
+_BASELINE_MODEL_IDS = frozenset(baseline.value for baseline in BaselineId)
+
+
+def _leaderboard_row_type(model_id: str) -> str:
+    base_model_id = model_id.split("::", maxsplit=1)[0]
+    if base_model_id in _BASELINE_MODEL_IDS or base_model_id.startswith("baseline:"):
+        return "baseline"
+    return "model"
 
 
 def _headline_row(
     summary: ScoreSummary,
     *,
     rank: int,
-    rank_tier: int,
+    rank_tier: int | None,
     accounting: AccountingLeaderboardRow | None,
     repeat_variance: Mapping[str, Any] | None,
-    best_model_id: str,
+    best_model_id: str | None,
     reference_summary: ScoreSummary | None,
     inference: BootstrapInferenceResult | None,
 ) -> HeadlineLeaderboardRow:
@@ -594,6 +691,7 @@ def _headline_row(
         rank=rank,
         rank_tier=rank_tier,
         model_id=summary.model_id,
+        row_type=_leaderboard_row_type(summary.model_id),
         micro_brier=summary.micro_brier,
         brier_skill_score=summary.brier_skill_score,
         log_loss=summary.log_loss,
@@ -672,10 +770,10 @@ def _skill_over_reference(
 def _delta_against_best(
     model_id: str,
     *,
-    best_model_id: str,
+    best_model_id: str | None,
     inference: BootstrapInferenceResult | None,
 ) -> tuple[float | None, float | None, float | None]:
-    if model_id == best_model_id or inference is None:
+    if best_model_id is None or model_id == best_model_id or inference is None:
         return (None, None, None)
     for delta in inference.pairwise_deltas:
         if delta.model_a == model_id and delta.model_b == best_model_id:

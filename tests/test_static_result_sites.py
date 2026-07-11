@@ -45,6 +45,33 @@ def test_official_results_site_uses_official_only_copy(tmp_path: Path) -> None:
     assert _read_json(output_dir / "artifact-index.json")["artifacts"]
 
 
+def test_official_results_site_reads_current_aggregate_score_summaries(
+    tmp_path: Path,
+) -> None:
+    official_dir = tmp_path / "official"
+    _write_json(
+        official_dir / "scores.json",
+        {
+            "summaries": [
+                {
+                    "model_id": "current-aggregate-model",
+                    "micro_brier": 0.08,
+                }
+            ]
+        },
+    )
+
+    result = render_official_results_site(
+        official_artifacts_dir=official_dir,
+        output_dir=tmp_path / "site",
+    )
+
+    rendered = result.index_path.read_text(encoding="utf-8")
+    assert "current-aggregate-model" in rendered
+    assert "0.08" in rendered
+    assert "No official score rows" not in rendered
+
+
 def test_community_results_site_uses_non_official_sections(tmp_path: Path) -> None:
     aggregate_dir = _write_community_aggregate(tmp_path)
     output_dir = aggregate_dir / "site"

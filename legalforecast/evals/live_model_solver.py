@@ -24,6 +24,7 @@ from legalforecast.evals.inspect_task import (
     SolverResponse,
 )
 from legalforecast.evals.model_registry import ModelRegistryEntry, ToolPolicy
+from legalforecast.evals.response_verification import verify_provider_response
 
 OPENAI_API_KEY_ENV = "OPENAI_API_KEY"
 ANTHROPIC_API_KEY_ENV = "ANTHROPIC_API_KEY"
@@ -208,6 +209,10 @@ def complete_live_prompt(
     input_tokens, output_tokens = provider.extract_usage(payload)
     served_model_version = provider.extract_served_version(payload)
     _validate_served_model_version(registry_entry, served_model_version)
+    response_verification = verify_provider_response(
+        payload,
+        provider=registry_entry.provider,
+    )
     return SolverResponse(
         raw_output=raw_output,
         request_count=request_count,
@@ -234,6 +239,7 @@ def complete_live_prompt(
             "provider_attempt_count": str(request_count),
             "model_registry_sha256": model_registry_sha256 or "unrecorded",
             "tool_policy": registry_entry.tool_policy.value,
+            **response_verification.to_metadata(),
         },
     )
 
@@ -266,6 +272,10 @@ def _complete_bedrock_anthropic_prompt(
     input_tokens, output_tokens = _anthropic_usage(payload)
     served_model_version = _optional_str_field(payload, "model") or bedrock_model_id
     _validate_served_model_version(registry_entry, served_model_version)
+    response_verification = verify_provider_response(
+        payload,
+        provider=registry_entry.provider,
+    )
     return SolverResponse(
         raw_output=raw_output,
         request_count=request_count,
@@ -296,6 +306,7 @@ def _complete_bedrock_anthropic_prompt(
             "provider_attempt_count": str(request_count),
             "model_registry_sha256": model_registry_sha256 or "unrecorded",
             "tool_policy": registry_entry.tool_policy.value,
+            **response_verification.to_metadata(),
         },
     )
 
@@ -601,6 +612,11 @@ def _urlopen_json(
             f"provider request failed: {exc.reason}",
             retryable=_retryable_url_error(exc.reason),
         ) from exc
+    except OSError as exc:
+        raise LiveModelProviderError(
+            f"provider request failed: {exc}",
+            retryable=_retryable_url_error(exc),
+        ) from exc
 
 
 def _call_with_provider_retries(
@@ -660,6 +676,8 @@ def _retryable_provider_message(message: str) -> bool:
         "remote end closed connection",
         "dns",
         "name resolution",
+        "name or service not known",
+        "nodename nor servname provided",
         "temporary failure",
         "throttl",
         "service unavailable",

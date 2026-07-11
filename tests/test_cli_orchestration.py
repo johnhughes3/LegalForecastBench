@@ -26,12 +26,62 @@ def test_cli_help_lists_benchmark_orchestration_commands() -> None:
         "model-run",
         "score",
         "report",
+        "publish",
         "fixture",
         "fixture-e2e",
         "pilot",
         "acquisition",
     ):
         assert command in help_text
+
+
+def test_publish_aggregate_help_uses_current_official_aggregate_contract(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["publish", "aggregate", "--help"])
+
+    assert exc_info.value.code == 0
+    help_text = capsys.readouterr().out
+    for expected in (
+        "--model-registry",
+        "--baseline-training-examples",
+        "--allow-no-baselines",
+        "--deferred-ablation",
+        "--paired-delta-sd",
+    ):
+        assert expected in help_text
+
+
+def test_publish_site_renders_official_artifacts(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    official_dir = tmp_path / "official"
+    official_dir.mkdir()
+    (official_dir / "scores.json").write_text(
+        json.dumps({"rows": [{"model_id": "model-a", "micro_brier": 0.1}]}),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "site"
+
+    assert (
+        main(
+            [
+                "publish",
+                "site",
+                "--official-artifacts-dir",
+                str(official_dir),
+                "--output-dir",
+                str(output_dir),
+            ]
+        )
+        == 0
+    )
+
+    summary = json.loads(capsys.readouterr().out)
+    assert Path(summary["index"]).is_file()
+    assert Path(summary["artifact_index"]).is_file()
 
 
 def test_case_dev_smoke_help_describes_operational_options(capsys) -> None:
@@ -145,6 +195,7 @@ def test_fixture_e2e_cli_writes_benchmark_artifacts(tmp_path: Path) -> None:
     assert freeze_bundle["cycle_id"] == "cycle_fixture_e2e"
     assert {artifact["name"] for artifact in freeze_bundle["artifacts"]} == {
         "baselines",
+        "exclusion_ledger",
         "harness",
         "labels",
         "manifest",

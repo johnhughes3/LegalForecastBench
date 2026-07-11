@@ -62,6 +62,39 @@ def test_parser_repairs_markdown_wrapped_json_deterministically() -> None:
     assert parsed.repair_applied is True
 
 
+def test_parser_parses_fenced_json_with_refusal_phrase_in_rationale() -> None:
+    refusal_like_rationale = (
+        "I cannot fully assess the record, but this is my forecast."
+    )
+    payload = {
+        "case_assessment": "The record supports a mixed forecast.",
+        "predictions": [
+            {
+                "unit_id": unit_id,
+                "probability_fully_dismissed": probability,
+                "rationale": refusal_like_rationale,
+            }
+            for unit_id, probability in zip(
+                REQUIRED_MOCK_UNIT_IDS, (0.61, 0.42, 0.23), strict=True
+            )
+        ],
+    }
+    raw_output = f"```json\n{json.dumps(payload)}\n```"
+
+    parsed = parse_model_output(
+        raw_output,
+        required_unit_ids=REQUIRED_MOCK_UNIT_IDS,
+    )
+
+    assert parsed.status is ParserStatus.REPAIRED_VALID
+    assert parsed.is_valid is True
+    assert parsed.defaulted_unit_ids == ()
+    assert (
+        parsed.prediction_for(REQUIRED_MOCK_UNIT_IDS[0]).rationale
+        == refusal_like_rationale
+    )
+
+
 def test_parser_repairs_singleton_top_level_list() -> None:
     fixture = get_mock_model_output("mock_calibrated_predictions")
     raw_output = json.dumps([json.loads(fixture.raw_output)])

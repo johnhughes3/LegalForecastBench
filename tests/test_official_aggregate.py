@@ -10,17 +10,29 @@ from typing import Any
 import pytest
 from legalforecast.evals.accounting import ModelRunAccountingRecord
 from legalforecast.evals.bootstrap import BONFERRONI_RANK_TIER_METHOD
+from legalforecast.evals.response_verification import (
+    RESPONSE_GROUNDING_ARTIFACTS_DETECTED_FIELD,
+    RESPONSE_RETRYABLE_OPS_EVENT_FIELD,
+    RESPONSE_VERIFICATION_SCHEMA_FIELD,
+    RESPONSE_VERIFICATION_SCHEMA_VERSION,
+)
 from legalforecast.labeling import AmendmentClass, OutcomeCitation, OutcomeLabel
 from legalforecast.publication.official_aggregate import (
     OfficialAggregationConfig,
     OfficialAggregationError,
     _ablation_delta_report,
+    _score_row_type,
     aggregate_official_results,
 )
 from legalforecast.publication.official_aggregate import (
     main as official_aggregate_main,
 )
 from legalforecast.reporting.cadence import CycleSeries
+
+
+def test_score_row_type_preserves_baseline_with_ablation_suffix() -> None:
+    assert _score_row_type("judge_history::full_packet") == "baseline"
+    assert _score_row_type("fixture-model::full_packet") == "model"
 
 
 def test_official_aggregate_writes_public_bundle_and_private_debug(
@@ -418,6 +430,33 @@ def test_ablation_delta_report_compares_full_packet_to_metadata_only() -> None:
     assert row["record_text_improves_brier"] is True
 
 
+def test_ablation_delta_report_counts_exact_ties_as_half_probability() -> None:
+    full_packet = {
+        "candidate_id": "candidate-1",
+        "case_id": "case-1",
+        "model_id": "fixture-model",
+        "run_label": "full_packet",
+        "ablation": "full_packet",
+        "raw_output": _fixture_raw_output(0.7),
+        "required_unit_ids": ["unit-dismissed", "unit-survives"],
+    }
+    metadata_only = {
+        **full_packet,
+        "run_label": "metadata_only",
+        "ablation": "metadata_only",
+    }
+
+    report = _ablation_delta_report(
+        [full_packet, metadata_only],
+        (_label("unit-dismissed", True), _label("unit-survives", False)),
+        cycle_id="cycle-1",
+        generated_at=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
+        base_rate=None,
+    )
+
+    assert report["rows"][0]["probability_full_packet_better"] == 0.5
+
+
 def test_official_aggregate_writes_multi_ablation_scores_and_delta_report(
     tmp_path: Path,
 ) -> None:
@@ -539,8 +578,9 @@ def test_official_aggregate_accepts_explicit_multi_model_matrix(
     assert leaderboard["pairwise_deltas"]
     rows_by_model = {row["model_id"]: row for row in leaderboard["rows"]}
     assert set(rows_by_model) == {"model-a", "model-b"}
-    assert rows_by_model["model-a"]["rank_tier"] == 1
-    assert rows_by_model["model-b"]["rank_tier"] == 2
+    assert rows_by_model["model-a"]["rank_tier"] is None
+    assert rows_by_model["model-b"]["rank_tier"] is None
+    assert leaderboard["small_cluster_warning"] is not None
     assert rows_by_model["model-b"]["delta_vs_best"] > 0
     assert rows_by_model["model-b"]["delta_vs_best_ci_low"] > 0
     assert math.isclose(rows_by_model["model-a"]["cost_per_case"], 0.02)
@@ -883,6 +923,109 @@ def test_official_aggregate_fails_on_hash_mismatch(tmp_path: Path) -> None:
     _write_jsonl(case_dir / "runs.jsonl", runs)
 
     with pytest.raises(OfficialAggregationError, match="raw_output_sha256 mismatch"):
+        aggregate_official_results(
+            OfficialAggregationConfig(
+                per_case_dir=per_case_dir,
+                run_input_manifest_path=manifest_path,
+                labels_path=labels_path,
+                output_dir=tmp_path / "official-bundle",
+                cycle_id="cycle-1",
+                cycle_series=CycleSeries.PILOT,
+                clean_motion_count=25,
+                prediction_unit_count=1,
+                model_registry_path=registry_path,
+                allow_no_baselines=True,
+                ablation="full_packet",
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    ("metadata_field", "error_match"),
+    (
+        (RESPONSE_GROUNDING_ARTIFACTS_DETECTED_FIELD, "grounding artifacts"),
+        (RESPONSE_RETRYABLE_OPS_EVENT_FIELD, "retryable response ops"),
+    ),
+)
+def test_official_aggregate_fails_on_response_verification_flags(
+    tmp_path: Path,
+    metadata_field: str,
+    error_match: str,
+) -> None:
+    manifest_path = _write_run_input_manifest(tmp_path)
+    registry_path = _write_model_registry(tmp_path, ("fixture:solver",))
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    case_dir = _write_case_artifacts(per_case_dir)
+    runs = _read_jsonl(case_dir / "runs.jsonl")
+    runs[0]["metadata"] = {
+        RESPONSE_VERIFICATION_SCHEMA_FIELD: RESPONSE_VERIFICATION_SCHEMA_VERSION,
+        metadata_field: "true",
+    }
+    _write_jsonl(case_dir / "runs.jsonl", runs)
+
+    with pytest.raises(OfficialAggregationError, match=error_match):
+        aggregate_official_results(
+            OfficialAggregationConfig(
+                per_case_dir=per_case_dir,
+                run_input_manifest_path=manifest_path,
+                labels_path=labels_path,
+                output_dir=tmp_path / "official-bundle",
+                cycle_id="cycle-1",
+                cycle_series=CycleSeries.PILOT,
+                clean_motion_count=25,
+                prediction_unit_count=1,
+                model_registry_path=registry_path,
+                allow_no_baselines=True,
+                ablation="full_packet",
+            )
+        )
+
+
+def test_official_aggregate_requires_response_verification_for_live_runs(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(tmp_path)
+    registry_path = _write_model_registry(tmp_path, ("fixture:solver",))
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    case_dir = _write_case_artifacts(per_case_dir)
+    runs = _read_jsonl(case_dir / "runs.jsonl")
+    runs[0]["execution_backend"] = "inspect_ai"
+    _write_jsonl(case_dir / "runs.jsonl", runs)
+
+    with pytest.raises(OfficialAggregationError, match="metadata missing or invalid"):
+        aggregate_official_results(
+            OfficialAggregationConfig(
+                per_case_dir=per_case_dir,
+                run_input_manifest_path=manifest_path,
+                labels_path=labels_path,
+                output_dir=tmp_path / "official-bundle",
+                cycle_id="cycle-1",
+                cycle_series=CycleSeries.PILOT,
+                clean_motion_count=25,
+                prediction_unit_count=1,
+                model_registry_path=registry_path,
+                allow_no_baselines=True,
+                ablation="full_packet",
+            )
+        )
+
+
+def test_official_aggregate_fails_on_retryable_accounting_event(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(tmp_path)
+    registry_path = _write_model_registry(tmp_path, ("fixture:solver",))
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "downloaded-artifacts"
+    case_dir = _write_case_artifacts(per_case_dir)
+    accounting = _read_jsonl(case_dir / "accounting.jsonl")
+    accounting[0]["retryable_ops_event"] = True
+    accounting[0]["retryable_ops_event_reason"] = "response_truncated:max_tokens"
+    _write_jsonl(case_dir / "accounting.jsonl", accounting)
+
+    with pytest.raises(OfficialAggregationError, match="official accounting"):
         aggregate_official_results(
             OfficialAggregationConfig(
                 per_case_dir=per_case_dir,

@@ -54,7 +54,8 @@ def test_withdrawal_ledger_serializes_and_filters_future_run_inputs(
 
 
 def test_public_errata_omits_private_storage_and_document_details() -> None:
-    entry = _entry()
+    private_reason = "Raw filing says party Doe sealed sensitive medical records."
+    entry = _entry(reason=private_reason)
 
     errata = build_public_errata_record(
         entry,
@@ -66,9 +67,11 @@ def test_public_errata_omits_private_storage_and_document_details() -> None:
     assert errata["withdrawal_id"] == "wd-2026-001"
     assert errata["supersedes_manifest_sha256"] == f"sha256:{SHA_A}"
     assert errata["replacement_manifest_sha256"] == f"sha256:{SHA_B}"
+    assert "reason" not in errata
     assert "packet_object_keys" not in errata
     assert "source_document_ids" not in errata
     assert "private_tombstone_key" not in errata
+    assert private_reason not in json.dumps(errata)
     assert "raw filing" not in json.dumps(errata).lower()
 
 
@@ -99,6 +102,7 @@ def test_withdrawal_ledger_rejects_duplicate_ids() -> None:
 
 def _entry(
     *,
+    reason: str = WithdrawalReason.SEALED_OR_RESTRICTED.value,
     future_use_blocked: bool = True,
     private_tombstone_key: str = "quarantine/cycle-2026-05/case-1/tombstone.json",
     packet_object_keys: tuple[str, ...] = (
@@ -111,7 +115,7 @@ def _entry(
         withdrawal_id="wd-2026-001",
         cycle_id="cycle-2026-05",
         scope=WithdrawalScope.CASE,
-        reason=WithdrawalReason.SEALED_OR_RESTRICTED.value,
+        reason=reason,
         public_reason="sealed_or_restricted",
         effective_at=datetime(2026, 5, 17, 18, 30, tzinfo=UTC),
         case_id="case-1",

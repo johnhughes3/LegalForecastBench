@@ -494,7 +494,7 @@ def _export_model_packets(
     for index, packet in enumerate(packet_records, start=1):
         case_id = _required_str(packet.get("case_id"))
         candidate_id = _required_str(packet.get("candidate_id"))
-        ablation = _optional_str(packet.get("ablation")) or "default"
+        ablation = _optional_str(packet.get("ablation")) or "full_packet"
         key = "/".join(
             (
                 "model-packets",
@@ -641,7 +641,7 @@ def _run_input_manifest(
         packet_input: JsonRecord = {
             "case_id": _required_str(packet.get("case_id")),
             "candidate_id": _required_str(packet.get("candidate_id")),
-            "ablation": _optional_str(packet.get("ablation")) or "default",
+            "ablation": _optional_str(packet.get("ablation")) or "full_packet",
             "packet_object_key": packet_object.key,
             "packet_sha256": packet_object.sha256,
             "packet_size_bytes": packet_object.size_bytes,
@@ -810,7 +810,7 @@ def _packet_render_records(
     selected_ablation: dict[str, str] = {}
     for packet, packet_object in zip(packet_records, packet_objects, strict=True):
         candidate_id = _required_str(packet.get("candidate_id"))
-        ablation = _optional_str(packet.get("ablation")) or "default"
+        ablation = _optional_str(packet.get("ablation")) or "full_packet"
         if candidate_id in renders and selected_ablation[candidate_id] == "full_packet":
             continue
         if candidate_id in renders and ablation != "full_packet":

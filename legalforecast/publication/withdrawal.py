@@ -290,7 +290,6 @@ def build_public_errata_record(
         "scope": entry.scope.value,
         "case_id": entry.case_id,
         "candidate_id": entry.candidate_id,
-        "reason": entry.reason,
         "public_reason": entry.public_reason,
         "summary": summary,
         "effective_at": _format_datetime(entry.effective_at),
