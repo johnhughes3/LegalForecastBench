@@ -6,7 +6,7 @@ LegalForecast-MTD should not be positioned as the first system to predict litiga
 
 [Pre/Dicta](https://www.pre-dicta.com/) publicly markets motion-level federal litigation prediction and claims 85% accuracy on motion prediction, including motions to dismiss. Third-party coverage describes the product as predicting MTD outcomes from docket number and party/judge/case metadata rather than the legal briefs themselves, which is direct market evidence that metadata priors can be strong on this task.
 
-That makes `judge_history`, `court_nos_motion_base_rate`, and `metadata_only` not secondary diagnostics but central adversarial baselines. A model that beats raw micro-Brier but fails to beat the informed baseline has not shown that reading the record added value. Public leaderboards should therefore headline skill over the informed baseline, using raw micro-Brier as the base proper scoring metric and the baseline-relative score as the practitioner-facing interpretation.
+That makes `judge_history`, `court_nos_motion_base_rate`, and `metadata_only` not secondary diagnostics but central adversarial baselines. A model that beats raw micro-Brier but fails to beat the informed baseline has not shown that reading the record added value. Once a historical baseline corpus is frozen, public leaderboards should headline skill over the informed baseline, using raw micro-Brier as the base proper scoring metric and the baseline-relative score as the practitioner-facing interpretation. Cycle 1 predates that corpus: it publishes relative model comparisons only, states that scope explicitly, and makes no skill-over-baseline claim.
 
 ## Legal Judgment Prediction Literature
 
@@ -46,4 +46,4 @@ Avoid:
 
 ## Release Checklist
 
-Before a public cycle, the release package should include baseline rows for `global_base_rate`, `court_nos_motion_base_rate`, `metadata_only`, and `judge_history`; a leaderboard column for skill over the selected informed baseline; a prior-art paragraph citing the commercial MTD prediction market and the legal judgment prediction literature; and a limitations paragraph explaining that prediction from the pre-decision record is a proxy for legal reasoning, not a direct measure of correctness.
+Before a public cycle, the release package should include a prior-art paragraph citing the commercial MTD prediction market and the legal judgment prediction literature, and a limitations paragraph explaining that prediction from the pre-decision record is a hypothesized proxy for legal reasoning, not a direct measure of correctness. Once the historical baseline corpus exists, the package should also include baseline rows for `global_base_rate`, `court_nos_motion_base_rate`, `metadata_only`, and `judge_history`, plus a leaderboard column for skill over the selected informed baseline; until then, each cycle must state explicitly that it publishes relative model comparisons only.
