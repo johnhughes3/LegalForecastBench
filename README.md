@@ -1,6 +1,6 @@
 # LegalForecast-MTD
 
-LegalForecast-MTD is a contamination-controlled benchmark of frontier models on a high-value legal task: predicting how federal judges will rule on motions to dismiss, from the same written record the judge sees. Each benchmark version is anchored to a set of model deployment dates and uses only cases decided on or after the UTC calendar date of the latest first documented external deployment among the evaluated models; for models whose served weights are frozen at that deployment, the ruling is outside the model's training record. The prediction unit is a claim-defendant pair (i.e., whether the judge granted or denied a motion to dismiss a specific claim as to a specific defendant or group of similarly situated defendants). The headline metric is micro-Brier with case-clustered confidence intervals.
+LegalForecast-MTD is a contamination-controlled benchmark of frontier models on a high-value legal task: predicting how federal judges will rule on motions to dismiss, from the same written record the judge sees. Each benchmark version is anchored to a set of model deployment dates and uses only cases decided on or after the UTC calendar date of the latest first documented external deployment among the evaluated models; for models whose served weights are frozen at that deployment, the ruling is outside the model's training record. The prediction unit is a claim-defendant pair (i.e., whether the judge granted or denied a motion to dismiss a specific claim as to a specific defendant or group of similarly situated defendants). The headline metric is micro-Brier with confidence intervals clustered at the coarsest declared independence level.
 
 ## Why This Exists
 
@@ -16,7 +16,7 @@ AI models that can predict litigation outcomes well would be useful in a range o
 
 ### Prediction unit and metric
 
-The benchmark predicts, for each challenged claim against each challenged defendant, the probability that the claim will be dismissed in full. The prediction unit is the claim-defendant pair, not the motion as a whole. The base proper scoring metric is micro-Brier over prediction units, with confidence intervals clustered by case to account for within-motion correlation. The first benchmark cycle makes relative model comparisons only — which model forecasts best on the shared frozen record. Fitted empirical baseline rows and Brier-skill-over-informed-baseline interpretation (especially `judge_history`) are planned for a later cycle once a historical baseline corpus is frozen; see [Prior Art and Positioning](docs/prior-art-positioning.md).
+The benchmark predicts, for each challenged claim against each challenged defendant, the probability that the claim will be dismissed in full. The prediction unit is the claim-defendant pair, not the motion as a whole. The base proper scoring metric is micro-Brier over prediction units, with confidence intervals clustered at the coarsest declared independence level: MDL family when present, otherwise related-case family when present, otherwise case. The first benchmark cycle makes relative model comparisons only — which model forecasts best on the shared frozen record. Fitted empirical baseline rows and Brier-skill-over-informed-baseline interpretation (especially `judge_history`) are planned for a later cycle once a historical baseline corpus is frozen; see the Related Work section of [docs/METHODS.md](docs/METHODS.md).
 
 ### Contamination control
 
@@ -142,7 +142,7 @@ If a case is later sealed, redacted, or otherwise must be removed from the publi
 - `legalforecast/`: Python package for ingestion, selection, unitization, labeling, evaluation, scoring, reporting, and publication artifacts.
 - `examples/adapters/`: no-network fixture manifests for first-class community multi-harness adapter tracks.
 - `community/submissions/`: reviewed community submission examples and future accepted metadata packages.
-- `docs/`: methods, labeling and human-baseline protocols, official-run runbook, reproduction/audit guide, and community/adapter docs — start at [docs/README.md](docs/README.md).
+- `docs/`: methods, labeling protocol, official-run runbook, reproduction/audit guide, and community/adapter docs — start at [docs/README.md](docs/README.md).
 - `tests/`: synthetic fixtures and regression coverage.
 - `MODEL_RELEASE_DATES.md`: tracked pilot anchors and additional release-date candidates.
 

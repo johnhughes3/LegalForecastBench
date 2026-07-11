@@ -30,7 +30,7 @@ RELEASE_METADATA_PATHS = (
     Path("MODEL_RELEASE_DATES.md"),
     Path("CITATION.cff"),
     Path("LICENSE"),
-    Path("docs/prior-art-positioning.md"),
+    Path("docs/METHODS.md"),
     Path("docs/multiharness-adapter-spec.md"),
     Path("docs/community-submissions.md"),
     Path("docs/adapters/provider-baselines.md"),
