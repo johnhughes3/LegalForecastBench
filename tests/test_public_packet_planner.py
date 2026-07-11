@@ -58,7 +58,18 @@ def test_public_packet_planner_reports_public_document_shortfall(
 
     assert plan.selected_case_count == 0
     assert plan.summary_record()["shortfall"] == 25
-    assert plan.candidate_plans[0].exclusion_reasons == ("no_free_target_mtd_document",)
+    assert len(plan.paid_gap_cases) == 1
+    assert plan.final_exclusions == ()
+    pending = plan.paid_gap_cases[0]
+    assert pending.exclusion_reasons == ()
+    assert pending.paid_gap_reasons == ("no_free_target_mtd_document",)
+    assert pending.planning_status == "paid_recovery_required"
+    assert [document.document_role for document in pending.documents] == [
+        DocumentRole.COMPLAINT,
+        DocumentRole.OPPOSITION,
+        DocumentRole.DECISION,
+    ]
+    assert len(plan.download_requests) == 3
 
 
 def test_public_packet_planner_excludes_missing_first_disposition_date(

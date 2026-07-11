@@ -76,6 +76,8 @@ class PublicPacketCandidatePlan:
     source_url: str | None
     selected: bool
     exclusion_reasons: tuple[str, ...]
+    paid_recovery_required: bool
+    paid_gap_reasons: tuple[str, ...]
     target_motion_entry_numbers: tuple[int, ...]
     decision_entry_numbers: tuple[int, ...]
     documents: tuple[PublicPacketDocumentPlan, ...]
@@ -95,10 +97,25 @@ class PublicPacketCandidatePlan:
             "source_url": self.source_url,
             "selected": self.selected,
             "exclusion_reasons": list(self.exclusion_reasons),
+            "paid_recovery_required": self.paid_recovery_required,
+            "paid_gap_reasons": list(self.paid_gap_reasons),
+            "planning_status": self.planning_status,
             "target_motion_entry_numbers": list(self.target_motion_entry_numbers),
             "decision_entry_numbers": list(self.decision_entry_numbers),
             "documents": [document.to_record() for document in self.documents],
         }
+
+    @property
+    def planning_status(self) -> str:
+        if self.selected:
+            return "selected_free"
+        if self.paid_recovery_required:
+            return "paid_recovery_required"
+        return "excluded"
+
+    @property
+    def final_excluded(self) -> bool:
+        return not self.selected and not self.paid_recovery_required
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,10 +132,28 @@ class PublicPacketDownloadPlan:
         return tuple(plan for plan in self.candidate_plans if plan.selected)
 
     @property
+    def paid_gap_cases(self) -> tuple[PublicPacketCandidatePlan, ...]:
+        return tuple(
+            plan for plan in self.candidate_plans if plan.paid_recovery_required
+        )
+
+    @property
+    def final_exclusions(self) -> tuple[PublicPacketCandidatePlan, ...]:
+        return tuple(plan for plan in self.candidate_plans if plan.final_excluded)
+
+    @property
+    def planned_cases(self) -> tuple[PublicPacketCandidatePlan, ...]:
+        return tuple(
+            plan
+            for plan in self.candidate_plans
+            if plan.selected or plan.paid_recovery_required
+        )
+
+    @property
     def download_requests(self) -> tuple[FreeDocumentDownloadRequest, ...]:
         return tuple(
             document.to_download_request()
-            for plan in self.selected_cases
+            for plan in self.planned_cases
             for document in plan.documents
         )
 
@@ -128,8 +163,14 @@ class PublicPacketDownloadPlan:
             "allow_inferred_target_mtd": self.allow_inferred_target_mtd,
             "screened_case_count": self.screened_case_count,
             "selected_case_count": self.selected_case_count,
+            "paid_gap_case_count": len(self.paid_gap_cases),
+            "planned_case_count": len(self.planned_cases),
+            "final_exclusion_count": len(self.final_exclusions),
             "download_request_count": self.download_request_count,
             "shortfall": max(0, self.target_clean_cases - self.selected_case_count),
+            "acquisition_candidate_shortfall": max(
+                0, self.target_clean_cases - len(self.planned_cases)
+            ),
         }
 
 
@@ -149,20 +190,24 @@ def plan_public_packet_downloads(
         raise ValueError("raw_html_dir is required unless use_embedded_entries=True")
     html_root = Path(raw_html_dir) if raw_html_dir is not None else None
     candidate_plans: list[PublicPacketCandidatePlan] = []
-    selected_count = 0
+    planned_count = 0
     for record in screened_case_records:
         plan = _candidate_plan(
             record,
             raw_html_dir=html_root,
-            selected=selected_count < target_clean_cases,
+            within_target_limit=planned_count < target_clean_cases,
             allow_inferred_target_mtd=allow_inferred_target_mtd,
             use_embedded_entries=use_embedded_entries,
         )
-        if plan.selected:
-            selected_count += 1
+        if plan.selected or plan.paid_recovery_required:
+            planned_count += 1
         candidate_plans.append(plan)
     selected_cases = tuple(plan for plan in candidate_plans if plan.selected)
-    request_count = sum(len(plan.documents) for plan in selected_cases)
+    request_count = sum(
+        len(plan.documents)
+        for plan in candidate_plans
+        if plan.selected or plan.paid_recovery_required
+    )
     return PublicPacketDownloadPlan(
         target_clean_cases=target_clean_cases,
         allow_inferred_target_mtd=allow_inferred_target_mtd,
@@ -177,7 +222,7 @@ def _candidate_plan(
     record: Mapping[str, Any],
     *,
     raw_html_dir: Path | None,
-    selected: bool,
+    within_target_limit: bool,
     allow_inferred_target_mtd: bool,
     use_embedded_entries: bool,
 ) -> PublicPacketCandidatePlan:
@@ -242,6 +287,17 @@ def _candidate_plan(
         decision_entries=decision_entries,
         allow_inferred_target_mtd=allow_inferred_target_mtd,
     )
+    if not within_target_limit:
+        return _excluded_plan(
+            candidate_id,
+            metadata,
+            decision_date=decision_date,
+            case_mix_metadata=case_mix_metadata,
+            source_url=source_url,
+            target_entries=target_entries,
+            decision_entries=decision_entries,
+            reason="target_clean_case_limit_reached",
+        )
     return PublicPacketCandidatePlan(
         candidate_id=candidate_id,
         case_id=_optional_str(metadata, "case_id") or candidate_id,
@@ -254,11 +310,13 @@ def _candidate_plan(
         related_family_id=case_mix_metadata["related_family_id"],
         mdl_family_id=case_mix_metadata["mdl_family_id"],
         source_url=source_url,
-        selected=selected and not reasons,
-        exclusion_reasons=reasons,
+        selected=not reasons,
+        exclusion_reasons=(),
+        paid_recovery_required=bool(reasons),
+        paid_gap_reasons=reasons,
         target_motion_entry_numbers=target_entries,
         decision_entry_numbers=decision_entries,
-        documents=documents if not reasons else (),
+        documents=documents,
     )
 
 
@@ -280,24 +338,26 @@ def _documents_for_candidate(
     )
     decision_entry_plans = _decision_entries(page, decision_entries=decision_entries)
     reasons: list[str] = []
-    if complaint is None:
+    complaint_plan = (
+        None
+        if complaint is None
+        else _optional_document_plan(
+            candidate_id,
+            complaint,
+            roles=(DocumentRole.AMENDED_COMPLAINT, DocumentRole.COMPLAINT),
+            model_visible=True,
+            contains_target_outcome=False,
+        )
+    )
+    if complaint_plan is None:
         reasons.append("no_free_operative_complaint")
     if not target_mtd_entries:
         reasons.append("no_free_target_mtd_document")
     if not decision_entry_plans:
         reasons.append("no_free_decision_document")
-    if reasons:
-        return (), tuple(reasons)
-    assert complaint is not None
-    documents: list[PublicPacketDocumentPlan] = [
-        _document_plan(
-            candidate_id,
-            complaint,
-            role=_complaint_role(complaint),
-            model_visible=True,
-            contains_target_outcome=False,
-        )
-    ]
+    documents: list[PublicPacketDocumentPlan] = []
+    if complaint_plan is not None:
+        documents.append(complaint_plan)
     documents.extend(
         _document_plan(
             candidate_id,
@@ -328,7 +388,7 @@ def _documents_for_candidate(
         )
         for entry in decision_entry_plans
     )
-    return tuple(_dedupe_documents(documents)), ()
+    return tuple(_dedupe_documents(documents)), tuple(reasons)
 
 
 def _page_from_embedded_selected_entries(
@@ -514,6 +574,26 @@ def _document_plan(
     )
 
 
+def _optional_document_plan(
+    candidate_id: str,
+    entry: CourtListenerWebDocketEntry,
+    *,
+    roles: tuple[DocumentRole, ...],
+    model_visible: bool,
+    contains_target_outcome: bool,
+) -> PublicPacketDocumentPlan | None:
+    for role in roles:
+        if _best_free_document(entry, role) is not None:
+            return _document_plan(
+                candidate_id,
+                entry,
+                role=role,
+                model_visible=model_visible,
+                contains_target_outcome=contains_target_outcome,
+            )
+    return None
+
+
 def _dedupe_documents(
     documents: Iterable[PublicPacketDocumentPlan],
 ) -> tuple[PublicPacketDocumentPlan, ...]:
@@ -553,6 +633,8 @@ def _excluded_plan(
         source_url=source_url,
         selected=False,
         exclusion_reasons=(reason,),
+        paid_recovery_required=False,
+        paid_gap_reasons=(),
         target_motion_entry_numbers=target_entries,
         decision_entry_numbers=decision_entries,
         documents=(),
@@ -617,14 +699,6 @@ def _first_written_disposition_date(
     except ValueError:
         return value, "first_written_mtd_disposition_date_invalid"
     return value, None
-
-
-def _complaint_role(entry: CourtListenerWebDocketEntry) -> DocumentRole:
-    return (
-        DocumentRole.AMENDED_COMPLAINT
-        if _best_free_document(entry, DocumentRole.AMENDED_COMPLAINT) is not None
-        else DocumentRole.COMPLAINT
-    )
 
 
 def _mtd_role(entry: CourtListenerWebDocketEntry) -> DocumentRole:

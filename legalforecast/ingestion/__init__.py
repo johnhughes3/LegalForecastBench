@@ -54,6 +54,7 @@ from legalforecast.ingestion.courtlistener_case_dev_bridge import (
     CourtListenerCaseDevBridgeError,
     CourtListenerCaseDevBridgeResult,
     bridge_courtlistener_case_dev_documents,
+    bridge_public_plan_paid_gaps,
     merge_download_manifest_records,
 )
 from legalforecast.ingestion.courtlistener_client import (
@@ -306,6 +307,7 @@ __all__ = [
     "UrlLibFreeDocumentSource",
     "assemble_model_packet",
     "bridge_courtlistener_case_dev_documents",
+    "bridge_public_plan_paid_gaps",
     "build_target_yield_estimate",
     "case_dev_smoke_query_terms",
     "contract_for_setup_runner_label",

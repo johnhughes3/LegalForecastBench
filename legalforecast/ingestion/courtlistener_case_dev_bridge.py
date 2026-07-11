@@ -52,6 +52,15 @@ _MODEL_VISIBLE_ROLES = frozenset(
     }
 )
 _RESTRICTED_STATUS_VALUES = frozenset({"private", "restricted", "sealed", "under_seal"})
+_PAID_GAP_ROLES = {
+    "no_free_operative_complaint": frozenset(
+        {DocumentRole.COMPLAINT, DocumentRole.AMENDED_COMPLAINT}
+    ),
+    "no_free_target_mtd_document": frozenset(
+        {DocumentRole.MTD_NOTICE, DocumentRole.MTD_MEMORANDUM}
+    ),
+    "no_free_decision_document": frozenset({DocumentRole.DECISION}),
+}
 
 
 class CourtListenerCaseDevBridgeError(ValueError):
@@ -148,6 +157,7 @@ class CourtListenerCaseDevBridgeResult:
     free_download_requests: tuple[FreeDocumentDownloadRequest, ...]
     exclusions: tuple[Mapping[str, Any], ...]
     screened_case_count: int
+    public_first_reconciled: bool = False
 
     @property
     def selected_case_count(self) -> int:
@@ -170,10 +180,16 @@ class CourtListenerCaseDevBridgeResult:
             "free_download_request_count": len(self.free_download_requests),
             "paid_document_count": self.paid_document_count,
             "identity_policy": (
-                "exact court+docket match with caption corroboration; "
-                "case.dev document IDs only"
+                "fully-free CourtListener IDs retained; paid-gap case.dev IDs use "
+                "exact court+docket match with caption corroboration"
+                if self.public_first_reconciled
+                else (
+                    "exact court+docket match with caption corroboration; "
+                    "case.dev document IDs only"
+                )
             ),
             "free_first_required": True,
+            "public_first_reconciled": self.public_first_reconciled,
         }
 
 
@@ -230,6 +246,264 @@ def bridge_courtlistener_case_dev_documents(
     )
 
 
+def bridge_public_plan_paid_gaps(
+    screened_case_records: Iterable[Mapping[str, Any]],
+    *,
+    public_selection_records: Iterable[Mapping[str, Any]],
+    paid_gap_records: Iterable[Mapping[str, Any]],
+    free_download_records: Iterable[Mapping[str, Any]],
+    client: CaseDevClient,
+    raw_html_dir: str | Path | None = None,
+    use_embedded_entries: bool = False,
+) -> CourtListenerCaseDevBridgeResult:
+    """Recover only public-planner paid gaps after free downloads complete.
+
+    Fully-free cases bypass case.dev. Mixed cases retain the CourtListener IDs
+    already downloaded for their free documents and add only authoritative
+    case.dev IDs for roles the public planner explicitly found unavailable.
+    """
+
+    screened = _unique_records_by_candidate(
+        screened_case_records,
+        source="screened_cases",
+        nested_candidate=True,
+    )
+    public_selections = tuple(public_selection_records)
+    paid_gaps = tuple(paid_gap_records)
+    _validate_public_plan_routes(public_selections, paid_gaps)
+    _validate_free_download_completion(
+        (*public_selections, *paid_gaps),
+        tuple(free_download_records),
+    )
+    html_root = None if raw_html_dir is None else Path(raw_html_dir)
+    selections: list[Mapping[str, Any]] = list(public_selections)
+    relevance: list[Mapping[str, Any]] = []
+    exclusions: list[Mapping[str, Any]] = []
+    for gap in paid_gaps:
+        candidate_id = _required_str(gap, "candidate_id")
+        record = screened.get(candidate_id)
+        if record is None:
+            raise CourtListenerCaseDevBridgeError(
+                f"paid_gap_screened_candidate_missing: {candidate_id}"
+            )
+        try:
+            bridged_selection, bridged_relevance, _ = _bridge_candidate(
+                record,
+                client=client,
+                raw_html_dir=html_root,
+                use_embedded_entries=use_embedded_entries,
+                paid_gap_reasons=_string_sequence(gap.get("paid_gap_reasons")),
+            )
+            selection, case_relevance = _reconcile_paid_gap(
+                gap,
+                bridged_selection=bridged_selection,
+                bridged_relevance=bridged_relevance,
+            )
+        except CourtListenerCaseDevBridgeError as exc:
+            reason, _, detail = str(exc).partition(":")
+            exclusions.append(_exclusion(record, reason, detail=detail.strip() or None))
+            continue
+        selections.append(selection)
+        relevance.append(case_relevance)
+    selected_ids = {_required_str(record, "candidate_id") for record in selections}
+    excluded_ids = {_required_str(record, "candidate_id") for record in exclusions}
+    overlap = selected_ids & excluded_ids
+    if overlap:
+        raise CourtListenerCaseDevBridgeError(
+            "selection_exclusion_overlap: " + ", ".join(sorted(overlap))
+        )
+    return CourtListenerCaseDevBridgeResult(
+        selection_records=tuple(selections),
+        case_relevance_records=tuple(relevance),
+        free_download_requests=(),
+        exclusions=tuple(exclusions),
+        screened_case_count=len(public_selections) + len(paid_gaps),
+        public_first_reconciled=True,
+    )
+
+
+def _validate_public_plan_routes(
+    public_selections: tuple[Mapping[str, Any], ...],
+    paid_gaps: tuple[Mapping[str, Any], ...],
+) -> None:
+    selected_ids: set[str] = set()
+    for record in public_selections:
+        candidate_id = _required_str(record, "candidate_id")
+        if candidate_id in selected_ids:
+            raise CourtListenerCaseDevBridgeError(
+                f"public_selection_duplicate: {candidate_id}"
+            )
+        selected_ids.add(candidate_id)
+        if record.get("selected") is not True or record.get(
+            "paid_recovery_required"
+        ) not in (None, False):
+            raise CourtListenerCaseDevBridgeError(
+                f"public_selection_route_invalid: {candidate_id}"
+            )
+        if _string_sequence(record.get("exclusion_reasons")):
+            raise CourtListenerCaseDevBridgeError(
+                f"public_selection_has_exclusion: {candidate_id}"
+            )
+    gap_ids: set[str] = set()
+    for record in paid_gaps:
+        candidate_id = _required_str(record, "candidate_id")
+        if candidate_id in gap_ids:
+            raise CourtListenerCaseDevBridgeError(f"paid_gap_duplicate: {candidate_id}")
+        gap_ids.add(candidate_id)
+        reasons = _string_sequence(record.get("paid_gap_reasons"))
+        if (
+            record.get("selected") is not False
+            or record.get("paid_recovery_required") is not True
+            or not reasons
+            or _string_sequence(record.get("exclusion_reasons"))
+        ):
+            raise CourtListenerCaseDevBridgeError(
+                f"paid_gap_route_invalid: {candidate_id}"
+            )
+        unsupported = set(reasons) - set(_PAID_GAP_ROLES)
+        if unsupported:
+            raise CourtListenerCaseDevBridgeError(
+                f"paid_gap_reason_unsupported: {candidate_id}: "
+                + ", ".join(sorted(unsupported))
+            )
+    overlap = selected_ids & gap_ids
+    if overlap:
+        raise CourtListenerCaseDevBridgeError(
+            "public_route_overlap: " + ", ".join(sorted(overlap))
+        )
+
+
+def _validate_free_download_completion(
+    plan_records: tuple[Mapping[str, Any], ...],
+    download_records: tuple[Mapping[str, Any], ...],
+) -> None:
+    required = {
+        (
+            _required_str(plan, "candidate_id"),
+            _required_str(document, "source_document_id"),
+        )
+        for plan in plan_records
+        for document in _mapping_sequence(plan.get("documents"), "documents")
+    }
+    downloaded: set[tuple[str, str]] = set()
+    for record in download_records:
+        key = (
+            _required_str(record, "candidate_id"),
+            _required_str(record, "source_document_id"),
+        )
+        if key in downloaded:
+            raise CourtListenerCaseDevBridgeError(
+                f"free_download_duplicate: {key[0]}/{key[1]}"
+            )
+        _required_str(record, "local_path")
+        sha256 = _required_str(record, "sha256")
+        if not re.fullmatch(r"[0-9a-f]{64}", sha256):
+            raise CourtListenerCaseDevBridgeError(
+                f"free_download_sha256_invalid: {key[0]}/{key[1]}"
+            )
+        if _required_str(record, "free_or_purchased") != "free":
+            raise CourtListenerCaseDevBridgeError(
+                f"free_download_provenance_invalid: {key[0]}/{key[1]}"
+            )
+        downloaded.add(key)
+    missing = sorted(required - downloaded)
+    if missing:
+        sample = ", ".join(f"{candidate}/{document}" for candidate, document in missing)
+        raise CourtListenerCaseDevBridgeError(
+            f"free_download_manifest_incomplete: {sample}"
+        )
+
+
+def _reconcile_paid_gap(
+    gap: Mapping[str, Any],
+    *,
+    bridged_selection: Mapping[str, Any],
+    bridged_relevance: Mapping[str, Any],
+) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+    candidate_id = _required_str(gap, "candidate_id")
+    reasons = _string_sequence(gap.get("paid_gap_reasons"))
+    required_roles = {role for reason in reasons for role in _PAID_GAP_ROLES[reason]}
+    bridged_documents = _mapping_sequence(
+        bridged_selection.get("documents"), "documents"
+    )
+    paid_documents = tuple(
+        document
+        for document in bridged_documents
+        if document.get("requires_paid_recovery") is True
+        and DocumentRole(_required_str(document, "document_role")) in required_roles
+    )
+    paid_roles = {
+        DocumentRole(_required_str(document, "document_role"))
+        for document in paid_documents
+    }
+    for reason in reasons:
+        if not (paid_roles & _PAID_GAP_ROLES[reason]):
+            raise CourtListenerCaseDevBridgeError(
+                f"paid_gap_document_not_found: {candidate_id}: {reason}"
+            )
+    public_documents = _mapping_sequence(gap.get("documents"), "documents")
+    document_ids = {
+        _required_str(document, "source_document_id") for document in public_documents
+    }
+    for document in paid_documents:
+        document_id = _required_str(document, "source_document_id")
+        if document_id in document_ids:
+            raise CourtListenerCaseDevBridgeError(
+                f"paid_gap_document_id_conflict: {candidate_id}/{document_id}"
+            )
+        document_ids.add(document_id)
+    relevance_by_id = {
+        _required_str(document, "source_document_id"): document
+        for document in _mapping_sequence(
+            bridged_relevance.get("documents"), "documents"
+        )
+    }
+    paid_relevance = tuple(
+        relevance_by_id[_required_str(document, "source_document_id")]
+        for document in paid_documents
+    )
+    selection = {
+        **gap,
+        "case_id": _required_str(bridged_selection, "case_id"),
+        "selected": True,
+        "exclusion_reasons": [],
+        "paid_recovery_required": False,
+        "paid_gap_reasons": [],
+        "planning_status": "selected_after_paid_recovery",
+        "identity_resolution": bridged_selection["identity_resolution"],
+        "documents": [*public_documents, *paid_documents],
+    }
+    case_relevance = {
+        "candidate_id": candidate_id,
+        "case_dev_case_id": _required_str(bridged_selection, "case_id"),
+        "documents": [
+            *(_public_relevance_document(document) for document in public_documents),
+            *paid_relevance,
+        ],
+    }
+    return selection, case_relevance
+
+
+def _public_relevance_document(document: Mapping[str, Any]) -> Mapping[str, Any]:
+    role = DocumentRole(_required_str(document, "document_role"))
+    model_visible = document.get("model_visible") is True
+    return {
+        "source_document_id": _required_str(document, "source_document_id"),
+        "setup_runner_label": "core_mtd" if model_visible else "other_substantive",
+        "document_role": role.value,
+        "docket_entry_number": document.get("docket_entry_number"),
+        "docket_entry_text": _optional_str(document, "description"),
+        "source_url_or_reference": _required_str(document, "source_url"),
+        "availability_status": "available",
+        "requires_paid_recovery": False,
+        "redaction_or_seal_status": "public",
+        "is_private": False,
+        "is_sealed": False,
+        "contains_target_outcome": document.get("contains_target_outcome") is True,
+        "model_visible": model_visible,
+    }
+
+
 def merge_download_manifest_records(
     manifest_groups: Iterable[Iterable[Mapping[str, Any]]],
 ) -> tuple[Mapping[str, Any], ...]:
@@ -263,6 +537,7 @@ def _bridge_candidate(
     client: CaseDevClient,
     raw_html_dir: Path | None,
     use_embedded_entries: bool,
+    paid_gap_reasons: tuple[str, ...] = (),
 ) -> tuple[
     Mapping[str, Any], Mapping[str, Any], tuple[FreeDocumentDownloadRequest, ...]
 ]:
@@ -299,6 +574,7 @@ def _bridge_candidate(
         page=page,
         case_dev_entries=case_dev_entries,
         candidate_id=candidate_id,
+        paid_gap_reasons=paid_gap_reasons,
     )
     case_mix = _case_mix_metadata(record, candidate=candidate, metadata=metadata)
     selection = {
@@ -432,6 +708,7 @@ def _bridge_documents(
     page: CourtListenerWebDocketPage,
     case_dev_entries: tuple[CaseDevDocketHit, ...],
     candidate_id: str,
+    paid_gap_reasons: tuple[str, ...] = (),
 ) -> tuple[_BridgeDocument, ...]:
     ai = _mapping(record.get("ai"), "ai")
     target_numbers = _entry_numbers(ai.get("target_motion_entry_numbers"))
@@ -447,42 +724,56 @@ def _bridge_documents(
         for entry in page.entries
         if (number := _positive_entry_number(entry.entry_number)) is not None
     }
-    complaint_entries = tuple(
-        entry
-        for number, entry in numbered_entries.items()
-        if number < decision_floor and _looks_like_complaint(entry)
+    requested: list[tuple[CourtListenerWebDocketEntry, DocumentRole]] = []
+    required_gap_roles = {
+        role for reason in paid_gap_reasons for role in _PAID_GAP_ROLES[reason]
+    }
+    needs_complaint = not paid_gap_reasons or bool(
+        required_gap_roles & {DocumentRole.COMPLAINT, DocumentRole.AMENDED_COMPLAINT}
     )
-    if not complaint_entries:
-        raise CourtListenerCaseDevBridgeError("operative_complaint_not_found")
-    complaint = max(
-        complaint_entries,
-        key=lambda entry: cast(int, _positive_entry_number(entry.entry_number)),
+    needs_target_mtd = not paid_gap_reasons or bool(
+        required_gap_roles & {DocumentRole.MTD_NOTICE, DocumentRole.MTD_MEMORANDUM}
     )
-
-    requested: list[tuple[CourtListenerWebDocketEntry, DocumentRole]] = [
-        (complaint, _complaint_role(complaint)),
-    ]
-    for number in target_numbers:
-        entry = numbered_entries.get(number)
-        if entry is None:
-            raise CourtListenerCaseDevBridgeError(
-                f"target_motion_entry_not_found: {number}"
-            )
-        requested.append((entry, _mtd_role(entry)))
-    for number, entry in sorted(numbered_entries.items()):
-        if number >= decision_floor:
-            continue
-        if entry.role is CourtListenerEntryRole.OPPOSITION:
-            requested.append((entry, DocumentRole.OPPOSITION))
-        elif entry.role is CourtListenerEntryRole.REPLY and any(
-            document.freely_available for document in entry.documents
-        ):
-            requested.append((entry, DocumentRole.REPLY))
-    for number in decision_numbers:
-        entry = numbered_entries.get(number)
-        if entry is None:
-            raise CourtListenerCaseDevBridgeError(f"decision_entry_not_found: {number}")
-        requested.append((entry, DocumentRole.DECISION))
+    needs_decision = not paid_gap_reasons or DocumentRole.DECISION in required_gap_roles
+    if needs_complaint:
+        complaint_entries = tuple(
+            entry
+            for number, entry in numbered_entries.items()
+            if number < decision_floor and _looks_like_complaint(entry)
+        )
+        if not complaint_entries:
+            raise CourtListenerCaseDevBridgeError("operative_complaint_not_found")
+        complaint = max(
+            complaint_entries,
+            key=lambda entry: cast(int, _positive_entry_number(entry.entry_number)),
+        )
+        requested.append((complaint, _complaint_role(complaint)))
+    if needs_target_mtd:
+        for number in target_numbers:
+            entry = numbered_entries.get(number)
+            if entry is None:
+                raise CourtListenerCaseDevBridgeError(
+                    f"target_motion_entry_not_found: {number}"
+                )
+            requested.append((entry, _mtd_role(entry)))
+    if not paid_gap_reasons:
+        for number, entry in sorted(numbered_entries.items()):
+            if number >= decision_floor:
+                continue
+            if entry.role is CourtListenerEntryRole.OPPOSITION:
+                requested.append((entry, DocumentRole.OPPOSITION))
+            elif entry.role is CourtListenerEntryRole.REPLY and any(
+                document.freely_available for document in entry.documents
+            ):
+                requested.append((entry, DocumentRole.REPLY))
+    if needs_decision:
+        for number in decision_numbers:
+            entry = numbered_entries.get(number)
+            if entry is None:
+                raise CourtListenerCaseDevBridgeError(
+                    f"decision_entry_not_found: {number}"
+                )
+            requested.append((entry, DocumentRole.DECISION))
 
     by_entry_number: dict[int, list[CaseDevDocketHit]] = {}
     for hit in case_dev_entries:
@@ -795,6 +1086,38 @@ def _mapping_sequence(
             raise CourtListenerCaseDevBridgeError(f"{field_name}_invalid")
         records.append(cast(Mapping[str, Any], item))
     return tuple(records)
+
+
+def _unique_records_by_candidate(
+    records: Iterable[Mapping[str, Any]],
+    *,
+    source: str,
+    nested_candidate: bool,
+) -> dict[str, Mapping[str, Any]]:
+    indexed: dict[str, Mapping[str, Any]] = {}
+    for record in records:
+        if nested_candidate:
+            candidate = _mapping(record.get("candidate"), "candidate")
+            candidate_id = _required_str_any(candidate, "docket_id", "candidate_key")
+        else:
+            candidate_id = _required_str(record, "candidate_id")
+        if candidate_id in indexed:
+            raise CourtListenerCaseDevBridgeError(
+                f"{source}_candidate_duplicate: {candidate_id}"
+            )
+        indexed[candidate_id] = record
+    return indexed
+
+
+def _string_sequence(value: object) -> tuple[str, ...]:
+    if isinstance(value, str) or not isinstance(value, Sequence):
+        return ()
+    strings: list[str] = []
+    for item in cast(Sequence[object], value):
+        if not isinstance(item, str) or not item.strip():
+            raise CourtListenerCaseDevBridgeError("string_sequence_invalid")
+        strings.append(item.strip())
+    return tuple(strings)
 
 
 def _required_str(record: Mapping[str, Any], field_name: str) -> str:

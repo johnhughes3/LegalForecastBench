@@ -100,6 +100,7 @@ from legalforecast.ingestion.courtlistener_acquisition import (
 )
 from legalforecast.ingestion.courtlistener_case_dev_bridge import (
     bridge_courtlistener_case_dev_documents,
+    bridge_public_plan_paid_gaps,
     merge_download_manifest_records,
 )
 from legalforecast.ingestion.courtlistener_client import (
@@ -973,6 +974,14 @@ def _add_acquisition_plan_public_downloads_arguments(
     )
     parser.add_argument("--requests-output", type=Path)
     parser.add_argument("--selection-output", type=Path)
+    parser.add_argument(
+        "--paid-gaps-output",
+        type=Path,
+        help=(
+            "Recoverable PACER-gap candidates. Run download-free before passing "
+            "this JSONL to bridge-pacer-gaps."
+        ),
+    )
     parser.add_argument("--exclusions-output", type=Path)
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_plan_public_downloads)
@@ -1015,6 +1024,24 @@ def _add_acquisition_bridge_pacer_gaps_arguments(
         ),
     )
     parser.add_argument("--target-clean-cases", type=int, default=150)
+    parser.add_argument(
+        "--public-selection",
+        type=Path,
+        help="Fully-free selection JSONL from plan-public-downloads.",
+    )
+    parser.add_argument(
+        "--paid-gaps",
+        type=Path,
+        help="Paid-gap JSONL from plan-public-downloads; only these cases bridge.",
+    )
+    parser.add_argument(
+        "--free-download-manifest",
+        type=Path,
+        help=(
+            "download-free manifest proving planned public documents were "
+            "acquired before paid-gap routing."
+        ),
+    )
     parser.add_argument(
         "--requests-output",
         type=Path,
@@ -2471,6 +2498,11 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
         "selection_output",
         output_root / "public-packet-selection.jsonl",
     )
+    paid_gaps_path = _acquisition_path(
+        args,
+        "paid_gaps_output",
+        output_root / "public-packet-paid-gaps.jsonl",
+    )
     exclusions_path = _acquisition_path(
         args,
         "exclusions_output",
@@ -2519,12 +2551,12 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
             [candidate.to_record() for candidate in plan.selected_cases],
         )
         _write_jsonl(
+            paid_gaps_path,
+            [candidate.to_record() for candidate in plan.paid_gap_cases],
+        )
+        _write_jsonl(
             exclusions_path,
-            [
-                candidate.to_record()
-                for candidate in plan.candidate_plans
-                if not candidate.selected
-            ],
+            [candidate.to_record() for candidate in plan.final_exclusions],
         )
     _write_acquisition_completion(
         args,
@@ -2534,14 +2566,22 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
             if raw_html_dir is None
             else (screened_cases_path, raw_html_dir)
         ),
-        output_paths=(requests_path, selection_path, exclusions_path, summary_path),
-        record_count=plan.selected_case_count,
+        output_paths=(
+            requests_path,
+            selection_path,
+            paid_gaps_path,
+            exclusions_path,
+            summary_path,
+        ),
+        record_count=len(plan.planned_cases),
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
         extra={
             "target_clean_cases": plan.target_clean_cases,
             "selected_case_count": plan.selected_case_count,
+            "paid_gap_case_count": len(plan.paid_gap_cases),
+            "planned_case_count": len(plan.planned_cases),
             "download_request_count": plan.download_request_count,
             "shortfall": max(0, plan.target_clean_cases - plan.selected_case_count),
         },
@@ -2554,15 +2594,39 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
     screened_cases_path = cast(Path, args.screened_cases)
     raw_html_dir = cast(Path | None, args.raw_html_dir)
     fixture_path = cast(Path | None, args.case_dev_fixture)
+    public_selection_path = cast(Path | None, args.public_selection)
+    paid_gaps_path = cast(Path | None, args.paid_gaps)
+    free_download_manifest_path = cast(Path | None, args.free_download_manifest)
+    public_first_inputs = (
+        public_selection_path,
+        paid_gaps_path,
+        free_download_manifest_path,
+    )
+    public_first = all(path is not None for path in public_first_inputs)
+    if any(path is not None for path in public_first_inputs) and not public_first:
+        raise CommandError(
+            "--public-selection, --paid-gaps, and --free-download-manifest "
+            "must be provided together"
+        )
     requests_path = _acquisition_path(
         args,
         "requests_output",
-        output_root / "free-document-requests.jsonl",
+        output_root
+        / (
+            "pacer-gap-free-document-requests.jsonl"
+            if public_first
+            else "free-document-requests.jsonl"
+        ),
     )
     selection_path = _acquisition_path(
         args,
         "selection_output",
-        output_root / "public-packet-selection.jsonl",
+        output_root
+        / (
+            "public-packet-selection-reconciled.jsonl"
+            if public_first
+            else "public-packet-selection.jsonl"
+        ),
     )
     case_relevance_path = _acquisition_path(
         args,
@@ -2584,7 +2648,14 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
     live = cast(bool, args.live_case_dev)
     input_paths = tuple(
         path
-        for path in (screened_cases_path, raw_html_dir, fixture_path)
+        for path in (
+            screened_cases_path,
+            raw_html_dir,
+            fixture_path,
+            public_selection_path,
+            paid_gaps_path,
+            free_download_manifest_path,
+        )
         if path is not None
     )
     if dry_run:
@@ -2618,13 +2689,27 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
             fixture_path=fixture_path,
             live=live,
         )
-        result = bridge_courtlistener_case_dev_documents(
-            records,
-            client=client,
-            raw_html_dir=raw_html_dir,
-            use_embedded_entries=cast(bool, args.use_embedded_entries),
-            target_clean_cases=cast(int, args.target_clean_cases),
-        )
+        if public_first:
+            assert public_selection_path is not None
+            assert paid_gaps_path is not None
+            assert free_download_manifest_path is not None
+            result = bridge_public_plan_paid_gaps(
+                records,
+                public_selection_records=_read_records(public_selection_path),
+                paid_gap_records=_read_records(paid_gaps_path),
+                free_download_records=_read_records(free_download_manifest_path),
+                client=client,
+                raw_html_dir=raw_html_dir,
+                use_embedded_entries=cast(bool, args.use_embedded_entries),
+            )
+        else:
+            result = bridge_courtlistener_case_dev_documents(
+                records,
+                client=client,
+                raw_html_dir=raw_html_dir,
+                use_embedded_entries=cast(bool, args.use_embedded_entries),
+                target_clean_cases=cast(int, args.target_clean_cases),
+            )
         _write_jsonl(
             requests_path,
             [request.to_record() for request in result.free_download_requests],
@@ -2658,7 +2743,9 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
             "free_download_request_count": free_request_count,
             "paid_document_count": paid_document_count,
             "free_first_required": True,
-            "next_stage": "download-free",
+            "next_stage": (
+                "filter-core-documents" if public_first else "download-free"
+            ),
         },
     )
     return 0

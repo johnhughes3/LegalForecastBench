@@ -11,8 +11,10 @@ from legalforecast.ingestion.core_document_filter import filter_core_documents
 from legalforecast.ingestion.courtlistener_case_dev_bridge import (
     CourtListenerCaseDevBridgeError,
     bridge_courtlistener_case_dev_documents,
+    bridge_public_plan_paid_gaps,
     merge_download_manifest_records,
 )
+from legalforecast.ingestion.public_packet_planner import plan_public_packet_downloads
 
 
 def test_bridge_uses_authoritative_case_dev_ids_and_keeps_free_first() -> None:
@@ -167,6 +169,77 @@ def test_bridge_prefers_pacer_main_motion_over_free_proposed_order() -> None:
         "case-dev-complaint",
         "case-dev-decision",
     ]
+
+
+def test_public_first_bridge_routes_only_paid_gap_and_retains_free_ids() -> None:
+    screened = _screened_case()
+    public_plan = plan_public_packet_downloads(
+        (screened,),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+    assert public_plan.selected_cases == ()
+    [gap] = public_plan.paid_gap_cases
+    gap_record = gap.to_record()
+    downloads = tuple(
+        {
+            **request.to_record(),
+            "local_path": f"cl-123/courtlistener/{request.source_document_id}.pdf",
+            "sha256": "a" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in public_plan.download_requests
+    )
+
+    paid_only_lookup = _lookup_response()
+    paid_only_docket = paid_only_lookup.payload["docket"]
+    assert isinstance(paid_only_docket, dict)
+    paid_only_docket["entries"] = [
+        _case_dev_entry(5, "Motion to Dismiss", "case-dev-mtd")
+    ]
+    result = bridge_public_plan_paid_gaps(
+        (screened,),
+        public_selection_records=(),
+        paid_gap_records=(gap_record,),
+        free_download_records=downloads,
+        client=_client(_search_response(_case_dev_docket()), paid_only_lookup),
+        use_embedded_entries=True,
+    )
+
+    assert result.exclusions == ()
+    assert result.free_download_requests == ()
+    [selection] = result.selection_records
+    assert selection["planning_status"] == "selected_after_paid_recovery"
+    assert [document["source_document_id"] for document in selection["documents"]] == [
+        "entry-1-complaint",
+        "entry-16-decision",
+        "case-dev-mtd",
+    ]
+    [relevance] = result.case_relevance_records
+    [core_filter] = filter_core_documents((relevance,))
+    assert core_filter.purchase_document_ids == ("case-dev-mtd",)
+    assert core_filter.exclusion_reasons == ()
+
+
+def test_public_first_bridge_requires_completed_free_manifest() -> None:
+    screened = _screened_case()
+    public_plan = plan_public_packet_downloads(
+        (screened,), use_embedded_entries=True, target_clean_cases=1
+    )
+    gap_record = public_plan.paid_gap_cases[0].to_record()
+
+    with pytest.raises(
+        CourtListenerCaseDevBridgeError,
+        match="free_download_manifest_incomplete",
+    ):
+        bridge_public_plan_paid_gaps(
+            (screened,),
+            public_selection_records=(),
+            paid_gap_records=(gap_record,),
+            free_download_records=(),
+            client=_client(),
+            use_embedded_entries=True,
+        )
 
 
 def test_manifest_merge_rejects_conflicting_candidate_document_keys() -> None:

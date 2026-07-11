@@ -20,6 +20,9 @@ def test_bridge_pacer_gaps_help_documents_identity_and_free_first_flags(
     assert "--live-case-dev" in output
     assert "never invokes a PACER purchase endpoint" in normalized
     assert "--case-relevance-output" in output
+    assert "--public-selection" in output
+    assert "--paid-gaps" in output
+    assert "--free-download-manifest" in output
     assert "Run download-free" in output
 
 
@@ -28,7 +31,7 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
     common_document_root = output_root / "documents"
     screened_path = tmp_path / "screened.jsonl"
     case_dev_fixture_path = tmp_path / "case-dev-bridge.jsonl"
-    _write_jsonl(screened_path, [_screened_case()])
+    _write_jsonl(screened_path, [_fully_free_case(), _screened_case()])
     _write_jsonl(
         case_dev_fixture_path,
         [
@@ -51,13 +54,7 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
                     "docket": {
                         **_case_dev_docket(),
                         "entries": [
-                            _case_dev_entry(1, "Complaint", "case-dev-complaint"),
-                            _case_dev_entry(5, "Motion to Dismiss", "case-dev-mtd"),
-                            _case_dev_entry(
-                                16,
-                                "Order on Motion to Dismiss",
-                                "case-dev-decision",
-                            ),
+                            _case_dev_entry(5, "Motion to Dismiss", "case-dev-mtd")
                         ],
                     }
                 },
@@ -69,14 +66,12 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
         main(
             [
                 "acquisition",
-                "bridge-pacer-gaps",
+                "plan-public-downloads",
                 "--screened-cases",
                 str(screened_path),
                 "--use-embedded-entries",
-                "--case-dev-fixture",
-                str(case_dev_fixture_path),
                 "--target-clean-cases",
-                "1",
+                "2",
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -84,14 +79,12 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
         )
         == 0
     )
-    free_requests = _read_jsonl(output_root / "free-document-requests.jsonl")
-    assert [record["source_document_id"] for record in free_requests] == [
-        "case-dev-complaint",
-        "case-dev-decision",
-    ]
-    [selection] = _read_jsonl(output_root / "public-packet-selection.jsonl")
-    assert selection["case_id"] == "case-dev-777"
-    assert selection["identity_resolution"]["courtlistener_candidate_id"] == ("cl-123")
+    [free_selection] = _read_jsonl(output_root / "public-packet-selection.jsonl")
+    assert free_selection["candidate_id"] == "cl-free"
+    [paid_gap] = _read_jsonl(output_root / "public-packet-paid-gaps.jsonl")
+    assert paid_gap["candidate_id"] == "cl-123"
+    assert paid_gap["paid_gap_reasons"] == ["no_free_target_mtd_document"]
+    assert _read_jsonl(output_root / "public-packet-exclusions.jsonl") == []
 
     free_fixture_path = tmp_path / "free-documents.json"
     _write_json(
@@ -99,6 +92,11 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
         {
             "https://storage.courtlistener.com/complaint.pdf": "%PDF complaint",
             "https://storage.courtlistener.com/decision.pdf": "%PDF decision",
+            "https://storage.courtlistener.com/free-complaint.pdf": (
+                "%PDF free complaint"
+            ),
+            "https://storage.courtlistener.com/free-motion.pdf": "%PDF free motion",
+            "https://storage.courtlistener.com/free-decision.pdf": "%PDF free decision",
         },
     )
     assert (
@@ -118,6 +116,40 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
             ]
         )
         == 0
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "bridge-pacer-gaps",
+                "--screened-cases",
+                str(screened_path),
+                "--use-embedded-entries",
+                "--case-dev-fixture",
+                str(case_dev_fixture_path),
+                "--public-selection",
+                str(output_root / "public-packet-selection.jsonl"),
+                "--paid-gaps",
+                str(output_root / "public-packet-paid-gaps.jsonl"),
+                "--free-download-manifest",
+                str(output_root / "free-document-downloads.jsonl"),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    reconciled_selection = output_root / "public-packet-selection-reconciled.jsonl"
+    selections = _read_jsonl(reconciled_selection)
+    assert {record["candidate_id"] for record in selections} == {"cl-free", "cl-123"}
+    assert _read_jsonl(output_root / "pacer-gap-bridge-exclusions.jsonl") == []
+    assert not (
+        {record["candidate_id"] for record in selections}
+        & {
+            record["candidate_id"]
+            for record in _read_jsonl(output_root / "public-packet-exclusions.jsonl")
+        }
     )
     assert (
         main(
@@ -200,7 +232,7 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
                 "--purchase-result",
                 str(output_root / "case-dev-pacer-purchases.json"),
                 "--selection",
-                str(output_root / "public-packet-selection.jsonl"),
+                str(reconciled_selection),
                 "--fixture-documents",
                 str(purchased_fixture_path),
                 "--document-output-root",
@@ -246,9 +278,10 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
     )
     parser_requests = _read_jsonl(output_root / "parse-document-requests.jsonl")
     assert {record["source_document_id"] for record in parser_requests} == {
-        "case-dev-complaint",
         "case-dev-mtd",
-        "case-dev-decision",
+        "entry-1-complaint",
+        "entry-5-motion-to-dismiss-notice",
+        "entry-16-decision",
     }
 
 
@@ -337,6 +370,31 @@ def _screened_case() -> dict[str, object]:
             ),
         ],
     }
+
+
+def _fully_free_case() -> dict[str, object]:
+    record = json.loads(json.dumps(_screened_case()))
+    candidate = record["candidate"]
+    candidate["docket_id"] = "cl-free"
+    candidate["candidate_key"] = "cl-free"
+    candidate["metadata"] = {
+        "case_id": "cl-free",
+        "case_name": "Free v. Example",
+        "court": "nysd",
+        "docket_number": "1:26-cv-00002",
+    }
+    entries = record["selected_entries"]
+    urls = (
+        "https://storage.courtlistener.com/free-complaint.pdf",
+        "https://storage.courtlistener.com/free-motion.pdf",
+        "https://storage.courtlistener.com/free-decision.pdf",
+    )
+    for entry, url in zip(entries, urls, strict=True):
+        document = entry["documents"][0]
+        document["href"] = url
+        document["pacer_only"] = False
+        document["action_label"] = "Download PDF"
+    return record
 
 
 def _courtlistener_entry(
