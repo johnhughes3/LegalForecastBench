@@ -46,6 +46,8 @@ _RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 _DEFAULT_USER_AGENT = (
     "LegalForecastBench/0.1 (fee-acknowledged case.dev document recovery)"
 )
+_DEFAULT_MAX_RESPONSE_BYTES = 100 * 1024 * 1024
+_DOWNLOAD_CHUNK_BYTES = 1024 * 1024
 
 
 class PurchasedDocumentRecoveryError(ValueError):
@@ -89,6 +91,7 @@ class UrlLibPurchasedDocumentSource:
     max_retries: int = 2
     retry_backoff_seconds: float = 1.0
     user_agent: str = _DEFAULT_USER_AGENT
+    max_response_bytes: int = _DEFAULT_MAX_RESPONSE_BYTES
 
     def __post_init__(self) -> None:
         if not self.api_key.strip():
@@ -103,6 +106,8 @@ class UrlLibPurchasedDocumentSource:
             raise PurchasedDocumentRecoveryError(
                 "retry_backoff_seconds must be nonnegative"
             )
+        if self.max_response_bytes <= 0:
+            raise PurchasedDocumentRecoveryError("max_response_bytes must be positive")
 
     def fetch(self, source_url: str) -> FreeDocumentFetch:
         """Fetch one already-purchased document; never invokes a purchase API."""
@@ -162,7 +167,12 @@ class UrlLibPurchasedDocumentSource:
         ) as response:
             final_url = response.geturl()
             _validate_purchased_document_url(final_url)
-            content = response.read()
+            content = _read_bounded_document(
+                response,
+                source_url=final_url,
+                content_length=response.headers.get("Content-Length"),
+                max_response_bytes=self.max_response_bytes,
+            )
             content_type = response.headers.get_content_type().lower()
         _validate_purchased_document_content(
             source_url=final_url,
@@ -303,10 +313,7 @@ def purchased_document_download_manifest_records(
 
     manifest: list[dict[str, Any]] = []
     for record in records:
-        if record.status not in {
-            PurchasedDocumentRecoveryStatus.RECOVERED,
-            PurchasedDocumentRecoveryStatus.RECOVERED_AUDIT_ONLY,
-        }:
+        if record.status is not PurchasedDocumentRecoveryStatus.RECOVERED:
             continue
         provenance = record.provenance
         if (
@@ -575,6 +582,50 @@ def _validate_purchased_document_content(
     )
 
 
+def _read_bounded_document(
+    stream: IO[bytes],
+    *,
+    source_url: str,
+    content_length: str | None,
+    max_response_bytes: int,
+) -> bytes:
+    if content_length is not None:
+        try:
+            declared_bytes = int(content_length)
+        except ValueError as exc:
+            raise PurchasedDocumentDownloadError(
+                f"purchased case.dev document returned invalid Content-Length: "
+                f"{source_url}"
+            ) from exc
+        if declared_bytes < 0:
+            raise PurchasedDocumentDownloadError(
+                f"purchased case.dev document returned invalid Content-Length: "
+                f"{source_url}"
+            )
+        if declared_bytes > max_response_bytes:
+            raise PurchasedDocumentDownloadError(
+                "purchased case.dev document Content-Length "
+                f"{declared_bytes} exceeds the {max_response_bytes}-byte maximum: "
+                f"{source_url}"
+            )
+
+    content = bytearray()
+    while True:
+        read_size = min(
+            _DOWNLOAD_CHUNK_BYTES,
+            max_response_bytes + 1 - len(content),
+        )
+        chunk = stream.read(read_size)
+        if not chunk:
+            return bytes(content)
+        content.extend(chunk)
+        if len(content) > max_response_bytes:
+            raise PurchasedDocumentDownloadError(
+                "purchased case.dev document response exceeds the "
+                f"{max_response_bytes}-byte maximum: {source_url}"
+            )
+
+
 def _purchase_cost(attempt: CaseDevPacerPurchaseAttempt) -> str | None:
     if attempt.pacer_fees is None:
         return None
@@ -624,6 +675,27 @@ def _validated_purchase_attempts(
         _purchase_attempt(record)
         for record in _record_sequence(purchase_result.get("attempts"), "attempts")
     )
+    intended_purchase_count = _required_count(
+        purchase_result,
+        "intended_purchase_count",
+    )
+    if intended_purchase_count != len(attempts):
+        raise PurchasedDocumentRecoveryError(
+            f"intended_purchase_count {intended_purchase_count} does not match "
+            f"{len(attempts)} attempts"
+        )
+    executed_purchase_count = _required_count(
+        purchase_result,
+        "executed_purchase_count",
+    )
+    purchased_attempt_count = sum(
+        attempt.status is CaseDevPacerPurchaseStatus.PURCHASED for attempt in attempts
+    )
+    if executed_purchase_count != purchased_attempt_count:
+        raise PurchasedDocumentRecoveryError(
+            f"executed_purchase_count {executed_purchase_count} does not match "
+            f"{purchased_attempt_count} purchased attempts"
+        )
     attempts_per_candidate: dict[str, int] = {}
     for attempt in attempts:
         attempts_per_candidate[attempt.candidate_id] = (
@@ -801,6 +873,15 @@ def _optional_int(record: Mapping[str, Any], field_name: str) -> int | None:
         return None
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise PurchasedDocumentRecoveryError(f"{field_name} must be a positive integer")
+    return value
+
+
+def _required_count(record: Mapping[str, Any], field_name: str) -> int:
+    value = record.get(field_name)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise PurchasedDocumentRecoveryError(
+            f"{field_name} must be a non-negative integer"
+        )
     return value
 
 

@@ -32,6 +32,9 @@ def test_live_recovery_source_fetches_only_allowlisted_case_dev_document(
     class _Response:
         headers = Message()
 
+        def __init__(self) -> None:
+            self._content = b"%PDF purchased motion"
+
         def __enter__(self) -> _Response:
             self.headers["Content-Type"] = "application/pdf"
             return self
@@ -42,8 +45,9 @@ def test_live_recovery_source_fetches_only_allowlisted_case_dev_document(
         def geturl(self) -> str:
             return "https://api.case.dev/download/doc-1.pdf"
 
-        def read(self) -> bytes:
-            return b"%PDF purchased motion"
+        def read(self, size: int = -1) -> bytes:
+            content, self._content = self._content[:size], self._content[size:]
+            return content
 
     class _Opener:
         def open(
@@ -158,6 +162,9 @@ def test_live_recovery_source_strips_authorization_from_cross_host_redirect(
     class _Response:
         headers = Message()
 
+        def __init__(self) -> None:
+            self._content = b"%PDF purchased motion"
+
         def __enter__(self) -> _Response:
             self.headers["Content-Type"] = "application/pdf"
             return self
@@ -168,8 +175,9 @@ def test_live_recovery_source_strips_authorization_from_cross_host_redirect(
         def geturl(self) -> str:
             return "https://case.dev/download/doc-1.pdf"
 
-        def read(self) -> bytes:
-            return b"%PDF purchased motion"
+        def read(self, size: int = -1) -> bytes:
+            content, self._content = self._content[:size], self._content[size:]
+            return content
 
     class _Opener:
         def __init__(
@@ -220,6 +228,93 @@ def test_live_recovery_source_strips_authorization_from_cross_host_redirect(
         "authorization": None,
         "url": "https://case.dev/download/doc-1.pdf",
     }
+
+
+def test_live_recovery_source_rejects_oversized_content_length_before_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Response:
+        headers = Message()
+
+        def __enter__(self) -> _Response:
+            self.headers["Content-Type"] = "application/pdf"
+            self.headers["Content-Length"] = "9"
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def geturl(self) -> str:
+            return "https://api.case.dev/download/doc-1.pdf"
+
+        def read(self, _size: int = -1) -> bytes:
+            raise AssertionError("oversized response must be rejected before reading")
+
+    class _Opener:
+        def open(
+            self,
+            request: urllib.request.Request,
+            *,
+            timeout: float,
+        ) -> _Response:
+            del request, timeout
+            return _Response()
+
+    def _build_opener(*_handlers: urllib.request.BaseHandler) -> _Opener:
+        return _Opener()
+
+    monkeypatch.setattr("urllib.request.build_opener", _build_opener)
+
+    with pytest.raises(RuntimeError, match="exceeds the 8-byte maximum"):
+        UrlLibPurchasedDocumentSource(
+            api_key="case-dev-token",
+            max_response_bytes=8,
+        ).fetch("https://api.case.dev/download/doc-1.pdf")
+
+
+def test_live_recovery_source_bounds_chunked_response_without_content_length(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Response:
+        headers = Message()
+
+        def __init__(self) -> None:
+            self._chunks = [b"%PDF1234", b"56789012", b"X"]
+
+        def __enter__(self) -> _Response:
+            self.headers["Content-Type"] = "application/pdf"
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def geturl(self) -> str:
+            return "https://api.case.dev/download/doc-1.pdf"
+
+        def read(self, size: int = -1) -> bytes:
+            assert 0 < size <= 17
+            return self._chunks.pop(0) if self._chunks else b""
+
+    class _Opener:
+        def open(
+            self,
+            request: urllib.request.Request,
+            *,
+            timeout: float,
+        ) -> _Response:
+            del request, timeout
+            return _Response()
+
+    def _build_opener(*_handlers: urllib.request.BaseHandler) -> _Opener:
+        return _Opener()
+
+    monkeypatch.setattr("urllib.request.build_opener", _build_opener)
+
+    with pytest.raises(RuntimeError, match="exceeds the 16-byte maximum"):
+        UrlLibPurchasedDocumentSource(
+            api_key="case-dev-token",
+            max_response_bytes=16,
+        ).fetch("https://api.case.dev/download/doc-1.pdf")
 
 
 def test_recovery_downloads_purchased_document_and_marks_provenance(tmp_path) -> None:
@@ -327,8 +422,7 @@ def test_recovery_never_mounts_post_decision_outcome_material(tmp_path) -> None:
     assert record.provenance.is_mounted_for_model is False
     assert record.provenance.packet_section is None
     manifest = purchased_document_download_manifest_records(records)
-    assert manifest[0]["document_role"] == "decision"
-    assert manifest[0]["source_document_id"] == "order-doc"
+    assert manifest == ()
 
 
 @pytest.mark.parametrize(
@@ -506,10 +600,47 @@ def test_purchase_recovery_preserves_24_document_per_case_cap() -> None:
     purchase_result = {
         **_purchase_result_record(),
         "projected_cost_usd": "76.25",
+        "intended_purchase_count": 25,
+        "executed_purchase_count": 0,
         "attempts": attempts,
     }
 
     with pytest.raises(PurchasedDocumentRecoveryError, match="per-case cap is 24"):
+        purchased_document_recovery_requests_from_records(purchase_result, ())
+
+
+@pytest.mark.parametrize(
+    ("count_field", "recorded_count"),
+    (
+        ("intended_purchase_count", 0),
+        ("intended_purchase_count", 2),
+        ("executed_purchase_count", 0),
+        ("executed_purchase_count", 2),
+    ),
+)
+def test_purchase_recovery_rejects_counts_inconsistent_with_attempts(
+    count_field: str,
+    recorded_count: int,
+) -> None:
+    purchase_result = _purchase_result_record()
+    purchase_result[count_field] = recorded_count
+
+    with pytest.raises(
+        PurchasedDocumentRecoveryError,
+        match=f"{count_field}.*attempts",
+    ):
+        purchased_document_recovery_requests_from_records(purchase_result, ())
+
+
+@pytest.mark.parametrize(
+    "count_field",
+    ("intended_purchase_count", "executed_purchase_count"),
+)
+def test_purchase_recovery_requires_integer_purchase_counts(count_field: str) -> None:
+    purchase_result = _purchase_result_record()
+    purchase_result[count_field] = "1"
+
+    with pytest.raises(PurchasedDocumentRecoveryError, match=f"{count_field}.*integer"):
         purchased_document_recovery_requests_from_records(purchase_result, ())
 
 
