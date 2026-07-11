@@ -37,7 +37,6 @@ RELEASE_METADATA_PATHS = (
     Path("docs/adapters/hermes-agent.md"),
     Path("docs/adapters/lq-ai.md"),
     Path("docs/adapters/openclaw.md"),
-    Path("docs/plans/multi-harness-community-benchmark-2026-05-29.md"),
 )
 _COMMIT_RE = re.compile(r"^[0-9a-f]{7,64}$")
 

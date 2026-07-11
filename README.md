@@ -4,21 +4,19 @@ LegalForecast-MTD is a contamination-controlled benchmark of frontier models on 
 
 ## Why This Exists
 
-Existing legal-reasoning benchmarks tend to test models on tasks a junior associate can handle: bar exam questions, contract clause classification, citation lookup, basic drafting. These tasks have objective correct answers, which is good for scoring, but they do not directly answer whether a model can help lawyers forecast live litigation risk from the same record a judge sees.
+Existing legal-reasoning benchmarks tend to test models on tasks a junior associate can handle: bar exam questions, contract clause classification, citation lookup, basic drafting. These tasks have objective correct answers, which is good for scoring, but they do not directly test higher-level legal judgment tasks.
 
-Higher-value legal work is harder to benchmark because it is laden with subjective judgments. This benchmark addresses that problem by testing prediction rather than analysis: given the same written record a federal judge received, the model is asked to predict how that judge will rule — not to opine on how the motion should be decided. Prediction has objective ground truth (the judge either granted or denied the motion as to each claim and defendant) but it is still a critical task that clients pay senior lawyers to do. Partners and counsel routinely have to assess the likely outcomes of a case, or of specific motions they might file, to advise clients on what motions to pursue and whether to settle or litigate. Although prediction is distinct from objective legal reasoning, rigorously understanding the facts and law (as presented to the judge) is the most reliable way to predict the outcome — so performance on this benchmark should proxy models' legal reasoning ability.
+Higher-value legal work is harder to benchmark because it is laden with subjective judgments. This benchmark addresses that problem by testing prediction rather than analysis: given the same written record a federal judge received, the model is asked to predict how that judge will rule — not to opine on how the motion should be decided. Prediction has objective ground truth (the judge either granted or denied the motion as to each claim and defendant) but it is still a critical task that clients pay senior lawyers to do. Partners and counsel routinely have to assess the likely outcomes of a case, or of specific motions they might file, to advise clients on what motions to pursue and whether to settle or litigate. Although prediction is distinct from objective legal reasoning, rigorously understanding the facts and law (as presented to the judge) often may be the most reliable way to predict the outcome, so my hypothesis is that performance on this benchmark could be a good proxy for models' legal reasoning ability (though that admittedly is unproven and a theory we intend to test over time). Whether or not prediction tasks are a good proxy for legal reasoning, they are themselves important and high-value tasks and training models to perform these tasks could significantly improve their practical, real-world utility to lawyers.
 
 This benchmark focuses on federal motions to dismiss because hundreds are decided each week, which yields usable sample sizes in the weeks following any new model release. They involve a broad range of substantive legal reasoning over a self-contained written record, and they resolve to a clear binary outcome on each challenged claim against each challenged defendant.
 
 AI models that can predict litigation outcomes well would be useful in a range of circumstances: litigation finance firms deciding whether to finance a litigation, plaintiffs' attorneys deciding whether to take a case on contingency, investors in litigation-affected instruments, and defendants facing settlement decisions. More broadly, parties often persist in zero-sum litigation because they have significantly different views of the likely outcome. Tools that help both sides form more realistic assessments could help resolve disputes earlier, on terms that better serve everyone involved.
 
-This is not a claim that motion or case outcome prediction is new. Commercial products already predict motion outcomes, and legal judgment prediction is a long-running research area. LegalForecast-MTD is positioned more narrowly: it asks whether frontier models add calibrated predictive value beyond metadata and judge-history baselines when given the actual pre-decision record. See [Prior Art and Positioning](docs/prior-art-positioning.md).
-
 ## Approach
 
 ### Prediction unit and metric
 
-The benchmark predicts, for each challenged claim against each challenged defendant, the probability that the claim will be dismissed in full. The prediction unit is the claim-defendant pair, not the motion as a whole. The base proper scoring metric is micro-Brier over prediction units, with confidence intervals clustered by case to account for within-motion correlation. Public interpretation should emphasize Brier skill over the informed empirical baseline, especially `judge_history` when it is available.
+The benchmark predicts, for each challenged claim against each challenged defendant, the probability that the claim will be dismissed in full. The prediction unit is the claim-defendant pair, not the motion as a whole. The base proper scoring metric is micro-Brier over prediction units, with confidence intervals clustered by case to account for within-motion correlation. The first benchmark cycle makes relative model comparisons only — which model forecasts best on the shared frozen record. Fitted empirical baseline rows and Brier-skill-over-informed-baseline interpretation (especially `judge_history`) are planned for a later cycle once a historical baseline corpus is frozen; see [Prior Art and Positioning](docs/prior-art-positioning.md).
 
 ### Contamination control
 
@@ -31,10 +29,6 @@ The release-date anchor is a retrospective contamination control, not a guarante
 Each benchmark run is a versioned artifact tied to a specific set of model deployments. When a new generation of frontier models ships, the benchmark ingests fresh cases — all decided on or after the new deployment anchor — and compares predictions on that cohort. The tradeoff is that the benchmark cannot run immediately on a new model (it takes time for enough eligible decisions to accumulate), and it cannot cleanly demonstrate absolute capability gains across generations because the case mix differs each version. What it does well is compare the relative capabilities of frontier models within a generation, which is the question most useful to practitioners deciding which model to rely on.
 
 Current pilot model anchors are tracked in [MODEL_RELEASE_DATES.md](MODEL_RELEASE_DATES.md).
-
-### Pilot
-
-A pilot run has scored Gemini 3 Flash Preview, GPT-5.4 mini, and Claude Sonnet 4.6 on twelve cases to validate the end-to-end infrastructure. The current anchored pilot registry defaults to GPT-5.4 mini and Claude Sonnet 4.6; Gemini 3 Flash Preview is excluded until its registry entry can use a source-backed pinned snapshot rather than a mutable preview ID. The pilot is too small to support claims about relative model capability and is not a published benchmark result; it confirms that ingestion, unitization, packet construction, model invocation, and scoring run together on real cases. We are seeking feedback from researchers experienced with benchmark design before incurring the cost of a full model run.
 
 ## How Runs Are Executed
 
@@ -148,9 +142,13 @@ If a case is later sealed, redacted, or otherwise must be removed from the publi
 - `legalforecast/`: Python package for ingestion, selection, unitization, labeling, evaluation, scoring, reporting, and publication artifacts.
 - `examples/adapters/`: no-network fixture manifests for first-class community multi-harness adapter tracks.
 - `community/submissions/`: reviewed community submission examples and future accepted metadata packages.
-- `docs/`: contributor-facing multi-harness, community submission, adapter, and planning docs.
+- `docs/`: methods, labeling and human-baseline protocols, official-run runbook, reproduction/audit guide, and community/adapter docs — start at [docs/README.md](docs/README.md).
 - `tests/`: synthetic fixtures and regression coverage.
 - `MODEL_RELEASE_DATES.md`: tracked pilot anchors and additional release-date candidates.
+
+## Authorship
+
+The "Why This Exists" section above was written personally by John J. Hughes, III. The remainder of this README and the technical documentation in [docs/](docs/README.md) are drafted and maintained with substantial assistance from AI systems (Claude, Codex, and others) working under my direction, and are reviewed on a best-effort basis. Where possible, documentation accuracy is enforced mechanically: the official-run runbook and reproduction guide are checked against the actual CLI by automated tests. Corrections are welcome as issues or pull requests.
 
 ## License
 

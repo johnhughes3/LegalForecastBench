@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Verify the blocker findings from the 2026-07-03 benchmark design review are fixed.
 
-Companion to docs/reviews/benchmark-design-review-2026-07-03.md and the beads
-tracked under LegalForecastBench-t78 (pre-first-run gate). Run:
+Companion to the 2026-07-03 benchmark design review (removed from the working
+tree; see git history) and the beads tracked under LegalForecastBench-t78
+(pre-first-run gate). Run:
 
     uv run scripts/verify_review_blockers.py
 
@@ -726,7 +727,7 @@ CHECKS: tuple[Check, ...] = (
 
 def main() -> int:
     failures = 0
-    print("Blocker verification — docs/reviews/benchmark-design-review-2026-07-03.md")
+    print("Blocker verification — 2026-07-03 benchmark design review (see git history)")
     print(f"Gate bead: LegalForecastBench-t78\n{'-' * 88}")
     for check in CHECKS:
         ok, detail = check.run()
