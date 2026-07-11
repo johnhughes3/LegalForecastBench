@@ -9,6 +9,7 @@ from legalforecast.ingestion.courtlistener_web import CourtListenerWebDocketEntr
 from legalforecast.ingestion.packet_input_planner import (
     PacketInputPlanningError,
     _docket_entries,
+    _docket_screen_with_first_disposition_anchor,
     plan_packet_build_inputs,
 )
 
@@ -193,6 +194,28 @@ def test_anchor_excludes_when_first_written_mtd_disposition_precedes_anchor(
     assert "2026-06-30" in ledger_record["notes"]
     candidate_manifest = plan.candidate_manifest_records[0]
     assert candidate_manifest["exclusion_ledger_entries"] == [ledger_record]
+
+
+def test_anchor_pass_preserves_preexisting_strict_screen_exclusion_reasons() -> None:
+    screen = _docket_screen_with_first_disposition_anchor(
+        {
+            "status": "excluded",
+            "exclusion_reasons": ["multiple_target_motions_unlinked"],
+            "decision_entries": [
+                {
+                    "row_id": "entry-16",
+                    "entry_number": "16",
+                    "filed_at": "July 1, 2026",
+                    "text": "Order deciding motion to dismiss.",
+                }
+            ],
+        },
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert screen["first_written_mtd_disposition_anchor_passed"] is True
+    assert screen["status"] == "excluded"
+    assert screen["exclusion_reasons"] == ["multiple_target_motions_unlinked"]
 
 
 def test_any_packet_time_leakage_excludes_candidate_with_one_complete_ledger_entry(

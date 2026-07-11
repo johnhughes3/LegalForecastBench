@@ -2302,7 +2302,7 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             search_page_size=search_page_size,
             resume=cast(bool, args.resume),
         )
-    except CourtListenerClientError as exc:
+    except (CourtListenerClientError, ValueError) as exc:
         _write_acquisition_failure(
             args,
             stage="discover-courtlistener",

@@ -660,8 +660,6 @@ def _docket_screen_with_first_disposition_anchor(
         first_date, first_entry = min(dated_entries, key=lambda item: item[0])
         if first_date < decision_filed_on_or_after:
             exclusion_reasons = ("first_written_mtd_disposition_before_release_anchor",)
-        else:
-            exclusion_reasons = ()
     elif not exclusion_reasons:
         exclusion_reasons = ("first_written_mtd_disposition_not_found",)
 

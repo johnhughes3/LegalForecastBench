@@ -281,6 +281,45 @@ def test_discover_courtlistener_live_requires_token(
     assert "COURTLISTENER_API_TOKEN is required" in capsys.readouterr().err
 
 
+def test_discover_courtlistener_records_local_validation_failure(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    output_root = tmp_path / "output"
+    fixture_path = tmp_path / "courtlistener.jsonl"
+    fixture_path.write_text("", encoding="utf-8")
+    html_fixture_dir = tmp_path / "html-fixtures"
+    html_fixture_dir.mkdir()
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "discover-courtlistener",
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--search-page-size",
+                "101",
+                "--courtlistener-fixture",
+                str(fixture_path),
+                "--docket-html-fixture-dir",
+                str(html_fixture_dir),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+
+    expected_reason = "search_page_size must be between 1 and 100"
+    assert expected_reason in capsys.readouterr().err
+    failure = _read_json(output_root / "run-cards" / "discover-courtlistener.json")
+    assert failure["status"] == "failed"
+    assert failure["failure_reason"] == expected_reason
+    assert failure["paid_activity_executed"] is False
+
+
 def _response(
     *,
     path: str,
