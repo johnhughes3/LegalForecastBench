@@ -16,7 +16,7 @@ AI models that can predict litigation outcomes well would be useful in a range o
 
 ### Prediction unit and metric
 
-The benchmark predicts, for each challenged claim against each challenged defendant, the probability that the claim will be dismissed in full. The prediction unit is the claim-defendant pair, not the motion as a whole. The base proper scoring metric is micro-Brier over prediction units, with confidence intervals clustered by case to account for within-motion correlation. The first benchmark cycle makes relative model comparisons only — which model forecasts best on the shared frozen record. Fitted empirical baseline rows and Brier-skill-over-informed-baseline interpretation (especially `judge_history`) are planned for a later cycle once a historical baseline corpus is frozen; see [Prior Art and Positioning](docs/prior-art-positioning.md).
+The benchmark predicts, for each challenged claim against each challenged defendant, the probability that the claim will be dismissed in full. The prediction unit is the claim-defendant pair, not the motion as a whole. The base proper scoring metric is micro-Brier over prediction units, with confidence intervals clustered by case to account for within-motion correlation. The first benchmark cycle makes relative model comparisons only — which model forecasts best on the shared frozen record. Fitted empirical baseline rows and Brier-skill-over-informed-baseline interpretation (especially `judge_history`) are planned for a later cycle once a historical baseline corpus is frozen; see the Related Work section of [docs/METHODS.md](docs/METHODS.md).
 
 ### Contamination control
 
@@ -142,7 +142,7 @@ If a case is later sealed, redacted, or otherwise must be removed from the publi
 - `legalforecast/`: Python package for ingestion, selection, unitization, labeling, evaluation, scoring, reporting, and publication artifacts.
 - `examples/adapters/`: no-network fixture manifests for first-class community multi-harness adapter tracks.
 - `community/submissions/`: reviewed community submission examples and future accepted metadata packages.
-- `docs/`: methods, labeling and human-baseline protocols, official-run runbook, reproduction/audit guide, and community/adapter docs — start at [docs/README.md](docs/README.md).
+- `docs/`: methods, labeling protocol, official-run runbook, reproduction/audit guide, and community/adapter docs — start at [docs/README.md](docs/README.md).
 - `tests/`: synthetic fixtures and regression coverage.
 - `MODEL_RELEASE_DATES.md`: tracked pilot anchors and additional release-date candidates.
 

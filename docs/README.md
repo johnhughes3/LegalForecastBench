@@ -4,13 +4,10 @@ The technical documentation in this folder is drafted and maintained with substa
 
 ## Official Benchmark
 
-- [METHODS.md](METHODS.md): eval-card-grade methods — construct, frozen inputs, leakage controls, metrics, inference, limitations, and withdrawal policy.
+- [METHODS.md](METHODS.md): eval-card-grade methods — construct, frozen inputs, leakage controls, metrics, inference, related work, human-baseline status, limitations, and withdrawal policy.
 - [labeling-protocol.md](labeling-protocol.md): the unit-resolution and edge-case codebook used to label frozen prediction units.
 - [official-run-runbook.md](official-run-runbook.md): operator checklist for protected official cycles — freeze, dispatch, recovery, aggregation, and site rendering.
 - [reproduce-or-audit.md](reproduce-or-audit.md): credential-free reproduction of public arithmetic and the deeper audit workflow.
-- [human-baseline-protocol.md](human-baseline-protocol.md): pre-specified protocol for a future human-forecaster comparison arm.
-- [cycle-1-release-notes.md](cycle-1-release-notes.md): cycle-1 public notes, including the explicit absence of a human-baseline arm.
-- [prior-art-positioning.md](prior-art-positioning.md): how this benchmark relates to commercial prediction products and the legal judgment prediction literature, and the positioning language to use and avoid.
 
 ## Community Multi-Harness (non-official)
 
