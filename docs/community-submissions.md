@@ -60,11 +60,11 @@ Optional identifiers include GitHub handle, Hugging Face handle, ORCID, institut
 
 ## Who Runs And Funds Submissions
 
-Community submissions are contributor-run and contributor-funded. The submitter or their organization executes the harness with their own provider credentials and pays their own model API costs. Every published row discloses who operated the run and who funded compute through the `run_operator` and `compute_sponsor` credit roles above.
+Community submissions are contributor-run and contributor-funded. The submitter or their organization executes the harness with their own provider credentials and pays their own model API costs. Every published row discloses who operated the run through the `run_operator` credit role above. Runs using donated compute also disclose the sponsor through `compute_sponsor`; self-funded runs may omit that optional credit and are understood to be funded by the run operator.
 
 This uniform policy applies to all contributors. It keeps each community row credible as the contributor's own result and keeps the official/community boundary crisp: official rows are run and funded by the benchmark; community rows are self-run and validated.
 
-All contributors receive the same attribution: organization or personal name and link on their community rows. LegalForecastBench provides free automated validation on pull-request intake and maintainer review; it does not fund or operate community runs.
+All contributors receive the same attribution: organization or personal name, plus a link when one is provided, on their community rows. LegalForecastBench provides free automated validation on pull request intake and maintainer review; it does not fund or operate community runs.
 
 ## Large Artifacts And Hugging Face Mirrors
 
