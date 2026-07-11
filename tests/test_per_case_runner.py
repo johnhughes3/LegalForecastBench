@@ -670,6 +670,103 @@ def test_per_case_runner_resolves_model_registry_entry(tmp_path: Path) -> None:
     )
     assert metrics["model_key"] == "example-provider:example-model"
     assert metrics["model_registry_sha256"] == sha256_file(registry_path)
+    assert len(metrics["model_registry_entry_sha256"]) == 64
+
+
+def test_resume_accepts_amended_registry_when_model_entry_is_unchanged(
+    tmp_path: Path,
+) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    results_root = tmp_path / "results-store"
+    registry_path = tmp_path / "model-registry.json"
+    _write_model_registry(registry_path, ("example-model",))
+    first = run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(results_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "first-output",
+            mock_output=_mock_output(probability=0.25),
+            model_registry_uri=str(registry_path),
+            model_key="example-provider:example-model",
+        )
+    )
+    amended_registry_path = tmp_path / "model-registry-amended.json"
+    _write_model_registry(amended_registry_path, ("example-model", "expensive-model"))
+
+    resumed = run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(results_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "second-output",
+            mock_output=_mock_output(probability=0.91),
+            model_registry_uri=str(amended_registry_path),
+            model_key="example-provider:example-model",
+            resume_existing=True,
+        )
+    )
+
+    assert resumed.run_id == first.run_id
+    runs = _read_jsonl(tmp_path / "second-output" / "runs.jsonl")
+    assert "0.25" in runs[0]["raw_output"]
+    assert "0.91" not in runs[0]["raw_output"]
+
+
+def test_resume_rejects_amended_registry_when_model_entry_changed(
+    tmp_path: Path,
+) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    results_root = tmp_path / "results-store"
+    registry_path = tmp_path / "model-registry.json"
+    _write_model_registry(registry_path, ("example-model",))
+    run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(results_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "first-output",
+            mock_output=_mock_output(probability=0.25),
+            model_registry_uri=str(registry_path),
+            model_key="example-provider:example-model",
+        )
+    )
+    amended_registry_path = tmp_path / "model-registry-amended.json"
+    _write_model_registry(
+        amended_registry_path,
+        ("example-model", "expensive-model"),
+        input_price_by_model={"example-model": 9.99},
+    )
+
+    run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(results_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "second-output",
+            mock_output=_mock_output(probability=0.91),
+            model_registry_uri=str(amended_registry_path),
+            model_key="example-provider:example-model",
+            resume_existing=True,
+        )
+    )
+
+    runs = _read_jsonl(tmp_path / "second-output" / "runs.jsonl")
+    assert "0.91" in runs[0]["raw_output"]
 
 
 def test_per_case_runner_rejects_unknown_model_key(tmp_path: Path) -> None:
@@ -889,6 +986,42 @@ def _mock_output(*, probability: float = 0.25) -> str:
 def _write_json(path: Path, payload: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def _write_model_registry(
+    path: Path,
+    model_ids: tuple[str, ...],
+    *,
+    input_price_by_model: dict[str, float] | None = None,
+) -> None:
+    prices = input_price_by_model or {}
+    _write_json(
+        path,
+        [
+            {
+                "provider": "example-provider",
+                "model_id": model_id,
+                "display_name": model_id,
+                "model_version_or_snapshot": f"{model_id}-2026-05-14",
+                "release_timestamp": "2026-05-14T09:00:00Z",
+                "release_timestamp_source": "fixture release note",
+                "provider_training_cutoff_status": "not_disclosed",
+                "provider_training_cutoff": None,
+                "temperature": 0,
+                "top_p": 1,
+                "max_output_tokens": 4096,
+                "network_disabled": True,
+                "search_disabled": True,
+                "tool_policy": "controlled_docket_tool_only",
+                "context_limit": 200000,
+                "pricing_source": "fixture",
+                "input_token_price": prices.get(model_id, 0.25),
+                "output_token_price": 1.0,
+                "known_cutoff_publicity_caveats": [],
+            }
+            for model_id in model_ids
+        ],
+    )
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
