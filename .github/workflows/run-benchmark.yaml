@@ -1213,12 +1213,6 @@ jobs:
                   shutil.copyfile(artifact, case_dir / output_name)
           PY
 
-      - name: Download current dispatch per-case artifacts
-        uses: actions/download-artifact@v7
-        with:
-          pattern: official-eval-*
-          path: /tmp/lfb-current-dispatch-artifacts
-
       - name: Aggregate official bundle
         shell: bash
         run: |
