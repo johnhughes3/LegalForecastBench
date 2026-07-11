@@ -14,6 +14,7 @@ from legalforecast.selection.exclusion_ledger import (
     ExclusionLedgerEntry,
     ExclusionReason,
     ExclusionStage,
+    merge_exclusion_ledger_records,
 )
 
 
@@ -135,6 +136,117 @@ def test_conflict_of_interest_exclusion_is_auditable_without_private_detail() ->
     assert record["primary_exclusion_reason"] == "conflict_of_interest"
     assert record["stage"] == "eligibility"
     assert "recusal" in record["notes"]
+
+
+def test_merge_exclusion_ledger_records_consolidates_split_stage_artifacts() -> None:
+    ledger = merge_exclusion_ledger_records(
+        (
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "selected": False,
+                "exclusion_reasons": ["no_free_decision_document"],
+            },
+        ),
+        (
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "stage": "llm-label",
+                "status": "failed",
+                "error_type": "FrozenUnitWorkflowRequiredError",
+                "error_message": "decision contains a material missing unit",
+                "exclusion_ledger_entries": [
+                    {
+                        "candidate_id": "cand-1",
+                        "case_id": "case-1",
+                        "stage": "labeling",
+                        "reason": "unit_missing_from_stage_a",
+                        "source_entry_ids": ["entry-9"],
+                        "source_document_ids": ["decision-1"],
+                        "notes": "Stage B found a material unit absent from Stage A.",
+                    }
+                ],
+            },
+        ),
+    )
+
+    assert len(ledger.entries) == 1
+    record = ledger.entries[0].to_record()
+    assert record["primary_exclusion_reason"] == "no_free_decision_document"
+    assert record["secondary_exclusion_reasons"] == ["unit_missing_from_stage_a"]
+    assert record["source_entry_ids"] == ["entry-9"]
+    assert record["source_document_ids"] == ["decision-1"]
+    assert "material unit absent" in record["notes"]
+
+
+def test_merge_exclusion_ledger_records_records_unselected_overflow() -> None:
+    ledger = merge_exclusion_ledger_records(
+        (
+            {
+                "candidate_id": "cand-overflow",
+                "case_id": "case-overflow",
+                "selected": False,
+                "exclusion_reasons": [],
+            },
+        )
+    )
+
+    assert ledger.entries[0].reason == "target_clean_case_cap_reached"
+
+
+def test_merge_exclusion_ledger_records_normalizes_parser_failures() -> None:
+    ledger = merge_exclusion_ledger_records(
+        (
+            {
+                "candidate_id": "cand-parse",
+                "source_document_id": "doc-bad",
+                "status": "timed_out",
+                "error_message": "parser timed out",
+            },
+        )
+    )
+
+    entry = ledger.entries[0]
+    assert entry.stage is ExclusionStage.EXTRACTION
+    assert entry.reason == ExclusionReason.PARSE_ERROR.value
+    assert entry.source_document_ids == ("doc-bad",)
+
+
+def test_merge_exclusion_ledger_records_normalizes_pending_adjudication() -> None:
+    ledger = merge_exclusion_ledger_records(
+        (
+            {
+                "candidate_id": "cand-review",
+                "status": "pending_adjudication",
+            },
+        )
+    )
+
+    entry = ledger.entries[0]
+    assert entry.stage is ExclusionStage.LABELING
+    assert entry.reason == ExclusionReason.ADJUDICATION_PENDING.value
+
+
+def test_merge_exclusion_ledger_records_falls_back_after_empty_nested_entries() -> None:
+    ledger = merge_exclusion_ledger_records(
+        (
+            {
+                "candidate_id": "cand-label-failure",
+                "case_id": "case-label-failure",
+                "stage": "llm-label",
+                "status": "failed",
+                "error_type": "TimeoutError",
+                "error_message": "judge response timed out",
+                "exclusion_ledger_entries": [],
+            },
+        )
+    )
+
+    entry = ledger.entries[0]
+    assert entry.stage is ExclusionStage.LABELING
+    assert entry.reason == "timeout_error"
+    assert entry.notes == "judge response timed out"
 
 
 def _entry(

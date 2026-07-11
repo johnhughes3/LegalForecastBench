@@ -81,9 +81,27 @@ from legalforecast.ingestion.case_dev_smoke import (
     render_case_dev_smoke_markdown,
     run_case_dev_smoke,
 )
-from legalforecast.ingestion.core_document_filter import CoreDocumentFilterResult
+from legalforecast.ingestion.core_document_filter import (
+    CoreDocumentFilterResult,
+    filter_core_documents,
+    read_case_relevance_jsonl,
+    write_core_document_filter_results,
+)
+from legalforecast.ingestion.corpus_readiness import (
+    CorpusReadinessReport,
+    build_clean_corpus_readiness,
+    require_clean_corpus_ready,
+)
+from legalforecast.ingestion.courtlistener_acquisition import (
+    DEFAULT_COURTLISTENER_MTD_QUERY_TERMS,
+    FixtureCourtListenerDocketHTMLSource,
+    LiveCourtListenerDocketHTMLSource,
+    discover_courtlistener_mtd_candidates,
+)
 from legalforecast.ingestion.courtlistener_client import (
+    COURTLISTENER_API_TOKEN_ENV,
     CourtListenerClient,
+    CourtListenerClientError,
     CourtListenerConfig,
     CourtListenerFixtureTransport,
 )
@@ -130,6 +148,14 @@ from legalforecast.ingestion.provenance import (
     sha256_text,
 )
 from legalforecast.ingestion.public_packet_planner import plan_public_packet_downloads
+from legalforecast.ingestion.purchased_document_recovery import (
+    PurchasedDocumentRecoveryError,
+    PurchasedDocumentRecoveryStatus,
+    UrlLibPurchasedDocumentSource,
+    purchased_document_download_manifest_records,
+    purchased_document_recovery_requests_from_records,
+    recover_purchased_documents,
+)
 from legalforecast.labeling.label_outcomes import (
     AmendmentClass,
     AmendmentSignal,
@@ -192,6 +218,7 @@ from legalforecast.selection.eligibility import (
     SeriesCaseTiming,
     TrainingCutoffStatus,
 )
+from legalforecast.selection.exclusion_ledger import merge_exclusion_ledger_records
 from legalforecast.selection.motion_linkage import link_mtd_dispositions
 from legalforecast.unitization.construct_units import (
     StageAConstructionInput,
@@ -481,6 +508,21 @@ def build_parser() -> argparse.ArgumentParser:
         dest="acquisition_command",
         metavar="COMMAND",
     )
+    acquisition_discover_courtlistener = acquisition_subparsers.add_parser(
+        "discover-courtlistener",
+        help=(
+            "Discover live post-anchor CourtListener MTD candidates and emit "
+            "screened cases."
+        ),
+    )
+    _add_acquisition_discover_courtlistener_arguments(
+        acquisition_discover_courtlistener
+    )
+    acquisition_filter_core = acquisition_subparsers.add_parser(
+        "filter-core-documents",
+        help="Build missing-core purchase inputs from setup-runner relevance JSONL.",
+    )
+    _add_acquisition_filter_core_documents_arguments(acquisition_filter_core)
     acquisition_plan = acquisition_subparsers.add_parser(
         "plan",
         help="Plan missing-core paid recovery from core-document filter results.",
@@ -501,6 +543,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Execute guarded case.dev/PACER missing-core purchases.",
     )
     _add_acquisition_purchase_missing_arguments(acquisition_purchase)
+    acquisition_recover_purchased = acquisition_subparsers.add_parser(
+        "recover-purchased",
+        help=("Recover already-purchased case.dev documents into parser manifests."),
+    )
+    _add_acquisition_recover_purchased_arguments(acquisition_recover_purchased)
     acquisition_parse_plan = acquisition_subparsers.add_parser(
         "plan-parse-documents",
         help="Plan Markdown parser requests from downloaded document manifests.",
@@ -536,6 +583,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Build final model packets from acquisition artifacts.",
     )
     _add_acquisition_build_packets_arguments(acquisition_build)
+    acquisition_finalize = acquisition_subparsers.add_parser(
+        "finalize-corpus",
+        help="Consolidate exclusions and verify the clean labeled packet corpus.",
+    )
+    _add_acquisition_finalize_corpus_arguments(acquisition_finalize)
     acquisition_merge = acquisition_subparsers.add_parser(
         "merge-artifacts",
         help="Merge packet-buildable acquisition roots for a pilot cycle.",
@@ -807,6 +859,76 @@ def _add_acquisition_plan_arguments(parser: argparse.ArgumentParser) -> None:
     parser.set_defaults(handler=_cmd_acquisition_plan)
 
 
+def _add_acquisition_filter_core_documents_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--case-relevance",
+        type=Path,
+        required=True,
+        help="Setup-runner case/document relevance JSONL.",
+    )
+    parser.add_argument(
+        "--results-output",
+        type=Path,
+        help="Core-document filter JSONL; defaults under --output-root.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_filter_core_documents)
+
+
+def _add_acquisition_discover_courtlistener_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--decision-filed-on-or-after",
+        required=True,
+        metavar="YYYY-MM-DD",
+        help=("Fail-closed eligibility anchor for the first written MTD disposition."),
+    )
+    parser.add_argument(
+        "--query-term",
+        dest="query_terms",
+        action="append",
+        help=(
+            "MTD disposition phrase to search. Repeat to override the default "
+            "decision-oriented query set."
+        ),
+    )
+    parser.add_argument("--target-clean-cases", type=int, default=150)
+    parser.add_argument("--max-candidates", type=int, default=3000)
+    parser.add_argument(
+        "--search-page-size",
+        type=int,
+        default=50,
+        help="CourtListener RECAP search page size, from 1 through 100.",
+    )
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help=(
+            "Query CourtListener and fetch public docket HTML over HTTPS. Requires "
+            f"{COURTLISTENER_API_TOKEN_ENV}."
+        ),
+    )
+    parser.add_argument(
+        "--courtlistener-fixture",
+        type=Path,
+        help="Replay recorded CourtListener API JSONL responses without network use.",
+    )
+    parser.add_argument(
+        "--docket-html-fixture-dir",
+        type=Path,
+        help="Read public docket HTML fixtures named <docket_id>.html.",
+    )
+    parser.add_argument("--screened-cases-output", type=Path)
+    parser.add_argument("--exclusions-output", type=Path)
+    parser.add_argument("--raw-html-dir", type=Path)
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_discover_courtlistener)
+
+
 def _add_acquisition_plan_public_downloads_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
@@ -881,6 +1003,41 @@ def _add_acquisition_purchase_missing_arguments(
         default=CaseDevPacerCapability.UNKNOWN.value,
     )
     parser.set_defaults(handler=_cmd_acquisition_purchase_missing)
+
+
+def _add_acquisition_recover_purchased_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--purchase-result",
+        type=Path,
+        required=True,
+        help="Guarded JSON result from acquisition purchase-missing.",
+    )
+    parser.add_argument(
+        "--selection",
+        type=Path,
+        required=True,
+        help="Packet-selection JSONL containing purchased document metadata.",
+    )
+    parser.add_argument("--manifest-output", type=Path)
+    parser.add_argument("--recovery-output", type=Path)
+    parser.add_argument("--document-output-root", type=Path)
+    parser.add_argument(
+        "--fixture-documents",
+        type=Path,
+        help="JSON mapping of purchase download URL to offline fixture content.",
+    )
+    parser.add_argument(
+        "--live-case-dev-download",
+        action="store_true",
+        help=(
+            "Download only URLs returned by successful case.dev purchases. "
+            "Requires CASE_DEV_API_KEY and never calls a purchase endpoint."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_recover_purchased)
 
 
 def _add_acquisition_plan_parse_documents_arguments(
@@ -1224,6 +1381,56 @@ def _add_acquisition_build_packets_arguments(parser: argparse.ArgumentParser) ->
         default=PacketAblation.FULL_PACKET.value,
     )
     parser.set_defaults(handler=_cmd_acquisition_build_packets)
+
+
+def _add_acquisition_finalize_corpus_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--selection", type=Path, required=True)
+    parser.add_argument("--parser-manifest", type=Path, required=True)
+    parser.add_argument(
+        "--markdown-root",
+        type=Path,
+        required=True,
+        help="Root containing parse-documents Markdown used to verify label excerpts.",
+    )
+    parser.add_argument("--prediction-units", type=Path, required=True)
+    parser.add_argument("--labels", type=Path, required=True)
+    parser.add_argument("--llm-label-audit", type=Path, required=True)
+    parser.add_argument("--lawyer-review-queue", type=Path, required=True)
+    parser.add_argument("--packet-build-input", type=Path, required=True)
+    parser.add_argument("--packets", type=Path, required=True)
+    parser.add_argument("--model-registry", type=Path, required=True)
+    parser.add_argument(
+        "--screened-cases",
+        type=Path,
+        required=True,
+        help="Accepted JSONL from acquisition discover-courtlistener.",
+    )
+    parser.add_argument(
+        "--discovery-summary",
+        type=Path,
+        required=True,
+        help="Summary JSON from acquisition discover-courtlistener.",
+    )
+    parser.add_argument(
+        "--discovery-exclusions",
+        type=Path,
+        required=True,
+        help="Exclusion JSONL from acquisition discover-courtlistener.",
+    )
+    parser.add_argument(
+        "--exclusion-source",
+        type=Path,
+        action="append",
+        default=[],
+        help="Stage exclusion JSONL to merge. Repeat for every exclusion source.",
+    )
+    parser.add_argument("--target-clean-cases", type=int, default=150)
+    parser.add_argument("--complete-exclusion-ledger-output", type=Path)
+    parser.add_argument("--readiness-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_finalize_corpus)
 
 
 def _add_acquisition_merge_artifacts_arguments(
@@ -1932,6 +2139,205 @@ def _cmd_acquisition_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_acquisition_filter_core_documents(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    input_path = cast(Path, args.case_relevance)
+    output_path = _acquisition_path(
+        args,
+        "results_output",
+        output_root / "core-filter-results.jsonl",
+    )
+    results = filter_core_documents(read_case_relevance_jsonl(input_path))
+    dry_run = _acquisition_dry_run(args)
+    if dry_run:
+        _write_jsonl(
+            output_path,
+            [
+                {
+                    "stage": "filter-core-documents",
+                    "dry_run": True,
+                    "result_count": len(results),
+                }
+            ],
+        )
+    else:
+        write_core_document_filter_results(results, output_path)
+    _write_acquisition_completion(
+        args,
+        stage="filter-core-documents",
+        input_paths=(input_path,),
+        output_paths=(output_path,),
+        record_count=len(results),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "purchase_document_count": sum(
+                len(result.purchase_document_ids) for result in results
+            ),
+            "excluded_case_count": sum(result.excluded for result in results),
+        },
+    )
+    return 0
+
+
+def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    screened_cases_path = _acquisition_path(
+        args,
+        "screened_cases_output",
+        output_root / "courtlistener-screened-cases.jsonl",
+    )
+    exclusions_path = _acquisition_path(
+        args,
+        "exclusions_output",
+        output_root / "courtlistener-discovery-exclusions.jsonl",
+    )
+    raw_html_dir = _acquisition_path(
+        args,
+        "raw_html_dir",
+        output_root / "raw-courtlistener-html",
+    )
+    summary_path = _acquisition_path(
+        args,
+        "summary_output",
+        output_root / "courtlistener-discovery-summary.json",
+    )
+    anchor_text = cast(str, args.decision_filed_on_or_after)
+    try:
+        anchor = date.fromisoformat(anchor_text)
+    except ValueError as exc:
+        raise CommandError(
+            "--decision-filed-on-or-after must be an ISO date (YYYY-MM-DD)"
+        ) from exc
+    query_terms = tuple(cast(Sequence[str] | None, args.query_terms) or ())
+    if not query_terms:
+        query_terms = DEFAULT_COURTLISTENER_MTD_QUERY_TERMS
+    target_clean_cases = cast(int, args.target_clean_cases)
+    max_candidates = cast(int, args.max_candidates)
+    search_page_size = cast(int, args.search_page_size)
+    dry_run = _acquisition_dry_run(args)
+    fixture_path = cast(Path | None, args.courtlistener_fixture)
+    html_fixture_dir = cast(Path | None, args.docket_html_fixture_dir)
+    live = cast(bool, args.live)
+    input_paths = tuple(
+        path for path in (fixture_path, html_fixture_dir) if path is not None
+    )
+    output_paths = (
+        screened_cases_path,
+        exclusions_path,
+        raw_html_dir,
+        summary_path,
+    )
+
+    if dry_run:
+        summary: JsonRecord = {
+            "schema_version": "legalforecast.courtlistener_discovery_summary.v1",
+            "dry_run": True,
+            "anchor_date": anchor.isoformat(),
+            "query_terms": list(query_terms),
+            "target_clean_cases": target_clean_cases,
+            "max_candidates": max_candidates,
+            "search_page_size": search_page_size,
+            "live": live,
+        }
+        _write_json(summary_path, summary)
+        _write_acquisition_completion(
+            args,
+            stage="discover-courtlistener",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=0,
+            dry_run=True,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra={
+                "anchor_date": anchor.isoformat(),
+                "target_clean_cases": target_clean_cases,
+            },
+        )
+        return 0
+
+    fixture_pair_present = fixture_path is not None and html_fixture_dir is not None
+    fixture_pair_partial = (fixture_path is None) != (html_fixture_dir is None)
+    if live and (fixture_path is not None or html_fixture_dir is not None):
+        raise CommandError("--live cannot be combined with CourtListener fixtures")
+    if fixture_pair_partial:
+        raise CommandError(
+            "discover-courtlistener requires --live or both "
+            "--courtlistener-fixture and --docket-html-fixture-dir"
+        )
+    if not live and not fixture_pair_present:
+        raise CommandError(
+            "discover-courtlistener requires --live or both "
+            "--courtlistener-fixture and --docket-html-fixture-dir"
+        )
+
+    config = CourtListenerConfig.from_env()
+    if live:
+        if config.api_token is None:
+            raise CommandError(f"{COURTLISTENER_API_TOKEN_ENV} is required with --live")
+        client = CourtListenerClient(config=config)
+        html_source = LiveCourtListenerDocketHTMLSource(
+            timeout_seconds=config.timeout_seconds
+        )
+    else:
+        assert fixture_path is not None
+        assert html_fixture_dir is not None
+        client = CourtListenerClient(
+            config=config,
+            transport=CourtListenerFixtureTransport.from_jsonl(fixture_path),
+        )
+        html_source = FixtureCourtListenerDocketHTMLSource(html_fixture_dir)
+
+    try:
+        result = discover_courtlistener_mtd_candidates(
+            client=client,
+            html_source=html_source,
+            raw_html_dir=raw_html_dir,
+            decision_filed_on_or_after=anchor,
+            query_terms=query_terms,
+            target_clean_cases=target_clean_cases,
+            max_candidates=max_candidates,
+            search_page_size=search_page_size,
+            resume=cast(bool, args.resume),
+        )
+    except CourtListenerClientError as exc:
+        _write_acquisition_failure(
+            args,
+            stage="discover-courtlistener",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+
+    _write_jsonl(screened_cases_path, list(result.screened_cases))
+    _write_jsonl(
+        exclusions_path,
+        [exclusion.to_record() for exclusion in result.exclusions],
+    )
+    _write_json(summary_path, {**result.summary, "dry_run": False, "live": live})
+    _write_acquisition_completion(
+        args,
+        stage="discover-courtlistener",
+        input_paths=input_paths,
+        output_paths=output_paths,
+        record_count=len(result.screened_cases),
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "anchor_date": anchor.isoformat(),
+            "target_clean_cases": target_clean_cases,
+            "accepted_case_count": len(result.screened_cases),
+            "excluded_case_count": len(result.exclusions),
+        },
+    )
+    return 0
+
+
 def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     screened_cases_path = cast(Path, args.screened_cases)
@@ -2448,6 +2854,88 @@ def _cmd_acquisition_purchase_missing(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_acquisition_recover_purchased(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    purchase_result_path = cast(Path, args.purchase_result)
+    selection_path = cast(Path, args.selection)
+    manifest_path = _acquisition_path(
+        args,
+        "manifest_output",
+        output_root / "purchased-document-downloads.jsonl",
+    )
+    recovery_path = _acquisition_path(
+        args,
+        "recovery_output",
+        output_root / "purchased-document-recovery.jsonl",
+    )
+    document_root = _acquisition_path(
+        args,
+        "document_output_root",
+        output_root / "documents" / "purchased",
+    )
+    requests = purchased_document_recovery_requests_from_records(
+        _read_json_object(purchase_result_path),
+        _read_records(selection_path),
+    )
+    dry_run = _acquisition_dry_run(args)
+    if dry_run:
+        _write_jsonl(
+            manifest_path,
+            [
+                {
+                    "stage": "recover-purchased",
+                    "dry_run": True,
+                    "request_count": len(requests),
+                    "document_output_root": str(document_root),
+                }
+            ],
+        )
+        _write_jsonl(recovery_path, [])
+        recovered_count = 0
+    else:
+        source = _purchased_document_source(
+            fixture_path=cast(Path | None, args.fixture_documents),
+            live_case_dev_download=cast(bool, args.live_case_dev_download),
+        )
+        records = recover_purchased_documents(
+            requests,
+            output_root=document_root,
+            source=source,
+            retrieved_at=datetime.now(UTC),
+        )
+        _write_jsonl(recovery_path, [record.to_record() for record in records])
+        manifest = purchased_document_download_manifest_records(records)
+        _write_jsonl(manifest_path, manifest)
+        recovered_count = sum(
+            record.status
+            in {
+                PurchasedDocumentRecoveryStatus.RECOVERED,
+                PurchasedDocumentRecoveryStatus.RECOVERED_AUDIT_ONLY,
+            }
+            for record in records
+        )
+    intended_recovery_count = sum(
+        request.purchase_attempt.status.value == "purchased" for request in requests
+    )
+    _write_acquisition_completion(
+        args,
+        stage="recover-purchased",
+        input_paths=(purchase_result_path, selection_path),
+        output_paths=(manifest_path, recovery_path, document_root),
+        record_count=len(requests),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "intended_recovery_count": intended_recovery_count,
+            "recovered_count": recovered_count,
+        },
+    )
+    if not dry_run and recovered_count != intended_recovery_count:
+        return 2
+    return 0
+
+
 def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     download_manifest_path = cast(Path, args.download_manifest)
@@ -2934,6 +3422,430 @@ def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    selection_path = cast(Path, args.selection)
+    parser_manifest_path = cast(Path, args.parser_manifest)
+    markdown_root = cast(Path, args.markdown_root)
+    prediction_units_path = cast(Path, args.prediction_units)
+    labels_path = cast(Path, args.labels)
+    label_audit_path = cast(Path, args.llm_label_audit)
+    lawyer_review_path = cast(Path, args.lawyer_review_queue)
+    packet_build_input_path = cast(Path, args.packet_build_input)
+    packets_path = cast(Path, args.packets)
+    model_registry_path = cast(Path, args.model_registry)
+    screened_cases_path = cast(Path, args.screened_cases)
+    discovery_summary_path = cast(Path, args.discovery_summary)
+    discovery_exclusions_path = cast(Path, args.discovery_exclusions)
+    exclusion_paths = tuple(cast(list[Path], args.exclusion_source))
+    complete_ledger_path = _acquisition_path(
+        args,
+        "complete_exclusion_ledger_output",
+        output_root / "complete-exclusion-ledger.jsonl",
+    )
+    readiness_path = _acquisition_path(
+        args,
+        "readiness_output",
+        output_root / "corpus-readiness.json",
+    )
+    input_paths = (
+        selection_path,
+        parser_manifest_path,
+        markdown_root,
+        prediction_units_path,
+        labels_path,
+        label_audit_path,
+        lawyer_review_path,
+        packet_build_input_path,
+        packets_path,
+        model_registry_path,
+        screened_cases_path,
+        discovery_summary_path,
+        discovery_exclusions_path,
+        *exclusion_paths,
+    )
+    dry_run = _acquisition_dry_run(args)
+    target_clean_cases = cast(int, args.target_clean_cases)
+    if dry_run:
+        _write_jsonl(complete_ledger_path, [])
+        _write_json(
+            readiness_path,
+            {
+                "stage": "finalize-corpus",
+                "dry_run": True,
+                "required_clean_count": target_clean_cases,
+                "exclusion_source_count": len(exclusion_paths),
+            },
+        )
+        clean_count = 0
+        meets_target = False
+    else:
+        selection_records = _read_records(selection_path)
+        parser_records = _read_records(parser_manifest_path)
+        prediction_unit_records = _read_records(prediction_units_path)
+        label_records = _read_records(labels_path)
+        label_audit_records = _read_records(label_audit_path)
+        lawyer_review_records = _read_records(lawyer_review_path)
+        packet_build_records = _read_records(packet_build_input_path)
+        packet_records = _read_records(packets_path)
+        screened_case_records = _read_records(screened_cases_path)
+        discovery_summary = _read_json_object(discovery_summary_path)
+        discovery_exclusion_records = _read_records(discovery_exclusions_path)
+        exclusion_groups = tuple(_read_records(path) for path in exclusion_paths)
+        ledger = merge_exclusion_ledger_records(
+            discovery_exclusion_records,
+            *exclusion_groups,
+            parser_records,
+            label_audit_records,
+            lawyer_review_records,
+        )
+        complete_ledger_records = ledger.to_records()
+        _write_jsonl(complete_ledger_path, complete_ledger_records)
+        try:
+            _validate_acquisition_discovery_reconciliation(
+                screened_case_records=screened_case_records,
+                discovery_summary=discovery_summary,
+                discovery_exclusion_records=discovery_exclusion_records,
+                selection_records=selection_records,
+                complete_ledger_records=complete_ledger_records,
+            )
+        except CommandError as exc:
+            _write_acquisition_failure(
+                args,
+                stage="finalize-corpus",
+                input_paths=input_paths,
+                output_paths=(complete_ledger_path, readiness_path),
+                reason=str(exc),
+                paid_activity_requested=False,
+            )
+            raise
+
+        registry = load_model_registry(model_registry_path)
+        official_entries = require_official_registry_entries(registry.entries)
+        decision_texts = _load_readiness_decision_texts(
+            selection_records=selection_records,
+            parser_records=parser_records,
+            prediction_unit_records=prediction_unit_records,
+            label_records=label_records,
+            markdown_root=markdown_root,
+        )
+        report = build_clean_corpus_readiness(
+            selection_records=selection_records,
+            parser_records=parser_records,
+            prediction_unit_records=prediction_unit_records,
+            label_records=label_records,
+            label_audit_records=label_audit_records,
+            lawyer_review_records=lawyer_review_records,
+            packet_build_records=packet_build_records,
+            packet_records=packet_records,
+            exclusion_records=complete_ledger_records,
+            decision_text_by_candidate_and_document=decision_texts,
+            decision_filed_on_or_after=earliest_eligible_decision_date(
+                official_entries
+            ),
+            required_clean_count=target_clean_cases,
+        )
+        readiness_exclusion_records = _readiness_exclusion_records(
+            report,
+            selection_records=selection_records,
+            existing_ledger_records=complete_ledger_records,
+        )
+        if readiness_exclusion_records:
+            ledger = merge_exclusion_ledger_records(
+                complete_ledger_records,
+                readiness_exclusion_records,
+            )
+            complete_ledger_records = ledger.to_records()
+            _write_jsonl(complete_ledger_path, complete_ledger_records)
+            report = build_clean_corpus_readiness(
+                selection_records=selection_records,
+                parser_records=parser_records,
+                prediction_unit_records=prediction_unit_records,
+                label_records=label_records,
+                label_audit_records=label_audit_records,
+                lawyer_review_records=lawyer_review_records,
+                packet_build_records=packet_build_records,
+                packet_records=packet_records,
+                exclusion_records=complete_ledger_records,
+                decision_text_by_candidate_and_document=decision_texts,
+                decision_filed_on_or_after=earliest_eligible_decision_date(
+                    official_entries
+                ),
+                required_clean_count=target_clean_cases,
+            )
+        _write_json(readiness_path, report.to_record())
+        clean_count = report.clean_count
+        meets_target = report.meets_target
+        if not meets_target:
+            _write_acquisition_failure(
+                args,
+                stage="finalize-corpus",
+                input_paths=input_paths,
+                output_paths=(complete_ledger_path, readiness_path),
+                reason=(
+                    f"corpus requires {target_clean_cases} clean motions; "
+                    f"found {clean_count}"
+                ),
+                paid_activity_requested=False,
+            )
+        require_clean_corpus_ready(report)
+
+    _write_acquisition_completion(
+        args,
+        stage="finalize-corpus",
+        input_paths=input_paths,
+        output_paths=(complete_ledger_path, readiness_path),
+        record_count=clean_count,
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "target_clean_cases": target_clean_cases,
+            "clean_count": clean_count,
+            "meets_target": meets_target,
+        },
+    )
+    return 0
+
+
+def _readiness_exclusion_records(
+    report: CorpusReadinessReport,
+    *,
+    selection_records: Sequence[Mapping[str, Any]],
+    existing_ledger_records: Sequence[Mapping[str, Any]],
+) -> list[JsonRecord]:
+    selections = {
+        _required_str(record, "candidate_id"): record for record in selection_records
+    }
+    recorded_reasons: dict[str, set[str]] = {}
+    for record in existing_ledger_records:
+        candidate_id = _required_str(record, "candidate_id")
+        reasons = recorded_reasons.setdefault(candidate_id, set())
+        reasons.add(_required_str(record, "primary_exclusion_reason"))
+        reasons.update(_required_str_tuple(record, "secondary_exclusion_reasons"))
+
+    records: list[JsonRecord] = []
+    for candidate_id in report.excluded_candidate_ids:
+        reasons = report.exclusion_reasons.get(candidate_id, ())
+        missing_reasons = tuple(
+            reason
+            for reason in reasons
+            if reason not in recorded_reasons.get(candidate_id, set())
+        )
+        if not missing_reasons:
+            continue
+        selection = selections[candidate_id]
+        primary_reason = missing_reasons[0]
+        records.append(
+            {
+                "candidate_id": candidate_id,
+                "case_id": _required_str(selection, "case_id"),
+                "court": _optional_str(selection, "court"),
+                "stage": _readiness_exclusion_stage(primary_reason),
+                "primary_exclusion_reason": primary_reason,
+                "reason": primary_reason,
+                "secondary_exclusion_reasons": list(missing_reasons[1:]),
+                "source_entry_ids": [],
+                "source_document_ids": [],
+                "notes": (
+                    "Final clean-corpus readiness excluded the candidate: "
+                    + "; ".join(missing_reasons)
+                    + "."
+                ),
+            }
+        )
+    return records
+
+
+def _readiness_exclusion_stage(reason: str) -> str:
+    if reason.startswith(("required_document_", "parse_")):
+        return "extraction"
+    if reason.startswith("stage_a_"):
+        return "unitization"
+    if reason.startswith(
+        ("stage_b_", "label_", "labeling_", "first_written_", "lawyer_review_")
+    ):
+        return "labeling"
+    if reason in {"packet_build_input_missing", "built_packet_missing"}:
+        return "case_mix"
+    if reason == "outcome_leakage":
+        return "leakage"
+    return "eligibility"
+
+
+def _validate_acquisition_discovery_reconciliation(
+    *,
+    screened_case_records: Sequence[Mapping[str, Any]],
+    discovery_summary: Mapping[str, Any],
+    discovery_exclusion_records: Sequence[Mapping[str, Any]],
+    selection_records: Sequence[Mapping[str, Any]],
+    complete_ledger_records: Sequence[Mapping[str, Any]],
+) -> None:
+    screened_ids = tuple(
+        _required_str(_required_record(record, "candidate"), "docket_id")
+        for record in screened_case_records
+    )
+    discovery_exclusion_ids = tuple(
+        _required_str(record, "candidate_id") for record in discovery_exclusion_records
+    )
+    selection_ids = tuple(
+        _required_str(record, "candidate_id") for record in selection_records
+    )
+    ledger_ids = tuple(
+        _required_str(record, "candidate_id") for record in complete_ledger_records
+    )
+    for label, candidate_ids in (
+        ("screened cases", screened_ids),
+        ("discovery exclusions", discovery_exclusion_ids),
+        ("selection", selection_ids),
+        ("complete exclusion ledger", ledger_ids),
+    ):
+        if len(candidate_ids) != len(set(candidate_ids)):
+            raise CommandError(f"duplicate candidate_id in {label}")
+
+    accepted_count = _required_int(discovery_summary, "accepted_case_count")
+    excluded_count = _required_int(discovery_summary, "excluded_case_count")
+    processed_count = _required_int(discovery_summary, "processed_candidate_count")
+    if accepted_count != len(screened_ids):
+        raise CommandError(
+            "discovery accepted_case_count does not match screened-cases JSONL"
+        )
+    if excluded_count != len(discovery_exclusion_ids):
+        raise CommandError(
+            "discovery excluded_case_count does not match discovery-exclusions JSONL"
+        )
+    if processed_count != accepted_count + excluded_count:
+        raise CommandError(
+            "discovery processed_candidate_count must equal accepted plus excluded"
+        )
+
+    screened = set(screened_ids)
+    discovery_excluded = set(discovery_exclusion_ids)
+    if screened & discovery_excluded:
+        raise CommandError(
+            "candidate appears in both screened and discovery exclusions"
+        )
+    discovered = screened | discovery_excluded
+    if len(discovered) != processed_count:
+        raise CommandError(
+            "discovery candidate IDs do not reconcile to processed count"
+        )
+
+    selected = set(selection_ids)
+    ledgered = set(ledger_ids)
+    unknown_selected = sorted(selected - screened)
+    if unknown_selected:
+        raise CommandError(
+            "selected candidates absent from screened discovery: "
+            + ", ".join(unknown_selected)
+        )
+    unknown_ledgered = sorted(ledgered - discovered)
+    if unknown_ledgered:
+        raise CommandError(
+            "ledger candidates absent from discovery: " + ", ".join(unknown_ledgered)
+        )
+    unreconciled = sorted(screened - selected - ledgered)
+    if unreconciled:
+        raise CommandError(
+            "unreconciled screened candidates: " + ", ".join(unreconciled)
+        )
+
+
+def _load_readiness_decision_texts(
+    *,
+    selection_records: Sequence[Mapping[str, Any]],
+    parser_records: Sequence[Mapping[str, Any]],
+    prediction_unit_records: Sequence[Mapping[str, Any]],
+    label_records: Sequence[Mapping[str, Any]],
+    markdown_root: Path,
+) -> dict[tuple[str, str], str]:
+    selections = {
+        _required_str(record, "candidate_id"): record for record in selection_records
+    }
+    parser_by_key = {
+        (
+            _required_str(record, "candidate_id"),
+            _required_str(record, "source_document_id"),
+        ): record
+        for record in parser_records
+    }
+    candidate_by_unit: dict[str, str] = {}
+    for record in prediction_unit_records:
+        candidate_id = _required_str(record, "candidate_id")
+        units = (
+            _required_record_sequence(record, "prediction_units")
+            if "prediction_units" in record
+            else (record,)
+        )
+        for unit in units:
+            unit_id = _required_str(unit, "unit_id")
+            if unit_id in candidate_by_unit:
+                raise CommandError(f"duplicate prediction unit: {unit_id}")
+            candidate_by_unit[unit_id] = candidate_id
+
+    root = markdown_root.expanduser().resolve()
+    decision_texts: dict[tuple[str, str], str] = {}
+    for label in label_records:
+        unit_id = _required_str(label, "unit_id")
+        try:
+            candidate_id = candidate_by_unit[unit_id]
+            selection = selections[candidate_id]
+        except KeyError as exc:
+            raise CommandError(
+                f"label unit is not joined to a selected candidate: {unit_id}"
+            ) from exc
+        document_id = _required_str(label, "first_written_disposition_id")
+        documents = {
+            _required_str(document, "source_document_id"): document
+            for document in _required_record_sequence(selection, "documents")
+        }
+        try:
+            document = documents[document_id]
+        except KeyError as exc:
+            raise CommandError(
+                "locked first disposition is absent from selection: "
+                f"{candidate_id}/{document_id}"
+            ) from exc
+        role = _required_str(document, "document_role")
+        if not _optional_bool(
+            document,
+            "contains_target_outcome",
+            default=role in {DocumentRole.DECISION.value, DocumentRole.ORDER.value},
+        ):
+            raise CommandError(
+                "locked first disposition is not marked as target-outcome material: "
+                f"{candidate_id}/{document_id}"
+            )
+        parser_record = parser_by_key.get((candidate_id, document_id))
+        if parser_record is None or parser_record.get("status") != "succeeded":
+            continue
+        markdown_path = Path(_required_str(parser_record, "markdown_path"))
+        resolved = (
+            markdown_path.expanduser().resolve()
+            if markdown_path.is_absolute()
+            else (root / markdown_path).resolve()
+        )
+        try:
+            resolved.relative_to(root)
+        except ValueError as exc:
+            raise CommandError(
+                f"parser Markdown escapes --markdown-root: {resolved}"
+            ) from exc
+        if not resolved.is_file():
+            raise CommandError(f"parser Markdown is missing: {resolved}")
+        text = resolved.read_text(encoding="utf-8")
+        if not text.strip():
+            raise CommandError(f"parser Markdown is empty: {resolved}")
+        key = (candidate_id, document_id)
+        existing = decision_texts.get(key)
+        if existing is not None and existing != text:
+            raise CommandError(
+                f"conflicting parser Markdown for {candidate_id}/{document_id}"
+            )
+        decision_texts[key] = text
+    return decision_texts
+
+
 def _registry_entry_for_key(
     model_registry_path: Path,
     model_key: str,
@@ -3267,6 +4179,36 @@ def _free_document_source(
         "acquisition download-free --execute requires --fixture-documents for "
         "offline fixtures or --live-public-download for free public "
         "CourtListener/RECAP documents"
+    )
+
+
+def _purchased_document_source(
+    *,
+    fixture_path: Path | None,
+    live_case_dev_download: bool,
+) -> FreeDocumentSource:
+    if fixture_path is not None and live_case_dev_download:
+        raise CommandError(
+            "acquisition recover-purchased accepts either --fixture-documents "
+            "or --live-case-dev-download, not both"
+        )
+    if fixture_path is not None:
+        return _fixture_free_document_source(fixture_path)
+    if live_case_dev_download:
+        config = CaseDevConfig.from_env(require_api_key=True)
+        api_key = config.api_key
+        if api_key is None:  # pragma: no cover - enforced by require_api_key
+            raise PurchasedDocumentRecoveryError(
+                "CASE_DEV_API_KEY is required for live purchased-document recovery"
+            )
+        return UrlLibPurchasedDocumentSource(
+            api_key=api_key,
+            timeout_seconds=config.timeout_seconds,
+        )
+    raise CommandError(
+        "acquisition recover-purchased --execute requires --fixture-documents "
+        "for offline fixtures or --live-case-dev-download for already-purchased "
+        "case.dev documents"
     )
 
 

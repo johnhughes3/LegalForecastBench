@@ -233,7 +233,7 @@ def complete_live_prompt(
             "prompt_input_token_budget": str(prompt_input_token_budget),
             "context_limit": str(registry_entry.context_limit),
             "max_output_tokens": str(registry_entry.max_output_tokens),
-            "temperature": _format_number(registry_entry.temperature),
+            **_sampling_policy_metadata(registry_entry),
             "execution_backend": RunExecutionBackend.INSPECT_AI.value,
             "latency_ms": f"{latency_ms:.3f}",
             "provider_attempt_count": str(request_count),
@@ -300,7 +300,7 @@ def _complete_bedrock_anthropic_prompt(
             ),
             "context_limit": str(registry_entry.context_limit),
             "max_output_tokens": str(registry_entry.max_output_tokens),
-            "temperature": _format_number(registry_entry.temperature),
+            **_sampling_policy_metadata(registry_entry),
             "execution_backend": RunExecutionBackend.INSPECT_AI.value,
             "latency_ms": f"{latency_ms:.3f}",
             "provider_attempt_count": str(request_count),
@@ -423,10 +423,10 @@ def _anthropic_request(
         "model": entry.model_id,
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": entry.max_output_tokens,
-        "temperature": entry.temperature,
         "tools": [],
     }
-    # Current Claude Messages models reject requests with both sampling controls.
+    if not _anthropic_requires_provider_default_sampling(entry):
+        payload["temperature"] = entry.temperature
     return _json_request(
         ANTHROPIC_MESSAGES_URL,
         payload,
@@ -450,11 +450,35 @@ def _bedrock_anthropic_payload(
             }
         ],
         "max_tokens": entry.max_output_tokens,
-        "temperature": entry.temperature,
     }
-    if entry.top_p < 1.0:
-        payload["top_p"] = entry.top_p
+    if not _anthropic_requires_provider_default_sampling(entry):
+        payload["temperature"] = entry.temperature
+        if entry.top_p < 1.0:
+            payload["top_p"] = entry.top_p
     return payload
+
+
+def _anthropic_requires_provider_default_sampling(
+    entry: ModelRegistryEntry,
+) -> bool:
+    """Return whether Anthropic requires omitted sampling controls for this model."""
+
+    return entry.provider.strip().lower() == "anthropic" and "claude-sonnet-5" in {
+        _canonical_model_version(entry.model_id),
+        _canonical_model_version(entry.model_version_or_snapshot),
+    }
+
+
+def _sampling_policy_metadata(entry: ModelRegistryEntry) -> dict[str, str]:
+    """Separate registry intent from sampling controls applied by the provider."""
+
+    if not _anthropic_requires_provider_default_sampling(entry):
+        return {"temperature": _format_number(entry.temperature)}
+    return {
+        "registry_temperature": _format_number(entry.temperature),
+        "registry_top_p": _format_number(entry.top_p),
+        "provider_sampling_policy": "provider_default",
+    }
 
 
 def _gemini_request(

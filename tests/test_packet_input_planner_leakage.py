@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import cast
 
 import pytest
 from legalforecast.ingestion.courtlistener_web import CourtListenerWebDocketEntry
@@ -139,11 +140,206 @@ def test_anchor_window_exclusion_records_ledger_and_continues_batch(
     )
     assert ledger_record["stage"] == "eligibility"
     assert ledger_record["secondary_exclusion_reasons"] == [
-        "mtd_decision_outside_date_window"
+        "first_written_mtd_disposition_before_release_anchor"
     ]
     old_manifest = plan.candidate_manifest_records[0]
     assert old_manifest["mtd_decision_screen"]["status"] == "excluded"
     assert old_manifest["exclusion_ledger_entries"] == [ledger_record]
+
+
+def test_anchor_excludes_when_first_written_mtd_disposition_precedes_anchor(
+    tmp_path: Path,
+) -> None:
+    raw_html_dir = tmp_path / "raw-html"
+    raw_html_dir.mkdir()
+    (raw_html_dir / "candidate-1.html").write_text(
+        _packet_input_docket_html(
+            decision_date="July 1, 2026",
+            earlier_decision_date="June 29, 2026",
+        ),
+        encoding="utf-8",
+    )
+
+    plan = plan_packet_build_inputs(
+        selection_records=(
+            _packet_selection_record(
+                candidate_id="candidate-1",
+                case_id="case-1",
+                decision_date="2026-07-01",
+            ),
+        ),
+        download_records=(),
+        parser_records=(),
+        prediction_unit_records=(_prediction_unit_record("candidate-1"),),
+        raw_html_dir=raw_html_dir,
+        document_root=tmp_path / "documents",
+        markdown_root=tmp_path / "markdown",
+        source_dir=tmp_path,
+        generated_at=datetime(2026, 7, 2, tzinfo=UTC),
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert plan.packet_build_records == ()
+    assert len(plan.exclusion_ledger_records) == 1
+    ledger_record = plan.exclusion_ledger_records[0]
+    assert ledger_record["primary_exclusion_reason"] == (
+        "decision_before_release_anchor"
+    )
+    assert ledger_record["secondary_exclusion_reasons"] == [
+        "first_written_mtd_disposition_before_release_anchor"
+    ]
+    assert ledger_record["source_entry_ids"] == ["entry-40"]
+    assert "2026-06-29" in ledger_record["notes"]
+    assert "2026-06-30" in ledger_record["notes"]
+    candidate_manifest = plan.candidate_manifest_records[0]
+    assert candidate_manifest["exclusion_ledger_entries"] == [ledger_record]
+
+
+def test_any_packet_time_leakage_excludes_candidate_with_one_complete_ledger_entry(
+    tmp_path: Path,
+) -> None:
+    candidate_id = "leaky-candidate"
+    raw_html_dir = tmp_path / "raw-html"
+    raw_html_dir.mkdir()
+    (raw_html_dir / f"{candidate_id}.html").write_text(
+        _packet_input_docket_html(
+            decision_date="July 1, 2026",
+            include_leaking_predecision_entry=True,
+        ),
+        encoding="utf-8",
+    )
+    markdown_root = tmp_path / "markdown"
+    for source_document_id, markdown in {
+        "complaint": (
+            "Press report: the motion to dismiss survives as to the core claim."
+        ),
+        "mtd-memo": "Motion to dismiss memorandum.",
+        "decision": "Decision markdown.",
+    }.items():
+        markdown_path = markdown_root / candidate_id / f"{source_document_id}.md"
+        markdown_path.parent.mkdir(parents=True, exist_ok=True)
+        markdown_path.write_text(markdown, encoding="utf-8")
+
+    plan = plan_packet_build_inputs(
+        selection_records=(
+            _packet_selection_record(
+                candidate_id=candidate_id,
+                case_id="leaky-case",
+                decision_date="2026-07-01",
+            ),
+        ),
+        download_records=_packet_download_records(candidate_id),
+        parser_records=_packet_parser_records(candidate_id),
+        prediction_unit_records=(_prediction_unit_record(candidate_id),),
+        raw_html_dir=raw_html_dir,
+        document_root=tmp_path / "documents",
+        markdown_root=markdown_root,
+        source_dir=tmp_path,
+        generated_at=datetime(2026, 7, 2, tzinfo=UTC),
+    )
+
+    assert plan.packet_build_records == ()
+    assert len(plan.exclusion_ledger_records) == 1
+    ledger_record = plan.exclusion_ledger_records[0]
+    assert ledger_record["primary_exclusion_reason"] == "outcome_leakage"
+    assert set(ledger_record["secondary_exclusion_reasons"]) == {
+        "minute_order_resolving_target",
+        "public_reporting_revealing_target",
+    }
+    assert ledger_record["source_entry_ids"] == ["entry-20"]
+    assert ledger_record["source_document_ids"] == [f"{candidate_id}-complaint"]
+    candidate_manifest = plan.candidate_manifest_records[0]
+    assert candidate_manifest["exclusion_ledger_entries"] == [ledger_record]
+
+
+def test_download_restriction_overrides_conflicting_public_selection_metadata(
+    tmp_path: Path,
+) -> None:
+    candidate_id = "public-candidate"
+    raw_html_dir = tmp_path / "raw-html"
+    raw_html_dir.mkdir()
+    (raw_html_dir / f"{candidate_id}.html").write_text(
+        _packet_input_docket_html(decision_date="July 1, 2026"),
+        encoding="utf-8",
+    )
+    markdown_root = tmp_path / "markdown"
+    for source_document_id in ("complaint", "mtd-memo", "decision", "sealed"):
+        markdown_path = markdown_root / candidate_id / f"{source_document_id}.md"
+        markdown_path.parent.mkdir(parents=True, exist_ok=True)
+        markdown_path.write_text("source markdown", encoding="utf-8")
+    selection = _packet_selection_record(
+        candidate_id=candidate_id,
+        case_id="public-case",
+        decision_date="2026-07-01",
+    )
+    documents = cast(list[dict[str, object]], selection["documents"])
+    sealed_document = _selection_document(
+        candidate_id,
+        "sealed",
+        "other",
+        35,
+        True,
+    )
+    sealed_document["redaction_or_seal_status"] = "public"
+    documents.append(sealed_document)
+    download_records = (
+        *_packet_download_records(candidate_id),
+        {
+            "candidate_id": candidate_id,
+            "source_provider": "courtlistener",
+            "source_document_id": "sealed",
+            "docket_entry_number": 35,
+            "document_role": "other",
+            "source_url": f"fixture://{candidate_id}/sealed.pdf",
+            "local_path": f"{candidate_id}/sealed.pdf",
+            "sha256": f"{'sealed':0<64}"[:64],
+            "is_sealed": True,
+        },
+    )
+    parser_records: tuple[dict[str, object], ...] = (
+        *_packet_parser_records(candidate_id),
+        {
+            "candidate_id": candidate_id,
+            "source_document_id": "sealed",
+            "status": "succeeded",
+            "markdown_path": f"{candidate_id}/sealed.md",
+            "quality_flags": [],
+            "extracted_text": {
+                "source_document_id": "sealed",
+                "text_sha256": f"{'sealed':0<64}"[:64],
+                "quality_flags": [],
+            },
+        },
+    )
+
+    plan = plan_packet_build_inputs(
+        selection_records=(selection,),
+        download_records=download_records,
+        parser_records=parser_records,
+        prediction_unit_records=(_prediction_unit_record(candidate_id),),
+        raw_html_dir=raw_html_dir,
+        document_root=tmp_path / "documents",
+        markdown_root=markdown_root,
+        source_dir=tmp_path,
+        generated_at=datetime(2026, 7, 2, tzinfo=UTC),
+    )
+
+    packet_record = plan.packet_build_records[0]
+    sealed_source = next(
+        document
+        for document in packet_record["documents"]
+        if document["source_document_id"] == f"{candidate_id}-sealed"
+    )
+    assert sealed_source["redaction_or_seal_status"] == "sealed"
+    assert sealed_source["is_mounted_for_model"] is False
+    assert all(
+        record["source_document_id"] != f"{candidate_id}-sealed"
+        for record in plan.document_manifest_records
+    )
+    assert all(
+        record["source_document_id"] != f"{candidate_id}-sealed"
+        for record in packet_record["parsed_documents"]
+    )
 
 
 def _selection(*, decision_entry_numbers: list[int]) -> dict[str, object]:
@@ -256,7 +452,36 @@ def _prediction_unit_record(candidate_id: str) -> dict[str, object]:
     }
 
 
-def _packet_input_docket_html(*, decision_date: str) -> str:
+def _packet_input_docket_html(
+    *,
+    decision_date: str,
+    earlier_decision_date: str | None = None,
+    include_leaking_predecision_entry: bool = False,
+) -> str:
+    earlier_decision = (
+        ""
+        if earlier_decision_date is None
+        else f"""
+          <div class="row odd" id="entry-40">
+            <div class="col-xs-1"><p>40</p></div>
+            <div class="col-xs-3"><p>{earlier_decision_date}</p></div>
+            <div class="col-xs-8"><p>ORDER granting Motion to Dismiss.</p></div>
+          </div>
+        """
+    )
+    leaking_predecision = (
+        ""
+        if not include_leaking_predecision_entry
+        else """
+          <div class="row odd" id="entry-20">
+            <div class="col-xs-1"><p>20</p></div>
+            <div class="col-xs-3"><p>Feb 2, 2026</p></div>
+            <div class="col-xs-8">
+              <p>Minute order granting the motion to dismiss after oral ruling.</p>
+            </div>
+          </div>
+        """
+    )
     return f"""
     <html>
       <body>
@@ -271,6 +496,8 @@ def _packet_input_docket_html(*, decision_date: str) -> str:
             <div class="col-xs-3"><p>Feb 1, 2026</p></div>
             <div class="col-xs-8"><p>MOTION to Dismiss.</p></div>
           </div>
+          {leaking_predecision}
+          {earlier_decision}
           <div class="row odd" id="entry-50">
             <div class="col-xs-1"><p>50</p></div>
             <div class="col-xs-3"><p>{decision_date}</p></div>
