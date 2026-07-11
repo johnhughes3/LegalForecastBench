@@ -593,6 +593,130 @@ def test_official_aggregate_accepts_explicit_multi_model_matrix(
     assert run_card["expected_model_keys"] == ["fixture:model-a", "fixture:model-b"]
 
 
+def test_official_aggregate_unions_dispatch_generations_and_records_provenance(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _write_run_input_manifest(tmp_path)
+    registry_path = _write_model_registry(
+        tmp_path,
+        ("fixture:model-a", "fixture:model-b"),
+    )
+    labels_path = _write_labels(tmp_path)
+    per_case_dir = tmp_path / "union-download"
+    model_a_dir = _write_case_artifacts(
+        per_case_dir / "dispatch-1001",
+        case_dir_name="official-eval-case-1-full_packet-model-a",
+        solver_id="fixture:model-a",
+        model_id="model-a",
+        dismissed_probability=0.9,
+    )
+    model_a_hashes_before = _tree_hashes(model_a_dir)
+    _write_case_artifacts(
+        per_case_dir / "dispatch-1002",
+        case_dir_name="official-eval-case-1-full_packet-model-b",
+        solver_id="fixture:model-b",
+        model_id="model-b",
+        dismissed_probability=0.6,
+    )
+    root_sha = "1" * 64
+    amendment_sha = "2" * 64
+    provenance_path = tmp_path / "dispatch-provenance.json"
+    _write_json(
+        provenance_path,
+        {
+            "schema_version": "legalforecast.dispatch_provenance.v1",
+            "cycle_id": "cycle-1",
+            "current_freeze_bundle_sha256": amendment_sha,
+            "freeze_chain": [
+                {
+                    "bundle_sha256": root_sha,
+                    "amends_bundle_sha256": None,
+                    "cycle_id": "cycle-1",
+                    "freeze_timestamp": "2026-05-16T12:00:00Z",
+                    "introduced_model_keys": ["fixture:model-a"],
+                },
+                {
+                    "bundle_sha256": amendment_sha,
+                    "amends_bundle_sha256": root_sha,
+                    "cycle_id": "cycle-1",
+                    "freeze_timestamp": "2026-05-17T12:00:00Z",
+                    "introduced_model_keys": ["fixture:model-b"],
+                },
+            ],
+            "dispatches": [
+                {
+                    "workflow_run_id": "1001",
+                    "workflow_run_attempt": 1,
+                    "freeze_bundle_sha256": root_sha,
+                    "model_keys": ["fixture:model-a"],
+                },
+                {
+                    "workflow_run_id": "1002",
+                    "workflow_run_attempt": 1,
+                    "freeze_bundle_sha256": amendment_sha,
+                    "model_keys": ["fixture:model-b"],
+                },
+            ],
+            "model_entry_freezes": [
+                {
+                    "model_key": "fixture:model-a",
+                    "freeze_bundle_sha256": root_sha,
+                },
+                {
+                    "model_key": "fixture:model-b",
+                    "freeze_bundle_sha256": amendment_sha,
+                },
+            ],
+            "publication": {
+                "mode": "additive_supersession",
+                "supersedes_report_uri": (
+                    "s3://results/reports/cycle-1/multi-ablation/"
+                ),
+            },
+        },
+    )
+
+    result = aggregate_official_results(
+        OfficialAggregationConfig(
+            per_case_dir=per_case_dir,
+            run_input_manifest_path=manifest_path,
+            labels_path=labels_path,
+            output_dir=tmp_path / "amended-official-bundle",
+            cycle_id="cycle-1",
+            cycle_series=CycleSeries.PILOT,
+            clean_motion_count=25,
+            prediction_unit_count=1,
+            model_registry_path=registry_path,
+            dispatch_provenance_path=provenance_path,
+            allow_no_baselines=True,
+            ablation="full_packet",
+            generated_at=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
+        )
+    )
+
+    assert result.expected_matrix_row_count == 2
+    assert result.aggregated_matrix_row_count == 2
+    assert _tree_hashes(model_a_dir) == model_a_hashes_before
+    run_card = json.loads(result.run_card_path.read_text(encoding="utf-8"))
+    assert run_card["dispatch_provenance"]["dispatches"] == [
+        {
+            "workflow_run_id": "1001",
+            "workflow_run_attempt": 1,
+            "freeze_bundle_sha256": root_sha,
+            "model_keys": ["fixture:model-a"],
+        },
+        {
+            "workflow_run_id": "1002",
+            "workflow_run_attempt": 1,
+            "freeze_bundle_sha256": amendment_sha,
+            "model_keys": ["fixture:model-b"],
+        },
+    ]
+    assert run_card["dispatch_provenance"]["publication"]["mode"] == (
+        "additive_supersession"
+    )
+
+
 def test_official_aggregate_refuses_when_labels_hash_drifts(
     tmp_path: Path,
 ) -> None:
@@ -1236,6 +1360,14 @@ def _write_model_registry(tmp_path: Path, model_keys: tuple[str, ...]) -> Path:
         )
     _write_json_list(registry_path, records)
     return registry_path
+
+
+def _tree_hashes(root: Path) -> dict[str, str]:
+    return {
+        path.relative_to(root).as_posix(): _file_sha256(path)
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
 
 
 def _write_case_artifacts(
