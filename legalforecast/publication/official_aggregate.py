@@ -56,6 +56,10 @@ from legalforecast.labeling.label_outcomes import (
     OutcomeLabel,
 )
 from legalforecast.protocol.freeze import sha256_file
+from legalforecast.publication.dispatch_provenance import (
+    DispatchProvenanceError,
+    load_dispatch_provenance,
+)
 from legalforecast.publication.publication_guardrails import (
     PublicationGuardrailConfig,
     enforce_publication_guardrails,
@@ -120,6 +124,7 @@ class OfficialAggregationConfig:
     clean_motion_count: int
     prediction_unit_count: int
     model_registry_path: Path | None = None
+    dispatch_provenance_path: Path | None = None
     baseline_training_examples_path: Path | None = None
     model_keys: tuple[str, ...] = ()
     allow_incomplete_model_set: bool = False
@@ -241,6 +246,10 @@ def aggregate_official_results(
     expected_model_keys, registry_model_keys = _expected_model_key_sets(
         config,
         registry_entries=registry_entries,
+    )
+    dispatch_provenance = _dispatch_provenance(
+        config,
+        expected_model_keys=expected_model_keys,
     )
     packet_token_budget = _packet_token_budget_record(
         expected_packet_rows,
@@ -416,6 +425,7 @@ def aggregate_official_results(
             expected_rows=expected_rows,
             expected_model_keys=expected_model_keys,
             registry_model_keys=registry_model_keys,
+            dispatch_provenance=dispatch_provenance,
             packet_token_budget=packet_token_budget,
             summaries=summaries,
             accounting_records=accounting_records,
@@ -1050,6 +1060,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--dispatch-provenance",
+        type=Path,
+        help=(
+            "Validated JSON provenance for original/amendment dispatches. The "
+            "record must cover every expected registry model."
+        ),
+    )
+    parser.add_argument(
         "--allow-incomplete-model-set",
         action="store_true",
         help=(
@@ -1125,6 +1143,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             clean_motion_count=cast(int, args.clean_motion_count),
             prediction_unit_count=cast(int, args.prediction_unit_count),
             model_registry_path=cast(Path | None, args.model_registry),
+            dispatch_provenance_path=cast(Path | None, args.dispatch_provenance),
             baseline_training_examples_path=cast(
                 Path | None,
                 args.baseline_training_examples,
@@ -1231,6 +1250,23 @@ def _registry_entries(
     if config.model_registry_path is None:
         return ()
     return load_model_registry(config.model_registry_path).entries
+
+
+def _dispatch_provenance(
+    config: OfficialAggregationConfig,
+    *,
+    expected_model_keys: Sequence[str],
+) -> JsonRecord | None:
+    if config.dispatch_provenance_path is None:
+        return None
+    try:
+        return load_dispatch_provenance(
+            config.dispatch_provenance_path,
+            expected_cycle_id=config.cycle_id,
+            expected_model_keys=expected_model_keys,
+        )
+    except DispatchProvenanceError as exc:
+        raise OfficialAggregationError(str(exc)) from exc
 
 
 def _packet_token_budget_record(
@@ -2225,6 +2261,7 @@ def _aggregate_run_card(
     expected_rows: Mapping[OutputKey, JsonRecord],
     expected_model_keys: Sequence[str],
     registry_model_keys: Sequence[str],
+    dispatch_provenance: Mapping[str, Any] | None,
     packet_token_budget: Mapping[str, Any],
     summaries: Sequence[ScoreSummary],
     accounting_records: Sequence[Mapping[str, Any]],
@@ -2289,6 +2326,9 @@ def _aggregate_run_card(
         ),
         "registry_model_keys": list(registry_model_keys),
         "expected_model_keys": list(expected_model_keys),
+        "dispatch_provenance": (
+            dict(dispatch_provenance) if dispatch_provenance is not None else None
+        ),
         "allow_incomplete_model_set": config.allow_incomplete_model_set,
         "allow_no_baselines": config.allow_no_baselines,
         "deferred_ablations": list(config.deferred_ablations),

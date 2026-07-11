@@ -35,17 +35,19 @@ uv run legalforecast publish aggregate \
   --per-case-dir tmp/official-downloads/<cycle_id> \
   --run-input-manifest manifests/<cycle_id>.run-inputs.json \
   --model-registry manifests/<cycle_id>.model-registry.json \
+  --dispatch-provenance tmp/official-downloads/<cycle_id>/lfb-dispatch-provenance.json \
   --labels private/labels/<cycle_id>.labels.jsonl \
   --output-dir tmp/official-aggregate/<cycle_id> \
   --cycle-id <cycle_id> \
   --cycle-series <cycle_series> \
   --clean-motion-count <count> \
   --prediction-unit-count <count> \
-  --model-key provider:model-a \
   --allow-no-baselines
 ```
 
-Use `--baseline-training-examples <frozen-corpus.jsonl>` instead of `--allow-no-baselines` when the cycle has a frozen baseline-training corpus. Repeat `--model-key` for every expected evaluated model. Omit `--ablation` for the headline multi-ablation aggregate; passing it deliberately requests a single-ablation diagnostic.
+Use `--baseline-training-examples <frozen-corpus.jsonl>` instead of `--allow-no-baselines` when the cycle has a frozen baseline-training corpus. The registry defines the complete expected model set; do not narrow an amended union with `--model-key`. Omit `--dispatch-provenance` only for a legacy run created before dispatch provenance existed. Omit `--ablation` for the headline multi-ablation aggregate; passing it deliberately requests a single-ablation diagnostic.
+
+For an amended cycle, verify that the per-case tree is the durable union across every dispatch, the provenance freeze chain is contiguous and rooted in the original commitment, each dispatch contains only models introduced by its freeze, and every registry model maps to exactly one introducing freeze. Compare the original models' retained per-case artifact hashes with their pre-amendment hashes before accepting the superseding aggregate.
 
 Render the public result only after aggregation succeeds:
 
@@ -86,7 +88,7 @@ Source handles and hashes can support an audit without granting redistribution r
 
 1. Confirm the release SHA and hash-only freeze commitment predate the live outputs.
 2. Verify the frozen run-input manifest, labels, registry, packet hashes, scorer, prompt, and other committed artifacts.
-3. Confirm the per-case artifacts form the expected case, ablation, model, and repeat matrix exactly once.
+3. Confirm the per-case artifacts form the expected case, ablation, model, and repeat matrix exactly once; for amendments, verify the dispatch/freeze/model-entry provenance and original-artifact byte identity.
 4. Recompute the aggregate with the command above and compare artifact hashes.
 5. Recompute public unit-score arithmetic and inspect bootstrap warnings and ablation deltas.
 6. Verify the rendered site was built only from the aggregate's `public/` directory.

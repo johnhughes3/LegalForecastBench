@@ -27,6 +27,8 @@ def test_official_eval_matrix_workflow_is_manual_and_protected() -> None:
         "ablations:",
         "model_registry_uri:",
         "model_keys:",
+        "freeze_bundle_path:",
+        "prior_dispatches_json:",
         "cycle_series:",
         "clean_motion_count:",
         "prediction_unit_count:",
@@ -82,6 +84,41 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
     )
 
 
+def test_amendment_dispatch_is_new_models_only_and_aggregation_unions_runs() -> None:
+    provenance_step = BUILD_MATRIX_JOB.index(
+        "- name: Validate staged dispatch and build provenance"
+    )
+    matrix_step = BUILD_MATRIX_JOB.index("- name: Build matrix JSON")
+    assert provenance_step < matrix_step
+    assert "python -m legalforecast.publication.dispatch_provenance" in BUILD_MATRIX_JOB
+    assert '--current-freeze-bundle "${FREEZE_COMMITMENT_PATH}"' in BUILD_MATRIX_JOB
+    assert '--current-model-registry "${MODEL_REGISTRY_PATH}"' in BUILD_MATRIX_JOB
+    assert 'model_key_args+=(--requested-model-key "${key}")' in BUILD_MATRIX_JOB
+    assert '--prior-dispatches-json "${PRIOR_DISPATCHES_JSON}"' in BUILD_MATRIX_JOB
+    assert "requested model keys must exactly equal models introduced" in (
+        ROOT / "legalforecast" / "publication" / "dispatch_provenance.py"
+    ).read_text(encoding="utf-8")
+
+    durable_step = AGGREGATE_RESULTS_JOB.index(
+        "- name: Download durable union of per-case artifacts"
+    )
+    current_step = AGGREGATE_RESULTS_JOB.index(
+        "- name: Download current dispatch per-case artifacts"
+    )
+    aggregate_step = AGGREGATE_RESULTS_JOB.index("- name: Aggregate official bundle")
+    assert durable_step < current_step < aggregate_step
+    assert '"s3://${LFB_RESULTS_BUCKET}/per-case/${CYCLE_ID}/"' in AGGREGATE_RESULTS_JOB
+    assert "--dispatch-provenance /tmp/lfb-dispatch-provenance.json" in (
+        AGGREGATE_RESULTS_JOB
+    )
+    aggregate_script = AGGREGATE_RESULTS_JOB[aggregate_step:]
+    assert "model_key_args" not in aggregate_script
+    assert '"s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/multi-ablation/"' in (
+        aggregate_script
+    )
+    assert "withdraw" not in aggregate_script.lower()
+
+
 def test_official_eval_matrix_workflow_freezes_labels_before_fanout() -> None:
     download_step = BUILD_MATRIX_JOB.index("- name: Download labels")
     freeze_step = BUILD_MATRIX_JOB.index(
@@ -118,6 +155,8 @@ def test_official_eval_matrix_workflow_freezes_labels_before_fanout() -> None:
     )
     assert '--artifact-path "labels=${LABELS_PATH}"' in BUILD_MATRIX_JOB
     assert '--artifact-path "model_registry=${MODEL_REGISTRY_PATH}"' in BUILD_MATRIX_JOB
+    assert 'amendment_args+=(--amendment-bundle "${bundle_path}")' in BUILD_MATRIX_JOB
+    assert '"${amendment_args[@]}"' in BUILD_MATRIX_JOB
 
 
 def test_official_eval_matrix_workflow_rebuilds_frozen_manifest_for_aggregate() -> None:
@@ -125,7 +164,9 @@ def test_official_eval_matrix_workflow_rebuilds_frozen_manifest_for_aggregate() 
     rebuild_step = AGGREGATE_RESULTS_JOB.index(
         "- name: Rebuild and verify frozen run-input manifest"
     )
-    artifacts_step = AGGREGATE_RESULTS_JOB.index("- name: Download per-case artifacts")
+    artifacts_step = AGGREGATE_RESULTS_JOB.index(
+        "- name: Download durable union of per-case artifacts"
+    )
     aggregate_step = AGGREGATE_RESULTS_JOB.index("- name: Aggregate official bundle")
 
     assert download_step < rebuild_step < artifacts_step < aggregate_step
@@ -316,7 +357,8 @@ def test_official_eval_matrix_workflow_aggregates_after_matrix_success() -> None
         in WORKFLOW
     )
     assert '--deferred-ablation "judge_removed"' in WORKFLOW
-    assert 'model_key_args+=(--model-key "${key}")' in WORKFLOW
+    assert "--dispatch-provenance /tmp/lfb-dispatch-provenance.json" in WORKFLOW
+    assert 'model_key_args+=(--model-key "${key}")' not in AGGREGATE_RESULTS_JOB
     assert (
         '--ablation "${ABLATION}"'
         not in WORKFLOW[WORKFLOW.index("aggregate-results:") :]

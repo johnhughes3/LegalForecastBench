@@ -37,6 +37,16 @@ on:
         required: true
         default: openai:gpt-5.4-mini,anthropic:claude-sonnet-4-6
         type: string
+      freeze_bundle_path:
+        description: Optional committed current freeze bundle path; defaults to manifests/<cycle_id>.freeze.json.
+        required: false
+        default: ""
+        type: string
+      prior_dispatches_json:
+        description: JSON array of prior workflow dispatches and their freeze/model provenance; required for amendments.
+        required: false
+        default: "[]"
+        type: string
       cycle_series:
         description: Cadence classification for the aggregate cycle-power report.
         required: true
@@ -142,6 +152,7 @@ jobs:
       artifact_retention_days: ${{ steps.validate.outputs.artifact_retention_days }}
       case_count: ${{ steps.matrix.outputs.case_count }}
       frozen_manifest_sha256: ${{ steps.freeze_labels.outputs.frozen_manifest_sha256 }}
+      freeze_bundle_path: ${{ steps.validate.outputs.freeze_bundle_path }}
       labels_sha256: ${{ steps.freeze_labels.outputs.labels_sha256 }}
       matrix: ${{ steps.matrix.outputs.matrix }}
       max_parallel: ${{ steps.validate.outputs.max_parallel }}
@@ -170,11 +181,13 @@ jobs:
           ARTIFACT_RETENTION_DAYS_INPUT: ${{ inputs.artifact_retention_days }}
           ABLATIONS_INPUT: ${{ inputs.ablations }}
           CLEAN_MOTION_COUNT_INPUT: ${{ inputs.clean_motion_count }}
+          CYCLE_ID_INPUT: ${{ inputs.cycle_id }}
           DRY_RUN_INPUT: ${{ inputs.dry_run }}
           ELAPSED_DAYS_INPUT: ${{ inputs.elapsed_days }}
           HAS_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
           HAS_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY != '' }}
           HAS_OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY != '' }}
+          FREEZE_BUNDLE_PATH_INPUT: ${{ inputs.freeze_bundle_path }}
           LABELS_URI: ${{ inputs.labels_uri }}
           LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
           LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
@@ -231,6 +244,21 @@ jobs:
           esac
           if [[ -z "${MODEL_KEYS//[[:space:]]/}" ]]; then
             echo "model_keys must include at least one provider:model_id key." >&2
+            exit 1
+          fi
+          freeze_bundle_path="${FREEZE_BUNDLE_PATH_INPUT//[[:space:]]/}"
+          if [[ -z "${freeze_bundle_path}" ]]; then
+            freeze_bundle_path="manifests/${CYCLE_ID_INPUT}.freeze.json"
+          fi
+          case "${freeze_bundle_path}" in
+            manifests/*.freeze.json) ;;
+            *)
+              echo "freeze_bundle_path must be a committed manifests/*.freeze.json path." >&2
+              exit 1
+              ;;
+          esac
+          if [[ "${freeze_bundle_path}" == *".."* ]]; then
+            echo "freeze_bundle_path must not contain '..'." >&2
             exit 1
           fi
           if [[ -z "${ABLATIONS_INPUT//[[:space:]]/}" ]]; then
@@ -341,6 +369,7 @@ jobs:
           fi
           {
             echo "artifact_retention_days=${ARTIFACT_RETENTION_DAYS_INPUT}"
+            echo "freeze_bundle_path=${freeze_bundle_path}"
             echo "max_parallel=${MAX_PARALLEL_INPUT}"
             echo "release_sha=${release_sha}"
           } >> "${GITHUB_OUTPUT}"
@@ -531,7 +560,7 @@ jobs:
         shell: bash
         env:
           CYCLE_ID: ${{ inputs.cycle_id }}
-          FREEZE_COMMITMENT_PATH: manifests/${{ inputs.cycle_id }}.freeze.json
+          FREEZE_COMMITMENT_PATH: ${{ steps.validate.outputs.freeze_bundle_path }}
           LABELS_PATH: /tmp/lfb-labels.jsonl
           MODEL_REGISTRY_PATH: /tmp/lfb-model-registry.json
         run: |
@@ -540,12 +569,54 @@ jobs:
             echo "pre-run freeze commitment is missing: ${FREEZE_COMMITMENT_PATH}" >&2
             exit 1
           fi
+          amendment_args=()
+          while IFS= read -r bundle_path; do
+            if [[ "${bundle_path}" != "${FREEZE_COMMITMENT_PATH}" ]]; then
+              amendment_args+=(--amendment-bundle "${bundle_path}")
+            fi
+          done < <(find manifests -type f -name '*.freeze.json' -print | sort)
           python -m legalforecast.protocol.freeze verify \
             --bundle "${FREEZE_COMMITMENT_PATH}" \
             --cycle-id "${CYCLE_ID}" \
             --root "." \
             --artifact-path "labels=${LABELS_PATH}" \
-            --artifact-path "model_registry=${MODEL_REGISTRY_PATH}"
+            --artifact-path "model_registry=${MODEL_REGISTRY_PATH}" \
+            "${amendment_args[@]}"
+
+      - name: Validate staged dispatch and build provenance
+        shell: bash
+        env:
+          CYCLE_ID: ${{ inputs.cycle_id }}
+          FREEZE_COMMITMENT_PATH: ${{ steps.validate.outputs.freeze_bundle_path }}
+          MODEL_KEYS: ${{ inputs.model_keys }}
+          MODEL_REGISTRY_PATH: /tmp/lfb-model-registry.json
+          PRIOR_DISPATCHES_JSON: ${{ inputs.prior_dispatches_json }}
+          WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          candidate_args=()
+          while IFS= read -r bundle_path; do
+            candidate_args+=(--candidate-freeze-bundle "${bundle_path}")
+          done < <(find manifests -type f -name '*.freeze.json' -print | sort)
+          model_key_args=()
+          IFS=',' read -ra requested_provider_keys <<< "${MODEL_KEYS}"
+          for raw_key in "${requested_provider_keys[@]}"; do
+            key="${raw_key//[[:space:]]/}"
+            [[ -z "${key}" ]] && continue
+            model_key_args+=(--requested-model-key "${key}")
+          done
+          python -m legalforecast.publication.dispatch_provenance \
+            --current-freeze-bundle "${FREEZE_COMMITMENT_PATH}" \
+            "${candidate_args[@]}" \
+            --root . \
+            --current-model-registry "${MODEL_REGISTRY_PATH}" \
+            --prior-dispatches-json "${PRIOR_DISPATCHES_JSON}" \
+            --workflow-run-id "${WORKFLOW_RUN_ID}" \
+            --workflow-run-attempt "${WORKFLOW_RUN_ATTEMPT}" \
+            --supersedes-report-uri "s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/multi-ablation/" \
+            "${model_key_args[@]}" \
+            --output /tmp/lfb-dispatch-provenance.json
 
       - name: Build matrix JSON
         id: matrix
@@ -790,6 +861,16 @@ jobs:
               output.write(f"model_count={len(requested_model_keys)}\n")
               output.write(f"projected_model_cost_usd={projected_model_cost:.6f}\n")
           PY
+
+      - name: Upload dispatch provenance
+        if: ${{ !inputs.dry_run }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: official-dispatch-provenance-${{ github.run_id }}
+          path: /tmp/lfb-dispatch-provenance.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: ${{ fromJSON(steps.validate.outputs.artifact_retention_days) }}
 
   run-case:
     name: Run ${{ matrix.case_id }} / ${{ matrix.ablation }} / ${{ matrix.model_key }}
@@ -1093,23 +1174,55 @@ jobs:
           print(f"verified frozen manifest: {frozen_manifest_sha256}")
           PY
 
-      - name: Download per-case artifacts
+      - name: Download dispatch provenance
+        uses: actions/download-artifact@v7
+        with:
+          name: official-dispatch-provenance-${{ github.run_id }}
+          path: /tmp
+
+      - name: Download durable union of per-case artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lfb-durable-results /tmp/lfb-per-case-artifacts/durable
+          aws s3 sync \
+            "s3://${LFB_RESULTS_BUCKET}/per-case/${CYCLE_ID}/" \
+            /tmp/lfb-durable-results/ \
+            --only-show-errors
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+
+          source = Path("/tmp/lfb-durable-results")
+          destination = Path("/tmp/lfb-per-case-artifacts/durable")
+          suffixes = {
+              ".runs.jsonl": "runs.jsonl",
+              ".accounting.jsonl": "accounting.jsonl",
+              ".metrics.json": "metrics.json",
+          }
+          for runs_path in source.rglob("*.runs.jsonl"):
+              run_stem = runs_path.name.removesuffix(".runs.jsonl")
+              case_dir = destination / run_stem
+              case_dir.mkdir(parents=True, exist_ok=True)
+              for suffix, output_name in suffixes.items():
+                  artifact = runs_path.with_name(f"{run_stem}{suffix}")
+                  if not artifact.is_file():
+                      raise SystemExit(
+                          f"durable result is incomplete for {run_stem}: {artifact}"
+                      )
+                  shutil.copyfile(artifact, case_dir / output_name)
+          PY
+
+      - name: Download current dispatch per-case artifacts
         uses: actions/download-artifact@v7
         with:
           pattern: official-eval-*
-          path: /tmp/lfb-per-case-artifacts
+          path: /tmp/lfb-current-dispatch-artifacts
 
       - name: Aggregate official bundle
         shell: bash
         run: |
           set -euo pipefail
-          model_key_args=()
-          IFS=',' read -ra requested_provider_keys <<< "${MODEL_KEYS}"
-          for raw_key in "${requested_provider_keys[@]}"; do
-            key="${raw_key//[[:space:]]/}"
-            [[ -z "${key}" ]] && continue
-            model_key_args+=(--model-key "${key}")
-          done
           optional_args=()
           if [[ -n "${ELAPSED_DAYS//[[:space:]]/}" ]]; then
             optional_args+=(--elapsed-days "${ELAPSED_DAYS}")
@@ -1164,6 +1277,7 @@ jobs:
             --per-case-dir /tmp/lfb-per-case-artifacts \
             --run-input-manifest /tmp/lfb-run-inputs-requested-ablations.json \
             --model-registry /tmp/lfb-model-registry.json \
+            --dispatch-provenance /tmp/lfb-dispatch-provenance.json \
             --labels /tmp/lfb-labels.jsonl \
             --output-dir tmp/official-aggregate \
             --cycle-id "${CYCLE_ID}" \
@@ -1171,7 +1285,6 @@ jobs:
             --clean-motion-count "${CLEAN_MOTION_COUNT}" \
             --prediction-unit-count "${PREDICTION_UNIT_COUNT}" \
             --deferred-ablation "judge_removed" \
-            "${model_key_args[@]}" \
             "${optional_args[@]}"
 
       - name: Publish aggregate bundle to S3
