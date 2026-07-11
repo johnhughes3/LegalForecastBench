@@ -58,6 +58,7 @@ def test_leaderboard_report_emits_json_csv_markdown_and_html() -> None:
     assert [row["model_id"] for row in rows] == ["model-a", "model-b", "model-c"]
     assert model_a["rank"] == 1
     assert model_a["rank_tier"] == 1
+    assert model_a["row_type"] == "model"
     assert model_a["micro_brier"] == 0.10
     assert model_a["cost_per_case"] == 0.030
     assert model_a["mean_tool_calls_per_case"] == 2.0
@@ -81,12 +82,13 @@ def test_leaderboard_report_emits_json_csv_markdown_and_html() -> None:
 
     csv_rows = tuple(csv.DictReader(StringIO(report.to_csv())))
     assert csv_rows[0]["model_id"] == "model-a"
+    assert csv_rows[0]["row_type"] == "model"
     assert csv_rows[0]["micro_brier"] == "0.1"
     assert "delta_vs_best_ci_low" in csv_rows[0]
     assert csv_rows[0]["within_model_micro_brier_stddev"] == "0.015"
 
     markdown = report.to_markdown()
-    assert "| Rank | Tier | Model | Micro-Brier | BSS |" in markdown
+    assert "| Rank | Tier | Model | Type | Micro-Brier | BSS |" in markdown
     assert "Repeat stddev" in markdown
     assert "Rank tiers use Bonferroni-adjusted pairwise bootstrap" in markdown
     assert "## Pareto Frontier" in markdown
@@ -119,6 +121,35 @@ def test_calibration_records_and_svg_preserve_bin_data() -> None:
     assert svg.startswith("<svg")
     assert "model-a" in svg
     assert "calibration-diagonal" in svg
+
+
+def test_baseline_rows_keep_separate_rank_sequence_and_row_type() -> None:
+    report = build_benchmark_leaderboard_report(
+        (
+            _summary("baseline:judge_history", micro_brier=0.05, ece=0.01),
+            _summary("model-a", micro_brier=0.10, ece=0.03),
+            _summary("model-b", micro_brier=0.12, ece=0.04),
+            _summary("baseline:global_base_rate", micro_brier=0.20, ece=0.08),
+        )
+    )
+
+    records = report.to_record()["rows"]
+    assert [row["model_id"] for row in records] == [
+        "model-a",
+        "model-b",
+        "baseline:judge_history",
+        "baseline:global_base_rate",
+    ]
+    assert [row["row_type"] for row in records] == [
+        "model",
+        "model",
+        "baseline",
+        "baseline",
+    ]
+    assert [row["rank"] for row in records] == [1, 2, 1, 2]
+    assert records[0]["delta_vs_best"] is None
+    assert records[1]["delta_vs_best"] is None
+    assert records[2]["delta_vs_best"] is None
 
 
 def test_pareto_frontier_excludes_cost_and_quality_dominated_models() -> None:

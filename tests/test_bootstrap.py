@@ -186,6 +186,35 @@ def test_bootstrap_is_reproducible_and_pairwise_by_same_sampled_cases() -> None:
         assert len(replicate.sampled_case_ids) == 2
 
 
+def test_bootstrap_pairwise_probability_counts_ties_as_half_credit() -> None:
+    model_a = _model("model-a", {"case-1": (0.1,), "case-2": (0.2,)})
+    model_b = _model("model-b", {"case-1": (0.1,), "case-2": (0.2,)})
+
+    result = paired_clustered_bootstrap(
+        (model_a, model_b),
+        config=BootstrapConfig(replicates=20, seed=9),
+    )
+
+    delta = result.pairwise_deltas[0]
+    assert delta.observed_delta == 0.0
+    assert delta.probability_a_better == 0.5
+
+
+def test_small_cluster_warning_suppresses_uncertainty_tiers() -> None:
+    model_a = _model("model-a", {"case-1": (0.01,)})
+    model_b = _model("model-b", {"case-1": (0.20,)})
+
+    result = paired_clustered_bootstrap(
+        (model_a, model_b),
+        config=BootstrapConfig(replicates=10, seed=11, small_cluster_threshold=2),
+    )
+
+    assert result.small_cluster_warning is not None
+    assert result.cluster_dimension == "case"
+    assert [rank.rank for rank in result.ranks] == [1, 2]
+    assert [rank.tier for rank in result.ranks] == [None, None]
+
+
 def test_rank_tiers_separate_statistically_distinguishable_models() -> None:
     model_a = _model("model-a", {"case-1": (0.01,), "case-2": (0.01,)})
     model_b = _model("model-b", {"case-1": (0.20,), "case-2": (0.20,)})
@@ -193,7 +222,7 @@ def test_rank_tiers_separate_statistically_distinguishable_models() -> None:
 
     result = paired_clustered_bootstrap(
         (model_b, model_c, model_a),
-        config=BootstrapConfig(replicates=50, seed=11),
+        config=BootstrapConfig(replicates=50, seed=11, small_cluster_threshold=1),
     )
     ranks = {rank.model_id: rank for rank in result.ranks}
 
@@ -215,7 +244,12 @@ def test_rank_tiers_record_familywise_multiple_comparison_adjustment() -> None:
 
     result = paired_clustered_bootstrap(
         (model_a, model_b, model_c),
-        config=BootstrapConfig(replicates=50, seed=11, ci_level=0.95),
+        config=BootstrapConfig(
+            replicates=50,
+            seed=11,
+            ci_level=0.95,
+            small_cluster_threshold=1,
+        ),
     )
     record = result.to_record()
 

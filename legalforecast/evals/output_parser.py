@@ -217,7 +217,8 @@ def parse_model_output(
     _require_probability(missing_default_probability, "missing_default_probability")
     raw_hash = _sha256_prefixed(raw_output)
 
-    if _looks_like_refusal(raw_output):
+    decoded = _decode_json_with_repair(raw_output)
+    if decoded.payload is None and _looks_like_refusal(raw_output):
         return _invalid_output(
             status=ParserStatus.REFUSAL,
             raw_output_sha256=raw_hash,
@@ -227,9 +228,10 @@ def parse_model_output(
                 message="Model response appears to refuse the task.",
             ),
             missing_default_probability=missing_default_probability,
+            repair_attempted=decoded.repair_attempted,
+            repair_applied=False,
         )
 
-    decoded = _decode_json_with_repair(raw_output)
     if decoded.payload is None:
         return _invalid_output(
             status=ParserStatus.INVALID_JSON,

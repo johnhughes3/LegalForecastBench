@@ -28,7 +28,7 @@ def test_benchmark_leaderboard_report_combines_headline_metrics() -> None:
             ModelScoreInput("model-a", model_a.unit_scores),
             ModelScoreInput("model-b", model_b.unit_scores),
         ),
-        config=BootstrapConfig(replicates=20, seed=7),
+        config=BootstrapConfig(replicates=20, seed=7, small_cluster_threshold=1),
     )
     accounting_rows = summarize_accounting_leaderboard(
         tuple(record.to_record() for record in _accounting_records())
@@ -57,6 +57,29 @@ def test_benchmark_leaderboard_report_combines_headline_metrics() -> None:
     json.dumps(record)
 
 
+def test_benchmark_report_surfaces_small_cluster_warning_and_omits_tiers() -> None:
+    model_a = _summary("model-a", 0.9, 0.1)
+    model_b = _summary("model-b", 0.6, 0.4)
+    inference = paired_clustered_bootstrap(
+        (
+            ModelScoreInput("model-a", model_a.unit_scores),
+            ModelScoreInput("model-b", model_b.unit_scores),
+        ),
+        config=BootstrapConfig(replicates=20, seed=7, small_cluster_threshold=2),
+    )
+
+    report = build_benchmark_leaderboard_report(
+        (model_b, model_a),
+        inference=inference,
+        title="Fixture Leaderboard",
+    )
+
+    assert report.small_cluster_warning == inference.small_cluster_warning
+    assert [row.rank_tier for row in report.rows] == [None, None]
+    assert "CI warning:" in report.to_markdown()
+    assert "<strong>CI warning:</strong>" in report.to_html()
+
+
 def test_benchmark_report_renders_csv_markdown_and_html() -> None:
     report = build_benchmark_leaderboard_report(
         (_summary("model-a", 0.9, 0.1),),
@@ -78,7 +101,7 @@ def test_benchmark_report_renders_csv_markdown_and_html() -> None:
         table_lines[0].strip("|").split("|")
     )
     assert table_lines[1].count("---:") == 11
-    assert table_lines[1].count("---") == 12
+    assert table_lines[1].count("---") == 13
     assert "<table>" in html
     assert "model-a" in html
 

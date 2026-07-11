@@ -200,7 +200,14 @@ def build_installed_cli_steps(
 
     installed_fixture_dir = output_dir / "installed-fixture-run"
     python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
-    base_command = ("uv", "run", "--no-project", "--python", python_version)
+    base_command = (
+        "uv",
+        "run",
+        "--no-project",
+        "--no-cache",
+        "--python",
+        python_version,
+    )
     return (
         CheckStep(
             "installed wheel CLI help smoke",
@@ -260,6 +267,20 @@ def _validate_fixture_artifacts(fixture_dir: Path) -> None:
     artifact_count = artifact_index.get("artifact_count")
     if not isinstance(artifact_count, int) or artifact_count <= 0:
         raise RuntimeError("artifact-index.json must include a positive artifact_count")
+
+    freeze_record = json.loads(
+        (fixture_dir / "manifests" / "cycle_fixture_e2e.freeze.json").read_text()
+    )
+    frozen_artifacts = freeze_record.get("artifacts")
+    if not isinstance(frozen_artifacts, list):
+        raise RuntimeError("fixture freeze must commit exactly nine artifacts")
+    typed_frozen_artifacts = cast(list[object], frozen_artifacts)
+    if len(typed_frozen_artifacts) != 9:
+        raise RuntimeError("fixture freeze must commit exactly nine artifacts")
+    if (fixture_dir / "preregistration-validation.json").exists():
+        raise RuntimeError(
+            "fixture output contains deprecated preregistration artifact"
+        )
 
 
 def multiharness_smoke_paths(output_dir: Path) -> MultiHarnessSmokePaths:

@@ -21,3 +21,12 @@ def test_scripts_agents_docs_current_entrypoints() -> None:
         assert expected in docs
 
     assert "once those implementation beads are started" not in docs
+
+
+def test_publication_operator_docs_are_present() -> None:
+    for relative_path in (
+        "docs/METHODS.md",
+        "docs/official-run-runbook.md",
+        "docs/reproduce-or-audit.md",
+    ):
+        assert (ROOT / relative_path).is_file()

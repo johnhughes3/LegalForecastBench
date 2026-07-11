@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import socket
 import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -250,6 +251,151 @@ def test_gemini_solver_posts_generate_content_request_and_maps_usage() -> None:
     assert "Return JSON." in body["contents"][0]["parts"][0]["text"]
 
 
+@pytest.mark.parametrize(
+    ("provider", "model_id", "payload", "environ", "path_fragment"),
+    (
+        (
+            "openai",
+            "gpt-test",
+            {
+                "model": "gpt-test-2026-05-14",
+                "output_text": '{"openai":true}',
+                "output": [{"type": "web_search_call", "status": "completed"}],
+                "usage": {"input_tokens": 10, "output_tokens": 2},
+            },
+            {"OPENAI_API_KEY": "openai-secret"},
+            "web_search_call",
+        ),
+        (
+            "anthropic",
+            "claude-test",
+            {
+                "model": "claude-test-2026-05-14",
+                "content": [
+                    {"type": "server_tool_use", "name": "web_search"},
+                    {"type": "text", "text": '{"anthropic":true}'},
+                ],
+                "usage": {"input_tokens": 10, "output_tokens": 2},
+            },
+            {"ANTHROPIC_API_KEY": "anthropic-secret"},
+            "server_tool_use",
+        ),
+        (
+            "google",
+            "gemini-test",
+            {
+                "modelVersion": "models/gemini-test-2026-05-14",
+                "candidates": [
+                    {
+                        "content": {"parts": [{"text": '{"gemini":true}'}]},
+                        "groundingMetadata": {"webSearchQueries": ["law"]},
+                    }
+                ],
+                "usageMetadata": {
+                    "promptTokenCount": 10,
+                    "candidatesTokenCount": 2,
+                },
+            },
+            {"GEMINI_API_KEY": "gemini-secret"},
+            "groundingMetadata",
+        ),
+    ),
+)
+def test_solver_flags_grounding_artifacts_from_provider_payloads(
+    provider: str,
+    model_id: str,
+    payload: dict[str, Any],
+    environ: dict[str, str],
+    path_fragment: str,
+) -> None:
+    response = LiveModelSolver(
+        registry_entry=_registry_entry(provider, model_id),
+        transport=_FixtureTransport(payload),
+        environ=environ,
+    ).solve(_request("prompt"))
+
+    assert response.metadata is not None
+    assert response.metadata["response_grounding_artifacts_detected"] == "true"
+    paths = json.loads(response.metadata["response_grounding_artifact_paths"])
+    assert any(path_fragment in path for path in paths)
+
+
+def test_solver_does_not_flag_empty_optional_grounding_metadata() -> None:
+    response = LiveModelSolver(
+        registry_entry=_registry_entry("google", "gemini-test"),
+        transport=_FixtureTransport(
+            {
+                "modelVersion": "models/gemini-test-2026-05-14",
+                "candidates": [
+                    {
+                        "content": {"parts": [{"text": '{"gemini":true}'}]},
+                        "groundingMetadata": {},
+                    }
+                ],
+                "usageMetadata": {
+                    "promptTokenCount": 10,
+                    "candidatesTokenCount": 2,
+                },
+            }
+        ),
+        environ={"GEMINI_API_KEY": "gemini-secret"},
+    ).solve(_request("prompt"))
+
+    assert response.metadata is not None
+    assert response.metadata["response_grounding_artifacts_detected"] == "false"
+    assert response.metadata["response_grounding_artifact_paths"] == "[]"
+
+
+def test_solver_records_retryable_truncated_finish_reason() -> None:
+    response = LiveModelSolver(
+        registry_entry=_registry_entry("anthropic", "claude-test"),
+        transport=_FixtureTransport(
+            {
+                "model": "claude-test-2026-05-14",
+                "content": [{"type": "text", "text": '{"partial":'}],
+                "stop_reason": "max_tokens",
+                "usage": {"input_tokens": 10, "output_tokens": 2},
+            }
+        ),
+        environ={"ANTHROPIC_API_KEY": "anthropic-secret"},
+    ).solve(_request("prompt"))
+
+    assert response.metadata is not None
+    assert response.metadata["response_finish_reason"] == "max_tokens"
+    assert response.metadata["response_truncated"] == "true"
+    assert response.metadata["response_retryable_ops_event"] == "true"
+    assert (
+        response.metadata["response_retryable_ops_event_reason"]
+        == "response_truncated:max_tokens"
+    )
+
+
+def test_solver_records_content_filtered_finish_reason() -> None:
+    response = LiveModelSolver(
+        registry_entry=_registry_entry("google", "gemini-test"),
+        transport=_FixtureTransport(
+            {
+                "modelVersion": "models/gemini-test-2026-05-14",
+                "candidates": [
+                    {
+                        "content": {"parts": [{"text": '{"blocked":true}'}]},
+                        "finishReason": "SAFETY",
+                    }
+                ],
+                "usageMetadata": {
+                    "promptTokenCount": 10,
+                    "candidatesTokenCount": 2,
+                },
+            }
+        ),
+        environ={"GEMINI_API_KEY": "gemini-secret"},
+    ).solve(_request("prompt"))
+
+    assert response.metadata is not None
+    assert response.metadata["response_finish_reason"] == "SAFETY"
+    assert response.metadata["response_content_filter"] == "true"
+
+
 def test_solver_rejects_registry_entries_that_allow_model_network_or_search() -> None:
     record = _registry_record("openai", "gpt-test")
     record["network_disabled"] = False
@@ -373,6 +519,47 @@ def test_solver_retries_transient_provider_failures() -> None:
     assert len(transport.requests) == 2
 
 
+@pytest.mark.parametrize(
+    "transport_error",
+    (
+        TimeoutError("read timed out"),
+        socket.gaierror(-2, "Name or service not known"),
+    ),
+)
+def test_default_transport_retries_raw_timeout_and_dns_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    transport_error: OSError,
+) -> None:
+    outcomes: list[BaseException | _UrlResponse] = [
+        transport_error,
+        _UrlResponse(
+            {
+                "model": "gpt-test-2026-05-14",
+                "output_text": '{"predictions":[]}',
+                "usage": {"input_tokens": 1000, "output_tokens": 250},
+            }
+        ),
+    ]
+
+    def fake_urlopen(*_args: Any, **_kwargs: Any) -> _UrlResponse:
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry("openai", "gpt-test"),
+        environ={"OPENAI_API_KEY": "openai-secret"},
+        retry_backoff_seconds=0,
+    )
+
+    response = solver.solve(_request("prompt"))
+
+    assert response.request_count == 2
+    assert outcomes == []
+
+
 def test_solver_does_not_retry_nonrecoverable_credit_failures() -> None:
     transport = _RetryTransport(
         (
@@ -429,6 +616,20 @@ class _RetryTransport:
         if isinstance(outcome, BaseException):
             raise outcome
         return outcome
+
+
+@dataclass(slots=True)
+class _UrlResponse:
+    payload: dict[str, Any]
+
+    def __enter__(self) -> _UrlResponse:
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return json.dumps(self.payload).encode("utf-8")
 
 
 def _request(prompt: str) -> Any:

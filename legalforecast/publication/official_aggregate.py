@@ -37,6 +37,12 @@ from legalforecast.evals.bootstrap import (
 )
 from legalforecast.evals.model_registry import ModelRegistryEntry, load_model_registry
 from legalforecast.evals.output_parser import parse_model_output
+from legalforecast.evals.response_verification import (
+    RESPONSE_GROUNDING_ARTIFACTS_DETECTED_FIELD,
+    RESPONSE_RETRYABLE_OPS_EVENT_FIELD,
+    RESPONSE_VERIFICATION_SCHEMA_FIELD,
+    RESPONSE_VERIFICATION_SCHEMA_VERSION,
+)
 from legalforecast.evals.scorers import (
     ScoreSummary,
     ScoringCase,
@@ -472,6 +478,11 @@ def _score_records_with_accounting(
                 f"accounting summary missing for model_id={summary.model_id}"
             )
         record = summary.to_record()
+        record["row_type"] = (
+            "baseline"
+            if summary.model_id in {baseline.value for baseline in BaselineId}
+            else "model"
+        )
         record.update(_public_accounting_fields(row, totals))
         record.update(_reference_skill_fields(summary, reference_summary))
         score_records.append(record)
@@ -1448,6 +1459,7 @@ def _validate_case_records(
         _validate_run_raw_output_hash(record)
     for record in accounting:
         _validate_common_case_fields(key, record)
+    _validate_response_verification_flags(key, runs, accounting)
     _validate_metrics_hashes(key, metrics, runs)
     _validate_accounting_hashes(key, runs, accounting)
 
@@ -1546,6 +1558,65 @@ def _validate_run_raw_output_hash(record: Mapping[str, Any]) -> None:
         raise OfficialAggregationError(
             f"raw_output_sha256 mismatch for case_id={_required_str(record, 'case_id')}"
         )
+
+
+def _validate_response_verification_flags(
+    key: OutputKey,
+    runs: Sequence[Mapping[str, Any]],
+    accounting: Sequence[Mapping[str, Any]],
+) -> None:
+    for record in runs:
+        if _optional_str(record, "execution_backend") == "inspect_ai":
+            schema_version = _metadata_str(record, RESPONSE_VERIFICATION_SCHEMA_FIELD)
+            if schema_version != RESPONSE_VERIFICATION_SCHEMA_VERSION:
+                raise OfficialAggregationError(
+                    "live response verification metadata missing or invalid: "
+                    f"{_output_context(key, record)}"
+                )
+        if _optional_metadata_text_bool(
+            record,
+            RESPONSE_GROUNDING_ARTIFACTS_DETECTED_FIELD,
+        ):
+            raise OfficialAggregationError(
+                "response grounding artifacts detected in official output: "
+                f"{_output_context(key, record)}"
+            )
+        if _optional_metadata_text_bool(
+            record,
+            RESPONSE_RETRYABLE_OPS_EVENT_FIELD,
+        ):
+            raise OfficialAggregationError(
+                "retryable response ops event unresolved in official output: "
+                f"{_output_context(key, record)}"
+            )
+    for record in accounting:
+        if _optional_bool(record, "retryable_ops_event", default=False):
+            raise OfficialAggregationError(
+                "retryable response ops event unresolved in official accounting: "
+                f"{_output_context(key, record)}"
+            )
+
+
+def _optional_metadata_text_bool(
+    record: Mapping[str, Any],
+    field_name: str,
+) -> bool:
+    value = _metadata_str(record, field_name)
+    if value is None:
+        return False
+    normalized = value.lower()
+    if normalized == "true":
+        return True
+    if normalized in {"false", "none", "unknown"}:
+        return False
+    raise OfficialAggregationError(f"metadata[{field_name}] must be a boolean flag")
+
+
+def _output_context(key: OutputKey, record: Mapping[str, Any]) -> str:
+    return (
+        f"case_id={key[0]}, ablation={key[1]}, model_key={key[2]}, "
+        f"model_id={_optional_str(record, 'model_id') or 'unknown'}"
+    )
 
 
 def _validate_metrics_hashes(

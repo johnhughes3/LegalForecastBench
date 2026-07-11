@@ -158,6 +158,7 @@ from legalforecast.protocol import (
     freeze_cycle,
     sha256_file,
 )
+from legalforecast.publication.static_sites import render_official_results_site
 from legalforecast.reporting.fallback_pilot import (
     FallbackCredentialStatus,
     build_fallback_reconstruction_pilot_report,
@@ -407,6 +408,32 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--bootstrap-seed", type=int, default=20260514)
     report.add_argument("--dry-run", action="store_true")
     report.set_defaults(handler=_cmd_report)
+
+    publish = subparsers.add_parser(
+        "publish",
+        help="Aggregate and render official publication artifacts.",
+    )
+    publish_subparsers = publish.add_subparsers(
+        dest="publish_command",
+        metavar="COMMAND",
+    )
+    publish_subparsers.add_parser(
+        "aggregate",
+        add_help=False,
+        help="Aggregate downloaded official per-case artifacts locally.",
+    )
+    publish_site = publish_subparsers.add_parser(
+        "site",
+        help="Render the official results site from public aggregate artifacts.",
+    )
+    publish_site.add_argument(
+        "--official-artifacts-dir",
+        type=Path,
+        required=True,
+        help="Public directory written by publish aggregate.",
+    )
+    publish_site.add_argument("--output-dir", type=Path, required=True)
+    publish_site.set_defaults(handler=_cmd_publish_site)
 
     fixture_alias = subparsers.add_parser(
         "fixture-e2e",
@@ -1247,6 +1274,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         from legalforecast.protocol.freeze import cli_freeze
 
         return cli_freeze(args[1:])
+    if args[:2] == ["publish", "aggregate"]:
+        from legalforecast.publication.official_aggregate import main as aggregate_main
+
+        return aggregate_main(args[2:])
 
     parser = build_parser()
     parsed = parser.parse_args(args)
@@ -1289,6 +1320,24 @@ def _cmd_discover(args: argparse.Namespace) -> int:
     ]
     _write_jsonl(output_path, candidates)
     _log_event("discover", "artifact_written", output_path, len(candidates))
+    return 0
+
+
+def _cmd_publish_site(args: argparse.Namespace) -> int:
+    result = render_official_results_site(
+        official_artifacts_dir=cast(Path, args.official_artifacts_dir),
+        output_dir=cast(Path, args.output_dir),
+    )
+    print(
+        json.dumps(
+            {
+                "artifact_index": str(result.artifact_index_path),
+                "index": str(result.index_path),
+                "output_dir": str(result.output_dir),
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 
@@ -3915,6 +3964,7 @@ def _run_fixture_e2e(output_dir: Path) -> None:
             FrozenArtifactName.HARNESS: harness_path,
             FrozenArtifactName.MODEL_REGISTRY: model_registry_path,
             FrozenArtifactName.BASELINES: baselines_path,
+            FrozenArtifactName.EXCLUSION_LEDGER: output_dir / "exclusion-ledger.jsonl",
         },
         freeze_timestamp=datetime(2026, 5, 14, 12, 5, tzinfo=UTC),
         bundle_output_path=bundle_path,

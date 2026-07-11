@@ -183,6 +183,31 @@ def test_exported_run_input_manifest_can_freeze_late_bound_labels(
     assert frozen["model_packets"] == exported["model_packets"]
 
 
+def test_missing_packet_ablation_uses_official_workflow_default(
+    tmp_path: Path,
+) -> None:
+    source_dir = _source_dir(tmp_path, packet_ablation=None)
+
+    result = build_private_store_export(
+        PrivateStoreExportConfig(
+            source_dir=source_dir,
+            output_dir=tmp_path / "export",
+            cycle_id="cycle_fixture",
+        )
+    )
+
+    run_inputs = _read_json(result.run_input_manifest_path)
+    packets = cast(list[dict[str, object]], run_inputs["model_packets"])
+    assert packets[0]["ablation"] == "full_packet"
+    packet_object_key = packets[0]["packet_object_key"]
+    assert isinstance(packet_object_key, str)
+    assert packet_object_key.endswith("/full_packet.json")
+
+    workflow = Path(".github/workflows/run-benchmark.yaml").read_text(encoding="utf-8")
+    assert "default: full_packet,metadata_only" in workflow
+    assert 'packet.get("ablation", "full_packet")' in workflow
+
+
 def test_private_store_export_module_main_writes_report(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -213,6 +238,7 @@ def _source_dir(
     tmp_path: Path,
     *,
     document_bytes: bytes = b"%PDF fixture doc\n",
+    packet_ablation: str | None = "full_packet",
 ) -> Path:
     source_dir = tmp_path / "source"
     docs_dir = source_dir / "docs"
@@ -255,27 +281,22 @@ def _source_dir(
             }
         ],
     )
-    _write_jsonl(
-        source_dir / "packets.jsonl",
-        [
+    packet: dict[str, object] = {
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "documents": [
             {
-                "candidate_id": "cand-1",
-                "case_id": "case-1",
-                "ablation": "full_packet",
-                "documents": [
-                    {
-                        "source_document_id": "doc-1",
-                        "text": "Complaint text visible to model",
-                        "text_sha256": _sha256_bytes(
-                            b"Complaint text visible to model"
-                        ),
-                        "source_sha256": expected_hash,
-                    }
-                ],
-                "prediction_units": [{"unit_id": "unit-1"}],
+                "source_document_id": "doc-1",
+                "text": "Complaint text visible to model",
+                "text_sha256": _sha256_bytes(b"Complaint text visible to model"),
+                "source_sha256": expected_hash,
             }
         ],
-    )
+        "prediction_units": [{"unit_id": "unit-1"}],
+    }
+    if packet_ablation is not None:
+        packet["ablation"] = packet_ablation
+    _write_jsonl(source_dir / "packets.jsonl", [packet])
     _write_jsonl(
         source_dir / "extracted_texts.jsonl",
         [{"source_document_id": "doc-1", "text_sha256": "d" * 64}],

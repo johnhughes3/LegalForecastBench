@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
 from legalforecast.evals import per_case_runner
+from legalforecast.evals.inspect_task import HarnessRequest, SolverKind, SolverResponse
 from legalforecast.evals.packet_builder import (
     ModelPacket,
     PacketAblation,
@@ -174,6 +177,119 @@ def test_per_case_runner_does_not_resume_incomplete_durable_outputs(
 
     runs = _read_jsonl(tmp_path / "runner-output" / "runs.jsonl")
     assert "0.91" in runs[0]["raw_output"]
+
+
+def test_per_case_runner_replaces_stale_complete_durable_outputs(
+    tmp_path: Path,
+) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(packet_text="original packet"),
+    )
+    results_root = tmp_path / "results-store"
+    run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(results_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "first-output",
+            solver_id="offline:fixture",
+            mock_output=_mock_output(probability=0.25),
+        )
+    )
+    _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(packet_text="refrozen packet"),
+    )
+
+    run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(results_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "second-output",
+            solver_id="offline:fixture",
+            mock_output=_mock_output(probability=0.91),
+            resume_existing=True,
+        )
+    )
+
+    runs = _read_jsonl(tmp_path / "second-output" / "runs.jsonl")
+    assert "0.91" in runs[0]["raw_output"]
+    assert "0.25" not in runs[0]["raw_output"]
+    log_text = (tmp_path / "second-output" / "runner-log.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "resume_existing_rejected" in log_text
+    assert "packet_sha256 does not match" in log_text
+
+
+def test_per_case_runner_recovers_paid_generation_after_canonical_upload_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    results_root = tmp_path / "results-store"
+    runner_module = cast(Any, per_case_runner)
+    original_upload = runner_module._upload_path
+    failed = False
+
+    def fail_first_accounting_upload(
+        source: Path,
+        destination_uri: str,
+        *,
+        content_type: str,
+    ) -> None:
+        nonlocal failed
+        if destination_uri.endswith(".accounting.jsonl") and not failed:
+            failed = True
+            raise OSError("simulated canonical upload failure")
+        original_upload(source, destination_uri, content_type=content_type)
+
+    monkeypatch.setattr(per_case_runner, "_upload_path", fail_first_accounting_upload)
+    with pytest.raises(PerCaseRunnerError, match="simulated canonical upload failure"):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(store_root),
+                results_store_root=str(results_root),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=tmp_path / "failed-output",
+                solver_id="offline:fixture",
+                mock_output=_mock_output(probability=0.25),
+            )
+        )
+    monkeypatch.setattr(per_case_runner, "_upload_path", original_upload)
+
+    run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(results_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "resumed-output",
+            solver_id="offline:fixture",
+            mock_output=_mock_output(probability=0.91),
+            resume_existing=True,
+        )
+    )
+
+    runs = _read_jsonl(tmp_path / "resumed-output" / "runs.jsonl")
+    assert "0.25" in runs[0]["raw_output"]
+    assert "0.91" not in runs[0]["raw_output"]
+    log_text = (tmp_path / "resumed-output" / "runner-log.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "resumed_recovery_bundle" in log_text
 
 
 def test_per_case_runner_accepts_exported_packet_sha256_field(
@@ -410,6 +526,71 @@ def test_per_case_runner_repeats_prebudgeted_subset_rows(tmp_path: Path) -> None
     assert metrics["run_record_count"] == 3
 
 
+def test_per_case_runner_does_not_publish_retryable_or_grounded_response(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    output_dir = tmp_path / "runner-output"
+    solver = _ResponseVerificationSolver(
+        raw_output='{"case_assessment": "cut off"',
+        metadata={
+            "provider": "example-provider",
+            "model_id": "example-model",
+            "model_version_or_snapshot": "2026-05-14",
+            "response_verification_schema_version": (
+                "legalforecast.response_verification.v1"
+            ),
+            "response_grounding_artifacts_detected": "true",
+            "response_grounding_artifact_paths": (
+                '["$.output[0].type=web_search_call"]'
+            ),
+            "response_finish_reason": "max_tokens",
+            "response_truncated": "true",
+            "response_retryable_ops_event": "true",
+            "response_retryable_ops_event_reason": "response_truncated:max_tokens",
+            "response_content_filter": "false",
+        },
+    )
+
+    def fake_solver_for_config(*_args: Any, **_kwargs: Any) -> Any:
+        return solver
+
+    monkeypatch.setattr(per_case_runner, "_solver_for_config", fake_solver_for_config)
+    with pytest.raises(PerCaseRunnerError, match="grounding or search artifacts"):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(store_root),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=output_dir,
+                mock_output=_mock_output(),
+            )
+        )
+
+    assert not (output_dir / "runs.jsonl").exists()
+    assert not (output_dir / "accounting.jsonl").exists()
+    assert not (output_dir / "metrics.json").exists()
+    log_text = (output_dir / "runner-log.jsonl").read_text(encoding="utf-8")
+    assert "runner_failed" in log_text
+
+
+def test_per_case_runner_rejects_retryable_response_before_publish() -> None:
+    runner_module = cast(Any, per_case_runner)
+
+    with pytest.raises(PerCaseRunnerError, match="requires retry"):
+        runner_module._require_publishable_response_verification(
+            {
+                "grounding_artifacts_detected": False,
+                "retryable_ops_event_count": 1,
+            }
+        )
+
+
 def test_per_case_runner_rejects_nonpositive_timeout(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="timeout_seconds must be positive"):
         PerCaseRunnerConfig(
@@ -584,6 +765,29 @@ def test_per_case_runner_rejects_packet_before_release_anchor(tmp_path: Path) ->
                 model_registry_uri=str(registry_path),
                 model_key="example-provider:example-model",
             )
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class _ResponseVerificationSolver:
+    raw_output: str
+    metadata: Mapping[str, str]
+
+    @property
+    def solver_id(self) -> str:
+        return "example-provider:example-model"
+
+    @property
+    def solver_kind(self) -> SolverKind:
+        return SolverKind.CONFIGURED_MODEL_STUB
+
+    def solve(self, _request: HarnessRequest) -> SolverResponse:
+        return SolverResponse(
+            raw_output=self.raw_output,
+            input_tokens=10,
+            output_tokens=2,
+            estimated_cost=0.01,
+            metadata=self.metadata,
         )
 
 
