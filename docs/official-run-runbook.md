@@ -39,7 +39,7 @@ Dispatch `Run Benchmark` from `main` with the frozen `cycle_id`, `run_input_mani
 3. Run the full live matrix only after the dry run and smoke pass.
 4. For transient cell failures, use GitHub's re-run-failed-jobs action. A full redispatch is also safe: complete matching durable cells are reused and are not sent to the provider again.
 
-The resume identity includes the case, ablation, packet hash, solver/model identity, registry content, and repeat count. Failed cells do not become canonical score rows. Preserve failed logs for audit.
+The resume identity includes the case, ablation, packet hash, solver/model identity, registry content, and repeat count. Current results bind to the canonical per-model registry-entry hash, so an unchanged model can resume across a registry amendment. Pre-amendment durable metrics that lack that field instead validate against the exact whole-registry hash recorded by their freeze in the provenance chain; supply that historical registry when recovering those cells. An unknown or mismatched registry hash fails closed rather than re-evaluating and overwriting durable outputs. Failed cells do not become canonical score rows. Preserve failed logs for audit.
 
 ## Aggregation
 

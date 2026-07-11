@@ -720,6 +720,115 @@ def test_resume_accepts_amended_registry_when_model_entry_is_unchanged(
     assert "0.91" not in runs[0]["raw_output"]
 
 
+def test_resume_accepts_legacy_metrics_with_matching_registry_hash(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    results_root = tmp_path / "results-store"
+    registry_path = tmp_path / "model-registry.json"
+    _write_model_registry(registry_path, ("example-model",))
+    first = run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(results_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "first-output",
+            mock_output=_mock_output(probability=0.25),
+            model_registry_uri=str(registry_path),
+            model_key="example-provider:example-model",
+        )
+    )
+    metrics_path = results_root / "metrics" / "cycle-1" / f"{first.run_id}.metrics.json"
+    legacy_metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    del legacy_metrics["model_registry_entry_sha256"]
+    _write_json(metrics_path, legacy_metrics)
+    durable_before_resume = _snapshot_files(results_root)
+
+    def reject_republish(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("legacy resume attempted to republish durable outputs")
+
+    monkeypatch.setattr(per_case_runner, "_upload_path", reject_republish)
+
+    resumed = run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(results_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "second-output",
+            mock_output=_mock_output(probability=0.91),
+            model_registry_uri=str(registry_path),
+            model_key="example-provider:example-model",
+            resume_existing=True,
+        )
+    )
+
+    assert resumed.run_id == first.run_id
+    runs = _read_jsonl(tmp_path / "second-output" / "runs.jsonl")
+    assert "0.25" in runs[0]["raw_output"]
+    assert "0.91" not in runs[0]["raw_output"]
+    assert _snapshot_files(results_root) == durable_before_resume
+
+
+def test_resume_hard_fails_legacy_metrics_with_unknown_registry_hash(
+    tmp_path: Path,
+) -> None:
+    store_root, manifest_path, _packet_sha256 = _write_store_fixture(
+        tmp_path,
+        packet_record=_packet_record(),
+    )
+    results_root = tmp_path / "results-store"
+    registry_path = tmp_path / "model-registry.json"
+    _write_model_registry(registry_path, ("example-model",))
+    first = run_per_case_evaluation(
+        PerCaseRunnerConfig(
+            manifest_uri=str(manifest_path),
+            packet_store_root=str(store_root),
+            results_store_root=str(results_root),
+            case_id="case-1",
+            ablation="full_packet",
+            output_dir=tmp_path / "first-output",
+            mock_output=_mock_output(probability=0.25),
+            model_registry_uri=str(registry_path),
+            model_key="example-provider:example-model",
+        )
+    )
+    metrics_path = results_root / "metrics" / "cycle-1" / f"{first.run_id}.metrics.json"
+    legacy_metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    del legacy_metrics["model_registry_entry_sha256"]
+    legacy_metrics["model_registry_sha256"] = "0" * 64
+    _write_json(metrics_path, legacy_metrics)
+    durable_before_resume = _snapshot_files(results_root)
+
+    with pytest.raises(
+        PerCaseRunnerError,
+        match="model_registry_sha256 does not match",
+    ):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(store_root),
+                results_store_root=str(results_root),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=tmp_path / "second-output",
+                mock_output=_mock_output(probability=0.91),
+                model_registry_uri=str(registry_path),
+                model_key="example-provider:example-model",
+                resume_existing=True,
+            )
+        )
+
+    assert _snapshot_files(results_root) == durable_before_resume
+
+
 def test_resume_rejects_amended_registry_when_model_entry_changed(
     tmp_path: Path,
 ) -> None:
@@ -749,24 +858,28 @@ def test_resume_rejects_amended_registry_when_model_entry_changed(
         ("example-model", "expensive-model"),
         input_price_by_model={"example-model": 9.99},
     )
+    durable_before_resume = _snapshot_files(results_root)
 
-    run_per_case_evaluation(
-        PerCaseRunnerConfig(
-            manifest_uri=str(manifest_path),
-            packet_store_root=str(store_root),
-            results_store_root=str(results_root),
-            case_id="case-1",
-            ablation="full_packet",
-            output_dir=tmp_path / "second-output",
-            mock_output=_mock_output(probability=0.91),
-            model_registry_uri=str(amended_registry_path),
-            model_key="example-provider:example-model",
-            resume_existing=True,
+    with pytest.raises(
+        PerCaseRunnerError,
+        match="model_registry_entry_sha256 does not match",
+    ):
+        run_per_case_evaluation(
+            PerCaseRunnerConfig(
+                manifest_uri=str(manifest_path),
+                packet_store_root=str(store_root),
+                results_store_root=str(results_root),
+                case_id="case-1",
+                ablation="full_packet",
+                output_dir=tmp_path / "second-output",
+                mock_output=_mock_output(probability=0.91),
+                model_registry_uri=str(amended_registry_path),
+                model_key="example-provider:example-model",
+                resume_existing=True,
+            )
         )
-    )
 
-    runs = _read_jsonl(tmp_path / "second-output" / "runs.jsonl")
-    assert "0.91" in runs[0]["raw_output"]
+    assert _snapshot_files(results_root) == durable_before_resume
 
 
 def test_per_case_runner_rejects_unknown_model_key(tmp_path: Path) -> None:
@@ -1030,3 +1143,11 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
+
+
+def _snapshot_files(root: Path) -> dict[Path, bytes]:
+    return {
+        path.relative_to(root): path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }

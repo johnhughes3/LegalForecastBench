@@ -88,6 +88,10 @@ class PerCaseRunnerError(RuntimeError):
     """Base error for per-case runner safety failures."""
 
 
+class _ResumedRegistryMismatchError(PerCaseRunnerError):
+    """Raised when durable outputs cannot be bound to the requested registry."""
+
+
 class PacketManifestError(PerCaseRunnerError):
     """Raised when the runner input manifest is missing or unsafe."""
 
@@ -289,6 +293,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 run_id=run_id,
                 output_keys=output_keys,
                 solver_id=solver_id,
+                model_registry_sha256=model_registry_sha256,
                 model_registry_entry_sha256=registry_entry_sha256,
                 log=log,
             )
@@ -474,6 +479,7 @@ def _try_resume_existing_outputs(
     run_id: str,
     output_keys: _OutputKeys,
     solver_id: str,
+    model_registry_sha256: str | None,
     model_registry_entry_sha256: str | None,
     log: Any,
 ) -> PerCaseRunArtifacts | None:
@@ -496,11 +502,20 @@ def _try_resume_existing_outputs(
             packet_object=packet_object,
             run_id=run_id,
             solver_id=solver_id,
+            model_registry_sha256=model_registry_sha256,
             model_registry_entry_sha256=model_registry_entry_sha256,
             runs=runs,
             accounting=accounting,
             metrics=metrics,
         )
+    except _ResumedRegistryMismatchError as exc:
+        log(
+            "resume_existing_rejected",
+            run_id=run_id,
+            source=existing.source,
+            reason=_safe_error_message(exc),
+        )
+        raise
     except (OSError, ValueError, PerCaseRunnerError) as exc:
         log(
             "resume_existing_rejected",
@@ -670,6 +685,7 @@ def _validate_resumed_outputs(
     packet_object: ModelPacketObject,
     run_id: str,
     solver_id: str,
+    model_registry_sha256: str | None,
     model_registry_entry_sha256: str | None,
     runs: Sequence[Mapping[str, Any]],
     accounting: Sequence[Mapping[str, Any]],
@@ -703,14 +719,23 @@ def _validate_resumed_outputs(
         and optional_str(metrics, "model_key") != config.model_key
     ):
         raise PerCaseRunnerError("resumed metrics model_key does not match")
-    if (
-        model_registry_entry_sha256 is not None
-        and optional_str(metrics, "model_registry_entry_sha256")
-        != model_registry_entry_sha256
-    ):
-        raise PerCaseRunnerError(
-            "resumed metrics model_registry_entry_sha256 does not match"
+    if model_registry_entry_sha256 is not None:
+        stored_registry_entry_sha256 = optional_str(
+            metrics,
+            "model_registry_entry_sha256",
         )
+        if stored_registry_entry_sha256 is not None:
+            if stored_registry_entry_sha256 != model_registry_entry_sha256:
+                raise _ResumedRegistryMismatchError(
+                    "resumed metrics model_registry_entry_sha256 does not match"
+                )
+        elif (
+            model_registry_sha256 is None
+            or optional_str(metrics, "model_registry_sha256") != model_registry_sha256
+        ):
+            raise _ResumedRegistryMismatchError(
+                "resumed metrics model_registry_sha256 does not match"
+            )
     if required_int(metrics, "repeat_count") != config.repeat_count:
         raise PerCaseRunnerError("resumed metrics repeat_count does not match")
     if required_int(metrics, "run_record_count") != len(runs):
