@@ -25,7 +25,11 @@ from legalforecast.ingestion.mtd_acquisition_screen import (
     MtdDocketScreenStatus,
     screen_courtlistener_docket_for_mtd_decision,
 )
-from legalforecast.ingestion.provenance import DocumentRole, sha256_text
+from legalforecast.ingestion.provenance import (
+    AvailabilityStatus,
+    DocumentRole,
+    sha256_text,
+)
 from legalforecast.path_safety import safe_path_component
 from legalforecast.selection.contamination_filters import (
     LeakageSource,
@@ -463,7 +467,11 @@ def _source_document_record(
         "is_mounted_for_model": (
             model_visible and not is_outcome_document and is_public_document
         ),
-        "availability_status": "available",
+        "availability_status": (
+            AvailabilityStatus.AVAILABLE.value
+            if is_public_document
+            else AvailabilityStatus.RESTRICTED.value
+        ),
         "redaction_or_seal_status": redaction_or_seal_status,
         "docket_entry_number": _optional_int(document, "docket_entry_number"),
         "contains_target_outcome": contains_target_outcome,

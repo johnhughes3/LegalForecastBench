@@ -354,6 +354,7 @@ def test_download_restriction_overrides_conflicting_public_selection_metadata(
         if document["source_document_id"] == f"{candidate_id}-sealed"
     )
     assert sealed_source["redaction_or_seal_status"] == "sealed"
+    assert sealed_source["availability_status"] == "restricted"
     assert sealed_source["is_mounted_for_model"] is False
     assert all(
         record["source_document_id"] != f"{candidate_id}-sealed"
