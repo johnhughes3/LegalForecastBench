@@ -15,6 +15,7 @@ from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
     earliest_eligible_decision_date,
     latest_release_timestamp,
+    model_registry_entry_sha256,
     require_official_registry_entries,
 )
 from legalforecast.selection import TrainingCutoffStatus
@@ -68,6 +69,17 @@ def test_model_registry_entry_round_trips_plan_fields() -> None:
     assert record["provider_training_cutoff"] == "2026-04-01"
     assert record["temperature"] == 0.0
     json.dumps(record)
+
+
+def test_model_registry_entry_hash_is_canonical() -> None:
+    entry = _entry()
+
+    assert model_registry_entry_sha256(entry) == model_registry_entry_sha256(
+        ModelRegistryEntry.from_record(dict(reversed(tuple(entry.to_record().items()))))
+    )
+    assert model_registry_entry_sha256(entry) != model_registry_entry_sha256(
+        _entry(input_token_price=entry.input_token_price + 0.01)
+    )
 
 
 def test_registry_exports_model_run_metadata_for_eligibility_schema() -> None:

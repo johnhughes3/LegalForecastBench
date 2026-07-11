@@ -120,6 +120,7 @@ class FreezeBundle:
     cycle_id: str
     freeze_timestamp: datetime
     artifacts: tuple[FrozenArtifact, ...]
+    amends_bundle_sha256: str | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty(self.cycle_id, "cycle_id")
@@ -134,6 +135,8 @@ class FreezeBundle:
             seen.add(artifact.name)
         if duplicates:
             raise ValueError(f"duplicate freeze artifacts: {sorted(duplicates)}")
+        if self.amends_bundle_sha256 is not None:
+            _require_sha256(self.amends_bundle_sha256, "amends_bundle_sha256")
 
     @property
     def bundle_sha256(self) -> str:
@@ -187,6 +190,8 @@ class FreezeBundle:
                 "sha256": self.artifact(FrozenArtifactName.EXCLUSION_LEDGER).sha256,
             },
         }
+        if self.amends_bundle_sha256 is not None:
+            record["amends_bundle_sha256"] = self.amends_bundle_sha256
         if include_bundle_hash:
             record["hash_bundle_sha256"] = hash_payload(record)
         return record
@@ -224,6 +229,47 @@ def freeze_cycle(
     if bundle_output_path is not None:
         write_hash_bundle(bundle_output_path, bundle)
     return bundle
+
+
+def amend_freeze_cycle(
+    prior_bundle_path: str | Path,
+    model_registry_path: str | Path,
+    *,
+    root_path: str | Path | None = None,
+    prior_bundle_paths: Sequence[str | Path] = (),
+    freeze_timestamp: datetime | None = None,
+    bundle_output_path: str | Path | None = None,
+) -> FreezeBundle:
+    """Create a fail-closed registry-only amendment to an existing freeze."""
+
+    root = Path(root_path) if root_path is not None else None
+    prior = verify_freeze_bundle(
+        prior_bundle_path,
+        root_path=root,
+        amendment_bundle_paths=prior_bundle_paths,
+    )
+    registry_path = Path(model_registry_path)
+    registry_artifact = FrozenArtifact(
+        name=FrozenArtifactName.MODEL_REGISTRY,
+        path=registry_path,
+        sha256=sha256_file(registry_path),
+        size_bytes=registry_path.stat().st_size,
+    )
+    amended = FreezeBundle(
+        cycle_id=prior.cycle_id,
+        freeze_timestamp=freeze_timestamp or datetime.now(UTC),
+        artifacts=tuple(
+            registry_artifact
+            if artifact.name is FrozenArtifactName.MODEL_REGISTRY
+            else artifact
+            for artifact in prior.artifacts
+        ),
+        amends_bundle_sha256=prior.bundle_sha256,
+    )
+    _verify_amendment(parent=prior, amended=amended)
+    if bundle_output_path is not None:
+        write_hash_bundle(bundle_output_path, amended, root_path=root)
+    return amended
 
 
 def write_hash_bundle(
@@ -279,6 +325,7 @@ def load_freeze_bundle(
         cycle_id=cycle_id,
         freeze_timestamp=freeze_timestamp,
         artifacts=artifacts,
+        amends_bundle_sha256=_optional_sha256_string(record, "amends_bundle_sha256"),
     )
 
 
@@ -288,6 +335,7 @@ def verify_freeze_bundle(
     cycle_id: str | None = None,
     root_path: str | Path | None = None,
     artifact_path_overrides: ArtifactPathMap | None = None,
+    amendment_bundle_paths: Sequence[str | Path] = (),
 ) -> FreezeBundle:
     """Load a freeze bundle and raise if any required artifact has drifted."""
 
@@ -301,6 +349,11 @@ def verify_freeze_bundle(
             "pre-run freeze commitment cycle_id does not match dispatch input"
         )
     verify_no_freeze_drift(bundle)
+    _verify_amendment_chain(
+        bundle,
+        amendment_bundle_paths=amendment_bundle_paths,
+        root_path=Path(root_path) if root_path is not None else None,
+    )
     return bundle
 
 
@@ -350,6 +403,110 @@ def verify_no_freeze_drift(bundle: FreezeBundle) -> None:
     raise FreezeProtocolError("; ".join(messages))
 
 
+def _verify_amendment_chain(
+    bundle: FreezeBundle,
+    *,
+    amendment_bundle_paths: Sequence[str | Path],
+    root_path: Path | None,
+) -> None:
+    if bundle.amends_bundle_sha256 is None:
+        return
+    ancestors: dict[str, FreezeBundle] = {}
+    for path in amendment_bundle_paths:
+        ancestor = load_freeze_bundle(path, root_path=root_path)
+        ancestors[ancestor.bundle_sha256] = ancestor
+
+    current = bundle
+    seen = {current.bundle_sha256}
+    while current.amends_bundle_sha256 is not None:
+        parent_hash = current.amends_bundle_sha256
+        parent = ancestors.get(parent_hash)
+        if parent is None:
+            raise FreezeProtocolError(
+                "amendment ancestor bundle is missing from the committed chain: "
+                f"{parent_hash}"
+            )
+        if parent.bundle_sha256 in seen:
+            raise FreezeProtocolError("freeze amendment chain contains a cycle")
+        seen.add(parent.bundle_sha256)
+        verify_no_freeze_drift(parent)
+        _verify_amendment(parent=parent, amended=current)
+        current = parent
+
+
+def _verify_amendment(*, parent: FreezeBundle, amended: FreezeBundle) -> None:
+    if amended.amends_bundle_sha256 != parent.bundle_sha256:
+        raise FreezeProtocolError("amendment does not reference its parent bundle")
+    if amended.cycle_id != parent.cycle_id:
+        raise FreezeProtocolError("amendment cycle_id must match its parent bundle")
+    for name in FrozenArtifactName:
+        if name is FrozenArtifactName.MODEL_REGISTRY:
+            continue
+        if amended.artifact(name).sha256 != parent.artifact(name).sha256:
+            raise FreezeProtocolError(
+                f"amendment may change only model_registry; {name.value} hash changed"
+            )
+
+    parent_registry = _load_registry_for_amendment(parent)
+    amended_registry = _load_registry_for_amendment(amended)
+    parent_entries = {entry.registry_key: entry for entry in parent_registry.entries}
+    amended_entries = {entry.registry_key: entry for entry in amended_registry.entries}
+    missing = sorted(parent_entries.keys() - amended_entries.keys())
+    if missing:
+        raise FreezeProtocolError(
+            f"amended model registry removed existing entries: {missing}"
+        )
+    changed = sorted(
+        key
+        for key, entry in parent_entries.items()
+        if _registry_entry_hash(entry) != _registry_entry_hash(amended_entries[key])
+    )
+    if changed:
+        raise FreezeProtocolError(
+            f"amended model registry existing registry entry changed: {changed}"
+        )
+    added_keys = sorted(amended_entries.keys() - parent_entries.keys())
+    if not added_keys:
+        raise FreezeProtocolError("amended model registry must be a strict superset")
+
+    try:
+        from legalforecast.evals.model_registry import earliest_eligible_decision_date
+
+        prior_anchor = earliest_eligible_decision_date(parent_registry.entries)
+    except ValueError as exc:
+        raise FreezeProtocolError(
+            f"parent registry has no valid release anchor: {exc}"
+        ) from exc
+    late = sorted(
+        key
+        for key in added_keys
+        if amended_entries[key].release_timestamp is None
+        or amended_entries[key].release_timestamp.astimezone(UTC).date() > prior_anchor
+    )
+    if late:
+        raise FreezeProtocolError(
+            "added model raises release anchor beyond "
+            f"{prior_anchor.isoformat()}: {late}"
+        )
+
+
+def _load_registry_for_amendment(bundle: FreezeBundle) -> Any:
+    try:
+        from legalforecast.evals.model_registry import load_model_registry
+
+        return load_model_registry(
+            bundle.artifact(FrozenArtifactName.MODEL_REGISTRY).path
+        )
+    except (OSError, ValueError) as exc:
+        raise FreezeProtocolError(f"invalid amendment model registry: {exc}") from exc
+
+
+def _registry_entry_hash(entry: Any) -> str:
+    from legalforecast.evals.model_registry import model_registry_entry_sha256
+
+    return model_registry_entry_sha256(entry)
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="legalforecast freeze",
@@ -379,6 +536,12 @@ def build_verify_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cycle-id")
     parser.add_argument("--root")
     parser.add_argument(
+        "--amendment-bundle",
+        action="append",
+        default=[],
+        help="Committed ancestor freeze bundle; repeat for the full amendment chain.",
+    )
+    parser.add_argument(
         "--artifact-path",
         action="append",
         default=[],
@@ -391,9 +554,30 @@ def build_verify_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def build_amend_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="legalforecast freeze amend",
+        description="Create a registry-only amendment to a frozen cycle.",
+    )
+    parser.add_argument("--prior-bundle", required=True)
+    parser.add_argument("--model-registry", required=True)
+    parser.add_argument("--root")
+    parser.add_argument(
+        "--amendment-bundle",
+        action="append",
+        default=[],
+        help="Committed ancestor of the prior bundle; repeat for the full chain.",
+    )
+    parser.add_argument("--timestamp")
+    parser.add_argument("--bundle-output", required=True)
+    return parser
+
+
 def cli_freeze(argv: Sequence[str]) -> int:
     if argv and argv[0] == "verify":
         return _cli_verify_freeze(argv[1:])
+    if argv and argv[0] == "amend":
+        return _cli_amend_freeze(argv[1:])
 
     parser = build_arg_parser()
     args = parser.parse_args(argv)
@@ -428,6 +612,29 @@ def cli_freeze(argv: Sequence[str]) -> int:
     return 0
 
 
+def _cli_amend_freeze(argv: Sequence[str]) -> int:
+    parser = build_amend_arg_parser()
+    args = parser.parse_args(argv)
+    try:
+        bundle = amend_freeze_cycle(
+            cast(str, args.prior_bundle),
+            cast(str, args.model_registry),
+            root_path=cast(str | None, args.root),
+            prior_bundle_paths=cast(Sequence[str], args.amendment_bundle),
+            freeze_timestamp=(
+                _parse_timestamp(cast(str, args.timestamp))
+                if args.timestamp is not None
+                else None
+            ),
+            bundle_output_path=cast(str, args.bundle_output),
+        )
+    except (FreezeProtocolError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(json.dumps(bundle.to_record(root_path=Path.cwd()), sort_keys=True))
+    return 0
+
+
 def _cli_verify_freeze(argv: Sequence[str]) -> int:
     parser = build_verify_arg_parser()
     args = parser.parse_args(argv)
@@ -439,6 +646,7 @@ def _cli_verify_freeze(argv: Sequence[str]) -> int:
             artifact_path_overrides=_parse_artifact_path_overrides(
                 cast(Sequence[str], args.artifact_path)
             ),
+            amendment_bundle_paths=cast(Sequence[str], args.amendment_bundle),
         )
     except (FreezeProtocolError, ValueError) as exc:
         print(str(exc), file=sys.stderr)
@@ -668,6 +876,21 @@ def _required_string(record: Mapping[str, Any], field_name: str) -> str:
     value = record.get(field_name)
     if not isinstance(value, str) or not value.strip():
         raise FreezeProtocolError(f"pre-run freeze commitment missing {field_name}")
+    return value
+
+
+def _optional_sha256_string(record: Mapping[str, Any], field_name: str) -> str | None:
+    value = record.get(field_name)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise FreezeProtocolError(f"pre-run freeze commitment has invalid {field_name}")
+    try:
+        _require_sha256(value, field_name)
+    except ValueError as exc:
+        raise FreezeProtocolError(
+            f"pre-run freeze commitment has invalid {field_name}"
+        ) from exc
     return value
 
 

@@ -37,6 +37,7 @@ from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
     earliest_eligible_decision_date,
     load_model_registry,
+    model_registry_entry_sha256,
     require_official_registry_entries,
 )
 from legalforecast.evals.packet_builder import (
@@ -253,6 +254,11 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
         )
         _validate_expected_packet_identity(config, packet_object)
         registry_entry, model_registry_sha256 = _optional_registry_entry(config)
+        registry_entry_sha256 = (
+            model_registry_entry_sha256(registry_entry)
+            if registry_entry is not None
+            else None
+        )
         solver_id = (
             registry_entry.registry_key
             if registry_entry is not None
@@ -274,6 +280,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             backend=config.backend.value,
             model_key=config.model_key,
             model_registry_sha256=model_registry_sha256,
+            model_registry_entry_sha256=registry_entry_sha256,
         )
         if config.resume_existing:
             resumed = _try_resume_existing_outputs(
@@ -282,7 +289,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
                 run_id=run_id,
                 output_keys=output_keys,
                 solver_id=solver_id,
-                model_registry_sha256=model_registry_sha256,
+                model_registry_entry_sha256=registry_entry_sha256,
                 log=log,
             )
             if resumed is not None:
@@ -377,6 +384,7 @@ def run_per_case_evaluation(config: PerCaseRunnerConfig) -> PerCaseRunArtifacts:
             evaluation_timestamp=evaluation_timestamp,
             solver_id=solver_id,
             model_registry_sha256=model_registry_sha256,
+            model_registry_entry_sha256=registry_entry_sha256,
         )
         _write_json(metrics_path, metrics)
         local_paths = (runs_path, accounting_path, metrics_path, log_path)
@@ -466,7 +474,7 @@ def _try_resume_existing_outputs(
     run_id: str,
     output_keys: _OutputKeys,
     solver_id: str,
-    model_registry_sha256: str | None,
+    model_registry_entry_sha256: str | None,
     log: Any,
 ) -> PerCaseRunArtifacts | None:
     existing = _read_existing_output_bytes(config, output_keys=output_keys, log=log)
@@ -488,7 +496,7 @@ def _try_resume_existing_outputs(
             packet_object=packet_object,
             run_id=run_id,
             solver_id=solver_id,
-            model_registry_sha256=model_registry_sha256,
+            model_registry_entry_sha256=model_registry_entry_sha256,
             runs=runs,
             accounting=accounting,
             metrics=metrics,
@@ -662,7 +670,7 @@ def _validate_resumed_outputs(
     packet_object: ModelPacketObject,
     run_id: str,
     solver_id: str,
-    model_registry_sha256: str | None,
+    model_registry_entry_sha256: str | None,
     runs: Sequence[Mapping[str, Any]],
     accounting: Sequence[Mapping[str, Any]],
     metrics: Mapping[str, Any],
@@ -696,10 +704,13 @@ def _validate_resumed_outputs(
     ):
         raise PerCaseRunnerError("resumed metrics model_key does not match")
     if (
-        model_registry_sha256 is not None
-        and optional_str(metrics, "model_registry_sha256") != model_registry_sha256
+        model_registry_entry_sha256 is not None
+        and optional_str(metrics, "model_registry_entry_sha256")
+        != model_registry_entry_sha256
     ):
-        raise PerCaseRunnerError("resumed metrics model_registry_sha256 does not match")
+        raise PerCaseRunnerError(
+            "resumed metrics model_registry_entry_sha256 does not match"
+        )
     if required_int(metrics, "repeat_count") != config.repeat_count:
         raise PerCaseRunnerError("resumed metrics repeat_count does not match")
     if required_int(metrics, "run_record_count") != len(runs):
@@ -919,6 +930,7 @@ def _metrics_record(
     evaluation_timestamp: datetime,
     solver_id: str,
     model_registry_sha256: str | None,
+    model_registry_entry_sha256: str | None,
 ) -> JsonRecord:
     raw_output_hashes = [
         required_str(record, "raw_output_sha256") for record in run_records
@@ -938,6 +950,7 @@ def _metrics_record(
         "model_key": config.model_key,
         "model_registry_uri": config.model_registry_uri,
         "model_registry_sha256": model_registry_sha256,
+        "model_registry_entry_sha256": model_registry_entry_sha256,
         "evaluation_timestamp": _iso_datetime(evaluation_timestamp),
         "packet_object_key": packet_object.object_key,
         "packet_sha256": packet_sha256,

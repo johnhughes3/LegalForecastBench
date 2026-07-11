@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -186,6 +187,18 @@ class ModelRegistry:
     @classmethod
     def from_records(cls, records: Sequence[Mapping[str, Any]]) -> ModelRegistry:
         return cls(tuple(ModelRegistryEntry.from_record(record) for record in records))
+
+
+def model_registry_entry_sha256(entry: ModelRegistryEntry) -> str:
+    """Hash one registry entry using its canonical serialized representation."""
+
+    payload = json.dumps(
+        entry.to_record(),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def latest_release_timestamp(entries: Sequence[ModelRegistryEntry]) -> datetime:

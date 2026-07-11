@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -12,11 +13,16 @@ from legalforecast.protocol import (
     detect_freeze_drift,
     freeze_cycle,
     load_freeze_bundle,
+    sha256_file,
     verify_freeze_bundle,
     verify_no_freeze_drift,
     write_hash_bundle,
 )
-from legalforecast.protocol.freeze import build_arg_parser, cli_freeze
+from legalforecast.protocol.freeze import (
+    amend_freeze_cycle,
+    build_arg_parser,
+    cli_freeze,
+)
 
 FREEZE_TIMESTAMP = datetime(2026, 5, 14, 12, 5, tzinfo=UTC)
 
@@ -134,6 +140,193 @@ def test_freeze_cli_creates_nine_artifact_bundle(tmp_path: Path) -> None:
     assert {artifact["name"] for artifact in bundle["artifacts"]} == {
         name.value for name in FrozenArtifactName
     }
+
+
+def test_amendment_freeze_preserves_artifacts_and_records_parent(
+    tmp_path: Path,
+) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    _write_registry(artifact_paths[FrozenArtifactName.MODEL_REGISTRY], ("model-a",))
+    prior_path = _write_relative_bundle(tmp_path, artifact_paths)
+    amended_registry = tmp_path / "models-amended.json"
+    _write_registry(amended_registry, ("model-a", "model-b"))
+    amended_path = tmp_path / "manifests" / "cycle_fixture.amendment.freeze.json"
+
+    amended = amend_freeze_cycle(
+        prior_path,
+        amended_registry,
+        root_path=tmp_path,
+        freeze_timestamp=FREEZE_TIMESTAMP,
+        bundle_output_path=amended_path,
+    )
+
+    prior = load_freeze_bundle(prior_path, root_path=tmp_path)
+    assert amended.amends_bundle_sha256 == prior.bundle_sha256
+    assert (
+        amended.artifact(FrozenArtifactName.MODEL_REGISTRY).sha256
+        != prior.artifact(FrozenArtifactName.MODEL_REGISTRY).sha256
+    )
+    for name in FrozenArtifactName:
+        if name is not FrozenArtifactName.MODEL_REGISTRY:
+            assert amended.artifact(name).sha256 == prior.artifact(name).sha256
+    assert (
+        verify_freeze_bundle(
+            amended_path,
+            cycle_id="cycle_fixture",
+            root_path=tmp_path,
+            amendment_bundle_paths=(prior_path,),
+        ).bundle_sha256
+        == amended.bundle_sha256
+    )
+
+
+def test_amendment_freeze_rejects_changed_existing_registry_entry(
+    tmp_path: Path,
+) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    _write_registry(artifact_paths[FrozenArtifactName.MODEL_REGISTRY], ("model-a",))
+    prior_path = _write_relative_bundle(tmp_path, artifact_paths)
+    amended_registry = tmp_path / "models-amended.json"
+    _write_registry(
+        amended_registry,
+        ("model-a", "model-b"),
+        input_price_by_model={"model-a": 9.99},
+    )
+
+    with pytest.raises(FreezeProtocolError, match="existing registry entry changed"):
+        amend_freeze_cycle(prior_path, amended_registry, root_path=tmp_path)
+
+
+def test_amendment_freeze_requires_strict_registry_superset(tmp_path: Path) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    _write_registry(artifact_paths[FrozenArtifactName.MODEL_REGISTRY], ("model-a",))
+    prior_path = _write_relative_bundle(tmp_path, artifact_paths)
+    unchanged_registry = tmp_path / "models-unchanged.json"
+    _write_registry(unchanged_registry, ("model-a",))
+
+    with pytest.raises(FreezeProtocolError, match="strict superset"):
+        amend_freeze_cycle(prior_path, unchanged_registry, root_path=tmp_path)
+
+
+def test_amendment_freeze_rejects_added_model_after_release_anchor(
+    tmp_path: Path,
+) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    _write_registry(artifact_paths[FrozenArtifactName.MODEL_REGISTRY], ("model-a",))
+    prior_path = _write_relative_bundle(tmp_path, artifact_paths)
+    amended_registry = tmp_path / "models-amended.json"
+    _write_registry(
+        amended_registry,
+        ("model-a", "model-b"),
+        release_by_model={"model-b": "2026-05-15T00:00:00Z"},
+    )
+
+    with pytest.raises(FreezeProtocolError, match="raises release anchor"):
+        amend_freeze_cycle(prior_path, amended_registry, root_path=tmp_path)
+
+
+def test_verify_amendment_requires_committed_ancestor_bundle(tmp_path: Path) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    _write_registry(artifact_paths[FrozenArtifactName.MODEL_REGISTRY], ("model-a",))
+    prior_path = _write_relative_bundle(tmp_path, artifact_paths)
+    amended_registry = tmp_path / "models-amended.json"
+    _write_registry(amended_registry, ("model-a", "model-b"))
+    amended_path = tmp_path / "manifests" / "cycle_fixture.amendment.freeze.json"
+    amend_freeze_cycle(
+        prior_path,
+        amended_registry,
+        root_path=tmp_path,
+        bundle_output_path=amended_path,
+    )
+
+    with pytest.raises(FreezeProtocolError, match="ancestor bundle is missing"):
+        verify_freeze_bundle(amended_path, root_path=tmp_path)
+
+
+def test_verify_amendment_rejects_cycle_id_change(tmp_path: Path) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    _write_registry(artifact_paths[FrozenArtifactName.MODEL_REGISTRY], ("model-a",))
+    prior_path = _write_relative_bundle(tmp_path, artifact_paths)
+    amended_registry = tmp_path / "models-amended.json"
+    _write_registry(amended_registry, ("model-a", "model-b"))
+    amended = amend_freeze_cycle(prior_path, amended_registry, root_path=tmp_path)
+    invalid_path = tmp_path / "manifests" / "invalid-cycle.freeze.json"
+    write_hash_bundle(
+        invalid_path, replace(amended, cycle_id="other-cycle"), root_path=tmp_path
+    )
+
+    with pytest.raises(FreezeProtocolError, match="cycle_id must match"):
+        verify_freeze_bundle(
+            invalid_path,
+            root_path=tmp_path,
+            amendment_bundle_paths=(prior_path,),
+        )
+
+
+def test_verify_amendment_rejects_non_registry_artifact_change(tmp_path: Path) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    _write_registry(artifact_paths[FrozenArtifactName.MODEL_REGISTRY], ("model-a",))
+    prior_path = _write_relative_bundle(tmp_path, artifact_paths)
+    amended_registry = tmp_path / "models-amended.json"
+    _write_registry(amended_registry, ("model-a", "model-b"))
+    amended = amend_freeze_cycle(prior_path, amended_registry, root_path=tmp_path)
+    amended_prompt = tmp_path / "prompt-amended.md"
+    amended_prompt.write_text("changed prompt", encoding="utf-8")
+    invalid = replace(
+        amended,
+        artifacts=tuple(
+            replace(
+                artifact,
+                path=amended_prompt,
+                sha256=sha256_file(amended_prompt),
+                size_bytes=amended_prompt.stat().st_size,
+            )
+            if artifact.name is FrozenArtifactName.PROMPT
+            else artifact
+            for artifact in amended.artifacts
+        ),
+    )
+    invalid_path = tmp_path / "manifests" / "invalid-prompt.freeze.json"
+    write_hash_bundle(invalid_path, invalid, root_path=tmp_path)
+
+    with pytest.raises(FreezeProtocolError, match="prompt hash changed"):
+        verify_freeze_bundle(
+            invalid_path,
+            root_path=tmp_path,
+            amendment_bundle_paths=(prior_path,),
+        )
+
+
+def test_freeze_amend_cli_creates_verified_amendment(tmp_path: Path) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    _write_registry(artifact_paths[FrozenArtifactName.MODEL_REGISTRY], ("model-a",))
+    prior_path = _write_relative_bundle(tmp_path, artifact_paths)
+    amended_registry = tmp_path / "models-amended.json"
+    _write_registry(amended_registry, ("model-a", "model-b"))
+    output_path = tmp_path / "manifests" / "cli-amendment.freeze.json"
+
+    result = cli_freeze(
+        [
+            "amend",
+            "--prior-bundle",
+            str(prior_path),
+            "--model-registry",
+            str(amended_registry),
+            "--root",
+            str(tmp_path),
+            "--timestamp",
+            "2026-05-14T12:05:00Z",
+            "--bundle-output",
+            str(output_path),
+        ]
+    )
+
+    assert result == 0
+    record = json.loads(output_path.read_text(encoding="utf-8"))
+    assert (
+        record["amends_bundle_sha256"]
+        == load_freeze_bundle(prior_path, root_path=tmp_path).bundle_sha256
+    )
 
 
 def test_verify_freeze_bundle_accepts_clean_relative_bundle(tmp_path: Path) -> None:
@@ -324,3 +517,41 @@ def _write_relative_bundle(
     bundle_path = tmp_path / "manifests" / "cycle_fixture.freeze.json"
     write_hash_bundle(bundle_path, bundle, root_path=tmp_path)
     return bundle_path
+
+
+def _write_registry(
+    path: Path,
+    model_ids: tuple[str, ...],
+    *,
+    input_price_by_model: dict[str, float] | None = None,
+    release_by_model: dict[str, str] | None = None,
+) -> None:
+    prices = input_price_by_model or {}
+    releases = release_by_model or {}
+    records = [
+        {
+            "provider": "example",
+            "model_id": model_id,
+            "display_name": model_id,
+            "model_version_or_snapshot": f"{model_id}-2026-05-14",
+            "release_timestamp": releases.get(model_id, "2026-05-14T09:00:00Z"),
+            "release_timestamp_source": "fixture release note",
+            "provider_training_cutoff_status": "not_disclosed",
+            "provider_training_cutoff": None,
+            "temperature": 0,
+            "top_p": 1,
+            "max_output_tokens": 4096,
+            "network_disabled": True,
+            "search_disabled": True,
+            "tool_policy": "controlled_docket_tool_only",
+            "context_limit": 200000,
+            "pricing_source": "fixture",
+            "input_token_price": prices.get(model_id, 0.25),
+            "output_token_price": 1.0,
+            "known_cutoff_publicity_caveats": [],
+        }
+        for model_id in model_ids
+    ]
+    path.write_text(
+        json.dumps(records, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
