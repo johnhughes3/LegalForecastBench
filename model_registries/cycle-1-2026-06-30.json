@@ -1,0 +1,102 @@
+[
+  {
+    "context_limit": 1050000,
+    "display_name": "GPT-5.6 Sol",
+    "input_token_price": 5.0,
+    "known_cutoff_publicity_caveats": [
+      "OpenAI reports a February 16, 2026 knowledge cutoff.",
+      "OpenAI's model page lists gpt-5.6-sol in its Snapshots section but exposes no separate dated snapshot; this registry freezes the tier-specific callable ID and does not use the gpt-5.6 alias.",
+      "Prompts with more than 272K input tokens are billed at 2x input and 1.5x output; the scalar registry prices record the standard short-context rates."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "gpt-5.6-sol",
+    "model_version_or_snapshot": "gpt-5.6-sol",
+    "network_disabled": true,
+    "output_token_price": 30.0,
+    "pricing_source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol, standard pricing through 272K input tokens, checked 2026-07-11",
+    "provider": "openai",
+    "provider_training_cutoff": "2026-02-16",
+    "provider_training_cutoff_status": "known",
+    "release_timestamp": "2026-06-26T00:00:00Z",
+    "release_timestamp_source": "https://openai.com/index/previewing-gpt-5-6-sol/, restricted API and Codex preview began 2026-06-26, checked 2026-07-11",
+    "search_disabled": true,
+    "temperature": 0.0,
+    "tool_policy": "controlled_docket_tool_only",
+    "top_p": 1.0
+  },
+  {
+    "context_limit": 1050000,
+    "display_name": "GPT-5.6 Terra",
+    "input_token_price": 2.5,
+    "known_cutoff_publicity_caveats": [
+      "OpenAI reports a February 16, 2026 knowledge cutoff.",
+      "OpenAI's model page lists gpt-5.6-terra in its Snapshots section but exposes no separate dated snapshot; this registry freezes the tier-specific callable ID.",
+      "Prompts with more than 272K input tokens are billed at 2x input and 1.5x output; the scalar registry prices record the standard short-context rates."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "gpt-5.6-terra",
+    "model_version_or_snapshot": "gpt-5.6-terra",
+    "network_disabled": true,
+    "output_token_price": 15.0,
+    "pricing_source": "https://developers.openai.com/api/docs/models/gpt-5.6-terra, standard pricing through 272K input tokens, checked 2026-07-11",
+    "provider": "openai",
+    "provider_training_cutoff": "2026-02-16",
+    "provider_training_cutoff_status": "known",
+    "release_timestamp": "2026-06-26T00:00:00Z",
+    "release_timestamp_source": "https://openai.com/index/previewing-gpt-5-6-sol/, restricted API and Codex preview began 2026-06-26, checked 2026-07-11",
+    "search_disabled": true,
+    "temperature": 0.0,
+    "tool_policy": "controlled_docket_tool_only",
+    "top_p": 1.0
+  },
+  {
+    "context_limit": 1050000,
+    "display_name": "GPT-5.6 Luna",
+    "input_token_price": 1.0,
+    "known_cutoff_publicity_caveats": [
+      "OpenAI reports a February 16, 2026 knowledge cutoff.",
+      "OpenAI's model page lists gpt-5.6-luna in its Snapshots section but exposes no separate dated snapshot; this registry freezes the tier-specific callable ID.",
+      "Prompts with more than 272K input tokens are billed at 2x input and 1.5x output; the scalar registry prices record the standard short-context rates."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "gpt-5.6-luna",
+    "model_version_or_snapshot": "gpt-5.6-luna",
+    "network_disabled": true,
+    "output_token_price": 6.0,
+    "pricing_source": "https://developers.openai.com/api/docs/models/gpt-5.6-luna, standard pricing through 272K input tokens, checked 2026-07-11",
+    "provider": "openai",
+    "provider_training_cutoff": "2026-02-16",
+    "provider_training_cutoff_status": "known",
+    "release_timestamp": "2026-06-26T00:00:00Z",
+    "release_timestamp_source": "https://openai.com/index/previewing-gpt-5-6-sol/, restricted API and Codex preview began 2026-06-26, checked 2026-07-11",
+    "search_disabled": true,
+    "temperature": 0.0,
+    "tool_policy": "controlled_docket_tool_only",
+    "top_p": 1.0
+  },
+  {
+    "context_limit": 1000000,
+    "display_name": "Claude Sonnet 5",
+    "input_token_price": 2.0,
+    "known_cutoff_publicity_caveats": [
+      "Anthropic reports a January 2026 training-data cutoff but does not disclose an exact date, so the structured exact-date field remains unknown.",
+      "Anthropic 4.6-generation and later dateless model IDs are pinned snapshots, not evergreen aliases.",
+      "The recorded $2/$10 introductory pricing applies through August 31, 2026; standard $3/$15 pricing starts September 1, 2026."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "claude-sonnet-5",
+    "model_version_or_snapshot": "claude-sonnet-5",
+    "network_disabled": true,
+    "output_token_price": 10.0,
+    "pricing_source": "https://platform.claude.com/docs/en/about-claude/pricing, introductory pricing through 2026-08-31, checked 2026-07-11",
+    "provider": "anthropic",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2026-06-30T00:00:00Z",
+    "release_timestamp_source": "https://www.anthropic.com/news/claude-sonnet-5, Claude API and Claude Platform launch on 2026-06-30, checked 2026-07-11",
+    "search_disabled": true,
+    "temperature": 0.0,
+    "tool_policy": "controlled_docket_tool_only",
+    "top_p": 1.0
+  }
+]

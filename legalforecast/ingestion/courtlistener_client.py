@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -123,7 +124,7 @@ class CourtListenerDocket:
     def from_record(cls, record: Mapping[str, Any]) -> CourtListenerDocket:
         return cls(
             docket_id=_required_string(record, "id", "docket_id", "docketId"),
-            court_id=_optional_string(record, "court", "court_id", "courtId"),
+            court_id=_court_identifier(record),
             docket_number=_optional_string(record, "docket_number", "docketNumber"),
             case_name=_required_string(
                 record,
@@ -178,6 +179,66 @@ class CourtListenerDocketEntry:
     @property
     def has_recap_documents(self) -> bool:
         return bool(self.recap_document_ids)
+
+
+@dataclass(frozen=True, slots=True)
+class CourtListenerRecapSearchHit:
+    """Minimal RECAP search hit used to discover candidate dockets."""
+
+    docket_id: str
+    docket_entry_id: str | None
+    description: str | None
+    entry_date_filed: str | None
+    source_url: str | None
+    raw: Mapping[str, Any]
+
+    @classmethod
+    def from_record(
+        cls,
+        record: Mapping[str, Any],
+    ) -> CourtListenerRecapSearchHit:
+        docket = record.get("docket")
+        docket_record = (
+            cast(Mapping[str, Any], docket) if isinstance(docket, Mapping) else None
+        )
+        docket_id = _optional_string(record, "docket_id", "docketId")
+        if docket_id is None and docket_record is not None:
+            docket_id = _optional_string(docket_record, "id", "docket_id")
+        if (
+            docket_id is None
+            and isinstance(docket, str | int)
+            and not isinstance(
+                docket,
+                bool,
+            )
+        ):
+            docket_id = str(docket)
+        if docket_id is None:
+            raise CourtListenerResponseError(
+                "missing required CourtListener field: docket_id"
+            )
+        return cls(
+            docket_id=docket_id,
+            docket_entry_id=_optional_string(
+                record,
+                "docket_entry_id",
+                "docketEntryId",
+            ),
+            description=_optional_string(
+                record,
+                "description",
+                "short_description",
+                "snippet",
+            ),
+            entry_date_filed=_optional_string(
+                record,
+                "entry_date_filed",
+                "date_filed",
+                "dateFiled",
+            ),
+            source_url=_optional_string(record, "absolute_url", "url"),
+            raw=record,
+        )
 
 
 class UrlLibCourtListenerTransport:
@@ -343,6 +404,36 @@ class CourtListenerClient:
     def get_docket(self, docket_id: str) -> CourtListenerDocket:
         payload = self._request_json("GET", f"/dockets/{docket_id}/", {})
         return CourtListenerDocket.from_record(payload)
+
+    def search_recap_documents(
+        self,
+        query: str,
+        *,
+        cursor: str | None = None,
+        page_size: int = 50,
+    ) -> CourtListenerPage[CourtListenerRecapSearchHit]:
+        """Search public RECAP filings with the CourtListener v4 search API."""
+
+        if not query.strip():
+            raise CourtListenerResponseError("CourtListener search query is required")
+        if page_size <= 0 or page_size > 100:
+            raise CourtListenerResponseError(
+                "CourtListener search page_size must be between 1 and 100"
+            )
+        params: dict[str, Any] = {
+            "q": query,
+            "type": "r",
+            "order_by": "score desc",
+            "available_only": "on",
+            "page_size": page_size,
+        }
+        if cursor is not None:
+            params["cursor"] = cursor
+        payload = self._request_json("GET", "/search/", params)
+        parser: ResponseParser[CourtListenerRecapSearchHit] = (
+            CourtListenerRecapSearchHit.from_record
+        )
+        return _page_from_payload(payload, parser)
 
     def list_docket_entries(
         self,
@@ -546,6 +637,18 @@ def _recap_document_ids(record: Mapping[str, Any]) -> tuple[str, ...]:
         document = _mapping(raw_document, "recap document")
         ids.append(_required_string(document, "id", "recap_document_id"))
     return tuple(ids)
+
+
+def _court_identifier(record: Mapping[str, Any]) -> str | None:
+    value = _optional_string(record, "court_id", "courtId", "court")
+    if value is None:
+        return None
+    parsed = urllib.parse.urlparse(value)
+    if parsed.path:
+        match = re.search(r"/courts/([^/]+)/?$", parsed.path)
+        if match is not None:
+            return match.group(1)
+    return value
 
 
 def _next_cursor(payload: Mapping[str, Any]) -> str | None:

@@ -13,6 +13,20 @@ from pytest import MonkeyPatch, raises
 JsonRecord = dict[str, Any]
 
 
+def test_llm_label_requires_iso_first_written_disposition_date() -> None:
+    selection = _selection_record()
+    del selection["decision_date"]
+    with raises(
+        llm_pipeline.LlmPipelineError,
+        match="missing the first written MTD disposition",
+    ):
+        llm_pipeline._decision_date(selection)
+
+    selection["decision_date"] = "docket-entry-16"
+    with raises(llm_pipeline.LlmPipelineError, match="must be an ISO date"):
+        llm_pipeline._decision_date(selection)
+
+
 def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
@@ -70,8 +84,27 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
     assert units[0]["prediction_units"][0]["unit_id"] == "unit-1"
     unit_audit = _read_jsonl(output_root / "llm-unitization-audit.jsonl")[0]
     assert unit_audit["model_key"] == "openai:gpt-test"
+    assert unit_audit["status"] == "adjudication_pending"
     assert unit_audit["human_verified"] is False
     assert unit_audit["estimated_cost"] > 0
+    unitization_queue = _read_jsonl(output_root / "unitization-review-queue.jsonl")
+    assert unitization_queue == [
+        {
+            "candidate_id": "cand-1",
+            "case_id": "case-1",
+            "review_id": "cand-1:unit-1:stage-a-review",
+            "review_item": {
+                "notes": "Stage A unit requires blinded pre-decision review.",
+                "reason": "low_confidence",
+                "source_document_ids": ["complaint", "mtd"],
+                "unit_id": "unit-1",
+            },
+            "route_reason": "low_confidence",
+            "schema_version": "legalforecast.unitization_review_queue.v1",
+            "status": "pending_adjudication",
+            "unit_id": "unit-1",
+        }
+    ]
 
     assert (
         main(
@@ -99,10 +132,26 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
     labels = _read_jsonl(output_root / "labels.jsonl")
     assert labels[0]["unit_id"] == "unit-1"
     assert labels[0]["fully_dismissed"] is True
+    assert labels[0]["first_written_disposition_date"] == "2026-06-30"
     label_audit = _read_jsonl(output_root / "llm-label-audit.jsonl")[0]
     assert label_audit["consensus_policy"] == "unanimous"
+    assert label_audit["status"] == "adjudication_pending"
     assert label_audit["human_verified"] is False
     assert label_audit["model_outputs"][0]["model_key"] == "openai:gpt-test"
+    queue = _read_jsonl(output_root / "lawyer-review-queue.jsonl")
+    assert [record["review_id"] for record in queue] == ["cand-1:unit-1:label-audit"]
+    assert queue[0]["route_reason"] == "label_audit_sample"
+    assert queue[0]["packet"]["blind_reliability_study"] is True
+    materials = queue[0]["packet"]["materials"]
+    assert [material["kind"] for material in materials] == [
+        "unit_text",
+        "decision_excerpt",
+    ]
+    assert json.loads(materials[0]["text"])["unit_id"] == "unit-1"
+    assert materials[1]["text"] == (
+        "The motion to dismiss Count I is granted without leave to amend."
+    )
+    assert "ensemble" not in queue[0]["packet"]
 
 
 def test_acquisition_llm_label_persists_lawyer_review_queue_with_partial_success(
@@ -207,19 +256,21 @@ def test_acquisition_llm_label_persists_lawyer_review_queue_with_partial_success
     audit = _read_jsonl(output_root / "llm-label-audit.jsonl")[0]
     assert audit["status"] == "adjudication_pending"
     assert audit["human_verified"] is False
-    assert audit["pending_adjudication_unit_ids"] == ["unit-review"]
-    assert audit["pending_adjudication_count"] == 1
+    assert audit["pending_adjudication_unit_ids"] == ["unit-review", "unit-auto"]
+    assert audit["pending_adjudication_count"] == 2
     assert audit["label_count"] == 1
     assert audit["unit_count"] == 2
     assert audit["label_audit_gate"]["status"] == "awaiting_human_adjudicated_labels"
 
     queue = _read_jsonl(output_root / "lawyer-review-queue.jsonl")
-    assert len(queue) == 1
-    assert queue[0]["status"] == "pending_adjudication"
-    assert queue[0]["case_id"] == "case-1"
-    assert queue[0]["unit_id"] == "unit-review"
-    assert queue[0]["route_reason"] == "low_confidence"
-    assert queue[0]["packet"]["review_reason"] == "low_confidence"
+    assert len(queue) == 2
+    queue_by_unit = {record["unit_id"]: record for record in queue}
+    assert queue_by_unit["unit-review"]["status"] == "pending_adjudication"
+    assert queue_by_unit["unit-review"]["case_id"] == "case-1"
+    assert queue_by_unit["unit-review"]["route_reason"] == "low_confidence"
+    assert queue_by_unit["unit-review"]["packet"]["review_reason"] == ("low_confidence")
+    assert queue_by_unit["unit-auto"]["review_id"] == ("cand-1:unit-auto:label-audit")
+    assert queue_by_unit["unit-auto"]["route_reason"] == "label_audit_sample"
 
 
 def test_acquisition_apply_lawyer_review_merges_checked_in_adjudication(
@@ -1216,7 +1267,7 @@ def _fake_completion(*args: Any, **kwargs: Any) -> SolverResponse:
                     "source_document_ids": ["complaint", "mtd"],
                     "challenged_by_motion": True,
                     "challenge_scope": "entire_claim",
-                    "unit_confidence": 0.92,
+                    "unit_confidence": 0.42,
                     "grouping": "individual",
                     "citation_excerpt": "Count I: 10(b).",
                 }
@@ -1253,6 +1304,7 @@ def _selection_record() -> JsonRecord:
     return {
         "candidate_id": "cand-1",
         "case_id": "case-1",
+        "decision_date": "2026-06-30",
         "case_name": "Example v. Issuer",
         "court": "S.D.N.Y.",
         "docket_number": "1:26-cv-1",

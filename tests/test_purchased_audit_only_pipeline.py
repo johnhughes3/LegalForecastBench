@@ -1,0 +1,406 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, cast
+
+import legalforecast.labeling.llm_pipeline as llm_pipeline
+from legalforecast.cli import main
+from legalforecast.evals.inspect_task import SolverResponse
+from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPacerPurchaseAttempt,
+    CaseDevPacerPurchaseStatus,
+)
+from legalforecast.ingestion.free_document_downloader import FixtureFreeDocumentSource
+from legalforecast.ingestion.packet_input_planner import plan_packet_build_inputs
+from legalforecast.ingestion.provenance import DocumentRole
+from legalforecast.ingestion.purchased_document_recovery import (
+    PurchasedDocumentRecoveryRequest,
+    purchased_document_download_manifest_records,
+    recover_purchased_documents,
+)
+
+JsonRecord = dict[str, Any]
+
+
+def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    document_root = output_root / "documents"
+    decision_url = "https://case.dev/download/decision.pdf"
+    [recovery] = recover_purchased_documents(
+        (
+            PurchasedDocumentRecoveryRequest(
+                purchase_attempt=CaseDevPacerPurchaseAttempt(
+                    candidate_id="cand-1",
+                    source_document_id="decision",
+                    status=CaseDevPacerPurchaseStatus.PURCHASED,
+                    fee_acknowledged=True,
+                    pacer_fees={
+                        "pacer_fee_usd": "0.00",
+                        "service_fee_usd": "3.05",
+                        "total_usd": "3.05",
+                    },
+                    download_url=decision_url,
+                ),
+                source_case_id="case-1",
+                court="S.D.N.Y.",
+                docket_number="1:26-cv-00001",
+                document_role=DocumentRole.DECISION,
+                docket_entry_number=16,
+                pre_purchase_evidence={"reason": "first_written_disposition"},
+                is_predecision_material=False,
+                contains_target_outcome=True,
+            ),
+        ),
+        output_root=document_root,
+        source=FixtureFreeDocumentSource({decision_url: b"%PDF paid decision"}),
+        retrieved_at=datetime(2026, 7, 2, tzinfo=UTC),
+    )
+    [decision_download] = purchased_document_download_manifest_records((recovery,))
+    assert decision_download["recovery_status"] == "recovered_audit_only"
+    assert decision_download["parse_purpose"] == "stage_b_labeling"
+    assert decision_download["model_visible"] is False
+    assert decision_download["packet_membership"] == "not_mounted"
+
+    free_downloads = [
+        _free_download(document_root, "complaint", "complaint", 1),
+        _free_download(
+            document_root,
+            "mtd",
+            "motion_to_dismiss_notice",
+            5,
+        ),
+    ]
+    downloads = [*free_downloads, decision_download]
+    download_manifest = tmp_path / "downloads.jsonl"
+    _write_jsonl(download_manifest, downloads)
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-parse-documents",
+                "--download-manifest",
+                str(download_manifest),
+                "--document-root",
+                str(document_root),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    parse_requests = _read_jsonl(output_root / "parse-document-requests.jsonl")
+    assert {record["source_document_id"] for record in parse_requests} == {
+        "complaint",
+        "mtd",
+        "decision",
+    }
+
+    fixture_markdown = tmp_path / "fixture-markdown"
+    fixture_markdown.mkdir()
+    (fixture_markdown / "complaint.md").write_text(
+        "Count I alleges a Section 10(b) claim.",
+        encoding="utf-8",
+    )
+    (fixture_markdown / "mtd.md").write_text(
+        "Defendant moves to dismiss Count I.",
+        encoding="utf-8",
+    )
+    decision_text = "The motion to dismiss Count I is granted without leave to amend."
+    (fixture_markdown / "decision.md").write_text(decision_text, encoding="utf-8")
+    assert (
+        main(
+            [
+                "acquisition",
+                "parse-documents",
+                "--requests",
+                str(output_root / "parse-document-requests.jsonl"),
+                "--output-root",
+                str(output_root),
+                "--fixture-markdown-dir",
+                str(fixture_markdown),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    parser_manifest = output_root / "mistral-markdown-conversions.jsonl"
+    conversions = _read_jsonl(parser_manifest)
+    assert any(
+        record["source_document_id"] == "decision" and record["status"] == "succeeded"
+        for record in conversions
+    )
+
+    selection = _selection()
+    selection_path = tmp_path / "selection.jsonl"
+    units = _prediction_units()
+    units_path = tmp_path / "prediction-units.jsonl"
+    registry_path = tmp_path / "registry.json"
+    _write_jsonl(selection_path, [selection])
+    _write_jsonl(units_path, [units])
+    registry_path.write_text(json.dumps([_registry_record()]), encoding="utf-8")
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", _stage_b_completion)
+    assert (
+        main(
+            [
+                "acquisition",
+                "llm-label",
+                "--selection",
+                str(selection_path),
+                "--parser-manifest",
+                str(parser_manifest),
+                "--prediction-units",
+                str(units_path),
+                "--model-registry",
+                str(registry_path),
+                "--model-key",
+                "openai:gpt-test",
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    [label] = _read_jsonl(output_root / "labels.jsonl")
+    assert label["supporting_citations"] == [
+        {
+            "document_id": "decision",
+            "excerpt": decision_text,
+            "page": None,
+            "paragraph": None,
+        }
+    ]
+
+    raw_html_dir = tmp_path / "raw-html"
+    raw_html_dir.mkdir()
+    (raw_html_dir / "cand-1.html").write_text(_docket_html(), encoding="utf-8")
+    plan = plan_packet_build_inputs(
+        selection_records=(selection,),
+        download_records=downloads,
+        parser_records=conversions,
+        prediction_unit_records=(units,),
+        raw_html_dir=raw_html_dir,
+        document_root=document_root,
+        markdown_root=output_root / "markdown",
+        source_dir=output_root,
+        generated_at=datetime(2026, 7, 2, tzinfo=UTC),
+    )
+    [packet_input] = plan.packet_build_records
+    decision_packet_id = "cand-1-decision"
+    decision_provenance = next(
+        document
+        for document in packet_input["documents"]
+        if document["source_document_id"] == decision_packet_id
+    )
+    assert decision_provenance["is_mounted_for_model"] is False
+    assert decision_provenance["contains_target_outcome"] is True
+    packet_input_path = output_root / "packet-build-input.jsonl"
+    _write_jsonl(packet_input_path, [packet_input])
+    assert (
+        main(
+            [
+                "acquisition",
+                "build-packets",
+                "--input",
+                str(packet_input_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    [packet] = _read_jsonl(output_root / "packets.jsonl")
+    mounted_ids = {document["source_document_id"] for document in packet["documents"]}
+    assert decision_packet_id not in mounted_ids
+    assert decision_packet_id in packet["excluded_document_ids"]
+
+
+def _free_download(
+    document_root: Path,
+    source_document_id: str,
+    role: str,
+    docket_entry_number: int,
+) -> JsonRecord:
+    local_path = f"cand-1/courtlistener/{source_document_id}.pdf"
+    content = f"%PDF {source_document_id}".encode()
+    path = document_root / local_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content)
+    return {
+        "candidate_id": "cand-1",
+        "source_provider": "courtlistener",
+        "source_document_id": source_document_id,
+        "docket_entry_number": docket_entry_number,
+        "document_role": role,
+        "source_url": f"https://storage.courtlistener.com/{source_document_id}.pdf",
+        "local_path": local_path,
+        "sha256": hashlib.sha256(content).hexdigest(),
+        "byte_count": len(content),
+        "free_or_purchased": "free",
+        "retry_count": 0,
+        "rate_limited": False,
+        "reused_existing": False,
+    }
+
+
+def _selection() -> JsonRecord:
+    return {
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "decision_date": "2026-07-01",
+        "case_name": "Example v. Issuer",
+        "court": "S.D.N.Y.",
+        "docket_number": "1:26-cv-00001",
+        "source_url": "https://www.courtlistener.com/docket/cand-1/",
+        "target_motion_entry_numbers": [5],
+        "decision_entry_numbers": [16],
+        "documents": [
+            _selection_document("complaint", "complaint", 1, True, False),
+            _selection_document("mtd", "motion_to_dismiss_notice", 5, True, False),
+            _selection_document("decision", "decision", 16, False, True),
+        ],
+    }
+
+
+def _selection_document(
+    source_document_id: str,
+    role: str,
+    docket_entry_number: int,
+    model_visible: bool,
+    contains_target_outcome: bool,
+) -> JsonRecord:
+    return {
+        "candidate_id": "cand-1",
+        "source_document_id": source_document_id,
+        "docket_entry_number": docket_entry_number,
+        "document_role": role,
+        "description": role,
+        "model_visible": model_visible,
+        "contains_target_outcome": contains_target_outcome,
+        "redaction_or_seal_status": "public",
+    }
+
+
+def _prediction_units() -> JsonRecord:
+    return {
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "prediction_units": [
+            {
+                "unit_id": "unit-1",
+                "count": "Count I",
+                "claim_name": "Section 10(b)",
+                "defendant_group": "Issuer",
+                "challenged_by_motion": True,
+                "challenge_scope": "entire_claim",
+                "unit_confidence": 0.9,
+                "source_citations": [
+                    {
+                        "document_id": "mtd",
+                        "docket_entry_number": 5,
+                        "excerpt": "Defendant moves to dismiss Count I.",
+                    }
+                ],
+                "grouping": "individual",
+                "grouping_rationale": None,
+                "separable_subclaim": None,
+                "uncertainty_notes": None,
+            }
+        ],
+    }
+
+
+def _stage_b_completion(*args: Any, **kwargs: Any) -> SolverResponse:
+    del kwargs
+    prompt = cast(str, args[1])
+    assert "Create Stage B outcome labels" in prompt
+    return SolverResponse(
+        raw_output=json.dumps(
+            {
+                "unit_findings": [
+                    {
+                        "unit_id": "unit-1",
+                        "resolution": "fully_dismissed",
+                        "amendment_signal": "express_denial_of_leave",
+                        "supporting_excerpt": (
+                            "The motion to dismiss Count I is granted without leave "
+                            "to amend."
+                        ),
+                        "labeler_confidence": 0.95,
+                    }
+                ],
+                "missing_unit_flags": [],
+            }
+        ),
+        input_tokens=100,
+        output_tokens=50,
+        estimated_cost=0.01,
+        metadata={"provider": "openai", "model_id": "gpt-test"},
+    )
+
+
+def _registry_record() -> JsonRecord:
+    return {
+        "provider": "openai",
+        "model_id": "gpt-test",
+        "display_name": "GPT Test",
+        "model_version_or_snapshot": "gpt-test-2026-06-26",
+        "release_timestamp": "2026-06-26T00:00:00Z",
+        "release_timestamp_source": "fixture release note",
+        "provider_training_cutoff_status": "known",
+        "provider_training_cutoff": "2026-06-01",
+        "temperature": 0,
+        "top_p": 1,
+        "max_output_tokens": 4096,
+        "network_disabled": True,
+        "search_disabled": True,
+        "tool_policy": "controlled_docket_tool_only",
+        "context_limit": 200000,
+        "pricing_source": "fixture",
+        "input_token_price": 1.0,
+        "output_token_price": 2.0,
+        "known_cutoff_publicity_caveats": [],
+    }
+
+
+def _docket_html() -> str:
+    return """
+    <html><body><div id="docket-entry-table">
+      <div class="row odd" id="entry-1">
+        <div class="col-xs-1"><p>1</p></div>
+        <div class="col-xs-3"><p>Jan 1, 2026</p></div>
+        <div class="col-xs-8"><p>COMPLAINT filed by Plaintiff.</p></div>
+      </div>
+      <div class="row even" id="entry-5">
+        <div class="col-xs-1"><p>5</p></div>
+        <div class="col-xs-3"><p>Feb 1, 2026</p></div>
+        <div class="col-xs-8"><p>MOTION to Dismiss.</p></div>
+      </div>
+      <div class="row odd" id="entry-16">
+        <div class="col-xs-1"><p>16</p></div>
+        <div class="col-xs-3"><p>Jul 1, 2026</p></div>
+        <div class="col-xs-8"><p>ORDER on Motion to Dismiss.</p></div>
+      </div>
+    </div></body></html>
+    """
+
+
+def _write_jsonl(path: Path, records: list[JsonRecord]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),
+        encoding="utf-8",
+    )
+
+
+def _read_jsonl(path: Path) -> list[JsonRecord]:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]

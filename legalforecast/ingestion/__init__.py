@@ -50,6 +50,13 @@ from legalforecast.ingestion.core_document_filter import (
     read_case_relevance_jsonl,
     write_core_document_filter_results,
 )
+from legalforecast.ingestion.courtlistener_case_dev_bridge import (
+    CourtListenerCaseDevBridgeError,
+    CourtListenerCaseDevBridgeResult,
+    bridge_courtlistener_case_dev_documents,
+    bridge_public_plan_paid_gaps,
+    merge_download_manifest_records,
+)
 from legalforecast.ingestion.courtlistener_client import (
     CourtListenerAuthError,
     CourtListenerClient,
@@ -226,6 +233,8 @@ __all__ = [
     "CoreDocumentFilterResult",
     "CourtListenerAuthError",
     "CourtListenerBriefingCompleteness",
+    "CourtListenerCaseDevBridgeError",
+    "CourtListenerCaseDevBridgeResult",
     "CourtListenerClient",
     "CourtListenerClientError",
     "CourtListenerConfig",
@@ -297,6 +306,8 @@ __all__ = [
     "TargetYieldEstimate",
     "UrlLibFreeDocumentSource",
     "assemble_model_packet",
+    "bridge_courtlistener_case_dev_documents",
+    "bridge_public_plan_paid_gaps",
     "build_target_yield_estimate",
     "case_dev_smoke_query_terms",
     "contract_for_setup_runner_label",
@@ -308,6 +319,7 @@ __all__ = [
     "filter_core_documents",
     "filter_core_documents_from_jsonl",
     "iter_setup_runner_document_records",
+    "merge_download_manifest_records",
     "normalize_setup_runner_label",
     "parse_courtlistener_docket_html",
     "parsed_markdown_documents_from_conversion_records",

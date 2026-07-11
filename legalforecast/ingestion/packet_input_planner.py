@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -24,7 +25,11 @@ from legalforecast.ingestion.mtd_acquisition_screen import (
     MtdDocketScreenStatus,
     screen_courtlistener_docket_for_mtd_decision,
 )
-from legalforecast.ingestion.provenance import DocumentRole, sha256_text
+from legalforecast.ingestion.provenance import (
+    AvailabilityStatus,
+    DocumentRole,
+    sha256_text,
+)
 from legalforecast.path_safety import safe_path_component
 from legalforecast.selection.contamination_filters import (
     LeakageSource,
@@ -171,15 +176,20 @@ def _plan_candidate(
     docket_screen = screen_courtlistener_docket_for_mtd_decision(
         page,
         candidate_text=_optional_str(selection, "case_name"),
-        decision_filed_on_or_after=decision_filed_on_or_after,
     )
-    if (
-        decision_filed_on_or_after is not None
-        and docket_screen.status is MtdDocketScreenStatus.EXCLUDED
+    docket_screen_record = docket_screen.to_record()
+    if decision_filed_on_or_after is not None:
+        docket_screen_record = _docket_screen_with_first_disposition_anchor(
+            docket_screen_record,
+            decision_filed_on_or_after=decision_filed_on_or_after,
+        )
+    if decision_filed_on_or_after is not None and (
+        _required_str(docket_screen_record, "status")
+        == MtdDocketScreenStatus.EXCLUDED.value
     ):
         exclusion_record = _release_anchor_exclusion_record(
             selection,
-            docket_screen=docket_screen.to_record(),
+            docket_screen=docket_screen_record,
             decision_filed_on_or_after=decision_filed_on_or_after,
         )
         return _PlannedCandidate(
@@ -188,7 +198,7 @@ def _plan_candidate(
             candidate_manifest_record=_candidate_manifest_record(
                 selection,
                 documents=(),
-                mtd_decision_screen=docket_screen.to_record(),
+                mtd_decision_screen=docket_screen_record,
                 exclusion_ledger_entries=(exclusion_record,),
             ),
             extracted_text_records=(),
@@ -221,17 +231,23 @@ def _plan_candidate(
             packet_document_id=packet_document_id,
             generated_at=generated_at,
         )
-        document_manifest.append(
-            {
-                "source_document_id": packet_document_id,
-                "path": _manifest_path(
-                    document_root / _required_str(download, "local_path"),
-                    source_root=source_root,
-                ),
-            }
-        )
+        is_public_document = _required_str(
+            source_record,
+            "redaction_or_seal_status",
+        ) in {"public", "redacted"}
+        if is_public_document:
+            document_manifest.append(
+                {
+                    "source_document_id": packet_document_id,
+                    "path": _manifest_path(
+                        document_root / _required_str(download, "local_path"),
+                        source_root=source_root,
+                    ),
+                }
+            )
         if (
-            parser_record is not None
+            is_public_document
+            and parser_record is not None
             and _optional_str(parser_record, "status") == "succeeded"
         ):
             if _required_bool(source_record, "is_mounted_for_model"):
@@ -243,14 +259,15 @@ def _plan_candidate(
                 )
                 if document_leakage.findings:
                     exclusion_ledger_records.append(
-                        ExclusionLedgerEntry.from_outcome_leakage(
+                        _document_leakage_exclusion_record(
+                            leakage_result=document_leakage,
+                            packet_document_id=packet_document_id,
                             candidate_id=candidate_id,
                             case_id=_required_str(selection, "case_id"),
                             court=_optional_str(selection, "court"),
                             decision_date=_optional_date(selection, "decision_date")
                             or _optional_date(selection, "decision_entered_date"),
-                            leakage_result=document_leakage,
-                        ).to_record()
+                        )
                     )
                     source_record = {
                         **source_record,
@@ -281,12 +298,31 @@ def _plan_candidate(
         generated_at=generated_at,
     )
     exclusion_ledger_records.extend(docket_entry_plan.exclusion_ledger_records)
+    if exclusion_ledger_records:
+        exclusion_record = _merge_leakage_exclusion_records(
+            selection,
+            exclusion_ledger_records,
+        )
+        return _PlannedCandidate(
+            packet_build_record=None,
+            document_manifest_records=tuple(document_manifest),
+            candidate_manifest_record=_candidate_manifest_record(
+                selection,
+                documents=candidate_documents,
+                mtd_decision_screen=docket_screen_record,
+                exclusion_ledger_entries=(exclusion_record,),
+            ),
+            extracted_text_records=tuple(extracted_texts),
+            exclusion_ledger_records=(exclusion_record,),
+        )
     packet_build_record = {
         "candidate_id": candidate_id,
         "case_id": _required_str(selection, "case_id"),
         "court": _required_str(selection, "court"),
         "docket_number": _required_str(selection, "docket_number"),
         "decision_date": _format_optional_date(_selection_decision_date(selection)),
+        "related_family_id": _optional_str(selection, "related_family_id"),
+        "mdl_family_id": _optional_str(selection, "mdl_family_id"),
         "generated_at": _format_datetime(generated_at),
         "docket_markdown": _controlled_docket_record(
             render_controlled_docket_markdown(
@@ -299,7 +335,7 @@ def _plan_candidate(
                 docket_entry_plan.entries,
             )
         ),
-        "mtd_decision_screen": docket_screen.to_record(),
+        "mtd_decision_screen": docket_screen_record,
         "documents": source_documents,
         "parsed_documents": parsed_documents,
         "prediction_units": _prediction_units_with_packet_document_ids(
@@ -311,7 +347,7 @@ def _plan_candidate(
         ),
         "metadata": _packet_metadata(
             selection,
-            docket_screen=docket_screen.to_record(),
+            docket_screen=docket_screen_record,
             search_query=search_query,
             search_window=search_window,
             decision_filed_on_or_after=decision_filed_on_or_after,
@@ -323,7 +359,7 @@ def _plan_candidate(
         candidate_manifest_record=_candidate_manifest_record(
             selection,
             documents=candidate_documents,
-            mtd_decision_screen=docket_screen.to_record(),
+            mtd_decision_screen=docket_screen_record,
             exclusion_ledger_entries=exclusion_ledger_records,
         ),
         extracted_text_records=tuple(extracted_texts),
@@ -414,6 +450,8 @@ def _source_document_record(
         DocumentRole.ORDER,
         DocumentRole.DECISION,
     }
+    redaction_or_seal_status = _redaction_or_seal_status(document, download)
+    is_public_document = redaction_or_seal_status in {"public", "redacted"}
     return {
         "source_provider": _optional_str(download, "source_provider")
         or "courtlistener",
@@ -426,9 +464,15 @@ def _source_document_record(
         "source_url_or_reference": _required_str(download, "source_url"),
         "sha256": _required_str(download, "sha256"),
         "is_predecision_material": not is_outcome_document,
-        "is_mounted_for_model": model_visible and not is_outcome_document,
-        "availability_status": "available",
-        "redaction_or_seal_status": "public",
+        "is_mounted_for_model": (
+            model_visible and not is_outcome_document and is_public_document
+        ),
+        "availability_status": (
+            AvailabilityStatus.AVAILABLE.value
+            if is_public_document
+            else AvailabilityStatus.RESTRICTED.value
+        ),
+        "redaction_or_seal_status": redaction_or_seal_status,
         "docket_entry_number": _optional_int(document, "docket_entry_number"),
         "contains_target_outcome": contains_target_outcome,
         "packet_section": _packet_section(role, contains_target_outcome),
@@ -436,8 +480,45 @@ def _source_document_record(
             "Prepared from public CourtListener/RECAP acquisition manifest; "
             "original_source_document_id="
             f"{_required_str(document, 'source_document_id')}"
+            + (
+                ""
+                if is_public_document
+                else "; non-public source retained as audit metadata only and "
+                "never mounted or forwarded to packet artifacts"
+            )
         ),
     }
+
+
+def _redaction_or_seal_status(
+    document: Mapping[str, Any],
+    download: Mapping[str, Any],
+) -> str:
+    statuses: list[str] = []
+    for record in (document, download):
+        if record.get("is_sealed") is True:
+            statuses.append("sealed")
+        if record.get("is_private") is True:
+            statuses.append("private")
+        availability_status = _optional_str(record, "availability_status")
+        if availability_status is not None and availability_status.strip().lower() in {
+            "private",
+            "restricted",
+            "sealed",
+        }:
+            statuses.append(availability_status.strip().lower())
+        for field_name in ("redaction_or_seal_status", "seal_status"):
+            status = _optional_str(record, field_name)
+            if status is not None:
+                statuses.append(status.strip().lower())
+
+    for restricted_status in ("sealed", "private", "restricted", "unknown"):
+        if restricted_status in statuses:
+            return restricted_status
+    for status in statuses:
+        if status not in {"public", "redacted"}:
+            return status
+    return "redacted" if "redacted" in statuses else "public"
 
 
 def _packet_section(role: DocumentRole, contains_target_outcome: bool) -> str:
@@ -485,6 +566,10 @@ def _candidate_manifest_record(
         "case_name": _optional_str(selection, "case_name"),
         "court": _required_str(selection, "court"),
         "docket_number": _required_str(selection, "docket_number"),
+        "nature_of_suit": _optional_str(selection, "nature_of_suit"),
+        "nos_macro_category": _optional_str(selection, "nos_macro_category"),
+        "related_family_id": _optional_str(selection, "related_family_id"),
+        "mdl_family_id": _optional_str(selection, "mdl_family_id"),
         "source_url": _optional_str(selection, "source_url"),
         "documents": [dict(document) for document in documents],
         "mtd_decision_screen": (
@@ -515,6 +600,10 @@ def _packet_metadata(
         metadata["decision_date"] = decision_date.isoformat()
     if decision_filed_on_or_after is not None:
         metadata["decision_filed_on_or_after"] = decision_filed_on_or_after.isoformat()
+    for field_name in ("nature_of_suit", "nos_macro_category"):
+        value = _optional_str(selection, field_name)
+        if value is not None:
+            metadata[field_name] = value
     return metadata
 
 
@@ -536,6 +625,10 @@ def _release_anchor_exclusion_record(
     decision_filed_on_or_after: date,
 ) -> dict[str, Any]:
     screen_reasons = tuple(_str_tuple(docket_screen.get("exclusion_reasons")))
+    first_disposition_date = _optional_str(
+        docket_screen,
+        "first_written_mtd_disposition_date",
+    )
     return ExclusionLedgerEntry(
         candidate_id=_required_str(selection, "candidate_id"),
         case_id=_required_str(selection, "case_id"),
@@ -547,14 +640,100 @@ def _release_anchor_exclusion_record(
         secondary_reasons=screen_reasons,
         source_entry_ids=tuple(_decision_entry_source_ids(docket_screen)),
         notes=(
-            "Candidate excluded because no screened MTD decision was filed on or "
-            f"after {decision_filed_on_or_after.isoformat()}; "
+            "Candidate excluded because its chronologically first written MTD "
+            "disposition was not proven to be on or after "
+            f"{decision_filed_on_or_after.isoformat()}; "
+            f"first_disposition_date={first_disposition_date or 'unverified'}; "
             f"screen_status={_required_str(docket_screen, 'status')}"
         ),
     ).to_record()
 
 
+def _docket_screen_with_first_disposition_anchor(
+    docket_screen: Mapping[str, Any],
+    *,
+    decision_filed_on_or_after: date,
+) -> dict[str, Any]:
+    record = dict(docket_screen)
+    decision_entries = _record_sequence(
+        docket_screen.get("decision_entries"),
+        "decision_entries",
+    )
+    dated_entries: list[tuple[date, Mapping[str, Any]]] = []
+    undated_entries: list[Mapping[str, Any]] = []
+    for entry in decision_entries:
+        filed_date = _courtlistener_filed_date(_optional_str(entry, "filed_at"))
+        if filed_date is None:
+            undated_entries.append(entry)
+        else:
+            dated_entries.append((filed_date, entry))
+
+    first_date: date | None = None
+    first_entry: Mapping[str, Any] | None = None
+    exclusion_reasons = tuple(_str_tuple(docket_screen.get("exclusion_reasons")))
+    if undated_entries:
+        first_entry = undated_entries[0]
+        exclusion_reasons = ("first_written_mtd_disposition_date_unverified",)
+    elif dated_entries:
+        first_date, first_entry = min(dated_entries, key=lambda item: item[0])
+        if first_date < decision_filed_on_or_after:
+            exclusion_reasons = ("first_written_mtd_disposition_before_release_anchor",)
+    elif not exclusion_reasons:
+        exclusion_reasons = ("first_written_mtd_disposition_not_found",)
+
+    anchor_passed = (
+        first_date is not None
+        and first_date >= decision_filed_on_or_after
+        and not undated_entries
+    )
+    record.update(
+        {
+            "status": (
+                _required_str(docket_screen, "status")
+                if anchor_passed
+                else MtdDocketScreenStatus.EXCLUDED.value
+            ),
+            "exclusion_reasons": list(exclusion_reasons),
+            "first_written_mtd_disposition_entry": (
+                None if first_entry is None else dict(first_entry)
+            ),
+            "first_written_mtd_disposition_date": (
+                None if first_date is None else first_date.isoformat()
+            ),
+            "decision_filed_on_or_after": decision_filed_on_or_after.isoformat(),
+            "first_written_mtd_disposition_anchor_passed": anchor_passed,
+        }
+    )
+    return record
+
+
+_COURTLISTENER_FILED_DATE_PATTERN = re.compile(r"\b[A-Z][a-z]+\s+\d{1,2},\s+\d{4}\b")
+
+
+def _courtlistener_filed_date(value: str | None) -> date | None:
+    if value is None:
+        return None
+    match = _COURTLISTENER_FILED_DATE_PATTERN.search(value)
+    if match is None:
+        return None
+    for date_format in ("%B %d, %Y", "%b %d, %Y"):
+        try:
+            return datetime.strptime(match.group(0), date_format).date()
+        except ValueError:
+            continue
+    return None
+
+
 def _decision_entry_source_ids(docket_screen: Mapping[str, Any]) -> tuple[str, ...]:
+    first_entry = docket_screen.get("first_written_mtd_disposition_entry")
+    if isinstance(first_entry, Mapping):
+        first_entry_record = cast(Mapping[str, Any], first_entry)
+        row_id = _optional_str(first_entry_record, "row_id")
+        entry_number = _optional_str(first_entry_record, "entry_number")
+        if row_id is not None:
+            return (row_id,)
+        if entry_number is not None:
+            return (f"entry-{entry_number}",)
     source_ids: list[str] = []
     for entry in _record_sequence(
         docket_screen.get("decision_entries"),
@@ -734,6 +913,78 @@ def _document_leakage_result(
         ),
         evaluation_timestamp=evaluation_timestamp,
     )
+
+
+def _document_leakage_exclusion_record(
+    *,
+    leakage_result: OutcomeLeakageFilterResult,
+    packet_document_id: str,
+    candidate_id: str,
+    case_id: str,
+    court: str | None,
+    decision_date: date | None,
+) -> dict[str, Any]:
+    if not leakage_result.findings:
+        raise PacketInputPlanningError(
+            "document leakage exclusion requires at least one finding"
+        )
+    return ExclusionLedgerEntry(
+        candidate_id=candidate_id,
+        case_id=case_id,
+        court=court,
+        decision_date=decision_date,
+        stage=ExclusionStage.LEAKAGE,
+        reason=ExclusionReason.OUTCOME_LEAKAGE.value,
+        secondary_reasons=tuple(
+            finding.leakage_type.value for finding in leakage_result.findings
+        ),
+        source_entry_ids=(),
+        source_document_ids=(packet_document_id,),
+        notes="; ".join(finding.reason for finding in leakage_result.findings),
+    ).to_record()
+
+
+def _merge_leakage_exclusion_records(
+    selection: Mapping[str, Any],
+    records: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    secondary_reasons = _deduplicated_record_strings(
+        records,
+        "secondary_exclusion_reasons",
+    )
+    source_entry_ids = _deduplicated_record_strings(records, "source_entry_ids")
+    source_document_ids = _deduplicated_record_strings(
+        records,
+        "source_document_ids",
+    )
+    notes = tuple(
+        note
+        for record in records
+        if (note := _optional_str(record, "notes")) is not None
+    )
+    return ExclusionLedgerEntry(
+        candidate_id=_required_str(selection, "candidate_id"),
+        case_id=_required_str(selection, "case_id"),
+        court=_optional_str(selection, "court"),
+        decision_date=_optional_date(selection, "decision_date")
+        or _optional_date(selection, "decision_entered_date"),
+        stage=ExclusionStage.LEAKAGE,
+        reason=ExclusionReason.OUTCOME_LEAKAGE.value,
+        secondary_reasons=secondary_reasons,
+        source_entry_ids=source_entry_ids,
+        source_document_ids=source_document_ids,
+        notes="; ".join(dict.fromkeys(notes)),
+    ).to_record()
+
+
+def _deduplicated_record_strings(
+    records: Sequence[Mapping[str, Any]],
+    field_name: str,
+) -> tuple[str, ...]:
+    values = (
+        value for record in records for value in _str_tuple(record.get(field_name))
+    )
+    return tuple(dict.fromkeys(values))
 
 
 def _source_document_ids_by_entry(

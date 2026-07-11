@@ -140,6 +140,267 @@ def test_purchase_missing_uses_fixture_only_after_explicit_fee_flags(
     assert run_card["paid_activity_executed"] is True
 
 
+def test_core_filter_purchase_and_recovery_flow_builds_parser_requests(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    case_relevance_path = tmp_path / "case-relevance.jsonl"
+    _write_jsonl(
+        case_relevance_path,
+        [
+            {
+                "candidate_id": "cand-1",
+                "documents": [
+                    {
+                        "source_document_id": "complaint",
+                        "setup_runner_label": "core_mtd",
+                        "document_role": "complaint",
+                        "docket_entry_number": 1,
+                        "availability_status": "available",
+                        "requires_paid_recovery": False,
+                    },
+                    {
+                        "source_document_id": "mtd-memo",
+                        "setup_runner_label": "core_mtd",
+                        "document_role": "motion_to_dismiss_memorandum",
+                        "docket_entry_number": 34,
+                        "availability_status": "unavailable",
+                        "requires_paid_recovery": True,
+                    },
+                ],
+            }
+        ],
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "filter-core-documents",
+                "--case-relevance",
+                str(case_relevance_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    core_results_path = output_root / "core-filter-results.jsonl"
+    assert _read_jsonl(core_results_path)[0]["purchase_document_ids"] == ["mtd-memo"]
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan",
+                "--core-filter-results",
+                str(core_results_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    purchase_fixture_path = tmp_path / "case-dev-purchase.jsonl"
+    download_url = "https://case.dev/download/mtd-memo.pdf"
+    _write_jsonl(
+        purchase_fixture_path,
+        [
+            {
+                "method": "POST",
+                "path": "/legal/v1/documents/mtd-memo/pacer",
+                "params": {"acknowledgePacerFees": True, "live": True},
+                "status_code": 200,
+                "payload": {
+                    "acknowledgePacerFees": True,
+                    "downloadUrl": download_url,
+                    "pacerFees": {
+                        "pacerFee": 0,
+                        "serviceFee": 3.05,
+                        "total": 3.05,
+                    },
+                },
+            }
+        ],
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "purchase-missing",
+                "--budget-plan",
+                str(output_root / "missing-core-budget-plan.json"),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--live-purchase",
+                "--acknowledge-pacer-fees",
+                "--capability",
+                "document_level_purchase",
+                "--case-dev-fixture",
+                str(purchase_fixture_path),
+            ]
+        )
+        == 0
+    )
+
+    selection_path = tmp_path / "selection.jsonl"
+    _write_jsonl(selection_path, [_packet_selection_record()])
+    document_fixture_path = tmp_path / "purchased-documents.json"
+    _write_json(document_fixture_path, {download_url: "%PDF purchased MTD memo"})
+    assert (
+        main(
+            [
+                "acquisition",
+                "recover-purchased",
+                "--purchase-result",
+                str(output_root / "case-dev-pacer-purchases.json"),
+                "--selection",
+                str(selection_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--fixture-documents",
+                str(document_fixture_path),
+            ]
+        )
+        == 0
+    )
+
+    purchased_manifest_path = output_root / "purchased-document-downloads.jsonl"
+    manifest = _read_jsonl(purchased_manifest_path)
+    assert manifest[0]["free_or_purchased"] == "purchased"
+    assert manifest[0]["purchase_cost_usd"] == "3.05"
+    assert manifest[0]["local_path"] == ("cand-1/case-dev-pacer/entry-34_mtd-memo.pdf")
+    purchased_document_root = output_root / "documents" / "purchased"
+    assert (purchased_document_root / manifest[0]["local_path"]).is_file()
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-parse-documents",
+                "--download-manifest",
+                str(purchased_manifest_path),
+                "--document-root",
+                str(purchased_document_root),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    parser_request = _read_jsonl(output_root / "parse-document-requests.jsonl")[0]
+    assert parser_request["source_document_id"] == "mtd-memo"
+    assert Path(parser_request["input_path"]).is_file()
+
+
+def test_recover_purchased_rejects_unproven_purchase_result(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    output_root = tmp_path / "acquisition"
+    purchase_result_path = tmp_path / "purchase-result.json"
+    selection_path = tmp_path / "selection.jsonl"
+    purchase_result = {
+        "live": True,
+        "acknowledge_pacer_fees": False,
+        "capability": "document_level_purchase",
+        "dry_run": False,
+        "projected_cost_usd": "3.05",
+        "max_projected_budget_usd": "2250.00",
+        "attempts": [],
+    }
+    _write_json(purchase_result_path, purchase_result)
+    _write_jsonl(selection_path, [_packet_selection_record()])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "recover-purchased",
+                "--purchase-result",
+                str(purchase_result_path),
+                "--selection",
+                str(selection_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--fixture-documents",
+                str(tmp_path / "unused.json"),
+            ]
+        )
+        == 2
+    )
+    assert "fee acknowledgment" in capsys.readouterr().err
+    assert not (output_root / "purchased-document-downloads.jsonl").exists()
+    failure = _read_json(output_root / "run-cards" / "recover-purchased.json")
+    assert failure["status"] == "failed"
+    assert "fee acknowledgment" in failure["failure_reason"]
+
+
+def test_recover_purchased_audits_incomplete_recovery_as_failure(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    output_root = tmp_path / "acquisition"
+    purchase_result_path = tmp_path / "purchase-result.json"
+    selection_path = tmp_path / "selection.jsonl"
+    fixture_path = tmp_path / "purchased-documents.json"
+    _write_json(
+        purchase_result_path,
+        {
+            "live": True,
+            "acknowledge_pacer_fees": True,
+            "capability": "document_level_purchase",
+            "dry_run": False,
+            "projected_cost_usd": "3.05",
+            "max_projected_budget_usd": "2250.00",
+            "intended_purchase_count": 1,
+            "executed_purchase_count": 1,
+            "attempts": [
+                {
+                    "candidate_id": "cand-1",
+                    "source_document_id": "mtd-memo",
+                    "status": "purchased",
+                    "reason": None,
+                    "fee_acknowledged": True,
+                    "pacer_fees": {"total_usd": "3.05"},
+                    "download_url": "https://case.dev/download/missing.pdf",
+                }
+            ],
+        },
+    )
+    _write_jsonl(selection_path, [_packet_selection_record()])
+    _write_json(fixture_path, {})
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "recover-purchased",
+                "--purchase-result",
+                str(purchase_result_path),
+                "--selection",
+                str(selection_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--fixture-documents",
+                str(fixture_path),
+            ]
+        )
+        == 2
+    )
+    assert "recovered 0 of 1" in capsys.readouterr().err
+    failure = _read_json(output_root / "run-cards" / "recover-purchased.json")
+    assert failure["status"] == "failed"
+    assert failure["failure_reason"] == "recovered 0 of 1 purchased documents"
+
+
 def test_download_free_fixture_stage_is_idempotent(tmp_path: Path) -> None:
     output_root = tmp_path / "acquisition"
     requests_path = tmp_path / "free-requests.jsonl"
@@ -469,7 +730,16 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
         markdown_path = markdown_root / "cand-1" / f"{source_document_id}.md"
         markdown_path.parent.mkdir(parents=True, exist_ok=True)
         markdown_path.write_text(markdown, encoding="utf-8")
-    _write_jsonl(selection_path, [_packet_selection_record()])
+    selection_record = _packet_selection_record()
+    selection_record.update(
+        {
+            "nature_of_suit": "Civil Rights",
+            "nos_macro_category": "civil_rights",
+            "related_family_id": "related-fixture",
+            "mdl_family_id": "mdl-fixture",
+        }
+    )
+    _write_jsonl(selection_path, [selection_record])
     _write_jsonl(
         downloads_path,
         [
@@ -523,6 +793,10 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     packet_input = _read_jsonl(output_root / "packet-build-input.jsonl")[0]
     assert packet_input["decision_date"] == "2026-05-18"
     assert packet_input["metadata"]["decision_date"] == "2026-05-18"
+    assert packet_input["metadata"]["nature_of_suit"] == "Civil Rights"
+    assert packet_input["metadata"]["nos_macro_category"] == "civil_rights"
+    assert packet_input["related_family_id"] == "related-fixture"
+    assert packet_input["mdl_family_id"] == "mdl-fixture"
     assert packet_input["documents"][0]["source_document_id"] == "cand-1-complaint"
     assert packet_input["prediction_units"][0]["source_citations"] == [
         {"document_id": "cand-1-complaint", "page": 1}
@@ -530,6 +804,10 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     assert len(_read_jsonl(output_root / "document-manifest.jsonl")) == 3
     candidate_manifest = _read_jsonl(output_root / "candidate-manifest.jsonl")[0]
     assert candidate_manifest["manifest_record_hash"]
+    assert candidate_manifest["nature_of_suit"] == "Civil Rights"
+    assert candidate_manifest["nos_macro_category"] == "civil_rights"
+    assert candidate_manifest["related_family_id"] == "related-fixture"
+    assert candidate_manifest["mdl_family_id"] == "mdl-fixture"
 
     assert (
         main(
@@ -548,6 +826,10 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
 
     packet = _read_jsonl(output_root / "packets.jsonl")[0]
     assert packet["decision_date"] == "2026-05-18"
+    assert packet["metadata"]["nature_of_suit"] == "Civil Rights"
+    assert packet["metadata"]["nos_macro_category"] == "civil_rights"
+    assert packet["related_family_id"] == "related-fixture"
+    assert packet["mdl_family_id"] == "mdl-fixture"
     assert "cand-1-decision" in packet["excluded_document_ids"]
     assert packet["prediction_units"][0]["unit_id"] == "count-i-issuer"
 
@@ -696,7 +978,10 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
     downloads_path = tmp_path / "downloads.jsonl"
     parser_path = tmp_path / "parser.jsonl"
     units_path = tmp_path / "units.jsonl"
-    registry_path = _write_model_registry(tmp_path)
+    registry_path = _write_model_registry(
+        tmp_path,
+        release_timestamp="2026-01-01T09:00:00Z",
+    )
     markdown_root = output_root / "markdown"
     for source_document_id, markdown in {
         "complaint": "Complaint markdown",
@@ -775,13 +1060,9 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
         == 0
     )
 
-    packet_input = _read_jsonl(output_root / "packet-build-input.jsonl")[0]
-    assert "exclusion_ledger_entries" not in packet_input
-    model_visible = packet_input["docket_markdown"]["model_visible_markdown"]
-    assert "Minute order granting the motion to dismiss" not in model_visible
-    assert "Report and recommendation recommends granting" not in model_visible
-    assert "Tentative ruling granting the MTD" not in model_visible
+    assert _read_jsonl(output_root / "packet-build-input.jsonl") == []
     ledger = _read_jsonl(output_root / "exclusion-ledger.jsonl")
+    assert len(ledger) == 1
     assert {record["primary_exclusion_reason"] for record in ledger} == {
         "outcome_leakage"
     }
@@ -796,30 +1077,14 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
         "tentative_ruling_revealing_target",
         "public_reporting_revealing_target",
     }.issubset(secondary_reasons)
+    assert ledger[0]["source_document_ids"] == ["cand-1-opposition"]
+    assert {
+        "entry-20",
+        "entry-21",
+        "entry-22",
+    }.issubset(set(cast(list[str], ledger[0]["source_entry_ids"])))
     candidate_manifest = _read_jsonl(output_root / "candidate-manifest.jsonl")[0]
     assert candidate_manifest["exclusion_ledger_entries"] == ledger
-
-    assert (
-        main(
-            [
-                "acquisition",
-                "build-packets",
-                "--input",
-                str(output_root / "packet-build-input.jsonl"),
-                "--output-root",
-                str(output_root),
-                "--execute",
-            ]
-        )
-        == 0
-    )
-    packet = _read_jsonl(output_root / "packets.jsonl")[0]
-    assert [document["source_document_id"] for document in packet["documents"]] == [
-        "cand-1:controlled-docket",
-        "cand-1-complaint",
-        "cand-1-mtd-memo",
-    ]
-    assert "cand-1-opposition" in packet["excluded_document_ids"]
 
 
 def test_build_packets_rejects_mounted_outcome_leakage(
@@ -1065,7 +1330,11 @@ def _packet_selection_record() -> JsonRecord:
     }
 
 
-def _write_model_registry(tmp_path: Path) -> Path:
+def _write_model_registry(
+    tmp_path: Path,
+    *,
+    release_timestamp: str = "2026-05-05T09:00:00Z",
+) -> Path:
     registry_path = tmp_path / "model-registry.json"
     records: list[JsonRecord] = [
         {
@@ -1073,7 +1342,7 @@ def _write_model_registry(tmp_path: Path) -> Path:
             "model_id": "fixture-model",
             "display_name": "Fixture Model",
             "model_version_or_snapshot": "fixture-model-2026-05-05",
-            "release_timestamp": "2026-05-05T09:00:00Z",
+            "release_timestamp": release_timestamp,
             "release_timestamp_source": "fixture test registry",
             "provider_training_cutoff_status": "known",
             "provider_training_cutoff": "2026-04-01",
@@ -1183,14 +1452,14 @@ def _adversarial_packet_input_docket_html() -> str:
           </div>
           <div class="row even" id="entry-20">
             <div class="col-xs-1"><p>20</p></div>
-            <div class="col-xs-3"><p>Mar 1, 2026</p></div>
+            <div class="col-xs-3"><p>March 1, 2026</p></div>
             <div class="col-xs-8">
               <p>Minute order granting the motion to dismiss after hearing.</p>
             </div>
           </div>
           <div class="row odd" id="entry-21">
             <div class="col-xs-1"><p>21</p></div>
-            <div class="col-xs-3"><p>Mar 2, 2026</p></div>
+            <div class="col-xs-3"><p>March 2, 2026</p></div>
             <div class="col-xs-8">
               <p>
                 Report and recommendation recommends granting the motion to dismiss.
@@ -1199,7 +1468,7 @@ def _adversarial_packet_input_docket_html() -> str:
           </div>
           <div class="row even" id="entry-22">
             <div class="col-xs-1"><p>22</p></div>
-            <div class="col-xs-3"><p>Mar 3, 2026</p></div>
+            <div class="col-xs-3"><p>March 3, 2026</p></div>
             <div class="col-xs-8"><p>Tentative ruling granting the MTD.</p></div>
           </div>
           <div class="row odd" id="entry-34">
