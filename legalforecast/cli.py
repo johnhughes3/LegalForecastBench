@@ -98,6 +98,10 @@ from legalforecast.ingestion.courtlistener_acquisition import (
     LiveCourtListenerDocketHTMLSource,
     discover_courtlistener_mtd_candidates,
 )
+from legalforecast.ingestion.courtlistener_case_dev_bridge import (
+    bridge_courtlistener_case_dev_documents,
+    merge_download_manifest_records,
+)
 from legalforecast.ingestion.courtlistener_client import (
     COURTLISTENER_API_TOKEN_ENV,
     CourtListenerClient,
@@ -149,6 +153,7 @@ from legalforecast.ingestion.provenance import (
 )
 from legalforecast.ingestion.public_packet_planner import plan_public_packet_downloads
 from legalforecast.ingestion.purchased_document_recovery import (
+    PurchasedDocumentDownloadError,
     PurchasedDocumentRecoveryError,
     PurchasedDocumentRecoveryStatus,
     UrlLibPurchasedDocumentSource,
@@ -518,6 +523,14 @@ def build_parser() -> argparse.ArgumentParser:
     _add_acquisition_discover_courtlistener_arguments(
         acquisition_discover_courtlistener
     )
+    acquisition_bridge_pacer_gaps = acquisition_subparsers.add_parser(
+        "bridge-pacer-gaps",
+        help=(
+            "Resolve CourtListener candidates to authoritative case.dev document "
+            "IDs and emit free-first recovery inputs."
+        ),
+    )
+    _add_acquisition_bridge_pacer_gaps_arguments(acquisition_bridge_pacer_gaps)
     acquisition_filter_core = acquisition_subparsers.add_parser(
         "filter-core-documents",
         help="Build missing-core purchase inputs from setup-runner relevance JSONL.",
@@ -548,6 +561,11 @@ def build_parser() -> argparse.ArgumentParser:
         help=("Recover already-purchased case.dev documents into parser manifests."),
     )
     _add_acquisition_recover_purchased_arguments(acquisition_recover_purchased)
+    acquisition_merge_downloads = acquisition_subparsers.add_parser(
+        "merge-download-manifests",
+        help=("Merge free and purchased document manifests for parser planning."),
+    )
+    _add_acquisition_merge_download_manifests_arguments(acquisition_merge_downloads)
     acquisition_parse_plan = acquisition_subparsers.add_parser(
         "plan-parse-documents",
         help="Plan Markdown parser requests from downloaded document manifests.",
@@ -959,6 +977,62 @@ def _add_acquisition_plan_public_downloads_arguments(
     parser.set_defaults(handler=_cmd_acquisition_plan_public_downloads)
 
 
+def _add_acquisition_bridge_pacer_gaps_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--screened-cases",
+        type=Path,
+        required=True,
+        help="Screened CourtListener cases from acquisition discover-courtlistener.",
+    )
+    parser.add_argument(
+        "--raw-html-dir",
+        type=Path,
+        help="Saved raw CourtListener docket HTML directory.",
+    )
+    parser.add_argument(
+        "--use-embedded-entries",
+        action="store_true",
+        help=(
+            "Use the discovery record's embedded selected_entries only when saved "
+            "raw CourtListener HTML is unavailable."
+        ),
+    )
+    parser.add_argument(
+        "--case-dev-fixture",
+        type=Path,
+        help="Replay recorded case.dev search and docket-lookup responses.",
+    )
+    parser.add_argument(
+        "--live-case-dev",
+        action="store_true",
+        help=(
+            "Resolve identities using live case.dev search/lookup. Requires "
+            "CASE_DEV_API_KEY and never invokes a PACER purchase endpoint."
+        ),
+    )
+    parser.add_argument("--target-clean-cases", type=int, default=150)
+    parser.add_argument(
+        "--requests-output",
+        type=Path,
+        help=(
+            "Free-only download requests. Run download-free on this artifact "
+            "before planning or executing any paid recovery."
+        ),
+    )
+    parser.add_argument("--selection-output", type=Path)
+    parser.add_argument(
+        "--case-relevance-output",
+        type=Path,
+        help="Authoritative-ID input for filter-core-documents.",
+    )
+    parser.add_argument("--exclusions-output", type=Path)
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_bridge_pacer_gaps)
+
+
 def _add_acquisition_download_free_arguments(parser: argparse.ArgumentParser) -> None:
     _add_acquisition_common_arguments(parser)
     parser.add_argument("--requests", type=Path, required=True)
@@ -1038,6 +1112,28 @@ def _add_acquisition_recover_purchased_arguments(
         ),
     )
     parser.set_defaults(handler=_cmd_acquisition_recover_purchased)
+
+
+def _add_acquisition_merge_download_manifests_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--download-manifest",
+        type=Path,
+        action="append",
+        required=True,
+        help=(
+            "Document-download JSONL to merge. Repeat for the free manifest and "
+            "the recover-purchased manifest. Conflicting document keys fail closed."
+        ),
+    )
+    parser.add_argument(
+        "--manifest-output",
+        type=Path,
+        help="Merged parser-consumable JSONL; defaults under --output-root.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_merge_download_manifests)
 
 
 def _add_acquisition_plan_parse_documents_arguments(
@@ -2430,6 +2526,160 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    screened_cases_path = cast(Path, args.screened_cases)
+    raw_html_dir = cast(Path | None, args.raw_html_dir)
+    fixture_path = cast(Path | None, args.case_dev_fixture)
+    requests_path = _acquisition_path(
+        args,
+        "requests_output",
+        output_root / "free-document-requests.jsonl",
+    )
+    selection_path = _acquisition_path(
+        args,
+        "selection_output",
+        output_root / "public-packet-selection.jsonl",
+    )
+    case_relevance_path = _acquisition_path(
+        args,
+        "case_relevance_output",
+        output_root / "case-relevance.jsonl",
+    )
+    exclusions_path = _acquisition_path(
+        args,
+        "exclusions_output",
+        output_root / "pacer-gap-bridge-exclusions.jsonl",
+    )
+    summary_path = _acquisition_path(
+        args,
+        "summary_output",
+        output_root / "pacer-gap-bridge-summary.json",
+    )
+    records = _read_records(screened_cases_path)
+    dry_run = _acquisition_dry_run(args)
+    live = cast(bool, args.live_case_dev)
+    input_paths = tuple(
+        path
+        for path in (screened_cases_path, raw_html_dir, fixture_path)
+        if path is not None
+    )
+    if dry_run:
+        _write_jsonl(
+            requests_path,
+            [
+                {
+                    "stage": "bridge-pacer-gaps",
+                    "dry_run": True,
+                    "screened_case_count": len(records),
+                    "free_first_required": True,
+                }
+            ],
+        )
+        _write_json(
+            summary_path,
+            {
+                "schema_version": ("legalforecast.courtlistener_case_dev_bridge.v1"),
+                "dry_run": True,
+                "screened_case_count": len(records),
+                "free_first_required": True,
+            },
+        )
+        selected_count = 0
+        paid_document_count = 0
+        free_request_count = 0
+        excluded_count = 0
+    else:
+        client = _case_dev_client(
+            command="acquisition bridge-pacer-gaps",
+            fixture_path=fixture_path,
+            live=live,
+        )
+        result = bridge_courtlistener_case_dev_documents(
+            records,
+            client=client,
+            raw_html_dir=raw_html_dir,
+            use_embedded_entries=cast(bool, args.use_embedded_entries),
+            target_clean_cases=cast(int, args.target_clean_cases),
+        )
+        _write_jsonl(
+            requests_path,
+            [request.to_record() for request in result.free_download_requests],
+        )
+        _write_jsonl(selection_path, result.selection_records)
+        _write_jsonl(case_relevance_path, result.case_relevance_records)
+        _write_jsonl(exclusions_path, result.exclusions)
+        _write_json(summary_path, {**result.summary_record(), "dry_run": False})
+        selected_count = result.selected_case_count
+        paid_document_count = result.paid_document_count
+        free_request_count = len(result.free_download_requests)
+        excluded_count = len(result.exclusions)
+    _write_acquisition_completion(
+        args,
+        stage="bridge-pacer-gaps",
+        input_paths=input_paths,
+        output_paths=(
+            requests_path,
+            selection_path,
+            case_relevance_path,
+            exclusions_path,
+            summary_path,
+        ),
+        record_count=selected_count,
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "selected_case_count": selected_count,
+            "excluded_case_count": excluded_count,
+            "free_download_request_count": free_request_count,
+            "paid_document_count": paid_document_count,
+            "free_first_required": True,
+            "next_stage": "download-free",
+        },
+    )
+    return 0
+
+
+def _cmd_acquisition_merge_download_manifests(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    manifest_paths = tuple(cast(Sequence[Path], args.download_manifest))
+    output_path = _acquisition_path(
+        args,
+        "manifest_output",
+        output_root / "document-downloads-merged.jsonl",
+    )
+    merged = merge_download_manifest_records(
+        _read_records(path) for path in manifest_paths
+    )
+    dry_run = _acquisition_dry_run(args)
+    if dry_run:
+        _write_jsonl(
+            output_path,
+            [
+                {
+                    "stage": "merge-download-manifests",
+                    "dry_run": True,
+                    "manifest_count": len(manifest_paths),
+                    "record_count": len(merged),
+                }
+            ],
+        )
+    else:
+        _write_jsonl(output_path, merged)
+    _write_acquisition_completion(
+        args,
+        stage="merge-download-manifests",
+        input_paths=manifest_paths,
+        output_paths=(output_path,),
+        record_count=len(merged),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+    )
+    return 0
+
+
 _ACQUISITION_MERGE_JSONL_FILES = (
     "free-document-requests.jsonl",
     "free-document-downloads.jsonl",
@@ -2873,11 +3123,22 @@ def _cmd_acquisition_recover_purchased(args: argparse.Namespace) -> int:
         "document_output_root",
         output_root / "documents" / "purchased",
     )
-    requests = purchased_document_recovery_requests_from_records(
-        _read_json_object(purchase_result_path),
-        _read_records(selection_path),
-    )
     dry_run = _acquisition_dry_run(args)
+    try:
+        requests = purchased_document_recovery_requests_from_records(
+            _read_json_object(purchase_result_path),
+            _read_records(selection_path),
+        )
+    except PurchasedDocumentRecoveryError as exc:
+        _write_acquisition_failure(
+            args,
+            stage="recover-purchased",
+            input_paths=(purchase_result_path, selection_path),
+            output_paths=(manifest_path, recovery_path, document_root),
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
     if dry_run:
         _write_jsonl(
             manifest_path,
@@ -2893,19 +3154,34 @@ def _cmd_acquisition_recover_purchased(args: argparse.Namespace) -> int:
         _write_jsonl(recovery_path, [])
         recovered_count = 0
     else:
-        source = _purchased_document_source(
-            fixture_path=cast(Path | None, args.fixture_documents),
-            live_case_dev_download=cast(bool, args.live_case_dev_download),
-        )
-        records = recover_purchased_documents(
-            requests,
-            output_root=document_root,
-            source=source,
-            retrieved_at=datetime.now(UTC),
-        )
-        _write_jsonl(recovery_path, [record.to_record() for record in records])
-        manifest = purchased_document_download_manifest_records(records)
-        _write_jsonl(manifest_path, manifest)
+        try:
+            source = _purchased_document_source(
+                fixture_path=cast(Path | None, args.fixture_documents),
+                live_case_dev_download=cast(bool, args.live_case_dev_download),
+            )
+            records = recover_purchased_documents(
+                requests,
+                output_root=document_root,
+                source=source,
+                retrieved_at=datetime.now(UTC),
+            )
+            _write_jsonl(recovery_path, [record.to_record() for record in records])
+            manifest = purchased_document_download_manifest_records(records)
+            _write_jsonl(manifest_path, manifest)
+        except (
+            CommandError,
+            PurchasedDocumentDownloadError,
+            PurchasedDocumentRecoveryError,
+        ) as exc:
+            _write_acquisition_failure(
+                args,
+                stage="recover-purchased",
+                input_paths=(purchase_result_path, selection_path),
+                output_paths=(manifest_path, recovery_path, document_root),
+                reason=str(exc),
+                paid_activity_requested=False,
+            )
+            raise CommandError(str(exc)) from exc
         recovered_count = sum(
             record.status
             in {
@@ -2917,6 +3193,20 @@ def _cmd_acquisition_recover_purchased(args: argparse.Namespace) -> int:
     intended_recovery_count = sum(
         request.purchase_attempt.status.value == "purchased" for request in requests
     )
+    if not dry_run and recovered_count != intended_recovery_count:
+        reason = (
+            f"recovered {recovered_count} of {intended_recovery_count} "
+            "purchased documents"
+        )
+        _write_acquisition_failure(
+            args,
+            stage="recover-purchased",
+            input_paths=(purchase_result_path, selection_path),
+            output_paths=(manifest_path, recovery_path, document_root),
+            reason=reason,
+            paid_activity_requested=False,
+        )
+        raise CommandError(reason)
     _write_acquisition_completion(
         args,
         stage="recover-purchased",
@@ -2931,8 +3221,6 @@ def _cmd_acquisition_recover_purchased(args: argparse.Namespace) -> int:
             "recovered_count": recovered_count,
         },
     )
-    if not dry_run and recovered_count != intended_recovery_count:
-        return 2
     return 0
 
 

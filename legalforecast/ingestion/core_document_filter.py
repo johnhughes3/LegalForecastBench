@@ -88,8 +88,9 @@ class SetupRunnerDocumentRecord:
     @property
     def should_purchase_for_packet(self) -> bool:
         return (
-            self.should_mount_in_model_packet and not self.is_available_without_purchase
-        )
+            self.should_mount_in_model_packet
+            or self.document_role in {DocumentRole.ORDER, DocumentRole.DECISION}
+        ) and not self.is_available_without_purchase
 
     def to_record(self) -> dict[str, Any]:
         return {

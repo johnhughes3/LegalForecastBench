@@ -337,6 +337,68 @@ def test_recover_purchased_rejects_unproven_purchase_result(
     )
     assert "fee acknowledgment" in capsys.readouterr().err
     assert not (output_root / "purchased-document-downloads.jsonl").exists()
+    failure = _read_json(output_root / "run-cards" / "recover-purchased.json")
+    assert failure["status"] == "failed"
+    assert "fee acknowledgment" in failure["failure_reason"]
+
+
+def test_recover_purchased_audits_incomplete_recovery_as_failure(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    output_root = tmp_path / "acquisition"
+    purchase_result_path = tmp_path / "purchase-result.json"
+    selection_path = tmp_path / "selection.jsonl"
+    fixture_path = tmp_path / "purchased-documents.json"
+    _write_json(
+        purchase_result_path,
+        {
+            "live": True,
+            "acknowledge_pacer_fees": True,
+            "capability": "document_level_purchase",
+            "dry_run": False,
+            "projected_cost_usd": "3.05",
+            "max_projected_budget_usd": "2250.00",
+            "intended_purchase_count": 1,
+            "executed_purchase_count": 1,
+            "attempts": [
+                {
+                    "candidate_id": "cand-1",
+                    "source_document_id": "mtd-memo",
+                    "status": "purchased",
+                    "reason": None,
+                    "fee_acknowledged": True,
+                    "pacer_fees": {"total_usd": "3.05"},
+                    "download_url": "https://case.dev/download/missing.pdf",
+                }
+            ],
+        },
+    )
+    _write_jsonl(selection_path, [_packet_selection_record()])
+    _write_json(fixture_path, {})
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "recover-purchased",
+                "--purchase-result",
+                str(purchase_result_path),
+                "--selection",
+                str(selection_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--fixture-documents",
+                str(fixture_path),
+            ]
+        )
+        == 2
+    )
+    assert "recovered 0 of 1" in capsys.readouterr().err
+    failure = _read_json(output_root / "run-cards" / "recover-purchased.json")
+    assert failure["status"] == "failed"
+    assert failure["failure_reason"] == "recovered 0 of 1 purchased documents"
 
 
 def test_download_free_fixture_stage_is_idempotent(tmp_path: Path) -> None:

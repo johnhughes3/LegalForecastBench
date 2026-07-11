@@ -1,0 +1,859 @@
+"""Bridge public CourtListener candidates to authoritative case.dev document IDs.
+
+CourtListener establishes the public docket chronology and which documents are
+free or PACER-only.  It does not establish the identifier accepted by the
+case.dev purchase endpoint.  This module therefore resolves each candidate by
+exact court and docket number, corroborates the caption, and emits acquisition
+records only from document IDs returned by the matched case.dev docket.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, cast
+
+from legalforecast.ingestion.case_dev_client import CaseDevClient, CaseDevDocketHit
+from legalforecast.ingestion.courtlistener_web import (
+    CourtListenerEntryRole,
+    CourtListenerWebDocketEntry,
+    CourtListenerWebDocketPage,
+    CourtListenerWebDocument,
+    parse_courtlistener_docket_html,
+)
+from legalforecast.ingestion.free_document_downloader import (
+    FreeDocumentDownloadRequest,
+)
+from legalforecast.ingestion.provenance import DocumentRole
+
+_CASE_DEV_SEARCH_LIMIT = 20
+_CASE_DEV_DOCKET_PAGE_SIZE = 500
+_RECOVERABLE_ROLES = frozenset(
+    {
+        DocumentRole.COMPLAINT,
+        DocumentRole.AMENDED_COMPLAINT,
+        DocumentRole.MTD_NOTICE,
+        DocumentRole.MTD_MEMORANDUM,
+        DocumentRole.OPPOSITION,
+        DocumentRole.REPLY,
+        DocumentRole.DECISION,
+    }
+)
+_MODEL_VISIBLE_ROLES = frozenset(
+    {
+        DocumentRole.COMPLAINT,
+        DocumentRole.AMENDED_COMPLAINT,
+        DocumentRole.MTD_NOTICE,
+        DocumentRole.MTD_MEMORANDUM,
+        DocumentRole.OPPOSITION,
+        DocumentRole.REPLY,
+    }
+)
+_RESTRICTED_STATUS_VALUES = frozenset({"private", "restricted", "sealed", "under_seal"})
+
+
+class CourtListenerCaseDevBridgeError(ValueError):
+    """Raised when a candidate cannot be bridged without guessing identity."""
+
+
+@dataclass(frozen=True, slots=True)
+class _BridgeDocument:
+    candidate_id: str
+    source_document_id: str
+    case_dev_entry_id: str
+    docket_entry_number: int
+    document_role: DocumentRole
+    source_url_or_reference: str
+    description: str
+    free: bool
+
+    @property
+    def contains_target_outcome(self) -> bool:
+        return self.document_role is DocumentRole.DECISION
+
+    @property
+    def model_visible(self) -> bool:
+        return self.document_role in _MODEL_VISIBLE_ROLES
+
+    @property
+    def setup_runner_label(self) -> str:
+        if self.model_visible:
+            return "core_mtd"
+        return "other_substantive"
+
+    def selection_record(self) -> dict[str, Any]:
+        return {
+            "candidate_id": self.candidate_id,
+            "source_provider": ("courtlistener" if self.free else "case.dev+pacer"),
+            "source_document_id": self.source_document_id,
+            "case_dev_docket_entry_id": self.case_dev_entry_id,
+            "docket_entry_number": self.docket_entry_number,
+            "document_role": self.document_role.value,
+            "source_url": self.source_url_or_reference,
+            "source_url_or_reference": self.source_url_or_reference,
+            "description": self.description,
+            "model_visible": self.model_visible,
+            "is_predecision_material": not self.contains_target_outcome,
+            "contains_target_outcome": self.contains_target_outcome,
+            "availability_status": "available" if self.free else "unavailable",
+            "requires_paid_recovery": not self.free,
+            "redaction_or_seal_status": "public",
+            "is_private": False,
+            "is_sealed": False,
+            "file_extension": "pdf",
+        }
+
+    def case_relevance_record(self) -> dict[str, Any]:
+        record = self.selection_record()
+        return {
+            "candidate_id": self.candidate_id,
+            "source_document_id": self.source_document_id,
+            "setup_runner_label": self.setup_runner_label,
+            "document_role": self.document_role.value,
+            "docket_entry_id": self.case_dev_entry_id,
+            "docket_entry_number": self.docket_entry_number,
+            "docket_entry_text": self.description,
+            "source_url_or_reference": self.source_url_or_reference,
+            "availability_status": record["availability_status"],
+            "requires_paid_recovery": record["requires_paid_recovery"],
+            "redaction_or_seal_status": "public",
+            "is_private": False,
+            "is_sealed": False,
+            "contains_target_outcome": self.contains_target_outcome,
+            "model_visible": self.model_visible,
+        }
+
+    def free_download_request(self) -> FreeDocumentDownloadRequest | None:
+        if not self.free:
+            return None
+        return FreeDocumentDownloadRequest(
+            candidate_id=self.candidate_id,
+            source_provider="courtlistener",
+            source_document_id=self.source_document_id,
+            docket_entry_number=self.docket_entry_number,
+            document_role=self.document_role,
+            source_url=self.source_url_or_reference,
+            file_extension="pdf",
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CourtListenerCaseDevBridgeResult:
+    """Deterministic artifacts joining public availability to purchase IDs."""
+
+    selection_records: tuple[Mapping[str, Any], ...]
+    case_relevance_records: tuple[Mapping[str, Any], ...]
+    free_download_requests: tuple[FreeDocumentDownloadRequest, ...]
+    exclusions: tuple[Mapping[str, Any], ...]
+    screened_case_count: int
+
+    @property
+    def selected_case_count(self) -> int:
+        return len(self.selection_records)
+
+    @property
+    def paid_document_count(self) -> int:
+        return sum(
+            document.get("requires_paid_recovery") is True
+            for record in self.case_relevance_records
+            for document in _mapping_sequence(record.get("documents"), "documents")
+        )
+
+    def summary_record(self) -> dict[str, Any]:
+        return {
+            "schema_version": "legalforecast.courtlistener_case_dev_bridge.v1",
+            "screened_case_count": self.screened_case_count,
+            "selected_case_count": self.selected_case_count,
+            "excluded_case_count": len(self.exclusions),
+            "free_download_request_count": len(self.free_download_requests),
+            "paid_document_count": self.paid_document_count,
+            "identity_policy": (
+                "exact court+docket match with caption corroboration; "
+                "case.dev document IDs only"
+            ),
+            "free_first_required": True,
+        }
+
+
+def bridge_courtlistener_case_dev_documents(
+    screened_case_records: Iterable[Mapping[str, Any]],
+    *,
+    client: CaseDevClient,
+    raw_html_dir: str | Path | None = None,
+    use_embedded_entries: bool = False,
+    target_clean_cases: int = 150,
+) -> CourtListenerCaseDevBridgeResult:
+    """Resolve screened CourtListener cases to authoritative case.dev IDs.
+
+    The function performs only free case.dev docket search/lookup requests.  It
+    never invokes the PACER purchase endpoint and never downloads documents.
+    """
+
+    if target_clean_cases <= 0:
+        raise ValueError("target_clean_cases must be positive")
+    if raw_html_dir is None and not use_embedded_entries:
+        raise ValueError("raw_html_dir is required unless use_embedded_entries=True")
+    records = tuple(screened_case_records)
+    html_root = None if raw_html_dir is None else Path(raw_html_dir)
+    selections: list[Mapping[str, Any]] = []
+    relevance: list[Mapping[str, Any]] = []
+    free_requests: list[FreeDocumentDownloadRequest] = []
+    exclusions: list[Mapping[str, Any]] = []
+
+    for record in records:
+        if len(selections) >= target_clean_cases:
+            exclusions.append(_exclusion(record, "target_clean_case_limit_reached"))
+            continue
+        try:
+            candidate, case_relevance, requests = _bridge_candidate(
+                record,
+                client=client,
+                raw_html_dir=html_root,
+                use_embedded_entries=use_embedded_entries,
+            )
+        except CourtListenerCaseDevBridgeError as exc:
+            reason, _, detail = str(exc).partition(":")
+            exclusions.append(_exclusion(record, reason, detail=detail.strip() or None))
+            continue
+        selections.append(candidate)
+        relevance.append(case_relevance)
+        free_requests.extend(requests)
+
+    return CourtListenerCaseDevBridgeResult(
+        selection_records=tuple(selections),
+        case_relevance_records=tuple(relevance),
+        free_download_requests=tuple(free_requests),
+        exclusions=tuple(exclusions),
+        screened_case_count=len(records),
+    )
+
+
+def merge_download_manifest_records(
+    manifest_groups: Iterable[Iterable[Mapping[str, Any]]],
+) -> tuple[Mapping[str, Any], ...]:
+    """Merge free and purchased downloads into one parser-consumable manifest."""
+
+    merged: list[Mapping[str, Any]] = []
+    seen: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for group in manifest_groups:
+        for record in group:
+            candidate_id = _required_str(record, "candidate_id")
+            document_id = _required_str(record, "source_document_id")
+            key = (candidate_id, document_id)
+            existing = seen.get(key)
+            if existing is not None:
+                if dict(existing) == dict(record):
+                    continue
+                raise CourtListenerCaseDevBridgeError(
+                    "download_manifest_conflict: conflicting records for "
+                    f"{candidate_id}/{document_id}"
+                )
+            _required_str(record, "local_path")
+            _required_str(record, "sha256")
+            seen[key] = record
+            merged.append(record)
+    return tuple(merged)
+
+
+def _bridge_candidate(
+    record: Mapping[str, Any],
+    *,
+    client: CaseDevClient,
+    raw_html_dir: Path | None,
+    use_embedded_entries: bool,
+) -> tuple[
+    Mapping[str, Any], Mapping[str, Any], tuple[FreeDocumentDownloadRequest, ...]
+]:
+    candidate = _mapping(record.get("candidate"), "candidate")
+    metadata = _mapping(candidate.get("metadata"), "candidate.metadata")
+    candidate_id = _required_str_any(candidate, "docket_id", "candidate_key")
+    court = _required_str(metadata, "court")
+    docket_number = _required_str(metadata, "docket_number")
+    caption = _required_str(metadata, "case_name")
+    page = _courtlistener_page(
+        record,
+        candidate_id=candidate_id,
+        source_url=_optional_str(candidate, "url"),
+        raw_html_dir=raw_html_dir,
+        use_embedded_entries=use_embedded_entries,
+    )
+    if page.has_next_page:
+        raise CourtListenerCaseDevBridgeError("courtlistener_docket_more_than_one_page")
+
+    matched_case_id = _resolve_case_dev_case_id(
+        client,
+        court=court,
+        docket_number=docket_number,
+        caption=caption,
+    )
+    case_dev_entries = tuple(
+        client.get_case_docket_entries(
+            matched_case_id,
+            limit=_CASE_DEV_DOCKET_PAGE_SIZE,
+        ).items
+    )
+    documents = _bridge_documents(
+        record,
+        page=page,
+        case_dev_entries=case_dev_entries,
+        candidate_id=candidate_id,
+    )
+    case_mix = _case_mix_metadata(record, candidate=candidate, metadata=metadata)
+    selection = {
+        "candidate_id": candidate_id,
+        "case_id": matched_case_id,
+        "court": court,
+        "docket_number": docket_number,
+        "case_name": caption,
+        "decision_date": _required_str(
+            record,
+            "first_written_mtd_disposition_date",
+        ),
+        "eligibility_anchor_date": _required_str(record, "eligibility_anchor_date"),
+        "source_url": _optional_str(candidate, "url"),
+        **case_mix,
+        "selected": True,
+        "exclusion_reasons": [],
+        "target_motion_entry_numbers": list(
+            _entry_numbers(
+                _mapping(record.get("ai"), "ai").get("target_motion_entry_numbers")
+            )
+        ),
+        "decision_entry_numbers": list(
+            _entry_numbers(
+                _mapping(record.get("ai"), "ai").get("decision_entry_numbers")
+            )
+        ),
+        "identity_resolution": {
+            "courtlistener_candidate_id": candidate_id,
+            "case_dev_case_id": matched_case_id,
+            "matched_by": "exact_court_docket_caption",
+        },
+        "documents": [document.selection_record() for document in documents],
+    }
+    case_relevance = {
+        "candidate_id": candidate_id,
+        "case_dev_case_id": matched_case_id,
+        "documents": [document.case_relevance_record() for document in documents],
+    }
+    requests = tuple(
+        request
+        for document in documents
+        if (request := document.free_download_request()) is not None
+    )
+    return selection, case_relevance, requests
+
+
+def _case_mix_metadata(
+    record: Mapping[str, Any],
+    *,
+    candidate: Mapping[str, Any],
+    metadata: Mapping[str, Any],
+) -> Mapping[str, str | None]:
+    aliases = {
+        "nature_of_suit": ("nature_of_suit", "natureOfSuit"),
+        "nos_macro_category": ("nos_macro_category", "nosMacroCategory"),
+        "related_family_id": (
+            "related_family_id",
+            "relatedFamilyId",
+            "related_case_family_id",
+            "relatedCaseFamilyId",
+        ),
+        "mdl_family_id": ("mdl_family_id", "mdlFamilyId", "mdl_id", "mdlId"),
+    }
+    return {
+        output_key: _first_optional_string(
+            (record, metadata, candidate),
+            source_keys,
+        )
+        for output_key, source_keys in aliases.items()
+    }
+
+
+def _first_optional_string(
+    records: Sequence[Mapping[str, Any]],
+    keys: Sequence[str],
+) -> str | None:
+    for record in records:
+        for key in keys:
+            value = record.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+            if isinstance(value, int) and not isinstance(value, bool):
+                return str(value)
+    return None
+
+
+def _resolve_case_dev_case_id(
+    client: CaseDevClient,
+    *,
+    court: str,
+    docket_number: str,
+    caption: str,
+) -> str:
+    page = client.search_docket_entries(docket_number, limit=_CASE_DEV_SEARCH_LIMIT)
+    exact_court_docket: list[CaseDevDocketHit] = []
+    corroborated: list[CaseDevDocketHit] = []
+    for hit in page.items:
+        docket = _mapping(hit.raw.get("legal_docket"), "legal_docket")
+        hit_court = _optional_str_any(docket, "courtId", "court_id", "court")
+        hit_docket = _optional_str_any(
+            docket,
+            "docketNumber",
+            "docket_number",
+            "case_number",
+        )
+        if (
+            hit_court is None
+            or hit_docket is None
+            or _identifier(hit_court) != _identifier(court)
+            or _docket_identifier(hit_docket) != _docket_identifier(docket_number)
+        ):
+            continue
+        exact_court_docket.append(hit)
+        hit_caption = _optional_str_any(docket, "caseName", "caption", "name")
+        if hit_caption is not None and _caption(hit_caption) == _caption(caption):
+            corroborated.append(hit)
+    if not exact_court_docket:
+        raise CourtListenerCaseDevBridgeError("case_dev_exact_match_not_found")
+    if not corroborated:
+        raise CourtListenerCaseDevBridgeError("case_dev_caption_conflict")
+    unique_ids = {hit.case_id for hit in corroborated}
+    if len(unique_ids) != 1:
+        raise CourtListenerCaseDevBridgeError("case_dev_exact_match_ambiguous")
+    return next(iter(unique_ids))
+
+
+def _bridge_documents(
+    record: Mapping[str, Any],
+    *,
+    page: CourtListenerWebDocketPage,
+    case_dev_entries: tuple[CaseDevDocketHit, ...],
+    candidate_id: str,
+) -> tuple[_BridgeDocument, ...]:
+    ai = _mapping(record.get("ai"), "ai")
+    target_numbers = _entry_numbers(ai.get("target_motion_entry_numbers"))
+    decision_numbers = _entry_numbers(ai.get("decision_entry_numbers"))
+    if not target_numbers:
+        raise CourtListenerCaseDevBridgeError("target_motion_entry_numbers_missing")
+    if not decision_numbers:
+        raise CourtListenerCaseDevBridgeError("decision_entry_numbers_missing")
+    decision_floor = min(decision_numbers)
+
+    numbered_entries = {
+        number: entry
+        for entry in page.entries
+        if (number := _positive_entry_number(entry.entry_number)) is not None
+    }
+    complaint_entries = tuple(
+        entry
+        for number, entry in numbered_entries.items()
+        if number < decision_floor and _looks_like_complaint(entry)
+    )
+    if not complaint_entries:
+        raise CourtListenerCaseDevBridgeError("operative_complaint_not_found")
+    complaint = max(
+        complaint_entries,
+        key=lambda entry: cast(int, _positive_entry_number(entry.entry_number)),
+    )
+
+    requested: list[tuple[CourtListenerWebDocketEntry, DocumentRole]] = [
+        (complaint, _complaint_role(complaint)),
+    ]
+    for number in target_numbers:
+        entry = numbered_entries.get(number)
+        if entry is None:
+            raise CourtListenerCaseDevBridgeError(
+                f"target_motion_entry_not_found: {number}"
+            )
+        requested.append((entry, _mtd_role(entry)))
+    for number, entry in sorted(numbered_entries.items()):
+        if number >= decision_floor:
+            continue
+        if entry.role is CourtListenerEntryRole.OPPOSITION:
+            requested.append((entry, DocumentRole.OPPOSITION))
+        elif entry.role is CourtListenerEntryRole.REPLY and any(
+            document.freely_available for document in entry.documents
+        ):
+            requested.append((entry, DocumentRole.REPLY))
+    for number in decision_numbers:
+        entry = numbered_entries.get(number)
+        if entry is None:
+            raise CourtListenerCaseDevBridgeError(f"decision_entry_not_found: {number}")
+        requested.append((entry, DocumentRole.DECISION))
+
+    by_entry_number: dict[int, list[CaseDevDocketHit]] = {}
+    for hit in case_dev_entries:
+        number = _positive_entry_number(hit.entry_number)
+        if number is not None:
+            by_entry_number.setdefault(number, []).append(hit)
+
+    documents: list[_BridgeDocument] = []
+    seen: set[str] = set()
+    for entry, role in requested:
+        if role not in _RECOVERABLE_ROLES:
+            continue
+        number = cast(int, _positive_entry_number(entry.entry_number))
+        hits = by_entry_number.get(number, [])
+        if len(hits) != 1:
+            reason = (
+                "case_dev_entry_not_found" if not hits else "case_dev_entry_ambiguous"
+            )
+            raise CourtListenerCaseDevBridgeError(f"{reason}: {number}")
+        courtlistener_document = _select_courtlistener_document(entry, role)
+        case_dev_document = _select_case_dev_document(
+            hits[0],
+            courtlistener_document=courtlistener_document,
+            role=role,
+        )
+        if _record_is_restricted(hits[0].raw) or _record_is_restricted(
+            case_dev_document
+        ):
+            raise CourtListenerCaseDevBridgeError(f"restricted_core_document: {number}")
+        document_id = _required_str(case_dev_document, "id")
+        if document_id in seen:
+            continue
+        seen.add(document_id)
+        source_reference = courtlistener_document.href
+        if source_reference is None:
+            source_reference = f"case.dev://document/{document_id}"
+        documents.append(
+            _BridgeDocument(
+                candidate_id=candidate_id,
+                source_document_id=document_id,
+                case_dev_entry_id=hits[0].docket_entry_id,
+                docket_entry_number=number,
+                document_role=role,
+                source_url_or_reference=source_reference,
+                description=(
+                    courtlistener_document.description
+                    or _optional_str(case_dev_document, "description")
+                    or entry.text
+                ),
+                free=courtlistener_document.freely_available,
+            )
+        )
+    return tuple(documents)
+
+
+def _select_courtlistener_document(
+    entry: CourtListenerWebDocketEntry,
+    role: DocumentRole,
+) -> CourtListenerWebDocument:
+    candidates = tuple(entry.documents)
+    if not candidates:
+        raise CourtListenerCaseDevBridgeError(
+            f"courtlistener_document_not_found: {entry.entry_number or 'unknown'}"
+        )
+    ranked = sorted(
+        candidates,
+        key=lambda document: (
+            -_document_role_score(document.description, role),
+            0 if document.freely_available else 1,
+            _text_key(document.description),
+            document.href or "",
+        ),
+    )
+    best = ranked[0]
+    if _document_role_score(best.description, role) <= 0 and len(candidates) > 1:
+        raise CourtListenerCaseDevBridgeError(
+            f"courtlistener_document_ambiguous: {entry.entry_number or 'unknown'}"
+        )
+    return best
+
+
+def _select_case_dev_document(
+    hit: CaseDevDocketHit,
+    *,
+    courtlistener_document: CourtListenerWebDocument,
+    role: DocumentRole,
+) -> Mapping[str, Any]:
+    documents = _mapping_sequence(hit.raw.get("documents"), "documents")
+    if not documents:
+        raise CourtListenerCaseDevBridgeError(
+            f"case_dev_document_id_missing: {hit.entry_number or 'unknown'}"
+        )
+    if len(documents) == 1:
+        _required_str(documents[0], "id")
+        return documents[0]
+    cl_description = _text_key(courtlistener_document.description)
+
+    def rank(document: Mapping[str, Any]) -> tuple[int, int, str]:
+        description = _optional_str(document, "description") or ""
+        exact = int(bool(cl_description) and _text_key(description) == cl_description)
+        kind = _optional_str_any(document, "type", "kind") or ""
+        main = int("main" in _text_key(kind))
+        score = exact * 1000 + main * 100 + _document_role_score(description, role)
+        return score, main, _required_str(document, "id")
+
+    ranked = sorted(documents, key=rank, reverse=True)
+    best_score = rank(ranked[0])[0]
+    if best_score <= 0 or sum(rank(item)[0] == best_score for item in ranked) != 1:
+        raise CourtListenerCaseDevBridgeError(
+            f"case_dev_document_ambiguous: {hit.entry_number or 'unknown'}"
+        )
+    return ranked[0]
+
+
+def _courtlistener_page(
+    record: Mapping[str, Any],
+    *,
+    candidate_id: str,
+    source_url: str | None,
+    raw_html_dir: Path | None,
+    use_embedded_entries: bool,
+) -> CourtListenerWebDocketPage:
+    html_path = None if raw_html_dir is None else raw_html_dir / f"{candidate_id}.html"
+    if html_path is not None and html_path.is_file():
+        return parse_courtlistener_docket_html(
+            html_path.read_text(encoding="utf-8"),
+            source_url=source_url,
+            docket_id=candidate_id,
+        )
+    if not use_embedded_entries:
+        raise CourtListenerCaseDevBridgeError("raw_courtlistener_html_missing")
+    entries = tuple(
+        _embedded_entry(item)
+        for item in _mapping_sequence(
+            record.get("selected_entries"), "selected_entries"
+        )
+    )
+    if not entries:
+        raise CourtListenerCaseDevBridgeError("embedded_entries_missing")
+    return CourtListenerWebDocketPage(
+        docket_id=candidate_id,
+        source_url=source_url,
+        title=None,
+        entries=entries,
+        has_next_page=False,
+    )
+
+
+def _embedded_entry(record: Mapping[str, Any]) -> CourtListenerWebDocketEntry:
+    return CourtListenerWebDocketEntry(
+        row_id=_required_str(record, "row_id"),
+        entry_number=_optional_str(record, "entry_number"),
+        filed_at=_optional_str(record, "filed_at"),
+        text=_required_str(record, "text"),
+        documents=tuple(
+            CourtListenerWebDocument(
+                kind=_optional_str(document, "kind") or "",
+                description=_optional_str(document, "description") or "",
+                href=_optional_str(document, "href"),
+                action_label=_optional_str(document, "action_label"),
+                pacer_only=_optional_bool(document, "pacer_only", default=False),
+            )
+            for document in _mapping_sequence(record.get("documents"), "documents")
+        ),
+    )
+
+
+def _looks_like_complaint(entry: CourtListenerWebDocketEntry) -> bool:
+    text = _text_key(
+        " ".join((entry.text, *(document.description for document in entry.documents)))
+    )
+    if "complaint" not in text:
+        return False
+    return not any(
+        marker in text
+        for marker in (
+            "answer to complaint",
+            "motion to dismiss complaint",
+            "order on complaint",
+            "notice of complaint",
+        )
+    )
+
+
+def _complaint_role(entry: CourtListenerWebDocketEntry) -> DocumentRole:
+    return (
+        DocumentRole.AMENDED_COMPLAINT
+        if "amended complaint" in _text_key(entry.text)
+        else DocumentRole.COMPLAINT
+    )
+
+
+def _mtd_role(entry: CourtListenerWebDocketEntry) -> DocumentRole:
+    text = _text_key(
+        " ".join((entry.text, *(document.description for document in entry.documents)))
+    )
+    return (
+        DocumentRole.MTD_MEMORANDUM
+        if "memorandum" in text or "brief in support" in text
+        else DocumentRole.MTD_NOTICE
+    )
+
+
+def _document_role_score(description: str, role: DocumentRole) -> int:
+    text = _text_key(description)
+    if role in {DocumentRole.COMPLAINT, DocumentRole.AMENDED_COMPLAINT}:
+        return 30 if "complaint" in text else 0
+    if role in {DocumentRole.MTD_NOTICE, DocumentRole.MTD_MEMORANDUM}:
+        if "proposed order" in text:
+            return -100
+        return (
+            40
+            if "memorandum" in text or "brief in support" in text
+            else 30
+            if "dismiss" in text or "pleadings" in text
+            else 0
+        )
+    if role is DocumentRole.OPPOSITION:
+        return 30 if "opposition" in text or "response" in text else 0
+    if role is DocumentRole.REPLY:
+        return 30 if "reply" in text else 0
+    if role is DocumentRole.DECISION:
+        return (
+            30 if any(word in text for word in ("order", "opinion", "decision")) else 0
+        )
+    return 0
+
+
+def _record_is_restricted(record: Mapping[str, Any]) -> bool:
+    for key, value in record.items():
+        normalized_key = _identifier(str(key))
+        if (
+            normalized_key in {"issealed", "isprivate", "isrestricted"}
+            and value is True
+        ):
+            return True
+        if normalized_key in {
+            "availabilitystatus",
+            "redactionorsealstatus",
+            "sealstatus",
+            "privacy",
+            "visibility",
+        }:
+            normalized_value = _text_key(str(value)).replace(" ", "_")
+            if normalized_value in _RESTRICTED_STATUS_VALUES:
+                return True
+    return False
+
+
+def _exclusion(
+    record: Mapping[str, Any],
+    reason: str,
+    *,
+    detail: str | None = None,
+) -> Mapping[str, Any]:
+    candidate = _mapping(record.get("candidate"), "candidate")
+    metadata = _mapping(candidate.get("metadata"), "candidate.metadata")
+    candidate_id = _required_str_any(candidate, "docket_id", "candidate_key")
+    return {
+        "candidate_id": candidate_id,
+        "case_id": _optional_str(metadata, "case_id") or candidate_id,
+        "court": _optional_str(metadata, "court"),
+        "docket_number": _optional_str(metadata, "docket_number"),
+        "decision_date": _optional_str(record, "first_written_mtd_disposition_date"),
+        "stage": "retrieval",
+        "primary_exclusion_reason": reason,
+        "exclusion_reasons": [reason],
+        "notes": detail or "CourtListener/case.dev identity bridge failed closed.",
+    }
+
+
+def _entry_numbers(value: object) -> tuple[int, ...]:
+    if isinstance(value, str) or not isinstance(value, Sequence):
+        return ()
+    numbers: list[int] = []
+    for item in cast(Sequence[object], value):
+        number = _positive_entry_number(item)
+        if number is None:
+            raise CourtListenerCaseDevBridgeError("docket_entry_number_invalid")
+        if number not in numbers:
+            numbers.append(number)
+    return tuple(numbers)
+
+
+def _positive_entry_number(value: object) -> int | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        number = int(str(value))
+    except ValueError:
+        return None
+    return number if number > 0 else None
+
+
+def _mapping(value: object, field_name: str) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise CourtListenerCaseDevBridgeError(f"{field_name}_missing")
+    return cast(Mapping[str, Any], value)
+
+
+def _mapping_sequence(
+    value: object,
+    field_name: str,
+) -> tuple[Mapping[str, Any], ...]:
+    if isinstance(value, str) or not isinstance(value, Sequence):
+        raise CourtListenerCaseDevBridgeError(f"{field_name}_missing")
+    records: list[Mapping[str, Any]] = []
+    for item in cast(Sequence[object], value):
+        if not isinstance(item, Mapping):
+            raise CourtListenerCaseDevBridgeError(f"{field_name}_invalid")
+        records.append(cast(Mapping[str, Any], item))
+    return tuple(records)
+
+
+def _required_str(record: Mapping[str, Any], field_name: str) -> str:
+    value = _optional_str(record, field_name)
+    if value is None:
+        raise CourtListenerCaseDevBridgeError(f"{field_name}_missing")
+    return value
+
+
+def _required_str_any(record: Mapping[str, Any], *field_names: str) -> str:
+    value = _optional_str_any(record, *field_names)
+    if value is None:
+        raise CourtListenerCaseDevBridgeError(f"{field_names[0]}_missing")
+    return value
+
+
+def _optional_str(record: Mapping[str, Any], field_name: str) -> str | None:
+    value = record.get(field_name)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise CourtListenerCaseDevBridgeError(f"{field_name}_invalid")
+    return value.strip() or None
+
+
+def _optional_str_any(record: Mapping[str, Any], *field_names: str) -> str | None:
+    for field_name in field_names:
+        value = _optional_str(record, field_name)
+        if value is not None:
+            return value
+    return None
+
+
+def _optional_bool(
+    record: Mapping[str, Any],
+    field_name: str,
+    *,
+    default: bool,
+) -> bool:
+    value = record.get(field_name)
+    if value is None:
+        return default
+    if not isinstance(value, bool):
+        raise CourtListenerCaseDevBridgeError(f"{field_name}_invalid")
+    return value
+
+
+def _identifier(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", value.lower())
+
+
+def _docket_identifier(value: str) -> str:
+    return re.sub(r"\s+", "", value.lower())
+
+
+def _caption(value: str) -> str:
+    words = re.findall(r"[a-z0-9]+", value.lower())
+    return " ".join("v" if word in {"vs", "versus"} else word for word in words)
+
+
+def _text_key(value: str) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", value.lower()))

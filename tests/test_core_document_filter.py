@@ -107,6 +107,39 @@ def test_filter_jsonl_ignores_ambiguous_complaint_like_docket_text() -> None:
     assert result.to_record()["core_missing_documents"] == []
 
 
+def test_filter_purchases_missing_decision_for_labeling_without_mounting_it() -> None:
+    result = filter_core_documents(
+        [
+            _record(
+                "complaint",
+                label="core_mtd",
+                role="complaint",
+                available=True,
+                entry_number=1,
+            ),
+            _record(
+                "motion",
+                label="core_mtd",
+                role="motion_to_dismiss_notice",
+                available=True,
+                entry_number=5,
+            ),
+            _record(
+                "decision",
+                label="other_substantive",
+                role="decision",
+                available=False,
+                entry_number=16,
+            ),
+        ]
+    )[0]
+
+    assert result.purchase_document_ids == ("decision",)
+    assert result.core_missing_documents == ("decision",)
+    assert "decision" not in result.model_visible_document_ids
+    assert result.audit_only_document_ids == ("decision",)
+
+
 def _record(
     source_document_id: str,
     *,
