@@ -28,7 +28,6 @@ from legalforecast.ingestion.free_document_downloader import (
 from legalforecast.ingestion.missing_core_budget import (
     DEFAULT_MAX_MISSING_CORE_DOCUMENTS_PER_CASE,
     DEFAULT_MAX_PROJECTED_BUDGET_USD,
-    DEFAULT_PURCHASE_COST_USD,
 )
 from legalforecast.ingestion.provenance import (
     AvailabilityStatus,
@@ -625,14 +624,6 @@ def _validated_purchase_attempts(
         _purchase_attempt(record)
         for record in _record_sequence(purchase_result.get("attempts"), "attempts")
     )
-    expected_projected_cost = DEFAULT_PURCHASE_COST_USD * len(attempts)
-    if projected_cost != expected_projected_cost:
-        raise PurchasedDocumentRecoveryError(
-            "projected cost does not preserve the configured "
-            f"${DEFAULT_PURCHASE_COST_USD:.2f} per-document estimate: "
-            f"expected ${expected_projected_cost:.2f}, recorded "
-            f"${projected_cost:.2f}"
-        )
     attempts_per_candidate: dict[str, int] = {}
     for attempt in attempts:
         attempts_per_candidate[attempt.candidate_id] = (

@@ -48,7 +48,8 @@ DEFAULT_COURTLISTENER_MTD_QUERY_TERMS = (
 class CourtListenerDocketHTMLSource(Protocol):
     """Source of a public CourtListener docket page."""
 
-    def fetch(self, *, docket_id: str, source_url: str) -> str: ...
+    def fetch(self, *, docket_id: str, source_url: str) -> str:
+        raise NotImplementedError
 
 
 @dataclass(frozen=True, slots=True)

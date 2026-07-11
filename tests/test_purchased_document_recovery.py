@@ -424,6 +424,46 @@ def test_guarded_purchase_result_converts_to_parser_consumable_manifest(
     }
 
 
+def test_recovery_accepts_plan_recorded_nondefault_cost_below_cap() -> None:
+    purchase_result = _purchase_result_record()
+    purchase_result["projected_cost_usd"] = "4.25"
+    attempts = purchase_result["attempts"]
+    assert isinstance(attempts, list)
+    attempt = attempts[0]
+    assert isinstance(attempt, dict)
+    attempt["pacer_fees"] = {
+        "pacer_fee_usd": "1.20",
+        "service_fee_usd": "3.05",
+        "total_usd": "4.25",
+    }
+
+    requests = purchased_document_recovery_requests_from_records(
+        purchase_result,
+        (
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "court": "S.D.N.Y.",
+                "docket_number": "1:26-cv-00001",
+                "documents": [
+                    {
+                        "source_document_id": "doc-1",
+                        "document_role": "motion_to_dismiss_memorandum",
+                        "availability_status": "unavailable",
+                    }
+                ],
+            },
+        ),
+    )
+
+    assert len(requests) == 1
+    assert requests[0].purchase_attempt.pacer_fees == {
+        "pacer_fee_usd": "1.20",
+        "service_fee_usd": "3.05",
+        "total_usd": "4.25",
+    }
+
+
 @pytest.mark.parametrize(
     ("override", "message"),
     (
@@ -433,7 +473,6 @@ def test_guarded_purchase_result_converts_to_parser_consumable_manifest(
         ({"dry_run": True}, "executed purchase result"),
         ({"max_projected_budget_usd": "2250.01"}, "configured cap"),
         ({"projected_cost_usd": "2250.01"}, "projected cost"),
-        ({"projected_cost_usd": "3.04"}, r"\$3\.05 per-document"),
     ),
 )
 def test_purchase_recovery_rejects_results_that_do_not_prove_guardrails(
