@@ -13,6 +13,20 @@ from pytest import MonkeyPatch, raises
 JsonRecord = dict[str, Any]
 
 
+def test_llm_label_requires_iso_first_written_disposition_date() -> None:
+    selection = _selection_record()
+    del selection["decision_date"]
+    with raises(
+        llm_pipeline.LlmPipelineError,
+        match="missing the first written MTD disposition",
+    ):
+        llm_pipeline._decision_date(selection)
+
+    selection["decision_date"] = "docket-entry-16"
+    with raises(llm_pipeline.LlmPipelineError, match="must be an ISO date"):
+        llm_pipeline._decision_date(selection)
+
+
 def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
@@ -99,6 +113,7 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
     labels = _read_jsonl(output_root / "labels.jsonl")
     assert labels[0]["unit_id"] == "unit-1"
     assert labels[0]["fully_dismissed"] is True
+    assert labels[0]["first_written_disposition_date"] == "2026-06-30"
     label_audit = _read_jsonl(output_root / "llm-label-audit.jsonl")[0]
     assert label_audit["consensus_policy"] == "unanimous"
     assert label_audit["human_verified"] is False
@@ -1253,6 +1268,7 @@ def _selection_record() -> JsonRecord:
     return {
         "candidate_id": "cand-1",
         "case_id": "case-1",
+        "decision_date": "2026-06-30",
         "case_name": "Example v. Issuer",
         "court": "S.D.N.Y.",
         "docket_number": "1:26-cv-1",

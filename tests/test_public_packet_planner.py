@@ -25,6 +25,8 @@ def test_public_packet_planner_selects_free_core_packet_documents(
     assert plan.download_request_count == 4
     selected = plan.selected_cases[0]
     assert selected.exclusion_reasons == ()
+    assert selected.decision_date == "2026-06-30"
+    assert selected.to_record()["decision_date"] == "2026-06-30"
     assert [document.document_role for document in selected.documents] == [
         DocumentRole.COMPLAINT,
         DocumentRole.MTD_NOTICE,
@@ -57,6 +59,27 @@ def test_public_packet_planner_reports_public_document_shortfall(
     assert plan.selected_case_count == 0
     assert plan.summary_record()["shortfall"] == 25
     assert plan.candidate_plans[0].exclusion_reasons == ("no_free_target_mtd_document",)
+
+
+def test_public_packet_planner_excludes_missing_first_disposition_date(
+    tmp_path: Path,
+) -> None:
+    raw_html_dir = tmp_path / "raw_html"
+    raw_html_dir.mkdir()
+    (raw_html_dir / "123.html").write_text(_docket_html(), encoding="utf-8")
+    record = _screened_case()
+    del record["first_written_mtd_disposition_date"]
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=raw_html_dir,
+        target_clean_cases=25,
+    )
+
+    assert plan.selected_case_count == 0
+    assert plan.candidate_plans[0].exclusion_reasons == (
+        "first_written_mtd_disposition_date_missing",
+    )
 
 
 def test_public_packet_planner_uses_role_matched_free_documents(
@@ -296,6 +319,7 @@ def test_public_packet_planner_prefers_free_support_memo_for_pacer_only_target(
 
 def _screened_case() -> dict[str, object]:
     return {
+        "first_written_mtd_disposition_date": "2026-06-30",
         "candidate": {
             "docket_id": "123",
             "candidate_key": "123",

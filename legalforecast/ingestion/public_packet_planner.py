@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
@@ -67,6 +68,7 @@ class PublicPacketCandidatePlan:
     case_name: str | None
     court: str | None
     docket_number: str | None
+    decision_date: str | None
     source_url: str | None
     selected: bool
     exclusion_reasons: tuple[str, ...]
@@ -81,6 +83,7 @@ class PublicPacketCandidatePlan:
             "case_name": self.case_name,
             "court": self.court,
             "docket_number": self.docket_number,
+            "decision_date": self.decision_date,
             "source_url": self.source_url,
             "selected": self.selected,
             "exclusion_reasons": list(self.exclusion_reasons),
@@ -181,6 +184,20 @@ def _candidate_plan(
         _mapping(record, "ai").get("decision_entry_numbers")
     )
     source_url = _optional_str(candidate, "url")
+    decision_date, decision_date_reason = _first_written_disposition_date(
+        record,
+        metadata=metadata,
+    )
+    if decision_date_reason is not None:
+        return _excluded_plan(
+            candidate_id,
+            metadata,
+            decision_date=decision_date,
+            source_url=source_url,
+            target_entries=target_entries,
+            decision_entries=decision_entries,
+            reason=decision_date_reason,
+        )
     page: CourtListenerWebDocketPage | None = None
     if html_path is not None and html_path.exists():
         page = parse_courtlistener_docket_html(
@@ -201,6 +218,7 @@ def _candidate_plan(
         return _excluded_plan(
             candidate_id,
             metadata,
+            decision_date=decision_date,
             source_url=source_url,
             target_entries=target_entries,
             decision_entries=decision_entries,
@@ -219,6 +237,7 @@ def _candidate_plan(
         case_name=_optional_str(metadata, "case_name"),
         court=_optional_str(metadata, "court"),
         docket_number=_optional_str(metadata, "docket_number"),
+        decision_date=decision_date,
         source_url=source_url,
         selected=selected and not reasons,
         exclusion_reasons=reasons,
@@ -498,6 +517,7 @@ def _excluded_plan(
     candidate_id: str,
     metadata: Mapping[str, Any],
     *,
+    decision_date: str | None,
     source_url: str | None,
     target_entries: tuple[int, ...],
     decision_entries: tuple[int, ...],
@@ -509,6 +529,7 @@ def _excluded_plan(
         case_name=_optional_str(metadata, "case_name"),
         court=_optional_str(metadata, "court"),
         docket_number=_optional_str(metadata, "docket_number"),
+        decision_date=decision_date,
         source_url=source_url,
         selected=False,
         exclusion_reasons=(reason,),
@@ -516,6 +537,27 @@ def _excluded_plan(
         decision_entry_numbers=decision_entries,
         documents=(),
     )
+
+
+def _first_written_disposition_date(
+    record: Mapping[str, Any],
+    *,
+    metadata: Mapping[str, Any],
+) -> tuple[str | None, str | None]:
+    value = (
+        _optional_str(record, "first_written_mtd_disposition_date")
+        or _optional_str(record, "decision_date")
+        or _optional_str(record, "decision_entered_date")
+        or _optional_str(metadata, "decision_date")
+        or _optional_str(metadata, "decision_entered_date")
+    )
+    if value is None:
+        return None, "first_written_mtd_disposition_date_missing"
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return value, "first_written_mtd_disposition_date_invalid"
+    return value, None
 
 
 def _complaint_role(entry: CourtListenerWebDocketEntry) -> DocumentRole:

@@ -6,6 +6,7 @@ import json
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date
 from difflib import SequenceMatcher
 from enum import StrEnum
 from pathlib import Path
@@ -1511,12 +1512,17 @@ def _decision_date(selection: Mapping[str, Any]) -> str:
         selection,
         "decision_entered_date",
     )
-    if value:
-        return value
-    entries = _int_tuple(selection.get("decision_entry_numbers"))
-    if entries:
-        return f"docket-entry-{entries[0]}"
-    return "not-recorded"
+    if value is None:
+        raise LlmPipelineError(
+            "selection is missing the first written MTD disposition decision_date"
+        )
+    try:
+        date.fromisoformat(value)
+    except ValueError as exc:
+        raise LlmPipelineError(
+            "selection decision_date must be an ISO date (YYYY-MM-DD)"
+        ) from exc
+    return value
 
 
 def _json_object_from_response(

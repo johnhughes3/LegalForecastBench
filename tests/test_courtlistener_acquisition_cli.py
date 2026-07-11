@@ -142,6 +142,7 @@ def test_discover_courtlistener_produces_plan_public_downloads_input(
         output_root / "public-downloads" / "public-packet-selection.jsonl"
     )
     assert selected["candidate_id"] == "123"
+    assert selected["decision_date"] == "2026-06-30"
     assert selected["target_motion_entry_numbers"] == [5]
     assert selected["decision_entry_numbers"] == [16]
 
