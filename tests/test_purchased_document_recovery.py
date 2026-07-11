@@ -422,7 +422,15 @@ def test_recovery_never_mounts_post_decision_outcome_material(tmp_path) -> None:
     assert record.provenance.is_mounted_for_model is False
     assert record.provenance.packet_section is None
     manifest = purchased_document_download_manifest_records(records)
-    assert manifest == ()
+    assert len(manifest) == 1
+    assert manifest[0]["recovery_status"] == "recovered_audit_only"
+    assert manifest[0]["parse_eligible"] is True
+    assert manifest[0]["parse_purpose"] == "stage_b_labeling"
+    assert manifest[0]["model_visible"] is False
+    assert manifest[0]["is_mounted_for_model"] is False
+    assert manifest[0]["packet_membership"] == "not_mounted"
+    assert manifest[0]["contains_target_outcome"] is True
+    assert manifest[0]["is_predecision_material"] is False
 
 
 @pytest.mark.parametrize(
@@ -515,6 +523,14 @@ def test_guarded_purchase_result_converts_to_parser_consumable_manifest(
         "retry_count": 0,
         "rate_limited": False,
         "reused_existing": False,
+        "recovery_status": "recovered",
+        "parse_eligible": True,
+        "parse_purpose": "model_and_audit",
+        "model_visible": True,
+        "is_mounted_for_model": True,
+        "packet_membership": "model_packet",
+        "contains_target_outcome": False,
+        "is_predecision_material": True,
     }
 
 

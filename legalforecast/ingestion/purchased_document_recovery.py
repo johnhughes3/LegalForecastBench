@@ -309,11 +309,20 @@ def purchased_document_recovery_requests_from_records(
 def purchased_document_download_manifest_records(
     records: Iterable[PurchasedDocumentRecoveryRecord],
 ) -> tuple[dict[str, Any], ...]:
-    """Convert successful recoveries to the standard parser download manifest."""
+    """Convert successful recoveries to the provenance-safe parser manifest.
+
+    Outcome documents are intentionally recovered with ``RECOVERED_AUDIT_ONLY``.
+    They still need parsing for Stage B labeling, but their manifest row carries
+    an explicit non-model-visible scope that downstream packet assembly must
+    preserve.  Failed or unexecuted recoveries never enter the parse manifest.
+    """
 
     manifest: list[dict[str, Any]] = []
     for record in records:
-        if record.status is not PurchasedDocumentRecoveryStatus.RECOVERED:
+        if record.status not in {
+            PurchasedDocumentRecoveryStatus.RECOVERED,
+            PurchasedDocumentRecoveryStatus.RECOVERED_AUDIT_ONLY,
+        }:
             continue
         provenance = record.provenance
         if (
@@ -324,6 +333,16 @@ def purchased_document_download_manifest_records(
         ):
             raise PurchasedDocumentRecoveryError(
                 "successful recovery is missing parser-manifest provenance"
+            )
+        expected_status = (
+            PurchasedDocumentRecoveryStatus.RECOVERED
+            if provenance.is_mounted_for_model
+            else PurchasedDocumentRecoveryStatus.RECOVERED_AUDIT_ONLY
+        )
+        if record.status is not expected_status:
+            raise PurchasedDocumentRecoveryError(
+                "recovery status conflicts with parser-manifest model visibility: "
+                f"{record.candidate_id}/{record.source_document_id}"
             )
         manifest.append(
             {
@@ -341,6 +360,18 @@ def purchased_document_download_manifest_records(
                 "retry_count": record.retry_count,
                 "rate_limited": record.rate_limited,
                 "reused_existing": False,
+                "recovery_status": record.status.value,
+                "parse_eligible": True,
+                "parse_purpose": (
+                    "model_and_audit"
+                    if provenance.is_mounted_for_model
+                    else "stage_b_labeling"
+                ),
+                "model_visible": provenance.is_mounted_for_model,
+                "is_mounted_for_model": provenance.is_mounted_for_model,
+                "packet_membership": provenance.packet_membership,
+                "contains_target_outcome": provenance.contains_target_outcome,
+                "is_predecision_material": provenance.is_predecision_material,
             }
         )
     return tuple(manifest)
