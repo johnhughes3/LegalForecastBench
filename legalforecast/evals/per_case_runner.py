@@ -35,7 +35,7 @@ from legalforecast.evals.inspect_task import (
 from legalforecast.evals.model_registry import (
     ModelRegistry,
     ModelRegistryEntry,
-    earliest_buffered_decision_date,
+    earliest_eligible_decision_date,
     load_model_registry,
     require_official_registry_entries,
 )
@@ -1167,7 +1167,7 @@ def _validate_packet_release_anchor(
         return
     registry, _digest = _load_model_registry_uri(config.model_registry_uri)
     official_entries = require_official_registry_entries(registry.entries)
-    release_anchor_date = earliest_buffered_decision_date(official_entries)
+    release_anchor_date = earliest_eligible_decision_date(official_entries)
     packet_decision_date = _packet_decision_date(packet, packet_object=packet_object)
     if packet_decision_date is None:
         raise PerCaseRunnerError(

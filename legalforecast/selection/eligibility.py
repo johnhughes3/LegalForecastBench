@@ -132,7 +132,9 @@ class SeriesCaseTiming:
 
     @property
     def decision_entered_after_model_release(self) -> bool:
-        return self.decision_entered_at > self.series_release_timestamp
+        return self.decision_entered_at.astimezone(UTC).date() >= (
+            self.series_release_timestamp.astimezone(UTC).date()
+        )
 
     def to_manifest_fields(self, model_run: ModelRunMetadata) -> dict[str, Any]:
         return {

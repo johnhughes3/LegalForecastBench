@@ -1,17 +1,17 @@
 # Model Release-Date Verification — 2026-07-03
 
-Six independent research sessions verified the model-release anchors recorded in `MODEL_RELEASE_DATES.md` and the checked-in pilot registry (`model_registries/pilot-2026-04-24_to_2026-05-18.json`). This document records each finding, the verified public-API-availability date, whether an immutable pinned snapshot ID exists, and the source URLs.
+Six independent research sessions verified the model-release anchors recorded in `MODEL_RELEASE_DATES.md` and the checked-in pilot registry (`model_registries/pilot-2026-04-24_to_2026-05-18.json`). This document records each finding, the availability evidence used to establish first documented external deployment, whether an immutable pinned snapshot ID exists, and the source URLs.
 
-**Anchor definition used throughout.** The eligibility anchor is the *public API availability* date — the first date on which an ordinary developer could call the model. It is explicitly **not** a keynote/announcement-only date, a waitlist date, a restricted-preview date, or a knowledge-cutoff date. Where a source conflates these, the distinction is called out below.
+**Anchor definition.** The original 2026-07-03 review used ordinary-developer public API availability. On 2026-07-11 the project adopted the more directly relevant contamination rule: the anchor is the first documented external deployment of the evaluated model, including a restricted API preview. First deployment establishes that the model artifact existed by that date; delayed general availability or a temporary suspension does not imply that later court decisions entered its training data. Provider-stated knowledge cutoffs are informative and generally much earlier, but they are not the eligibility anchor because their definitions and auditability vary. First documented external deployment is the deliberately conservative, independently observable rule. Announcement-only and waitlist-only dates remain insufficient.
 
 ## Summary
 
-| Registry key | Verdict | Verified public-API date | Pinned snapshot ID | Applied |
+| Registry key | Verdict | First documented external deployment date | Pinned snapshot ID | Applied |
 | --- | --- | --- | --- | --- |
 | `openai:gpt-5.4-mini` | Confirmed | 2026-03-17 | `gpt-5.4-mini-2026-03-17` | No change needed (already correct) |
 | `anthropic:claude-sonnet-4-6` | Confirmed | 2026-02-17 | dateless ID is the snapshot | No change needed (already correct) |
 | `google:gemini-3-flash-preview` | Corrected (date sourced) | 2025-12-17 | **none — mutable preview ID** | Date/source updated; stays excluded |
-| `openai:gpt-5.6` (Sol/Terra/Luna) | Unverified anchor | none (restricted preview only) | none (undated preview aliases) | Annotated unverified |
+| `openai:gpt-5.6` (Sol/Terra/Luna) | Confirmed first external deployment | 2026-06-26 | verify exact runnable snapshot before inclusion | Date confirmed; not yet in runnable registry |
 | `anthropic/fable:fable-5` | Confirmed | 2026-06-09 | `claude-fable-5` (dateless-pinned) | Source upgraded to primary |
 | `anthropic:claude-sonnet-5` | Confirmed | 2026-06-30 | `claude-sonnet-5` (dateless-pinned) | Source upgraded to primary |
 
@@ -53,12 +53,12 @@ No pilot-registry (`*.json`) date required correction: both anchored pilot model
   - https://techcrunch.com/2025/12/17/google-launches-gemini-3-flash-makes-it-the-default-model-in-the-gemini-app/
   - https://simonwillison.net/2025/Dec/17/gemini-3-flash/
 
-## 4. `openai:gpt-5.6` (Sol / Terra / Luna) — UNVERIFIED public-API anchor
+## 4. `openai:gpt-5.6` (Sol / Terra / Luna) — CONFIRMED first external deployment (2026-06-26)
 
 - **What 2026-06-26 actually is:** the date OpenAI announced a **restricted** preview of GPT-5.6 Sol/Terra/Luna. On that date — and still as of 2026-07-03 — API and Codex access is limited to roughly 20 government-vetted partner organizations at the U.S. government's request (tied to a White House-directed pre-release safety/cybersecurity review). The models are **not** in ChatGPT and **not** callable by ordinary developers.
-- **Verified public-API date:** none. OpenAI has stated only "broader availability in the coming weeks"; no GA date has been announced or occurred. Third-party GA speculation (mid-to-late July 2026) is unconfirmed conjecture.
+- **First external deployment date:** 2026-06-26. Restricted partners could use the models through the API and Codex, establishing that the deployed model artifacts existed by that date. OpenAI subsequently made the same named family generally available on 2026-07-09; that expansion of access does not move the contamination anchor.
 - **Pinned snapshot:** none. API names are reportedly `gpt-5.6-sol` / `gpt-5.6-terra` / `gpt-5.6-luna` (undated preview aliases per secondary reporting of the system card); no dated snapshot IDs found.
-- **Registry impact:** the `2026-06-26` value in `MODEL_RELEASE_DATES.md` conflates a restricted-preview announcement with public API availability, which is the wrong anchor under this benchmark's own rule. Per task instructions, the three entries are **annotated as unverified** (not deleted) pending a true GA date. They are not in any runnable registry.
+- **Registry impact:** `2026-06-26` is the confirmed release anchor under the first-external-deployment rule. The models remain outside a runnable registry until their exact callable identities and snapshot stability are recorded.
 - **Sources:**
   - https://openai.com/index/previewing-gpt-5-6-sol/
   - https://help.openai.com/en/articles/20001325-a-preview-of-gpt-56-sol-terra-and-luna
@@ -73,7 +73,7 @@ No pilot-registry (`*.json`) date required correction: both anchored pilot model
 - **Verified public-API date:** 2026-06-09. Anthropic's docs state Fable 5 became "generally available on the Claude API, Claude Platform on AWS, Amazon Bedrock, Google Cloud, and Microsoft Foundry" that day — genuine public GA, not a preview.
 - **Pinned snapshot:** `claude-fable-5` (dateless ID is the pinned snapshot per the 4.6-generation-onward convention).
 - **Availability caveat (does not move the anchor):** U.S. export controls forced Anthropic to suspend all access to Fable 5 / Mythos 5 from ~2026-06-12 until 2026-07-01. First public availability remains 2026-06-09, so the contamination anchor is unchanged, but continuous availability was interrupted — relevant only if a cycle also cares about reproducibility continuity.
-- **Sibling note:** Claude Mythos 5 (`claude-mythos-5`) is **not** generally available (limited to Project Glasswing partners) and must not be treated as having a public API release date.
+- **Sibling note:** Claude Mythos 5 (`claude-mythos-5`) is **not** generally available (limited to Project Glasswing partners). A documented limited external deployment could establish an anchor if its exact date and evaluated artifact were verified; lack of public GA alone is not disqualifying under the current rule.
 - **Registry impact:** not in any registry; the `MODEL_RELEASE_DATES.md` source citation is upgraded from the user-supplied anchor to Anthropic's primary announcement.
 - **Sources:**
   - https://www.anthropic.com/news/claude-fable-5-mythos-5
@@ -101,10 +101,10 @@ No pilot-registry (`*.json`) date required correction: both anchored pilot model
 - **`MODEL_RELEASE_DATES.md`:**
   - Pilot table: added a note recording independent verification on 2026-07-03 (dates unchanged).
   - Gemini 3 Flash Preview: date `2025-12-17` re-cited to primary sources; exclusion retained and re-inclusion ineligibility (no pinned snapshot) made explicit.
-  - GPT-5.6 Sol/Terra/Luna: relabeled as an unverified anchor (restricted government-partner preview, not public API GA as of 2026-07-03).
+  - GPT-5.6 Sol/Terra/Luna: originally relabeled as unverified on 2026-07-03; superseded on 2026-07-11 by the first-external-deployment rule and confirmed at 2026-06-26.
   - Fable 5 and Claude Sonnet 5: source citations upgraded to primary Anthropic announcements; pinned-snapshot IDs recorded.
 
 ## Unverifiable / open items
 
-- **GPT-5.6 (all three variants):** no public-API-availability date exists yet. Re-verify at GA; do not anchor on 2026-06-26.
+- **GPT-5.6 (all three variants):** the date is confirmed at first external deployment. Exact runnable snapshot identity remains to be verified before adding the family to an official registry.
 - **Gemini 3 Flash Preview:** date is verified, but the absence of an immutable snapshot means any anchored run would be exposed to silent endpoint drift. Blocked from re-inclusion on snapshot grounds, not date grounds.

@@ -102,7 +102,7 @@ def test_pre_release_decision_is_not_eligible() -> None:
     metadata = ContaminationMetadata(
         case_timing=SeriesCaseTiming(
             series_release_timestamp=datetime(2026, 5, 14, 9, 0, tzinfo=UTC),
-            decision_entered_at=datetime(2026, 5, 14, 8, 59, tzinfo=UTC),
+            decision_entered_at=datetime(2026, 5, 13, 23, 59, tzinfo=UTC),
         ),
         model_run=_known_cutoff_run(),
     )

@@ -723,7 +723,7 @@ def test_per_case_runner_rejects_unknown_model_key(tmp_path: Path) -> None:
 def test_per_case_runner_rejects_packet_before_release_anchor(tmp_path: Path) -> None:
     store_root, manifest_path, _packet_sha256 = _write_store_fixture(
         tmp_path,
-        packet_record=_packet_record(decision_date="2026-05-15"),
+        packet_record=_packet_record(decision_date="2026-05-13"),
     )
     registry_path = tmp_path / "model-registry.json"
     _write_json(

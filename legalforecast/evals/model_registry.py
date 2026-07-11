@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
@@ -209,11 +209,15 @@ def latest_release_timestamp(entries: Sequence[ModelRegistryEntry]) -> datetime:
     return max(timestamps)
 
 
-def earliest_buffered_decision_date(entries: Sequence[ModelRegistryEntry]) -> date:
-    """Return the first allowed decision date after the release-anchor buffer."""
+def earliest_eligible_decision_date(entries: Sequence[ModelRegistryEntry]) -> date:
+    """Return the first allowed decision date from the deployment anchor.
 
-    latest_release = latest_release_timestamp(entries)
-    return latest_release.astimezone(UTC).date() + timedelta(days=2)
+    First external deployment establishes that the evaluated model artifact existed
+    by that date. Because decision metadata is date-granular, an additional
+    calendar-day buffer does not provide meaningful contamination protection.
+    """
+
+    return latest_release_timestamp(entries).astimezone(UTC).date()
 
 
 def require_official_registry_entries(

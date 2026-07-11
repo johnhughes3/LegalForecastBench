@@ -32,7 +32,7 @@ from legalforecast.evals.inspect_task import (
 )
 from legalforecast.evals.model_registry import (
     ModelRegistryEntry,
-    earliest_buffered_decision_date,
+    earliest_eligible_decision_date,
     load_model_registry,
     require_official_registry_entries,
 )
@@ -1150,7 +1150,7 @@ def _add_acquisition_plan_packet_inputs_arguments(
         required=True,
         help=(
             "Frozen model registry; plan-packet-inputs uses it to enforce the "
-            "buffered post-release decision window for official runs."
+            "first-deployment decision window for official runs."
         ),
     )
     parser.add_argument(
@@ -2823,7 +2823,7 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         model_registry_path = cast(Path, args.model_registry)
         registry = load_model_registry(model_registry_path)
         official_entries = require_official_registry_entries(registry.entries)
-        decision_filed_on_or_after = earliest_buffered_decision_date(official_entries)
+        decision_filed_on_or_after = earliest_eligible_decision_date(official_entries)
         plan = plan_packet_build_inputs(
             selection_records=records,
             download_records=_read_records(download_manifest_path),
