@@ -231,6 +231,11 @@ def llm_unitize_cases(
             )
             if not any(unit.should_score for unit in result.units):
                 raise LlmPipelineError("LLM unitization produced no scorable units")
+            review_queue = _unitization_review_queue_records(
+                candidate_id=candidate_id,
+                case_id=_required_str(selection, "case_id"),
+                result=result,
+            )
             records.append(
                 {
                     "candidate_id": candidate_id,
@@ -241,7 +246,7 @@ def llm_unitize_cases(
             audit_records.append(
                 {
                     "stage": "llm-unitize",
-                    "status": "succeeded",
+                    "status": ("adjudication_pending" if review_queue else "succeeded"),
                     "candidate_id": candidate_id,
                     "case_id": _required_str(selection, "case_id"),
                     "model_key": registry_entry.registry_key,
@@ -252,6 +257,7 @@ def llm_unitize_cases(
                         unit.should_score for unit in result.units
                     ),
                     "review_items": [item.to_record() for item in result.review_items],
+                    "unitization_review_queue": review_queue,
                     "input_tokens": response.input_tokens,
                     "output_tokens": response.output_tokens,
                     "estimated_cost": response.estimated_cost,
@@ -363,6 +369,12 @@ def llm_label_cases(
                 candidate_id=candidate_id,
                 ensemble=ensemble,
             )
+            label_audit_packets = _label_audit_review_packets(
+                candidate_id=candidate_id,
+                ensemble=ensemble,
+                frozen_units=tuple(frozen_units),
+                decision_text=decision_text,
+            )
             if lawyer_review_packets:
                 selected_labels = tuple(ensemble.auto_labels)
             else:
@@ -372,13 +384,15 @@ def llm_label_cases(
                     consensus_policy=consensus_policy,
                     first_model_key=registry_entries[0].registry_key,
                 )
-            pending_unit_ids = [packet.unit_id for packet in lawyer_review_packets]
-            pending_review_count = len(lawyer_review_packets)
+            all_review_packets = (*lawyer_review_packets, *label_audit_packets)
+            pending_unit_ids = [packet.unit_id for packet in all_review_packets]
+            pending_review_count = len(all_review_packets)
             adjudicated_review_count = 0
             queue_records = _lawyer_review_queue_records(
                 candidate_id=candidate_id,
                 selection=selection,
                 lawyer_review_packets=lawyer_review_packets,
+                label_audit_packets=label_audit_packets,
                 ensemble=ensemble,
             )
             ambiguous = [label.unit_id for label in selected_labels if label.ambiguous]
@@ -391,7 +405,7 @@ def llm_label_cases(
                 {
                     "stage": "llm-label",
                     "status": (
-                        "adjudication_pending" if lawyer_review_packets else "succeeded"
+                        "adjudication_pending" if all_review_packets else "succeeded"
                     ),
                     "candidate_id": candidate_id,
                     "case_id": _required_str(selection, "case_id"),
@@ -990,14 +1004,56 @@ def _lawyer_review_packets(
     return tuple(packets)
 
 
+def _label_audit_review_packets(
+    *,
+    candidate_id: str,
+    ensemble: EnsembleRunResult,
+    frozen_units: tuple[PredictionUnit, ...],
+    decision_text: StageBDecisionText,
+) -> tuple[LawyerReviewPacket, ...]:
+    """Build blind human-review packets for deterministic auto-label samples."""
+
+    units_by_id = {unit.unit_id: unit for unit in frozen_units}
+    return tuple(
+        LawyerReviewPacket(
+            review_id=f"{candidate_id}:{decision.unit_id}:label-audit",
+            candidate_id=candidate_id,
+            unit_id=decision.unit_id,
+            review_reason="label_audit_sample",
+            blind_reliability_study=True,
+            materials=(
+                ReviewMaterial(
+                    material_id=f"{decision.unit_id}:frozen-unit",
+                    kind=ReviewMaterialKind.UNIT_TEXT,
+                    text=json.dumps(
+                        units_by_id[decision.unit_id].to_record(),
+                        sort_keys=True,
+                    ),
+                ),
+                ReviewMaterial(
+                    material_id=f"{decision.unit_id}:first-written-disposition",
+                    kind=ReviewMaterialKind.DECISION_EXCERPT,
+                    text=decision_text.text,
+                    source_document_id=decision_text.document_id,
+                ),
+            ),
+        )
+        for decision in _label_audit_sample_decisions(
+            ensemble,
+            sample_size=DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
+        )
+    )
+
+
 def _lawyer_review_queue_records(
     *,
     candidate_id: str,
     selection: Mapping[str, Any],
     lawyer_review_packets: Sequence[LawyerReviewPacket],
+    label_audit_packets: Sequence[LawyerReviewPacket],
     ensemble: EnsembleRunResult,
 ) -> list[JsonRecord]:
-    if not lawyer_review_packets:
+    if not lawyer_review_packets and not label_audit_packets:
         return []
     decisions_by_unit = {decision.unit_id: decision for decision in ensemble.decisions}
     return [
@@ -1008,11 +1064,54 @@ def _lawyer_review_queue_records(
             "case_id": _required_str(selection, "case_id"),
             "unit_id": packet.unit_id,
             "review_id": packet.review_id,
-            "route_reason": decisions_by_unit[packet.unit_id].route_reason.value,
+            "route_reason": (
+                "label_audit_sample"
+                if packet in label_audit_packets
+                else decisions_by_unit[packet.unit_id].route_reason.value
+            ),
             "packet": packet.to_record(),
         }
-        for packet in lawyer_review_packets
+        for packet in (*lawyer_review_packets, *label_audit_packets)
     ]
+
+
+def _unitization_review_queue_records(
+    *,
+    candidate_id: str,
+    case_id: str,
+    result: StageAConstructionResult,
+) -> list[JsonRecord]:
+    return [
+        {
+            "schema_version": "legalforecast.unitization_review_queue.v1",
+            "status": "pending_adjudication",
+            "candidate_id": candidate_id,
+            "case_id": case_id,
+            "unit_id": item.unit_id,
+            "review_id": f"{candidate_id}:{item.unit_id}:stage-a-review",
+            "route_reason": item.reason.value,
+            "review_item": item.to_record(),
+        }
+        for item in result.review_items
+    ]
+
+
+def unitization_review_queue_records(
+    audit_records: Sequence[Mapping[str, Any]],
+) -> tuple[JsonRecord, ...]:
+    """Extract durable Stage A blinded-review queue rows from unitization audits."""
+
+    records: list[JsonRecord] = []
+    for audit_record in audit_records:
+        queue_value = audit_record.get("unitization_review_queue")
+        if queue_value is None:
+            continue
+        for queue_record in _record_sequence(
+            queue_value,
+            "unitization_review_queue",
+        ):
+            records.append(dict(queue_record))
+    return tuple(records)
 
 
 def lawyer_review_queue_records(

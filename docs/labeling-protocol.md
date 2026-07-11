@@ -60,6 +60,16 @@ If the decision resolves a material unit that Stage A failed to freeze, do not c
 
 If a frozen unit is not addressed by the first written disposition, do not infer an outcome from silence. Route it for review or exclusion under the current cycle's adjudication policy.
 
+## Fail-Closed Human Review Gates
+
+Stage A construction ambiguities are written to `unitization-review-queue.jsonl` with deterministic review IDs and remain outside the clean corpus until John supplies a separate, checked-in adjudication record.
+
+The generated queue is immutable evidence, not an adjudication surface. A Stage A adjudication may count as resolved only when it identifies the queued review, names the adjudicator, records adjudication notes, and explicitly accepts the already-frozen unit as written. If review requires changing a frozen unit, the case stays out of the clean corpus and must be replaced or rerun through an authorized pre-freeze workflow; the frozen artifact is never hand-edited.
+
+Stage B automatically samples unanimous auto-labels for blind human audit. Each required sample is written to `lawyer-review-queue.jsonl` with the frozen unit and first written disposition text needed to label it, but without the ensemble's proposed outcome. The case cannot count clean until checked-in adjudication records produce a successful `lawyer-review-resume` audit and the corresponding `label-audit-gate` passes. A recorded `no_unanimous_auto_labels` skip is acceptable only when the deterministic sample is empty.
+
+Pending adjudications are John decisions. Automation may assemble the queues and validate checked-in results, but it must not self-adjudicate them.
+
 ## Frozen-Unit Repair Policy (v0.1: Exclusion-Only)
 
 The v0.1 benchmark policy is **exclusion-only**. When Stage B reports that the decision resolved a material unit missing from the frozen Stage A set, the affected frozen unit is excluded from scoring rather than repaired. Exclusion is the conservative direction: it removes a unit the model was never given a fair chance to forecast instead of retroactively adding a scored unit informed by the decision text.

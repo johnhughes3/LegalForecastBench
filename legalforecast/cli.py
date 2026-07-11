@@ -180,6 +180,7 @@ from legalforecast.labeling.llm_pipeline import (
     lawyer_review_queue_records,
     llm_label_cases,
     llm_unitize_cases,
+    unitization_review_queue_records,
 )
 from legalforecast.multiharness.cli import add_multiharness_parser
 from legalforecast.path_safety import safe_path_component
@@ -1212,6 +1213,11 @@ def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> N
         help="Output JSONL with LLM unitization audit/accounting rows.",
     )
     parser.add_argument(
+        "--unitization-review-queue-output",
+        type=Path,
+        help="Output immutable JSONL queue of blinded Stage A reviews for John.",
+    )
+    parser.add_argument(
         "--continue-on-error",
         action="store_true",
         help="Continue to later candidates after a model/validation failure.",
@@ -1492,9 +1498,26 @@ def _add_acquisition_finalize_corpus_arguments(
         help="Root containing parse-documents Markdown used to verify label excerpts.",
     )
     parser.add_argument("--prediction-units", type=Path, required=True)
+    parser.add_argument("--llm-unitization-audit", type=Path, required=True)
+    parser.add_argument("--unitization-review-queue", type=Path, required=True)
+    parser.add_argument(
+        "--unitization-review-adjudications",
+        type=Path,
+        required=True,
+        help=(
+            "Checked-in John adjudications for Stage A reviews; never mutate "
+            "the generated queue."
+        ),
+    )
     parser.add_argument("--labels", type=Path, required=True)
     parser.add_argument("--llm-label-audit", type=Path, required=True)
     parser.add_argument("--lawyer-review-queue", type=Path, required=True)
+    parser.add_argument(
+        "--lawyer-review-audit",
+        type=Path,
+        required=True,
+        help="JSONL from apply-lawyer-review proving review and audit-gate outcomes.",
+    )
     parser.add_argument("--packet-build-input", type=Path, required=True)
     parser.add_argument("--packets", type=Path, required=True)
     parser.add_argument("--model-registry", type=Path, required=True)
@@ -2693,7 +2716,11 @@ _ACQUISITION_MERGE_JSONL_FILES = (
     "case-packets.jsonl",
     "packet-audit.jsonl",
     "llm-unitization-audit.jsonl",
+    "unitization-review-queue.jsonl",
+    "unitization-review-adjudications.jsonl",
     "llm-label-audit.jsonl",
+    "lawyer-review-queue.jsonl",
+    "lawyer-review-resume-audit.jsonl",
 )
 
 
@@ -3351,6 +3378,11 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
         "audit_output",
         output_root / "llm-unitization-audit.jsonl",
     )
+    review_queue_path = _acquisition_path(
+        args,
+        "unitization_review_queue_output",
+        output_root / "unitization-review-queue.jsonl",
+    )
     selection_records = _read_records(selection_path)
     dry_run = _acquisition_dry_run(args)
     if dry_run:
@@ -3366,6 +3398,7 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
                 }
             ],
         )
+        _write_jsonl(review_queue_path, [])
     else:
         registry_entry, registry_sha256 = _registry_entry_for_key(
             model_registry_path,
@@ -3382,11 +3415,15 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
         )
         _write_jsonl(prediction_units_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
+        _write_jsonl(
+            review_queue_path,
+            unitization_review_queue_records(result.audit_records),
+        )
     _write_acquisition_completion(
         args,
         stage="llm-unitize",
         input_paths=(selection_path, parser_manifest_path, model_registry_path),
-        output_paths=(prediction_units_path, audit_path),
+        output_paths=(prediction_units_path, audit_path, review_queue_path),
         record_count=len(selection_records),
         dry_run=dry_run,
         paid_activity_requested=False,
@@ -3716,9 +3753,16 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     parser_manifest_path = cast(Path, args.parser_manifest)
     markdown_root = cast(Path, args.markdown_root)
     prediction_units_path = cast(Path, args.prediction_units)
+    unitization_audit_path = cast(Path, args.llm_unitization_audit)
+    unitization_review_path = cast(Path, args.unitization_review_queue)
+    unitization_adjudications_path = cast(
+        Path,
+        args.unitization_review_adjudications,
+    )
     labels_path = cast(Path, args.labels)
     label_audit_path = cast(Path, args.llm_label_audit)
     lawyer_review_path = cast(Path, args.lawyer_review_queue)
+    lawyer_review_audit_path = cast(Path, args.lawyer_review_audit)
     packet_build_input_path = cast(Path, args.packet_build_input)
     packets_path = cast(Path, args.packets)
     model_registry_path = cast(Path, args.model_registry)
@@ -3741,9 +3785,13 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         parser_manifest_path,
         markdown_root,
         prediction_units_path,
+        unitization_audit_path,
+        unitization_review_path,
+        unitization_adjudications_path,
         labels_path,
         label_audit_path,
         lawyer_review_path,
+        lawyer_review_audit_path,
         packet_build_input_path,
         packets_path,
         model_registry_path,
@@ -3771,9 +3819,13 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         selection_records = _read_records(selection_path)
         parser_records = _read_records(parser_manifest_path)
         prediction_unit_records = _read_records(prediction_units_path)
+        unitization_audit_records = _read_records(unitization_audit_path)
+        unitization_review_records = _read_records(unitization_review_path)
+        unitization_adjudication_records = _read_records(unitization_adjudications_path)
         label_records = _read_records(labels_path)
         label_audit_records = _read_records(label_audit_path)
         lawyer_review_records = _read_records(lawyer_review_path)
+        lawyer_review_audit_records = _read_records(lawyer_review_audit_path)
         packet_build_records = _read_records(packet_build_input_path)
         packet_records = _read_records(packets_path)
         screened_case_records = _read_records(screened_cases_path)
@@ -3821,9 +3873,13 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             selection_records=selection_records,
             parser_records=parser_records,
             prediction_unit_records=prediction_unit_records,
+            unitization_audit_records=unitization_audit_records,
+            unitization_review_records=unitization_review_records,
+            unitization_adjudication_records=unitization_adjudication_records,
             label_records=label_records,
             label_audit_records=label_audit_records,
             lawyer_review_records=lawyer_review_records,
+            lawyer_review_audit_records=lawyer_review_audit_records,
             packet_build_records=packet_build_records,
             packet_records=packet_records,
             exclusion_records=complete_ledger_records,
@@ -3849,9 +3905,13 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
                 selection_records=selection_records,
                 parser_records=parser_records,
                 prediction_unit_records=prediction_unit_records,
+                unitization_audit_records=unitization_audit_records,
+                unitization_review_records=unitization_review_records,
+                unitization_adjudication_records=unitization_adjudication_records,
                 label_records=label_records,
                 label_audit_records=label_audit_records,
                 lawyer_review_records=lawyer_review_records,
+                lawyer_review_audit_records=lawyer_review_audit_records,
                 packet_build_records=packet_build_records,
                 packet_records=packet_records,
                 exclusion_records=complete_ledger_records,

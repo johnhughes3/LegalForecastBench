@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from datetime import date
 
 import pytest
 from legalforecast.ingestion.corpus_readiness import (
     CorpusReadinessError,
+    CorpusReadinessReport,
     build_clean_corpus_readiness,
     require_clean_corpus_ready,
 )
@@ -44,6 +46,28 @@ def _unit(candidate_id: str, unit_id: str) -> dict[str, object]:
     }
 
 
+def _unitization_audit(candidate_id: str) -> dict[str, object]:
+    return {
+        "stage": "llm-unitize",
+        "candidate_id": candidate_id,
+        "status": "succeeded",
+        "review_items": [],
+    }
+
+
+def _label_audit(candidate_id: str) -> dict[str, object]:
+    return {
+        "stage": "llm-label",
+        "candidate_id": candidate_id,
+        "status": "succeeded",
+        "label_audit_gate": {
+            "required": True,
+            "status": "no_unanimous_auto_labels",
+            "sample_unit_ids": [],
+        },
+    }
+
+
 def _label(unit_id: str) -> dict[str, object]:
     return {
         "unit_id": unit_id,
@@ -64,6 +88,147 @@ def _decision_texts(candidate_id: str) -> dict[tuple[str, str], str]:
     return {(candidate_id, "decision-1"): "The Court rules. Count I is dismissed."}
 
 
+def _single_candidate_report(
+    *,
+    unitization_audits: Sequence[Mapping[str, object]] | None = None,
+    unitization_reviews: Sequence[Mapping[str, object]] | None = None,
+    unitization_adjudications: Sequence[Mapping[str, object]] | None = None,
+    label_audits: Sequence[Mapping[str, object]] | None = None,
+    lawyer_reviews: Sequence[Mapping[str, object]] | None = None,
+    lawyer_review_audits: Sequence[Mapping[str, object]] | None = None,
+) -> CorpusReadinessReport:
+    return build_clean_corpus_readiness(
+        selection_records=[_selection("cand-1", "case-1")],
+        parser_records=_parsers("cand-1"),
+        prediction_unit_records=[_unit("cand-1", "unit-1")],
+        unitization_audit_records=(
+            unitization_audits
+            if unitization_audits is not None
+            else [_unitization_audit("cand-1")]
+        ),
+        unitization_review_records=unitization_reviews or [],
+        unitization_adjudication_records=unitization_adjudications or [],
+        label_records=[_label("unit-1")],
+        label_audit_records=(
+            label_audits if label_audits is not None else [_label_audit("cand-1")]
+        ),
+        lawyer_review_records=lawyer_reviews or [],
+        lawyer_review_audit_records=lawyer_review_audits or [],
+        packet_build_records=[{"candidate_id": "cand-1"}],
+        packet_records=[{"candidate_id": "cand-1"}],
+        exclusion_records=[],
+        decision_text_by_candidate_and_document=_decision_texts("cand-1"),
+        decision_filed_on_or_after=date(2026, 6, 30),
+        required_clean_count=1,
+    )
+
+
+def test_stage_a_review_items_fail_closed_until_queue_is_adjudicated() -> None:
+    audit = {
+        "stage": "llm-unitize",
+        "candidate_id": "cand-1",
+        "status": "adjudication_pending",
+        "review_items": [
+            {
+                "unit_id": "unit-1",
+                "reason": "low_confidence",
+                "notes": "Blinded review required.",
+                "source_document_ids": ["cand-1-complaint"],
+            }
+        ],
+    }
+    queue_row = {
+        "schema_version": "legalforecast.unitization_review_queue.v1",
+        "candidate_id": "cand-1",
+        "unit_id": "unit-1",
+        "review_id": "cand-1:unit-1:stage-a-review",
+        "status": "pending_adjudication",
+        "route_reason": "low_confidence",
+    }
+
+    pending = _single_candidate_report(
+        unitization_audits=[audit],
+        unitization_reviews=[queue_row],
+    )
+    assert pending.clean_count == 0
+    assert pending.funnel["unitized_complete"] == 0
+    assert pending.exclusion_reasons["cand-1"] == ("stage_a_review_pending",)
+
+    resolved = _single_candidate_report(
+        unitization_audits=[audit],
+        unitization_reviews=[queue_row],
+        unitization_adjudications=[
+            {
+                "candidate_id": "cand-1",
+                "unit_id": "unit-1",
+                "review_id": "cand-1:unit-1:stage-a-review",
+                "status": "adjudicated",
+                "disposition": "accepted_as_frozen",
+                "adjudicator_id": "john-hughes",
+                "adjudication_notes": "Frozen unit is sufficiently clear.",
+            }
+        ],
+    )
+    assert resolved.clean_candidate_ids == ("cand-1",)
+
+
+def test_required_stage_b_label_audit_fails_closed_until_passed() -> None:
+    label_audit = {
+        "stage": "llm-label",
+        "candidate_id": "cand-1",
+        "status": "adjudication_pending",
+        "label_audit_gate": {
+            "required": True,
+            "status": "awaiting_human_adjudicated_labels",
+            "sample_unit_ids": ["unit-1"],
+        },
+    }
+    queue_row = {
+        "candidate_id": "cand-1",
+        "unit_id": "unit-1",
+        "review_id": "cand-1:unit-1:label-audit",
+        "status": "pending_adjudication",
+        "route_reason": "label_audit_sample",
+        "packet": {
+            "blind_reliability_study": True,
+            "materials": [
+                {"kind": "unit_text"},
+                {"kind": "decision_excerpt"},
+            ],
+        },
+    }
+
+    pending = _single_candidate_report(
+        label_audits=[label_audit],
+        lawyer_reviews=[queue_row],
+    )
+    assert pending.clean_count == 0
+    assert pending.exclusion_reasons["cand-1"] == (
+        "label_audit_pending",
+        "lawyer_review_pending",
+    )
+
+    passed = _single_candidate_report(
+        label_audits=[label_audit],
+        lawyer_reviews=[queue_row],
+        lawyer_review_audits=[
+            {
+                "stage": "lawyer-review-resume",
+                "candidate_id": "cand-1",
+                "review_id": "cand-1:unit-1:label-audit",
+                "status": "succeeded",
+            },
+            {
+                "stage": "label-audit-gate",
+                "candidate_id": "cand-1",
+                "status": "passed",
+                "sample_unit_ids": ["unit-1"],
+            },
+        ],
+    )
+    assert passed.clean_candidate_ids == ("cand-1",)
+
+
 def test_clean_corpus_readiness_joins_all_fail_closed_gates() -> None:
     selections = [
         _selection("cand-clean", "case-clean"),
@@ -78,18 +243,43 @@ def test_clean_corpus_readiness_joins_all_fail_closed_gates() -> None:
         selection_records=selections,
         parser_records=parsers,
         prediction_unit_records=units,
+        unitization_audit_records=[
+            _unitization_audit("cand-clean"),
+            _unitization_audit("cand-review"),
+        ],
+        unitization_review_records=[],
+        unitization_adjudication_records=[],
         label_records=[_label("unit-clean")],
         label_audit_records=[
-            {"candidate_id": "cand-clean", "status": "succeeded"},
-            {"candidate_id": "cand-review", "status": "adjudication_pending"},
+            _label_audit("cand-clean"),
+            {
+                "stage": "llm-label",
+                "candidate_id": "cand-review",
+                "status": "adjudication_pending",
+                "label_audit_gate": {
+                    "required": True,
+                    "status": "awaiting_human_adjudicated_labels",
+                    "sample_unit_ids": ["unit-review"],
+                },
+            },
         ],
         lawyer_review_records=[
             {
                 "candidate_id": "cand-review",
                 "unit_id": "unit-review",
+                "review_id": "cand-review:unit-review:label-audit",
                 "status": "pending_adjudication",
+                "route_reason": "label_audit_sample",
+                "packet": {
+                    "blind_reliability_study": True,
+                    "materials": [
+                        {"kind": "unit_text"},
+                        {"kind": "decision_excerpt"},
+                    ],
+                },
             }
         ],
+        lawyer_review_audit_records=[],
         packet_build_records=[
             {"candidate_id": "cand-clean"},
             {"candidate_id": "cand-review"},
@@ -131,7 +321,7 @@ def test_clean_corpus_readiness_joins_all_fail_closed_gates() -> None:
     )
     assert report.exclusion_reasons["cand-review"] == (
         "stage_b_labels_incomplete",
-        "label_audit_incomplete",
+        "label_audit_pending",
         "lawyer_review_pending",
     )
 
@@ -147,9 +337,13 @@ def test_clean_corpus_readiness_rejects_nonverbatim_or_preanchor_labels() -> Non
         selection_records=[_selection("cand-1", "case-1")],
         parser_records=_parsers("cand-1"),
         prediction_unit_records=[_unit("cand-1", "unit-1")],
+        unitization_audit_records=[_unitization_audit("cand-1")],
+        unitization_review_records=[],
+        unitization_adjudication_records=[],
         label_records=[label],
-        label_audit_records=[{"candidate_id": "cand-1", "status": "succeeded"}],
+        label_audit_records=[_label_audit("cand-1")],
         lawyer_review_records=[],
+        lawyer_review_audit_records=[],
         packet_build_records=[{"candidate_id": "cand-1"}],
         packet_records=[{"candidate_id": "cand-1"}],
         exclusion_records=[],
@@ -172,9 +366,13 @@ def test_clean_corpus_readiness_honors_consolidated_exclusion_ledger() -> None:
         selection_records=[_selection("cand-1", "case-1")],
         parser_records=_parsers("cand-1"),
         prediction_unit_records=[_unit("cand-1", "unit-1")],
+        unitization_audit_records=[_unitization_audit("cand-1")],
+        unitization_review_records=[],
+        unitization_adjudication_records=[],
         label_records=[_label("unit-1")],
-        label_audit_records=[{"candidate_id": "cand-1", "status": "succeeded"}],
+        label_audit_records=[_label_audit("cand-1")],
         lawyer_review_records=[],
+        lawyer_review_audit_records=[],
         packet_build_records=[{"candidate_id": "cand-1"}],
         packet_records=[{"candidate_id": "cand-1"}],
         exclusion_records=[
@@ -214,9 +412,13 @@ def test_clean_corpus_readiness_validates_canonical_outcome_label_schema(
         selection_records=[_selection("cand-1", "case-1")],
         parser_records=_parsers("cand-1"),
         prediction_unit_records=[_unit("cand-1", "unit-1")],
+        unitization_audit_records=[_unitization_audit("cand-1")],
+        unitization_review_records=[],
+        unitization_adjudication_records=[],
         label_records=[label],
-        label_audit_records=[{"candidate_id": "cand-1", "status": "succeeded"}],
+        label_audit_records=[_label_audit("cand-1")],
         lawyer_review_records=[],
+        lawyer_review_audit_records=[],
         packet_build_records=[{"candidate_id": "cand-1"}],
         packet_records=[{"candidate_id": "cand-1"}],
         exclusion_records=[],
@@ -239,9 +441,13 @@ def test_clean_corpus_readiness_requires_citations_from_locked_disposition() -> 
         selection_records=[_selection("cand-1", "case-1")],
         parser_records=_parsers("cand-1"),
         prediction_unit_records=[_unit("cand-1", "unit-1")],
+        unitization_audit_records=[_unitization_audit("cand-1")],
+        unitization_review_records=[],
+        unitization_adjudication_records=[],
         label_records=[label],
-        label_audit_records=[{"candidate_id": "cand-1", "status": "succeeded"}],
+        label_audit_records=[_label_audit("cand-1")],
         lawyer_review_records=[],
+        lawyer_review_audit_records=[],
         packet_build_records=[{"candidate_id": "cand-1"}],
         packet_records=[{"candidate_id": "cand-1"}],
         exclusion_records=[],
@@ -260,9 +466,13 @@ def test_clean_corpus_readiness_requires_supplied_locked_disposition_text() -> N
         selection_records=[_selection("cand-1", "case-1")],
         parser_records=_parsers("cand-1"),
         prediction_unit_records=[_unit("cand-1", "unit-1")],
+        unitization_audit_records=[_unitization_audit("cand-1")],
+        unitization_review_records=[],
+        unitization_adjudication_records=[],
         label_records=[_label("unit-1")],
-        label_audit_records=[{"candidate_id": "cand-1", "status": "succeeded"}],
+        label_audit_records=[_label_audit("cand-1")],
         lawyer_review_records=[],
+        lawyer_review_audit_records=[],
         packet_build_records=[{"candidate_id": "cand-1"}],
         packet_records=[{"candidate_id": "cand-1"}],
         exclusion_records=[],

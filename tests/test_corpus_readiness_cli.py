@@ -102,9 +102,34 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
     )
     _write_jsonl(
         inputs / "label-audit.jsonl",
-        [{"candidate_id": "cand-1", "status": "succeeded"}],
+        [
+            {
+                "stage": "llm-label",
+                "candidate_id": "cand-1",
+                "status": "succeeded",
+                "label_audit_gate": {
+                    "required": True,
+                    "status": "no_unanimous_auto_labels",
+                    "sample_unit_ids": [],
+                },
+            }
+        ],
     )
+    _write_jsonl(
+        inputs / "unitization-audit.jsonl",
+        [
+            {
+                "stage": "llm-unitize",
+                "candidate_id": "cand-1",
+                "status": "succeeded",
+                "review_items": [],
+            }
+        ],
+    )
+    _write_jsonl(inputs / "unitization-review-queue.jsonl", [])
+    _write_jsonl(inputs / "unitization-adjudications.jsonl", [])
     _write_jsonl(inputs / "review-queue.jsonl", [])
+    _write_jsonl(inputs / "lawyer-review-audit.jsonl", [])
     _write_jsonl(inputs / "packet-input.jsonl", [{"candidate_id": "cand-1"}])
     _write_jsonl(
         inputs / "packets.jsonl",
@@ -155,12 +180,20 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
                 str(markdown_root),
                 "--prediction-units",
                 str(inputs / "units.jsonl"),
+                "--llm-unitization-audit",
+                str(inputs / "unitization-audit.jsonl"),
+                "--unitization-review-queue",
+                str(inputs / "unitization-review-queue.jsonl"),
+                "--unitization-review-adjudications",
+                str(inputs / "unitization-adjudications.jsonl"),
                 "--labels",
                 str(inputs / "labels.jsonl"),
                 "--llm-label-audit",
                 str(inputs / "label-audit.jsonl"),
                 "--lawyer-review-queue",
                 str(inputs / "review-queue.jsonl"),
+                "--lawyer-review-audit",
+                str(inputs / "lawyer-review-audit.jsonl"),
                 "--packet-build-input",
                 str(inputs / "packet-input.jsonl"),
                 "--packets",
@@ -195,6 +228,7 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
     )
     assert ledger[0]["secondary_exclusion_reasons"] == [
         "stage_a_units_missing",
+        "stage_a_unitization_audit_missing",
         "label_audit_missing",
         "packet_build_input_missing",
         "built_packet_missing",
@@ -239,13 +273,26 @@ def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(
         encoding="utf-8",
     )
     _write_jsonl(inputs / "discovery-exclusions.jsonl", [])
+    _write_jsonl(
+        inputs / "selection.jsonl",
+        [
+            {
+                "candidate_id": "cand-selected",
+                "case_id": "case-selected",
+                "documents": [],
+            }
+        ],
+    )
     for name in (
-        "selection",
         "parser",
         "units",
+        "unitization-audit",
+        "unitization-review-queue",
+        "unitization-adjudications",
         "labels",
         "label-audit",
         "review-queue",
+        "lawyer-review-audit",
         "packet-input",
         "packets",
     ):
@@ -263,12 +310,20 @@ def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(
             str(tmp_path / "markdown"),
             "--prediction-units",
             str(inputs / "units.jsonl"),
+            "--llm-unitization-audit",
+            str(inputs / "unitization-audit.jsonl"),
+            "--unitization-review-queue",
+            str(inputs / "unitization-review-queue.jsonl"),
+            "--unitization-review-adjudications",
+            str(inputs / "unitization-adjudications.jsonl"),
             "--labels",
             str(inputs / "labels.jsonl"),
             "--llm-label-audit",
             str(inputs / "label-audit.jsonl"),
             "--lawyer-review-queue",
             str(inputs / "review-queue.jsonl"),
+            "--lawyer-review-audit",
+            str(inputs / "lawyer-review-audit.jsonl"),
             "--packet-build-input",
             str(inputs / "packet-input.jsonl"),
             "--packets",

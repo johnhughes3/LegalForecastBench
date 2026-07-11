@@ -64,9 +64,13 @@ def build_clean_corpus_readiness(
     selection_records: Iterable[Mapping[str, Any]],
     parser_records: Iterable[Mapping[str, Any]],
     prediction_unit_records: Iterable[Mapping[str, Any]],
+    unitization_audit_records: Iterable[Mapping[str, Any]],
+    unitization_review_records: Iterable[Mapping[str, Any]],
+    unitization_adjudication_records: Iterable[Mapping[str, Any]],
     label_records: Iterable[Mapping[str, Any]],
     label_audit_records: Iterable[Mapping[str, Any]],
     lawyer_review_records: Iterable[Mapping[str, Any]],
+    lawyer_review_audit_records: Iterable[Mapping[str, Any]],
     packet_build_records: Iterable[Mapping[str, Any]],
     packet_records: Iterable[Mapping[str, Any]],
     exclusion_records: Iterable[Mapping[str, Any]],
@@ -81,9 +85,15 @@ def build_clean_corpus_readiness(
     selections = _index_unique(selection_records, "selection")
     parsers = _index_parser_records(parser_records)
     units_by_candidate, _unit_to_candidate = _index_units(prediction_unit_records)
+    unitization_audits_by_candidate = _group_by_candidate(unitization_audit_records)
+    unitization_reviews_by_candidate = _group_by_candidate(unitization_review_records)
+    unitization_adjudications_by_candidate = _group_by_candidate(
+        unitization_adjudication_records
+    )
     labels_by_unit = _index_labels(label_records)
     audits_by_candidate = _group_by_candidate(label_audit_records)
     reviews_by_candidate = _group_by_candidate(lawyer_review_records)
+    review_audits_by_candidate = _group_by_candidate(lawyer_review_audit_records)
     packet_build = _index_unique(packet_build_records, "packet-build input")
     packets = _index_unique(packet_records, "built packet")
     excluded = _exclusions_by_candidate(exclusion_records)
@@ -115,11 +125,38 @@ def build_clean_corpus_readiness(
             for unit in units
             if unit.get("should_score") is True
         )
+        stage_a_reasons: list[str] = []
         if not units:
             reasons.append("stage_a_units_missing")
         elif not scorable_unit_ids:
             reasons.append("stage_a_no_scorable_units")
+        candidate_unitization_audits = unitization_audits_by_candidate.get(
+            candidate_id,
+            (),
+        )
+        if not candidate_unitization_audits:
+            stage_a_reasons.append("stage_a_unitization_audit_missing")
+        elif any(
+            audit.get("status") == "failed" for audit in candidate_unitization_audits
+        ):
+            stage_a_reasons.append("stage_a_unitization_failed")
         else:
+            stage_a_reasons.extend(
+                _unitization_review_gate_reasons(
+                    candidate_id=candidate_id,
+                    audit_records=candidate_unitization_audits,
+                    review_records=unitization_reviews_by_candidate.get(
+                        candidate_id,
+                        (),
+                    ),
+                    adjudication_records=unitization_adjudications_by_candidate.get(
+                        candidate_id,
+                        (),
+                    ),
+                )
+            )
+        reasons.extend(stage_a_reasons)
+        if units and scorable_unit_ids and not stage_a_reasons:
             unitized_complete.add(candidate_id)
 
         label_reasons: list[str] = []
@@ -138,16 +175,33 @@ def build_clean_corpus_readiness(
                         decision_filed_on_or_after=decision_filed_on_or_after,
                     )
                 )
-        candidate_audits = audits_by_candidate.get(candidate_id, ())
+        candidate_audits = tuple(
+            audit
+            for audit in audits_by_candidate.get(candidate_id, ())
+            if audit.get("stage") in {None, "llm-label"}
+        )
+        candidate_review_audits = review_audits_by_candidate.get(candidate_id, ())
         if not candidate_audits:
             label_reasons.append("label_audit_missing")
         elif any(audit.get("status") == "failed" for audit in candidate_audits):
             label_reasons.append("labeling_failed")
-        elif any(audit.get("status") != "succeeded" for audit in candidate_audits):
+        elif any(
+            audit.get("status") not in {"succeeded", "adjudication_pending"}
+            for audit in candidate_audits
+        ):
             label_reasons.append("label_audit_incomplete")
-        if any(
-            review.get("status") not in {"adjudicated", "resolved", "complete"}
-            for review in reviews_by_candidate.get(candidate_id, ())
+        else:
+            label_reasons.extend(
+                _label_audit_gate_reasons(
+                    candidate_id=candidate_id,
+                    label_audit_records=candidate_audits,
+                    lawyer_review_records=reviews_by_candidate.get(candidate_id, ()),
+                    lawyer_review_audit_records=candidate_review_audits,
+                )
+            )
+        if _has_pending_lawyer_review(
+            reviews_by_candidate.get(candidate_id, ()),
+            resolution_records=candidate_review_audits,
         ):
             label_reasons.append("lawyer_review_pending")
         if scorable_unit_ids and not label_reasons:
@@ -183,6 +237,202 @@ def build_clean_corpus_readiness(
         exclusion_reasons=reasons_by_candidate,
         funnel=funnel,
         case_mix=_case_mix(clean_ids, selections=selections, packets=packets),
+    )
+
+
+_RESOLVED_REVIEW_STATUSES = frozenset(
+    {"adjudicated", "resolved", "complete", "succeeded"}
+)
+
+
+def _unitization_review_gate_reasons(
+    *,
+    candidate_id: str,
+    audit_records: Sequence[Mapping[str, Any]],
+    review_records: Sequence[Mapping[str, Any]],
+    adjudication_records: Sequence[Mapping[str, Any]],
+) -> tuple[str, ...]:
+    reasons: list[str] = []
+    reviews_by_id = {
+        _optional_str(record, "review_id"): record
+        for record in review_records
+        if _optional_str(record, "review_id") is not None
+    }
+    adjudications_by_id = {
+        _optional_str(record, "review_id"): record
+        for record in adjudication_records
+        if _optional_str(record, "review_id") is not None
+    }
+    expected_reviews: dict[str, tuple[str, str]] = {}
+    for audit in audit_records:
+        status = audit.get("status")
+        review_items = _record_sequence(audit.get("review_items", ()), "review_items")
+        if status not in {"succeeded", "adjudication_pending"}:
+            reasons.append("stage_a_unitization_audit_incomplete")
+        if status == "succeeded" and review_items:
+            reasons.append("stage_a_unitization_audit_inconsistent")
+        for item in review_items:
+            unit_id = _required_str(item, "unit_id")
+            expected_reviews[f"{candidate_id}:{unit_id}:stage-a-review"] = (
+                unit_id,
+                _required_str(item, "reason"),
+            )
+    missing = [
+        review_id for review_id in expected_reviews if review_id not in reviews_by_id
+    ]
+    if missing:
+        reasons.append("stage_a_review_queue_missing")
+    if any(
+        record.get("schema_version") != "legalforecast.unitization_review_queue.v1"
+        or record.get("status") != "pending_adjudication"
+        or _optional_str(record, "unit_id") != expected_reviews[review_id][0]
+        or _optional_str(record, "route_reason") != expected_reviews[review_id][1]
+        for review_id, record in reviews_by_id.items()
+        if review_id in expected_reviews
+    ):
+        reasons.append("stage_a_review_queue_invalid")
+    missing_adjudications = [
+        review_id
+        for review_id in expected_reviews
+        if review_id not in adjudications_by_id
+    ]
+    if missing_adjudications:
+        reasons.append("stage_a_review_pending")
+    if any(
+        record.get("status") != "adjudicated"
+        or record.get("disposition") != "accepted_as_frozen"
+        or _optional_str(record, "unit_id") != expected_reviews[review_id][0]
+        or not _optional_str(record, "adjudicator_id")
+        or not _optional_str(record, "adjudication_notes")
+        for review_id, record in adjudications_by_id.items()
+        if review_id in expected_reviews
+    ):
+        reasons.append("stage_a_review_adjudication_invalid")
+    return tuple(dict.fromkeys(reasons))
+
+
+def _label_audit_gate_reasons(
+    *,
+    candidate_id: str,
+    label_audit_records: Sequence[Mapping[str, Any]],
+    lawyer_review_records: Sequence[Mapping[str, Any]],
+    lawyer_review_audit_records: Sequence[Mapping[str, Any]],
+) -> tuple[str, ...]:
+    reasons: list[str] = []
+    queued_reviews_by_id = {
+        _optional_str(record, "review_id"): record
+        for record in lawyer_review_records
+        if _optional_str(record, "review_id") is not None
+    }
+    for audit in label_audit_records:
+        gate_value = audit.get("label_audit_gate")
+        if not isinstance(gate_value, Mapping):
+            reasons.append("label_audit_gate_missing")
+            continue
+        gate = cast(Mapping[str, Any], gate_value)
+        if gate.get("required") is not True:
+            reasons.append("label_audit_failed")
+            continue
+        status = gate.get("status")
+        sample_value = gate.get("sample_unit_ids", ())
+        if not isinstance(sample_value, Sequence) or isinstance(sample_value, str):
+            reasons.append("label_audit_failed")
+            continue
+        sample_unit_ids = [
+            str(unit_id)
+            for unit_id in cast(Sequence[object], sample_value)
+            if isinstance(unit_id, str) and unit_id
+        ]
+        if status == "no_unanimous_auto_labels" and not sample_unit_ids:
+            continue
+        if status == "passed":
+            continue
+        if status == "awaiting_human_adjudicated_labels":
+            expected_review_ids = {
+                f"{candidate_id}:{unit_id}:label-audit" for unit_id in sample_unit_ids
+            }
+            if not expected_review_ids.issubset(queued_reviews_by_id):
+                reasons.append("label_audit_review_queue_missing")
+            if any(
+                not _valid_label_audit_queue_record(queued_reviews_by_id[review_id])
+                for review_id in expected_review_ids
+                if review_id in queued_reviews_by_id
+            ):
+                reasons.append("label_audit_review_queue_invalid")
+            if not _has_passed_label_audit_gate(
+                sample_unit_ids,
+                lawyer_review_audit_records,
+            ):
+                reasons.append("label_audit_pending")
+            continue
+        reasons.append("label_audit_failed")
+    return tuple(dict.fromkeys(reasons))
+
+
+def _valid_label_audit_queue_record(record: Mapping[str, Any]) -> bool:
+    packet_value = record.get("packet")
+    if not isinstance(packet_value, Mapping):
+        return False
+    packet = cast(Mapping[str, Any], packet_value)
+    materials_value = packet.get("materials")
+    if not isinstance(materials_value, Sequence) or isinstance(materials_value, str):
+        return False
+    material_kinds: set[str] = set()
+    for material_value in cast(Sequence[object], materials_value):
+        if not isinstance(material_value, Mapping):
+            continue
+        material = cast(Mapping[str, Any], material_value)
+        kind = material.get("kind")
+        if isinstance(kind, str):
+            material_kinds.add(kind)
+    return (
+        record.get("status") == "pending_adjudication"
+        and record.get("route_reason") == "label_audit_sample"
+        and packet.get("blind_reliability_study") is True
+        and "ensemble" not in packet
+        and {"unit_text", "decision_excerpt"}.issubset(material_kinds)
+    )
+
+
+def _has_passed_label_audit_gate(
+    sample_unit_ids: Sequence[str],
+    audit_records: Sequence[Mapping[str, Any]],
+) -> bool:
+    expected = set(sample_unit_ids)
+    for record in audit_records:
+        if (
+            record.get("stage") != "label-audit-gate"
+            or record.get("status") != "passed"
+        ):
+            continue
+        sample_value = record.get("sample_unit_ids")
+        if not isinstance(sample_value, Sequence) or isinstance(sample_value, str):
+            continue
+        actual = {
+            unit_id
+            for unit_id in cast(Sequence[object], sample_value)
+            if isinstance(unit_id, str) and unit_id
+        }
+        if actual == expected:
+            return True
+    return False
+
+
+def _has_pending_lawyer_review(
+    review_records: Sequence[Mapping[str, Any]],
+    *,
+    resolution_records: Sequence[Mapping[str, Any]],
+) -> bool:
+    resolved_review_ids = {
+        _optional_str(record, "review_id")
+        for record in resolution_records
+        if record.get("status") in _RESOLVED_REVIEW_STATUSES
+        and _optional_str(record, "review_id") is not None
+    }
+    return any(
+        record.get("status") not in _RESOLVED_REVIEW_STATUSES
+        and _optional_str(record, "review_id") not in resolved_review_ids
+        for record in review_records
     )
 
 
