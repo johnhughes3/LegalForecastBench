@@ -44,7 +44,7 @@ def test_manifest_serialization_records_required_eligibility_fields() -> None:
 
     assert record["eligibility_status"] == EligibilityStatus.ELIGIBLE.value
     assert record["is_eligible"] is True
-    assert record["decision_after_release"] is True
+    assert record["decision_on_or_after_deployment"] is True
     assert record["filed_after_cutoff"] is False
     assert record["motion_after_cutoff"] is True
     assert record["briefing_completed_after_cutoff"] is True
@@ -98,7 +98,21 @@ def test_known_training_cutoff_requires_cutoff_date() -> None:
         )
 
 
-def test_pre_release_decision_is_not_eligible() -> None:
+def test_decision_on_same_utc_date_as_deployment_is_eligible() -> None:
+    metadata = ContaminationMetadata(
+        case_timing=SeriesCaseTiming(
+            series_release_timestamp=datetime(2026, 5, 14, 23, 59, tzinfo=UTC),
+            decision_entered_at=datetime(2026, 5, 14, 0, 1, tzinfo=UTC),
+        ),
+        model_run=_known_cutoff_run(),
+    )
+
+    assert metadata.case_timing.decision_entered_on_or_after_model_deployment is True
+    assert metadata.eligibility_status is EligibilityStatus.ELIGIBLE
+    assert metadata.is_eligible is True
+
+
+def test_decision_on_previous_utc_date_is_not_eligible() -> None:
     metadata = ContaminationMetadata(
         case_timing=SeriesCaseTiming(
             series_release_timestamp=datetime(2026, 5, 14, 9, 0, tzinfo=UTC),
@@ -110,11 +124,11 @@ def test_pre_release_decision_is_not_eligible() -> None:
     assert metadata.is_eligible is False
     assert (
         metadata.eligibility_status
-        is EligibilityStatus.INELIGIBLE_DECISION_NOT_POST_RELEASE
+        is EligibilityStatus.INELIGIBLE_DECISION_BEFORE_DEPLOYMENT
     )
 
 
-def test_outcome_leakage_overrides_post_release_eligibility() -> None:
+def test_outcome_leakage_overrides_deployment_date_eligibility() -> None:
     metadata = ContaminationMetadata(
         case_timing=SeriesCaseTiming(
             series_release_timestamp=datetime(2026, 5, 14, 9, 0, tzinfo=UTC),
