@@ -478,15 +478,18 @@ def _score_records_with_accounting(
                 f"accounting summary missing for model_id={summary.model_id}"
             )
         record = summary.to_record()
-        record["row_type"] = (
-            "baseline"
-            if summary.model_id in {baseline.value for baseline in BaselineId}
-            else "model"
-        )
+        record["row_type"] = _score_row_type(summary.model_id)
         record.update(_public_accounting_fields(row, totals))
         record.update(_reference_skill_fields(summary, reference_summary))
         score_records.append(record)
     return score_records
+
+
+def _score_row_type(model_id: str) -> str:
+    base_model_id = model_id.split("::", maxsplit=1)[0]
+    if base_model_id in {baseline.value for baseline in BaselineId}:
+        return "baseline"
+    return "model"
 
 
 def _accounting_rows_by_model(

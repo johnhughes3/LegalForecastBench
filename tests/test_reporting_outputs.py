@@ -152,6 +152,23 @@ def test_baseline_rows_keep_separate_rank_sequence_and_row_type() -> None:
     assert records[2]["delta_vs_best"] is None
 
 
+def test_ablation_suffixed_baselines_stay_separate_from_model_ranks() -> None:
+    report = build_benchmark_leaderboard_report(
+        (
+            _summary("judge_history::full_packet", micro_brier=0.05, ece=0.01),
+            _summary("model-a::full_packet", micro_brier=0.10, ece=0.03),
+        )
+    )
+
+    records = report.to_record()["rows"]
+    assert [row["model_id"] for row in records] == [
+        "model-a::full_packet",
+        "judge_history::full_packet",
+    ]
+    assert [row["row_type"] for row in records] == ["model", "baseline"]
+    assert [row["rank"] for row in records] == [1, 1]
+
+
 def test_pareto_frontier_excludes_cost_and_quality_dominated_models() -> None:
     frontier = pareto_frontier_records(
         (

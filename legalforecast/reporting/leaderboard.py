@@ -665,7 +665,8 @@ _BASELINE_MODEL_IDS = frozenset(baseline.value for baseline in BaselineId)
 
 
 def _leaderboard_row_type(model_id: str) -> str:
-    if model_id in _BASELINE_MODEL_IDS or model_id.startswith("baseline:"):
+    base_model_id = model_id.split("::", maxsplit=1)[0]
+    if base_model_id in _BASELINE_MODEL_IDS or base_model_id.startswith("baseline:"):
         return "baseline"
     return "model"
 

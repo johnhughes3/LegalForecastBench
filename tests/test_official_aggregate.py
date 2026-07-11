@@ -21,12 +21,18 @@ from legalforecast.publication.official_aggregate import (
     OfficialAggregationConfig,
     OfficialAggregationError,
     _ablation_delta_report,
+    _score_row_type,
     aggregate_official_results,
 )
 from legalforecast.publication.official_aggregate import (
     main as official_aggregate_main,
 )
 from legalforecast.reporting.cadence import CycleSeries
+
+
+def test_score_row_type_preserves_baseline_with_ablation_suffix() -> None:
+    assert _score_row_type("judge_history::full_packet") == "baseline"
+    assert _score_row_type("fixture-model::full_packet") == "model"
 
 
 def test_official_aggregate_writes_public_bundle_and_private_debug(
