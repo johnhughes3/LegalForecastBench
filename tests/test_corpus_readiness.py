@@ -121,7 +121,14 @@ def test_clean_corpus_readiness_joins_all_fail_closed_gates() -> None:
     assert report.funnel["selected"] == 2
     assert report.funnel["labeled_complete"] == 1
     assert report.case_mix["court"] == {"S.D.N.Y.": 1}
+    assert report.case_mix["nature_of_suit"] == {"unknown": 1}
     assert report.case_mix["nos_macro_category"] == {"contract": 1}
+    assert report.case_mix["related_family_id"] == {"none": 1}
+    assert report.case_mix["mdl_family_id"] == {"none": 1}
+    assert all(
+        sum(buckets.values()) == report.clean_count
+        for buckets in report.case_mix.values()
+    )
     assert report.exclusion_reasons["cand-review"] == (
         "stage_b_labels_incomplete",
         "label_audit_incomplete",

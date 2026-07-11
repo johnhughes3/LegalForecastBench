@@ -69,6 +69,10 @@ class PublicPacketCandidatePlan:
     court: str | None
     docket_number: str | None
     decision_date: str | None
+    nature_of_suit: str | None
+    nos_macro_category: str | None
+    related_family_id: str | None
+    mdl_family_id: str | None
     source_url: str | None
     selected: bool
     exclusion_reasons: tuple[str, ...]
@@ -84,6 +88,10 @@ class PublicPacketCandidatePlan:
             "court": self.court,
             "docket_number": self.docket_number,
             "decision_date": self.decision_date,
+            "nature_of_suit": self.nature_of_suit,
+            "nos_macro_category": self.nos_macro_category,
+            "related_family_id": self.related_family_id,
+            "mdl_family_id": self.mdl_family_id,
             "source_url": self.source_url,
             "selected": self.selected,
             "exclusion_reasons": list(self.exclusion_reasons),
@@ -184,6 +192,7 @@ def _candidate_plan(
         _mapping(record, "ai").get("decision_entry_numbers")
     )
     source_url = _optional_str(candidate, "url")
+    case_mix_metadata = _case_mix_metadata(record, candidate, metadata)
     decision_date, decision_date_reason = _first_written_disposition_date(
         record,
         metadata=metadata,
@@ -193,6 +202,7 @@ def _candidate_plan(
             candidate_id,
             metadata,
             decision_date=decision_date,
+            case_mix_metadata=case_mix_metadata,
             source_url=source_url,
             target_entries=target_entries,
             decision_entries=decision_entries,
@@ -219,6 +229,7 @@ def _candidate_plan(
             candidate_id,
             metadata,
             decision_date=decision_date,
+            case_mix_metadata=case_mix_metadata,
             source_url=source_url,
             target_entries=target_entries,
             decision_entries=decision_entries,
@@ -238,6 +249,10 @@ def _candidate_plan(
         court=_optional_str(metadata, "court"),
         docket_number=_optional_str(metadata, "docket_number"),
         decision_date=decision_date,
+        nature_of_suit=case_mix_metadata["nature_of_suit"],
+        nos_macro_category=case_mix_metadata["nos_macro_category"],
+        related_family_id=case_mix_metadata["related_family_id"],
+        mdl_family_id=case_mix_metadata["mdl_family_id"],
         source_url=source_url,
         selected=selected and not reasons,
         exclusion_reasons=reasons,
@@ -518,6 +533,7 @@ def _excluded_plan(
     metadata: Mapping[str, Any],
     *,
     decision_date: str | None,
+    case_mix_metadata: Mapping[str, str | None],
     source_url: str | None,
     target_entries: tuple[int, ...],
     decision_entries: tuple[int, ...],
@@ -530,6 +546,10 @@ def _excluded_plan(
         court=_optional_str(metadata, "court"),
         docket_number=_optional_str(metadata, "docket_number"),
         decision_date=decision_date,
+        nature_of_suit=case_mix_metadata["nature_of_suit"],
+        nos_macro_category=case_mix_metadata["nos_macro_category"],
+        related_family_id=case_mix_metadata["related_family_id"],
+        mdl_family_id=case_mix_metadata["mdl_family_id"],
         source_url=source_url,
         selected=False,
         exclusion_reasons=(reason,),
@@ -537,6 +557,45 @@ def _excluded_plan(
         decision_entry_numbers=decision_entries,
         documents=(),
     )
+
+
+def _case_mix_metadata(
+    record: Mapping[str, Any],
+    candidate: Mapping[str, Any],
+    metadata: Mapping[str, Any],
+) -> dict[str, str | None]:
+    aliases = {
+        "nature_of_suit": ("nature_of_suit", "natureOfSuit"),
+        "nos_macro_category": ("nos_macro_category", "nosMacroCategory"),
+        "related_family_id": (
+            "related_family_id",
+            "relatedFamilyId",
+            "related_case_family_id",
+            "relatedCaseFamilyId",
+        ),
+        "mdl_family_id": ("mdl_family_id", "mdlFamilyId", "mdl_id", "mdlId"),
+    }
+    return {
+        output_key: _first_optional_string(
+            (record, metadata, candidate),
+            source_keys,
+        )
+        for output_key, source_keys in aliases.items()
+    }
+
+
+def _first_optional_string(
+    records: Sequence[Mapping[str, Any]],
+    keys: Sequence[str],
+) -> str | None:
+    for record in records:
+        for key in keys:
+            value = record.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+            if isinstance(value, int) and not isinstance(value, bool):
+                return str(value)
+    return None
 
 
 def _first_written_disposition_date(

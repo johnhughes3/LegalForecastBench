@@ -69,6 +69,10 @@ def test_discover_courtlistener_produces_plan_public_downloads_input(
                     "court": ("https://www.courtlistener.com/api/rest/v4/courts/nysd/"),
                     "docket_number": "1:26-cv-00001",
                     "case_name": "Fixture v. Example",
+                    "nature_of_suit": "Civil Rights",
+                    "nos_macro_category": "civil_rights",
+                    "related_family_id": "related-fixture",
+                    "mdl_family_id": "mdl-fixture",
                     "date_filed": "2026-01-01",
                     "absolute_url": (
                         "https://www.courtlistener.com/docket/123/fixture-v-example/"
@@ -106,6 +110,10 @@ def test_discover_courtlistener_produces_plan_public_downloads_input(
     [screened] = _read_jsonl(output_root / "courtlistener-screened-cases.jsonl")
     assert screened["candidate"]["docket_id"] == "123"
     assert screened["candidate"]["metadata"]["court"] == "nysd"
+    assert screened["candidate"]["metadata"]["nature_of_suit"] == "Civil Rights"
+    assert screened["candidate"]["metadata"]["nos_macro_category"] == "civil_rights"
+    assert screened["candidate"]["metadata"]["related_family_id"] == ("related-fixture")
+    assert screened["candidate"]["metadata"]["mdl_family_id"] == "mdl-fixture"
     assert screened["ai"] == {
         "target_motion_entry_numbers": ["5"],
         "decision_entry_numbers": ["16"],
@@ -143,6 +151,10 @@ def test_discover_courtlistener_produces_plan_public_downloads_input(
     )
     assert selected["candidate_id"] == "123"
     assert selected["decision_date"] == "2026-06-30"
+    assert selected["nature_of_suit"] == "Civil Rights"
+    assert selected["nos_macro_category"] == "civil_rights"
+    assert selected["related_family_id"] == "related-fixture"
+    assert selected["mdl_family_id"] == "mdl-fixture"
     assert selected["target_motion_entry_numbers"] == [5]
     assert selected["decision_entry_numbers"] == [16]
 

@@ -668,7 +668,16 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
         markdown_path = markdown_root / "cand-1" / f"{source_document_id}.md"
         markdown_path.parent.mkdir(parents=True, exist_ok=True)
         markdown_path.write_text(markdown, encoding="utf-8")
-    _write_jsonl(selection_path, [_packet_selection_record()])
+    selection_record = _packet_selection_record()
+    selection_record.update(
+        {
+            "nature_of_suit": "Civil Rights",
+            "nos_macro_category": "civil_rights",
+            "related_family_id": "related-fixture",
+            "mdl_family_id": "mdl-fixture",
+        }
+    )
+    _write_jsonl(selection_path, [selection_record])
     _write_jsonl(
         downloads_path,
         [
@@ -722,6 +731,10 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     packet_input = _read_jsonl(output_root / "packet-build-input.jsonl")[0]
     assert packet_input["decision_date"] == "2026-05-18"
     assert packet_input["metadata"]["decision_date"] == "2026-05-18"
+    assert packet_input["metadata"]["nature_of_suit"] == "Civil Rights"
+    assert packet_input["metadata"]["nos_macro_category"] == "civil_rights"
+    assert packet_input["related_family_id"] == "related-fixture"
+    assert packet_input["mdl_family_id"] == "mdl-fixture"
     assert packet_input["documents"][0]["source_document_id"] == "cand-1-complaint"
     assert packet_input["prediction_units"][0]["source_citations"] == [
         {"document_id": "cand-1-complaint", "page": 1}
@@ -729,6 +742,10 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     assert len(_read_jsonl(output_root / "document-manifest.jsonl")) == 3
     candidate_manifest = _read_jsonl(output_root / "candidate-manifest.jsonl")[0]
     assert candidate_manifest["manifest_record_hash"]
+    assert candidate_manifest["nature_of_suit"] == "Civil Rights"
+    assert candidate_manifest["nos_macro_category"] == "civil_rights"
+    assert candidate_manifest["related_family_id"] == "related-fixture"
+    assert candidate_manifest["mdl_family_id"] == "mdl-fixture"
 
     assert (
         main(
@@ -747,6 +764,10 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
 
     packet = _read_jsonl(output_root / "packets.jsonl")[0]
     assert packet["decision_date"] == "2026-05-18"
+    assert packet["metadata"]["nature_of_suit"] == "Civil Rights"
+    assert packet["metadata"]["nos_macro_category"] == "civil_rights"
+    assert packet["related_family_id"] == "related-fixture"
+    assert packet["mdl_family_id"] == "mdl-fixture"
     assert "cand-1-decision" in packet["excluded_document_ids"]
     assert packet["prediction_units"][0]["unit_id"] == "count-i-issuer"
 

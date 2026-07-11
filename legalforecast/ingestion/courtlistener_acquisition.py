@@ -407,6 +407,7 @@ def _screen_candidate(
                 "case_name": docket.case_name,
                 "court": docket.court_id,
                 "docket_number": docket.docket_number,
+                **_docket_case_mix_metadata(docket),
             },
             "url": source_url,
         },
@@ -420,6 +421,46 @@ def _screen_candidate(
         "mtd_decision_screen": anchored.to_record(),
         "motion_linkage": linkage.to_record(),
     }, None
+
+
+def _docket_case_mix_metadata(docket: CourtListenerDocket) -> dict[str, str]:
+    """Preserve source-provided strata without inferring unavailable values."""
+
+    aliases = {
+        "nature_of_suit": ("nature_of_suit", "natureOfSuit"),
+        "nos_macro_category": ("nos_macro_category", "nosMacroCategory"),
+        "related_family_id": (
+            "related_family_id",
+            "relatedFamilyId",
+            "related_case_family_id",
+            "relatedCaseFamilyId",
+        ),
+        "mdl_family_id": (
+            "mdl_family_id",
+            "mdlFamilyId",
+            "mdl_id",
+            "mdlId",
+        ),
+    }
+    metadata: dict[str, str] = {}
+    for output_key, source_keys in aliases.items():
+        value = _first_source_string(docket.raw, source_keys)
+        if value is not None:
+            metadata[output_key] = value
+    return metadata
+
+
+def _first_source_string(
+    record: Mapping[str, Any],
+    keys: Sequence[str],
+) -> str | None:
+    for key in keys:
+        value = record.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, int) and not isinstance(value, bool):
+            return str(value)
+    return None
 
 
 def _linkage_entries(

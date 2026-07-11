@@ -112,7 +112,12 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
             {
                 "candidate_id": "cand-1",
                 "court": "S.D.N.Y.",
-                "metadata": {"nos_macro_category": "contract"},
+                "related_family_id": "related-fixture",
+                "mdl_family_id": "mdl-fixture",
+                "metadata": {
+                    "nature_of_suit": "Contract",
+                    "nos_macro_category": "contract",
+                },
             }
         ],
     )
@@ -200,6 +205,14 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
     assert readiness["clean_count"] == 1
     assert readiness["meets_target"] is True
     assert readiness["case_mix"]["court"] == {"S.D.N.Y.": 1}
+    assert readiness["case_mix"]["nature_of_suit"] == {"Contract": 1}
+    assert readiness["case_mix"]["nos_macro_category"] == {"contract": 1}
+    assert readiness["case_mix"]["related_family_id"] == {"related-fixture": 1}
+    assert readiness["case_mix"]["mdl_family_id"] == {"mdl-fixture": 1}
+    assert all(
+        sum(buckets.values()) == readiness["clean_count"]
+        for buckets in readiness["case_mix"].values()
+    )
 
 
 def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(

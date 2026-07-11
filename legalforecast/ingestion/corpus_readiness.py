@@ -386,6 +386,7 @@ def _case_mix(
 ) -> dict[str, dict[str, int]]:
     dimensions: dict[str, Counter[str]] = {
         "court": Counter(),
+        "nature_of_suit": Counter(),
         "nos_macro_category": Counter(),
         "related_family_id": Counter(),
         "mdl_family_id": Counter(),
@@ -398,17 +399,49 @@ def _case_mix(
             cast(Mapping[str, Any], metadata) if isinstance(metadata, Mapping) else {}
         )
         values = {
-            "court": packet.get("court") or selection.get("court"),
-            "nos_macro_category": packet_metadata.get("nos_macro_category"),
-            "related_family_id": packet.get("related_family_id"),
-            "mdl_family_id": packet.get("mdl_family_id"),
+            "court": _case_mix_value(packet.get("court"), selection.get("court")),
+            "nature_of_suit": _case_mix_value(
+                packet_metadata.get("nature_of_suit"),
+                packet.get("nature_of_suit"),
+                selection.get("nature_of_suit"),
+            ),
+            "nos_macro_category": _case_mix_value(
+                packet_metadata.get("nos_macro_category"),
+                packet.get("nos_macro_category"),
+                selection.get("nos_macro_category"),
+            ),
+            "related_family_id": _case_mix_value(
+                packet.get("related_family_id"),
+                packet_metadata.get("related_family_id"),
+                selection.get("related_family_id"),
+            ),
+            "mdl_family_id": _case_mix_value(
+                packet.get("mdl_family_id"),
+                packet_metadata.get("mdl_family_id"),
+                selection.get("mdl_family_id"),
+            ),
         }
         for dimension, value in values.items():
-            if isinstance(value, str) and value.strip():
-                dimensions[dimension][value] += 1
-    return {
-        dimension: dict(counter) for dimension, counter in dimensions.items() if counter
-    }
+            missing_bucket = (
+                "none"
+                if dimension in {"related_family_id", "mdl_family_id"}
+                else "unknown"
+            )
+            dimensions[dimension][value or missing_bucket] += 1
+    case_mix = {dimension: dict(counter) for dimension, counter in dimensions.items()}
+    if any(
+        sum(buckets.values()) != len(clean_candidate_ids)
+        for buckets in case_mix.values()
+    ):
+        raise CorpusReadinessError("case-mix dimensions must reconcile to clean_count")
+    return case_mix
+
+
+def _case_mix_value(*values: object) -> str | None:
+    return next(
+        (value.strip() for value in values if isinstance(value, str) and value.strip()),
+        None,
+    )
 
 
 def _record_sequence(value: object, field_name: str) -> tuple[Mapping[str, Any], ...]:
