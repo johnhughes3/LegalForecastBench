@@ -32,7 +32,7 @@ class PressPublicityTag(StrEnum):
 
 class EligibilityStatus(StrEnum):
     ELIGIBLE = "eligible"
-    INELIGIBLE_DECISION_NOT_POST_RELEASE = "ineligible_decision_not_post_release"
+    INELIGIBLE_DECISION_BEFORE_DEPLOYMENT = "ineligible_decision_before_deployment"
     INELIGIBLE_OUTCOME_LEAKAGE = "ineligible_outcome_leakage"
 
 
@@ -131,7 +131,9 @@ class SeriesCaseTiming:
         _require_aware(self.decision_entered_at, "decision_entered_at")
 
     @property
-    def decision_entered_after_model_release(self) -> bool:
+    def decision_entered_on_or_after_model_deployment(self) -> bool:
+        """Whether the decision falls on or after the UTC deployment date."""
+
         return self.decision_entered_at.astimezone(UTC).date() >= (
             self.series_release_timestamp.astimezone(UTC).date()
         )
@@ -140,7 +142,9 @@ class SeriesCaseTiming:
         return {
             "series_release_timestamp": _iso_datetime(self.series_release_timestamp),
             "decision_entered_at": _iso_datetime(self.decision_entered_at),
-            "decision_after_release": self.decision_entered_after_model_release,
+            "decision_on_or_after_deployment": (
+                self.decision_entered_on_or_after_model_deployment
+            ),
             "case_filed_at": (
                 self.case_filed_at.isoformat() if self.case_filed_at else None
             ),
@@ -194,8 +198,8 @@ class ContaminationMetadata:
     def eligibility_status(self) -> EligibilityStatus:
         if self.outcome_leakage_detected:
             return EligibilityStatus.INELIGIBLE_OUTCOME_LEAKAGE
-        if not self.case_timing.decision_entered_after_model_release:
-            return EligibilityStatus.INELIGIBLE_DECISION_NOT_POST_RELEASE
+        if not self.case_timing.decision_entered_on_or_after_model_deployment:
+            return EligibilityStatus.INELIGIBLE_DECISION_BEFORE_DEPLOYMENT
         return EligibilityStatus.ELIGIBLE
 
     @property
