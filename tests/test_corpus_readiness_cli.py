@@ -65,6 +65,7 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
                 "source_document_id": document_id,
                 "status": "succeeded",
                 "source_sha256": "0" * 64,
+                "source_byte_count": 1,
                 "markdown_path": (
                     "decision-1.md" if document_id == "decision-1" else "complaint.md"
                 ),

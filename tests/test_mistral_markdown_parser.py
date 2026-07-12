@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 from datetime import UTC, datetime
 from pathlib import Path
@@ -102,6 +103,32 @@ def test_parser_wrapper_records_timeout_as_document_failure(tmp_path) -> None:
     assert records[0].error_message == "parser timed out"
 
 
+def test_each_source_is_rehashed_immediately_before_its_spawn(tmp_path: Path) -> None:
+    first = tmp_path / "first.pdf"
+    second = tmp_path / "second.pdf"
+    first.write_bytes(b"%PDF first")
+    second.write_bytes(b"%PDF second")
+    second_digest = hashlib.sha256(second.read_bytes()).hexdigest()
+    runner = _MutatingRunner(second)
+
+    with pytest.raises(ValueError, match="source hash changed before spawn"):
+        convert_documents_to_markdown(
+            (
+                _request("first", first, tmp_path / "out" / "first.md"),
+                MistralMarkdownConversionRequest(
+                    candidate_id="cand-1",
+                    source_document_id="second",
+                    input_path=second,
+                    markdown_output_path=tmp_path / "out" / "second.md",
+                    expected_sha256=second_digest,
+                    expected_byte_count=second.stat().st_size,
+                ),
+            ),
+            config=MistralParserConfig(parser_root=tmp_path / "parser"),
+            runner=runner,
+        )
+
+
 @pytest.mark.skipif(
     os.environ.get("LEGALFORECAST_RUN_REAL_MISTRAL_PARSER") != "1",
     reason="Real Mistral parser smoke is opt-in; fixture tests cover default CI.",
@@ -164,3 +191,19 @@ class _FixtureRunner:
             stderr=action.stderr,
             timed_out=action.timed_out,
         )
+
+
+class _MutatingRunner:
+    def __init__(self, target: Path) -> None:
+        self.target = target
+
+    def run(
+        self,
+        command: tuple[str, ...],
+        *,
+        cwd: Path,
+        timeout_seconds: int,
+    ) -> ParserProcessResult:
+        del command, cwd, timeout_seconds
+        self.target.write_bytes(b"tampered while first document parsed")
+        return ParserProcessResult(return_code=1, stderr="fixture failure")

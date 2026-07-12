@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -217,6 +218,8 @@ def _convert_one(
         _write_metadata(metadata_path, record)
         return record
 
+    _verify_source_commitments(request, input_path)
+
     command = _parser_command(input_path, config)
     result = runner.run(
         command, cwd=parser_root, timeout_seconds=config.timeout_seconds
@@ -307,6 +310,27 @@ def _convert_one(
     )
     _write_metadata(metadata_path, record)
     return record
+
+
+def _verify_source_commitments(
+    request: MistralMarkdownConversionRequest, input_path: Path
+) -> None:
+    """Verify this document immediately before its parser subprocess starts."""
+
+    if request.expected_sha256 is None and request.expected_byte_count is None:
+        return
+    if request.expected_sha256 is None or request.expected_byte_count is None:
+        raise ValueError("parser source commitments require hash and byte count")
+    data = input_path.read_bytes()
+    if hashlib.sha256(data).hexdigest() != request.expected_sha256:
+        raise ValueError(
+            f"parser source hash changed before spawn: {request.source_document_id}"
+        )
+    if len(data) != request.expected_byte_count:
+        raise ValueError(
+            "parser source byte count changed before spawn: "
+            f"{request.source_document_id}"
+        )
 
 
 def _parser_command(input_path: Path, config: MistralParserConfig) -> tuple[str, ...]:

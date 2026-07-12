@@ -152,6 +152,7 @@ from legalforecast.ingestion.disclosure_clearance import (
     require_cleared_documents,
     require_cleared_parse_requests,
     require_cleared_parser_records,
+    validate_review_receipt,
     verify_parse_request_bytes,
 )
 from legalforecast.ingestion.discovery_scheduler import (
@@ -1724,6 +1725,7 @@ def _add_acquisition_disclosure_clearance_arguments(
     parser.add_argument("--download-manifest", type=Path, required=True)
     parser.add_argument("--document-root", type=Path, required=True)
     parser.add_argument("--reviews", type=Path, required=True)
+    parser.add_argument("--review-receipt", type=Path, required=True)
     parser.add_argument(
         "--restriction-evidence",
         type=Path,
@@ -5567,6 +5569,7 @@ def _cmd_acquisition_disclosure_clearance(args: argparse.Namespace) -> int:
     manifest_path = cast(Path, args.download_manifest)
     document_root = cast(Path, args.document_root)
     reviews_path = cast(Path, args.reviews)
+    review_receipt_path = cast(Path, args.review_receipt)
     restriction_path = cast(Path, args.restriction_evidence)
     clearance_path = _acquisition_path(
         args, "clearance_output", output_root / "disclosure-clearance.jsonl"
@@ -5578,10 +5581,14 @@ def _cmd_acquisition_disclosure_clearance(args: argparse.Namespace) -> int:
     reviews = _read_records(reviews_path)
     restrictions = _read_records(restriction_path)
     try:
+        review_authority = validate_review_receipt(
+            reviews_path.read_bytes(), _read_json_object(review_receipt_path)
+        )
         records = build_clearance_records(
             documents,
             document_root=document_root,
             reviews=reviews,
+            review_authority=review_authority,
             restriction_records=restrictions,
         )
     except (DisclosureClearanceError, OSError) as exc:
@@ -5594,7 +5601,13 @@ def _cmd_acquisition_disclosure_clearance(args: argparse.Namespace) -> int:
     _write_acquisition_completion(
         args,
         stage="clear-disclosures",
-        input_paths=(manifest_path, reviews_path, restriction_path, document_root),
+        input_paths=(
+            manifest_path,
+            reviews_path,
+            review_receipt_path,
+            restriction_path,
+            document_root,
+        ),
         output_paths=(clearance_path, quarantine_path),
         record_count=len(records),
         dry_run=_acquisition_dry_run(args),

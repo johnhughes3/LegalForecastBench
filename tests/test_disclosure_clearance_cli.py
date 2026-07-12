@@ -23,6 +23,7 @@ def test_clearance_cli_and_parse_gate_bind_actual_bytes(tmp_path: Path) -> None:
     digest = hashlib.sha256(content).hexdigest()
     manifest = tmp_path / "downloads.jsonl"
     reviews = tmp_path / "reviews.jsonl"
+    review_receipt = tmp_path / "review-receipt.json"
     restrictions = tmp_path / "restrictions.jsonl"
     output = tmp_path / "output"
     _write_jsonl(
@@ -46,12 +47,30 @@ def test_clearance_cli_and_parse_gate_bind_actual_bytes(tmp_path: Path) -> None:
                 "source_document_id": "doc-1",
                 "sha256": digest,
                 "status": "cleared",
-                "controlled_store_provenance": "review-store:cycle1/batch-001",
+                "reviewer_id": "reviewer:john",
+                "controlled_store_provenance": (
+                    "private-store://cycle1/reviews/batch-001"
+                ),
                 "reviewed_at": "2026-07-12T18:00:00Z",
                 "restriction_status": "public",
                 "restriction_evidence": "courtlistener-public-docket",
             }
         ],
+    )
+    review_receipt.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.disclosure_review_receipt.v1",
+                "review_artifact_sha256": hashlib.sha256(
+                    reviews.read_bytes()
+                ).hexdigest(),
+                "authenticated_reviewer_id": "reviewer:john",
+                "controlled_store_uri": "private-store://cycle1/reviews/batch-001",
+                "authentication_method": "cloudflare_access_oidc",
+                "authenticated_at": "2026-07-12T18:00:00Z",
+            }
+        ),
+        encoding="utf-8",
     )
     _write_jsonl(
         restrictions,
@@ -75,6 +94,8 @@ def test_clearance_cli_and_parse_gate_bind_actual_bytes(tmp_path: Path) -> None:
                 str(document_root),
                 "--reviews",
                 str(reviews),
+                "--review-receipt",
+                str(review_receipt),
                 "--restriction-evidence",
                 str(restrictions),
                 "--output-root",

@@ -17,6 +17,7 @@ from legalforecast.extraction.pdf_text import (
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 
 SCHEMA_VERSION = "legalforecast.disclosure_clearance.v1"
+REVIEW_RECEIPT_SCHEMA_VERSION = "legalforecast.disclosure_review_receipt.v1"
 _CLEAR = "cleared"
 _QUARANTINED = "quarantined"
 _RESTRICTED_STATUSES = frozenset({"private", "restricted", "sealed", "under_seal"})
@@ -104,11 +105,57 @@ class ReplacementDecision:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class ReviewAuthority:
+    """Verified controlled-store receipt for the human review artifact."""
+
+    reviewer_id: str
+    controlled_store_uri: str
+    authentication_method: str
+    authenticated_at: str
+    review_artifact_sha256: str
+
+
+def validate_review_receipt(
+    review_artifact: bytes, receipt: Mapping[str, object]
+) -> ReviewAuthority:
+    """Verify a controlled-store receipt binds the exact review artifact bytes."""
+
+    if receipt.get("schema_version") != REVIEW_RECEIPT_SCHEMA_VERSION:
+        raise DisclosureClearanceError("unsupported disclosure review receipt schema")
+    committed = _digest(receipt, "review_artifact_sha256")
+    actual = hashlib.sha256(review_artifact).hexdigest()
+    if committed != actual:
+        raise DisclosureClearanceError("review receipt artifact hash mismatch")
+    reviewer_id = _required_str(receipt, "authenticated_reviewer_id")
+    controlled_store_uri = _required_str(receipt, "controlled_store_uri")
+    if not controlled_store_uri.startswith("private-store://"):
+        raise DisclosureClearanceError(
+            "review receipt must originate from the controlled private store"
+        )
+    authentication_method = _required_str(receipt, "authentication_method")
+    if authentication_method not in {
+        "cloudflare_access_oidc",
+        "controlled_store_service_identity",
+        "github_verified_signature",
+    }:
+        raise DisclosureClearanceError("unsupported reviewer authentication method")
+    authenticated_at = _required_str(receipt, "authenticated_at")
+    return ReviewAuthority(
+        reviewer_id=reviewer_id,
+        controlled_store_uri=controlled_store_uri,
+        authentication_method=authentication_method,
+        authenticated_at=authenticated_at,
+        review_artifact_sha256=actual,
+    )
+
+
 def build_clearance_records(
     documents: Sequence[Mapping[str, object]],
     *,
     document_root: Path,
     reviews: Sequence[Mapping[str, object]],
+    review_authority: ReviewAuthority | None = None,
     restriction_records: Sequence[Mapping[str, object]] = (),
 ) -> tuple[ClearanceRecord, ...]:
     """Scan every manifest document and apply controlled human decisions."""
@@ -146,6 +193,10 @@ def build_clearance_records(
         reviewed_at: str | None = None
         requested_status = _QUARANTINED
         if review is not None:
+            if review_authority is None:
+                raise DisclosureClearanceError(
+                    f"review lacks a verified controlled-store receipt: {key}"
+                )
             _verify_review_hash(review, digest=digest, key=key)
             requested_status = _required_str(review, "status")
             if requested_status not in {_CLEAR, _QUARANTINED}:
@@ -156,6 +207,14 @@ def build_clearance_records(
             if not reviewer_id and not provenance:
                 raise DisclosureClearanceError(
                     f"review requires authenticated identity or provenance: {key}"
+                )
+            if reviewer_id != review_authority.reviewer_id:
+                raise DisclosureClearanceError(
+                    f"reviewer identity does not match authenticated receipt: {key}"
+                )
+            if provenance != review_authority.controlled_store_uri:
+                raise DisclosureClearanceError(
+                    f"review provenance does not match controlled-store receipt: {key}"
                 )
             if reviewed_at is None:
                 raise DisclosureClearanceError(f"review requires reviewed_at: {key}")
@@ -289,6 +348,12 @@ def require_cleared_parser_records(
         if _digest(record, "source_sha256") != _digest(index[key], "sha256"):
             raise DisclosureClearanceError(
                 f"parser artifact clearance hash mismatch: {key}"
+            )
+        if _positive_int(record, "source_byte_count") != _positive_int(
+            index[key], "byte_count"
+        ):
+            raise DisclosureClearanceError(
+                f"parser artifact clearance byte-count mismatch: {key}"
             )
 
 

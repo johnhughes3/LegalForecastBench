@@ -6,9 +6,12 @@ from pathlib import Path
 import pytest
 from legalforecast.ingestion.disclosure_clearance import (
     DisclosureClearanceError,
+    ReviewAuthority,
     build_clearance_records,
     ranked_replacement,
     require_cleared_documents,
+    require_cleared_parser_records,
+    validate_review_receipt,
 )
 
 
@@ -35,6 +38,7 @@ def _review(
         "sha256": document["sha256"],
         "status": status,
         "reviewer_id": "reviewer:john",
+        "controlled_store_provenance": "private-store://cycle1/reviews/batch-001",
         "reviewed_at": "2026-07-12T18:00:00Z",
     }
 
@@ -46,6 +50,21 @@ def _public_evidence() -> dict[str, object]:
         "restriction_status": "public",
         "restriction_evidence": "courtlistener-public-docket",
     }
+
+
+def _authority() -> ReviewAuthority:
+    artifact = b"fixture review artifact"
+    return validate_review_receipt(
+        artifact,
+        {
+            "schema_version": "legalforecast.disclosure_review_receipt.v1",
+            "review_artifact_sha256": hashlib.sha256(artifact).hexdigest(),
+            "authenticated_reviewer_id": "reviewer:john",
+            "controlled_store_uri": "private-store://cycle1/reviews/batch-001",
+            "authentication_method": "cloudflare_access_oidc",
+            "authenticated_at": "2026-07-12T18:00:00Z",
+        },
+    )
 
 
 def test_ssn_bearing_document_is_quarantined_without_review(tmp_path: Path) -> None:
@@ -85,6 +104,7 @@ def test_sealed_evidence_fails_closed_and_cleared_hash_is_recorded(
         [document],
         document_root=tmp_path,
         reviews=[_review(document)],
+        review_authority=_authority(),
         restriction_records=[_public_evidence()],
     )
     assert cleared.status == "cleared"
@@ -102,6 +122,7 @@ def test_parse_gate_rejects_uncleared_and_tampered_documents(tmp_path: Path) -> 
         [document],
         document_root=tmp_path,
         reviews=[_review(document)],
+        review_authority=_authority(),
         restriction_records=[_public_evidence()],
     )
     (tmp_path / str(document["local_path"])).write_bytes(b"tampered")
@@ -111,6 +132,14 @@ def test_parse_gate_rejects_uncleared_and_tampered_documents(tmp_path: Path) -> 
             document_root=tmp_path,
             clearance_records=[clearance.to_record()],
         )
+    parser_record = {
+        "candidate_id": "cand-1",
+        "source_document_id": "doc-1",
+        "source_sha256": clearance.sha256,
+        "source_byte_count": clearance.byte_count + 1,
+    }
+    with pytest.raises(DisclosureClearanceError, match="byte-count mismatch"):
+        require_cleared_parser_records([parser_record], [clearance.to_record()])
 
 
 def test_unknown_restriction_and_missing_review_timestamp_fail_closed(
@@ -118,8 +147,18 @@ def test_unknown_restriction_and_missing_review_timestamp_fail_closed(
 ) -> None:
     document = _document(tmp_path, _text_pdf(b"Motion memorandum"))
     review = _review(document)
+    with pytest.raises(DisclosureClearanceError, match="verified controlled-store"):
+        build_clearance_records(
+            [document],
+            document_root=tmp_path,
+            reviews=[review],
+            restriction_records=[_public_evidence()],
+        )
     [unknown] = build_clearance_records(
-        [document], document_root=tmp_path, reviews=[review]
+        [document],
+        document_root=tmp_path,
+        reviews=[review],
+        review_authority=_authority(),
     )
     assert unknown.status == "quarantined"
     assert "restriction_status_unknown" in unknown.automated_markers
@@ -131,6 +170,7 @@ def test_unknown_restriction_and_missing_review_timestamp_fail_closed(
             [document],
             document_root=tmp_path,
             reviews=[missing_timestamp],
+            review_authority=_authority(),
             restriction_records=[_public_evidence()],
         )
 
