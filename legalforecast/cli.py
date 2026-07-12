@@ -140,6 +140,10 @@ from legalforecast.ingestion.courtlistener_client import (
     CourtListenerConfig,
     CourtListenerFixtureTransport,
 )
+from legalforecast.ingestion.cycle_acquisition_assembler import (
+    CycleAssembly,
+    assemble_cycle_acquisition,
+)
 from legalforecast.ingestion.cycle_acquisition_store import (
     ConfigMismatchError,
     CycleAcquisitionStore,
@@ -713,6 +717,14 @@ def build_parser() -> argparse.ArgumentParser:
         help=("Merge free and purchased document manifests for parser planning."),
     )
     _add_acquisition_merge_download_manifests_arguments(acquisition_merge_downloads)
+    acquisition_assemble_cycle = acquisition_subparsers.add_parser(
+        "assemble-cycle-acquisition",
+        help=(
+            "Assemble immutable acquisition batches into one content-addressed "
+            "cycle root."
+        ),
+    )
+    _add_acquisition_assemble_cycle_arguments(acquisition_assemble_cycle)
     acquisition_clearance = acquisition_subparsers.add_parser(
         "clear-disclosures",
         help="Scan and record hash-bound disclosure clearance per document.",
@@ -1738,6 +1750,21 @@ def _add_acquisition_merge_download_manifests_arguments(
         help="Merged parser-consumable JSONL; defaults under --output-root.",
     )
     parser.set_defaults(handler=_cmd_acquisition_merge_download_manifests)
+
+
+def _add_acquisition_assemble_cycle_arguments(parser: argparse.ArgumentParser) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--batch-root",
+        type=Path,
+        action="append",
+        required=True,
+        help=(
+            "Immutable acquisition batch root. Repeat in chronological order; "
+            "later evidenced records supersede refreshable earlier records."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_assemble_cycle)
 
 
 def _add_acquisition_disclosure_clearance_arguments(
@@ -5205,6 +5232,67 @@ def _cmd_acquisition_merge_download_manifests(args: argparse.Namespace) -> int:
         paid_activity_executed=False,
     )
     return 0
+
+
+def _cmd_acquisition_assemble_cycle(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    batch_roots = tuple(cast(Sequence[Path], args.batch_root))
+    dry_run = _acquisition_dry_run(args)
+    assembly = assemble_cycle_acquisition(
+        batch_roots,
+        output_root=output_root,
+        copy_documents=not dry_run,
+    )
+    output_paths = _write_cycle_assembly(
+        output_root,
+        assembly=assembly,
+        dry_run=dry_run,
+    )
+    _write_acquisition_completion(
+        args,
+        stage="assemble-cycle-acquisition",
+        input_paths=batch_roots,
+        output_paths=output_paths,
+        record_count=len(assembly.screened_cases),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={"record_counts": assembly.summary["record_counts"]},
+    )
+    return 0
+
+
+def _write_cycle_assembly(
+    output_root: Path, *, assembly: CycleAssembly, dry_run: bool
+) -> tuple[Path, ...]:
+    paths = (
+        output_root / "screened-cases.jsonl",
+        output_root / "discovery-exclusions.jsonl",
+        output_root / "public-packet-selection.jsonl",
+        output_root / "public-packet-paid-gaps.jsonl",
+        output_root / "case-relevance.jsonl",
+        output_root / "core-filter-results.jsonl",
+        output_root / "document-downloads-merged.jsonl",
+        output_root / "cycle-acquisition-summary.json",
+    )
+    if dry_run:
+        return paths
+    for path, records in zip(
+        paths[:-1],
+        (
+            assembly.screened_cases,
+            assembly.discovery_exclusions,
+            assembly.selections,
+            assembly.paid_gaps,
+            assembly.case_relevance,
+            assembly.core_filter_results,
+            assembly.document_manifest,
+        ),
+        strict=True,
+    ):
+        _write_jsonl(path, records)
+    _write_json(paths[-1], assembly.summary)
+    return paths
 
 
 _ACQUISITION_MERGE_JSONL_FILES = (
