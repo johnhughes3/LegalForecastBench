@@ -8,8 +8,10 @@ from pathlib import Path
 import pytest
 from legalforecast.ingestion.budgeted_firecrawl import (
     BudgetedFirecrawlScheduler,
+    FirecrawlArtifactError,
     FirecrawlCircuitOpenError,
     FirecrawlTargetSpec,
+    load_successful_firecrawl_pages,
 )
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
@@ -350,6 +352,29 @@ def test_scheduler_exhausts_retries_and_resume_does_not_repeat_work(
         assert empty_source.calls == []
         assert [page.raw_html for page in resumed.pages] == ["good"]
         assert resumed.summary == store.firecrawl_run_summary("run-001")
+
+
+def test_load_successful_pages_reconstructs_and_verifies_durable_run(
+    tmp_path: Path,
+) -> None:
+    target = _target("search-a", 0)
+    with _store(tmp_path) as store:
+        result = BudgetedFirecrawlScheduler(
+            store=store,
+            source=FixtureSource(
+                {target.source_url: [_success(target, "<html>search</html>\n")]}
+            ),
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+        ).run([target])
+
+        loaded = load_successful_firecrawl_pages(store=store, run_id="run-001")
+
+        assert loaded == result.pages
+
+        loaded[0].artifact_path.write_text("tampered")
+        with pytest.raises(FirecrawlArtifactError, match=r"artifact .* mismatch"):
+            load_successful_firecrawl_pages(store=store, run_id="run-001")
 
 
 def test_scheduler_marks_crash_window_authorization_interrupted_before_retry(

@@ -14,7 +14,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Protocol, TypedDict
+from typing import Literal, Protocol, TypedDict, cast
 
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
@@ -343,6 +343,46 @@ class BudgetedFirecrawlScheduler:
             "Firecrawl provider circuit opened after "
             f"{consecutive_5xx} consecutive provider 5xx responses"
         )
+
+
+def load_successful_firecrawl_pages(
+    *,
+    store: CycleAcquisitionStore,
+    run_id: str,
+) -> tuple[FirecrawlPageRecord, ...]:
+    """Reload and verify every successful page committed by one durable run."""
+
+    attempts = store.firecrawl_attempts(run_id)
+    pages: list[FirecrawlPageRecord] = []
+    for stored_target in store.firecrawl_targets(run_id):
+        matches = tuple(
+            attempt
+            for attempt in attempts
+            if attempt.target_id == stored_target.target_id
+            and attempt.status == "succeeded"
+        )
+        if len(matches) > 1:
+            raise FirecrawlArtifactError(
+                f"target {stored_target.target_id!r} has multiple successful attempts"
+            )
+        if not matches:
+            continue
+        attempt = matches[0]
+        target = FirecrawlTargetSpec(
+            target_id=stored_target.target_id,
+            target_kind=cast(FirecrawlTargetKind, stored_target.target_kind),
+            source_url=stored_target.source_url,
+            page_number=attempt.page_number,
+            ordinal=stored_target.ordinal,
+        )
+        pages.append(
+            _page_record(
+                target,
+                attempt,
+                raw_html=_read_verified_artifact(attempt),
+            )
+        )
+    return tuple(pages)
 
 
 def _ordered_unique_targets(
