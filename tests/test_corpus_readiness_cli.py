@@ -28,6 +28,7 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
                 "candidate_id": "cand-1",
                 "case_id": "case-1",
                 "court": "S.D.N.Y.",
+                "target_motion_entry_numbers": [5],
                 "documents": [
                     {
                         "source_document_id": "complaint-1",
@@ -45,6 +46,7 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
                 "candidate_id": "cand-incomplete",
                 "case_id": "case-incomplete",
                 "court": "D. Del.",
+                "target_motion_entry_numbers": [5],
                 "documents": [
                     {
                         "source_document_id": "missing-decision",

@@ -5,7 +5,9 @@ from email.message import Message
 from pathlib import Path
 from typing import Any
 
-from legalforecast.ingestion.free_document_downloader import UrlLibFreeDocumentSource
+from legalforecast.ingestion.free_document_downloader import (
+    UrlLibFreeDocumentSource,
+)
 
 
 class _Response:
