@@ -146,6 +146,42 @@ def test_purchase_client_records_case_dev_errors_without_continuing_blindly() ->
     assert result.attempts[0].reason == "pacer fee cap exceeded"
 
 
+def test_purchase_redirect_records_unknown_and_retains_full_plan_reservation() -> None:
+    transport = CaseDevFixtureTransport(
+        [
+            RecordedCaseDevResponse(
+                method="POST",
+                path="/legal/v1/documents/doc-1/pacer",
+                params={"live": True, "acknowledgePacerFees": True},
+                status_code=302,
+                payload={"error": "redirected purchase"},
+            )
+        ]
+    )
+    case_dev_client = _case_dev_client(transport)
+    client = CaseDevPacerPurchaseClient(
+        case_dev_client,
+        capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
+    )
+
+    result = client.execute_purchase_plan(
+        _budget_plan("case-1", ("doc-1", "doc-2"), dry_run=False),
+        live=True,
+        acknowledge_pacer_fees=True,
+    )
+
+    assert [attempt.status for attempt in result.attempts] == [
+        CaseDevPacerPurchaseStatus.UNKNOWN,
+        CaseDevPacerPurchaseStatus.NOT_ATTEMPTED,
+    ]
+    assert result.attempts[0].reason == "purchase_redirect_outcome_unknown"
+    assert result.attempts[1].reason == "unknown_outcome_before_attempt"
+    assert result.projected_cost_usd == "6.10"
+    assert result.executed_purchase_count == 0
+    assert case_dev_client.request_count == 1
+    assert len(transport.requests) == 1
+
+
 def test_purchase_client_rechecks_spend_cap_before_any_request() -> None:
     transport = CaseDevFixtureTransport([])
     client = CaseDevPacerPurchaseClient(
