@@ -48,6 +48,8 @@ class MistralMarkdownConversionRequest:
     source_document_id: str
     input_path: Path
     markdown_output_path: Path
+    expected_sha256: str | None = None
+    expected_byte_count: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +90,8 @@ class MistralMarkdownConversionRecord:
     parser_config: dict[str, Any]
     quality_flags: tuple[str, ...]
     extracted_text: ExtractedTextArtifact | None
+    source_sha256: str | None = None
+    source_byte_count: int | None = None
     stdout: str = ""
     stderr: str = ""
     error_message: str | None = None
@@ -105,6 +109,8 @@ class MistralMarkdownConversionRecord:
             "extracted_text": (
                 None if self.extracted_text is None else self.extracted_text.to_record()
             ),
+            "source_sha256": self.source_sha256,
+            "source_byte_count": self.source_byte_count,
             "stdout": self.stdout,
             "stderr": self.stderr,
             "error_message": self.error_message,
@@ -294,6 +300,8 @@ def _convert_one(
         parser_config=parser_config,
         quality_flags=quality_flags,
         extracted_text=extracted_text,
+        source_sha256=request.expected_sha256,
+        source_byte_count=request.expected_byte_count,
         stdout=result.stdout,
         stderr=result.stderr,
     )
@@ -338,6 +346,8 @@ def _failure_record(
         parser_config=parser_config,
         quality_flags=quality_flags,
         extracted_text=None,
+        source_sha256=request.expected_sha256,
+        source_byte_count=request.expected_byte_count,
         stdout=stdout,
         stderr=stderr,
         error_message=error_message,

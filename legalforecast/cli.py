@@ -146,6 +146,14 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     SnapshotVerificationError,
     verify_snapshot,
 )
+from legalforecast.ingestion.disclosure_clearance import (
+    DisclosureClearanceError,
+    build_clearance_records,
+    require_cleared_documents,
+    require_cleared_parse_requests,
+    require_cleared_parser_records,
+    verify_parse_request_bytes,
+)
 from legalforecast.ingestion.discovery_scheduler import (
     DiscoveryHit,
     DiscoverySchedulerError,
@@ -703,6 +711,11 @@ def build_parser() -> argparse.ArgumentParser:
         help=("Merge free and purchased document manifests for parser planning."),
     )
     _add_acquisition_merge_download_manifests_arguments(acquisition_merge_downloads)
+    acquisition_clearance = acquisition_subparsers.add_parser(
+        "clear-disclosures",
+        help="Scan and record hash-bound disclosure clearance per document.",
+    )
+    _add_acquisition_disclosure_clearance_arguments(acquisition_clearance)
     acquisition_parse_plan = acquisition_subparsers.add_parser(
         "plan-parse-documents",
         help="Plan Markdown parser requests from downloaded document manifests.",
@@ -1704,11 +1717,30 @@ def _add_acquisition_merge_download_manifests_arguments(
     parser.set_defaults(handler=_cmd_acquisition_merge_download_manifests)
 
 
+def _add_acquisition_disclosure_clearance_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--download-manifest", type=Path, required=True)
+    parser.add_argument("--document-root", type=Path, required=True)
+    parser.add_argument("--reviews", type=Path, required=True)
+    parser.add_argument(
+        "--restriction-evidence",
+        type=Path,
+        required=True,
+        help="Docket/case relevance JSONL with derived seal and restriction evidence.",
+    )
+    parser.add_argument("--clearance-output", type=Path)
+    parser.add_argument("--quarantine-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_disclosure_clearance)
+
+
 def _add_acquisition_plan_parse_documents_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
     _add_acquisition_common_arguments(parser)
     parser.add_argument("--download-manifest", type=Path, required=True)
+    parser.add_argument("--disclosure-clearance", type=Path, required=True)
     parser.add_argument("--document-root", type=Path)
     parser.add_argument("--requests-output", type=Path)
     parser.add_argument(
@@ -1728,6 +1760,7 @@ def _add_acquisition_parse_documents_arguments(
 ) -> None:
     _add_acquisition_common_arguments(parser)
     parser.add_argument("--requests", type=Path, required=True)
+    parser.add_argument("--disclosure-clearance", type=Path, required=True)
     parser.add_argument("--manifest-output", type=Path)
     parser.add_argument("--parser-root", type=Path)
     parser.add_argument("--timeout-seconds", type=int, default=600)
@@ -2058,6 +2091,7 @@ def _add_acquisition_finalize_corpus_arguments(
     _add_acquisition_common_arguments(parser)
     parser.add_argument("--selection", type=Path, required=True)
     parser.add_argument("--parser-manifest", type=Path, required=True)
+    parser.add_argument("--disclosure-clearance", type=Path, required=True)
     parser.add_argument(
         "--markdown-root",
         type=Path,
@@ -5528,9 +5562,53 @@ def _cmd_acquisition_recover_purchased(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_acquisition_disclosure_clearance(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    manifest_path = cast(Path, args.download_manifest)
+    document_root = cast(Path, args.document_root)
+    reviews_path = cast(Path, args.reviews)
+    restriction_path = cast(Path, args.restriction_evidence)
+    clearance_path = _acquisition_path(
+        args, "clearance_output", output_root / "disclosure-clearance.jsonl"
+    )
+    quarantine_path = _acquisition_path(
+        args, "quarantine_output", output_root / "disclosure-quarantine.jsonl"
+    )
+    documents = _read_records(manifest_path)
+    reviews = _read_records(reviews_path)
+    restrictions = _read_records(restriction_path)
+    try:
+        records = build_clearance_records(
+            documents,
+            document_root=document_root,
+            reviews=reviews,
+            restriction_records=restrictions,
+        )
+    except (DisclosureClearanceError, OSError) as exc:
+        raise CommandError(str(exc)) from exc
+    clearance_rows = [record.to_record() for record in records]
+    quarantined = [row for row in clearance_rows if row["status"] != "cleared"]
+    if not _acquisition_dry_run(args):
+        _write_jsonl(clearance_path, clearance_rows)
+        _write_jsonl(quarantine_path, quarantined)
+    _write_acquisition_completion(
+        args,
+        stage="clear-disclosures",
+        input_paths=(manifest_path, reviews_path, restriction_path, document_root),
+        output_paths=(clearance_path, quarantine_path),
+        record_count=len(records),
+        dry_run=_acquisition_dry_run(args),
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={"quarantined_document_count": len(quarantined)},
+    )
+    return 0
+
+
 def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     download_manifest_path = cast(Path, args.download_manifest)
+    clearance_path = cast(Path, args.disclosure_clearance)
     document_root = _acquisition_path(
         args,
         "document_root",
@@ -5543,6 +5621,14 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
     )
     markdown_output_root = cast(Path, args.markdown_output_root)
     records = _read_records(download_manifest_path)
+    try:
+        require_cleared_documents(
+            records,
+            document_root=document_root,
+            clearance_records=_read_records(clearance_path),
+        )
+    except (DisclosureClearanceError, OSError) as exc:
+        raise CommandError(str(exc)) from exc
     request_records = tuple(
         _planned_parse_document_request(
             record,
@@ -5568,7 +5654,7 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
     _write_acquisition_completion(
         args,
         stage="plan-parse-documents",
-        input_paths=(download_manifest_path,),
+        input_paths=(download_manifest_path, clearance_path),
         output_paths=(requests_path,),
         record_count=len(request_records),
         dry_run=dry_run,
@@ -5581,12 +5667,22 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
 def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     requests_path = cast(Path, args.requests)
+    clearance_path = cast(Path, args.disclosure_clearance)
     manifest_path = _acquisition_path(
         args,
         "manifest_output",
         output_root / "mistral-markdown-conversions.jsonl",
     )
     request_records = _read_records(requests_path)
+    if not _acquisition_dry_run(args):
+        try:
+            require_cleared_parse_requests(
+                request_records, _read_records(clearance_path)
+            )
+            for request_record in request_records:
+                verify_parse_request_bytes(request_record)
+        except DisclosureClearanceError as exc:
+            raise CommandError(str(exc)) from exc
     requests = tuple(
         _mistral_markdown_request(record, output_root=output_root)
         for record in request_records
@@ -5625,11 +5721,21 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
                 fixture_markdown_dir=fixture_markdown_dir,
                 generated_at=datetime.now(UTC),
             )
-        _write_jsonl(manifest_path, [record.to_record() for record in records])
+        _write_jsonl(
+            manifest_path,
+            [
+                {
+                    **record.to_record(),
+                    "source_sha256": _required_str(request, "expected_sha256"),
+                    "source_byte_count": _required_int(request, "expected_byte_count"),
+                }
+                for record, request in zip(records, request_records, strict=True)
+            ],
+        )
     _write_acquisition_completion(
         args,
         stage="parse-documents",
-        input_paths=(requests_path,),
+        input_paths=(requests_path, clearance_path),
         output_paths=(manifest_path,),
         record_count=len(requests),
         dry_run=dry_run,
@@ -6028,6 +6134,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     selection_path = cast(Path, args.selection)
     parser_manifest_path = cast(Path, args.parser_manifest)
+    disclosure_clearance_path = cast(Path, args.disclosure_clearance)
     markdown_root = cast(Path, args.markdown_root)
     prediction_units_path = cast(Path, args.prediction_units)
     unitization_audit_path = cast(Path, args.llm_unitization_audit)
@@ -6060,6 +6167,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     input_paths = (
         selection_path,
         parser_manifest_path,
+        disclosure_clearance_path,
         markdown_root,
         prediction_units_path,
         unitization_audit_path,
@@ -6095,6 +6203,11 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     else:
         selection_records = _read_records(selection_path)
         parser_records = _read_records(parser_manifest_path)
+        clearance_records = _read_records(disclosure_clearance_path)
+        try:
+            require_cleared_parser_records(parser_records, clearance_records)
+        except DisclosureClearanceError as exc:
+            raise CommandError(str(exc)) from exc
         prediction_unit_records = _read_records(prediction_units_path)
         unitization_audit_records = _read_records(unitization_audit_path)
         unitization_review_records = _read_records(unitization_review_path)
@@ -7253,6 +7366,8 @@ def _mistral_markdown_request(
         source_document_id=source_document_id,
         input_path=Path(_required_str(record, "input_path")),
         markdown_output_path=markdown_output_path,
+        expected_sha256=_required_str(record, "expected_sha256"),
+        expected_byte_count=_required_int(record, "expected_byte_count"),
     )
 
 
@@ -7275,6 +7390,8 @@ def _planned_parse_document_request(
         "candidate_id": candidate_id,
         "source_document_id": source_document_id,
         "input_path": str(input_path),
+        "expected_sha256": _required_str(record, "sha256").removeprefix("sha256:"),
+        "expected_byte_count": _required_int(record, "byte_count"),
         "markdown_output_path": str(
             markdown_output_root / safe_candidate_id / f"{safe_document_id}.md"
         ),
@@ -7321,6 +7438,8 @@ def _fixture_markdown_conversion_records(
                     text_sha256=sha256_text(markdown),
                     quality_flags=quality_flags,
                 ),
+                source_sha256=request.expected_sha256,
+                source_byte_count=request.expected_byte_count,
             )
         else:
             record = MistralMarkdownConversionRecord(
@@ -7333,6 +7452,8 @@ def _fixture_markdown_conversion_records(
                 parser_config=parser_config,
                 quality_flags=("fixture_markdown_missing",),
                 extracted_text=None,
+                source_sha256=request.expected_sha256,
+                source_byte_count=request.expected_byte_count,
                 error_message=f"fixture markdown missing: {source_path}",
             )
         _write_json(metadata_path, record.to_record())

@@ -135,6 +135,8 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
         )
         == 0
     )
+    merged_manifest = output_root / "document-downloads-merged.jsonl"
+    clearance = output_root / "disclosure-clearance.jsonl"
     assert (
         main(
             [
@@ -278,13 +280,33 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
         )
         == 0
     )
+    _write_jsonl(
+        clearance,
+        [
+            {
+                "candidate_id": row["candidate_id"],
+                "source_document_id": row["source_document_id"],
+                "sha256": row["sha256"],
+                "schema_version": "legalforecast.disclosure_clearance.v1",
+                "byte_count": row["byte_count"],
+                "status": "cleared",
+                "restriction_status": "public",
+                "restriction_evidence": ["fixture-public-docket"],
+                "reviewer_id": "reviewer:test",
+                "reviewed_at": "2026-07-12T18:00:00Z",
+            }
+            for row in _read_jsonl(merged_manifest)
+        ],
+    )
     assert (
         main(
             [
                 "acquisition",
                 "plan-parse-documents",
                 "--download-manifest",
-                str(output_root / "document-downloads-merged.jsonl"),
+                str(merged_manifest),
+                "--disclosure-clearance",
+                str(clearance),
                 "--document-root",
                 str(common_document_root),
                 "--output-root",
