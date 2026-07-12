@@ -45,7 +45,7 @@ from legalforecast.selection.exclusion_ledger import (
 )
 from legalforecast.selection.motion_linkage import (
     link_mtd_dispositions,
-    referenced_entry_numbers,
+    referenced_mtd_entry_numbers,
 )
 
 DEFAULT_COURTLISTENER_MTD_QUERY_TERMS = (
@@ -681,7 +681,7 @@ def _linkage_entries(
         disposition = entry_by_row_id.get(row_id)
         if disposition is not None:
             explicitly_referenced_numbers.update(
-                referenced_entry_numbers(disposition.text)
+                referenced_mtd_entry_numbers(disposition.text)
             )
 
     normalized: list[NormalizedDocketEntry] = []
@@ -755,30 +755,25 @@ def _looks_like_generic_mtd_document(text: str) -> bool:
     non-merits dismissal filings outside the recovery path.
     """
 
-    normalized = text.replace("\xad", "").lower()
-    if re.search(r"\bmain\s+doc\s*ument\b", normalized) is None:
-        return False
-    if any(
-        term in normalized
-        for term in (
-            "joint or voluntary",
-            "voluntary dismissal",
-            "dismiss appeal",
-            "dismiss counterclaim",
-            "failure to prosecute",
-            "notice of dismissal",
-        )
-    ):
-        return False
-    return (
-        re.search(
-            r"\b(?:dismiss|dismiss/)(?:\s+for\s+failure\s+to\s+state\s+a\s+claim|"
-            r"failure\s+to\s+state\s+a\s+claim|lack\s+of\s+jurisdiction)?\b",
-            normalized,
-            re.IGNORECASE,
-        )
-        is not None
+    normalized = " ".join(text.replace("\xad", "").lower().split())
+    labels = re.findall(
+        r"(?=\bmain\s+doc\s*ument\s+(?P<label>.*?)\s+"
+        r"(?:download\s+pdf|buy\s+on\s+pacer)\b)",
+        normalized,
     )
+    return any(label.strip() in _GENERIC_MTD_DOCUMENT_LABELS for label in labels)
+
+
+_GENERIC_MTD_DOCUMENT_LABELS = frozenset(
+    {
+        "dismiss",
+        "dismiss for failure to state a claim",
+        "dismiss/failure to state a claim",
+        "dismiss / failure to state a claim",
+        "dismiss/lack of jurisdiction",
+        "dismiss / lack of jurisdiction",
+    }
+)
 
 
 def _linked_entry_numbers(

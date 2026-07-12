@@ -344,6 +344,59 @@ def test_screen_does_not_promote_unreferenced_generic_dismiss_row(
     assert exclusion["reason"] == "no_target_motion"
 
 
+def test_screen_does_not_treat_case_number_as_mtd_entry_reference(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    output_root = tmp_path / "screening"
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    html = (
+        "<html><head><title>Fixture v. Example</title></head><body>"
+        '<div id="docket-entry-table">'
+        + _entry_html(
+            number=24,
+            filed_at="February 2, 2026",
+            text="Main Document",
+            description="Dismiss",
+        )
+        + _entry_html(
+            number=30,
+            filed_at="June 30, 2026",
+            text="ORDER granting motion to dismiss in Civil Action No. 24-1234",
+            description="Order on Motion to Dismiss",
+        )
+        + "</div></body></html>"
+    )
+    (raw_html_dir / "123.html").write_text(html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(html)])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "screen-firecrawl-dockets",
+                *cycle_state.cli_args,
+                "--successes",
+                str(successes),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    assert _read_jsonl(output_root / "firecrawl-screened-cases.jsonl") == []
+    [exclusion] = _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl")
+    assert exclusion["reason"] == "no_target_motion"
+
+
 @pytest.mark.parametrize(
     "description",
     (

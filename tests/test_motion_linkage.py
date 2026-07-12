@@ -7,6 +7,7 @@ from legalforecast.ingestion.docket_sync import (
 from legalforecast.selection.motion_linkage import (
     MotionLinkageExclusionReason,
     link_mtd_dispositions,
+    referenced_mtd_entry_numbers,
 )
 
 
@@ -172,3 +173,27 @@ def test_support_memorandum_explicitly_linked_to_notice_is_not_second_motion() -
     assert result.is_clean is True
     assert result.links[0].motion_entry_ids == ("entry-10",)
     assert result.links[0].disposition_entry_ids == ("entry-22",)
+
+
+def test_case_number_does_not_link_support_memorandum_to_notice() -> None:
+    result = link_mtd_dispositions(
+        (
+            _entry(10, "Motion to dismiss complaint"),
+            _entry(
+                11,
+                "Memorandum in support of Motion to Dismiss; Civil Action No. 10-1234",
+            ),
+            _entry(22, "Order on Motion to Dismiss"),
+        ),
+        candidate_id="cand-1",
+        case_id="case-1",
+    )
+
+    assert (
+        referenced_mtd_entry_numbers("Motion to Dismiss in Civil Action No. 10-1234")
+        == set()
+    )
+    assert result.is_clean is False
+    assert result.exclusion_entries[0].reason == (
+        MotionLinkageExclusionReason.AMBIGUOUS_MOTION_TO_ORDER_LINKAGE.value
+    )
