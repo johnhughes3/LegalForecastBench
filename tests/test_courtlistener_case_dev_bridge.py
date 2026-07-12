@@ -221,6 +221,140 @@ def test_public_first_bridge_routes_only_paid_gap_and_retains_free_ids() -> None
     assert core_filter.exclusion_reasons == ()
 
 
+def test_public_first_bridge_emits_relevance_for_fully_free_and_paid_gap() -> None:
+    free_screened = _screened_case()
+    free_entries = free_screened["selected_entries"]
+    assert isinstance(free_entries, list)
+    motion = free_entries[1]
+    assert isinstance(motion, dict)
+    motion_documents = motion["documents"]
+    assert isinstance(motion_documents, list)
+    motion_document = motion_documents[0]
+    assert isinstance(motion_document, dict)
+    motion_document.update(
+        {
+            "description": "Memorandum in Support of Motion to Dismiss",
+            "href": "https://storage.courtlistener.com/motion.pdf",
+            "action_label": "Download PDF",
+            "pacer_only": False,
+        }
+    )
+    paid_screened = _screened_case()
+    paid_candidate = paid_screened["candidate"]
+    assert isinstance(paid_candidate, dict)
+    paid_candidate["docket_id"] = "cl-456"
+    paid_candidate["candidate_key"] = "cl-456"
+
+    free_plan = plan_public_packet_downloads(
+        (free_screened,), use_embedded_entries=True, target_clean_cases=1
+    )
+    paid_plan = plan_public_packet_downloads(
+        (paid_screened,), use_embedded_entries=True, target_clean_cases=1
+    )
+    [public_selection] = free_plan.selected_cases
+    [paid_gap] = paid_plan.paid_gap_cases
+    downloads = tuple(
+        {
+            **request.to_record(),
+            "local_path": f"{request.candidate_id}/{request.source_document_id}.pdf",
+            "sha256": "a" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in (*free_plan.download_requests, *paid_plan.download_requests)
+    )
+    result = bridge_public_plan_paid_gaps(
+        (free_screened, paid_screened),
+        public_selection_records=(public_selection.to_record(),),
+        paid_gap_records=(paid_gap.to_record(),),
+        free_download_records=downloads,
+        client=_client(_search_response(_case_dev_docket()), _lookup_response()),
+        use_embedded_entries=True,
+    )
+
+    assert {record["candidate_id"] for record in result.selection_records} == {
+        "cl-123",
+        "cl-456",
+    }
+    assert {record["candidate_id"] for record in result.case_relevance_records} == {
+        "cl-123",
+        "cl-456",
+    }
+    filters = {
+        record.candidate_id: record
+        for record in filter_core_documents(result.case_relevance_records)
+    }
+    assert filters["cl-123"].purchase_document_ids == ()
+    assert filters["cl-123"].exclusion_reasons == ()
+    assert filters["cl-456"].purchase_document_ids == ("case-dev-mtd",)
+    assert filters["cl-456"].exclusion_reasons == ()
+
+
+def test_public_first_bridge_recovers_only_target_linked_opposition() -> None:
+    screened = _screened_case()
+    entries = screened["selected_entries"]
+    assert isinstance(entries, list)
+    entries.insert(
+        0,
+        _courtlistener_entry(
+            3,
+            "OPPOSITION to an unrelated motion.",
+            "Opposition to unrelated motion",
+            "https://ecf.nysd.uscourts.gov/doc1/unrelated",
+            pacer_only=True,
+        ),
+    )
+    entries.insert(
+        3,
+        _courtlistener_entry(
+            8,
+            "OPPOSITION to Motion to Dismiss at Docket 5.",
+            "Opposition to Motion to Dismiss",
+            "https://ecf.nysd.uscourts.gov/doc1/opposition",
+            pacer_only=True,
+        ),
+    )
+    public_plan = plan_public_packet_downloads(
+        (screened,), use_embedded_entries=True, target_clean_cases=1
+    )
+    [gap] = public_plan.paid_gap_cases
+    assert "no_free_opposition" in gap.paid_gap_reasons
+    lookup = _lookup_response()
+    docket = lookup.payload["docket"]
+    assert isinstance(docket, dict)
+    docket["entries"] = [
+        _case_dev_entry(3, "Opposition to unrelated motion", "case-dev-unrelated"),
+        _case_dev_entry(5, "Memorandum in Support", "case-dev-mtd"),
+        _case_dev_entry(8, "Opposition to Motion to Dismiss", "case-dev-opposition"),
+    ]
+    downloads = tuple(
+        {
+            **request.to_record(),
+            "local_path": f"cl-123/{request.source_document_id}.pdf",
+            "sha256": "a" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in public_plan.download_requests
+    )
+
+    result = bridge_public_plan_paid_gaps(
+        (screened,),
+        public_selection_records=(),
+        paid_gap_records=(gap.to_record(),),
+        free_download_records=downloads,
+        client=_client(_search_response(_case_dev_docket()), lookup),
+        use_embedded_entries=True,
+    )
+
+    assert result.exclusions == ()
+    [relevance] = result.case_relevance_records
+    paid_ids = {
+        document["source_document_id"]
+        for document in relevance["documents"]
+        if document["requires_paid_recovery"] is True
+    }
+    assert paid_ids == {"case-dev-mtd", "case-dev-opposition"}
+
+
 def test_public_first_bridge_requires_completed_free_manifest() -> None:
     screened = _screened_case()
     public_plan = plan_public_packet_downloads(
