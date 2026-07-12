@@ -343,21 +343,33 @@ def ranked_replacement(
     selected.add(quarantined_candidate_id)
     spent = _decimal(spent_or_reserved_usd, "spent_or_reserved_usd")
     cap = _decimal(max_projected_cost_usd, "max_projected_cost_usd")
-    by_id = {_required_str(row, "candidate_id"): row for row in frontier}
+    by_id: dict[str, Mapping[str, object]] = {}
+    for row in frontier:
+        candidate_id = _required_str(row, "candidate_id")
+        if candidate_id in by_id:
+            raise DisclosureClearanceError(
+                f"duplicate frontier candidate: {candidate_id}"
+            )
+        by_id[candidate_id] = row
     quarantined = by_id.get(quarantined_candidate_id)
     write_off = _cost(quarantined) if quarantined is not None else Decimal("0.00")
     ordered = sorted(
         frontier,
         key=lambda row: (
-            _nonnegative_int(row, "estimated_purchase_count"),
+            _missing_document_count(row),
             _cost(row),
+            _required_str(row, "candidate_id").casefold(),
             _required_str(row, "candidate_id"),
         ),
     )
     for rank, row in enumerate(ordered, start=1):
         candidate_id = _required_str(row, "candidate_id")
         cost = _cost(row)
-        if candidate_id in selected or spent + cost > cap:
+        if (
+            candidate_id in selected
+            or row.get("exclusion_reasons") not in (None, [], ())
+            or spent + cost > cap
+        ):
             continue
         return ReplacementDecision(
             quarantined_candidate_id=quarantined_candidate_id,
@@ -538,6 +550,15 @@ def _nonnegative_int(record: Mapping[str, object], field: str) -> int:
     return value
 
 
+def _missing_document_count(record: Mapping[str, object]) -> int:
+    field = (
+        "missing_required_document_count"
+        if "missing_required_document_count" in record
+        else "estimated_purchase_count"
+    )
+    return _nonnegative_int(record, field)
+
+
 def _cost(record: Mapping[str, object] | None) -> Decimal:
     if record is None:
         return Decimal("0.00")
@@ -552,7 +573,7 @@ def _decimal(value: str, field: str) -> Decimal:
         parsed = Decimal(value)
     except InvalidOperation as exc:
         raise DisclosureClearanceError(f"{field} must be decimal") from exc
-    if parsed < 0:
+    if not parsed.is_finite() or parsed < 0:
         raise DisclosureClearanceError(f"{field} must be non-negative")
     return parsed
 

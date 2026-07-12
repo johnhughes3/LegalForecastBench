@@ -139,28 +139,34 @@ def test_ranked_replacement_uses_next_cheapest_under_same_cap() -> None:
     frontier = [
         {
             "candidate_id": "a",
-            "estimated_purchase_count": 1,
-            "estimated_cost_usd": "3.00",
+            "missing_required_document_count": 0,
+            "projected_paid_cost_usd": "0.00",
         },
         {
             "candidate_id": "b",
-            "estimated_purchase_count": 1,
-            "estimated_cost_usd": "4.00",
+            "missing_required_document_count": 1,
+            "projected_paid_cost_usd": "3.05",
         },
         {
             "candidate_id": "c",
-            "estimated_purchase_count": 2,
-            "estimated_cost_usd": "2.00",
+            "missing_required_document_count": 1,
+            "projected_paid_cost_usd": "3.05",
+        },
+        {
+            "candidate_id": "d",
+            "missing_required_document_count": 2,
+            "projected_paid_cost_usd": "6.10",
         },
     ]
     selected = ranked_replacement(
         frontier,
-        quarantined_candidate_id="a",
-        already_selected_candidate_ids=(),
-        spent_or_reserved_usd="0.00",
-        max_projected_cost_usd="9.00",
+        quarantined_candidate_id="b",
+        already_selected_candidate_ids=("a",),
+        spent_or_reserved_usd="3.05",
+        max_projected_cost_usd="9.15",
     )
-    assert selected.replacement_candidate_id == "b"
+    assert selected.replacement_candidate_id == "c"
+    assert selected.write_off_cost_usd == "3.05"
 
 
 def _text_pdf(text: bytes) -> bytes:
