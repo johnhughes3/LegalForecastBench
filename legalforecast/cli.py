@@ -1330,8 +1330,7 @@ def _add_acquisition_acquire_ranked_dockets_arguments(
         choices=("basic", "auto", "enhanced"),
         default="auto",
         help=(
-            "Firecrawl proxy mode; auto and enhanced reserve five credits "
-            "per request."
+            "Firecrawl proxy mode; auto and enhanced reserve five credits per request."
         ),
     )
     parser.add_argument(
@@ -3769,6 +3768,10 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
         args, "summary_output", output_root / "firecrawl-docket-summary.json"
     )
     records = _read_records(ranked_path)
+    input_paths = (
+        (ranked_path,) if fixture_path is None else (ranked_path, fixture_path)
+    )
+    output_paths = (successes_path, exclusions_path, summary_path)
     metadata_by_docket: dict[str, Mapping[str, object]] = {}
     for record in records:
         identity = record.get("identity")
@@ -3783,6 +3786,35 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
         metadata_by_docket[docket_id] = cast(Mapping[str, object], metadata)
     proxy = cast(FirecrawlProxy, args.proxy)
     force_browser = cast(bool, args.force_browser)
+    if _acquisition_dry_run(args):
+        summary: JsonRecord = {
+            "dry_run": True,
+            "selected_batch_id": cast(str, args.selected_batch_id),
+            "input_record_count": len(records),
+            "max_candidates": cast(int, args.max_candidates),
+            "credit_cap": credit_cap,
+            "firecrawl_proxy": proxy,
+            "firecrawl_force_browser": force_browser,
+            "reserved_credits": 0,
+            "success_count": 0,
+            "exclusion_count": 0,
+            "pagination_complete_before_screening": False,
+        }
+        _write_jsonl(successes_path, [])
+        _write_jsonl(exclusions_path, [])
+        _write_json(summary_path, summary)
+        _write_acquisition_completion(
+            args,
+            stage="acquire-ranked-firecrawl-dockets",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=0,
+            dry_run=True,
+            paid_activity_requested=live,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+        return 0
     config = (
         FirecrawlConfig.from_env(proxy=proxy, force_browser=force_browser)
         if live
@@ -3879,6 +3911,19 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
         "pagination_complete_before_screening": True,
     }
     _write_json(summary_path, summary)
+    _write_acquisition_completion(
+        args,
+        stage="acquire-ranked-firecrawl-dockets",
+        input_paths=input_paths,
+        output_paths=output_paths,
+        record_count=len(successes),
+        dry_run=False,
+        paid_activity_requested=live,
+        paid_activity_executed=_firecrawl_metered_activity_executed(
+            live=live, summary=summary
+        ),
+        extra=summary,
+    )
     return 0
 
 

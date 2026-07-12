@@ -152,6 +152,65 @@ def test_ranked_budgeted_cli_feeds_strict_selected_slice_snapshot(
         )
 
 
+def test_ranked_budgeted_cli_dry_run_does_not_mutate_cycle_store(
+    tmp_path: Path,
+) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    ranked_path = tmp_path / "ranked.jsonl"
+    fixture_path = tmp_path / "firecrawl.jsonl"
+    output = tmp_path / "output"
+    _write_jsonl(
+        ranked_path,
+        [
+            {
+                "identity": {"courtlistener_docket_id": "123"},
+                "screening_metadata": {"case_id": "123"},
+                "ranking_key": [0, 1, "123"],
+            }
+        ],
+    )
+    _write_jsonl(fixture_path, [])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "acquire-ranked-firecrawl-dockets",
+                "--cycle-store",
+                str(store_path),
+                "--parent-batch-id",
+                "partial-parent",
+                "--selected-batch-id",
+                "selected-001",
+                "--run-id",
+                "dockets-001",
+                "--ranked",
+                str(ranked_path),
+                "--max-candidates",
+                "1",
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--firecrawl-fixture",
+                str(fixture_path),
+                "--proxy",
+                "enhanced",
+                "--force-browser",
+                "--output-root",
+                str(output),
+            ]
+        )
+        == 0
+    )
+
+    assert not store_path.exists()
+    assert (output / "firecrawl-docket-successes.jsonl").read_text() == ""
+    summary = json.loads((output / "firecrawl-docket-summary.json").read_text())
+    assert summary["dry_run"] is True
+    assert summary["firecrawl_proxy"] == "enhanced"
+    assert summary["firecrawl_force_browser"] is True
+    assert summary["reserved_credits"] == 0
+
+
 def _policy() -> dict[str, object]:
     package_root = Path(__file__).parents[1] / "legalforecast"
     sources = {
