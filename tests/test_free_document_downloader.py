@@ -22,8 +22,8 @@ from legalforecast.ingestion.provenance import DocumentRole
 def test_downloads_free_courtlistener_documents_to_safe_paths(tmp_path: Path) -> None:
     source = FixtureFreeDocumentSource(
         {
-            "https://www.courtlistener.com/recap/doc-1.pdf": b"complaint pdf",
-            "https://www.courtlistener.com/recap/doc-34.pdf": b"motion pdf",
+            "https://www.courtlistener.com/recap/doc-1.pdf": b"%PDF complaint",
+            "https://www.courtlistener.com/recap/doc-34.pdf": b"%PDF motion",
         }
     )
 
@@ -48,13 +48,13 @@ def test_downloads_free_courtlistener_documents_to_safe_paths(tmp_path: Path) ->
 
     assert [record.source_document_id for record in records] == ["doc-1", "doc-34"]
     assert records[0].local_path == "cand-1/courtlistener/entry-1_doc-1.pdf"
-    assert records[0].sha256 == hashlib.sha256(b"complaint pdf").hexdigest()
+    assert records[0].sha256 == hashlib.sha256(b"%PDF complaint").hexdigest()
     assert records[0].document_role is DocumentRole.COMPLAINT
     assert records[0].docket_entry_number == 1
     assert records[0].free_or_purchased == "free"
     assert records[0].retry_count == 0
     assert records[0].rate_limited is False
-    assert (tmp_path / records[1].local_path).read_bytes() == b"motion pdf"
+    assert (tmp_path / records[1].local_path).read_bytes() == b"%PDF motion"
     assert source.requested_urls == (
         "https://www.courtlistener.com/recap/doc-1.pdf",
         "https://www.courtlistener.com/recap/doc-34.pdf",
@@ -63,7 +63,7 @@ def test_downloads_free_courtlistener_documents_to_safe_paths(tmp_path: Path) ->
 
 def test_downloader_resumes_existing_documents_without_refetch(tmp_path: Path) -> None:
     source = FixtureFreeDocumentSource(
-        {"https://www.courtlistener.com/recap/doc-1.pdf": b"complaint pdf"}
+        {"https://www.courtlistener.com/recap/doc-1.pdf": b"%PDF complaint"}
     )
     request = _request(
         "doc-1",
@@ -324,7 +324,7 @@ def test_live_source_resolves_courtlistener_landing_page_to_free_pdf(
 
 def test_downloader_rejects_path_traversal_ids(tmp_path: Path) -> None:
     source = FixtureFreeDocumentSource(
-        {"https://www.courtlistener.com/recap/doc-1.pdf": b"complaint pdf"}
+        {"https://www.courtlistener.com/recap/doc-1.pdf": b"%PDF complaint"}
     )
 
     with pytest.raises(ValueError, match="source_document_id"):
