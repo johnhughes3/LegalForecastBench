@@ -220,6 +220,252 @@ def test_screen_firecrawl_dockets_emits_direct_public_planner_input(
     ).read_bytes() == exclusions_before_dry_run
 
 
+@pytest.mark.parametrize(
+    "decision_text",
+    (
+        "ORDER granting 5 Motion to Dismiss",
+        "ORDER granting Motion to Dismiss 5",
+    ),
+)
+def test_screen_recovers_generic_dismiss_row_from_explicit_disposition_reference(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+    decision_text: str,
+) -> None:
+    output_root = tmp_path / "screening"
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    html = (
+        "<html><head><title>Fixture v. Example</title></head><body>"
+        '<div id="docket-entry-table">'
+        + _entry_html(
+            number=1,
+            filed_at="January 2, 2026",
+            text="COMPLAINT filed by Plaintiff",
+            description="Complaint",
+        )
+        + _entry_html(
+            number=5,
+            filed_at="February 2, 2026",
+            text="Main Document",
+            description="Dismiss",
+        )
+        + _entry_html(
+            number=16,
+            filed_at="June 30, 2026",
+            text=decision_text,
+            description="Order on Motion to Dismiss",
+        )
+        + "</div></body></html>"
+    )
+    (raw_html_dir / "123.html").write_text(html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(html)])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "screen-firecrawl-dockets",
+                *cycle_state.cli_args,
+                "--successes",
+                str(successes),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    [screened] = _read_jsonl(output_root / "firecrawl-screened-cases.jsonl")
+    assert screened["ai"]["target_motion_entry_numbers"] == ["5"]
+    assert screened["motion_linkage"]["links"][0]["linkage_basis"] == [
+        "explicit_docket_entry_reference",
+        "deterministic_earliest_eligible_target_motion",
+    ]
+    assert _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl") == []
+
+
+def test_screen_does_not_promote_unreferenced_generic_dismiss_row(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    output_root = tmp_path / "screening"
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    html = (
+        "<html><head><title>Fixture v. Example</title></head><body>"
+        '<div id="docket-entry-table">'
+        + _entry_html(
+            number=6,
+            filed_at="February 2, 2026",
+            text="Main Document",
+            description="Dismiss",
+        )
+        + _entry_html(
+            number=16,
+            filed_at="June 30, 2026",
+            text="ORDER granting 5 Motion to Dismiss",
+            description="Order on Motion to Dismiss",
+        )
+        + "</div></body></html>"
+    )
+    (raw_html_dir / "123.html").write_text(html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(html)])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "screen-firecrawl-dockets",
+                *cycle_state.cli_args,
+                "--successes",
+                str(successes),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    assert _read_jsonl(output_root / "firecrawl-screened-cases.jsonl") == []
+    [exclusion] = _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl")
+    assert exclusion["reason"] == "no_target_motion"
+
+
+@pytest.mark.parametrize(
+    "description",
+    (
+        "Dismiss/Joint or Voluntary",
+        "Dismiss Appeal",
+        "Dismiss Counterclaim",
+        "Notice of Dismissal",
+    ),
+)
+def test_screen_does_not_promote_explicitly_referenced_non_mtd_dismissal(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+    description: str,
+) -> None:
+    output_root = tmp_path / "screening"
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    html = (
+        "<html><head><title>Fixture v. Example</title></head><body>"
+        '<div id="docket-entry-table">'
+        + _entry_html(
+            number=5,
+            filed_at="February 2, 2026",
+            text="Main Document",
+            description=description,
+        )
+        + _entry_html(
+            number=16,
+            filed_at="June 30, 2026",
+            text="ORDER granting 5 Motion to Dismiss",
+            description="Order on Motion to Dismiss",
+        )
+        + "</div></body></html>"
+    )
+    (raw_html_dir / "123.html").write_text(html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(html)])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "screen-firecrawl-dockets",
+                *cycle_state.cli_args,
+                "--successes",
+                str(successes),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    assert _read_jsonl(output_root / "firecrawl-screened-cases.jsonl") == []
+    [exclusion] = _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl")
+    assert exclusion["reason"] == "no_target_motion"
+
+
+def test_screen_does_not_count_notice_of_compliance_as_second_mtd(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    output_root = tmp_path / "screening"
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    html = (
+        "<html><head><title>Fixture v. Example</title></head><body>"
+        '<div id="docket-entry-table">'
+        + _entry_html(
+            number=26,
+            filed_at="June 24, 2026",
+            text="MOTION to Dismiss for Failure to State a Claim by Defendant",
+            description="Dismiss for Failure to State a Claim",
+        )
+        + _entry_html(
+            number=27,
+            filed_at="June 25, 2026",
+            text="NOTICE of compliance re 26 MOTION to Dismiss",
+            description="Compliance notice",
+        )
+        + _entry_html(
+            number=30,
+            filed_at="June 30, 2026",
+            text="Order on Motion to Dismiss for Failure to State a Claim",
+            description="Order on Motion to Dismiss",
+        )
+        + "</div></body></html>"
+    )
+    (raw_html_dir / "123.html").write_text(html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(html)])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "screen-firecrawl-dockets",
+                *cycle_state.cli_args,
+                "--successes",
+                str(successes),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    [screened] = _read_jsonl(output_root / "firecrawl-screened-cases.jsonl")
+    assert screened["ai"]["target_motion_entry_numbers"] == ["26"]
+    assert _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl") == []
+
+
 def test_screen_firecrawl_dockets_fail_closed_on_first_preanchor_disposition(
     tmp_path: Path,
     cycle_state: _CycleState,

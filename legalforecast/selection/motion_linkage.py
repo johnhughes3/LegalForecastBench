@@ -105,7 +105,9 @@ def link_mtd_dispositions(
     """Link MTD docket entries to the written dispositions that resolve them."""
 
     entries = tuple(docket_entries)
-    motions = tuple(entry for entry in entries if _is_mtd_motion(entry))
+    motions = _distinct_target_motions(
+        tuple(entry for entry in entries if _is_mtd_motion(entry))
+    )
     if not motions:
         return _excluded(
             candidate_id=candidate_id,
@@ -198,7 +200,7 @@ def _link_by_explicit_references(
     referenced_numbers: set[int] = set()
     referenced_dispositions: list[NormalizedDocketEntry] = []
     for disposition in dispositions:
-        disposition_refs = _referenced_entry_numbers(disposition.entry_text)
+        disposition_refs = referenced_entry_numbers(disposition.entry_text)
         matched_refs = disposition_refs & motion_by_number.keys()
         if not matched_refs:
             continue
@@ -320,6 +322,27 @@ def _is_mtd_motion(entry: NormalizedDocketEntry) -> bool:
     }
 
 
+def _distinct_target_motions(
+    motions: tuple[NormalizedDocketEntry, ...],
+) -> tuple[NormalizedDocketEntry, ...]:
+    """Drop support memoranda that explicitly identify their notice entry."""
+
+    notice_numbers = {
+        number
+        for motion in motions
+        if motion.document_role is DocumentRole.MTD_NOTICE
+        if (number := _entry_number_as_int(motion.entry_number)) is not None
+    }
+    return tuple(
+        motion
+        for motion in motions
+        if not (
+            motion.document_role is DocumentRole.MTD_MEMORANDUM
+            and bool(referenced_entry_numbers(motion.entry_text) & notice_numbers)
+        )
+    )
+
+
 def _is_disposition(entry: NormalizedDocketEntry) -> bool:
     return entry.document_role in {DocumentRole.ORDER, DocumentRole.DECISION}
 
@@ -405,12 +428,16 @@ def _is_adoption_order(text: str) -> bool:
     )
 
 
-def _referenced_entry_numbers(text: str) -> set[int]:
+def referenced_entry_numbers(text: str) -> set[int]:
+    """Return docket numbers explicitly referenced by one disposition text."""
+
     numbers: set[int] = set()
     for match in _DOCKET_REFERENCE_RE.finditer(text):
         numbers.update(_numbers_in_text(match.group("numbers")))
     for match in _BRACKET_REFERENCE_RE.finditer(text):
         numbers.add(int(match.group("number")))
+    for pattern in _NUMBERED_MTD_REFERENCE_RES:
+        numbers.update(int(match.group("number")) for match in pattern.finditer(text))
     return numbers
 
 
@@ -458,3 +485,14 @@ _DOCKET_REFERENCE_RE = re.compile(
     re.IGNORECASE,
 )
 _BRACKET_REFERENCE_RE = re.compile(r"\[(?P<number>\d+)\]")
+_NUMBERED_MTD_REFERENCE_RES = (
+    re.compile(
+        r"\b(?P<number>\d+)\s+motions?\s+to\s+dismiss\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bmotions?\s+to\s+dismiss(?:\s+for\s+(?:failure\s+to\s+state\s+"
+        r"a\s+claim|lack\s+of\s+jurisdiction))?\s+(?P<number>\d+)\b",
+        re.IGNORECASE,
+    ),
+)

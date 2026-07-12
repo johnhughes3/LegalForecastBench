@@ -152,3 +152,23 @@ def test_ambiguous_multiple_mtd_linkage_routes_to_exclusion_ledger() -> None:
         "entry-13",
         "entry-30",
     )
+
+
+def test_support_memorandum_explicitly_linked_to_notice_is_not_second_motion() -> None:
+    result = link_mtd_dispositions(
+        (
+            _entry(10, "Motion to dismiss for failure to state a claim"),
+            _entry(
+                11,
+                "Memorandum in support of Motion to Dismiss for Failure to "
+                "State a Claim 10",
+            ),
+            _entry(22, "Order on Motion to Dismiss for Failure to State a Claim"),
+        ),
+        candidate_id="cand-1",
+        case_id="case-1",
+    )
+
+    assert result.is_clean is True
+    assert result.links[0].motion_entry_ids == ("entry-10",)
+    assert result.links[0].disposition_entry_ids == ("entry-22",)
