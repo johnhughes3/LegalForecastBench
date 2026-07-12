@@ -243,6 +243,7 @@ class ProviderAttemptJournal:
                 model_key TEXT NOT NULL,
                 provider TEXT NOT NULL,
                 account TEXT NOT NULL,
+                prompt_text TEXT NOT NULL,
                 prompt_sha256 TEXT NOT NULL,
                 model_registry_sha256 TEXT NOT NULL,
                 reservation_usd REAL NOT NULL CHECK (reservation_usd >= 0),
@@ -379,8 +380,9 @@ class ProviderAttemptJournal:
                 INSERT INTO provider_attempts(
                     logical_call_key, attempt_ordinal, stage, candidate_id,
                     model_key, provider, account, prompt_sha256,
-                    model_registry_sha256, reservation_usd, status, reserved_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reserved', ?)
+                    prompt_text, model_registry_sha256, reservation_usd,
+                    status, reserved_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reserved', ?)
                 """,
                 (
                     self.identity.logical_call_key,
@@ -391,6 +393,7 @@ class ProviderAttemptJournal:
                     self.provider,
                     self.identity.account,
                     self.identity.prompt_sha256,
+                    self.identity.prompt,
                     self.identity.model_registry_sha256,
                     self.reservation_usd,
                     _now(),

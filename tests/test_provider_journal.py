@@ -50,10 +50,11 @@ def test_journal_replays_raw_response_without_reissuing_provider_call(
 
     assert calls == 1
     with sqlite3.connect(path) as connection:
-        [(raw, normalized, reconstructed)] = connection.execute(
-            "SELECT raw_response_json, normalized_response_json, "
+        [(prompt_text, raw, normalized, reconstructed)] = connection.execute(
+            "SELECT prompt_text, raw_response_json, normalized_response_json, "
             "reconstructed_result_json FROM provider_attempts"
         ).fetchall()
+    assert prompt_text == "frozen prompt"
     assert '"request_id":"req-1"' in raw
     assert '"input_tokens":10' in normalized
     assert reconstructed == '{"prediction_units":[]}'
