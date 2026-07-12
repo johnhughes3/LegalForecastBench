@@ -43,7 +43,10 @@ from legalforecast.selection.exclusion_ledger import (
     ExclusionReason,
     ExclusionStage,
 )
-from legalforecast.selection.motion_linkage import link_mtd_dispositions
+from legalforecast.selection.motion_linkage import (
+    link_mtd_dispositions,
+    referenced_entry_numbers,
+)
 
 DEFAULT_COURTLISTENER_MTD_QUERY_TERMS = (
     *OPTIMIZED_MTD_DECISION_SEARCH_TERMS,
@@ -672,6 +675,15 @@ def _linkage_entries(
     docket_id: str,
     source_url: str,
 ) -> tuple[NormalizedDocketEntry, ...]:
+    entry_by_row_id = {entry.row_id: entry for entry in entries}
+    explicitly_referenced_numbers: set[int] = set()
+    for row_id in actual_decision_row_ids:
+        disposition = entry_by_row_id.get(row_id)
+        if disposition is not None:
+            explicitly_referenced_numbers.update(
+                referenced_entry_numbers(disposition.text)
+            )
+
     normalized: list[NormalizedDocketEntry] = []
     for entry in entries:
         if entry.row_id in actual_decision_row_ids:
@@ -686,6 +698,16 @@ def _linkage_entries(
             and _looks_like_target_mtd_filing(entry.text)
         ):
             role = DocumentRole.MTD_MEMORANDUM
+        elif (
+            entry.entry_number is not None
+            and entry.entry_number.isdigit()
+            and int(entry.entry_number) in explicitly_referenced_numbers
+            and (
+                _looks_like_target_mtd_filing(entry.text)
+                or _looks_like_generic_mtd_document(entry.text)
+            )
+        ):
+            role = DocumentRole.MTD_NOTICE
         else:
             continue
         normalized.append(
@@ -716,10 +738,46 @@ def _looks_like_target_mtd_filing(text: str) -> bool:
         re.IGNORECASE,
     ):
         return False
+    if re.search(r"\bnotice\s+of\s+compliance\b", text, re.IGNORECASE):
+        return False
     return bool(
         re.search(r"\bmotions?\s+to\s+dismiss\b", text, re.IGNORECASE)
         or re.search(r"\bjudgment\s+on\s+the\s+pleadings\b", text, re.IGNORECASE)
         or re.search(r"\brule\s+12\b", text, re.IGNORECASE)
+    )
+
+
+def _looks_like_generic_mtd_document(text: str) -> bool:
+    """Recognize PACER's terse MTD document label, never by itself.
+
+    Callers must additionally prove that an actual disposition explicitly
+    references this row number.  The negative terms keep voluntary and other
+    non-merits dismissal filings outside the recovery path.
+    """
+
+    normalized = text.replace("\xad", "").lower()
+    if re.search(r"\bmain\s+doc\s*ument\b", normalized) is None:
+        return False
+    if any(
+        term in normalized
+        for term in (
+            "joint or voluntary",
+            "voluntary dismissal",
+            "dismiss appeal",
+            "dismiss counterclaim",
+            "failure to prosecute",
+            "notice of dismissal",
+        )
+    ):
+        return False
+    return (
+        re.search(
+            r"\b(?:dismiss|dismiss/)(?:\s+for\s+failure\s+to\s+state\s+a\s+claim|"
+            r"failure\s+to\s+state\s+a\s+claim|lack\s+of\s+jurisdiction)?\b",
+            normalized,
+            re.IGNORECASE,
+        )
+        is not None
     )
 
 
