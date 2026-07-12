@@ -10,6 +10,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     ConfigMismatchError,
     CycleAcquisitionStore,
     CycleAcquisitionStoreError,
+    FirecrawlBudgetExceededError,
     ImmutableArtifactError,
     ImmutableCandidateStateError,
     PageReplayMismatchError,
@@ -90,6 +91,169 @@ def test_cycle_and_batch_config_identity_fail_closed(tmp_path: Path) -> None:
         with pytest.raises(ConfigMismatchError, match="batch-001"):
             store.ensure_batch("batch-001", {"page_size": 100})
         assert store.ensure_batch("batch-002", {"page_size": 100}) != digest
+
+
+def test_firecrawl_run_freezes_config_and_permanently_reserves_budget(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        digest = store.ensure_firecrawl_run(
+            "firecrawl-001",
+            batch_id="batch-001",
+            config={"proxy": "auto", "anchor": "2026-06-30"},
+            credit_cap=10,
+            reserved_credits_per_attempt=5,
+        )
+        assert digest == store.ensure_firecrawl_run(
+            "firecrawl-001",
+            batch_id="batch-001",
+            config={"anchor": "2026-06-30", "proxy": "auto"},
+            credit_cap=10,
+            reserved_credits_per_attempt=5,
+        )
+        with pytest.raises(ConfigMismatchError, match="firecrawl-001"):
+            store.ensure_firecrawl_run(
+                "firecrawl-001",
+                batch_id="batch-001",
+                config={"proxy": "basic", "anchor": "2026-06-30"},
+                credit_cap=10,
+                reserved_credits_per_attempt=5,
+            )
+
+        store.ensure_firecrawl_target(
+            "firecrawl-001",
+            target_id="docket-123",
+            target_kind="docket",
+            source_url=(
+                "https://www.courtlistener.com/docket/123/fixture/?order_by=desc&page=1"
+            ),
+            ordinal=0,
+        )
+        first = store.authorize_firecrawl_attempt(
+            "firecrawl-001",
+            target_id="docket-123",
+            page_number=1,
+            request_url=(
+                "https://www.courtlistener.com/docket/123/fixture/?order_by=desc&page=1"
+            ),
+        )
+        assert first.attempt_number == 1
+        assert first.reserved_credits == 5
+        store.finalize_firecrawl_attempt(
+            first.attempt_id,
+            status="provider_error",
+            provider_http_status=500,
+        )
+        second = store.authorize_firecrawl_attempt(
+            "firecrawl-001",
+            target_id="docket-123",
+            page_number=1,
+            request_url=(
+                "https://www.courtlistener.com/docket/123/fixture/?order_by=desc&page=1"
+            ),
+        )
+        store.finalize_firecrawl_attempt(
+            second.attempt_id,
+            status="succeeded",
+            reported_credits=5,
+            proxy_used="enhanced",
+        )
+        summary = store.firecrawl_run_summary("firecrawl-001")
+        assert summary["config_digest"] == digest
+        assert summary["credit_cap"] == 10
+        assert summary["reserved_credits"] == 10
+        assert summary["reported_credits"] == 5
+        assert summary["remaining_authorization"] == 0
+        assert summary["attempt_status_counts"] == {
+            "provider_error": 1,
+            "succeeded": 1,
+        }
+        with pytest.raises(FirecrawlBudgetExceededError, match="credit cap"):
+            store.authorize_firecrawl_attempt(
+                "firecrawl-001",
+                target_id="docket-123",
+                page_number=2,
+                request_url=(
+                    "https://www.courtlistener.com/docket/123/fixture/"
+                    "?order_by=desc&page=2"
+                ),
+            )
+
+
+def test_firecrawl_attempt_validation_is_fail_closed(tmp_path: Path) -> None:
+    with _store(tmp_path) as store:
+        store.ensure_firecrawl_run(
+            "firecrawl-001",
+            batch_id="batch-001",
+            config={"proxy": "auto"},
+            credit_cap=45_000,
+            reserved_credits_per_attempt=5,
+        )
+        store.ensure_firecrawl_target(
+            "firecrawl-001",
+            target_id="search-alpha",
+            target_kind="search",
+            source_url="https://www.courtlistener.com/?type=r&q=alpha",
+            ordinal=0,
+        )
+        attempt = store.authorize_firecrawl_attempt(
+            "firecrawl-001",
+            target_id="search-alpha",
+            page_number=1,
+            request_url="https://www.courtlistener.com/?type=r&q=alpha",
+        )
+        with pytest.raises(ValueError, match="reported_credits"):
+            store.finalize_firecrawl_attempt(
+                attempt.attempt_id,
+                status="succeeded",
+                reported_credits=6,
+                proxy_used="enhanced",
+            )
+        assert store.firecrawl_attempt(attempt.attempt_id).status == "authorized"
+
+        with pytest.raises(ConfigMismatchError, match="target"):
+            store.ensure_firecrawl_target(
+                "firecrawl-001",
+                target_id="search-alpha",
+                target_kind="search",
+                source_url="https://www.courtlistener.com/?type=r&q=changed",
+                ordinal=0,
+            )
+
+
+def test_firecrawl_credit_cap_is_aggregate_across_runs(tmp_path: Path) -> None:
+    with _store(tmp_path) as store:
+        for ordinal, run_id in enumerate(("search-run", "docket-run")):
+            store.ensure_firecrawl_run(
+                run_id,
+                batch_id="batch-001",
+                config={"purpose": run_id},
+                credit_cap=10,
+                reserved_credits_per_attempt=5,
+            )
+            store.ensure_firecrawl_target(
+                run_id,
+                target_id=f"target-{ordinal}",
+                target_kind="search" if ordinal == 0 else "docket",
+                source_url=f"https://www.courtlistener.com/?target={ordinal}",
+                ordinal=0,
+            )
+            store.authorize_firecrawl_attempt(
+                run_id,
+                target_id=f"target-{ordinal}",
+                page_number=1,
+                request_url=f"https://www.courtlistener.com/?target={ordinal}",
+            )
+
+        with pytest.raises(FirecrawlBudgetExceededError):
+            store.authorize_firecrawl_attempt(
+                "docket-run",
+                target_id="target-1",
+                page_number=2,
+                request_url="https://www.courtlistener.com/?target=1&page=2",
+            )
+        assert store.firecrawl_run_summary("search-run")["reserved_credits"] == 10
+        assert store.firecrawl_run_summary("docket-run")["reserved_credits"] == 10
 
 
 def test_store_holds_a_nonblocking_process_lifetime_lock(tmp_path: Path) -> None:
