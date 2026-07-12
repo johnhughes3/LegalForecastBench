@@ -204,7 +204,7 @@ class FirecrawlFixtureTransport:
 @dataclass(frozen=True, slots=True)
 class FirecrawlScrapeResult:
     source_url: str
-    docket_id: str
+    docket_id: str | None
     raw_html: str
     target_status_code: int
     proxy_requested: FirecrawlProxy
@@ -234,9 +234,37 @@ class FirecrawlCourtListenerHTMLSource:
     def scrape(self, *, docket_id: str, source_url: str) -> FirecrawlScrapeResult:
         """Perform exactly one bounded Firecrawl request."""
 
-        normalized_docket_id = _validate_courtlistener_docket_url(
+        normalized_docket_id = validate_courtlistener_docket_url(
             source_url, expected_docket_id=docket_id
         )
+        return self._scrape_validated_url(
+            source_url=source_url, docket_id=normalized_docket_id
+        )
+
+    def scrape_url(self, *, source_url: str) -> FirecrawlScrapeResult:
+        """Scrape one strictly allowlisted docket or RECAP search URL.
+
+        Docket callers that already possess an expected identity should keep
+        using :meth:`scrape`, which additionally enforces that identity match.
+        """
+
+        docket_id: str | None
+        try:
+            docket_id = validate_courtlistener_docket_url(source_url)
+        except FirecrawlURLValidationError:
+            try:
+                validate_courtlistener_recap_search_url(source_url)
+            except FirecrawlURLValidationError as exc:
+                raise FirecrawlURLValidationError(
+                    "source URL is not an allowlisted CourtListener docket or "
+                    "RECAP search URL"
+                ) from exc
+            docket_id = None
+        return self._scrape_validated_url(source_url=source_url, docket_id=docket_id)
+
+    def _scrape_validated_url(
+        self, *, source_url: str, docket_id: str | None
+    ) -> FirecrawlScrapeResult:
         response = self.transport.scrape(
             endpoint=FIRECRAWL_SCRAPE_ENDPOINT,
             headers={
@@ -250,7 +278,7 @@ class FirecrawlCourtListenerHTMLSource:
         return _validated_result(
             response.payload,
             source_url=source_url,
-            docket_id=normalized_docket_id,
+            docket_id=docket_id,
             proxy_requested=self.config.proxy,
             max_credits=self.config.max_credits_per_scrape,
         )
@@ -277,10 +305,12 @@ def _scrape_payload(
     }
 
 
-def _validate_courtlistener_docket_url(
-    source_url: str, *, expected_docket_id: str
+def validate_courtlistener_docket_url(
+    source_url: str, *, expected_docket_id: str | None = None
 ) -> str:
-    if not expected_docket_id.isascii() or not expected_docket_id.isdigit():
+    if expected_docket_id is not None and (
+        not expected_docket_id.isascii() or not expected_docket_id.isdigit()
+    ):
         raise FirecrawlURLValidationError("CourtListener docket ID must be numeric")
     parsed = urlparse(source_url)
     if (
@@ -301,7 +331,7 @@ def _validate_courtlistener_docket_url(
             "source URL must contain a numeric CourtListener docket ID"
         )
     url_docket_id = match.group("docket_id")
-    if url_docket_id != expected_docket_id:
+    if expected_docket_id is not None and url_docket_id != expected_docket_id:
         raise FirecrawlURLValidationError(
             "source URL docket ID does not match the requested docket ID"
         )
@@ -411,7 +441,7 @@ def _validated_result(
     payload: Mapping[str, Any],
     *,
     source_url: str,
-    docket_id: str,
+    docket_id: str | None,
     proxy_requested: FirecrawlProxy,
     max_credits: int,
 ) -> FirecrawlScrapeResult:

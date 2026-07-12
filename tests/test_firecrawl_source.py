@@ -189,6 +189,49 @@ def test_recap_search_url_validator_accepts_only_bounded_search_shape() -> None:
     )
 
 
+def test_generic_scrape_accepts_strict_recap_search_url() -> None:
+    search_url = (
+        "https://www.courtlistener.com/?type=r&q=motion+to+dismiss"
+        "&entry_date_filed_after=06%2F30%2F2026"
+        "&entry_date_filed_before=07%2F12%2F2026"
+        "&order_by=entry_date_filed+desc&page=2"
+    )
+    transport = FirecrawlFixtureTransport([_success_response()])
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key", proxy="auto"), transport=transport
+    )
+
+    result = source.scrape_url(source_url=search_url)
+
+    assert result.source_url == search_url
+    assert result.docket_id is None
+    assert result.raw_html.startswith("<html>")
+    assert transport.requests[0]["payload"]["url"] == search_url  # type: ignore[index]
+
+
+def test_generic_scrape_accepts_strict_docket_url_without_requested_identity() -> None:
+    transport = FirecrawlFixtureTransport([_success_response()])
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key"), transport=transport
+    )
+
+    result = source.scrape_url(source_url=_URL)
+
+    assert result.docket_id == "70649963"
+
+
+def test_generic_scrape_rejects_arbitrary_url_before_transport() -> None:
+    transport = FirecrawlFixtureTransport([_success_response()])
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key"), transport=transport
+    )
+
+    with pytest.raises(FirecrawlURLValidationError, match="allowlisted"):
+        source.scrape_url(source_url="https://example.com/")
+
+    assert transport.requests == []
+
+
 @pytest.mark.parametrize(
     "url",
     [
