@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -90,6 +92,10 @@ def test_assemble_cycle_acquisition_rebases_and_reconciles_two_batches(
     assert summary["schema"] == "legalforecast.cycle_acquisition_assembly.v1"
     assert summary["batch_count"] == 2
     assert summary["record_counts"]["screened_cases"] == 4
+    assert [batch["batch_root"] for batch in summary["batches"]] == [
+        "batch-001",
+        "batch-002",
+    ]
 
     single_batch = tmp_path / "single-batch-equivalent"
     single_batch.mkdir()
@@ -281,13 +287,217 @@ def test_assemble_cycle_acquisition_requires_exactly_one_relevance_record(
     assert "exactly one relevance record" in capsys.readouterr().err
 
 
+def test_assemble_cycle_acquisition_prunes_artifacts_for_later_exclusion(
+    tmp_path: Path,
+) -> None:
+    batch_1 = tmp_path / "batch-001"
+    batch_2 = tmp_path / "batch-002"
+    _write_batch(
+        batch_1,
+        screened=[{"candidate_id": "case-1"}],
+        exclusions=[],
+        selections=[_selection("case-1")],
+        relevance=[_relevance("case-1", requires_paid_recovery=True)],
+        documents=[("case-1", "doc-1", b"stale")],
+        paid_gaps=[{"candidate_id": "case-1", "paid_gap_reasons": ["missing"]}],
+        core_filters=[{"candidate_id": "case-1", "included": True}],
+    )
+    _write_batch(
+        batch_2,
+        screened=[],
+        exclusions=[
+            {
+                "candidate_id": "case-1",
+                "primary_exclusion_reason": "strict_clean_screen_failed",
+            }
+        ],
+        selections=[],
+        relevance=[],
+        documents=[],
+    )
+    cycle = tmp_path / "cycle"
+
+    assert _assemble_batches([batch_1, batch_2], cycle) == 0
+    assert _read_jsonl(cycle / "screened-cases.jsonl") == []
+    assert (
+        _read_jsonl(cycle / "discovery-exclusions.jsonl")[0]["candidate_id"] == "case-1"
+    )
+    for filename in (
+        "public-packet-selection.jsonl",
+        "public-packet-paid-gaps.jsonl",
+        "case-relevance.jsonl",
+        "core-filter-results.jsonl",
+        "document-downloads-merged.jsonl",
+    ):
+        assert _read_jsonl(cycle / filename) == []
+
+
+def test_assemble_cycle_acquisition_preserves_immutable_exclusion(
+    tmp_path: Path,
+) -> None:
+    batches = [tmp_path / f"batch-{ordinal:03d}" for ordinal in range(1, 4)]
+    _write_batch(
+        batches[0],
+        screened=[],
+        exclusions=[
+            {
+                "candidate_id": "case-1",
+                "primary_exclusion_reason": "decision_before_release_anchor",
+            }
+        ],
+        selections=[],
+        relevance=[],
+        documents=[],
+    )
+    _write_batch(
+        batches[1],
+        screened=[],
+        exclusions=[
+            {"candidate_id": "case-1", "primary_exclusion_reason": "fetch_error"}
+        ],
+        selections=[],
+        relevance=[],
+        documents=[],
+    )
+    _write_batch(
+        batches[2],
+        screened=[{"candidate_id": "case-1"}],
+        exclusions=[],
+        selections=[],
+        relevance=[],
+        documents=[],
+    )
+    cycle = tmp_path / "cycle"
+
+    assert _assemble_batches(batches, cycle) == 0
+    assert _read_jsonl(cycle / "screened-cases.jsonl") == []
+    assert _read_jsonl(cycle / "discovery-exclusions.jsonl") == [
+        {
+            "candidate_id": "case-1",
+            "primary_exclusion_reason": "decision_before_release_anchor",
+        }
+    ]
+
+
+def test_assemble_cycle_acquisition_rejects_duplicate_discovery_rows(
+    tmp_path: Path, capsys: Any
+) -> None:
+    for artifact, filename, rows, count_key in (
+        (
+            "screened",
+            "screened-cases.jsonl",
+            [{"candidate_id": "case-1"}, {"candidate_id": "case-1"}],
+            "accepted_case_count",
+        ),
+        (
+            "discovery-exclusion",
+            "exclusions.jsonl",
+            [
+                {"candidate_id": "case-1", "reason": "fetch_error"},
+                {"candidate_id": "case-1", "reason": "fetch_error"},
+            ],
+            "excluded_case_count",
+        ),
+    ):
+        batch = tmp_path / artifact
+        _write_batch(
+            batch,
+            screened=[],
+            exclusions=[],
+            selections=[],
+            relevance=[],
+            documents=[],
+        )
+        _write_jsonl(batch / filename, rows)
+        summary_path = batch / "summary.json"
+        summary = json.loads(summary_path.read_text())
+        summary[count_key] = 2
+        summary_path.write_text(json.dumps(summary), encoding="utf-8")
+
+        assert _assemble(batch, tmp_path / f"cycle-{artifact}") == 2
+        assert f"duplicate {artifact}" in capsys.readouterr().err
+
+
+def test_assemble_cycle_acquisition_rejects_output_overlap_both_directions(
+    tmp_path: Path, capsys: Any
+) -> None:
+    batch = tmp_path / "inputs" / "batch"
+    _write_batch(
+        batch,
+        screened=[],
+        exclusions=[],
+        selections=[],
+        relevance=[],
+        documents=[],
+    )
+
+    assert _assemble(batch, batch / "cycle") == 2
+    assert "output root must not contain or equal" in capsys.readouterr().err
+    assert _assemble(batch, tmp_path / "inputs") == 2
+    assert "output root must not contain or equal" in capsys.readouterr().err
+
+
+def test_assemble_cycle_acquisition_rejects_preexisting_temporary_symlink(
+    tmp_path: Path, capsys: Any
+) -> None:
+    batch = tmp_path / "batch"
+    content = b"safe source"
+    _write_batch(
+        batch,
+        screened=[{"candidate_id": "case-1"}],
+        exclusions=[],
+        selections=[],
+        relevance=[],
+        documents=[("case-1", "doc-1", content)],
+    )
+    digest = hashlib.sha256(content).hexdigest()
+    destination = tmp_path / "cycle/documents/sha256" / digest[:2] / f"{digest}.pdf"
+    destination.parent.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.write_bytes(b"must remain unchanged")
+    temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
+    temporary.symlink_to(outside)
+
+    assert _assemble(batch, tmp_path / "cycle") == 2
+    assert "temporary publication path already exists" in capsys.readouterr().err
+    assert outside.read_bytes() == b"must remain unchanged"
+    assert temporary.is_symlink()
+
+
+def test_assemble_cycle_acquisition_keys_documents_by_candidate(
+    tmp_path: Path,
+) -> None:
+    batch = tmp_path / "batch"
+    _write_batch(
+        batch,
+        screened=[{"candidate_id": "case-1"}, {"candidate_id": "case-2"}],
+        exclusions=[],
+        selections=[],
+        relevance=[],
+        documents=[
+            ("case-1", "shared-doc-id", b"first"),
+            ("case-2", "shared-doc-id", b"second"),
+        ],
+    )
+    cycle = tmp_path / "cycle"
+
+    assert _assemble(batch, cycle) == 0
+    manifest = _read_jsonl(cycle / "document-downloads-merged.jsonl")
+    assert {row["candidate_id"] for row in manifest} == {"case-1", "case-2"}
+    assert len({row["local_path"] for row in manifest}) == 2
+
+
 def _assemble(batch: Path, output: Path) -> int:
+    return _assemble_batches([batch], output)
+
+
+def _assemble_batches(batches: list[Path], output: Path) -> int:
+    batch_args = [item for batch in batches for item in ("--batch-root", str(batch))]
     return main(
         [
             "acquisition",
             "assemble-cycle-acquisition",
-            "--batch-root",
-            str(batch),
+            *batch_args,
             "--output-root",
             str(output),
             "--execute",
@@ -304,6 +514,7 @@ def _write_batch(
     relevance: list[dict[str, object]],
     documents: list[tuple[str, str, bytes]],
     paid_gaps: list[dict[str, object]] | None = None,
+    core_filters: list[dict[str, object]] | None = None,
 ) -> None:
     root.mkdir(parents=True)
     selected_ids = {str(record["candidate_id"]) for record in selections}
@@ -317,7 +528,7 @@ def _write_batch(
     _write_jsonl(root / "public-packet-selection-reconciled.jsonl", selections)
     _write_jsonl(root / "public-packet-paid-gaps.jsonl", paid_gaps or [])
     _write_jsonl(root / "case-relevance.jsonl", relevance)
-    _write_jsonl(root / "core-filter-results.jsonl", [])
+    _write_jsonl(root / "core-filter-results.jsonl", core_filters or [])
     manifest: list[dict[str, object]] = []
     for candidate_id, document_id, content in documents:
         path = root / "documents" / candidate_id / f"{document_id}.pdf"
@@ -388,7 +599,7 @@ def _clearance(document: dict[str, Any]) -> dict[str, object]:
     }
 
 
-def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
+def _write_jsonl(path: Path, records: Sequence[Mapping[str, object]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),

@@ -160,7 +160,7 @@ def assemble_cycle_acquisition(
         batch_provenance.append(
             {
                 "batch_ordinal": ordinal,
-                "batch_root": str(root),
+                "batch_root": root.name,
                 "screened_case_count": len(screened_records),
                 "discovery_exclusion_count": len(exclusion_records),
                 "document_count": len(batch_manifest),
@@ -168,6 +168,24 @@ def assemble_cycle_acquisition(
                 "summary": summary,
             }
         )
+
+    accepted_ids = {
+        candidate_id
+        for candidate_id, (state, _) in current.items()
+        if state == "accepted"
+    }
+    selections = _retain_candidates(selections, accepted_ids)
+    paid_gaps = _retain_candidates(paid_gaps, accepted_ids)
+    relevance = _retain_candidates(relevance, accepted_ids)
+    filters = _retain_candidates(filters, accepted_ids)
+    manifest = {
+        key: record for key, record in manifest.items() if key[0] in accepted_ids
+    }
+    prepared_by_key = {
+        key: document
+        for key, document in prepared_by_key.items()
+        if key[0] in accepted_ids
+    }
 
     missing_relevance = sorted(set(selections) - set(relevance))
     orphan_relevance = sorted(set(relevance) - set(selections))
@@ -235,9 +253,11 @@ def _validated_batch_roots(
         resolved = root.resolve(strict=True)
         if resolved in seen:
             raise CycleAssemblyError(f"duplicate batch root: {root}")
+        output_resolved = output.resolve(strict=False)
         if (
-            resolved == output.resolve(strict=False)
-            or resolved in output.resolve(strict=False).parents
+            resolved == output_resolved
+            or resolved in output_resolved.parents
+            or output_resolved in resolved.parents
         ):
             raise CycleAssemblyError(
                 "output root must not contain or equal a batch root"
@@ -252,6 +272,8 @@ def _apply_discovery_batch(
     screened: Sequence[Mapping[str, Any]],
     exclusions: Sequence[Mapping[str, Any]],
 ) -> None:
+    _reject_duplicate_ids(screened, artifact="screened")
+    _reject_duplicate_ids(exclusions, artifact="discovery-exclusion")
     accepted = {_record_id(record): record for record in screened}
     excluded = {_record_id(record): record for record in exclusions}
     overlap = sorted(set(accepted) & set(excluded))
@@ -262,10 +284,13 @@ def _apply_discovery_batch(
     for candidate_id, record in excluded.items():
         reason = _exclusion_reason(record)
         prior = current.get(candidate_id)
-        if (
-            prior is not None
-            and prior[0] == "accepted"
-            and reason in _TRANSIENT_EXCLUSION_REASONS
+        if prior is not None and (
+            (prior[0] == "accepted" and reason in _TRANSIENT_EXCLUSION_REASONS)
+            or (
+                prior[0] == "excluded"
+                and _exclusion_reason(prior[1]) in _IMMUTABLE_EXCLUSION_REASONS
+                and reason not in _IMMUTABLE_EXCLUSION_REASONS
+            )
         ):
             continue
         current[candidate_id] = ("excluded", record)
@@ -321,8 +346,19 @@ def _publish_documents(documents: Sequence[PreparedDocument]) -> None:
             continue
         destination.parent.mkdir(parents=True, exist_ok=True)
         temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
+        created_temporary = False
         try:
-            shutil.copyfile(document.source, temporary, follow_symlinks=False)
+            try:
+                with (
+                    temporary.open("xb") as target,
+                    document.source.open("rb") as source,
+                ):
+                    created_temporary = True
+                    shutil.copyfileobj(source, target)
+            except FileExistsError as exc:
+                raise CycleAssemblyError(
+                    f"temporary publication path already exists: {temporary}"
+                ) from exc
             copied_hash, _ = _hash_file(temporary)
             expected = _required_string(document.record, "sha256")
             if copied_hash != expected:
@@ -332,7 +368,8 @@ def _publish_documents(documents: Sequence[PreparedDocument]) -> None:
                 )
             os.replace(temporary, destination)
         finally:
-            temporary.unlink(missing_ok=True)
+            if created_temporary:
+                temporary.unlink(missing_ok=True)
 
 
 def _require_safe_destination(
@@ -411,17 +448,16 @@ def _read_first_jsonl(root: Path, filenames: Sequence[str]) -> list[Mapping[str,
         path = root / filename
         if path.is_file():
             records: list[Mapping[str, Any]] = []
-            for line_number, line in enumerate(
-                path.read_text(encoding="utf-8").splitlines(), start=1
-            ):
-                if not line.strip():
-                    continue
-                value = json.loads(line)
-                if not isinstance(value, dict):
-                    raise CycleAssemblyError(
-                        f"{path}:{line_number} is not a JSON object"
-                    )
-                records.append(cast(dict[str, Any], value))
+            with path.open(encoding="utf-8") as handle:
+                for line_number, line in enumerate(handle, start=1):
+                    if not line.strip():
+                        continue
+                    value = json.loads(line)
+                    if not isinstance(value, dict):
+                        raise CycleAssemblyError(
+                            f"{path}:{line_number} is not a JSON object"
+                        )
+                    records.append(cast(dict[str, Any], value))
             return records
     return []
 
@@ -490,10 +526,17 @@ def _record_id(record: Mapping[str, Any]) -> str:
 
 
 def _document_key(record: Mapping[str, Any]) -> tuple[str, str]:
-    provider = record.get("source_provider")
-    if not isinstance(provider, str) or not provider.strip():
-        provider = "unknown"
-    return provider.strip(), _required_string(record, "source_document_id")
+    return _record_id(record), _required_string(record, "source_document_id")
+
+
+def _retain_candidates(
+    records: Mapping[str, Mapping[str, Any]], candidate_ids: set[str]
+) -> dict[str, Mapping[str, Any]]:
+    return {
+        candidate_id: record
+        for candidate_id, record in records.items()
+        if candidate_id in candidate_ids
+    }
 
 
 def _required_string(record: Mapping[str, Any], key: str) -> str:
