@@ -455,6 +455,93 @@ def test_discover_courtlistener_records_local_validation_failure(
     assert failure["paid_activity_executed"] is False
 
 
+@pytest.mark.parametrize(
+    ("changed_flag", "changed_value"),
+    (
+        ("--target-clean-cases", "2"),
+        ("--max-candidates", "10"),
+    ),
+)
+def test_discover_courtlistener_rejects_batch_limit_drift(
+    tmp_path: Path,
+    capsys: Any,
+    changed_flag: str,
+    changed_value: str,
+) -> None:
+    args = _cycle_store_discovery_args(tmp_path)
+    assert main(args) == 0
+
+    changed_args = [*args]
+    changed_args[changed_args.index(changed_flag) + 1] = changed_value
+    assert main(changed_args) == 2
+    assert "batch config mismatch" in capsys.readouterr().err
+
+
+def test_discover_courtlistener_invalid_limits_do_not_freeze_batch(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    args = _cycle_store_discovery_args(tmp_path)
+    invalid_args = [*args]
+    invalid_args[invalid_args.index("--search-page-size") + 1] = "101"
+
+    assert main(invalid_args) == 2
+    assert "search_page_size must be between 1 and 100" in capsys.readouterr().err
+
+    assert main(args) == 0
+
+
+def _cycle_store_discovery_args(tmp_path: Path) -> list[str]:
+    fixture_path = tmp_path / "courtlistener.jsonl"
+    _write_jsonl(
+        fixture_path,
+        [
+            _response(
+                path="/search/",
+                params={
+                    "q": '"test" AND entry_date_filed:[2026-06-30 TO 2026-07-12]',
+                    "type": "r",
+                    "order_by": "score desc",
+                    "available_only": "on",
+                    "page_size": 50,
+                },
+                payload={"results": [], "next": None},
+            )
+        ],
+    )
+    html_fixture_dir = tmp_path / "html-fixtures"
+    html_fixture_dir.mkdir(exist_ok=True)
+    return [
+        "acquisition",
+        "discover-courtlistener",
+        "--eligibility-anchor",
+        "2026-06-30",
+        "--search-window-start",
+        "2026-06-30",
+        "--search-window-end",
+        "2026-07-12",
+        "--cycle-store",
+        str(tmp_path / "cycle.sqlite3"),
+        "--batch-id",
+        "batch-001",
+        "--query-term",
+        "test",
+        "--target-clean-cases",
+        "1",
+        "--max-candidates",
+        "5",
+        "--search-page-size",
+        "50",
+        "--courtlistener-fixture",
+        str(fixture_path),
+        "--docket-html-fixture-dir",
+        str(html_fixture_dir),
+        "--output-root",
+        str(tmp_path / "output"),
+        "--execute",
+    ]
+
+
 def _response(
     *,
     path: str,

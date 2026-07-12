@@ -150,7 +150,7 @@ def discover_courtlistener_mtd_candidates(
     if search_window_end < decision_filed_on_or_after:
         raise ValueError("search_window_end cannot precede eligibility anchor")
 
-    _validate_limits(
+    validate_courtlistener_discovery_limits(
         query_terms=query_terms,
         target_clean_cases=target_clean_cases,
         max_candidates=max_candidates,
@@ -854,7 +854,7 @@ def _validated_public_docket_url(source_url: str, *, docket_id: str) -> str:
     return source_url
 
 
-def _validate_limits(
+def validate_courtlistener_discovery_limits(
     *,
     query_terms: Sequence[str],
     target_clean_cases: int,

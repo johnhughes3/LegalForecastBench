@@ -127,6 +127,7 @@ from legalforecast.ingestion.courtlistener_acquisition import (
     FixtureCourtListenerDocketHTMLSource,
     LiveCourtListenerDocketHTMLSource,
     discover_courtlistener_mtd_candidates,
+    validate_courtlistener_discovery_limits,
 )
 from legalforecast.ingestion.courtlistener_case_dev_bridge import (
     bridge_courtlistener_case_dev_documents,
@@ -4437,6 +4438,24 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             "--courtlistener-fixture and --docket-html-fixture-dir"
         )
 
+    try:
+        validate_courtlistener_discovery_limits(
+            query_terms=query_terms,
+            target_clean_cases=target_clean_cases,
+            max_candidates=max_candidates,
+            search_page_size=search_page_size,
+        )
+    except ValueError as exc:
+        _write_acquisition_failure(
+            args,
+            stage="discover-courtlistener",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+
     if cycle_store_path is not None and batch_id is not None:
         try:
             with CycleAcquisitionStore(cycle_store_path) as store:
@@ -4448,6 +4467,8 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
                         "search_window_start": search_window_start.isoformat(),
                         "search_window_end": search_window_end.isoformat(),
                         "query_terms": list(query_terms),
+                        "target_clean_cases": target_clean_cases,
+                        "max_candidates": max_candidates,
                         "search_page_size": search_page_size,
                     },
                 )
