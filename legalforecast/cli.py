@@ -1112,9 +1112,12 @@ def _add_acquisition_discover_firecrawl_recap_arguments(
     )
     parser.add_argument(
         "--proxy",
-        choices=("basic", "auto"),
+        choices=("basic", "auto", "enhanced"),
         default="auto",
-        help="Firecrawl proxy mode; auto is reserved at five credits per request.",
+        help=(
+            "Firecrawl proxy mode; auto and enhanced are permanently reserved "
+            "at five credits per request."
+        ),
     )
     parser.add_argument("--firecrawl-fixture", type=Path)
     parser.add_argument(
@@ -1278,8 +1281,9 @@ def _add_acquisition_fetch_firecrawl_arguments(
         type=int,
         required=True,
         help=(
-            "Hard cap on unique candidates resolved and scraped; each accepted "
-            "candidate makes exactly one basic Firecrawl request."
+            "Hard cap on unique candidates resolved by this legacy preliminary "
+            "docket fetch. Use discover-firecrawl-recap for cycle-budgeted, "
+            "entry-date-anchored discovery."
         ),
     )
     parser.add_argument("--case-dev-fixture", type=Path)
@@ -1301,7 +1305,8 @@ def _add_acquisition_fetch_firecrawl_arguments(
         action="store_true",
         help=(
             "Fetch public CourtListener docket HTML using FIRECRAWL_API_KEY with "
-            "the fixed one-credit basic/no-cache request contract."
+            "the legacy one-page basic/no-cache request contract. This path does "
+            "not prove complete pagination."
         ),
     )
     parser.add_argument("--raw-html-dir", type=Path)
