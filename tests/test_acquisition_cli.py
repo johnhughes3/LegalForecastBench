@@ -9,6 +9,7 @@ import legalforecast.cli as cli
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.free_document_downloader import FreeDocumentFetch
+from legalforecast.unitization.review import apply_unitization_reviews
 from pytest import CaptureFixture, MonkeyPatch
 
 JsonRecord = dict[str, Any]
@@ -905,7 +906,7 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     )
     _write_jsonl(
         units_path,
-        [{"candidate_id": "cand-1", "prediction_units": [_prediction_unit()]}],
+        [_finalized_prediction_unit_record()],
     )
 
     assert (
@@ -1055,7 +1056,7 @@ def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
     )
     _write_jsonl(
         units_path,
-        [{"candidate_id": "cand-1", "prediction_units": [_prediction_unit()]}],
+        [_finalized_prediction_unit_record()],
     )
 
     assert (
@@ -1175,7 +1176,7 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
     )
     _write_jsonl(
         units_path,
-        [{"candidate_id": "cand-1", "prediction_units": [_prediction_unit()]}],
+        [_finalized_prediction_unit_record()],
     )
 
     assert (
@@ -1665,6 +1666,21 @@ def _prediction_unit() -> JsonRecord:
         "unit_confidence": 0.95,
         "source_citations": [{"document_id": "complaint", "page": 1}],
     }
+
+
+def _finalized_prediction_unit_record() -> JsonRecord:
+    [record] = apply_unitization_reviews(
+        prediction_unit_records=[
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "prediction_units": [_prediction_unit()],
+            }
+        ],
+        review_records=(),
+        adjudication_records=(),
+    )
+    return record
 
 
 def _write_jsonl(path: Path, records: list[JsonRecord]) -> None:

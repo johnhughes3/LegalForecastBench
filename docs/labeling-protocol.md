@@ -62,9 +62,16 @@ If a frozen unit is not addressed by the first written disposition, do not infer
 
 ## Fail-Closed Human Review Gates
 
-Stage A construction ambiguities are written to `unitization-review-queue.jsonl` with deterministic review IDs and remain outside the clean corpus until John supplies a separate, checked-in adjudication record.
+Stage A construction ambiguities are written to `unitization-review-queue.jsonl` with deterministic review IDs and remain outside the clean corpus until John or a delegated lawyer supplies a separate, checked-in adjudication record.
 
-The generated queue is immutable evidence, not an adjudication surface. A Stage A adjudication may count as resolved only when it identifies the queued review, names the adjudicator, records adjudication notes, and explicitly accepts the already-frozen unit as written. If review requires changing a frozen unit, the case stays out of the clean corpus and must be replaced or rerun through an authorized pre-freeze workflow; the frozen artifact is never hand-edited.
+The generated queue is immutable evidence, not an adjudication surface. Copy its identifiers into a separate `legalforecast.unitization_adjudication.v1` JSONL file; never edit or reorder the queue to record a decision. Each adjudication names the adjudicator, records nonempty notes, and uses exactly one disposition: `ACCEPT`, `AMEND`, `SPLIT`, `MERGE`, or `CANDIDATE-EXCLUSION`. Amendments and split/merge replacements must be derived only from the blinded predecision materials in the queue workflow.
+
+Drain Stage A manually before labeling:
+
+1. Review every pending queue item against only the predecision materials and write checked-in adjudication rows. A merge names every consumed review and source unit; a candidate exclusion consumes every unit and pending review for that candidate.
+2. Run `uv run legalforecast acquisition apply-unitization-review --help`, then execute the documented command with the raw prediction units, immutable queue, adjudications, and an isolated output root.
+3. Inspect the resulting `finalized-prediction-units.jsonl` diff and reconcile candidate/unit counts. The command fails unless every queued review is consumed exactly once and every output is hash-linked to its raw units and adjudication.
+4. Pass only that finalized artifact to `llm-label`, packet planning, readiness, and `finalize-corpus`. Those gates reject the raw `llm-unitize` artifact.
 
 Stage B automatically samples unanimous auto-labels for blind human audit. Each required sample is written to `lawyer-review-queue.jsonl` with the frozen unit and first written disposition text needed to label it, but without the ensemble's proposed outcome. The case cannot count clean until checked-in adjudication records produce a successful `lawyer-review-resume` audit and the corresponding `label-audit-gate` passes. A recorded `no_unanimous_auto_labels` skip is acceptable only when the deterministic sample is empty.
 

@@ -63,6 +63,49 @@ def test_packet_time_leakage_screen_excludes_adversarial_docket_entries() -> Non
     }.issubset(set(plan.exclusion_ledger_records[0]["secondary_exclusion_reasons"]))
 
 
+def test_packet_planning_rejects_raw_prediction_units(tmp_path: Path) -> None:
+    raw = _prediction_unit_record("candidate-1")
+    raw.pop("schema_version")
+
+    with pytest.raises(PacketInputPlanningError, match="must be finalized"):
+        plan_packet_build_inputs(
+            selection_records=(),
+            download_records=(),
+            parser_records=(),
+            prediction_unit_records=(raw,),
+            raw_html_dir=tmp_path,
+            document_root=tmp_path,
+            markdown_root=tmp_path,
+            source_dir=tmp_path,
+        )
+
+
+def test_packet_planning_skips_candidate_exclusion(tmp_path: Path) -> None:
+    excluded = _prediction_unit_record("candidate-1")
+    excluded["status"] = "candidate_excluded"
+    excluded["prediction_units"] = []
+    excluded["exclusion"] = {
+        "reason": "stage_a_boundary_unresolvable",
+        "adjudication_id": "adj-candidate-1",
+        "adjudication_sha256": "a" * 64,
+    }
+
+    plan = plan_packet_build_inputs(
+        selection_records=(_selection(decision_entry_numbers=[50]),),
+        download_records=(),
+        parser_records=(),
+        prediction_unit_records=(excluded,),
+        raw_html_dir=tmp_path,
+        document_root=tmp_path,
+        markdown_root=tmp_path,
+        source_dir=tmp_path,
+    )
+
+    assert plan.case_count == 0
+    assert plan.packet_build_records == ()
+    assert plan.candidate_manifest_records == ()
+
+
 def test_packet_docket_planning_rejects_missing_decision_entry_numbers() -> None:
     with pytest.raises(PacketInputPlanningError, match="decision_entry_numbers"):
         _docket_entries(
@@ -466,13 +509,22 @@ def _packet_parser_records(candidate_id: str) -> tuple[dict[str, object], ...]:
 
 def _prediction_unit_record(candidate_id: str) -> dict[str, object]:
     return {
+        "schema_version": "legalforecast.finalized_prediction_units.v1",
+        "status": "finalized",
         "candidate_id": candidate_id,
+        "case_id": f"case-{candidate_id}",
+        "raw_prediction_units_sha256": "a" * 64,
         "prediction_units": [
             {
                 "unit_id": f"{candidate_id}-unit",
                 "source_citations": [{"document_id": "complaint", "page": 1}],
+                "source_unit_sha256s": ["b" * 64],
+                "adjudication_id": f"automatic:{'b' * 64}",
+                "adjudication_sha256": None,
+                "disposition": "ACCEPT",
             }
         ],
+        "exclusion": None,
     }
 
 

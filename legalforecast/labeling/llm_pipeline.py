@@ -77,6 +77,7 @@ from legalforecast.unitization.construct_units import (
     StageAUnitSeed,
     construct_stage_a_units,
 )
+from legalforecast.unitization.review import require_finalized_envelopes
 from legalforecast.unitization.schemas import (
     ChallengeScope,
     DefendantGrouping,
@@ -336,12 +337,34 @@ def llm_label_cases(
     if not registry_entries:
         raise LlmPipelineError("at least one registry entry is required")
     parser_by_key = _parser_records_by_candidate_and_document(parser_records)
-    units_by_candidate = _prediction_units_by_candidate(prediction_unit_records)
+    finalized_unit_records = require_finalized_envelopes(prediction_unit_records)
+    units_by_candidate = _prediction_units_by_candidate(finalized_unit_records)
+    excluded_candidates = {
+        _required_str(record, "candidate_id")
+        for record in finalized_unit_records
+        if record.get("status") == "candidate_excluded"
+    }
     records: list[JsonRecord] = []
     audit_records: list[JsonRecord] = []
     for selection in selection_records:
         candidate_id = _required_str(selection, "candidate_id")
         try:
+            if candidate_id in excluded_candidates:
+                audit_records.append(
+                    {
+                        "stage": "llm-label",
+                        "status": "candidate_excluded",
+                        "candidate_id": candidate_id,
+                        "case_id": _required_str(selection, "case_id"),
+                        "model_keys": [
+                            entry.registry_key for entry in registry_entries
+                        ],
+                        "label_count": 0,
+                        "unit_count": 0,
+                        "estimated_cost": 0.0,
+                    }
+                )
+                continue
             frozen_units = units_by_candidate.get(candidate_id)
             if not frozen_units:
                 raise LlmPipelineError(f"prediction units missing for {candidate_id}")

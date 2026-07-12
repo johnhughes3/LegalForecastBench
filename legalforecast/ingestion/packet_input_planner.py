@@ -42,6 +42,10 @@ from legalforecast.selection.exclusion_ledger import (
     ExclusionReason,
     ExclusionStage,
 )
+from legalforecast.unitization.review import (
+    UnitizationReviewError,
+    require_finalized_envelopes,
+)
 
 
 class PacketInputPlanningError(ValueError):
@@ -90,7 +94,18 @@ def plan_packet_build_inputs(
     markdown_root_path = Path(markdown_root).resolve()
     downloads = _index_by_candidate_and_document(download_records)
     parser_by_key = _index_by_candidate_and_document(parser_records)
-    prediction_units = _index_prediction_units(prediction_unit_records)
+    try:
+        finalized_records = require_finalized_envelopes(prediction_unit_records)
+    except UnitizationReviewError as exc:
+        raise PacketInputPlanningError(
+            f"prediction units must be finalized: {exc}"
+        ) from exc
+    prediction_units = _index_prediction_units(finalized_records)
+    excluded_candidate_ids = {
+        _required_str(record, "candidate_id")
+        for record in finalized_records
+        if record.get("status") == "candidate_excluded"
+    }
 
     packet_build: list[dict[str, Any]] = []
     document_manifest: list[dict[str, Any]] = []
@@ -99,6 +114,8 @@ def plan_packet_build_inputs(
     exclusion_ledger: list[dict[str, Any]] = []
 
     for selection in selection_records:
+        if _required_str(selection, "candidate_id") in excluded_candidate_ids:
+            continue
         planned = _plan_candidate(
             selection,
             downloads=downloads,

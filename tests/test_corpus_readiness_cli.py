@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from legalforecast.cli import main
+from legalforecast.unitization.review import apply_unitization_reviews
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = ROOT / "model_registries" / "cycle-1-2026-06-30.json"
@@ -92,14 +93,23 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
             for document_id in ("complaint-1", "decision-1")
         ],
     )
+    raw_units = [
+        {
+            "candidate_id": "cand-1",
+            "case_id": "case-1",
+            "prediction_units": [{"unit_id": "unit-1", "should_score": True}],
+        }
+    ]
+    _write_jsonl(inputs / "raw-units.jsonl", raw_units)
     _write_jsonl(
         inputs / "units.jsonl",
-        [
-            {
-                "candidate_id": "cand-1",
-                "prediction_units": [{"unit_id": "unit-1", "should_score": True}],
-            }
-        ],
+        list(
+            apply_unitization_reviews(
+                prediction_unit_records=raw_units,
+                review_records=(),
+                adjudication_records=(),
+            )
+        ),
     )
     _write_jsonl(
         inputs / "labels.jsonl",
@@ -205,6 +215,8 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
                 str(markdown_root),
                 "--prediction-units",
                 str(inputs / "units.jsonl"),
+                "--raw-prediction-units",
+                str(inputs / "raw-units.jsonl"),
                 "--llm-unitization-audit",
                 str(inputs / "unitization-audit.jsonl"),
                 "--unitization-review-queue",
@@ -323,6 +335,7 @@ def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(
         "clearance",
     ):
         _write_jsonl(inputs / f"{name}.jsonl", [])
+    _write_jsonl(inputs / "raw-units.jsonl", [])
 
     result = main(
         [
@@ -338,6 +351,8 @@ def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(
             str(tmp_path / "markdown"),
             "--prediction-units",
             str(inputs / "units.jsonl"),
+            "--raw-prediction-units",
+            str(inputs / "raw-units.jsonl"),
             "--llm-unitization-audit",
             str(inputs / "unitization-audit.jsonl"),
             "--unitization-review-queue",

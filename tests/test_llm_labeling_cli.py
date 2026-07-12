@@ -8,6 +8,7 @@ import legalforecast.labeling.llm_pipeline as llm_pipeline
 from legalforecast.cli import main
 from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.unitization import ChallengeScope, PredictionUnit, SourceCitation
+from legalforecast.unitization.review import apply_unitization_reviews
 from pytest import MonkeyPatch, raises
 
 JsonRecord = dict[str, Any]
@@ -105,6 +106,7 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
             "unit_id": "unit-1",
         }
     ]
+    _rewrite_as_finalized(output_root / "prediction-units.jsonl")
 
     assert (
         main(
@@ -223,6 +225,7 @@ def test_acquisition_llm_label_persists_lawyer_review_queue_with_partial_success
         )
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", partial_review_completion)
+    _rewrite_as_finalized(units_path)
 
     assert (
         main(
@@ -1103,6 +1106,7 @@ def test_acquisition_llm_label_failure_audit_keeps_model_accounting(
         )
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", invalid_label_completion)
+    _rewrite_as_finalized(units_path)
 
     assert (
         main(
@@ -1214,6 +1218,7 @@ def test_acquisition_llm_label_missing_unit_flags_gate_frozen_unit_workflow(
         )
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", missing_unit_completion)
+    _rewrite_as_finalized(units_path)
 
     assert (
         main(
@@ -1595,6 +1600,15 @@ def _write_jsonl(path: Path, records: list[JsonRecord]) -> None:
 def _write_json(path: Path, record: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _rewrite_as_finalized(path: Path) -> None:
+    finalized = apply_unitization_reviews(
+        prediction_unit_records=_read_jsonl(path),
+        review_records=(),
+        adjudication_records=(),
+    )
+    _write_jsonl(path, list(finalized))
 
 
 def _read_jsonl(path: Path) -> list[JsonRecord]:
