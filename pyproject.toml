@@ -18,7 +18,9 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
 ]
-dependencies = []
+dependencies = [
+    "ortools>=9.15.6755",
+]
 
 [project.scripts]
 legalforecast = "legalforecast.cli:main"

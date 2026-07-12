@@ -12,7 +12,7 @@ import sys
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, cast
 
@@ -1119,12 +1119,15 @@ def _add_acquisition_plan_public_downloads_arguments(
     )
     parser.add_argument(
         "--max-case-mix-share",
-        type=float,
+        type=_case_mix_share_argument,
         default=None,
         help=(
-            "Maximum selected-case share for each non-null court, NOS macro, "
-            "related-family, and MDL-family bucket. Omitted means no automatic "
-            "cap; 0.4 matches the case-mix dominance review threshold."
+            "Target-relative allowance used to derive an absolute cap for each "
+            "non-null court, NOS macro, related-family, and MDL-family bucket. "
+            "Omitted means no automatic cap. The exact per-bucket cap is "
+            "floor(target clean cases multiplied by this decimal share); shares "
+            "producing a zero cap are rejected. 0.4 matches the case-mix "
+            "dominance review threshold."
         ),
     )
     parser.add_argument(
@@ -2970,7 +2973,7 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
         allow_inferred_target_mtd=cast(bool, args.allow_inferred_target_mtd),
         use_embedded_entries=cast(bool, args.use_embedded_entries),
         cost_per_missing_document_usd=cast(Decimal, args.cost_per_missing_document_usd),
-        max_case_mix_share=cast(float | None, args.max_case_mix_share),
+        max_case_mix_share=cast(Decimal | None, args.max_case_mix_share),
     )
     summary = {
         **plan.summary_record(),
@@ -5237,6 +5240,20 @@ def _iso_date_argument(value: str, flag: str) -> date:
         return date.fromisoformat(value)
     except ValueError as exc:
         raise CommandError(f"{flag} must be an ISO date (YYYY-MM-DD)") from exc
+
+
+def _case_mix_share_argument(value: str) -> Decimal:
+    try:
+        share = Decimal(value)
+    except (InvalidOperation, ValueError) as exc:
+        raise argparse.ArgumentTypeError(
+            "must be a finite decimal greater than 0 and at most 1"
+        ) from exc
+    if not share.is_finite() or share <= 0 or share > 1:
+        raise argparse.ArgumentTypeError(
+            "must be a finite decimal greater than 0 and at most 1"
+        )
+    return share
 
 
 def _cycle_discovery_policy(
