@@ -952,6 +952,48 @@ class CycleAcquisitionStore:
         assert row is not None
         return _firecrawl_target_from_row(row)
 
+    def firecrawl_run_status(self, run_id: str) -> str:
+        """Return the durable scheduler state for one Firecrawl run."""
+
+        row = self._connection.execute(
+            "SELECT status FROM firecrawl_runs WHERE run_id = ?",
+            (_require_text(run_id, "run_id"),),
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"unknown Firecrawl run: {run_id}")
+        return str(row["status"])
+
+    def firecrawl_run_config(self, run_id: str) -> Mapping[str, object]:
+        """Return one run's immutable decoded configuration."""
+
+        row = self._connection.execute(
+            "SELECT config_json FROM firecrawl_runs WHERE run_id = ?",
+            (_require_text(run_id, "run_id"),),
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"unknown Firecrawl run: {run_id}")
+        decoded = json.loads(str(row["config_json"]))
+        if not isinstance(decoded, dict):
+            raise CycleAcquisitionStoreError("Firecrawl run config is not an object")
+        return cast(Mapping[str, object], decoded)
+
+    def set_firecrawl_run_status(self, run_id: str, status: str) -> None:
+        """Persist a fail-closed run-level scheduler state."""
+
+        run_id = _require_text(run_id, "run_id")
+        if status not in {"active", "circuit_open"}:
+            raise ValueError(f"invalid Firecrawl run status: {status}")
+        with self._transaction():
+            cursor = self._connection.execute(
+                """
+                UPDATE firecrawl_runs SET status = ?, updated_at = ?
+                WHERE run_id = ?
+                """,
+                (status, _utc_now(), run_id),
+            )
+            if cursor.rowcount != 1:
+                raise KeyError(f"unknown Firecrawl run: {run_id}")
+
     def firecrawl_run_summary(self, run_id: str) -> Mapping[str, object]:
         """Return reconcilable run and cycle-wide credit accounting."""
 
@@ -993,6 +1035,7 @@ class CycleAcquisitionStore:
         return {
             "run_id": run_id,
             "batch_id": str(run["batch_id"]),
+            "status": str(run["status"]),
             "config_digest": str(run["config_digest"]),
             "credit_cap": cap,
             "reserved_credits_per_attempt": int(budget["reserved_credits_per_attempt"]),

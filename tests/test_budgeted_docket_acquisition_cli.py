@@ -4,7 +4,11 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
+import pytest
 from legalforecast.cli import main
+from legalforecast.ingestion.budgeted_docket_acquisition import (
+    materialize_selected_slice_batch,
+)
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
     DiscoveryHit,
@@ -99,6 +103,8 @@ def test_ranked_budgeted_cli_feeds_strict_selected_slice_snapshot(
                 str(ranked_path),
                 "--max-candidates",
                 "1",
+                "--workers",
+                "1",
                 "--decision-filed-on-or-after",
                 "2026-06-30",
                 "--firecrawl-fixture",
@@ -189,6 +195,7 @@ def test_ranked_budgeted_cli_feeds_strict_selected_slice_snapshot(
             store.term_progress("partial-parent", "motion to dismiss").terminal_status
             is None
         )
+        assert store.firecrawl_run_config("dockets-001")["workers"] == 1
 
 
 def test_ranked_budgeted_cli_dry_run_does_not_mutate_cycle_store(
@@ -247,7 +254,138 @@ def test_ranked_budgeted_cli_dry_run_does_not_mutate_cycle_store(
     assert summary["dry_run"] is True
     assert summary["firecrawl_proxy"] == "enhanced"
     assert summary["firecrawl_force_browser"] is True
+    assert summary["workers"] == 10
     assert summary["reserved_credits"] == 0
+
+
+def test_ranked_budgeted_cli_rejects_concurrent_fixture_workers(
+    tmp_path: Path,
+) -> None:
+    ranked_path = tmp_path / "ranked.jsonl"
+    fixture_path = tmp_path / "firecrawl.jsonl"
+    _write_jsonl(ranked_path, [])
+    _write_jsonl(fixture_path, [])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "acquire-ranked-firecrawl-dockets",
+                "--cycle-store",
+                str(tmp_path / "cycle.sqlite3"),
+                "--parent-batch-id",
+                "partial-parent",
+                "--selected-batch-id",
+                "selected-001",
+                "--run-id",
+                "dockets-001",
+                "--ranked",
+                str(ranked_path),
+                "--max-candidates",
+                "1",
+                "--workers",
+                "2",
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--firecrawl-fixture",
+                str(fixture_path),
+                "--output-root",
+                str(tmp_path / "output"),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+
+
+def test_ranked_budgeted_cli_requires_sequential_resume_for_legacy_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    ranked_path = tmp_path / "ranked.jsonl"
+    output = tmp_path / "output"
+    ranked = {
+        "identity": {
+            "courtlistener_docket_id": "123",
+            "courtlistener_url": (
+                "https://www.courtlistener.com/docket/123/fixture-v-example/"
+            ),
+        },
+        "screening_metadata": {"case_id": "123"},
+        "ranking_key": [0, 1, "123"],
+    }
+    _write_jsonl(ranked_path, [ranked])
+    with CycleAcquisitionStore(store_path) as store:
+        store.ensure_cycle(_policy())
+        store.ensure_batch("partial-parent", {"source": "partial-recap"})
+        store.ensure_terms("partial-parent", ("motion to dismiss",))
+        store.commit_search_page(
+            "partial-parent",
+            "motion to dismiss",
+            None,
+            (
+                DiscoveryHit(
+                    provider_hit_id="hit-123",
+                    candidate_id="courtlistener-docket-123",
+                    payload={"docket_id": "123"},
+                ),
+            ),
+            next_cursor="page-2",
+            terminal_status=None,
+        )
+        materialize_selected_slice_batch(
+            store=store,
+            parent_batch_id="partial-parent",
+            selected_batch_id="selected-001",
+            records=[ranked],
+            limit=1,
+        )
+        store.ensure_firecrawl_run(
+            "legacy-dockets",
+            batch_id="selected-001",
+            config={
+                "purpose": "ranked-complete-docket-acquisition",
+                "decision_anchor": "2026-06-30",
+                "max_pages_per_docket": 1000,
+                "raw_artifact_root": str((output / "raw-docket-html").resolve()),
+                "firecrawl_proxy": "auto",
+                "firecrawl_force_browser": False,
+                "firecrawl_max_credits_per_scrape": 5,
+            },
+            credit_cap=45_000,
+            reserved_credits_per_attempt=5,
+        )
+
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fixture-key")
+    assert (
+        main(
+            [
+                "acquisition",
+                "acquire-ranked-firecrawl-dockets",
+                "--cycle-store",
+                str(store_path),
+                "--parent-batch-id",
+                "partial-parent",
+                "--selected-batch-id",
+                "selected-001",
+                "--run-id",
+                "legacy-dockets",
+                "--ranked",
+                str(ranked_path),
+                "--max-candidates",
+                "1",
+                "--workers",
+                "10",
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--live-firecrawl",
+                "--output-root",
+                str(output),
+                "--execute",
+            ]
+        )
+        == 2
+    )
 
 
 def _policy() -> dict[str, object]:

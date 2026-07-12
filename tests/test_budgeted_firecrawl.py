@@ -4,6 +4,7 @@ import hashlib
 from collections import deque
 from collections.abc import Callable, Mapping
 from pathlib import Path
+from threading import Event, Lock, get_ident
 
 import pytest
 from legalforecast.ingestion.budgeted_firecrawl import (
@@ -54,6 +55,36 @@ class FixtureSource:
         return response
 
 
+class _ConcurrentSource:
+    def __init__(
+        self, targets: list[FirecrawlTargetSpec], *, release_after: int
+    ) -> None:
+        self._results = {
+            target.source_url: _success(target, f"<html>{target.target_id}</html>")
+            for target in targets
+        }
+        self._release_after = release_after
+        self._started = 0
+        self._active = 0
+        self.peak_active = 0
+        self._lock = Lock()
+        self._release = Event()
+
+    def scrape_url(self, *, source_url: str) -> FirecrawlScrapeResult:
+        with self._lock:
+            self._started += 1
+            self._active += 1
+            self.peak_active = max(self.peak_active, self._active)
+            if self._started >= self._release_after:
+                self._release.set()
+        assert self._release.wait(timeout=5)
+        try:
+            return self._results[source_url]
+        finally:
+            with self._lock:
+                self._active -= 1
+
+
 def _store(tmp_path: Path, *, credit_cap: int = 45_000) -> CycleAcquisitionStore:
     store = CycleAcquisitionStore(tmp_path / "cycle.sqlite3")
     store.ensure_cycle({"anchor": "2026-06-30T00:00:00Z"})
@@ -98,15 +129,14 @@ def test_scheduler_authorizes_before_network_and_materializes_success(
 ) -> None:
     target = _target("docket-a", 0)
     with _store(tmp_path) as store:
+        network_thread_ids: list[int] = []
 
-        def assert_authorized(_url: str) -> None:
-            attempts = store.firecrawl_attempts("run-001")
-            assert len(attempts) == 1
-            assert attempts[0].status == "authorized"
+        def record_network_thread(_url: str) -> None:
+            network_thread_ids.append(get_ident())
 
         source = FixtureSource(
             {target.source_url: [_success(target, "<html>A</html>")]},
-            before_scrape=assert_authorized,
+            before_scrape=record_network_thread,
         )
         result = BudgetedFirecrawlScheduler(
             store=store,
@@ -116,6 +146,7 @@ def test_scheduler_authorizes_before_network_and_materializes_success(
         ).run([target])
 
         assert source.calls == [target.source_url]
+        assert network_thread_ids != [get_ident()]
         assert len(result.pages) == 1
         page = result.pages[0]
         assert page.raw_html == "<html>A</html>"
@@ -130,6 +161,158 @@ def test_scheduler_authorizes_before_network_and_materializes_success(
         assert attempt.target_http_status == 200
         assert result.summary["reserved_credits"] == 5
         assert result.summary["reported_credits"] == 5
+
+
+def test_scheduler_bounds_live_network_concurrency_and_commits_in_rank_order(
+    tmp_path: Path,
+) -> None:
+    targets = [_target(f"docket-{index:02d}", index) for index in range(12)]
+    source = _ConcurrentSource(targets, release_after=10)
+    with _store(tmp_path) as store:
+        result = BudgetedFirecrawlScheduler(
+            store=store,
+            source=source,
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+            max_workers=10,
+        ).run(tuple(reversed(targets)))
+
+        assert source.peak_active == 10
+        assert [page.target_id for page in result.pages] == [
+            target.target_id for target in targets
+        ]
+        attempts = store.firecrawl_attempts("run-001")
+        assert [attempt.target_id for attempt in attempts] == [
+            target.target_id for target in targets
+        ]
+        assert all(attempt.status == "succeeded" for attempt in attempts)
+
+
+def test_scheduler_rejects_more_than_ten_workers(tmp_path: Path) -> None:
+    with _store(tmp_path) as store:
+        with pytest.raises(ValueError, match="must not exceed 10"):
+            BudgetedFirecrawlScheduler(
+                store=store,
+                source=FixtureSource({}),
+                run_id="run-001",
+                artifact_dir=tmp_path / "raw",
+                max_workers=11,
+            )
+
+
+def test_scheduler_drains_and_finalizes_in_flight_work_before_global_failure(
+    tmp_path: Path,
+) -> None:
+    first = _target("docket-a", 0)
+    second = _target("docket-b", 1)
+    second_completed = Event()
+
+    class FatalThenSuccessSource:
+        def scrape_url(self, *, source_url: str) -> FirecrawlScrapeResult:
+            if source_url == first.source_url:
+                assert second_completed.wait(timeout=5)
+                raise FirecrawlAuthError("HTTP 401")
+            second_completed.set()
+            return _success(second, "second")
+
+    with _store(tmp_path) as store:
+        scheduler = BudgetedFirecrawlScheduler(
+            store=store,
+            source=FatalThenSuccessSource(),
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+            max_workers=2,
+        )
+
+        with pytest.raises(FirecrawlAuthError):
+            scheduler.run([first, second])
+
+        attempts = store.firecrawl_attempts("run-001")
+        assert [attempt.status for attempt in attempts] == [
+            "provider_error",
+            "succeeded",
+        ]
+        assert len(list((tmp_path / "raw").glob("*.html"))) == 1
+
+
+def test_scheduler_drains_unexpected_worker_exception_before_reraising(
+    tmp_path: Path,
+) -> None:
+    first = _target("docket-a", 0)
+    second = _target("docket-b", 1)
+    second_completed = Event()
+
+    class UnexpectedThenSuccessSource:
+        def scrape_url(self, *, source_url: str) -> FirecrawlScrapeResult:
+            if source_url == first.source_url:
+                assert second_completed.wait(timeout=5)
+                raise RuntimeError("unexpected worker failure")
+            second_completed.set()
+            return _success(second, "second")
+
+    with _store(tmp_path) as store:
+        scheduler = BudgetedFirecrawlScheduler(
+            store=store,
+            source=UnexpectedThenSuccessSource(),
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+            max_workers=2,
+        )
+
+        with pytest.raises(RuntimeError, match="unexpected worker failure"):
+            scheduler.run([first, second])
+
+        assert [attempt.status for attempt in store.firecrawl_attempts("run-001")] == [
+            "interrupted",
+            "succeeded",
+        ]
+        assert len(list((tmp_path / "raw").glob("*.html"))) == 1
+
+
+def test_concurrent_circuit_open_remains_durable_after_in_flight_success(
+    tmp_path: Path,
+) -> None:
+    targets = [_target(f"docket-{index}", index) for index in range(6)]
+    source = FixtureSource(
+        {
+            **{
+                target.source_url: [FirecrawlServerError("HTTP 500")]
+                for target in targets[:5]
+            },
+            targets[5].source_url: [_success(targets[5], "in flight success")],
+        }
+    )
+    with _store(tmp_path) as store:
+        scheduler = BudgetedFirecrawlScheduler(
+            store=store,
+            source=source,
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+            max_workers=6,
+        )
+        with pytest.raises(FirecrawlCircuitOpenError, match="5 consecutive"):
+            scheduler.run(targets)
+
+        assert store.firecrawl_run_status("run-001") == "circuit_open"
+        assert [attempt.status for attempt in store.firecrawl_attempts("run-001")] == [
+            "provider_error",
+            "provider_error",
+            "provider_error",
+            "provider_error",
+            "provider_error",
+            "succeeded",
+        ]
+
+        resumed_source = FixtureSource({})
+        with pytest.raises(FirecrawlCircuitOpenError, match="durably open"):
+            BudgetedFirecrawlScheduler(
+                store=store,
+                source=resumed_source,
+                run_id="run-001",
+                artifact_dir=tmp_path / "raw",
+                max_workers=6,
+            ).run(targets)
+        assert resumed_source.calls == []
 
 
 def test_scheduler_is_widest_first_and_isolates_provider_5xx(tmp_path: Path) -> None:

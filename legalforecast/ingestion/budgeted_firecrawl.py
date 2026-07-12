@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import re
 from collections.abc import Mapping, Sequence
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol, TypedDict, cast
@@ -113,6 +114,7 @@ class BudgetedFirecrawlScheduler:
         artifact_dir: str | Path,
         max_attempts: int = 3,
         provider_5xx_circuit_threshold: int = 5,
+        max_workers: int = 1,
     ) -> None:
         if not run_id.strip():
             raise ValueError("run_id must be nonempty")
@@ -121,12 +123,16 @@ class BudgetedFirecrawlScheduler:
             provider_5xx_circuit_threshold,
             "provider_5xx_circuit_threshold",
         )
+        _require_positive_int(max_workers, "max_workers")
+        if max_workers > 10:
+            raise ValueError("max_workers must not exceed 10")
         self.store = store
         self.source = source
         self.run_id = run_id
         self.artifact_dir = Path(artifact_dir).resolve()
         self.max_attempts = max_attempts
         self.provider_5xx_circuit_threshold = provider_5xx_circuit_threshold
+        self.max_workers = max_workers
 
     def run(self, targets: Sequence[FirecrawlTargetSpec]) -> BudgetedFirecrawlRunResult:
         """Run targets widest-first and return every verified successful page.
@@ -148,6 +154,10 @@ class BudgetedFirecrawlScheduler:
             )
 
         self._finalize_abandoned_authorizations()
+        if self.store.firecrawl_run_status(self.run_id) == "circuit_open":
+            raise FirecrawlCircuitOpenError(
+                "Firecrawl provider circuit is durably open for this run"
+            )
         consecutive_5xx = _trailing_provider_5xx(
             self.store.firecrawl_attempts(self.run_id)
         )
@@ -167,6 +177,7 @@ class BudgetedFirecrawlScheduler:
                 )
 
         for attempt_round in range(1, self.max_attempts + 1):
+            eligible: list[FirecrawlTargetSpec] = []
             for target in ordered:
                 if target.target_id in succeeded:
                     continue
@@ -175,87 +186,128 @@ class BudgetedFirecrawlScheduler:
                 attempts = self._target_attempts(target)
                 if len(attempts) >= attempt_round:
                     continue
-                attempt = self.store.authorize_firecrawl_attempt(
-                    self.run_id,
-                    target_id=target.target_id,
-                    page_number=target.page_number,
-                    request_url=target.source_url,
-                )
-                try:
-                    result = self.source.scrape_url(source_url=target.source_url)
-                    page = self._commit_success(target, attempt, result)
-                except FirecrawlChallengeError as error:
-                    self.store.finalize_firecrawl_attempt(
-                        attempt.attempt_id,
-                        status="provider_error",
-                        provider_http_status=error.provider_http_status,
-                        **_failure_evidence(error),
-                    )
-                    raise
-                except (
-                    FirecrawlAuthError,
-                    FirecrawlPaymentRequiredError,
-                    FirecrawlRateLimitError,
-                ) as error:
-                    self.store.finalize_firecrawl_attempt(
-                        attempt.attempt_id,
-                        status="provider_error",
-                        provider_http_status=_global_provider_status(error),
-                        **_failure_evidence(error),
-                    )
-                    raise
-                except FirecrawlServerError as error:
-                    provider_status = _http_status(error)
-                    if provider_status is not None and provider_status >= 500:
+                eligible.append(target)
+
+            for start in range(0, len(eligible), self.max_workers):
+                window = eligible[start : start + self.max_workers]
+                authorized: list[tuple[FirecrawlTargetSpec, FirecrawlAttempt]] = []
+                authorization_error: Exception | None = None
+                for target in window:
+                    try:
+                        attempt = self.store.authorize_firecrawl_attempt(
+                            self.run_id,
+                            target_id=target.target_id,
+                            page_number=target.page_number,
+                            request_url=target.source_url,
+                        )
+                    except Exception as error:
+                        authorization_error = error
+                        break
+                    authorized.append((target, attempt))
+
+                outcomes = self._scrape_authorized_window(authorized)
+                fatal_error: Exception | None = None
+                for target, attempt, outcome in outcomes:
+                    try:
+                        if isinstance(outcome, BaseException):
+                            raise outcome
+                        page = self._commit_success(target, attempt, outcome)
+                    except FirecrawlChallengeError as error:
                         self.store.finalize_firecrawl_attempt(
                             attempt.attempt_id,
                             status="provider_error",
-                            provider_http_status=provider_status,
+                            provider_http_status=error.provider_http_status,
                             **_failure_evidence(error),
                         )
-                        consecutive_5xx += 1
-                        if consecutive_5xx >= self.provider_5xx_circuit_threshold:
-                            self._raise_open_circuit(consecutive_5xx)
-                    else:
+                        fatal_error = fatal_error or error
+                    except (
+                        FirecrawlAuthError,
+                        FirecrawlPaymentRequiredError,
+                        FirecrawlRateLimitError,
+                    ) as error:
                         self.store.finalize_firecrawl_attempt(
                             attempt.attempt_id,
-                            status="transport_error",
+                            status="provider_error",
+                            provider_http_status=_global_provider_status(error),
                             **_failure_evidence(error),
                         )
-                        consecutive_5xx = 0
-                    continue
-                except FirecrawlResponseError as error:
-                    self.store.finalize_firecrawl_attempt(
-                        attempt.attempt_id,
-                        status="target_error",
-                        provider_http_status=error.provider_http_status,
-                        **_failure_evidence(error),
-                    )
-                    terminal_failures.add(target.target_id)
-                    self.store.set_firecrawl_target_status(
-                        self.run_id, target.target_id, "terminal_error"
-                    )
-                    consecutive_5xx = 0
-                    continue
-                except FirecrawlError as error:
-                    self.store.finalize_firecrawl_attempt(
-                        attempt.attempt_id,
-                        status="transport_error",
-                        provider_http_status=error.provider_http_status,
-                        **_failure_evidence(error),
-                    )
-                    if not error.transient:
+                        fatal_error = fatal_error or error
+                    except FirecrawlServerError as error:
+                        provider_status = _http_status(error)
+                        if provider_status is not None and provider_status >= 500:
+                            self.store.finalize_firecrawl_attempt(
+                                attempt.attempt_id,
+                                status="provider_error",
+                                provider_http_status=provider_status,
+                                **_failure_evidence(error),
+                            )
+                            if fatal_error is None:
+                                consecutive_5xx += 1
+                                if (
+                                    consecutive_5xx
+                                    >= self.provider_5xx_circuit_threshold
+                                ):
+                                    self.store.set_firecrawl_run_status(
+                                        self.run_id, "circuit_open"
+                                    )
+                                    fatal_error = FirecrawlCircuitOpenError(
+                                        "Firecrawl provider circuit opened after "
+                                        f"{consecutive_5xx} consecutive provider 5xx "
+                                        "responses"
+                                    )
+                        else:
+                            self.store.finalize_firecrawl_attempt(
+                                attempt.attempt_id,
+                                status="transport_error",
+                                **_failure_evidence(error),
+                            )
+                            if fatal_error is None:
+                                consecutive_5xx = 0
+                    except FirecrawlResponseError as error:
+                        self.store.finalize_firecrawl_attempt(
+                            attempt.attempt_id,
+                            status="target_error",
+                            provider_http_status=error.provider_http_status,
+                            **_failure_evidence(error),
+                        )
                         terminal_failures.add(target.target_id)
                         self.store.set_firecrawl_target_status(
                             self.run_id, target.target_id, "terminal_error"
                         )
-                    consecutive_5xx = 0
-                    continue
-                succeeded[target.target_id] = page
-                self.store.set_firecrawl_target_status(
-                    self.run_id, target.target_id, "succeeded"
-                )
-                consecutive_5xx = 0
+                        if fatal_error is None:
+                            consecutive_5xx = 0
+                    except FirecrawlError as error:
+                        self.store.finalize_firecrawl_attempt(
+                            attempt.attempt_id,
+                            status="transport_error",
+                            provider_http_status=error.provider_http_status,
+                            **_failure_evidence(error),
+                        )
+                        if not error.transient:
+                            terminal_failures.add(target.target_id)
+                            self.store.set_firecrawl_target_status(
+                                self.run_id, target.target_id, "terminal_error"
+                            )
+                        if fatal_error is None:
+                            consecutive_5xx = 0
+                    except Exception as error:
+                        self.store.finalize_firecrawl_attempt(
+                            attempt.attempt_id,
+                            status="interrupted",
+                        )
+                        fatal_error = fatal_error or error
+                    else:
+                        succeeded[target.target_id] = page
+                        self.store.set_firecrawl_target_status(
+                            self.run_id, target.target_id, "succeeded"
+                        )
+                        if fatal_error is None:
+                            consecutive_5xx = 0
+
+                if fatal_error is not None:
+                    raise fatal_error
+                if authorization_error is not None:
+                    raise authorization_error
 
         for target in ordered:
             if (
@@ -275,6 +327,41 @@ class BudgetedFirecrawlScheduler:
             pages=pages,
             summary=self.store.firecrawl_run_summary(self.run_id),
         )
+
+    def _scrape_authorized_window(
+        self,
+        authorized: Sequence[tuple[FirecrawlTargetSpec, FirecrawlAttempt]],
+    ) -> tuple[
+        tuple[
+            FirecrawlTargetSpec,
+            FirecrawlAttempt,
+            FirecrawlScrapeResult | Exception,
+        ],
+        ...,
+    ]:
+        """Run only provider calls concurrently; return in authorization order."""
+
+        if not authorized:
+            return ()
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures: list[Future[FirecrawlScrapeResult]] = [
+                executor.submit(self.source.scrape_url, source_url=target.source_url)
+                for target, _attempt in authorized
+            ]
+            outcomes: list[
+                tuple[
+                    FirecrawlTargetSpec,
+                    FirecrawlAttempt,
+                    FirecrawlScrapeResult | Exception,
+                ]
+            ] = []
+            for (target, attempt), future in zip(authorized, futures, strict=True):
+                try:
+                    outcome: FirecrawlScrapeResult | Exception = future.result()
+                except Exception as error:
+                    outcome = error
+                outcomes.append((target, attempt, outcome))
+        return tuple(outcomes)
 
     def _commit_success(
         self,
@@ -348,6 +435,7 @@ class BudgetedFirecrawlScheduler:
                 )
 
     def _raise_open_circuit(self, consecutive_5xx: int) -> None:
+        self.store.set_firecrawl_run_status(self.run_id, "circuit_open")
         raise FirecrawlCircuitOpenError(
             "Firecrawl provider circuit opened after "
             f"{consecutive_5xx} consecutive provider 5xx responses"
