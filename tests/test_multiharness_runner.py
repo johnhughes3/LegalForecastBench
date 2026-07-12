@@ -8,7 +8,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-import legalforecast.multiharness.runner as runner_module
 import pytest
 from legalforecast._json_io import read_jsonl_objects
 from legalforecast.evals.inspect_task import HarnessSolver, OfflineMockSolver
@@ -33,6 +32,7 @@ from legalforecast.multiharness.runner import (
     ModelConfig,
     MultiHarnessRunConfig,
     run_multi_harness,
+    validate_no_secret_values,
 )
 from legalforecast.multiharness.sandbox import (
     NETWORK_NONE,
@@ -448,7 +448,7 @@ def test_runner_fail_fast_removes_native_result_after_post_run_rejection(
         ),
         incomplete_run_policy="fail_fast",
     )
-    original_validate = runner_module.validate_no_secret_values
+    original_validate = validate_no_secret_values
 
     def reject_post_run_result(
         value: object,
@@ -460,8 +460,7 @@ def test_runner_fail_fast_removes_native_result_after_post_run_rejection(
         original_validate(value, secret_values, context)
 
     monkeypatch.setattr(
-        runner_module,
-        "validate_no_secret_values",
+        "legalforecast.multiharness.runner.validate_no_secret_values",
         reject_post_run_result,
     )
 
