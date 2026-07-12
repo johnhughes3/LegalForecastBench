@@ -66,10 +66,15 @@ from legalforecast.evals.scorers import (
 from legalforecast.extraction.pdf_text import extract_pdf_text_with_ocr_fallback
 from legalforecast.ingestion.case_dev_client import (
     CaseDevClient,
+    CaseDevClientError,
     CaseDevFixtureTransport,
     RecordedCaseDevResponse,
 )
 from legalforecast.ingestion.case_dev_config import CaseDevConfig
+from legalforecast.ingestion.case_dev_firecrawl import (
+    CaseDevFirecrawlBatchError,
+    acquire_case_dev_firecrawl_html,
+)
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerCapability,
     CaseDevPacerPurchaseClient,
@@ -114,6 +119,13 @@ from legalforecast.ingestion.docket_markdown import ControlledDocketMarkdownArti
 from legalforecast.ingestion.docket_sync import (
     DocketRetrievalPipeline,
     NormalizedDocketEntry,
+)
+from legalforecast.ingestion.firecrawl_source import (
+    FirecrawlConfig,
+    FirecrawlCourtListenerHTMLSource,
+    FirecrawlError,
+    FirecrawlFixtureTransport,
+    FirecrawlHTTPResponse,
 )
 from legalforecast.ingestion.free_document_downloader import (
     FixtureFreeDocumentSource,
@@ -525,6 +537,14 @@ def build_parser() -> argparse.ArgumentParser:
     _add_acquisition_discover_courtlistener_arguments(
         acquisition_discover_courtlistener
     )
+    acquisition_fetch_firecrawl = acquisition_subparsers.add_parser(
+        "fetch-firecrawl-dockets",
+        help=(
+            "Resolve Case.dev candidates to CourtListener URLs and fetch bounded "
+            "public docket HTML through Firecrawl."
+        ),
+    )
+    _add_acquisition_fetch_firecrawl_arguments(acquisition_fetch_firecrawl)
     acquisition_bridge_pacer_gaps = acquisition_subparsers.add_parser(
         "bridge-pacer-gaps",
         help=(
@@ -965,6 +985,25 @@ def _add_acquisition_plan_public_downloads_arguments(
     )
     parser.add_argument("--target-clean-cases", type=int, default=25)
     parser.add_argument(
+        "--cost-per-missing-document-usd",
+        type=Decimal,
+        default=Decimal("3.05"),
+        help=(
+            "Projected PACER cost for each missing required document; used only "
+            "to rank the full candidate pool and never authorizes a purchase."
+        ),
+    )
+    parser.add_argument(
+        "--max-case-mix-share",
+        type=float,
+        default=None,
+        help=(
+            "Maximum selected-case share for each non-null court, NOS macro, "
+            "related-family, and MDL-family bucket. Omitted means no automatic "
+            "cap; 0.4 matches the case-mix dominance review threshold."
+        ),
+    )
+    parser.add_argument(
         "--allow-inferred-target-mtd",
         action="store_true",
         help=(
@@ -985,6 +1024,54 @@ def _add_acquisition_plan_public_downloads_arguments(
     parser.add_argument("--exclusions-output", type=Path)
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_plan_public_downloads)
+
+
+def _add_acquisition_fetch_firecrawl_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--candidates",
+        type=Path,
+        required=True,
+        help="Case.dev candidate JSONL containing case_id and optional candidate_id.",
+    )
+    parser.add_argument(
+        "--max-candidates",
+        type=int,
+        required=True,
+        help=(
+            "Hard cap on unique candidates resolved and scraped; each accepted "
+            "candidate makes exactly one basic Firecrawl request."
+        ),
+    )
+    parser.add_argument("--case-dev-fixture", type=Path)
+    parser.add_argument(
+        "--live-case-dev",
+        action="store_true",
+        help=(
+            "Resolve candidate metadata using CASE_DEV_API_KEY. This command "
+            "does not call document purchase endpoints."
+        ),
+    )
+    parser.add_argument(
+        "--firecrawl-fixture",
+        type=Path,
+        help="Replay ordered Firecrawl HTTP response records from JSONL.",
+    )
+    parser.add_argument(
+        "--live-firecrawl",
+        action="store_true",
+        help=(
+            "Fetch public CourtListener docket HTML using FIRECRAWL_API_KEY with "
+            "the fixed one-credit basic/no-cache request contract."
+        ),
+    )
+    parser.add_argument("--raw-html-dir", type=Path)
+    parser.add_argument("--successes-output", type=Path)
+    parser.add_argument("--exclusions-output", type=Path)
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_fetch_firecrawl)
 
 
 def _add_acquisition_bridge_pacer_gaps_arguments(
@@ -2521,6 +2608,8 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
         target_clean_cases=cast(int, args.target_clean_cases),
         allow_inferred_target_mtd=cast(bool, args.allow_inferred_target_mtd),
         use_embedded_entries=cast(bool, args.use_embedded_entries),
+        cost_per_missing_document_usd=cast(Decimal, args.cost_per_missing_document_usd),
+        max_case_mix_share=cast(float | None, args.max_case_mix_share),
     )
     summary = {
         **plan.summary_record(),
@@ -2585,6 +2674,173 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
             "download_request_count": plan.download_request_count,
             "shortfall": max(0, plan.target_clean_cases - plan.selected_case_count),
         },
+    )
+    return 0
+
+
+def _cmd_acquisition_fetch_firecrawl(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    candidates_path = cast(Path, args.candidates)
+    case_dev_fixture = cast(Path | None, args.case_dev_fixture)
+    firecrawl_fixture = cast(Path | None, args.firecrawl_fixture)
+    raw_html_dir = _acquisition_path(
+        args,
+        "raw_html_dir",
+        output_root / "raw-docket-html",
+    )
+    successes_path = _acquisition_path(
+        args,
+        "successes_output",
+        output_root / "firecrawl-docket-successes.jsonl",
+    )
+    exclusions_path = _acquisition_path(
+        args,
+        "exclusions_output",
+        output_root / "firecrawl-docket-exclusions.jsonl",
+    )
+    summary_path = _acquisition_path(
+        args,
+        "summary_output",
+        output_root / "firecrawl-docket-summary.json",
+    )
+    max_candidates = cast(int, args.max_candidates)
+    if max_candidates <= 0:
+        raise CommandError("--max-candidates must be positive")
+    candidate_records = _read_records(candidates_path)
+    dry_run = _acquisition_dry_run(args)
+    input_paths = tuple(
+        path
+        for path in (candidates_path, case_dev_fixture, firecrawl_fixture)
+        if path is not None
+    )
+    output_paths = (successes_path, exclusions_path, summary_path, raw_html_dir)
+    if dry_run:
+        summary = {
+            "dry_run": True,
+            "input_candidate_count": len(candidate_records),
+            "max_candidates": max_candidates,
+            "scrape_count": 0,
+            "paid_activity_requested": False,
+        }
+        _write_jsonl(successes_path, [])
+        _write_jsonl(exclusions_path, [])
+        _write_json(summary_path, summary)
+        _write_acquisition_completion(
+            args,
+            stage="fetch-firecrawl-dockets",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=0,
+            dry_run=True,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+        return 0
+
+    live_case_dev = cast(bool, args.live_case_dev)
+    live_firecrawl = cast(bool, args.live_firecrawl)
+    if case_dev_fixture is not None and live_case_dev:
+        raise CommandError("choose --case-dev-fixture or --live-case-dev, not both")
+    if firecrawl_fixture is not None and live_firecrawl:
+        raise CommandError("choose --firecrawl-fixture or --live-firecrawl, not both")
+    if firecrawl_fixture is None and not live_firecrawl:
+        raise CommandError(
+            "fetch-firecrawl-dockets requires --firecrawl-fixture or "
+            "--live-firecrawl with FIRECRAWL_API_KEY configured"
+        )
+    try:
+        client = _case_dev_client(
+            command="fetch-firecrawl-dockets",
+            fixture_path=case_dev_fixture,
+            live=live_case_dev,
+        )
+        source = (
+            FirecrawlCourtListenerHTMLSource(FirecrawlConfig.from_env())
+            if live_firecrawl
+            else FirecrawlCourtListenerHTMLSource(
+                FirecrawlConfig(api_key="offline-fixture"),
+                transport=_firecrawl_fixture_transport(cast(Path, firecrawl_fixture)),
+            )
+        )
+        result = acquire_case_dev_firecrawl_html(
+            client=client,
+            source=source,
+            candidates=candidate_records,
+            raw_html_directory=raw_html_dir,
+            max_candidates=max_candidates,
+        )
+    except CaseDevFirecrawlBatchError as exc:
+        partial = exc.partial_result
+        _write_jsonl(
+            successes_path,
+            [record.to_record() for record in partial.successes],
+        )
+        _write_jsonl(
+            exclusions_path,
+            [record.to_record() for record in partial.exclusions],
+        )
+        _write_json(
+            summary_path,
+            {
+                "dry_run": False,
+                "status": "blocked",
+                "input_candidate_count": len(candidate_records),
+                "unique_candidate_count": partial.unique_candidate_count,
+                "processed_candidate_count": partial.processed_candidate_count,
+                "success_count": len(partial.successes),
+                "exclusion_count": len(partial.exclusions),
+                "scrape_count": partial.scrape_count,
+                "max_candidates": max_candidates,
+                "blocker_type": type(exc.provider_error).__name__,
+            },
+        )
+        _write_acquisition_failure(
+            args,
+            stage="fetch-firecrawl-dockets",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+    except (CaseDevClientError, FirecrawlError) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="fetch-firecrawl-dockets",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+
+    _write_jsonl(successes_path, [record.to_record() for record in result.successes])
+    _write_jsonl(exclusions_path, [record.to_record() for record in result.exclusions])
+    summary = {
+        "dry_run": False,
+        "input_candidate_count": len(candidate_records),
+        "unique_candidate_count": result.unique_candidate_count,
+        "processed_candidate_count": result.processed_candidate_count,
+        "success_count": len(result.successes),
+        "exclusion_count": len(result.exclusions),
+        "scrape_count": result.scrape_count,
+        "max_candidates": max_candidates,
+        "firecrawl_proxy": "basic",
+        "firecrawl_max_credits_per_scrape": 1,
+        "paid_activity_requested": False,
+    }
+    _write_json(summary_path, summary)
+    _write_acquisition_completion(
+        args,
+        stage="fetch-firecrawl-dockets",
+        input_paths=input_paths,
+        output_paths=output_paths,
+        record_count=len(result.successes),
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra=summary,
     )
     return 0
 
@@ -4334,6 +4590,41 @@ def _dry_run_case_dev_client() -> CaseDevClient:
         config=CaseDevConfig(api_key=None, base_url="https://api.case.dev"),
         transport=CaseDevFixtureTransport([]),
     )
+
+
+def _firecrawl_fixture_transport(path: Path) -> FirecrawlFixtureTransport:
+    responses: list[FirecrawlHTTPResponse] = []
+    for record in _read_records(path):
+        status_code = record.get("status_code")
+        payload = record.get("payload")
+        headers = record.get("headers", {})
+        if (
+            not isinstance(status_code, int)
+            or isinstance(status_code, bool)
+            or not isinstance(payload, Mapping)
+            or not isinstance(headers, Mapping)
+        ):
+            raise CommandError(
+                "Firecrawl fixture records require integer status_code and "
+                "object payload/headers"
+            )
+        header_mapping = cast(Mapping[object, object], headers)
+        if not all(
+            isinstance(key, str) and isinstance(value, str)
+            for key, value in header_mapping.items()
+        ):
+            raise CommandError("Firecrawl fixture headers must map strings to strings")
+        normalized_headers = {
+            cast(str, key): cast(str, value) for key, value in header_mapping.items()
+        }
+        responses.append(
+            FirecrawlHTTPResponse(
+                status_code=status_code,
+                payload=cast(Mapping[str, Any], payload),
+                headers=normalized_headers,
+            )
+        )
+    return FirecrawlFixtureTransport(responses)
 
 
 def _acquisition_output_root(args: argparse.Namespace) -> Path:

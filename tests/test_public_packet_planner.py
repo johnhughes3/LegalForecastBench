@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 
 from legalforecast.ingestion.provenance import DocumentRole
@@ -326,6 +327,311 @@ def test_public_packet_planner_prefers_free_support_memo_for_pacer_only_target(
     assert selected.documents[1].source_url == (
         "https://www.courtlistener.com/docket/123/6/example/"
     )
+
+
+def test_public_packet_planner_combines_exact_and_inferred_target_documents(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    record["ai"]["target_motion_entry_numbers"] = ["5", "6"]
+    record["selected_entries"].extend(
+        [
+            {
+                "row_id": "entry-6",
+                "entry_number": "6",
+                "filed_at": "Feb 2, 2026",
+                "text": "6 Feb 2, 2026 MOTION to Dismiss filed by Defendant.",
+                "documents": [
+                    {
+                        "kind": "Main Document",
+                        "description": "Dismiss",
+                        "href": "https://ecf.example.invalid/mtd-6",
+                        "action_label": "Buy on PACER",
+                        "pacer_only": True,
+                    }
+                ],
+            },
+            {
+                "row_id": "entry-7",
+                "entry_number": "7",
+                "filed_at": "Feb 3, 2026",
+                "text": "7 Feb 3, 2026 Memorandum in Support re 6 Motion to Dismiss.",
+                "documents": [
+                    {
+                        "kind": "Main Document",
+                        "description": "Memorandum",
+                        "href": "https://www.courtlistener.com/docket/123/7/example/",
+                        "action_label": "Download PDF",
+                        "pacer_only": False,
+                    }
+                ],
+            },
+        ]
+    )
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        allow_inferred_target_mtd=True,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.selected_cases
+    target_documents = [
+        document
+        for document in candidate.documents
+        if document.document_role
+        in {DocumentRole.MTD_NOTICE, DocumentRole.MTD_MEMORANDUM}
+    ]
+    assert [document.docket_entry_number for document in target_documents] == [5, 7]
+    assert candidate.missing_required_document_count == 0
+
+
+def test_public_packet_planner_ranks_full_pool_by_exact_required_document_cost(
+    tmp_path: Path,
+) -> None:
+    expensive = _screened_case_with_embedded_entries()
+    expensive["candidate"]["docket_id"] = "200"
+    expensive["candidate"]["candidate_key"] = "200"
+    expensive["candidate"]["metadata"]["case_id"] = "200"
+    complaint = expensive["selected_entries"][0]
+    complaint["documents"][0].update(
+        href="https://ecf.example.invalid/complaint",
+        action_label="Buy on PACER",
+        pacer_only=True,
+        freely_available=False,
+    )
+    cheap = deepcopy(_screened_case_with_embedded_entries())
+    cheap["candidate"]["docket_id"] = "100"
+    cheap["candidate"]["candidate_key"] = "100"
+    cheap["candidate"]["metadata"]["case_id"] = "100"
+
+    plan = plan_public_packet_downloads(
+        (expensive, cheap),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    assert [candidate.candidate_id for candidate in plan.planned_cases] == ["100"]
+    assert plan.planned_cases[0].cost_rank == 1
+    reserve = next(
+        candidate
+        for candidate in plan.final_exclusions
+        if candidate.candidate_id == "200"
+    )
+    assert reserve.exclusion_reasons == ("higher_projected_acquisition_cost",)
+    assert reserve.cost_rank == 2
+    assert reserve.missing_required_document_count == 1
+    assert reserve.projected_paid_cost_usd == "3.05"
+
+
+def test_public_packet_planner_costs_every_linked_required_entry_once(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    record["ai"] = {
+        "target_motion_entry_numbers": ["5", "6"],
+        "decision_entry_numbers": ["16", "17"],
+    }
+    record["selected_entries"].extend(
+        [
+            {
+                "row_id": "entry-6",
+                "entry_number": "6",
+                "filed_at": "Feb 2, 2026",
+                "text": "6 Feb 2, 2026 MOTION to Dismiss filed by Defendant.",
+                "documents": [
+                    {
+                        "kind": "Main Document",
+                        "description": "Dismiss",
+                        "href": "https://ecf.example.invalid/mtd-6",
+                        "action_label": "Buy on PACER",
+                        "pacer_only": True,
+                    }
+                ],
+            },
+            {
+                "row_id": "entry-17",
+                "entry_number": "17",
+                "filed_at": "May 9, 2026",
+                "text": "17 May 9, 2026 ORDER on Motion to Dismiss.",
+                "documents": [
+                    {
+                        "kind": "Main Document",
+                        "description": "Order on Motion to Dismiss",
+                        "href": "https://ecf.example.invalid/order-17",
+                        "action_label": "Buy on PACER",
+                        "pacer_only": True,
+                    }
+                ],
+            },
+            {
+                "row_id": "entry-12",
+                "entry_number": "12",
+                "filed_at": "Mar 1, 2026",
+                "text": (
+                    "12 Mar 1, 2026 Response in Opposition re 5 Motion to Dismiss."
+                ),
+                "documents": [
+                    {
+                        "kind": "Main Document",
+                        "description": "Opposition",
+                        "href": "https://ecf.example.invalid/opposition",
+                        "action_label": "Buy on PACER",
+                        "pacer_only": True,
+                    }
+                ],
+            },
+        ]
+    )
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.planned_cases
+    assert candidate.required_document_count == 6
+    assert candidate.free_required_document_count == 3
+    assert candidate.missing_required_document_count == 3
+    assert candidate.projected_paid_cost_usd == "9.15"
+    assert candidate.paid_gap_reasons == (
+        "no_free_target_mtd_document:6",
+        "no_free_decision_document:17",
+        "no_free_opposition_document",
+    )
+    assert plan.summary_record()["projected_paid_cost_usd"] == "9.15"
+
+
+def test_public_packet_planner_deduplicates_linked_entry_numbers(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    record["ai"] = {
+        "target_motion_entry_numbers": ["5", "5"],
+        "decision_entry_numbers": ["16", "16"],
+    }
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.selected_cases
+    assert candidate.target_motion_entry_numbers == (5,)
+    assert candidate.decision_entry_numbers == (16,)
+    assert candidate.required_document_count == 3
+    assert candidate.missing_required_document_count == 0
+
+
+def test_public_packet_planner_ignores_opposition_explicitly_tied_to_other_motion(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    record["selected_entries"].append(
+        {
+            "row_id": "entry-12",
+            "entry_number": "12",
+            "filed_at": "Mar 1, 2026",
+            "text": "12 Response in Opposition re 99 Motion to Dismiss.",
+            "documents": [
+                {
+                    "kind": "Main Document",
+                    "description": "Opposition",
+                    "href": "https://ecf.example.invalid/opposition-99",
+                    "action_label": "Buy on PACER",
+                    "pacer_only": True,
+                }
+            ],
+        }
+    )
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.selected_cases
+    assert candidate.required_document_count == 3
+    assert candidate.paid_gap_reasons == ()
+
+
+def test_public_packet_planner_applies_mix_caps_after_cost_ranking(
+    tmp_path: Path,
+) -> None:
+    records = []
+    for candidate_id, court in (
+        ("100", "Court A"),
+        ("200", "Court A"),
+        ("300", "Court B"),
+    ):
+        record = deepcopy(_screened_case_with_embedded_entries())
+        record["candidate"]["docket_id"] = candidate_id
+        record["candidate"]["candidate_key"] = candidate_id
+        record["candidate"]["metadata"]["case_id"] = candidate_id
+        record["candidate"]["metadata"]["court"] = court
+        records.append(record)
+
+    plan = plan_public_packet_downloads(
+        records,
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=2,
+        max_case_mix_share=0.5,
+        use_embedded_entries=True,
+    )
+
+    assert [candidate.candidate_id for candidate in plan.planned_cases] == [
+        "100",
+        "300",
+    ]
+    reserve = next(
+        candidate
+        for candidate in plan.final_exclusions
+        if candidate.candidate_id == "200"
+    )
+    assert reserve.exclusion_reasons == ("case_mix_cap_reached:court:Court A",)
+
+
+def test_public_packet_planner_uses_complaint_before_earliest_target_motion(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    record["selected_entries"].append(
+        {
+            "row_id": "entry-10",
+            "entry_number": "10",
+            "filed_at": "Mar 1, 2026",
+            "text": "10 Mar 1, 2026 AMENDED COMPLAINT filed by Plaintiff.",
+            "documents": [
+                {
+                    "kind": "Main Document",
+                    "description": "First Amended Complaint",
+                    "href": "https://www.courtlistener.com/docket/123/10/example/",
+                    "action_label": "Download PDF",
+                    "pacer_only": False,
+                    "freely_available": True,
+                }
+            ],
+        }
+    )
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.selected_cases
+    assert candidate.documents[0].docket_entry_number == 1
 
 
 def _screened_case() -> dict[str, object]:
