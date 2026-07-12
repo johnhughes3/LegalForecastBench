@@ -110,6 +110,48 @@ def test_auto_proxy_is_bounded_to_five_credits_and_reports_actual_proxy() -> Non
     assert result.credits_used == 5.0
 
 
+@pytest.mark.parametrize(
+    ("proxy", "proxy_used", "expected_credit_cap"),
+    [
+        ("basic", "basic", 1),
+        ("auto", "basic", 5),
+        ("enhanced", "stealth", 5),
+    ],
+)
+def test_force_browser_adds_only_bounded_wait_action_without_changing_credit_cap(
+    proxy: str, proxy_used: str, expected_credit_cap: int
+) -> None:
+    transport = FirecrawlFixtureTransport(
+        [_success_response(proxy_used=proxy_used, credits_used=expected_credit_cap)]
+    )
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(
+            api_key="test-key",
+            proxy=proxy,  # type: ignore[arg-type]
+            force_browser=True,
+        ),
+        transport=transport,
+    )
+
+    result = source.scrape(docket_id="70649963", source_url=_URL)
+
+    payload = transport.requests[0]["payload"]
+    assert payload["actions"] == [{"type": "wait", "milliseconds": 1}]  # type: ignore[index]
+    assert source.config.max_credits_per_scrape == expected_credit_cap
+    assert result.credits_used == float(expected_credit_cap)
+
+
+def test_default_payload_does_not_request_browser_actions() -> None:
+    transport = FirecrawlFixtureTransport([_success_response()])
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key"), transport=transport
+    )
+
+    source.fetch(docket_id="70649963", source_url=_URL)
+
+    assert "actions" not in transport.requests[0]["payload"]  # type: ignore[operator]
+
+
 def test_auto_proxy_rejects_more_than_five_credits() -> None:
     source = FirecrawlCourtListenerHTMLSource(
         FirecrawlConfig(api_key="test-key", proxy="auto"),

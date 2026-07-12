@@ -78,6 +78,7 @@ class FirecrawlConfig:
     api_key: str
     request_timeout_seconds: float = 70.0
     proxy: FirecrawlProxy = "basic"
+    force_browser: bool = False
 
     def __post_init__(self) -> None:
         if not self.api_key.strip():
@@ -102,12 +103,14 @@ class FirecrawlConfig:
         *,
         request_timeout_seconds: float = 70.0,
         proxy: FirecrawlProxy = "basic",
+        force_browser: bool = False,
     ) -> FirecrawlConfig:
         values = os.environ if environ is None else environ
         return cls(
             api_key=values.get(FIRECRAWL_API_KEY_ENV, ""),
             request_timeout_seconds=request_timeout_seconds,
             proxy=proxy,
+            force_browser=force_browser,
         )
 
 
@@ -271,7 +274,11 @@ class FirecrawlCourtListenerHTMLSource:
                 "Authorization": f"Bearer {self.config.api_key.strip()}",
                 "Content-Type": "application/json",
             },
-            payload=_scrape_payload(source_url, proxy=self.config.proxy),
+            payload=_scrape_payload(
+                source_url,
+                proxy=self.config.proxy,
+                force_browser=self.config.force_browser,
+            ),
             timeout_seconds=self.config.request_timeout_seconds,
         )
         _raise_for_status(response.status_code)
@@ -285,9 +292,12 @@ class FirecrawlCourtListenerHTMLSource:
 
 
 def _scrape_payload(
-    source_url: str, *, proxy: FirecrawlProxy = "basic"
+    source_url: str,
+    *,
+    proxy: FirecrawlProxy = "basic",
+    force_browser: bool = False,
 ) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "url": source_url,
         "formats": ["rawHtml"],
         "onlyMainContent": False,
@@ -303,6 +313,9 @@ def _scrape_payload(
         "lockdown": False,
         "redactPII": False,
     }
+    if force_browser:
+        payload["actions"] = [{"type": "wait", "milliseconds": 1}]
+    return payload
 
 
 def validate_courtlistener_docket_url(
