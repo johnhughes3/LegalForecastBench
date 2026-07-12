@@ -54,6 +54,9 @@ def test_fetch_firecrawl_dockets_runs_bounded_offline_bridge(tmp_path: Path) -> 
                         "rawHtml": raw_html,
                         "metadata": {
                             "statusCode": 200,
+                            "sourceURL": (
+                                "https://www.courtlistener.com/docket/101/"
+                            ),
                             "proxyUsed": "basic",
                             "cacheState": "miss",
                             "creditsUsed": 1,
