@@ -2346,9 +2346,9 @@ def _provider_cycle_cap(
 ) -> float:
     if caps is None:
         return fallback
-    try:
-        return caps[provider.lower()]
-    except KeyError as exc:
+    matches = [value for key, value in caps.items() if key.lower() == provider.lower()]
+    if len(matches) != 1:
         raise LlmPipelineError(
-            f"provider cycle caps have no entry for {provider!r}"
-        ) from exc
+            f"provider cycle caps must have exactly one entry for {provider!r}"
+        )
+    return matches[0]

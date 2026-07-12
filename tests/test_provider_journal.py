@@ -40,6 +40,7 @@ def test_provider_cycle_caps_load_externally_bounded_provider_caps(
 
     assert caps.cycle_id == "cycle-1"
     assert caps.cap_usd("openai") == 100.0
+    assert caps.cap_usd("OpenAI") == 100.0
 
 
 def test_provider_cycle_caps_reject_cap_above_external_limit(tmp_path: Path) -> None:

@@ -54,7 +54,7 @@ class ProviderCycleCaps:
 
     def cap_usd(self, provider: str) -> float:
         try:
-            cap = self.providers[provider]
+            cap = self.providers[provider.lower()]
         except KeyError as exc:
             raise ProviderJournalError(
                 f"provider cycle caps artifact has no entry for {provider!r}"
@@ -67,8 +67,8 @@ def load_provider_cycle_caps(path: str | Path) -> ProviderCycleCaps:
 
     source = Path(path)
     try:
-        loaded: object = json.loads(source.read_text())
-    except (OSError, json.JSONDecodeError) as exc:
+        loaded: object = json.loads(source.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ProviderJournalError(
             f"cannot load provider cycle caps artifact {source}: {exc}"
         ) from exc
