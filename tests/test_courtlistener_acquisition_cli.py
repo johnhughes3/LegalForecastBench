@@ -40,7 +40,9 @@ def test_discover_courtlistener_help_documents_live_authority(
     assert exc_info.value.code == 0
 
     output = capsys.readouterr().out
-    assert "--decision-filed-on-or-after" in output
+    assert "--eligibility-anchor" in output
+    assert "--search-window-start" in output
+    assert "--search-window-end" in output
     assert "--live" in output
     assert "--courtlistener-fixture" in output
     assert "--docket-html-fixture-dir" in output
@@ -67,7 +69,7 @@ def test_discover_courtlistener_produces_plan_public_downloads_input(
                 params={
                     "q": (
                         '"order on motion to dismiss" AND '
-                        "entry_date_filed:[2026-06-30 TO *]"
+                        "entry_date_filed:[2026-06-30 TO 2026-07-12]"
                     ),
                     "type": "r",
                     "order_by": "score desc",
@@ -111,8 +113,16 @@ def test_discover_courtlistener_produces_plan_public_downloads_input(
             [
                 "acquisition",
                 "discover-courtlistener",
-                "--decision-filed-on-or-after",
+                "--eligibility-anchor",
                 "2026-06-30",
+                "--search-window-start",
+                "2026-06-30",
+                "--search-window-end",
+                "2026-07-12",
+                "--cycle-store",
+                str(tmp_path / "cycle.sqlite3"),
+                "--batch-id",
+                "batch-001",
                 "--query-term",
                 "order on motion to dismiss",
                 "--target-clean-cases",
@@ -151,6 +161,9 @@ def test_discover_courtlistener_produces_plan_public_downloads_input(
     assert summary["accepted_case_count"] == 1
     assert summary["excluded_case_count"] == 0
     assert summary["anchor_date"] == "2026-06-30"
+    with CycleAcquisitionStore(tmp_path / "cycle.sqlite3") as store:
+        assert store.cycle_policy["eligibility_anchor"] == "2026-06-30"
+        assert store.batch_digest("batch-001")
 
     snapshot_path, cycle_hash = _complete_snapshot(
         tmp_path / "cycle",
@@ -226,7 +239,7 @@ def test_discover_courtlistener_excludes_unproven_or_preanchor_first_disposition
                 params={
                     "q": (
                         '"order on motion to dismiss" AND '
-                        "entry_date_filed:[2026-06-30 TO *]"
+                        "entry_date_filed:[2026-06-30 TO 2026-07-12]"
                     ),
                     "type": "r",
                     "order_by": "score desc",
@@ -258,8 +271,12 @@ def test_discover_courtlistener_excludes_unproven_or_preanchor_first_disposition
             [
                 "acquisition",
                 "discover-courtlistener",
-                "--decision-filed-on-or-after",
+                "--eligibility-anchor",
                 "2026-06-30",
+                "--search-window-start",
+                "2026-06-30",
+                "--search-window-end",
+                "2026-07-12",
                 "--query-term",
                 "order on motion to dismiss",
                 "--courtlistener-fixture",
@@ -291,8 +308,12 @@ def test_discover_courtlistener_execute_requires_live_or_complete_fixture_pair(
             [
                 "acquisition",
                 "discover-courtlistener",
-                "--decision-filed-on-or-after",
+                "--eligibility-anchor",
                 "2026-06-30",
+                "--search-window-start",
+                "2026-06-30",
+                "--search-window-end",
+                "2026-07-12",
                 "--output-root",
                 str(tmp_path / "output"),
                 "--execute",
@@ -301,6 +322,65 @@ def test_discover_courtlistener_execute_requires_live_or_complete_fixture_pair(
         == 2
     )
     assert "requires --live or both" in capsys.readouterr().err
+
+
+def test_discovery_anchor_stays_fixed_while_search_window_advances(
+    tmp_path: Path,
+) -> None:
+    summaries: list[dict[str, Any]] = []
+    for batch, start, end in (
+        ("001", "2026-06-30", "2026-07-12"),
+        ("002", "2026-07-05", "2026-07-19"),
+    ):
+        output_root = tmp_path / batch
+        assert (
+            main(
+                [
+                    "acquisition",
+                    "discover-courtlistener",
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--search-window-start",
+                    start,
+                    "--search-window-end",
+                    end,
+                    "--output-root",
+                    str(output_root),
+                ]
+            )
+            == 0
+        )
+        summaries.append(
+            _read_json(output_root / "courtlistener-discovery-summary.json")
+        )
+
+    assert [summary["anchor_date"] for summary in summaries] == [
+        "2026-06-30",
+        "2026-06-30",
+    ]
+    assert summaries[1]["search_window_start"] == "2026-07-05"
+    assert summaries[1]["search_window_end"] == "2026-07-19"
+
+
+def test_discovery_rejects_reversed_search_window(tmp_path: Path, capsys: Any) -> None:
+    assert (
+        main(
+            [
+                "acquisition",
+                "discover-courtlistener",
+                "--eligibility-anchor",
+                "2026-06-30",
+                "--search-window-start",
+                "2026-07-12",
+                "--search-window-end",
+                "2026-07-11",
+                "--output-root",
+                str(tmp_path / "output"),
+            ]
+        )
+        == 2
+    )
+    assert "cannot precede" in capsys.readouterr().err
 
 
 def test_discover_courtlistener_live_requires_token(
@@ -315,8 +395,12 @@ def test_discover_courtlistener_live_requires_token(
             [
                 "acquisition",
                 "discover-courtlistener",
-                "--decision-filed-on-or-after",
+                "--eligibility-anchor",
                 "2026-06-30",
+                "--search-window-start",
+                "2026-06-30",
+                "--search-window-end",
+                "2026-07-12",
                 "--output-root",
                 str(tmp_path / "output"),
                 "--live",
@@ -343,8 +427,12 @@ def test_discover_courtlistener_records_local_validation_failure(
             [
                 "acquisition",
                 "discover-courtlistener",
-                "--decision-filed-on-or-after",
+                "--eligibility-anchor",
                 "2026-06-30",
+                "--search-window-start",
+                "2026-06-30",
+                "--search-window-end",
+                "2026-07-12",
                 "--search-page-size",
                 "101",
                 "--courtlistener-fixture",
