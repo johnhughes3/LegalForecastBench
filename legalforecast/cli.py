@@ -6,10 +6,11 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import re
 import shutil
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import asdict
 from datetime import UTC, date, datetime, timedelta
@@ -3655,11 +3656,21 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         "summary_output",
         output_root / "checkpoints" / "case-dev-recap-summary.json",
     )
+    progress_path = output_root / "checkpoints" / "case-dev-recap-progress.jsonl"
+    progress_config_path = (
+        output_root / "checkpoints" / "case-dev-recap-progress-config.json"
+    )
     records = _read_records(dockets_path)
     input_paths = (
         (dockets_path,) if fixture_path is None else (dockets_path, fixture_path)
     )
-    output_paths = (ranked_path, failures_path, summary_path)
+    output_paths = (
+        ranked_path,
+        failures_path,
+        summary_path,
+        progress_path,
+        progress_config_path,
+    )
     dry_run = _acquisition_dry_run(args)
     if dry_run:
         summary: JsonRecord = {
@@ -3687,18 +3698,77 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         )
         return 0
 
+    progress_config: JsonRecord = {
+        "schema_version": "legalforecast.case_dev_recap_progress.v1",
+        "dockets_sha256": "sha256:"
+        + hashlib.sha256(dockets_path.read_bytes()).hexdigest(),
+        "input_record_count": len(records),
+        "page_size": page_size,
+        "max_pages_per_docket": max_pages,
+        "free_lookup_only": True,
+    }
+    resume = cast(bool, args.resume)
+    if progress_config_path.exists():
+        if not resume:
+            raise CommandError(
+                "Case.dev enrichment progress exists; use --resume or remove it"
+            )
+        if _read_json_object(progress_config_path) != progress_config:
+            raise CommandError(
+                "Case.dev enrichment progress does not match the current input/config"
+            )
+    else:
+        if progress_path.exists():
+            raise CommandError("Case.dev enrichment progress is missing its config")
+        _write_json(progress_config_path, progress_config)
+
+    progress_records = _read_records(progress_path) if progress_path.exists() else []
+    progress_by_index: dict[int, JsonRecord] = {}
+    for progress in progress_records:
+        input_index = progress.get("input_index")
+        if (
+            not isinstance(input_index, int)
+            or isinstance(input_index, bool)
+            or input_index < 0
+            or input_index >= len(records)
+            or input_index in progress_by_index
+            or progress.get("outcome") not in {"success", "failure"}
+            or not isinstance(progress.get("payload"), Mapping)
+        ):
+            raise CommandError("Case.dev enrichment progress is invalid or duplicated")
+        progress_by_index[input_index] = progress
+
     try:
         client = _case_dev_client(
             command="enrich-recap-case-dev",
             fixture_path=fixture_path,
             live=live,
         )
-        result = enrich_recap_discovery_batch(
-            client=client,
-            records=records,
-            page_size=page_size,
-            max_pages=max_pages,
-        )
+        for input_index, record in enumerate(records):
+            if input_index in progress_by_index:
+                continue
+            one = enrich_recap_discovery_batch(
+                client=client,
+                records=(record,),
+                page_size=page_size,
+                max_pages=max_pages,
+            )
+            if one.successes:
+                progress: JsonRecord = {
+                    "input_index": input_index,
+                    "outcome": "success",
+                    "payload": one.successes[0].to_record(),
+                }
+            else:
+                failure = one.failures[0].to_record()
+                failure["input_index"] = input_index
+                progress = {
+                    "input_index": input_index,
+                    "outcome": "failure",
+                    "payload": failure,
+                }
+            _append_jsonl(progress_path, (progress,))
+            progress_by_index[input_index] = progress
     except (CaseDevClientError, ValueError) as exc:
         _write_acquisition_failure(
             args,
@@ -3710,8 +3780,25 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         )
         raise CommandError(str(exc)) from exc
 
-    ranked_records = [enrichment.to_record() for enrichment in result.successes]
-    failure_records = [failure.to_record() for failure in result.failures]
+    if len(progress_by_index) != len(records):
+        raise CommandError("Case.dev enrichment progress did not reconcile to inputs")
+    ranked_records = sorted(
+        (
+            dict(cast(Mapping[str, Any], progress["payload"]))
+            for progress in progress_by_index.values()
+            if progress["outcome"] == "success"
+        ),
+        key=lambda record: tuple(cast(Sequence[object], record["ranking_key"])),
+    )
+    failure_records = [
+        dict(cast(Mapping[str, Any], progress_by_index[index]["payload"]))
+        for index in sorted(progress_by_index)
+        if progress_by_index[index]["outcome"] == "failure"
+    ]
+    conversion_failure_count = sum(
+        record.get("stage") == "discovery_record" for record in failure_records
+    )
+    enrichment_failure_count = len(failure_records) - conversion_failure_count
     summary = {
         "schema_version": "legalforecast.case_dev_recap_batch_summary.v1",
         "dry_run": False,
@@ -3721,7 +3808,26 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         "free_lookup_only": True,
         "pacer_fee_acknowledgment_allowed": False,
         "pacer_spend_usd": "0.00",
-        **result.summary.to_record(),
+        "input_record_count": len(records),
+        "converted_docket_count": len(ranked_records) + enrichment_failure_count,
+        "enrichment_attempt_count": len(ranked_records) + enrichment_failure_count,
+        "successful_docket_count": len(ranked_records),
+        "failure_count": len(failure_records),
+        "conversion_failure_count": conversion_failure_count,
+        "enrichment_failure_count": enrichment_failure_count,
+        "failure_reason_counts": dict(
+            Counter(cast(str, record["reason"]) for record in failure_records)
+        ),
+        "actual_free_required_document_count": sum(
+            cast(int, record["actual_free_required_document_count"])
+            for record in ranked_records
+        ),
+        "missing_required_document_count": sum(
+            cast(int, record["missing_required_document_count"])
+            for record in ranked_records
+        ),
+        "resumed_terminal_record_count": len(progress_records),
+        "reconciled": True,
     }
     _write_jsonl(ranked_path, ranked_records)
     _write_jsonl(failures_path, failure_records)
@@ -8640,6 +8746,8 @@ def _append_jsonl(path: Path, records: Iterable[Mapping[str, Any]]) -> None:
     )
     with path.open("a", encoding="utf-8") as handle:
         handle.write(payload)
+        handle.flush()
+        os.fsync(handle.fileno())
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
