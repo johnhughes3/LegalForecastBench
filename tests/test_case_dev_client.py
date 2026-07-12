@@ -188,6 +188,88 @@ def test_search_docket_entries_parses_successful_response() -> None:
     assert client.usage_estimate().estimated_cost_usd == pytest.approx(0.05)
 
 
+def test_search_docket_entries_surfaces_explicit_next_offset() -> None:
+    transport = CaseDevFixtureTransport(
+        [
+            _recorded_response(
+                params={"type": "search", "query": "motion to dismiss", "limit": 1},
+                payload={
+                    "dockets": [
+                        {
+                            "id": "docket-1",
+                            "caseName": "Fixture v. Example",
+                        }
+                    ],
+                    "nextOffset": 1,
+                },
+            )
+        ]
+    )
+    client = CaseDevClient(config=_config(), transport=transport)
+
+    page = client.search_docket_entries("motion to dismiss", limit=1)
+
+    assert page.next_cursor == "1"
+
+
+def test_search_docket_entries_ignores_null_cursor_before_later_offset() -> None:
+    transport = CaseDevFixtureTransport(
+        [
+            _recorded_response(
+                params={"type": "search", "query": "motion to dismiss", "limit": 1},
+                payload={
+                    "dockets": [],
+                    "next_cursor": None,
+                    "nextCursor": None,
+                    "nextOffset": "07",
+                },
+            )
+        ]
+    )
+    client = CaseDevClient(config=_config(), transport=transport)
+
+    page = client.search_docket_entries("motion to dismiss", limit=1)
+
+    assert page.next_cursor == "7"
+
+
+def test_search_docket_entries_rejects_conflicting_continuations() -> None:
+    transport = CaseDevFixtureTransport(
+        [
+            _recorded_response(
+                params={"type": "search", "query": "motion to dismiss"},
+                payload={
+                    "dockets": [],
+                    "nextCursor": "opaque-cursor",
+                    "nextOffset": 2,
+                },
+            )
+        ]
+    )
+    client = CaseDevClient(config=_config(), transport=transport)
+
+    with pytest.raises(CaseDevResponseError, match="conflicting continuation"):
+        client.search_docket_entries("motion to dismiss")
+
+
+@pytest.mark.parametrize("next_offset", [True, -1, 1.5, "", "not-a-number"])
+def test_search_docket_entries_rejects_malformed_next_offset(
+    next_offset: object,
+) -> None:
+    transport = CaseDevFixtureTransport(
+        [
+            _recorded_response(
+                params={"type": "search", "query": "motion to dismiss"},
+                payload={"dockets": [], "nextOffset": next_offset},
+            )
+        ]
+    )
+    client = CaseDevClient(config=_config(), transport=transport)
+
+    with pytest.raises(CaseDevResponseError, match="nextOffset"):
+        client.search_docket_entries("motion to dismiss")
+
+
 def test_search_response_missing_required_fields_fails() -> None:
     transport = CaseDevFixtureTransport(
         [

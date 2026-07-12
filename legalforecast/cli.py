@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
+import re
 import shutil
 import sys
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
@@ -71,6 +73,10 @@ from legalforecast.ingestion.case_dev_client import (
     RecordedCaseDevResponse,
 )
 from legalforecast.ingestion.case_dev_config import CaseDevConfig
+from legalforecast.ingestion.case_dev_discovery import (
+    CaseDevDiscoverySource,
+    case_dev_firecrawl_candidate_record,
+)
 from legalforecast.ingestion.case_dev_firecrawl import (
     CaseDevFirecrawlBatchError,
     acquire_case_dev_firecrawl_html,
@@ -115,6 +121,17 @@ from legalforecast.ingestion.courtlistener_client import (
     CourtListenerClientError,
     CourtListenerConfig,
     CourtListenerFixtureTransport,
+)
+from legalforecast.ingestion.cycle_acquisition_store import (
+    ConfigMismatchError,
+    CycleAcquisitionStore,
+    CycleAcquisitionStoreError,
+    SnapshotVerificationError,
+    verify_snapshot,
+)
+from legalforecast.ingestion.discovery_scheduler import (
+    DiscoverySchedulerError,
+    materialize_independent_term_sets,
 )
 from legalforecast.ingestion.docket_markdown import ControlledDocketMarkdownArtifacts
 from legalforecast.ingestion.docket_sync import (
@@ -528,6 +545,14 @@ def build_parser() -> argparse.ArgumentParser:
         dest="acquisition_command",
         metavar="COMMAND",
     )
+    acquisition_discover_case_dev = acquisition_subparsers.add_parser(
+        "discover-case-dev",
+        help=(
+            "Materialize an order-neutral, resumable Case.dev candidate pool "
+            "without purchasing documents."
+        ),
+    )
+    _add_acquisition_discover_case_dev_arguments(acquisition_discover_case_dev)
     acquisition_discover_courtlistener = acquisition_subparsers.add_parser(
         "discover-courtlistener",
         help=(
@@ -926,6 +951,74 @@ def _add_acquisition_filter_core_documents_arguments(
     parser.set_defaults(handler=_cmd_acquisition_filter_core_documents)
 
 
+def _add_acquisition_discover_case_dev_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        help="Cycle-scoped SQLite store; defaults under --output-root.",
+    )
+    parser.add_argument(
+        "--batch-id",
+        required=True,
+        help="Stable batch identifier used for safe resume.",
+    )
+    parser.add_argument(
+        "--decision-filed-on-or-after",
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="Immutable first-written-disposition eligibility anchor.",
+    )
+    parser.add_argument(
+        "--decision-filed-on-or-before",
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="Inclusive batch observation-window upper bound.",
+    )
+    parser.add_argument(
+        "--query-term",
+        dest="query_terms",
+        action="append",
+        help=(
+            "Case.dev legal docket search term. Repeat to override the default "
+            "MTD decision-oriented term set."
+        ),
+    )
+    parser.add_argument(
+        "--per-term-limit",
+        type=int,
+        default=500,
+        help=(
+            "Independent durable top-K limit for each query term. A term that "
+            "hits this bound is a checkpoint, not a saturated planner input."
+        ),
+    )
+    parser.add_argument(
+        "--search-page-size",
+        type=int,
+        default=50,
+        help="Case.dev page size; the final page is reduced to the remaining top-K.",
+    )
+    parser.add_argument("--case-dev-fixture", type=Path)
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help=(
+            "Use CASE_DEV_API_KEY for non-purchasing legal search. No document "
+            "lookup or PACER endpoint is called."
+        ),
+    )
+    parser.add_argument(
+        "--candidates-output",
+        type=Path,
+        help="Partial checkpoint JSONL for fetch-firecrawl-dockets.",
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_discover_case_dev)
+
+
 def _add_acquisition_discover_courtlistener_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
@@ -982,8 +1075,30 @@ def _add_acquisition_plan_public_downloads_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
     _add_acquisition_common_arguments(parser)
-    parser.add_argument("--screened-cases", type=Path, required=True)
-    parser.add_argument("--raw-html-dir", type=Path)
+    parser.add_argument(
+        "--snapshot",
+        type=Path,
+        required=True,
+        help="Complete cycle snapshot directory; partial checkpoints are rejected.",
+    )
+    parser.add_argument(
+        "--expected-cycle-hash",
+        required=True,
+        help="Frozen cycle-policy SHA-256 reported by discover-case-dev.",
+    )
+    parser.add_argument(
+        "--screened-cases",
+        type=Path,
+        help="Defaults to screened-cases.jsonl inside the verified snapshot.",
+    )
+    parser.add_argument(
+        "--raw-html-dir",
+        type=Path,
+        help=(
+            "Optional explicit raw-HTML directory; when provided it must exactly "
+            "match the directory committed by the verified snapshot."
+        ),
+    )
     parser.add_argument(
         "--use-embedded-entries",
         action="store_true",
@@ -1087,11 +1202,19 @@ def _add_acquisition_screen_firecrawl_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
     _add_acquisition_common_arguments(parser)
+    parser.add_argument("--cycle-store", type=Path, required=True)
+    parser.add_argument("--batch-id", required=True)
     parser.add_argument(
         "--successes",
         type=Path,
         required=True,
         help="Success JSONL from acquisition fetch-firecrawl-dockets.",
+    )
+    parser.add_argument(
+        "--fetch-exclusions",
+        type=Path,
+        required=True,
+        help="Exclusion JSONL from the matching fetch-firecrawl-dockets run.",
     )
     parser.add_argument(
         "--raw-html-dir",
@@ -1108,6 +1231,16 @@ def _add_acquisition_screen_firecrawl_arguments(
     parser.add_argument("--screened-cases-output", type=Path)
     parser.add_argument("--exclusions-output", type=Path)
     parser.add_argument("--summary-output", type=Path)
+    parser.add_argument(
+        "--snapshot-root",
+        type=Path,
+        help="Immutable snapshot parent; defaults under --output-root.",
+    )
+    parser.add_argument(
+        "--snapshot-id",
+        required=True,
+        help="Immutable complete snapshot directory name.",
+    )
     parser.set_defaults(handler=_cmd_acquisition_screen_firecrawl)
 
 
@@ -2451,6 +2584,158 @@ def _cmd_acquisition_filter_core_documents(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_acquisition_discover_case_dev(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    batch_id = cast(str, args.batch_id)
+    store_path = _acquisition_path(
+        args,
+        "cycle_store",
+        output_root / "cycle-acquisition.sqlite3",
+    )
+    candidates_path = _acquisition_path(
+        args,
+        "candidates_output",
+        output_root / "checkpoints" / f"{batch_id}-case-dev-candidates.partial.jsonl",
+    )
+    summary_path = _acquisition_path(
+        args,
+        "summary_output",
+        output_root / "checkpoints" / f"{batch_id}-case-dev-summary.partial.json",
+    )
+    anchor = _iso_date_argument(
+        cast(str, args.decision_filed_on_or_after),
+        "--decision-filed-on-or-after",
+    )
+    window_end = _iso_date_argument(
+        cast(str, args.decision_filed_on_or_before),
+        "--decision-filed-on-or-before",
+    )
+    if window_end < anchor:
+        raise CommandError(
+            "--decision-filed-on-or-before cannot precede the eligibility anchor"
+        )
+    query_terms = tuple(cast(Sequence[str] | None, args.query_terms) or ())
+    if not query_terms:
+        query_terms = case_dev_smoke_query_terms()
+    per_term_limit = cast(int, args.per_term_limit)
+    search_page_size = cast(int, args.search_page_size)
+    if per_term_limit <= 0:
+        raise CommandError("--per-term-limit must be positive")
+    if search_page_size <= 0:
+        raise CommandError("--search-page-size must be positive")
+    fixture_path = cast(Path | None, args.case_dev_fixture)
+    live = cast(bool, args.live)
+    dry_run = _acquisition_dry_run(args)
+    input_paths = () if fixture_path is None else (fixture_path,)
+    output_paths = (store_path, candidates_path, summary_path)
+    policy = _cycle_discovery_policy(anchor=anchor, query_terms=query_terms)
+    batch_config: JsonRecord = {
+        "provider": "case.dev",
+        "decision_window_start": anchor.isoformat(),
+        "decision_window_end": window_end.isoformat(),
+        "per_term_limit": per_term_limit,
+        "search_page_size": search_page_size,
+    }
+
+    if dry_run:
+        _write_json(
+            summary_path,
+            {
+                "schema_version": "legalforecast.case_dev_discovery_summary.v1",
+                "dry_run": True,
+                "batch_id": batch_id,
+                "query_terms": list(query_terms),
+                "checkpoint_only": True,
+                **batch_config,
+            },
+        )
+        _write_acquisition_completion(
+            args,
+            stage="discover-case-dev",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=0,
+            dry_run=True,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra={"batch_id": batch_id, "per_term_limit": per_term_limit},
+        )
+        return 0
+
+    if live and fixture_path is not None:
+        raise CommandError("choose --case-dev-fixture or --live, not both")
+    try:
+        client = _case_dev_client(
+            command="discover-case-dev",
+            fixture_path=fixture_path,
+            live=live,
+        )
+        with CycleAcquisitionStore(store_path) as store:
+            cycle_hash = store.ensure_cycle(policy)
+            batch_digest = store.ensure_batch(batch_id, batch_config)
+            result = materialize_independent_term_sets(
+                source=CaseDevDiscoverySource(client),
+                store=store,
+                batch_id=batch_id,
+                query_terms=query_terms,
+                top_k_per_term=per_term_limit,
+                page_size=search_page_size,
+            )
+            checkpoint_records = [
+                case_dev_firecrawl_candidate_record(hit)
+                for hit in store.candidate_discovery_hits(batch_id)
+            ]
+    except (
+        CaseDevClientError,
+        ConfigMismatchError,
+        CycleAcquisitionStoreError,
+        DiscoverySchedulerError,
+        ValueError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="discover-case-dev",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+
+    _write_jsonl(candidates_path, checkpoint_records)
+    summary: JsonRecord = {
+        "schema_version": "legalforecast.case_dev_discovery_summary.v1",
+        "dry_run": False,
+        "batch_id": batch_id,
+        "cycle_hash": cycle_hash,
+        "batch_digest": batch_digest,
+        "query_terms": list(query_terms),
+        "candidate_count": len(checkpoint_records),
+        "complete": result.complete,
+        "saturated": result.saturated,
+        "terminal_status_by_term": {
+            term: status.value
+            for term, status in result.terminal_status_by_term.items()
+        },
+        "checkpoint_only": True,
+        "case_dev_request_count": client.request_count,
+        **batch_config,
+    }
+    _write_json(summary_path, summary)
+    _write_acquisition_completion(
+        args,
+        stage="discover-case-dev",
+        input_paths=input_paths,
+        output_paths=output_paths,
+        record_count=len(checkpoint_records),
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra=summary,
+    )
+    return 0
+
+
 def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     screened_cases_path = _acquisition_path(
@@ -2610,7 +2895,18 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
 
 def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
-    screened_cases_path = cast(Path, args.screened_cases)
+    snapshot_path = cast(Path, args.snapshot)
+    expected_cycle_hash = cast(str, args.expected_cycle_hash)
+    canonical_screened_cases_path = snapshot_path / "screened-cases.jsonl"
+    requested_screened_cases_path = cast(Path | None, args.screened_cases)
+    if requested_screened_cases_path is not None and (
+        requested_screened_cases_path.resolve()
+        != canonical_screened_cases_path.resolve()
+    ):
+        raise CommandError(
+            "--screened-cases must be the screened-cases.jsonl inside --snapshot"
+        )
+    screened_cases_path = canonical_screened_cases_path
     raw_html_dir = cast(Path | None, args.raw_html_dir)
     requests_path = _acquisition_path(
         args,
@@ -2637,6 +2933,34 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
         "summary_output",
         output_root / "public-packet-plan-summary.json",
     )
+    try:
+        snapshot_manifest = verify_snapshot(
+            snapshot_path,
+            expected_cycle_hash=expected_cycle_hash,
+            require_complete=True,
+            require_saturated=True,
+        )
+    except SnapshotVerificationError as exc:
+        _write_acquisition_failure(
+            args,
+            stage="plan-public-downloads",
+            input_paths=(snapshot_path,),
+            output_paths=(
+                requests_path,
+                selection_path,
+                paid_gaps_path,
+                exclusions_path,
+                summary_path,
+            ),
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+    raw_html_dir = _verified_snapshot_raw_html_directory(
+        snapshot_path,
+        requested=raw_html_dir,
+        use_embedded_entries=cast(bool, args.use_embedded_entries),
+    )
     records = _read_records(screened_cases_path)
     dry_run = _acquisition_dry_run(args)
     plan = plan_public_packet_downloads(
@@ -2653,6 +2977,9 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
         "dry_run": dry_run,
         "raw_html_dir": str(raw_html_dir) if raw_html_dir is not None else None,
         "use_embedded_entries": cast(bool, args.use_embedded_entries),
+        "verified_snapshot": str(snapshot_path.resolve()),
+        "cycle_hash": snapshot_manifest["cycle_hash"],
+        "batch_digest": snapshot_manifest["batch_digest"],
     }
     _write_json(summary_path, summary)
     if dry_run:
@@ -2688,9 +3015,9 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
         args,
         stage="plan-public-downloads",
         input_paths=(
-            (screened_cases_path,)
+            (snapshot_path, screened_cases_path)
             if raw_html_dir is None
-            else (screened_cases_path, raw_html_dir)
+            else (snapshot_path, screened_cases_path, raw_html_dir)
         ),
         output_paths=(
             requests_path,
@@ -2774,6 +3101,12 @@ def _cmd_acquisition_fetch_firecrawl(args: argparse.Namespace) -> int:
             extra=summary,
         )
         return 0
+
+    if cast(bool, args.resume) and successes_path.is_file():
+        candidate_records = _merge_firecrawl_resume_commitments(
+            candidate_records,
+            _read_records(successes_path),
+        )
 
     live_case_dev = cast(bool, args.live_case_dev)
     live_firecrawl = cast(bool, args.live_firecrawl)
@@ -2884,8 +3217,18 @@ def _cmd_acquisition_fetch_firecrawl(args: argparse.Namespace) -> int:
 
 def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
+    cycle_store_path = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
     successes_path = cast(Path, args.successes)
+    fetch_exclusions_path = cast(Path, args.fetch_exclusions)
     raw_html_dir = cast(Path, args.raw_html_dir)
+    snapshot_root = _acquisition_path(
+        args,
+        "snapshot_root",
+        output_root / "snapshots",
+    )
+    snapshot_id = cast(str, args.snapshot_id)
+    snapshot_path = snapshot_root / snapshot_id
     screened_cases_path = _acquisition_path(
         args,
         "screened_cases_output",
@@ -2901,23 +3244,32 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
         "summary_output",
         output_root / "firecrawl-screening-summary.json",
     )
-    anchor_text = cast(str, args.decision_filed_on_or_after)
-    try:
-        anchor = date.fromisoformat(anchor_text)
-    except ValueError as exc:
-        raise CommandError(
-            "--decision-filed-on-or-after must be an ISO date (YYYY-MM-DD)"
-        ) from exc
+    anchor = _iso_date_argument(
+        cast(str, args.decision_filed_on_or_after),
+        "--decision-filed-on-or-after",
+    )
     success_records = _read_records(successes_path)
+    fetch_exclusion_records = _read_records(fetch_exclusions_path)
     dry_run = _acquisition_dry_run(args)
-    input_paths = (successes_path, raw_html_dir)
-    output_paths = (screened_cases_path, exclusions_path, summary_path)
+    input_paths = (
+        cycle_store_path,
+        successes_path,
+        fetch_exclusions_path,
+        raw_html_dir,
+    )
+    output_paths = (
+        screened_cases_path,
+        exclusions_path,
+        summary_path,
+        snapshot_path,
+    )
     if dry_run:
         summary: JsonRecord = {
             "schema_version": "legalforecast.firecrawl_screening_summary.v1",
             "dry_run": True,
             "anchor_date": anchor.isoformat(),
             "input_success_count": len(success_records),
+            "input_fetch_exclusion_count": len(fetch_exclusion_records),
             "accepted_case_count": 0,
             "excluded_case_count": 0,
             "reconciled": False,
@@ -2937,11 +3289,112 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
         )
         return 0
 
-    result = screen_case_dev_firecrawl_successes(
-        successes=success_records,
-        raw_html_directory=raw_html_dir,
-        decision_filed_on_or_after=anchor,
-    )
+    try:
+        if snapshot_path.exists():
+            raise FileExistsError(
+                f"snapshot target already exists; refusing stale reuse: {snapshot_path}"
+            )
+        _validate_firecrawl_success_commitments(success_records)
+        with CycleAcquisitionStore(cycle_store_path) as store:
+            batch_digest = store.batch_digest(batch_id)
+            cycle_hash = store.cycle_hash
+            _validate_frozen_screening_policy(
+                policy=store.cycle_policy,
+                anchor=anchor,
+            )
+            result = screen_case_dev_firecrawl_successes(
+                successes=success_records,
+                raw_html_directory=raw_html_dir,
+                decision_filed_on_or_after=anchor,
+            )
+            for record in success_records:
+                candidate_id = _required_str(record, "case_id")
+                docket_id = _required_str(record, "docket_id")
+                if not docket_id.isdigit():
+                    continue
+                raw_path = raw_html_dir / f"{docket_id}.html"
+                if not raw_path.is_file():
+                    continue
+                raw_bytes = raw_path.read_bytes()
+                expected_bytes = cast(int, record["raw_html_bytes"])
+                expected_sha256 = cast(str, record["raw_html_sha256"])
+                actual_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+                if expected_bytes != len(raw_bytes):
+                    raise CycleAcquisitionStoreError(
+                        f"Firecrawl byte-count commitment mismatch for {candidate_id}"
+                    )
+                if expected_sha256 != f"sha256:{actual_sha256}":
+                    raise CycleAcquisitionStoreError(
+                        f"Firecrawl SHA-256 commitment mismatch for {candidate_id}"
+                    )
+                retrieved_at = cast(str, record["retrieved_at"])
+                store.write_raw_artifact(
+                    candidate_id,
+                    raw_path,
+                    raw_bytes,
+                    retrieved_at=retrieved_at,
+                    validator=_validate_raw_docket_bytes,
+                )
+
+            for screened in result.screened_cases:
+                candidate_id = _screened_case_dev_id(screened)
+                evidence = dict(screened)
+                evidence["candidate_id"] = candidate_id
+                store.record_observation(
+                    candidate_id,
+                    batch_id=batch_id,
+                    state="accepted",
+                    reason_code="strict_clean_screen_passed",
+                    evidence=evidence,
+                )
+            for exclusion in result.exclusions:
+                evidence = exclusion.to_record()
+                candidate_id = exclusion.case_id
+                evidence["candidate_id"] = candidate_id
+                reason_code = _canonical_screen_exclusion_reason(exclusion.reason)
+                store.record_observation(
+                    candidate_id,
+                    batch_id=batch_id,
+                    state="excluded",
+                    reason_code=reason_code,
+                    evidence=evidence,
+                )
+            for exclusion in fetch_exclusion_records:
+                _record_fetch_exclusion(
+                    store,
+                    batch_id=batch_id,
+                    record=exclusion,
+                )
+
+            snapshot_path = store.export_snapshot(
+                snapshot_root,
+                snapshot_id=snapshot_id,
+                batch_id=batch_id,
+                complete=True,
+            )
+            snapshot_manifest = verify_snapshot(
+                snapshot_path,
+                expected_cycle_hash=cycle_hash,
+                expected_batch_digest=batch_digest,
+                require_complete=True,
+            )
+    except (
+        CycleAcquisitionStoreError,
+        SnapshotVerificationError,
+        KeyError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="screen-firecrawl-dockets",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
     _write_jsonl(screened_cases_path, result.screened_cases)
     _write_jsonl(
         exclusions_path,
@@ -2952,10 +3405,16 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
         "dry_run": False,
         "anchor_date": anchor.isoformat(),
         "input_success_count": result.input_success_count,
+        "input_fetch_exclusion_count": len(fetch_exclusion_records),
         "accepted_case_count": len(result.screened_cases),
         "excluded_case_count": len(result.exclusions),
         "reconciled": result.reconciled,
         "paid_activity_requested": False,
+        "snapshot_path": str(snapshot_path),
+        "cycle_hash": snapshot_manifest["cycle_hash"],
+        "batch_digest": snapshot_manifest["batch_digest"],
+        "snapshot_complete": snapshot_manifest["complete"],
+        "snapshot_saturated": snapshot_manifest["saturated"],
     }
     _write_json(summary_path, summary)
     _write_acquisition_completion(
@@ -4771,6 +5230,305 @@ def _acquisition_path(
 
 def _acquisition_dry_run(args: argparse.Namespace) -> bool:
     return not cast(bool, args.execute)
+
+
+def _iso_date_argument(value: str, flag: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise CommandError(f"{flag} must be an ISO date (YYYY-MM-DD)") from exc
+
+
+def _cycle_discovery_policy(
+    *,
+    anchor: date,
+    query_terms: Sequence[str],
+) -> JsonRecord:
+    return {
+        "schema_version": "legalforecast.case_dev_discovery_policy.v1",
+        "eligibility_anchor": anchor.isoformat(),
+        "query_terms": list(query_terms),
+        "query_term_order_is_frozen": True,
+        "screening_source_sha256": _current_screening_source_sha256(),
+    }
+
+
+def _current_screening_source_sha256() -> dict[str, str]:
+    package_root = Path(__file__).resolve().parent
+    screening_sources = {
+        "mtd_acquisition_screen": package_root
+        / "ingestion"
+        / "mtd_acquisition_screen.py",
+        "courtlistener_acquisition": package_root
+        / "ingestion"
+        / "courtlistener_acquisition.py",
+        "restricted_material": package_root / "ingestion" / "restricted_material.py",
+        "contamination_filters": package_root
+        / "selection"
+        / "contamination_filters.py",
+        "motion_linkage": package_root / "selection" / "motion_linkage.py",
+    }
+    return {name: sha256_file(path) for name, path in sorted(screening_sources.items())}
+
+
+def _validate_frozen_screening_policy(
+    *,
+    policy: Mapping[str, object],
+    anchor: date,
+) -> None:
+    frozen_anchor = policy.get("eligibility_anchor")
+    if frozen_anchor != anchor.isoformat():
+        raise ConfigMismatchError(
+            "screening anchor does not match frozen cycle policy: "
+            f"expected {frozen_anchor!r}, got {anchor.isoformat()!r}"
+        )
+    frozen_hashes = policy.get("screening_source_sha256")
+    current_hashes = _current_screening_source_sha256()
+    if frozen_hashes != current_hashes:
+        raise ConfigMismatchError(
+            "current screening sources do not match frozen cycle policy"
+        )
+
+
+def _validate_firecrawl_success_commitments(
+    success_records: Sequence[Mapping[str, Any]],
+) -> None:
+    for row_number, record in enumerate(success_records, start=1):
+        sha256_value = record.get("raw_html_sha256")
+        if (
+            not isinstance(sha256_value, str)
+            or re.fullmatch(r"sha256:[0-9a-f]{64}", sha256_value) is None
+        ):
+            raise ValueError(
+                "raw_html_sha256 must be a canonical sha256:<lowercase-hex> "
+                f"commitment in Firecrawl success row {row_number}"
+            )
+        byte_count = record.get("raw_html_bytes")
+        if (
+            not isinstance(byte_count, int)
+            or isinstance(byte_count, bool)
+            or byte_count < 0
+        ):
+            raise ValueError(
+                "raw_html_bytes must be a non-negative integer in Firecrawl "
+                f"success row {row_number}"
+            )
+        retrieved_at = record.get("retrieved_at")
+        if not isinstance(retrieved_at, str) or not retrieved_at.strip():
+            raise ValueError(
+                "retrieved_at must be a canonical UTC ISO timestamp in Firecrawl "
+                f"success row {row_number}"
+            )
+        try:
+            parsed = datetime.fromisoformat(retrieved_at.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError(
+                "retrieved_at must be a canonical UTC ISO timestamp in Firecrawl "
+                f"success row {row_number}"
+            ) from exc
+        if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+            raise ValueError(
+                "retrieved_at must be a canonical UTC ISO timestamp in Firecrawl "
+                f"success row {row_number}"
+            )
+        canonical_values = {
+            parsed.astimezone(UTC).isoformat(),
+            _iso_datetime(parsed),
+        }
+        if retrieved_at not in canonical_values:
+            raise ValueError(
+                "retrieved_at must be a canonical UTC ISO timestamp in Firecrawl "
+                f"success row {row_number}"
+            )
+
+
+_IMMUTABLE_ACQUISITION_EXCLUSIONS = frozenset(
+    {
+        "decision_before_release_anchor",
+        "bankruptcy_court",
+        "not_federal_district_court",
+        "missing_docket_number",
+        "placeholder_or_sealed_docket_number",
+        "not_civil_cv_docket",
+        "criminal_style_caption",
+        "non_civil_case",
+        "non_civil_metadata",
+        "criminal_case",
+        "bankruptcy_case",
+        "administrative_case",
+        "appellate_case",
+        "missing_civil_case_metadata",
+        "invalid_civil_case_metadata",
+    }
+)
+_TRANSIENT_FETCH_EXCLUSIONS: Mapping[str, str] = {
+    "candidate_limit_deferred": "temporarily_unavailable",
+    "provider_blocker_deferred": "temporarily_unavailable",
+    "case_dev_provider_blocker": "case_dev_provider_blocker",
+    "firecrawl_provider_blocker": "firecrawl_provider_blocker",
+    "raw_html_path_exists": "temporarily_unavailable",
+    "raw_html_hash_conflict": "temporarily_unavailable",
+    "raw_html_resume_invalid": "parse_failure",
+}
+
+
+def _validate_raw_docket_bytes(payload: bytes) -> None:
+    raw_html = payload.decode("utf-8")
+    if not raw_html.strip():
+        raise ValueError("raw docket HTML is empty")
+
+
+def _screened_case_dev_id(record: Mapping[str, Any]) -> str:
+    candidate_value = record.get("candidate")
+    if not isinstance(candidate_value, Mapping):
+        raise ValueError("screened case is missing candidate metadata")
+    candidate = cast(Mapping[str, object], candidate_value)
+    metadata_value = candidate.get("metadata")
+    if not isinstance(metadata_value, Mapping):
+        raise ValueError("screened case is missing Case.dev metadata")
+    metadata = cast(Mapping[str, object], metadata_value)
+    case_id = metadata.get("case_id")
+    if not isinstance(case_id, str) or not case_id.strip():
+        raise ValueError("screened case is missing its Case.dev case ID")
+    return case_id.strip()
+
+
+def _canonical_screen_exclusion_reason(reason: str) -> str:
+    if reason in _IMMUTABLE_ACQUISITION_EXCLUSIONS:
+        return reason
+    if reason in {"bankruptcy_posture", "criminal_posture"}:
+        return reason
+    if reason == "habeas_or_immigration_detention_posture":
+        return reason
+    return "strict_clean_screen_failed"
+
+
+def _record_fetch_exclusion(
+    store: CycleAcquisitionStore,
+    *,
+    batch_id: str,
+    record: Mapping[str, Any],
+) -> None:
+    candidate_id = _required_str(record, "case_id")
+    reason = _required_str(record, "reason")
+    evidence = dict(record)
+    evidence["candidate_id"] = candidate_id
+    if reason in _IMMUTABLE_ACQUISITION_EXCLUSIONS:
+        store.record_observation(
+            candidate_id,
+            batch_id=batch_id,
+            state="excluded",
+            reason_code=reason,
+            evidence=evidence,
+        )
+        return
+    transient_reason = _TRANSIENT_FETCH_EXCLUSIONS.get(reason)
+    if transient_reason is not None:
+        store.record_observation(
+            candidate_id,
+            batch_id=batch_id,
+            state="transient_failure",
+            reason_code=transient_reason,
+            evidence=evidence,
+        )
+        return
+    store.record_observation(
+        candidate_id,
+        batch_id=batch_id,
+        state="excluded",
+        reason_code="strict_clean_screen_failed",
+        evidence=evidence,
+    )
+
+
+def _merge_firecrawl_resume_commitments(
+    candidates: Sequence[JsonRecord],
+    prior_successes: Sequence[JsonRecord],
+) -> list[JsonRecord]:
+    commitments: dict[str, tuple[str, str, str]] = {}
+    for success in prior_successes:
+        case_id = _required_str(success, "case_id")
+        docket_id = _required_str(success, "docket_id")
+        source_url = _required_str(success, "source_url")
+        raw_sha256 = _required_str(success, "raw_html_sha256")
+        if (
+            not raw_sha256.startswith("sha256:")
+            or len(raw_sha256) != 71
+            or any(character not in "0123456789abcdef" for character in raw_sha256[7:])
+        ):
+            raise CommandError(
+                f"prior Firecrawl success has invalid SHA-256 for {case_id}"
+            )
+        prior = commitments.get(case_id)
+        commitment = (docket_id, source_url, raw_sha256)
+        if prior is not None and prior != commitment:
+            raise CommandError(
+                f"prior Firecrawl successes conflict for Case.dev case {case_id}"
+            )
+        commitments[case_id] = commitment
+
+    merged: list[JsonRecord] = []
+    for candidate in candidates:
+        updated = dict(candidate)
+        case_id = _required_str(updated, "case_id")
+        commitment = commitments.get(case_id)
+        if commitment is not None:
+            docket_id, source_url, raw_sha256 = commitment
+            candidate_docket_id = updated.get("courtlistener_docket_id")
+            candidate_source_url = updated.get("courtlistener_url")
+            if (
+                candidate_docket_id is not None and candidate_docket_id != docket_id
+            ) or (
+                candidate_source_url is not None and candidate_source_url != source_url
+            ):
+                raise CommandError(
+                    f"prior Firecrawl success identity conflicts for {case_id}"
+                )
+            updated["courtlistener_docket_id"] = docket_id
+            updated["courtlistener_url"] = source_url
+            updated["raw_html_sha256"] = raw_sha256
+        merged.append(updated)
+    return merged
+
+
+def _verified_snapshot_raw_html_directory(
+    snapshot_path: Path,
+    *,
+    requested: Path | None,
+    use_embedded_entries: bool,
+) -> Path | None:
+    artifact_records = _read_records(snapshot_path / "raw-artifacts.jsonl")
+    artifact_paths: list[Path] = []
+    for record in artifact_records:
+        raw_path = record.get("path")
+        if not isinstance(raw_path, str) or not raw_path.strip():
+            raise CommandError(
+                "verified snapshot contains an invalid raw artifact path"
+            )
+        artifact_paths.append(Path(raw_path).resolve())
+    if not artifact_paths:
+        if requested is not None:
+            raise CommandError(
+                "--raw-html-dir is not allowed when the verified snapshot has no "
+                "committed raw artifacts"
+            )
+        if not use_embedded_entries:
+            raise CommandError(
+                "verified snapshot has no raw docket artifacts; use embedded entries "
+                "only for an explicitly authorized fixture path"
+            )
+        return None
+    parents = {path.parent for path in artifact_paths}
+    if len(parents) != 1:
+        raise CommandError(
+            "verified snapshot raw artifacts do not share one planner directory"
+        )
+    committed_directory = next(iter(parents))
+    if requested is not None and requested.resolve() != committed_directory:
+        raise CommandError(
+            "--raw-html-dir must exactly match the verified snapshot artifact directory"
+        )
+    return committed_directory
 
 
 def _write_acquisition_completion(

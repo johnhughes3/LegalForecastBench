@@ -26,6 +26,10 @@ from legalforecast.ingestion.case_dev_client import (
     CaseDevServerError,
 )
 from legalforecast.ingestion.case_dev_config import CaseDevConfig
+from legalforecast.ingestion.case_dev_discovery import (
+    CaseDevDiscoverySource,
+    case_dev_firecrawl_candidate_record,
+)
 from legalforecast.ingestion.case_dev_firecrawl import (
     CaseDevFirecrawlBatchError,
     CaseDevFirecrawlCandidate,
@@ -94,6 +98,15 @@ from legalforecast.ingestion.courtlistener_web import (
     estimate_briefing_completeness,
     parse_courtlistener_docket_html,
     rank_cheapest_complete_candidates,
+)
+from legalforecast.ingestion.discovery_scheduler import (
+    DiscoveryHit,
+    DiscoveryPage,
+    DiscoveryRunSummary,
+    DiscoverySchedulerError,
+    TermProgress,
+    TermTerminalStatus,
+    materialize_independent_term_sets,
 )
 from legalforecast.ingestion.docket_markdown import (
     ControlledDocketMarkdownArtifacts,
@@ -236,6 +249,7 @@ __all__ = [
     "CaseDevClient",
     "CaseDevClientError",
     "CaseDevConfig",
+    "CaseDevDiscoverySource",
     "CaseDevDocketHit",
     "CaseDevDocketMetadata",
     "CaseDevDocument",
@@ -290,6 +304,10 @@ __all__ = [
     "CourtListenerWebDocketPage",
     "CourtListenerWebDocument",
     "CourtListenerWebParseError",
+    "DiscoveryHit",
+    "DiscoveryPage",
+    "DiscoveryRunSummary",
+    "DiscoverySchedulerError",
     "DocketMarkdownMetadata",
     "DocumentRole",
     "ExtractedTextArtifact",
@@ -356,12 +374,15 @@ __all__ = [
     "SourceDocumentProvenance",
     "SubprocessParserRunner",
     "TargetYieldEstimate",
+    "TermProgress",
+    "TermTerminalStatus",
     "UrlLibFreeDocumentSource",
     "acquire_case_dev_firecrawl_html",
     "assemble_model_packet",
     "bridge_courtlistener_case_dev_documents",
     "bridge_public_plan_paid_gaps",
     "build_target_yield_estimate",
+    "case_dev_firecrawl_candidate_record",
     "case_dev_smoke_query_terms",
     "contract_for_setup_runner_label",
     "convert_documents_to_markdown",
@@ -372,6 +393,7 @@ __all__ = [
     "filter_core_documents",
     "filter_core_documents_from_jsonl",
     "iter_setup_runner_document_records",
+    "materialize_independent_term_sets",
     "merge_download_manifest_records",
     "normalize_setup_runner_label",
     "parse_courtlistener_docket_html",
