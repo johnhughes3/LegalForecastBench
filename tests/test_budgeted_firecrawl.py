@@ -19,6 +19,7 @@ from legalforecast.ingestion.firecrawl_source import (
     FirecrawlAuthError,
     FirecrawlPaymentRequiredError,
     FirecrawlRateLimitError,
+    FirecrawlResponseError,
     FirecrawlScrapeResult,
     FirecrawlServerError,
 )
@@ -85,6 +86,7 @@ def _success(target: FirecrawlTargetSpec, html: str) -> FirecrawlScrapeResult:
         cache_state="miss",
         credits_used=5.0,
         raw={"success": True},
+        resolved_url=target.source_url,
     )
 
 
@@ -161,6 +163,56 @@ def test_scheduler_is_widest_first_and_isolates_provider_5xx(tmp_path: Path) -> 
             "provider_error": 2,
             "succeeded": 2,
         }
+        failed_attempts = [
+            attempt
+            for attempt in store.firecrawl_attempts("run-001")
+            if attempt.status == "provider_error"
+        ]
+        assert all(
+            attempt.failure_code == "provider_server_error"
+            for attempt in failed_attempts
+        )
+        assert all(attempt.failure_transient is True for attempt in failed_attempts)
+
+
+def test_scheduler_does_not_retry_deterministic_response_errors_and_persists_evidence(
+    tmp_path: Path,
+) -> None:
+    target = _target("docket-a", 0)
+    response_hash = "a" * 64
+    source = FixtureSource(
+        {
+            target.source_url: [
+                FirecrawlResponseError(
+                    "resolved CourtListener URL did not match the authorized target",
+                    failure_code="resolved_url_mismatch",
+                    provider_http_status=200,
+                    response_sha256=response_hash,
+                ),
+                _success(target, "must not run"),
+            ]
+        }
+    )
+    with _store(tmp_path) as store:
+        result = BudgetedFirecrawlScheduler(
+            store=store,
+            source=source,
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+        ).run([target])
+
+        assert result.pages == ()
+        assert source.calls == [target.source_url]
+        [attempt] = store.firecrawl_attempts("run-001")
+        assert attempt.status == "target_error"
+        assert attempt.failure_code == "resolved_url_mismatch"
+        assert attempt.failure_message == (
+            "resolved CourtListener URL did not match the authorized target"
+        )
+        assert attempt.failure_transient is False
+        assert attempt.failure_response_sha256 == response_hash
+        assert attempt.provider_http_status == 200
+        assert store.firecrawl_targets("run-001")[0].status == "terminal_error"
 
 
 @pytest.mark.parametrize(

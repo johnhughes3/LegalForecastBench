@@ -8,6 +8,7 @@ deliberately narrow so this source cannot become a general-purpose proxy.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
@@ -18,7 +19,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Literal, Protocol, cast
-from urllib.parse import parse_qsl, urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunsplit
 
 FIRECRAWL_API_KEY_ENV = "FIRECRAWL_API_KEY"
 FIRECRAWL_SCRAPE_ENDPOINT = "https://api.firecrawl.dev/v2/scrape"
@@ -35,40 +36,96 @@ _RECAP_SEARCH_REQUIRED_KEYS = frozenset(
     }
 )
 _RECAP_SEARCH_OPTIONAL_KEYS = frozenset({"page"})
+_RECAP_SEARCH_CANONICAL_KEYS = (
+    "type",
+    "q",
+    "entry_date_filed_after",
+    "entry_date_filed_before",
+    "order_by",
+)
 _US_DATE = re.compile(r"^(?P<month>[0-9]{2})/(?P<day>[0-9]{2})/(?P<year>[0-9]{4})$")
+_FAILURE_CODE = re.compile(r"[a-z][a-z0-9_]{0,63}")
 FirecrawlProxy = Literal["basic", "auto", "enhanced"]
 
 
 class FirecrawlError(RuntimeError):
     """Base class for Firecrawl source failures."""
 
+    default_failure_code = "firecrawl_error"
+    transient = False
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        failure_code: str | None = None,
+        provider_http_status: int | None = None,
+        response_sha256: str | None = None,
+    ) -> None:
+        code = failure_code or self.default_failure_code
+        if _FAILURE_CODE.fullmatch(code) is None:
+            raise ValueError("Firecrawl failure_code must be canonical snake_case")
+        self.failure_code = code
+        self.safe_message = _safe_failure_message(message)
+        self.provider_http_status = provider_http_status
+        self.response_sha256 = response_sha256
+        super().__init__(self.safe_message)
+
+    def attach_response_evidence(
+        self,
+        *,
+        provider_http_status: int,
+        response_sha256: str,
+    ) -> None:
+        """Attach non-secret response evidence without replacing prior evidence."""
+
+        if self.provider_http_status is None:
+            self.provider_http_status = provider_http_status
+        if self.response_sha256 is None:
+            self.response_sha256 = response_sha256
+
 
 class FirecrawlMissingAPIKeyError(FirecrawlError):
     """Raised when ``FIRECRAWL_API_KEY`` is missing or blank."""
+
+    default_failure_code = "missing_api_key"
 
 
 class FirecrawlAuthError(FirecrawlError):
     """Raised when Firecrawl rejects the API credentials."""
 
+    default_failure_code = "provider_auth_error"
+
 
 class FirecrawlPaymentRequiredError(FirecrawlError):
     """Raised when the Firecrawl account has insufficient credits."""
+
+    default_failure_code = "provider_payment_required"
 
 
 class FirecrawlRateLimitError(FirecrawlError):
     """Raised when Firecrawl rate-limits the request."""
 
+    default_failure_code = "provider_rate_limit"
+
 
 class FirecrawlServerError(FirecrawlError):
     """Raised when Firecrawl reports a server-side failure."""
+
+    default_failure_code = "provider_server_error"
+    transient = True
 
 
 class FirecrawlResponseError(FirecrawlError):
     """Raised for malformed or policy-violating Firecrawl responses."""
 
+    default_failure_code = "invalid_provider_response"
+
 
 class FirecrawlURLValidationError(FirecrawlError):
     """Raised when a source URL is not a public CourtListener docket URL."""
+
+    default_failure_code = "source_url_not_allowlisted"
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +176,7 @@ class FirecrawlHTTPResponse:
     status_code: int
     payload: Mapping[str, Any]
     headers: Mapping[str, str] = field(default_factory=lambda: {})
+    response_sha256: str | None = None
 
 
 class FirecrawlTransport(Protocol):
@@ -159,16 +217,20 @@ class UrlLibFirecrawlTransport:
                 request,
                 timeout=timeout_seconds,
             ) as response:
+                raw_response = response.read()
                 return FirecrawlHTTPResponse(
                     status_code=int(response.status),
-                    payload=_decode_payload(response.read()),
+                    payload=_decode_payload(raw_response),
                     headers=dict(response.headers.items()),
+                    response_sha256=hashlib.sha256(raw_response).hexdigest(),
                 )
         except urllib.error.HTTPError as exc:
+            raw_response = exc.read()
             return FirecrawlHTTPResponse(
                 status_code=exc.code,
-                payload=_decode_error_payload(exc.read()),
+                payload=_decode_error_payload(raw_response),
                 headers=dict(exc.headers.items()),
+                response_sha256=hashlib.sha256(raw_response).hexdigest(),
             )
         except urllib.error.URLError as exc:
             raise FirecrawlServerError(
@@ -215,6 +277,7 @@ class FirecrawlScrapeResult:
     cache_state: str | None
     credits_used: float | None
     raw: Mapping[str, Any]
+    resolved_url: str
 
 
 class FirecrawlCourtListenerHTMLSource:
@@ -281,14 +344,22 @@ class FirecrawlCourtListenerHTMLSource:
             ),
             timeout_seconds=self.config.request_timeout_seconds,
         )
-        _raise_for_status(response.status_code)
-        return _validated_result(
-            response.payload,
-            source_url=source_url,
-            docket_id=docket_id,
-            proxy_requested=self.config.proxy,
-            max_credits=self.config.max_credits_per_scrape,
-        )
+        response_sha256 = response.response_sha256 or _payload_sha256(response.payload)
+        try:
+            _raise_for_status(response.status_code)
+            return _validated_result(
+                response.payload,
+                source_url=source_url,
+                docket_id=docket_id,
+                proxy_requested=self.config.proxy,
+                max_credits=self.config.max_credits_per_scrape,
+            )
+        except FirecrawlError as error:
+            error.attach_response_evidence(
+                provider_http_status=response.status_code,
+                response_sha256=response_sha256,
+            )
+            raise
 
 
 def _scrape_payload(
@@ -432,6 +503,49 @@ def validate_courtlistener_recap_search_url(source_url: str) -> None:
         )
 
 
+def canonicalize_courtlistener_source_url(source_url: str) -> str:
+    """Return a security identity for an allowlisted CourtListener source URL.
+
+    Docket slugs and the optional ``www`` host are presentation redirects, so a
+    docket identity is the numeric docket plus its exact newest-first page.
+    RECAP searches retain every decoded query value while normalizing parameter
+    order, host, encoding, and an explicit ``page=1`` to the implicit first page.
+    """
+
+    try:
+        docket_id = validate_courtlistener_docket_url(source_url)
+    except FirecrawlURLValidationError:
+        validate_courtlistener_recap_search_url(source_url)
+    else:
+        parsed = urlparse(source_url)
+        query = parsed.query
+        return urlunsplit(
+            (
+                "https",
+                "www.courtlistener.com",
+                f"/docket/{docket_id}/",
+                query,
+                "",
+            )
+        )
+
+    parsed = urlparse(source_url)
+    values = dict(parse_qsl(parsed.query, keep_blank_values=True, strict_parsing=True))
+    pairs = [(key, values[key]) for key in _RECAP_SEARCH_CANONICAL_KEYS]
+    page = values.get("page")
+    if page is not None and page != "1":
+        pairs.append(("page", page))
+    return urlunsplit(
+        (
+            "https",
+            "www.courtlistener.com",
+            "/",
+            urlencode(pairs),
+            "",
+        )
+    )
+
+
 def _parse_us_date(value: str, *, field_name: str) -> date:
     match = _US_DATE.fullmatch(value)
     if match is None:
@@ -459,11 +573,17 @@ def _validated_result(
     max_credits: int,
 ) -> FirecrawlScrapeResult:
     if payload.get("success") is not True:
-        raise FirecrawlResponseError("Firecrawl response did not report success")
+        raise FirecrawlResponseError(
+            "Firecrawl response did not report success",
+            failure_code="provider_unsuccessful_response",
+        )
     data = _mapping(payload.get("data"), "data")
     raw_html = data.get("rawHtml")
     if not isinstance(raw_html, str) or not raw_html.strip():
-        raise FirecrawlResponseError("Firecrawl response is missing nonempty rawHtml")
+        raise FirecrawlResponseError(
+            "Firecrawl response is missing nonempty rawHtml",
+            failure_code="raw_html_missing",
+        )
     metadata = _mapping(data.get("metadata"), "data.metadata")
     status_code = metadata.get("statusCode")
     if not isinstance(status_code, int) or isinstance(status_code, bool):
@@ -472,12 +592,45 @@ def _validated_result(
         )
     if status_code != 200:
         raise FirecrawlResponseError(
-            f"CourtListener target returned unexpected status {status_code}"
+            "CourtListener target returned a non-success status",
+            failure_code="target_http_status_invalid",
+        )
+
+    resolved_values = tuple(
+        value
+        for value in (
+            _optional_string(metadata, data, "sourceURL"),
+            _optional_string(metadata, data, "url"),
+        )
+        if value is not None
+    )
+    if not resolved_values:
+        raise FirecrawlResponseError(
+            "Firecrawl response did not report its resolved source URL",
+            failure_code="resolved_url_missing",
+        )
+    authorized_url = canonicalize_courtlistener_source_url(source_url)
+    try:
+        resolved_urls = tuple(
+            canonicalize_courtlistener_source_url(value) for value in resolved_values
+        )
+    except FirecrawlURLValidationError as exc:
+        raise FirecrawlResponseError(
+            "Firecrawl resolved URL is not an allowlisted CourtListener target",
+            failure_code="resolved_url_not_allowlisted",
+        ) from exc
+    if any(value != authorized_url for value in resolved_urls):
+        raise FirecrawlResponseError(
+            "resolved CourtListener URL did not match the authorized target",
+            failure_code="resolved_url_mismatch",
         )
 
     proxy_used = _optional_string(metadata, data, "proxyUsed")
     if proxy_used is None:
-        raise FirecrawlResponseError("Firecrawl response did not report proxyUsed")
+        raise FirecrawlResponseError(
+            "Firecrawl response did not report proxyUsed",
+            failure_code="proxy_used_missing",
+        )
     normalized_proxy_used = proxy_used.lower()
     if proxy_requested == "basic":
         allowed_proxies = frozenset({"basic"})
@@ -487,18 +640,26 @@ def _validated_result(
         allowed_proxies = frozenset({"basic", "stealth"})
     if normalized_proxy_used not in allowed_proxies:
         raise FirecrawlResponseError(
-            f"Firecrawl used disallowed proxy mode {proxy_used!r}"
+            "Firecrawl used a disallowed proxy mode",
+            failure_code="proxy_used_disallowed",
         )
     cache_state = _optional_string(metadata, data, "cacheState")
     if cache_state is not None and cache_state.lower() == "hit":
-        raise FirecrawlResponseError("Firecrawl unexpectedly served a cache hit")
+        raise FirecrawlResponseError(
+            "Firecrawl unexpectedly served a cache hit",
+            failure_code="cache_hit_disallowed",
+        )
     credits_used = _optional_number(metadata, data, "creditsUsed")
     if credits_used is None:
-        raise FirecrawlResponseError("Firecrawl response did not report creditsUsed")
+        raise FirecrawlResponseError(
+            "Firecrawl response did not report creditsUsed",
+            failure_code="credits_used_missing",
+        )
     if not math.isfinite(credits_used) or not 0 <= credits_used <= max_credits:
         cap_name = "one-credit" if max_credits == 1 else "five-credit"
         raise FirecrawlResponseError(
-            f"Firecrawl scrape exceeded {cap_name} cap: {credits_used:g}"
+            f"Firecrawl scrape exceeded the {cap_name} cap",
+            failure_code="credits_used_exceeded_reservation",
         )
     return FirecrawlScrapeResult(
         source_url=source_url,
@@ -510,25 +671,36 @@ def _validated_result(
         cache_state=cache_state,
         credits_used=credits_used,
         raw=payload,
+        resolved_url=authorized_url,
     )
 
 
 def _raise_for_status(status_code: int) -> None:
     if status_code in {401, 403}:
         raise FirecrawlAuthError(
-            f"Firecrawl rejected the API credentials (HTTP {status_code})"
+            f"Firecrawl rejected the API credentials (HTTP {status_code})",
+            provider_http_status=status_code,
         )
     if status_code == 402:
         raise FirecrawlPaymentRequiredError(
-            "Firecrawl account has insufficient credits (HTTP 402)"
+            "Firecrawl account has insufficient credits (HTTP 402)",
+            provider_http_status=status_code,
         )
     if status_code == 429:
-        raise FirecrawlRateLimitError("Firecrawl rate limit reached (HTTP 429)")
+        raise FirecrawlRateLimitError(
+            "Firecrawl rate limit reached (HTTP 429)",
+            provider_http_status=status_code,
+        )
     if status_code >= 500:
-        raise FirecrawlServerError(f"Firecrawl server failure (HTTP {status_code})")
+        raise FirecrawlServerError(
+            f"Firecrawl server failure (HTTP {status_code})",
+            provider_http_status=status_code,
+        )
     if status_code < 200 or status_code >= 300:
         raise FirecrawlResponseError(
-            f"Firecrawl returned unexpected HTTP status {status_code}"
+            f"Firecrawl returned unexpected HTTP status {status_code}",
+            failure_code="provider_http_status_unexpected",
+            provider_http_status=status_code,
         )
 
 
@@ -564,7 +736,11 @@ def _decode_payload(raw: bytes) -> Mapping[str, Any]:
     try:
         payload = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise FirecrawlResponseError("Firecrawl returned invalid JSON") from exc
+        raise FirecrawlResponseError(
+            "Firecrawl returned invalid JSON",
+            failure_code="provider_json_invalid",
+            response_sha256=hashlib.sha256(raw).hexdigest(),
+        ) from exc
     return _mapping(payload, "response")
 
 
@@ -575,3 +751,20 @@ def _decode_error_payload(raw: bytes) -> Mapping[str, Any]:
         return _decode_payload(raw)
     except FirecrawlResponseError:
         return {}
+
+
+def _payload_sha256(payload: Mapping[str, Any]) -> str:
+    canonical = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _safe_failure_message(message: str) -> str:
+    normalized = " ".join(message.split())
+    if not normalized:
+        return "Firecrawl request failed"
+    return normalized[:300]

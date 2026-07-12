@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import pytest
 from legalforecast.ingestion.firecrawl_source import (
     FIRECRAWL_SCRAPE_ENDPOINT,
@@ -14,6 +16,7 @@ from legalforecast.ingestion.firecrawl_source import (
     FirecrawlResponseError,
     FirecrawlServerError,
     FirecrawlURLValidationError,
+    canonicalize_courtlistener_source_url,
     validate_courtlistener_recap_search_url,
 )
 
@@ -26,6 +29,7 @@ def _success_response(
     proxy_used: str = "basic",
     cache_state: str = "miss",
     credits_used: int = 1,
+    source_url: str = _URL,
 ) -> FirecrawlHTTPResponse:
     return FirecrawlHTTPResponse(
         status_code=200,
@@ -38,6 +42,7 @@ def _success_response(
                     "proxyUsed": proxy_used,
                     "cacheState": cache_state,
                     "creditsUsed": credits_used,
+                    "sourceURL": source_url,
                 },
             },
         },
@@ -92,6 +97,68 @@ def test_scrape_exposes_validated_cost_and_delivery_metadata() -> None:
     assert result.proxy_used == "basic"
     assert result.cache_state == "miss"
     assert result.credits_used == 1.0
+    assert result.resolved_url == canonicalize_courtlistener_source_url(_URL)
+
+
+def test_resolved_docket_url_allows_safe_same_identity_redirect() -> None:
+    redirected_same_docket = "https://courtlistener.com/docket/70649963/canonical-slug/"
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key"),
+        transport=FirecrawlFixtureTransport(
+            [_success_response(source_url=redirected_same_docket)]
+        ),
+    )
+
+    result = source.scrape(docket_id="70649963", source_url=_URL)
+
+    assert result.resolved_url == ("https://www.courtlistener.com/docket/70649963/")
+
+
+def test_resolved_docket_url_mismatch_fails_closed_with_safe_evidence() -> None:
+    secret_slug = "must-not-be-persisted"
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key"),
+        transport=FirecrawlFixtureTransport(
+            [
+                _success_response(
+                    source_url=(
+                        f"https://www.courtlistener.com/docket/999/{secret_slug}/"
+                    )
+                )
+            ]
+        ),
+    )
+
+    with pytest.raises(FirecrawlResponseError) as raised:
+        source.scrape(docket_id="70649963", source_url=_URL)
+
+    error = raised.value
+    assert error.failure_code == "resolved_url_mismatch"
+    assert error.transient is False
+    assert error.provider_http_status == 200
+    assert re.fullmatch(r"[0-9a-f]{64}", error.response_sha256 or "")
+    assert secret_slug not in error.safe_message
+
+
+def test_success_without_resolved_source_url_fails_closed() -> None:
+    response = _success_response()
+    payload = dict(response.payload)
+    data = dict(payload["data"])  # type: ignore[arg-type]
+    metadata = dict(data["metadata"])  # type: ignore[arg-type]
+    metadata.pop("sourceURL")
+    data["metadata"] = metadata
+    payload["data"] = data
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key"),
+        transport=FirecrawlFixtureTransport(
+            [FirecrawlHTTPResponse(status_code=200, payload=payload)]
+        ),
+    )
+
+    with pytest.raises(FirecrawlResponseError) as raised:
+        source.scrape(docket_id="70649963", source_url=_URL)
+
+    assert raised.value.failure_code == "resolved_url_missing"
 
 
 def test_auto_proxy_is_bounded_to_five_credits_and_reports_actual_proxy() -> None:
@@ -241,7 +308,7 @@ def test_source_rejects_non_allowlisted_or_mismatched_urls_before_transport(
 
 def test_source_accepts_canonical_newest_first_docket_pagination() -> None:
     paginated_url = f"{_URL}?order_by=desc&page=2"
-    transport = FirecrawlFixtureTransport([_success_response()])
+    transport = FirecrawlFixtureTransport([_success_response(source_url=paginated_url)])
     source = FirecrawlCourtListenerHTMLSource(
         FirecrawlConfig(api_key="test-key"), transport=transport
     )
@@ -267,7 +334,12 @@ def test_generic_scrape_accepts_strict_recap_search_url() -> None:
         "&entry_date_filed_before=07%2F12%2F2026"
         "&order_by=entry_date_filed+desc&page=2"
     )
-    transport = FirecrawlFixtureTransport([_success_response()])
+    resolved_url = (
+        "https://courtlistener.com/?order_by=entry_date_filed+desc&page=2"
+        "&entry_date_filed_before=07%2F12%2F2026&q=motion+to+dismiss"
+        "&type=r&entry_date_filed_after=06%2F30%2F2026"
+    )
+    transport = FirecrawlFixtureTransport([_success_response(source_url=resolved_url)])
     source = FirecrawlCourtListenerHTMLSource(
         FirecrawlConfig(api_key="test-key", proxy="auto"), transport=transport
     )
@@ -277,7 +349,29 @@ def test_generic_scrape_accepts_strict_recap_search_url() -> None:
     assert result.source_url == search_url
     assert result.docket_id is None
     assert result.raw_html.startswith("<html>")
+    assert result.resolved_url == canonicalize_courtlistener_source_url(search_url)
     assert transport.requests[0]["payload"]["url"] == search_url  # type: ignore[index]
+
+
+def test_resolved_recap_search_must_preserve_the_exact_search_identity() -> None:
+    search_url = (
+        "https://www.courtlistener.com/?type=r&q=motion+to+dismiss"
+        "&entry_date_filed_after=06%2F30%2F2026"
+        "&entry_date_filed_before=07%2F12%2F2026"
+        "&order_by=entry_date_filed+desc&page=2"
+    )
+    changed_page = search_url[:-1] + "3"
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key", proxy="auto"),
+        transport=FirecrawlFixtureTransport(
+            [_success_response(source_url=changed_page)]
+        ),
+    )
+
+    with pytest.raises(FirecrawlResponseError) as raised:
+        source.scrape_url(source_url=search_url)
+
+    assert raised.value.failure_code == "resolved_url_mismatch"
 
 
 def test_generic_scrape_accepts_strict_docket_url_without_requested_identity() -> None:

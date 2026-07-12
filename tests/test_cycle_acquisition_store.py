@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -143,7 +144,16 @@ def test_firecrawl_run_freezes_config_and_permanently_reserves_budget(
             first.attempt_id,
             status="provider_error",
             provider_http_status=500,
+            failure_code="provider_server_error",
+            failure_message="Firecrawl server failure",
+            failure_transient=True,
+            failure_response_sha256="a" * 64,
         )
+        failed = store.firecrawl_attempt(first.attempt_id)
+        assert failed.failure_code == "provider_server_error"
+        assert failed.failure_message == "Firecrawl server failure"
+        assert failed.failure_transient is True
+        assert failed.failure_response_sha256 == "a" * 64
         second = store.authorize_firecrawl_attempt(
             "firecrawl-001",
             target_id="docket-123",
@@ -219,6 +229,35 @@ def test_firecrawl_attempt_validation_is_fail_closed(tmp_path: Path) -> None:
                 source_url="https://www.courtlistener.com/?type=r&q=changed",
                 ordinal=0,
             )
+
+
+def test_existing_cycle_store_adds_failure_evidence_columns_in_place(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "cycle.sqlite3"
+    CycleAcquisitionStore(path).close()
+    with sqlite3.connect(path) as connection:
+        for column in (
+            "failure_response_sha256",
+            "failure_transient",
+            "failure_message",
+            "failure_code",
+        ):
+            connection.execute(f"ALTER TABLE firecrawl_attempts DROP COLUMN {column}")
+
+    CycleAcquisitionStore(path).close()
+
+    with sqlite3.connect(path) as connection:
+        columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(firecrawl_attempts)")
+        }
+    assert {
+        "failure_code",
+        "failure_message",
+        "failure_transient",
+        "failure_response_sha256",
+    } <= columns
 
 
 def test_firecrawl_credit_cap_is_aggregate_across_runs(tmp_path: Path) -> None:

@@ -181,6 +181,10 @@ class FirecrawlAttempt:
     proxy_used: str | None
     provider_http_status: int | None
     target_http_status: int | None
+    failure_code: str | None
+    failure_message: str | None
+    failure_transient: bool | None
+    failure_response_sha256: str | None
     artifact_path: Path | None
     artifact_sha256: str | None
     artifact_byte_count: int | None
@@ -582,6 +586,10 @@ class CycleAcquisitionStore:
         proxy_used: str | None = None,
         provider_http_status: object | None = None,
         target_http_status: object | None = None,
+        failure_code: str | None = None,
+        failure_message: str | None = None,
+        failure_transient: object | None = None,
+        failure_response_sha256: str | None = None,
         artifact_path: str | Path | None = None,
         artifact_sha256: str | None = None,
         artifact_byte_count: object | None = None,
@@ -627,6 +635,37 @@ class CycleAcquisitionStore:
                 or value > 599
             ):
                 raise ValueError(f"{name} must be a valid HTTP status")
+        failure_values = (failure_code, failure_message, failure_transient)
+        if any(value is not None for value in failure_values) and not all(
+            value is not None for value in failure_values
+        ):
+            raise ValueError(
+                "failure_code, failure_message, and failure_transient must be "
+                "supplied together"
+            )
+        if (
+            failure_code is not None
+            and re.fullmatch(r"[a-z][a-z0-9_]{0,63}", failure_code) is None
+        ):
+            raise ValueError("failure_code must be canonical snake_case")
+        if failure_message is not None and (
+            not failure_message.strip()
+            or failure_message != " ".join(failure_message.split())
+            or len(failure_message) > 300
+        ):
+            raise ValueError("failure_message must be normalized bounded text")
+        if failure_transient is not None and not isinstance(failure_transient, bool):
+            raise ValueError("failure_transient must be a boolean")
+        if (
+            failure_response_sha256 is not None
+            and re.fullmatch(r"[0-9a-f]{64}", failure_response_sha256) is None
+        ):
+            raise ValueError("failure_response_sha256 must be lowercase SHA-256")
+        if status == "succeeded" and (
+            any(value is not None for value in failure_values)
+            or failure_response_sha256 is not None
+        ):
+            raise ValueError("successful attempts cannot carry failure evidence")
         normalized_path = (
             str(Path(artifact_path)) if artifact_path is not None else None
         )
@@ -672,6 +711,8 @@ class CycleAcquisitionStore:
                 UPDATE firecrawl_attempts SET
                     status = ?, reported_credits = ?, proxy_used = ?,
                     provider_http_status = ?, target_http_status = ?,
+                    failure_code = ?, failure_message = ?, failure_transient = ?,
+                    failure_response_sha256 = ?,
                     artifact_path = ?, artifact_sha256 = ?, artifact_byte_count = ?,
                     completed_at = ?
                 WHERE attempt_id = ?
@@ -682,6 +723,10 @@ class CycleAcquisitionStore:
                     proxy_used,
                     provider_http_status,
                     target_http_status,
+                    failure_code,
+                    failure_message,
+                    int(failure_transient) if failure_transient is not None else None,
+                    failure_response_sha256,
                     normalized_path,
                     artifact_sha256,
                     artifact_byte_count,
@@ -829,7 +874,13 @@ class CycleAcquisitionStore:
     ) -> FirecrawlTarget:
         """Checkpoint a target outcome independently of export files."""
 
-        allowed = {"pending", "in_progress", "succeeded", "retry_exhausted"}
+        allowed = {
+            "pending",
+            "in_progress",
+            "succeeded",
+            "retry_exhausted",
+            "terminal_error",
+        }
         if status not in allowed:
             raise ValueError(f"invalid Firecrawl target status: {status}")
         with self._transaction():
@@ -879,6 +930,15 @@ class CycleAcquisitionStore:
             """,
             (run_id,),
         )
+        failure_codes = self._connection.execute(
+            """
+            SELECT failure_code, COUNT(*) AS count
+            FROM firecrawl_attempts
+            WHERE run_id = ? AND failure_code IS NOT NULL
+            GROUP BY failure_code ORDER BY failure_code
+            """,
+            (run_id,),
+        )
         reserved = int(totals["reserved"])
         cap = int(budget["credit_cap"])
         return {
@@ -892,6 +952,9 @@ class CycleAcquisitionStore:
             "remaining_authorization": cap - reserved,
             "attempt_status_counts": {
                 str(row["status"]): int(row["count"]) for row in statuses
+            },
+            "failure_code_counts": {
+                str(row["failure_code"]): int(row["count"]) for row in failure_codes
             },
         }
 
@@ -1694,6 +1757,10 @@ class CycleAcquisitionStore:
                 proxy_used TEXT,
                 provider_http_status INTEGER,
                 target_http_status INTEGER,
+                failure_code TEXT,
+                failure_message TEXT,
+                failure_transient INTEGER,
+                failure_response_sha256 TEXT,
                 artifact_path TEXT,
                 artifact_sha256 TEXT,
                 artifact_byte_count INTEGER,
@@ -1721,6 +1788,7 @@ class CycleAcquisitionStore:
             );
             """
         )
+        self._ensure_firecrawl_failure_columns()
         for reason_code, (allowed_states, evidence_class, precedence) in sorted(
             _REASON_POLICIES.items()
         ):
@@ -1745,6 +1813,25 @@ class CycleAcquisitionStore:
                 """,
                 (reason_code, serialized_states, evidence_class, precedence),
             )
+
+    def _ensure_firecrawl_failure_columns(self) -> None:
+        """Add sanitized failure-evidence columns to pre-change cycle stores."""
+
+        existing = {
+            str(row["name"])
+            for row in self._connection.execute("PRAGMA table_info(firecrawl_attempts)")
+        }
+        additions = {
+            "failure_code": "TEXT",
+            "failure_message": "TEXT",
+            "failure_transient": "INTEGER",
+            "failure_response_sha256": "TEXT",
+        }
+        for name, sql_type in additions.items():
+            if name not in existing:
+                self._connection.execute(
+                    f"ALTER TABLE firecrawl_attempts ADD COLUMN {name} {sql_type}"
+                )
 
 
 class _Transaction:
@@ -2097,6 +2184,22 @@ def _firecrawl_attempt_from_row(row: sqlite3.Row) -> FirecrawlAttempt:
         target_http_status=(
             int(row["target_http_status"])
             if row["target_http_status"] is not None
+            else None
+        ),
+        failure_code=(
+            str(row["failure_code"]) if row["failure_code"] is not None else None
+        ),
+        failure_message=(
+            str(row["failure_message"]) if row["failure_message"] is not None else None
+        ),
+        failure_transient=(
+            bool(row["failure_transient"])
+            if row["failure_transient"] is not None
+            else None
+        ),
+        failure_response_sha256=(
+            str(row["failure_response_sha256"])
+            if row["failure_response_sha256"] is not None
             else None
         ),
         artifact_path=Path(str(artifact_path)) if artifact_path is not None else None,

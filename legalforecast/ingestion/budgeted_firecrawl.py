@@ -14,7 +14,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Literal, Protocol, TypedDict
 
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
@@ -154,6 +154,11 @@ class BudgetedFirecrawlScheduler:
             self._raise_open_circuit(consecutive_5xx)
 
         succeeded = self._successful_attempts(ordered)
+        terminal_failures = {
+            attempt.target_id
+            for attempt in self.store.firecrawl_attempts(self.run_id)
+            if attempt.failure_transient is False
+        }
         for target in ordered:
             if target.target_id in succeeded:
                 self.store.set_firecrawl_target_status(
@@ -163,6 +168,8 @@ class BudgetedFirecrawlScheduler:
         for attempt_round in range(1, self.max_attempts + 1):
             for target in ordered:
                 if target.target_id in succeeded:
+                    continue
+                if target.target_id in terminal_failures:
                     continue
                 attempts = self._target_attempts(target)
                 if len(attempts) >= attempt_round:
@@ -185,6 +192,7 @@ class BudgetedFirecrawlScheduler:
                         attempt.attempt_id,
                         status="provider_error",
                         provider_http_status=_global_provider_status(error),
+                        **_failure_evidence(error),
                     )
                     raise
                 except FirecrawlServerError as error:
@@ -194,6 +202,7 @@ class BudgetedFirecrawlScheduler:
                             attempt.attempt_id,
                             status="provider_error",
                             provider_http_status=provider_status,
+                            **_failure_evidence(error),
                         )
                         consecutive_5xx += 1
                         if consecutive_5xx >= self.provider_5xx_circuit_threshold:
@@ -202,21 +211,35 @@ class BudgetedFirecrawlScheduler:
                         self.store.finalize_firecrawl_attempt(
                             attempt.attempt_id,
                             status="transport_error",
+                            **_failure_evidence(error),
                         )
                         consecutive_5xx = 0
                     continue
-                except FirecrawlResponseError:
+                except FirecrawlResponseError as error:
                     self.store.finalize_firecrawl_attempt(
                         attempt.attempt_id,
                         status="target_error",
+                        provider_http_status=error.provider_http_status,
+                        **_failure_evidence(error),
+                    )
+                    terminal_failures.add(target.target_id)
+                    self.store.set_firecrawl_target_status(
+                        self.run_id, target.target_id, "terminal_error"
                     )
                     consecutive_5xx = 0
                     continue
-                except FirecrawlError:
+                except FirecrawlError as error:
                     self.store.finalize_firecrawl_attempt(
                         attempt.attempt_id,
                         status="transport_error",
+                        provider_http_status=error.provider_http_status,
+                        **_failure_evidence(error),
                     )
+                    if not error.transient:
+                        terminal_failures.add(target.target_id)
+                        self.store.set_firecrawl_target_status(
+                            self.run_id, target.target_id, "terminal_error"
+                        )
                     consecutive_5xx = 0
                     continue
                 succeeded[target.target_id] = page
@@ -226,7 +249,10 @@ class BudgetedFirecrawlScheduler:
                 consecutive_5xx = 0
 
         for target in ordered:
-            if target.target_id not in succeeded:
+            if (
+                target.target_id not in succeeded
+                and target.target_id not in terminal_failures
+            ):
                 self.store.set_firecrawl_target_status(
                     self.run_id, target.target_id, "retry_exhausted"
                 )
@@ -353,6 +379,8 @@ def _require_nonnegative_int(value: object, name: str) -> None:
 
 
 def _http_status(error: BaseException) -> int | None:
+    if isinstance(error, FirecrawlError) and error.provider_http_status is not None:
+        return error.provider_http_status
     match = _HTTP_STATUS.search(str(error))
     return int(match.group("status")) if match is not None else None
 
@@ -382,6 +410,22 @@ def _trailing_provider_5xx(attempts: Sequence[FirecrawlAttempt]) -> int:
         else:
             consecutive = 0
     return consecutive
+
+
+class _FailureEvidence(TypedDict):
+    failure_code: str
+    failure_message: str
+    failure_transient: bool
+    failure_response_sha256: str | None
+
+
+def _failure_evidence(error: FirecrawlError) -> _FailureEvidence:
+    return {
+        "failure_code": error.failure_code,
+        "failure_message": error.safe_message,
+        "failure_transient": error.transient,
+        "failure_response_sha256": error.response_sha256,
+    }
 
 
 def _page_record(
