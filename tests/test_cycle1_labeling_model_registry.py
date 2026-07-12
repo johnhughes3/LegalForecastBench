@@ -10,6 +10,9 @@ from legalforecast.labeling.provider_journal import load_provider_cycle_caps
 
 ROOT = Path(__file__).resolve().parents[1]
 LABELING_REGISTRY = ROOT / "model_registries" / "cycle-1-labeling-2026-07-12.json"
+STAGE_B_JUDGE_REGISTRY = (
+    ROOT / "model_registries" / "cycle-1-stage-b-judges-2026-07-12.json"
+)
 PROVIDER_CAPS = ROOT / "model_registries" / "cycle-1-provider-caps-2026-07-12.json"
 
 
@@ -78,3 +81,15 @@ def test_cycle_1_provider_caps_stay_below_verified_external_limits() -> None:
         cap.cycle_reservation_cap_usd < cap.external_spend_limit_usd
         for cap in caps.providers.values()
     )
+
+
+def test_cycle_1_stage_b_registry_contains_exactly_the_approved_judges() -> None:
+    entries = require_official_registry_entries(
+        load_model_registry(STAGE_B_JUDGE_REGISTRY).entries
+    )
+
+    assert {entry.registry_key for entry in entries} == {
+        "anthropic:claude-haiku-4-5-20251001",
+        "google:gemini-3.5-flash",
+        "openai:gpt-5.4-mini-2026-03-17",
+    }

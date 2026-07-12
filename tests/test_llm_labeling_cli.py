@@ -5,7 +5,14 @@ from pathlib import Path
 from typing import Any, cast
 
 import legalforecast.labeling.llm_pipeline as llm_pipeline
-from legalforecast.cli import CommandError, _require_exact_model_disjoint_judges, main
+import pytest
+from legalforecast.cli import (
+    CommandError,
+    _require_complete_registry_panel,
+    _require_exact_model_disjoint_judges,
+    _require_explicit_unique_model_keys,
+    main,
+)
 from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.evals.model_registry import load_model_registry
 from legalforecast.unitization import ChallengeScope, PredictionUnit, SourceCitation
@@ -73,6 +80,25 @@ def test_stage_b_judges_must_be_exact_model_disjoint_from_evaluated_registry(
         _require_exact_model_disjoint_judges(
             [judge], evaluated_model_registry_path=registry_path
         )
+
+
+@pytest.mark.parametrize("keys", [("   ",), ("openai:gpt-test", "openai:gpt-test")])
+def test_stage_b_judge_keys_must_be_explicit_and_unique(keys: tuple[str, ...]) -> None:
+    with raises(CommandError):
+        _require_explicit_unique_model_keys(keys)
+
+
+def test_stage_b_must_select_complete_dedicated_judge_registry(
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    first = _registry_record()
+    second = {**first, "model_id": "gpt-b", "model_version_or_snapshot": "gpt-b"}
+    _write_json(registry_path, [first, second])
+    [selected, _] = load_model_registry(registry_path).entries
+
+    with raises(CommandError, match="every judge"):
+        _require_complete_registry_panel([selected], model_registry_path=registry_path)
 
 
 def test_acquisition_llm_unitize_and_label_validate_registry_outputs(

@@ -1,0 +1,78 @@
+[
+  {
+    "context_limit": 400000,
+    "display_name": "GPT-5.4 mini (Stage B labeler)",
+    "input_token_price": 0.75,
+    "known_cutoff_publicity_caveats": [
+      "This entry is one of the three independent Stage B outcome-label votes.",
+      "The dated gpt-5.4-mini-2026-03-17 snapshot is used instead of the undated alias.",
+      "OpenAI reports an August 31, 2025 knowledge cutoff."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "gpt-5.4-mini-2026-03-17",
+    "model_version_or_snapshot": "gpt-5.4-mini-2026-03-17",
+    "network_disabled": true,
+    "output_token_price": 4.5,
+    "pricing_source": "https://developers.openai.com/api/docs/models/gpt-5.4-mini, standard pricing, checked 2026-07-12",
+    "provider": "openai",
+    "provider_training_cutoff": "2025-08-31",
+    "provider_training_cutoff_status": "known",
+    "release_timestamp": "2026-03-17T00:00:00Z",
+    "release_timestamp_source": "https://developers.openai.com/api/docs/models/gpt-5.4-mini, dated snapshot gpt-5.4-mini-2026-03-17, checked 2026-07-12",
+    "search_disabled": true,
+    "temperature": 0,
+    "tool_policy": "no_tools",
+    "top_p": 1
+  },
+  {
+    "context_limit": 200000,
+    "display_name": "Claude Haiku 4.5 (Stage B labeler)",
+    "input_token_price": 1,
+    "known_cutoff_publicity_caveats": [
+      "This entry is one of the three independent Stage B outcome-label votes.",
+      "The dated claude-haiku-4-5-20251001 snapshot is used instead of the mutable convenience alias claude-haiku-4-5.",
+      "Anthropic reports a July 2025 training-data cutoff but does not disclose an exact date, so the structured exact-date field remains unknown."
+    ],
+    "max_output_tokens": 64000,
+    "model_id": "claude-haiku-4-5-20251001",
+    "model_version_or_snapshot": "claude-haiku-4-5-20251001",
+    "network_disabled": true,
+    "output_token_price": 5,
+    "pricing_source": "https://platform.claude.com/docs/en/about-claude/models/overview, Claude Haiku 4.5 standard pricing, checked 2026-07-12",
+    "provider": "anthropic",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2025-10-15T00:00:00Z",
+    "release_timestamp_source": "https://www.anthropic.com/news/claude-haiku-4-5, API availability announced 2025-10-15, checked 2026-07-12",
+    "search_disabled": true,
+    "temperature": 0,
+    "tool_policy": "no_tools",
+    "top_p": 1
+  },
+  {
+    "context_limit": 1048576,
+    "display_name": "Gemini 3.5 Flash (Stage A structural reviewer and Stage B labeler)",
+    "input_token_price": 1.5,
+    "known_cutoff_publicity_caveats": [
+      "This entry performs the flag-only Stage A structural review and is one of the three independent Stage B outcome-label votes.",
+      "Google documents gemini-3.5-flash as a stable model ID rather than a latest or preview alias, but says stable IDs usually do not change and does not guarantee immutable weights or expose a dated snapshot.",
+      "A live non-grounded identity probe on 2026-07-12 returned modelVersion gemini-3.5-flash; every official response must return that exact modelVersion or fail closed.",
+      "Google reports only a month-level January 2025 knowledge cutoff, so the structured exact-date field remains unknown."
+    ],
+    "max_output_tokens": 65536,
+    "model_id": "gemini-3.5-flash",
+    "model_version_or_snapshot": "gemini-3.5-flash",
+    "network_disabled": true,
+    "output_token_price": 9,
+    "pricing_source": "https://ai.google.dev/gemini-api/docs/pricing, Gemini 3.5 Flash standard pricing, checked 2026-07-12",
+    "provider": "google",
+    "provider_training_cutoff": null,
+    "provider_training_cutoff_status": "unknown",
+    "release_timestamp": "2026-05-19T00:00:00Z",
+    "release_timestamp_source": "https://ai.google.dev/gemini-api/docs/changelog, Gemini 3.5 Flash GA release on 2026-05-19, checked 2026-07-12",
+    "search_disabled": true,
+    "temperature": 0,
+    "tool_policy": "no_tools",
+    "top_p": 1
+  }
+]

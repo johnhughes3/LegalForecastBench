@@ -49,7 +49,7 @@ These anchors are recorded for future cycle planning or historical context. They
 
 ## Cycle 1 Label-Generation Models
 
-The separate label-generation registry is [`model_registries/cycle-1-labeling-2026-07-12.json`](model_registries/cycle-1-labeling-2026-07-12.json). These models construct or label the benchmark ground truth; they are not candidate models and do not change the June 30 corpus-eligibility anchor.
+The separate construction/label-generation registry is [`model_registries/cycle-1-labeling-2026-07-12.json`](model_registries/cycle-1-labeling-2026-07-12.json), while [`model_registries/cycle-1-stage-b-judges-2026-07-12.json`](model_registries/cycle-1-stage-b-judges-2026-07-12.json) freezes exactly the three voting entries. These models construct or label the benchmark ground truth; they are not candidate models and do not change the June 30 corpus-eligibility anchor.
 
 | Stage | Provider | Model | Frozen model ID | Release timestamp | Standard input/output price per MTok |
 | --- | --- | --- | --- | --- | --- |

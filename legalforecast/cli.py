@@ -6379,6 +6379,7 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
     )
     selection_records = _read_records(selection_path)
     model_keys = tuple(cast(list[str], args.model_key))
+    _require_explicit_unique_model_keys(model_keys)
     dry_run = _acquisition_dry_run(args)
     if dry_run:
         _write_jsonl(
@@ -6398,6 +6399,10 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         registry_entries, registry_sha256 = _registry_entries_for_keys(
             model_registry_path,
             model_keys,
+        )
+        _require_complete_registry_panel(
+            registry_entries,
+            model_registry_path=model_registry_path,
         )
         _require_exact_model_disjoint_judges(
             registry_entries,
@@ -6473,6 +6478,30 @@ def _require_exact_model_disjoint_judges(
         raise CommandError(
             "Stage B judge panel is not exact-model disjoint from the evaluated "
             f"registry: {', '.join(overlaps)}"
+        )
+
+
+def _require_explicit_unique_model_keys(model_keys: Sequence[str]) -> None:
+    normalized = tuple(key.strip() for key in model_keys)
+    if not normalized or any(not key for key in normalized):
+        raise CommandError("llm-label requires explicit non-empty --model-key values")
+    if len(set(normalized)) != len(normalized):
+        raise CommandError("llm-label judge --model-key values must be unique")
+
+
+def _require_complete_registry_panel(
+    judge_entries: Sequence[ModelRegistryEntry],
+    *,
+    model_registry_path: Path,
+) -> None:
+    frozen_keys = {
+        entry.registry_key for entry in load_model_registry(model_registry_path).entries
+    }
+    selected_keys = {entry.registry_key for entry in judge_entries}
+    if selected_keys != frozen_keys:
+        raise CommandError(
+            "llm-label must explicitly select every judge in the dedicated frozen "
+            "judge registry"
         )
 
 

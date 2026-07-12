@@ -10,7 +10,7 @@ Every scored label must cite a verbatim excerpt from the disposition. Excerpts a
 
 ## Cycle 1 Model Panel
 
-Cycle 1 freezes label-generation models separately from the candidate-model evaluation registry in `model_registries/cycle-1-labeling-2026-07-12.json`. Labeling-model release dates therefore do not alter the corpus eligibility anchor computed from `model_registries/cycle-1-2026-06-30.json`.
+Cycle 1 freezes construction models separately from the candidate-model evaluation registry in `model_registries/cycle-1-labeling-2026-07-12.json`, and freezes the exact voting panel in the dedicated `model_registries/cycle-1-stage-b-judges-2026-07-12.json` registry. Labeling-model release dates therefore do not alter the corpus eligibility anchor computed from `model_registries/cycle-1-2026-06-30.json`. `llm-label` requires every entry in the dedicated judge registry to be selected explicitly and refuses blank, duplicate, omitted, or extra judges.
 
 Claude Sonnet 4.6 (`claude-sonnet-4-6`) constructs Stage A units from blinded pre-decision materials only. Gemini 3.5 Flash (`gemini-3.5-flash`) performs a flag-only structural review before the units freeze; it may identify omitted, combined, or mis-split units but may not rewrite them. GPT-5.4 mini (`gpt-5.4-mini-2026-03-17`), Gemini 3.5 Flash, and Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) are the frozen Stage B voters. A Stage B model classifies the canonical frozen unit identifiers; it does not regenerate party names, claims, or unit boundaries. Agreement is computed over the structured outcome fields, not over prose rationales or the exact span selected as the supporting excerpt.
 
