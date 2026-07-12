@@ -134,7 +134,7 @@ def test_docket_retrieval_normalizes_entries_filings_and_missing_docs() -> None:
         "doc-34",
         "doc-99",
     ]
-    assert result.missing_filings[0].docket_entry_id == "entry-41"
+    assert result.missing_filings[0].docket_entry_id.startswith("entry-41-")
     assert result.missing_filings[0].reason == "no_source_document_id"
 
 

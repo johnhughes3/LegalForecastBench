@@ -80,7 +80,7 @@ def test_fixture_backed_non_dry_run_cli_stage_success_paths(
     )
     link_record = _read_jsonl(linkage)[0]
     assert link_record["is_clean"] is True
-    assert link_record["links"][0]["motion_entry_ids"] == ["entry-12"]
+    assert link_record["links"][0]["motion_entry_ids"][0].startswith("entry-12-")
 
     stage_a_input = tmp_path / "stage-a-input.jsonl"
     _write_jsonl(stage_a_input, [_stage_a_input_record()])

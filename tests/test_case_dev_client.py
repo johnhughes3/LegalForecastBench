@@ -323,6 +323,39 @@ def test_docket_entries_use_doc_description_when_entry_description_missing() -> 
     assert page.items[0].source_document_ids == ("doc-7",)
 
 
+def test_docket_entries_without_ids_get_distinct_content_based_identities() -> None:
+    entries = [
+        {
+            "entryNumber": 7,
+            "date": "2026-05-01",
+            "description": "First event",
+            "documents": [{"id": "doc-7"}],
+        },
+        {
+            "entryNumber": 7,
+            "date": "2026-05-02",
+            "description": "Second event",
+            "documents": [{"id": "doc-8"}],
+        },
+    ]
+    response = _recorded_response(
+        params={
+            "type": "lookup",
+            "docketId": "case-1",
+            "includeEntries": True,
+        },
+        payload={"docket": {"id": "case-1", "entries": entries}},
+    )
+    client = CaseDevClient(
+        config=_config(), transport=CaseDevFixtureTransport([response])
+    )
+
+    page = client.get_case_docket_entries("case-1")
+
+    assert len({item.docket_entry_id for item in page.items}) == 2
+    assert all(item.docket_entry_id.startswith("entry-7-") for item in page.items)
+
+
 def test_iter_docket_entry_search_caps_results() -> None:
     transport = CaseDevFixtureTransport(
         [

@@ -356,6 +356,104 @@ def _client(
     ), transport
 
 
+def test_enrichment_merges_repeated_entry_rows_with_distinct_documents() -> None:
+    client, _ = _client(
+        _lookup(
+            entries=(
+                _entry("entry-1", 1, "Complaint", _document("doc-1")),
+                _entry("entry-1", 1, "Complaint", _document("doc-2")),
+            ),
+            limit=100,
+        )
+    )
+
+    enriched = enrich_recap_docket_with_case_dev(
+        client=client, discovery=_discovery(), page_size=100, max_pages=2
+    )
+
+    assert enriched.docket_entry_count == 1
+    assert {document.document_id for document in enriched.documents} == {
+        "doc-1",
+        "doc-2",
+    }
+
+
+def test_enrichment_rejects_repeated_entry_rows_with_semantic_conflict() -> None:
+    conflicting = _entry("entry-1", 2, "Complaint", _document("doc-2"))
+    client, _ = _client(
+        _lookup(
+            entries=(
+                _entry("entry-1", 1, "Complaint", _document("doc-1")),
+                conflicting,
+            ),
+            limit=100,
+        )
+    )
+
+    with pytest.raises(
+        CaseDevRecapEnrichmentError,
+        match="case_dev_duplicate_entry_irreconcilable",
+    ):
+        enrich_recap_docket_with_case_dev(
+            client=client, discovery=_discovery(), page_size=100, max_pages=2
+        )
+
+
+def test_enrichment_preserves_distinct_same_number_rows_without_provider_ids() -> None:
+    first = _entry("unused", 7, "First event", _document("doc-7"))
+    second = _entry("unused", 7, "Second event", _document("doc-8"))
+    first.pop("id")
+    second.pop("id")
+    client, _ = _client(_lookup(entries=(first, second), limit=100))
+
+    enriched = enrich_recap_docket_with_case_dev(
+        client=client, discovery=_discovery(), page_size=100, max_pages=2
+    )
+
+    assert enriched.docket_entry_count == 2
+    assert len({document.docket_entry_id for document in enriched.documents}) == 2
+    assert {document.document_id for document in enriched.documents} == {
+        "doc-7",
+        "doc-8",
+    }
+
+
+def test_enrichment_merges_same_no_id_event_repeated_per_document() -> None:
+    first = _entry("unused", 7, "Same event", _document("doc-7"))
+    second = _entry("unused", 7, "Same event", _document("doc-8"))
+    first.pop("id")
+    second.pop("id")
+    client, _ = _client(_lookup(entries=(first, second), limit=100))
+
+    enriched = enrich_recap_docket_with_case_dev(
+        client=client, discovery=_discovery(), page_size=100, max_pages=2
+    )
+
+    assert enriched.docket_entry_count == 1
+    assert {document.document_id for document in enriched.documents} == {
+        "doc-7",
+        "doc-8",
+    }
+
+
+def test_enrichment_merges_document_fallback_text_for_explicit_entry_id() -> None:
+    first = _entry("entry-7", 7, "unused", _document("doc-7"))
+    second = _entry("entry-7", 7, "unused", _document("doc-8"))
+    first["description"] = None
+    second["description"] = None
+    client, _ = _client(_lookup(entries=(first, second), limit=100))
+
+    enriched = enrich_recap_docket_with_case_dev(
+        client=client, discovery=_discovery(), page_size=100, max_pages=2
+    )
+
+    assert enriched.docket_entry_count == 1
+    assert {document.document_id for document in enriched.documents} == {
+        "doc-7",
+        "doc-8",
+    }
+
+
 def _discovery(docket_id: str = "101") -> RecapDiscoveredDocket:
     return RecapDiscoveredDocket(
         docket_id=docket_id,

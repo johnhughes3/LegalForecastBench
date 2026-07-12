@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, cast
 from urllib.parse import urlsplit
 
@@ -395,17 +395,79 @@ def _deduplicate_hits(
 ) -> tuple[CaseDevDocketHit, ...]:
     ordered: list[CaseDevDocketHit] = []
     by_id: dict[str, CaseDevDocketHit] = {}
+    index_by_id: dict[str, int] = {}
     for hit in hits:
         existing = by_id.get(hit.docket_entry_id)
         if existing is None:
             by_id[hit.docket_entry_id] = hit
+            index_by_id[hit.docket_entry_id] = len(ordered)
             ordered.append(hit)
             continue
         if existing != hit:
-            raise CaseDevRecapEnrichmentError(
-                f"case_dev_duplicate_entry_conflict: entry_id={hit.docket_entry_id}"
-            )
+            merged = _merge_duplicate_hit(existing, hit)
+            by_id[hit.docket_entry_id] = merged
+            ordered[index_by_id[hit.docket_entry_id]] = merged
     return tuple(ordered)
+
+
+def _merge_duplicate_hit(
+    left: CaseDevDocketHit, right: CaseDevDocketHit
+) -> CaseDevDocketHit:
+    semantic_fields = (
+        "case_id",
+        "docket_id",
+        "docket_entry_id",
+        "entry_number",
+        "filed_at",
+        "source_url",
+    )
+    if any(getattr(left, field) != getattr(right, field) for field in semantic_fields):
+        raise CaseDevRecapEnrichmentError(
+            f"case_dev_duplicate_entry_irreconcilable: entry_id={right.docket_entry_id}"
+        )
+
+    merged_raw = dict(left.raw)
+    for key, value in right.raw.items():
+        if key == "documents":
+            continue
+        if key in merged_raw and merged_raw[key] != value:
+            raise CaseDevRecapEnrichmentError(
+                "case_dev_duplicate_entry_irreconcilable: "
+                f"entry_id={right.docket_entry_id}"
+            )
+        merged_raw[key] = value
+
+    documents: list[object] = []
+    by_id: dict[str, Mapping[str, Any]] = {}
+    raw_document_groups = (
+        left.raw.get("documents", []),
+        right.raw.get("documents", []),
+    )
+    for raw_documents in raw_document_groups:
+        if not isinstance(raw_documents, list):
+            raise CaseDevRecapEnrichmentError(
+                f"case_dev_documents_invalid: entry_id={right.docket_entry_id}"
+            )
+        for raw_document in cast(list[object], raw_documents):
+            document = _mapping(raw_document, "case.dev document")
+            document_id = _required_string(document, "id", "documentId", "document_id")
+            existing = by_id.get(document_id)
+            if existing is not None and existing != document:
+                raise CaseDevRecapEnrichmentError(
+                    f"case_dev_duplicate_document_conflict: document_id={document_id}"
+                )
+            if existing is None:
+                by_id[document_id] = document
+                documents.append(raw_document)
+    merged_raw["documents"] = documents
+    return replace(
+        left,
+        entry_text="; ".join(dict.fromkeys((left.entry_text, right.entry_text))),
+        source_document_ids=tuple(
+            dict.fromkeys((*left.source_document_ids, *right.source_document_ids))
+        ),
+        raw=merged_raw,
+    )
 
 
 def _inventory_documents(
