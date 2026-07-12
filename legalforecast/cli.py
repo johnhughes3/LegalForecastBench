@@ -127,6 +127,7 @@ from legalforecast.ingestion.courtlistener_acquisition import (
     FixtureCourtListenerDocketHTMLSource,
     LiveCourtListenerDocketHTMLSource,
     discover_courtlistener_mtd_candidates,
+    validate_courtlistener_discovery_limits,
 )
 from legalforecast.ingestion.courtlistener_case_dev_bridge import (
     bridge_courtlistener_case_dev_documents,
@@ -1259,10 +1260,31 @@ def _add_acquisition_discover_courtlistener_arguments(
 ) -> None:
     _add_acquisition_common_arguments(parser)
     parser.add_argument(
-        "--decision-filed-on-or-after",
+        "--eligibility-anchor",
         required=True,
         metavar="YYYY-MM-DD",
-        help=("Fail-closed eligibility anchor for the first written MTD disposition."),
+        help="Immutable fail-closed first-written-disposition eligibility anchor.",
+    )
+    parser.add_argument(
+        "--search-window-start",
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="Inclusive rolling RECAP search-window lower bound.",
+    )
+    parser.add_argument(
+        "--search-window-end",
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="Inclusive rolling RECAP search-window upper bound.",
+    )
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        help="Cycle store that freezes the anchor and per-batch window digest.",
+    )
+    parser.add_argument(
+        "--batch-id",
+        help="Batch identity; required when --cycle-store is supplied.",
     )
     parser.add_argument(
         "--query-term",
@@ -4409,13 +4431,23 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
         "summary_output",
         output_root / "courtlistener-discovery-summary.json",
     )
-    anchor_text = cast(str, args.decision_filed_on_or_after)
-    try:
-        anchor = date.fromisoformat(anchor_text)
-    except ValueError as exc:
-        raise CommandError(
-            "--decision-filed-on-or-after must be an ISO date (YYYY-MM-DD)"
-        ) from exc
+    anchor = _iso_date_argument(
+        cast(str, args.eligibility_anchor), "--eligibility-anchor"
+    )
+    search_window_start = _iso_date_argument(
+        cast(str, args.search_window_start), "--search-window-start"
+    )
+    search_window_end = _iso_date_argument(
+        cast(str, args.search_window_end), "--search-window-end"
+    )
+    if search_window_end < search_window_start:
+        raise CommandError("--search-window-end cannot precede --search-window-start")
+    if search_window_end < anchor:
+        raise CommandError("--search-window-end cannot precede --eligibility-anchor")
+    cycle_store_path = cast(Path | None, args.cycle_store)
+    batch_id = cast(str | None, args.batch_id)
+    if (cycle_store_path is None) != (batch_id is None):
+        raise CommandError("--cycle-store and --batch-id must be supplied together")
     query_terms = tuple(cast(Sequence[str] | None, args.query_terms) or ())
     if not query_terms:
         query_terms = DEFAULT_COURTLISTENER_MTD_QUERY_TERMS
@@ -4441,6 +4473,8 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             "schema_version": "legalforecast.courtlistener_discovery_summary.v1",
             "dry_run": True,
             "anchor_date": anchor.isoformat(),
+            "search_window_start": search_window_start.isoformat(),
+            "search_window_end": search_window_end.isoformat(),
             "query_terms": list(query_terms),
             "target_clean_cases": target_clean_cases,
             "max_candidates": max_candidates,
@@ -4479,6 +4513,43 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             "--courtlistener-fixture and --docket-html-fixture-dir"
         )
 
+    try:
+        validate_courtlistener_discovery_limits(
+            query_terms=query_terms,
+            target_clean_cases=target_clean_cases,
+            max_candidates=max_candidates,
+            search_page_size=search_page_size,
+        )
+    except ValueError as exc:
+        _write_acquisition_failure(
+            args,
+            stage="discover-courtlistener",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+
+    if cycle_store_path is not None and batch_id is not None:
+        try:
+            with CycleAcquisitionStore(cycle_store_path) as store:
+                store.ensure_cycle(_cycle_acquisition_policy(anchor=anchor))
+                store.ensure_batch(
+                    batch_id,
+                    {
+                        "provider": "courtlistener",
+                        "search_window_start": search_window_start.isoformat(),
+                        "search_window_end": search_window_end.isoformat(),
+                        "query_terms": list(query_terms),
+                        "target_clean_cases": target_clean_cases,
+                        "max_candidates": max_candidates,
+                        "search_page_size": search_page_size,
+                    },
+                )
+        except CycleAcquisitionStoreError as exc:
+            raise CommandError(str(exc)) from exc
+
     config = CourtListenerConfig.from_env()
     if live:
         if config.api_token is None:
@@ -4502,6 +4573,8 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             html_source=html_source,
             raw_html_dir=raw_html_dir,
             decision_filed_on_or_after=anchor,
+            search_window_start=search_window_start,
+            search_window_end=search_window_end,
             query_terms=query_terms,
             target_clean_cases=target_clean_cases,
             max_candidates=max_candidates,

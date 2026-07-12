@@ -135,15 +135,22 @@ def discover_courtlistener_mtd_candidates(
     html_source: CourtListenerDocketHTMLSource,
     raw_html_dir: Path,
     decision_filed_on_or_after: date,
+    search_window_start: date,
+    search_window_end: date,
     query_terms: Sequence[str] = DEFAULT_COURTLISTENER_MTD_QUERY_TERMS,
     target_clean_cases: int = 150,
     max_candidates: int = 3000,
     search_page_size: int = 50,
     resume: bool = True,
 ) -> CourtListenerDiscoveryResult:
-    """Discover post-anchor RECAP hits and emit strict screened-case records."""
+    """Search a bounded rolling window and screen against an immutable anchor."""
 
-    _validate_limits(
+    if search_window_end < search_window_start:
+        raise ValueError("search_window_end cannot precede search_window_start")
+    if search_window_end < decision_filed_on_or_after:
+        raise ValueError("search_window_end cannot precede eligibility anchor")
+
+    validate_courtlistener_discovery_limits(
         query_terms=query_terms,
         target_clean_cases=target_clean_cases,
         max_candidates=max_candidates,
@@ -160,7 +167,7 @@ def discover_courtlistener_mtd_candidates(
     per_term: dict[str, dict[str, Any]] = {}
 
     for term in query_terms:
-        query = _anchored_query(term, decision_filed_on_or_after)
+        query = _windowed_query(term, search_window_start, search_window_end)
         queries.append(query)
         term_request_count = 0
         term_candidate_ids: set[str] = set()
@@ -223,6 +230,8 @@ def discover_courtlistener_mtd_candidates(
     summary: dict[str, Any] = {
         "schema_version": "legalforecast.courtlistener_discovery_summary.v1",
         "anchor_date": decision_filed_on_or_after.isoformat(),
+        "search_window_start": search_window_start.isoformat(),
+        "search_window_end": search_window_end.isoformat(),
         "query_terms": list(query_terms),
         "queries": queries,
         "target_clean_cases": target_clean_cases,
@@ -785,9 +794,11 @@ def _candidate_text(docket: CourtListenerDocket) -> str:
     )
 
 
-def _anchored_query(term: str, anchor: date) -> str:
+def _windowed_query(term: str, start: date, end: date) -> str:
     escaped = term.strip().replace('"', r"\"")
-    return f'"{escaped}" AND entry_date_filed:[{anchor.isoformat()} TO *]'
+    return (
+        f'"{escaped}" AND entry_date_filed:[{start.isoformat()} TO {end.isoformat()}]'
+    )
 
 
 def _public_docket_url(docket: CourtListenerDocket) -> str:
@@ -843,7 +854,7 @@ def _validated_public_docket_url(source_url: str, *, docket_id: str) -> str:
     return source_url
 
 
-def _validate_limits(
+def validate_courtlistener_discovery_limits(
     *,
     query_terms: Sequence[str],
     target_clean_cases: int,
