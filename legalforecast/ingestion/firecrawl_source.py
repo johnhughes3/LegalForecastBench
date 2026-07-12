@@ -1,8 +1,9 @@
-"""Strict Firecrawl source for public CourtListener docket HTML.
+"""Strict Firecrawl source for allowlisted public CourtListener HTML.
 
-The source deliberately uses Firecrawl's basic proxy exactly once per fetch.
-It disables cache reads/writes and rejects responses that indicate a more
-expensive proxy, a cache hit, or more than one credit of usage.
+Each call performs one cache-disabled scrape. ``basic`` requests are capped at
+one credit; explicitly configured ``auto`` requests may fall back to Firecrawl's
+stealth proxy but are capped at five credits. URL validation is deliberately
+narrow so this source cannot become a general-purpose authenticated proxy.
 """
 
 from __future__ import annotations
@@ -15,13 +16,27 @@ import urllib.error
 import urllib.request
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Protocol, cast
-from urllib.parse import urlparse
+from datetime import date
+from typing import Any, Literal, Protocol, cast
+from urllib.parse import parse_qsl, urlparse
 
 FIRECRAWL_API_KEY_ENV = "FIRECRAWL_API_KEY"
 FIRECRAWL_SCRAPE_ENDPOINT = "https://api.firecrawl.dev/v2/scrape"
 _COURTLISTENER_HOSTS = frozenset({"courtlistener.com", "www.courtlistener.com"})
 _DOCKET_PATH = re.compile(r"^/docket/(?P<docket_id>[0-9]+)(?:/[^/]+)?/?$")
+_DOCKET_PAGINATION_QUERY = re.compile(r"^order_by=desc&page=(?P<page>[1-9][0-9]*)$")
+_RECAP_SEARCH_REQUIRED_KEYS = frozenset(
+    {
+        "type",
+        "q",
+        "entry_date_filed_after",
+        "entry_date_filed_before",
+        "order_by",
+    }
+)
+_RECAP_SEARCH_OPTIONAL_KEYS = frozenset({"page"})
+_US_DATE = re.compile(r"^(?P<month>[0-9]{2})/(?P<day>[0-9]{2})/(?P<year>[0-9]{4})$")
+FirecrawlProxy = Literal["basic", "auto"]
 
 
 class FirecrawlError(RuntimeError):
@@ -62,6 +77,7 @@ class FirecrawlConfig:
 
     api_key: str
     request_timeout_seconds: float = 70.0
+    proxy: FirecrawlProxy = "basic"
 
     def __post_init__(self) -> None:
         if not self.api_key.strip():
@@ -70,6 +86,14 @@ class FirecrawlConfig:
             )
         if self.request_timeout_seconds <= 0:
             raise ValueError("request_timeout_seconds must be positive")
+        if self.proxy not in {"basic", "auto"}:
+            raise ValueError("proxy must be 'basic' or 'auto'")
+
+    @property
+    def max_credits_per_scrape(self) -> int:
+        """Return the non-configurable per-request billing ceiling."""
+
+        return 1 if self.proxy == "basic" else 5
 
     @classmethod
     def from_env(
@@ -77,11 +101,13 @@ class FirecrawlConfig:
         environ: Mapping[str, str] | None = None,
         *,
         request_timeout_seconds: float = 70.0,
+        proxy: FirecrawlProxy = "basic",
     ) -> FirecrawlConfig:
         values = os.environ if environ is None else environ
         return cls(
             api_key=values.get(FIRECRAWL_API_KEY_ENV, ""),
             request_timeout_seconds=request_timeout_seconds,
+            proxy=proxy,
         )
 
 
@@ -143,7 +169,7 @@ class UrlLibFirecrawlTransport:
             )
         except urllib.error.URLError as exc:
             raise FirecrawlServerError(
-                f"Firecrawl request failed: {exc.reason}"
+                "Firecrawl request failed before receiving an HTTP response"
             ) from exc
 
 
@@ -181,6 +207,7 @@ class FirecrawlScrapeResult:
     docket_id: str
     raw_html: str
     target_status_code: int
+    proxy_requested: FirecrawlProxy
     proxy_used: str | None
     cache_state: str | None
     credits_used: float | None
@@ -205,7 +232,7 @@ class FirecrawlCourtListenerHTMLSource:
         return self.scrape(docket_id=docket_id, source_url=source_url).raw_html
 
     def scrape(self, *, docket_id: str, source_url: str) -> FirecrawlScrapeResult:
-        """Perform exactly one bounded basic-proxy Firecrawl request."""
+        """Perform exactly one bounded Firecrawl request."""
 
         normalized_docket_id = _validate_courtlistener_docket_url(
             source_url, expected_docket_id=docket_id
@@ -216,7 +243,7 @@ class FirecrawlCourtListenerHTMLSource:
                 "Authorization": f"Bearer {self.config.api_key.strip()}",
                 "Content-Type": "application/json",
             },
-            payload=_scrape_payload(source_url),
+            payload=_scrape_payload(source_url, proxy=self.config.proxy),
             timeout_seconds=self.config.request_timeout_seconds,
         )
         _raise_for_status(response.status_code)
@@ -224,10 +251,14 @@ class FirecrawlCourtListenerHTMLSource:
             response.payload,
             source_url=source_url,
             docket_id=normalized_docket_id,
+            proxy_requested=self.config.proxy,
+            max_credits=self.config.max_credits_per_scrape,
         )
 
 
-def _scrape_payload(source_url: str) -> dict[str, object]:
+def _scrape_payload(
+    source_url: str, *, proxy: FirecrawlProxy = "basic"
+) -> dict[str, object]:
     return {
         "url": source_url,
         "formats": ["rawHtml"],
@@ -235,7 +266,7 @@ def _scrape_payload(source_url: str) -> dict[str, object]:
         "onlyCleanContent": False,
         "maxAge": 0,
         "storeInCache": False,
-        "proxy": "basic",
+        "proxy": proxy,
         "timeout": 60000,
         "skipTlsVerification": False,
         "parsers": [],
@@ -258,7 +289,6 @@ def _validate_courtlistener_docket_url(
         or parsed.port is not None
         or parsed.username is not None
         or parsed.password is not None
-        or parsed.query
         or parsed.fragment
         or parsed.params
     ):
@@ -275,11 +305,115 @@ def _validate_courtlistener_docket_url(
         raise FirecrawlURLValidationError(
             "source URL docket ID does not match the requested docket ID"
         )
+    if parsed.query:
+        query_match = _DOCKET_PAGINATION_QUERY.fullmatch(parsed.query)
+        if query_match is None:
+            raise FirecrawlURLValidationError(
+                "docket pagination must use canonical order_by=desc&page=N"
+            )
     return url_docket_id
 
 
+def validate_courtlistener_recap_search_url(source_url: str) -> None:
+    """Fail closed unless *source_url* is a bounded public RECAP search URL.
+
+    The accepted form is CourtListener's root search with ``type=r``, one
+    nonempty query, explicit U.S.-formatted filing-date bounds, newest-document
+    ordering, and an optional positive page number. Duplicate or unknown query
+    parameters are rejected.
+    """
+
+    parsed = urlparse(source_url)
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname not in _COURTLISTENER_HOSTS
+        or parsed.port is not None
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path != "/"
+        or parsed.fragment
+        or parsed.params
+    ):
+        raise FirecrawlURLValidationError(
+            "source URL must be a public HTTPS CourtListener RECAP search URL"
+        )
+    try:
+        pairs = parse_qsl(
+            parsed.query,
+            keep_blank_values=True,
+            strict_parsing=True,
+            max_num_fields=6,
+        )
+    except ValueError as exc:
+        raise FirecrawlURLValidationError(
+            "CourtListener RECAP search query is malformed"
+        ) from exc
+    values = dict(pairs)
+    keys = frozenset(values)
+    if len(values) != len(pairs) or not (
+        _RECAP_SEARCH_REQUIRED_KEYS <= keys
+        and keys <= _RECAP_SEARCH_REQUIRED_KEYS | _RECAP_SEARCH_OPTIONAL_KEYS
+    ):
+        raise FirecrawlURLValidationError(
+            "CourtListener RECAP search has duplicate, missing, or unknown parameters"
+        )
+    if values["type"] != "r":
+        raise FirecrawlURLValidationError("CourtListener search type must be RECAP")
+    query = values["q"]
+    if (
+        not query.strip()
+        or len(query) > 500
+        or any(ord(character) < 32 or ord(character) == 127 for character in query)
+    ):
+        raise FirecrawlURLValidationError(
+            "CourtListener RECAP search query must be bounded nonempty text"
+        )
+    filed_after = _parse_us_date(
+        values["entry_date_filed_after"], field_name="entry_date_filed_after"
+    )
+    filed_before = _parse_us_date(
+        values["entry_date_filed_before"], field_name="entry_date_filed_before"
+    )
+    if filed_after > filed_before:
+        raise FirecrawlURLValidationError(
+            "CourtListener RECAP search filing-date bounds are reversed"
+        )
+    if values["order_by"] != "entry_date_filed desc":
+        raise FirecrawlURLValidationError(
+            "CourtListener RECAP search must order newest documents first"
+        )
+    page = values.get("page")
+    if page is not None and re.fullmatch(r"[1-9][0-9]*", page) is None:
+        raise FirecrawlURLValidationError(
+            "CourtListener RECAP search page must be a positive canonical integer"
+        )
+
+
+def _parse_us_date(value: str, *, field_name: str) -> date:
+    match = _US_DATE.fullmatch(value)
+    if match is None:
+        raise FirecrawlURLValidationError(
+            f"CourtListener RECAP search {field_name} must use MM/DD/YYYY"
+        )
+    try:
+        return date(
+            int(match.group("year")),
+            int(match.group("month")),
+            int(match.group("day")),
+        )
+    except ValueError as exc:
+        raise FirecrawlURLValidationError(
+            f"CourtListener RECAP search {field_name} is not a valid date"
+        ) from exc
+
+
 def _validated_result(
-    payload: Mapping[str, Any], *, source_url: str, docket_id: str
+    payload: Mapping[str, Any],
+    *,
+    source_url: str,
+    docket_id: str,
+    proxy_requested: FirecrawlProxy,
+    max_credits: int,
 ) -> FirecrawlScrapeResult:
     if payload.get("success") is not True:
         raise FirecrawlResponseError("Firecrawl response did not report success")
@@ -301,7 +435,13 @@ def _validated_result(
     proxy_used = _optional_string(metadata, data, "proxyUsed")
     if proxy_used is None:
         raise FirecrawlResponseError("Firecrawl response did not report proxyUsed")
-    if proxy_used.lower() != "basic":
+    normalized_proxy_used = proxy_used.lower()
+    allowed_proxies = (
+        frozenset({"basic"})
+        if proxy_requested == "basic"
+        else frozenset({"basic", "stealth"})
+    )
+    if normalized_proxy_used not in allowed_proxies:
         raise FirecrawlResponseError(
             f"Firecrawl used disallowed proxy mode {proxy_used!r}"
         )
@@ -311,15 +451,17 @@ def _validated_result(
     credits_used = _optional_number(metadata, data, "creditsUsed")
     if credits_used is None:
         raise FirecrawlResponseError("Firecrawl response did not report creditsUsed")
-    if not math.isfinite(credits_used) or not 0 <= credits_used <= 1:
+    if not math.isfinite(credits_used) or not 0 <= credits_used <= max_credits:
+        cap_name = "one-credit" if max_credits == 1 else "five-credit"
         raise FirecrawlResponseError(
-            f"Firecrawl scrape exceeded one-credit cap: {credits_used:g}"
+            f"Firecrawl scrape exceeded {cap_name} cap: {credits_used:g}"
         )
     return FirecrawlScrapeResult(
         source_url=source_url,
         docket_id=docket_id,
         raw_html=raw_html,
         target_status_code=status_code,
+        proxy_requested=proxy_requested,
         proxy_used=proxy_used,
         cache_state=cache_state,
         credits_used=credits_used,
