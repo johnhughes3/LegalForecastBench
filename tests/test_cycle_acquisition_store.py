@@ -256,6 +256,64 @@ def test_firecrawl_credit_cap_is_aggregate_across_runs(tmp_path: Path) -> None:
         assert store.firecrawl_run_summary("docket-run")["reserved_credits"] == 10
 
 
+def test_firecrawl_artifact_is_atomic_immutable_and_attempt_bound(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        store.ensure_firecrawl_run(
+            "search-run",
+            batch_id="batch-001",
+            config={"purpose": "search"},
+            credit_cap=45_000,
+            reserved_credits_per_attempt=5,
+        )
+        store.ensure_firecrawl_target(
+            "search-run",
+            target_id="search-1",
+            target_kind="search",
+            source_url="https://www.courtlistener.com/?type=r&q=alpha",
+            ordinal=0,
+        )
+        attempt = store.authorize_firecrawl_attempt(
+            "search-run",
+            target_id="search-1",
+            page_number=1,
+            request_url="https://www.courtlistener.com/?type=r&q=alpha",
+        )
+        destination = tmp_path / "pages" / "search-1.html"
+        committed = store.commit_firecrawl_artifact(
+            attempt.attempt_id,
+            destination,
+            b"<html>safe fixture</html>",
+            reported_credits=5,
+            proxy_used="stealth",
+            target_http_status=200,
+        )
+        assert committed.status == "succeeded"
+        assert committed.artifact_path == destination.resolve()
+        assert destination.read_bytes() == b"<html>safe fixture</html>"
+        assert (
+            store.commit_firecrawl_artifact(
+                attempt.attempt_id,
+                destination,
+                b"<html>safe fixture</html>",
+                reported_credits=5,
+                proxy_used="stealth",
+                target_http_status=200,
+            )
+            == committed
+        )
+        with pytest.raises(ImmutableArtifactError):
+            store.commit_firecrawl_artifact(
+                attempt.attempt_id,
+                destination,
+                b"<html>tampered</html>",
+                reported_credits=5,
+                proxy_used="stealth",
+                target_http_status=200,
+            )
+
+
 def test_store_holds_a_nonblocking_process_lifetime_lock(tmp_path: Path) -> None:
     first = CycleAcquisitionStore(tmp_path / "cycle.sqlite3")
     try:

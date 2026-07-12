@@ -691,6 +691,105 @@ class CycleAcquisitionStore:
             )
         return self.firecrawl_attempt(attempt_id)
 
+    def commit_firecrawl_artifact(
+        self,
+        attempt_id: int,
+        destination: str | Path,
+        content: bytes,
+        *,
+        reported_credits: object,
+        proxy_used: str | None,
+        target_http_status: object,
+        validator: Callable[[bytes], None] | None = None,
+    ) -> FirecrawlAttempt:
+        """Atomically publish one search/docket page and finalize its attempt.
+
+        An orphan file after a process crash is trusted only when a later,
+        separately authorized response reproduces the exact bytes. Permanent
+        reservations therefore remain conservative across every crash window.
+        """
+
+        attempt = self.firecrawl_attempt(attempt_id)
+        destination_path = Path(destination).resolve()
+        digest = hashlib.sha256(content).hexdigest()
+        if validator is not None:
+            validator(content)
+        if (
+            isinstance(reported_credits, bool)
+            or not isinstance(reported_credits, int)
+            or reported_credits < 0
+            or reported_credits > attempt.reserved_credits
+        ):
+            raise ValueError(
+                "reported_credits must be an integer within the reservation"
+            )
+        if (
+            isinstance(target_http_status, bool)
+            or not isinstance(target_http_status, int)
+            or target_http_status < 100
+            or target_http_status > 599
+        ):
+            raise ValueError("target_http_status must be a valid HTTP status")
+        if attempt.status == "succeeded":
+            if (
+                attempt.artifact_path != destination_path
+                or attempt.artifact_sha256 != digest
+                or attempt.artifact_byte_count != len(content)
+            ):
+                raise ImmutableArtifactError(
+                    f"Firecrawl attempt {attempt_id} has a different "
+                    "artifact commitment"
+                )
+            try:
+                existing_content = destination_path.read_bytes()
+            except OSError as error:
+                raise ImmutableArtifactError(
+                    f"committed Firecrawl artifact is missing: {destination_path}"
+                ) from error
+            if existing_content != content:
+                raise ImmutableArtifactError(
+                    f"committed Firecrawl artifact was modified: {destination_path}"
+                )
+            return attempt
+        if attempt.status != "authorized":
+            raise ConfigMismatchError(
+                f"Firecrawl attempt {attempt_id} cannot commit an artifact from "
+                f"status {attempt.status}"
+            )
+        conflicting = self._connection.execute(
+            """
+            SELECT attempt_id FROM firecrawl_attempts
+            WHERE artifact_path = ? AND attempt_id != ?
+            """,
+            (str(destination_path), attempt_id),
+        ).fetchone()
+        if conflicting is not None:
+            raise ImmutableArtifactError(
+                f"Firecrawl artifact path is already committed: {destination_path}"
+            )
+        if destination_path.exists():
+            if destination_path.read_bytes() != content:
+                raise ImmutableArtifactError(
+                    f"untracked Firecrawl artifact conflicts with content: "
+                    f"{destination_path}"
+                )
+        else:
+            _atomic_write_bytes(destination_path, content)
+        committed = self.finalize_firecrawl_attempt(
+            attempt_id,
+            status="succeeded",
+            reported_credits=reported_credits,
+            proxy_used=proxy_used,
+            target_http_status=target_http_status,
+            artifact_path=destination_path,
+            artifact_sha256=digest,
+            artifact_byte_count=len(content),
+        )
+        self.set_firecrawl_target_status(
+            committed.run_id, committed.target_id, "succeeded"
+        )
+        return self.firecrawl_attempt(attempt_id)
+
     def firecrawl_attempt(self, attempt_id: int) -> FirecrawlAttempt:
         """Return one Firecrawl attempt."""
 
