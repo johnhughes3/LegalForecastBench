@@ -338,7 +338,7 @@ def _distinct_target_motions(
         for motion in motions
         if not (
             motion.document_role is DocumentRole.MTD_MEMORANDUM
-            and bool(referenced_entry_numbers(motion.entry_text) & notice_numbers)
+            and bool(referenced_mtd_entry_numbers(motion.entry_text) & notice_numbers)
         )
     )
 
@@ -441,6 +441,15 @@ def referenced_entry_numbers(text: str) -> set[int]:
     return numbers
 
 
+def referenced_mtd_entry_numbers(text: str) -> set[int]:
+    """Return only numbers syntactically coupled to an MTD reference."""
+
+    numbers: set[int] = set()
+    for pattern in _NUMBERED_MTD_REFERENCE_RES:
+        numbers.update(int(match.group("number")) for match in pattern.finditer(text))
+    return numbers
+
+
 def _numbers_in_text(text: str) -> set[int]:
     return {int(value) for value in re.findall(r"\d+", text)}
 
@@ -480,7 +489,8 @@ def _require_non_empty_tuple(values: tuple[str, ...], field_name: str) -> None:
 
 
 _DOCKET_REFERENCE_RE = re.compile(
-    r"\b(?:ecf|dkt\.?|docket|doc(?:ument)?\.?|entry|no\.?|nos\.?|#)\s*"
+    r"(?:\b(?:ecf|dkt\.?|docket|doc(?:ument)?\.?|entry)\s*"
+    r"(?:(?:no|nos)\.?\s*|#\s*)?|#\s*)"
     r"(?P<numbers>[0-9][0-9,\sand-]*)",
     re.IGNORECASE,
 )
@@ -493,6 +503,18 @@ _NUMBERED_MTD_REFERENCE_RES = (
     re.compile(
         r"\bmotions?\s+to\s+dismiss(?:\s+for\s+(?:failure\s+to\s+state\s+"
         r"a\s+claim|lack\s+of\s+jurisdiction))?\s+(?P<number>\d+)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bmotions?\s+to\s+dismiss\b[^.;:\n]{0,60}?"
+        r"\b(?:ecf|dkt\.?|docket|doc(?:ument)?\.?|entry)\s*"
+        r"(?:(?:no|nos)\.?\s*|#\s*)?(?P<number>\d+)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:ecf|dkt\.?|docket|doc(?:ument)?\.?|entry)\s*"
+        r"(?:(?:no|nos)\.?\s*|#\s*)?(?P<number>\d+)\b"
+        r"[^.;:\n]{0,60}?\bmotions?\s+to\s+dismiss\b",
         re.IGNORECASE,
     ),
 )
