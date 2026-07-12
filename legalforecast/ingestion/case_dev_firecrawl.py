@@ -42,7 +42,7 @@ class CourtListenerHTMLSource(Protocol):
     def fetch(self, *, docket_id: str, source_url: str) -> str:
         """Return raw HTML for one public CourtListener docket URL."""
 
-        ...
+        raise NotImplementedError
 
 
 class CaseDevFirecrawlBatchError(RuntimeError):

@@ -102,7 +102,8 @@ class FirecrawlTransport(Protocol):
         headers: Mapping[str, str],
         payload: Mapping[str, Any],
         timeout_seconds: float,
-    ) -> FirecrawlHTTPResponse: ...
+    ) -> FirecrawlHTTPResponse:
+        raise NotImplementedError
 
 
 class UrlLibFirecrawlTransport:
