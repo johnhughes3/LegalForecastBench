@@ -4254,6 +4254,18 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         "failure_reason_counts": dict(
             Counter(cast(str, record["reason"]) for record in failure_records)
         ),
+        "structural_priority_tier_counts": dict(
+            Counter(
+                cast(str, record["structural_priority_reason"])
+                for record in ranked_records
+            )
+        ),
+        "decision_signal_priority_tier_counts": dict(
+            Counter(
+                cast(str, record["decision_signal_priority_reason"])
+                for record in ranked_records
+            )
+        ),
         "actual_free_required_document_count": sum(
             cast(int, record["actual_free_required_document_count"])
             for record in ranked_records
