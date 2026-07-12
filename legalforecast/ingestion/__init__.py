@@ -29,8 +29,10 @@ from legalforecast.ingestion.case_dev_firecrawl import (
     CaseDevFirecrawlCandidate,
     CaseDevFirecrawlExclusion,
     CaseDevFirecrawlResult,
+    CaseDevFirecrawlScreeningResult,
     CaseDevFirecrawlSuccess,
     acquire_case_dev_firecrawl_html,
+    screen_case_dev_firecrawl_successes,
 )
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerCapability,
@@ -240,6 +242,7 @@ __all__ = [
     "CaseDevFirecrawlCandidate",
     "CaseDevFirecrawlExclusion",
     "CaseDevFirecrawlResult",
+    "CaseDevFirecrawlScreeningResult",
     "CaseDevFirecrawlSuccess",
     "CaseDevFixtureTransport",
     "CaseDevHTTPResponse",
@@ -380,6 +383,7 @@ __all__ = [
     "render_controlled_docket_markdown",
     "run_case_dev_smoke",
     "screen_case_dev_docket_metadata",
+    "screen_case_dev_firecrawl_successes",
     "screen_courtlistener_docket_for_mtd_decision",
     "screen_courtlistener_entry_for_mtd_decision",
     "setup_runner_label_contract_records",

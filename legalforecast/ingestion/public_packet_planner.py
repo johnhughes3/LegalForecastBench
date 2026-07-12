@@ -23,6 +23,7 @@ from legalforecast.ingestion.free_document_downloader import (
 )
 from legalforecast.ingestion.missing_core_budget import DEFAULT_PURCHASE_COST_USD
 from legalforecast.ingestion.provenance import DocumentRole
+from legalforecast.ingestion.restricted_material import restricted_material_markers
 
 _OPTIONAL_BRIEF_ROLES = frozenset({CourtListenerEntryRole.REPLY})
 
@@ -294,6 +295,20 @@ def _candidate_plan(
             decision_entries=decision_entries,
             reason=decision_date_reason,
         )
+    candidate_restrictions = restricted_material_markers(
+        records=(record, candidate, metadata)
+    )
+    if candidate_restrictions:
+        return _excluded_plan(
+            candidate_id,
+            metadata,
+            decision_date=decision_date,
+            case_mix_metadata=case_mix_metadata,
+            source_url=source_url,
+            target_entries=target_entries,
+            decision_entries=decision_entries,
+            reason=_restricted_material_reason("candidate", candidate_restrictions),
+        )
     page: CourtListenerWebDocketPage | None = None
     if html_path is not None and html_path.exists():
         page = parse_courtlistener_docket_html(
@@ -320,6 +335,22 @@ def _candidate_plan(
             target_entries=target_entries,
             decision_entries=decision_entries,
             reason=reason,
+        )
+    core_restrictions = _core_packet_restriction_reasons(
+        page,
+        target_entries=target_entries,
+        decision_entries=decision_entries,
+    )
+    if core_restrictions:
+        return _excluded_plan(
+            candidate_id,
+            metadata,
+            decision_date=decision_date,
+            case_mix_metadata=case_mix_metadata,
+            source_url=source_url,
+            target_entries=target_entries,
+            decision_entries=decision_entries,
+            reason=";".join(core_restrictions),
         )
     documents, reasons, required_count, free_required_count = _documents_for_candidate(
         candidate_id,
@@ -690,6 +721,10 @@ def _entry_from_embedded_record(
         filed_at=_optional_str(record, "filed_at"),
         text=_optional_str(record, "text") or "",
         documents=documents,
+        restriction_markers=restricted_material_markers(
+            records=(record,),
+            text_fields=(_optional_str(record, "text") or "",),
+        ),
     )
 
 
@@ -702,6 +737,14 @@ def _document_from_embedded_record(
         href=_optional_str(record, "href"),
         action_label=_optional_str(record, "action_label"),
         pacer_only=bool(record.get("pacer_only", False)),
+        restriction_markers=restricted_material_markers(
+            records=(record,),
+            text_fields=(
+                _optional_str(record, "kind") or "",
+                _optional_str(record, "description") or "",
+            ),
+            access_label_fields=(_optional_str(record, "action_label") or "",),
+        ),
     )
 
 
@@ -717,6 +760,95 @@ def _dedupe_entries(
         seen.add(key)
         deduped.append(entry)
     return tuple(deduped)
+
+
+def _core_packet_restriction_reasons(
+    page: CourtListenerWebDocketPage,
+    *,
+    target_entries: tuple[int, ...],
+    decision_entries: tuple[int, ...],
+) -> tuple[str, ...]:
+    """Ledger restrictions attached to required packet entries, fail closed."""
+
+    decision_floor = min(decision_entries) if decision_entries else _max_entry(page)
+    complaint_floor = min(target_entries) if target_entries else decision_floor
+    target_numbers = set(target_entries)
+    decision_numbers = set(decision_entries)
+    reasons: list[str] = []
+    for entry in page.entries:
+        if not entry.restricted:
+            continue
+        entry_number = _entry_number(entry)
+        required_role: str | None = None
+        if entry_number in target_numbers:
+            required_role = "target_mtd"
+        elif entry_number in decision_numbers:
+            required_role = "decision"
+        elif _entry_is_before(
+            entry, complaint_floor
+        ) and _restricted_entry_looks_like_complaint(entry):
+            required_role = "operative_complaint"
+        elif (
+            _entry_is_before(entry, decision_floor)
+            and entry.role is CourtListenerEntryRole.OPPOSITION
+            and _brief_targets_motion(entry, target_entries)
+        ):
+            required_role = "opposition"
+        if required_role is None:
+            continue
+        location = f"entry_{entry_number}" if entry_number is not None else entry.row_id
+        reasons.append(
+            _restricted_material_reason(
+                f"{required_role}_{location or 'unknown'}",
+                _entry_restriction_markers(entry),
+            )
+        )
+    return tuple(dict.fromkeys(reasons))
+
+
+def _restricted_entry_looks_like_complaint(
+    entry: CourtListenerWebDocketEntry,
+) -> bool:
+    text = " ".join(
+        (
+            entry.text,
+            *(document.description for document in entry.documents),
+        )
+    ).casefold()
+    if "complaint" not in text:
+        return False
+    return not bool(
+        re.search(
+            r"\b(?:answer|order|motion|memorandum|opposition|reply|notice)\b"
+            r"[^.]{0,80}\bcomplaint\b",
+            text,
+        )
+    )
+
+
+def _entry_restriction_markers(
+    entry: CourtListenerWebDocketEntry,
+) -> tuple[str, ...]:
+    return tuple(
+        sorted(
+            {
+                *entry.restriction_markers,
+                *(
+                    marker
+                    for document in entry.documents
+                    for marker in document.restriction_markers
+                ),
+            }
+        )
+    )
+
+
+def _restricted_material_reason(
+    location: str,
+    markers: Sequence[str],
+) -> str:
+    evidence = ",".join(markers) if markers else "unspecified"
+    return f"sealed_or_restricted_material:{location}:{evidence}"
 
 
 def _operative_complaint_entry(

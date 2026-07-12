@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from copy import deepcopy
 from pathlib import Path
+from typing import Any, cast
 
+import pytest
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.public_packet_planner import (
     plan_public_packet_downloads,
@@ -71,6 +73,140 @@ def test_public_packet_planner_reports_public_document_shortfall(
         DocumentRole.DECISION,
     ]
     assert len(plan.download_requests) == 3
+
+
+@pytest.mark.parametrize("marker", ("sealed", "under seal", "restricted", "private"))
+def test_public_packet_planner_excludes_restricted_core_document_text(
+    tmp_path: Path,
+    marker: str,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    selected_entries = cast(list[dict[str, Any]], record["selected_entries"])
+    target_document = cast(list[dict[str, Any]], selected_entries[1]["documents"])[0]
+    restriction_text = marker if marker == "under seal" else f"{marker} document"
+    target_document["description"] = f"Motion to Dismiss - {restriction_text}"
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [excluded] = plan.final_exclusions
+    assert not plan.download_requests
+    assert excluded.paid_recovery_required is False
+    assert excluded.exclusion_reasons[0].startswith(
+        "sealed_or_restricted_material:target_mtd_entry_5:"
+    )
+
+
+@pytest.mark.parametrize(
+    "merits_phrase",
+    (
+        "private right of action",
+        "private securities litigation",
+        "restricted stock",
+        "sealed bid",
+        "sealed instrument",
+    ),
+)
+def test_public_packet_planner_does_not_treat_merits_prose_as_access_restriction(
+    tmp_path: Path,
+    merits_phrase: str,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    selected_entries = cast(list[dict[str, Any]], record["selected_entries"])
+    target_document = cast(list[dict[str, Any]], selected_entries[1]["documents"])[0]
+    target_document["description"] = f"Motion to Dismiss concerning {merits_phrase}"
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    assert len(plan.selected_cases) == 1
+    assert plan.final_exclusions == ()
+
+
+@pytest.mark.parametrize(
+    ("field_name", "field_value"),
+    (
+        ("is_sealed", True),
+        ("is_private", True),
+        ("is_restricted", True),
+        ("availability_status", "restricted"),
+        ("redaction_or_seal_status", "under_seal"),
+        ("visibility", "private"),
+    ),
+)
+def test_public_packet_planner_excludes_explicit_restricted_document_status(
+    tmp_path: Path,
+    field_name: str,
+    field_value: object,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    selected_entries = cast(list[dict[str, Any]], record["selected_entries"])
+    target_document = cast(list[dict[str, Any]], selected_entries[1]["documents"])[0]
+    target_document[field_name] = field_value
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [excluded] = plan.final_exclusions
+    assert not plan.download_requests
+    assert excluded.exclusion_reasons[0].startswith(
+        "sealed_or_restricted_material:target_mtd_entry_5:"
+    )
+
+
+def test_public_packet_planner_excludes_explicit_restricted_candidate_status(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    candidate = cast(dict[str, Any], record["candidate"])
+    metadata = cast(dict[str, Any], candidate["metadata"])
+    metadata["is_private"] = True
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [excluded] = plan.final_exclusions
+    assert not plan.download_requests
+    assert excluded.exclusion_reasons == (
+        "sealed_or_restricted_material:candidate:field_isprivate",
+    )
+
+
+def test_public_packet_planner_excludes_restricted_raw_html_document(
+    tmp_path: Path,
+) -> None:
+    raw_html_dir = tmp_path / "raw_html"
+    raw_html_dir.mkdir()
+    html = _docket_html().replace("<p>Dismiss</p>", "<p>Dismiss - Under Seal</p>")
+    (raw_html_dir / "123.html").write_text(html, encoding="utf-8")
+
+    plan = plan_public_packet_downloads(
+        (_screened_case(),),
+        raw_html_dir=raw_html_dir,
+        target_clean_cases=1,
+    )
+
+    [excluded] = plan.final_exclusions
+    assert not plan.download_requests
+    assert excluded.exclusion_reasons[0].startswith(
+        "sealed_or_restricted_material:target_mtd_entry_5:"
+    )
 
 
 def test_public_packet_planner_excludes_missing_first_disposition_date(

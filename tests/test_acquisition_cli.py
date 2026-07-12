@@ -35,6 +35,8 @@ def test_fetch_firecrawl_dockets_runs_bounded_offline_bridge(tmp_path: Path) -> 
                 "payload": {
                     "id": "case-a",
                     "caseName": "Fixture v. Example",
+                    "courtId": "nysd",
+                    "docketNumber": "1:26-cv-00001",
                     "url": ("https://www.courtlistener.com/api/rest/v4/dockets/101/"),
                 },
             }
@@ -87,6 +89,7 @@ def test_fetch_firecrawl_dockets_runs_bounded_offline_bridge(tmp_path: Path) -> 
     [success] = _read_jsonl(output_root / "firecrawl-docket-successes.jsonl")
     assert success["candidate_id"] == "candidate-a"
     assert success["docket_id"] == "101"
+    assert success["case_metadata"]["case_id"] == "case-a"
     summary = _read_json(output_root / "firecrawl-docket-summary.json")
     assert summary["scrape_count"] == 1
     assert summary["firecrawl_proxy"] == "basic"

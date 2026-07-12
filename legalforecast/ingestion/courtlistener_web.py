@@ -15,6 +15,8 @@ from enum import StrEnum
 from html.parser import HTMLParser
 from urllib.parse import urlparse
 
+from legalforecast.ingestion.restricted_material import restricted_material_markers
+
 
 class CourtListenerWebParseError(ValueError):
     """Raised when raw CourtListener HTML cannot be parsed as a docket page."""
@@ -39,10 +41,15 @@ class CourtListenerWebDocument:
     href: str | None
     action_label: str | None
     pacer_only: bool
+    restriction_markers: tuple[str, ...] = ()
+
+    @property
+    def restricted(self) -> bool:
+        return bool(self.restriction_markers)
 
     @property
     def freely_available(self) -> bool:
-        return self.href is not None and not self.pacer_only
+        return self.href is not None and not self.pacer_only and not self.restricted
 
     def to_record(self) -> dict[str, object]:
         return {
@@ -52,6 +59,7 @@ class CourtListenerWebDocument:
             "action_label": self.action_label,
             "pacer_only": self.pacer_only,
             "freely_available": self.freely_available,
+            "restriction_markers": list(self.restriction_markers),
         }
 
 
@@ -62,6 +70,13 @@ class CourtListenerWebDocketEntry:
     filed_at: str | None
     text: str
     documents: tuple[CourtListenerWebDocument, ...] = ()
+    restriction_markers: tuple[str, ...] = ()
+
+    @property
+    def restricted(self) -> bool:
+        return bool(self.restriction_markers) or any(
+            document.restricted for document in self.documents
+        )
 
     @property
     def role(self) -> CourtListenerEntryRole:
@@ -86,6 +101,7 @@ class CourtListenerWebDocketEntry:
             "filed_at": self.filed_at,
             "text": self.text,
             "role": self.role.value,
+            "restriction_markers": list(self.restriction_markers),
             "documents": [document.to_record() for document in self.documents],
         }
 
@@ -346,14 +362,16 @@ def _parse_entry_row(row: _Node) -> CourtListenerWebDocketEntry:
             span = _first_descendant(child, tag="span")
             date_filed = span.attrs.get("title") if span is not None else child.text()
             date_filed = date_filed or None
+    row_text = row.text()
     return CourtListenerWebDocketEntry(
         row_id=row_id,
         entry_number=entry_number,
         filed_at=date_filed,
-        text=row.text(),
+        text=row_text,
         documents=tuple(
             _parse_recap_document(document) for document in _documents(row)
         ),
+        restriction_markers=restricted_material_markers(text_fields=(row_text,)),
     )
 
 
@@ -381,6 +399,11 @@ def _parse_recap_document(document: _Node) -> CourtListenerWebDocument:
         href=href,
         action_label=action_label,
         pacer_only=pacer_only,
+        restriction_markers=restricted_material_markers(
+            records=(document.attrs, *((link.attrs,) if link is not None else ())),
+            text_fields=(kind, description),
+            access_label_fields=(action_label or "",),
+        ),
     )
 
 

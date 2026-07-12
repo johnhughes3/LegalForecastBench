@@ -19,6 +19,7 @@ from legalforecast.ingestion.firecrawl_source import (
     FirecrawlPaymentRequiredError,
     FirecrawlResponseError,
 )
+from legalforecast.selection.exclusion_ledger import merge_exclusion_ledger_records
 
 
 @dataclass
@@ -98,6 +99,73 @@ def test_bridge_ledgers_missing_or_malformed_url_without_scraping(tmp_path) -> N
     assert source.requests == []
     assert list(tmp_path.iterdir()) == []
     assert not (tmp_path.parent / "escape.html").exists()
+
+
+def test_bridge_metadata_and_restriction_gates_precede_firecrawl(tmp_path) -> None:
+    client, _ = _client(
+        _lookup(
+            "case-state",
+            courtlistener_docket_id="101",
+            extra_payload={"courtId": "ca9"},
+        ),
+        _lookup(
+            "case-sealed",
+            courtlistener_docket_id="202",
+            extra_payload={"privacyMetadata": {"isSealed": True}},
+        ),
+    )
+    source = _FakeFirecrawlSource()
+
+    result = acquire_case_dev_firecrawl_html(
+        client=client,
+        source=source,
+        candidates=({"case_id": "case-state"}, {"case_id": "case-sealed"}),
+        raw_html_directory=tmp_path,
+        max_candidates=2,
+    )
+
+    assert result.successes == ()
+    assert [item.reason for item in result.exclusions] == [
+        "not_federal_district_court",
+        "restricted_case_metadata",
+    ]
+    assert result.scrape_count == 0
+    assert source.requests == []
+
+
+def test_bridge_rejects_case_dev_identity_mismatch_before_firecrawl(tmp_path) -> None:
+    mismatched = RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params={"type": "lookup", "docketId": "case-a"},
+        status_code=200,
+        payload={
+            "id": "different-case",
+            "caseName": "Fixture v. Example",
+            "courtId": "nysd",
+            "docketNumber": "1:26-cv-00001",
+            "url": "https://www.courtlistener.com/api/rest/v4/dockets/101/",
+        },
+    )
+    client, _ = _client(mismatched)
+    source = _FakeFirecrawlSource()
+
+    result = acquire_case_dev_firecrawl_html(
+        client=client,
+        source=source,
+        candidates=({"case_id": "case-a", "candidate_id": "candidate-a"},),
+        raw_html_directory=tmp_path,
+        max_candidates=1,
+    )
+
+    [exclusion] = result.exclusions
+    assert exclusion.reason == "case_dev_identity_mismatch"
+    assert exclusion.to_record()["stage"] == "discovery"
+    [ledger_entry] = merge_exclusion_ledger_records([exclusion.to_record()]).entries
+    assert ledger_entry.candidate_id == "candidate-a"
+    assert ledger_entry.case_id == "case-a"
+    assert source.requests == []
+    assert result.scrape_count == 0
 
 
 def test_bridge_never_overwrites_an_existing_docket_file(tmp_path) -> None:
@@ -310,16 +378,21 @@ def _lookup(
     *,
     courtlistener_docket_id: str | None = None,
     include_source_url: bool = True,
+    extra_payload: dict[str, object] | None = None,
 ) -> RecordedCaseDevResponse:
     payload: dict[str, object] = {
         "id": case_id,
         "caseName": f"Fixture {case_id} v. Example",
+        "courtId": "nysd",
+        "docketNumber": "1:26-cv-00001",
     }
     if include_source_url:
         docket_id = courtlistener_docket_id or case_id
         payload["url"] = (
             f"https://www.courtlistener.com/api/rest/v4/dockets/{docket_id}/"
         )
+    if extra_payload is not None:
+        payload.update(extra_payload)
     return RecordedCaseDevResponse(
         method="POST",
         path="/legal/v1/docket",

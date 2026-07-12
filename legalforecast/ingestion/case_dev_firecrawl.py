@@ -5,10 +5,11 @@ from __future__ import annotations
 import os
 import re
 import tempfile
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol, cast
 from urllib.parse import urlparse
 
 from legalforecast.ingestion.case_dev_client import (
@@ -19,6 +20,7 @@ from legalforecast.ingestion.case_dev_client import (
     CaseDevRateLimitError,
     CaseDevServerError,
 )
+from legalforecast.ingestion.courtlistener_client import CourtListenerDocket
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebParseError,
     parse_courtlistener_docket_html,
@@ -30,6 +32,13 @@ from legalforecast.ingestion.firecrawl_source import (
 )
 from legalforecast.ingestion.mtd_acquisition_screen import (
     courtlistener_public_docket_url_from_case_dev,
+    screen_case_dev_docket_metadata,
+)
+from legalforecast.ingestion.restricted_material import restricted_material_markers
+from legalforecast.selection.exclusion_ledger import (
+    ExclusionLedgerEntry,
+    ExclusionReason,
+    ExclusionStage,
 )
 
 _COURTLISTENER_HOSTS = frozenset({"courtlistener.com", "www.courtlistener.com"})
@@ -95,6 +104,7 @@ class CaseDevFirecrawlSuccess:
     source_url: str
     docket_id: str
     raw_html_path: Path
+    case_metadata: Mapping[str, object]
 
     def to_record(self) -> dict[str, object]:
         """Return a JSON-compatible manifest record."""
@@ -105,6 +115,7 @@ class CaseDevFirecrawlSuccess:
             "source_url": self.source_url,
             "docket_id": self.docket_id,
             "raw_html_path": str(self.raw_html_path),
+            "case_metadata": dict(self.case_metadata),
         }
 
 
@@ -115,18 +126,29 @@ class CaseDevFirecrawlExclusion:
     case_id: str
     candidate_id: str | None
     reason: str
+    secondary_reasons: tuple[str, ...] = ()
     source_url: str | None = None
     docket_id: str | None = None
 
     def to_record(self) -> dict[str, object]:
-        """Return a JSON-compatible exclusion-ledger record."""
+        """Return a canonical, mergeable exclusion-ledger record."""
 
         return {
             "case_id": self.case_id,
-            "candidate_id": self.candidate_id,
+            "candidate_id": self.candidate_id or self.case_id,
             "source_url": self.source_url,
             "docket_id": self.docket_id,
-            "exclusion_reasons": [self.reason],
+            "exclusion_reasons": [self.reason, *self.secondary_reasons],
+            "stage": _firecrawl_exclusion_stage(self.reason).value,
+            "reason": self.reason,
+            "primary_exclusion_reason": self.reason,
+            "secondary_exclusion_reasons": list(self.secondary_reasons),
+            "source_entry_ids": [],
+            "source_document_ids": [],
+            "notes": (
+                "Case.dev-to-Firecrawl acquisition excluded this candidate for "
+                f"{self.reason}."
+            ),
         }
 
 
@@ -139,6 +161,21 @@ class CaseDevFirecrawlResult:
     unique_candidate_count: int
     processed_candidate_count: int
     scrape_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class CaseDevFirecrawlScreeningResult:
+    """Reconciled strict-screen outputs for persisted Firecrawl pages."""
+
+    screened_cases: tuple[Mapping[str, Any], ...]
+    exclusions: tuple[ExclusionLedgerEntry, ...]
+    input_success_count: int
+
+    @property
+    def reconciled(self) -> bool:
+        return self.input_success_count == len(self.screened_cases) + len(
+            self.exclusions
+        )
 
 
 def acquire_case_dev_firecrawl_html(
@@ -193,6 +230,25 @@ def acquire_case_dev_firecrawl_html(
             ) from error
         except CaseDevClientError:
             exclusions.append(_exclusion(candidate, reason="case_dev_response_invalid"))
+            continue
+
+        if case.case_id != candidate.case_id:
+            exclusions.append(
+                _exclusion(candidate, reason="case_dev_identity_mismatch")
+            )
+            continue
+        metadata_screen = screen_case_dev_docket_metadata(case.raw)
+        if not metadata_screen.accepted_for_scrape:
+            exclusions.append(
+                _exclusion(
+                    candidate,
+                    reason=metadata_screen.exclusion_reasons[0],
+                    secondary_reasons=metadata_screen.exclusion_reasons[1:],
+                )
+            )
+            continue
+        if case_dev_record_is_restricted(case.raw):
+            exclusions.append(_exclusion(candidate, reason="restricted_case_metadata"))
             continue
 
         source_url = courtlistener_public_docket_url_from_case_dev(case.raw)
@@ -314,6 +370,7 @@ def acquire_case_dev_firecrawl_html(
                 source_url=source_url,
                 docket_id=docket_id,
                 raw_html_path=destination,
+                case_metadata=_screening_metadata_record(case.raw),
             )
         )
 
@@ -328,6 +385,250 @@ def acquire_case_dev_firecrawl_html(
         processed_candidate_count=processed_candidate_count,
         scrape_count=scrape_count,
     )
+
+
+def screen_case_dev_firecrawl_successes(
+    *,
+    successes: Iterable[Mapping[str, object]],
+    raw_html_directory: str | Path,
+    decision_filed_on_or_after: date,
+) -> CaseDevFirecrawlScreeningResult:
+    """Screen persisted Firecrawl pages into planner-compatible case records.
+
+    Every input success is reconciled to either one screened case or one
+    canonical exclusion. The manifest's arbitrary path is never trusted; HTML
+    is read only from ``<raw_html_directory>/<numeric docket_id>.html``.
+    """
+
+    # Import lazily to avoid the ingestion package's public re-export cycle:
+    # motion_linkage imports docket_sync while ingestion.__init__ imports this
+    # module. The screening kernel itself is only needed when this stage runs.
+    from legalforecast.ingestion.courtlistener_acquisition import (
+        screen_courtlistener_docket_html,
+    )
+
+    root = Path(raw_html_directory)
+    screened_cases: list[Mapping[str, Any]] = []
+    exclusions: list[ExclusionLedgerEntry] = []
+    input_count = 0
+    seen_docket_ids: set[str] = set()
+    for record in successes:
+        input_count += 1
+        case_id = _manifest_string(record, "case_id")
+        docket_id = _manifest_string(record, "docket_id")
+        source_url = _manifest_string(record, "source_url")
+        metadata = record.get("case_metadata")
+        if (
+            case_id is None
+            or docket_id is None
+            or source_url is None
+            or not isinstance(metadata, Mapping)
+            or _courtlistener_docket_id(source_url) != docket_id
+            or not docket_id.isdigit()
+        ):
+            exclusions.append(
+                _screening_exclusion(
+                    candidate_id=_unique_exclusion_candidate_id(
+                        input_index=input_count,
+                    ),
+                    case_id=case_id or "unknown",
+                    reason=ExclusionReason.PARSE_ERROR.value,
+                    notes=(
+                        "Firecrawl success manifest is missing valid identity or "
+                        "metadata."
+                    ),
+                )
+            )
+            continue
+        if docket_id in seen_docket_ids:
+            exclusions.append(
+                _screening_exclusion(
+                    candidate_id=_unique_exclusion_candidate_id(
+                        input_index=input_count,
+                    ),
+                    case_id=case_id,
+                    reason="duplicate_firecrawl_success",
+                    notes=(
+                        "Duplicate CourtListener docket ID in Firecrawl success "
+                        "manifest."
+                    ),
+                )
+            )
+            continue
+        seen_docket_ids.add(docket_id)
+        normalized_metadata: dict[str, object] = dict(
+            cast(Mapping[str, object], metadata)
+        )
+        if _manifest_string(normalized_metadata, "case_id") != case_id:
+            exclusions.append(
+                _screening_exclusion(
+                    candidate_id=docket_id,
+                    case_id=case_id,
+                    reason=ExclusionReason.PARSE_ERROR.value,
+                    notes=(
+                        "Case.dev identity does not match persisted screening metadata."
+                    ),
+                )
+            )
+            continue
+        if case_dev_record_is_restricted(normalized_metadata):
+            exclusions.append(
+                _screening_exclusion(
+                    candidate_id=docket_id,
+                    case_id=case_id,
+                    reason="restricted_case_metadata",
+                    notes=(
+                        "Persisted Case.dev metadata explicitly marks the case "
+                        "non-public."
+                    ),
+                    stage=ExclusionStage.DISCOVERY,
+                )
+            )
+            continue
+        metadata_screen = screen_case_dev_docket_metadata(normalized_metadata)
+        html_path = root / f"{docket_id}.html"
+        try:
+            raw_html = html_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            exclusions.append(
+                _screening_exclusion(
+                    candidate_id=docket_id,
+                    case_id=case_id,
+                    reason=ExclusionReason.PARSE_ERROR.value,
+                    notes=(
+                        "Persisted Firecrawl docket HTML is unavailable: "
+                        f"{html_path.name}."
+                    ),
+                )
+            )
+            continue
+        docket = CourtListenerDocket(
+            docket_id=docket_id,
+            court_id=_manifest_string(normalized_metadata, "court_id"),
+            docket_number=_manifest_string(normalized_metadata, "docket_number"),
+            case_name=_manifest_string(normalized_metadata, "case_name") or "unknown",
+            date_filed=_manifest_string(normalized_metadata, "date_filed"),
+            source_url=source_url,
+            raw=normalized_metadata,
+        )
+        screened, exclusion = screen_courtlistener_docket_html(
+            docket=docket,
+            metadata_screen=metadata_screen,
+            raw_html=raw_html,
+            decision_filed_on_or_after=decision_filed_on_or_after,
+        )
+        if screened is not None:
+            screened_cases.append(screened)
+        elif exclusion is not None:
+            exclusions.append(exclusion)
+        else:
+            raise RuntimeError("strict Firecrawl screen returned no terminal result")
+    result = CaseDevFirecrawlScreeningResult(
+        screened_cases=tuple(screened_cases),
+        exclusions=tuple(exclusions),
+        input_success_count=input_count,
+    )
+    if not result.reconciled:
+        raise RuntimeError("Firecrawl screening outputs do not reconcile to inputs")
+    return result
+
+
+def case_dev_record_is_restricted(record: Mapping[str, object]) -> bool:
+    """Return whether explicit Case.dev metadata marks material non-public."""
+
+    return any(
+        restricted_material_markers(records=({key: value},))
+        for key, value in _walk_mapping(record)
+    )
+
+
+def _screening_metadata_record(record: Mapping[str, object]) -> dict[str, object]:
+    metadata = screen_case_dev_docket_metadata(record).metadata.to_record()
+    aliases = {
+        "date_filed": ("date_filed", "dateFiled", "filingDate"),
+        "nos_macro_category": ("nos_macro_category", "nosMacroCategory"),
+        "related_family_id": (
+            "related_family_id",
+            "relatedFamilyId",
+            "related_case_family_id",
+            "relatedCaseFamilyId",
+        ),
+        "mdl_family_id": ("mdl_family_id", "mdlFamilyId", "mdl_id", "mdlId"),
+    }
+    for output_key, source_keys in aliases.items():
+        value = _first_record_string(record, source_keys)
+        if value is not None:
+            metadata[output_key] = value
+    return metadata
+
+
+def _walk_mapping(
+    record: Mapping[str, object],
+) -> Iterable[tuple[str, object]]:
+    for key, value in record.items():
+        yield key, value
+        if isinstance(value, Mapping):
+            yield from _walk_mapping(cast(Mapping[str, object], value))
+        elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+            for item in cast(Sequence[object], value):
+                if isinstance(item, Mapping):
+                    yield from _walk_mapping(cast(Mapping[str, object], item))
+
+
+def _first_record_string(
+    record: Mapping[str, object],
+    keys: Sequence[str],
+) -> str | None:
+    for key, value in _walk_mapping(record):
+        if key not in keys:
+            continue
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, int) and not isinstance(value, bool):
+            return str(value)
+    return None
+
+
+def _manifest_string(record: Mapping[str, object], key: str) -> str | None:
+    value = record.get(key)
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _screening_exclusion(
+    *,
+    candidate_id: str,
+    case_id: str,
+    reason: str,
+    notes: str,
+    stage: ExclusionStage = ExclusionStage.EXTRACTION,
+) -> ExclusionLedgerEntry:
+    return ExclusionLedgerEntry(
+        candidate_id=candidate_id,
+        case_id=case_id,
+        stage=stage,
+        reason=reason,
+        source_entry_ids=(),
+        notes=notes,
+    )
+
+
+def _unique_exclusion_candidate_id(
+    *,
+    input_index: int,
+) -> str:
+    return f"firecrawl-manifest-row-{input_index}"
+
+
+def _firecrawl_exclusion_stage(reason: str) -> ExclusionStage:
+    if reason in {
+        "case_dev_provider_blocker",
+        "case_dev_response_invalid",
+        "firecrawl_provider_blocker",
+        "firecrawl_response_invalid",
+        "raw_html_path_exists",
+    }:
+        return ExclusionStage.RETRIEVAL
+    return ExclusionStage.DISCOVERY
 
 
 def _batch_error(
@@ -415,6 +716,7 @@ def _exclusion(
     candidate: CaseDevFirecrawlCandidate,
     *,
     reason: str,
+    secondary_reasons: Sequence[str] = (),
     source_url: str | None = None,
     docket_id: str | None = None,
 ) -> CaseDevFirecrawlExclusion:
@@ -422,6 +724,11 @@ def _exclusion(
         case_id=candidate.case_id,
         candidate_id=candidate.candidate_id,
         reason=reason,
+        secondary_reasons=tuple(
+            secondary_reason
+            for secondary_reason in secondary_reasons
+            if secondary_reason and secondary_reason != reason
+        ),
         source_url=source_url,
         docket_id=docket_id,
     )
