@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -18,6 +19,9 @@ from legalforecast.ingestion.provenance import ExtractedTextArtifact, sha256_tex
 DEFAULT_PARSER_ROOT = Path("~/Development/tools/parser")
 DEFAULT_PARSER_TIMEOUT_SECONDS = 600
 _PARSER_COMMAND = ("uv", "run", "parser-pdf")
+EXPECTED_PARSER_REVISION = "9402306972462a5bdd0da7f687c5e6b4cea373a0"
+_ENV_ONLY_API_KEYS_VARIABLE = "PARSER_API_KEYS_FROM_ENV_ONLY"
+_PARSER_LOCALE_ENV_NAMES = ("LANG", "LC_ALL")
 
 
 class MistralMarkdownConversionStatus(StrEnum):
@@ -121,6 +125,10 @@ class MistralMarkdownConversionRecord:
 class SubprocessParserRunner:
     """Run the parser through ``uv`` with a hard per-document timeout."""
 
+    def __init__(self, *, parent_env: Mapping[str, str] | None = None) -> None:
+        source_env = os.environ if parent_env is None else parent_env
+        self._child_env = _build_parser_subprocess_env(source_env)
+
     def run(
         self,
         command: tuple[str, ...],
@@ -132,7 +140,7 @@ class SubprocessParserRunner:
             completed = subprocess.run(
                 command,
                 cwd=cwd,
-                env=os.environ.copy(),
+                env=self._child_env,
                 capture_output=True,
                 check=False,
                 text=True,
@@ -166,8 +174,10 @@ def convert_documents_to_markdown(
         SubprocessParserRunner() if runner is None else runner
     )
     parser_root = parser_config.parser_root.expanduser().resolve()
+    parser_revision: str | None = None
     if runner is None:
         _require_parser_root(parser_root)
+        parser_revision = _require_parser_revision(parser_root)
     extraction_time = datetime.now(UTC) if extracted_at is None else extracted_at
     _require_aware(extraction_time, "extracted_at")
     version = _parser_version(parser_root)
@@ -177,6 +187,7 @@ def convert_documents_to_markdown(
             config=parser_config,
             parser_root=parser_root,
             parser_version=version,
+            parser_revision=parser_revision,
             runner=process_runner,
             extracted_at=extraction_time,
         )
@@ -190,6 +201,7 @@ def _convert_one(
     config: MistralParserConfig,
     parser_root: Path,
     parser_version: str | None,
+    parser_revision: str | None,
     runner: ParserProcessRunner,
     extracted_at: datetime,
 ) -> MistralMarkdownConversionRecord:
@@ -201,6 +213,7 @@ def _convert_one(
         config,
         parser_root=parser_root,
         parser_version=parser_version,
+        parser_revision=parser_revision,
     )
 
     if not input_path.exists():
@@ -394,10 +407,13 @@ def _parser_config_record(
     *,
     parser_root: Path,
     parser_version: str | None,
+    parser_revision: str | None,
 ) -> dict[str, Any]:
     return {
         "parser_root": str(parser_root),
         "parser_version": parser_version,
+        "parser_revision": parser_revision,
+        "expected_parser_revision": EXPECTED_PARSER_REVISION,
         "timeout_seconds": config.timeout_seconds,
         "debug": config.debug,
         "engine": "mistral",
@@ -423,6 +439,46 @@ def _require_parser_root(parser_root: Path) -> None:
         raise FileNotFoundError(
             "parser_root must point to the local parser repo with pyproject.toml"
         )
+
+
+def _require_parser_revision(parser_root: Path) -> str:
+    path = os.environ.get("PATH")
+    if path is None or not path.strip():
+        raise ValueError("PATH must be present and nonempty to verify parser revision")
+    completed = subprocess.run(
+        ("git", "-C", str(parser_root), "rev-parse", "HEAD"),
+        env={"PATH": path},
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=10,
+    )
+    revision = completed.stdout.strip()
+    if completed.returncode != 0 or revision != EXPECTED_PARSER_REVISION:
+        raise ValueError(
+            "parser checkout revision mismatch: expected "
+            f"{EXPECTED_PARSER_REVISION}, got {revision or 'unavailable'}"
+        )
+    return revision
+
+
+def _build_parser_subprocess_env(parent_env: Mapping[str, str]) -> dict[str, str]:
+    api_key = parent_env.get("MISTRAL_API_KEY")
+    if api_key is None or not api_key.strip():
+        raise ValueError("MISTRAL_API_KEY must be present and nonempty before spawn")
+    path = parent_env.get("PATH")
+    if path is None or not path.strip():
+        raise ValueError("PATH must be present and nonempty before parser spawn")
+    child_env = {
+        "MISTRAL_API_KEY": api_key,
+        _ENV_ONLY_API_KEYS_VARIABLE: "1",
+        "PATH": path,
+    }
+    for name in _PARSER_LOCALE_ENV_NAMES:
+        value = parent_env.get(name)
+        if value is not None and value.strip():
+            child_env[name] = value
+    return child_env
 
 
 def _relative_or_absolute(path: Path, root: Path) -> str:
