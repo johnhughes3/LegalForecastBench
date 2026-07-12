@@ -66,6 +66,13 @@ from legalforecast.evals.scorers import (
     score_cases,
 )
 from legalforecast.extraction.pdf_text import extract_pdf_text_with_ocr_fallback
+from legalforecast.ingestion.budgeted_firecrawl import (
+    BudgetedFirecrawlScheduler,
+    FirecrawlArtifactError,
+    FirecrawlCircuitOpenError,
+    FirecrawlPageRecord,
+    FirecrawlTargetSpec,
+)
 from legalforecast.ingestion.case_dev_client import (
     CaseDevClient,
     CaseDevClientError,
@@ -130,13 +137,24 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     verify_snapshot,
 )
 from legalforecast.ingestion.discovery_scheduler import (
+    DiscoveryHit,
     DiscoverySchedulerError,
+    TermTerminalStatus,
     materialize_independent_term_sets,
 )
 from legalforecast.ingestion.docket_markdown import ControlledDocketMarkdownArtifacts
 from legalforecast.ingestion.docket_sync import (
     DocketRetrievalPipeline,
     NormalizedDocketEntry,
+)
+from legalforecast.ingestion.firecrawl_recap_discovery import (
+    FROZEN_MTD_SEARCH_TERMS,
+    RecapDiscoveredEntry,
+    RecapSearchError,
+    RecapSearchHit,
+    discover_recap_mtd_entries,
+    parse_recap_search_html,
+    parse_recap_search_url,
 )
 from legalforecast.ingestion.firecrawl_source import (
     FirecrawlConfig,
@@ -553,6 +571,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_discover_case_dev_arguments(acquisition_discover_case_dev)
+    acquisition_discover_firecrawl_recap = acquisition_subparsers.add_parser(
+        "discover-firecrawl-recap",
+        help=(
+            "Discover anchored MTD docket entries from CourtListener RECAP "
+            "through a cycle-budgeted Firecrawl route."
+        ),
+    )
+    _add_acquisition_discover_firecrawl_recap_arguments(
+        acquisition_discover_firecrawl_recap
+    )
     acquisition_discover_courtlistener = acquisition_subparsers.add_parser(
         "discover-courtlistener",
         help=(
@@ -1017,6 +1045,88 @@ def _add_acquisition_discover_case_dev_arguments(
     )
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_discover_case_dev)
+
+
+def _add_acquisition_discover_firecrawl_recap_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        help="Cycle-scoped SQLite store; defaults under --output-root.",
+    )
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument(
+        "--run-id",
+        required=True,
+        help="Stable Firecrawl run identity used for crash-safe resume.",
+    )
+    parser.add_argument(
+        "--decision-filed-on-or-after",
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="Inclusive docket-entry disposition discovery anchor.",
+    )
+    parser.add_argument(
+        "--decision-filed-on-or-before",
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="Inclusive docket-entry discovery upper bound.",
+    )
+    parser.add_argument(
+        "--query-term",
+        dest="query_terms",
+        action="append",
+        help=(
+            "Literal MTD RECAP entry-search term. Repeat to replace the frozen "
+            "default set; judgment-on-the-pleadings terms are not eligible."
+        ),
+    )
+    parser.add_argument(
+        "--max-pages-per-term",
+        type=int,
+        default=1_000,
+        help="Fail-closed pagination ceiling per term; default 1000.",
+    )
+    parser.add_argument(
+        "--credit-cap",
+        type=int,
+        default=45_000,
+        help=(
+            "Cycle-wide permanent Firecrawl authorization cap. Must not exceed "
+            "45000, preserving at least 5000 credits below the requested limit."
+        ),
+    )
+    parser.add_argument(
+        "--max-attempts-per-page",
+        type=int,
+        default=3,
+        help="Maximum separately reserved attempts per page; default 3.",
+    )
+    parser.add_argument(
+        "--provider-breaker-threshold",
+        type=int,
+        default=5,
+        help="Stop after this many consecutive Firecrawl provider 5xx responses.",
+    )
+    parser.add_argument(
+        "--proxy",
+        choices=("basic", "auto"),
+        default="auto",
+        help="Firecrawl proxy mode; auto is reserved at five credits per request.",
+    )
+    parser.add_argument("--firecrawl-fixture", type=Path)
+    parser.add_argument(
+        "--live-firecrawl",
+        action="store_true",
+        help="Use FIRECRAWL_API_KEY; no CourtListener token or PACER path is used.",
+    )
+    parser.add_argument("--entries-output", type=Path)
+    parser.add_argument("--dockets-output", type=Path)
+    parser.add_argument("--summary-output", type=Path)
+    parser.add_argument("--raw-search-html-dir", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_discover_firecrawl_recap)
 
 
 def _add_acquisition_discover_courtlistener_arguments(
@@ -2737,6 +2847,397 @@ def _cmd_acquisition_discover_case_dev(args: argparse.Namespace) -> int:
         extra=summary,
     )
     return 0
+
+
+class _BudgetedRecapSearchTransport:
+    """Adapt page-at-a-time RECAP discovery to the durable scheduler."""
+
+    def __init__(self, scheduler: BudgetedFirecrawlScheduler) -> None:
+        self.scheduler = scheduler
+        self._ordinals: dict[str, int] = {}
+        self._pages: dict[str, FirecrawlPageRecord] = {}
+
+    @property
+    def pages(self) -> tuple[FirecrawlPageRecord, ...]:
+        return tuple(
+            self._pages[url]
+            for url, _ordinal in sorted(
+                self._ordinals.items(), key=lambda item: item[1]
+            )
+        )
+
+    def fetch(self, *, source_url: str) -> str:
+        target = parse_recap_search_url(source_url)
+        ordinal = self._ordinals.setdefault(source_url, len(self._ordinals))
+        target_id = (
+            "recap-search-"
+            + hashlib.sha256(source_url.encode("utf-8")).hexdigest()[:24]
+        )
+        result = self.scheduler.run(
+            (
+                FirecrawlTargetSpec(
+                    target_id=target_id,
+                    target_kind="search",
+                    source_url=source_url,
+                    page_number=target.page,
+                    ordinal=ordinal,
+                ),
+            )
+        )
+        page = next(
+            (record for record in result.pages if record.target_id == target_id),
+            None,
+        )
+        if page is None:
+            raise RecapSearchError(
+                "Firecrawl retries were exhausted before a complete RECAP page "
+                f"was acquired: {target.term} page {target.page}"
+            )
+        self._pages[source_url] = page
+        return page.raw_html
+
+
+def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    batch_id = cast(str, args.batch_id)
+    run_id = cast(str, args.run_id)
+    store_path = _acquisition_path(
+        args, "cycle_store", output_root / "cycle-acquisition.sqlite3"
+    )
+    entries_path = _acquisition_path(
+        args,
+        "entries_output",
+        output_root / "checkpoints" / f"{batch_id}-recap-entries.jsonl",
+    )
+    dockets_path = _acquisition_path(
+        args,
+        "dockets_output",
+        output_root / "checkpoints" / f"{batch_id}-recap-dockets.jsonl",
+    )
+    summary_path = _acquisition_path(
+        args,
+        "summary_output",
+        output_root / "checkpoints" / f"{batch_id}-recap-summary.json",
+    )
+    raw_search_html_dir = _acquisition_path(
+        args,
+        "raw_search_html_dir",
+        output_root / "raw-recap-search-html",
+    )
+    anchor = _iso_date_argument(
+        cast(str, args.decision_filed_on_or_after),
+        "--decision-filed-on-or-after",
+    )
+    window_end = _iso_date_argument(
+        cast(str, args.decision_filed_on_or_before),
+        "--decision-filed-on-or-before",
+    )
+    if window_end < anchor:
+        raise CommandError(
+            "--decision-filed-on-or-before cannot precede the eligibility anchor"
+        )
+    terms = tuple(cast(Sequence[str] | None, args.query_terms) or ())
+    if not terms:
+        terms = FROZEN_MTD_SEARCH_TERMS
+    if any("judgment on the pleadings" in term.casefold() for term in terms):
+        raise CommandError(
+            "judgment-on-the-pleadings terms cannot count toward the literal MTD corpus"
+        )
+    max_pages_per_term = cast(int, args.max_pages_per_term)
+    max_attempts = cast(int, args.max_attempts_per_page)
+    breaker_threshold = cast(int, args.provider_breaker_threshold)
+    credit_cap = cast(int, args.credit_cap)
+    if max_pages_per_term <= 0:
+        raise CommandError("--max-pages-per-term must be positive")
+    if max_attempts <= 0:
+        raise CommandError("--max-attempts-per-page must be positive")
+    if breaker_threshold <= 0:
+        raise CommandError("--provider-breaker-threshold must be positive")
+    if credit_cap <= 0 or credit_cap > 45_000:
+        raise CommandError("--credit-cap must be between 1 and 45000")
+    proxy = cast(str, args.proxy)
+    fixture_path = cast(Path | None, args.firecrawl_fixture)
+    live = cast(bool, args.live_firecrawl)
+    if live == (fixture_path is not None):
+        raise CommandError(
+            "choose exactly one of --firecrawl-fixture or --live-firecrawl"
+        )
+    dry_run = _acquisition_dry_run(args)
+    input_paths = () if fixture_path is None else (fixture_path,)
+    output_paths = (
+        store_path,
+        entries_path,
+        dockets_path,
+        summary_path,
+        raw_search_html_dir,
+    )
+    policy: JsonRecord = {
+        "schema_version": "legalforecast.firecrawl_recap_discovery_policy.v1",
+        "eligibility_anchor": anchor.isoformat(),
+        "observation_window_end": window_end.isoformat(),
+        "discovery_source": "courtlistener_recap_entry_search_via_firecrawl",
+        "query_terms": list(terms),
+        "query_term_order_is_frozen": True,
+        "screening_source_sha256": _current_screening_source_sha256(),
+    }
+    batch_config: JsonRecord = {
+        "provider": "courtlistener-recap-web-via-firecrawl",
+        "decision_window_start": anchor.isoformat(),
+        "decision_window_end": window_end.isoformat(),
+        "max_pages_per_term": max_pages_per_term,
+    }
+    run_config: JsonRecord = {
+        "purpose": "anchored-recap-entry-discovery",
+        "proxy": proxy,
+        "max_attempts_per_page": max_attempts,
+        "provider_breaker_threshold": breaker_threshold,
+        "query_terms": list(terms),
+        "raw_artifact_root": str(raw_search_html_dir.resolve()),
+    }
+    if dry_run:
+        summary: JsonRecord = {
+            "schema_version": "legalforecast.firecrawl_recap_discovery_summary.v1",
+            "dry_run": True,
+            "batch_id": batch_id,
+            "run_id": run_id,
+            "query_terms": list(terms),
+            "potential_candidate_count": 0,
+            "clean_corpus_count": 0,
+            "credit_cap": credit_cap,
+            "reserved_credits_per_attempt": 5,
+            **batch_config,
+            **run_config,
+        }
+        _write_jsonl(entries_path, [])
+        _write_jsonl(dockets_path, [])
+        _write_json(summary_path, summary)
+        _write_acquisition_completion(
+            args,
+            stage="discover-firecrawl-recap",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=0,
+            dry_run=True,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+        return 0
+
+    try:
+        source = (
+            FirecrawlCourtListenerHTMLSource(
+                FirecrawlConfig.from_env(proxy=cast(Any, proxy))
+            )
+            if live
+            else FirecrawlCourtListenerHTMLSource(
+                FirecrawlConfig(api_key="offline-fixture", proxy=cast(Any, proxy)),
+                transport=_firecrawl_fixture_transport(cast(Path, fixture_path)),
+            )
+        )
+        with CycleAcquisitionStore(store_path) as store:
+            cycle_hash = store.ensure_cycle(policy)
+            batch_digest = store.ensure_batch(batch_id, batch_config)
+            store.ensure_terms(batch_id, terms)
+            run_digest = store.ensure_firecrawl_run(
+                run_id,
+                batch_id=batch_id,
+                config=run_config,
+                credit_cap=credit_cap,
+                reserved_credits_per_attempt=5,
+            )
+            scheduler = BudgetedFirecrawlScheduler(
+                store=store,
+                source=source,
+                run_id=run_id,
+                artifact_dir=raw_search_html_dir,
+                max_attempts=max_attempts,
+                provider_5xx_circuit_threshold=breaker_threshold,
+            )
+            transport = _BudgetedRecapSearchTransport(scheduler)
+            discovery = discover_recap_mtd_entries(
+                transport=transport,
+                entry_date_filed_after=anchor,
+                entry_date_filed_before=window_end,
+                terms=terms,
+                max_pages_per_term=max_pages_per_term,
+            )
+            _commit_recap_discovery_pages(
+                store=store,
+                batch_id=batch_id,
+                pages=transport.pages,
+            )
+            credit_summary = dict(store.firecrawl_run_summary(run_id))
+    except (
+        ConfigMismatchError,
+        CycleAcquisitionStoreError,
+        FirecrawlArtifactError,
+        FirecrawlCircuitOpenError,
+        FirecrawlError,
+        RecapSearchError,
+        ValueError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="discover-firecrawl-recap",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+
+    entry_records = [
+        _recap_discovered_entry_record(entry) for entry in discovery.entries
+    ]
+    docket_records = [
+        {
+            "candidate_id": f"courtlistener-docket-{docket.docket_id}",
+            "docket_id": docket.docket_id,
+            "docket_url": docket.docket_url,
+            "entry_keys": list(docket.entry_keys),
+            "matched_terms": list(docket.matched_terms),
+            "eligibility_status": "potential_unverified",
+        }
+        for docket in discovery.dockets
+    ]
+    _write_jsonl(entries_path, entry_records)
+    _write_jsonl(dockets_path, docket_records)
+    summary = {
+        "schema_version": "legalforecast.firecrawl_recap_discovery_summary.v1",
+        "dry_run": False,
+        "batch_id": batch_id,
+        "run_id": run_id,
+        "cycle_hash": cycle_hash,
+        "batch_digest": batch_digest,
+        "run_digest": run_digest,
+        "query_terms": list(discovery.terms),
+        "pages_fetched": discovery.pages_fetched,
+        "raw_hit_count": discovery.raw_hit_count,
+        "duplicate_entry_count": discovery.duplicate_entry_count,
+        "entry_count": len(entry_records),
+        "potential_candidate_count": len(docket_records),
+        "clean_corpus_count": 0,
+        "complete": discovery.complete,
+        "saturated": discovery.complete,
+        "candidate_count_semantics": (
+            "potential dockets only; full eligibility, documents, leakage, parsing, "
+            "unitization, and labeling remain required"
+        ),
+        **credit_summary,
+        **batch_config,
+    }
+    _write_json(summary_path, summary)
+    _write_acquisition_completion(
+        args,
+        stage="discover-firecrawl-recap",
+        input_paths=input_paths,
+        output_paths=output_paths,
+        record_count=len(docket_records),
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra=summary,
+    )
+    return 0
+
+
+def _commit_recap_discovery_pages(
+    *,
+    store: CycleAcquisitionStore,
+    batch_id: str,
+    pages: Sequence[FirecrawlPageRecord],
+) -> None:
+    """Project verified raw RECAP pages into durable discovery progress."""
+
+    for record in pages:
+        page = parse_recap_search_html(record.raw_html, source_url=record.source_url)
+        hits = tuple(
+            DiscoveryHit(
+                provider_hit_id=_recap_provider_hit_id(hit),
+                candidate_id=f"courtlistener-docket-{hit.docket_id}",
+                payload=_recap_search_hit_record(hit),
+            )
+            for hit in page.hits
+        )
+        store.commit_search_page(
+            batch_id,
+            page.target.term,
+            None if page.target.page == 1 else str(page.target.page),
+            hits,
+            next_cursor=(
+                str(page.target.page + 1) if page.next_url is not None else None
+            ),
+            terminal_status=(
+                None if page.next_url is not None else TermTerminalStatus.EXHAUSTED
+            ),
+        )
+
+
+def _recap_provider_hit_id(hit: RecapSearchHit) -> str:
+    identity = "\0".join(
+        (
+            hit.entry_key,
+            hit.document_url,
+            str(hit.provenance.result_ordinal),
+            str(hit.provenance.entry_ordinal),
+        )
+    )
+    return hashlib.sha256(identity.encode("utf-8")).hexdigest()
+
+
+def _recap_search_hit_record(hit: RecapSearchHit) -> JsonRecord:
+    return {
+        "entry_key": hit.entry_key,
+        "docket_id": hit.docket_id,
+        "docket_entry_id": hit.docket_entry_id,
+        "document_number": hit.document_number,
+        "attachment_number": hit.attachment_number,
+        "docket_url": hit.docket_url,
+        "document_url": hit.document_url,
+        "entry_date_filed": hit.entry_date_filed.isoformat(),
+        "case_name": hit.case_name,
+        "description": hit.description,
+        "is_available": hit.is_available,
+        "provenance": {
+            "query_term": hit.provenance.query_term,
+            "search_url": hit.provenance.search_url,
+            "page": hit.provenance.page,
+            "result_ordinal": hit.provenance.result_ordinal,
+            "entry_ordinal": hit.provenance.entry_ordinal,
+            "raw_html_sha256": hit.provenance.raw_html_sha256,
+        },
+    }
+
+
+def _recap_discovered_entry_record(entry: RecapDiscoveredEntry) -> JsonRecord:
+    return {
+        "entry_key": entry.entry_key,
+        "candidate_id": f"courtlistener-docket-{entry.docket_id}",
+        "docket_id": entry.docket_id,
+        "docket_entry_id": entry.docket_entry_id,
+        "document_number": entry.document_number,
+        "attachment_number": entry.attachment_number,
+        "docket_url": entry.docket_url,
+        "document_url": entry.document_url,
+        "entry_date_filed": entry.entry_date_filed.isoformat(),
+        "case_name": entry.case_name,
+        "description": entry.description,
+        "is_available": entry.is_available,
+        "matched_terms": list(entry.matched_terms),
+        "provenance": [
+            {
+                "query_term": provenance.query_term,
+                "search_url": provenance.search_url,
+                "page": provenance.page,
+                "result_ordinal": provenance.result_ordinal,
+                "entry_ordinal": provenance.entry_ordinal,
+                "raw_html_sha256": provenance.raw_html_sha256,
+            }
+            for provenance in entry.provenances
+        ],
+        "eligibility_status": "potential_unverified",
+    }
 
 
 def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
