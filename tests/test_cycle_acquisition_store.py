@@ -94,6 +94,97 @@ def test_cycle_and_batch_config_identity_fail_closed(tmp_path: Path) -> None:
         assert store.ensure_batch("batch-002", {"page_size": 100}) != digest
 
 
+def test_source_neutral_cycle_policy_upgrade_preserves_credit_authorizations(
+    tmp_path: Path,
+) -> None:
+    legacy_policy = {
+        "schema_version": "legalforecast.firecrawl_recap_discovery_policy.v1",
+        "eligibility_anchor": "2026-06-30",
+        "observation_window_end": "2026-07-12",
+        "discovery_source": "courtlistener_recap_entry_search_via_firecrawl",
+        "query_terms": ["motion to dismiss"],
+        "query_term_order_is_frozen": True,
+        "screening_source_sha256": {"screen": "abc123"},
+    }
+    canonical_policy = {
+        "schema_version": "legalforecast.cycle_acquisition_policy.v1",
+        "eligibility_anchor": "2026-06-30",
+        "screening_source_sha256": {"screen": "abc123"},
+    }
+    with CycleAcquisitionStore(tmp_path / "cycle.sqlite3") as store:
+        legacy_hash = store.ensure_cycle(legacy_policy)
+        store.ensure_batch("legacy-batch", {"provider": "firecrawl"})
+        store.ensure_firecrawl_run(
+            "legacy-run",
+            batch_id="legacy-batch",
+            config={"proxy": "enhanced"},
+            credit_cap=45_000,
+            reserved_credits_per_attempt=5,
+        )
+        store.ensure_firecrawl_target(
+            "legacy-run",
+            target_id="search-page-1",
+            target_kind="search",
+            source_url="https://www.courtlistener.com/?type=r&q=alpha",
+            ordinal=0,
+        )
+        store.authorize_firecrawl_attempt(
+            "legacy-run",
+            target_id="search-page-1",
+            page_number=1,
+            request_url="https://www.courtlistener.com/?type=r&q=alpha",
+        )
+
+        canonical_hash = store.ensure_cycle(canonical_policy)
+
+        assert canonical_hash != legacy_hash
+        assert store.cycle_policy == canonical_policy
+        assert store.firecrawl_run_summary("legacy-run")["reserved_credits"] == 5
+        assert store.ensure_batch("new-batch", {"provider": "case.dev"})
+        migrated = store._connection.execute(
+            "SELECT old_policy_hash, new_policy_hash FROM cycle_policy_migrations"
+        ).fetchone()
+        assert tuple(migrated) == (legacy_hash, canonical_hash)
+
+
+def test_cycle_policy_upgrade_refuses_after_snapshot_publication(
+    tmp_path: Path,
+) -> None:
+    legacy_policy = {
+        "schema_version": "legalforecast.case_dev_discovery_policy.v1",
+        "eligibility_anchor": "2026-06-30",
+        "query_terms": ["motion to dismiss"],
+        "query_term_order_is_frozen": True,
+        "screening_source_sha256": {"screen": "abc123"},
+    }
+    canonical_policy = {
+        "schema_version": "legalforecast.cycle_acquisition_policy.v1",
+        "eligibility_anchor": "2026-06-30",
+        "screening_source_sha256": {"screen": "abc123"},
+    }
+    with CycleAcquisitionStore(tmp_path / "cycle.sqlite3") as store:
+        store.ensure_cycle(legacy_policy)
+        store.ensure_batch("batch-001", {"provider": "case.dev"})
+        store.ensure_terms("batch-001", ["motion to dismiss"])
+        store.commit_search_page(
+            "batch-001",
+            "motion to dismiss",
+            None,
+            [],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        store.export_snapshot(
+            tmp_path / "snapshots",
+            snapshot_id="legacy-checkpoint",
+            batch_id="batch-001",
+            complete=False,
+        )
+
+        with pytest.raises(ConfigMismatchError, match="published snapshot"):
+            store.ensure_cycle(canonical_policy)
+
+
 def test_firecrawl_run_freezes_config_and_permanently_reserves_budget(
     tmp_path: Path,
 ) -> None:

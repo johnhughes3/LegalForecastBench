@@ -1,14 +1,21 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 
 from legalforecast.cli import main
+from legalforecast.ingestion.firecrawl_recap_discovery import build_recap_search_url
 
 
 def test_discover_firecrawl_recap_uses_shared_budget_and_reports_potentials(
     tmp_path: Path,
 ) -> None:
+    source_url = build_recap_search_url(
+        term="motion to dismiss",
+        entry_date_filed_after=date(2026, 6, 30),
+        entry_date_filed_before=date(2026, 7, 12),
+    )
     raw_html = (
         "<!doctype html><html><head><title>0 Results — CourtListener.com</title>"
         "</head><body></body></html>"
@@ -27,6 +34,7 @@ def test_discover_firecrawl_recap_uses_shared_budget_and_reports_potentials(
                             "proxyUsed": "basic",
                             "cacheState": "miss",
                             "creditsUsed": 1,
+                            "sourceURL": source_url,
                         },
                     },
                 },

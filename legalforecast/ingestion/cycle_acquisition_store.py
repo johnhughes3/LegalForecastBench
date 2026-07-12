@@ -24,6 +24,13 @@ from legalforecast.ingestion.discovery_scheduler import (
 )
 
 SCHEMA_VERSION = "legalforecast-cycle-acquisition-v1"
+_SOURCE_NEUTRAL_POLICY_SCHEMA = "legalforecast.cycle_acquisition_policy.v1"
+_LEGACY_SOURCE_POLICY_SCHEMAS = frozenset(
+    {
+        "legalforecast.case_dev_discovery_policy.v1",
+        "legalforecast.firecrawl_recap_discovery_policy.v1",
+    }
+)
 _IMMUTABLE_REASON_CODES = frozenset(
     {
         "decision_before_release_anchor",
@@ -294,7 +301,7 @@ class CycleAcquisitionStore:
         with self._transaction():
             row = self._connection.execute(
                 """
-                SELECT schema_version, policy_hash
+                SELECT schema_version, policy_json, policy_hash
                 FROM cycle_identity WHERE singleton = 1
                 """
             ).fetchone()
@@ -307,12 +314,54 @@ class CycleAcquisitionStore:
                     """,
                     (SCHEMA_VERSION, policy_json, policy_hash, _utc_now()),
                 )
-            elif (
-                row["schema_version"] != SCHEMA_VERSION
-                or row["policy_hash"] != policy_hash
-            ):
+            elif row["schema_version"] != SCHEMA_VERSION:
                 raise ConfigMismatchError(
                     "cycle policy mismatch: refusing to resume with changed identity"
+                )
+            elif row["policy_hash"] != policy_hash:
+                previous = cast(object, json.loads(row["policy_json"]))
+                if not isinstance(previous, dict) or not _is_safe_policy_upgrade(
+                    cast(dict[str, object], previous),
+                    policy,
+                ):
+                    raise ConfigMismatchError(
+                        "cycle policy mismatch: refusing to resume with "
+                        "changed identity"
+                    )
+                if (
+                    self._connection.execute(
+                        "SELECT 1 FROM snapshots LIMIT 1"
+                    ).fetchone()
+                    is not None
+                ):
+                    raise ConfigMismatchError(
+                        "cycle policy migration refused after a published snapshot"
+                    )
+                previous_hash = str(row["policy_hash"])
+                migrated_at = _utc_now()
+                self._connection.execute(
+                    "UPDATE batches SET cycle_hash = ? WHERE cycle_hash = ?",
+                    (policy_hash, previous_hash),
+                )
+                self._connection.execute(
+                    "UPDATE firecrawl_budget SET cycle_hash = ? WHERE cycle_hash = ?",
+                    (policy_hash, previous_hash),
+                )
+                self._connection.execute(
+                    """
+                    UPDATE cycle_identity
+                    SET policy_json = ?, policy_hash = ?
+                    WHERE singleton = 1
+                    """,
+                    (policy_json, policy_hash),
+                )
+                self._connection.execute(
+                    """
+                    INSERT INTO cycle_policy_migrations(
+                        old_policy_hash, new_policy_hash, migrated_at
+                    ) VALUES(?, ?, ?)
+                    """,
+                    (previous_hash, policy_hash, migrated_at),
                 )
         return policy_hash
 
@@ -1650,6 +1699,13 @@ class CycleAcquisitionStore:
                 config_digest TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS cycle_policy_migrations(
+                migration_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                old_policy_hash TEXT NOT NULL,
+                new_policy_hash TEXT NOT NULL,
+                migrated_at TEXT NOT NULL,
+                UNIQUE(old_policy_hash, new_policy_hash)
+            );
             CREATE TABLE IF NOT EXISTS term_progress(
                 batch_id TEXT NOT NULL REFERENCES batches(batch_id),
                 term TEXT NOT NULL,
@@ -2112,6 +2168,29 @@ def _canonical_json(value: object) -> str:
         )
     except (TypeError, ValueError) as error:
         raise ValueError(f"value is not canonical JSON: {error}") from error
+
+
+def _is_safe_policy_upgrade(
+    previous: Mapping[str, object],
+    requested: Mapping[str, object],
+) -> bool:
+    """Recognize the one audited source-specific to source-neutral migration."""
+
+    if previous.get("schema_version") not in _LEGACY_SOURCE_POLICY_SCHEMAS:
+        return False
+    if requested.get("schema_version") != _SOURCE_NEUTRAL_POLICY_SCHEMA:
+        return False
+    if set(requested) != {
+        "schema_version",
+        "eligibility_anchor",
+        "screening_source_sha256",
+    }:
+        return False
+    return previous.get("eligibility_anchor") == requested.get(
+        "eligibility_anchor"
+    ) and previous.get("screening_source_sha256") == requested.get(
+        "screening_source_sha256"
+    )
 
 
 def _sha256_text(value: str) -> str:

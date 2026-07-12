@@ -93,6 +93,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerCapability,
     CaseDevPacerPurchaseClient,
 )
+from legalforecast.ingestion.case_dev_recap_batch import enrich_recap_discovery_batch
 from legalforecast.ingestion.case_dev_smoke import (
     CaseDevSmokeConfig,
     case_dev_smoke_query_terms,
@@ -582,6 +583,14 @@ def build_parser() -> argparse.ArgumentParser:
     _add_acquisition_discover_firecrawl_recap_arguments(
         acquisition_discover_firecrawl_recap
     )
+    acquisition_enrich_recap_case_dev = acquisition_subparsers.add_parser(
+        "enrich-recap-case-dev",
+        help=(
+            "Enrich discovered CourtListener docket IDs through free Case.dev "
+            "includeEntries lookups and rank verified free-document coverage."
+        ),
+    )
+    _add_acquisition_enrich_recap_case_dev_arguments(acquisition_enrich_recap_case_dev)
     acquisition_discover_courtlistener = acquisition_subparsers.add_parser(
         "discover-courtlistener",
         help=(
@@ -1191,6 +1200,43 @@ def _add_acquisition_discover_courtlistener_arguments(
     parser.add_argument("--raw-html-dir", type=Path)
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_discover_courtlistener)
+
+
+def _add_acquisition_enrich_recap_case_dev_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--dockets",
+        type=Path,
+        required=True,
+        help="Potential-docket JSONL from discover-firecrawl-recap.",
+    )
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=100,
+        help="Free Case.dev includeEntries page size; default 100.",
+    )
+    parser.add_argument(
+        "--max-pages-per-docket",
+        type=int,
+        default=100,
+        help="Fail-closed free lookup ceiling per docket; default 100.",
+    )
+    parser.add_argument("--case-dev-fixture", type=Path)
+    parser.add_argument(
+        "--live-case-dev",
+        action="store_true",
+        help=(
+            "Use CASE_DEV_API_KEY for free lookup/includeEntries requests only; "
+            "this command never sends live:true or acknowledges PACER fees."
+        ),
+    )
+    parser.add_argument("--ranked-output", type=Path)
+    parser.add_argument("--failures-output", type=Path)
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_enrich_recap_case_dev)
 
 
 def _add_acquisition_plan_public_downloads_arguments(
@@ -2755,11 +2801,13 @@ def _cmd_acquisition_discover_case_dev(args: argparse.Namespace) -> int:
     dry_run = _acquisition_dry_run(args)
     input_paths = () if fixture_path is None else (fixture_path,)
     output_paths = (store_path, candidates_path, summary_path)
-    policy = _cycle_discovery_policy(anchor=anchor, query_terms=query_terms)
+    policy = _cycle_acquisition_policy(anchor=anchor)
     batch_config: JsonRecord = {
         "provider": "case.dev",
         "decision_window_start": anchor.isoformat(),
         "decision_window_end": window_end.isoformat(),
+        "query_terms": list(query_terms),
+        "query_term_order_is_frozen": True,
         "per_term_limit": per_term_limit,
         "search_page_size": search_page_size,
     }
@@ -2843,8 +2891,9 @@ def _cmd_acquisition_discover_case_dev(args: argparse.Namespace) -> int:
         "candidate_count": len(checkpoint_records),
         "complete": False,
         "saturated": False,
-        "provider_query_complete": result.complete,
-        "provider_query_saturated": result.saturated,
+        "provider_pagination_end_observed": result.complete,
+        "provider_completeness_status": "unknown",
+        "provider_saturation_status": "unproven",
         "anchored_disposition_discovery": False,
         "candidate_count_semantics": (
             "exploratory case/party metadata leads only; not post-anchor "
@@ -2996,19 +3045,13 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         summary_path,
         raw_search_html_dir,
     )
-    policy: JsonRecord = {
-        "schema_version": "legalforecast.firecrawl_recap_discovery_policy.v1",
-        "eligibility_anchor": anchor.isoformat(),
-        "observation_window_end": window_end.isoformat(),
-        "discovery_source": "courtlistener_recap_entry_search_via_firecrawl",
-        "query_terms": list(terms),
-        "query_term_order_is_frozen": True,
-        "screening_source_sha256": _current_screening_source_sha256(),
-    }
+    policy = _cycle_acquisition_policy(anchor=anchor)
     batch_config: JsonRecord = {
         "provider": "courtlistener-recap-web-via-firecrawl",
         "decision_window_start": anchor.isoformat(),
         "decision_window_end": window_end.isoformat(),
+        "query_terms": list(terms),
+        "query_term_order_is_frozen": True,
         "max_pages_per_term": max_pages_per_term,
     }
     run_config: JsonRecord = {
@@ -3109,13 +3152,29 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         RecapSearchError,
         ValueError,
     ) as exc:
+        failure_credit_summary = _firecrawl_credit_summary_if_available(
+            store_path=store_path,
+            run_id=run_id,
+        )
+        metered_executed = _firecrawl_metered_activity_executed(
+            live=live,
+            summary=failure_credit_summary,
+        )
         _write_acquisition_failure(
             args,
             stage="discover-firecrawl-recap",
             input_paths=input_paths,
             output_paths=output_paths,
             reason=str(exc),
-            paid_activity_requested=False,
+            paid_activity_requested=live,
+            paid_activity_executed=metered_executed,
+            extra={
+                "firecrawl_metered_activity_requested": live,
+                "firecrawl_metered_activity_executed": metered_executed,
+                "pacer_paid_activity_requested": False,
+                "pacer_paid_activity_executed": False,
+                **failure_credit_summary,
+            },
         )
         raise CommandError(str(exc)) from exc
 
@@ -3156,6 +3215,15 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
             "potential dockets only; full eligibility, documents, leakage, parsing, "
             "unitization, and labeling remain required"
         ),
+        "firecrawl_metered_activity_requested": live,
+        "firecrawl_metered_activity_executed": (
+            _firecrawl_metered_activity_executed(
+                live=live,
+                summary=credit_summary,
+            )
+        ),
+        "pacer_paid_activity_requested": False,
+        "pacer_paid_activity_executed": False,
         **credit_summary,
         **batch_config,
     }
@@ -3167,8 +3235,11 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         output_paths=output_paths,
         record_count=len(docket_records),
         dry_run=False,
-        paid_activity_requested=False,
-        paid_activity_executed=False,
+        paid_activity_requested=live,
+        paid_activity_executed=_firecrawl_metered_activity_executed(
+            live=live,
+            summary=credit_summary,
+        ),
         extra=summary,
     )
     return 0
@@ -3270,6 +3341,121 @@ def _recap_discovered_entry_record(entry: RecapDiscoveredEntry) -> JsonRecord:
         ],
         "eligibility_status": "potential_unverified",
     }
+
+
+def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    dockets_path = cast(Path, args.dockets)
+    fixture_path = cast(Path | None, args.case_dev_fixture)
+    live = cast(bool, args.live_case_dev)
+    page_size = cast(int, args.page_size)
+    max_pages = cast(int, args.max_pages_per_docket)
+    if page_size <= 0 or page_size > 100:
+        raise CommandError("--page-size must be between 1 and 100")
+    if max_pages <= 0:
+        raise CommandError("--max-pages-per-docket must be positive")
+    if live == (fixture_path is not None):
+        raise CommandError(
+            "choose exactly one of --case-dev-fixture or --live-case-dev"
+        )
+    ranked_path = _acquisition_path(
+        args,
+        "ranked_output",
+        output_root / "checkpoints" / "case-dev-recap-ranked.jsonl",
+    )
+    failures_path = _acquisition_path(
+        args,
+        "failures_output",
+        output_root / "checkpoints" / "case-dev-recap-failures.jsonl",
+    )
+    summary_path = _acquisition_path(
+        args,
+        "summary_output",
+        output_root / "checkpoints" / "case-dev-recap-summary.json",
+    )
+    records = _read_records(dockets_path)
+    input_paths = (
+        (dockets_path,) if fixture_path is None else (dockets_path, fixture_path)
+    )
+    output_paths = (ranked_path, failures_path, summary_path)
+    dry_run = _acquisition_dry_run(args)
+    if dry_run:
+        summary: JsonRecord = {
+            "schema_version": "legalforecast.case_dev_recap_batch_summary.v1",
+            "dry_run": True,
+            "input_record_count": len(records),
+            "page_size": page_size,
+            "max_pages_per_docket": max_pages,
+            "free_lookup_only": True,
+            "pacer_fee_acknowledgment_allowed": False,
+        }
+        _write_jsonl(ranked_path, [])
+        _write_jsonl(failures_path, [])
+        _write_json(summary_path, summary)
+        _write_acquisition_completion(
+            args,
+            stage="enrich-recap-case-dev",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=0,
+            dry_run=True,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+        return 0
+
+    try:
+        client = _case_dev_client(
+            command="enrich-recap-case-dev",
+            fixture_path=fixture_path,
+            live=live,
+        )
+        result = enrich_recap_discovery_batch(
+            client=client,
+            records=records,
+            page_size=page_size,
+            max_pages=max_pages,
+        )
+    except (CaseDevClientError, ValueError) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="enrich-recap-case-dev",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+
+    ranked_records = [enrichment.to_record() for enrichment in result.successes]
+    failure_records = [failure.to_record() for failure in result.failures]
+    summary = {
+        "schema_version": "legalforecast.case_dev_recap_batch_summary.v1",
+        "dry_run": False,
+        "case_dev_request_count": client.request_count,
+        "page_size": page_size,
+        "max_pages_per_docket": max_pages,
+        "free_lookup_only": True,
+        "pacer_fee_acknowledgment_allowed": False,
+        "pacer_spend_usd": "0.00",
+        **result.summary.to_record(),
+    }
+    _write_jsonl(ranked_path, ranked_records)
+    _write_jsonl(failures_path, failure_records)
+    _write_json(summary_path, summary)
+    _write_acquisition_completion(
+        args,
+        stage="enrich-recap-case-dev",
+        input_paths=input_paths,
+        output_paths=output_paths,
+        record_count=len(ranked_records),
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra=summary,
+    )
+    return 0
 
 
 def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
@@ -5789,16 +5975,12 @@ def _case_mix_share_argument(value: str) -> Decimal:
     return share
 
 
-def _cycle_discovery_policy(
-    *,
-    anchor: date,
-    query_terms: Sequence[str],
-) -> JsonRecord:
+def _cycle_acquisition_policy(*, anchor: date) -> JsonRecord:
+    """Return source-neutral identity shared by every Cycle 1 acquisition stage."""
+
     return {
-        "schema_version": "legalforecast.case_dev_discovery_policy.v1",
+        "schema_version": "legalforecast.cycle_acquisition_policy.v1",
         "eligibility_anchor": anchor.isoformat(),
-        "query_terms": list(query_terms),
-        "query_term_order_is_frozen": True,
         "screening_source_sha256": _current_screening_source_sha256(),
     }
 
@@ -6081,6 +6263,29 @@ def _verified_snapshot_raw_html_directory(
     return committed_directory
 
 
+def _firecrawl_credit_summary_if_available(
+    *,
+    store_path: Path,
+    run_id: str,
+) -> JsonRecord:
+    """Read already-authorized credit evidence without masking the stage failure."""
+
+    try:
+        with CycleAcquisitionStore(store_path) as store:
+            return dict(store.firecrawl_run_summary(run_id))
+    except (CycleAcquisitionStoreError, KeyError, OSError, ValueError):
+        return {}
+
+
+def _firecrawl_metered_activity_executed(
+    *,
+    live: bool,
+    summary: Mapping[str, object],
+) -> bool:
+    reserved = summary.get("reserved_credits")
+    return live and type(reserved) is int and reserved > 0
+
+
 def _write_acquisition_completion(
     args: argparse.Namespace,
     *,
@@ -6116,7 +6321,12 @@ def _write_acquisition_failure(
     output_paths: Sequence[Path],
     reason: str,
     paid_activity_requested: bool,
+    paid_activity_executed: bool = False,
+    extra: Mapping[str, Any] | None = None,
 ) -> None:
+    failure_extra: JsonRecord = {"failure_reason": reason}
+    if extra is not None:
+        failure_extra.update(extra)
     _write_acquisition_stage_record(
         args,
         stage=stage,
@@ -6127,8 +6337,8 @@ def _write_acquisition_failure(
         record_count=0,
         dry_run=_acquisition_dry_run(args),
         paid_activity_requested=paid_activity_requested,
-        paid_activity_executed=False,
-        extra={"failure_reason": reason},
+        paid_activity_executed=paid_activity_executed,
+        extra=failure_extra,
     )
 
 
