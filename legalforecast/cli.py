@@ -74,6 +74,7 @@ from legalforecast.ingestion.case_dev_config import CaseDevConfig
 from legalforecast.ingestion.case_dev_firecrawl import (
     CaseDevFirecrawlBatchError,
     acquire_case_dev_firecrawl_html,
+    screen_case_dev_firecrawl_successes,
 )
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerCapability,
@@ -545,6 +546,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_fetch_firecrawl_arguments(acquisition_fetch_firecrawl)
+    acquisition_screen_firecrawl = acquisition_subparsers.add_parser(
+        "screen-firecrawl-dockets",
+        help=(
+            "Apply strict MTD eligibility, linkage, contamination, and privacy "
+            "gates to persisted Firecrawl docket pages."
+        ),
+    )
+    _add_acquisition_screen_firecrawl_arguments(acquisition_screen_firecrawl)
     acquisition_bridge_pacer_gaps = acquisition_subparsers.add_parser(
         "bridge-pacer-gaps",
         help=(
@@ -1072,6 +1081,34 @@ def _add_acquisition_fetch_firecrawl_arguments(
     parser.add_argument("--exclusions-output", type=Path)
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_fetch_firecrawl)
+
+
+def _add_acquisition_screen_firecrawl_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--successes",
+        type=Path,
+        required=True,
+        help="Success JSONL from acquisition fetch-firecrawl-dockets.",
+    )
+    parser.add_argument(
+        "--raw-html-dir",
+        type=Path,
+        required=True,
+        help="Directory containing persisted <CourtListener docket ID>.html files.",
+    )
+    parser.add_argument(
+        "--decision-filed-on-or-after",
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="Fail-closed anchor for the first written MTD disposition.",
+    )
+    parser.add_argument("--screened-cases-output", type=Path)
+    parser.add_argument("--exclusions-output", type=Path)
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_screen_firecrawl)
 
 
 def _add_acquisition_bridge_pacer_gaps_arguments(
@@ -2837,6 +2874,96 @@ def _cmd_acquisition_fetch_firecrawl(args: argparse.Namespace) -> int:
         input_paths=input_paths,
         output_paths=output_paths,
         record_count=len(result.successes),
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra=summary,
+    )
+    return 0
+
+
+def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    successes_path = cast(Path, args.successes)
+    raw_html_dir = cast(Path, args.raw_html_dir)
+    screened_cases_path = _acquisition_path(
+        args,
+        "screened_cases_output",
+        output_root / "firecrawl-screened-cases.jsonl",
+    )
+    exclusions_path = _acquisition_path(
+        args,
+        "exclusions_output",
+        output_root / "firecrawl-screening-exclusions.jsonl",
+    )
+    summary_path = _acquisition_path(
+        args,
+        "summary_output",
+        output_root / "firecrawl-screening-summary.json",
+    )
+    anchor_text = cast(str, args.decision_filed_on_or_after)
+    try:
+        anchor = date.fromisoformat(anchor_text)
+    except ValueError as exc:
+        raise CommandError(
+            "--decision-filed-on-or-after must be an ISO date (YYYY-MM-DD)"
+        ) from exc
+    success_records = _read_records(successes_path)
+    dry_run = _acquisition_dry_run(args)
+    input_paths = (successes_path, raw_html_dir)
+    output_paths = (screened_cases_path, exclusions_path, summary_path)
+    if dry_run:
+        summary: JsonRecord = {
+            "schema_version": "legalforecast.firecrawl_screening_summary.v1",
+            "dry_run": True,
+            "anchor_date": anchor.isoformat(),
+            "input_success_count": len(success_records),
+            "accepted_case_count": 0,
+            "excluded_case_count": 0,
+            "reconciled": False,
+            "paid_activity_requested": False,
+        }
+        _write_json(summary_path, summary)
+        _write_acquisition_completion(
+            args,
+            stage="screen-firecrawl-dockets",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=0,
+            dry_run=True,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+        return 0
+
+    result = screen_case_dev_firecrawl_successes(
+        successes=success_records,
+        raw_html_directory=raw_html_dir,
+        decision_filed_on_or_after=anchor,
+    )
+    _write_jsonl(screened_cases_path, result.screened_cases)
+    _write_jsonl(
+        exclusions_path,
+        [exclusion.to_record() for exclusion in result.exclusions],
+    )
+    summary = {
+        "schema_version": "legalforecast.firecrawl_screening_summary.v1",
+        "dry_run": False,
+        "anchor_date": anchor.isoformat(),
+        "input_success_count": result.input_success_count,
+        "accepted_case_count": len(result.screened_cases),
+        "excluded_case_count": len(result.exclusions),
+        "reconciled": result.reconciled,
+        "paid_activity_requested": False,
+    }
+    _write_json(summary_path, summary)
+    _write_acquisition_completion(
+        args,
+        stage="screen-firecrawl-dockets",
+        input_paths=input_paths,
+        output_paths=output_paths,
+        record_count=len(result.screened_cases),
         dry_run=False,
         paid_activity_requested=False,
         paid_activity_executed=False,

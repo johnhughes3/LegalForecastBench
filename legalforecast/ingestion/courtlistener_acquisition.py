@@ -8,7 +8,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime, time
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -28,10 +28,16 @@ from legalforecast.ingestion.docket_sync import NormalizedDocketEntry
 from legalforecast.ingestion.mtd_acquisition_screen import (
     OPTIMIZED_MTD_DECISION_SEARCH_TERMS,
     SECONDARY_MTD_DECISION_SEARCH_TERMS,
+    CaseDevMetadataScreen,
     screen_case_dev_docket_metadata,
     screen_courtlistener_docket_for_mtd_decision,
 )
 from legalforecast.ingestion.provenance import DocumentRole
+from legalforecast.selection.contamination_filters import (
+    LeakageSource,
+    LeakageSourceKind,
+    detect_outcome_leakage,
+)
 from legalforecast.selection.exclusion_ledger import (
     ExclusionLedgerEntry,
     ExclusionReason,
@@ -243,13 +249,9 @@ def _screen_candidate(
         query=query,
     )
     if not metadata_screen.accepted_for_scrape:
-        return None, _exclusion(
-            docket_id=docket_id,
+        return None, _metadata_exclusion(
             docket=docket,
-            stage=ExclusionStage.DISCOVERY,
-            reason=metadata_screen.exclusion_reasons[0],
-            secondary_reasons=metadata_screen.exclusion_reasons[1:],
-            notes="CourtListener docket metadata failed the strict civil MTD screen.",
+            metadata_screen=metadata_screen,
         )
 
     source_url = _public_docket_url(docket)
@@ -274,6 +276,36 @@ def _screen_candidate(
             notes=str(exc),
         )
 
+    return screen_courtlistener_docket_html(
+        docket=docket,
+        metadata_screen=metadata_screen,
+        raw_html=raw_html,
+        decision_filed_on_or_after=anchor,
+    )
+
+
+def screen_courtlistener_docket_html(
+    *,
+    docket: CourtListenerDocket,
+    metadata_screen: CaseDevMetadataScreen,
+    raw_html: str,
+    decision_filed_on_or_after: date,
+) -> tuple[Mapping[str, Any] | None, ExclusionLedgerEntry | None]:
+    """Strictly screen one already-fetched public CourtListener docket page.
+
+    Both the direct CourtListener route and the Case.dev-to-Firecrawl route use
+    this provider-independent kernel.  The caller must supply the pre-fetch
+    metadata screen so a downstream route cannot silently bypass that gate.
+    """
+
+    docket_id = docket.docket_id
+    case_id = metadata_screen.metadata.case_id
+    if not metadata_screen.accepted_for_scrape:
+        return None, _metadata_exclusion(
+            docket=docket,
+            metadata_screen=metadata_screen,
+        )
+    source_url = _public_docket_url(docket)
     try:
         parsed = parse_courtlistener_docket_html(
             raw_html,
@@ -283,6 +315,7 @@ def _screen_candidate(
     except CourtListenerWebParseError as exc:
         return None, _exclusion(
             docket_id=docket_id,
+            case_id=case_id,
             docket=docket,
             stage=ExclusionStage.EXTRACTION,
             reason=ExclusionReason.PARSE_ERROR.value,
@@ -296,7 +329,7 @@ def _screen_candidate(
     anchored = screen_courtlistener_docket_for_mtd_decision(
         parsed,
         candidate_text=_candidate_text(docket),
-        decision_filed_on_or_after=anchor,
+        decision_filed_on_or_after=decision_filed_on_or_after,
     )
     unparseable_decision_entries = tuple(
         entry
@@ -306,6 +339,7 @@ def _screen_candidate(
     if unparseable_decision_entries:
         return None, _exclusion(
             docket_id=docket_id,
+            case_id=case_id,
             docket=docket,
             stage=ExclusionStage.ELIGIBILITY,
             reason=ExclusionReason.PARSE_ERROR.value,
@@ -318,9 +352,13 @@ def _screen_candidate(
             ),
         )
     first_decision_date = _first_decision_date(unanchored.decision_entries)
-    if first_decision_date is not None and first_decision_date < anchor:
+    if (
+        first_decision_date is not None
+        and first_decision_date < decision_filed_on_or_after
+    ):
         return None, _exclusion(
             docket_id=docket_id,
+            case_id=case_id,
             docket=docket,
             stage=ExclusionStage.ELIGIBILITY,
             reason=ExclusionReason.DECISION_BEFORE_RELEASE_ANCHOR.value,
@@ -330,13 +368,14 @@ def _screen_candidate(
             decision_date=first_decision_date,
             notes=(
                 "The first written MTD disposition predates the eligibility anchor "
-                f"{anchor.isoformat()}."
+                f"{decision_filed_on_or_after.isoformat()}."
             ),
         )
     if not anchored.strict_clean:
         reasons = anchored.exclusion_reasons or ("no_actual_mtd_disposition",)
         return None, _exclusion(
             docket_id=docket_id,
+            case_id=case_id,
             docket=docket,
             stage=ExclusionStage.DISCOVERY,
             reason=reasons[0],
@@ -356,7 +395,7 @@ def _screen_candidate(
     linkage = link_mtd_dispositions(
         normalized_entries,
         candidate_id=docket_id,
-        case_id=docket_id,
+        case_id=case_id,
     )
     if not linkage.is_clean:
         exclusion = linkage.exclusion_entries[0]
@@ -390,6 +429,7 @@ def _screen_candidate(
     if not motion_numbers or not decision_numbers:
         return None, _exclusion(
             docket_id=docket_id,
+            case_id=case_id,
             docket=docket,
             stage=ExclusionStage.MOTION_LINKAGE,
             reason=ExclusionReason.UNCLEAN_LINKAGE.value,
@@ -398,12 +438,37 @@ def _screen_candidate(
             notes="Linked MTD or disposition entries lack numeric docket numbers.",
         )
 
+    leakage = detect_outcome_leakage(
+        _predecision_docket_leakage_sources(
+            parsed.entries,
+            decision_entries=anchored.decision_entries,
+            target_motion_numbers=motion_numbers,
+            decision_date=first_decision_date,
+            related_family_id=_docket_case_mix_metadata(docket).get(
+                "related_family_id"
+            ),
+        ),
+        evaluation_timestamp=datetime.combine(
+            first_decision_date,
+            time.max,
+            tzinfo=UTC,
+        ),
+    )
+    if leakage.outcome_leakage_detected:
+        return None, ExclusionLedgerEntry.from_outcome_leakage(
+            candidate_id=docket_id,
+            case_id=case_id,
+            leakage_result=leakage,
+            court=docket.court_id,
+            decision_date=first_decision_date,
+        )
+
     return {
         "candidate": {
             "docket_id": docket_id,
             "candidate_key": docket_id,
             "metadata": {
-                "case_id": docket_id,
+                "case_id": case_id,
                 "case_name": docket.case_name,
                 "court": docket.court_id,
                 "docket_number": docket.docket_number,
@@ -417,10 +482,112 @@ def _screen_candidate(
         },
         "selected_entries": [entry.to_record() for entry in parsed.entries],
         "first_written_mtd_disposition_date": first_decision_date.isoformat(),
-        "eligibility_anchor_date": anchor.isoformat(),
+        "eligibility_anchor_date": decision_filed_on_or_after.isoformat(),
         "mtd_decision_screen": anchored.to_record(),
         "motion_linkage": linkage.to_record(),
     }, None
+
+
+def _metadata_exclusion(
+    *,
+    docket: CourtListenerDocket,
+    metadata_screen: CaseDevMetadataScreen,
+) -> ExclusionLedgerEntry:
+    reasons = metadata_screen.exclusion_reasons or ("metadata_screen_not_accepted",)
+    return _exclusion(
+        docket_id=docket.docket_id,
+        case_id=metadata_screen.metadata.case_id,
+        docket=docket,
+        stage=ExclusionStage.DISCOVERY,
+        reason=reasons[0],
+        secondary_reasons=reasons[1:],
+        notes="CourtListener docket metadata failed the strict civil MTD screen.",
+    )
+
+
+def _predecision_docket_leakage_sources(
+    entries: Sequence[CourtListenerWebDocketEntry],
+    *,
+    decision_entries: Sequence[Any],
+    target_motion_numbers: Sequence[str],
+    decision_date: date,
+    related_family_id: str | None,
+) -> tuple[LeakageSource, ...]:
+    """Return docket rows that could have revealed the target before decision."""
+
+    decision_row_ids = {entry.row_id for entry in decision_entries}
+    decision_numbers = tuple(
+        int(entry.entry_number)
+        for entry in entries
+        if entry.row_id in decision_row_ids
+        and entry.entry_number is not None
+        and entry.entry_number.isdigit()
+    )
+    first_decision_number = min(decision_numbers) if decision_numbers else None
+    target_numbers = {int(number) for number in target_motion_numbers}
+    docket_mtd_numbers = {
+        int(entry.entry_number)
+        for entry in entries
+        if entry.entry_number is not None
+        and entry.entry_number.isdigit()
+        and entry.role
+        in {CourtListenerEntryRole.MTD_NOTICE, CourtListenerEntryRole.MTD_MEMORANDUM}
+        and _looks_like_target_mtd_filing(entry.text)
+    }
+    target_reference_required = bool(docket_mtd_numbers - target_numbers)
+    sources: list[LeakageSource] = []
+    for entry in entries:
+        if entry.row_id in decision_row_ids or not entry.text.strip():
+            continue
+        filed_date = _parse_filed_date(entry.filed_at)
+        entry_number = (
+            int(entry.entry_number)
+            if entry.entry_number is not None and entry.entry_number.isdigit()
+            else None
+        )
+        is_predecision = (filed_date is not None and filed_date < decision_date) or (
+            first_decision_number is not None
+            and entry_number is not None
+            and entry_number < first_decision_number
+            and (filed_date is None or filed_date <= decision_date)
+        )
+        if not is_predecision:
+            continue
+        if target_reference_required and not _entry_references_target_motion(
+            entry.text,
+            target_numbers=target_numbers,
+        ):
+            continue
+        observed_date = filed_date or decision_date
+        sources.append(
+            LeakageSource(
+                source_id=entry.row_id,
+                source_kind=LeakageSourceKind.DOCKET_ENTRY,
+                text=entry.text,
+                observed_at=datetime.combine(observed_date, time.min, tzinfo=UTC),
+                related_family_id=related_family_id,
+            )
+        )
+    return tuple(sources)
+
+
+def _entry_references_target_motion(
+    text: str,
+    *,
+    target_numbers: set[int],
+) -> bool:
+    referenced_numbers = {
+        int(match.group("number"))
+        for match in re.finditer(
+            r"\b(?:ecf|dkt|docket|doc(?:ument)?)[ .#:-]*"
+            r"(?:no[ .#:-]*)?(?P<number>\d+)\b",
+            text,
+            re.IGNORECASE,
+        )
+    }
+    # Explicit references to other motions are safely out of target scope.
+    # Unscoped outcome-bearing text is ambiguous and therefore fail-closed.
+    return not referenced_numbers or bool(referenced_numbers & target_numbers)
 
 
 def _docket_case_mix_metadata(docket: CourtListenerDocket) -> dict[str, str]:
@@ -474,9 +641,15 @@ def _linkage_entries(
     for entry in entries:
         if entry.row_id in actual_decision_row_ids:
             role = DocumentRole.DECISION
-        elif entry.role is CourtListenerEntryRole.MTD_NOTICE:
+        elif (
+            entry.role is CourtListenerEntryRole.MTD_NOTICE
+            and _looks_like_target_mtd_filing(entry.text)
+        ):
             role = DocumentRole.MTD_NOTICE
-        elif entry.role is CourtListenerEntryRole.MTD_MEMORANDUM:
+        elif (
+            entry.role is CourtListenerEntryRole.MTD_MEMORANDUM
+            and _looks_like_target_mtd_filing(entry.text)
+        ):
             role = DocumentRole.MTD_MEMORANDUM
         else:
             continue
@@ -498,6 +671,21 @@ def _linkage_entries(
             )
         )
     return tuple(normalized)
+
+
+def _looks_like_target_mtd_filing(text: str) -> bool:
+    if re.search(
+        r"\b(?:report and recommendation|r&r|tentative ruling|minute order|"
+        r"oral ruling|hearing transcript|opinion|order)\b",
+        text,
+        re.IGNORECASE,
+    ):
+        return False
+    return bool(
+        re.search(r"\bmotions?\s+to\s+dismiss\b", text, re.IGNORECASE)
+        or re.search(r"\bjudgment\s+on\s+the\s+pleadings\b", text, re.IGNORECASE)
+        or re.search(r"\brule\s+12\b", text, re.IGNORECASE)
+    )
 
 
 def _linked_entry_numbers(
@@ -541,6 +729,7 @@ def _parse_filed_date(value: str | None) -> date | None:
 def _exclusion(
     *,
     docket_id: str,
+    case_id: str | None = None,
     stage: ExclusionStage,
     reason: str,
     notes: str,
@@ -551,7 +740,7 @@ def _exclusion(
 ) -> ExclusionLedgerEntry:
     return ExclusionLedgerEntry(
         candidate_id=docket_id,
-        case_id=docket_id,
+        case_id=case_id or docket_id,
         court=docket.court_id if docket is not None else None,
         decision_date=decision_date,
         stage=stage,
