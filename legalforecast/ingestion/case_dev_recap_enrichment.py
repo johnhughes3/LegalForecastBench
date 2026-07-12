@@ -1,0 +1,626 @@
+"""Free Case.dev enrichment and conservative cost ranking for RECAP dockets."""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
+from typing import Any, cast
+from urllib.parse import urlsplit
+
+from legalforecast.ingestion.case_dev_client import (
+    CaseDevClient,
+    CaseDevDocketHit,
+    CaseDevPage,
+)
+from legalforecast.ingestion.docket_sync import classify_document_role
+from legalforecast.ingestion.firecrawl_recap_discovery import RecapDiscoveredDocket
+from legalforecast.ingestion.provenance import DocumentRole
+from legalforecast.ingestion.restricted_material import restricted_material_markers
+
+_COURTLISTENER_HOST = "www.courtlistener.com"
+_PUBLIC_DOCKET_PATH = re.compile(
+    r"^/docket/(?P<docket_id>[1-9][0-9]*)/(?P<slug>[^/]+)/$"
+)
+_API_DOCKET_PATH = re.compile(
+    r"^/api/rest/v[1-9][0-9]*/dockets/(?P<docket_id>[1-9][0-9]*)/$"
+)
+_MANDATORY_REQUIREMENTS: tuple[tuple[str, frozenset[DocumentRole]], ...] = (
+    (
+        "operative_complaint",
+        frozenset({DocumentRole.COMPLAINT, DocumentRole.AMENDED_COMPLAINT}),
+    ),
+    (
+        "motion_to_dismiss",
+        frozenset({DocumentRole.MTD_NOTICE, DocumentRole.MTD_MEMORANDUM}),
+    ),
+    ("decision", frozenset({DocumentRole.DECISION})),
+)
+_REQUIRED_ENTRY_ROLES = frozenset(
+    {
+        DocumentRole.COMPLAINT,
+        DocumentRole.AMENDED_COMPLAINT,
+        DocumentRole.MTD_NOTICE,
+        DocumentRole.MTD_MEMORANDUM,
+        DocumentRole.OPPOSITION,
+        DocumentRole.DECISION,
+    }
+)
+
+
+class CaseDevRecapEnrichmentError(RuntimeError):
+    """Raised when free Case.dev evidence cannot be verified completely."""
+
+
+@dataclass(frozen=True, slots=True)
+class CaseDevRecapNamespaceMapping:
+    """Verified mapping between CourtListener and Case.dev docket identities."""
+
+    courtlistener_docket_id: str
+    courtlistener_url: str
+    case_dev_id: str
+    case_dev_url: str
+
+    def to_record(self) -> dict[str, str]:
+        return {
+            "courtlistener_docket_id": self.courtlistener_docket_id,
+            "courtlistener_url": self.courtlistener_url,
+            "case_dev_id": self.case_dev_id,
+            "case_dev_url": self.case_dev_url,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CaseDevRecapDocument:
+    """One Case.dev document with availability evidence kept uncollapsed."""
+
+    document_id: str
+    docket_entry_id: str
+    entry_number: str | None
+    entry_text: str
+    document_role: DocumentRole
+    description: str
+    kind: str | None
+    pdf_url: str | None
+    is_available: bool | None
+    restriction_markers: tuple[str, ...]
+
+    @property
+    def pdf_url_present(self) -> bool:
+        return self.pdf_url is not None
+
+    @property
+    def actually_free(self) -> bool:
+        return (
+            self.pdf_url is not None
+            and self.is_available is True
+            and not self.restriction_markers
+        )
+
+    @property
+    def availability_reason(self) -> str:
+        if self.restriction_markers:
+            return "restricted"
+        if self.pdf_url is not None and self.is_available is True:
+            return "free_pdf"
+        if self.pdf_url is not None and self.is_available is False:
+            return "pdf_url_but_unavailable"
+        if self.pdf_url is not None:
+            return "availability_unknown"
+        if self.is_available is True:
+            return "available_without_pdf_url"
+        if self.is_available is False:
+            return "unavailable"
+        return "availability_unknown"
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "document_id": self.document_id,
+            "docket_entry_id": self.docket_entry_id,
+            "entry_number": self.entry_number,
+            "entry_text": self.entry_text,
+            "document_role": self.document_role.value,
+            "description": self.description,
+            "kind": self.kind,
+            "pdf_url": self.pdf_url,
+            "pdf_url_present": self.pdf_url_present,
+            "is_available": self.is_available,
+            "actually_free": self.actually_free,
+            "availability_reason": self.availability_reason,
+            "restriction_markers": list(self.restriction_markers),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CaseDevRequiredDocumentSlot:
+    """One required core-document slot and its conservative satisfaction proof."""
+
+    requirement: str
+    document_role: DocumentRole
+    entry_id: str | None
+    entry_number: str | None
+    candidate_document_ids: tuple[str, ...]
+    selected_document_id: str | None
+    satisfied: bool
+    missing_reason: str | None
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "requirement": self.requirement,
+            "document_role": self.document_role.value,
+            "entry_id": self.entry_id,
+            "entry_number": self.entry_number,
+            "candidate_document_ids": list(self.candidate_document_ids),
+            "selected_document_id": self.selected_document_id,
+            "satisfied": self.satisfied,
+            "missing_reason": self.missing_reason,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CaseDevRecapEnrichment:
+    """Complete free Case.dev inventory used for pre-acquisition cost ranking."""
+
+    identity: CaseDevRecapNamespaceMapping
+    pages_fetched: int
+    docket_entry_count: int
+    documents: tuple[CaseDevRecapDocument, ...]
+    required_documents: tuple[CaseDevRequiredDocumentSlot, ...]
+
+    @property
+    def courtlistener_docket_id(self) -> str:
+        return self.identity.courtlistener_docket_id
+
+    @property
+    def case_dev_id(self) -> str:
+        return self.identity.case_dev_id
+
+    @property
+    def case_dev_url(self) -> str:
+        return self.identity.case_dev_url
+
+    @property
+    def required_document_count(self) -> int:
+        return len(self.required_documents)
+
+    @property
+    def actual_free_required_document_count(self) -> int:
+        return sum(slot.satisfied for slot in self.required_documents)
+
+    @property
+    def missing_required_document_count(self) -> int:
+        return self.required_document_count - self.actual_free_required_document_count
+
+    @property
+    def ranking_key(self) -> tuple[int, int, str]:
+        return (
+            self.missing_required_document_count,
+            self.required_document_count,
+            self.courtlistener_docket_id,
+        )
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "identity": self.identity.to_record(),
+            "pages_fetched": self.pages_fetched,
+            "docket_entry_count": self.docket_entry_count,
+            "documents": [document.to_record() for document in self.documents],
+            "required_documents": [
+                document.to_record() for document in self.required_documents
+            ],
+            "required_document_count": self.required_document_count,
+            "actual_free_required_document_count": (
+                self.actual_free_required_document_count
+            ),
+            "missing_required_document_count": self.missing_required_document_count,
+            "ranking_key": list(self.ranking_key),
+        }
+
+
+def enrich_recap_docket_with_case_dev(
+    *,
+    client: CaseDevClient,
+    discovery: RecapDiscoveredDocket,
+    page_size: int = 100,
+    max_pages: int = 100,
+) -> CaseDevRecapEnrichment:
+    """Inventory one RECAP docket using free ``includeEntries`` lookups only."""
+
+    if type(page_size) is not int or page_size <= 0:
+        raise ValueError("page_size must be a positive integer")
+    if type(max_pages) is not int or max_pages <= 0:
+        raise ValueError("max_pages must be a positive integer")
+    _validate_discovery_identity(discovery)
+
+    cursor: str | None = None
+    seen_continuations: set[str] = set()
+    hits: list[CaseDevDocketHit] = []
+    case_dev_id: str | None = None
+    case_dev_url: str | None = None
+    pages_fetched = 0
+
+    while True:
+        if pages_fetched >= max_pages:
+            raise CaseDevRecapEnrichmentError(
+                f"case_dev_page_limit_reached: max_pages={max_pages}"
+            )
+        page = client.get_case_docket_entries(
+            discovery.docket_id,
+            cursor=cursor,
+            limit=page_size,
+        )
+        pages_fetched += 1
+        page_case_dev_id, page_case_dev_url = _verified_page_identity(
+            page,
+            discovery=discovery,
+        )
+        if case_dev_id is None:
+            case_dev_id = page_case_dev_id
+            case_dev_url = page_case_dev_url
+        elif (case_dev_id, case_dev_url) != (page_case_dev_id, page_case_dev_url):
+            raise CaseDevRecapEnrichmentError(
+                "case_dev_identity_changed_during_pagination"
+            )
+        hits.extend(page.items)
+
+        next_cursor = page.next_cursor
+        if next_cursor is None:
+            if len(page.items) >= page_size:
+                raise CaseDevRecapEnrichmentError(
+                    "case_dev_pagination_exhaustion_unproven"
+                )
+            break
+        if next_cursor in seen_continuations:
+            raise CaseDevRecapEnrichmentError("case_dev_continuation_cycle")
+        seen_continuations.add(next_cursor)
+        cursor = next_cursor
+
+    if case_dev_url is None:
+        raise CaseDevRecapEnrichmentError("case_dev_identity_missing")
+    entries = _deduplicate_hits(hits)
+    documents_by_entry, documents = _inventory_documents(entries)
+    required_documents = _required_document_slots(
+        entries,
+        documents_by_entry=documents_by_entry,
+    )
+    return CaseDevRecapEnrichment(
+        identity=CaseDevRecapNamespaceMapping(
+            courtlistener_docket_id=discovery.docket_id,
+            courtlistener_url=discovery.docket_url,
+            case_dev_id=case_dev_id,
+            case_dev_url=case_dev_url,
+        ),
+        pages_fetched=pages_fetched,
+        docket_entry_count=len(entries),
+        documents=documents,
+        required_documents=required_documents,
+    )
+
+
+def rank_case_dev_recap_enrichments(
+    enrichments: Iterable[CaseDevRecapEnrichment],
+) -> tuple[CaseDevRecapEnrichment, ...]:
+    """Rank verified dockets by missing required documents, deterministically."""
+
+    by_docket: dict[str, CaseDevRecapEnrichment] = {}
+    for enrichment in enrichments:
+        docket_id = enrichment.courtlistener_docket_id
+        existing = by_docket.get(docket_id)
+        if existing is not None and existing != enrichment:
+            raise CaseDevRecapEnrichmentError(
+                f"conflicting_case_dev_enrichment: docket_id={docket_id}"
+            )
+        by_docket[docket_id] = enrichment
+    return tuple(sorted(by_docket.values(), key=lambda item: item.ranking_key))
+
+
+def _validate_discovery_identity(discovery: RecapDiscoveredDocket) -> None:
+    split = urlsplit(discovery.docket_url)
+    if (
+        split.scheme != "https"
+        or split.netloc != _COURTLISTENER_HOST
+        or split.query
+        or split.fragment
+    ):
+        raise CaseDevRecapEnrichmentError("courtlistener_discovery_url_invalid")
+    match = _PUBLIC_DOCKET_PATH.fullmatch(split.path)
+    if match is None or match.group("docket_id") != discovery.docket_id:
+        raise CaseDevRecapEnrichmentError("courtlistener_discovery_identity_mismatch")
+
+
+def _verified_page_identity(
+    page: CaseDevPage[CaseDevDocketHit],
+    *,
+    discovery: RecapDiscoveredDocket,
+) -> tuple[str, str]:
+    docket = _mapping(page.raw.get("docket", page.raw), "case.dev docket")
+    case_dev_id = _required_string(docket, "id", "docketId", "docket_id")
+    if case_dev_id != discovery.docket_id:
+        raise CaseDevRecapEnrichmentError(
+            f"case_dev_id_mismatch: expected={discovery.docket_id} actual={case_dev_id}"
+        )
+    case_dev_url = _required_string(docket, "url", "sourceUrl", "source_url")
+    if _courtlistener_id_from_returned_url(case_dev_url) != discovery.docket_id:
+        raise CaseDevRecapEnrichmentError(
+            "case_dev_url_mismatch: "
+            f"expected_docket={discovery.docket_id} url={case_dev_url}"
+        )
+    return case_dev_id, case_dev_url
+
+
+def _courtlistener_id_from_returned_url(source_url: str) -> str | None:
+    split = urlsplit(source_url)
+    if (
+        split.scheme != "https"
+        or split.netloc != _COURTLISTENER_HOST
+        or split.query
+        or split.fragment
+    ):
+        return None
+    for pattern in (_PUBLIC_DOCKET_PATH, _API_DOCKET_PATH):
+        if (match := pattern.fullmatch(split.path)) is not None:
+            return match.group("docket_id")
+    return None
+
+
+def _deduplicate_hits(
+    hits: Iterable[CaseDevDocketHit],
+) -> tuple[CaseDevDocketHit, ...]:
+    ordered: list[CaseDevDocketHit] = []
+    by_id: dict[str, CaseDevDocketHit] = {}
+    for hit in hits:
+        existing = by_id.get(hit.docket_entry_id)
+        if existing is None:
+            by_id[hit.docket_entry_id] = hit
+            ordered.append(hit)
+            continue
+        if existing != hit:
+            raise CaseDevRecapEnrichmentError(
+                f"case_dev_duplicate_entry_conflict: entry_id={hit.docket_entry_id}"
+            )
+    return tuple(ordered)
+
+
+def _inventory_documents(
+    entries: Iterable[CaseDevDocketHit],
+) -> tuple[
+    Mapping[str, tuple[CaseDevRecapDocument, ...]],
+    tuple[CaseDevRecapDocument, ...],
+]:
+    by_entry: dict[str, tuple[CaseDevRecapDocument, ...]] = {}
+    ordered: list[CaseDevRecapDocument] = []
+    by_document_id: dict[str, CaseDevRecapDocument] = {}
+    for entry in entries:
+        role = _core_document_role(entry.entry_text)
+        raw_documents = entry.raw.get("documents", [])
+        if not isinstance(raw_documents, list):
+            raise CaseDevRecapEnrichmentError(
+                f"case_dev_documents_invalid: entry_id={entry.docket_entry_id}"
+            )
+        entry_documents: list[CaseDevRecapDocument] = []
+        for raw_document in cast(list[object], raw_documents):
+            raw = _mapping(raw_document, "case.dev document")
+            document = _document_from_record(entry, role=role, raw=raw)
+            existing = by_document_id.get(document.document_id)
+            if existing is not None and existing != document:
+                raise CaseDevRecapEnrichmentError(
+                    "case_dev_duplicate_document_conflict: "
+                    f"document_id={document.document_id}"
+                )
+            if existing is None:
+                by_document_id[document.document_id] = document
+                ordered.append(document)
+            entry_documents.append(document)
+        by_entry[entry.docket_entry_id] = tuple(entry_documents)
+    return by_entry, tuple(ordered)
+
+
+def _document_from_record(
+    entry: CaseDevDocketHit,
+    *,
+    role: DocumentRole,
+    raw: Mapping[str, Any],
+) -> CaseDevRecapDocument:
+    document_id = _required_string(raw, "id", "documentId", "document_id")
+    description = _optional_string(raw, "description", "name") or entry.entry_text
+    kind = _optional_string(raw, "type", "kind")
+    pdf_url = _optional_pdf_url(raw)
+    is_available = _optional_bool(raw, "isAvailable", "is_available")
+    markers = restricted_material_markers(
+        records=(
+            cast(Mapping[str, object], entry.raw),
+            cast(Mapping[str, object], raw),
+        ),
+        text_fields=(entry.entry_text, description),
+    )
+    return CaseDevRecapDocument(
+        document_id=document_id,
+        docket_entry_id=entry.docket_entry_id,
+        entry_number=entry.entry_number,
+        entry_text=entry.entry_text,
+        document_role=role,
+        description=description,
+        kind=kind,
+        pdf_url=pdf_url,
+        is_available=is_available,
+        restriction_markers=markers,
+    )
+
+
+def _required_document_slots(
+    entries: Iterable[CaseDevDocketHit],
+    *,
+    documents_by_entry: Mapping[str, tuple[CaseDevRecapDocument, ...]],
+) -> tuple[CaseDevRequiredDocumentSlot, ...]:
+    slots: list[CaseDevRequiredDocumentSlot] = []
+    observed_roles: set[DocumentRole] = set()
+    for entry in entries:
+        role = _core_document_role(entry.entry_text)
+        if role not in _REQUIRED_ENTRY_ROLES:
+            continue
+        observed_roles.add(role)
+        requirement = _requirement_for_role(role)
+        slots.append(
+            _entry_required_slot(
+                entry,
+                role=role,
+                requirement=requirement,
+                documents=documents_by_entry[entry.docket_entry_id],
+            )
+        )
+    for requirement, roles in _MANDATORY_REQUIREMENTS:
+        if observed_roles.isdisjoint(roles):
+            slots.append(
+                CaseDevRequiredDocumentSlot(
+                    requirement=requirement,
+                    document_role=_representative_role(roles),
+                    entry_id=None,
+                    entry_number=None,
+                    candidate_document_ids=(),
+                    selected_document_id=None,
+                    satisfied=False,
+                    missing_reason="required_role_absent",
+                )
+            )
+    return tuple(slots)
+
+
+def _entry_required_slot(
+    entry: CaseDevDocketHit,
+    *,
+    role: DocumentRole,
+    requirement: str,
+    documents: tuple[CaseDevRecapDocument, ...],
+) -> CaseDevRequiredDocumentSlot:
+    selected, missing_reason = _select_main_document(documents)
+    satisfied = selected is not None and selected.actually_free
+    if selected is not None and not satisfied:
+        missing_reason = f"required_document_{selected.availability_reason}"
+    return CaseDevRequiredDocumentSlot(
+        requirement=requirement,
+        document_role=role,
+        entry_id=entry.docket_entry_id,
+        entry_number=entry.entry_number,
+        candidate_document_ids=tuple(document.document_id for document in documents),
+        selected_document_id=None if selected is None else selected.document_id,
+        satisfied=satisfied,
+        missing_reason=None if satisfied else missing_reason,
+    )
+
+
+def _select_main_document(
+    documents: tuple[CaseDevRecapDocument, ...],
+) -> tuple[CaseDevRecapDocument | None, str]:
+    if not documents:
+        return None, "document_not_listed"
+    explicit_main = tuple(
+        document
+        for document in documents
+        if document.kind is not None and "main" in _normalized(document.kind)
+    )
+    if len(explicit_main) == 1:
+        return explicit_main[0], ""
+    if len(documents) == 1:
+        return documents[0], ""
+    return None, "main_document_ambiguous"
+
+
+def _core_document_role(entry_text: str) -> DocumentRole:
+    role = classify_document_role(entry_text)
+    if role is DocumentRole.DECISION and not _references_mtd(entry_text):
+        return DocumentRole.OTHER
+    return role
+
+
+def _references_mtd(value: str) -> bool:
+    normalized = _normalized(value)
+    return any(
+        marker in normalized
+        for marker in ("motion to dismiss", "motions to dismiss", "rule 12", "mtd")
+    )
+
+
+def _requirement_for_role(role: DocumentRole) -> str:
+    if role in {DocumentRole.COMPLAINT, DocumentRole.AMENDED_COMPLAINT}:
+        return "operative_complaint"
+    if role in {DocumentRole.MTD_NOTICE, DocumentRole.MTD_MEMORANDUM}:
+        return "motion_to_dismiss"
+    if role is DocumentRole.OPPOSITION:
+        return "opposition"
+    if role is DocumentRole.DECISION:
+        return "decision"
+    raise CaseDevRecapEnrichmentError(f"unsupported required role: {role.value}")
+
+
+def _representative_role(roles: frozenset[DocumentRole]) -> DocumentRole:
+    for role in (
+        DocumentRole.COMPLAINT,
+        DocumentRole.MTD_NOTICE,
+        DocumentRole.DECISION,
+    ):
+        if role in roles:
+            return role
+    raise CaseDevRecapEnrichmentError("mandatory requirement has no role")
+
+
+def _optional_pdf_url(record: Mapping[str, Any]) -> str | None:
+    for field_name in ("pdfUrl", "pdf_url"):
+        if field_name not in record or record[field_name] is None:
+            continue
+        value = record[field_name]
+        if not isinstance(value, str):
+            raise CaseDevRecapEnrichmentError(f"{field_name} must be a string")
+        stripped = value.strip()
+        if not stripped:
+            return None
+        split = urlsplit(stripped)
+        if (
+            split.scheme != "https"
+            or not split.netloc
+            or split.username is not None
+            or split.password is not None
+            or split.fragment
+        ):
+            raise CaseDevRecapEnrichmentError(
+                f"{field_name} must be a canonical HTTPS URL"
+            )
+        return stripped
+    return None
+
+
+def _optional_bool(record: Mapping[str, Any], *field_names: str) -> bool | None:
+    for field_name in field_names:
+        if field_name not in record or record[field_name] is None:
+            continue
+        value = record[field_name]
+        if not isinstance(value, bool):
+            raise CaseDevRecapEnrichmentError(f"{field_name} must be a boolean")
+        return value
+    return None
+
+
+def _mapping(value: object, label: str) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise CaseDevRecapEnrichmentError(f"{label} must be an object")
+    return cast(Mapping[str, Any], value)
+
+
+def _required_string(record: Mapping[str, Any], *field_names: str) -> str:
+    value = _optional_string(record, *field_names)
+    if value is None:
+        raise CaseDevRecapEnrichmentError(
+            f"missing required Case.dev field: {' or '.join(field_names)}"
+        )
+    return value
+
+
+def _optional_string(record: Mapping[str, Any], *field_names: str) -> str | None:
+    for field_name in field_names:
+        value = record.get(field_name)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _normalized(value: str) -> str:
+    return " ".join(value.casefold().replace("_", " ").split())

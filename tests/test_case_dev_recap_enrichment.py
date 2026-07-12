@@ -1,0 +1,440 @@
+from __future__ import annotations
+
+from datetime import date
+
+import pytest
+from legalforecast.ingestion.case_dev_client import (
+    CaseDevClient,
+    CaseDevFixtureTransport,
+    RecordedCaseDevResponse,
+)
+from legalforecast.ingestion.case_dev_config import CaseDevConfig
+from legalforecast.ingestion.case_dev_recap_enrichment import (
+    CaseDevRecapEnrichmentError,
+    enrich_recap_docket_with_case_dev,
+    rank_case_dev_recap_enrichments,
+)
+from legalforecast.ingestion.firecrawl_recap_discovery import RecapDiscoveredDocket
+
+
+def test_enrichment_exhausts_free_entry_pages_and_keeps_availability_distinct() -> None:
+    client, transport = _client(
+        _lookup(
+            entries=(
+                _entry(
+                    "entry-1",
+                    1,
+                    "Complaint",
+                    _document(
+                        "doc-1",
+                        pdf_url="https://storage.courtlistener.com/complaint.pdf",
+                        is_available=True,
+                    ),
+                ),
+                _entry(
+                    "entry-5",
+                    5,
+                    "Motion to Dismiss",
+                    _document(
+                        "doc-5",
+                        pdf_url="https://storage.courtlistener.com/mtd.pdf",
+                        is_available=False,
+                    ),
+                ),
+            ),
+            next_offset=2,
+            limit=3,
+        ),
+        _lookup(
+            entries=(
+                _entry(
+                    "entry-8",
+                    8,
+                    "Opposition to Motion to Dismiss",
+                    _document(
+                        "doc-8",
+                        pdf_url="https://storage.courtlistener.com/opposition.pdf",
+                        is_available=True,
+                    ),
+                ),
+                _entry(
+                    "entry-10",
+                    10,
+                    "Order denying Motion to Dismiss",
+                    _document("doc-10", pdf_url=None, is_available=True),
+                ),
+            ),
+            cursor="2",
+            limit=3,
+        ),
+    )
+
+    enriched = enrich_recap_docket_with_case_dev(
+        client=client,
+        discovery=_discovery(),
+        page_size=3,
+        max_pages=4,
+    )
+
+    assert enriched.courtlistener_docket_id == "101"
+    assert enriched.case_dev_id == "101"
+    assert enriched.case_dev_url == (
+        "https://www.courtlistener.com/api/rest/v4/dockets/101/"
+    )
+    assert enriched.pages_fetched == 2
+    assert enriched.required_document_count == 4
+    assert enriched.actual_free_required_document_count == 2
+    assert enriched.missing_required_document_count == 2
+    by_id = {document.document_id: document for document in enriched.documents}
+    assert by_id["doc-1"].pdf_url_present is True
+    assert by_id["doc-1"].is_available is True
+    assert by_id["doc-1"].actually_free is True
+    assert by_id["doc-5"].pdf_url_present is True
+    assert by_id["doc-5"].is_available is False
+    assert by_id["doc-5"].actually_free is False
+    assert by_id["doc-10"].pdf_url_present is False
+    assert by_id["doc-10"].is_available is True
+    assert by_id["doc-10"].actually_free is False
+    assert [request[2] for request in transport.requests] == [
+        {
+            "type": "lookup",
+            "docketId": "101",
+            "includeEntries": True,
+            "limit": 3,
+        },
+        {
+            "type": "lookup",
+            "docketId": "101",
+            "includeEntries": True,
+            "offset": 2,
+            "limit": 3,
+        },
+    ]
+    assert all(
+        "live" not in params and "acknowledgePacerFees" not in params
+        for _method, _path, params in transport.requests
+    )
+
+
+def test_pdf_url_without_boolean_availability_fails_closed_as_missing() -> None:
+    client, _transport = _client(
+        _lookup(
+            entries=(
+                _entry(
+                    "entry-1",
+                    1,
+                    "Complaint",
+                    _document(
+                        "doc-1",
+                        pdf_url="https://storage.courtlistener.com/complaint.pdf",
+                    ),
+                ),
+            ),
+            limit=5,
+        )
+    )
+
+    enriched = enrich_recap_docket_with_case_dev(
+        client=client,
+        discovery=_discovery(),
+        page_size=5,
+    )
+
+    [document] = enriched.documents
+    assert document.pdf_url_present is True
+    assert document.is_available is None
+    assert document.actually_free is False
+    assert document.availability_reason == "availability_unknown"
+    assert enriched.missing_required_document_count == 3
+
+
+def test_multiple_documents_without_unique_main_are_not_assumed_free() -> None:
+    client, _transport = _client(
+        _lookup(
+            entries=(
+                _entry(
+                    "entry-5",
+                    5,
+                    "Motion to Dismiss",
+                    _document(
+                        "doc-5-a",
+                        pdf_url="https://storage.courtlistener.com/a.pdf",
+                        is_available=True,
+                        kind="attachment",
+                    ),
+                    _document(
+                        "doc-5-b",
+                        pdf_url="https://storage.courtlistener.com/b.pdf",
+                        is_available=True,
+                        kind="attachment",
+                    ),
+                ),
+            ),
+            limit=5,
+        )
+    )
+
+    enriched = enrich_recap_docket_with_case_dev(
+        client=client,
+        discovery=_discovery(),
+        page_size=5,
+    )
+
+    motion_slot = next(slot for slot in enriched.required_documents if slot.entry_id)
+    assert motion_slot.selected_document_id is None
+    assert motion_slot.satisfied is False
+    assert motion_slot.missing_reason == "main_document_ambiguous"
+
+
+def test_entry_restriction_overrides_available_pdf_evidence() -> None:
+    restricted_entry = _entry(
+        "entry-1",
+        1,
+        "Complaint",
+        _document(
+            "doc-1",
+            pdf_url="https://storage.courtlistener.com/complaint.pdf",
+            is_available=True,
+        ),
+    )
+    restricted_entry["isSealed"] = True
+    client, _transport = _client(_lookup(entries=(restricted_entry,), limit=5))
+
+    enriched = enrich_recap_docket_with_case_dev(
+        client=client,
+        discovery=_discovery(),
+        page_size=5,
+    )
+
+    [document] = enriched.documents
+    assert document.pdf_url_present is True
+    assert document.is_available is True
+    assert document.actually_free is False
+    assert document.availability_reason == "restricted"
+
+
+def test_missing_mandatory_roles_each_add_one_missing_slot() -> None:
+    client, _transport = _client(_lookup(entries=(), limit=5))
+
+    enriched = enrich_recap_docket_with_case_dev(
+        client=client,
+        discovery=_discovery(),
+        page_size=5,
+    )
+
+    assert enriched.required_document_count == 3
+    assert enriched.missing_required_document_count == 3
+    assert [slot.requirement for slot in enriched.required_documents] == [
+        "operative_complaint",
+        "motion_to_dismiss",
+        "decision",
+    ]
+
+
+def test_ranking_uses_missing_required_count_then_stable_docket_identity() -> None:
+    cheap_client, _transport = _client(
+        _lookup(
+            docket_id="102",
+            entries=(
+                _entry(
+                    "entry-1",
+                    1,
+                    "Complaint",
+                    _document(
+                        "doc-1",
+                        pdf_url="https://storage.courtlistener.com/complaint.pdf",
+                        is_available=True,
+                    ),
+                ),
+            ),
+            limit=5,
+        )
+    )
+    costly_client, _transport = _client(_lookup(entries=(), limit=5))
+    cheap = enrich_recap_docket_with_case_dev(
+        client=cheap_client,
+        discovery=_discovery("102"),
+        page_size=5,
+    )
+    costly = enrich_recap_docket_with_case_dev(
+        client=costly_client,
+        discovery=_discovery("101"),
+        page_size=5,
+    )
+
+    ranked = rank_case_dev_recap_enrichments((costly, cheap))
+
+    assert [item.courtlistener_docket_id for item in ranked] == ["102", "101"]
+    assert ranked[0].missing_required_document_count == 2
+    assert ranked[1].missing_required_document_count == 3
+
+
+def test_case_dev_id_must_match_discovered_courtlistener_docket() -> None:
+    client, _transport = _client(
+        _lookup(
+            docket_id="999",
+            requested_docket_id="101",
+            entries=(),
+            limit=5,
+        )
+    )
+
+    with pytest.raises(CaseDevRecapEnrichmentError, match="case_dev_id_mismatch"):
+        enrich_recap_docket_with_case_dev(
+            client=client,
+            discovery=_discovery(),
+            page_size=5,
+        )
+
+
+def test_case_dev_url_must_match_discovered_courtlistener_docket() -> None:
+    client, _transport = _client(
+        _lookup(docket_id="101", url_docket_id="999", entries=(), limit=5)
+    )
+
+    with pytest.raises(CaseDevRecapEnrichmentError, match="case_dev_url_mismatch"):
+        enrich_recap_docket_with_case_dev(
+            client=client,
+            discovery=_discovery(),
+            page_size=5,
+        )
+
+
+def test_full_page_without_continuation_is_not_treated_as_exhausted() -> None:
+    client, _transport = _client(
+        _lookup(
+            entries=(
+                _entry("entry-1", 1, "Complaint"),
+                _entry("entry-2", 2, "Notice"),
+            ),
+            limit=2,
+        )
+    )
+
+    with pytest.raises(CaseDevRecapEnrichmentError, match="exhaustion_unproven"):
+        enrich_recap_docket_with_case_dev(
+            client=client,
+            discovery=_discovery(),
+            page_size=2,
+        )
+
+
+def test_repeated_continuation_fails_closed() -> None:
+    client, _transport = _client(
+        _lookup(entries=(), next_offset=2, limit=5),
+        _lookup(entries=(), next_offset=2, cursor="2", limit=5),
+    )
+
+    with pytest.raises(CaseDevRecapEnrichmentError, match="continuation_cycle"):
+        enrich_recap_docket_with_case_dev(
+            client=client,
+            discovery=_discovery(),
+            page_size=5,
+        )
+
+
+def test_page_cap_fails_instead_of_returning_partial_inventory() -> None:
+    client, _transport = _client(
+        _lookup(entries=(), next_offset=2, limit=5),
+    )
+
+    with pytest.raises(CaseDevRecapEnrichmentError, match="page_limit"):
+        enrich_recap_docket_with_case_dev(
+            client=client,
+            discovery=_discovery(),
+            page_size=5,
+            max_pages=1,
+        )
+
+
+def _client(
+    *responses: RecordedCaseDevResponse,
+) -> tuple[CaseDevClient, CaseDevFixtureTransport]:
+    transport = CaseDevFixtureTransport(responses)
+    return CaseDevClient(
+        config=CaseDevConfig(api_key=None), transport=transport
+    ), transport
+
+
+def _discovery(docket_id: str = "101") -> RecapDiscoveredDocket:
+    return RecapDiscoveredDocket(
+        docket_id=docket_id,
+        docket_url=(
+            f"https://www.courtlistener.com/docket/{docket_id}/fixture-v-example/"
+        ),
+        entry_keys=(f"{docket_id}:10",),
+        matched_terms=("motion to dismiss",),
+    )
+
+
+def _lookup(
+    *,
+    entries: tuple[dict[str, object], ...],
+    limit: int,
+    docket_id: str = "101",
+    requested_docket_id: str | None = None,
+    url_docket_id: str | None = None,
+    cursor: str | None = None,
+    next_offset: int | None = None,
+) -> RecordedCaseDevResponse:
+    params: dict[str, object] = {
+        "type": "lookup",
+        "docketId": requested_docket_id or docket_id,
+        "includeEntries": True,
+        "limit": limit,
+    }
+    if cursor is not None:
+        params["offset"] = int(cursor)
+    payload: dict[str, object] = {
+        "docket": {
+            "id": docket_id,
+            "url": (
+                "https://www.courtlistener.com/api/rest/v4/dockets/"
+                f"{url_docket_id or docket_id}/"
+            ),
+            "entries": list(entries),
+        }
+    }
+    if next_offset is not None:
+        payload["nextOffset"] = next_offset
+    return RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params=params,
+        status_code=200,
+        payload=payload,
+    )
+
+
+def _entry(
+    entry_id: str,
+    entry_number: int,
+    description: str,
+    *documents: dict[str, object],
+) -> dict[str, object]:
+    return {
+        "id": entry_id,
+        "entryNumber": entry_number,
+        "date": date(2026, 7, 1).isoformat(),
+        "description": description,
+        "documents": list(documents),
+    }
+
+
+def _document(
+    document_id: str,
+    *,
+    pdf_url: str | None = None,
+    is_available: bool | None = None,
+    kind: str = "main_document",
+) -> dict[str, object]:
+    record: dict[str, object] = {
+        "id": document_id,
+        "description": document_id,
+        "type": kind,
+    }
+    if pdf_url is not None:
+        record["pdfUrl"] = pdf_url
+    if is_available is not None:
+        record["isAvailable"] = is_available
+    return record
