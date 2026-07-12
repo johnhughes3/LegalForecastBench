@@ -4,12 +4,6 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
-    inputs:
-      publish:
-        description: Publish to PyPI after the release check passes.
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -26,12 +20,12 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           enable-cache: true
 
@@ -39,7 +33,7 @@ jobs:
         run: uv run scripts/release_check.py --output-dir tmp/release-check
 
       - name: Upload release-check artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: release-check
@@ -49,7 +43,6 @@ jobs:
   publish:
     name: Publish package
     needs: release-check
-    if: github.event_name == 'push' || inputs.publish == true
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -60,19 +53,19 @@ jobs:
 
     steps:
       - name: Download release-check artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
         with:
           name: release-check
           path: tmp/release-check
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
         with:
           packages-dir: tmp/release-check/dist
           skip-existing: true
 
       - name: Publish GitHub release metadata
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           prerelease: ${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'alpha') }}
           files: |
