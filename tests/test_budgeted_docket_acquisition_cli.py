@@ -82,67 +82,74 @@ def test_ranked_budgeted_cli_feeds_strict_selected_slice_snapshot(
             terminal_status=None,
         )
 
-    assert main(
-        [
-            "acquisition",
-            "acquire-ranked-firecrawl-dockets",
-            "--cycle-store",
-            str(store_path),
-            "--parent-batch-id",
-            "partial-parent",
-            "--selected-batch-id",
-            "selected-001",
-            "--run-id",
-            "dockets-001",
-            "--ranked",
-            str(ranked_path),
-            "--max-candidates",
-            "1",
-            "--decision-filed-on-or-after",
-            "2026-06-30",
-            "--firecrawl-fixture",
-            str(fixture_path),
-            "--output-root",
-            str(output),
-            "--execute",
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "acquisition",
+                "acquire-ranked-firecrawl-dockets",
+                "--cycle-store",
+                str(store_path),
+                "--parent-batch-id",
+                "partial-parent",
+                "--selected-batch-id",
+                "selected-001",
+                "--run-id",
+                "dockets-001",
+                "--ranked",
+                str(ranked_path),
+                "--max-candidates",
+                "1",
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--firecrawl-fixture",
+                str(fixture_path),
+                "--output-root",
+                str(output),
+                "--execute",
+            ]
+        )
+        == 0
+    )
     fetch_exclusions = output / "firecrawl-docket-exclusions.jsonl"
     snapshot_root = output / "snapshots"
-    assert main(
-        [
-            "acquisition",
-            "screen-firecrawl-dockets",
-            "--cycle-store",
-            str(store_path),
-            "--batch-id",
-            "selected-001",
-            "--successes",
-            str(output / "firecrawl-docket-successes.jsonl"),
-            "--fetch-exclusions",
-            str(fetch_exclusions),
-            "--raw-html-dir",
-            str(output / "raw-docket-html"),
-            "--decision-filed-on-or-after",
-            "2026-06-30",
-            "--snapshot-root",
-            str(snapshot_root),
-            "--snapshot-id",
-            "selected-001-complete",
-            "--output-root",
-            str(output / "screen"),
-            "--execute",
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "acquisition",
+                "screen-firecrawl-dockets",
+                "--cycle-store",
+                str(store_path),
+                "--batch-id",
+                "selected-001",
+                "--successes",
+                str(output / "firecrawl-docket-successes.jsonl"),
+                "--fetch-exclusions",
+                str(fetch_exclusions),
+                "--raw-html-dir",
+                str(output / "raw-docket-html"),
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--snapshot-root",
+                str(snapshot_root),
+                "--snapshot-id",
+                "selected-001-complete",
+                "--output-root",
+                str(output / "screen"),
+                "--execute",
+            ]
+        )
+        == 0
+    )
     manifest = json.loads(
         (snapshot_root / "selected-001-complete" / "manifest.json").read_text()
     )
     assert manifest["complete"] is True
     assert manifest["saturated"] is True
     with CycleAcquisitionStore(store_path) as store:
-        assert store.term_progress(
-            "partial-parent", "motion to dismiss"
-        ).terminal_status is None
+        assert (
+            store.term_progress("partial-parent", "motion to dismiss").terminal_status
+            is None
+        )
 
 
 def _policy() -> dict[str, object]:

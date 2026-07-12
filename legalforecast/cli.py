@@ -3743,9 +3743,7 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
         cast(str, args.decision_filed_on_or_after),
         "--decision-filed-on-or-after",
     )
-    raw_dir = _acquisition_path(
-        args, "raw_html_dir", output_root / "raw-docket-html"
-    )
+    raw_dir = _acquisition_path(args, "raw_html_dir", output_root / "raw-docket-html")
     successes_path = _acquisition_path(
         args, "successes_output", output_root / "firecrawl-docket-successes.jsonl"
     )
@@ -3764,7 +3762,7 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
             raise CommandError(
                 "ranked records require identity and screening_metadata objects"
             )
-        docket_id = identity.get("courtlistener_docket_id")
+        docket_id = cast(Mapping[str, object], identity).get("courtlistener_docket_id")
         if not isinstance(docket_id, str):
             raise CommandError("ranked record has invalid CourtListener docket ID")
         metadata_by_docket[docket_id] = cast(Mapping[str, object], metadata)

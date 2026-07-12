@@ -88,9 +88,10 @@ def test_selected_slice_is_terminal_without_claiming_parent_saturation(
         )
 
         assert targets[0].candidate_id == "courtlistener-docket-20"
-        assert store.term_progress(
-            "partial-parent", "motion to dismiss"
-        ).terminal_status is None
+        assert (
+            store.term_progress("partial-parent", "motion to dismiss").terminal_status
+            is None
+        )
         assert (
             store.term_progress(
                 "batch-001-selected", "selected-ranked-slice"

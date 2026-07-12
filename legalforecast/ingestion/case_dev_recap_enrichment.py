@@ -317,9 +317,7 @@ def _screening_metadata(
         "case_name": _optional_string(docket, "caseName", "case_name", "caption")
         or "unknown",
         "court_id": _optional_string(docket, "courtId", "court_id", "court"),
-        "docket_number": _optional_string(
-            docket, "docketNumber", "docket_number"
-        ),
+        "docket_number": _optional_string(docket, "docketNumber", "docket_number"),
         "date_filed": _optional_string(docket, "dateFiled", "date_filed"),
         "source_url": discovery.docket_url,
     }
