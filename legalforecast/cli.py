@@ -4363,10 +4363,7 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
                 "page_count": len(bundle.pages),
             }
         )
-    exclusions = [
-        {"candidate_id": f"courtlistener-docket-{docket_id}", "reason": "fetch_failed"}
-        for docket_id in result.failed_docket_ids
-    ]
+    exclusions = [failure.as_record() for failure in result.failures]
     _write_jsonl(successes_path, successes)
     _write_jsonl(exclusions_path, exclusions)
     summary = {
@@ -4374,6 +4371,9 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
         "selected_batch_id": cast(str, args.selected_batch_id),
         "success_count": len(successes),
         "exclusion_count": len(exclusions),
+        "failure_reason_counts": dict(
+            Counter(failure.failure_reason for failure in result.failures)
+        ),
         "pagination_complete_before_screening": True,
         "workers": workers,
     }
