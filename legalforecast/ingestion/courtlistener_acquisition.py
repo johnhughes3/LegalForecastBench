@@ -753,9 +753,17 @@ def _parse_filed_date(value: str | None) -> date | None:
         return date.fromisoformat(value[:10])
     except ValueError:
         pass
-    for pattern in ("%B %d, %Y", "%b %d, %Y"):
+    match = re.fullmatch(
+        r"(?P<date>[A-Z][a-z]+\.? \d{1,2}, \d{4})"
+        r"(?:, (?:noon|midnight|(?:1[0-2]|[1-9])(?::[0-5]\d)? [ap]\.m\.))?",
+        value.strip(),
+    )
+    if match is None:
+        return None
+    date_text = match.group("date")
+    for pattern in ("%B %d, %Y", "%b %d, %Y", "%b. %d, %Y"):
         try:
-            return datetime.strptime(value.strip(), pattern).date()
+            return datetime.strptime(date_text, pattern).date()
         except ValueError:
             continue
     return None
