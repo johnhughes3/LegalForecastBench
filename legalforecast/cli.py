@@ -85,6 +85,7 @@ from legalforecast.ingestion.case_dev_client import (
     CaseDevClient,
     CaseDevClientError,
     CaseDevFixtureTransport,
+    CaseDevServerError,
     RecordedCaseDevResponse,
 )
 from legalforecast.ingestion.case_dev_config import CaseDevConfig
@@ -3731,11 +3732,13 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
             or isinstance(input_index, bool)
             or input_index < 0
             or input_index >= len(records)
-            or input_index in progress_by_index
-            or progress.get("outcome") not in {"success", "failure"}
+            or progress.get("outcome") not in {"success", "failure", "transient"}
             or not isinstance(progress.get("payload"), Mapping)
         ):
             raise CommandError("Case.dev enrichment progress is invalid or duplicated")
+        prior = progress_by_index.get(input_index)
+        if prior is not None and prior.get("outcome") != "transient":
+            raise CommandError("Case.dev enrichment progress repeats a terminal index")
         progress_by_index[input_index] = progress
 
     try:
@@ -3745,14 +3748,30 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
             live=live,
         )
         for input_index, record in enumerate(records):
-            if input_index in progress_by_index:
+            if (
+                input_index in progress_by_index
+                and progress_by_index[input_index]["outcome"] != "transient"
+            ):
                 continue
-            one = enrich_recap_discovery_batch(
-                client=client,
-                records=(record,),
-                page_size=page_size,
-                max_pages=max_pages,
-            )
+            try:
+                one = enrich_recap_discovery_batch(
+                    client=client,
+                    records=(record,),
+                    page_size=page_size,
+                    max_pages=max_pages,
+                )
+            except CaseDevServerError as exc:
+                progress = {
+                    "input_index": input_index,
+                    "outcome": "transient",
+                    "payload": {
+                        "reason": "case_dev_server_error",
+                        "detail": str(exc),
+                    },
+                }
+                _append_jsonl(progress_path, (progress,))
+                progress_by_index[input_index] = progress
+                continue
             if one.successes:
                 progress: JsonRecord = {
                     "input_index": input_index,
@@ -3782,6 +3801,24 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
 
     if len(progress_by_index) != len(records):
         raise CommandError("Case.dev enrichment progress did not reconcile to inputs")
+    transient_count = sum(
+        progress["outcome"] == "transient" for progress in progress_by_index.values()
+    )
+    if transient_count:
+        reason = (
+            f"Case.dev enrichment retained {transient_count} transient docket(s); "
+            "rerun with --resume"
+        )
+        _write_acquisition_failure(
+            args,
+            stage="enrich-recap-case-dev",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=reason,
+            paid_activity_requested=False,
+            extra={"transient_docket_count": transient_count},
+        )
+        raise CommandError(reason)
     ranked_records = sorted(
         (
             dict(cast(Mapping[str, Any], progress["payload"]))

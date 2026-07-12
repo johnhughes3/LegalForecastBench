@@ -159,7 +159,10 @@ def test_enrich_recap_case_dev_resumes_after_transient_provider_abort(
     progress = _read_jsonl(
         output_root / "checkpoints" / "case-dev-recap-progress.jsonl"
     )
-    assert [record["input_index"] for record in progress] == [0]
+    assert [(record["input_index"], record["outcome"]) for record in progress] == [
+        (0, "success"),
+        (1, "transient"),
+    ]
 
     second_fixture = tmp_path / "second.jsonl"
     second_fixture.write_text(json.dumps(_case_dev_response("102")) + "\n")
