@@ -13,6 +13,7 @@ from legalforecast.multiharness.community import (
     ATTEST_PROVIDER_TERMS,
     ATTEST_RIGHT_TO_SUBMIT,
     REQUIRED_ATTESTATIONS,
+    CommunityArtifactReference,
     CommunityPackageConfig,
     CommunitySubmissionManifest,
     package_community_submission,
@@ -92,6 +93,12 @@ def test_community_package_cli_writes_pr_ready_submission(tmp_path: Path) -> Non
     assert (output_dir / "selection-manifest.json").is_file()
     assert (output_dir / "artifact-manifest.json").is_file()
     assert (output_dir / "hf-upload-plan.json").is_file()
+    upload_plan = _read_json(output_dir / "hf-upload-plan.json")
+    assert upload_plan["mirror_repository"] == (
+        "https://huggingface.co/datasets/johnhughes3/"
+        "legalforecastbench-community-artifacts"
+    )
+    assert upload_plan["revision_policy"] == "immutable-commit"
 
 
 def test_missing_required_attestation_is_rejected(tmp_path: Path) -> None:
@@ -112,6 +119,51 @@ def test_artifact_hash_mismatch_is_rejected(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="artifact hash mismatch"):
         validate_submission_file(output_dir / "submission.json")
+
+
+def test_mirrored_artifact_requires_designated_hf_commit_url() -> None:
+    artifact = CommunityArtifactReference(
+        artifact_id="large-public-output",
+        path="large-public-output.jsonl",
+        sha256=SHA1,
+        media_type="application/jsonl",
+        source_url=(
+            "https://huggingface.co/datasets/johnhughes3/"
+            "legalforecastbench-community-artifacts/resolve/"
+            f"{'a' * 40}/large-public-output.jsonl"
+        ),
+    )
+
+    assert artifact.source_url is not None
+
+
+@pytest.mark.parametrize(
+    "source_url",
+    [
+        (
+            "https://huggingface.co/datasets/johnhughes3/"
+            "legalforecastbench-community-artifacts/resolve/main/output.jsonl"
+        ),
+        (
+            "https://huggingface.co/datasets/another-owner/"
+            f"another-repo/resolve/{'a' * 40}/output.jsonl"
+        ),
+        (
+            "https://huggingface.co/datasets/johnhughes3/"
+            "legalforecastbench-community-artifacts/resolve/"
+            f"{'a' * 40}/output.jsonl?download=true"
+        ),
+    ],
+)
+def test_mutable_or_unapproved_mirror_url_is_rejected(source_url: str) -> None:
+    with pytest.raises(MultiHarnessValidationError, match="source_url"):
+        CommunityArtifactReference(
+            artifact_id="large-public-output",
+            path="large-public-output.jsonl",
+            sha256=SHA1,
+            media_type="application/jsonl",
+            source_url=source_url,
+        )
 
 
 def test_unsafe_public_artifact_path_is_rejected(tmp_path: Path) -> None:

@@ -68,7 +68,15 @@ All contributors receive the same attribution: organization or personal name, pl
 
 ## Large Artifacts And Hugging Face Mirrors
 
-Do not commit raw model transcripts, private logs, source documents, sealed/private materials, or large binary outputs. Large public-safe artifacts should be referenced by immutable URL plus SHA-256. The optional `hf-upload-plan.json` is a planning artifact for mirroring public-safe files to a Hugging Face Dataset repo; it does not upload anything itself.
+Do not commit raw model transcripts, private logs, source documents, sealed/private materials, or large binary outputs. The checked-in metadata under `community/submissions/` is the registry of record; neither a generated aggregate, GitHub Actions artifact, GitHub Release, nor an external mirror can add or replace an accepted submission.
+
+The optional large-artifact mirror is the Hugging Face Dataset repository [`johnhughes3/legalforecastbench-community-artifacts`](https://huggingface.co/datasets/johnhughes3/legalforecastbench-community-artifacts), owned and administered by John Hughes. Maintainers of `johnhughes3/LegalForecastBench` may publish public-safe artifacts after submission validation. Repository recovery consists of recreating that Dataset repository under the same owner and re-uploading bytes verified against the SHA-256 values in the git registry; mirror access never authorizes changing checked-in metadata.
+
+Every mirrored artifact reference must use an HTTPS Hugging Face `resolve` URL pinned to a full 40- or 64-character lowercase commit SHA in that exact Dataset repository, and must retain the artifact's `sha256:` digest in `submission.json`. Branch names, tags, `main`, `master`, `latest`, query parameters, redirects, and mutable replacement at an existing URL are not accepted. The optional `hf-upload-plan.json` records the designated repository and `immutable-commit` revision policy; it is a planning artifact and does not upload anything itself.
+
+Accepted metadata and mirrored artifacts are retained indefinitely. Corrections are new submissions or new artifact records at new immutable URLs; existing records and bytes are never replaced in place. A legal, privacy, provider-terms, or integrity problem triggers prompt withdrawal: maintainers remove public access to affected mirror bytes when necessary and commit a tombstone that preserves the submission ID, withdrawal date, reason category, and prior artifact hashes without republishing sensitive details. Ordinary withdrawal does not erase provenance. Deletion from both git history and the mirror is reserved for a binding legal requirement or a confirmed secret/private-material exposure, and the public tombstone should remain whenever legally and safely possible.
+
+GitHub Releases are not an artifact mirror for community submissions. They may carry versioned LegalForecastBench software and official release notes, but community artifact durability and identity come from the checked-in registry plus the optional commit-pinned Hugging Face mirror.
 
 All public artifact paths must be safe relative paths. Public files are scanned for secrets, provider account IDs, private path segments, raw-document-like suffixes, and audit-only markers.
 
