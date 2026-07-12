@@ -169,6 +169,8 @@ def convert_documents_to_markdown(
 ) -> tuple[MistralMarkdownConversionRecord, ...]:
     """Convert documents independently so one parser failure cannot poison a run."""
 
+    if not requests:
+        return ()
     parser_config = MistralParserConfig() if config is None else config
     process_runner: ParserProcessRunner = (
         SubprocessParserRunner() if runner is None else runner
@@ -445,21 +447,51 @@ def _require_parser_revision(parser_root: Path) -> str:
     path = os.environ.get("PATH")
     if path is None or not path.strip():
         raise ValueError("PATH must be present and nonempty to verify parser revision")
-    completed = subprocess.run(
-        ("git", "-C", str(parser_root), "rev-parse", "HEAD"),
-        env={"PATH": path},
-        capture_output=True,
-        check=False,
-        text=True,
-        timeout=10,
+    revision_check = _run_parser_git_check(
+        parser_root, ("rev-parse", "HEAD"), path=path, purpose="revision"
     )
-    revision = completed.stdout.strip()
-    if completed.returncode != 0 or revision != EXPECTED_PARSER_REVISION:
+    revision = revision_check.stdout.strip()
+    if revision != EXPECTED_PARSER_REVISION:
         raise ValueError(
             "parser checkout revision mismatch: expected "
             f"{EXPECTED_PARSER_REVISION}, got {revision or 'unavailable'}"
         )
+    status_check = _run_parser_git_check(
+        parser_root, ("status", "--porcelain"), path=path, purpose="working tree"
+    )
+    if status_check.stdout.strip():
+        raise ValueError("parser checkout working tree is dirty")
     return revision
+
+
+def _run_parser_git_check(
+    parser_root: Path,
+    arguments: tuple[str, ...],
+    *,
+    path: str,
+    purpose: str,
+) -> subprocess.CompletedProcess[str]:
+    try:
+        completed = subprocess.run(
+            ("git", "-C", str(parser_root), *arguments),
+            env={"PATH": path},
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=10,
+        )
+    except FileNotFoundError as exc:
+        raise ValueError(
+            "git executable not found; cannot verify parser checkout"
+        ) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError(f"git {purpose} check timed out after 10 seconds") from exc
+    if completed.returncode != 0:
+        stderr = completed.stderr.strip() or "no stderr"
+        raise ValueError(
+            f"git {purpose} check failed with exit {completed.returncode}: {stderr}"
+        )
+    return completed
 
 
 def _build_parser_subprocess_env(parent_env: Mapping[str, str]) -> dict[str, str]:
