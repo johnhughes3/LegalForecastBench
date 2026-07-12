@@ -257,6 +257,54 @@ def test_screen_firecrawl_dockets_fail_closed_on_first_preanchor_disposition(
     assert exclusion["case_id"] == "case-dev-123"
 
 
+def test_screen_firecrawl_dockets_preserves_fetch_exclusions_in_public_ledger(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    output_root = tmp_path / "screening"
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [])
+    fetch_exclusions = Path(
+        cycle_state.cli_args[cycle_state.cli_args.index("--fetch-exclusions") + 1]
+    )
+    fetch_exclusion = {
+        "case_id": "case-dev-123",
+        "docket_id": "123",
+        "reason": "provider_circuit_open",
+    }
+    _write_jsonl(fetch_exclusions, [fetch_exclusion])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "screen-firecrawl-dockets",
+                *cycle_state.cli_args,
+                "--successes",
+                str(successes),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    assert _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl") == [
+        fetch_exclusion
+    ]
+    summary = _read_json(output_root / "firecrawl-screening-summary.json")
+    assert summary["input_fetch_exclusion_count"] == 1
+    assert summary["excluded_case_count"] == 1
+    assert summary["reconciled"] is True
+
+
 def test_screen_firecrawl_dockets_rejects_changed_html_commitment(
     tmp_path: Path,
     cycle_state: _CycleState,
@@ -297,7 +345,12 @@ def test_screen_firecrawl_dockets_rejects_changed_html_commitment(
 
 @pytest.mark.parametrize(
     "missing_field",
-    ("raw_html_sha256", "raw_html_bytes", "retrieved_at"),
+    (
+        "raw_html_sha256",
+        "raw_html_bytes",
+        "retrieved_at",
+        "pagination_complete_for_anchor_window",
+    ),
 )
 def test_screen_firecrawl_dockets_requires_raw_artifact_commitments(
     tmp_path: Path,
@@ -738,6 +791,7 @@ def _success_record(raw_html: str | None = None) -> dict[str, object]:
         "raw_html_sha256": f"sha256:{sha256(raw_bytes).hexdigest()}",
         "raw_html_bytes": len(raw_bytes),
         "retrieved_at": "2026-07-12T12:00:00+00:00",
+        "pagination_complete_for_anchor_window": True,
         "case_metadata": {
             "case_id": "case-dev-123",
             "court_id": "nysd",

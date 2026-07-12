@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,8 +9,10 @@ from types import SimpleNamespace
 from legalforecast.ingestion.budgeted_docket_acquisition import (
     acquire_ranked_dockets,
     materialize_selected_slice_batch,
+    render_complete_docket_html,
 )
 from legalforecast.ingestion.budgeted_firecrawl import FirecrawlTargetSpec
+from legalforecast.ingestion.courtlistener_web import parse_courtlistener_docket_html
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
     DiscoveryHit,
@@ -41,6 +44,15 @@ def test_ranked_dockets_are_paginated_in_budgeted_page_waves() -> None:
     assert result.failed_docket_ids == ()
     assert result.credit_summary == {"reserved_credits": 15}
 
+    rendered = render_complete_docket_html(result.bundles[0])
+    reparsed = parse_courtlistener_docket_html(
+        rendered,
+        source_url=result.bundles[0].base_url,
+        docket_id="20",
+    )
+    assert len(reparsed.entries) == 2
+    assert reparsed.entries[0].documents[0].pacer_only is True
+
 
 def test_failed_docket_is_not_exposed_as_partial_screening_input() -> None:
     scheduler = _Scheduler({("20", 1): _page("20", 1, has_next=False)})
@@ -55,6 +67,28 @@ def test_failed_docket_is_not_exposed_as_partial_screening_input() -> None:
 
     assert [bundle.docket_id for bundle in result.bundles] == ["20"]
     assert result.failed_docket_ids == ("10",)
+
+
+def test_complete_renderer_preserves_restriction_evidence() -> None:
+    scheduler = _Scheduler({("20", 1): _page("20", 1, has_next=False)})
+    result = acquire_ranked_dockets(
+        records=[_record("20", 0)],
+        scheduler=scheduler,  # type: ignore[arg-type]
+        limit=1,
+        max_pages_per_docket=2,
+        decision_anchor=date(2026, 6, 30),
+    )
+    bundle = result.bundles[0]
+    restricted = replace(bundle.entries[0], restriction_markers=("field_issealed",))
+    rendered = render_complete_docket_html(replace(bundle, entries=(restricted,)))
+
+    reparsed = parse_courtlistener_docket_html(
+        rendered,
+        source_url=bundle.base_url,
+        docket_id=bundle.docket_id,
+    )
+
+    assert reparsed.entries[0].restricted is True
 
 
 def test_selected_slice_is_terminal_without_claiming_parent_saturation(
@@ -147,13 +181,20 @@ def _page(docket_id: str, page_number: int, *, has_next: bool) -> str:
         if has_next
         else ""
     )
+    filed_at = f"July {10 - page_number}, 2026"
+    pacer_url = f"https://ecf.example/doc-{page_number}"
     return f"""
     <html><head><title>Fixture {docket_id}</title></head><body>
       <div id="docket-entry-table">
-        <div id="entry-{docket_id}-{page_number}" class="docket-row">
-          <span class="date-filed">July {10 - page_number}, 2026</span>
-          <span class="document-number">{page_number}</span>
-          <p class="description">Motion to dismiss fixture entry.</p>
+        <div id="entry-{docket_id}-{page_number}" class="row">
+          <div class="col-xs-1">{page_number}</div>
+          <div class="col-xs-3"><span title="{filed_at}">{filed_at}</span></div>
+          <div class="col-xs-8">Motion to dismiss fixture entry.
+            <div class="row recap-documents"><div>Main Document</div>
+              <div>Motion to Dismiss</div>
+              <a class="open_buy_pacer_modal" href="{pacer_url}">Buy on PACER</a>
+            </div>
+          </div>
         </div>
       </div>
       {next_link}

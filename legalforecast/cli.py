@@ -170,6 +170,7 @@ from legalforecast.ingestion.firecrawl_source import (
     FirecrawlError,
     FirecrawlFixtureTransport,
     FirecrawlHTTPResponse,
+    FirecrawlProxy,
 )
 from legalforecast.ingestion.free_document_downloader import (
     FixtureFreeDocumentSource,
@@ -1324,6 +1325,20 @@ def _add_acquisition_acquire_ranked_dockets_arguments(
     parser.add_argument("--credit-cap", type=int, default=45_000)
     parser.add_argument("--max-attempts-per-page", type=int, default=3)
     parser.add_argument("--provider-breaker-threshold", type=int, default=5)
+    parser.add_argument(
+        "--proxy",
+        choices=("basic", "auto", "enhanced"),
+        default="auto",
+        help=(
+            "Firecrawl proxy mode; auto and enhanced reserve five credits "
+            "per request."
+        ),
+    )
+    parser.add_argument(
+        "--force-browser",
+        action="store_true",
+        help="Force Firecrawl onto its actions-capable browser engine.",
+    )
     parser.add_argument("--firecrawl-fixture", type=Path)
     parser.add_argument("--live-firecrawl", action="store_true")
     parser.add_argument("--raw-html-dir", type=Path)
@@ -3766,13 +3781,24 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
         if not isinstance(docket_id, str):
             raise CommandError("ranked record has invalid CourtListener docket ID")
         metadata_by_docket[docket_id] = cast(Mapping[str, object], metadata)
-    source = (
-        FirecrawlCourtListenerHTMLSource(FirecrawlConfig.from_env())
+    proxy = cast(FirecrawlProxy, args.proxy)
+    force_browser = cast(bool, args.force_browser)
+    config = (
+        FirecrawlConfig.from_env(proxy=proxy, force_browser=force_browser)
         if live
-        else FirecrawlCourtListenerHTMLSource(
-            FirecrawlConfig(api_key="offline-fixture"),
-            transport=_firecrawl_fixture_transport(cast(Path, fixture_path)),
+        else FirecrawlConfig(
+            api_key="offline-fixture",
+            proxy=proxy,
+            force_browser=force_browser,
         )
+    )
+    source = FirecrawlCourtListenerHTMLSource(
+        config,
+        **(
+            {"transport": _firecrawl_fixture_transport(cast(Path, fixture_path))}
+            if not live
+            else {}
+        ),
     )
     with CycleAcquisitionStore(store_path) as store:
         materialize_selected_slice_batch(
@@ -3787,13 +3813,16 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
             "decision_anchor": anchor.isoformat(),
             "max_pages_per_docket": cast(int, args.max_pages_per_docket),
             "raw_artifact_root": str(raw_dir.resolve()),
+            "firecrawl_proxy": config.proxy,
+            "firecrawl_force_browser": config.force_browser,
+            "firecrawl_max_credits_per_scrape": config.max_credits_per_scrape,
         }
         store.ensure_firecrawl_run(
             cast(str, args.run_id),
             batch_id=cast(str, args.selected_batch_id),
             config=run_config,
             credit_cap=credit_cap,
-            reserved_credits_per_attempt=5,
+            reserved_credits_per_attempt=config.max_credits_per_scrape,
         )
         result = acquire_ranked_dockets(
             records=records,
@@ -4528,10 +4557,9 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
         )
         raise CommandError(str(exc)) from exc
     _write_jsonl(screened_cases_path, result.screened_cases)
-    _write_jsonl(
-        exclusions_path,
-        [exclusion.to_record() for exclusion in result.exclusions],
-    )
+    screening_exclusions = [exclusion.to_record() for exclusion in result.exclusions]
+    all_exclusions = [*fetch_exclusion_records, *screening_exclusions]
+    _write_jsonl(exclusions_path, all_exclusions)
     summary = {
         "schema_version": "legalforecast.firecrawl_screening_summary.v1",
         "dry_run": False,
@@ -4539,7 +4567,7 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
         "input_success_count": result.input_success_count,
         "input_fetch_exclusion_count": len(fetch_exclusion_records),
         "accepted_case_count": len(result.screened_cases),
-        "excluded_case_count": len(result.exclusions),
+        "excluded_case_count": len(all_exclusions),
         "reconciled": result.reconciled,
         "paid_activity_requested": False,
         "snapshot_path": str(snapshot_path),
@@ -6436,6 +6464,11 @@ def _validate_firecrawl_success_commitments(
     success_records: Sequence[Mapping[str, Any]],
 ) -> None:
     for row_number, record in enumerate(success_records, start=1):
+        if record.get("pagination_complete_for_anchor_window") is not True:
+            raise ValueError(
+                "Firecrawl success rows must prove paginated completeness for the "
+                f"anchor window; row {row_number} is legacy or incomplete"
+            )
         sha256_value = record.get("raw_html_sha256")
         if (
             not isinstance(sha256_value, str)

@@ -271,18 +271,38 @@ def render_complete_docket_html(bundle: CourtListenerDocketBundle) -> str:
         raise BudgetedDocketAcquisitionError("cannot render incomplete docket")
     rows: list[str] = []
     for entry in bundle.entries:
-        documents = "".join(
-            (
-                f'<a class="document-link" href="{escape(document.href or "")}">'
-                f"{escape(document.description)}</a>"
+        document_rows: list[str] = []
+        for document in entry.documents:
+            link_class = "open_buy_pacer_modal" if document.pacer_only else ""
+            action_label = document.action_label or (
+                "Buy on PACER" if document.pacer_only else "Download PDF"
             )
-            for document in entry.documents
+            link = ""
+            if document.href is not None:
+                link = (
+                    f'<a class="{link_class}" href="{escape(document.href)}">'
+                    f"{escape(action_label)}</a>"
+                )
+            document_rows.append(
+                '<div class="row recap-documents">'
+                f"<div>{escape(document.kind)}</div>"
+                f"<div>{escape(document.description)}"
+                + (" Document is sealed." if document.restriction_markers else "")
+                + f"</div>{link}</div>"
+            )
+        restriction_notice = (
+            '<span class="restriction-notice">Document is sealed.</span>'
+            if entry.restriction_markers
+            else ""
         )
         rows.append(
-            f'<div id="{escape(entry.row_id)}" class="docket-row">'
-            f'<span class="date-filed">{escape(entry.filed_at or "")}</span>'
-            f'<span class="document-number">{escape(entry.entry_number or "")}</span>'
-            f'<p class="description">{escape(entry.text)}</p>{documents}</div>'
+            f'<div id="{escape(entry.row_id)}" class="row">'
+            f'<div class="col-xs-1">{escape(entry.entry_number or "")}</div>'
+            '<div class="col-xs-3">'
+            f'<span title="{escape(entry.filed_at or "")}">'
+            f"{escape(entry.filed_at or '')}</span></div>"
+            f'<div class="col-xs-8">{escape(entry.text)}{restriction_notice}'
+            f"{''.join(document_rows)}</div></div>"
         )
     return (
         "<html><head><title>"
