@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "legalforecast-mtd"
-version = "0.1.0a1"
+version = "0.1.0a3"
 description = "Alpha-release tooling for the LegalForecast-MTD public benchmark."
 readme = "README.md"
 requires-python = ">=3.12"
