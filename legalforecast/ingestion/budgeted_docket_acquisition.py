@@ -48,8 +48,36 @@ class BudgetedDocketAcquisitionResult:
     """Only complete-for-window bundles, in Case.dev cost order."""
 
     bundles: tuple[CourtListenerDocketBundle, ...]
-    failed_docket_ids: tuple[str, ...]
+    failures: tuple[DocketAcquisitionFailure, ...]
     credit_summary: Mapping[str, object]
+
+    @property
+    def failed_docket_ids(self) -> tuple[str, ...]:
+        """Return failed docket IDs in deterministic Case.dev rank order."""
+
+        return tuple(failure.docket_id for failure in self.failures)
+
+
+@dataclass(frozen=True, slots=True)
+class DocketAcquisitionFailure:
+    """Candidate-local terminal failure safe for the public exclusion ledger."""
+
+    candidate_id: str
+    docket_id: str
+    reason: str
+    failure_stage: str
+    failure_reason: str
+
+    def as_record(self) -> dict[str, str]:
+        """Render the deterministic acquisition failure/exclusion record."""
+
+        return {
+            "candidate_id": self.candidate_id,
+            "docket_id": self.docket_id,
+            "reason": self.reason,
+            "failure_stage": self.failure_stage,
+            "failure_reason": self.failure_reason,
+        }
 
 
 def materialize_selected_slice_batch(
@@ -187,7 +215,7 @@ def acquire_ranked_dockets(
     ranked = ranked_docket_targets(records, limit=limit)
     active = {target.docket_id: target for target in ranked}
     pages: dict[str, dict[str, str]] = {target.docket_id: {} for target in ranked}
-    failed: set[str] = set()
+    failures_by_docket: dict[str, DocketAcquisitionFailure] = {}
     summary: Mapping[str, object] = {}
 
     for page_number in range(1, max_pages_per_docket + 1):
@@ -217,7 +245,12 @@ def acquire_ranked_dockets(
             target_id = _target_id(docket_id, page_number)
             page = acquired.get(target_id)
             if page is None:
-                failed.add(docket_id)
+                failures_by_docket[docket_id] = _failure(
+                    target=_target,
+                    reason="fetch_failed",
+                    stage="docket_page_acquisition",
+                    detail=f"page_{page_number}_not_acquired",
+                )
                 del active[docket_id]
                 continue
             pages[docket_id][page.source_url] = page.raw_html
@@ -234,11 +267,17 @@ def acquire_ranked_dockets(
                 observed, anchor=decision_anchor
             ):
                 del active[docket_id]
-    failed.update(active)
+    for docket_id, target in active.items():
+        failures_by_docket[docket_id] = _failure(
+            target=target,
+            reason="fetch_failed",
+            stage="docket_page_acquisition",
+            detail="pagination_page_limit_reached",
+        )
 
     bundles: list[CourtListenerDocketBundle] = []
     for target in ranked:
-        if target.docket_id in failed:
+        if target.docket_id in failures_by_docket:
             continue
         cached = pages[target.docket_id]
         try:
@@ -248,17 +287,37 @@ def acquire_ranked_dockets(
                 max_pages=max_pages_per_docket,
                 decision_anchor=decision_anchor,
             )
-        except (KeyError, CourtListenerDocketPaginationError) as exc:
-            raise BudgetedDocketAcquisitionError(
-                f"complete docket reconstruction failed: {target.docket_id}"
-            ) from exc
+        except KeyError:
+            failures_by_docket[target.docket_id] = _failure(
+                target=target,
+                reason="docket_reconstruction_failed",
+                stage="complete_docket_reconstruction",
+                detail="cached_page_missing",
+            )
+            continue
+        except CourtListenerDocketPaginationError as exc:
+            failures_by_docket[target.docket_id] = _failure(
+                target=target,
+                reason="docket_reconstruction_failed",
+                stage="complete_docket_reconstruction",
+                detail=str(exc),
+            )
+            continue
         if not bundle.complete_for_anchor_window:
-            raise BudgetedDocketAcquisitionError("incomplete docket reached output")
+            failures_by_docket[target.docket_id] = _failure(
+                target=target,
+                reason="docket_reconstruction_failed",
+                stage="complete_docket_reconstruction",
+                detail="incomplete_anchor_window",
+            )
+            continue
         bundles.append(bundle)
     return BudgetedDocketAcquisitionResult(
         bundles=tuple(bundles),
-        failed_docket_ids=tuple(
-            target.docket_id for target in ranked if target.docket_id in failed
+        failures=tuple(
+            failures_by_docket[target.docket_id]
+            for target in ranked
+            if target.docket_id in failures_by_docket
         ),
         credit_summary=summary,
     )
@@ -316,3 +375,15 @@ def render_complete_docket_html(bundle: CourtListenerDocketBundle) -> str:
 def _target_id(docket_id: str, page_number: int) -> str:
     value = f"{docket_id}:{page_number}"
     return "docket-" + hashlib.sha256(value.encode()).hexdigest()[:24]
+
+
+def _failure(
+    *, target: RankedDocketTarget, reason: str, stage: str, detail: str
+) -> DocketAcquisitionFailure:
+    return DocketAcquisitionFailure(
+        candidate_id=target.candidate_id,
+        docket_id=target.docket_id,
+        reason=reason,
+        failure_stage=stage,
+        failure_reason=detail,
+    )

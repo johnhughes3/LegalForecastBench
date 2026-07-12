@@ -69,6 +69,40 @@ def test_failed_docket_is_not_exposed_as_partial_screening_input() -> None:
     assert result.failed_docket_ids == ("10",)
 
 
+def test_reconstruction_failure_is_isolated_without_discarding_other_dockets() -> None:
+    first_page = _page("10", 1, has_next=True)
+    conflicting_page = _page("10", 2, has_next=False).replace(
+        "Fixture 10", "Conflicting title", 1
+    )
+    scheduler = _Scheduler(
+        {
+            ("20", 1): _page("20", 1, has_next=False),
+            ("10", 1): first_page,
+            ("10", 2): conflicting_page,
+        }
+    )
+
+    result = acquire_ranked_dockets(
+        records=[_record("20", 0), _record("10", 1)],
+        scheduler=scheduler,  # type: ignore[arg-type]
+        limit=2,
+        max_pages_per_docket=2,
+        decision_anchor=date(2026, 6, 30),
+    )
+
+    assert [bundle.docket_id for bundle in result.bundles] == ["20"]
+    assert result.failed_docket_ids == ("10",)
+    assert [failure.as_record() for failure in result.failures] == [
+        {
+            "candidate_id": "courtlistener-docket-10",
+            "docket_id": "10",
+            "reason": "docket_reconstruction_failed",
+            "failure_stage": "complete_docket_reconstruction",
+            "failure_reason": "pagination_title_mismatch",
+        }
+    ]
+
+
 def test_complete_renderer_preserves_restriction_evidence() -> None:
     scheduler = _Scheduler({("20", 1): _page("20", 1, has_next=False)})
     result = acquire_ranked_dockets(
