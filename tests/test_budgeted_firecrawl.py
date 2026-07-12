@@ -19,6 +19,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 )
 from legalforecast.ingestion.firecrawl_source import (
     FirecrawlAuthError,
+    FirecrawlChallengeError,
     FirecrawlPaymentRequiredError,
     FirecrawlRateLimitError,
     FirecrawlResponseError,
@@ -215,6 +216,47 @@ def test_scheduler_does_not_retry_deterministic_response_errors_and_persists_evi
         assert attempt.failure_response_sha256 == response_hash
         assert attempt.provider_http_status == 200
         assert store.firecrawl_targets("run-001")[0].status == "terminal_error"
+
+
+def test_scheduler_stops_pool_on_confirmed_challenge_and_persists_evidence(
+    tmp_path: Path,
+) -> None:
+    first = _target("search-a", 0)
+    second = _target("docket-b", 1)
+    response_hash = "c" * 64
+    source = FixtureSource(
+        {
+            first.source_url: [
+                FirecrawlChallengeError(
+                    "CourtListener returned marker-confirmed challenge HTML",
+                    provider_http_status=200,
+                    response_sha256=response_hash,
+                )
+            ],
+            second.source_url: [_success(second, "must not run")],
+        }
+    )
+    with _store(tmp_path) as store:
+        scheduler = BudgetedFirecrawlScheduler(
+            store=store,
+            source=source,
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+        )
+
+        with pytest.raises(FirecrawlChallengeError):
+            scheduler.run([first, second])
+
+        assert source.calls == [first.source_url]
+        [attempt] = store.firecrawl_attempts("run-001")
+        assert attempt.status == "provider_error"
+        assert attempt.failure_code == "courtlistener_challenge_html"
+        assert attempt.failure_response_sha256 == response_hash
+        assert attempt.failure_message == (
+            "CourtListener returned marker-confirmed challenge HTML"
+        )
+        assert store.firecrawl_targets("run-001")[0].status == "in_progress"
+        assert list((tmp_path / "raw").glob("*")) == []
 
 
 @pytest.mark.parametrize(

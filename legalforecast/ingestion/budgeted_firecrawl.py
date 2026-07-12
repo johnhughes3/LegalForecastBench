@@ -22,6 +22,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 )
 from legalforecast.ingestion.firecrawl_source import (
     FirecrawlAuthError,
+    FirecrawlChallengeError,
     FirecrawlError,
     FirecrawlPaymentRequiredError,
     FirecrawlRateLimitError,
@@ -183,6 +184,14 @@ class BudgetedFirecrawlScheduler:
                 try:
                     result = self.source.scrape_url(source_url=target.source_url)
                     page = self._commit_success(target, attempt, result)
+                except FirecrawlChallengeError as error:
+                    self.store.finalize_firecrawl_attempt(
+                        attempt.attempt_id,
+                        status="provider_error",
+                        provider_http_status=error.provider_http_status,
+                        **_failure_evidence(error),
+                    )
+                    raise
                 except (
                     FirecrawlAuthError,
                     FirecrawlPaymentRequiredError,

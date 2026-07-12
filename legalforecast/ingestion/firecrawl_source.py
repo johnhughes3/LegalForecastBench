@@ -45,6 +45,13 @@ _RECAP_SEARCH_CANONICAL_KEYS = (
 )
 _US_DATE = re.compile(r"^(?P<month>[0-9]{2})/(?P<day>[0-9]{2})/(?P<year>[0-9]{4})$")
 _FAILURE_CODE = re.compile(r"[a-z][a-z0-9_]{0,63}")
+_CHALLENGE_SCAN_LIMIT = 256_000
+_CHALLENGE_MARKERS = (
+    "cf-chl-",
+    "challenge-platform",
+    "checking your browser before accessing",
+    "attention required! | cloudflare",
+)
 FirecrawlProxy = Literal["basic", "auto", "enhanced"]
 
 
@@ -120,6 +127,12 @@ class FirecrawlResponseError(FirecrawlError):
     """Raised for malformed or policy-violating Firecrawl responses."""
 
     default_failure_code = "invalid_provider_response"
+
+
+class FirecrawlChallengeError(FirecrawlError):
+    """Raised when a successful scrape contains confirmed challenge HTML."""
+
+    default_failure_code = "courtlistener_challenge_html"
 
 
 class FirecrawlURLValidationError(FirecrawlError):
@@ -595,6 +608,10 @@ def _validated_result(
             "CourtListener target returned a non-success status",
             failure_code="target_http_status_invalid",
         )
+    if _contains_challenge_html(raw_html):
+        raise FirecrawlChallengeError(
+            "CourtListener returned marker-confirmed challenge HTML"
+        )
 
     resolved_values = tuple(
         value
@@ -673,6 +690,13 @@ def _validated_result(
         raw=payload,
         resolved_url=authorized_url,
     )
+
+
+def _contains_challenge_html(raw_html: str) -> bool:
+    """Inspect a bounded prefix for specific Cloudflare challenge markers."""
+
+    bounded = raw_html[:_CHALLENGE_SCAN_LIMIT].casefold()
+    return any(marker in bounded for marker in _CHALLENGE_MARKERS)
 
 
 def _raise_for_status(status_code: int) -> None:

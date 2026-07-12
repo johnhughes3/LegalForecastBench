@@ -6,6 +6,7 @@ import pytest
 from legalforecast.ingestion.firecrawl_source import (
     FIRECRAWL_SCRAPE_ENDPOINT,
     FirecrawlAuthError,
+    FirecrawlChallengeError,
     FirecrawlConfig,
     FirecrawlCourtListenerHTMLSource,
     FirecrawlFixtureTransport,
@@ -98,6 +99,54 @@ def test_scrape_exposes_validated_cost_and_delivery_metadata() -> None:
     assert result.cache_state == "miss"
     assert result.credits_used == 1.0
     assert result.resolved_url == canonicalize_courtlistener_source_url(_URL)
+
+
+@pytest.mark.parametrize(
+    "raw_html",
+    [
+        "<html><title>Attention Required! | Cloudflare</title></html>",
+        "<script src='/cdn-cgi/challenge-platform/h/g/orchestrate'></script>",
+        "<div id='cf-chl-widget'>Checking your browser before accessing</div>",
+    ],
+)
+def test_marker_confirmed_challenge_html_stops_as_infrastructure_failure(
+    raw_html: str,
+) -> None:
+    response = _success_response()
+    payload = dict(response.payload)
+    data = dict(payload["data"])  # type: ignore[arg-type]
+    data["rawHtml"] = raw_html
+    payload["data"] = data
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key"),
+        transport=FirecrawlFixtureTransport(
+            [FirecrawlHTTPResponse(status_code=200, payload=payload)]
+        ),
+    )
+
+    with pytest.raises(FirecrawlChallengeError) as raised:
+        source.scrape(docket_id="70649963", source_url=_URL)
+
+    assert raised.value.failure_code == "courtlistener_challenge_html"
+    assert raised.value.provider_http_status == 200
+    assert re.fullmatch(r"[0-9a-f]{64}", raised.value.response_sha256 or "")
+    assert raw_html not in raised.value.safe_message
+
+
+def test_normal_page_mentioning_cloudflare_is_not_a_confirmed_challenge() -> None:
+    response = _success_response()
+    payload = dict(response.payload)
+    data = dict(payload["data"])  # type: ignore[arg-type]
+    data["rawHtml"] = "<html><p>CourtListener uses Cloudflare.</p></html>"
+    payload["data"] = data
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key"),
+        transport=FirecrawlFixtureTransport(
+            [FirecrawlHTTPResponse(status_code=200, payload=payload)]
+        ),
+    )
+
+    assert source.scrape(docket_id="70649963", source_url=_URL).raw_html
 
 
 def test_resolved_docket_url_allows_safe_same_identity_redirect() -> None:
