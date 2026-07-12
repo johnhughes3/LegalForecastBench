@@ -71,7 +71,7 @@ uv run scripts/release_check.py
 
 Default checks must not require live credentials. The release check runs locked dependency sync, formatting, linting, type checking, tests, CLI smokes, fixture E2E, multi-harness no-network smokes, package build, package hashes, and installed wheel/sdist smokes.
 
-Tags matching `v*` run the package-publish workflow. That workflow reruns the release check, publishes the built wheel/sdist from `tmp/release-check/dist` to PyPI with trusted publishing, and attaches the wheel, sdist, and package hash file to the GitHub release. Manual dispatch can run the same workflow without publishing unless `publish` is set.
+Tags matching `v*` run the package-publish workflow. That workflow reruns the release check, publishes the built wheel/sdist from `tmp/release-check/dist` to PyPI with trusted publishing, and attaches the wheel, sdist, and package hash file to the GitHub release. Publishing is tag-only; the workflow cannot be dispatched manually from an arbitrary branch.
 
 ## Community Multi-Harness
 
