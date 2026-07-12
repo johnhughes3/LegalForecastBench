@@ -41,6 +41,8 @@ def test_schema_versions_are_explicit_for_public_contracts() -> None:
         "conformance_report",
         "community_submission",
         "community_aggregate",
+        "tool_request",
+        "tool_response",
     }
     assert all(
         version.startswith("legalforecast.multiharness.")
