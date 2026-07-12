@@ -46,3 +46,18 @@ These anchors are recorded for future cycle planning or historical context. They
 | Google | Gemini 3 Flash Preview | 2025-12-17T00:00:00Z (confirmed) | Excluded from anchored registry — date confirmed but no immutable snapshot ID exists (mutable `gemini-3-flash-preview` only); ineligible for re-inclusion on snapshot grounds | Google blog + Gemini API changelog, Dec. 17, 2025 public preview release; https://blog.google/products/gemini/gemini-3-flash/ |
 | Fable | Fable 5 | 2026-06-09T00:00:00Z (confirmed) | Not yet in registry — pinned snapshot `claude-fable-5`; access suspended ~2026-06-12 to 2026-06-30 by export controls (anchor unchanged) | Anthropic launch post, June 9, 2026 Claude Fable 5 GA; https://www.anthropic.com/news/claude-fable-5-mythos-5 |
 | Anthropic | Claude Sonnet 5 | 2026-06-30T00:00:00Z (confirmed) | In Cycle 1 registry — pinned snapshot `claude-sonnet-5` | Anthropic launch post, June 30, 2026 Claude Sonnet 5 GA; https://www.anthropic.com/news/claude-sonnet-5 |
+
+## Cycle 1 Label-Generation Models
+
+The separate construction/label-generation registry is [`model_registries/cycle-1-labeling-2026-07-12.json`](model_registries/cycle-1-labeling-2026-07-12.json), while [`model_registries/cycle-1-stage-b-judges-2026-07-12.json`](model_registries/cycle-1-stage-b-judges-2026-07-12.json) freezes exactly the three voting entries. These models construct or label the benchmark ground truth; they are not candidate models and do not change the June 30 corpus-eligibility anchor.
+
+| Stage | Provider | Model | Frozen model ID | Release timestamp | Standard input/output price per MTok |
+| --- | --- | --- | --- | --- | --- |
+| A | Anthropic | Claude Sonnet 4.6 | `claude-sonnet-4-6` | `2026-02-17T00:00:00Z` | $3 / $15 |
+| B | OpenAI | GPT-5.4 mini | `gpt-5.4-mini-2026-03-17` | `2026-03-17T00:00:00Z` | $0.75 / $4.50 |
+| B | Anthropic | Claude Haiku 4.5 | `claude-haiku-4-5-20251001` | `2025-10-15T00:00:00Z` | $1 / $5 |
+| A structural review + B | Google | Gemini 3.5 Flash | `gemini-3.5-flash` | `2026-05-19T00:00:00Z` | $1.50 / $9 standard; $0.75 / $4.50 Batch or Flex |
+
+Anthropic documents the dateless 4.6-generation Sonnet ID as a pinned snapshot and the dated Haiku ID as the immutable pre-4.6 form. OpenAI lists the dated GPT-5.4 mini snapshot explicitly. Primary identity and pricing sources: [Anthropic model IDs and versioning](https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions), [Anthropic models overview](https://platform.claude.com/docs/en/about-claude/models/overview), and [OpenAI GPT-5.4 mini](https://developers.openai.com/api/docs/models/gpt-5.4-mini), checked July 12, 2026.
+
+Google documents `gemini-3.5-flash` as stable and says stable IDs *usually* do not change, but it neither guarantees immutable weights/configuration for that ID nor exposes a dated snapshot. John accepted the stable-ID reproducibility control for label generation on July 12, 2026: a non-grounded live probe returned `modelVersion: gemini-3.5-flash`, the exact stable ID is frozen, every response records its served version, and any version mismatch fails closed. This exception applies only to the construction/labeling registry and does not relax the immutable candidate-model registry gate. Sources: [Gemini model-version patterns](https://ai.google.dev/gemini-api/docs/models), [Gemini 3.5 Flash model page](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash), [Gemini changelog](https://ai.google.dev/gemini-api/docs/changelog), and [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing), checked July 12, 2026.

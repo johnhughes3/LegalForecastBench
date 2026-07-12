@@ -77,7 +77,10 @@ from legalforecast.unitization.construct_units import (
     StageAUnitSeed,
     construct_stage_a_units,
 )
-from legalforecast.unitization.review import require_finalized_envelopes
+from legalforecast.unitization.review import (
+    canonical_sha256,
+    require_finalized_envelopes,
+)
 from legalforecast.unitization.schemas import (
     ChallengeScope,
     DefendantGrouping,
@@ -194,6 +197,7 @@ def llm_unitize_cases(
     continue_on_error: bool = False,
     provider_journal_path: str | Path | None = None,
     provider_cycle_cap_usd: float = DEFAULT_CYCLE_PROVIDER_CAP_USD,
+    provider_cycle_caps_usd: Mapping[str, float] | None = None,
 ) -> LlmBatchResult:
     """Generate and validate Stage A prediction units from predecision materials."""
 
@@ -218,7 +222,11 @@ def llm_unitize_cases(
                 prompt=prompt,
                 registry_entry=registry_entry,
                 model_registry_sha256=model_registry_sha256,
-                cycle_cap_usd=provider_cycle_cap_usd,
+                cycle_cap_usd=_provider_cycle_cap(
+                    registry_entry.provider,
+                    fallback=provider_cycle_cap_usd,
+                    caps=provider_cycle_caps_usd,
+                ),
             )
             response = complete_live_prompt(
                 registry_entry,
@@ -315,6 +323,271 @@ def llm_unitize_cases(
     return LlmBatchResult(records=tuple(records), audit_records=tuple(audit_records))
 
 
+def llm_review_stage_a_units(
+    *,
+    selection_records: Iterable[Mapping[str, Any]],
+    parser_records: Iterable[Mapping[str, Any]],
+    prediction_unit_records: Iterable[Mapping[str, Any]],
+    markdown_root: str | Path,
+    registry_entry: ModelRegistryEntry,
+    model_registry_sha256: str | None = None,
+    transport: LiveModelTransport | None = None,
+    environ: Mapping[str, str] | None = None,
+    timeout_seconds: float = 120.0,
+    provider_journal_path: str | Path | None = None,
+    provider_cycle_cap_usd: float = DEFAULT_CYCLE_PROVIDER_CAP_USD,
+    provider_cycle_caps_usd: Mapping[str, float] | None = None,
+) -> LlmBatchResult:
+    """Flag structural defects without permitting the reviewer to rewrite Stage A."""
+
+    parser_by_key = _parser_records_by_candidate_and_document(parser_records)
+    raw_unit_records = tuple(prediction_unit_records)
+    units_by_candidate = _prediction_units_by_candidate(raw_unit_records)
+    records: list[JsonRecord] = []
+    audits: list[JsonRecord] = []
+    for selection in selection_records:
+        candidate_id = _required_str(selection, "candidate_id")
+        documents = _predecision_documents(
+            selection,
+            parser_by_key=parser_by_key,
+            markdown_root=Path(markdown_root),
+        )
+        units = units_by_candidate.get(candidate_id, ())
+        if not units:
+            raise LlmPipelineError(f"no Stage A units for candidate {candidate_id}")
+        prompt = _stage_a_structural_review_prompt(selection, documents, units)
+        journal = _provider_attempt_journal(
+            path=provider_journal_path,
+            stage="llm-review-stage-a",
+            candidate_id=candidate_id,
+            prompt=prompt,
+            registry_entry=registry_entry,
+            model_registry_sha256=model_registry_sha256,
+            cycle_cap_usd=_provider_cycle_cap(
+                registry_entry.provider,
+                fallback=provider_cycle_cap_usd,
+                caps=provider_cycle_caps_usd,
+            ),
+        )
+        try:
+            response = complete_live_prompt(
+                registry_entry,
+                prompt,
+                model_registry_sha256=model_registry_sha256,
+                transport=transport,
+                environ=environ,
+                timeout_seconds=timeout_seconds,
+                attempt_handler=journal,
+            )
+            payload = _json_object_from_response(response.raw_output)
+            flags = validate_structural_review_flags(
+                payload, units=units, documents=documents, response=response
+            )
+            if journal is not None and journal.has_validated_response:
+                journal.commit_reconstruction({"structural_flags": list(flags)})
+        finally:
+            if journal is not None:
+                journal.close()
+        raw_record = next(
+            record
+            for record in raw_unit_records
+            if _required_str(record, "candidate_id") == candidate_id
+        )
+        raw_sha = canonical_sha256(raw_record)
+        for flag in flags:
+            flag_hash = canonical_sha256(flag)
+            records.append(
+                {
+                    "schema_version": "legalforecast.stage_a_structural_flag.v1",
+                    "candidate_id": candidate_id,
+                    "case_id": _required_str(selection, "case_id"),
+                    "reviewer_model_key": registry_entry.registry_key,
+                    "model_registry_sha256": model_registry_sha256 or "unrecorded",
+                    "raw_prediction_units_sha256": raw_sha,
+                    "flag_sha256": flag_hash,
+                    **flag,
+                }
+            )
+        audits.append(
+            {
+                "stage": "llm-review-stage-a",
+                "status": "flags_pending" if flags else "passed",
+                "candidate_id": candidate_id,
+                "case_id": _required_str(selection, "case_id"),
+                "model_key": registry_entry.registry_key,
+                "model_registry_sha256": model_registry_sha256 or "unrecorded",
+                "flag_count": len(flags),
+                **_response_audit_fields(response),
+            }
+        )
+    return LlmBatchResult(records=tuple(records), audit_records=tuple(audits))
+
+
+def merge_structural_flags_into_review_queue(
+    queue_records: Iterable[Mapping[str, Any]],
+    flag_records: Iterable[Mapping[str, Any]],
+) -> tuple[JsonRecord, ...]:
+    """Union reviewer flags into the immutable John review queue."""
+
+    merged = [dict(record) for record in queue_records]
+    existing_ids = {_required_str(record, "review_id") for record in merged}
+    for flag in flag_records:
+        for unit_id in _str_tuple(flag.get("affected_unit_ids"), "affected_unit_ids"):
+            review_id = (
+                f"{_required_str(flag, 'candidate_id')}:{unit_id}:structural:"
+                f"{_required_str(flag, 'flag_sha256')[:16]}"
+            )
+            if review_id in existing_ids:
+                continue
+            merged.append(
+                {
+                    "schema_version": "legalforecast.unitization_review_queue.v1",
+                    "status": "pending_adjudication",
+                    "candidate_id": _required_str(flag, "candidate_id"),
+                    "case_id": _required_str(flag, "case_id"),
+                    "unit_id": unit_id,
+                    "review_id": review_id,
+                    "route_reason": f"structural_{_required_str(flag, 'flag_type')}",
+                    "review_item": {
+                        "unit_id": unit_id,
+                        "reason": f"structural_{_required_str(flag, 'flag_type')}",
+                        "notes": _required_str(flag, "explanation"),
+                        "citation_excerpt": _required_str(flag, "citation_excerpt"),
+                        "source_document_ids": list(
+                            _str_tuple(
+                                flag.get("source_document_ids"), "source_document_ids"
+                            )
+                        ),
+                    },
+                    "structural_flag_sha256": _required_str(flag, "flag_sha256"),
+                    "raw_prediction_units_sha256": _required_str(
+                        flag, "raw_prediction_units_sha256"
+                    ),
+                    "reviewer_model_key": _required_str(flag, "reviewer_model_key"),
+                    "model_registry_sha256": _required_str(
+                        flag, "model_registry_sha256"
+                    ),
+                }
+            )
+            existing_ids.add(review_id)
+    return tuple(merged)
+
+
+def _stage_a_structural_review_prompt(
+    selection: Mapping[str, Any],
+    documents: Sequence[_LlmDocument],
+    units: Sequence[PredictionUnit],
+) -> str:
+    payload = {
+        "task": "Review frozen Stage A units for structural completeness only.",
+        "rules": [
+            "Use only supplied predecision documents; never infer from a disposition.",
+            (
+                "The Sonnet-authored units are immutable. Do not return replacements "
+                "or edits."
+            ),
+            (
+                "Return a flag only for an omitted, improperly combined, or improperly "
+                "split unit."
+            ),
+            (
+                "Every flag must cite one or more existing affected unit_ids so a "
+                "lawyer can adjudicate it."
+            ),
+            "Return only JSON with a structural_flags array.",
+        ],
+        "output_schema": {
+            "structural_flags": [
+                {
+                    "flag_type": ["omitted", "combined", "mis_split"],
+                    "affected_unit_ids": ["existing unit_id"],
+                    "source_document_ids": ["predecision document id"],
+                    "explanation": "specific structural defect; no proposed rewrite",
+                    "citation_excerpt": "short verbatim predecision excerpt",
+                }
+            ]
+        },
+        "case": _case_prompt_record(selection),
+        "frozen_units": [unit.to_record() for unit in units],
+        "documents": [document.prompt_record() for document in documents],
+    }
+    return json.dumps(payload, sort_keys=True, indent=2)
+
+
+def validate_structural_review_flags(
+    payload: Mapping[str, Any],
+    *,
+    units: Sequence[PredictionUnit],
+    documents: Sequence[_LlmDocument],
+    response: SolverResponse,
+) -> tuple[JsonRecord, ...]:
+    allowed_unit_ids = {unit.unit_id for unit in units}
+    documents_by_id = {document.source_document_id: document for document in documents}
+    allowed_types = {"omitted", "combined", "mis_split"}
+    forbidden = {"replacement_units", "proposed_units", "rewritten_units", "unit_seeds"}
+    output: list[JsonRecord] = []
+    for raw in _record_sequence(payload.get("structural_flags"), "structural_flags"):
+        if forbidden.intersection(raw):
+            raise LlmResponseValidationError(
+                "structural reviewer may not rewrite units", response=response
+            )
+        flag_type = _required_str(raw, "flag_type")
+        if flag_type not in allowed_types:
+            raise LlmResponseValidationError(
+                f"unsupported structural flag_type: {flag_type}", response=response
+            )
+        affected = _str_tuple(raw.get("affected_unit_ids"), "affected_unit_ids")
+        if not affected or not set(affected) <= allowed_unit_ids:
+            raise LlmResponseValidationError(
+                "affected_unit_ids must reference existing frozen units",
+                response=response,
+            )
+        source_ids = _str_tuple(raw.get("source_document_ids"), "source_document_ids")
+        if not source_ids:
+            raise LlmResponseValidationError(
+                "structural flag requires source_document_ids", response=response
+            )
+        if not set(source_ids) <= documents_by_id.keys():
+            raise LlmResponseValidationError(
+                "structural flag source_document_ids must reference supplied "
+                "predecision documents",
+                response=response,
+            )
+        cited_excerpt = _required_str(raw, "citation_excerpt")
+        try:
+            verbatim_excerpt = next(
+                _coerced_excerpt(documents_by_id[source_id].markdown, cited_excerpt)
+                for source_id in source_ids
+                if _excerpt_is_supported(
+                    documents_by_id[source_id].markdown, cited_excerpt
+                )
+            )
+        except StopIteration as exc:
+            raise LlmResponseValidationError(
+                "structural flag citation_excerpt does not appear in any cited "
+                "predecision document",
+                response=response,
+            ) from exc
+        output.append(
+            {
+                "flag_type": flag_type,
+                "affected_unit_ids": list(affected),
+                "source_document_ids": list(source_ids),
+                "explanation": _required_str(raw, "explanation"),
+                "citation_excerpt": verbatim_excerpt,
+            }
+        )
+    return tuple(output)
+
+
+def _excerpt_is_supported(text: str, excerpt: str) -> bool:
+    try:
+        _coerced_excerpt(text, excerpt)
+    except LlmPipelineError:
+        return False
+    return True
+
+
 def llm_label_cases(
     *,
     selection_records: Iterable[Mapping[str, Any]],
@@ -331,6 +604,7 @@ def llm_label_cases(
     continue_on_error: bool = False,
     provider_journal_path: str | Path | None = None,
     provider_cycle_cap_usd: float = DEFAULT_CYCLE_PROVIDER_CAP_USD,
+    provider_cycle_caps_usd: Mapping[str, float] | None = None,
 ) -> LlmBatchResult:
     """Generate Stage B outcome labels with registry-backed LLM judges."""
 
@@ -393,7 +667,11 @@ def llm_label_cases(
                         environ=environ,
                         timeout_seconds=timeout_seconds,
                         provider_journal_path=provider_journal_path,
-                        provider_cycle_cap_usd=provider_cycle_cap_usd,
+                        provider_cycle_cap_usd=_provider_cycle_cap(
+                            entry.provider,
+                            fallback=provider_cycle_cap_usd,
+                            caps=provider_cycle_caps_usd,
+                        ),
                     )
                 )
                 labels_by_model[entry.registry_key] = labels
@@ -2058,3 +2336,19 @@ def _float(value: object) -> float:
     if isinstance(value, bool) or not isinstance(value, int | float):
         return 0.0
     return float(value)
+
+
+def _provider_cycle_cap(
+    provider: str,
+    *,
+    fallback: float,
+    caps: Mapping[str, float] | None,
+) -> float:
+    if caps is None:
+        return fallback
+    matches = [value for key, value in caps.items() if key.lower() == provider.lower()]
+    if len(matches) != 1:
+        raise LlmPipelineError(
+            f"provider cycle caps must have exactly one entry for {provider!r}"
+        )
+    return matches[0]
