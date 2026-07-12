@@ -11,6 +11,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Self, cast
+from urllib.parse import urlsplit
 
 from legalforecast._json_io import (
     read_json_object,
@@ -65,6 +66,10 @@ COMMUNITY_SELECTION_MANIFEST_SCHEMA_VERSION = (
     "legalforecast.multiharness.community_selection_manifest.v1"
 )
 HF_UPLOAD_PLAN_SCHEMA_VERSION = "legalforecast.multiharness.hf_upload_plan.v1"
+COMMUNITY_ARTIFACT_MIRROR = (
+    "https://huggingface.co/datasets/johnhughes3/legalforecastbench-community-artifacts"
+)
+_HF_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
 
 ATTEST_NOT_OFFICIAL = "not_official_legalforecastbench_result"
 ATTEST_NO_PRIVATE_OR_SEALED = "no_private_or_sealed_material_in_public_artifacts"
@@ -1140,6 +1145,8 @@ def _hf_upload_plan_record(
 ) -> dict[str, Any]:
     return {
         "schema_version": HF_UPLOAD_PLAN_SCHEMA_VERSION,
+        "mirror_repository": COMMUNITY_ARTIFACT_MIRROR,
+        "revision_policy": "immutable-commit",
         "artifacts": [
             {
                 "artifact_id": artifact.artifact_id,
@@ -1283,12 +1290,30 @@ def _require_contributor_roles(
 
 
 def _validate_immutable_url(value: str) -> None:
-    if not value.startswith("https://"):
-        raise MultiHarnessValidationError("source_url must be an https URL")
-    lowered = value.lower()
-    if any(marker in lowered for marker in ("/latest", "raw/main", "raw/master")):
+    parsed = urlsplit(value)
+    if parsed.scheme != "https" or parsed.netloc != "huggingface.co":
         raise MultiHarnessValidationError(
-            "source_url must be immutable, not a moving branch/latest URL"
+            "source_url must be an https URL in the community artifact mirror"
+        )
+    if parsed.query or parsed.fragment:
+        raise MultiHarnessValidationError(
+            "source_url must not include query parameters or a fragment"
+        )
+    prefix = urlsplit(COMMUNITY_ARTIFACT_MIRROR).path.rstrip("/")
+    path_parts = parsed.path.split("/")
+    expected_parts = prefix.split("/")
+    if path_parts[: len(expected_parts)] != expected_parts:
+        raise MultiHarnessValidationError(
+            f"source_url must use the designated mirror {COMMUNITY_ARTIFACT_MIRROR}"
+        )
+    suffix = path_parts[len(expected_parts) :]
+    if len(suffix) < 3 or suffix[0] != "resolve" or not suffix[2]:
+        raise MultiHarnessValidationError(
+            "source_url must be a Hugging Face resolve URL pinned to a commit"
+        )
+    if _HF_COMMIT_PATTERN.fullmatch(suffix[1]) is None:
+        raise MultiHarnessValidationError(
+            "source_url must pin a 40- or 64-character lowercase commit SHA"
         )
 
 
