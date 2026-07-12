@@ -1,16 +1,35 @@
 from __future__ import annotations
 
 import json
+import urllib.request
+from email.message import Message
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
+from legalforecast.ingestion.courtlistener_acquisition import (
+    CourtListenerClientError,
+    _CourtListenerRedirectHandler,
+)
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.discovery_scheduler import (
     DiscoveryHit,
     TermTerminalStatus,
 )
+
+
+def test_docket_html_refuses_off_allowlist_redirect_hop() -> None:
+    handler = _CourtListenerRedirectHandler()
+    with pytest.raises(CourtListenerClientError, match="host allowlist"):
+        handler.redirect_request(
+            urllib.request.Request("https://www.courtlistener.com/docket/1/"),
+            object(),
+            302,
+            "Found",
+            Message(),
+            "https://evil.example/docket/1/",
+        )
 
 
 def test_discover_courtlistener_help_documents_live_authority(

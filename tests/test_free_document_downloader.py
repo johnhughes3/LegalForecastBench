@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import urllib.request
 from email.message import Message
 from pathlib import Path
 from typing import Any
@@ -11,6 +13,7 @@ from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentDownloadError,
     FreeDocumentDownloadRequest,
     UrlLibFreeDocumentSource,
+    _AllowlistedRedirectHandler,
     download_free_docket_documents,
 )
 from legalforecast.ingestion.provenance import DocumentRole
@@ -83,6 +86,120 @@ def test_downloader_resumes_existing_documents_without_refetch(tmp_path: Path) -
     assert source.requested_urls == ("https://www.courtlistener.com/recap/doc-1.pdf",)
 
 
+def test_corrupt_existing_document_is_refetched(tmp_path: Path) -> None:
+    source = FixtureFreeDocumentSource(
+        {"https://www.courtlistener.com/recap/doc-1.pdf": b"%PDF original"}
+    )
+    request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+    )
+    [first] = download_free_docket_documents(
+        (request,), output_root=tmp_path, source=source
+    )
+    path = tmp_path / first.local_path
+    path.write_bytes(b"%PDF corrupt")
+
+    [resumed] = download_free_docket_documents(
+        (request,), output_root=tmp_path, source=source
+    )
+
+    assert resumed.reused_existing is False
+    assert path.read_bytes() == b"%PDF original"
+    assert source.requested_urls == (request.source_url, request.source_url)
+
+
+def test_failed_atomic_publish_leaves_no_final_named_partial(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = FixtureFreeDocumentSource(
+        {"https://www.courtlistener.com/recap/doc-1.pdf": b"%PDF complete"}
+    )
+    request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+    )
+
+    def fail_replace(*_args: object) -> None:
+        raise OSError("simulated crash")
+
+    monkeypatch.setattr(
+        "legalforecast.ingestion.free_document_downloader.os.replace", fail_replace
+    )
+    with pytest.raises(OSError, match="simulated crash"):
+        download_free_docket_documents((request,), output_root=tmp_path, source=source)
+    assert not (tmp_path / "cand-1/courtlistener/entry-1_doc-1.pdf").exists()
+
+
+def test_checkpoint_rows_hash_bytes_on_disk(tmp_path: Path) -> None:
+    source = FixtureFreeDocumentSource(
+        {"https://www.courtlistener.com/recap/doc-1.pdf": b"%PDF complete"}
+    )
+    request = _request(
+        "doc-1",
+        docket_entry_number=1,
+        role=DocumentRole.COMPLAINT,
+        url="https://www.courtlistener.com/recap/doc-1.pdf",
+    )
+    [record] = download_free_docket_documents(
+        (request,), output_root=tmp_path, source=source
+    )
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / ".download-checkpoint.jsonl").read_text().splitlines()
+    ]
+    assert rows == [record.to_record()]
+    assert (
+        rows[0]["sha256"]
+        == hashlib.sha256((tmp_path / record.local_path).read_bytes()).hexdigest()
+    )
+
+
+def test_live_source_aborts_oversize_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Response:
+        headers = Message()
+
+        def __enter__(self) -> _Response:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def geturl(self) -> str:
+            return "https://storage.courtlistener.com/doc.pdf"
+
+        def read(self, _size: int = -1) -> bytes:
+            return b"%PDF-too-large"
+
+    _Response.headers["Content-Type"] = "application/pdf"
+    monkeypatch.setattr(
+        "legalforecast.ingestion.free_document_downloader._open_allowlisted",
+        lambda *_a, **_kw: _Response(),
+    )
+    with pytest.raises(FreeDocumentDownloadError, match="byte ceiling"):
+        UrlLibFreeDocumentSource(max_retries=0, max_bytes=4).fetch(
+            "https://storage.courtlistener.com/doc.pdf"
+        )
+
+
+def test_live_source_refuses_off_allowlist_redirect_hop() -> None:
+    handler = _AllowlistedRedirectHandler()
+    with pytest.raises(ValueError, match="CourtListener document URL"):
+        handler.redirect_request(
+            urllib.request.Request("https://www.courtlistener.com/doc.pdf"),
+            object(),
+            302,
+            "Found",
+            Message(),
+            "https://evil.example/doc.pdf",
+        )
+
+
 def test_downloader_accepts_courtlistener_storage_pdf_urls(tmp_path: Path) -> None:
     source = FixtureFreeDocumentSource(
         {"https://storage.courtlistener.com/recap/doc-1.pdf": b"%PDF complaint"}
@@ -121,13 +238,16 @@ def test_live_source_rejects_html_landing_pages(
         def geturl(self) -> str:
             return "https://www.courtlistener.com/docket/1/5/example/"
 
-        def read(self) -> bytes:
+        def read(self, _size: int = -1) -> bytes:
             return b"<html>not a pdf</html>"
 
     def _urlopen(*_args: Any, **_kwargs: Any) -> _Response:
         return _Response()
 
-    monkeypatch.setattr("urllib.request.urlopen", _urlopen)
+    monkeypatch.setattr(
+        "legalforecast.ingestion.free_document_downloader._open_allowlisted",
+        _urlopen,
+    )
 
     source = UrlLibFreeDocumentSource(max_retries=0)
     with pytest.raises(FreeDocumentDownloadError, match="returned HTML"):
@@ -159,7 +279,7 @@ def test_live_source_resolves_courtlistener_landing_page_to_free_pdf(
         def geturl(self) -> str:
             return self._final_url
 
-        def read(self) -> bytes:
+        def read(self, _size: int = -1) -> bytes:
             return self._content
 
     requested_urls: list[str] = []
@@ -187,7 +307,10 @@ def test_live_source_resolves_courtlistener_landing_page_to_free_pdf(
             content=b"%PDF resolved",
         )
 
-    monkeypatch.setattr("urllib.request.urlopen", _urlopen)
+    monkeypatch.setattr(
+        "legalforecast.ingestion.free_document_downloader._open_allowlisted",
+        _urlopen,
+    )
 
     source = UrlLibFreeDocumentSource(max_retries=0)
     fetch = source.fetch("https://www.courtlistener.com/docket/1/5/example/")

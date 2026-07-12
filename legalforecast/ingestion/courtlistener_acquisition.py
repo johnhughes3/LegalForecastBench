@@ -79,6 +79,7 @@ class LiveCourtListenerDocketHTMLSource:
     """Fetch allowlisted public CourtListener docket HTML over HTTPS."""
 
     timeout_seconds: float = 30.0
+    max_bytes: int = 10 * 1024 * 1024
 
     def fetch(self, *, docket_id: str, source_url: str) -> str:
         url = _validated_public_docket_url(source_url, docket_id=docket_id)
@@ -90,12 +91,21 @@ class LiveCourtListenerDocketHTMLSource:
             },
         )
         try:
-            # The URL is HTTPS, host-allowlisted, and path-checked above.
-            with urllib.request.urlopen(  # nosec B310
-                request,
-                timeout=self.timeout_seconds,
-            ) as response:
-                return response.read().decode("utf-8")
+            opener = urllib.request.build_opener(_CourtListenerRedirectHandler())
+            with opener.open(request, timeout=self.timeout_seconds) as response:  # nosec B310
+                final_url = response.geturl()
+                _validate_courtlistener_transport_url(final_url)
+                content_length = response.headers.get("Content-Length")
+                if content_length is not None and int(content_length) > self.max_bytes:
+                    raise CourtListenerClientError(
+                        "CourtListener docket HTML exceeds byte ceiling"
+                    )
+                content = response.read(self.max_bytes + 1)
+                if len(content) > self.max_bytes:
+                    raise CourtListenerClientError(
+                        "CourtListener docket HTML exceeds byte ceiling"
+                    )
+                return content.decode("utf-8")
         except urllib.error.HTTPError as exc:
             if exc.code == 404:
                 raise CourtListenerUnavailableError(
@@ -770,6 +780,34 @@ def _public_docket_url(docket: CourtListenerDocket) -> str:
             return f"https://www.courtlistener.com{docket.source_url}"
         return docket.source_url
     return f"https://www.courtlistener.com/docket/{docket.docket_id}/"
+
+
+def _validate_courtlistener_transport_url(url: str) -> None:
+    parsed = urllib.parse.urlparse(url)
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname not in {"www.courtlistener.com", "storage.courtlistener.com"}
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.port not in (None, 443)
+    ):
+        raise CourtListenerClientError(
+            "CourtListener redirect left the HTTPS CourtListener host allowlist"
+        )
+
+
+class _CourtListenerRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: object,
+        code: int,
+        msg: str,
+        headers: object,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        _validate_courtlistener_transport_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)  # type: ignore[arg-type]
 
 
 def _validated_public_docket_url(source_url: str, *, docket_id: str) -> str:
