@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from datetime import date
+from decimal import Decimal, InvalidOperation
+from math import floor
 from pathlib import Path
 from typing import Any, cast
 
@@ -19,11 +21,10 @@ from legalforecast.ingestion.courtlistener_web import (
 from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentDownloadRequest,
 )
+from legalforecast.ingestion.missing_core_budget import DEFAULT_PURCHASE_COST_USD
 from legalforecast.ingestion.provenance import DocumentRole
 
-_OPTIONAL_BRIEF_ROLES = frozenset(
-    {CourtListenerEntryRole.OPPOSITION, CourtListenerEntryRole.REPLY}
-)
+_OPTIONAL_BRIEF_ROLES = frozenset({CourtListenerEntryRole.REPLY})
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +82,11 @@ class PublicPacketCandidatePlan:
     target_motion_entry_numbers: tuple[int, ...]
     decision_entry_numbers: tuple[int, ...]
     documents: tuple[PublicPacketDocumentPlan, ...]
+    required_document_count: int = 0
+    free_required_document_count: int = 0
+    missing_required_document_count: int = 0
+    projected_paid_cost_usd: str = "0.00"
+    cost_rank: int | None = None
 
     def to_record(self) -> dict[str, Any]:
         return {
@@ -103,6 +109,11 @@ class PublicPacketCandidatePlan:
             "target_motion_entry_numbers": list(self.target_motion_entry_numbers),
             "decision_entry_numbers": list(self.decision_entry_numbers),
             "documents": [document.to_record() for document in self.documents],
+            "required_document_count": self.required_document_count,
+            "free_required_document_count": self.free_required_document_count,
+            "missing_required_document_count": self.missing_required_document_count,
+            "projected_paid_cost_usd": self.projected_paid_cost_usd,
+            "cost_rank": self.cost_rank,
         }
 
     @property
@@ -126,6 +137,7 @@ class PublicPacketDownloadPlan:
     selected_case_count: int
     download_request_count: int
     candidate_plans: tuple[PublicPacketCandidatePlan, ...]
+    max_case_mix_share: float | None = None
 
     @property
     def selected_cases(self) -> tuple[PublicPacketCandidatePlan, ...]:
@@ -158,6 +170,7 @@ class PublicPacketDownloadPlan:
         )
 
     def summary_record(self) -> dict[str, Any]:
+        planned_cases = self.planned_cases
         return {
             "target_clean_cases": self.target_clean_cases,
             "allow_inferred_target_mtd": self.allow_inferred_target_mtd,
@@ -167,6 +180,23 @@ class PublicPacketDownloadPlan:
             "planned_case_count": len(self.planned_cases),
             "final_exclusion_count": len(self.final_exclusions),
             "download_request_count": self.download_request_count,
+            "selection_protocol": "deterministic_cheapest_first_greedy",
+            "max_case_mix_share": self.max_case_mix_share,
+            "required_document_count": sum(
+                plan.required_document_count for plan in planned_cases
+            ),
+            "free_required_document_count": sum(
+                plan.free_required_document_count for plan in planned_cases
+            ),
+            "missing_required_document_count": sum(
+                plan.missing_required_document_count for plan in planned_cases
+            ),
+            "projected_paid_cost_usd": _money(
+                sum(
+                    (Decimal(plan.projected_paid_cost_usd) for plan in planned_cases),
+                    start=Decimal("0"),
+                )
+            ),
             "shortfall": max(0, self.target_clean_cases - self.selected_case_count),
             "acquisition_candidate_shortfall": max(
                 0, self.target_clean_cases - len(self.planned_cases)
@@ -181,6 +211,8 @@ def plan_public_packet_downloads(
     target_clean_cases: int = 25,
     allow_inferred_target_mtd: bool = False,
     use_embedded_entries: bool = False,
+    cost_per_missing_document_usd: Decimal | str = DEFAULT_PURCHASE_COST_USD,
+    max_case_mix_share: float | None = None,
 ) -> PublicPacketDownloadPlan:
     """Select public/free packet candidates and emit document download requests."""
 
@@ -188,20 +220,28 @@ def plan_public_packet_downloads(
         raise ValueError("target_clean_cases must be positive")
     if raw_html_dir is None and not use_embedded_entries:
         raise ValueError("raw_html_dir is required unless use_embedded_entries=True")
+    unit_cost = _money_decimal(
+        cost_per_missing_document_usd,
+        "cost_per_missing_document_usd",
+    )
+    if max_case_mix_share is not None and not 0 < max_case_mix_share <= 1:
+        raise ValueError("max_case_mix_share must be greater than 0 and at most 1")
     html_root = Path(raw_html_dir) if raw_html_dir is not None else None
-    candidate_plans: list[PublicPacketCandidatePlan] = []
-    planned_count = 0
+    evaluated_plans: list[PublicPacketCandidatePlan] = []
     for record in screened_case_records:
         plan = _candidate_plan(
             record,
             raw_html_dir=html_root,
-            within_target_limit=planned_count < target_clean_cases,
             allow_inferred_target_mtd=allow_inferred_target_mtd,
             use_embedded_entries=use_embedded_entries,
+            cost_per_missing_document=unit_cost,
         )
-        if plan.selected or plan.paid_recovery_required:
-            planned_count += 1
-        candidate_plans.append(plan)
+        evaluated_plans.append(plan)
+    candidate_plans = _select_lowest_cost_candidates(
+        evaluated_plans,
+        target_clean_cases=target_clean_cases,
+        max_case_mix_share=max_case_mix_share,
+    )
     selected_cases = tuple(plan for plan in candidate_plans if plan.selected)
     request_count = sum(
         len(plan.documents)
@@ -215,6 +255,7 @@ def plan_public_packet_downloads(
         selected_case_count=len(selected_cases),
         download_request_count=request_count,
         candidate_plans=tuple(candidate_plans),
+        max_case_mix_share=max_case_mix_share,
     )
 
 
@@ -222,9 +263,9 @@ def _candidate_plan(
     record: Mapping[str, Any],
     *,
     raw_html_dir: Path | None,
-    within_target_limit: bool,
     allow_inferred_target_mtd: bool,
     use_embedded_entries: bool,
+    cost_per_missing_document: Decimal,
 ) -> PublicPacketCandidatePlan:
     candidate = _mapping(record, "candidate")
     metadata = _mapping(candidate, "metadata")
@@ -280,24 +321,14 @@ def _candidate_plan(
             decision_entries=decision_entries,
             reason=reason,
         )
-    documents, reasons = _documents_for_candidate(
+    documents, reasons, required_count, free_required_count = _documents_for_candidate(
         candidate_id,
         page=page,
         target_entries=target_entries,
         decision_entries=decision_entries,
         allow_inferred_target_mtd=allow_inferred_target_mtd,
     )
-    if not within_target_limit:
-        return _excluded_plan(
-            candidate_id,
-            metadata,
-            decision_date=decision_date,
-            case_mix_metadata=case_mix_metadata,
-            source_url=source_url,
-            target_entries=target_entries,
-            decision_entries=decision_entries,
-            reason="target_clean_case_limit_reached",
-        )
+    missing_required_count = required_count - free_required_count
     return PublicPacketCandidatePlan(
         candidate_id=candidate_id,
         case_id=_optional_str(metadata, "case_id") or candidate_id,
@@ -317,6 +348,12 @@ def _candidate_plan(
         target_motion_entry_numbers=target_entries,
         decision_entry_numbers=decision_entries,
         documents=documents,
+        required_document_count=required_count,
+        free_required_document_count=free_required_count,
+        missing_required_document_count=missing_required_count,
+        projected_paid_cost_usd=_money(
+            cost_per_missing_document * missing_required_count
+        ),
     )
 
 
@@ -327,9 +364,10 @@ def _documents_for_candidate(
     target_entries: tuple[int, ...],
     decision_entries: tuple[int, ...],
     allow_inferred_target_mtd: bool,
-) -> tuple[tuple[PublicPacketDocumentPlan, ...], tuple[str, ...]]:
+) -> tuple[tuple[PublicPacketDocumentPlan, ...], tuple[str, ...], int, int]:
     decision_floor = min(decision_entries) if decision_entries else _max_entry(page)
-    complaint = _operative_complaint_entry(page, before_entry=decision_floor)
+    complaint_floor = min(target_entries) if target_entries else decision_floor
+    complaint = _operative_complaint_entry(page, before_entry=complaint_floor)
     target_mtd_entries = _target_mtd_entries(
         page,
         target_entries=target_entries,
@@ -337,6 +375,11 @@ def _documents_for_candidate(
         allow_inferred_target_mtd=allow_inferred_target_mtd,
     )
     decision_entry_plans = _decision_entries(page, decision_entries=decision_entries)
+    opposition_entries = _required_opposition_entries(
+        page,
+        target_entries=target_entries,
+        before_entry=decision_floor,
+    )
     reasons: list[str] = []
     complaint_plan = (
         None
@@ -351,10 +394,54 @@ def _documents_for_candidate(
     )
     if complaint_plan is None:
         reasons.append("no_free_operative_complaint")
-    if not target_mtd_entries:
+    free_target_numbers = _free_target_mtd_entry_numbers(
+        page,
+        target_entries=target_entries,
+        decision_floor=decision_floor,
+        allow_inferred_target_mtd=allow_inferred_target_mtd,
+    )
+    target_required_count = max(1, len(target_entries))
+    for entry_number in target_entries:
+        if entry_number not in free_target_numbers:
+            reasons.append(
+                _numbered_missing_reason(
+                    "no_free_target_mtd_document",
+                    entry_number,
+                    total=target_required_count,
+                )
+            )
+    if not target_entries and not target_mtd_entries:
         reasons.append("no_free_target_mtd_document")
-    if not decision_entry_plans:
+    decision_required_count = max(1, len(decision_entries))
+    free_decision_numbers = {_entry_number(entry) for entry in decision_entry_plans}
+    for entry_number in decision_entries:
+        if entry_number not in free_decision_numbers:
+            reasons.append(
+                _numbered_missing_reason(
+                    "no_free_decision_document",
+                    entry_number,
+                    total=decision_required_count,
+                )
+            )
+    if not decision_entries and not decision_entry_plans:
         reasons.append("no_free_decision_document")
+    free_opposition_entries = tuple(
+        entry
+        for entry in opposition_entries
+        if _best_free_document(entry, DocumentRole.OPPOSITION) is not None
+    )
+    for entry in opposition_entries:
+        if _best_free_document(entry, DocumentRole.OPPOSITION) is None:
+            entry_number = _entry_number(entry)
+            reasons.append(
+                _numbered_missing_reason(
+                    "no_free_opposition_document",
+                    entry_number,
+                    total=len(opposition_entries),
+                )
+                if entry_number is not None
+                else "no_free_opposition_document:unknown_entry"
+            )
     documents: list[PublicPacketDocumentPlan] = []
     if complaint_plan is not None:
         documents.append(complaint_plan)
@@ -372,11 +459,25 @@ def _documents_for_candidate(
         _document_plan(
             candidate_id,
             entry,
-            role=_brief_role(entry),
+            role=DocumentRole.OPPOSITION,
             model_visible=True,
             contains_target_outcome=False,
         )
-        for entry in _optional_brief_entries(page, before_entry=decision_floor)
+        for entry in free_opposition_entries
+    )
+    documents.extend(
+        _document_plan(
+            candidate_id,
+            entry,
+            role=DocumentRole.REPLY,
+            model_visible=True,
+            contains_target_outcome=False,
+        )
+        for entry in _optional_brief_entries(
+            page,
+            before_entry=decision_floor,
+            target_entries=target_entries,
+        )
     )
     documents.extend(
         _document_plan(
@@ -388,7 +489,156 @@ def _documents_for_candidate(
         )
         for entry in decision_entry_plans
     )
-    return tuple(_dedupe_documents(documents)), tuple(reasons)
+    required_count = (
+        1 + target_required_count + len(opposition_entries) + decision_required_count
+    )
+    free_required_count = (
+        int(complaint_plan is not None)
+        + min(
+            len(free_target_numbers) or len(target_mtd_entries), target_required_count
+        )
+        + len(free_opposition_entries)
+        + min(len(free_decision_numbers), decision_required_count)
+    )
+    return (
+        tuple(_dedupe_documents(documents)),
+        tuple(reasons),
+        required_count,
+        free_required_count,
+    )
+
+
+def _select_lowest_cost_candidates(
+    plans: Sequence[PublicPacketCandidatePlan],
+    *,
+    target_clean_cases: int,
+    max_case_mix_share: float | None,
+) -> list[PublicPacketCandidatePlan]:
+    """Apply the deterministic cheapest-first sampling protocol to the full pool."""
+
+    viable = [plan for plan in plans if plan.selected or plan.paid_recovery_required]
+    ranked = [
+        replace(plan, cost_rank=rank)
+        for rank, plan in enumerate(
+            sorted(
+                viable,
+                key=lambda plan: (
+                    Decimal(plan.projected_paid_cost_usd),
+                    plan.missing_required_document_count,
+                    plan.candidate_id.casefold(),
+                    plan.candidate_id,
+                ),
+            ),
+            start=1,
+        )
+    ]
+    max_per_bucket = (
+        None
+        if max_case_mix_share is None
+        else max(1, floor(target_clean_cases * max_case_mix_share))
+    )
+    dimensions: tuple[
+        tuple[str, Callable[[PublicPacketCandidatePlan], str | None]], ...
+    ] = (
+        ("court", lambda plan: plan.court),
+        ("nos_macro_category", lambda plan: plan.nos_macro_category),
+        ("related_family_id", lambda plan: plan.related_family_id),
+        ("mdl_family_id", lambda plan: plan.mdl_family_id),
+    )
+    counts: dict[tuple[str, str], int] = {}
+    selected: list[PublicPacketCandidatePlan] = []
+    reserves: list[PublicPacketCandidatePlan] = []
+    for plan in ranked:
+        if len(selected) >= target_clean_cases:
+            reserves.append(
+                _sampling_reserve(plan, "higher_projected_acquisition_cost")
+            )
+            continue
+        blocked_dimension: tuple[str, str] | None = None
+        if max_per_bucket is not None:
+            for dimension, getter in dimensions:
+                bucket = getter(plan)
+                if bucket is None:
+                    continue
+                if counts.get((dimension, bucket), 0) >= max_per_bucket:
+                    blocked_dimension = (dimension, bucket)
+                    break
+        if blocked_dimension is not None:
+            dimension, bucket = blocked_dimension
+            reserves.append(
+                _sampling_reserve(plan, f"case_mix_cap_reached:{dimension}:{bucket}")
+            )
+            continue
+        selected.append(plan)
+        for dimension, getter in dimensions:
+            bucket = getter(plan)
+            if bucket is not None:
+                key = (dimension, bucket)
+                counts[key] = counts.get(key, 0) + 1
+    intrinsic_exclusions = [
+        plan for plan in plans if not plan.selected and not plan.paid_recovery_required
+    ]
+    return [*selected, *reserves, *intrinsic_exclusions]
+
+
+def _sampling_reserve(
+    plan: PublicPacketCandidatePlan,
+    reason: str,
+) -> PublicPacketCandidatePlan:
+    return replace(
+        plan,
+        selected=False,
+        paid_recovery_required=False,
+        exclusion_reasons=(reason,),
+    )
+
+
+def _free_target_mtd_entry_numbers(
+    page: CourtListenerWebDocketPage,
+    *,
+    target_entries: tuple[int, ...],
+    decision_floor: int | None,
+    allow_inferred_target_mtd: bool,
+) -> set[int]:
+    free: set[int] = set()
+    for target_entry in target_entries:
+        exact = next(
+            (
+                entry
+                for entry in page.entries
+                if _entry_number(entry) == target_entry and _is_target_mtd_entry(entry)
+            ),
+            None,
+        )
+        if exact is not None:
+            free.add(target_entry)
+            continue
+        if allow_inferred_target_mtd and any(
+            _entry_is_before(entry, decision_floor)
+            and _is_mtd_entry(entry)
+            and _references_target_motion(entry, (target_entry,))
+            for entry in page.entries
+        ):
+            free.add(target_entry)
+    return free
+
+
+def _numbered_missing_reason(base: str, entry_number: int, *, total: int) -> str:
+    return base if total == 1 else f"{base}:{entry_number}"
+
+
+def _money_decimal(value: Decimal | str, field_name: str) -> Decimal:
+    try:
+        amount = Decimal(value)
+    except (InvalidOperation, ValueError) as error:
+        raise ValueError(f"{field_name} must be a valid decimal amount") from error
+    if not amount.is_finite() or amount < 0:
+        raise ValueError(f"{field_name} must be a finite non-negative amount")
+    return amount.quantize(Decimal("0.01"))
+
+
+def _money(value: Decimal) -> str:
+    return f"{value.quantize(Decimal('0.01')):.2f}"
 
 
 def _page_from_embedded_selected_entries(
@@ -491,22 +741,31 @@ def _target_mtd_entries(
     decision_floor: int | None,
     allow_inferred_target_mtd: bool,
 ) -> tuple[CourtListenerWebDocketEntry, ...]:
+    target_entry_set = set(target_entries)
     exact = tuple(
         entry
         for entry in page.entries
-        if _entry_number(entry) in set(target_entries) and _is_target_mtd_entry(entry)
+        if _entry_number(entry) in target_entry_set and _is_target_mtd_entry(entry)
     )
-    if exact or not allow_inferred_target_mtd:
+    if not allow_inferred_target_mtd:
         return exact
+    exact_numbers = {_entry_number(entry) for entry in exact}
+    missing_targets = tuple(
+        entry_number
+        for entry_number in target_entries
+        if entry_number not in exact_numbers
+    )
     target_support = tuple(
         entry
         for entry in page.entries
         if _entry_is_before(entry, decision_floor)
         and _is_mtd_entry(entry)
-        and _references_target_motion(entry, target_entries)
+        and _references_target_motion(entry, missing_targets)
     )
-    if target_support:
-        return target_support
+    if exact or target_support:
+        return _dedupe_entries((*exact, *target_support))
+    if target_entries:
+        return ()
     return tuple(
         entry
         for entry in page.entries
@@ -518,12 +777,56 @@ def _optional_brief_entries(
     page: CourtListenerWebDocketPage,
     *,
     before_entry: int | None,
+    target_entries: tuple[int, ...],
 ) -> tuple[CourtListenerWebDocketEntry, ...]:
     return tuple(
         entry
         for entry in page.entries
-        if _entry_is_before(entry, before_entry) and _is_optional_brief_entry(entry)
+        if _entry_is_before(entry, before_entry)
+        and _is_optional_brief_entry(entry)
+        and _brief_targets_motion(entry, target_entries)
     )
+
+
+def _required_opposition_entries(
+    page: CourtListenerWebDocketPage,
+    *,
+    target_entries: tuple[int, ...],
+    before_entry: int | None,
+) -> tuple[CourtListenerWebDocketEntry, ...]:
+    """Return filed target oppositions; every returned entry is a required slot."""
+
+    return tuple(
+        entry
+        for entry in page.entries
+        if _entry_is_before(entry, before_entry)
+        and entry.role is CourtListenerEntryRole.OPPOSITION
+        and _brief_targets_motion(entry, target_entries)
+    )
+
+
+def _brief_targets_motion(
+    entry: CourtListenerWebDocketEntry,
+    target_entries: tuple[int, ...],
+) -> bool:
+    explicit_references = _explicit_motion_reference_numbers(entry)
+    if explicit_references:
+        return bool(explicit_references.intersection(target_entries))
+    return len(target_entries) <= 1
+
+
+def _explicit_motion_reference_numbers(
+    entry: CourtListenerWebDocketEntry,
+) -> set[int]:
+    text = " ".join(entry.text.lower().split())
+    return {
+        int(match.group(1))
+        for match in re.finditer(
+            r"\b(?:re|regarding|opposition\s+to|motion|dkt\.?|ecf\s+no\.?)"
+            r"\s*(?:#|no\.?)?\s*(\d+)\b",
+            text,
+        )
+    }
 
 
 def _decision_entries(
@@ -993,10 +1296,13 @@ def _entry_number_tuple(value: object) -> tuple[int, ...]:
     numbers: list[int] = []
     for item in cast(Sequence[object], value):
         if isinstance(item, int):
-            numbers.append(item)
+            if item not in numbers:
+                numbers.append(item)
             continue
         if isinstance(item, str) and item.strip().isdigit():
-            numbers.append(int(item.strip()))
+            number = int(item.strip())
+            if number not in numbers:
+                numbers.append(number)
     return tuple(numbers)
 
 

@@ -15,6 +15,84 @@ JsonRecord = dict[str, Any]
 _GENERATED_AT = "2026-05-17T12:00:00Z"
 
 
+def test_fetch_firecrawl_dockets_runs_bounded_offline_bridge(tmp_path: Path) -> None:
+    output_root = tmp_path / "acquisition"
+    candidates_path = tmp_path / "candidates.jsonl"
+    case_dev_fixture = tmp_path / "case-dev.jsonl"
+    firecrawl_fixture = tmp_path / "firecrawl.jsonl"
+    _write_jsonl(
+        candidates_path,
+        [{"case_id": "case-a", "candidate_id": "candidate-a"}],
+    )
+    _write_jsonl(
+        case_dev_fixture,
+        [
+            {
+                "method": "POST",
+                "path": "/legal/v1/docket",
+                "params": {"type": "lookup", "docketId": "case-a"},
+                "status_code": 200,
+                "payload": {
+                    "id": "case-a",
+                    "caseName": "Fixture v. Example",
+                    "url": ("https://www.courtlistener.com/api/rest/v4/dockets/101/"),
+                },
+            }
+        ],
+    )
+    raw_html = "<html><div id='docket-entry-table'></div></html>"
+    _write_jsonl(
+        firecrawl_fixture,
+        [
+            {
+                "status_code": 200,
+                "payload": {
+                    "success": True,
+                    "data": {
+                        "rawHtml": raw_html,
+                        "metadata": {
+                            "statusCode": 200,
+                            "proxyUsed": "basic",
+                            "cacheState": "miss",
+                            "creditsUsed": 1,
+                        },
+                    },
+                },
+            }
+        ],
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "fetch-firecrawl-dockets",
+                "--candidates",
+                str(candidates_path),
+                "--max-candidates",
+                "1",
+                "--case-dev-fixture",
+                str(case_dev_fixture),
+                "--firecrawl-fixture",
+                str(firecrawl_fixture),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    assert (output_root / "raw-docket-html" / "101.html").read_text() == raw_html
+    [success] = _read_jsonl(output_root / "firecrawl-docket-successes.jsonl")
+    assert success["candidate_id"] == "candidate-a"
+    assert success["docket_id"] == "101"
+    summary = _read_json(output_root / "firecrawl-docket-summary.json")
+    assert summary["scrape_count"] == 1
+    assert summary["firecrawl_proxy"] == "basic"
+    assert summary["firecrawl_max_credits_per_scrape"] == 1
+
+
 def test_acquisition_plan_defaults_to_dry_run_with_log_and_run_card(
     tmp_path: Path,
 ) -> None:
