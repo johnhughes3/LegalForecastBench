@@ -38,7 +38,7 @@ The official workflow keeps per-cell outputs in the durable results store under 
 
 ## Quickstart
 
-Version: `0.1.0a1` / `v0.1.0-alpha.1`.
+Version: `0.1.0a3` / `v0.1.0-alpha.3`.
 
 See the package help with:
 

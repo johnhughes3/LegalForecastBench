@@ -85,7 +85,7 @@ wheels = [
 
 [[package]]
 name = "legalforecast-mtd"
-version = "0.1.0a1"
+version = "0.1.0a3"
 source = { editable = "." }
 dependencies = [
     { name = "ortools" },
