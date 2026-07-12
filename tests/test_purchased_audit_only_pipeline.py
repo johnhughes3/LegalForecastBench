@@ -169,16 +169,12 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
     units_path = tmp_path / "prediction-units.jsonl"
     registry_path = tmp_path / "registry.json"
     _write_jsonl(selection_path, [selection])
-    _write_jsonl(
-        units_path,
-        list(
-            apply_unitization_reviews(
-                prediction_unit_records=[units],
-                review_records=(),
-                adjudication_records=(),
-            )
-        ),
+    finalized_units = apply_unitization_reviews(
+        prediction_unit_records=[units],
+        review_records=(),
+        adjudication_records=(),
     )
+    _write_jsonl(units_path, list(finalized_units))
     registry_path.write_text(json.dumps([_registry_record()]), encoding="utf-8")
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", _stage_b_completion)
     assert (
@@ -220,7 +216,7 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
         selection_records=(selection,),
         download_records=downloads,
         parser_records=conversions,
-        prediction_unit_records=(units,),
+        prediction_unit_records=finalized_units,
         raw_html_dir=raw_html_dir,
         document_root=document_root,
         markdown_root=output_root / "markdown",

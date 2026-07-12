@@ -12,6 +12,7 @@ from legalforecast.evals.model_registry import (
     load_model_registry,
     require_official_registry_entries,
 )
+from legalforecast.unitization.review import apply_unitization_reviews
 
 ROOT = Path(__file__).resolve().parents[1]
 CYCLE_1_REGISTRY = ROOT / "model_registries" / "cycle-1-2026-06-30.json"
@@ -122,23 +123,32 @@ def test_plan_packet_inputs_accepts_cycle_1_registry_and_anchor(
     )
     _write_jsonl(
         units_path,
-        [
-            {
-                "candidate_id": "cand-1",
-                "prediction_units": [
+        list(
+            apply_unitization_reviews(
+                prediction_unit_records=[
                     {
-                        "unit_id": "count-i-issuer",
-                        "count": "I",
-                        "claim_name": "Section 10(b)",
-                        "defendant_group": "Issuer",
-                        "challenged_by_motion": True,
-                        "challenge_scope": "entire_claim",
-                        "unit_confidence": 0.95,
-                        "source_citations": [{"document_id": "complaint", "page": 1}],
+                        "candidate_id": "cand-1",
+                        "case_id": "case-cand-1",
+                        "prediction_units": [
+                            {
+                                "unit_id": "count-i-issuer",
+                                "count": "I",
+                                "claim_name": "Section 10(b)",
+                                "defendant_group": "Issuer",
+                                "challenged_by_motion": True,
+                                "challenge_scope": "entire_claim",
+                                "unit_confidence": 0.95,
+                                "source_citations": [
+                                    {"document_id": "complaint", "page": 1}
+                                ],
+                            }
+                        ],
                     }
                 ],
-            }
-        ],
+                review_records=(),
+                adjudication_records=(),
+            )
+        ),
     )
 
     assert (
