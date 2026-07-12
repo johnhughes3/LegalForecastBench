@@ -9,6 +9,7 @@ from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
+from legalforecast.ingestion.courtlistener_acquisition import _parse_filed_date
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.discovery_scheduler import (
     DiscoveryHit,
@@ -255,6 +256,37 @@ def test_screen_firecrawl_dockets_fail_closed_on_first_preanchor_disposition(
     [exclusion] = _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl")
     assert exclusion["reason"] == "decision_before_release_anchor"
     assert exclusion["case_id"] == "case-dev-123"
+
+
+@pytest.mark.parametrize(
+    ("filed_at", "expected"),
+    (
+        ("July 10, 2026, noon", date(2026, 7, 10)),
+        ("July 10, 2026, midnight", date(2026, 7, 10)),
+        ("July 10, 2026, 1:48 p.m.", date(2026, 7, 10)),
+        ("July 10, 2026, 8 a.m.", date(2026, 7, 10)),
+        ("Feb. 26, 2026, 10:21 a.m.", date(2026, 2, 26)),
+    ),
+)
+def test_courtlistener_timestamp_dates_preserve_calendar_date(
+    filed_at: str, expected: date
+) -> None:
+    assert _parse_filed_date(filed_at) == expected
+
+
+@pytest.mark.parametrize(
+    "filed_at",
+    (
+        "July 10, 2026, breakfast",
+        "July 10, 2026, 25:00 p.m.",
+        "not a date",
+        "",
+    ),
+)
+def test_courtlistener_invalid_timestamp_dates_remain_unparseable(
+    filed_at: str,
+) -> None:
+    assert _parse_filed_date(filed_at) is None
 
 
 def test_screen_firecrawl_dockets_preserves_fetch_exclusions_in_public_ledger(
