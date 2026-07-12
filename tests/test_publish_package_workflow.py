@@ -12,7 +12,8 @@ def test_publish_package_workflow_is_tag_triggered() -> None:
     assert "push:" in WORKFLOW
     assert "tags:" in WORKFLOW
     assert '"v*"' in WORKFLOW
-    assert "workflow_dispatch:" in WORKFLOW
+    assert "workflow_dispatch:" not in WORKFLOW
+    assert "inputs.publish" not in WORKFLOW
 
 
 def test_publish_package_runs_only_after_release_check() -> None:
@@ -20,16 +21,34 @@ def test_publish_package_runs_only_after_release_check() -> None:
     assert "uv run scripts/release_check.py --output-dir tmp/release-check" in WORKFLOW
     assert "publish:" in WORKFLOW
     assert "needs: release-check" in WORKFLOW
-    assert "github.event_name == 'push' || inputs.publish == true" in WORKFLOW
+
+
+def test_publish_package_pins_actions_to_full_commit_shas() -> None:
+    uses_lines = [
+        line.strip()
+        for line in WORKFLOW.splitlines()
+        if line.strip().startswith("uses:")
+    ]
+    assert uses_lines
+    for line in uses_lines:
+        revision = line.split("@", maxsplit=1)[1].split(maxsplit=1)[0]
+        assert len(revision) == 40
+        assert all(character in "0123456789abcdef" for character in revision)
 
 
 def test_publish_package_uses_trusted_publishing_and_records_hashes() -> None:
     assert "permissions:\n  contents: read" in WORKFLOW
     assert "contents: write" in WORKFLOW
     assert "id-token: write" in WORKFLOW
-    assert "pypa/gh-action-pypi-publish@release/v1" in WORKFLOW
+    assert (
+        "pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b"
+        in WORKFLOW
+    )
     assert "packages-dir: tmp/release-check/dist" in WORKFLOW
-    assert "softprops/action-gh-release@v2" in WORKFLOW
+    assert (
+        "softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65"
+        in WORKFLOW
+    )
     assert "tmp/release-check/package-artifact-hashes.json" in WORKFLOW
     assert "tmp/release-check/dist/package-artifact-hashes.json" not in WORKFLOW
 
