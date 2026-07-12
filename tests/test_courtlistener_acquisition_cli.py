@@ -406,6 +406,7 @@ def _docket_html(*, decision_dates: tuple[str, ...]) -> str:
             filed_at="February 2, 2026",
             text="MOTION to Dismiss filed by Defendant",
             description="Motion to Dismiss",
+            extra_document_description="Memorandum in Support of Motion to Dismiss",
         )
         + decision_rows
         + "</div></body></html>"
@@ -418,7 +419,18 @@ def _entry_html(
     filed_at: str,
     text: str,
     description: str,
+    extra_document_description: str | None = None,
 ) -> str:
+    extra_document = (
+        ""
+        if extra_document_description is None
+        else (
+            '<div class="row recap-documents"><div>Attachment 1</div>'
+            f"<div>{extra_document_description}</div>"
+            f'<a href="https://storage.courtlistener.com/{number}-memo.pdf">'
+            "Download PDF</a></div>"
+        )
+    )
     return (
         f'<div class="row" id="entry-{number}">'
         f'<div class="col-xs-1">{number}</div>'
@@ -428,7 +440,7 @@ def _entry_html(
         "<div>Main Document</div>"
         f"<div>{description}</div>"
         f'<a href="https://storage.courtlistener.com/{number}.pdf">Download PDF</a>'
-        "</div></div></div>"
+        f"</div>{extra_document}</div></div>"
     )
 
 

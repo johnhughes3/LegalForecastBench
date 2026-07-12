@@ -9,7 +9,9 @@ from legalforecast.ingestion.free_document_downloader import UrlLibFreeDocumentS
 
 
 class _Response:
-    def __init__(self, *, url: str, content_type: str, chunks: tuple[bytes, ...]) -> None:
+    def __init__(
+        self, *, url: str, content_type: str, chunks: tuple[bytes, ...]
+    ) -> None:
         self._url = url
         self._chunks = iter(chunks)
         self.headers = Message()

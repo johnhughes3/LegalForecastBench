@@ -115,9 +115,52 @@ class UrlLibFreeDocumentSource:
     def fetch_to(self, source_url: str, destination: Path) -> FreeDocumentFetch:
         """Stream one validated PDF to a caller-owned temporary path."""
         _validate_public_document_url(source_url)
+        retry_count = 0
+        rate_limited = False
+        last_error: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            if attempt > 0:
+                retry_count += 1
+                time.sleep(self.retry_backoff_seconds * attempt)
+            try:
+                return self._fetch_to_once(
+                    source_url,
+                    destination,
+                    retry_count=retry_count,
+                    rate_limited=rate_limited,
+                )
+            except urllib.error.HTTPError as exc:
+                last_error = exc
+                if exc.code == 429:
+                    rate_limited = True
+                if (
+                    exc.code not in _RETRYABLE_STATUS_CODES
+                    or attempt >= self.max_retries
+                ):
+                    break
+            except (TimeoutError, urllib.error.URLError) as exc:
+                last_error = exc
+                if attempt >= self.max_retries:
+                    break
+        raise FreeDocumentDownloadError(
+            f"failed to download free public document {source_url}: {last_error}"
+        ) from last_error
+
+    def _fetch_to_once(
+        self,
+        source_url: str,
+        destination: Path,
+        *,
+        retry_count: int,
+        rate_limited: bool,
+        allow_landing_resolution: bool = True,
+    ) -> FreeDocumentFetch:
         request = urllib.request.Request(
             source_url,
-            headers={"Accept": "application/pdf", "User-Agent": self.user_agent},
+            headers={
+                "Accept": "application/pdf,application/octet-stream;q=0.9,*/*;q=0.1",
+                "User-Agent": self.user_agent,
+            },
         )
         with _open_allowlisted(request, timeout=self.timeout_seconds) as response:
             final_url = response.geturl()
@@ -128,8 +171,15 @@ class UrlLibFreeDocumentSource:
                 source_url=source_url,
             )
             byte_count = 0
-            digest = hashlib.sha256()
             prefix = bytearray()
+            content_type = response.headers.get_content_type().lower()
+            landing_parser = (
+                _CourtListenerLandingPageParser(base_url=final_url)
+                if allow_landing_resolution
+                and content_type == "text/html"
+                and _is_courtlistener_document_landing_url(final_url)
+                else None
+            )
             with destination.open("wb") as handle:
                 while chunk := response.read(min(1024 * 1024, self.max_bytes + 1)):
                     byte_count += len(chunk)
@@ -137,17 +187,33 @@ class UrlLibFreeDocumentSource:
                         raise _ceiling_error(self.max_bytes, source_url)
                     if len(prefix) < 512:
                         prefix.extend(chunk[: 512 - len(prefix)])
-                    digest.update(chunk)
+                    if landing_parser is not None:
+                        landing_parser.feed(chunk.decode("utf-8", errors="ignore"))
                     handle.write(chunk)
                 handle.flush()
                 os.fsync(handle.fileno())
-            content_type = response.headers.get_content_type().lower()
+        if landing_parser is not None:
+            landing_parser.close()
+            resolved_url = landing_parser.best_url
+            if resolved_url is not None and resolved_url != final_url:
+                _validate_public_document_url(resolved_url)
+                return self._fetch_to_once(
+                    resolved_url,
+                    destination,
+                    retry_count=retry_count,
+                    rate_limited=rate_limited,
+                    allow_landing_resolution=False,
+                )
         _validate_public_document_content(
             source_url=source_url,
             content=bytes(prefix),
             content_type=content_type,
         )
-        return FreeDocumentFetch(content=b"")
+        return FreeDocumentFetch(
+            content=b"",
+            retry_count=retry_count,
+            rate_limited=rate_limited,
+        )
 
     def _fetch_once(
         self,
