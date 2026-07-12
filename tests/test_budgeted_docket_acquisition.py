@@ -2,12 +2,19 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import date
+from pathlib import Path
 from types import SimpleNamespace
 
 from legalforecast.ingestion.budgeted_docket_acquisition import (
     acquire_ranked_dockets,
+    materialize_selected_slice_batch,
 )
 from legalforecast.ingestion.budgeted_firecrawl import FirecrawlTargetSpec
+from legalforecast.ingestion.cycle_acquisition_store import (
+    CycleAcquisitionStore,
+    DiscoveryHit,
+    TermTerminalStatus,
+)
 
 
 def test_ranked_dockets_are_paginated_in_budgeted_page_waves() -> None:
@@ -48,6 +55,48 @@ def test_failed_docket_is_not_exposed_as_partial_screening_input() -> None:
 
     assert [bundle.docket_id for bundle in result.bundles] == ["20"]
     assert result.failed_docket_ids == ("10",)
+
+
+def test_selected_slice_is_terminal_without_claiming_parent_saturation(
+    tmp_path: Path,
+) -> None:
+    with CycleAcquisitionStore(tmp_path / "cycle.sqlite3") as store:
+        store.ensure_cycle({"schema_version": "test-cycle.v1"})
+        store.ensure_batch("partial-parent", {"source": "partial-recap"})
+        store.ensure_terms("partial-parent", ("motion to dismiss",))
+        store.commit_search_page(
+            "partial-parent",
+            "motion to dismiss",
+            None,
+            (
+                DiscoveryHit(
+                    provider_hit_id="hit-20",
+                    candidate_id="courtlistener-docket-20",
+                    payload={"docket_id": "20"},
+                ),
+            ),
+            next_cursor="page-2",
+            terminal_status=None,
+        )
+
+        targets = materialize_selected_slice_batch(
+            store=store,
+            parent_batch_id="partial-parent",
+            selected_batch_id="batch-001-selected",
+            records=[_record("20", 0)],
+            limit=1,
+        )
+
+        assert targets[0].candidate_id == "courtlistener-docket-20"
+        assert store.term_progress(
+            "partial-parent", "motion to dismiss"
+        ).terminal_status is None
+        assert (
+            store.term_progress(
+                "batch-001-selected", "selected-ranked-slice"
+            ).terminal_status
+            is TermTerminalStatus.EXHAUSTED
+        )
 
 
 class _Scheduler:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date
@@ -13,6 +14,11 @@ from legalforecast.ingestion.budgeted_firecrawl import (
     FirecrawlTargetSpec,
 )
 from legalforecast.ingestion.courtlistener_web import parse_courtlistener_docket_html
+from legalforecast.ingestion.cycle_acquisition_store import (
+    CycleAcquisitionStore,
+    DiscoveryHit,
+    TermTerminalStatus,
+)
 from legalforecast.ingestion.firecrawl_docket_pagination import (
     CourtListenerDocketBundle,
     CourtListenerDocketPaginationError,
@@ -30,6 +36,7 @@ class BudgetedDocketAcquisitionError(ValueError):
 class RankedDocketTarget:
     """Validated selective acquisition target from free Case.dev ranking."""
 
+    candidate_id: str
     docket_id: str
     docket_url: str
     rank: int
@@ -42,6 +49,76 @@ class BudgetedDocketAcquisitionResult:
     bundles: tuple[CourtListenerDocketBundle, ...]
     failed_docket_ids: tuple[str, ...]
     credit_summary: Mapping[str, object]
+
+
+def materialize_selected_slice_batch(
+    *,
+    store: CycleAcquisitionStore,
+    parent_batch_id: str,
+    selected_batch_id: str,
+    records: Iterable[Mapping[str, Any]],
+    limit: int,
+) -> tuple[RankedDocketTarget, ...]:
+    """Create an honest terminal batch containing only ranked selected dockets.
+
+    This does not claim that the parent discovery is saturated. The child batch
+    binds its immutable configuration to the parent digest and exact ranked
+    selection, so completeness and snapshot publication are scoped to the
+    selected acquisition slice while the original partial pool remains partial.
+    """
+
+    materialized = tuple(records)
+    targets = ranked_docket_targets(materialized, limit=limit)
+    parent_ids = set(store.candidate_ids(parent_batch_id))
+    missing = [
+        target.candidate_id
+        for target in targets
+        if target.candidate_id not in parent_ids
+    ]
+    if missing:
+        raise BudgetedDocketAcquisitionError(
+            "selected docket was not discovered in parent batch: " + ",".join(missing)
+        )
+    selection_payload = [
+        {
+            "candidate_id": target.candidate_id,
+            "courtlistener_url": target.docket_url,
+            "cost_rank": target.rank,
+        }
+        for target in targets
+    ]
+    selection_hash = hashlib.sha256(
+        json.dumps(selection_payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    store.ensure_batch(
+        selected_batch_id,
+        {
+            "schema_version": "legalforecast.selected_acquisition_slice.v1",
+            "parent_batch_id": parent_batch_id,
+            "parent_batch_digest": store.batch_digest(parent_batch_id),
+            "selection_hash": selection_hash,
+            "selection_count": len(targets),
+            "parent_discovery_saturation_claimed": False,
+        },
+    )
+    term = "selected-ranked-slice"
+    store.ensure_terms(selected_batch_id, (term,))
+    store.commit_search_page(
+        selected_batch_id,
+        term,
+        None,
+        (
+            DiscoveryHit(
+                provider_hit_id=f"selected-{target.docket_id}",
+                candidate_id=target.candidate_id,
+                payload=selection_payload[index],
+            )
+            for index, target in enumerate(targets)
+        ),
+        next_cursor=None,
+        terminal_status=TermTerminalStatus.EXHAUSTED,
+    )
+    return targets
 
 
 def ranked_docket_targets(
@@ -76,7 +153,14 @@ def ranked_docket_targets(
         except CourtListenerDocketPaginationError as exc:
             raise BudgetedDocketAcquisitionError(str(exc)) from exc
         seen.add(docket_id)
-        targets.append(RankedDocketTarget(docket_id, docket_url, rank))
+        targets.append(
+            RankedDocketTarget(
+                candidate_id=f"courtlistener-docket-{docket_id}",
+                docket_id=docket_id,
+                docket_url=docket_url,
+                rank=rank,
+            )
+        )
         if len(targets) == limit:
             break
     return tuple(targets)

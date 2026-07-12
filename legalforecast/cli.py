@@ -11,6 +11,7 @@ import shutil
 import sys
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import asdict
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -72,6 +73,7 @@ from legalforecast.ingestion.budgeted_firecrawl import (
     FirecrawlCircuitOpenError,
     FirecrawlPageRecord,
     FirecrawlTargetSpec,
+    load_successful_firecrawl_pages,
 )
 from legalforecast.ingestion.case_dev_client import (
     CaseDevClient,
@@ -210,6 +212,10 @@ from legalforecast.ingestion.purchased_document_recovery import (
     purchased_document_download_manifest_records,
     purchased_document_recovery_requests_from_records,
     recover_purchased_documents,
+)
+from legalforecast.ingestion.recap_partial_checkpoint import (
+    RecapPartialProjectionError,
+    project_partial_recap_checkpoint,
 )
 from legalforecast.labeling.label_outcomes import (
     AmendmentClass,
@@ -582,6 +588,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_discover_firecrawl_recap_arguments(
         acquisition_discover_firecrawl_recap
+    )
+    acquisition_project_firecrawl_recap_checkpoint = acquisition_subparsers.add_parser(
+        "project-firecrawl-recap-checkpoint",
+        help=(
+            "Recover verified durable Firecrawl RECAP search pages into "
+            "explicitly partial entry and potential-docket checkpoints."
+        ),
+    )
+    _add_acquisition_project_firecrawl_recap_checkpoint_arguments(
+        acquisition_project_firecrawl_recap_checkpoint
     )
     acquisition_enrich_recap_case_dev = acquisition_subparsers.add_parser(
         "enrich-recap-case-dev",
@@ -1148,6 +1164,28 @@ def _add_acquisition_discover_firecrawl_recap_arguments(
     parser.add_argument("--summary-output", type=Path)
     parser.add_argument("--raw-search-html-dir", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_discover_firecrawl_recap)
+
+
+def _add_acquisition_project_firecrawl_recap_checkpoint_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Existing cycle-scoped SQLite store containing the durable run.",
+    )
+    parser.add_argument(
+        "--run-id",
+        required=True,
+        help="Firecrawl run whose successful search artifacts will be verified.",
+    )
+    parser.add_argument("--pages-output", type=Path)
+    parser.add_argument("--entries-output", type=Path)
+    parser.add_argument("--dockets-output", type=Path)
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_project_firecrawl_recap_checkpoint)
 
 
 def _add_acquisition_discover_courtlistener_arguments(
@@ -2968,6 +3006,184 @@ class _BudgetedRecapSearchTransport:
             )
         self._pages[source_url] = page
         return page.raw_html
+
+
+def _cmd_acquisition_project_firecrawl_recap_checkpoint(
+    args: argparse.Namespace,
+) -> int:
+    """Materialize verified successful pages without claiming search completion."""
+
+    output_root = _acquisition_output_root(args)
+    store_path = cast(Path, args.cycle_store)
+    run_id = cast(str, args.run_id)
+    pages_path = _acquisition_path(
+        args,
+        "pages_output",
+        output_root / "checkpoints" / f"{run_id}-partial-recap-pages.jsonl",
+    )
+    entries_path = _acquisition_path(
+        args,
+        "entries_output",
+        output_root / "checkpoints" / f"{run_id}-partial-recap-entries.jsonl",
+    )
+    dockets_path = _acquisition_path(
+        args,
+        "dockets_output",
+        output_root / "checkpoints" / f"{run_id}-partial-recap-dockets.jsonl",
+    )
+    summary_path = _acquisition_path(
+        args,
+        "summary_output",
+        output_root / "checkpoints" / f"{run_id}-partial-recap-summary.json",
+    )
+    input_paths = (store_path,)
+    output_paths = (pages_path, entries_path, dockets_path, summary_path)
+    dry_run = _acquisition_dry_run(args)
+    if dry_run:
+        summary: JsonRecord = {
+            "schema_version": "legalforecast.recap_partial_checkpoint_summary.v1",
+            "dry_run": True,
+            "run_id": run_id,
+            "store_projection_committed": False,
+            "acquired_page_count": 0,
+            "raw_hit_count": 0,
+            "unique_entry_count": 0,
+            "duplicate_entry_count": 0,
+            "unique_docket_count": 0,
+            "potential_candidate_count": 0,
+            "clean_corpus_count": 0,
+            "provider_completeness_status": "unproven",
+            "provider_saturation_status": "unproven",
+            "checkpoint_only": True,
+            "complete": False,
+            "saturated": False,
+            "candidate_count_semantics": (
+                "potential dockets only; full eligibility, documents, leakage, "
+                "parsing, unitization, and labeling remain required"
+            ),
+            "firecrawl_metered_activity_requested": False,
+            "firecrawl_metered_activity_executed": False,
+            "pacer_paid_activity_requested": False,
+            "pacer_paid_activity_executed": False,
+        }
+        _write_jsonl(pages_path, [])
+        _write_jsonl(entries_path, [])
+        _write_jsonl(dockets_path, [])
+        _write_json(summary_path, summary)
+        _write_acquisition_completion(
+            args,
+            stage="project-firecrawl-recap-checkpoint",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=0,
+            dry_run=True,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+        return 0
+
+    try:
+        with CycleAcquisitionStore(store_path) as store:
+            credit_summary = dict(store.firecrawl_run_summary(run_id))
+            batch_id_value = credit_summary.get("batch_id")
+            if not isinstance(batch_id_value, str) or not batch_id_value:
+                raise CycleAcquisitionStoreError(
+                    "durable Firecrawl run has no valid batch identity"
+                )
+            batch_id = batch_id_value
+            pages = load_successful_firecrawl_pages(store=store, run_id=run_id)
+            if not pages:
+                raise RecapPartialProjectionError(
+                    "durable Firecrawl run contains no successful search pages"
+                )
+            projection = project_partial_recap_checkpoint(pages)
+            _commit_recap_discovery_pages(
+                store=store,
+                batch_id=batch_id,
+                pages=pages,
+            )
+            projected_candidate_ids = {
+                candidate.candidate_id for candidate in projection.candidates
+            }
+            stored_candidate_ids = set(store.candidate_ids(batch_id))
+            if stored_candidate_ids != projected_candidate_ids:
+                raise CycleAcquisitionStoreError(
+                    "partial checkpoint candidates do not reconcile to the "
+                    "durable batch projection"
+                )
+            cycle_hash = store.cycle_hash
+            batch_digest = store.batch_digest(batch_id)
+    except (
+        CycleAcquisitionStoreError,
+        FirecrawlArtifactError,
+        KeyError,
+        OSError,
+        RecapPartialProjectionError,
+        ValueError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="project-firecrawl-recap-checkpoint",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra={
+                "run_id": run_id,
+                "checkpoint_only": True,
+                "complete": False,
+                "saturated": False,
+                "firecrawl_metered_activity_requested": False,
+                "firecrawl_metered_activity_executed": False,
+                "pacer_paid_activity_requested": False,
+                "pacer_paid_activity_executed": False,
+            },
+        )
+        raise CommandError(str(exc)) from exc
+
+    page_records = [asdict(page) for page in projection.pages]
+    entry_records = [asdict(entry) for entry in projection.entries]
+    docket_records = [
+        {**asdict(candidate), "eligibility_status": "potential_unverified"}
+        for candidate in projection.candidates
+    ]
+    summary = {
+        "schema_version": "legalforecast.recap_partial_checkpoint_summary.v1",
+        "dry_run": False,
+        "cycle_hash": cycle_hash,
+        "batch_digest": batch_digest,
+        "store_projection_committed": True,
+        "potential_candidate_count": len(docket_records),
+        "clean_corpus_count": 0,
+        "candidate_count_semantics": (
+            "potential dockets only; full eligibility, documents, leakage, parsing, "
+            "unitization, and labeling remain required"
+        ),
+        "firecrawl_metered_activity_requested": False,
+        "firecrawl_metered_activity_executed": False,
+        "pacer_paid_activity_requested": False,
+        "pacer_paid_activity_executed": False,
+        **asdict(projection.summary),
+        **credit_summary,
+    }
+    _write_jsonl(pages_path, page_records)
+    _write_jsonl(entries_path, entry_records)
+    _write_jsonl(dockets_path, docket_records)
+    _write_json(summary_path, summary)
+    _write_acquisition_completion(
+        args,
+        stage="project-firecrawl-recap-checkpoint",
+        input_paths=input_paths,
+        output_paths=output_paths,
+        record_count=len(docket_records),
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra=summary,
+    )
+    return 0
 
 
 def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:

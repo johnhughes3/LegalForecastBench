@@ -104,6 +104,63 @@ def test_funnel_report_rejects_coarse_count_mismatch() -> None:
         )
 
 
+def test_funnel_report_rejects_duplicate_exclusion_candidates() -> None:
+    duplicate = _exclusion("courtlistener_docket_unavailable", "retrieval")
+    with pytest.raises(FunnelReportError, match="candidate_id values must be unique"):
+        build_acquisition_funnel_report(
+            discovery_summary={
+                "processed_candidate_count": 2,
+                "accepted_case_count": 0,
+                "excluded_case_count": 2,
+                "per_term": {},
+            },
+            exclusions=[duplicate, duplicate],
+            public_download_summary={
+                "target_clean_cases": 25,
+                "screened_case_count": 0,
+                "planned_case_count": 0,
+            },
+        )
+
+
+def test_funnel_report_classifies_unavailable_docket_before_metadata_pass() -> None:
+    report = build_acquisition_funnel_report(
+        discovery_summary={
+            "processed_candidate_count": 2,
+            "accepted_case_count": 1,
+            "excluded_case_count": 1,
+            "per_term": {},
+        },
+        exclusions=[_exclusion("courtlistener_docket_unavailable", "retrieval")],
+        public_download_summary={
+            "target_clean_cases": 25,
+            "screened_case_count": 1,
+            "planned_case_count": 1,
+        },
+    )
+
+    assert report["funnel"]["metadata_pass"] == 1
+
+
+def test_funnel_report_allows_nonbinding_target_with_planner_exclusions() -> None:
+    report = build_acquisition_funnel_report(
+        discovery_summary={
+            "processed_candidate_count": 30,
+            "accepted_case_count": 30,
+            "excluded_case_count": 0,
+            "per_term": {},
+        },
+        exclusions=[],
+        public_download_summary={
+            "target_clean_cases": 25,
+            "screened_case_count": 30,
+            "planned_case_count": 20,
+        },
+    )
+
+    assert report["plan_public_downloads_target"]["bound"] is False
+
+
 def _exclusion(reason: str, stage: str) -> dict[str, str]:
     return {
         "candidate_id": f"candidate-{reason}-{stage}",
