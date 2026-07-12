@@ -278,10 +278,16 @@ def _finalized_chain_gate_reasons(
         source_hashes = _value_sequence(
             unit.get("source_unit_sha256s"), "source_unit_sha256s"
         )
-        if not adjudication_id or not source_hashes:
+        if (
+            not adjudication_id
+            or not source_hashes
+            or any(not isinstance(value, str) or not value for value in source_hashes)
+        ):
             return ("stage_a_finalized_hash_chain_invalid",)
         if adjudication_id.startswith("automatic:"):
-            if adjudication_id != f"automatic:{source_hashes[0]}":
+            if len(source_hashes) != 1 or adjudication_id != (
+                f"automatic:{source_hashes[0]}"
+            ):
                 return ("stage_a_finalized_hash_chain_invalid",)
             continue
         adjudication = adjudications.get(adjudication_id)
@@ -374,6 +380,37 @@ def _unitization_review_gate_reasons(
         if review_id in expected_reviews
     ):
         reasons.append("stage_a_review_adjudication_invalid")
+    for review_id, adjudication in adjudications_by_id.items():
+        review = reviews_by_id.get(review_id)
+        if review is None:
+            continue
+        source_value = adjudication.get("source_unit_ids")
+        source_values = (
+            cast(Sequence[object], source_value)
+            if isinstance(source_value, Sequence)
+            and not isinstance(source_value, str)
+            else ()
+        )
+        source_unit_ids = tuple(
+            value for value in source_values if isinstance(value, str) and value
+        )
+        if (
+            not source_unit_ids
+            or len(source_unit_ids) != len(source_values)
+            or len(set(source_unit_ids)) != len(source_unit_ids)
+            or set(source_unit_ids)
+            != {
+                _optional_str(reviews_by_id[referenced_review_id], "unit_id")
+                for (
+                    referenced_review_id,
+                    candidate_adjudication,
+                ) in adjudications_by_id.items()
+                if candidate_adjudication is adjudication
+                and referenced_review_id in reviews_by_id
+            }
+        ):
+            reasons.append("stage_a_review_adjudication_invalid")
+            break
     return tuple(dict.fromkeys(reasons))
 
 

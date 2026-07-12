@@ -93,6 +93,18 @@ def test_apply_unitization_reviews_requires_complete_queue_drain() -> None:
         )
 
 
+def test_apply_unitization_reviews_rejects_source_review_mismatch() -> None:
+    adjudication = _adjudication("cand", "ACCEPT", ["b"])
+    adjudication["review_ids"] = ["cand:a:stage-a-review"]
+
+    with pytest.raises(UnitizationReviewError, match="must include reviewed units"):
+        apply_unitization_reviews(
+            prediction_unit_records=[_candidate("cand", [_unit("a"), _unit("b")])],
+            review_records=[_review("cand", "a")],
+            adjudication_records=[adjudication],
+        )
+
+
 def test_candidate_exclusion_must_consume_whole_candidate() -> None:
     with pytest.raises(UnitizationReviewError, match="must consume every unit"):
         apply_unitization_reviews(
@@ -107,6 +119,44 @@ def test_candidate_exclusion_must_consume_whole_candidate() -> None:
                 )
             ],
         )
+
+
+def test_finalized_chain_rejects_multiple_automatic_source_hashes() -> None:
+    raw = [_candidate("cand", [_unit("a"), _unit("b")])]
+    finalized = apply_unitization_reviews(
+        prediction_unit_records=raw,
+        review_records=[],
+        adjudication_records=[],
+    )
+    broken = deepcopy(finalized[0])
+    broken["prediction_units"][0]["source_unit_sha256s"].append(
+        broken["prediction_units"][1]["source_unit_sha256s"][0]
+    )
+
+    with pytest.raises(UnitizationReviewError, match="automatic finalization link"):
+        verify_finalized_prediction_units([broken], raw, [])
+
+
+def test_finalized_chain_verifies_candidate_exclusion_adjudication() -> None:
+    raw = [_candidate("cand", [_unit("a")])]
+    adjudications = [
+        _adjudication(
+            "cand",
+            "CANDIDATE-EXCLUSION",
+            ["a"],
+            exclusion_reason="unresolvable",
+        )
+    ]
+    finalized = apply_unitization_reviews(
+        prediction_unit_records=raw,
+        review_records=[_review("cand", "a")],
+        adjudication_records=adjudications,
+    )
+    broken = deepcopy(finalized[0])
+    broken["exclusion"]["adjudication_sha256"] = "0" * 64
+
+    with pytest.raises(UnitizationReviewError, match="broken exclusion hash link"):
+        verify_finalized_prediction_units([broken], raw, adjudications)
 
 
 def test_apply_unitization_review_cli_writes_finalized_artifact(tmp_path: Path) -> None:

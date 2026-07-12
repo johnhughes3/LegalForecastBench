@@ -98,12 +98,30 @@ def apply_unitization_reviews(
                 raise UnitizationReviewError(
                     f"reviews adjudicated more than once: {sorted(overlap)}"
                 )
-            source_unit_ids = _string_sequence(
-                adjudication.get("source_unit_ids"), "source_unit_ids"
-            ) or tuple(
+            if len(set(review_ids)) != len(review_ids):
+                raise UnitizationReviewError(
+                    f"{adjudication_id}: duplicate review_ids are not allowed"
+                )
+            reviewed_unit_ids = tuple(
                 _required_str(candidate_reviews[review_id], "unit_id")
                 for review_id in review_ids
             )
+            explicit_source_unit_ids = _string_sequence(
+                adjudication.get("source_unit_ids"), "source_unit_ids"
+            )
+            if len(set(reviewed_unit_ids)) != len(reviewed_unit_ids):
+                raise UnitizationReviewError(
+                    f"{adjudication_id}: reviews must reference distinct units"
+                )
+            if explicit_source_unit_ids and (
+                len(set(explicit_source_unit_ids)) != len(explicit_source_unit_ids)
+                or set(explicit_source_unit_ids) != set(reviewed_unit_ids)
+            ):
+                raise UnitizationReviewError(
+                    f"{adjudication_id}: source_unit_ids must include reviewed units "
+                    "exactly"
+                )
+            source_unit_ids = reviewed_unit_ids
             if any(unit_id not in current for unit_id in source_unit_ids):
                 raise UnitizationReviewError(
                     f"{adjudication_id}: source unit is missing or already consumed"
@@ -241,19 +259,44 @@ def verify_finalized_prediction_units(
                 raw.get("prediction_units"), "prediction_units"
             )
         }
-        for unit in _record_sequence(
-            record.get("prediction_units"), "prediction_units"
-        ):
-            source_hashes = set(
-                _string_sequence(unit.get("source_unit_sha256s"), "source_unit_sha256s")
+        status = record.get("status")
+        units = _record_sequence(record.get("prediction_units"), "prediction_units")
+        if status == "candidate_excluded":
+            if units:
+                raise UnitizationReviewError("invalid candidate-exclusion envelope")
+            exclusion = record.get("exclusion")
+            if not isinstance(exclusion, Mapping):
+                raise UnitizationReviewError("invalid candidate-exclusion envelope")
+            exclusion = cast(Mapping[str, Any], exclusion)
+            _required_str(exclusion, "reason")
+            adjudication_id = _required_str(exclusion, "adjudication_id")
+            adjudication = adjudications.get(adjudication_id)
+            if (
+                adjudication is None
+                or adjudication.get("candidate_id") != candidate_id
+                or adjudication.get("disposition") != "CANDIDATE-EXCLUSION"
+                or exclusion.get("adjudication_sha256")
+                != canonical_sha256(adjudication)
+            ):
+                raise UnitizationReviewError(
+                    f"broken exclusion hash link: {adjudication_id}"
+                )
+            continue
+        if status != "finalized" or record.get("exclusion") is not None:
+            raise UnitizationReviewError("invalid finalized prediction-units envelope")
+        for unit in units:
+            source_hashes = _string_sequence(
+                unit.get("source_unit_sha256s"), "source_unit_sha256s"
             )
-            if not source_hashes or not source_hashes.issubset(raw_hashes):
+            if not source_hashes or not set(source_hashes).issubset(raw_hashes):
                 raise UnitizationReviewError(
                     f"broken source-unit hash link: {_required_str(unit, 'unit_id')}"
                 )
             adjudication_id = _required_str(unit, "adjudication_id")
             if adjudication_id.startswith("automatic:"):
-                expected = f"automatic:{next(iter(source_hashes))}"
+                expected = (
+                    f"automatic:{source_hashes[0]}" if len(source_hashes) == 1 else None
+                )
                 if adjudication_id != expected or unit.get("disposition") != "ACCEPT":
                     raise UnitizationReviewError("invalid automatic finalization link")
             else:

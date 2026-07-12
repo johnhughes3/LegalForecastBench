@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import date
+from typing import cast
 
 import pytest
 from legalforecast.ingestion.corpus_readiness import (
@@ -188,6 +189,69 @@ def test_stage_a_review_items_fail_closed_until_queue_is_adjudicated() -> None:
         ],
     )
     assert resolved.clean_candidate_ids == ("cand-1",)
+
+
+def test_stage_a_review_rejects_adjudication_source_mismatch() -> None:
+    audit = {
+        "stage": "llm-unitize",
+        "candidate_id": "cand-1",
+        "status": "adjudication_pending",
+        "review_items": [
+            {"unit_id": "unit-1", "reason": "low_confidence", "notes": "Review."}
+        ],
+    }
+    review = {
+        "schema_version": "legalforecast.unitization_review_queue.v1",
+        "candidate_id": "cand-1",
+        "unit_id": "unit-1",
+        "review_id": "cand-1:unit-1:stage-a-review",
+        "status": "pending_adjudication",
+        "route_reason": "low_confidence",
+    }
+    adjudication = {
+        "adjudication_id": "adj-cand-1",
+        "candidate_id": "cand-1",
+        "review_ids": ["cand-1:unit-1:stage-a-review"],
+        "source_unit_ids": ["other-unit"],
+        "disposition": "ACCEPT",
+        "adjudicator_id": "lawyer-1",
+        "adjudication_notes": "Reviewed.",
+    }
+
+    report = _single_candidate_report(
+        unitization_audits=[audit],
+        unitization_reviews=[review],
+        unitization_adjudications=[adjudication],
+    )
+
+    assert "stage_a_review_adjudication_invalid" in report.exclusion_reasons["cand-1"]
+
+
+def test_readiness_rejects_multiple_automatic_source_hashes() -> None:
+    unit = _unit("cand-1", "unit-1")
+    prediction_unit = cast(list[dict[str, object]], unit["prediction_units"])[0]
+    prediction_unit["source_unit_sha256s"] = ["1" * 64, "2" * 64]
+
+    report = build_clean_corpus_readiness(
+        selection_records=[_selection("cand-1", "case-1")],
+        parser_records=_parsers("cand-1"),
+        prediction_unit_records=[unit],
+        unitization_audit_records=[_unitization_audit("cand-1")],
+        unitization_review_records=[],
+        unitization_adjudication_records=[],
+        label_records=[_label("unit-1")],
+        label_audit_records=[_label_audit("cand-1")],
+        lawyer_review_records=[],
+        lawyer_review_audit_records=[],
+        packet_build_records=[{"candidate_id": "cand-1"}],
+        packet_records=[{"candidate_id": "cand-1"}],
+        exclusion_records=[],
+        decision_text_by_candidate_and_document=_decision_texts("cand-1"),
+        decision_filed_on_or_after=date(2026, 6, 30),
+        required_clean_count=1,
+    )
+
+    assert "stage_a_finalized_hash_chain_invalid" in report.exclusion_reasons["cand-1"]
 
 
 def test_readiness_rejects_two_selected_target_motions() -> None:
