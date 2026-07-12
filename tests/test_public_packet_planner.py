@@ -34,7 +34,7 @@ def test_public_packet_planner_selects_free_core_packet_documents(
     assert selected.to_record()["decision_date"] == "2026-06-30"
     assert [document.document_role for document in selected.documents] == [
         DocumentRole.COMPLAINT,
-        DocumentRole.MTD_NOTICE,
+        DocumentRole.MTD_MEMORANDUM,
         DocumentRole.OPPOSITION,
         DocumentRole.DECISION,
     ]
@@ -67,7 +67,10 @@ def test_public_packet_planner_reports_public_document_shortfall(
     assert plan.final_exclusions == ()
     pending = plan.paid_gap_cases[0]
     assert pending.exclusion_reasons == ()
-    assert pending.paid_gap_reasons == ("no_free_target_mtd_document",)
+    assert pending.paid_gap_reasons == (
+        "no_free_target_mtd_document",
+        "no_free_mtd_memorandum",
+    )
     assert pending.planning_status == "paid_recovery_required"
     assert [document.document_role for document in pending.documents] == [
         DocumentRole.COMPLAINT,
@@ -75,6 +78,42 @@ def test_public_packet_planner_reports_public_document_shortfall(
         DocumentRole.DECISION,
     ]
     assert len(plan.download_requests) == 3
+
+
+def test_bare_mtd_notice_is_a_paid_memorandum_gap(tmp_path: Path) -> None:
+    record = _screened_case_with_embedded_entries()
+    target = cast(list[dict[str, Any]], record["selected_entries"])[1]
+    cast(list[dict[str, Any]], target["documents"])[0]["description"] = (
+        "Motion to Dismiss"
+    )
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.paid_gap_cases
+    assert candidate.paid_gap_reasons == ("no_free_mtd_memorandum",)
+    assert candidate.missing_required_document_count == 1
+
+
+def test_planner_rejects_candidate_with_two_selected_target_motions(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    cast(dict[str, object], record["ai"])["target_motion_entry_numbers"] = [5, 6]
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.final_exclusions
+    assert candidate.exclusion_reasons == ("selected_target_motion_count_not_one",)
 
 
 @pytest.mark.parametrize("marker", ("sealed", "under seal", "restricted", "private"))
@@ -120,7 +159,9 @@ def test_public_packet_planner_does_not_treat_merits_prose_as_access_restriction
     record = _screened_case_with_embedded_entries()
     selected_entries = cast(list[dict[str, Any]], record["selected_entries"])
     target_document = cast(list[dict[str, Any]], selected_entries[1]["documents"])[0]
-    target_document["description"] = f"Motion to Dismiss concerning {merits_phrase}"
+    target_document["description"] = (
+        f"Memorandum in Support of Motion to Dismiss concerning {merits_phrase}"
+    )
 
     plan = plan_public_packet_downloads(
         (record,),
@@ -195,7 +236,10 @@ def test_public_packet_planner_excludes_restricted_raw_html_document(
 ) -> None:
     raw_html_dir = tmp_path / "raw_html"
     raw_html_dir.mkdir()
-    html = _docket_html().replace("<p>Dismiss</p>", "<p>Dismiss - Under Seal</p>")
+    html = _docket_html().replace(
+        "<p>Memorandum in Support of Motion to Dismiss</p>",
+        "<p>Memorandum in Support of Motion to Dismiss - Under Seal</p>",
+    )
     (raw_html_dir / "123.html").write_text(html, encoding="utf-8")
 
     plan = plan_public_packet_downloads(
@@ -319,8 +363,7 @@ def test_public_packet_planner_accepts_judgment_on_pleadings_target(
 
     assert plan.selected_case_count == 1
     selected = plan.selected_cases[0]
-    assert selected.documents[1].document_role is DocumentRole.MTD_NOTICE
-    assert selected.documents[1].description == "Judgment on the Pleadings"
+    assert selected.documents[1].document_role is DocumentRole.MTD_MEMORANDUM
 
 
 def test_public_packet_planner_can_use_embedded_selected_entries(
@@ -339,7 +382,7 @@ def test_public_packet_planner_can_use_embedded_selected_entries(
     selected = plan.selected_cases[0]
     assert [document.document_role for document in selected.documents] == [
         DocumentRole.COMPLAINT,
-        DocumentRole.MTD_NOTICE,
+        DocumentRole.MTD_MEMORANDUM,
         DocumentRole.DECISION,
     ]
     assert selected.documents[1].source_url == (
@@ -442,7 +485,7 @@ def test_public_packet_planner_prefers_free_support_memo_for_pacer_only_target(
             "documents": [
                 {
                     "kind": "Main Document",
-                    "description": "Dismiss",
+                    "description": "Memorandum in Support of Motion to Dismiss",
                     "href": "https://www.courtlistener.com/docket/123/7/example/",
                     "action_label": "Download PDF",
                     "pacer_only": False,
@@ -515,15 +558,8 @@ def test_public_packet_planner_combines_exact_and_inferred_target_documents(
         use_embedded_entries=True,
     )
 
-    [candidate] = plan.selected_cases
-    target_documents = [
-        document
-        for document in candidate.documents
-        if document.document_role
-        in {DocumentRole.MTD_NOTICE, DocumentRole.MTD_MEMORANDUM}
-    ]
-    assert [document.docket_entry_number for document in target_documents] == [5, 7]
-    assert candidate.missing_required_document_count == 0
+    [candidate] = plan.final_exclusions
+    assert candidate.exclusion_reasons == ("selected_target_motion_count_not_one",)
 
 
 def test_public_packet_planner_ranks_full_pool_by_exact_required_document_cost(
@@ -632,17 +668,8 @@ def test_public_packet_planner_costs_every_linked_required_entry_once(
         use_embedded_entries=True,
     )
 
-    [candidate] = plan.planned_cases
-    assert candidate.required_document_count == 6
-    assert candidate.free_required_document_count == 3
-    assert candidate.missing_required_document_count == 3
-    assert candidate.projected_paid_cost_usd == "9.15"
-    assert candidate.paid_gap_reasons == (
-        "no_free_target_mtd_document:6",
-        "no_free_decision_document:17",
-        "no_free_opposition_document",
-    )
-    assert plan.summary_record()["projected_paid_cost_usd"] == "9.15"
+    [candidate] = plan.final_exclusions
+    assert candidate.exclusion_reasons == ("selected_target_motion_count_not_one",)
 
 
 def test_public_packet_planner_deduplicates_linked_entry_numbers(
@@ -1031,7 +1058,7 @@ def _screened_case_with_embedded_entries() -> dict[str, object]:
             "documents": [
                 {
                     "kind": "Main Document",
-                    "description": "Dismiss",
+                    "description": "Memorandum in Support of Motion to Dismiss",
                     "href": "https://www.courtlistener.com/docket/123/5/example/",
                     "action_label": "Download PDF",
                     "pacer_only": False,
@@ -1103,7 +1130,9 @@ def _docket_html(*, include_motion: bool = True) -> str:
               <p>MOTION to Dismiss filed by Defendant.</p>
               <div class="row recap-documents">
                 <div class="col-xs-3"><p>Main Document</p></div>
-                <div class="col-xs-6"><p>Dismiss</p></div>
+                <div class="col-xs-6">
+                  <p>Memorandum in Support of Motion to Dismiss</p>
+                </div>
                 <a href="https://storage.courtlistener.com/recap/mtd.pdf">
                   Download PDF
                 </a>
@@ -1305,7 +1334,7 @@ def _docket_html_with_notice_removal_complaint_attachment() -> str:
               <p>MOTION to Dismiss filed by Defendant.</p>
               <div class="row recap-documents">
                 <div class="col-xs-3"><p>Main Document</p></div>
-                <div class="col-xs-6"><p>Dismiss</p></div>
+                <div class="col-xs-6"><p>Memorandum in Support</p></div>
                 <a href="https://storage.courtlistener.com/recap/mtd.pdf">
                   Download PDF
                 </a>

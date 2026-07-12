@@ -105,6 +105,12 @@ def build_clean_corpus_readiness(
     clean: list[str] = []
     for candidate_id, selection in selections.items():
         reasons: list[str] = list(excluded.get(candidate_id, ()))
+        target_motion_numbers = _value_sequence(
+            selection.get("target_motion_entry_numbers"),
+            "target_motion_entry_numbers",
+        )
+        if len(target_motion_numbers) != 1:
+            reasons.append("selected_target_motion_count_not_one")
         required_documents = {
             _required_str(document, "source_document_id")
             for document in _record_sequence(selection.get("documents"), "documents")
@@ -703,6 +709,12 @@ def _record_sequence(value: object, field_name: str) -> tuple[Mapping[str, Any],
             raise CorpusReadinessError(f"{field_name} must contain objects")
         records.append(cast(Mapping[str, Any], item))
     return tuple(records)
+
+
+def _value_sequence(value: object, field_name: str) -> tuple[object, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, str):
+        raise CorpusReadinessError(f"{field_name} must be a list")
+    return tuple(cast(Sequence[object], value))
 
 
 def _required_str(record: Mapping[str, Any], field_name: str) -> str:

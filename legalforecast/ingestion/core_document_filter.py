@@ -297,11 +297,11 @@ def _exclusion_reasons(
     if not any(document.is_operative_complaint for document in documents):
         reasons.append("missing_operative_complaint")
     if not any(
-        document.is_target_mtd_record
+        document.document_role is DocumentRole.MTD_MEMORANDUM
         and document.setup_runner_label in _MODEL_VISIBLE_SETUP_LABELS
         for document in documents
     ):
-        reasons.append("missing_target_mtd")
+        reasons.append("missing_target_mtd_memorandum")
     return tuple(reasons)
 
 

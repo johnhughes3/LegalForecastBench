@@ -105,6 +105,7 @@ def test_filter_jsonl_ignores_ambiguous_complaint_like_docket_text() -> None:
     assert result.operative_complaint_document_id is None
     assert "notice" not in result.model_visible_document_ids
     assert result.to_record()["core_missing_documents"] == []
+    assert "missing_target_mtd_memorandum" in result.exclusion_reasons
 
 
 def test_filter_purchases_missing_decision_for_labeling_without_mounting_it() -> None:

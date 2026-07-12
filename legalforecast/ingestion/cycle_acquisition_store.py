@@ -1454,6 +1454,10 @@ class CycleAcquisitionStore:
         staging.mkdir(mode=0o700)
         try:
             payloads = self._snapshot_payloads(batch_id)
+            if complete:
+                _validate_snapshot_target_motion_invariant(
+                    payloads["screened-cases.jsonl"]
+                )
             files: dict[str, dict[str, object]] = {}
             for filename in _SNAPSHOT_FILES:
                 payload = payloads[filename]
@@ -2129,6 +2133,27 @@ def _snapshot_candidate_ids(
             )
         candidate_ids.add(candidate_id)
     return candidate_ids
+
+
+def _validate_snapshot_target_motion_invariant(payload: bytes) -> None:
+    """Fail a production freeze if a screened candidate selects multiple motions."""
+
+    for line in payload.splitlines():
+        record = cast(object, json.loads(line))
+        if not isinstance(record, dict):
+            continue
+        typed_record = cast(dict[str, object], record)
+        ai = typed_record.get("ai")
+        if not isinstance(ai, dict):
+            continue  # Legacy synthetic store records predate screened-case schema.
+        typed_ai = cast(dict[str, object], ai)
+        numbers = typed_ai.get("target_motion_entry_numbers")
+        if not isinstance(numbers, list) or len(cast(list[object], numbers)) != 1:
+            candidate_id = typed_record.get("candidate_id", "unknown")
+            raise SnapshotVerificationError(
+                f"screened candidate {candidate_id} must select exactly one "
+                "target motion"
+            )
 
 
 def _normalize_hit(

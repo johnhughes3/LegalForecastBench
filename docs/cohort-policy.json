@@ -1,0 +1,13 @@
+{
+  "packet_completeness": {
+    "motion_to_dismiss": "memorandum_or_combined_motion_required; bare_notice_is_a_gap",
+    "opposition": "required_when_docketed_for_selected_target_motion; not_required_when_unopposed",
+    "reply": "optional"
+  },
+  "schema_version": "legalforecast.cohort_policy.v1",
+  "selection_unit": "one_candidate_docket_one_selected_target_motion_one_cluster",
+  "target_motion_selector": {
+    "primary": "earliest_filed_eligible_motion_with_written_disposition_on_or_after_anchor",
+    "tie_breaker": "lowest_docket_entry_number_then_stable_entry_id"
+  }
+}
