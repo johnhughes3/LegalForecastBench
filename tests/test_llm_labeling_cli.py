@@ -5,13 +5,47 @@ from pathlib import Path
 from typing import Any, cast
 
 import legalforecast.labeling.llm_pipeline as llm_pipeline
-from legalforecast.cli import main
+from legalforecast.cli import CommandError, _require_exact_model_disjoint_judges, main
 from legalforecast.evals.inspect_task import SolverResponse
+from legalforecast.evals.model_registry import load_model_registry
 from legalforecast.unitization import ChallengeScope, PredictionUnit, SourceCitation
 from legalforecast.unitization.review import apply_unitization_reviews
 from pytest import MonkeyPatch, raises
 
 JsonRecord = dict[str, Any]
+
+
+def _provider_caps_path(root: Path) -> Path:
+    path = root / "provider-cycle-caps.json"
+    if not path.exists():
+        _write_json(
+            path,
+            {
+                "schema_version": "legalforecast.provider_cycle_caps.v1",
+                "cycle_id": "test-cycle",
+                "providers": [
+                    {
+                        "provider": "openai",
+                        "cycle_reservation_cap_usd": "10.00",
+                        "external_spend_limit_usd": "20.00",
+                        "external_limit_scope": "test account",
+                        "external_limit_source": "test fixture",
+                        "verified_at": "2026-07-12T16:00:00Z",
+                    }
+                ],
+            },
+        )
+    return path
+
+
+def _evaluated_registry_path(root: Path) -> Path:
+    path = root / "evaluated-registry.json"
+    if not path.exists():
+        record = _registry_record()
+        record["model_id"] = "gpt-evaluated"
+        record["model_version_or_snapshot"] = "gpt-evaluated-2026-06-30"
+        _write_json(path, [record])
+    return path
 
 
 def test_llm_label_requires_iso_first_written_disposition_date() -> None:
@@ -26,6 +60,19 @@ def test_llm_label_requires_iso_first_written_disposition_date() -> None:
     selection["decision_date"] = "docket-entry-16"
     with raises(llm_pipeline.LlmPipelineError, match="must be an ISO date"):
         llm_pipeline._decision_date(selection)
+
+
+def test_stage_b_judges_must_be_exact_model_disjoint_from_evaluated_registry(
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    _write_json(registry_path, [_registry_record()])
+    [judge] = load_model_registry(registry_path).entries
+
+    with raises(CommandError, match="not exact-model disjoint"):
+        _require_exact_model_disjoint_judges(
+            [judge], evaluated_model_registry_path=registry_path
+        )
 
 
 def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
@@ -74,6 +121,8 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
                 str(registry_path),
                 "--model-key",
                 "openai:gpt-test",
+                "--provider-cycle-caps",
+                str(_provider_caps_path(tmp_path)),
                 "--execute",
             ]
         )
@@ -123,8 +172,12 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
                 str(output_root),
                 "--model-registry",
                 str(registry_path),
+                "--evaluated-model-registry",
+                str(_evaluated_registry_path(tmp_path)),
                 "--model-key",
                 "openai:gpt-test",
+                "--provider-cycle-caps",
+                str(_provider_caps_path(tmp_path)),
                 "--execute",
             ]
         )
@@ -242,12 +295,16 @@ def test_acquisition_llm_label_persists_lawyer_review_queue_with_partial_success
                 str(output_root),
                 "--model-registry",
                 str(registry_path),
+                "--evaluated-model-registry",
+                str(_evaluated_registry_path(tmp_path)),
                 "--model-key",
                 "openai:gpt-a",
                 "--model-key",
                 "openai:gpt-b",
                 "--model-key",
                 "openai:gpt-c",
+                "--provider-cycle-caps",
+                str(_provider_caps_path(tmp_path)),
                 "--execute",
             ]
         )
@@ -640,6 +697,8 @@ def test_acquisition_llm_unitize_accepts_singleton_string_list_fields(
                 str(registry_path),
                 "--model-key",
                 "openai:gpt-test",
+                "--provider-cycle-caps",
+                str(_provider_caps_path(tmp_path)),
                 "--execute",
             ]
         )
@@ -716,6 +775,8 @@ def test_acquisition_llm_unitize_accepts_top_level_seed_array(
                 str(registry_path),
                 "--model-key",
                 "openai:gpt-test",
+                "--provider-cycle-caps",
+                str(_provider_caps_path(tmp_path)),
                 "--execute",
             ]
         )
@@ -792,6 +853,8 @@ def test_acquisition_llm_unitize_rejects_missing_required_unit_fields(
                 "--model-key",
                 "openai:gpt-test",
                 "--continue-on-error",
+                "--provider-cycle-caps",
+                str(_provider_caps_path(tmp_path)),
                 "--execute",
             ]
         )
@@ -872,6 +935,8 @@ def test_acquisition_llm_unitize_accepts_first_balanced_json_object(
                 str(registry_path),
                 "--model-key",
                 "openai:gpt-test",
+                "--provider-cycle-caps",
+                str(_provider_caps_path(tmp_path)),
                 "--execute",
             ]
         )
@@ -1027,6 +1092,8 @@ def test_acquisition_llm_unitize_failure_audit_keeps_model_accounting(
                 "--model-key",
                 "openai:gpt-test",
                 "--continue-on-error",
+                "--provider-cycle-caps",
+                str(_provider_caps_path(tmp_path)),
                 "--execute",
             ]
         )
@@ -1126,6 +1193,10 @@ def test_acquisition_llm_label_failure_audit_keeps_model_accounting(
                 "--model-key",
                 "openai:gpt-test",
                 "--continue-on-error",
+                "--evaluated-model-registry",
+                str(_evaluated_registry_path(tmp_path)),
+                "--provider-cycle-caps",
+                str(_provider_caps_path(tmp_path)),
                 "--execute",
             ]
         )
@@ -1238,6 +1309,10 @@ def test_acquisition_llm_label_missing_unit_flags_gate_frozen_unit_workflow(
                 "--model-key",
                 "openai:gpt-test",
                 "--continue-on-error",
+                "--evaluated-model-registry",
+                str(_evaluated_registry_path(tmp_path)),
+                "--provider-cycle-caps",
+                str(_provider_caps_path(tmp_path)),
                 "--execute",
             ]
         )

@@ -1,0 +1,30 @@
+{
+  "schema_version": "legalforecast.provider_cycle_caps.v1",
+  "cycle_id": "cycle-1",
+  "providers": [
+    {
+      "provider": "openai",
+      "cycle_reservation_cap_usd": "50.00",
+      "external_spend_limit_usd": "215.00",
+      "external_limit_scope": "organization monthly spend limit; project alert separately verified at 209.45 USD",
+      "external_limit_source": "operator verification by John Hughes on 2026-07-12",
+      "verified_at": "2026-07-12T21:31:00Z"
+    },
+    {
+      "provider": "anthropic",
+      "cycle_reservation_cap_usd": "100.00",
+      "external_spend_limit_usd": "200.00",
+      "external_limit_scope": "organization monthly spend limit",
+      "external_limit_source": "operator verification by John Hughes on 2026-07-12",
+      "verified_at": "2026-07-12T21:31:00Z"
+    },
+    {
+      "provider": "google",
+      "cycle_reservation_cap_usd": "50.00",
+      "external_spend_limit_usd": "200.00",
+      "external_limit_scope": "hard Gemini project spend cap",
+      "external_limit_source": "operator verification by John Hughes on 2026-07-12",
+      "verified_at": "2026-07-12T21:31:00Z"
+    }
+  ]
+}

@@ -13,7 +13,75 @@ from legalforecast.labeling.provider_journal import (
     ProviderBudgetExceededError,
     ProviderCallIdentity,
     ProviderJournalError,
+    load_provider_cycle_caps,
 )
+
+
+def test_provider_cycle_caps_load_externally_bounded_provider_caps(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-cycle-caps.json"
+    path.write_text(
+        """{
+          "schema_version": "legalforecast.provider_cycle_caps.v1",
+          "cycle_id": "cycle-1",
+          "providers": [{
+            "provider": "openai",
+            "cycle_reservation_cap_usd": "100.00",
+            "external_spend_limit_usd": "215.00",
+            "external_limit_scope": "organization monthly spend limit",
+            "external_limit_source": "operator verification 2026-07-12",
+            "verified_at": "2026-07-12T16:00:00Z"
+          }]
+        }"""
+    )
+
+    caps = load_provider_cycle_caps(path)
+
+    assert caps.cycle_id == "cycle-1"
+    assert caps.cap_usd("openai") == 100.0
+
+
+def test_provider_cycle_caps_reject_cap_above_external_limit(tmp_path: Path) -> None:
+    path = tmp_path / "provider-cycle-caps.json"
+    path.write_text(
+        """{
+          "schema_version": "legalforecast.provider_cycle_caps.v1",
+          "cycle_id": "cycle-1",
+          "providers": [{
+            "provider": "anthropic",
+            "cycle_reservation_cap_usd": "200.01",
+            "external_spend_limit_usd": "200.00",
+            "external_limit_scope": "organization monthly spend limit",
+            "external_limit_source": "operator verification 2026-07-12",
+            "verified_at": "2026-07-12T16:00:00Z"
+          }]
+        }"""
+    )
+
+    with pytest.raises(ProviderJournalError, match="exceeds documented external"):
+        load_provider_cycle_caps(path)
+
+
+def test_provider_cycle_caps_reject_missing_provider(tmp_path: Path) -> None:
+    path = tmp_path / "provider-cycle-caps.json"
+    path.write_text(
+        """{
+          "schema_version": "legalforecast.provider_cycle_caps.v1",
+          "cycle_id": "cycle-1",
+          "providers": [{
+            "provider": "openai",
+            "cycle_reservation_cap_usd": "100",
+            "external_spend_limit_usd": "215",
+            "external_limit_scope": "organization monthly spend limit",
+            "external_limit_source": "operator verification 2026-07-12",
+            "verified_at": "2026-07-12T16:00:00Z"
+          }]
+        }"""
+    )
+
+    with pytest.raises(ProviderJournalError, match="no entry for 'google'"):
+        load_provider_cycle_caps(path).cap_usd("google")
 
 
 def test_journal_replays_raw_response_without_reissuing_provider_call(

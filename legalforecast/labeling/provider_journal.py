@@ -9,6 +9,7 @@ import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from types import TracebackType
 from typing import Self, cast
@@ -17,6 +18,7 @@ from legalforecast.evals.live_model_solver import LiveModelProviderError
 
 JsonRecord = Mapping[str, object]
 DEFAULT_CYCLE_PROVIDER_CAP_USD = 1_000.0
+PROVIDER_CYCLE_CAPS_SCHEMA_VERSION = "legalforecast.provider_cycle_caps.v1"
 
 
 class ProviderJournalError(RuntimeError):
@@ -29,6 +31,93 @@ class ProviderBudgetExceededError(ProviderJournalError):
 
 class ProviderJournalReplayMismatchError(ProviderJournalError):
     """Raised when a logical call is replayed with different frozen inputs."""
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderCycleCap:
+    """One externally bounded provider reservation cap for an official cycle."""
+
+    provider: str
+    cycle_reservation_cap_usd: Decimal
+    external_spend_limit_usd: Decimal
+    external_limit_scope: str
+    external_limit_source: str
+    verified_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderCycleCaps:
+    """Frozen per-provider caps consumed by paid LLM acquisition stages."""
+
+    cycle_id: str
+    providers: Mapping[str, ProviderCycleCap]
+
+    def cap_usd(self, provider: str) -> float:
+        try:
+            cap = self.providers[provider]
+        except KeyError as exc:
+            raise ProviderJournalError(
+                f"provider cycle caps artifact has no entry for {provider!r}"
+            ) from exc
+        return float(cap.cycle_reservation_cap_usd)
+
+
+def load_provider_cycle_caps(path: str | Path) -> ProviderCycleCaps:
+    """Load and fail-closed validate an externally bounded caps artifact."""
+
+    source = Path(path)
+    try:
+        loaded: object = json.loads(source.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ProviderJournalError(
+            f"cannot load provider cycle caps artifact {source}: {exc}"
+        ) from exc
+    if not isinstance(loaded, dict):
+        raise ProviderJournalError("provider cycle caps artifact must be a JSON object")
+    payload = cast(Mapping[str, object], loaded)
+    if payload.get("schema_version") != PROVIDER_CYCLE_CAPS_SCHEMA_VERSION:
+        raise ProviderJournalError(
+            "provider cycle caps artifact has unsupported schema_version"
+        )
+    cycle_id = _required_nonempty_string(payload, "cycle_id")
+    raw_providers = payload.get("providers")
+    if not isinstance(raw_providers, list) or not raw_providers:
+        raise ProviderJournalError(
+            "provider cycle caps artifact providers must be a non-empty array"
+        )
+    providers: dict[str, ProviderCycleCap] = {}
+    for index, raw_value in enumerate(cast(list[object], raw_providers)):
+        if not isinstance(raw_value, dict):
+            raise ProviderJournalError(f"providers[{index}] must be an object")
+        raw = cast(Mapping[str, object], raw_value)
+        provider = _required_nonempty_string(raw, "provider").lower()
+        if provider in providers:
+            raise ProviderJournalError(f"duplicate provider cap for {provider!r}")
+        cap = _positive_decimal(raw, "cycle_reservation_cap_usd")
+        external_limit = _positive_decimal(raw, "external_spend_limit_usd")
+        if cap > external_limit:
+            raise ProviderJournalError(
+                f"provider {provider!r} cycle reservation cap {cap} exceeds "
+                f"documented external spend limit {external_limit}"
+            )
+        verified_at = _required_nonempty_string(raw, "verified_at")
+        try:
+            datetime.fromisoformat(verified_at.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ProviderJournalError(
+                f"provider {provider!r} verified_at must be ISO 8601"
+            ) from exc
+        providers[provider] = ProviderCycleCap(
+            provider=provider,
+            cycle_reservation_cap_usd=cap,
+            external_spend_limit_usd=external_limit,
+            external_limit_scope=_required_nonempty_string(raw, "external_limit_scope"),
+            external_limit_source=_required_nonempty_string(
+                raw, "external_limit_source"
+            ),
+            verified_at=verified_at,
+        )
+    return ProviderCycleCaps(cycle_id=cycle_id, providers=providers)
 
 
 @dataclass(frozen=True, slots=True)
@@ -501,6 +590,28 @@ def maximum_call_cost_usd(
 
 def _canonical_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+
+def _required_nonempty_string(record: Mapping[str, object], field: str) -> str:
+    value = record.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise ProviderJournalError(f"provider cycle caps {field} must be non-empty")
+    return value.strip()
+
+
+def _positive_decimal(record: Mapping[str, object], field: str) -> Decimal:
+    value = record.get(field)
+    if not isinstance(value, (str, int, float)) or isinstance(value, bool):
+        raise ProviderJournalError(f"provider cycle caps {field} must be a decimal")
+    try:
+        parsed = Decimal(str(value))
+    except InvalidOperation as exc:
+        raise ProviderJournalError(
+            f"provider cycle caps {field} must be a decimal"
+        ) from exc
+    if not parsed.is_finite() or parsed <= 0:
+        raise ProviderJournalError(f"provider cycle caps {field} must be positive")
+    return parsed
 
 
 def _now() -> str:

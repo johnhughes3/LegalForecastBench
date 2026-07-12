@@ -168,6 +168,8 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
     units = _prediction_units()
     units_path = tmp_path / "prediction-units.jsonl"
     registry_path = tmp_path / "registry.json"
+    evaluated_registry_path = tmp_path / "evaluated-registry.json"
+    provider_caps_path = tmp_path / "provider-caps.json"
     _write_jsonl(selection_path, [selection])
     finalized_units = apply_unitization_reviews(
         prediction_unit_records=[units],
@@ -176,6 +178,29 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
     )
     _write_jsonl(units_path, list(finalized_units))
     registry_path.write_text(json.dumps([_registry_record()]), encoding="utf-8")
+    evaluated_record = _registry_record()
+    evaluated_record["model_id"] = "gpt-evaluated"
+    evaluated_record["model_version_or_snapshot"] = "gpt-evaluated-2026-06-30"
+    evaluated_registry_path.write_text(json.dumps([evaluated_record]), encoding="utf-8")
+    provider_caps_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.provider_cycle_caps.v1",
+                "cycle_id": "test-cycle",
+                "providers": [
+                    {
+                        "provider": "openai",
+                        "cycle_reservation_cap_usd": "10.00",
+                        "external_spend_limit_usd": "20.00",
+                        "external_limit_scope": "test account",
+                        "external_limit_source": "test fixture",
+                        "verified_at": "2026-07-12T16:00:00Z",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", _stage_b_completion)
     assert (
         main(
@@ -190,8 +215,12 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
                 str(units_path),
                 "--model-registry",
                 str(registry_path),
+                "--evaluated-model-registry",
+                str(evaluated_registry_path),
                 "--model-key",
                 "openai:gpt-test",
+                "--provider-cycle-caps",
+                str(provider_caps_path),
                 "--output-root",
                 str(output_root),
                 "--execute",

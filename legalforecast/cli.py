@@ -262,8 +262,15 @@ from legalforecast.labeling.llm_pipeline import (
     apply_adjudicated_reviews,
     lawyer_review_queue_records,
     llm_label_cases,
+    llm_review_stage_a_units,
     llm_unitize_cases,
+    merge_structural_flags_into_review_queue,
     unitization_review_queue_records,
+)
+from legalforecast.labeling.provider_journal import (
+    ProviderCycleCaps,
+    ProviderJournalError,
+    load_provider_cycle_caps,
 )
 from legalforecast.multiharness.cli import add_multiharness_parser
 from legalforecast.path_safety import safe_path_component
@@ -751,6 +758,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use a registry-backed LLM to construct frozen Stage A units.",
     )
     _add_acquisition_llm_unitize_arguments(acquisition_llm_unitize)
+    acquisition_review_stage_a = acquisition_subparsers.add_parser(
+        "llm-review-stage-a",
+        help="Flag structural Stage A defects without rewriting frozen units.",
+    )
+    _add_acquisition_llm_review_stage_a_arguments(acquisition_review_stage_a)
     acquisition_apply_unitization_review = acquisition_subparsers.add_parser(
         "apply-unitization-review",
         help="Apply checked-in Stage A adjudications and finalize prediction units.",
@@ -1887,6 +1899,7 @@ def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> N
         required=True,
         help="Registry key in provider:model_id form for the Stage A unitizer.",
     )
+    _add_provider_cycle_caps_argument(parser)
     parser.add_argument(
         "--prediction-units-output",
         type=Path,
@@ -1950,12 +1963,22 @@ def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> Non
     parser.add_argument(
         "--model-key",
         action="append",
-        default=[],
+        required=True,
         help=(
             "Registry key in provider:model_id form for one LLM label judge. "
-            "Repeat for an ensemble; omitted means all entries in the registry."
+            "Repeat for an ensemble; bare all-registry labeling is refused."
         ),
     )
+    parser.add_argument(
+        "--evaluated-model-registry",
+        type=Path,
+        required=True,
+        help=(
+            "Frozen candidate-model registry. Every judge must be exact-model "
+            "disjoint from these evaluated models."
+        ),
+    )
+    _add_provider_cycle_caps_argument(parser)
     parser.add_argument(
         "--labels-output",
         type=Path,
@@ -1998,6 +2021,77 @@ def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> Non
         help="Per-provider-request timeout for each registry-backed LLM judge call.",
     )
     parser.set_defaults(handler=_cmd_acquisition_llm_label)
+
+
+def _add_provider_cycle_caps_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--provider-cycle-caps",
+        type=Path,
+        help=(
+            "Frozen legalforecast.provider_cycle_caps.v1 JSON artifact. Required "
+            "with --execute; each provider reservation cap must not exceed its "
+            "recorded external spend limit."
+        ),
+    )
+
+
+def _add_acquisition_llm_review_stage_a_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--selection", type=Path, required=True, help="JSONL acquisition selection."
+    )
+    parser.add_argument(
+        "--parser-manifest", type=Path, required=True, help="JSONL parser manifest."
+    )
+    parser.add_argument(
+        "--markdown-root", type=Path, help="Root for predecision Markdown artifacts."
+    )
+    parser.add_argument(
+        "--prediction-units",
+        type=Path,
+        required=True,
+        help="Immutable raw units from llm-unitize.",
+    )
+    parser.add_argument(
+        "--unitization-review-queue",
+        type=Path,
+        required=True,
+        help="Existing immutable Stage A review queue.",
+    )
+    parser.add_argument(
+        "--model-registry",
+        type=Path,
+        required=True,
+        help="Frozen reviewer model registry.",
+    )
+    parser.add_argument(
+        "--model-key",
+        required=True,
+        help="Registry key for the structural reviewer (for Cycle 1, Gemini Flash).",
+    )
+    _add_provider_cycle_caps_argument(parser)
+    parser.add_argument(
+        "--structural-flags-output",
+        type=Path,
+        help="Hash-linked structured flags JSONL.",
+    )
+    parser.add_argument(
+        "--review-queue-output",
+        type=Path,
+        help="Union of existing queue and structural flags for John.",
+    )
+    parser.add_argument(
+        "--audit-output", type=Path, help="Reviewer call accounting JSONL."
+    )
+    parser.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=120.0,
+        help="Per-provider request timeout.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_llm_review_stage_a)
 
 
 def _add_acquisition_apply_unitization_review_arguments(
@@ -6158,6 +6252,19 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
     return 0
 
 
+def _official_provider_cycle_caps(args: argparse.Namespace) -> ProviderCycleCaps:
+    path = cast(Path | None, getattr(args, "provider_cycle_caps", None))
+    if path is None:
+        raise CommandError(
+            "live LLM acquisition requires --provider-cycle-caps with a frozen "
+            "externally bounded caps artifact"
+        )
+    try:
+        return load_provider_cycle_caps(path)
+    except ProviderJournalError as exc:
+        raise CommandError(str(exc)) from exc
+
+
 def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     provider_journal_path = output_root / "provider-attempts.sqlite3"
@@ -6165,6 +6272,7 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
     parser_manifest_path = cast(Path, args.parser_manifest)
     markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
     model_registry_path = cast(Path, args.model_registry)
+    provider_caps_path = cast(Path | None, args.provider_cycle_caps)
     prediction_units_path = _acquisition_path(
         args,
         "prediction_units_output",
@@ -6201,6 +6309,7 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             model_registry_path,
             cast(str, args.model_key),
         )
+        provider_caps = _official_provider_cycle_caps(args)
         result = llm_unitize_cases(
             selection_records=selection_records,
             parser_records=_read_records(parser_manifest_path),
@@ -6210,6 +6319,9 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             timeout_seconds=cast(float, args.timeout_seconds),
             continue_on_error=cast(bool, args.continue_on_error),
             provider_journal_path=provider_journal_path,
+            provider_cycle_caps_usd={
+                registry_entry.provider: provider_caps.cap_usd(registry_entry.provider)
+            },
         )
         _write_jsonl(prediction_units_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
@@ -6220,7 +6332,12 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
     _write_acquisition_completion(
         args,
         stage="llm-unitize",
-        input_paths=(selection_path, parser_manifest_path, model_registry_path),
+        input_paths=(
+            selection_path,
+            parser_manifest_path,
+            model_registry_path,
+            *((provider_caps_path,) if provider_caps_path is not None else ()),
+        ),
         output_paths=(
             prediction_units_path,
             audit_path,
@@ -6229,8 +6346,8 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
         ),
         record_count=len(selection_records),
         dry_run=dry_run,
-        paid_activity_requested=False,
-        paid_activity_executed=False,
+        paid_activity_requested=not dry_run,
+        paid_activity_executed=not dry_run,
     )
     return 0
 
@@ -6243,6 +6360,8 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
     prediction_units_path = cast(Path, args.prediction_units)
     markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
     model_registry_path = cast(Path, args.model_registry)
+    evaluated_registry_path = cast(Path, args.evaluated_model_registry)
+    provider_caps_path = cast(Path | None, args.provider_cycle_caps)
     labels_path = _acquisition_path(
         args,
         "labels_output",
@@ -6280,6 +6399,15 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             model_registry_path,
             model_keys,
         )
+        _require_exact_model_disjoint_judges(
+            registry_entries,
+            evaluated_model_registry_path=evaluated_registry_path,
+        )
+        provider_caps = _official_provider_cycle_caps(args)
+        caps_by_provider = {
+            entry.provider: provider_caps.cap_usd(entry.provider)
+            for entry in registry_entries
+        }
         result = llm_label_cases(
             selection_records=selection_records,
             parser_records=_read_records(parser_manifest_path),
@@ -6292,6 +6420,7 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             timeout_seconds=cast(float, args.timeout_seconds),
             continue_on_error=cast(bool, args.continue_on_error),
             provider_journal_path=provider_journal_path,
+            provider_cycle_caps_usd=caps_by_provider,
         )
         _write_jsonl(labels_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
@@ -6307,6 +6436,8 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             parser_manifest_path,
             prediction_units_path,
             model_registry_path,
+            evaluated_registry_path,
+            *((provider_caps_path,) if provider_caps_path is not None else ()),
         ),
         output_paths=(
             labels_path,
@@ -6316,8 +6447,113 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         ),
         record_count=len(selection_records),
         dry_run=dry_run,
-        paid_activity_requested=False,
-        paid_activity_executed=False,
+        paid_activity_requested=not dry_run,
+        paid_activity_executed=not dry_run,
+    )
+    return 0
+
+
+def _require_exact_model_disjoint_judges(
+    judge_entries: Sequence[ModelRegistryEntry],
+    *,
+    evaluated_model_registry_path: Path,
+) -> None:
+    evaluated_entries = load_model_registry(evaluated_model_registry_path).entries
+    evaluated_identities = {
+        (entry.provider, entry.model_id, entry.model_version_or_snapshot)
+        for entry in evaluated_entries
+    }
+    overlaps = sorted(
+        entry.registry_key
+        for entry in judge_entries
+        if (entry.provider, entry.model_id, entry.model_version_or_snapshot)
+        in evaluated_identities
+    )
+    if overlaps:
+        raise CommandError(
+            "Stage B judge panel is not exact-model disjoint from the evaluated "
+            f"registry: {', '.join(overlaps)}"
+        )
+
+
+def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    provider_journal_path = output_root / "provider-attempts.sqlite3"
+    selection_path = cast(Path, args.selection)
+    parser_path = cast(Path, args.parser_manifest)
+    units_path = cast(Path, args.prediction_units)
+    existing_queue_path = cast(Path, args.unitization_review_queue)
+    registry_path = cast(Path, args.model_registry)
+    provider_caps_path = cast(Path | None, args.provider_cycle_caps)
+    markdown_root = cast(Path | None, args.markdown_root) or output_root / "markdown"
+    flags_path = _acquisition_path(
+        args, "structural_flags_output", output_root / "stage-a-structural-flags.jsonl"
+    )
+    queue_path = _acquisition_path(
+        args,
+        "review_queue_output",
+        output_root / "unitization-review-queue-reviewed.jsonl",
+    )
+    audit_path = _acquisition_path(
+        args, "audit_output", output_root / "stage-a-structural-review-audit.jsonl"
+    )
+    selections = _read_records(selection_path)
+    dry_run = _acquisition_dry_run(args)
+    if dry_run:
+        _write_jsonl(flags_path, [])
+        _write_jsonl(queue_path, _read_records(existing_queue_path))
+        _write_jsonl(
+            audit_path,
+            [
+                {
+                    "stage": "llm-review-stage-a",
+                    "dry_run": True,
+                    "selection_count": len(selections),
+                }
+            ],
+        )
+    else:
+        entry, registry_sha = _registry_entry_for_key(
+            registry_path, cast(str, args.model_key)
+        )
+        provider_caps = _official_provider_cycle_caps(args)
+        result = llm_review_stage_a_units(
+            selection_records=selections,
+            parser_records=_read_records(parser_path),
+            prediction_unit_records=_read_records(units_path),
+            markdown_root=markdown_root,
+            registry_entry=entry,
+            model_registry_sha256=registry_sha,
+            timeout_seconds=cast(float, args.timeout_seconds),
+            provider_journal_path=provider_journal_path,
+            provider_cycle_caps_usd={
+                entry.provider: provider_caps.cap_usd(entry.provider)
+            },
+        )
+        _write_jsonl(flags_path, result.records)
+        _write_jsonl(audit_path, result.audit_records)
+        _write_jsonl(
+            queue_path,
+            merge_structural_flags_into_review_queue(
+                _read_records(existing_queue_path), result.records
+            ),
+        )
+    _write_acquisition_completion(
+        args,
+        stage="llm-review-stage-a",
+        input_paths=(
+            selection_path,
+            parser_path,
+            units_path,
+            existing_queue_path,
+            registry_path,
+            *((provider_caps_path,) if provider_caps_path is not None else ()),
+        ),
+        output_paths=(flags_path, queue_path, audit_path, provider_journal_path),
+        record_count=len(selections),
+        dry_run=dry_run,
+        paid_activity_requested=not dry_run,
+        paid_activity_executed=not dry_run,
     )
     return 0
 
