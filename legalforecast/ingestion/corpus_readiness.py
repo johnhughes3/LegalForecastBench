@@ -387,8 +387,7 @@ def _unitization_review_gate_reasons(
         source_value = adjudication.get("source_unit_ids")
         source_values = (
             cast(Sequence[object], source_value)
-            if isinstance(source_value, Sequence)
-            and not isinstance(source_value, str)
+            if isinstance(source_value, Sequence) and not isinstance(source_value, str)
             else ()
         )
         source_unit_ids = tuple(
