@@ -305,8 +305,6 @@ def screen_courtlistener_entry_for_mtd_decision(
     exclusion_reasons: list[str] = []
     if not _references_mtd_or_pleadings_motion(text):
         exclusion_reasons.append("no_mtd_or_rule_12_reference")
-    if _looks_like_report_and_recommendation_without_adoption(text):
-        exclusion_reasons.append("report_and_recommendation_not_final")
     if _looks_like_notice_of_removal_or_state_record(text):
         exclusion_reasons.append("notice_of_removal_or_state_record")
     if _looks_like_proposed_order_attachment(text):
@@ -539,6 +537,7 @@ def _has_decision_form(text: str) -> bool:
         or re.search(r"\bruling\b", text, re.I)
         or re.search(r"\bjudgment\b", text, re.I)
         or re.search(r"\bmemorandum\s+(?:and\s+)?opinion\b", text, re.I)
+        or re.search(r"\breport\s+and\s+recommendation\b", text, re.I)
     )
 
 
@@ -550,13 +549,6 @@ def _has_disposition_terms(text: str) -> bool:
         or re.search(r"\bterminat(?:ed|ing|es?)\b", text, re.I)
         or re.search(r"\bmoot\b", text, re.I)
         or re.search(r"\badopt(?:ed|ing|s)?\b", text, re.I)
-    )
-
-
-def _looks_like_report_and_recommendation_without_adoption(text: str) -> bool:
-    return bool(
-        re.search(r"\breport\s+and\s+recommendation\b", text, re.I)
-        and not re.search(r"\badopt(?:ed|ing|s)?\b", text, re.I)
     )
 
 

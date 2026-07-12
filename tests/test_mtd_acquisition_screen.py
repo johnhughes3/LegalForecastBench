@@ -92,6 +92,23 @@ def test_actual_mtd_decision_entry_accepts_order_on_motion_to_dismiss() -> None:
     assert screen.exclusion_reasons == ()
 
 
+def test_actual_mtd_decision_entry_accepts_report_recommending_mtd_disposition() -> (
+    None
+):
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "REPORT AND RECOMMENDATION re 12 Motion to Dismiss. The Court "
+            "recommends that the motion be granted."
+        ),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is True
+    assert screen.exclusion_reasons == ()
+
+
 def test_actual_mtd_decision_entry_rejects_procedural_order() -> None:
     page = parse_courtlistener_docket_html(
         _docket_html("Standing Order governing motions to dismiss in this case."),

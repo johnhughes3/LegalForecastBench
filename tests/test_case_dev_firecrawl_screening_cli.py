@@ -557,6 +557,70 @@ def test_screen_firecrawl_dockets_fail_closed_on_first_preanchor_disposition(
     assert exclusion["case_id"] == "case-dev-123"
 
 
+def test_screen_counts_preanchor_report_as_first_written_disposition(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    output_root = tmp_path / "screening"
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = (
+        "<html><head><title>Fixture v. Example</title></head><body>"
+        '<div id="docket-entry-table">'
+        + _entry_html(
+            number=5,
+            filed_at="February 2, 2026",
+            text="MOTION to Dismiss filed by Defendant",
+            description="Motion to Dismiss",
+        )
+        + _entry_html(
+            number=15,
+            filed_at="June 29, 2026",
+            text=(
+                "REPORT AND RECOMMENDATION re 5 Motion to Dismiss. The Court "
+                "recommends that the motion be granted."
+            ),
+            description="Report and Recommendation",
+        )
+        + _entry_html(
+            number=16,
+            filed_at="July 1, 2026",
+            text="ORDER adopting Report and Recommendation re 5 Motion to Dismiss",
+            description="Order Adopting Report and Recommendation",
+        )
+        + "</div></body></html>"
+    )
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "screen-firecrawl-dockets",
+                *cycle_state.cli_args,
+                "--successes",
+                str(successes),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    assert _read_jsonl(output_root / "firecrawl-screened-cases.jsonl") == []
+    [exclusion] = _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl")
+    assert exclusion["reason"] == "decision_before_release_anchor"
+    assert exclusion["decision_date"] == "2026-06-29"
+    assert exclusion["source_entry_ids"] == ["entry-15", "entry-16"]
+
+
 @pytest.mark.parametrize(
     ("filed_at", "expected"),
     (
@@ -825,7 +889,7 @@ def test_screen_firecrawl_dockets_rejects_existing_snapshot_target(
     assert marker.read_text(encoding="utf-8") == "stale"
 
 
-def test_screen_firecrawl_dockets_excludes_predecision_outcome_leakage(
+def test_screen_excludes_preanchor_report_before_leakage_screening(
     tmp_path: Path,
     cycle_state: _CycleState,
 ) -> None:
@@ -881,9 +945,9 @@ def test_screen_firecrawl_dockets_excludes_predecision_outcome_leakage(
     )
 
     [exclusion] = _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl")
-    assert exclusion["stage"] == "leakage"
-    assert exclusion["reason"] == "outcome_leakage"
-    assert exclusion["source_entry_ids"] == ["entry-10"]
+    assert exclusion["stage"] == "eligibility"
+    assert exclusion["reason"] == "decision_before_release_anchor"
+    assert exclusion["decision_date"] == "2026-06-20"
 
 
 def test_screen_firecrawl_dockets_rechecks_persisted_privacy_metadata(
@@ -922,7 +986,7 @@ def test_screen_firecrawl_dockets_rechecks_persisted_privacy_metadata(
     assert exclusion["reason"] == "restricted_case_metadata"
 
 
-def test_screen_firecrawl_dockets_scopes_leakage_to_linked_target_motion(
+def test_screen_applies_case_anchor_before_target_scoped_leakage(
     tmp_path: Path,
     cycle_state: _CycleState,
 ) -> None:
@@ -991,12 +1055,14 @@ def test_screen_firecrawl_dockets_scopes_leakage_to_linked_target_motion(
         == 0
     )
 
-    [screened] = _read_jsonl(output_root / "firecrawl-screened-cases.jsonl")
-    assert screened["ai"]["target_motion_entry_numbers"] == ["5"]
-    assert _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl") == []
+    assert _read_jsonl(output_root / "firecrawl-screened-cases.jsonl") == []
+    [exclusion] = _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl")
+    assert exclusion["stage"] == "eligibility"
+    assert exclusion["reason"] == "decision_before_release_anchor"
+    assert exclusion["decision_date"] == "2026-06-20"
 
 
-def test_screen_firecrawl_dockets_excludes_ambiguous_unscoped_multi_mtd_leakage(
+def test_screen_excludes_preanchor_unscoped_report_for_eligibility(
     tmp_path: Path,
     cycle_state: _CycleState,
 ) -> None:
@@ -1066,8 +1132,9 @@ def test_screen_firecrawl_dockets_excludes_ambiguous_unscoped_multi_mtd_leakage(
     )
 
     [exclusion] = _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl")
-    assert exclusion["stage"] == "leakage"
-    assert exclusion["reason"] == "outcome_leakage"
+    assert exclusion["stage"] == "eligibility"
+    assert exclusion["reason"] == "decision_before_release_anchor"
+    assert exclusion["decision_date"] == "2026-06-20"
 
 
 def test_screen_firecrawl_dockets_namespaces_invalid_manifest_ledger_ids(
