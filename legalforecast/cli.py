@@ -1341,7 +1341,24 @@ def _add_acquisition_discover_courtlistener_arguments(
 
 
 def _add_acquisition_funnel_report_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--discovery-summary", type=Path, required=True)
+    sources = parser.add_mutually_exclusive_group(required=True)
+    sources.add_argument(
+        "--discovery-summary",
+        type=Path,
+        help="Legacy discovery summary containing counts and per-term diagnostics.",
+    )
+    sources.add_argument(
+        "--firecrawl-screening-summary",
+        type=Path,
+        help="Canonical Firecrawl screening summary containing terminal counts.",
+    )
+    parser.add_argument(
+        "--recap-discovery-summary",
+        type=Path,
+        help=(
+            "RECAP discovery diagnostics; required with --firecrawl-screening-summary."
+        ),
+    )
     parser.add_argument("--exclusions", type=Path, required=True)
     parser.add_argument("--public-download-summary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -4502,8 +4519,33 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
 
 def _cmd_acquisition_funnel_report(args: argparse.Namespace) -> int:
     try:
+        discovery_path = cast(Path | None, args.discovery_summary)
+        screening_path = cast(Path | None, args.firecrawl_screening_summary)
+        recap_path = cast(Path | None, args.recap_discovery_summary)
+        if screening_path is not None and recap_path is None:
+            raise FunnelReportError(
+                "--recap-discovery-summary is required with "
+                "--firecrawl-screening-summary"
+            )
+        if discovery_path is not None and recap_path is not None:
+            raise FunnelReportError(
+                "--recap-discovery-summary is only valid with "
+                "--firecrawl-screening-summary"
+            )
         report = build_acquisition_funnel_report(
-            discovery_summary=_read_json_object(cast(Path, args.discovery_summary)),
+            discovery_summary=(
+                _read_json_object(discovery_path)
+                if discovery_path is not None
+                else None
+            ),
+            firecrawl_screening_summary=(
+                _read_json_object(screening_path)
+                if screening_path is not None
+                else None
+            ),
+            recap_discovery_summary=(
+                _read_json_object(recap_path) if recap_path is not None else None
+            ),
             exclusions=_read_records(cast(Path, args.exclusions)),
             public_download_summary=_read_json_object(
                 cast(Path, args.public_download_summary)

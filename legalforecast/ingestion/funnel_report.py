@@ -22,7 +22,11 @@ _METADATA_REASONS = frozenset(
     }
 )
 _HTML_RETRIEVAL_REASONS = frozenset(
-    {"courtlistener_docket_html_unavailable", "docket_html_unavailable"}
+    {
+        "courtlistener_docket_html_unavailable",
+        "docket_html_unavailable",
+        "fetch_failed",
+    }
 )
 _SINGLE_PAGE_REASONS = frozenset(
     {
@@ -33,7 +37,11 @@ _SINGLE_PAGE_REASONS = frozenset(
     }
 )
 _POST_ANCHOR_REASONS = frozenset(
-    {"decision_before_release_anchor", "decision_date_unparseable"}
+    {
+        "decision_before_release_anchor",
+        "decision_date_unparseable",
+        "mtd_decision_outside_date_window",
+    }
 )
 
 
@@ -43,7 +51,9 @@ class FunnelReportError(ValueError):
 
 def build_acquisition_funnel_report(
     *,
-    discovery_summary: Mapping[str, Any],
+    discovery_summary: Mapping[str, Any] | None = None,
+    firecrawl_screening_summary: Mapping[str, Any] | None = None,
+    recap_discovery_summary: Mapping[str, Any] | None = None,
     exclusions: Sequence[Mapping[str, Any]],
     public_download_summary: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -54,9 +64,16 @@ def build_acquisition_funnel_report(
     yields reproducible, monotone stage counts without hand tallying.
     """
 
-    processed = _required_int(discovery_summary, "processed_candidate_count")
-    accepted = _required_int(discovery_summary, "accepted_case_count")
-    excluded = _required_int(discovery_summary, "excluded_case_count")
+    count_summary, diagnostics_summary, source_mode, source_artifacts = (
+        _normalize_source_artifacts(
+            discovery_summary=discovery_summary,
+            firecrawl_screening_summary=firecrawl_screening_summary,
+            recap_discovery_summary=recap_discovery_summary,
+        )
+    )
+    processed = _required_int(count_summary, "processed_candidate_count")
+    accepted = _required_int(count_summary, "accepted_case_count")
+    excluded = _required_int(count_summary, "excluded_case_count")
     if processed != accepted + excluded:
         raise FunnelReportError(
             "discovery counts do not reconcile: processed_candidate_count must "
@@ -73,7 +90,7 @@ def build_acquisition_funnel_report(
     if len(set(candidate_ids)) != len(candidate_ids):
         raise FunnelReportError("exclusion candidate_id values must be unique")
     reasons = Counter(_reason(record) for record in exclusions)
-    stages = Counter(_optional_str(record.get("stage")) for record in exclusions)
+    stages = Counter(_stage(record) for record in exclusions)
     gate_failures = Counter(_exclusion_gate(record) for record in exclusions)
     metadata_failed = gate_failures["metadata_pass"]
     metadata_pass = processed - metadata_failed
@@ -105,10 +122,14 @@ def build_acquisition_funnel_report(
     ):
         raise FunnelReportError("exclusion reasons produce a non-monotone funnel")
 
-    per_term = _per_term_diagnostics(discovery_summary)
-    target_limit = _public_download_limit(public_download_summary)
+    per_term = _per_term_diagnostics(diagnostics_summary)
+    target_limit = _public_download_limit(
+        public_download_summary, expected_screened=accepted
+    )
     return {
         "schema_version": FUNNEL_REPORT_SCHEMA_VERSION,
+        "source_mode": source_mode,
+        "source_artifacts": source_artifacts,
         "funnel": funnel,
         "exclusions_by_reason": dict(sorted(reasons.items())),
         "exclusions_by_stage": {
@@ -117,6 +138,142 @@ def build_acquisition_funnel_report(
         "per_term": per_term,
         "plan_public_downloads_target": target_limit,
         "reconciled": True,
+    }
+
+
+def _normalize_source_artifacts(
+    *,
+    discovery_summary: Mapping[str, Any] | None,
+    firecrawl_screening_summary: Mapping[str, Any] | None,
+    recap_discovery_summary: Mapping[str, Any] | None,
+) -> tuple[Mapping[str, Any], Mapping[str, Any], str, dict[str, Any]]:
+    legacy_mode = discovery_summary is not None
+    firecrawl_mode = firecrawl_screening_summary is not None
+    if legacy_mode == firecrawl_mode:
+        raise FunnelReportError(
+            "provide exactly one of discovery_summary or firecrawl_screening_summary"
+        )
+    if legacy_mode:
+        if recap_discovery_summary is not None:
+            raise FunnelReportError(
+                "recap_discovery_summary is only valid with firecrawl_screening_summary"
+            )
+        legacy = discovery_summary
+        return legacy, legacy, "legacy_discovery", {}
+
+    if recap_discovery_summary is None:
+        raise FunnelReportError(
+            "recap_discovery_summary is required with firecrawl_screening_summary"
+        )
+    screening = cast(Mapping[str, Any], firecrawl_screening_summary)
+    recap = recap_discovery_summary
+    _validate_firecrawl_screening_summary(screening)
+    diagnostics = _normalize_recap_diagnostics(recap)
+    screening_cycle = _required_str(screening, "cycle_hash")
+    recap_cycle = _required_str(recap, "cycle_hash")
+    if screening_cycle != recap_cycle:
+        raise FunnelReportError(
+            "Firecrawl screening and RECAP discovery cycle identities do not match"
+        )
+    input_success = _required_int(screening, "input_success_count")
+    input_excluded = _required_int(screening, "input_fetch_exclusion_count")
+    accepted = _required_int(screening, "accepted_case_count")
+    excluded = _required_int(screening, "excluded_case_count")
+    processed = input_success + input_excluded
+    if processed != accepted + excluded:
+        raise FunnelReportError(
+            "Firecrawl screening input counts do not reconcile to accepted and excluded"
+        )
+    count_summary = {
+        "processed_candidate_count": processed,
+        "accepted_case_count": accepted,
+        "excluded_case_count": excluded,
+    }
+    return (
+        count_summary,
+        diagnostics,
+        "canonical_firecrawl",
+        {
+            "screening_schema_version": screening["schema_version"],
+            "recap_discovery_schema_version": recap["schema_version"],
+            "cycle_hash": screening_cycle,
+        },
+    )
+
+
+def _validate_firecrawl_screening_summary(summary: Mapping[str, Any]) -> None:
+    if summary.get("schema_version") != "legalforecast.firecrawl_screening_summary.v1":
+        raise FunnelReportError("unsupported Firecrawl screening summary schema")
+    for key in ("reconciled", "snapshot_complete", "snapshot_saturated"):
+        if summary.get(key) is not True:
+            raise FunnelReportError(f"Firecrawl screening summary requires {key}=true")
+    if summary.get("dry_run") is not False:
+        raise FunnelReportError(
+            "Firecrawl screening summary must be a completed live run"
+        )
+
+
+def _normalize_recap_diagnostics(summary: Mapping[str, Any]) -> Mapping[str, Any]:
+    schema_version = summary.get("schema_version")
+    supported = {
+        "legalforecast.firecrawl_recap_discovery_summary.v1",
+        "legalforecast.recap_partial_checkpoint_summary.v1",
+    }
+    if schema_version not in supported:
+        raise FunnelReportError("unsupported RECAP discovery summary schema")
+    if schema_version == "legalforecast.recap_partial_checkpoint_summary.v1":
+        if (
+            summary.get("checkpoint_only") is not True
+            or summary.get("complete") is not False
+        ):
+            raise FunnelReportError(
+                "partial RECAP diagnostics must be checkpoint_only and incomplete"
+            )
+        if summary.get("provider_completeness_status") != "unproven":
+            raise FunnelReportError(
+                "partial RECAP diagnostics must record unproven completeness"
+            )
+    elif summary.get("complete") is not True or summary.get("saturated") is not True:
+        raise FunnelReportError(
+            "completed RECAP diagnostics must be complete and saturated"
+        )
+    if isinstance(summary.get("per_term"), Mapping) or isinstance(
+        summary.get("per_term_counts"), Mapping
+    ):
+        return summary
+
+    terms_value = summary.get("terms", summary.get("query_terms"))
+    if not isinstance(terms_value, list) or not terms_value:
+        raise FunnelReportError("RECAP discovery summary must include non-empty terms")
+    terms: list[str] = []
+    for term_value in cast(list[object], terms_value):
+        if not isinstance(term_value, str) or not term_value.strip():
+            raise FunnelReportError(
+                "RECAP discovery summary must include non-empty terms"
+            )
+        terms.append(term_value.strip())
+    if len(set(terms)) != len(terms):
+        raise FunnelReportError("RECAP discovery terms must be unique")
+    if len(terms) != 1:
+        raise FunnelReportError(
+            "multi-term RECAP diagnostics require explicit per-term attribution"
+        )
+
+    if schema_version == "legalforecast.recap_partial_checkpoint_summary.v1":
+        request_count = _required_int(summary, "acquired_page_count")
+        terminal_status = "limit_bound:partial_checkpoint"
+    else:
+        request_count = _required_int(summary, "pages_fetched")
+        terminal_status = "exhausted"
+    candidate_count = _required_int(summary, "potential_candidate_count")
+    return {
+        "per_term": {
+            terms[0]: {
+                "request_count": request_count,
+                "candidate_count": candidate_count,
+                "terminal_status": terminal_status,
+            }
+        }
     }
 
 
@@ -156,7 +313,9 @@ def _per_term_diagnostics(summary: Mapping[str, Any]) -> list[dict[str, Any]]:
     return diagnostics
 
 
-def _public_download_limit(summary: Mapping[str, Any] | None) -> dict[str, Any]:
+def _public_download_limit(
+    summary: Mapping[str, Any] | None, *, expected_screened: int
+) -> dict[str, Any]:
     if summary is None:
         raise FunnelReportError(
             "plan-public-downloads summary is required to prove its target did not bind"
@@ -164,6 +323,10 @@ def _public_download_limit(summary: Mapping[str, Any] | None) -> dict[str, Any]:
     target = _required_int(summary, "target_clean_cases")
     screened = _required_int(summary, "screened_case_count")
     planned = _required_int(summary, "planned_case_count")
+    if screened != expected_screened:
+        raise FunnelReportError(
+            "plan-public-downloads screened_case_count does not match accepted cases"
+        )
     if planned > screened:
         raise FunnelReportError("planned_case_count cannot exceed screened_case_count")
     bound = planned == target and screened > planned
@@ -182,11 +345,16 @@ def _public_download_limit(summary: Mapping[str, Any] | None) -> dict[str, Any]:
 
 def _exclusion_gate(record: Mapping[str, Any]) -> str:
     reason = _reason(record)
-    stage = _optional_str(record.get("stage"))
+    stage = _stage(record)
     if reason in _METADATA_REASONS:
         return "metadata_pass"
     if reason in _HTML_RETRIEVAL_REASONS:
         return "html_fetched"
+    if (
+        reason == "docket_reconstruction_failed"
+        and stage == "complete_docket_reconstruction"
+    ):
+        return "parse_ok"
     if reason == "parse_error" and stage == "extraction":
         return "parse_ok"
     if reason in _SINGLE_PAGE_REASONS:
@@ -221,3 +389,7 @@ def _required_int(record: Mapping[str, Any], key: str) -> int:
 
 def _optional_str(value: object) -> str:
     return value if isinstance(value, str) else ""
+
+
+def _stage(record: Mapping[str, Any]) -> str:
+    return _optional_str(record.get("stage", record.get("failure_stage")))
