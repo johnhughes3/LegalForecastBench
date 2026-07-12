@@ -15,6 +15,11 @@ from legalforecast.labeling.label_outcomes import (
     OutcomeLabel,
     StageBDecisionText,
 )
+from legalforecast.unitization.review import (
+    UnitizationReviewError,
+    canonical_sha256,
+    require_finalized_envelopes,
+)
 
 
 class CorpusReadinessError(ValueError):
@@ -84,7 +89,11 @@ def build_clean_corpus_readiness(
         raise CorpusReadinessError("required_clean_count must be positive")
     selections = _index_unique(selection_records, "selection")
     parsers = _index_parser_records(parser_records)
-    units_by_candidate, _unit_to_candidate = _index_units(prediction_unit_records)
+    try:
+        finalized_unit_records = require_finalized_envelopes(prediction_unit_records)
+    except UnitizationReviewError as exc:
+        raise CorpusReadinessError(str(exc)) from exc
+    units_by_candidate, _unit_to_candidate = _index_units(finalized_unit_records)
     unitization_audits_by_candidate = _group_by_candidate(unitization_audit_records)
     unitization_reviews_by_candidate = _group_by_candidate(unitization_review_records)
     unitization_adjudications_by_candidate = _group_by_candidate(
@@ -147,6 +156,14 @@ def build_clean_corpus_readiness(
         ):
             stage_a_reasons.append("stage_a_unitization_failed")
         else:
+            stage_a_reasons.extend(
+                _finalized_chain_gate_reasons(
+                    units=units,
+                    adjudication_records=unitization_adjudications_by_candidate.get(
+                        candidate_id, ()
+                    ),
+                )
+            )
             stage_a_reasons.extend(
                 _unitization_review_gate_reasons(
                     candidate_id=candidate_id,
@@ -246,6 +263,35 @@ def build_clean_corpus_readiness(
     )
 
 
+def _finalized_chain_gate_reasons(
+    *,
+    units: Sequence[Mapping[str, Any]],
+    adjudication_records: Sequence[Mapping[str, Any]],
+) -> tuple[str, ...]:
+    adjudications = {
+        _optional_str(record, "adjudication_id"): record
+        for record in adjudication_records
+        if _optional_str(record, "adjudication_id") is not None
+    }
+    for unit in units:
+        adjudication_id = _optional_str(unit, "adjudication_id")
+        source_hashes = _value_sequence(
+            unit.get("source_unit_sha256s"), "source_unit_sha256s"
+        )
+        if not adjudication_id or not source_hashes:
+            return ("stage_a_finalized_hash_chain_invalid",)
+        if adjudication_id.startswith("automatic:"):
+            if adjudication_id != f"automatic:{source_hashes[0]}":
+                return ("stage_a_finalized_hash_chain_invalid",)
+            continue
+        adjudication = adjudications.get(adjudication_id)
+        if adjudication is None or unit.get("adjudication_sha256") != canonical_sha256(
+            adjudication
+        ):
+            return ("stage_a_finalized_hash_chain_invalid",)
+    return ()
+
+
 _RESOLVED_REVIEW_STATUSES = frozenset(
     {"adjudicated", "resolved", "complete", "succeeded"}
 )
@@ -264,11 +310,26 @@ def _unitization_review_gate_reasons(
         for record in review_records
         if _optional_str(record, "review_id") is not None
     }
-    adjudications_by_id = {
-        _optional_str(record, "review_id"): record
-        for record in adjudication_records
-        if _optional_str(record, "review_id") is not None
-    }
+    adjudications_by_id: dict[str, Mapping[str, Any]] = {}
+    for record in adjudication_records:
+        review_ids_value = record.get("review_ids")
+        review_ids = (
+            tuple(
+                str(review_id)
+                for review_id in cast(Sequence[object], review_ids_value)
+                if isinstance(review_id, str) and review_id
+            )
+            if isinstance(review_ids_value, Sequence)
+            and not isinstance(review_ids_value, str)
+            else ()
+        )
+        legacy_review_id = _optional_str(record, "review_id")
+        for review_id in review_ids or (
+            (legacy_review_id,) if legacy_review_id else ()
+        ):
+            if review_id in adjudications_by_id:
+                reasons.append("stage_a_review_adjudication_invalid")
+            adjudications_by_id[review_id] = record
     expected_reviews: dict[str, tuple[str, str]] = {}
     for audit in audit_records:
         status = audit.get("status")
@@ -305,9 +366,8 @@ def _unitization_review_gate_reasons(
     if missing_adjudications:
         reasons.append("stage_a_review_pending")
     if any(
-        record.get("status") != "adjudicated"
-        or record.get("disposition") != "accepted_as_frozen"
-        or _optional_str(record, "unit_id") != expected_reviews[review_id][0]
+        record.get("disposition")
+        not in {"ACCEPT", "AMEND", "SPLIT", "MERGE", "CANDIDATE-EXCLUSION"}
         or not _optional_str(record, "adjudicator_id")
         or not _optional_str(record, "adjudication_notes")
         for review_id, record in adjudications_by_id.items()

@@ -312,6 +312,11 @@ from legalforecast.unitization.construct_units import (
     UnitizationReviewReason,
     construct_stage_a_units,
 )
+from legalforecast.unitization.review import (
+    UnitizationReviewError,
+    apply_unitization_reviews,
+    verify_finalized_prediction_units,
+)
 from legalforecast.unitization.schemas import (
     ChallengeScope,
     DefendantGrouping,
@@ -733,6 +738,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use a registry-backed LLM to construct frozen Stage A units.",
     )
     _add_acquisition_llm_unitize_arguments(acquisition_llm_unitize)
+    acquisition_apply_unitization_review = acquisition_subparsers.add_parser(
+        "apply-unitization-review",
+        help="Apply checked-in Stage A adjudications and finalize prediction units.",
+    )
+    _add_acquisition_apply_unitization_review_arguments(
+        acquisition_apply_unitization_review
+    )
     acquisition_llm_label = acquisition_subparsers.add_parser(
         "llm-label",
         help="Use registry-backed LLM judges to create Stage B labels.",
@@ -1861,7 +1873,7 @@ def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> Non
         "--prediction-units",
         type=Path,
         required=True,
-        help="Locked prediction-units JSONL from acquisition llm-unitize.",
+        help="Finalized prediction-units JSONL from apply-unitization-review.",
     )
     parser.add_argument(
         "--markdown-root",
@@ -1925,6 +1937,36 @@ def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> Non
         help="Per-provider-request timeout for each registry-backed LLM judge call.",
     )
     parser.set_defaults(handler=_cmd_acquisition_llm_label)
+
+
+def _add_acquisition_apply_unitization_review_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--prediction-units",
+        type=Path,
+        required=True,
+        help="Raw prediction-units JSONL emitted by acquisition llm-unitize.",
+    )
+    parser.add_argument(
+        "--unitization-review-queue",
+        type=Path,
+        required=True,
+        help="Immutable Stage A review queue emitted by acquisition llm-unitize.",
+    )
+    parser.add_argument(
+        "--adjudications",
+        type=Path,
+        required=True,
+        help="Checked-in Stage A adjudications; never edit the review queue.",
+    )
+    parser.add_argument(
+        "--finalized-prediction-units-output",
+        type=Path,
+        help="Hash-linked Stage A units required by labeling and readiness.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_apply_unitization_review)
 
 
 def _add_acquisition_apply_lawyer_review_arguments(
@@ -2110,7 +2152,13 @@ def _add_acquisition_finalize_corpus_arguments(
         required=True,
         help="Root containing parse-documents Markdown used to verify label excerpts.",
     )
-    parser.add_argument("--prediction-units", type=Path, required=True)
+    parser.add_argument("--raw-prediction-units", type=Path, required=True)
+    parser.add_argument(
+        "--prediction-units",
+        type=Path,
+        required=True,
+        help="Finalized prediction units emitted by apply-unitization-review.",
+    )
     parser.add_argument("--llm-unitization-audit", type=Path, required=True)
     parser.add_argument("--unitization-review-queue", type=Path, required=True)
     parser.add_argument(
@@ -6068,6 +6116,44 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_acquisition_apply_unitization_review(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    prediction_units_path = cast(Path, args.prediction_units)
+    review_queue_path = cast(Path, args.unitization_review_queue)
+    adjudications_path = cast(Path, args.adjudications)
+    finalized_path = _acquisition_path(
+        args,
+        "finalized_prediction_units_output",
+        output_root / "finalized-prediction-units.jsonl",
+    )
+    dry_run = _acquisition_dry_run(args)
+    if dry_run:
+        record_count = 0
+        _write_jsonl(finalized_path, [])
+    else:
+        try:
+            finalized = apply_unitization_reviews(
+                prediction_unit_records=_read_records(prediction_units_path),
+                review_records=_read_records(review_queue_path),
+                adjudication_records=_read_records(adjudications_path),
+            )
+        except UnitizationReviewError as exc:
+            raise CommandError(str(exc)) from exc
+        _write_jsonl(finalized_path, finalized)
+        record_count = len(finalized)
+    _write_acquisition_completion(
+        args,
+        stage="apply-unitization-review",
+        input_paths=(prediction_units_path, review_queue_path, adjudications_path),
+        output_paths=(finalized_path,),
+        record_count=record_count,
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+    )
+    return 0
+
+
 def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     labels_path = cast(Path, args.labels)
@@ -6309,6 +6395,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     parser_manifest_path = cast(Path, args.parser_manifest)
     disclosure_clearance_path = cast(Path, args.disclosure_clearance)
     markdown_root = cast(Path, args.markdown_root)
+    raw_prediction_units_path = cast(Path, args.raw_prediction_units)
     prediction_units_path = cast(Path, args.prediction_units)
     unitization_audit_path = cast(Path, args.llm_unitization_audit)
     unitization_review_path = cast(Path, args.unitization_review_queue)
@@ -6342,6 +6429,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         parser_manifest_path,
         disclosure_clearance_path,
         markdown_root,
+        raw_prediction_units_path,
         prediction_units_path,
         unitization_audit_path,
         unitization_review_path,
@@ -6382,9 +6470,18 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         except DisclosureClearanceError as exc:
             raise CommandError(str(exc)) from exc
         prediction_unit_records = _read_records(prediction_units_path)
+        raw_prediction_unit_records = _read_records(raw_prediction_units_path)
         unitization_audit_records = _read_records(unitization_audit_path)
         unitization_review_records = _read_records(unitization_review_path)
         unitization_adjudication_records = _read_records(unitization_adjudications_path)
+        try:
+            verify_finalized_prediction_units(
+                prediction_unit_records,
+                raw_prediction_unit_records,
+                unitization_adjudication_records,
+            )
+        except UnitizationReviewError as exc:
+            raise CommandError(str(exc)) from exc
         label_records = _read_records(labels_path)
         label_audit_records = _read_records(label_audit_path)
         lawyer_review_records = _read_records(lawyer_review_path)

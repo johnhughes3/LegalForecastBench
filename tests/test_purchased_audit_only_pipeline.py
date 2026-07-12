@@ -21,6 +21,7 @@ from legalforecast.ingestion.purchased_document_recovery import (
     purchased_document_download_manifest_records,
     recover_purchased_documents,
 )
+from legalforecast.unitization.review import apply_unitization_reviews
 
 JsonRecord = dict[str, Any]
 
@@ -168,7 +169,16 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
     units_path = tmp_path / "prediction-units.jsonl"
     registry_path = tmp_path / "registry.json"
     _write_jsonl(selection_path, [selection])
-    _write_jsonl(units_path, [units])
+    _write_jsonl(
+        units_path,
+        list(
+            apply_unitization_reviews(
+                prediction_unit_records=[units],
+                review_records=(),
+                adjudication_records=(),
+            )
+        ),
+    )
     registry_path.write_text(json.dumps([_registry_record()]), encoding="utf-8")
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", _stage_b_completion)
     assert (

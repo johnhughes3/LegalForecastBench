@@ -41,9 +41,24 @@ def _parsers(candidate_id: str) -> list[dict[str, object]]:
 
 
 def _unit(candidate_id: str, unit_id: str) -> dict[str, object]:
+    source_hash = "1" * 64
     return {
+        "schema_version": "legalforecast.finalized_prediction_units.v1",
+        "status": "finalized",
         "candidate_id": candidate_id,
-        "prediction_units": [{"unit_id": unit_id, "should_score": True}],
+        "case_id": f"case-{candidate_id}",
+        "raw_prediction_units_sha256": "2" * 64,
+        "prediction_units": [
+            {
+                "unit_id": unit_id,
+                "should_score": True,
+                "source_unit_sha256s": [source_hash],
+                "adjudication_id": f"automatic:{source_hash}",
+                "adjudication_sha256": None,
+                "disposition": "ACCEPT",
+            }
+        ],
+        "exclusion": None,
     }
 
 
@@ -160,11 +175,13 @@ def test_stage_a_review_items_fail_closed_until_queue_is_adjudicated() -> None:
         unitization_reviews=[queue_row],
         unitization_adjudications=[
             {
+                "schema_version": "legalforecast.unitization_adjudication.v1",
+                "adjudication_id": "adj-cand-1",
                 "candidate_id": "cand-1",
-                "unit_id": "unit-1",
-                "review_id": "cand-1:unit-1:stage-a-review",
-                "status": "adjudicated",
-                "disposition": "accepted_as_frozen",
+                "case_id": "case-1",
+                "review_ids": ["cand-1:unit-1:stage-a-review"],
+                "source_unit_ids": ["unit-1"],
+                "disposition": "ACCEPT",
                 "adjudicator_id": "john-hughes",
                 "adjudication_notes": "Frozen unit is sufficiently clear.",
             }
