@@ -39,6 +39,8 @@ COMMUNITY_SUBMISSION_SCHEMA_VERSION = (
     "legalforecast.multiharness.community_submission.v1"
 )
 COMMUNITY_AGGREGATE_SCHEMA_VERSION = "legalforecast.multiharness.community_aggregate.v1"
+TOOL_REQUEST_SCHEMA_VERSION = "legalforecast.multiharness.tool_request.v1"
+TOOL_RESPONSE_SCHEMA_VERSION = "legalforecast.multiharness.tool_response.v1"
 
 SCHEMA_VERSIONS: Mapping[str, str] = {
     "task": TASK_SCHEMA_VERSION,
@@ -53,6 +55,8 @@ SCHEMA_VERSIONS: Mapping[str, str] = {
     "conformance_report": CONFORMANCE_REPORT_SCHEMA_VERSION,
     "community_submission": COMMUNITY_SUBMISSION_SCHEMA_VERSION,
     "community_aggregate": COMMUNITY_AGGREGATE_SCHEMA_VERSION,
+    "tool_request": TOOL_REQUEST_SCHEMA_VERSION,
+    "tool_response": TOOL_RESPONSE_SCHEMA_VERSION,
 }
 
 TASK_FAMILIES = frozenset({"legalforecast_mtd", "harvey_lab", "contract_only"})
@@ -277,6 +281,7 @@ class AdapterCapabilities:
     supported_scoring_modes: tuple[str, ...]
     capabilities_sha256: str
     supports_sandbox_policy: bool = True
+    tool_protocol_version: str | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty(self.adapter_id, "adapter_id")
@@ -290,9 +295,11 @@ class AdapterCapabilities:
         for value in self.supported_scoring_modes:
             _require_member(value, SCORING_MODES, "supported_scoring_modes")
         validate_sha256(self.capabilities_sha256, "capabilities_sha256")
+        if self.tool_protocol_version is not None:
+            _require_non_empty(self.tool_protocol_version, "tool_protocol_version")
 
     def to_record(self) -> dict[str, Any]:
-        return {
+        record: dict[str, Any] = {
             "schema_version": ADAPTER_CAPABILITIES_SCHEMA_VERSION,
             "adapter_id": self.adapter_id,
             "adapter_version": self.adapter_version,
@@ -301,6 +308,9 @@ class AdapterCapabilities:
             "supports_sandbox_policy": self.supports_sandbox_policy,
             "capabilities_sha256": self.capabilities_sha256,
         }
+        if self.tool_protocol_version is not None:
+            record["tool_protocol_version"] = self.tool_protocol_version
+        return record
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> Self:
@@ -317,6 +327,7 @@ class AdapterCapabilities:
                 "supported_scoring_modes",
             ),
             supports_sandbox_policy=optional_bool(record, "supports_sandbox_policy"),
+            tool_protocol_version=optional_str(record, "tool_protocol_version"),
             capabilities_sha256=require_str(record, "capabilities_sha256"),
         )
 

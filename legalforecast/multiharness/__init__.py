@@ -98,6 +98,8 @@ from legalforecast.multiharness.spec import (
     SCHEMA_VERSIONS,
     TASK_INDEX_SCHEMA_VERSION,
     TASK_SCHEMA_VERSION,
+    TOOL_REQUEST_SCHEMA_VERSION,
+    TOOL_RESPONSE_SCHEMA_VERSION,
     AdapterCapabilities,
     AdapterManifest,
     ArtifactRecord,
@@ -115,6 +117,14 @@ from legalforecast.multiharness.spec import (
 from legalforecast.multiharness.task_loaders import (
     HarveyLabTaskLoader,
     LfbTaskLoader,
+)
+from legalforecast.multiharness.tool_protocol import (
+    MAX_TOOL_MESSAGE_BYTES,
+    ToolRequest,
+    ToolResponse,
+    decode_tool_request,
+    decode_tool_response,
+    encode_tool_message,
 )
 
 __all__ = [
@@ -140,6 +150,7 @@ __all__ = [
     "INCOMPLETE_RUN_POLICIES",
     "LFB_NATIVE_ADAPTER_ID",
     "LFB_NATIVE_ADAPTER_VERSION",
+    "MAX_TOOL_MESSAGE_BYTES",
     "NETWORK_NONE",
     "PROVIDER_EGRESS_HOST_ONLY",
     "REQUIRED_ATTESTATIONS",
@@ -152,6 +163,8 @@ __all__ = [
     "SUPPORTED_CONTAINER_BACKENDS",
     "TASK_INDEX_SCHEMA_VERSION",
     "TASK_SCHEMA_VERSION",
+    "TOOL_REQUEST_SCHEMA_VERSION",
+    "TOOL_RESPONSE_SCHEMA_VERSION",
     "AdapterCapabilities",
     "AdapterError",
     "AdapterManifest",
@@ -196,8 +209,13 @@ __all__ = [
     "SelectionResult",
     "TaskIndex",
     "TaskSelection",
+    "ToolRequest",
+    "ToolResponse",
     "build_container_plan",
     "community_model_id",
+    "decode_tool_request",
+    "decode_tool_response",
+    "encode_tool_message",
     "harvey_lab_manifest",
     "lfb_native_capabilities",
     "lfb_native_manifest",
