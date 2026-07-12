@@ -552,11 +552,15 @@ def _reject_unsupported_legacy_bedrock_model(
     if "claude-sonnet-5" not in resolved_versions:
         return
     values = os.environ if environ is None else environ
-    runtime = values.get(ANTHROPIC_RUNTIME_ENV) or values.get("ANTHROPIC_RUNTIME")
+    runtime_env = ANTHROPIC_RUNTIME_ENV
+    runtime = values.get(runtime_env)
+    if not runtime:
+        runtime_env = "ANTHROPIC_RUNTIME"
+        runtime = values.get(runtime_env)
     raise LiveModelConfigError(
         f"model {bedrock_model_id!r} is unsupported by the legacy Bedrock "
-        f"InvokeModel runtime selected by {ANTHROPIC_RUNTIME_ENV}={runtime!r}; "
-        f"unset {ANTHROPIC_RUNTIME_ENV} to use the direct Anthropic API"
+        f"InvokeModel runtime selected by {runtime_env}={runtime!r}; "
+        f"unset {runtime_env} to use the direct Anthropic API"
     )
 
 

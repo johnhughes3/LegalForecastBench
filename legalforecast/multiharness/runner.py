@@ -409,7 +409,8 @@ class _MultiHarnessRunner:
             if self.config.incomplete_run_policy == "fail_fast":
                 try:
                     (plan.workspace / "result.json").unlink(missing_ok=True)
-                except Exception:
+                except OSError:
+                    # Preserve the original failure if best-effort cleanup fails.
                     pass
                 raise
             (private_logs / "error.txt").write_text(_plain_error(exc), encoding="utf-8")

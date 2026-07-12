@@ -262,6 +262,26 @@ def test_sonnet_5_legacy_bedrock_fails_before_transport(
         solver.solve(_request("Use AWS Bedrock."))
 
 
+def test_sonnet_5_legacy_bedrock_error_names_legacy_runtime_env_var() -> None:
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry(
+            "anthropic",
+            "claude-sonnet-5",
+            model_version_or_snapshot="claude-sonnet-5",
+        ),
+        environ={"ANTHROPIC_RUNTIME": "bedrock"},
+    )
+
+    with pytest.raises(
+        LiveModelConfigError,
+        match=(
+            r"claude-sonnet-5.*ANTHROPIC_RUNTIME='bedrock'.*"
+            r"unset ANTHROPIC_RUNTIME"
+        ),
+    ):
+        solver.solve(_request("Use legacy AWS Bedrock."))
+
+
 @pytest.mark.parametrize(
     "model_id",
     (
