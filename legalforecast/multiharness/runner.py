@@ -407,6 +407,10 @@ class _MultiHarnessRunner:
             )
         except Exception as exc:
             if self.config.incomplete_run_policy == "fail_fast":
+                try:
+                    (plan.workspace / "result.json").unlink(missing_ok=True)
+                except Exception:
+                    pass
                 raise
             (private_logs / "error.txt").write_text(_plain_error(exc), encoding="utf-8")
             result = _failure_result(plan, exc)
@@ -439,6 +443,14 @@ class _MultiHarnessRunner:
                 _read_json(request_path, "request")
             )
             result = RunResult.from_record(_read_json(result_path, "result"))
+            provider_values = require_provider_environment_values(
+                plan.request.sandbox_policy.allowed_provider_env_vars
+            )
+            validate_no_secret_values(
+                result.to_record(),
+                tuple(provider_values.values()),
+                "resumed run result",
+            )
         except (OSError, ValueError):
             return None
         if existing_request.to_record() != plan.request.to_record():
@@ -458,6 +470,14 @@ class _MultiHarnessRunner:
             projected = self._run_lfb_native(plan)
             result = projected.result
             lfb_record = projected.inspect_record
+            provider_values = require_provider_environment_values(
+                plan.request.sandbox_policy.allowed_provider_env_vars
+            )
+            validate_no_secret_values(
+                result.to_record(),
+                tuple(provider_values.values()),
+                "native run result",
+            )
             write_json_object(plan.workspace / "result.json", result.to_record())
             write_json_object(plan.workspace / "lfb-inspect-record.json", lfb_record)
             return result, lfb_record

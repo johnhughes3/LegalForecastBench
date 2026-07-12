@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
+import legalforecast.multiharness.runner as runner_module
 import pytest
 from legalforecast._json_io import read_jsonl_objects
 from legalforecast.evals.inspect_task import HarnessSolver, OfflineMockSolver
@@ -151,6 +152,43 @@ def test_runner_resumes_matching_request_hash(tmp_path: Path) -> None:
     assert (first.rows[0].workspace / "run-count.txt").read_text(
         encoding="utf-8"
     ) == "1"
+
+
+def test_runner_does_not_resume_result_containing_provider_secret(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    secret = "opaque-provider-value-7Jx9"
+    monkeypatch.setenv("DECLARED_PROVIDER_VALUE", secret)
+    adapter = _command_adapter(
+        tmp_path,
+        supported_families=("legalforecast_mtd",),
+        supported_scoring_modes=("lfb_brier",),
+    )
+    task = _task("lfb:case-1:full_packet", "legalforecast_mtd", "lfb_brier")
+    output_dir = tmp_path / "run"
+    base_config = _command_config(output_dir=output_dir, task=task, adapter=adapter)
+    config = replace(
+        base_config,
+        sandbox_policy=replace(
+            base_config.sandbox_policy,
+            network_policy=PROVIDER_EGRESS_HOST_ONLY,
+            allowed_provider_env_vars=("DECLARED_PROVIDER_VALUE",),
+        ),
+    )
+    first = run_multi_harness(config)
+    result_path = first.rows[0].workspace / "result.json"
+    stale_result = json.loads(result_path.read_text(encoding="utf-8"))
+    stale_result["public_summary"]["leaked_value"] = secret
+    result_path.write_text(json.dumps(stale_result), encoding="utf-8")
+
+    second = run_multi_harness(replace(config, resume=True))
+
+    assert second.rows[0].resumed is False
+    assert (second.rows[0].workspace / "run-count.txt").read_text(
+        encoding="utf-8"
+    ) == "2"
+    assert secret not in result_path.read_text(encoding="utf-8")
 
 
 def test_runner_does_not_resume_after_provider_environment_policy_changes(
@@ -387,6 +425,52 @@ def test_runner_fail_fast_keeps_rejected_command_result_private(
     private_result = row_directory / "private-logs" / "run-result.raw.json"
     assert private_result.is_file()
     assert secret in private_result.read_text(encoding="utf-8")
+
+
+def test_runner_fail_fast_removes_native_result_after_post_run_rejection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    packet = _model_packet()
+    task = LfbTaskLoader(suite_version="fixture-suite").task_from_record(
+        packet.to_record()
+    )
+    config = replace(
+        _native_config(
+            output_dir=tmp_path / "run",
+            task=task,
+            adapter=LfbNativeAdapter(),
+            packet=packet,
+            solver=OfflineMockSolver(
+                solver_id="offline-fixture",
+                raw_output=_raw_output(probability=0.7),
+            ),
+        ),
+        incomplete_run_policy="fail_fast",
+    )
+    original_validate = runner_module.validate_no_secret_values
+
+    def reject_post_run_result(
+        value: object,
+        secret_values: tuple[str, ...],
+        context: str,
+    ) -> None:
+        if context == "run result":
+            raise ValueError("forced post-run secret rejection")
+        original_validate(value, secret_values, context)
+
+    monkeypatch.setattr(
+        runner_module,
+        "validate_no_secret_values",
+        reject_post_run_result,
+    )
+
+    with pytest.raises(ValueError, match="forced post-run secret rejection"):
+        run_multi_harness(config)
+
+    row_directories = tuple((config.output_dir / "rows").iterdir())
+    assert len(row_directories) == 1
+    assert not (row_directories[0] / "result.json").exists()
 
 
 def test_runner_fail_fast_clears_stale_result_before_row_prepare(

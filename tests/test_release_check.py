@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import sys
@@ -9,6 +10,17 @@ from types import ModuleType
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_fixture_adapter_script_rendering_is_stable() -> None:
+    module = _load_release_check_module()
+
+    rendered = module._fixture_adapter_script()
+
+    assert len(rendered) == 1961
+    assert hashlib.sha256(rendered.encode("utf-8")).hexdigest() == (
+        "02622270700f1ba4f17689fe9367751038d307a03b43ff807cea51ab52918b39"
+    )
 
 
 def test_release_check_plans_full_gate(tmp_path: Path) -> None:

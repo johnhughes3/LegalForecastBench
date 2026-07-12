@@ -255,6 +255,11 @@ def _complete_bedrock_anthropic_prompt(
     retry_backoff_seconds: float,
 ) -> SolverResponse:
     bedrock_model_id = _bedrock_anthropic_model_id(registry_entry, environ)
+    _reject_unsupported_legacy_bedrock_model(
+        registry_entry,
+        bedrock_model_id,
+        environ,
+    )
     request_payload = _bedrock_anthropic_payload(registry_entry, prompt)
     started = time.perf_counter()
     payload, request_count = _call_with_provider_retries(
@@ -532,6 +537,27 @@ def _bedrock_anthropic_model_id(
     if entry.model_id.startswith(("anthropic.", "us.anthropic.", "arn:aws:bedrock:")):
         return entry.model_id
     return f"us.anthropic.{entry.model_id}"
+
+
+def _reject_unsupported_legacy_bedrock_model(
+    entry: ModelRegistryEntry,
+    bedrock_model_id: str,
+    environ: Mapping[str, str] | None,
+) -> None:
+    resolved_versions = {
+        _canonical_model_version(entry.model_id),
+        _canonical_model_version(entry.model_version_or_snapshot),
+        _canonical_model_version(bedrock_model_id),
+    }
+    if "claude-sonnet-5" not in resolved_versions:
+        return
+    values = os.environ if environ is None else environ
+    runtime = values.get(ANTHROPIC_RUNTIME_ENV) or values.get("ANTHROPIC_RUNTIME")
+    raise LiveModelConfigError(
+        f"model {bedrock_model_id!r} is unsupported by the legacy Bedrock "
+        f"InvokeModel runtime selected by {ANTHROPIC_RUNTIME_ENV}={runtime!r}; "
+        f"unset {ANTHROPIC_RUNTIME_ENV} to use the direct Anthropic API"
+    )
 
 
 def _invoke_bedrock_runtime_json(

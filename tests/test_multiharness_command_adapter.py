@@ -81,7 +81,7 @@ def test_command_adapter_run_uses_declared_provider_environment_allowlist(
     )
     monkeypatch.setenv("HOME", str(ambient_home))
     monkeypatch.setenv("DECLARED_PROVIDER_VALUE", "allowed-value")
-    monkeypatch.setenv("UNDECLARED_HOST_SECRET", "must-not-leak")
+    monkeypatch.setenv("FAKE_SECRET", "must-not-leak")
 
     adapter.run(
         _run_request(
@@ -97,7 +97,7 @@ def test_command_adapter_run_uses_declared_provider_environment_allowlist(
         )
     )
     assert captured["DECLARED_PROVIDER_VALUE"] == "allowed-value"
-    assert "UNDECLARED_HOST_SECRET" not in captured
+    assert "FAKE_SECRET" not in captured
     assert captured["PATH"] == os.environ["PATH"]
     isolated_home = workspace / "private-logs" / "adapter-home"
     assert captured["HOME"] == str(isolated_home)
@@ -127,7 +127,7 @@ def test_command_adapter_run_uses_declared_provider_environment_allowlist(
         )
     )
     assert "DECLARED_PROVIDER_VALUE" not in capability_environment
-    assert "UNDECLARED_HOST_SECRET" not in capability_environment
+    assert "FAKE_SECRET" not in capability_environment
     assert capability_environment["HOME"] == str(isolated_home)
     assert set(capability_environment).issubset(
         {

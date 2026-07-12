@@ -14,5 +14,6 @@ The technical documentation in this folder is drafted and maintained with substa
 - [multiharness-adapter-spec.md](multiharness-adapter-spec.md): the community adapter contract.
 - [community-submissions.md](community-submissions.md): submission packaging, attestations, credits, funding policy, and PR intake.
 - [adapters/](adapters/): notes for the first-class fixture adapter tracks (LQ.AI, Hermes Agent, OpenClaw, and provider/runtime baselines).
+- [ADR 0001](adr/0001-community-multiharness-scope.md): the implemented scope of the community multi-harness work merged in PR #7.
 
 Historical planning and review documents have been removed from the working tree; they remain available in git history.

@@ -8,6 +8,7 @@ import json
 import shutil
 import subprocess
 import sys
+import textwrap
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -648,69 +649,68 @@ def _release_smoke_document(
 def _fixture_adapter_script() -> str:
     """Render the deterministic command-adapter script used by release smokes."""
 
-    return "\n".join(
-        (
-            "from __future__ import annotations",
-            "import argparse",
-            "import json",
-            "import pathlib",
-            "import sys",
-            "",
-            "ADAPTER_ID = 'release-fixture-cli'",
-            "ADAPTER_VERSION = '0.1.0'",
-            "",
-            "def write_json(path, payload):",
-            "    pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)",
-            "    pathlib.Path(path).write_text(",
-            "        json.dumps(payload, sort_keys=True), encoding='utf-8'",
-            "    )",
-            "",
-            "def capabilities(argv):",
-            "    parser = argparse.ArgumentParser()",
-            "    parser.add_argument('--output', required=True)",
-            "    args = parser.parse_args(argv)",
-            "    write_json(args.output, {",
-            "        'schema_version': (",
-            "            'legalforecast.multiharness.adapter_capabilities.v1'",
-            "        ),",
-            "        'adapter_id': ADAPTER_ID,",
-            "        'adapter_version': ADAPTER_VERSION,",
-            "        'supported_families': ['legalforecast_mtd', 'harvey_lab'],",
-            "        'supported_scoring_modes': ['lfb_brier', 'lab_native'],",
-            "        'supports_sandbox_policy': True,",
-            "        'capabilities_sha256': 'sha256:' + '1' * 64,",
-            "    })",
-            "",
-            "def run(argv):",
-            "    parser = argparse.ArgumentParser()",
-            "    parser.add_argument('--request', required=True)",
-            "    parser.add_argument('--output', required=True)",
-            "    parser.add_argument('--workspace', required=True)",
-            "    args = parser.parse_args(argv)",
-            "    request = json.loads(pathlib.Path(args.request).read_text())",
-            "    write_json(args.output, {",
-            "        'schema_version': 'legalforecast.multiharness.run_result.v1',",
-            "        'result_id': request['request_id'] + ':result',",
-            "        'request_id': request['request_id'],",
-            "        'status': 'succeeded',",
-            "        'result_sha256': 'sha256:' + '2' * 64,",
-            "        'artifacts': [],",
-            "        'public_summary': {",
-            "            'task_id': request['task']['task_id'],",
-            "            'family': request['task']['family'],",
-            "            'sandbox_policy_id': request['sandbox_policy']['policy_id'],",
-            "        },",
-            "    })",
-            "",
-            "phase = sys.argv[1]",
-            "if phase == 'capabilities':",
-            "    capabilities(sys.argv[2:])",
-            "elif phase == 'run':",
-            "    run(sys.argv[2:])",
-            "else:",
-            "    raise SystemExit('unsupported phase: ' + phase)",
-            "",
-        )
+    return textwrap.dedent(
+        """\
+        from __future__ import annotations
+        import argparse
+        import json
+        import pathlib
+        import sys
+
+        ADAPTER_ID = 'release-fixture-cli'
+        ADAPTER_VERSION = '0.1.0'
+
+        def write_json(path, payload):
+            pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
+            pathlib.Path(path).write_text(
+                json.dumps(payload, sort_keys=True), encoding='utf-8'
+            )
+
+        def capabilities(argv):
+            parser = argparse.ArgumentParser()
+            parser.add_argument('--output', required=True)
+            args = parser.parse_args(argv)
+            write_json(args.output, {
+                'schema_version': (
+                    'legalforecast.multiharness.adapter_capabilities.v1'
+                ),
+                'adapter_id': ADAPTER_ID,
+                'adapter_version': ADAPTER_VERSION,
+                'supported_families': ['legalforecast_mtd', 'harvey_lab'],
+                'supported_scoring_modes': ['lfb_brier', 'lab_native'],
+                'supports_sandbox_policy': True,
+                'capabilities_sha256': 'sha256:' + '1' * 64,
+            })
+
+        def run(argv):
+            parser = argparse.ArgumentParser()
+            parser.add_argument('--request', required=True)
+            parser.add_argument('--output', required=True)
+            parser.add_argument('--workspace', required=True)
+            args = parser.parse_args(argv)
+            request = json.loads(pathlib.Path(args.request).read_text())
+            write_json(args.output, {
+                'schema_version': 'legalforecast.multiharness.run_result.v1',
+                'result_id': request['request_id'] + ':result',
+                'request_id': request['request_id'],
+                'status': 'succeeded',
+                'result_sha256': 'sha256:' + '2' * 64,
+                'artifacts': [],
+                'public_summary': {
+                    'task_id': request['task']['task_id'],
+                    'family': request['task']['family'],
+                    'sandbox_policy_id': request['sandbox_policy']['policy_id'],
+                },
+            })
+
+        phase = sys.argv[1]
+        if phase == 'capabilities':
+            capabilities(sys.argv[2:])
+        elif phase == 'run':
+            run(sys.argv[2:])
+        else:
+            raise SystemExit('unsupported phase: ' + phase)
+        """
     )
 
 

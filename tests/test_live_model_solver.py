@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import socket
 import urllib.request
 from collections.abc import Mapping
@@ -232,30 +233,14 @@ def test_anthropic_solver_can_use_bedrock_runtime_without_api_key(
     assert "Use AWS Bedrock." in body["messages"][0]["content"][0]["text"]
 
 
-def test_sonnet_5_bedrock_payload_omits_sampling_controls(
+def test_sonnet_5_legacy_bedrock_fails_before_transport(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls: list[dict[str, Any]] = []
-
-    def fake_bedrock(
-        model_id: str,
-        payload: live_model_solver.JsonRecord,
-        *,
-        environ: Mapping[str, str] | None,
-        timeout_seconds: float,
-    ) -> live_model_solver.JsonRecord:
-        assert model_id == "us.anthropic.claude-sonnet-5"
-        calls.append(dict(payload))
-        return {
-            "model": "claude-sonnet-5",
-            "content": [{"type": "text", "text": '{"bedrock":true}'}],
-            "usage": {"input_tokens": 220, "output_tokens": 55},
-        }
+    def unexpected_bedrock(*args: object, **kwargs: object) -> None:
+        pytest.fail("legacy Bedrock transport must not be invoked for Sonnet 5")
 
     monkeypatch.setattr(
-        live_model_solver,
-        "_invoke_bedrock_runtime_json",
-        fake_bedrock,
+        live_model_solver, "_invoke_bedrock_runtime_json", unexpected_bedrock
     )
     solver = LiveModelSolver(
         registry_entry=_registry_entry(
@@ -267,20 +252,39 @@ def test_sonnet_5_bedrock_payload_omits_sampling_controls(
         environ={"LFB_ANTHROPIC_RUNTIME": "bedrock"},
     )
 
-    response = solver.solve(_request("Use AWS Bedrock."))
+    with pytest.raises(
+        LiveModelConfigError,
+        match=(
+            r"claude-sonnet-5.*LFB_ANTHROPIC_RUNTIME='bedrock'.*"
+            r"unset LFB_ANTHROPIC_RUNTIME"
+        ),
+    ):
+        solver.solve(_request("Use AWS Bedrock."))
 
-    assert len(calls) == 1
-    body = calls[0]
-    assert "temperature" not in body
-    assert "top_p" not in body
-    assert "top_k" not in body
-    assert response.metadata is not None
-    assert "temperature" not in response.metadata
-    assert "top_p" not in response.metadata
-    assert response.metadata["registry_temperature"] == "0"
-    assert response.metadata["registry_top_p"] == "1"
-    assert response.metadata["provider_sampling_policy"] == "provider_default"
-    assert response.metadata["model_registry_sha256"] == "cycle-1-registry-sha256"
+
+@pytest.mark.parametrize(
+    "model_id",
+    (
+        "anthropic.claude-sonnet-5",
+        "us.anthropic.claude-sonnet-5",
+        "arn:aws:bedrock:us-east-1:123456789012:foundation-model/anthropic.claude-sonnet-5",
+    ),
+)
+def test_sonnet_5_legacy_bedrock_override_ids_fail_closed(model_id: str) -> None:
+    solver = LiveModelSolver(
+        registry_entry=_registry_entry(
+            "anthropic",
+            "claude-sonnet-5",
+            model_version_or_snapshot="claude-sonnet-5",
+        ),
+        environ={
+            "LFB_ANTHROPIC_RUNTIME": "bedrock",
+            "LFB_ANTHROPIC_BEDROCK_MODEL_ID": model_id,
+        },
+    )
+
+    with pytest.raises(LiveModelConfigError, match=re.escape(model_id)):
+        solver.solve(_request("Use AWS Bedrock."))
 
 
 def test_gemini_solver_posts_generate_content_request_and_maps_usage() -> None:
