@@ -566,8 +566,9 @@ def build_parser() -> argparse.ArgumentParser:
     acquisition_discover_case_dev = acquisition_subparsers.add_parser(
         "discover-case-dev",
         help=(
-            "Materialize an order-neutral, resumable Case.dev candidate pool "
-            "without purchasing documents."
+            "Materialize an exploratory Case.dev case/party metadata lead pool "
+            "without purchasing documents; this is not anchored disposition "
+            "discovery."
         ),
     )
     _add_acquisition_discover_case_dev_arguments(acquisition_discover_case_dev)
@@ -1117,6 +1118,14 @@ def _add_acquisition_discover_firecrawl_recap_arguments(
         help=(
             "Firecrawl proxy mode; auto and enhanced are permanently reserved "
             "at five credits per request."
+        ),
+    )
+    parser.add_argument(
+        "--force-browser",
+        action="store_true",
+        help=(
+            "Force Firecrawl onto an actions-capable browser engine with a "
+            "one-millisecond wait action; the five-credit reservation is unchanged."
         ),
     )
     parser.add_argument("--firecrawl-fixture", type=Path)
@@ -2764,6 +2773,9 @@ def _cmd_acquisition_discover_case_dev(args: argparse.Namespace) -> int:
                 "batch_id": batch_id,
                 "query_terms": list(query_terms),
                 "checkpoint_only": True,
+                "complete": False,
+                "saturated": False,
+                "anchored_disposition_discovery": False,
                 **batch_config,
             },
         )
@@ -2829,8 +2841,15 @@ def _cmd_acquisition_discover_case_dev(args: argparse.Namespace) -> int:
         "batch_digest": batch_digest,
         "query_terms": list(query_terms),
         "candidate_count": len(checkpoint_records),
-        "complete": result.complete,
-        "saturated": result.saturated,
+        "complete": False,
+        "saturated": False,
+        "provider_query_complete": result.complete,
+        "provider_query_saturated": result.saturated,
+        "anchored_disposition_discovery": False,
+        "candidate_count_semantics": (
+            "exploratory case/party metadata leads only; not post-anchor "
+            "dispositions or clean corpus cases"
+        ),
         "terminal_status_by_term": {
             term: status.value
             for term, status in result.terminal_status_by_term.items()
@@ -2961,6 +2980,7 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
     if credit_cap <= 0 or credit_cap > 45_000:
         raise CommandError("--credit-cap must be between 1 and 45000")
     proxy = cast(str, args.proxy)
+    force_browser = cast(bool, args.force_browser)
     fixture_path = cast(Path | None, args.firecrawl_fixture)
     live = cast(bool, args.live_firecrawl)
     if live == (fixture_path is not None):
@@ -2994,6 +3014,7 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
     run_config: JsonRecord = {
         "purpose": "anchored-recap-entry-discovery",
         "proxy": proxy,
+        "force_browser": force_browser,
         "max_attempts_per_page": max_attempts,
         "provider_breaker_threshold": breaker_threshold,
         "query_terms": list(terms),
@@ -3032,11 +3053,17 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
     try:
         source = (
             FirecrawlCourtListenerHTMLSource(
-                FirecrawlConfig.from_env(proxy=cast(Any, proxy))
+                FirecrawlConfig.from_env(
+                    proxy=cast(Any, proxy), force_browser=force_browser
+                )
             )
             if live
             else FirecrawlCourtListenerHTMLSource(
-                FirecrawlConfig(api_key="offline-fixture", proxy=cast(Any, proxy)),
+                FirecrawlConfig(
+                    api_key="offline-fixture",
+                    proxy=cast(Any, proxy),
+                    force_browser=force_browser,
+                ),
                 transport=_firecrawl_fixture_transport(cast(Path, fixture_path)),
             )
         )
