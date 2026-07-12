@@ -72,6 +72,7 @@ class DocketAcquisitionFailure:
         """Render the deterministic acquisition failure/exclusion record."""
 
         return {
+            "case_id": self.candidate_id,
             "candidate_id": self.candidate_id,
             "docket_id": self.docket_id,
             "reason": self.reason,

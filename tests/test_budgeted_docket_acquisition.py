@@ -67,6 +67,7 @@ def test_failed_docket_is_not_exposed_as_partial_screening_input() -> None:
 
     assert [bundle.docket_id for bundle in result.bundles] == ["20"]
     assert result.failed_docket_ids == ("10",)
+    assert result.failures[0].as_record()["case_id"] == "courtlistener-docket-10"
 
 
 def test_reconstruction_failure_is_isolated_without_discarding_other_dockets() -> None:
@@ -94,6 +95,7 @@ def test_reconstruction_failure_is_isolated_without_discarding_other_dockets() -
     assert result.failed_docket_ids == ("10",)
     assert [failure.as_record() for failure in result.failures] == [
         {
+            "case_id": "courtlistener-docket-10",
             "candidate_id": "courtlistener-docket-10",
             "docket_id": "10",
             "reason": "docket_reconstruction_failed",
