@@ -1089,8 +1089,8 @@ def _add_acquisition_discover_firecrawl_recap_arguments(
         dest="query_terms",
         action="append",
         help=(
-            "Literal MTD RECAP entry-search term. Repeat to replace the frozen "
-            "default set; judgment-on-the-pleadings terms are not eligible."
+            "MTD or eligible Rule 12(c) RECAP entry-search term. Repeat to "
+            "replace the frozen default set."
         ),
     )
     parser.add_argument(
@@ -3012,10 +3012,6 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
     terms = tuple(cast(Sequence[str] | None, args.query_terms) or ())
     if not terms:
         terms = FROZEN_MTD_SEARCH_TERMS
-    if any("judgment on the pleadings" in term.casefold() for term in terms):
-        raise CommandError(
-            "judgment-on-the-pleadings terms cannot count toward the literal MTD corpus"
-        )
     max_pages_per_term = cast(int, args.max_pages_per_term)
     max_attempts = cast(int, args.max_attempts_per_page)
     breaker_threshold = cast(int, args.provider_breaker_threshold)

@@ -26,8 +26,10 @@ COURTLISTENER_RECAP_SEARCH_ORIGIN = "https://www.courtlistener.com"
 COURTLISTENER_RECAP_SEARCH_URL = f"{COURTLISTENER_RECAP_SEARCH_ORIGIN}/"
 
 # This vocabulary is a versioned acquisition input.  Additions require an
-# intentional code change and artifact snapshot; judgment-on-the-pleadings
-# phrases are excluded because the cycle's target is motions to dismiss.
+# intentional code change and artifact snapshot. Rule 12(c) and judgment-on-
+# the-pleadings formulations are included because they can renew or
+# alternatively frame a motion to dismiss and are eligible when every other
+# corpus gate is satisfied.
 FROZEN_MTD_SEARCH_TERMS: tuple[str, ...] = (
     "motion to dismiss",
     "motions to dismiss",
@@ -48,6 +50,9 @@ FROZEN_MTD_SEARCH_TERMS: tuple[str, ...] = (
     "order rule 12(b)(6)",
     "order rule 12(b)(1)",
     "order rule 12(b)(2)",
+    "motion for judgment on the pleadings",
+    "order on motion for judgment on the pleadings",
+    "order rule 12(c)",
 )
 
 _ALLOWED_QUERY_KEYS = frozenset(

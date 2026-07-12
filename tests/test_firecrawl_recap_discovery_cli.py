@@ -96,7 +96,7 @@ def test_discover_firecrawl_recap_uses_shared_budget_and_reports_potentials(
     ).read_text() == ""
 
 
-def test_discover_firecrawl_recap_rejects_judgment_on_pleadings_terms(
+def test_discover_firecrawl_recap_accepts_judgment_on_pleadings_terms(
     tmp_path: Path,
 ) -> None:
     assert (
@@ -119,5 +119,5 @@ def test_discover_firecrawl_recap_rejects_judgment_on_pleadings_terms(
                 "--live-firecrawl",
             ]
         )
-        == 2
+        == 0
     )

@@ -87,17 +87,16 @@ def _article(
     )
 
 
-def test_frozen_vocabulary_is_broad_literal_mtd_only() -> None:
+def test_frozen_vocabulary_includes_mtd_and_eligible_rule_12c_terms() -> None:
     assert len(FROZEN_MTD_SEARCH_TERMS) >= 15
     assert "motion to dismiss" in FROZEN_MTD_SEARCH_TERMS
     assert "motions to dismiss" in FROZEN_MTD_SEARCH_TERMS
     assert "order dismissing amended complaint" in FROZEN_MTD_SEARCH_TERMS
     assert "report and recommendation motion to dismiss" in FROZEN_MTD_SEARCH_TERMS
     assert "memorandum opinion rule 12(b)(6)" in FROZEN_MTD_SEARCH_TERMS
+    assert "motion for judgment on the pleadings" in FROZEN_MTD_SEARCH_TERMS
+    assert "order rule 12(c)" in FROZEN_MTD_SEARCH_TERMS
     assert len(FROZEN_MTD_SEARCH_TERMS) == len(set(FROZEN_MTD_SEARCH_TERMS))
-    assert all(
-        "judgment on the pleadings" not in term for term in FROZEN_MTD_SEARCH_TERMS
-    )
 
 
 def test_builder_freezes_entry_date_window_and_parameter_order() -> None:
