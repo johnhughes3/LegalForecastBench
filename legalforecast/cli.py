@@ -12,6 +12,7 @@ import shutil
 import sys
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -1296,6 +1297,15 @@ def _add_acquisition_enrich_recap_case_dev_arguments(
         type=int,
         default=100,
         help="Fail-closed free lookup ceiling per docket; default 100.",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help=(
+            "Concurrent live Case.dev docket lookups; 1-2, default 1. "
+            "Checkpoint writes remain serialized. Fixtures require 1."
+        ),
     )
     parser.add_argument("--case-dev-fixture", type=Path)
     parser.add_argument(
@@ -3627,6 +3637,103 @@ def _recap_discovered_entry_record(entry: RecapDiscoveredEntry) -> JsonRecord:
     }
 
 
+def _case_dev_progress_is_retryable(progress: Mapping[str, object]) -> bool:
+    if progress.get("outcome") == "transient":
+        return True
+    payload = progress.get("payload")
+    failure_payload = (
+        cast(Mapping[str, object], payload) if isinstance(payload, Mapping) else None
+    )
+    return (
+        progress.get("outcome") == "failure"
+        and failure_payload is not None
+        and failure_payload.get("reason")
+        in {
+            "case_dev_duplicate_entry_conflict",
+            "case_dev_duplicate_entry_semantic_conflict",
+        }
+    )
+
+
+_CASE_DEV_MAX_TRANSIENT_DOCKET_ATTEMPTS = 3
+
+
+def _bound_case_dev_transient_progress(
+    progress: JsonRecord,
+    *,
+    transient_attempts_by_index: Counter[int],
+) -> JsonRecord:
+    if progress.get("outcome") != "transient":
+        return progress
+    input_index = cast(int, progress["input_index"])
+    transient_attempts_by_index[input_index] += 1
+    attempt_count = transient_attempts_by_index[input_index]
+    if attempt_count < _CASE_DEV_MAX_TRANSIENT_DOCKET_ATTEMPTS:
+        return progress
+    return {
+        "input_index": input_index,
+        "outcome": "failure",
+        "payload": {
+            "input_index": input_index,
+            "reason": "case_dev_server_error_retries_exhausted",
+            "detail": (
+                "Case.dev docket enrichment exhausted "
+                f"{attempt_count} resumable attempts"
+            ),
+        },
+    }
+
+
+def _enrich_case_dev_progress_record(
+    *,
+    input_index: int,
+    record: Mapping[str, Any],
+    fixture_path: Path | None,
+    live: bool,
+    page_size: int,
+    max_pages: int,
+    client: CaseDevClient | None = None,
+) -> tuple[JsonRecord, int]:
+    active_client = client or _case_dev_client(
+        command="enrich-recap-case-dev", fixture_path=fixture_path, live=live
+    )
+    request_count_before = active_client.request_count
+    try:
+        one = enrich_recap_discovery_batch(
+            client=active_client,
+            records=(record,),
+            page_size=page_size,
+            max_pages=max_pages,
+        )
+    except CaseDevServerError as exc:
+        return (
+            {
+                "input_index": input_index,
+                "outcome": "transient",
+                "payload": {
+                    "reason": "case_dev_server_error",
+                    "detail": str(exc),
+                },
+            },
+            active_client.request_count - request_count_before,
+        )
+    if one.successes:
+        progress: JsonRecord = {
+            "input_index": input_index,
+            "outcome": "success",
+            "payload": one.successes[0].to_record(),
+        }
+    else:
+        failure = one.failures[0].to_record()
+        failure["input_index"] = input_index
+        progress = {
+            "input_index": input_index,
+            "outcome": "failure",
+            "payload": failure,
+        }
+    return progress, active_client.request_count - request_count_before
+
+
 def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     dockets_path = cast(Path, args.dockets)
@@ -3634,14 +3741,19 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
     live = cast(bool, args.live_case_dev)
     page_size = cast(int, args.page_size)
     max_pages = cast(int, args.max_pages_per_docket)
+    workers = cast(int, args.workers)
     if page_size <= 0 or page_size > 100:
         raise CommandError("--page-size must be between 1 and 100")
     if max_pages <= 0:
         raise CommandError("--max-pages-per-docket must be positive")
+    if workers <= 0 or workers > 2:
+        raise CommandError("--workers must be between 1 and 2")
     if live == (fixture_path is not None):
         raise CommandError(
             "choose exactly one of --case-dev-fixture or --live-case-dev"
         )
+    if fixture_path is not None and workers != 1:
+        raise CommandError("--workers must be 1 with --case-dev-fixture")
     ranked_path = _acquisition_path(
         args,
         "ranked_output",
@@ -3725,6 +3837,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
 
     progress_records = _read_records(progress_path) if progress_path.exists() else []
     progress_by_index: dict[int, JsonRecord] = {}
+    transient_attempts_by_index: Counter[int] = Counter()
     for progress in progress_records:
         input_index = progress.get("input_index")
         if (
@@ -3737,57 +3850,104 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         ):
             raise CommandError("Case.dev enrichment progress is invalid or duplicated")
         prior = progress_by_index.get(input_index)
-        if prior is not None and prior.get("outcome") != "transient":
+        if prior is not None and not _case_dev_progress_is_retryable(prior):
             raise CommandError("Case.dev enrichment progress repeats a terminal index")
+        if progress["outcome"] == "transient":
+            transient_attempts_by_index[input_index] += 1
         progress_by_index[input_index] = progress
 
+    for input_index, progress in tuple(progress_by_index.items()):
+        attempt_count = transient_attempts_by_index[input_index]
+        if (
+            progress["outcome"] == "transient"
+            and attempt_count >= _CASE_DEV_MAX_TRANSIENT_DOCKET_ATTEMPTS
+        ):
+            exhausted: JsonRecord = {
+                "input_index": input_index,
+                "outcome": "failure",
+                "payload": {
+                    "input_index": input_index,
+                    "reason": "case_dev_server_error_retries_exhausted",
+                    "detail": (
+                        "Case.dev docket enrichment exhausted "
+                        f"{attempt_count} resumable attempts"
+                    ),
+                },
+            }
+            _append_jsonl(progress_path, (exhausted,))
+            progress_by_index[input_index] = exhausted
+
     try:
-        client = _case_dev_client(
-            command="enrich-recap-case-dev",
-            fixture_path=fixture_path,
-            live=live,
-        )
-        for input_index, record in enumerate(records):
-            if (
-                input_index in progress_by_index
-                and progress_by_index[input_index]["outcome"] != "transient"
-            ):
-                continue
-            try:
-                one = enrich_recap_discovery_batch(
-                    client=client,
-                    records=(record,),
+        pending = [
+            (input_index, record)
+            for input_index, record in enumerate(records)
+            if input_index not in progress_by_index
+            or _case_dev_progress_is_retryable(progress_by_index[input_index])
+        ]
+        request_count = 0
+        if workers == 1:
+            serial_client = _case_dev_client(
+                command="enrich-recap-case-dev",
+                fixture_path=fixture_path,
+                live=live,
+            )
+            completed = (
+                _enrich_case_dev_progress_record(
+                    input_index=input_index,
+                    record=record,
+                    fixture_path=fixture_path,
+                    live=live,
                     page_size=page_size,
                     max_pages=max_pages,
+                    client=serial_client,
                 )
-            except CaseDevServerError as exc:
-                progress = {
-                    "input_index": input_index,
-                    "outcome": "transient",
-                    "payload": {
-                        "reason": "case_dev_server_error",
-                        "detail": str(exc),
-                    },
-                }
+                for input_index, record in pending
+            )
+            for progress, one_request_count in completed:
+                request_count += one_request_count
+                progress = _bound_case_dev_transient_progress(
+                    progress,
+                    transient_attempts_by_index=transient_attempts_by_index,
+                )
                 _append_jsonl(progress_path, (progress,))
-                progress_by_index[input_index] = progress
-                continue
-            if one.successes:
-                progress: JsonRecord = {
-                    "input_index": input_index,
-                    "outcome": "success",
-                    "payload": one.successes[0].to_record(),
+                progress_by_index[cast(int, progress["input_index"])] = progress
+        else:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                pending_iter = iter(pending)
+
+                def submit_one() -> Future[tuple[JsonRecord, int]] | None:
+                    try:
+                        input_index, record = next(pending_iter)
+                    except StopIteration:
+                        return None
+                    return executor.submit(
+                        _enrich_case_dev_progress_record,
+                        input_index=input_index,
+                        record=record,
+                        fixture_path=fixture_path,
+                        live=live,
+                        page_size=page_size,
+                        max_pages=max_pages,
+                    )
+
+                futures = {
+                    future
+                    for _ in range(workers)
+                    if (future := submit_one()) is not None
                 }
-            else:
-                failure = one.failures[0].to_record()
-                failure["input_index"] = input_index
-                progress = {
-                    "input_index": input_index,
-                    "outcome": "failure",
-                    "payload": failure,
-                }
-            _append_jsonl(progress_path, (progress,))
-            progress_by_index[input_index] = progress
+                while futures:
+                    future = next(as_completed(futures))
+                    futures.remove(future)
+                    progress, one_request_count = future.result()
+                    request_count += one_request_count
+                    progress = _bound_case_dev_transient_progress(
+                        progress,
+                        transient_attempts_by_index=transient_attempts_by_index,
+                    )
+                    _append_jsonl(progress_path, (progress,))
+                    progress_by_index[cast(int, progress["input_index"])] = progress
+                    if (replacement := submit_one()) is not None:
+                        futures.add(replacement)
     except (CaseDevClientError, ValueError) as exc:
         _write_acquisition_failure(
             args,
@@ -3839,7 +3999,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
     summary = {
         "schema_version": "legalforecast.case_dev_recap_batch_summary.v1",
         "dry_run": False,
-        "case_dev_request_count": client.request_count,
+        "case_dev_request_count": request_count,
         "page_size": page_size,
         "max_pages_per_docket": max_pages,
         "free_lookup_only": True,

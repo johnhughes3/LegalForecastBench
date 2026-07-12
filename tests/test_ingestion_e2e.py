@@ -99,8 +99,8 @@ def test_ingestion_discovery_extraction_and_linkage_happy_path(caplog) -> None:
     assert "ocr_applied" in extracted["doc-12"].quality_flags
     assert extracted["doc-35"].method.value == "pdf_text"
     assert linkage.is_clean is True
-    assert linkage.links[0].motion_entry_ids == ("entry-12",)
-    assert linkage.links[0].disposition_entry_ids == ("entry-35",)
+    assert linkage.links[0].motion_entry_ids[0].startswith("entry-12-")
+    assert linkage.links[0].disposition_entry_ids[0].startswith("entry-35-")
     _assert_structured_pipeline_logs(caplog.records, logger_name=logger.name)
 
 

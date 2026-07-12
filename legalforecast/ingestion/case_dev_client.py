@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import time
@@ -851,7 +852,18 @@ def _hit_from_legal_docket_entry_record(
     entry_number_text = None if entry_number is None else str(entry_number)
     docket_entry_id = _optional_string(record, "id", "docketEntryId")
     if docket_entry_id is None:
-        docket_entry_id = f"entry-{entry_number_text or 'unknown'}"
+        stable_identity = {
+            "case_id": case_id,
+            "entry_number": entry_number_text,
+            "entry_text": _optional_string(record, "description", "entry_text", "text"),
+            "filed_at": _optional_string(record, "date", "dateFiled", "filed_at"),
+            "source_url": _optional_string(record, "url"),
+        }
+        canonical_record = json.dumps(
+            stable_identity, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+        ).encode("utf-8")
+        digest = hashlib.sha256(canonical_record).hexdigest()[:16]
+        docket_entry_id = f"entry-{entry_number_text or 'unknown'}-{digest}"
     return CaseDevDocketHit(
         case_id=case_id,
         docket_id=case_id,

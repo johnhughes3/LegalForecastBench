@@ -190,6 +190,52 @@ def test_enrich_recap_case_dev_resumes_after_transient_provider_abort(
     }
 
 
+def test_enrich_recap_case_dev_bounds_resumable_server_failures(
+    tmp_path: Path,
+) -> None:
+    dockets = tmp_path / "dockets.jsonl"
+    dockets.write_text(
+        json.dumps(
+            {
+                "candidate_id": "courtlistener-docket-101",
+                "docket_id": "101",
+                "docket_url": "https://www.courtlistener.com/docket/101/example/",
+                "entry_keys": ["entry-101"],
+                "matched_terms": ["motion to dismiss"],
+                "eligibility_status": "potential_unverified",
+            }
+        )
+        + "\n"
+    )
+    output_root = tmp_path / "output"
+
+    for attempt in range(3):
+        fixture = tmp_path / f"timeout-{attempt}.jsonl"
+        fixture.write_text(
+            "\n".join(json.dumps(_timeout_response("101")) for _ in range(3)) + "\n"
+        )
+        exit_code = main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(output_root),
+                "--dockets",
+                str(dockets),
+                "--case-dev-fixture",
+                str(fixture),
+                "--execute",
+                "--resume",
+            ]
+        )
+        assert exit_code == (2 if attempt < 2 else 0)
+
+    [failure] = _read_jsonl(
+        output_root / "checkpoints" / "case-dev-recap-failures.jsonl"
+    )
+    assert failure["reason"] == "case_dev_server_error_retries_exhausted"
+
+
 def _case_dev_response(docket_id: str) -> dict[str, object]:
     return {
         "method": "POST",
