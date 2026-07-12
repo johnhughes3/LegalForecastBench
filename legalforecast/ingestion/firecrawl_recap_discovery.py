@@ -274,7 +274,7 @@ def parse_recap_search_url(source_url: str) -> RecapSearchTarget:
     raw_page = values.get("page")
     page = 1
     if raw_page is not None:
-        if not re.fullmatch(r"[2-9][0-9]*", raw_page):
+        if not re.fullmatch(r"[1-9][0-9]*", raw_page) or int(raw_page) < 2:
             raise RecapSearchURLValidationError(
                 "page must be a canonical integer greater than one"
             )

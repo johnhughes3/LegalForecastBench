@@ -124,6 +124,15 @@ def test_builder_freezes_entry_date_window_and_parameter_order() -> None:
     assert page_two.endswith("&page=2")
     assert parse_recap_search_url(page_two).page == 2
 
+    page_ten = build_recap_search_url(
+        term="motion to dismiss",
+        entry_date_filed_after=ANCHOR,
+        entry_date_filed_before=WINDOW_END,
+        page=10,
+    )
+    assert page_ten.endswith("&page=10")
+    assert parse_recap_search_url(page_ten).page == 10
+
 
 @pytest.mark.parametrize(
     "mutation",
