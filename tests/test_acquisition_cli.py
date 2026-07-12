@@ -766,6 +766,7 @@ def test_parse_and_build_packet_acquisition_fixture_flow(tmp_path: Path) -> None
                 "restriction_status": "public",
                 "restriction_evidence": ["controlled fixture review"],
                 "reviewer_id": "fixture-reviewer",
+                "controlled_store_provenance": "private-store://fixture/reviews",
                 "reviewed_at": "2026-07-12T18:00:00Z",
             }
             for document_id in ("complaint", "mtd-memo")
@@ -1693,6 +1694,7 @@ def _write_clearance(manifest_path: Path, output_path: Path) -> None:
                 "restriction_status": "public",
                 "restriction_evidence": ["fixture-public-docket"],
                 "reviewer_id": "reviewer:test",
+                "controlled_store_provenance": "private-store://fixture/reviews",
                 "reviewed_at": "2026-07-12T18:00:00Z",
             }
             for row in _read_jsonl(manifest_path)

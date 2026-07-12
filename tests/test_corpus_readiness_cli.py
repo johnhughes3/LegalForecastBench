@@ -86,6 +86,7 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
                 "restriction_status": "public",
                 "restriction_evidence": ["fixture-public-docket"],
                 "reviewer_id": "reviewer:test",
+                "controlled_store_provenance": "private-store://fixture/reviews",
                 "reviewed_at": "2026-07-12T18:00:00Z",
             }
             for document_id in ("complaint-1", "decision-1")

@@ -93,6 +93,7 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
                 "restriction_status": "public",
                 "restriction_evidence": ["fixture-public-docket"],
                 "reviewer_id": "reviewer:test",
+                "controlled_store_provenance": "private-store://fixture/reviews",
                 "reviewed_at": "2026-07-12T18:00:00Z",
             }
             for row in downloads

@@ -10,6 +10,7 @@ from legalforecast.ingestion.disclosure_clearance import (
     build_clearance_records,
     ranked_replacement,
     require_cleared_documents,
+    require_cleared_parse_requests,
     require_cleared_parser_records,
     validate_review_receipt,
 )
@@ -173,6 +174,62 @@ def test_unknown_restriction_and_missing_review_timestamp_fail_closed(
             review_authority=_authority(),
             restriction_records=[_public_evidence()],
         )
+
+
+@pytest.mark.parametrize("evidence", [None, "", [], [" "]])
+def test_clearance_gates_reject_public_status_without_restriction_evidence(
+    tmp_path: Path, evidence: object
+) -> None:
+    document = _document(tmp_path, _text_pdf(b"Motion memorandum"))
+    [clearance] = build_clearance_records(
+        [document],
+        document_root=tmp_path,
+        reviews=[_review(document)],
+        review_authority=_authority(),
+        restriction_records=[_public_evidence()],
+    )
+    forged = clearance.to_record()
+    forged["restriction_evidence"] = evidence
+    with pytest.raises(DisclosureClearanceError, match="restriction evidence"):
+        require_cleared_documents(
+            [document], document_root=tmp_path, clearance_records=[forged]
+        )
+    request = {
+        "candidate_id": "cand-1",
+        "source_document_id": "doc-1",
+        "expected_sha256": clearance.sha256,
+        "expected_byte_count": clearance.byte_count,
+    }
+    with pytest.raises(DisclosureClearanceError, match="restriction evidence"):
+        require_cleared_parse_requests([request], [forged])
+
+
+@pytest.mark.parametrize("provenance", [None, "", "https://example.com/review"])
+def test_clearance_gates_reject_missing_or_foreign_store_provenance(
+    tmp_path: Path, provenance: object
+) -> None:
+    document = _document(tmp_path, _text_pdf(b"Motion memorandum"))
+    [clearance] = build_clearance_records(
+        [document],
+        document_root=tmp_path,
+        reviews=[_review(document)],
+        review_authority=_authority(),
+        restriction_records=[_public_evidence()],
+    )
+    forged = clearance.to_record()
+    forged["controlled_store_provenance"] = provenance
+    with pytest.raises(DisclosureClearanceError, match=r"provenance|private store"):
+        require_cleared_documents(
+            [document], document_root=tmp_path, clearance_records=[forged]
+        )
+    parser_record = {
+        "candidate_id": "cand-1",
+        "source_document_id": "doc-1",
+        "source_sha256": clearance.sha256,
+        "source_byte_count": clearance.byte_count,
+    }
+    with pytest.raises(DisclosureClearanceError, match=r"provenance|private store"):
+        require_cleared_parser_records([parser_record], [forged])
 
 
 def test_ranked_replacement_uses_next_cheapest_under_same_cap() -> None:

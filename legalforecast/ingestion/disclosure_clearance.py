@@ -204,9 +204,9 @@ def build_clearance_records(
             reviewer_id = _optional_str(review, "reviewer_id")
             provenance = _optional_str(review, "controlled_store_provenance")
             reviewed_at = _optional_str(review, "reviewed_at")
-            if not reviewer_id and not provenance:
+            if reviewer_id is None or provenance is None:
                 raise DisclosureClearanceError(
-                    f"review requires authenticated identity or provenance: {key}"
+                    f"review requires authenticated identity and provenance: {key}"
                 )
             if reviewer_id != review_authority.reviewer_id:
                 raise DisclosureClearanceError(
@@ -265,8 +265,7 @@ def require_cleared_documents(
             raise DisclosureClearanceError(f"unsupported clearance schema: {key}")
         if clearance.get("status") != _CLEAR:
             raise DisclosureClearanceError(f"document lacks clearance: {key}")
-        if _required_str(clearance, "restriction_status") not in _PUBLIC_STATUSES:
-            raise DisclosureClearanceError(f"document restriction is not public: {key}")
+        _require_public_restriction(clearance, key=key, label="document")
         path = _safe_document_path(document_root, _required_str(document, "local_path"))
         data = _read_document(path, key)
         digest = hashlib.sha256(data).hexdigest()
@@ -279,11 +278,7 @@ def require_cleared_documents(
             raise DisclosureClearanceError(
                 f"cleared document byte count changed: {key}"
             )
-        if _optional_str(clearance, "reviewed_at") is None or not (
-            _optional_str(clearance, "reviewer_id")
-            or _optional_str(clearance, "controlled_store_provenance")
-        ):
-            raise DisclosureClearanceError(f"clearance lacks review provenance: {key}")
+        _require_review_provenance(clearance, key=key)
 
 
 def verify_parse_request_bytes(request: Mapping[str, object]) -> None:
@@ -382,16 +377,42 @@ def _validated_clearance_index(
             )
         _digest(row, "sha256")
         _positive_int(row, "byte_count")
-        if _required_str(row, "restriction_status") not in _PUBLIC_STATUSES:
-            raise DisclosureClearanceError(
-                f"parser document restriction is not public: {key}"
-            )
-        if _optional_str(row, "reviewed_at") is None or not (
-            _optional_str(row, "reviewer_id")
-            or _optional_str(row, "controlled_store_provenance")
-        ):
-            raise DisclosureClearanceError(f"clearance lacks review provenance: {key}")
+        _require_public_restriction(row, key=key, label="parser document")
+        _require_review_provenance(row, key=key)
     return index
+
+
+def _require_public_restriction(
+    row: Mapping[str, object], *, key: tuple[str, str], label: str
+) -> None:
+    if _required_str(row, "restriction_status") not in _PUBLIC_STATUSES:
+        raise DisclosureClearanceError(f"{label} restriction is not public: {key}")
+    evidence = row.get("restriction_evidence")
+    if isinstance(evidence, str):
+        has_evidence = bool(evidence.strip())
+    elif isinstance(evidence, (list, tuple)):
+        has_evidence = any(
+            isinstance(item, str) and bool(item.strip())
+            for item in cast("Sequence[object]", evidence)
+        )
+    else:
+        has_evidence = False
+    if not has_evidence:
+        raise DisclosureClearanceError(f"{label} lacks restriction evidence: {key}")
+
+
+def _require_review_provenance(
+    row: Mapping[str, object], *, key: tuple[str, str]
+) -> None:
+    reviewed_at = _optional_str(row, "reviewed_at")
+    reviewer_id = _optional_str(row, "reviewer_id")
+    provenance = _optional_str(row, "controlled_store_provenance")
+    if reviewed_at is None or reviewer_id is None or provenance is None:
+        raise DisclosureClearanceError(f"clearance lacks review provenance: {key}")
+    if not provenance.startswith("private-store://"):
+        raise DisclosureClearanceError(
+            f"clearance provenance is not from the controlled private store: {key}"
+        )
 
 
 def ranked_replacement(
@@ -498,7 +519,7 @@ def _restriction_classification(
         for field in ("redaction_or_seal_status", "restriction_status"):
             value = _optional_str(record, field)
             if value is not None:
-                statuses.add(value.casefold().replace("-", "_"))
+                statuses.add(re.sub(r"[\s-]+", "_", value.casefold()))
         item = record.get("restriction_evidence")
         if isinstance(item, str) and item.strip():
             evidence.add(item.strip())

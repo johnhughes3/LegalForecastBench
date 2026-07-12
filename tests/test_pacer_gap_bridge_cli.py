@@ -293,6 +293,7 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
                 "restriction_status": "public",
                 "restriction_evidence": ["fixture-public-docket"],
                 "reviewer_id": "reviewer:test",
+                "controlled_store_provenance": "private-store://fixture/reviews",
                 "reviewed_at": "2026-07-12T18:00:00Z",
             }
             for row in _read_jsonl(merged_manifest)

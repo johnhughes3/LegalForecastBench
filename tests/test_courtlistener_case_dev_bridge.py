@@ -131,6 +131,32 @@ def test_bridge_fails_closed_on_restricted_core_document() -> None:
     assert exclusion["exclusion_reasons"] == ["restricted_core_document"]
 
 
+def test_bridge_fails_closed_on_textual_restriction_cue() -> None:
+    lookup = _lookup_response()
+    docket = lookup.payload["docket"]
+    assert isinstance(docket, dict)
+    entries = docket["entries"]
+    assert isinstance(entries, list)
+    motion = entries[1]
+    assert isinstance(motion, dict)
+    documents = motion["documents"]
+    assert isinstance(documents, list)
+    document = documents[0]
+    assert isinstance(document, dict)
+    document["description"] = "Motion memorandum filed under seal"
+
+    result = bridge_courtlistener_case_dev_documents(
+        (_screened_case(),),
+        client=_client(_search_response(_case_dev_docket()), lookup),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+
+    assert result.selection_records == ()
+    [exclusion] = result.exclusions
+    assert exclusion["exclusion_reasons"] == ["restricted_core_document"]
+
+
 def test_bridge_prefers_pacer_main_motion_over_free_proposed_order() -> None:
     screened = _screened_case()
     entries = screened["selected_entries"]

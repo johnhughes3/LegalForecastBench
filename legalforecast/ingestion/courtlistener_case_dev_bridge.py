@@ -1078,6 +1078,15 @@ def _document_role_score(description: str, role: DocumentRole) -> int:
 
 
 def _record_is_restricted(record: Mapping[str, Any]) -> bool:
+    if restricted_material_markers(
+        records=(record,),
+        text_fields=(
+            _optional_str(record, "description") or "",
+            _optional_str(record, "docket_entry_text") or "",
+            _optional_str(record, "text") or "",
+        ),
+    ):
+        return True
     for key, value in record.items():
         normalized_key = _identifier(str(key))
         if (
