@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from decimal import Decimal
+from itertools import permutations
 from pathlib import Path
 from typing import Any, cast
 
@@ -736,6 +738,217 @@ def test_public_packet_planner_applies_mix_caps_after_cost_ranking(
     assert reserve.exclusion_reasons == ("case_mix_cap_reached:court:Court A",)
 
 
+def test_public_packet_planner_exact_mix_selection_avoids_greedy_false_shortfall(
+    tmp_path: Path,
+) -> None:
+    records = (
+        _case_mix_cost_record("100", court="Court A", nos="NOS X", missing=0),
+        _case_mix_cost_record("200", court="Court A", nos="NOS Y", missing=1),
+        _case_mix_cost_record("300", court="Court B", nos="NOS X", missing=1),
+    )
+
+    plan = plan_public_packet_downloads(
+        records,
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=2,
+        max_case_mix_share=0.5,
+        use_embedded_entries=True,
+    )
+
+    # Cheapest-first greedy takes 100 and then blocks both remaining candidates:
+    # 200 shares its court, while 300 shares its NOS bucket. The feasible exact
+    # selection is 200 + 300, with one candidate in every capped bucket.
+    assert [candidate.candidate_id for candidate in plan.planned_cases] == [
+        "200",
+        "300",
+    ]
+    assert plan.summary_record()["acquisition_candidate_shortfall"] == 0
+    assert plan.summary_record()["projected_paid_cost_usd"] == "6.10"
+
+
+def test_public_packet_planner_exact_mix_selection_minimizes_total_cost(
+    tmp_path: Path,
+) -> None:
+    records = (
+        _case_mix_cost_record("100", court="Court A", nos="NOS X", missing=0),
+        _case_mix_cost_record("200", court="Court A", nos="NOS Y", missing=1),
+        _case_mix_cost_record("300", court="Court B", nos="NOS X", missing=1),
+        _case_mix_cost_record("400", court="Court B", nos="NOS Y", missing=3),
+    )
+
+    plan = plan_public_packet_downloads(
+        records,
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=2,
+        max_case_mix_share=0.5,
+        use_embedded_entries=True,
+    )
+
+    # Greedy reaches the target with 100 + 400 for $9.15. The exact optimum is
+    # 200 + 300 for $6.10, so feasibility alone is not a sufficient guarantee.
+    assert [candidate.candidate_id for candidate in plan.planned_cases] == [
+        "200",
+        "300",
+    ]
+    assert plan.summary_record()["projected_paid_cost_usd"] == "6.10"
+
+
+def test_public_packet_planner_exact_mix_selection_is_permutation_invariant(
+    tmp_path: Path,
+) -> None:
+    records = (
+        _case_mix_cost_record("100", court="Court A", nos="NOS X", missing=0),
+        _case_mix_cost_record("200", court="Court A", nos="NOS Y", missing=1),
+        _case_mix_cost_record("300", court="Court B", nos="NOS X", missing=1),
+        _case_mix_cost_record("400", court="Court B", nos="NOS Y", missing=3),
+    )
+    observed: set[
+        tuple[
+            tuple[str, ...],
+            str,
+            str,
+            int,
+            str,
+            tuple[str, ...],
+            int,
+            int,
+            int,
+            str,
+            str,
+            int,
+        ]
+    ] = set()
+
+    for ordered_records in permutations(records):
+        plan = plan_public_packet_downloads(
+            ordered_records,
+            raw_html_dir=tmp_path / "unused",
+            target_clean_cases=2,
+            max_case_mix_share=0.5,
+            use_embedded_entries=True,
+        )
+        summary = plan.summary_record()
+        optimizer = cast(dict[str, Any], summary["selection_optimizer"])
+        assert isinstance(optimizer["ortools_version"], str)
+        assert optimizer["ortools_version"]
+        assert optimizer["null_bucket_policy"] == "uncapped"
+        assert optimizer["null_bucket_counts"] == {
+            "court": 0,
+            "mdl_family_id": 4,
+            "nos_macro_category": 0,
+            "related_family_id": 4,
+        }
+        assert isinstance(optimizer["phases"], list)
+        assert [phase["phase"] for phase in optimizer["phases"]] == [
+            "cardinality",
+            "cost",
+            "missing_documents",
+            "lexicographic",
+        ]
+        assert {phase["status"] for phase in optimizer["phases"]} == {"OPTIMAL"}
+        observed.add(
+            (
+                tuple(candidate.candidate_id for candidate in plan.planned_cases),
+                cast(str, summary["selection_protocol"]),
+                cast(str, summary["optimizer_status"]),
+                cast(int, summary["case_mix_max_per_bucket"]),
+                cast(str, summary["max_case_mix_share"]),
+                tuple(cast(list[str], optimizer["selected_candidate_ids"])),
+                cast(int, optimizer["selected_count"]),
+                cast(int, optimizer["total_cost_cents"]),
+                cast(int, optimizer["total_missing_document_count"]),
+                cast(str, optimizer["model_schema_version"]),
+                cast(str, optimizer["model_sha256"]),
+                cast(int, optimizer["num_search_workers"]),
+            )
+        )
+
+    [signature] = observed
+    assert signature[:9] == (
+        ("200", "300"),
+        "exact_case_mix_cp_sat_v1",
+        "OPTIMAL",
+        1,
+        "0.5",
+        ("200", "300"),
+        2,
+        610,
+        2,
+    )
+    assert signature[9] == "legalforecast-case-mix-cp-sat-v1"
+    assert len(signature[10]) == 64
+    assert signature[11] == 1
+
+
+def test_public_packet_planner_rejects_share_below_one_candidate_per_bucket(
+    tmp_path: Path,
+) -> None:
+    records = (
+        _case_mix_cost_record("100", court="Court A", nos="NOS X", missing=0),
+        _case_mix_cost_record("200", court="Court B", nos="NOS Y", missing=0),
+        _case_mix_cost_record("300", court="Court C", nos="NOS Z", missing=0),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"max_case_mix_share.*1 / target_clean_cases",
+    ):
+        plan_public_packet_downloads(
+            records,
+            raw_html_dir=tmp_path / "unused",
+            target_clean_cases=3,
+            max_case_mix_share=0.3,
+            use_embedded_entries=True,
+        )
+
+
+def test_public_packet_planner_uses_context_independent_exact_share_floor(
+    tmp_path: Path,
+) -> None:
+    share_just_below_one_third = Decimal(
+        "0.333333333333333333333333333333333333333333333333333333333333"
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"max_case_mix_share.*1 / target_clean_cases",
+    ):
+        plan_public_packet_downloads(
+            (),
+            raw_html_dir=tmp_path / "unused",
+            target_clean_cases=3,
+            max_case_mix_share=share_just_below_one_third,
+            use_embedded_entries=True,
+        )
+
+
+def test_public_packet_planner_sorts_intrinsic_exclusions_canonically(
+    tmp_path: Path,
+) -> None:
+    records = []
+    for candidate_id in ("z-case", "a-case"):
+        record = deepcopy(_screened_case_with_embedded_entries())
+        candidate = cast(dict[str, Any], record["candidate"])
+        metadata = cast(dict[str, Any], candidate["metadata"])
+        candidate["docket_id"] = candidate_id
+        candidate["candidate_key"] = candidate_id
+        metadata["case_id"] = candidate_id
+        metadata["is_private"] = True
+        records.append(record)
+
+    observed = set()
+    for ordered_records in permutations(records):
+        plan = plan_public_packet_downloads(
+            ordered_records,
+            raw_html_dir=tmp_path / "unused",
+            target_clean_cases=1,
+            use_embedded_entries=True,
+        )
+        observed.add(tuple(item.candidate_id for item in plan.final_exclusions))
+
+    assert observed == {("a-case", "z-case")}
+
+
 def test_public_packet_planner_uses_complaint_before_earliest_target_motion(
     tmp_path: Path,
 ) -> None:
@@ -843,6 +1056,40 @@ def _screened_case_with_embedded_entries() -> dict[str, object]:
             ],
         },
     ]
+    return record
+
+
+def _case_mix_cost_record(
+    candidate_id: str,
+    *,
+    court: str,
+    nos: str,
+    missing: int,
+) -> dict[str, object]:
+    """Build a viable embedded candidate with an exact missing-document cost."""
+
+    record = deepcopy(_screened_case_with_embedded_entries())
+    candidate = cast(dict[str, Any], record["candidate"])
+    metadata = cast(dict[str, Any], candidate["metadata"])
+    candidate["docket_id"] = candidate_id
+    candidate["candidate_key"] = candidate_id
+    candidate["url"] = f"https://www.courtlistener.com/docket/{candidate_id}/example/"
+    metadata["case_id"] = candidate_id
+    metadata["court"] = court
+    metadata["nos_macro_category"] = nos
+
+    entries = cast(list[dict[str, Any]], record["selected_entries"])
+    if not 0 <= missing <= len(entries):
+        raise ValueError("missing must be between zero and the required entry count")
+    for entry in entries[:missing]:
+        [document] = cast(list[dict[str, Any]], entry["documents"])
+        entry_number = cast(str, entry["entry_number"])
+        document.update(
+            href=f"https://ecf.example.invalid/{candidate_id}/{entry_number}",
+            action_label="Buy on PACER",
+            pacer_only=True,
+            freely_available=False,
+        )
     return record
 
 

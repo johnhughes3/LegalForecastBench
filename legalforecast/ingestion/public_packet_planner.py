@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
+import json
 import re
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from math import floor
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.ingestion.case_mix_optimizer import (
+    CaseMixCandidate,
+    CaseMixSelectionResult,
+    select_exact_case_mix,
+)
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerEntryRole,
     CourtListenerWebDocketEntry,
@@ -26,6 +31,12 @@ from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 
 _OPTIONAL_BRIEF_ROLES = frozenset({CourtListenerEntryRole.REPLY})
+_CASE_MIX_DIMENSIONS = (
+    "court",
+    "nos_macro_category",
+    "related_family_id",
+    "mdl_family_id",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,7 +149,9 @@ class PublicPacketDownloadPlan:
     selected_case_count: int
     download_request_count: int
     candidate_plans: tuple[PublicPacketCandidatePlan, ...]
-    max_case_mix_share: float | None = None
+    max_case_mix_share: Decimal | None = None
+    case_mix_max_per_bucket: int | None = None
+    selection_optimizer: CaseMixSelectionResult | None = None
 
     @property
     def selected_cases(self) -> tuple[PublicPacketCandidatePlan, ...]:
@@ -181,8 +194,23 @@ class PublicPacketDownloadPlan:
             "planned_case_count": len(self.planned_cases),
             "final_exclusion_count": len(self.final_exclusions),
             "download_request_count": self.download_request_count,
-            "selection_protocol": "deterministic_cheapest_first_greedy",
-            "max_case_mix_share": self.max_case_mix_share,
+            "selection_protocol": "exact_case_mix_cp_sat_v1",
+            "optimizer_status": (
+                None
+                if self.selection_optimizer is None
+                else self.selection_optimizer.audit.phases[-1].status
+            ),
+            "max_case_mix_share": (
+                None
+                if self.max_case_mix_share is None
+                else str(self.max_case_mix_share)
+            ),
+            "case_mix_max_per_bucket": self.case_mix_max_per_bucket,
+            "selection_optimizer": (
+                None
+                if self.selection_optimizer is None
+                else _optimizer_summary_record(self.selection_optimizer)
+            ),
             "required_document_count": sum(
                 plan.required_document_count for plan in planned_cases
             ),
@@ -213,7 +241,7 @@ def plan_public_packet_downloads(
     allow_inferred_target_mtd: bool = False,
     use_embedded_entries: bool = False,
     cost_per_missing_document_usd: Decimal | str = DEFAULT_PURCHASE_COST_USD,
-    max_case_mix_share: float | None = None,
+    max_case_mix_share: Decimal | str | float | None = None,
 ) -> PublicPacketDownloadPlan:
     """Select public/free packet candidates and emit document download requests."""
 
@@ -225,8 +253,11 @@ def plan_public_packet_downloads(
         cost_per_missing_document_usd,
         "cost_per_missing_document_usd",
     )
-    if max_case_mix_share is not None and not 0 < max_case_mix_share <= 1:
-        raise ValueError("max_case_mix_share must be greater than 0 and at most 1")
+    normalized_case_mix_share = _case_mix_share(max_case_mix_share)
+    max_per_bucket = _case_mix_bucket_cap(
+        target_clean_cases=target_clean_cases,
+        max_case_mix_share=normalized_case_mix_share,
+    )
     html_root = Path(raw_html_dir) if raw_html_dir is not None else None
     evaluated_plans: list[PublicPacketCandidatePlan] = []
     for record in screened_case_records:
@@ -238,10 +269,10 @@ def plan_public_packet_downloads(
             cost_per_missing_document=unit_cost,
         )
         evaluated_plans.append(plan)
-    candidate_plans = _select_lowest_cost_candidates(
+    candidate_plans, selection_optimizer = _select_lowest_cost_candidates(
         evaluated_plans,
         target_clean_cases=target_clean_cases,
-        max_case_mix_share=max_case_mix_share,
+        max_per_bucket=max_per_bucket,
     )
     selected_cases = tuple(plan for plan in candidate_plans if plan.selected)
     request_count = sum(
@@ -256,7 +287,9 @@ def plan_public_packet_downloads(
         selected_case_count=len(selected_cases),
         download_request_count=request_count,
         candidate_plans=tuple(candidate_plans),
-        max_case_mix_share=max_case_mix_share,
+        max_case_mix_share=normalized_case_mix_share,
+        case_mix_max_per_bucket=max_per_bucket,
+        selection_optimizer=selection_optimizer,
     )
 
 
@@ -543,9 +576,9 @@ def _select_lowest_cost_candidates(
     plans: Sequence[PublicPacketCandidatePlan],
     *,
     target_clean_cases: int,
-    max_case_mix_share: float | None,
-) -> list[PublicPacketCandidatePlan]:
-    """Apply the deterministic cheapest-first sampling protocol to the full pool."""
+    max_per_bucket: int | None,
+) -> tuple[list[PublicPacketCandidatePlan], CaseMixSelectionResult]:
+    """Apply exact lexicographic cost selection to the complete viable pool."""
 
     viable = [plan for plan in plans if plan.selected or plan.paid_recovery_required]
     ranked = [
@@ -563,53 +596,52 @@ def _select_lowest_cost_candidates(
             start=1,
         )
     ]
-    max_per_bucket = (
-        None
-        if max_case_mix_share is None
-        else max(1, floor(target_clean_cases * max_case_mix_share))
+    optimizer_result = select_exact_case_mix(
+        tuple(
+            CaseMixCandidate(
+                candidate_id=plan.candidate_id,
+                cost_cents=_money_cents(plan.projected_paid_cost_usd),
+                missing_document_count=plan.missing_required_document_count,
+                court=plan.court,
+                nos_macro_category=plan.nos_macro_category,
+                related_family_id=plan.related_family_id,
+                mdl_family_id=plan.mdl_family_id,
+            )
+            for plan in ranked
+        ),
+        target_count=target_clean_cases,
+        max_per_bucket=max_per_bucket,
     )
-    dimensions: tuple[
-        tuple[str, Callable[[PublicPacketCandidatePlan], str | None]], ...
-    ] = (
-        ("court", lambda plan: plan.court),
-        ("nos_macro_category", lambda plan: plan.nos_macro_category),
-        ("related_family_id", lambda plan: plan.related_family_id),
-        ("mdl_family_id", lambda plan: plan.mdl_family_id),
-    )
-    counts: dict[tuple[str, str], int] = {}
-    selected: list[PublicPacketCandidatePlan] = []
+    selected_ids = set(optimizer_result.selected_candidate_ids)
+    selected = [plan for plan in ranked if plan.candidate_id in selected_ids]
+    counts = _selected_case_mix_counts(selected)
     reserves: list[PublicPacketCandidatePlan] = []
     for plan in ranked:
-        if len(selected) >= target_clean_cases:
-            reserves.append(
-                _sampling_reserve(plan, "higher_projected_acquisition_cost")
-            )
+        if plan.candidate_id in selected_ids:
             continue
-        blocked_dimension: tuple[str, str] | None = None
-        if max_per_bucket is not None:
-            for dimension, getter in dimensions:
-                bucket = getter(plan)
-                if bucket is None:
-                    continue
-                if counts.get((dimension, bucket), 0) >= max_per_bucket:
-                    blocked_dimension = (dimension, bucket)
-                    break
-        if blocked_dimension is not None:
-            dimension, bucket = blocked_dimension
+        blocked_bucket = _first_binding_bucket(
+            plan,
+            counts=counts,
+            max_per_bucket=max_per_bucket,
+        )
+        if blocked_bucket is not None:
+            dimension, bucket = blocked_bucket
             reserves.append(
                 _sampling_reserve(plan, f"case_mix_cap_reached:{dimension}:{bucket}")
             )
-            continue
-        selected.append(plan)
-        for dimension, getter in dimensions:
-            bucket = getter(plan)
-            if bucket is not None:
-                key = (dimension, bucket)
-                counts[key] = counts.get(key, 0) + 1
-    intrinsic_exclusions = [
-        plan for plan in plans if not plan.selected and not plan.paid_recovery_required
-    ]
-    return [*selected, *reserves, *intrinsic_exclusions]
+        else:
+            reserves.append(
+                _sampling_reserve(plan, "higher_projected_acquisition_cost")
+            )
+    intrinsic_exclusions = sorted(
+        (
+            plan
+            for plan in plans
+            if not plan.selected and not plan.paid_recovery_required
+        ),
+        key=_canonical_candidate_plan_key,
+    )
+    return [*selected, *reserves, *intrinsic_exclusions], optimizer_result
 
 
 def _sampling_reserve(
@@ -622,6 +654,95 @@ def _sampling_reserve(
         paid_recovery_required=False,
         exclusion_reasons=(reason,),
     )
+
+
+def _canonical_candidate_plan_key(
+    plan: PublicPacketCandidatePlan,
+) -> tuple[str, str, str]:
+    return (
+        plan.candidate_id.casefold(),
+        plan.candidate_id,
+        json.dumps(
+            plan.to_record(),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ),
+    )
+
+
+def _case_mix_share(value: Decimal | str | float | None) -> Decimal | None:
+    if value is None:
+        return None
+    try:
+        share = value if isinstance(value, Decimal) else Decimal(str(value))
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError("max_case_mix_share must be a finite decimal") from exc
+    if not share.is_finite() or not Decimal("0") < share <= Decimal("1"):
+        raise ValueError("max_case_mix_share must be greater than 0 and at most 1")
+    return share
+
+
+def _case_mix_bucket_cap(
+    *,
+    target_clean_cases: int,
+    max_case_mix_share: Decimal | None,
+) -> int | None:
+    if max_case_mix_share is None:
+        return None
+    numerator, denominator = max_case_mix_share.as_integer_ratio()
+    cap = (target_clean_cases * numerator) // denominator
+    if cap < 1:
+        raise ValueError(
+            "max_case_mix_share must be at least 1 / target_clean_cases; the "
+            "exact per-bucket cap would otherwise be zero"
+        )
+    return cap
+
+
+def _money_cents(value: str) -> int:
+    amount = _money_decimal(value, "projected_paid_cost_usd")
+    cents = amount * 100
+    integral = cents.to_integral_value()
+    if cents != integral:
+        raise ValueError("projected_paid_cost_usd must use whole cents")
+    return int(integral)
+
+
+def _optimizer_summary_record(
+    result: CaseMixSelectionResult,
+) -> dict[str, Any]:
+    record = result.to_record()
+    audit = cast(dict[str, Any], record.pop("audit"))
+    return {**record, **audit}
+
+
+def _selected_case_mix_counts(
+    selected: Sequence[PublicPacketCandidatePlan],
+) -> dict[tuple[str, str], int]:
+    counts: dict[tuple[str, str], int] = {}
+    for plan in selected:
+        for dimension in _CASE_MIX_DIMENSIONS:
+            bucket = cast(str | None, getattr(plan, dimension))
+            if bucket is not None:
+                key = (dimension, bucket)
+                counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def _first_binding_bucket(
+    plan: PublicPacketCandidatePlan,
+    *,
+    counts: Mapping[tuple[str, str], int],
+    max_per_bucket: int | None,
+) -> tuple[str, str] | None:
+    if max_per_bucket is None:
+        return None
+    for dimension in _CASE_MIX_DIMENSIONS:
+        bucket = cast(str | None, getattr(plan, dimension))
+        if bucket is not None and counts.get((dimension, bucket), 0) >= max_per_bucket:
+            return dimension, bucket
+    return None
 
 
 def _free_target_mtd_entry_numbers(
