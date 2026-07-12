@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -64,7 +65,10 @@ class ProviderAttemptJournal:
         cycle_cap_usd: float = DEFAULT_CYCLE_PROVIDER_CAP_USD,
     ) -> None:
         if reservation_usd < 0 or cycle_cap_usd <= 0:
-            raise ValueError("provider reservation and cap must be non-negative")
+            raise ValueError(
+                "cycle cap must be positive and provider reservation must be "
+                "non-negative"
+            )
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.identity = identity
@@ -112,11 +116,11 @@ class ProviderAttemptJournal:
                         "journaled provider response is not an object"
                     )
                 return cast(dict[str, object], loaded)
-            if row["status"] == "failed":
+            if row["status"] in {"failed", "ambiguous", "reserved"}:
                 durable_ordinal = self._next_attempt_ordinal()
                 self._durable_ordinals[attempt_ordinal] = durable_ordinal
                 self._reserve(durable_ordinal)
-            elif row["status"] == "ambiguous":
+            else:
                 raise ProviderJournalError(
                     f"provider attempt {durable_ordinal} has no replayable response "
                     f"and status {row['status']}"
@@ -127,6 +131,9 @@ class ProviderAttemptJournal:
             payload = call()
         except LiveModelProviderError as exc:
             self._record_failure(durable_ordinal, exc)
+            raise
+        except Exception as exc:
+            self._record_ambiguous_failure(durable_ordinal, exc)
             raise
         self._record_raw_response(durable_ordinal, payload)
         return payload
@@ -152,10 +159,10 @@ class ProviderAttemptJournal:
             "raw_output": raw_output,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
-            "estimated_cost": actual_cost_usd,
+            "actual_cost_usd": actual_cost_usd,
         }
         with self._connection:
-            self._connection.execute(
+            cursor = self._connection.execute(
                 """
                 UPDATE provider_attempts
                 SET status = 'validated_response', normalized_response_json = ?,
@@ -172,6 +179,19 @@ class ProviderAttemptJournal:
                     self.identity.logical_call_key,
                     durable_ordinal,
                 ),
+            )
+            if cursor.rowcount == 1:
+                return
+            row = self._attempt(durable_ordinal)
+            if row is None:
+                raise ProviderJournalError(
+                    f"provider attempt {durable_ordinal} does not exist"
+                )
+            if row["status"] == "settled":
+                return
+            raise ProviderJournalError(
+                f"provider attempt {durable_ordinal} cannot be settled from "
+                f"status {row['status']}"
             )
 
     def commit_reconstruction(self, record: Mapping[str, object]) -> None:
@@ -280,7 +300,12 @@ class ProviderAttemptJournal:
                 (self.provider, self.identity.account),
             ).fetchone()
             assert row is not None
-            if float(row["cycle_cap_usd"]) != self.cycle_cap_usd:
+            if not math.isclose(
+                float(row["cycle_cap_usd"]),
+                self.cycle_cap_usd,
+                rel_tol=1e-9,
+                abs_tol=1e-12,
+            ):
                 raise ProviderJournalReplayMismatchError(
                     "provider/account cycle cap differs from the frozen ledger"
                 )
@@ -432,6 +457,24 @@ class ProviderAttemptJournal:
                 """,
                 (
                     "ambiguous" if ambiguous else "failed",
+                    type(error).__name__,
+                    str(error),
+                    _now(),
+                    self.identity.logical_call_key,
+                    attempt_ordinal,
+                ),
+            )
+
+    def _record_ambiguous_failure(self, attempt_ordinal: int, error: Exception) -> None:
+        with self._connection:
+            self._connection.execute(
+                """
+                UPDATE provider_attempts
+                SET status = 'ambiguous', failure_type = ?, failure_message = ?,
+                    completed_at = ?
+                WHERE logical_call_key = ? AND attempt_ordinal = ?
+                """,
+                (
                     type(error).__name__,
                     str(error),
                     _now(),

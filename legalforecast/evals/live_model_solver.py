@@ -223,7 +223,7 @@ def complete_live_prompt(
     api_key = _api_key(provider.api_key_env, environ)
     provider_request = provider.build_request(registry_entry, prompt, api_key)
     started = time.perf_counter()
-    payload, request_count = _call_with_provider_retries(
+    payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
         lambda: (transport or _urlopen_json)(provider_request, timeout_seconds),
         max_attempts=max_attempts,
         retry_backoff_seconds=retry_backoff_seconds,
@@ -245,7 +245,7 @@ def complete_live_prompt(
     )
     if attempt_handler is not None:
         attempt_handler.settle_attempt(
-            request_count,
+            durable_attempt_ordinal,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             actual_cost_usd=estimated_cost,
@@ -297,7 +297,7 @@ def _complete_bedrock_anthropic_prompt(
     )
     request_payload = _bedrock_anthropic_payload(registry_entry, prompt)
     started = time.perf_counter()
-    payload, request_count = _call_with_provider_retries(
+    payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
         lambda: _invoke_bedrock_runtime_json(
             bedrock_model_id,
             request_payload,
@@ -324,7 +324,7 @@ def _complete_bedrock_anthropic_prompt(
     )
     if attempt_handler is not None:
         attempt_handler.settle_attempt(
-            request_count,
+            durable_attempt_ordinal,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             actual_cost_usd=estimated_cost,
@@ -724,21 +724,29 @@ def _call_with_provider_retries(
     max_attempts: int,
     retry_backoff_seconds: float,
     attempt_handler: ProviderAttemptHandler | None = None,
-) -> tuple[JsonRecord, int]:
+) -> tuple[JsonRecord, int, int]:
     """Retry provider transport failures that are plausibly temporary."""
+
+    request_count = 0
+
+    def counted_call() -> JsonRecord:
+        nonlocal request_count
+        request_count += 1
+        return call()
 
     for attempt in range(1, max_attempts + 1):
         try:
             payload = (
-                attempt_handler.run_attempt(attempt, call)
+                attempt_handler.run_attempt(attempt, counted_call)
                 if attempt_handler is not None
-                else call()
+                else counted_call()
             )
-            return payload, (
+            durable_attempt_ordinal = (
                 attempt_handler.durable_attempt_ordinal(attempt)
                 if attempt_handler is not None
                 else attempt
             )
+            return payload, request_count, durable_attempt_ordinal
         except LiveModelProviderError as exc:
             if attempt >= max_attempts or not _is_retryable_provider_error(exc):
                 raise

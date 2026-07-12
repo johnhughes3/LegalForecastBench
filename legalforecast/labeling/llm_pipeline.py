@@ -526,63 +526,58 @@ def _llm_label_one_model(
             timeout_seconds=timeout_seconds,
             attempt_handler=journal,
         )
-    except Exception:
+        try:
+            payload = _json_object_from_response(
+                response.raw_output,
+                top_level_sequence_field="unit_findings",
+            )
+            findings = tuple(
+                _stage_b_finding(record, decision_text=decision_text)
+                for record in _record_sequence(
+                    payload.get("unit_findings"),
+                    "unit_findings",
+                )
+            )
+            missing_flags = tuple(
+                _stage_b_missing_flag(record, decision_text=decision_text)
+                for record in _optional_record_sequence(
+                    payload.get("missing_unit_flags")
+                )
+            )
+            result = label_stage_b_outcomes(
+                StageBLabelingInput(
+                    candidate_id=_required_str(selection, "candidate_id"),
+                    case_id=_required_str(selection, "case_id"),
+                    frozen_units=frozen_units,
+                    decision_text=decision_text,
+                    unit_findings=findings,
+                    missing_unit_flags=missing_flags,
+                )
+            )
+            if result.requires_frozen_unit_workflow:
+                raise _frozen_unit_workflow_required_error(
+                    selection=selection,
+                    decision_text=decision_text,
+                    frozen_units=frozen_units,
+                    response=response,
+                    labeling_result=result,
+                )
+        except FrozenUnitWorkflowRequiredError:
+            raise
+        except Exception as exc:
+            raise LlmResponseValidationError(str(exc), response=response) from exc
+        if journal is not None and journal.has_validated_response:
+            journal.commit_reconstruction(
+                {
+                    "labels": [label.to_record() for label in result.labels],
+                    "finding_count": len(findings),
+                    "missing_unit_flag_count": len(missing_flags),
+                }
+            )
+        return result.labels, response, len(findings), len(missing_flags)
+    finally:
         if journal is not None:
             journal.close()
-        raise
-    try:
-        payload = _json_object_from_response(
-            response.raw_output,
-            top_level_sequence_field="unit_findings",
-        )
-        findings = tuple(
-            _stage_b_finding(record, decision_text=decision_text)
-            for record in _record_sequence(
-                payload.get("unit_findings"),
-                "unit_findings",
-            )
-        )
-        missing_flags = tuple(
-            _stage_b_missing_flag(record, decision_text=decision_text)
-            for record in _optional_record_sequence(payload.get("missing_unit_flags"))
-        )
-        result = label_stage_b_outcomes(
-            StageBLabelingInput(
-                candidate_id=_required_str(selection, "candidate_id"),
-                case_id=_required_str(selection, "case_id"),
-                frozen_units=frozen_units,
-                decision_text=decision_text,
-                unit_findings=findings,
-                missing_unit_flags=missing_flags,
-            )
-        )
-        if result.requires_frozen_unit_workflow:
-            raise _frozen_unit_workflow_required_error(
-                selection=selection,
-                decision_text=decision_text,
-                frozen_units=frozen_units,
-                response=response,
-                labeling_result=result,
-            )
-    except FrozenUnitWorkflowRequiredError:
-        if journal is not None:
-            journal.close()
-        raise
-    except Exception as exc:
-        if journal is not None:
-            journal.close()
-        raise LlmResponseValidationError(str(exc), response=response) from exc
-    if journal is not None and journal.has_validated_response:
-        journal.commit_reconstruction(
-            {
-                "labels": [label.to_record() for label in result.labels],
-                "finding_count": len(findings),
-                "missing_unit_flag_count": len(missing_flags),
-            }
-        )
-    if journal is not None:
-        journal.close()
-    return result.labels, response, len(findings), len(missing_flags)
 
 
 def _unitization_prompt(
