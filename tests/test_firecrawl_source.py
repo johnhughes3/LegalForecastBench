@@ -122,8 +122,37 @@ def test_auto_proxy_rejects_more_than_five_credits() -> None:
         source.fetch(docket_id="70649963", source_url=_URL)
 
 
+def test_enhanced_proxy_is_bounded_to_five_credits_and_requires_stealth() -> None:
+    transport = FirecrawlFixtureTransport(
+        [_success_response(proxy_used="stealth", credits_used=5)]
+    )
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key", proxy="enhanced"), transport=transport
+    )
+
+    result = source.scrape(docket_id="70649963", source_url=_URL)
+
+    assert transport.requests[0]["payload"]["proxy"] == "enhanced"  # type: ignore[index]
+    assert result.proxy_requested == "enhanced"
+    assert result.proxy_used == "stealth"
+    assert result.credits_used == 5.0
+    assert source.config.max_credits_per_scrape == 5
+
+
+def test_enhanced_proxy_rejects_basic_actual_proxy() -> None:
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key", proxy="enhanced"),
+        transport=FirecrawlFixtureTransport([_success_response(proxy_used="basic")]),
+    )
+
+    with pytest.raises(FirecrawlResponseError, match="disallowed proxy mode"):
+        source.fetch(docket_id="70649963", source_url=_URL)
+
+
 def test_config_rejects_unbounded_proxy_modes() -> None:
-    with pytest.raises(ValueError, match="proxy must be 'basic' or 'auto'"):
+    with pytest.raises(
+        ValueError, match="proxy must be 'basic', 'auto', or 'enhanced'"
+    ):
         FirecrawlConfig(api_key="test-key", proxy="stealth")  # type: ignore[arg-type]
 
 

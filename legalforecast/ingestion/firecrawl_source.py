@@ -1,9 +1,9 @@
 """Strict Firecrawl source for allowlisted public CourtListener HTML.
 
 Each call performs one cache-disabled scrape. ``basic`` requests are capped at
-one credit; explicitly configured ``auto`` requests may fall back to Firecrawl's
-stealth proxy but are capped at five credits. URL validation is deliberately
-narrow so this source cannot become a general-purpose authenticated proxy.
+one credit; explicitly configured ``auto`` or ``enhanced`` requests may use
+Firecrawl's stealth proxy but are capped at five credits. URL validation is
+deliberately narrow so this source cannot become a general-purpose proxy.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ _RECAP_SEARCH_REQUIRED_KEYS = frozenset(
 )
 _RECAP_SEARCH_OPTIONAL_KEYS = frozenset({"page"})
 _US_DATE = re.compile(r"^(?P<month>[0-9]{2})/(?P<day>[0-9]{2})/(?P<year>[0-9]{4})$")
-FirecrawlProxy = Literal["basic", "auto"]
+FirecrawlProxy = Literal["basic", "auto", "enhanced"]
 
 
 class FirecrawlError(RuntimeError):
@@ -86,8 +86,8 @@ class FirecrawlConfig:
             )
         if self.request_timeout_seconds <= 0:
             raise ValueError("request_timeout_seconds must be positive")
-        if self.proxy not in {"basic", "auto"}:
-            raise ValueError("proxy must be 'basic' or 'auto'")
+        if self.proxy not in {"basic", "auto", "enhanced"}:
+            raise ValueError("proxy must be 'basic', 'auto', or 'enhanced'")
 
     @property
     def max_credits_per_scrape(self) -> int:
@@ -466,11 +466,12 @@ def _validated_result(
     if proxy_used is None:
         raise FirecrawlResponseError("Firecrawl response did not report proxyUsed")
     normalized_proxy_used = proxy_used.lower()
-    allowed_proxies = (
-        frozenset({"basic"})
-        if proxy_requested == "basic"
-        else frozenset({"basic", "stealth"})
-    )
+    if proxy_requested == "basic":
+        allowed_proxies = frozenset({"basic"})
+    elif proxy_requested == "enhanced":
+        allowed_proxies = frozenset({"stealth"})
+    else:
+        allowed_proxies = frozenset({"basic", "stealth"})
     if normalized_proxy_used not in allowed_proxies:
         raise FirecrawlResponseError(
             f"Firecrawl used disallowed proxy mode {proxy_used!r}"
