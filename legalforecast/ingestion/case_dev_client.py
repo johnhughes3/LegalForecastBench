@@ -10,6 +10,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
+from http.client import HTTPMessage
 from pathlib import Path
 from typing import Any, Protocol, TypeVar, cast
 
@@ -49,6 +50,14 @@ class CaseDevFeatureUnavailableError(CaseDevClientError):
 
 class CaseDevResponseError(CaseDevClientError):
     """Raised when case.dev returns malformed or incomplete data."""
+
+
+class CaseDevRedirectError(CaseDevClientError):
+    """Raised when an authenticated case.dev redirect violates policy."""
+
+
+class CaseDevPurchaseOutcomeUnknownError(CaseDevClientError):
+    """Raised when a paid POST redirects and its outcome cannot be proven."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,15 +184,47 @@ class CaseDevPage[T]:
         )
 
 
+class _CaseDevOpener(Protocol):
+    def open(
+        self,
+        request: urllib.request.Request,
+        *,
+        timeout: float,
+    ) -> Any: ...
+
+
+class _NoAutomaticRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: HTTPMessage,
+        newurl: str,
+    ) -> None:
+        del req, fp, code, msg, headers, newurl
+        return None
+
+
 class UrlLibCaseDevTransport:
     """Network transport used only for explicitly enabled live runs."""
 
-    def __init__(self, base_url: str) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        _opener: _CaseDevOpener | None = None,
+    ) -> None:
         self._base_url = validate_https_base_url(
             base_url,
             field_name=CASE_DEV_BASE_URL_ENV,
             allowed_hosts=CASE_DEV_ALLOWED_BASE_HOSTS,
             error_type=CaseDevClientError,
+        )
+        self._base_origin = _https_origin(self._base_url)
+        self._opener = _opener or urllib.request.build_opener(
+            _NoAutomaticRedirectHandler()
         )
 
     def request(
@@ -205,37 +246,106 @@ class UrlLibCaseDevTransport:
         if normalized_method == "POST":
             request_headers.setdefault("Content-Type", "application/json")
             data = json.dumps(dict(params)).encode("utf-8")
-        request = urllib.request.Request(
-            url,
-            data=data,
-            method=normalized_method,
-            headers=request_headers,
-        )
-        try:
-            # Base URL is validated as HTTPS and host-allowlisted in __init__.
-            with urllib.request.urlopen(  # nosec B310
-                request,
-                timeout=timeout_seconds,
-            ) as response:
-                payload = _json_payload(response.read())
-                return CaseDevHTTPResponse(
-                    status_code=response.status,
-                    payload=payload,
-                    headers=dict(response.headers.items()),
-                )
-        except TimeoutError as exc:
-            return _synthetic_timeout_response(exc)
-        except urllib.error.HTTPError as exc:
-            payload = _json_payload(exc.read())
-            return CaseDevHTTPResponse(
-                status_code=exc.code,
-                payload=payload,
-                headers=dict(exc.headers.items()) if exc.headers else {},
+        for redirect_count in range(6):
+            request = urllib.request.Request(
+                url,
+                data=data,
+                method=normalized_method,
+                headers=request_headers,
             )
-        except urllib.error.URLError as exc:
-            if isinstance(exc.reason, TimeoutError):
-                return _synthetic_timeout_response(exc.reason)
-            raise CaseDevClientError(f"case.dev request failed: {exc.reason}") from exc
+            try:
+                # Redirects are disabled in the opener and handled below only
+                # after validating the target against the authenticated origin.
+                with self._opener.open(request, timeout=timeout_seconds) as response:
+                    payload = _json_payload(response.read())
+                    return CaseDevHTTPResponse(
+                        status_code=response.status,
+                        payload=payload,
+                        headers=dict(response.headers.items()),
+                    )
+            except TimeoutError as exc:
+                return _synthetic_timeout_response(exc)
+            except urllib.error.HTTPError as exc:
+                if 300 <= exc.code < 400:
+                    headers = dict(exc.headers.items()) if exc.headers else {}
+                    if request.get_method() != "GET":
+                        message = (
+                            "case.dev paid purchase redirected; outcome is unknown"
+                            if _is_pacer_purchase_path(path)
+                            else "case.dev authenticated POST redirect refused"
+                        )
+                        return CaseDevHTTPResponse(
+                            status_code=exc.code,
+                            payload={"error": message},
+                            headers=headers,
+                        )
+                    try:
+                        url = self._validated_redirect_url(
+                            request=request,
+                            response=exc,
+                            redirect_count=redirect_count,
+                        )
+                    except CaseDevRedirectError as redirect_error:
+                        return CaseDevHTTPResponse(
+                            status_code=exc.code,
+                            payload={"error": str(redirect_error)},
+                            headers=headers,
+                        )
+                    continue
+                payload = _json_payload(exc.read())
+                return CaseDevHTTPResponse(
+                    status_code=exc.code,
+                    payload=payload,
+                    headers=dict(exc.headers.items()) if exc.headers else {},
+                )
+            except urllib.error.URLError as exc:
+                if isinstance(exc.reason, TimeoutError):
+                    return _synthetic_timeout_response(exc.reason)
+                raise CaseDevClientError(
+                    f"case.dev request failed: {exc.reason}"
+                ) from exc
+        raise CaseDevRedirectError("case.dev request exceeded five redirects")
+
+    def _validated_redirect_url(
+        self,
+        *,
+        request: urllib.request.Request,
+        response: urllib.error.HTTPError,
+        redirect_count: int,
+    ) -> str:
+        if redirect_count >= 5:
+            raise CaseDevRedirectError("case.dev request exceeded five redirects")
+        location = response.headers.get("Location") if response.headers else None
+        if not location:
+            raise CaseDevRedirectError("case.dev redirect is missing Location")
+        target = urllib.parse.urljoin(request.full_url, location)
+        if _https_origin(target) != self._base_origin:
+            raise CaseDevRedirectError(
+                "case.dev redirect target must remain on the authenticated HTTPS origin"
+            )
+        return target
+
+
+def _https_origin(url: str) -> tuple[str, str, int]:
+    parsed = urllib.parse.urlparse(url)
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname is None
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise CaseDevRedirectError(
+            "case.dev redirect target must use credential-free HTTPS"
+        )
+    try:
+        port = parsed.port or 443
+    except ValueError as exc:
+        raise CaseDevRedirectError("case.dev redirect target has invalid port") from exc
+    return parsed.scheme, parsed.hostname.lower(), port
+
+
+def _is_pacer_purchase_path(path: str) -> bool:
+    return bool(re.fullmatch(r"/legal/v1/documents/[^/]+/pacer", path))
 
 
 @dataclass(frozen=True, slots=True)
@@ -514,6 +624,10 @@ def _error_for_response(response: CaseDevHTTPResponse, path: str) -> CaseDevClie
     message = _optional_string(response.payload, "error", "message") or (
         f"case.dev request to {path} failed with status {response.status_code}"
     )
+    if 300 <= response.status_code < 400:
+        if _is_pacer_purchase_path(path):
+            return CaseDevPurchaseOutcomeUnknownError(message)
+        return CaseDevRedirectError(message)
     if response.status_code in {401, 403}:
         return CaseDevAuthError(message)
     if response.status_code == 429:

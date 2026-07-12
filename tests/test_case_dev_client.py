@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
+from http.client import HTTPMessage
 from io import BytesIO
 from types import TracebackType
 from typing import Self
@@ -78,6 +79,80 @@ class _FakeURLResponse:
     ) -> bool:
         del exc_type, exc, traceback
         return False
+
+
+class _CallbackOpener:
+    def __init__(self, callback: object) -> None:
+        self._callback = callback
+
+    def open(
+        self,
+        request: urllib.request.Request,
+        *,
+        timeout: float,
+    ) -> _FakeURLResponse:
+        callback = self._callback
+        assert callable(callback)
+        return callback(request, timeout=timeout)
+
+
+class _SequenceOpener:
+    def __init__(self, *responses: _FakeURLResponse | BaseException) -> None:
+        self._responses = list(responses)
+        self.requests: list[urllib.request.Request] = []
+
+    def open(
+        self,
+        request: urllib.request.Request,
+        *,
+        timeout: float,
+    ) -> _FakeURLResponse:
+        del timeout
+        self.requests.append(request)
+        response = self._responses.pop(0)
+        if isinstance(response, BaseException):
+            raise response
+        return response
+
+
+def _redirect(
+    *,
+    source_url: str,
+    target_url: str,
+    status: int = 302,
+) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        source_url,
+        status,
+        "Redirect",
+        {"Location": target_url},
+        BytesIO(b""),
+    )
+
+
+def test_default_transport_installs_handler_that_disables_automatic_redirects() -> None:
+    transport = UrlLibCaseDevTransport("https://api.case.dev")
+    handlers = transport._opener.handlers
+    handler = next(
+        item
+        for item in handlers
+        if isinstance(item, case_dev_client_module._NoAutomaticRedirectHandler)
+    )
+    request = urllib.request.Request(
+        "https://api.case.dev/v1/documents/doc-1",
+        headers={"Authorization": "Bearer case-dev-token"},
+    )
+
+    redirected = handler.redirect_request(
+        request,
+        BytesIO(b""),
+        302,
+        "Redirect",
+        HTTPMessage(),
+        "https://attacker.example/steal",
+    )
+
+    assert redirected is None
 
 
 def test_search_docket_entries_parses_successful_response() -> None:
@@ -222,9 +297,7 @@ def test_rate_limit_retries_before_success() -> None:
     assert client.request_count == 2
 
 
-def test_url_timeout_retries_before_success(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_url_timeout_retries_before_success() -> None:
     calls = 0
 
     def fake_urlopen(
@@ -239,9 +312,12 @@ def test_url_timeout_retries_before_success(
             raise TimeoutError("read operation timed out")
         return _FakeURLResponse(b'{"dockets": []}', status=200)
 
-    monkeypatch.setattr(case_dev_client_module.urllib.request, "urlopen", fake_urlopen)
     client = CaseDevClient(
         config=_config(),
+        transport=UrlLibCaseDevTransport(
+            "https://api.case.dev",
+            _opener=_CallbackOpener(fake_urlopen),
+        ),
         max_retries=1,
     )
 
@@ -396,7 +472,10 @@ def test_url_lib_transport_builds_url_headers_and_timeout(
 
     monkeypatch.setattr(case_dev_client_module.urllib.request, "urlopen", fake_urlopen)
 
-    response = UrlLibCaseDevTransport("https://api.case.dev/").request(
+    response = UrlLibCaseDevTransport(
+        "https://api.case.dev/",
+        _opener=_CallbackOpener(fake_urlopen),
+    ).request(
         method="GET",
         path="/v1/dockets/search",
         params={"q": "motion to dismiss", "limit": "2"},
@@ -438,7 +517,10 @@ def test_url_lib_transport_posts_json_body(
 
     monkeypatch.setattr(case_dev_client_module.urllib.request, "urlopen", fake_urlopen)
 
-    response = UrlLibCaseDevTransport("https://api.case.dev/").request(
+    response = UrlLibCaseDevTransport(
+        "https://api.case.dev/",
+        _opener=_CallbackOpener(fake_urlopen),
+    ).request(
         method="POST",
         path="/legal/v1/docket",
         params={"type": "search", "query": "motion to dismiss", "limit": 2},
@@ -480,7 +562,10 @@ def test_url_lib_transport_returns_http_error_payload(
 
     monkeypatch.setattr(case_dev_client_module.urllib.request, "urlopen", fake_urlopen)
 
-    response = UrlLibCaseDevTransport("https://api.case.dev").request(
+    response = UrlLibCaseDevTransport(
+        "https://api.case.dev",
+        _opener=_CallbackOpener(fake_urlopen),
+    ).request(
         method="GET",
         path="/v1/cases/case-1",
         params={},
@@ -510,13 +595,141 @@ def test_url_lib_transport_classifies_url_error(
         case_dev_client_module.CaseDevClientError,
         match=r"case\.dev request failed: connection refused",
     ):
-        UrlLibCaseDevTransport("https://api.case.dev").request(
+        UrlLibCaseDevTransport(
+            "https://api.case.dev",
+            _opener=_CallbackOpener(fake_urlopen),
+        ).request(
             method="GET",
             path="/v1/cases/case-1",
             params={},
             headers={"Accept": "application/json"},
             timeout_seconds=10.0,
         )
+
+
+@pytest.mark.parametrize(
+    "target_url",
+    (
+        "https://attacker.example/steal",
+        "http://api.case.dev/v1/documents/doc-1",
+    ),
+)
+def test_authenticated_get_rejects_untrusted_redirect_before_second_request(
+    target_url: str,
+) -> None:
+    source_url = "https://api.case.dev/v1/documents/doc-1"
+    opener = _SequenceOpener(
+        _redirect(source_url=source_url, target_url=target_url),
+    )
+    client = CaseDevClient(
+        config=CaseDevConfig(
+            api_key="case-dev-token",
+            base_url="https://api.case.dev",
+        ),
+        transport=UrlLibCaseDevTransport(
+            "https://api.case.dev",
+            _opener=opener,
+        ),
+        max_retries=0,
+    )
+
+    with pytest.raises(case_dev_client_module.CaseDevRedirectError):
+        client.get_document("doc-1")
+
+    assert client.request_count == 1
+    assert len(opener.requests) == 1
+    assert opener.requests[0].get_header("Authorization") == ("Bearer case-dev-token")
+
+
+def test_authenticated_get_follows_same_origin_redirect_with_auth() -> None:
+    source_url = "https://api.case.dev/v1/documents/doc-1"
+    opener = _SequenceOpener(
+        _redirect(source_url=source_url, target_url="/v1/documents/doc-1-final"),
+        _FakeURLResponse(b'{"ok": true}', status=200),
+    )
+    response = UrlLibCaseDevTransport(
+        "https://api.case.dev",
+        _opener=opener,
+    ).request(
+        method="GET",
+        path="/v1/documents/doc-1",
+        params={},
+        headers={
+            "Accept": "application/json",
+            "Authorization": "Bearer case-dev-token",
+        },
+        timeout_seconds=10.0,
+    )
+
+    assert response.payload == {"ok": True}
+    assert [request.full_url for request in opener.requests] == [
+        source_url,
+        "https://api.case.dev/v1/documents/doc-1-final",
+    ]
+    assert opener.requests[1].get_header("Authorization") == ("Bearer case-dev-token")
+
+
+def test_authenticated_get_revalidates_every_redirect_hop() -> None:
+    source_url = "https://api.case.dev/v1/documents/doc-1"
+    same_origin_url = "https://api.case.dev/v1/documents/intermediate"
+    opener = _SequenceOpener(
+        _redirect(source_url=source_url, target_url=same_origin_url),
+        _redirect(
+            source_url=same_origin_url,
+            target_url="https://attacker.example/second-hop",
+        ),
+    )
+    client = CaseDevClient(
+        config=CaseDevConfig(
+            api_key="case-dev-token",
+            base_url="https://api.case.dev",
+        ),
+        transport=UrlLibCaseDevTransport(
+            "https://api.case.dev",
+            _opener=opener,
+        ),
+        max_retries=0,
+    )
+
+    with pytest.raises(case_dev_client_module.CaseDevRedirectError):
+        client.get_document("doc-1")
+
+    assert client.request_count == 1
+    assert len(opener.requests) == 2
+    assert all(
+        request.full_url.startswith("https://api.case.dev/")
+        for request in opener.requests
+    )
+
+
+@pytest.mark.parametrize("status", tuple(range(300, 400)))
+def test_paid_post_never_follows_any_redirect_status(status: int) -> None:
+    source_url = "https://api.case.dev/legal/v1/documents/doc-1/pacer"
+    opener = _SequenceOpener(
+        _redirect(
+            source_url=source_url,
+            target_url="https://api.case.dev/redirected-purchase",
+            status=status,
+        )
+    )
+    client = CaseDevClient(
+        config=CaseDevConfig(
+            api_key="case-dev-token",
+            base_url="https://api.case.dev",
+        ),
+        transport=UrlLibCaseDevTransport(
+            "https://api.case.dev",
+            _opener=opener,
+        ),
+        max_retries=0,
+    )
+
+    with pytest.raises(case_dev_client_module.CaseDevPurchaseOutcomeUnknownError):
+        client.purchase_pacer_document("doc-1", acknowledge_pacer_fees=True)
+
+    assert client.request_count == 1
+    assert len(opener.requests) == 1
+    assert opener.requests[0].get_method() == "POST"
 
 
 @pytest.mark.case_dev_live

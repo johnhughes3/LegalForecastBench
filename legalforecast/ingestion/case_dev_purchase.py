@@ -8,7 +8,11 @@ from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from typing import Any, cast
 
-from legalforecast.ingestion.case_dev_client import CaseDevClient, CaseDevClientError
+from legalforecast.ingestion.case_dev_client import (
+    CaseDevClient,
+    CaseDevClientError,
+    CaseDevPurchaseOutcomeUnknownError,
+)
 from legalforecast.ingestion.missing_core_budget import (
     CaseDocumentCapExceededError,
     MissingCoreBudgetPlan,
@@ -31,6 +35,7 @@ class CaseDevPacerPurchaseStatus(StrEnum):
     GUARDRAIL_BLOCKED = "guardrail_blocked"
     CAPABILITY_BLOCKED = "capability_blocked"
     PURCHASED = "purchased"
+    UNKNOWN = "unknown"
     PROVIDER_ERROR = "provider_error"
     NOT_ATTEMPTED = "not_attempted"
 
@@ -209,6 +214,27 @@ class CaseDevPacerPurchaseClient:
                     document_id,
                     acknowledge_pacer_fees=True,
                 )
+            except CaseDevPurchaseOutcomeUnknownError:
+                attempts.append(
+                    CaseDevPacerPurchaseAttempt(
+                        candidate_id=candidate_id,
+                        source_document_id=document_id,
+                        status=CaseDevPacerPurchaseStatus.UNKNOWN,
+                        reason="purchase_redirect_outcome_unknown",
+                    )
+                )
+                attempts.extend(
+                    CaseDevPacerPurchaseAttempt(
+                        candidate_id=remaining_candidate_id,
+                        source_document_id=remaining_document_id,
+                        status=CaseDevPacerPurchaseStatus.NOT_ATTEMPTED,
+                        reason="unknown_outcome_before_attempt",
+                    )
+                    for remaining_candidate_id, remaining_document_id in intended[
+                        index + 1 :
+                    ]
+                )
+                break
             except CaseDevClientError as exc:
                 attempts.append(
                     CaseDevPacerPurchaseAttempt(
