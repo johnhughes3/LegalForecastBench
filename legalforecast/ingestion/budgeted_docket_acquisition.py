@@ -7,6 +7,7 @@ import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date
+from html import escape
 from typing import Any, cast
 
 from legalforecast.ingestion.budgeted_firecrawl import (
@@ -260,6 +261,35 @@ def acquire_ranked_dockets(
             target.docket_id for target in ranked if target.docket_id in failed
         ),
         credit_summary=summary,
+    )
+
+
+def render_complete_docket_html(bundle: CourtListenerDocketBundle) -> str:
+    """Render a deterministic single-page screening view of a proven bundle."""
+
+    if not bundle.complete_for_anchor_window:
+        raise BudgetedDocketAcquisitionError("cannot render incomplete docket")
+    rows: list[str] = []
+    for entry in bundle.entries:
+        documents = "".join(
+            (
+                f'<a class="document-link" href="{escape(document.href or "")}">'
+                f"{escape(document.description)}</a>"
+            )
+            for document in entry.documents
+        )
+        rows.append(
+            f'<div id="{escape(entry.row_id)}" class="docket-row">'
+            f'<span class="date-filed">{escape(entry.filed_at or "")}</span>'
+            f'<span class="document-number">{escape(entry.entry_number or "")}</span>'
+            f'<p class="description">{escape(entry.text)}</p>{documents}</div>'
+        )
+    return (
+        "<html><head><title>"
+        + escape(bundle.title or f"CourtListener docket {bundle.docket_id}")
+        + '</title></head><body><div id="docket-entry-table">'
+        + "".join(rows)
+        + "</div></body></html>"
     )
 
 

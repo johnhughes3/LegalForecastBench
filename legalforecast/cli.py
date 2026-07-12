@@ -67,6 +67,11 @@ from legalforecast.evals.scorers import (
     score_cases,
 )
 from legalforecast.extraction.pdf_text import extract_pdf_text_with_ocr_fallback
+from legalforecast.ingestion.budgeted_docket_acquisition import (
+    acquire_ranked_dockets,
+    materialize_selected_slice_batch,
+    render_complete_docket_html,
+)
 from legalforecast.ingestion.budgeted_firecrawl import (
     BudgetedFirecrawlScheduler,
     FirecrawlArtifactError,
@@ -173,6 +178,10 @@ from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentSource,
     UrlLibFreeDocumentSource,
     download_free_docket_documents,
+)
+from legalforecast.ingestion.funnel_report import (
+    FunnelReportError,
+    build_acquisition_funnel_report,
 )
 from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
@@ -607,6 +616,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_enrich_recap_case_dev_arguments(acquisition_enrich_recap_case_dev)
+    acquisition_acquire_ranked_dockets = acquisition_subparsers.add_parser(
+        "acquire-ranked-firecrawl-dockets",
+        help=(
+            "Acquire free-ranked RECAP dockets through the canonical Firecrawl "
+            "ledger and complete newest-first pagination."
+        ),
+    )
+    _add_acquisition_acquire_ranked_dockets_arguments(
+        acquisition_acquire_ranked_dockets
+    )
     acquisition_discover_courtlistener = acquisition_subparsers.add_parser(
         "discover-courtlistener",
         help=(
@@ -617,6 +636,11 @@ def build_parser() -> argparse.ArgumentParser:
     _add_acquisition_discover_courtlistener_arguments(
         acquisition_discover_courtlistener
     )
+    acquisition_funnel_report = acquisition_subparsers.add_parser(
+        "funnel-report",
+        help="Reconcile discovery exclusions into a versioned acquisition funnel.",
+    )
+    _add_acquisition_funnel_report_arguments(acquisition_funnel_report)
     acquisition_fetch_firecrawl = acquisition_subparsers.add_parser(
         "fetch-firecrawl-dockets",
         help=(
@@ -1240,6 +1264,14 @@ def _add_acquisition_discover_courtlistener_arguments(
     parser.set_defaults(handler=_cmd_acquisition_discover_courtlistener)
 
 
+def _add_acquisition_funnel_report_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--discovery-summary", type=Path, required=True)
+    parser.add_argument("--exclusions", type=Path, required=True)
+    parser.add_argument("--public-download-summary", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.set_defaults(handler=_cmd_acquisition_funnel_report)
+
+
 def _add_acquisition_enrich_recap_case_dev_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
@@ -1275,6 +1307,30 @@ def _add_acquisition_enrich_recap_case_dev_arguments(
     parser.add_argument("--failures-output", type=Path)
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_enrich_recap_case_dev)
+
+
+def _add_acquisition_acquire_ranked_dockets_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--cycle-store", type=Path, required=True)
+    parser.add_argument("--parent-batch-id", required=True)
+    parser.add_argument("--selected-batch-id", required=True)
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--ranked", type=Path, required=True)
+    parser.add_argument("--max-candidates", type=int, required=True)
+    parser.add_argument("--max-pages-per-docket", type=int, default=1000)
+    parser.add_argument("--decision-filed-on-or-after", required=True)
+    parser.add_argument("--credit-cap", type=int, default=45_000)
+    parser.add_argument("--max-attempts-per-page", type=int, default=3)
+    parser.add_argument("--provider-breaker-threshold", type=int, default=5)
+    parser.add_argument("--firecrawl-fixture", type=Path)
+    parser.add_argument("--live-firecrawl", action="store_true")
+    parser.add_argument("--raw-html-dir", type=Path)
+    parser.add_argument("--successes-output", type=Path)
+    parser.add_argument("--exclusions-output", type=Path)
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_acquire_ranked_dockets)
 
 
 def _add_acquisition_plan_public_downloads_arguments(
@@ -3667,6 +3723,150 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         paid_activity_executed=False,
         extra=summary,
     )
+    return 0
+
+
+def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    store_path = cast(Path, args.cycle_store)
+    ranked_path = cast(Path, args.ranked)
+    fixture_path = cast(Path | None, args.firecrawl_fixture)
+    live = cast(bool, args.live_firecrawl)
+    if live == (fixture_path is not None):
+        raise CommandError(
+            "choose exactly one of --firecrawl-fixture or --live-firecrawl"
+        )
+    credit_cap = cast(int, args.credit_cap)
+    if credit_cap <= 0 or credit_cap > 45_000:
+        raise CommandError("--credit-cap must be between 1 and 45000")
+    anchor = _iso_date_argument(
+        cast(str, args.decision_filed_on_or_after),
+        "--decision-filed-on-or-after",
+    )
+    raw_dir = _acquisition_path(
+        args, "raw_html_dir", output_root / "raw-docket-html"
+    )
+    successes_path = _acquisition_path(
+        args, "successes_output", output_root / "firecrawl-docket-successes.jsonl"
+    )
+    exclusions_path = _acquisition_path(
+        args, "exclusions_output", output_root / "firecrawl-docket-exclusions.jsonl"
+    )
+    summary_path = _acquisition_path(
+        args, "summary_output", output_root / "firecrawl-docket-summary.json"
+    )
+    records = _read_records(ranked_path)
+    metadata_by_docket: dict[str, Mapping[str, object]] = {}
+    for record in records:
+        identity = record.get("identity")
+        metadata = record.get("screening_metadata")
+        if not isinstance(identity, Mapping) or not isinstance(metadata, Mapping):
+            raise CommandError(
+                "ranked records require identity and screening_metadata objects"
+            )
+        docket_id = identity.get("courtlistener_docket_id")
+        if not isinstance(docket_id, str):
+            raise CommandError("ranked record has invalid CourtListener docket ID")
+        metadata_by_docket[docket_id] = cast(Mapping[str, object], metadata)
+    source = (
+        FirecrawlCourtListenerHTMLSource(FirecrawlConfig.from_env())
+        if live
+        else FirecrawlCourtListenerHTMLSource(
+            FirecrawlConfig(api_key="offline-fixture"),
+            transport=_firecrawl_fixture_transport(cast(Path, fixture_path)),
+        )
+    )
+    with CycleAcquisitionStore(store_path) as store:
+        materialize_selected_slice_batch(
+            store=store,
+            parent_batch_id=cast(str, args.parent_batch_id),
+            selected_batch_id=cast(str, args.selected_batch_id),
+            records=records,
+            limit=cast(int, args.max_candidates),
+        )
+        run_config: JsonRecord = {
+            "purpose": "ranked-complete-docket-acquisition",
+            "decision_anchor": anchor.isoformat(),
+            "max_pages_per_docket": cast(int, args.max_pages_per_docket),
+            "raw_artifact_root": str(raw_dir.resolve()),
+        }
+        store.ensure_firecrawl_run(
+            cast(str, args.run_id),
+            batch_id=cast(str, args.selected_batch_id),
+            config=run_config,
+            credit_cap=credit_cap,
+            reserved_credits_per_attempt=5,
+        )
+        result = acquire_ranked_dockets(
+            records=records,
+            scheduler=BudgetedFirecrawlScheduler(
+                store=store,
+                source=source,
+                run_id=cast(str, args.run_id),
+                artifact_dir=raw_dir / "pages",
+                max_attempts=cast(int, args.max_attempts_per_page),
+                provider_5xx_circuit_threshold=cast(
+                    int, args.provider_breaker_threshold
+                ),
+            ),
+            limit=cast(int, args.max_candidates),
+            max_pages_per_docket=cast(int, args.max_pages_per_docket),
+            decision_anchor=anchor,
+        )
+    successes: list[JsonRecord] = []
+    retrieved_at = datetime.now(UTC).isoformat()
+    for bundle in result.bundles:
+        raw_html = render_complete_docket_html(bundle)
+        raw_bytes = raw_html.encode()
+        raw_path = raw_dir / f"{bundle.docket_id}.html"
+        _write_text(raw_path, raw_html)
+        metadata = dict(metadata_by_docket[bundle.docket_id])
+        candidate_id = f"courtlistener-docket-{bundle.docket_id}"
+        metadata["case_id"] = candidate_id
+        successes.append(
+            {
+                "case_id": candidate_id,
+                "candidate_id": candidate_id,
+                "source_url": bundle.base_url,
+                "docket_id": bundle.docket_id,
+                "raw_html_path": str(raw_path.resolve()),
+                "case_metadata": metadata,
+                "raw_html_sha256": "sha256:" + hashlib.sha256(raw_bytes).hexdigest(),
+                "raw_html_bytes": len(raw_bytes),
+                "retrieved_at": retrieved_at,
+                "pagination_complete_for_anchor_window": True,
+                "page_count": len(bundle.pages),
+            }
+        )
+    exclusions = [
+        {"candidate_id": f"courtlistener-docket-{docket_id}", "reason": "fetch_failed"}
+        for docket_id in result.failed_docket_ids
+    ]
+    _write_jsonl(successes_path, successes)
+    _write_jsonl(exclusions_path, exclusions)
+    summary = {
+        **dict(result.credit_summary),
+        "selected_batch_id": cast(str, args.selected_batch_id),
+        "success_count": len(successes),
+        "exclusion_count": len(exclusions),
+        "pagination_complete_before_screening": True,
+    }
+    _write_json(summary_path, summary)
+    return 0
+
+
+def _cmd_acquisition_funnel_report(args: argparse.Namespace) -> int:
+    try:
+        report = build_acquisition_funnel_report(
+            discovery_summary=_read_json_object(cast(Path, args.discovery_summary)),
+            exclusions=_read_records(cast(Path, args.exclusions)),
+            public_download_summary=_read_json_object(
+                cast(Path, args.public_download_summary)
+            ),
+        )
+    except (FunnelReportError, OSError, UnicodeError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    _write_json(cast(Path, args.output), report)
     return 0
 
 

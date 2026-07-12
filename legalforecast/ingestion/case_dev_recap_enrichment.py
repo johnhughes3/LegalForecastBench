@@ -162,6 +162,7 @@ class CaseDevRecapEnrichment:
     """Complete free Case.dev inventory used for pre-acquisition cost ranking."""
 
     identity: CaseDevRecapNamespaceMapping
+    screening_metadata: Mapping[str, object]
     pages_fetched: int
     docket_entry_count: int
     documents: tuple[CaseDevRecapDocument, ...]
@@ -202,6 +203,7 @@ class CaseDevRecapEnrichment:
     def to_record(self) -> dict[str, object]:
         return {
             "identity": self.identity.to_record(),
+            "screening_metadata": dict(self.screening_metadata),
             "pages_fetched": self.pages_fetched,
             "docket_entry_count": self.docket_entry_count,
             "documents": [document.to_record() for document in self.documents],
@@ -238,6 +240,7 @@ def enrich_recap_docket_with_case_dev(
     case_dev_id: str | None = None
     case_dev_url: str | None = None
     pages_fetched = 0
+    screening_metadata: Mapping[str, object] | None = None
 
     while True:
         if pages_fetched >= max_pages:
@@ -254,6 +257,14 @@ def enrich_recap_docket_with_case_dev(
             page,
             discovery=discovery,
         )
+        page_docket = _mapping(page.raw.get("docket", page.raw), "case.dev docket")
+        page_screening_metadata = _screening_metadata(page_docket, discovery=discovery)
+        if screening_metadata is None:
+            screening_metadata = page_screening_metadata
+        elif screening_metadata != page_screening_metadata:
+            raise CaseDevRecapEnrichmentError(
+                "case_dev_screening_metadata_changed_during_pagination"
+            )
         if case_dev_id is None:
             case_dev_id = page_case_dev_id
             case_dev_url = page_case_dev_url
@@ -290,11 +301,29 @@ def enrich_recap_docket_with_case_dev(
             case_dev_id=case_dev_id,
             case_dev_url=case_dev_url,
         ),
+        screening_metadata=screening_metadata,
         pages_fetched=pages_fetched,
         docket_entry_count=len(entries),
         documents=documents,
         required_documents=required_documents,
     )
+
+
+def _screening_metadata(
+    docket: Mapping[str, Any], *, discovery: RecapDiscoveredDocket
+) -> Mapping[str, object]:
+    result: dict[str, object] = {
+        "case_id": discovery.docket_id,
+        "case_name": _optional_string(docket, "caseName", "case_name", "caption")
+        or "unknown",
+        "court_id": _optional_string(docket, "courtId", "court_id", "court"),
+        "docket_number": _optional_string(
+            docket, "docketNumber", "docket_number"
+        ),
+        "date_filed": _optional_string(docket, "dateFiled", "date_filed"),
+        "source_url": discovery.docket_url,
+    }
+    return result
 
 
 def rank_case_dev_recap_enrichments(
