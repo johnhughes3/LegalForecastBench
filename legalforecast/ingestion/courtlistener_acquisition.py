@@ -157,10 +157,14 @@ def discover_courtlistener_mtd_candidates(
     duplicate_hit_count = 0
     processed_count = 0
     queries: list[str] = []
+    per_term: dict[str, dict[str, Any]] = {}
 
     for term in query_terms:
         query = _anchored_query(term, decision_filed_on_or_after)
         queries.append(query)
+        term_request_count = 0
+        term_candidate_ids: set[str] = set()
+        terminal_status = "exhausted"
         cursor: str | None = None
         while True:
             page = client.search_recap_documents(
@@ -168,8 +172,10 @@ def discover_courtlistener_mtd_candidates(
                 cursor=cursor,
                 page_size=search_page_size,
             )
+            term_request_count += 1
             search_hit_count += len(page.items)
             for hit in page.items:
+                term_candidate_ids.add(hit.docket_id)
                 if hit.docket_id in seen_docket_ids:
                     duplicate_hit_count += 1
                     continue
@@ -191,7 +197,10 @@ def discover_courtlistener_mtd_candidates(
                 elif exclusion is not None:
                     exclusions.append(exclusion)
                 if len(screened_cases) >= target_clean_cases:
+                    terminal_status = "limit_bound:target_clean_cases"
                     break
+            if processed_count >= max_candidates:
+                terminal_status = "limit_bound:max_candidates"
             if (
                 len(screened_cases) >= target_clean_cases
                 or processed_count >= max_candidates
@@ -199,6 +208,12 @@ def discover_courtlistener_mtd_candidates(
             ):
                 break
             cursor = page.next_cursor
+        per_term[term] = {
+            "request_count": term_request_count,
+            "candidate_count": len(term_candidate_ids),
+            "terminal_status": terminal_status,
+            "limit_bound": terminal_status.startswith("limit_bound"),
+        }
         if (
             len(screened_cases) >= target_clean_cases
             or processed_count >= max_candidates
@@ -221,6 +236,7 @@ def discover_courtlistener_mtd_candidates(
         "excluded_case_count": len(exclusions),
         "target_met": len(screened_cases) >= target_clean_cases,
         "candidate_limit_reached": processed_count >= max_candidates,
+        "per_term": per_term,
     }
     return CourtListenerDiscoveryResult(
         screened_cases=tuple(screened_cases),
