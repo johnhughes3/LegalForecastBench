@@ -720,7 +720,11 @@ def _legal_docket_search_page(
         _hit_from_legal_docket_search_record(_mapping(item, "docket"), query=query)
         for item in dockets
     )
-    return CaseDevPage(items=hits, next_cursor=None, raw=payload)
+    return CaseDevPage(
+        items=hits,
+        next_cursor=_legal_next_cursor(payload),
+        raw=payload,
+    )
 
 
 def _legal_docket_entries_page(
@@ -740,7 +744,56 @@ def _legal_docket_entries_page(
         )
         for item in entries
     )
-    return CaseDevPage(items=hits, next_cursor=None, raw=payload)
+    return CaseDevPage(
+        items=hits,
+        next_cursor=_legal_next_cursor(payload),
+        raw=payload,
+    )
+
+
+def _legal_next_cursor(payload: Mapping[str, Any]) -> str | None:
+    """Return only an explicit Case.dev continuation cursor or offset."""
+
+    continuations: list[tuple[str, str]] = []
+    for field_name in ("next_cursor", "nextCursor", "next_offset", "nextOffset"):
+        if field_name not in payload:
+            continue
+        value = payload[field_name]
+        if value is None:
+            continue
+        if field_name in {"next_offset", "nextOffset"}:
+            normalized = _legal_next_offset(value, field_name=field_name)
+        elif isinstance(value, str) and value.strip():
+            normalized = value.strip()
+        elif isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+            normalized = str(value)
+        else:
+            raise CaseDevResponseError(
+                f"case.dev {field_name} must be a non-negative integer or "
+                "non-empty string"
+            )
+        continuations.append((field_name, normalized))
+    if not continuations:
+        return None
+    distinct_values = {value for _, value in continuations}
+    if len(distinct_values) != 1:
+        fields = ", ".join(field for field, _ in continuations)
+        raise CaseDevResponseError(
+            f"case.dev returned conflicting continuation fields: {fields}"
+        )
+    return continuations[0][1]
+
+
+def _legal_next_offset(value: object, *, field_name: str) -> str:
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return str(value)
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.isdecimal():
+            return str(int(stripped))
+    raise CaseDevResponseError(
+        f"case.dev {field_name} must be a non-negative integer or numeric string"
+    )
 
 
 def _hit_from_legal_docket_search_record(

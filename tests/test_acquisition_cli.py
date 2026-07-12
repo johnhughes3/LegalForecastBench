@@ -95,6 +95,30 @@ def test_fetch_firecrawl_dockets_runs_bounded_offline_bridge(tmp_path: Path) -> 
     assert summary["firecrawl_proxy"] == "basic"
     assert summary["firecrawl_max_credits_per_scrape"] == 1
 
+    assert (
+        main(
+            [
+                "acquisition",
+                "fetch-firecrawl-dockets",
+                "--candidates",
+                str(candidates_path),
+                "--max-candidates",
+                "1",
+                "--case-dev-fixture",
+                str(case_dev_fixture),
+                "--firecrawl-fixture",
+                str(firecrawl_fixture),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    resumed_summary = _read_json(output_root / "firecrawl-docket-summary.json")
+    assert resumed_summary["success_count"] == 1
+    assert resumed_summary["scrape_count"] == 0
+
 
 def test_acquisition_plan_defaults_to_dry_run_with_log_and_run_card(
     tmp_path: Path,

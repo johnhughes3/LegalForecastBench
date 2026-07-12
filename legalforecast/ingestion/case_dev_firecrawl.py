@@ -7,7 +7,8 @@ import re
 import tempfile
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, Protocol, cast
 from urllib.parse import urlparse
@@ -75,12 +76,27 @@ class CaseDevFirecrawlCandidate:
 
     case_id: str
     candidate_id: str | None = None
+    case_metadata: Mapping[str, object] | None = None
+    courtlistener_url: str | None = None
+    courtlistener_docket_id: str | None = None
+    raw_html_sha256: str | None = None
 
     def __post_init__(self) -> None:
         if not self.case_id.strip():
             raise ValueError("candidate case_id must be a nonempty string")
         if self.candidate_id is not None and not self.candidate_id.strip():
             raise ValueError("candidate_id must be nonempty when provided")
+        if self.courtlistener_url is not None and not self.courtlistener_url.strip():
+            raise ValueError("courtlistener_url must be nonempty when provided")
+        if (
+            self.courtlistener_docket_id is not None
+            and not self.courtlistener_docket_id.strip()
+        ):
+            raise ValueError("courtlistener_docket_id must be nonempty when provided")
+        if self.raw_html_sha256 is not None and not re.fullmatch(
+            r"sha256:[0-9a-f]{64}", self.raw_html_sha256
+        ):
+            raise ValueError("raw_html_sha256 must be a canonical SHA-256 digest")
 
     @classmethod
     def from_record(cls, record: Mapping[str, object]) -> CaseDevFirecrawlCandidate:
@@ -88,11 +104,36 @@ class CaseDevFirecrawlCandidate:
 
         case_id = record.get("case_id")
         candidate_id = record.get("candidate_id")
+        case_metadata = record.get("case_metadata")
+        courtlistener_url = record.get("courtlistener_url")
+        courtlistener_docket_id = record.get("courtlistener_docket_id")
+        raw_html_sha256 = record.get("raw_html_sha256")
         if not isinstance(case_id, str):
             raise ValueError("candidate case_id must be a nonempty string")
         if candidate_id is not None and not isinstance(candidate_id, str):
             raise ValueError("candidate_id must be a string when provided")
-        return cls(case_id=case_id.strip(), candidate_id=_stripped(candidate_id))
+        if case_metadata is not None and not isinstance(case_metadata, Mapping):
+            raise ValueError("case_metadata must be an object when provided")
+        if courtlistener_url is not None and not isinstance(courtlistener_url, str):
+            raise ValueError("courtlistener_url must be a string when provided")
+        if courtlistener_docket_id is not None and not isinstance(
+            courtlistener_docket_id, str
+        ):
+            raise ValueError("courtlistener_docket_id must be a string when provided")
+        if raw_html_sha256 is not None and not isinstance(raw_html_sha256, str):
+            raise ValueError("raw_html_sha256 must be a string when provided")
+        return cls(
+            case_id=case_id.strip(),
+            candidate_id=_stripped(candidate_id),
+            case_metadata=(
+                dict(cast(Mapping[str, object], case_metadata))
+                if case_metadata is not None
+                else None
+            ),
+            courtlistener_url=_stripped(courtlistener_url),
+            courtlistener_docket_id=_stripped(courtlistener_docket_id),
+            raw_html_sha256=_stripped(raw_html_sha256),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +146,9 @@ class CaseDevFirecrawlSuccess:
     docket_id: str
     raw_html_path: Path
     case_metadata: Mapping[str, object]
+    raw_html_sha256: str
+    raw_html_bytes: int
+    retrieved_at: str
 
     def to_record(self) -> dict[str, object]:
         """Return a JSON-compatible manifest record."""
@@ -115,6 +159,9 @@ class CaseDevFirecrawlSuccess:
             "source_url": self.source_url,
             "docket_id": self.docket_id,
             "raw_html_path": str(self.raw_html_path),
+            "raw_html_sha256": self.raw_html_sha256,
+            "raw_html_bytes": self.raw_html_bytes,
+            "retrieved_at": self.retrieved_at,
             "case_metadata": dict(self.case_metadata),
         }
 
@@ -207,37 +254,49 @@ def acquire_case_dev_firecrawl_html(
     processed_candidate_count = 0
     for candidate_index, candidate in enumerate(selected_candidates):
         processed_candidate_count += 1
-        try:
-            case = client.get_case(candidate.case_id)
-        except (
-            CaseDevAuthError,
-            CaseDevRateLimitError,
-            CaseDevServerError,
-            CaseDevFeatureUnavailableError,
-        ) as error:
-            exclusions.append(_exclusion(candidate, reason="case_dev_provider_blocker"))
-            raise _batch_error(
-                error,
-                successes=successes,
-                exclusions=exclusions,
-                unique_candidate_count=len(unique_candidates),
-                processed_candidate_count=processed_candidate_count,
-                scrape_count=scrape_count,
-                deferred_candidates=(
-                    *selected_candidates[candidate_index + 1 :],
-                    *unique_candidates[max_candidates:],
-                ),
-            ) from error
-        except CaseDevClientError:
-            exclusions.append(_exclusion(candidate, reason="case_dev_response_invalid"))
-            continue
+        case_raw = candidate.case_metadata
+        if case_raw is None:
+            try:
+                case = client.get_case(candidate.case_id)
+            except (
+                CaseDevAuthError,
+                CaseDevRateLimitError,
+                CaseDevServerError,
+                CaseDevFeatureUnavailableError,
+            ) as error:
+                exclusions.append(
+                    _exclusion(candidate, reason="case_dev_provider_blocker")
+                )
+                raise _batch_error(
+                    error,
+                    successes=successes,
+                    exclusions=exclusions,
+                    unique_candidate_count=len(unique_candidates),
+                    processed_candidate_count=processed_candidate_count,
+                    scrape_count=scrape_count,
+                    deferred_candidates=(
+                        *selected_candidates[candidate_index + 1 :],
+                        *unique_candidates[max_candidates:],
+                    ),
+                ) from error
+            except CaseDevClientError:
+                exclusions.append(
+                    _exclusion(candidate, reason="case_dev_response_invalid")
+                )
+                continue
+            if case.case_id != candidate.case_id:
+                exclusions.append(
+                    _exclusion(candidate, reason="case_dev_identity_mismatch")
+                )
+                continue
+            case_raw = case.raw
 
-        if case.case_id != candidate.case_id:
+        metadata_screen = screen_case_dev_docket_metadata(case_raw)
+        if metadata_screen.metadata.case_id != candidate.case_id:
             exclusions.append(
                 _exclusion(candidate, reason="case_dev_identity_mismatch")
             )
             continue
-        metadata_screen = screen_case_dev_docket_metadata(case.raw)
         if not metadata_screen.accepted_for_scrape:
             exclusions.append(
                 _exclusion(
@@ -247,11 +306,13 @@ def acquire_case_dev_firecrawl_html(
                 )
             )
             continue
-        if case_dev_record_is_restricted(case.raw):
+        if case_dev_record_is_restricted(case_raw):
             exclusions.append(_exclusion(candidate, reason="restricted_case_metadata"))
             continue
 
-        source_url = courtlistener_public_docket_url_from_case_dev(case.raw)
+        source_url = candidate.courtlistener_url
+        if source_url is None:
+            source_url = courtlistener_public_docket_url_from_case_dev(case_raw)
         if source_url is None:
             exclusions.append(_exclusion(candidate, reason="courtlistener_url_missing"))
             continue
@@ -265,13 +326,63 @@ def acquire_case_dev_firecrawl_html(
                 )
             )
             continue
-
-        destination = output_directory / f"{docket_id}.html"
-        if destination.exists():
+        if (
+            candidate.courtlistener_docket_id is not None
+            and candidate.courtlistener_docket_id != docket_id
+        ):
             exclusions.append(
                 _exclusion(
                     candidate,
-                    reason="raw_html_path_exists",
+                    reason="courtlistener_identity_mismatch",
+                    source_url=source_url,
+                    docket_id=docket_id,
+                )
+            )
+            continue
+
+        destination = output_directory / f"{docket_id}.html"
+        if destination.exists():
+            existing = destination.read_bytes()
+            existing_digest = _sha256(existing)
+            if candidate.raw_html_sha256 == existing_digest:
+                try:
+                    parse_courtlistener_docket_html(
+                        existing.decode("utf-8"),
+                        source_url=source_url,
+                        docket_id=docket_id,
+                    )
+                except (UnicodeDecodeError, CourtListenerWebParseError):
+                    exclusions.append(
+                        _exclusion(
+                            candidate,
+                            reason="raw_html_resume_invalid",
+                            source_url=source_url,
+                            docket_id=docket_id,
+                        )
+                    )
+                    continue
+                successes.append(
+                    CaseDevFirecrawlSuccess(
+                        case_id=candidate.case_id,
+                        candidate_id=candidate.candidate_id,
+                        source_url=source_url,
+                        docket_id=docket_id,
+                        raw_html_path=destination,
+                        case_metadata=_screening_metadata_record(case_raw),
+                        raw_html_sha256=existing_digest,
+                        raw_html_bytes=len(existing),
+                        retrieved_at=datetime.now(UTC).isoformat(),
+                    )
+                )
+                continue
+            exclusions.append(
+                _exclusion(
+                    candidate,
+                    reason=(
+                        "raw_html_path_exists"
+                        if candidate.raw_html_sha256 is None
+                        else "raw_html_hash_conflict"
+                    ),
                     source_url=source_url,
                     docket_id=docket_id,
                 )
@@ -351,8 +462,9 @@ def acquire_case_dev_firecrawl_html(
                 )
             )
             continue
+        raw_bytes = raw_html.encode("utf-8")
         try:
-            _atomic_write_new(destination, raw_html)
+            raw_digest = _atomic_write_new(destination, raw_bytes)
         except FileExistsError:
             exclusions.append(
                 _exclusion(
@@ -370,7 +482,10 @@ def acquire_case_dev_firecrawl_html(
                 source_url=source_url,
                 docket_id=docket_id,
                 raw_html_path=destination,
-                case_metadata=_screening_metadata_record(case.raw),
+                case_metadata=_screening_metadata_record(case_raw),
+                raw_html_sha256=raw_digest,
+                raw_html_bytes=len(raw_bytes),
+                retrieved_at=datetime.now(UTC).isoformat(),
             )
         )
 
@@ -695,7 +810,7 @@ def _courtlistener_docket_id(source_url: str) -> str | None:
     return None if match is None else match.group("docket_id")
 
 
-def _atomic_write_new(destination: Path, content: str) -> None:
+def _atomic_write_new(destination: Path, content: bytes) -> str:
     file_descriptor, temporary_name = tempfile.mkstemp(
         dir=destination.parent,
         prefix=f".{destination.name}.",
@@ -703,13 +818,23 @@ def _atomic_write_new(destination: Path, content: str) -> None:
     )
     temporary_path = Path(temporary_name)
     try:
-        with os.fdopen(file_descriptor, "w", encoding="utf-8") as handle:
+        with os.fdopen(file_descriptor, "wb") as handle:
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
         os.link(temporary_path, destination)
+        directory_descriptor = os.open(destination.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_descriptor)
+        finally:
+            os.close(directory_descriptor)
+        return _sha256(content)
     finally:
         temporary_path.unlink(missing_ok=True)
+
+
+def _sha256(content: bytes) -> str:
+    return f"sha256:{sha256(content).hexdigest()}"
 
 
 def _exclusion(

@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
+from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+from legalforecast.ingestion.discovery_scheduler import (
+    DiscoveryHit,
+    TermTerminalStatus,
+)
 
 
 def test_discover_courtlistener_help_documents_live_authority(
@@ -128,13 +133,23 @@ def test_discover_courtlistener_produces_plan_public_downloads_input(
     assert summary["excluded_case_count"] == 0
     assert summary["anchor_date"] == "2026-06-30"
 
+    snapshot_path, cycle_hash = _complete_snapshot(
+        tmp_path / "cycle",
+        [screened],
+        raw_html_dir=output_root / "raw-courtlistener-html",
+    )
+
     assert (
         main(
             [
                 "acquisition",
                 "plan-public-downloads",
+                "--snapshot",
+                str(snapshot_path),
+                "--expected-cycle-hash",
+                cycle_hash,
                 "--screened-cases",
-                str(output_root / "courtlistener-screened-cases.jsonl"),
+                str(snapshot_path / "screened-cases.jsonl"),
                 "--raw-html-dir",
                 str(output_root / "raw-courtlistener-html"),
                 "--target-clean-cases",
@@ -403,6 +418,65 @@ def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
         "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),
         encoding="utf-8",
     )
+
+
+def _complete_snapshot(
+    root: Path,
+    screened_records: list[dict[str, object]],
+    *,
+    raw_html_dir: Path,
+) -> tuple[Path, str]:
+    batch_id = "courtlistener-fixture"
+    term = "fixture-term"
+    with CycleAcquisitionStore(root / "cycle-acquisition.sqlite3") as store:
+        cycle_hash = store.ensure_cycle(
+            {"eligibility_anchor": "2026-06-30", "fixture": True}
+        )
+        store.ensure_batch(batch_id, {"fixture": "courtlistener"})
+        store.ensure_terms(batch_id, [term])
+        hits_list: list[DiscoveryHit] = []
+        for index, record in enumerate(screened_records):
+            candidate = cast(dict[str, object], record["candidate"])
+            candidate_id = candidate["docket_id"]
+            assert isinstance(candidate_id, str)
+            hits_list.append(
+                DiscoveryHit(
+                    provider_hit_id=f"fixture-hit-{index}",
+                    candidate_id=candidate_id,
+                    payload={"fixture_index": index},
+                )
+            )
+        hits = tuple(hits_list)
+        store.commit_search_page(
+            batch_id,
+            term,
+            None,
+            hits,
+            next_cursor=None,
+            terminal_status=TermTerminalStatus.EXHAUSTED,
+        )
+        for hit, record in zip(hits, screened_records, strict=True):
+            store.record_observation(
+                hit.candidate_id,
+                batch_id=batch_id,
+                state="accepted",
+                reason_code="strict_clean_screen_passed",
+                evidence=record,
+            )
+            raw_html_path = raw_html_dir / f"{hit.candidate_id}.html"
+            store.write_raw_artifact(
+                hit.candidate_id,
+                raw_html_path,
+                raw_html_path.read_bytes(),
+                retrieved_at="2026-07-12T12:00:00Z",
+            )
+        snapshot_path = store.export_snapshot(
+            root / "snapshots",
+            snapshot_id="complete-fixture",
+            batch_id=batch_id,
+            complete=True,
+        )
+    return snapshot_path, cycle_hash
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:

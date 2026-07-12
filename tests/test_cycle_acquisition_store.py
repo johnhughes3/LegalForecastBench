@@ -1,0 +1,732 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path
+
+import pytest
+from legalforecast.ingestion.cycle_acquisition_store import (
+    ConfigMismatchError,
+    CycleAcquisitionStore,
+    CycleAcquisitionStoreError,
+    ImmutableArtifactError,
+    ImmutableCandidateStateError,
+    PageReplayMismatchError,
+    SnapshotVerificationError,
+    StoreLockedError,
+    verify_snapshot,
+)
+
+POLICY = {
+    "anchor": "2026-06-30T00:00:00Z",
+    "query_terms": ["motion to dismiss", "dismissed"],
+    "screen_hash": "screen-v1",
+    "schema": 1,
+}
+
+
+def _store(tmp_path: Path) -> CycleAcquisitionStore:
+    store = CycleAcquisitionStore(tmp_path / "cycle.sqlite3")
+    store.ensure_cycle(POLICY)
+    store.ensure_batch("batch-001", {"start": "2026-06-30", "page_size": 50})
+    return store
+
+
+def _hit(provider_hit_id: str, candidate_id: str) -> dict[str, object]:
+    return {
+        "provider_hit_id": provider_hit_id,
+        "candidate_id": candidate_id,
+        "payload": {"id": provider_hit_id, "candidate": candidate_id},
+    }
+
+
+def _discover_candidates(
+    store: CycleAcquisitionStore,
+    *candidate_ids: str,
+    batch_id: str = "batch-001",
+) -> None:
+    store.ensure_terms(batch_id, ["test-setup"])
+    store.commit_search_page(
+        batch_id,
+        "test-setup",
+        None,
+        [
+            _hit(f"setup-{index}", candidate_id)
+            for index, candidate_id in enumerate(candidate_ids, start=1)
+        ],
+        next_cursor=None,
+        terminal_status="exhausted",
+    )
+
+
+def _rewrite_snapshot_jsonl(
+    snapshot: Path, filename: str, records: list[dict[str, object]]
+) -> None:
+    payload = b"".join(
+        json.dumps(record, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+        for record in records
+    )
+    (snapshot / filename).write_bytes(payload)
+    manifest_path = snapshot / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["files"][filename] = {
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "byte_count": len(payload),
+        "row_count": len(records),
+    }
+    manifest_path.write_text(json.dumps(manifest))
+
+
+def test_cycle_and_batch_config_identity_fail_closed(tmp_path: Path) -> None:
+    with CycleAcquisitionStore(tmp_path / "cycle.sqlite3") as store:
+        cycle_hash = store.ensure_cycle(POLICY)
+        assert cycle_hash == store.ensure_cycle(dict(POLICY))
+        with pytest.raises(ConfigMismatchError, match="cycle policy"):
+            store.ensure_cycle({**POLICY, "anchor": "2026-07-01T00:00:00Z"})
+
+        digest = store.ensure_batch("batch-001", {"page_size": 50})
+        assert digest == store.ensure_batch("batch-001", {"page_size": 50})
+        with pytest.raises(ConfigMismatchError, match="batch-001"):
+            store.ensure_batch("batch-001", {"page_size": 100})
+        assert store.ensure_batch("batch-002", {"page_size": 100}) != digest
+
+
+def test_store_holds_a_nonblocking_process_lifetime_lock(tmp_path: Path) -> None:
+    first = CycleAcquisitionStore(tmp_path / "cycle.sqlite3")
+    try:
+        with pytest.raises(StoreLockedError, match="already locked"):
+            CycleAcquisitionStore(tmp_path / "cycle.sqlite3")
+    finally:
+        first.close()
+    CycleAcquisitionStore(tmp_path / "cycle.sqlite3").close()
+
+
+def test_page_commit_is_atomic_replay_safe_and_order_neutral(tmp_path: Path) -> None:
+    with _store(tmp_path) as store:
+        store.ensure_terms("batch-001", ["beta", "alpha"])
+        progress = store.commit_search_page(
+            "batch-001",
+            "beta",
+            None,
+            [_hit("b-2", "candidate-2"), _hit("shared", "candidate-shared")],
+            next_cursor="beta-next",
+            terminal_status=None,
+        )
+        assert (progress.cursor, progress.hit_count, progress.terminal_status) == (
+            "beta-next",
+            2,
+            None,
+        )
+        store.commit_search_page(
+            "batch-001",
+            "alpha",
+            None,
+            [_hit("a-1", "candidate-1"), _hit("shared-a", "candidate-shared")],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+
+        # A response replay after a lost acknowledgement is an exact no-op.
+        replay = store.commit_search_page(
+            "batch-001",
+            "beta",
+            None,
+            [_hit("b-2", "candidate-2"), _hit("shared", "candidate-shared")],
+            next_cursor="beta-next",
+            terminal_status=None,
+        )
+        assert replay == progress
+        assert store.candidate_ids("batch-001") == (
+            "candidate-1",
+            "candidate-2",
+            "candidate-shared",
+        )
+        representative_hits = store.candidate_discovery_hits("batch-001")
+        assert tuple(hit.candidate_id for hit in representative_hits) == (
+            "candidate-1",
+            "candidate-2",
+            "candidate-shared",
+        )
+        assert representative_hits[-1].provider_hit_id == "shared-a"
+        assert representative_hits[-1].payload["id"] == "shared-a"
+        with pytest.raises(PageReplayMismatchError):
+            store.commit_search_page(
+                "batch-001",
+                "beta",
+                None,
+                [_hit("different", "candidate-3")],
+                next_cursor="beta-next",
+                terminal_status=None,
+            )
+
+
+def test_candidate_representative_is_invariant_to_query_term_order(
+    tmp_path: Path,
+) -> None:
+    representatives: list[tuple[str, object]] = []
+    for index, terms in enumerate((("beta", "alpha"), ("alpha", "beta"))):
+        with _store(tmp_path / str(index)) as store:
+            store.ensure_terms("batch-001", terms)
+            for term in ("beta", "alpha"):
+                provider_hit_id = f"{term}-shared"
+                store.commit_search_page(
+                    "batch-001",
+                    term,
+                    None,
+                    [_hit(provider_hit_id, "candidate-shared")],
+                    next_cursor=None,
+                    terminal_status="exhausted",
+                )
+            [representative] = store.candidate_discovery_hits("batch-001")
+            representatives.append(
+                (representative.provider_hit_id, representative.payload["id"])
+            )
+
+    assert representatives == [
+        ("alpha-shared", "alpha-shared"),
+        ("alpha-shared", "alpha-shared"),
+    ]
+
+
+def test_failed_page_transaction_does_not_advance_cursor(tmp_path: Path) -> None:
+    with _store(tmp_path) as store:
+        store.ensure_terms("batch-001", ["alpha"])
+        with pytest.raises(ValueError, match="provider_hit_id"):
+            store.commit_search_page(
+                "batch-001",
+                "alpha",
+                None,
+                [
+                    _hit("valid", "candidate-1"),
+                    {"provider_hit_id": "", "candidate_id": "candidate-2"},
+                ],
+                next_cursor="next",
+                terminal_status=None,
+            )
+        assert store.term_progress("batch-001", "alpha").cursor is None
+        assert store.candidate_ids("batch-001") == ()
+
+
+def test_candidate_evidence_precedence_and_immutable_skip_audit(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1", "candidate-2")
+        excluded = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="strict_clean_screen_failed",
+            evidence={"docket_version": 1},
+        )
+        accepted = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"docket_version": 2},
+        )
+        store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="transient_failure",
+            reason_code="fetch_error",
+            evidence={"status": 503},
+        )
+        assert store.current_observation("candidate-1") == accepted
+        assert excluded.observation_id < accepted.observation_id
+        store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="criminal_posture",
+            evidence={"docket_version": 3},
+        )
+        assert store.current_observation("candidate-1") == accepted
+        newly_free = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="newly_free",
+            reason_code="required_documents_newly_free",
+            evidence={"document_id": "44"},
+        )
+        assert store.current_observation("candidate-1") == newly_free
+
+        immutable = store.record_observation(
+            "candidate-2",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="decision_before_release_anchor",
+            evidence={"decision_date": "2026-06-29"},
+        )
+        skipped = store.record_observation(
+            "candidate-2",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"decision_date": "2026-07-01"},
+        )
+        assert skipped.state == "skipped_immutable"
+        assert skipped.supersedes_observation_id == immutable.observation_id
+        assert store.current_observation("candidate-2") == immutable
+        assert len(store.observations("candidate-2")) == 2
+
+
+def test_non_civil_metadata_exclusion_is_immutable(tmp_path: Path) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="non_civil_case",
+            evidence={"nature_of_suit": "criminal"},
+        )
+        with pytest.raises(ImmutableCandidateStateError):
+            store.record_observation(
+                "candidate-1",
+                batch_id="batch-001",
+                state="excluded",
+                reason_code="decision_before_release_anchor",
+                evidence={},
+                audit_immutable_skip=False,
+            )
+
+
+@pytest.mark.parametrize(
+    "reason_code",
+    [
+        "bankruptcy_court",
+        "not_federal_district_court",
+        "missing_docket_number",
+        "placeholder_or_sealed_docket_number",
+        "not_civil_cv_docket",
+        "criminal_style_caption",
+    ],
+)
+def test_actual_metadata_reason_codes_are_immutable(
+    tmp_path: Path, reason_code: str
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        immutable = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code=reason_code,
+            evidence={"source": "metadata"},
+        )
+        skipped = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={},
+        )
+        assert skipped.state == "skipped_immutable"
+        assert store.current_observation("candidate-1") == immutable
+
+
+def test_unknown_reason_code_is_rejected(tmp_path: Path) -> None:
+    with _store(tmp_path) as store:
+        with pytest.raises(ValueError, match="unknown candidate observation reason"):
+            store.record_observation(
+                "candidate-1",
+                batch_id="batch-001",
+                state="excluded",
+                reason_code="invented_reason",
+                evidence={},
+            )
+
+
+def test_record_observation_requires_discovery_hit_in_stated_batch(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        store.ensure_batch("batch-002", {"start": "2026-07-01", "page_size": 50})
+
+        with pytest.raises(KeyError, match="not discovered in batch batch-002"):
+            store.record_observation(
+                "candidate-1",
+                batch_id="batch-002",
+                state="accepted",
+                reason_code="strict_clean_screen_passed",
+                evidence={},
+            )
+        with pytest.raises(KeyError, match="not discovered in batch batch-001"):
+            store.record_observation(
+                "never-discovered",
+                batch_id="batch-001",
+                state="accepted",
+                reason_code="strict_clean_screen_passed",
+                evidence={},
+            )
+
+        assert store.current_observation("candidate-1") is None
+        assert store.current_observation("never-discovered") is None
+
+
+def test_raw_artifact_is_atomic_content_committed_and_immutable(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={},
+        )
+        destination = tmp_path / "raw" / "candidate-1.html"
+        artifact = store.write_raw_artifact(
+            "candidate-1",
+            destination,
+            b"<html>public docket</html>",
+            retrieved_at="2026-07-12T12:00:00Z",
+            validator=lambda payload: (
+                None
+                if payload.startswith(b"<html>")
+                else (_ for _ in ()).throw(ValueError("bad html"))
+            ),
+        )
+        assert destination.read_bytes() == b"<html>public docket</html>"
+        assert artifact.sha256 == store.raw_artifacts("candidate-1")[0].sha256
+        assert not list(destination.parent.glob("*.tmp"))
+
+        with pytest.raises(ImmutableArtifactError):
+            store.write_raw_artifact(
+                "candidate-1",
+                destination,
+                b"different",
+                retrieved_at="2026-07-12T12:01:00Z",
+            )
+        assert destination.read_bytes() == b"<html>public docket</html>"
+
+
+def test_complete_snapshot_is_atomic_and_verifiable(tmp_path: Path) -> None:
+    with _store(tmp_path) as store:
+        store.ensure_terms("batch-001", ["alpha"])
+        store.commit_search_page(
+            "batch-001",
+            "alpha",
+            None,
+            [_hit("a-1", "candidate-1")],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"entry_id": "99"},
+        )
+        partial = store.export_snapshot(
+            tmp_path / "exports",
+            snapshot_id="checkpoint-1",
+            batch_id="batch-001",
+            complete=False,
+        )
+        with pytest.raises(SnapshotVerificationError, match="not complete"):
+            verify_snapshot(partial)
+
+        published = store.export_snapshot(
+            tmp_path / "exports",
+            snapshot_id="snapshot-1",
+            batch_id="batch-001",
+            complete=True,
+        )
+        verified = verify_snapshot(
+            published,
+            expected_cycle_hash=store.cycle_hash,
+            expected_batch_digest=store.batch_digest("batch-001"),
+        )
+        assert verified["complete"] is True
+        records = [
+            json.loads(line)
+            for line in (published / "candidates.jsonl").read_text().splitlines()
+        ]
+        assert records[0]["state"] == "accepted"
+        screened = [
+            json.loads(line)
+            for line in (published / "screened-cases.jsonl").read_text().splitlines()
+        ]
+        assert screened == [{"candidate_id": "candidate-1", "entry_id": "99"}]
+        assert json.loads((published / "summary.json").read_text()) == {
+            "accepted_count": 1,
+            "batch_id": "batch-001",
+            "excluded_count": 0,
+            "processed_count": 1,
+            "reconciliation_complete": True,
+        }
+
+        with (published / "candidates.jsonl").open("ab") as handle:
+            handle.write(b"tampered\n")
+        with pytest.raises(SnapshotVerificationError, match="commitment"):
+            verify_snapshot(published)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_error"),
+    [
+        ("missing", "missing committed raw artifact"),
+        ("wrong_size", "raw artifact byte_count mismatch"),
+        ("wrong_digest", "raw artifact sha256 mismatch"),
+    ],
+)
+def test_snapshot_verifier_checks_committed_raw_artifact_content(
+    tmp_path: Path, mutation: str, expected_error: str
+) -> None:
+    artifact_path = tmp_path / "raw" / "candidate-1.html"
+    original = b"<html>public docket</html>"
+    with _store(tmp_path) as store:
+        store.ensure_terms("batch-001", ["alpha"])
+        store.commit_search_page(
+            "batch-001",
+            "alpha",
+            None,
+            [_hit("a-1", "candidate-1")],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={},
+        )
+        store.write_raw_artifact(
+            "candidate-1",
+            artifact_path,
+            original,
+            retrieved_at="2026-07-12T12:00:00Z",
+        )
+        published = store.export_snapshot(
+            tmp_path / "exports",
+            snapshot_id=f"raw-{mutation}",
+            batch_id="batch-001",
+            complete=True,
+        )
+
+    verify_snapshot(published)
+    if mutation == "missing":
+        artifact_path.unlink()
+    elif mutation == "wrong_size":
+        artifact_path.write_bytes(original + b"!")
+    else:
+        artifact_path.write_bytes(b"X" * len(original))
+
+    with pytest.raises(SnapshotVerificationError, match=expected_error):
+        verify_snapshot(published)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "filename", "expected_error"),
+    [
+        (
+            "candidate_id",
+            "candidates.jsonl",
+            "candidate IDs and states do not reconcile",
+        ),
+        (
+            "candidate_state",
+            "candidates.jsonl",
+            "candidate IDs and states do not reconcile",
+        ),
+        ("observation_link", "observations.jsonl", "unknown candidate_id"),
+        ("artifact_link", "raw-artifacts.jsonl", "unknown candidate_id"),
+    ],
+)
+def test_snapshot_verifier_reconciles_candidate_states_and_links(
+    tmp_path: Path, mutation: str, filename: str, expected_error: str
+) -> None:
+    artifact_path = tmp_path / "raw" / "candidate-1.html"
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={},
+        )
+        store.write_raw_artifact(
+            "candidate-1",
+            artifact_path,
+            b"<html>public docket</html>",
+            retrieved_at="2026-07-12T12:00:00Z",
+        )
+        published = store.export_snapshot(
+            tmp_path / "exports",
+            snapshot_id=f"links-{mutation}",
+            batch_id="batch-001",
+            complete=True,
+        )
+
+    records = [
+        json.loads(line) for line in (published / filename).read_text().splitlines()
+    ]
+    if mutation == "candidate_state":
+        records[0]["state"] = "excluded"
+    else:
+        records[0]["candidate_id"] = "candidate-not-in-ledger"
+    _rewrite_snapshot_jsonl(published, filename, records)
+
+    with pytest.raises(SnapshotVerificationError, match=expected_error):
+        verify_snapshot(published)
+
+
+def test_snapshot_verifier_rejects_accepted_excluded_overlap(tmp_path: Path) -> None:
+    with _store(tmp_path) as store:
+        store.ensure_terms("batch-001", ["alpha"])
+        store.commit_search_page(
+            "batch-001",
+            "alpha",
+            None,
+            [_hit("a-1", "candidate-1"), _hit("a-2", "candidate-2")],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={},
+        )
+        store.record_observation(
+            "candidate-2",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="criminal_posture",
+            evidence={},
+        )
+        published = store.export_snapshot(
+            tmp_path / "exports",
+            snapshot_id="overlap",
+            batch_id="batch-001",
+            complete=True,
+        )
+
+    screened_path = published / "screened-cases.jsonl"
+    screened_payload = b'{"candidate_id":"candidate-2"}\n'
+    screened_path.write_bytes(screened_payload)
+    manifest_path = published / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["files"]["screened-cases.jsonl"] = {
+        "sha256": hashlib.sha256(screened_payload).hexdigest(),
+        "byte_count": len(screened_payload),
+        "row_count": 1,
+    }
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(SnapshotVerificationError, match="overlap"):
+        verify_snapshot(published)
+
+
+def test_complete_snapshot_rejects_unfinished_or_unresolved_work(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        store.ensure_terms("batch-001", ["alpha"])
+        with pytest.raises(CycleAcquisitionStoreError, match="incomplete terms"):
+            store.export_snapshot(
+                tmp_path / "exports",
+                snapshot_id="unfinished",
+                batch_id="batch-001",
+                complete=True,
+            )
+        store.commit_search_page(
+            "batch-001",
+            "alpha",
+            None,
+            [_hit("a-1", "candidate-1")],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        with pytest.raises(CycleAcquisitionStoreError, match="unresolved candidates"):
+            store.export_snapshot(
+                tmp_path / "exports",
+                snapshot_id="unresolved",
+                batch_id="batch-001",
+                complete=True,
+            )
+
+
+def test_complete_snapshot_rejects_unpageable_term_but_accepts_bounded_term(
+    tmp_path: Path,
+) -> None:
+    for index, terminal_status in enumerate(("limit_bound_unpageable", "limit_bound")):
+        root = tmp_path / str(index)
+        with _store(root) as store:
+            store.ensure_terms("batch-001", ["alpha"])
+            store.commit_search_page(
+                "batch-001",
+                "alpha",
+                None,
+                [_hit("a-1", "candidate-1")],
+                next_cursor=None,
+                terminal_status=terminal_status,
+            )
+            store.record_observation(
+                "candidate-1",
+                batch_id="batch-001",
+                state="accepted",
+                reason_code="strict_clean_screen_passed",
+                evidence={},
+            )
+            if terminal_status == "limit_bound_unpageable":
+                with pytest.raises(
+                    CycleAcquisitionStoreError, match="incomplete terms: alpha"
+                ):
+                    store.export_snapshot(
+                        root / "exports",
+                        snapshot_id="unpageable",
+                        batch_id="batch-001",
+                        complete=True,
+                    )
+            else:
+                published = store.export_snapshot(
+                    root / "exports",
+                    snapshot_id="bounded",
+                    batch_id="batch-001",
+                    complete=True,
+                )
+                manifest = verify_snapshot(published)
+                assert manifest["complete"] is True
+                assert manifest["saturated"] is False
+
+
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="requires POSIX process semantics")
+def test_torn_wal_tail_is_trimmed_without_losing_committed_pages(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "cycle.sqlite3"
+    pid = os.fork()
+    if pid == 0:
+        store = CycleAcquisitionStore(database)
+        store.ensure_cycle(POLICY)
+        store.ensure_batch("batch-001", {"page_size": 50})
+        store.ensure_terms("batch-001", ["alpha"])
+        store.commit_search_page(
+            "batch-001",
+            "alpha",
+            None,
+            [_hit("a-1", "candidate-1")],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        os._exit(0)
+    _, status = os.waitpid(pid, 0)
+    assert status == 0
+    wal_path = Path(f"{database}-wal")
+    assert wal_path.exists()
+    with wal_path.open("ab") as handle:
+        handle.write(b"torn-tail")
+
+    with CycleAcquisitionStore(database) as recovered:
+        assert recovered.candidate_ids("batch-001") == ("candidate-1",)
+        assert wal_path.stat().st_size % (4096 + 24) in {0, 32}

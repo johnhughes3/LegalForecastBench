@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from hashlib import sha256
 
 import pytest
 from legalforecast.ingestion.case_dev_client import (
@@ -71,6 +72,48 @@ def test_bridge_dedupes_before_limit_and_writes_html_in_input_order(tmp_path) ->
         "case-b",
     ]
     assert [request[0] for request in source.requests] == ["101", "202"]
+    assert result.successes[0].raw_html_sha256 == (
+        f"sha256:{sha256(_docket_html('A').encode()).hexdigest()}"
+    )
+    assert result.successes[0].raw_html_bytes == len(_docket_html("A").encode())
+
+
+def test_bridge_uses_self_contained_discovery_metadata_without_lookup(tmp_path) -> None:
+    client, transport = _client()
+    source = _FakeFirecrawlSource(html_by_docket_id={"101": _docket_html("A")})
+
+    result = acquire_case_dev_firecrawl_html(
+        client=client,
+        source=source,
+        candidates=(
+            {
+                "case_id": "case-a",
+                "candidate_id": "case-a",
+                "courtlistener_url": (
+                    "https://www.courtlistener.com/docket/101/fixture-v-example/"
+                ),
+                "courtlistener_docket_id": "101",
+                "case_metadata": {
+                    "id": "case-a",
+                    "caseName": "Fixture v. Example",
+                    "courtId": "nysd",
+                    "court": "nysd",
+                    "docketNumber": "1:26-cv-00001",
+                },
+            },
+        ),
+        raw_html_directory=tmp_path,
+        max_candidates=1,
+    )
+
+    assert [item.case_id for item in result.successes] == ["case-a"]
+    assert transport.requests == []
+    assert source.requests == [
+        (
+            "101",
+            "https://www.courtlistener.com/docket/101/fixture-v-example/",
+        )
+    ]
 
 
 def test_bridge_ledgers_missing_or_malformed_url_without_scraping(tmp_path) -> None:
@@ -186,6 +229,75 @@ def test_bridge_never_overwrites_an_existing_docket_file(tmp_path) -> None:
     assert [item.reason for item in result.exclusions] == ["raw_html_path_exists"]
     assert destination.read_text(encoding="utf-8") == "preserve me"
     assert list(tmp_path.iterdir()) == [destination]
+
+
+def test_bridge_adopts_valid_existing_html_only_with_matching_digest(tmp_path) -> None:
+    raw_html = _docket_html("A")
+    destination = tmp_path / "101.html"
+    destination.write_text(raw_html, encoding="utf-8")
+    expected_digest = f"sha256:{sha256(raw_html.encode()).hexdigest()}"
+    client, transport = _client()
+    source = _FakeFirecrawlSource()
+
+    result = acquire_case_dev_firecrawl_html(
+        client=client,
+        source=source,
+        candidates=(
+            {
+                "case_id": "case-a",
+                "courtlistener_url": (
+                    "https://www.courtlistener.com/docket/101/fixture-v-example/"
+                ),
+                "courtlistener_docket_id": "101",
+                "raw_html_sha256": expected_digest,
+                "case_metadata": {
+                    "id": "case-a",
+                    "caseName": "Fixture v. Example",
+                    "courtId": "nysd",
+                    "docketNumber": "1:26-cv-00001",
+                },
+            },
+        ),
+        raw_html_directory=tmp_path,
+        max_candidates=1,
+    )
+
+    assert [item.raw_html_sha256 for item in result.successes] == [expected_digest]
+    assert result.scrape_count == 0
+    assert transport.requests == []
+    assert source.requests == []
+
+
+def test_bridge_rejects_conflicting_existing_html_hash(tmp_path) -> None:
+    destination = tmp_path / "101.html"
+    destination.write_text(_docket_html("old"), encoding="utf-8")
+    client, _ = _client()
+
+    result = acquire_case_dev_firecrawl_html(
+        client=client,
+        source=_FakeFirecrawlSource(),
+        candidates=(
+            {
+                "case_id": "case-a",
+                "courtlistener_url": (
+                    "https://www.courtlistener.com/docket/101/fixture-v-example/"
+                ),
+                "courtlistener_docket_id": "101",
+                "raw_html_sha256": f"sha256:{'0' * 64}",
+                "case_metadata": {
+                    "id": "case-a",
+                    "caseName": "Fixture v. Example",
+                    "courtId": "nysd",
+                    "docketNumber": "1:26-cv-00001",
+                },
+            },
+        ),
+        raw_html_directory=tmp_path,
+        max_candidates=1,
+    )
+
+    assert [item.reason for item in result.exclusions] == ["raw_html_hash_conflict"]
+    assert destination.read_text(encoding="utf-8") == _docket_html("old")
 
 
 def test_bridge_ledgers_nonfatal_provider_response_without_error_text(tmp_path) -> None:
