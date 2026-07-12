@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from legalforecast.ingestion.case_dev_client import (
+    CaseDevAuthError,
     CaseDevClient,
     CaseDevFixtureTransport,
     RecordedCaseDevResponse,
@@ -134,6 +135,32 @@ def test_duplicate_docket_is_failed_before_duplicate_provider_spend() -> None:
     assert failure.reason == "duplicate_discovered_docket"
     assert len(transport.requests) == 1
     assert result.reconciled is True
+
+
+def test_provider_wide_auth_failure_stops_batch_immediately() -> None:
+    client, transport = _client(
+        RecordedCaseDevResponse(
+            method="POST",
+            path="/legal/v1/docket",
+            params={
+                "type": "lookup",
+                "docketId": "101",
+                "includeEntries": True,
+                "limit": 5,
+            },
+            status_code=401,
+            payload={"detail": "invalid token"},
+        )
+    )
+
+    with pytest.raises(CaseDevAuthError):
+        enrich_recap_discovery_batch(
+            client=client,
+            records=(_record("101"), _record("102")),
+            page_size=5,
+        )
+
+    assert len(transport.requests) == 1
 
 
 @pytest.mark.parametrize(

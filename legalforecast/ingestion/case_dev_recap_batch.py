@@ -9,7 +9,13 @@ from dataclasses import dataclass
 from typing import cast
 from urllib.parse import urlsplit
 
-from legalforecast.ingestion.case_dev_client import CaseDevClient, CaseDevClientError
+from legalforecast.ingestion.case_dev_client import (
+    CaseDevAuthError,
+    CaseDevClient,
+    CaseDevClientError,
+    CaseDevRateLimitError,
+    CaseDevServerError,
+)
 from legalforecast.ingestion.case_dev_recap_enrichment import (
     CaseDevRecapEnrichment,
     CaseDevRecapEnrichmentError,
@@ -208,6 +214,8 @@ def enrich_recap_discovery_batch(
                 page_size=page_size,
                 max_pages=max_pages,
             )
+        except (CaseDevAuthError, CaseDevRateLimitError, CaseDevServerError):
+            raise
         except (CaseDevRecapEnrichmentError, CaseDevClientError) as error:
             failures.append(
                 CaseDevRecapBatchFailure(
