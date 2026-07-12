@@ -87,8 +87,13 @@ def test_discover_case_dev_writes_resumable_self_contained_checkpoint(
     summary = _read_json(
         output_root / "checkpoints" / "batch-001-case-dev-summary.partial.json"
     )
-    assert summary["complete"] is True
-    assert summary["saturated"] is True
+    assert summary["complete"] is False
+    assert summary["saturated"] is False
+    assert summary["provider_pagination_end_observed"] is True
+    assert summary["provider_completeness_status"] == "unknown"
+    assert summary["provider_saturation_status"] == "unproven"
+    assert summary["anchored_disposition_discovery"] is False
+    assert "exploratory" in summary["candidate_count_semantics"]
     assert summary["checkpoint_only"] is True
     assert summary["terminal_status_by_term"] == {
         "order on motion to dismiss": "exhausted"
@@ -116,7 +121,7 @@ def test_discover_case_dev_writes_resumable_self_contained_checkpoint(
                 "--snapshot",
                 str(partial_snapshot),
                 "--expected-cycle-hash",
-                cast(str, summary["cycle_hash"]),
+                summary["cycle_hash"],
                 "--execute",
             ]
         )

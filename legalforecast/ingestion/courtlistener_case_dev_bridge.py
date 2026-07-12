@@ -59,6 +59,8 @@ _PAID_GAP_ROLES = {
     "no_free_target_mtd_document": frozenset(
         {DocumentRole.MTD_NOTICE, DocumentRole.MTD_MEMORANDUM}
     ),
+    "no_free_opposition": frozenset({DocumentRole.OPPOSITION}),
+    "no_free_mtd_memorandum": frozenset({DocumentRole.MTD_MEMORANDUM}),
     "no_free_decision_document": frozenset({DocumentRole.DECISION}),
 }
 
@@ -277,7 +279,9 @@ def bridge_public_plan_paid_gaps(
     )
     html_root = None if raw_html_dir is None else Path(raw_html_dir)
     selections: list[Mapping[str, Any]] = list(public_selections)
-    relevance: list[Mapping[str, Any]] = []
+    relevance: list[Mapping[str, Any]] = [
+        _public_case_relevance(record) for record in public_selections
+    ]
     exclusions: list[Mapping[str, Any]] = []
     for gap in paid_gaps:
         candidate_id = _required_str(gap, "candidate_id")
@@ -501,6 +505,18 @@ def _public_relevance_document(document: Mapping[str, Any]) -> Mapping[str, Any]
         "is_sealed": False,
         "contains_target_outcome": document.get("contains_target_outcome") is True,
         "model_visible": model_visible,
+    }
+
+
+def _public_case_relevance(selection: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Project a fully-free public selection into the relevance schema."""
+
+    return {
+        "candidate_id": _required_str(selection, "candidate_id"),
+        "documents": [
+            _public_relevance_document(document)
+            for document in _mapping_sequence(selection.get("documents"), "documents")
+        ],
     }
 
 
@@ -734,6 +750,7 @@ def _bridge_documents(
     needs_target_mtd = not paid_gap_reasons or bool(
         required_gap_roles & {DocumentRole.MTD_NOTICE, DocumentRole.MTD_MEMORANDUM}
     )
+    needs_opposition = DocumentRole.OPPOSITION in required_gap_roles
     needs_decision = not paid_gap_reasons or DocumentRole.DECISION in required_gap_roles
     if needs_complaint:
         complaint_entries = tuple(
@@ -755,7 +772,36 @@ def _bridge_documents(
                 raise CourtListenerCaseDevBridgeError(
                     f"target_motion_entry_not_found: {number}"
                 )
-            requested.append((entry, _mtd_role(entry)))
+            requested.append(
+                (
+                    entry,
+                    DocumentRole.MTD_MEMORANDUM
+                    if paid_gap_reasons
+                    and DocumentRole.MTD_MEMORANDUM in required_gap_roles
+                    else _mtd_role(entry),
+                )
+            )
+    if needs_opposition:
+        for target_number in sorted(target_numbers):
+            upper_bound = min(
+                (
+                    *(number for number in target_numbers if number > target_number),
+                    decision_floor,
+                )
+            )
+            linked = tuple(
+                entry
+                for number, entry in sorted(numbered_entries.items())
+                if target_number < number < upper_bound
+                and entry.role is CourtListenerEntryRole.OPPOSITION
+            )
+            if not linked:
+                raise CourtListenerCaseDevBridgeError(
+                    f"opposition_entry_not_found: {target_number}"
+                )
+            # The first opposition before the next target/decision belongs to this
+            # target-motion interval; later opposition entries are not guessed in.
+            requested.append((linked[0], DocumentRole.OPPOSITION))
     if not paid_gap_reasons:
         for number, entry in sorted(numbered_entries.items()):
             if number >= decision_floor:

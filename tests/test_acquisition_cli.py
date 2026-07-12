@@ -54,6 +54,7 @@ def test_fetch_firecrawl_dockets_runs_bounded_offline_bridge(tmp_path: Path) -> 
                         "rawHtml": raw_html,
                         "metadata": {
                             "statusCode": 200,
+                            "sourceURL": ("https://www.courtlistener.com/docket/101/"),
                             "proxyUsed": "basic",
                             "cacheState": "miss",
                             "creditsUsed": 1,
@@ -524,7 +525,8 @@ def test_download_free_fixture_stage_is_idempotent(tmp_path: Path) -> None:
             }
         ],
     )
-    _write_json(fixture_path, {source_url: "Complaint fixture bytes"})
+    fixture_bytes = b"%PDF Complaint fixture bytes"
+    _write_json(fixture_path, {source_url: fixture_bytes.decode()})
 
     command = [
         "acquisition",
@@ -542,9 +544,7 @@ def test_download_free_fixture_stage_is_idempotent(tmp_path: Path) -> None:
 
     records = _read_jsonl(output_root / "free-document-downloads.jsonl")
     assert records[0]["reused_existing"] is True
-    assert (
-        records[0]["sha256"] == hashlib.sha256(b"Complaint fixture bytes").hexdigest()
-    )
+    assert records[0]["sha256"] == hashlib.sha256(fixture_bytes).hexdigest()
     log_records = _read_jsonl(output_root / "logs" / "download-free.jsonl")
     assert len(log_records) == 2
     assert all(record["paid_activity_executed"] is False for record in log_records)
@@ -571,7 +571,7 @@ def test_download_free_no_resume_rejects_existing_artifacts(
             }
         ],
     )
-    _write_json(fixture_path, {source_url: "Complaint fixture bytes"})
+    _write_json(fixture_path, {source_url: "%PDF Complaint fixture bytes"})
 
     command = [
         "acquisition",

@@ -15,6 +15,7 @@ def _entry(
     text: str,
     *,
     entry_id: str | None = None,
+    filed_at: str = "2026-05-14",
 ) -> NormalizedDocketEntry:
     return NormalizedDocketEntry(
         source_provider="case.dev",
@@ -22,7 +23,7 @@ def _entry(
         docket_entry_id=entry_id or f"entry-{entry_number}",
         entry_number=str(entry_number),
         entry_text=text,
-        filed_at="2026-05-14",
+        filed_at=filed_at,
         document_role=classify_document_role(text),
         source_document_ids=(f"doc-{entry_number}",),
         source_url=None,
@@ -42,14 +43,23 @@ def test_links_single_mtd_to_written_order_by_entry_reference() -> None:
     assert result.is_clean is True
     assert result.links[0].motion_entry_ids == ("entry-12",)
     assert result.links[0].disposition_entry_ids == ("entry-35",)
-    assert result.links[0].linkage_basis == ("explicit_docket_entry_reference",)
+    assert result.links[0].linkage_basis == (
+        "explicit_docket_entry_reference",
+        "deterministic_earliest_eligible_target_motion",
+    )
 
 
-def test_links_multiple_mtds_resolved_together_by_one_order() -> None:
+def test_selects_one_deterministic_target_when_order_resolves_multiple_mtds() -> None:
     result = link_mtd_dispositions(
         (
-            _entry(20, "Defendant A motion to dismiss complaint"),
-            _entry(21, "Defendant B motion to dismiss amended complaint"),
+            _entry(
+                20, "Defendant A motion to dismiss complaint", filed_at="2026-02-02"
+            ),
+            _entry(
+                21,
+                "Defendant B motion to dismiss amended complaint",
+                filed_at="2026-02-01",
+            ),
             _entry(
                 50,
                 "Opinion and order granting motions to dismiss at ECF Nos. 20 and 21",
@@ -60,8 +70,22 @@ def test_links_multiple_mtds_resolved_together_by_one_order() -> None:
     )
 
     assert result.is_clean is True
-    assert result.links[0].motion_entry_ids == ("entry-20", "entry-21")
+    assert result.links[0].motion_entry_ids == ("entry-21",)
     assert result.links[0].disposition_entry_ids == ("entry-50",)
+
+
+def test_target_motion_selector_breaks_same_date_tie_by_entry_number() -> None:
+    result = link_mtd_dispositions(
+        (
+            _entry(21, "Defendant B motion to dismiss complaint"),
+            _entry(20, "Defendant A motion to dismiss complaint"),
+            _entry(50, "Order granting motions to dismiss at ECF Nos. 20 and 21"),
+        ),
+        candidate_id="cand-1",
+        case_id="case-1",
+    )
+
+    assert result.links[0].motion_entry_ids == ("entry-20",)
 
 
 def test_mixed_mtd_preliminary_injunction_order_still_links_mtd_part() -> None:

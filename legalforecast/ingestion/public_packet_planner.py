@@ -313,6 +313,17 @@ def _candidate_plan(
     )
     source_url = _optional_str(candidate, "url")
     case_mix_metadata = _case_mix_metadata(record, candidate, metadata)
+    if len(target_entries) != 1:
+        return _excluded_plan(
+            candidate_id,
+            metadata,
+            decision_date=None,
+            case_mix_metadata=case_mix_metadata,
+            source_url=source_url,
+            target_entries=target_entries,
+            decision_entries=decision_entries,
+            reason="selected_target_motion_count_not_one",
+        )
     decision_date, decision_date_reason = _first_written_disposition_date(
         record,
         metadata=metadata,
@@ -476,6 +487,12 @@ def _documents_for_candidate(
             )
     if not target_entries and not target_mtd_entries:
         reasons.append("no_free_target_mtd_document")
+    has_free_mtd_memorandum = any(
+        _best_free_document(entry, DocumentRole.MTD_MEMORANDUM) is not None
+        for entry in target_mtd_entries
+    )
+    if not has_free_mtd_memorandum:
+        reasons.append("no_free_mtd_memorandum")
     decision_required_count = max(1, len(decision_entries))
     free_decision_numbers = {_entry_number(entry) for entry in decision_entry_plans}
     for entry_number in decision_entries:
@@ -499,12 +516,12 @@ def _documents_for_candidate(
             entry_number = _entry_number(entry)
             reasons.append(
                 _numbered_missing_reason(
-                    "no_free_opposition_document",
+                    "no_free_opposition",
                     entry_number,
                     total=len(opposition_entries),
                 )
                 if entry_number is not None
-                else "no_free_opposition_document:unknown_entry"
+                else "no_free_opposition:unknown_entry"
             )
     documents: list[PublicPacketDocumentPlan] = []
     if complaint_plan is not None:
@@ -558,9 +575,7 @@ def _documents_for_candidate(
     )
     free_required_count = (
         int(complaint_plan is not None)
-        + min(
-            len(free_target_numbers) or len(target_mtd_entries), target_required_count
-        )
+        + min(int(has_free_mtd_memorandum), target_required_count)
         + len(free_opposition_entries)
         + min(len(free_decision_numbers), decision_required_count)
     )

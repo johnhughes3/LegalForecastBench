@@ -24,6 +24,13 @@ from legalforecast.ingestion.discovery_scheduler import (
 )
 
 SCHEMA_VERSION = "legalforecast-cycle-acquisition-v1"
+_SOURCE_NEUTRAL_POLICY_SCHEMA = "legalforecast.cycle_acquisition_policy.v1"
+_LEGACY_SOURCE_POLICY_SCHEMAS = frozenset(
+    {
+        "legalforecast.case_dev_discovery_policy.v1",
+        "legalforecast.firecrawl_recap_discovery_policy.v1",
+    }
+)
 _IMMUTABLE_REASON_CODES = frozenset(
     {
         "decision_before_release_anchor",
@@ -135,6 +142,10 @@ class SnapshotVerificationError(CycleAcquisitionStoreError):
     """Raised when a snapshot is partial, mismatched, or corrupt."""
 
 
+class FirecrawlBudgetExceededError(CycleAcquisitionStoreError):
+    """Raised before a request that could exceed the frozen cycle credit cap."""
+
+
 @dataclass(frozen=True, slots=True)
 class CandidateObservation:
     """One append-only candidate-state observation."""
@@ -159,6 +170,45 @@ class RawArtifact:
     sha256: str
     byte_count: int
     retrieved_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class FirecrawlAttempt:
+    """One permanently reserved Firecrawl request attempt."""
+
+    attempt_id: int
+    run_id: str
+    target_id: str
+    page_number: int
+    attempt_number: int
+    request_url: str
+    reserved_credits: int
+    status: str
+    reported_credits: int | None
+    proxy_used: str | None
+    provider_http_status: int | None
+    target_http_status: int | None
+    failure_code: str | None
+    failure_message: str | None
+    failure_transient: bool | None
+    failure_response_sha256: str | None
+    artifact_path: Path | None
+    artifact_sha256: str | None
+    artifact_byte_count: int | None
+    authorized_at: str
+    completed_at: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class FirecrawlTarget:
+    """One immutable Firecrawl URL target within a frozen run."""
+
+    run_id: str
+    target_id: str
+    target_kind: str
+    source_url: str
+    ordinal: int
+    status: str
 
 
 class CycleAcquisitionStore:
@@ -251,7 +301,7 @@ class CycleAcquisitionStore:
         with self._transaction():
             row = self._connection.execute(
                 """
-                SELECT schema_version, policy_hash
+                SELECT schema_version, policy_json, policy_hash
                 FROM cycle_identity WHERE singleton = 1
                 """
             ).fetchone()
@@ -264,12 +314,54 @@ class CycleAcquisitionStore:
                     """,
                     (SCHEMA_VERSION, policy_json, policy_hash, _utc_now()),
                 )
-            elif (
-                row["schema_version"] != SCHEMA_VERSION
-                or row["policy_hash"] != policy_hash
-            ):
+            elif row["schema_version"] != SCHEMA_VERSION:
                 raise ConfigMismatchError(
                     "cycle policy mismatch: refusing to resume with changed identity"
+                )
+            elif row["policy_hash"] != policy_hash:
+                previous = cast(object, json.loads(row["policy_json"]))
+                if not isinstance(previous, dict) or not _is_safe_policy_upgrade(
+                    cast(dict[str, object], previous),
+                    policy,
+                ):
+                    raise ConfigMismatchError(
+                        "cycle policy mismatch: refusing to resume with "
+                        "changed identity"
+                    )
+                if (
+                    self._connection.execute(
+                        "SELECT 1 FROM snapshots LIMIT 1"
+                    ).fetchone()
+                    is not None
+                ):
+                    raise ConfigMismatchError(
+                        "cycle policy migration refused after a published snapshot"
+                    )
+                previous_hash = str(row["policy_hash"])
+                migrated_at = _utc_now()
+                self._connection.execute(
+                    "UPDATE batches SET cycle_hash = ? WHERE cycle_hash = ?",
+                    (policy_hash, previous_hash),
+                )
+                self._connection.execute(
+                    "UPDATE firecrawl_budget SET cycle_hash = ? WHERE cycle_hash = ?",
+                    (policy_hash, previous_hash),
+                )
+                self._connection.execute(
+                    """
+                    UPDATE cycle_identity
+                    SET policy_json = ?, policy_hash = ?
+                    WHERE singleton = 1
+                    """,
+                    (policy_json, policy_hash),
+                )
+                self._connection.execute(
+                    """
+                    INSERT INTO cycle_policy_migrations(
+                        old_policy_hash, new_policy_hash, migrated_at
+                    ) VALUES(?, ?, ?)
+                    """,
+                    (previous_hash, policy_hash, migrated_at),
                 )
         return policy_hash
 
@@ -309,6 +401,611 @@ class CycleAcquisitionStore:
         if row is None:
             raise KeyError(f"unknown batch: {batch_id}")
         return str(row[0])
+
+    def ensure_firecrawl_run(
+        self,
+        run_id: str,
+        *,
+        batch_id: str,
+        config: Mapping[str, object],
+        credit_cap: int,
+        reserved_credits_per_attempt: int,
+    ) -> str:
+        """Freeze a Firecrawl run and its cycle-wide authorization envelope.
+
+        The budget is deliberately cycle-scoped rather than run-scoped. Search,
+        docket acquisition, retries, and later batches therefore cannot each
+        authorize an independent copy of the cap.
+        """
+
+        run_id = _require_text(run_id, "run_id")
+        batch_id = _require_text(batch_id, "batch_id")
+        self.batch_digest(batch_id)
+        credit_cap = _require_positive_int(credit_cap, "credit_cap")
+        reserved_credits_per_attempt = _require_positive_int(
+            reserved_credits_per_attempt, "reserved_credits_per_attempt"
+        )
+        if credit_cap > 45_000:
+            raise ValueError("credit_cap must not exceed the 45,000-credit safety cap")
+        if reserved_credits_per_attempt > 5:
+            raise ValueError("reserved_credits_per_attempt must not exceed 5")
+        if reserved_credits_per_attempt > credit_cap:
+            raise ValueError("reserved_credits_per_attempt exceeds credit_cap")
+        config_json = _canonical_json(config)
+        config_digest = _sha256_text(config_json)
+        now = _utc_now()
+        with self._transaction():
+            budget = self._connection.execute(
+                "SELECT * FROM firecrawl_budget WHERE singleton = 1"
+            ).fetchone()
+            if budget is None:
+                self._connection.execute(
+                    """
+                    INSERT INTO firecrawl_budget(
+                        singleton, cycle_hash, credit_cap,
+                        reserved_credits_per_attempt, created_at
+                    ) VALUES(1, ?, ?, ?, ?)
+                    """,
+                    (
+                        self.cycle_hash,
+                        credit_cap,
+                        reserved_credits_per_attempt,
+                        now,
+                    ),
+                )
+            elif (
+                int(budget["credit_cap"]) != credit_cap
+                or int(budget["reserved_credits_per_attempt"])
+                != reserved_credits_per_attempt
+                or str(budget["cycle_hash"]) != self.cycle_hash
+            ):
+                raise ConfigMismatchError(
+                    "Firecrawl cycle budget mismatch: refusing unsafe resume"
+                )
+
+            existing = self._connection.execute(
+                "SELECT * FROM firecrawl_runs WHERE run_id = ?", (run_id,)
+            ).fetchone()
+            if existing is None:
+                self._connection.execute(
+                    """
+                    INSERT INTO firecrawl_runs(
+                        run_id, batch_id, config_json, config_digest,
+                        status, created_at, updated_at
+                    ) VALUES(?, ?, ?, ?, 'active', ?, ?)
+                    """,
+                    (run_id, batch_id, config_json, config_digest, now, now),
+                )
+            elif (
+                str(existing["batch_id"]) != batch_id
+                or str(existing["config_digest"]) != config_digest
+            ):
+                raise ConfigMismatchError(
+                    f"Firecrawl run config mismatch for {run_id}: "
+                    "refusing unsafe resume"
+                )
+        return config_digest
+
+    def ensure_firecrawl_target(
+        self,
+        run_id: str,
+        *,
+        target_id: str,
+        target_kind: str,
+        source_url: str,
+        ordinal: int,
+    ) -> None:
+        """Create or validate one deterministic search/docket target."""
+
+        run_id = _require_text(run_id, "run_id")
+        target_id = _require_text(target_id, "target_id")
+        source_url = _require_text(source_url, "source_url")
+        if target_kind not in {"search", "docket"}:
+            raise ValueError("target_kind must be search or docket")
+        if isinstance(ordinal, bool) or ordinal < 0:
+            raise ValueError("ordinal must be a non-negative integer")
+        with self._transaction():
+            if (
+                self._connection.execute(
+                    "SELECT 1 FROM firecrawl_runs WHERE run_id = ?", (run_id,)
+                ).fetchone()
+                is None
+            ):
+                raise KeyError(f"unknown Firecrawl run: {run_id}")
+            row = self._connection.execute(
+                """
+                SELECT * FROM firecrawl_targets
+                WHERE run_id = ? AND target_id = ?
+                """,
+                (run_id, target_id),
+            ).fetchone()
+            if row is None:
+                self._connection.execute(
+                    """
+                    INSERT INTO firecrawl_targets(
+                        run_id, target_id, target_kind, source_url,
+                        ordinal, status, created_at, updated_at
+                    ) VALUES(?, ?, ?, ?, ?, 'pending', ?, ?)
+                    """,
+                    (
+                        run_id,
+                        target_id,
+                        target_kind,
+                        source_url,
+                        ordinal,
+                        _utc_now(),
+                        _utc_now(),
+                    ),
+                )
+            elif (
+                str(row["target_kind"]) != target_kind
+                or str(row["source_url"]) != source_url
+                or int(row["ordinal"]) != ordinal
+            ):
+                raise ConfigMismatchError(
+                    f"Firecrawl target mismatch for {target_id}: refusing unsafe resume"
+                )
+
+    def authorize_firecrawl_attempt(
+        self,
+        run_id: str,
+        *,
+        target_id: str,
+        page_number: int,
+        request_url: str,
+    ) -> FirecrawlAttempt:
+        """Permanently reserve worst-case credits before any wire request."""
+
+        run_id = _require_text(run_id, "run_id")
+        target_id = _require_text(target_id, "target_id")
+        request_url = _require_text(request_url, "request_url")
+        page_number = _require_positive_int(page_number, "page_number")
+        with self._transaction():
+            target = self._connection.execute(
+                """
+                SELECT 1 FROM firecrawl_targets
+                WHERE run_id = ? AND target_id = ?
+                """,
+                (run_id, target_id),
+            ).fetchone()
+            if target is None:
+                raise KeyError(f"unknown Firecrawl target: {run_id}/{target_id}")
+            budget = self._connection.execute(
+                "SELECT * FROM firecrawl_budget WHERE singleton = 1"
+            ).fetchone()
+            assert budget is not None
+            reserved_per_attempt = int(budget["reserved_credits_per_attempt"])
+            reserved_total = int(
+                self._connection.execute(
+                    "SELECT COALESCE(SUM(reserved_credits), 0) FROM firecrawl_attempts"
+                ).fetchone()[0]
+            )
+            if reserved_total + reserved_per_attempt > int(budget["credit_cap"]):
+                raise FirecrawlBudgetExceededError(
+                    "Firecrawl credit cap would be exceeded; request not dispatched"
+                )
+            attempt_number = int(
+                self._connection.execute(
+                    """
+                    SELECT COALESCE(MAX(attempt_number), 0) + 1
+                    FROM firecrawl_attempts
+                    WHERE run_id = ? AND target_id = ? AND page_number = ?
+                    """,
+                    (run_id, target_id, page_number),
+                ).fetchone()[0]
+            )
+            cursor = self._connection.execute(
+                """
+                INSERT INTO firecrawl_attempts(
+                    run_id, target_id, page_number, attempt_number,
+                    request_url, reserved_credits, status, authorized_at
+                ) VALUES(?, ?, ?, ?, ?, ?, 'authorized', ?)
+                """,
+                (
+                    run_id,
+                    target_id,
+                    page_number,
+                    attempt_number,
+                    request_url,
+                    reserved_per_attempt,
+                    _utc_now(),
+                ),
+            )
+            if cursor.lastrowid is None:
+                raise CycleAcquisitionStoreError(
+                    "Firecrawl attempt authorization returned no row ID"
+                )
+            attempt_id = cursor.lastrowid
+            self._connection.execute(
+                """
+                UPDATE firecrawl_targets
+                SET status = 'in_progress', updated_at = ?
+                WHERE run_id = ? AND target_id = ?
+                """,
+                (_utc_now(), run_id, target_id),
+            )
+        return self.firecrawl_attempt(attempt_id)
+
+    def finalize_firecrawl_attempt(
+        self,
+        attempt_id: int,
+        *,
+        status: str,
+        reported_credits: object | None = None,
+        proxy_used: str | None = None,
+        provider_http_status: object | None = None,
+        target_http_status: object | None = None,
+        failure_code: str | None = None,
+        failure_message: str | None = None,
+        failure_transient: object | None = None,
+        failure_response_sha256: str | None = None,
+        artifact_path: str | Path | None = None,
+        artifact_sha256: str | None = None,
+        artifact_byte_count: object | None = None,
+    ) -> FirecrawlAttempt:
+        """Finalize an attempt without ever refunding its authorization."""
+
+        allowed_statuses = {
+            "succeeded",
+            "provider_error",
+            "target_error",
+            "transport_error",
+            "interrupted",
+        }
+        if status not in allowed_statuses:
+            raise ValueError(f"invalid Firecrawl attempt status: {status}")
+        existing = self.firecrawl_attempt(attempt_id)
+        if existing.status != "authorized":
+            if existing.status == status:
+                return existing
+            raise ConfigMismatchError(
+                f"Firecrawl attempt {attempt_id} is already finalized"
+            )
+        if reported_credits is not None:
+            if (
+                isinstance(reported_credits, bool)
+                or not isinstance(reported_credits, int)
+                or reported_credits < 0
+                or reported_credits > existing.reserved_credits
+            ):
+                raise ValueError(
+                    "reported_credits must be an integer within the reservation"
+                )
+        if status == "succeeded" and reported_credits is None:
+            raise ValueError("reported_credits is required for a successful attempt")
+        for value, name in (
+            (provider_http_status, "provider_http_status"),
+            (target_http_status, "target_http_status"),
+        ):
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value < 100
+                or value > 599
+            ):
+                raise ValueError(f"{name} must be a valid HTTP status")
+        failure_values = (failure_code, failure_message, failure_transient)
+        if any(value is not None for value in failure_values) and not all(
+            value is not None for value in failure_values
+        ):
+            raise ValueError(
+                "failure_code, failure_message, and failure_transient must be "
+                "supplied together"
+            )
+        if (
+            failure_code is not None
+            and re.fullmatch(r"[a-z][a-z0-9_]{0,63}", failure_code) is None
+        ):
+            raise ValueError("failure_code must be canonical snake_case")
+        if failure_message is not None and (
+            not failure_message.strip()
+            or failure_message != " ".join(failure_message.split())
+            or len(failure_message) > 300
+        ):
+            raise ValueError("failure_message must be normalized bounded text")
+        if failure_transient is not None and not isinstance(failure_transient, bool):
+            raise ValueError("failure_transient must be a boolean")
+        if (
+            failure_response_sha256 is not None
+            and re.fullmatch(r"[0-9a-f]{64}", failure_response_sha256) is None
+        ):
+            raise ValueError("failure_response_sha256 must be lowercase SHA-256")
+        if status == "succeeded" and (
+            any(value is not None for value in failure_values)
+            or failure_response_sha256 is not None
+        ):
+            raise ValueError("successful attempts cannot carry failure evidence")
+        normalized_path = (
+            str(Path(artifact_path)) if artifact_path is not None else None
+        )
+        if (
+            artifact_sha256 is not None
+            and re.fullmatch(r"[0-9a-f]{64}", artifact_sha256) is None
+        ):
+            raise ValueError("artifact_sha256 must be lowercase SHA-256")
+        if artifact_byte_count is not None and (
+            isinstance(artifact_byte_count, bool)
+            or not isinstance(artifact_byte_count, int)
+            or artifact_byte_count < 0
+        ):
+            raise ValueError("artifact_byte_count must be a non-negative integer")
+        artifact_fields = (
+            normalized_path,
+            artifact_sha256,
+            artifact_byte_count,
+        )
+        if any(value is not None for value in artifact_fields) and not all(
+            value is not None for value in artifact_fields
+        ):
+            raise ValueError(
+                "artifact path, sha256, and byte_count must be supplied together"
+            )
+        if status != "succeeded" and any(
+            value is not None for value in artifact_fields
+        ):
+            raise ValueError("only successful attempts may commit an artifact")
+        with self._transaction():
+            row = self._connection.execute(
+                "SELECT status FROM firecrawl_attempts WHERE attempt_id = ?",
+                (attempt_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"unknown Firecrawl attempt: {attempt_id}")
+            if str(row["status"]) != "authorized":
+                raise ConfigMismatchError(
+                    f"Firecrawl attempt {attempt_id} changed during finalization"
+                )
+            self._connection.execute(
+                """
+                UPDATE firecrawl_attempts SET
+                    status = ?, reported_credits = ?, proxy_used = ?,
+                    provider_http_status = ?, target_http_status = ?,
+                    failure_code = ?, failure_message = ?, failure_transient = ?,
+                    failure_response_sha256 = ?,
+                    artifact_path = ?, artifact_sha256 = ?, artifact_byte_count = ?,
+                    completed_at = ?
+                WHERE attempt_id = ?
+                """,
+                (
+                    status,
+                    reported_credits,
+                    proxy_used,
+                    provider_http_status,
+                    target_http_status,
+                    failure_code,
+                    failure_message,
+                    int(failure_transient) if failure_transient is not None else None,
+                    failure_response_sha256,
+                    normalized_path,
+                    artifact_sha256,
+                    artifact_byte_count,
+                    _utc_now(),
+                    attempt_id,
+                ),
+            )
+        return self.firecrawl_attempt(attempt_id)
+
+    def commit_firecrawl_artifact(
+        self,
+        attempt_id: int,
+        destination: str | Path,
+        content: bytes,
+        *,
+        reported_credits: object,
+        proxy_used: str | None,
+        target_http_status: object,
+        validator: Callable[[bytes], None] | None = None,
+    ) -> FirecrawlAttempt:
+        """Atomically publish one search/docket page and finalize its attempt.
+
+        An orphan file after a process crash is trusted only when a later,
+        separately authorized response reproduces the exact bytes. Permanent
+        reservations therefore remain conservative across every crash window.
+        """
+
+        attempt = self.firecrawl_attempt(attempt_id)
+        destination_path = Path(destination).resolve()
+        digest = hashlib.sha256(content).hexdigest()
+        if validator is not None:
+            validator(content)
+        if (
+            isinstance(reported_credits, bool)
+            or not isinstance(reported_credits, int)
+            or reported_credits < 0
+            or reported_credits > attempt.reserved_credits
+        ):
+            raise ValueError(
+                "reported_credits must be an integer within the reservation"
+            )
+        if (
+            isinstance(target_http_status, bool)
+            or not isinstance(target_http_status, int)
+            or target_http_status < 100
+            or target_http_status > 599
+        ):
+            raise ValueError("target_http_status must be a valid HTTP status")
+        if attempt.status == "succeeded":
+            if (
+                attempt.artifact_path != destination_path
+                or attempt.artifact_sha256 != digest
+                or attempt.artifact_byte_count != len(content)
+            ):
+                raise ImmutableArtifactError(
+                    f"Firecrawl attempt {attempt_id} has a different "
+                    "artifact commitment"
+                )
+            try:
+                existing_content = destination_path.read_bytes()
+            except OSError as error:
+                raise ImmutableArtifactError(
+                    f"committed Firecrawl artifact is missing: {destination_path}"
+                ) from error
+            if existing_content != content:
+                raise ImmutableArtifactError(
+                    f"committed Firecrawl artifact was modified: {destination_path}"
+                )
+            return attempt
+        if attempt.status != "authorized":
+            raise ConfigMismatchError(
+                f"Firecrawl attempt {attempt_id} cannot commit an artifact from "
+                f"status {attempt.status}"
+            )
+        conflicting = self._connection.execute(
+            """
+            SELECT attempt_id FROM firecrawl_attempts
+            WHERE artifact_path = ? AND attempt_id != ?
+            """,
+            (str(destination_path), attempt_id),
+        ).fetchone()
+        if conflicting is not None:
+            raise ImmutableArtifactError(
+                f"Firecrawl artifact path is already committed: {destination_path}"
+            )
+        if destination_path.exists():
+            if destination_path.read_bytes() != content:
+                raise ImmutableArtifactError(
+                    f"untracked Firecrawl artifact conflicts with content: "
+                    f"{destination_path}"
+                )
+        else:
+            _atomic_write_bytes(destination_path, content)
+        committed = self.finalize_firecrawl_attempt(
+            attempt_id,
+            status="succeeded",
+            reported_credits=reported_credits,
+            proxy_used=proxy_used,
+            target_http_status=target_http_status,
+            artifact_path=destination_path,
+            artifact_sha256=digest,
+            artifact_byte_count=len(content),
+        )
+        self.set_firecrawl_target_status(
+            committed.run_id, committed.target_id, "succeeded"
+        )
+        return self.firecrawl_attempt(attempt_id)
+
+    def firecrawl_attempt(self, attempt_id: int) -> FirecrawlAttempt:
+        """Return one Firecrawl attempt."""
+
+        row = self._connection.execute(
+            "SELECT * FROM firecrawl_attempts WHERE attempt_id = ?", (attempt_id,)
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"unknown Firecrawl attempt: {attempt_id}")
+        return _firecrawl_attempt_from_row(row)
+
+    def firecrawl_attempts(self, run_id: str) -> tuple[FirecrawlAttempt, ...]:
+        """Return a run's attempt ledger in authorization order."""
+
+        rows = self._connection.execute(
+            """
+            SELECT * FROM firecrawl_attempts
+            WHERE run_id = ? ORDER BY attempt_id
+            """,
+            (_require_text(run_id, "run_id"),),
+        )
+        return tuple(_firecrawl_attempt_from_row(row) for row in rows)
+
+    def firecrawl_targets(self, run_id: str) -> tuple[FirecrawlTarget, ...]:
+        """Return a run's targets in deterministic scheduling order."""
+
+        rows = self._connection.execute(
+            """
+            SELECT * FROM firecrawl_targets
+            WHERE run_id = ? ORDER BY ordinal, target_id
+            """,
+            (_require_text(run_id, "run_id"),),
+        )
+        return tuple(_firecrawl_target_from_row(row) for row in rows)
+
+    def set_firecrawl_target_status(
+        self, run_id: str, target_id: str, status: str
+    ) -> FirecrawlTarget:
+        """Checkpoint a target outcome independently of export files."""
+
+        allowed = {
+            "pending",
+            "in_progress",
+            "succeeded",
+            "retry_exhausted",
+            "terminal_error",
+        }
+        if status not in allowed:
+            raise ValueError(f"invalid Firecrawl target status: {status}")
+        with self._transaction():
+            cursor = self._connection.execute(
+                """
+                UPDATE firecrawl_targets SET status = ?, updated_at = ?
+                WHERE run_id = ? AND target_id = ?
+                """,
+                (status, _utc_now(), run_id, target_id),
+            )
+            if cursor.rowcount != 1:
+                raise KeyError(f"unknown Firecrawl target: {run_id}/{target_id}")
+        row = self._connection.execute(
+            """
+            SELECT * FROM firecrawl_targets
+            WHERE run_id = ? AND target_id = ?
+            """,
+            (run_id, target_id),
+        ).fetchone()
+        assert row is not None
+        return _firecrawl_target_from_row(row)
+
+    def firecrawl_run_summary(self, run_id: str) -> Mapping[str, object]:
+        """Return reconcilable run and cycle-wide credit accounting."""
+
+        run = self._connection.execute(
+            "SELECT * FROM firecrawl_runs WHERE run_id = ?", (run_id,)
+        ).fetchone()
+        if run is None:
+            raise KeyError(f"unknown Firecrawl run: {run_id}")
+        budget = self._connection.execute(
+            "SELECT * FROM firecrawl_budget WHERE singleton = 1"
+        ).fetchone()
+        assert budget is not None
+        totals = self._connection.execute(
+            """
+            SELECT COALESCE(SUM(reserved_credits), 0) AS reserved,
+                   COALESCE(SUM(reported_credits), 0) AS reported
+            FROM firecrawl_attempts
+            """
+        ).fetchone()
+        statuses = self._connection.execute(
+            """
+            SELECT status, COUNT(*) AS count
+            FROM firecrawl_attempts WHERE run_id = ?
+            GROUP BY status ORDER BY status
+            """,
+            (run_id,),
+        )
+        failure_codes = self._connection.execute(
+            """
+            SELECT failure_code, COUNT(*) AS count
+            FROM firecrawl_attempts
+            WHERE run_id = ? AND failure_code IS NOT NULL
+            GROUP BY failure_code ORDER BY failure_code
+            """,
+            (run_id,),
+        )
+        reserved = int(totals["reserved"])
+        cap = int(budget["credit_cap"])
+        return {
+            "run_id": run_id,
+            "batch_id": str(run["batch_id"]),
+            "config_digest": str(run["config_digest"]),
+            "credit_cap": cap,
+            "reserved_credits_per_attempt": int(budget["reserved_credits_per_attempt"]),
+            "reserved_credits": reserved,
+            "reported_credits": int(totals["reported"]),
+            "remaining_authorization": cap - reserved,
+            "attempt_status_counts": {
+                str(row["status"]): int(row["count"]) for row in statuses
+            },
+            "failure_code_counts": {
+                str(row["failure_code"]): int(row["count"]) for row in failure_codes
+            },
+        }
 
     def ensure_terms(self, batch_id: str, terms: Sequence[str]) -> None:
         """Materialize independent progress rows for every unique query term."""
@@ -757,6 +1454,10 @@ class CycleAcquisitionStore:
         staging.mkdir(mode=0o700)
         try:
             payloads = self._snapshot_payloads(batch_id)
+            if complete:
+                _validate_snapshot_target_motion_invariant(
+                    payloads["screened-cases.jsonl"]
+                )
             files: dict[str, dict[str, object]] = {}
             for filename in _SNAPSHOT_FILES:
                 payload = payloads[filename]
@@ -1002,6 +1703,13 @@ class CycleAcquisitionStore:
                 config_digest TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS cycle_policy_migrations(
+                migration_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                old_policy_hash TEXT NOT NULL,
+                new_policy_hash TEXT NOT NULL,
+                migrated_at TEXT NOT NULL,
+                UNIQUE(old_policy_hash, new_policy_hash)
+            );
             CREATE TABLE IF NOT EXISTS term_progress(
                 batch_id TEXT NOT NULL REFERENCES batches(batch_id),
                 term TEXT NOT NULL,
@@ -1065,6 +1773,65 @@ class CycleAcquisitionStore:
                 retrieved_at TEXT NOT NULL,
                 UNIQUE(candidate_id, sha256)
             );
+            CREATE TABLE IF NOT EXISTS firecrawl_budget(
+                singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+                cycle_hash TEXT NOT NULL,
+                credit_cap INTEGER NOT NULL CHECK(credit_cap BETWEEN 1 AND 45000),
+                reserved_credits_per_attempt INTEGER NOT NULL
+                    CHECK(reserved_credits_per_attempt BETWEEN 1 AND 5),
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS firecrawl_runs(
+                run_id TEXT PRIMARY KEY,
+                batch_id TEXT NOT NULL REFERENCES batches(batch_id),
+                config_json TEXT NOT NULL,
+                config_digest TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS firecrawl_targets(
+                run_id TEXT NOT NULL REFERENCES firecrawl_runs(run_id),
+                target_id TEXT NOT NULL,
+                target_kind TEXT NOT NULL CHECK(target_kind IN ('search', 'docket')),
+                source_url TEXT NOT NULL,
+                ordinal INTEGER NOT NULL CHECK(ordinal >= 0),
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY(run_id, target_id),
+                UNIQUE(run_id, source_url),
+                UNIQUE(run_id, ordinal)
+            );
+            CREATE TABLE IF NOT EXISTS firecrawl_attempts(
+                attempt_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id TEXT NOT NULL,
+                target_id TEXT NOT NULL,
+                page_number INTEGER NOT NULL CHECK(page_number > 0),
+                attempt_number INTEGER NOT NULL CHECK(attempt_number > 0),
+                request_url TEXT NOT NULL,
+                reserved_credits INTEGER NOT NULL
+                    CHECK(reserved_credits BETWEEN 1 AND 5),
+                status TEXT NOT NULL,
+                reported_credits INTEGER,
+                proxy_used TEXT,
+                provider_http_status INTEGER,
+                target_http_status INTEGER,
+                failure_code TEXT,
+                failure_message TEXT,
+                failure_transient INTEGER,
+                failure_response_sha256 TEXT,
+                artifact_path TEXT,
+                artifact_sha256 TEXT,
+                artifact_byte_count INTEGER,
+                authorized_at TEXT NOT NULL,
+                completed_at TEXT,
+                UNIQUE(run_id, target_id, page_number, attempt_number),
+                FOREIGN KEY(run_id, target_id)
+                    REFERENCES firecrawl_targets(run_id, target_id)
+            );
+            CREATE INDEX IF NOT EXISTS firecrawl_attempt_run_status
+            ON firecrawl_attempts(run_id, status, attempt_id);
             CREATE TABLE IF NOT EXISTS snapshots(
                 snapshot_id TEXT PRIMARY KEY,
                 batch_id TEXT NOT NULL REFERENCES batches(batch_id),
@@ -1081,6 +1848,7 @@ class CycleAcquisitionStore:
             );
             """
         )
+        self._ensure_firecrawl_failure_columns()
         for reason_code, (allowed_states, evidence_class, precedence) in sorted(
             _REASON_POLICIES.items()
         ):
@@ -1105,6 +1873,25 @@ class CycleAcquisitionStore:
                 """,
                 (reason_code, serialized_states, evidence_class, precedence),
             )
+
+    def _ensure_firecrawl_failure_columns(self) -> None:
+        """Add sanitized failure-evidence columns to pre-change cycle stores."""
+
+        existing = {
+            str(row["name"])
+            for row in self._connection.execute("PRAGMA table_info(firecrawl_attempts)")
+        }
+        additions = {
+            "failure_code": "TEXT",
+            "failure_message": "TEXT",
+            "failure_transient": "INTEGER",
+            "failure_response_sha256": "TEXT",
+        }
+        for name, sql_type in additions.items():
+            if name not in existing:
+                self._connection.execute(
+                    f"ALTER TABLE firecrawl_attempts ADD COLUMN {name} {sql_type}"
+                )
 
 
 class _Transaction:
@@ -1348,6 +2135,27 @@ def _snapshot_candidate_ids(
     return candidate_ids
 
 
+def _validate_snapshot_target_motion_invariant(payload: bytes) -> None:
+    """Fail a production freeze if a screened candidate selects multiple motions."""
+
+    for line in payload.splitlines():
+        record = cast(object, json.loads(line))
+        if not isinstance(record, dict):
+            continue
+        typed_record = cast(dict[str, object], record)
+        ai = typed_record.get("ai")
+        if not isinstance(ai, dict):
+            continue  # Legacy synthetic store records predate screened-case schema.
+        typed_ai = cast(dict[str, object], ai)
+        numbers = typed_ai.get("target_motion_entry_numbers")
+        if not isinstance(numbers, list) or len(cast(list[object], numbers)) != 1:
+            candidate_id = typed_record.get("candidate_id", "unknown")
+            raise SnapshotVerificationError(
+                f"screened candidate {candidate_id} must select exactly one "
+                "target motion"
+            )
+
+
 def _normalize_hit(
     hit: DiscoveryHit | Mapping[str, object],
 ) -> tuple[str, str, str]:
@@ -1368,6 +2176,12 @@ def _require_text(value: object, name: str) -> str:
     return value.strip()
 
 
+def _require_positive_int(value: object, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(f"{name} must be a positive integer")
+    return value
+
+
 def _canonical_json(value: object) -> str:
     try:
         return json.dumps(
@@ -1379,6 +2193,29 @@ def _canonical_json(value: object) -> str:
         )
     except (TypeError, ValueError) as error:
         raise ValueError(f"value is not canonical JSON: {error}") from error
+
+
+def _is_safe_policy_upgrade(
+    previous: Mapping[str, object],
+    requested: Mapping[str, object],
+) -> bool:
+    """Recognize the one audited source-specific to source-neutral migration."""
+
+    if previous.get("schema_version") not in _LEGACY_SOURCE_POLICY_SCHEMAS:
+        return False
+    if requested.get("schema_version") != _SOURCE_NEUTRAL_POLICY_SCHEMA:
+        return False
+    if set(requested) != {
+        "schema_version",
+        "eligibility_anchor",
+        "screening_source_sha256",
+    }:
+        return False
+    return previous.get("eligibility_anchor") == requested.get(
+        "eligibility_anchor"
+    ) and previous.get("screening_source_sha256") == requested.get(
+        "screening_source_sha256"
+    )
 
 
 def _sha256_text(value: str) -> str:
@@ -1423,6 +2260,76 @@ def _raw_artifact_from_row(row: sqlite3.Row) -> RawArtifact:
         sha256=str(row["sha256"]),
         byte_count=int(row["byte_count"]),
         retrieved_at=str(row["retrieved_at"]),
+    )
+
+
+def _firecrawl_attempt_from_row(row: sqlite3.Row) -> FirecrawlAttempt:
+    artifact_path = row["artifact_path"]
+    return FirecrawlAttempt(
+        attempt_id=int(row["attempt_id"]),
+        run_id=str(row["run_id"]),
+        target_id=str(row["target_id"]),
+        page_number=int(row["page_number"]),
+        attempt_number=int(row["attempt_number"]),
+        request_url=str(row["request_url"]),
+        reserved_credits=int(row["reserved_credits"]),
+        status=str(row["status"]),
+        reported_credits=(
+            int(row["reported_credits"])
+            if row["reported_credits"] is not None
+            else None
+        ),
+        proxy_used=(str(row["proxy_used"]) if row["proxy_used"] is not None else None),
+        provider_http_status=(
+            int(row["provider_http_status"])
+            if row["provider_http_status"] is not None
+            else None
+        ),
+        target_http_status=(
+            int(row["target_http_status"])
+            if row["target_http_status"] is not None
+            else None
+        ),
+        failure_code=(
+            str(row["failure_code"]) if row["failure_code"] is not None else None
+        ),
+        failure_message=(
+            str(row["failure_message"]) if row["failure_message"] is not None else None
+        ),
+        failure_transient=(
+            bool(row["failure_transient"])
+            if row["failure_transient"] is not None
+            else None
+        ),
+        failure_response_sha256=(
+            str(row["failure_response_sha256"])
+            if row["failure_response_sha256"] is not None
+            else None
+        ),
+        artifact_path=Path(str(artifact_path)) if artifact_path is not None else None,
+        artifact_sha256=(
+            str(row["artifact_sha256"]) if row["artifact_sha256"] is not None else None
+        ),
+        artifact_byte_count=(
+            int(row["artifact_byte_count"])
+            if row["artifact_byte_count"] is not None
+            else None
+        ),
+        authorized_at=str(row["authorized_at"]),
+        completed_at=(
+            str(row["completed_at"]) if row["completed_at"] is not None else None
+        ),
+    )
+
+
+def _firecrawl_target_from_row(row: sqlite3.Row) -> FirecrawlTarget:
+    return FirecrawlTarget(
+        run_id=str(row["run_id"]),
+        target_id=str(row["target_id"]),
+        target_kind=str(row["target_kind"]),
+        source_url=str(row["source_url"]),
+        ordinal=int(row["ordinal"]),
+        status=str(row["status"]),
     )
 
 

@@ -17,6 +17,7 @@ def _selection(candidate_id: str, case_id: str) -> dict[str, object]:
         "candidate_id": candidate_id,
         "case_id": case_id,
         "court": "S.D.N.Y.",
+        "target_motion_entry_numbers": [5],
         "documents": [
             {"source_document_id": f"{candidate_id}-complaint"},
             {"source_document_id": f"{candidate_id}-decision"},
@@ -170,6 +171,33 @@ def test_stage_a_review_items_fail_closed_until_queue_is_adjudicated() -> None:
         ],
     )
     assert resolved.clean_candidate_ids == ("cand-1",)
+
+
+def test_readiness_rejects_two_selected_target_motions() -> None:
+    selection = _selection("cand-1", "case-1")
+    selection["target_motion_entry_numbers"] = [5, 6]
+    report = build_clean_corpus_readiness(
+        selection_records=[selection],
+        parser_records=_parsers("cand-1"),
+        prediction_unit_records=[_unit("cand-1", "unit-1")],
+        unitization_audit_records=[_unitization_audit("cand-1")],
+        unitization_review_records=[],
+        unitization_adjudication_records=[],
+        label_records=[_label("unit-1")],
+        label_audit_records=[_label_audit("cand-1")],
+        lawyer_review_records=[],
+        lawyer_review_audit_records=[],
+        packet_build_records=[{"candidate_id": "cand-1"}],
+        packet_records=[{"candidate_id": "cand-1"}],
+        exclusion_records=[],
+        decision_text_by_candidate_and_document=_decision_texts("cand-1"),
+        decision_filed_on_or_after=date(2026, 6, 30),
+        required_clean_count=1,
+    )
+
+    assert report.exclusion_reasons["cand-1"] == (
+        "selected_target_motion_count_not_one",
+    )
 
 
 def test_required_stage_b_label_audit_fails_closed_until_passed() -> None:

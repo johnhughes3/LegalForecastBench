@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import os
+import shutil
+import tempfile
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.path_safety import safe_path_component
@@ -74,6 +78,7 @@ class UrlLibFreeDocumentSource:
     max_retries: int = 2
     retry_backoff_seconds: float = 1.0
     user_agent: str = _DEFAULT_USER_AGENT
+    max_bytes: int = 100 * 1024 * 1024
 
     def fetch(self, source_url: str) -> FreeDocumentFetch:
         _validate_public_document_url(source_url)
@@ -107,6 +112,109 @@ class UrlLibFreeDocumentSource:
             f"failed to download free public document {source_url}: {last_error}"
         ) from last_error
 
+    def fetch_to(self, source_url: str, destination: Path) -> FreeDocumentFetch:
+        """Stream one validated PDF to a caller-owned temporary path."""
+        _validate_public_document_url(source_url)
+        retry_count = 0
+        rate_limited = False
+        last_error: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            if attempt > 0:
+                retry_count += 1
+                time.sleep(self.retry_backoff_seconds * attempt)
+            try:
+                return self._fetch_to_once(
+                    source_url,
+                    destination,
+                    retry_count=retry_count,
+                    rate_limited=rate_limited,
+                )
+            except urllib.error.HTTPError as exc:
+                last_error = exc
+                if exc.code == 429:
+                    rate_limited = True
+                if (
+                    exc.code not in _RETRYABLE_STATUS_CODES
+                    or attempt >= self.max_retries
+                ):
+                    break
+            except (TimeoutError, urllib.error.URLError) as exc:
+                last_error = exc
+                if attempt >= self.max_retries:
+                    break
+        raise FreeDocumentDownloadError(
+            f"failed to download free public document {source_url}: {last_error}"
+        ) from last_error
+
+    def _fetch_to_once(
+        self,
+        source_url: str,
+        destination: Path,
+        *,
+        retry_count: int,
+        rate_limited: bool,
+        allow_landing_resolution: bool = True,
+    ) -> FreeDocumentFetch:
+        request = urllib.request.Request(
+            source_url,
+            headers={
+                "Accept": "application/pdf,application/octet-stream;q=0.9,*/*;q=0.1",
+                "User-Agent": self.user_agent,
+            },
+        )
+        with _open_allowlisted(request, timeout=self.timeout_seconds) as response:
+            final_url = response.geturl()
+            _validate_public_document_url(final_url)
+            _validate_content_length(
+                response.headers.get("Content-Length"),
+                max_bytes=self.max_bytes,
+                source_url=source_url,
+            )
+            byte_count = 0
+            prefix = bytearray()
+            content_type = response.headers.get_content_type().lower()
+            landing_parser = (
+                _CourtListenerLandingPageParser(base_url=final_url)
+                if allow_landing_resolution
+                and content_type == "text/html"
+                and _is_courtlistener_document_landing_url(final_url)
+                else None
+            )
+            with destination.open("wb") as handle:
+                while chunk := response.read(min(1024 * 1024, self.max_bytes + 1)):
+                    byte_count += len(chunk)
+                    if byte_count > self.max_bytes:
+                        raise _ceiling_error(self.max_bytes, source_url)
+                    if len(prefix) < 512:
+                        prefix.extend(chunk[: 512 - len(prefix)])
+                    if landing_parser is not None:
+                        landing_parser.feed(chunk.decode("utf-8", errors="ignore"))
+                    handle.write(chunk)
+                handle.flush()
+                os.fsync(handle.fileno())
+        if landing_parser is not None:
+            landing_parser.close()
+            resolved_url = landing_parser.best_url
+            if resolved_url is not None and resolved_url != final_url:
+                _validate_public_document_url(resolved_url)
+                return self._fetch_to_once(
+                    resolved_url,
+                    destination,
+                    retry_count=retry_count,
+                    rate_limited=rate_limited,
+                    allow_landing_resolution=False,
+                )
+        _validate_public_document_content(
+            source_url=source_url,
+            content=bytes(prefix),
+            content_type=content_type,
+        )
+        return FreeDocumentFetch(
+            content=b"",
+            retry_count=retry_count,
+            rate_limited=rate_limited,
+        )
+
     def _fetch_once(
         self,
         source_url: str,
@@ -122,14 +230,17 @@ class UrlLibFreeDocumentSource:
                 "User-Agent": self.user_agent,
             },
         )
-        # URL host is allowlisted above; urllib follows CourtListener redirects.
-        with urllib.request.urlopen(  # nosec B310
-            request,
-            timeout=self.timeout_seconds,
-        ) as response:
+        with _open_allowlisted(request, timeout=self.timeout_seconds) as response:
             final_url = response.geturl()
             _validate_public_document_url(final_url)
-            content = response.read()
+            _validate_content_length(
+                response.headers.get("Content-Length"),
+                max_bytes=self.max_bytes,
+                source_url=source_url,
+            )
+            content = response.read(self.max_bytes + 1)
+            if len(content) > self.max_bytes:
+                raise _ceiling_error(self.max_bytes, source_url)
             content_type = response.headers.get_content_type().lower()
         if (
             allow_landing_resolution
@@ -228,17 +339,24 @@ def download_free_docket_documents(
 
     root = Path(output_root).resolve()
     root.mkdir(parents=True, exist_ok=True)
+    _require_free_space(root, requests, source=source)
+    checkpoint_path = root / ".download-checkpoint.jsonl"
+    checkpoint = _read_checkpoint(checkpoint_path)
     if not allow_existing:
         _reject_existing_outputs(requests, output_root=root)
-    return tuple(
-        _download_one(
+    records: list[FreeDocumentDownloadRecord] = []
+    for request in requests:
+        record = _download_one(
             request,
             output_root=root,
             source=source,
             allow_existing=allow_existing,
+            expected=checkpoint.get(_request_key(request)),
         )
-        for request in requests
-    )
+        records.append(record)
+        checkpoint[_request_key(request)] = record
+        _write_checkpoint(checkpoint_path, checkpoint.values())
+    return tuple(records)
 
 
 def _reject_existing_outputs(
@@ -266,6 +384,7 @@ def _download_one(
     output_root: Path,
     source: FreeDocumentSource,
     allow_existing: bool,
+    expected: FreeDocumentDownloadRecord | None,
 ) -> FreeDocumentDownloadRecord:
     _validate_public_document_url(request.source_url)
     output_path = _document_output_path(output_root, request)
@@ -275,18 +394,37 @@ def _download_one(
                 "existing document artifact present while resume is disabled: "
                 f"{output_path.relative_to(output_root).as_posix()}"
             )
-        content = output_path.read_bytes()
-        return _record_for_content(
+        digest, _ = _hash_path(output_path)
+        if expected is not None and expected.sha256 == digest:
+            return _record_for_path(
+                request,
+                output_root=output_root,
+                output_path=output_path,
+                fetch=FreeDocumentFetch(content=b""),
+                reused_existing=True,
+            )
+    if isinstance(source, UrlLibFreeDocumentSource):
+        fetch = _stream_live_document(source, request.source_url, output_path)
+        return _record_for_path(
             request,
             output_root=output_root,
             output_path=output_path,
-            content=content,
-            fetch=FreeDocumentFetch(content=content),
-            reused_existing=True,
+            fetch=fetch,
+            reused_existing=False,
         )
     fetch = source.fetch(request.source_url)
+    if not fetch.content:
+        raise FreeDocumentDownloadError(
+            f"free public document was empty: {request.source_url}"
+        )
+    if request.file_extension.removeprefix(".").lower() == "pdf" and not (
+        fetch.content.lstrip().startswith(b"%PDF")
+    ):
+        raise FreeDocumentDownloadError(
+            f"free public PDF is missing PDF magic: {request.source_url}"
+        )
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_bytes(fetch.content)
+    _atomic_write(output_path, fetch.content)
     return _record_for_content(
         request,
         output_root=output_root,
@@ -295,6 +433,147 @@ def _download_one(
         fetch=fetch,
         reused_existing=False,
     )
+
+
+def _stream_live_document(
+    source: UrlLibFreeDocumentSource, source_url: str, output_path: Path
+) -> FreeDocumentFetch:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=output_path.parent, prefix=f".{output_path.name}.", suffix=".partial"
+    )
+    os.close(descriptor)
+    temporary = Path(temporary_name)
+    try:
+        fetch = source.fetch_to(source_url, temporary)
+        os.replace(temporary, output_path)
+        _fsync_directory(output_path.parent)
+        return fetch
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _request_key(request: FreeDocumentDownloadRequest) -> str:
+    return "\0".join(
+        (request.candidate_id, request.source_provider, request.source_document_id)
+    )
+
+
+def _require_free_space(
+    root: Path,
+    requests: tuple[FreeDocumentDownloadRequest, ...],
+    *,
+    source: FreeDocumentSource,
+) -> None:
+    per_document = (
+        source.max_bytes
+        if isinstance(source, UrlLibFreeDocumentSource)
+        else 1024 * 1024
+    )
+    required = max(1, len(requests)) * per_document
+    if shutil.disk_usage(root).free < required:
+        raise FreeDocumentDownloadError(
+            f"insufficient free space for {len(requests)} document download(s)"
+        )
+
+
+def _atomic_write(path: Path, content: bytes) -> None:
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".partial"
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        _fsync_directory(path.parent)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _fsync_directory(path: Path) -> None:
+    directory = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+
+def _record_for_path(
+    request: FreeDocumentDownloadRequest,
+    *,
+    output_root: Path,
+    output_path: Path,
+    fetch: FreeDocumentFetch,
+    reused_existing: bool,
+) -> FreeDocumentDownloadRecord:
+    digest, byte_count = _hash_path(output_path)
+    return FreeDocumentDownloadRecord(
+        candidate_id=request.candidate_id,
+        source_provider=request.source_provider,
+        source_document_id=request.source_document_id,
+        docket_entry_number=request.docket_entry_number,
+        document_role=request.document_role,
+        source_url=request.source_url,
+        local_path=output_path.relative_to(output_root).as_posix(),
+        sha256=digest,
+        byte_count=byte_count,
+        free_or_purchased="free",
+        retry_count=fetch.retry_count,
+        rate_limited=fetch.rate_limited,
+        reused_existing=reused_existing,
+    )
+
+
+def _hash_path(path: Path) -> tuple[str, int]:
+    digest = hashlib.sha256()
+    byte_count = 0
+    with path.open("rb") as handle:
+        while chunk := handle.read(1024 * 1024):
+            digest.update(chunk)
+            byte_count += len(chunk)
+    return digest.hexdigest(), byte_count
+
+
+def _read_checkpoint(path: Path) -> dict[str, FreeDocumentDownloadRecord]:
+    if not path.exists():
+        return {}
+    records: dict[str, FreeDocumentDownloadRecord] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        raw = json.loads(line)
+        record = FreeDocumentDownloadRecord(
+            candidate_id=raw["candidate_id"],
+            source_provider=raw["source_provider"],
+            source_document_id=raw["source_document_id"],
+            docket_entry_number=raw["docket_entry_number"],
+            document_role=DocumentRole(raw["document_role"]),
+            source_url=raw["source_url"],
+            local_path=raw["local_path"],
+            sha256=raw["sha256"],
+            byte_count=raw["byte_count"],
+            free_or_purchased=raw["free_or_purchased"],
+            retry_count=raw["retry_count"],
+            rate_limited=raw["rate_limited"],
+            reused_existing=raw["reused_existing"],
+        )
+        records[
+            "\0".join(
+                (record.candidate_id, record.source_provider, record.source_document_id)
+            )
+        ] = record
+    return records
+
+
+def _write_checkpoint(
+    path: Path, records: Iterable[FreeDocumentDownloadRecord]
+) -> None:
+    ordered = sorted(records, key=lambda record: record.local_path)
+    payload = "".join(
+        json.dumps(record.to_record(), sort_keys=True) + "\n" for record in ordered
+    ).encode()
+    _atomic_write(path, payload)
 
 
 def _record_for_content(
@@ -368,6 +647,31 @@ def _validate_public_document_url(source_url: str) -> None:
         raise ValueError("source_url port must be valid") from exc
     if port not in {None, 443}:
         raise ValueError("source_url must not specify a non-default port")
+
+
+def _ceiling_error(max_bytes: int, source_url: str) -> FreeDocumentDownloadError:
+    return FreeDocumentDownloadError(
+        f"free public document exceeds byte ceiling ({max_bytes}): {source_url}"
+    )
+
+
+def _validate_content_length(
+    raw_value: str | None, *, max_bytes: int, source_url: str
+) -> None:
+    if raw_value is None:
+        return
+    try:
+        content_length = int(raw_value)
+    except ValueError as exc:
+        raise FreeDocumentDownloadError(
+            f"free public document returned invalid Content-Length: {source_url}"
+        ) from exc
+    if content_length < 0:
+        raise FreeDocumentDownloadError(
+            f"free public document returned invalid Content-Length: {source_url}"
+        )
+    if content_length > max_bytes:
+        raise _ceiling_error(max_bytes, source_url)
 
 
 def _free_pdf_url_from_landing_page(source_url: str, content: bytes) -> str | None:
@@ -482,3 +786,22 @@ def _courtlistener_landing_link_score(href: str, text: str) -> int | None:
     if parsed.path.lower().endswith(".pdf"):
         return 2
     return None
+
+
+class _AllowlistedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: object,
+        code: int,
+        msg: str,
+        headers: object,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        _validate_public_document_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)  # type: ignore[arg-type]
+
+
+def _open_allowlisted(request: urllib.request.Request, *, timeout: float) -> Any:
+    opener = urllib.request.build_opener(_AllowlistedRedirectHandler())
+    return opener.open(request, timeout=timeout)  # nosec B310

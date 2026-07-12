@@ -234,14 +234,18 @@ def _build_link(
     basis: tuple[str, ...],
 ) -> MotionDispositionLink:
     clean_dispositions = _resolving_dispositions(dispositions)
+    selected_motion = min(motions, key=_target_motion_sort_key)
     return MotionDispositionLink(
         candidate_id=candidate_id,
         case_id=case_id,
-        motion_entry_ids=tuple(entry.docket_entry_id for entry in motions),
+        motion_entry_ids=(selected_motion.docket_entry_id,),
         disposition_entry_ids=tuple(
             entry.docket_entry_id for entry in clean_dispositions
         ),
-        linkage_basis=_linkage_basis(basis, clean_dispositions),
+        linkage_basis=(
+            *_linkage_basis(basis, clean_dispositions),
+            "deterministic_earliest_eligible_target_motion",
+        ),
         contains_non_mtd_relief=any(
             _contains_non_mtd_relief(entry.entry_text) for entry in clean_dispositions
         ),
@@ -250,6 +254,16 @@ def _build_link(
             or _is_adoption_order(entry.entry_text)
             for entry in clean_dispositions
         ),
+    )
+
+
+def _target_motion_sort_key(entry: NormalizedDocketEntry) -> tuple[str, int, str]:
+    """Order eligible MTDs deterministically by filing date and docket number."""
+
+    return (
+        entry.filed_at or "9999-12-31",
+        _entry_number_as_int(entry.entry_number) or 2**31 - 1,
+        entry.docket_entry_id,
     )
 
 

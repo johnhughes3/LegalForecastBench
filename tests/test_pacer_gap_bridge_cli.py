@@ -98,7 +98,10 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
     assert free_selection["candidate_id"] == "cl-free"
     [paid_gap] = _read_jsonl(output_root / "public-packet-paid-gaps.jsonl")
     assert paid_gap["candidate_id"] == "cl-123"
-    assert paid_gap["paid_gap_reasons"] == ["no_free_target_mtd_document"]
+    assert paid_gap["paid_gap_reasons"] == [
+        "no_free_target_mtd_document",
+        "no_free_mtd_memorandum",
+    ]
     assert _read_jsonl(output_root / "public-packet-exclusions.jsonl") == []
 
     free_fixture_path = tmp_path / "free-documents.json"
@@ -295,7 +298,7 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
     assert {record["source_document_id"] for record in parser_requests} == {
         "case-dev-mtd",
         "entry-1-complaint",
-        "entry-5-motion-to-dismiss-notice",
+        "entry-5-motion-to-dismiss-memorandum",
         "entry-16-decision",
     }
 
@@ -371,8 +374,8 @@ def _screened_case() -> dict[str, object]:
             ),
             _courtlistener_entry(
                 5,
-                "MOTION to Dismiss filed by Defendant.",
-                "Motion to Dismiss",
+                "MOTION to Dismiss and Memorandum in Support filed by Defendant.",
+                "Motion to Dismiss and Memorandum in Support",
                 "https://ecf.nysd.uscourts.gov/doc1/12345",
                 pacer_only=True,
             ),

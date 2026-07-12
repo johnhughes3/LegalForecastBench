@@ -1,16 +1,35 @@
 from __future__ import annotations
 
 import json
+import urllib.request
+from email.message import Message
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
+from legalforecast.ingestion.courtlistener_acquisition import (
+    CourtListenerClientError,
+    _CourtListenerRedirectHandler,
+)
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.discovery_scheduler import (
     DiscoveryHit,
     TermTerminalStatus,
 )
+
+
+def test_docket_html_refuses_off_allowlist_redirect_hop() -> None:
+    handler = _CourtListenerRedirectHandler()
+    with pytest.raises(CourtListenerClientError, match="host allowlist"):
+        handler.redirect_request(
+            urllib.request.Request("https://www.courtlistener.com/docket/1/"),
+            object(),
+            302,
+            "Found",
+            Message(),
+            "https://evil.example/docket/1/",
+        )
 
 
 def test_discover_courtlistener_help_documents_live_authority(
@@ -387,6 +406,7 @@ def _docket_html(*, decision_dates: tuple[str, ...]) -> str:
             filed_at="February 2, 2026",
             text="MOTION to Dismiss filed by Defendant",
             description="Motion to Dismiss",
+            extra_document_description="Memorandum in Support of Motion to Dismiss",
         )
         + decision_rows
         + "</div></body></html>"
@@ -399,7 +419,18 @@ def _entry_html(
     filed_at: str,
     text: str,
     description: str,
+    extra_document_description: str | None = None,
 ) -> str:
+    extra_document = (
+        ""
+        if extra_document_description is None
+        else (
+            '<div class="row recap-documents"><div>Attachment 1</div>'
+            f"<div>{extra_document_description}</div>"
+            f'<a href="https://storage.courtlistener.com/{number}-memo.pdf">'
+            "Download PDF</a></div>"
+        )
+    )
     return (
         f'<div class="row" id="entry-{number}">'
         f'<div class="col-xs-1">{number}</div>'
@@ -409,7 +440,7 @@ def _entry_html(
         "<div>Main Document</div>"
         f"<div>{description}</div>"
         f'<a href="https://storage.courtlistener.com/{number}.pdf">Download PDF</a>'
-        "</div></div></div>"
+        f"</div>{extra_document}</div></div>"
     )
 
 
