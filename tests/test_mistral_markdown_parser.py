@@ -6,11 +6,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from legalforecast.ingestion import mistral_markdown_parser
 from legalforecast.ingestion.mistral_markdown_parser import (
+    EXPECTED_PARSER_REVISION,
     MistralMarkdownConversionRequest,
     MistralMarkdownConversionStatus,
     MistralParserConfig,
     ParserProcessResult,
+    SubprocessParserRunner,
     convert_documents_to_markdown,
 )
 
@@ -129,6 +132,146 @@ def test_each_source_is_rehashed_immediately_before_its_spawn(tmp_path: Path) ->
         )
 
 
+def test_subprocess_runner_uses_allowlisted_env_without_invoking_op(
+    tmp_path: Path,
+) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    op_marker = tmp_path / "op-invoked"
+    sentinel_op = bin_dir / "op"
+    sentinel_op.write_text(
+        f"#!/bin/sh\ntouch '{op_marker}'\nexit 97\n",
+        encoding="utf-8",
+    )
+    sentinel_op.chmod(0o755)
+
+    runner = SubprocessParserRunner(
+        parent_env={
+            "MISTRAL_API_KEY": "fixture-key",
+            "PATH": f"{bin_dir}:/usr/bin:/bin",
+            "LANG": "C.UTF-8",
+            "CANARY_AMBIENT_SECRET": "must-not-leak",
+        }
+    )
+    result = runner.run(("/usr/bin/env",), cwd=tmp_path, timeout_seconds=5)
+
+    assert result.return_code == 0
+    assert {line.split("=", maxsplit=1)[0] for line in result.stdout.splitlines()} == {
+        "LANG",
+        "MISTRAL_API_KEY",
+        "PARSER_API_KEYS_FROM_ENV_ONLY",
+        "PATH",
+    }
+    assert not op_marker.exists()
+
+
+def test_subprocess_runner_missing_key_fails_before_spawn_without_invoking_op(
+    tmp_path: Path,
+) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    op_marker = tmp_path / "op-invoked"
+    sentinel_op = bin_dir / "op"
+    sentinel_op.write_text(
+        f"#!/bin/sh\ntouch '{op_marker}'\nexit 97\n",
+        encoding="utf-8",
+    )
+    sentinel_op.chmod(0o755)
+
+    with pytest.raises(ValueError, match=r"MISTRAL_API_KEY.*nonempty"):
+        SubprocessParserRunner(parent_env={"PATH": f"{bin_dir}:/usr/bin:/bin"})
+
+    assert not op_marker.exists()
+
+
+def test_parser_revision_pin_is_a_full_commit_sha() -> None:
+    assert EXPECTED_PARSER_REVISION == "9402306972462a5bdd0da7f687c5e6b4cea373a0"
+
+
+def test_default_runner_rejects_unpinned_parser_checkout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parser_root = tmp_path / "parser"
+    parser_root.mkdir()
+    (parser_root / "pyproject.toml").write_text(
+        '[project]\nname = "fixture-parser"\nversion = "0.0.0"\n',
+        encoding="utf-8",
+    )
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    _write_fake_git(bin_dir, 'echo "0000000000000000000000000000000000000000"')
+    monkeypatch.setenv("PATH", str(bin_dir))
+
+    with pytest.raises(ValueError, match="parser checkout revision mismatch"):
+        mistral_markdown_parser._require_parser_revision(parser_root)
+
+
+def test_empty_conversion_does_not_validate_default_runner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    monkeypatch.delenv("PATH", raising=False)
+
+    assert convert_documents_to_markdown(()) == ()
+
+
+def test_parser_revision_rejects_dirty_checkout(tmp_path: Path, monkeypatch) -> None:
+    parser_root = tmp_path / "parser"
+    parser_root.mkdir()
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    _write_fake_git(
+        bin_dir,
+        f'if [ "$3" = "rev-parse" ]; then echo {EXPECTED_PARSER_REVISION}; '
+        'else echo " M modified.py"; fi',
+    )
+    monkeypatch.setenv("PATH", str(bin_dir))
+
+    with pytest.raises(ValueError, match="parser checkout working tree is dirty"):
+        mistral_markdown_parser._require_parser_revision(parser_root)
+
+
+def test_parser_revision_accepts_clean_pinned_checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    parser_root = tmp_path / "parser"
+    parser_root.mkdir()
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    _write_fake_git(
+        bin_dir,
+        f'if [ "$3" = "rev-parse" ]; then echo {EXPECTED_PARSER_REVISION}; fi',
+    )
+    monkeypatch.setenv("PATH", str(bin_dir))
+
+    assert (
+        mistral_markdown_parser._require_parser_revision(parser_root)
+        == EXPECTED_PARSER_REVISION
+    )
+
+
+def test_parser_revision_reports_missing_git(tmp_path: Path, monkeypatch) -> None:
+    empty_bin = tmp_path / "bin"
+    empty_bin.mkdir()
+    monkeypatch.setenv("PATH", str(empty_bin))
+
+    with pytest.raises(ValueError, match="git executable not found"):
+        mistral_markdown_parser._require_parser_revision(tmp_path)
+
+
+def test_parser_revision_reports_git_failure_details(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    _write_fake_git(bin_dir, 'echo "not a git repository" >&2; exit 42')
+    monkeypatch.setenv("PATH", str(bin_dir))
+
+    with pytest.raises(ValueError, match=r"exit 42.*not a git repository"):
+        mistral_markdown_parser._require_parser_revision(tmp_path)
+
+
 @pytest.mark.skipif(
     os.environ.get("LEGALFORECAST_RUN_REAL_MISTRAL_PARSER") != "1",
     reason="Real Mistral parser smoke is opt-in; fixture tests cover default CI.",
@@ -148,6 +291,12 @@ def _request(
         input_path=input_path,
         markdown_output_path=output_path,
     )
+
+
+def _write_fake_git(bin_dir: Path, body: str) -> None:
+    fake_git = bin_dir / "git"
+    fake_git.write_text(f"#!/bin/sh\n{body}\n", encoding="utf-8")
+    fake_git.chmod(0o755)
 
 
 class _FixtureAction:
