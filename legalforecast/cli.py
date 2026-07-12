@@ -1347,6 +1347,18 @@ def _add_acquisition_acquire_ranked_dockets_arguments(
     parser.add_argument("--ranked", type=Path, required=True)
     parser.add_argument("--max-candidates", type=int, required=True)
     parser.add_argument("--max-pages-per-docket", type=int, default=1000)
+    parser.add_argument(
+        "--workers",
+        type=int,
+        choices=range(1, 11),
+        default=10,
+        metavar="1-10",
+        help=(
+            "Concurrent live Firecrawl docket requests; default 10. SQLite "
+            "authorization and artifact commits remain serialized. Fixtures "
+            "require 1 when executing."
+        ),
+    )
     parser.add_argument("--decision-filed-on-or-after", required=True)
     parser.add_argument("--credit-cap", type=int, default=45_000)
     parser.add_argument("--max-attempts-per-page", type=int, default=3)
@@ -4085,10 +4097,13 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
     ranked_path = cast(Path, args.ranked)
     fixture_path = cast(Path | None, args.firecrawl_fixture)
     live = cast(bool, args.live_firecrawl)
+    workers = cast(int, args.workers)
     if live == (fixture_path is not None):
         raise CommandError(
             "choose exactly one of --firecrawl-fixture or --live-firecrawl"
         )
+    if not _acquisition_dry_run(args) and fixture_path is not None and workers != 1:
+        raise CommandError("--firecrawl-fixture execution requires --workers 1")
     credit_cap = cast(int, args.credit_cap)
     if credit_cap <= 0 or credit_cap > 45_000:
         raise CommandError("--credit-cap must be between 1 and 45000")
@@ -4131,6 +4146,7 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
             "selected_batch_id": cast(str, args.selected_batch_id),
             "input_record_count": len(records),
             "max_candidates": cast(int, args.max_candidates),
+            "workers": workers,
             "credit_cap": credit_cap,
             "firecrawl_proxy": proxy,
             "firecrawl_force_browser": force_browser,
@@ -4188,8 +4204,21 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
             "firecrawl_force_browser": config.force_browser,
             "firecrawl_max_credits_per_scrape": config.max_credits_per_scrape,
         }
+        run_id = cast(str, args.run_id)
+        try:
+            existing_run_config = store.firecrawl_run_config(run_id)
+        except KeyError:
+            run_config["workers"] = workers
+        else:
+            if "workers" in existing_run_config:
+                run_config["workers"] = workers
+            elif workers != 1:
+                raise CommandError(
+                    "legacy Firecrawl runs require --workers 1; use a new --run-id "
+                    "to freeze concurrent acquisition"
+                )
         store.ensure_firecrawl_run(
-            cast(str, args.run_id),
+            run_id,
             batch_id=cast(str, args.selected_batch_id),
             config=run_config,
             credit_cap=credit_cap,
@@ -4200,12 +4229,13 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
             scheduler=BudgetedFirecrawlScheduler(
                 store=store,
                 source=source,
-                run_id=cast(str, args.run_id),
+                run_id=run_id,
                 artifact_dir=raw_dir / "pages",
                 max_attempts=cast(int, args.max_attempts_per_page),
                 provider_5xx_circuit_threshold=cast(
                     int, args.provider_breaker_threshold
                 ),
+                max_workers=workers,
             ),
             limit=cast(int, args.max_candidates),
             max_pages_per_docket=cast(int, args.max_pages_per_docket),
@@ -4248,6 +4278,7 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
         "success_count": len(successes),
         "exclusion_count": len(exclusions),
         "pagination_complete_before_screening": True,
+        "workers": workers,
     }
     _write_json(summary_path, summary)
     _write_acquisition_completion(
