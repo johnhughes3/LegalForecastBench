@@ -382,6 +382,8 @@ def test_core_filter_purchase_and_recovery_flow_builds_parser_requests(
     assert manifest[0]["local_path"] == ("cand-1/case-dev-pacer/entry-34_mtd-memo.pdf")
     purchased_document_root = output_root / "documents" / "purchased"
     assert (purchased_document_root / manifest[0]["local_path"]).is_file()
+    clearance_path = tmp_path / "purchased-clearance.jsonl"
+    _write_clearance(purchased_manifest_path, clearance_path)
 
     assert (
         main(
@@ -390,6 +392,8 @@ def test_core_filter_purchase_and_recovery_flow_builds_parser_requests(
                 "plan-parse-documents",
                 "--download-manifest",
                 str(purchased_manifest_path),
+                "--disclosure-clearance",
+                str(clearance_path),
                 "--document-root",
                 str(purchased_document_root),
                 "--output-root",
@@ -651,6 +655,12 @@ def test_plan_parse_documents_derives_parser_requests_from_download_manifest(
 ) -> None:
     output_root = tmp_path / "acquisition"
     manifest_path = tmp_path / "free-document-downloads.jsonl"
+    document_path = (
+        output_root / "documents/free/cand-1/courtlistener/entry-1_doc-1.pdf"
+    )
+    document_path.parent.mkdir(parents=True)
+    document_path.write_bytes(b"0123456789")
+    digest = hashlib.sha256(document_path.read_bytes()).hexdigest()
     _write_jsonl(
         manifest_path,
         [
@@ -662,7 +672,7 @@ def test_plan_parse_documents_derives_parser_requests_from_download_manifest(
                 "document_role": "complaint",
                 "source_url": "https://storage.courtlistener.com/recap/doc-1.pdf",
                 "local_path": "cand-1/courtlistener/entry-1_doc-1.pdf",
-                "sha256": "0" * 64,
+                "sha256": digest,
                 "byte_count": 10,
                 "free_or_purchased": "free",
                 "retry_count": 0,
@@ -671,6 +681,8 @@ def test_plan_parse_documents_derives_parser_requests_from_download_manifest(
             }
         ],
     )
+    clearance_path = tmp_path / "clearance.jsonl"
+    _write_clearance(manifest_path, clearance_path)
 
     assert (
         main(
@@ -679,6 +691,8 @@ def test_plan_parse_documents_derives_parser_requests_from_download_manifest(
                 "plan-parse-documents",
                 "--download-manifest",
                 str(manifest_path),
+                "--disclosure-clearance",
+                str(clearance_path),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -692,6 +706,8 @@ def test_plan_parse_documents_derives_parser_requests_from_download_manifest(
         {
             "candidate_id": "cand-1",
             "source_document_id": "entry-1-complaint",
+            "expected_sha256": digest,
+            "expected_byte_count": 10,
             "input_path": str(
                 output_root
                 / "documents"
@@ -716,6 +732,7 @@ def test_parse_and_build_packet_acquisition_fixture_flow(tmp_path: Path) -> None
     parse_requests = tmp_path / "parse-requests.jsonl"
     source_pdf = tmp_path / "source.pdf"
     source_pdf.write_bytes(b"%PDF fixture")
+    source_digest = hashlib.sha256(source_pdf.read_bytes()).hexdigest()
     _write_jsonl(
         parse_requests,
         [
@@ -723,15 +740,38 @@ def test_parse_and_build_packet_acquisition_fixture_flow(tmp_path: Path) -> None
                 "candidate_id": "cand-1",
                 "source_document_id": "complaint",
                 "input_path": str(source_pdf),
+                "expected_sha256": source_digest,
+                "expected_byte_count": source_pdf.stat().st_size,
             },
             {
                 "candidate_id": "cand-1",
                 "source_document_id": "mtd-memo",
                 "input_path": str(source_pdf),
+                "expected_sha256": source_digest,
+                "expected_byte_count": source_pdf.stat().st_size,
             },
         ],
     )
-
+    parse_clearance = tmp_path / "parse-clearance.jsonl"
+    _write_jsonl(
+        parse_clearance,
+        [
+            {
+                "schema_version": "legalforecast.disclosure_clearance.v1",
+                "candidate_id": "cand-1",
+                "source_document_id": document_id,
+                "sha256": source_digest,
+                "byte_count": source_pdf.stat().st_size,
+                "status": "cleared",
+                "restriction_status": "public",
+                "restriction_evidence": ["controlled fixture review"],
+                "reviewer_id": "fixture-reviewer",
+                "controlled_store_provenance": "private-store://fixture/reviews",
+                "reviewed_at": "2026-07-12T18:00:00Z",
+            }
+            for document_id in ("complaint", "mtd-memo")
+        ],
+    )
     assert (
         main(
             [
@@ -739,6 +779,8 @@ def test_parse_and_build_packet_acquisition_fixture_flow(tmp_path: Path) -> None
                 "parse-documents",
                 "--requests",
                 str(parse_requests),
+                "--disclosure-clearance",
+                str(parse_clearance),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -1636,6 +1678,28 @@ def _write_jsonl(path: Path, records: list[JsonRecord]) -> None:
 def _write_json(path: Path, record: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _write_clearance(manifest_path: Path, output_path: Path) -> None:
+    _write_jsonl(
+        output_path,
+        [
+            {
+                "candidate_id": row["candidate_id"],
+                "source_document_id": row["source_document_id"],
+                "sha256": row["sha256"],
+                "schema_version": "legalforecast.disclosure_clearance.v1",
+                "byte_count": row["byte_count"],
+                "status": "cleared",
+                "restriction_status": "public",
+                "restriction_evidence": ["fixture-public-docket"],
+                "reviewer_id": "reviewer:test",
+                "controlled_store_provenance": "private-store://fixture/reviews",
+                "reviewed_at": "2026-07-12T18:00:00Z",
+            }
+            for row in _read_jsonl(manifest_path)
+        ],
+    )
 
 
 def _read_json(path: Path) -> JsonRecord:

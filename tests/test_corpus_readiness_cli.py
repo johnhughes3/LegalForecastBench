@@ -64,9 +64,30 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
                 "candidate_id": "cand-1",
                 "source_document_id": document_id,
                 "status": "succeeded",
+                "source_sha256": "0" * 64,
+                "source_byte_count": 1,
                 "markdown_path": (
                     "decision-1.md" if document_id == "decision-1" else "complaint.md"
                 ),
+            }
+            for document_id in ("complaint-1", "decision-1")
+        ],
+    )
+    _write_jsonl(
+        inputs / "clearance.jsonl",
+        [
+            {
+                "candidate_id": "cand-1",
+                "source_document_id": document_id,
+                "sha256": "0" * 64,
+                "schema_version": "legalforecast.disclosure_clearance.v1",
+                "byte_count": 1,
+                "status": "cleared",
+                "restriction_status": "public",
+                "restriction_evidence": ["fixture-public-docket"],
+                "reviewer_id": "reviewer:test",
+                "controlled_store_provenance": "private-store://fixture/reviews",
+                "reviewed_at": "2026-07-12T18:00:00Z",
             }
             for document_id in ("complaint-1", "decision-1")
         ],
@@ -178,6 +199,8 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
                 str(inputs / "selection.jsonl"),
                 "--parser-manifest",
                 str(inputs / "parser.jsonl"),
+                "--disclosure-clearance",
+                str(inputs / "clearance.jsonl"),
                 "--markdown-root",
                 str(markdown_root),
                 "--prediction-units",
@@ -297,6 +320,7 @@ def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(
         "lawyer-review-audit",
         "packet-input",
         "packets",
+        "clearance",
     ):
         _write_jsonl(inputs / f"{name}.jsonl", [])
 
@@ -308,6 +332,8 @@ def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(
             str(inputs / "selection.jsonl"),
             "--parser-manifest",
             str(inputs / "parser.jsonl"),
+            "--disclosure-clearance",
+            str(inputs / "clearance.jsonl"),
             "--markdown-root",
             str(tmp_path / "markdown"),
             "--prediction-units",

@@ -27,6 +27,7 @@ from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentDownloadRequest,
 )
 from legalforecast.ingestion.provenance import DocumentRole
+from legalforecast.ingestion.restricted_material import restricted_material_markers
 
 _CASE_DEV_SEARCH_LIMIT = 20
 _CASE_DEV_DOCKET_PAGE_SIZE = 500
@@ -79,6 +80,14 @@ class _BridgeDocument:
     source_url_or_reference: str
     description: str
     free: bool
+    restriction_evidence: tuple[str, ...]
+
+    @property
+    def restriction_status(self) -> str:
+        # A free CourtListener document has affirmative public-download
+        # evidence. PACER-only documents remain unknown until post-recovery
+        # docket-derived clearance; absence of a marker is never public proof.
+        return "public" if self.free and self.restriction_evidence else "unknown"
 
     @property
     def contains_target_outcome(self) -> bool:
@@ -110,9 +119,10 @@ class _BridgeDocument:
             "contains_target_outcome": self.contains_target_outcome,
             "availability_status": "available" if self.free else "unavailable",
             "requires_paid_recovery": not self.free,
-            "redaction_or_seal_status": "public",
-            "is_private": False,
-            "is_sealed": False,
+            "redaction_or_seal_status": self.restriction_status,
+            "restriction_evidence": list(self.restriction_evidence),
+            "is_private": None,
+            "is_sealed": None,
             "file_extension": "pdf",
         }
 
@@ -129,9 +139,10 @@ class _BridgeDocument:
             "source_url_or_reference": self.source_url_or_reference,
             "availability_status": record["availability_status"],
             "requires_paid_recovery": record["requires_paid_recovery"],
-            "redaction_or_seal_status": "public",
-            "is_private": False,
-            "is_sealed": False,
+            "redaction_or_seal_status": self.restriction_status,
+            "restriction_evidence": list(self.restriction_evidence),
+            "is_private": None,
+            "is_sealed": None,
             "contains_target_outcome": self.contains_target_outcome,
             "model_visible": self.model_visible,
         }
@@ -491,6 +502,19 @@ def _reconcile_paid_gap(
 def _public_relevance_document(document: Mapping[str, Any]) -> Mapping[str, Any]:
     role = DocumentRole(_required_str(document, "document_role"))
     model_visible = document.get("model_visible") is True
+    restriction_markers = restricted_material_markers(
+        records=(document,),
+        text_fields=(
+            _optional_str(document, "description") or "",
+            _optional_str(document, "docket_entry_text") or "",
+        ),
+    )
+    status = "restricted" if restriction_markers else "public"
+    evidence = (
+        tuple(f"marker:{marker}" for marker in restriction_markers)
+        if restriction_markers
+        else ("courtlistener_public_download_record_checked",)
+    )
     return {
         "source_document_id": _required_str(document, "source_document_id"),
         "setup_runner_label": "core_mtd" if model_visible else "other_substantive",
@@ -500,9 +524,10 @@ def _public_relevance_document(document: Mapping[str, Any]) -> Mapping[str, Any]
         "source_url_or_reference": _required_str(document, "source_url"),
         "availability_status": "available",
         "requires_paid_recovery": False,
-        "redaction_or_seal_status": "public",
-        "is_private": False,
-        "is_sealed": False,
+        "redaction_or_seal_status": status,
+        "restriction_evidence": list(evidence),
+        "is_private": document.get("is_private") is True,
+        "is_sealed": document.get("is_sealed") is True or bool(restriction_markers),
         "contains_target_outcome": document.get("contains_target_outcome") is True,
         "model_visible": model_visible,
     }
@@ -870,6 +895,10 @@ def _bridge_documents(
                     or entry.text
                 ),
                 free=courtlistener_document.freely_available,
+                restriction_evidence=(
+                    "courtlistener_docket_entry_checked",
+                    "case_dev_entry_and_document_checked",
+                ),
             )
         )
     return tuple(documents)
@@ -1049,6 +1078,15 @@ def _document_role_score(description: str, role: DocumentRole) -> int:
 
 
 def _record_is_restricted(record: Mapping[str, Any]) -> bool:
+    if restricted_material_markers(
+        records=(record,),
+        text_fields=(
+            _optional_str(record, "description") or "",
+            _optional_str(record, "docket_entry_text") or "",
+            _optional_str(record, "text") or "",
+        ),
+    ):
+        return True
     for key, value in record.items():
         normalized_key = _identifier(str(key))
         if (

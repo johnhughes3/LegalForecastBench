@@ -79,6 +79,26 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
     downloads = [*free_downloads, decision_download]
     download_manifest = tmp_path / "downloads.jsonl"
     _write_jsonl(download_manifest, downloads)
+    clearance = tmp_path / "clearance.jsonl"
+    _write_jsonl(
+        clearance,
+        [
+            {
+                "candidate_id": row["candidate_id"],
+                "source_document_id": row["source_document_id"],
+                "sha256": row["sha256"],
+                "schema_version": "legalforecast.disclosure_clearance.v1",
+                "byte_count": row["byte_count"],
+                "status": "cleared",
+                "restriction_status": "public",
+                "restriction_evidence": ["fixture-public-docket"],
+                "reviewer_id": "reviewer:test",
+                "controlled_store_provenance": "private-store://fixture/reviews",
+                "reviewed_at": "2026-07-12T18:00:00Z",
+            }
+            for row in downloads
+        ],
+    )
 
     assert (
         main(
@@ -87,6 +107,8 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
                 "plan-parse-documents",
                 "--download-manifest",
                 str(download_manifest),
+                "--disclosure-clearance",
+                str(clearance),
                 "--document-root",
                 str(document_root),
                 "--output-root",
@@ -122,6 +144,8 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
                 "parse-documents",
                 "--requests",
                 str(output_root / "parse-document-requests.jsonl"),
+                "--disclosure-clearance",
+                str(clearance),
                 "--output-root",
                 str(output_root),
                 "--fixture-markdown-dir",
