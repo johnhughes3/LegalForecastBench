@@ -269,6 +269,96 @@ def test_ranking_uses_missing_required_count_then_stable_docket_identity() -> No
     assert ranked[1].missing_required_document_count == 3
 
 
+def test_ranking_prioritizes_explicit_district_12c_over_cheaper_bankruptcy() -> None:
+    district_client, _ = _client(
+        _lookup(
+            docket_id="201",
+            court_id="nysd",
+            docket_number="1:26-cv-00001",
+            entries=(
+                _entry(
+                    "entry-9",
+                    9,
+                    "Memorandum and Order denying Rule 12(c) judgment on the pleadings",
+                    _document("district-decision"),
+                ),
+            ),
+            limit=5,
+        )
+    )
+    bankruptcy_client, _ = _client(
+        _lookup(
+            docket_id="202",
+            court_id="nysb",
+            docket_number="1:26-bk-00001",
+            entries=tuple(
+                _entry(
+                    f"entry-{number}",
+                    number,
+                    description,
+                    _document(
+                        f"free-{number}",
+                        pdf_url=f"https://storage.courtlistener.com/{number}.pdf",
+                        is_available=True,
+                    ),
+                )
+                for number, description in (
+                    (1, "Complaint"),
+                    (2, "Motion to Dismiss"),
+                    (3, "Order granting Motion to Dismiss"),
+                )
+            ),
+            limit=5,
+        )
+    )
+    district = enrich_recap_docket_with_case_dev(
+        client=district_client, discovery=_discovery("201"), page_size=5
+    )
+    bankruptcy = enrich_recap_docket_with_case_dev(
+        client=bankruptcy_client, discovery=_discovery("202"), page_size=5
+    )
+
+    ranked = rank_case_dev_recap_enrichments((bankruptcy, district))
+
+    assert [item.courtlistener_docket_id for item in ranked] == ["201", "202"]
+    assert district.structural_priority == (0, "federal_civil_district_metadata")
+    assert district.decision_signal_priority == (
+        0,
+        "explicit_mtd_or_12c_disposition",
+    )
+    assert bankruptcy.missing_required_document_count == 0
+    assert bankruptcy.structural_priority == (
+        2,
+        "hard_structural_exclusion_metadata",
+    )
+
+
+def test_unknown_metadata_is_retained_ahead_of_hard_structural_exclusion() -> None:
+    unknown_client, _ = _client(_lookup(docket_id="301", entries=(), limit=5))
+    bankruptcy_client, _ = _client(
+        _lookup(
+            docket_id="302",
+            court_id="nysb",
+            docket_number="1:26-bk-00001",
+            entries=(),
+            limit=5,
+        )
+    )
+    unknown = enrich_recap_docket_with_case_dev(
+        client=unknown_client, discovery=_discovery("301"), page_size=5
+    )
+    bankruptcy = enrich_recap_docket_with_case_dev(
+        client=bankruptcy_client, discovery=_discovery("302"), page_size=5
+    )
+
+    forward = rank_case_dev_recap_enrichments((bankruptcy, unknown))
+    reverse = rank_case_dev_recap_enrichments((unknown, bankruptcy))
+
+    assert [item.courtlistener_docket_id for item in forward] == ["301", "302"]
+    assert forward == reverse
+    assert unknown.structural_priority == (1, "metadata_incomplete_or_unknown")
+
+
 def test_case_dev_id_must_match_discovered_courtlistener_docket() -> None:
     client, _transport = _client(
         _lookup(
@@ -474,6 +564,8 @@ def _lookup(
     url_docket_id: str | None = None,
     cursor: str | None = None,
     next_offset: int | None = None,
+    court_id: str | None = None,
+    docket_number: str | None = None,
 ) -> RecordedCaseDevResponse:
     params: dict[str, object] = {
         "type": "lookup",
@@ -483,16 +575,19 @@ def _lookup(
     }
     if cursor is not None:
         params["offset"] = int(cursor)
-    payload: dict[str, object] = {
-        "docket": {
-            "id": docket_id,
-            "url": (
-                "https://www.courtlistener.com/api/rest/v4/dockets/"
-                f"{url_docket_id or docket_id}/"
-            ),
-            "entries": list(entries),
-        }
+    docket: dict[str, object] = {
+        "id": docket_id,
+        "url": (
+            "https://www.courtlistener.com/api/rest/v4/dockets/"
+            f"{url_docket_id or docket_id}/"
+        ),
+        "entries": list(entries),
     }
+    if court_id is not None:
+        docket["courtId"] = court_id
+    if docket_number is not None:
+        docket["docketNumber"] = docket_number
+    payload: dict[str, object] = {"docket": docket}
     if next_offset is not None:
         payload["nextOffset"] = next_offset
     return RecordedCaseDevResponse(

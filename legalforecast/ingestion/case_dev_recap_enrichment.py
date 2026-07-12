@@ -15,6 +15,9 @@ from legalforecast.ingestion.case_dev_client import (
 )
 from legalforecast.ingestion.docket_sync import classify_document_role
 from legalforecast.ingestion.firecrawl_recap_discovery import RecapDiscoveredDocket
+from legalforecast.ingestion.mtd_acquisition_screen import (
+    screen_case_dev_docket_metadata,
+)
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 
@@ -193,14 +196,66 @@ class CaseDevRecapEnrichment:
         return self.required_document_count - self.actual_free_required_document_count
 
     @property
-    def ranking_key(self) -> tuple[int, int, str]:
+    def structural_priority(self) -> tuple[int, str]:
+        """Return a recall-preserving structural scheduling tier and reason."""
+
+        metadata = self.screening_metadata
+        if not metadata.get("court_id") or not metadata.get("docket_number"):
+            return (1, "metadata_incomplete_or_unknown")
+        screen = screen_case_dev_docket_metadata(metadata)
+        if screen.accepted_for_scrape:
+            return (0, "federal_civil_district_metadata")
+        return (2, "hard_structural_exclusion_metadata")
+
+    @property
+    def decision_signal_priority(self) -> tuple[int, str]:
+        """Prioritize explicit dispositions without treating weak signals as drops."""
+
+        texts = tuple(
+            f"{document.entry_text} {document.description}".lower()
+            for document in self.documents
+        )
+        motion_reference = re.compile(
+            r"motion(?:s)? to dismiss|rule\s+12\s*\(\s*c\s*\)|"
+            r"judgment on the pleadings",
+            re.I,
+        )
+        decision_form = re.compile(
+            r"\b(?:order|opinion|memorandum|judgment|granted|denied|dismissed)\b",
+            re.I,
+        )
+        if any(
+            motion_reference.search(text) and decision_form.search(text)
+            for text in texts
+        ):
+            return (0, "explicit_mtd_or_12c_disposition")
+        if any(
+            document.document_role is DocumentRole.DECISION
+            for document in self.documents
+        ):
+            return (1, "classified_decision_document")
+        if any(
+            "report and recommendation" in text or "findings and recommendation" in text
+            for text in texts
+        ):
+            return (2, "report_or_recommendation")
+        return (3, "weak_or_generic_signal")
+
+    @property
+    def ranking_key(self) -> tuple[int, int, int, int, str]:
+        structural_tier, _structural_reason = self.structural_priority
+        decision_tier, _decision_reason = self.decision_signal_priority
         return (
+            structural_tier,
+            decision_tier,
             self.missing_required_document_count,
             self.required_document_count,
             self.courtlistener_docket_id,
         )
 
     def to_record(self) -> dict[str, object]:
+        structural_tier, structural_reason = self.structural_priority
+        decision_tier, decision_reason = self.decision_signal_priority
         return {
             "identity": self.identity.to_record(),
             "screening_metadata": dict(self.screening_metadata),
@@ -215,6 +270,10 @@ class CaseDevRecapEnrichment:
                 self.actual_free_required_document_count
             ),
             "missing_required_document_count": self.missing_required_document_count,
+            "structural_priority_tier": structural_tier,
+            "structural_priority_reason": structural_reason,
+            "decision_signal_priority_tier": decision_tier,
+            "decision_signal_priority_reason": decision_reason,
             "ranking_key": list(self.ranking_key),
         }
 
