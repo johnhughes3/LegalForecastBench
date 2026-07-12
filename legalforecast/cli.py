@@ -6039,6 +6039,7 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
 
 def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
+    provider_journal_path = output_root / "provider-attempts.sqlite3"
     selection_path = cast(Path, args.selection)
     parser_manifest_path = cast(Path, args.parser_manifest)
     markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
@@ -6087,6 +6088,7 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
             model_registry_sha256=registry_sha256,
             timeout_seconds=cast(float, args.timeout_seconds),
             continue_on_error=cast(bool, args.continue_on_error),
+            provider_journal_path=provider_journal_path,
         )
         _write_jsonl(prediction_units_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
@@ -6098,7 +6100,12 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
         args,
         stage="llm-unitize",
         input_paths=(selection_path, parser_manifest_path, model_registry_path),
-        output_paths=(prediction_units_path, audit_path, review_queue_path),
+        output_paths=(
+            prediction_units_path,
+            audit_path,
+            review_queue_path,
+            provider_journal_path,
+        ),
         record_count=len(selection_records),
         dry_run=dry_run,
         paid_activity_requested=False,
@@ -6109,6 +6116,7 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
 
 def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
+    provider_journal_path = output_root / "provider-attempts.sqlite3"
     selection_path = cast(Path, args.selection)
     parser_manifest_path = cast(Path, args.parser_manifest)
     prediction_units_path = cast(Path, args.prediction_units)
@@ -6162,6 +6170,7 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             high_confidence_threshold=cast(float, args.high_confidence_threshold),
             timeout_seconds=cast(float, args.timeout_seconds),
             continue_on_error=cast(bool, args.continue_on_error),
+            provider_journal_path=provider_journal_path,
         )
         _write_jsonl(labels_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
@@ -6178,7 +6187,12 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             prediction_units_path,
             model_registry_path,
         ),
-        output_paths=(labels_path, audit_path, lawyer_review_queue_path),
+        output_paths=(
+            labels_path,
+            audit_path,
+            lawyer_review_queue_path,
+            provider_journal_path,
+        ),
         record_count=len(selection_records),
         dry_run=dry_run,
         paid_activity_requested=False,

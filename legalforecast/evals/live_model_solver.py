@@ -88,6 +88,28 @@ class LiveModelTransport(Protocol):
     ) -> JsonRecord: ...
 
 
+class ProviderAttemptHandler(Protocol):
+    """Durably wrap and settle individual provider HTTP attempts."""
+
+    def run_attempt(
+        self,
+        attempt_ordinal: int,
+        call: Callable[[], JsonRecord],
+    ) -> JsonRecord: ...
+
+    def settle_attempt(
+        self,
+        attempt_ordinal: int,
+        *,
+        input_tokens: int,
+        output_tokens: int,
+        actual_cost_usd: float,
+        raw_output: str,
+    ) -> None: ...
+
+    def durable_attempt_ordinal(self, local_ordinal: int) -> int: ...
+
+
 @dataclass(frozen=True, slots=True)
 class LiveModelSolver:
     """HarnessSolver-compatible solver that calls supported provider APIs."""
@@ -160,6 +182,7 @@ def complete_live_prompt(
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
+    attempt_handler: ProviderAttemptHandler | None = None,
 ) -> SolverResponse:
     """Call a registry-backed provider with a raw prompt and return accounting."""
 
@@ -194,15 +217,17 @@ def complete_live_prompt(
             timeout_seconds=timeout_seconds,
             max_attempts=max_attempts,
             retry_backoff_seconds=retry_backoff_seconds,
+            attempt_handler=attempt_handler,
         )
 
     api_key = _api_key(provider.api_key_env, environ)
     provider_request = provider.build_request(registry_entry, prompt, api_key)
     started = time.perf_counter()
-    payload, request_count = _call_with_provider_retries(
+    payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
         lambda: (transport or _urlopen_json)(provider_request, timeout_seconds),
         max_attempts=max_attempts,
         retry_backoff_seconds=retry_backoff_seconds,
+        attempt_handler=attempt_handler,
     )
     latency_ms = (time.perf_counter() - started) * 1000
     raw_output = provider.extract_output(payload)
@@ -213,16 +238,25 @@ def complete_live_prompt(
         payload,
         provider=registry_entry.provider,
     )
+    estimated_cost = _estimated_cost(
+        registry_entry,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    )
+    if attempt_handler is not None:
+        attempt_handler.settle_attempt(
+            durable_attempt_ordinal,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            actual_cost_usd=estimated_cost,
+            raw_output=raw_output,
+        )
     return SolverResponse(
         raw_output=raw_output,
         request_count=request_count,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
-        estimated_cost=_estimated_cost(
-            registry_entry,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-        ),
+        estimated_cost=estimated_cost,
         metadata={
             "provider": registry_entry.provider,
             "model": registry_entry.model_id,
@@ -253,6 +287,7 @@ def _complete_bedrock_anthropic_prompt(
     timeout_seconds: float,
     max_attempts: int,
     retry_backoff_seconds: float,
+    attempt_handler: ProviderAttemptHandler | None,
 ) -> SolverResponse:
     bedrock_model_id = _bedrock_anthropic_model_id(registry_entry, environ)
     _reject_unsupported_legacy_bedrock_model(
@@ -262,7 +297,7 @@ def _complete_bedrock_anthropic_prompt(
     )
     request_payload = _bedrock_anthropic_payload(registry_entry, prompt)
     started = time.perf_counter()
-    payload, request_count = _call_with_provider_retries(
+    payload, request_count, durable_attempt_ordinal = _call_with_provider_retries(
         lambda: _invoke_bedrock_runtime_json(
             bedrock_model_id,
             request_payload,
@@ -271,6 +306,7 @@ def _complete_bedrock_anthropic_prompt(
         ),
         max_attempts=max_attempts,
         retry_backoff_seconds=retry_backoff_seconds,
+        attempt_handler=attempt_handler,
     )
     latency_ms = (time.perf_counter() - started) * 1000
     raw_output = _anthropic_output(payload)
@@ -281,16 +317,25 @@ def _complete_bedrock_anthropic_prompt(
         payload,
         provider=registry_entry.provider,
     )
+    estimated_cost = _estimated_cost(
+        registry_entry,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    )
+    if attempt_handler is not None:
+        attempt_handler.settle_attempt(
+            durable_attempt_ordinal,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            actual_cost_usd=estimated_cost,
+            raw_output=raw_output,
+        )
     return SolverResponse(
         raw_output=raw_output,
         request_count=request_count,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
-        estimated_cost=_estimated_cost(
-            registry_entry,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-        ),
+        estimated_cost=estimated_cost,
         metadata={
             "provider": registry_entry.provider,
             "provider_runtime": "bedrock",
@@ -678,12 +723,30 @@ def _call_with_provider_retries(
     *,
     max_attempts: int,
     retry_backoff_seconds: float,
-) -> tuple[JsonRecord, int]:
+    attempt_handler: ProviderAttemptHandler | None = None,
+) -> tuple[JsonRecord, int, int]:
     """Retry provider transport failures that are plausibly temporary."""
+
+    request_count = 0
+
+    def counted_call() -> JsonRecord:
+        nonlocal request_count
+        request_count += 1
+        return call()
 
     for attempt in range(1, max_attempts + 1):
         try:
-            return call(), attempt
+            payload = (
+                attempt_handler.run_attempt(attempt, counted_call)
+                if attempt_handler is not None
+                else counted_call()
+            )
+            durable_attempt_ordinal = (
+                attempt_handler.durable_attempt_ordinal(attempt)
+                if attempt_handler is not None
+                else attempt
+            )
+            return payload, request_count, durable_attempt_ordinal
         except LiveModelProviderError as exc:
             if attempt >= max_attempts or not _is_retryable_provider_error(exc):
                 raise

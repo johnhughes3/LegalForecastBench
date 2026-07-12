@@ -53,6 +53,12 @@ from legalforecast.labeling.lawyer_review import (
     ReviewMaterial,
     ReviewMaterialKind,
 )
+from legalforecast.labeling.provider_journal import (
+    DEFAULT_CYCLE_PROVIDER_CAP_USD,
+    ProviderAttemptJournal,
+    ProviderCallIdentity,
+    maximum_call_cost_usd,
+)
 from legalforecast.selection.exclusion_ledger import (
     ExclusionLedgerEntry,
     ExclusionReason,
@@ -185,6 +191,8 @@ def llm_unitize_cases(
     environ: Mapping[str, str] | None = None,
     timeout_seconds: float = 120.0,
     continue_on_error: bool = False,
+    provider_journal_path: str | Path | None = None,
+    provider_cycle_cap_usd: float = DEFAULT_CYCLE_PROVIDER_CAP_USD,
 ) -> LlmBatchResult:
     """Generate and validate Stage A prediction units from predecision materials."""
 
@@ -194,6 +202,7 @@ def llm_unitize_cases(
     for selection in selection_records:
         candidate_id = _required_str(selection, "candidate_id")
         response: SolverResponse | None = None
+        journal: ProviderAttemptJournal | None = None
         try:
             documents = _predecision_documents(
                 selection,
@@ -201,6 +210,15 @@ def llm_unitize_cases(
                 markdown_root=Path(markdown_root),
             )
             prompt = _unitization_prompt(selection, documents)
+            journal = _provider_attempt_journal(
+                path=provider_journal_path,
+                stage="llm-unitize",
+                candidate_id=candidate_id,
+                prompt=prompt,
+                registry_entry=registry_entry,
+                model_registry_sha256=model_registry_sha256,
+                cycle_cap_usd=provider_cycle_cap_usd,
+            )
             response = complete_live_prompt(
                 registry_entry,
                 prompt,
@@ -208,6 +226,7 @@ def llm_unitize_cases(
                 transport=transport,
                 environ=environ,
                 timeout_seconds=timeout_seconds,
+                attempt_handler=journal,
             )
             payload = _json_object_from_response(
                 response.raw_output,
@@ -229,6 +248,18 @@ def llm_unitize_cases(
                     metadata={"llm_unitizer_model_key": registry_entry.registry_key},
                 )
             )
+            if journal is not None and journal.has_validated_response:
+                journal.commit_reconstruction(
+                    {
+                        "prediction_units": [unit.to_record() for unit in result.units],
+                        "review_items": [
+                            item.to_record() for item in result.review_items
+                        ],
+                    }
+                )
+            if journal is not None:
+                journal.close()
+                journal = None
             if not any(unit.should_score for unit in result.units):
                 raise LlmPipelineError("LLM unitization produced no scorable units")
             review_queue = _unitization_review_queue_records(
@@ -266,6 +297,8 @@ def llm_unitize_cases(
                 }
             )
         except Exception as exc:
+            if journal is not None:
+                journal.close()
             failure_record = _failure_audit_record(
                 stage="llm-unitize",
                 selection=selection,
@@ -295,6 +328,8 @@ def llm_label_cases(
     environ: Mapping[str, str] | None = None,
     timeout_seconds: float = 120.0,
     continue_on_error: bool = False,
+    provider_journal_path: str | Path | None = None,
+    provider_cycle_cap_usd: float = DEFAULT_CYCLE_PROVIDER_CAP_USD,
 ) -> LlmBatchResult:
     """Generate Stage B outcome labels with registry-backed LLM judges."""
 
@@ -334,6 +369,8 @@ def llm_label_cases(
                         transport=transport,
                         environ=environ,
                         timeout_seconds=timeout_seconds,
+                        provider_journal_path=provider_journal_path,
+                        provider_cycle_cap_usd=provider_cycle_cap_usd,
                     )
                 )
                 labels_by_model[entry.registry_key] = labels
@@ -466,55 +503,81 @@ def _llm_label_one_model(
     transport: LiveModelTransport | None,
     environ: Mapping[str, str] | None,
     timeout_seconds: float,
+    provider_journal_path: str | Path | None,
+    provider_cycle_cap_usd: float,
 ) -> tuple[tuple[OutcomeLabel, ...], SolverResponse, int, int]:
     prompt = _labeling_prompt(selection, decision_text, frozen_units)
-    response = complete_live_prompt(
-        registry_entry,
-        prompt,
+    journal = _provider_attempt_journal(
+        path=provider_journal_path,
+        stage="llm-label",
+        candidate_id=_required_str(selection, "candidate_id"),
+        prompt=prompt,
+        registry_entry=registry_entry,
         model_registry_sha256=model_registry_sha256,
-        transport=transport,
-        environ=environ,
-        timeout_seconds=timeout_seconds,
+        cycle_cap_usd=provider_cycle_cap_usd,
     )
     try:
-        payload = _json_object_from_response(
-            response.raw_output,
-            top_level_sequence_field="unit_findings",
+        response = complete_live_prompt(
+            registry_entry,
+            prompt,
+            model_registry_sha256=model_registry_sha256,
+            transport=transport,
+            environ=environ,
+            timeout_seconds=timeout_seconds,
+            attempt_handler=journal,
         )
-        findings = tuple(
-            _stage_b_finding(record, decision_text=decision_text)
-            for record in _record_sequence(
-                payload.get("unit_findings"),
-                "unit_findings",
+        try:
+            payload = _json_object_from_response(
+                response.raw_output,
+                top_level_sequence_field="unit_findings",
             )
-        )
-        missing_flags = tuple(
-            _stage_b_missing_flag(record, decision_text=decision_text)
-            for record in _optional_record_sequence(payload.get("missing_unit_flags"))
-        )
-        result = label_stage_b_outcomes(
-            StageBLabelingInput(
-                candidate_id=_required_str(selection, "candidate_id"),
-                case_id=_required_str(selection, "case_id"),
-                frozen_units=frozen_units,
-                decision_text=decision_text,
-                unit_findings=findings,
-                missing_unit_flags=missing_flags,
+            findings = tuple(
+                _stage_b_finding(record, decision_text=decision_text)
+                for record in _record_sequence(
+                    payload.get("unit_findings"),
+                    "unit_findings",
+                )
             )
-        )
-        if result.requires_frozen_unit_workflow:
-            raise _frozen_unit_workflow_required_error(
-                selection=selection,
-                decision_text=decision_text,
-                frozen_units=frozen_units,
-                response=response,
-                labeling_result=result,
+            missing_flags = tuple(
+                _stage_b_missing_flag(record, decision_text=decision_text)
+                for record in _optional_record_sequence(
+                    payload.get("missing_unit_flags")
+                )
             )
-    except FrozenUnitWorkflowRequiredError:
-        raise
-    except Exception as exc:
-        raise LlmResponseValidationError(str(exc), response=response) from exc
-    return result.labels, response, len(findings), len(missing_flags)
+            result = label_stage_b_outcomes(
+                StageBLabelingInput(
+                    candidate_id=_required_str(selection, "candidate_id"),
+                    case_id=_required_str(selection, "case_id"),
+                    frozen_units=frozen_units,
+                    decision_text=decision_text,
+                    unit_findings=findings,
+                    missing_unit_flags=missing_flags,
+                )
+            )
+            if result.requires_frozen_unit_workflow:
+                raise _frozen_unit_workflow_required_error(
+                    selection=selection,
+                    decision_text=decision_text,
+                    frozen_units=frozen_units,
+                    response=response,
+                    labeling_result=result,
+                )
+        except FrozenUnitWorkflowRequiredError:
+            raise
+        except Exception as exc:
+            raise LlmResponseValidationError(str(exc), response=response) from exc
+        if journal is not None and journal.has_validated_response:
+            journal.commit_reconstruction(
+                {
+                    "labels": [label.to_record() for label in result.labels],
+                    "finding_count": len(findings),
+                    "missing_unit_flag_count": len(missing_flags),
+                }
+            )
+        return result.labels, response, len(findings), len(missing_flags)
+    finally:
+        if journal is not None:
+            journal.close()
 
 
 def _unitization_prompt(
@@ -583,6 +646,38 @@ def _unitization_prompt(
         "documents": [document.prompt_record() for document in documents],
     }
     return json.dumps(payload, sort_keys=True, indent=2)
+
+
+def _provider_attempt_journal(
+    *,
+    path: str | Path | None,
+    stage: str,
+    candidate_id: str,
+    prompt: str,
+    registry_entry: ModelRegistryEntry,
+    model_registry_sha256: str | None,
+    cycle_cap_usd: float,
+) -> ProviderAttemptJournal | None:
+    if path is None:
+        return None
+    return ProviderAttemptJournal(
+        path,
+        identity=ProviderCallIdentity(
+            stage=stage,
+            candidate_id=candidate_id,
+            model_key=registry_entry.registry_key,
+            prompt=prompt,
+            model_registry_sha256=model_registry_sha256 or "unrecorded",
+        ),
+        provider=registry_entry.provider,
+        reservation_usd=maximum_call_cost_usd(
+            context_limit=registry_entry.context_limit,
+            max_output_tokens=registry_entry.max_output_tokens,
+            input_token_price=registry_entry.input_token_price,
+            output_token_price=registry_entry.output_token_price,
+        ),
+        cycle_cap_usd=cycle_cap_usd,
+    )
 
 
 def _labeling_prompt(
