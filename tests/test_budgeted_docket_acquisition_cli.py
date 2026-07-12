@@ -145,6 +145,45 @@ def test_ranked_budgeted_cli_feeds_strict_selected_slice_snapshot(
     )
     assert manifest["complete"] is True
     assert manifest["saturated"] is True
+    screened_path = snapshot_root / "selected-001-complete" / "screened-cases.jsonl"
+    screened = [json.loads(line) for line in screened_path.read_text().splitlines()]
+    assert len(screened) == 1
+    assert screened[0]["candidate"]["docket_id"] == "123"
+    assert screened[0]["ai"] == {
+        "target_motion_entry_numbers": ["5"],
+        "decision_entry_numbers": ["16"],
+    }
+    planner_root = output / "planner"
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-public-downloads",
+                "--snapshot",
+                str(snapshot_root / "selected-001-complete"),
+                "--expected-cycle-hash",
+                manifest["cycle_hash"],
+                "--screened-cases",
+                str(screened_path),
+                "--raw-html-dir",
+                str(output / "raw-docket-html"),
+                "--target-clean-cases",
+                "1",
+                "--output-root",
+                str(planner_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    planned_cases = [
+        json.loads(line)
+        for line in (planner_root / "public-packet-selection.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    assert len(planned_cases) == 1
+    assert planned_cases[0]["target_motion_entry_numbers"] == [5]
     with CycleAcquisitionStore(store_path) as store:
         assert (
             store.term_progress("partial-parent", "motion to dismiss").terminal_status
@@ -233,8 +272,10 @@ def _policy() -> dict[str, object]:
 def _docket_html() -> str:
     def entry(number: int, filed: str, text: str, description: str) -> str:
         return (
-            f'<div class="row" id="entry-{number}"><div>{number}</div>'
-            f'<span title="{filed}">{filed}</span><div>{text}'
+            f'<div class="row" id="entry-{number}">'
+            f'<div class="col-xs-1">{number}</div>'
+            f'<div class="col-xs-3"><span title="{filed}">{filed}</span></div>'
+            f'<div class="col-xs-8">{text}'
             f'<div class="recap-documents"><div>Main Document</div>'
             f'<div>{description}</div><a href="https://storage.courtlistener.com/'
             f'{number}.pdf">Download PDF</a></div></div></div>'
@@ -244,7 +285,12 @@ def _docket_html() -> str:
         "<html><head><title>Fixture v. Example</title></head><body>"
         '<div id="docket-entry-table">'
         + entry(1, "January 2, 2026", "COMPLAINT filed", "Complaint")
-        + entry(5, "February 2, 2026", "MOTION to Dismiss", "Motion to Dismiss")
+        + entry(
+            5,
+            "February 2, 2026",
+            "MOTION to Dismiss and Memorandum in Support",
+            "Motion to Dismiss and Memorandum in Support",
+        )
         + entry(
             16,
             "June 30, 2026",
