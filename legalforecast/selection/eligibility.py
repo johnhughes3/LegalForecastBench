@@ -132,7 +132,7 @@ class SeriesCaseTiming:
 
     @property
     def decision_entered_on_or_after_model_deployment(self) -> bool:
-        """Whether the decision falls on or after the UTC deployment date."""
+        """Whether the decision's UTC date is on or after series_release_timestamp."""
 
         return self.decision_entered_at.astimezone(UTC).date() >= (
             self.series_release_timestamp.astimezone(UTC).date()
