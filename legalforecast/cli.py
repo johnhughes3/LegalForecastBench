@@ -4346,10 +4346,15 @@ def _commit_recap_discovery_pages(
 
 
 def _recap_provider_hit_id(hit: RecapSearchHit) -> str:
+    # This identifies one provider occurrence, not the underlying docket entry.
+    # CourtListener can repeat an entry at identical ordinal positions on later
+    # pages; semantic entry reconciliation remains the checkpoint deduper's job.
     identity = "\0".join(
         (
             hit.entry_key,
             hit.document_url,
+            hit.provenance.query_term,
+            str(hit.provenance.page),
             str(hit.provenance.result_ordinal),
             str(hit.provenance.entry_ordinal),
         )
