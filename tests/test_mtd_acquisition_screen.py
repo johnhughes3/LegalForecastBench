@@ -327,6 +327,108 @@ def test_actual_mtd_decision_entry_rejects_extension_order() -> None:
     assert "procedural_or_standing_order" in screen.exclusion_reasons
 
 
+def test_actual_mtd_decision_entry_rejects_conditional_amend_or_brief_order() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "ORDER re Motion to Dismiss. Plaintiff shall file any amended "
+            "complaint by August 10, 2026. If Plaintiff amends, Defendants "
+            "shall answer or file a new motion to dismiss, and the Court will "
+            "deny the previously filed motion to dismiss as moot. If no "
+            "amended complaint is filed, Plaintiff shall serve any opposition "
+            "to the motion by August 10, 2026."
+        ),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is False
+    assert "procedural_or_standing_order" in screen.exclusion_reasons
+
+
+def test_amendment_deadline_does_not_hide_present_mtd_grant() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "ORDER granting Defendant's Motion to Dismiss. Plaintiff shall "
+            "file an amended complaint by August 10, 2026. If Plaintiff "
+            "amends, Defendant shall respond or file a new motion to dismiss."
+        ),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is True
+    assert screen.exclusion_reasons == ()
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    (
+        "The Motion to Dismiss shall be granted if Plaintiff does not file "
+        "an amended complaint by August 10, 2026.",
+        "The Motion to Dismiss will be denied as moot upon filing of an "
+        "amended complaint.",
+    ),
+)
+def test_future_conditional_mtd_ruling_is_not_a_disposition(entry_text: str) -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            entry_text,
+            document_description="Order on Motion to Dismiss",
+        ),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is False
+    assert "procedural_or_standing_order" in screen.exclusion_reasons
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    (
+        "Upon consideration of the briefs, Defendant's Motion to Dismiss is GRANTED.",
+        "ORDER granting Defendant's Motion to Dismiss upon finding that the "
+        "Complaint fails to state a claim.",
+    ),
+)
+def test_completed_mtd_ruling_with_upon_is_retained(entry_text: str) -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(entry_text),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is True
+    assert screen.exclusion_reasons == ()
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    (
+        "ORDER granting Defendant's Motion to Dismiss because, even if all "
+        "allegations are accepted as true, the Complaint fails to state a claim.",
+        "ORDER denying the Motion to Dismiss even if the Court assumes the "
+        "disputed facts in Defendant's favor.",
+    ),
+)
+def test_merits_reasoning_with_if_is_not_a_prospective_condition(
+    entry_text: str,
+) -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(entry_text),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is True
+    assert screen.exclusion_reasons == ()
+
+
 @pytest.mark.parametrize(
     "entry_text",
     (
@@ -613,6 +715,186 @@ def test_docket_screen_tracks_actual_but_not_strict_habeas_case() -> None:
     assert screen.strict_clean is False
     assert screen.status is MtdDocketScreenStatus.ACTUAL_MTD_DECISION_REVIEW_OR_EXCLUDED
     assert "habeas_or_immigration_detention_posture" in screen.exclusion_reasons
+
+
+def test_docket_screen_excludes_social_security_merits_jop() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "MEMORANDUM AND ORDER denying Plaintiff's Motion for Judgment on "
+            "the Pleadings and affirming the decision of the Administrative "
+            "Law Judge.",
+            title="KARNS v. COMMISSIONER OF SOCIAL SECURITY",
+            document_description="Order on Motion for Judgment on the Pleadings",
+        ),
+        source_url="https://www.courtlistener.com/docket/2/karns-v-commissioner/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(page)
+
+    assert screen.has_actual_mtd_decision is True
+    assert screen.strict_clean is False
+    assert "social_security_merits_review_posture" in screen.exclusion_reasons
+
+
+def test_unrelated_rule_12_row_does_not_clear_social_security_merits_jop() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="DOE v. COMMISSIONER OF SOCIAL SECURITY",
+            entries=(
+                (
+                    3,
+                    "June 1, 2026",
+                    "ORDER denying an unrelated third-party Rule 12 motion to dismiss.",
+                ),
+                (
+                    9,
+                    "June 30, 2026",
+                    "MEMORANDUM AND ORDER denying Plaintiff's Motion for Judgment "
+                    "on the Pleadings and affirming the decision of the "
+                    "Administrative Law Judge.",
+                ),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/2/doe-v-commissioner/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert screen.has_actual_mtd_decision is True
+    assert screen.strict_clean is False
+    assert "social_security_merits_review_posture" in screen.exclusion_reasons
+
+
+def test_social_security_aliases_and_alj_abbreviation_remain_excluded() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "ORDER denying Claimant's Motion for Judgment on the Pleadings and "
+            "affirming the ALJ.",
+            title="DOE v. ACTING COMMISSIONER OF THE SSA",
+            document_description="Order on Motion for Judgment on the Pleadings",
+        ),
+        source_url="https://www.courtlistener.com/docket/2/doe-v-commissioner/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(page)
+
+    assert screen.strict_clean is False
+    assert "social_security_merits_review_posture" in screen.exclusion_reasons
+
+
+def test_surname_only_social_security_caption_uses_decision_row_signature() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "ORDER granting Plaintiff's Motion for Judgment on the Pleadings, "
+            "reversing the Commissioner's final decision, and remanding for "
+            "further administrative proceedings.",
+            title="JANE D. v. BISIGNANO",
+            document_description="Order on Motion for Judgment on the Pleadings",
+        ),
+        source_url="https://www.courtlistener.com/docket/2/jane-d-v-bisignano/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(page)
+
+    assert screen.has_actual_mtd_decision is True
+    assert screen.strict_clean is False
+    assert "social_security_merits_review_posture" in screen.exclusion_reasons
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    (
+        "ORDER granting Plaintiff's Motion for Judgment on the Pleadings, "
+        "reversing the Commissioner's final decision, and remanding for "
+        "further administrative proceedings.",
+        "MEMORANDUM AND ORDER denying Plaintiff's Motion for Judgment on the "
+        "Pleadings and affirming the ALJ's determination. The Commissioner's "
+        "earlier motion to dismiss had been withdrawn.",
+    ),
+)
+def test_ssa_merits_variants_lack_disposition_linked_rule_12_basis(
+    entry_text: str,
+) -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            entry_text,
+            title="DOE v. ACTING COMMISSIONER OF THE SSA",
+            document_description="Order on Motion for Judgment on the Pleadings",
+        ),
+        source_url="https://www.courtlistener.com/docket/2/doe-v-commissioner/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(page)
+
+    assert screen.strict_clean is False
+    assert "social_security_merits_review_posture" in screen.exclusion_reasons
+
+
+def test_same_decision_rule_12_basis_retains_social_security_dismissal() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "ORDER granting the Commissioner's Rule 12(b)(1) Motion to Dismiss "
+            "the Complaint for lack of jurisdiction over the ALJ appeal.",
+            title="DOE v. COMMISSIONER OF SOCIAL SECURITY",
+            document_description="Order on Motion to Dismiss/Lack of Jurisdiction",
+        ),
+        source_url="https://www.courtlistener.com/docket/2/doe-v-commissioner/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(page)
+
+    assert screen.strict_clean is True
+    assert screen.exclusion_reasons == ()
+
+
+def test_same_decision_rule_7012_basis_retains_adversary_jop() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title=("COMMISSIONER OF SOCIAL SECURITY v. DEBTOR LLC - 6:26-ap-00106"),
+            entries=(
+                (1, "June 1, 2026", "Adversary COMPLAINT filed."),
+                (
+                    4,
+                    "June 3, 2026",
+                    "MOTION for Judgment on the Pleadings under Bankruptcy Rule "
+                    "7012 as to Count I.",
+                ),
+                (
+                    8,
+                    "June 30, 2026",
+                    "ORDER granting the Commissioner's Bankruptcy Rule 7012 "
+                    "Motion for Judgment on the Pleadings and dismissing Count I "
+                    "of the ALJ-related Complaint.",
+                ),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000001/commissioner-v-debtor/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(page)
+
+    assert screen.strict_clean is True
+    assert screen.case_type_stratum == "bankruptcy_adversary"
+
+
+def test_docket_screen_retains_true_rule_12c_disposition() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "ORDER granting Defendant's Rule 12(c) Motion for Judgment on the "
+            "Pleadings and dismissing Count I of the Complaint.",
+            title="DOE v. ABC CORPORATION",
+            document_description="Order on Motion for Judgment on the Pleadings",
+        ),
+        source_url="https://www.courtlistener.com/docket/3/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(page)
+
+    assert screen.strict_clean is True
+    assert screen.exclusion_reasons == ()
 
 
 def test_docket_screen_can_require_recent_decision_entry_date() -> None:

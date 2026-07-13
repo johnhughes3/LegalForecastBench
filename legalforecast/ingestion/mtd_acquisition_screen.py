@@ -533,6 +533,19 @@ def screen_courtlistener_docket_for_mtd_decision(
         if item is not None
     )
     bankruptcy_context = _looks_like_bankruptcy_context(combined_text)
+    decision_row_ids = {entry.row_id for entry in decision_entries}
+    social_security_exclusions = (
+        ("social_security_merits_review_posture",)
+        if any(
+            _looks_like_social_security_merits_jop(
+                context_text=combined_text,
+                decision_text=_entry_search_text(entry),
+            )
+            for entry in page.entries
+            if entry.row_id in decision_row_ids
+        )
+        else ()
+    )
     adversary_exclusions = (
         _bankruptcy_adversary_exclusion_reasons(
             page,
@@ -546,6 +559,7 @@ def screen_courtlistener_docket_for_mtd_decision(
         dict.fromkeys(
             (
                 *adversary_exclusions,
+                *social_security_exclusions,
                 *_strict_posture_exclusion_reasons(
                     combined_text,
                     allow_bankruptcy_adversary=(
@@ -1007,6 +1021,38 @@ def _looks_like_proposed_order_attachment(text: str) -> bool:
 
 def _looks_like_procedural_or_standing_order(text: str) -> bool:
     standing_order = bool(re.search(r"\bstanding\s+order\b", text, re.I))
+    conditional_amendment_order = bool(
+        re.search(r"\bshall\s+file\b[^.;]{0,120}\bamended\s+complaint\b", text, re.I)
+        and re.search(r"\bif\b[^.;]{0,120}\bamend(?:ed|ment|s)?\b", text, re.I)
+        and re.search(
+            r"\b(?:opposition|response|reply|briefing|new\s+motion\s+to\s+dismiss)\b",
+            text,
+            re.I,
+        )
+    )
+    clauses = re.split(r"(?<=[.;])\s+", text)
+    conditional_disposition = any(
+        _has_prospective_condition(clause)
+        and _references_mtd_or_pleadings_motion(clause)
+        and (
+            _has_direct_mtd_disposition(clause)
+            or re.search(
+                r"\b(?:shall|will|would|may)\b[^.;]{0,80}"
+                r"\b(?:grant(?:ed)?|den(?:y|ied)|dismiss(?:ed)?)\b",
+                clause,
+                re.IGNORECASE,
+            )
+        )
+        for clause in clauses
+    )
+    unconditional_text = " ".join(
+        clause for clause in clauses if not _has_prospective_condition(clause)
+    )
+    if (conditional_amendment_order or conditional_disposition) and not (
+        _has_direct_mtd_disposition(unconditional_text)
+        or _has_explicit_mtd_merits_disposition(unconditional_text)
+    ):
+        return True
     if _has_direct_mtd_disposition(text) or _has_explicit_mtd_merits_disposition(text):
         return False
     procedural_patterns = (
@@ -1033,6 +1079,40 @@ def _looks_like_procedural_or_standing_order(text: str) -> bool:
     if any(re.search(pattern, text, re.I) for pattern in procedural_patterns):
         return True
     return standing_order and not _has_substantive_mtd_recommendation(text)
+
+
+def _has_prospective_condition(clause: str) -> bool:
+    if_or_unless = bool(re.search(r"\b(?:if|unless)\b", clause, re.IGNORECASE))
+    prospective_event = bool(
+        re.search(
+            r"\b(?:amend(?:ed|ing|ment|s)?|file[ds]?|filing|serve[ds]?|"
+            r"service|submit(?:ted|s)?|submission|respond(?:ed|ing|s)?|"
+            r"oppos(?:e|ed|es|ing|ition)|repl(?:y|ied|ies)|brief(?:ed|ing|s)?)\b",
+            clause,
+            re.IGNORECASE,
+        )
+    )
+    future_disposition = bool(
+        re.search(
+            # ``entry.text`` begins with its filed date.  Do not mistake the
+            # month in ``May 9, 2026 ORDER granting ...`` for a future modal.
+            r"\b(?:shall|will|would|may(?!\s+\d))\b[^.;]{0,80}"
+            r"\b(?:grant(?:ed)?|den(?:y|ied)|dismiss(?:ed)?|moot|decide[ds]?)\b",
+            clause,
+            re.IGNORECASE,
+        )
+    )
+    prospective_upon = bool(
+        re.search(
+            r"\bupon\b[^.;]{0,60}\b(?:filing|submission|service)\b"
+            r"[^.;]{0,60}\bamended\s+complaint\b",
+            clause,
+            re.IGNORECASE,
+        )
+    )
+    return (
+        if_or_unless and (prospective_event or future_disposition)
+    ) or prospective_upon
 
 
 def _looks_like_self_or_voluntary_dismissal(text: str) -> bool:
@@ -1134,6 +1214,113 @@ def _strict_posture_exclusion_reasons(
     if re.search(r"\bcriminal\b|\b(?:united states|u\.s\.|usa)\s+v[. ]", lowered):
         reasons.append("criminal_posture")
     return tuple(dict.fromkeys(reasons))
+
+
+def _looks_like_social_security_merits_jop(
+    *, context_text: str, decision_text: str
+) -> bool:
+    """Reject administrative merits review mislabeled as a Rule 12(c) case."""
+
+    named_social_security_review = bool(
+        re.search(
+            r"\b(?:acting\s+)?commissioner(?:\s+of)?\s*,?\s*(?:the\s+)?"
+            r"(?:social\s+security(?:\s+administration)?|ssa)\b",
+            context_text,
+            re.I,
+        )
+        or re.search(r"\bsocial\s+security\s+administration\b", context_text, re.I)
+    )
+    alj_reference = bool(
+        re.search(r"\badministrative\s+law\s+judge\b", decision_text, re.I)
+        or re.search(r"\balj\b", decision_text, re.I)
+    )
+    commissioner_final_decision = bool(
+        re.search(
+            r"\b(?:commissioner|agency|ssa)(?:['\u2019]s)?\s+"
+            r"(?:final\s+)?(?:decision|determination)\b",
+            decision_text,
+            re.I,
+        )
+    )
+    administrative_remand = bool(
+        re.search(
+            r"\bremand\w*\b[^.;]{0,120}\b(?:further\s+)?"
+            r"administrative\s+proceedings\b",
+            decision_text,
+            re.I,
+        )
+    )
+    administrative_disposition = bool(
+        re.search(
+            r"\b(?:affirm(?:ed|ing|s)?|revers(?:e|ed|es|ing)|"
+            r"uphold(?:s|ing)?|vacat(?:e|ed|es|ing)|remand(?:ed|ing|s)?)\b",
+            decision_text,
+            re.I,
+        )
+    )
+    # CourtListener captions often use only the incumbent Commissioner's
+    # surname.  The decision row itself can nevertheless prove administrative
+    # merits review when it couples the ALJ/Commissioner's final decision with
+    # an affirmance, reversal, vacatur, or administrative remand.
+    strong_administrative_review = (alj_reference or commissioner_final_decision) and (
+        administrative_disposition or administrative_remand
+    )
+    social_security_review = (
+        named_social_security_review or strong_administrative_review
+    )
+    administrative_merits = bool(
+        alj_reference
+        or re.search(
+            r"\bdecision\s+of\s+the\s+(?:commissioner|agency)\b",
+            decision_text,
+            re.I,
+        )
+        or commissioner_final_decision
+        or re.search(
+            r"\bremand(?:ed|ing)?\s+to\s+(?:the\s+)?agency\b",
+            decision_text,
+            re.I,
+        )
+        or administrative_remand
+    )
+    judgment_on_pleadings = bool(
+        re.search(r"\bjudgment\s+on\s+the\s+pleadings\b", decision_text, re.I)
+    )
+    independent_rule_12_basis = _has_disposition_linked_rule_12_basis(decision_text)
+    return (
+        social_security_review
+        and administrative_merits
+        and judgment_on_pleadings
+        and not independent_rule_12_basis
+    )
+
+
+def _has_disposition_linked_rule_12_basis(decision_text: str) -> bool:
+    """Require Rule 12 evidence to modify the disposition being screened."""
+
+    for clause in re.split(r"(?<=[.;])\s+", decision_text):
+        judgment_on_pleadings = re.search(
+            r"\bjudgment\s+on\s+the\s+pleadings\b", clause, re.I
+        )
+        explicit_jop_rule = bool(
+            judgment_on_pleadings
+            and (
+                re.search(r"\b(?:rule\s+)?12\s*\(\s*c\s*\)", clause, re.I)
+                or _references_rule_7012(clause)
+            )
+        )
+        direct_mtd_disposition = bool(
+            re.search(
+                r"\bmotion\s+to\s+dismiss\b|\bmtd\b|"
+                r"\b(?:rule\s+)?12\s*\(\s*b\s*\)",
+                clause,
+                re.I,
+            )
+            and _has_direct_mtd_disposition(clause)
+        )
+        if explicit_jop_rule or direct_mtd_disposition:
+            return True
+    return False
 
 
 def _looks_like_bankruptcy_context(text: str) -> bool:
