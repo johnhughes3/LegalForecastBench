@@ -291,13 +291,13 @@ Precedence is deterministic per operation and covered period, independent of cro
 
 No evidence or event is deleted or rewritten. Imports and corrections use a single deterministic database ordering assigned by the successful atomic import, never an untrusted timestamp from the manifest.
 
-For `submitted`, `queued`, `unknown`, and `delivered_but_unreconciled`, `held_usd` remains the full reservation. For a charged `confirmed` operation, `held_usd` equals the authoritative fee and continues to count against both caps. Only an authoritative no-charge result sets `held_usd` to zero and state to `failed`. The broker may release a hold or replace it with an authoritative fee only through the protected reconciliation path. Disabling a policy, receiving a local download, observing CourtListener delivery, aging an operation, or receiving an operator assertion without protected source evidence cannot release it.
+For `submitted`, `queued`, `unknown`, and `delivered_but_unreconciled`, `held_usd` remains the full reservation once the paid provider-fetch boundary may have been crossed. A definite failure before the provider fetch function is invoked sets state to `failed` and releases the hold because no charge-bearing request occurred. For a charged `confirmed` operation, `held_usd` equals the authoritative fee and continues to count against both caps; protected authoritative no-charge evidence also sets state to `failed` and releases the hold. After provider-fetch invocation, only the protected reconciliation path may release a hold or replace it with an authoritative fee. Disabling a policy, receiving a local download, observing CourtListener delivery, aging an operation, or receiving an operator assertion without protected source evidence cannot release it.
 
 There is no public HTTP policy-activation endpoint in v1. Policy and document-to-case activation occurs only through the reviewed deployment/migration path described above, before the purchase route is enabled.
 
 ## Audit and retention
 
-Every accepted request, idempotent replay, rejection, provider transition, receipt refresh, policy activation, and reconciliation import produces a structured, nonsecret audit event. Provider response hashes are computed from a canonical redacted representation that excludes headers, credentials, form fields, and raw response bodies.
+Every accepted request, idempotent replay, rejection, provider transition, receipt refresh, policy activation, and reconciliation import produces a structured, nonsecret audit event. `provider_response_body_sha256` hashes the exact raw provider response-body bytes, while `provider_response_sha256` hashes the versioned canonical redacted representation defined above; the redacted representation excludes headers, credentials, form fields, and raw response bodies.
 
 Operation rows, client-code mappings, policy artifacts, nonce/replay evidence, state transitions, and reconciliation events are retained for the benchmark cycle's audit lifetime. No artifact destined for LegalForecastBench packets may contain PACER account information, credentials, raw billing records, or sealed/private material.
 
