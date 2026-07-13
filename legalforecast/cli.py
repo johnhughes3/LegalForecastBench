@@ -159,6 +159,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
     CycleAcquisitionStoreError,
     SnapshotVerificationError,
+    cohort_reason_policy_taxonomy,
     verify_snapshot,
 )
 from legalforecast.ingestion.disclosure_clearance import (
@@ -289,6 +290,8 @@ from legalforecast.protocol import (
     FrozenArtifactName,
     build_candidate_manifest_record,
     freeze_cycle,
+    generate_execution_policy,
+    generate_labeling_policy,
     sha256_file,
 )
 from legalforecast.publication.static_sites import render_official_results_site
@@ -9098,6 +9101,9 @@ def _run_fixture_e2e(output_dir: Path) -> None:
     harness_path = output_dir / "harness.txt"
     model_registry_path = output_dir / "model-registry.json"
     baselines_path = output_dir / "baselines.json"
+    labeling_policy_path = output_dir / "labeling-policy.json"
+    cohort_policy_path = output_dir / "cohort-policy.json"
+    execution_policy_path = output_dir / "execution-policy.json"
     bundle_path = output_dir / "manifests" / "cycle_fixture_e2e.freeze.json"
     _write_text(prompt_path, _fixture_prompt_text())
     _write_text(scorer_path, _fixture_scorer_text())
@@ -9107,6 +9113,55 @@ def _run_fixture_e2e(output_dir: Path) -> None:
         json.dumps(_fixture_model_registry_records(), indent=2, sort_keys=True) + "\n",
     )
     _write_json(baselines_path, _fixture_baselines_record(labels))
+    labeling_policy = generate_labeling_policy(
+        cycle_id="cycle_fixture_e2e",
+        judge_registry_path=model_registry_path,
+        published_at=datetime(2026, 5, 12, 12, tzinfo=UTC),
+        threshold_source="fixture protocol decision",
+    )
+    _write_json(labeling_policy_path, labeling_policy)
+    cohort_policy = generate_cohort_policy(_fixture_cohort_policy_decisions())
+    _write_json(cohort_policy_path, cohort_policy)
+    execution_policy = generate_execution_policy(
+        {
+            "cycle_id": "cycle_fixture_e2e",
+            "cycle_series": "rapid",
+            "allow_no_baselines": False,
+            "labeling_policy_sha256": sha256_file(labeling_policy_path),
+            "cohort_policy_sha256": sha256_file(cohort_policy_path),
+            "cohort_observation_manifest_sha256": "c" * 64,
+            "lifecycle": {
+                "labeling_policy_published_at": "2026-05-12T12:00:00Z",
+                "production_labeling_started_at": "2026-05-13T12:00:00Z",
+                "cohort_policy_published_at": "2026-05-11T12:00:00Z",
+                "batch_002_started_at": "2026-05-12T12:00:00Z",
+            },
+            "shard_schedule": {
+                "shard_count": 8,
+                "dispatch_unit": "model_key_ablation",
+            },
+            "concurrency_policy": {
+                "mode": "shard_identity",
+                "identity_fields": ["cycle_id", "model_key", "ablation"],
+            },
+            "receipt_policy": {
+                "write_once_per_attempt": True,
+                "identity_fields": ["workflow_run_id", "workflow_run_attempt"],
+                "result_commitment_required": True,
+            },
+            "attempt_policy": {
+                "reservation_ledger_sha256": "d" * 64,
+                "max_billable_attempts": 2,
+            },
+            "repeat_policy": {"case_ids": ["case-1"], "count": 1},
+            "cadence_counts": {
+                "clean_motion_count_source": "frozen_manifest",
+                "prediction_unit_count_source": "frozen_units",
+                "reject_operator_mismatch": True,
+            },
+        }
+    )
+    _write_json(execution_policy_path, execution_policy)
     bundle = freeze_cycle(
         "cycle_fixture_e2e",
         {
@@ -9119,6 +9174,9 @@ def _run_fixture_e2e(output_dir: Path) -> None:
             FrozenArtifactName.MODEL_REGISTRY: model_registry_path,
             FrozenArtifactName.BASELINES: baselines_path,
             FrozenArtifactName.EXCLUSION_LEDGER: output_dir / "exclusion-ledger.jsonl",
+            FrozenArtifactName.EXECUTION_POLICY: execution_policy_path,
+            FrozenArtifactName.LABELING_POLICY: labeling_policy_path,
+            FrozenArtifactName.COHORT_POLICY: cohort_policy_path,
         },
         freeze_timestamp=datetime(2026, 5, 14, 12, 5, tzinfo=UTC),
         bundle_output_path=bundle_path,
@@ -10111,6 +10169,76 @@ def _report_paths(output_dir: Path) -> tuple[Path, Path, Path, Path]:
     )
 
 
+def _fixture_cohort_policy_decisions() -> JsonRecord:
+    taxonomy = cohort_reason_policy_taxonomy()
+    return {
+        "cycle_id": "cycle_fixture_e2e",
+        "cycle_acquisition_hash": "e" * 64,
+        "eligibility_anchor": "2026-05-14",
+        "stop_rule": {
+            "mode": "target_or_deadline",
+            "target_clean_cases": 1,
+            "search_window_end": "2026-05-18",
+            "stop_on_frontier_exhaustion": True,
+            "stop_on_budget_headroom_exhaustion": True,
+        },
+        "window_policy": {
+            "overlap_days": 1,
+            "backfill_late_indexed": True,
+            "refresh_before_purchase": True,
+        },
+        "refresh_policy": {
+            **{field: list(codes) for field, codes in taxonomy.items()},
+            "evidence_precedence": {
+                "transient": 0,
+                "excluded_refreshable": 10,
+                "accepted": 20,
+                "newly_free": 30,
+                "excluded_immutable": 100,
+            },
+            "transition_semantics": {
+                "immutable_reconsideration": "never",
+                "transient_supersedes_evidenced": False,
+                "higher_rank_supersedes_lower_rank": True,
+                "latest_wins_equal_rank": True,
+            },
+        },
+        "packet_completeness": {
+            "motion_or_combined_memorandum_required": True,
+            "opposition_required_if_docketed": True,
+            "reply_required": False,
+        },
+        "target_motion": {
+            "selector": "earliest_eligible_mtd_then_lowest_entry_number",
+            "exactly_one_per_candidate": True,
+        },
+        "purchase_policy": {
+            "rule": "buy_cheapest_complete",
+            "cycle_budget_usd": "0.00",
+            "max_per_case_usd": "0.00",
+            "reservation_headroom_required": True,
+        },
+        "disclosure_clearance": {
+            "all_documents_require_clearance": True,
+            "unknown_or_unscannable": "quarantine",
+            "replacement_rule": "next_cheapest_eligible_under_same_cap",
+        },
+        "reduced_n": {
+            "target_clean_cases": 1,
+            "claim_tiers": [
+                {
+                    "minimum_clean_cases": 1,
+                    "maximum_clean_cases": 1,
+                    "claim_class": "target",
+                    "minimum_prediction_units": None,
+                    "insufficient_units_action": None,
+                }
+            ],
+            "below_minimum_action": "pilot_only_no_official_cycle",
+        },
+    }
+
+
 def _fixture_artifact_paths(output_dir: Path) -> tuple[Path, ...]:
     return (
         output_dir / "docket_entries.jsonl",
@@ -10134,6 +10262,9 @@ def _fixture_artifact_paths(output_dir: Path) -> tuple[Path, ...]:
         output_dir / "harness.txt",
         output_dir / "model-registry.json",
         output_dir / "baselines.json",
+        output_dir / "labeling-policy.json",
+        output_dir / "cohort-policy.json",
+        output_dir / "execution-policy.json",
         output_dir / "manifests" / "cycle_fixture_e2e.freeze.json",
         output_dir / "report" / "leaderboard.json",
         output_dir / "report" / "leaderboard.csv",

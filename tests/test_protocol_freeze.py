@@ -6,6 +6,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from legalforecast.ingestion.cohort_policy import generate_cohort_policy
+from legalforecast.ingestion.cycle_acquisition_store import (
+    cohort_reason_policy_taxonomy,
+)
 from legalforecast.protocol import (
     FreezeProtocolError,
     FrozenArtifactName,
@@ -22,6 +26,10 @@ from legalforecast.protocol.freeze import (
     amend_freeze_cycle,
     build_arg_parser,
     cli_freeze,
+)
+from legalforecast.protocol.policy_artifacts import (
+    generate_execution_policy,
+    generate_labeling_policy,
 )
 
 FREEZE_TIMESTAMP = datetime(2026, 5, 14, 12, 5, tzinfo=UTC)
@@ -55,6 +63,26 @@ def test_freeze_fails_when_required_artifact_is_missing(tmp_path: Path) -> None:
             artifact_paths,
             freeze_timestamp=FREEZE_TIMESTAMP,
         )
+
+
+def test_freeze_api_cannot_override_mandatory_policy_artifacts(tmp_path: Path) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    without_policies = {
+        name: path
+        for name, path in artifact_paths.items()
+        if name
+        not in {
+            FrozenArtifactName.EXECUTION_POLICY,
+            FrozenArtifactName.LABELING_POLICY,
+            FrozenArtifactName.COHORT_POLICY,
+        }
+    }
+
+    with pytest.raises(
+        MissingFreezeArtifactError,
+        match="execution_policy, labeling_policy, cohort_policy",
+    ):
+        freeze_cycle("cycle_fixture", without_policies)
 
 
 def test_post_freeze_modification_is_detected(tmp_path: Path) -> None:
@@ -104,7 +132,7 @@ def test_freeze_cli_has_no_preregistration_options() -> None:
     assert "--exclusion-ledger EXCLUSION_LEDGER" in help_text
 
 
-def test_freeze_cli_creates_nine_artifact_bundle(tmp_path: Path) -> None:
+def test_freeze_cli_creates_policy_bound_artifact_bundle(tmp_path: Path) -> None:
     artifact_paths = _artifact_paths(tmp_path)
     bundle_path = tmp_path / "cli.freeze.json"
     flags = {
@@ -117,6 +145,9 @@ def test_freeze_cli_creates_nine_artifact_bundle(tmp_path: Path) -> None:
         FrozenArtifactName.MODEL_REGISTRY: "--model-registry",
         FrozenArtifactName.BASELINES: "--baselines",
         FrozenArtifactName.EXCLUSION_LEDGER: "--exclusion-ledger",
+        FrozenArtifactName.EXECUTION_POLICY: "--execution-policy",
+        FrozenArtifactName.LABELING_POLICY: "--labeling-policy",
+        FrozenArtifactName.COHORT_POLICY: "--cohort-policy",
     }
     artifact_args = [
         value
@@ -140,6 +171,70 @@ def test_freeze_cli_creates_nine_artifact_bundle(tmp_path: Path) -> None:
     assert {artifact["name"] for artifact in bundle["artifacts"]} == {
         name.value for name in FrozenArtifactName
     }
+
+
+@pytest.mark.parametrize(
+    "missing_flag",
+    ("--execution-policy", "--labeling-policy", "--cohort-policy"),
+)
+def test_freeze_cli_requires_every_policy_artifact(
+    tmp_path: Path, missing_flag: str
+) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    flags = {
+        FrozenArtifactName.MANIFEST: "--manifest",
+        FrozenArtifactName.UNITS: "--units",
+        FrozenArtifactName.LABELS: "--labels",
+        FrozenArtifactName.PROMPT: "--prompt",
+        FrozenArtifactName.SCORER: "--scorer",
+        FrozenArtifactName.HARNESS: "--harness",
+        FrozenArtifactName.MODEL_REGISTRY: "--model-registry",
+        FrozenArtifactName.BASELINES: "--baselines",
+        FrozenArtifactName.EXCLUSION_LEDGER: "--exclusion-ledger",
+        FrozenArtifactName.EXECUTION_POLICY: "--execution-policy",
+        FrozenArtifactName.LABELING_POLICY: "--labeling-policy",
+        FrozenArtifactName.COHORT_POLICY: "--cohort-policy",
+    }
+    args = [
+        value
+        for name, flag in flags.items()
+        if flag != missing_flag
+        for value in (flag, str(artifact_paths[name]))
+    ]
+    with pytest.raises(SystemExit):
+        cli_freeze(["cycle_fixture", *args])
+
+
+def test_freeze_rejects_policy_hash_link_mismatch(tmp_path: Path) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    artifact_paths[FrozenArtifactName.LABELING_POLICY].write_bytes(
+        artifact_paths[FrozenArtifactName.LABELING_POLICY].read_bytes() + b"\n"
+    )
+
+    with pytest.raises(FreezeProtocolError, match="labeling_policy_sha256"):
+        freeze_cycle("cycle_fixture", artifact_paths)
+
+
+def test_freeze_rejects_mismatching_cycle_series_restatement(tmp_path: Path) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    artifact_paths[FrozenArtifactName.BASELINES].write_text(
+        '{"baselines":[],"cycle_series":"rapid"}\n', encoding="utf-8"
+    )
+
+    with pytest.raises(FreezeProtocolError, match="restates cycle_series"):
+        freeze_cycle("cycle_fixture", artifact_paths)
+
+
+def test_freeze_fails_closed_on_malformed_jsonl_during_series_check(
+    tmp_path: Path,
+) -> None:
+    artifact_paths = _artifact_paths(tmp_path)
+    artifact_paths[FrozenArtifactName.LABELS].write_text(
+        '{"cycle_series":"rapid"}\n{not-json}\n', encoding="utf-8"
+    )
+
+    with pytest.raises(FreezeProtocolError, match="malformed"):
+        freeze_cycle("cycle_fixture", artifact_paths)
 
 
 def test_amendment_freeze_preserves_artifacts_and_records_parent(
@@ -486,6 +581,9 @@ def _artifact_paths(tmp_path: Path) -> dict[FrozenArtifactName, Path]:
         FrozenArtifactName.MODEL_REGISTRY: tmp_path / "models.json",
         FrozenArtifactName.BASELINES: tmp_path / "baselines.json",
         FrozenArtifactName.EXCLUSION_LEDGER: tmp_path / "exclusion-ledger.jsonl",
+        FrozenArtifactName.EXECUTION_POLICY: tmp_path / "execution-policy.json",
+        FrozenArtifactName.LABELING_POLICY: tmp_path / "labeling-policy.json",
+        FrozenArtifactName.COHORT_POLICY: tmp_path / "cohort-policy.json",
     }
     payloads = {
         FrozenArtifactName.MANIFEST: '{"candidate_id":"cand-1"}\n',
@@ -500,9 +598,151 @@ def _artifact_paths(tmp_path: Path) -> dict[FrozenArtifactName, Path]:
         FrozenArtifactName.BASELINES: '{"baselines":["global_base_rate"]}\n',
         FrozenArtifactName.EXCLUSION_LEDGER: "",
     }
-    for name, path in paths.items():
-        path.write_text(payloads[name], encoding="utf-8")
+    for name, payload in payloads.items():
+        paths[name].write_text(payload, encoding="utf-8")
+    labeling = generate_labeling_policy(
+        cycle_id="cycle_fixture",
+        judge_registry_path=(
+            Path(__file__).parents[1]
+            / "model_registries/cycle-1-stage-b-judges-2026-07-12.json"
+        ),
+        published_at=datetime(2026, 5, 12, 12, tzinfo=UTC),
+        threshold_source="fixture protocol decision",
+    )
+    paths[FrozenArtifactName.LABELING_POLICY].write_text(
+        f"{json.dumps(labeling, sort_keys=True, separators=(',', ':'))}\n",
+        encoding="utf-8",
+    )
+    cohort = generate_cohort_policy(_cohort_decisions())
+    paths[FrozenArtifactName.COHORT_POLICY].write_text(
+        f"{json.dumps(cohort, sort_keys=True, separators=(',', ':'))}\n",
+        encoding="utf-8",
+    )
+    execution = generate_execution_policy(
+        {
+            "cycle_id": "cycle_fixture",
+            "cycle_series": "official",
+            "allow_no_baselines": False,
+            "labeling_policy_sha256": sha256_file(
+                paths[FrozenArtifactName.LABELING_POLICY]
+            ),
+            "cohort_policy_sha256": sha256_file(
+                paths[FrozenArtifactName.COHORT_POLICY]
+            ),
+            "cohort_observation_manifest_sha256": "c" * 64,
+            "lifecycle": {
+                "labeling_policy_published_at": "2026-05-12T12:00:00Z",
+                "production_labeling_started_at": "2026-05-13T12:00:00Z",
+                "cohort_policy_published_at": "2026-05-11T12:00:00Z",
+                "batch_002_started_at": "2026-05-12T12:00:00Z",
+            },
+            "shard_schedule": {
+                "shard_count": 8,
+                "dispatch_unit": "model_key_ablation",
+            },
+            "concurrency_policy": {
+                "mode": "shard_identity",
+                "identity_fields": ["cycle_id", "model_key", "ablation"],
+            },
+            "receipt_policy": {
+                "write_once_per_attempt": True,
+                "identity_fields": ["workflow_run_id", "workflow_run_attempt"],
+                "result_commitment_required": True,
+            },
+            "attempt_policy": {
+                "reservation_ledger_sha256": "d" * 64,
+                "max_billable_attempts": 2,
+            },
+            "repeat_policy": {"case_ids": ["case-1"], "count": 1},
+            "cadence_counts": {
+                "clean_motion_count_source": "frozen_manifest",
+                "prediction_unit_count_source": "frozen_units",
+                "reject_operator_mismatch": True,
+            },
+        }
+    )
+    paths[FrozenArtifactName.EXECUTION_POLICY].write_text(
+        f"{json.dumps(execution, sort_keys=True, separators=(',', ':'))}\n",
+        encoding="utf-8",
+    )
     return paths
+
+
+def _cohort_decisions() -> dict[str, object]:
+    taxonomy = cohort_reason_policy_taxonomy()
+    return {
+        "cycle_id": "cycle_fixture",
+        "cycle_acquisition_hash": "e" * 64,
+        "eligibility_anchor": "2026-06-30",
+        "stop_rule": {
+            "mode": "target_or_deadline",
+            "target_clean_cases": 150,
+            "search_window_end": "2026-08-15",
+            "stop_on_frontier_exhaustion": True,
+            "stop_on_budget_headroom_exhaustion": True,
+        },
+        "window_policy": {
+            "overlap_days": 7,
+            "backfill_late_indexed": True,
+            "refresh_before_purchase": True,
+        },
+        "refresh_policy": {
+            **{field: list(codes) for field, codes in taxonomy.items()},
+            "evidence_precedence": {
+                "transient": 0,
+                "excluded_refreshable": 10,
+                "accepted": 20,
+                "newly_free": 30,
+                "excluded_immutable": 100,
+            },
+            "transition_semantics": {
+                "immutable_reconsideration": "never",
+                "transient_supersedes_evidenced": False,
+                "higher_rank_supersedes_lower_rank": True,
+                "latest_wins_equal_rank": True,
+            },
+        },
+        "packet_completeness": {
+            "motion_or_combined_memorandum_required": True,
+            "opposition_required_if_docketed": True,
+            "reply_required": False,
+        },
+        "target_motion": {
+            "selector": "earliest_eligible_mtd_then_lowest_entry_number",
+            "exactly_one_per_candidate": True,
+        },
+        "purchase_policy": {
+            "rule": "buy_cheapest_complete",
+            "cycle_budget_usd": "100.00",
+            "max_per_case_usd": "3.00",
+            "reservation_headroom_required": True,
+        },
+        "disclosure_clearance": {
+            "all_documents_require_clearance": True,
+            "unknown_or_unscannable": "quarantine",
+            "replacement_rule": "next_cheapest_eligible_under_same_cap",
+        },
+        "reduced_n": {
+            "target_clean_cases": 150,
+            "claim_tiers": [
+                {
+                    "minimum_clean_cases": 40,
+                    "maximum_clean_cases": 149,
+                    "claim_class": "official_descriptive",
+                    "minimum_prediction_units": None,
+                    "insufficient_units_action": None,
+                },
+                {
+                    "minimum_clean_cases": 150,
+                    "maximum_clean_cases": 150,
+                    "claim_class": "target",
+                    "minimum_prediction_units": None,
+                    "insufficient_units_action": None,
+                },
+            ],
+            "below_minimum_action": "pilot_only_no_official_cycle",
+        },
+    }
 
 
 def _write_relative_bundle(

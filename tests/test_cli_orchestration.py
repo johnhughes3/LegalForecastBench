@@ -195,9 +195,12 @@ def test_fixture_e2e_cli_writes_benchmark_artifacts(tmp_path: Path) -> None:
     assert freeze_bundle["cycle_id"] == "cycle_fixture_e2e"
     assert {artifact["name"] for artifact in freeze_bundle["artifacts"]} == {
         "baselines",
+        "cohort_policy",
+        "execution_policy",
         "exclusion_ledger",
         "harness",
         "labels",
+        "labeling_policy",
         "manifest",
         "model_registry",
         "prompt",
@@ -827,6 +830,9 @@ def _fixture_output_paths(output_dir: Path) -> list[str]:
         str(output_dir / "harness.txt"),
         str(output_dir / "model-registry.json"),
         str(output_dir / "baselines.json"),
+        str(output_dir / "labeling-policy.json"),
+        str(output_dir / "cohort-policy.json"),
+        str(output_dir / "execution-policy.json"),
         str(output_dir / "manifests" / "cycle_fixture_e2e.freeze.json"),
         str(output_dir / "report" / "leaderboard.json"),
         str(output_dir / "report" / "leaderboard.csv"),
