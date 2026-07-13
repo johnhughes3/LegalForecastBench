@@ -390,6 +390,47 @@ def test_public_packet_planner_can_use_embedded_selected_entries(
     )
 
 
+def test_public_packet_planner_accepts_verified_raw_html_paths_from_multiple_roots(
+    tmp_path: Path,
+) -> None:
+    first = deepcopy(_screened_case())
+    second = deepcopy(_screened_case())
+    cast(dict[str, Any], first["candidate"])["docket_id"] = "123"
+    cast(dict[str, Any], second["candidate"])["docket_id"] = "456"
+    first_path = tmp_path / "first" / "123.html"
+    second_path = tmp_path / "second" / "456.html"
+    first_path.parent.mkdir()
+    second_path.parent.mkdir()
+    first_path.write_text(_docket_html(), encoding="utf-8")
+    second_path.write_text(_docket_html(), encoding="utf-8")
+
+    plan = plan_public_packet_downloads(
+        (first, second),
+        raw_html_paths_by_candidate={"123": first_path, "456": second_path},
+        target_clean_cases=2,
+    )
+
+    assert plan.selected_case_count == 2
+    assert {candidate.candidate_id for candidate in plan.selected_cases} == {
+        "123",
+        "456",
+    }
+
+
+def test_public_packet_planner_rejects_directory_and_path_map_together(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="raw_html_dir and raw_html_paths_by_candidate are mutually exclusive",
+    ):
+        plan_public_packet_downloads(
+            (_screened_case(),),
+            raw_html_dir=tmp_path,
+            raw_html_paths_by_candidate={"123": tmp_path / "123.html"},
+        )
+
+
 def test_public_packet_planner_accepts_exact_target_mtd_memorandum_when_role_is_noisy(
     tmp_path: Path,
 ) -> None:

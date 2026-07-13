@@ -240,6 +240,7 @@ def plan_public_packet_downloads(
     screened_case_records: Iterable[Mapping[str, Any]],
     *,
     raw_html_dir: str | Path | None = None,
+    raw_html_paths_by_candidate: Mapping[str, str | Path] | None = None,
     target_clean_cases: int = 25,
     allow_inferred_target_mtd: bool = False,
     use_embedded_entries: bool = False,
@@ -250,8 +251,19 @@ def plan_public_packet_downloads(
 
     if target_clean_cases <= 0:
         raise ValueError("target_clean_cases must be positive")
-    if raw_html_dir is None and not use_embedded_entries:
-        raise ValueError("raw_html_dir is required unless use_embedded_entries=True")
+    if raw_html_dir is not None and raw_html_paths_by_candidate is not None:
+        raise ValueError(
+            "raw_html_dir and raw_html_paths_by_candidate are mutually exclusive"
+        )
+    if (
+        raw_html_dir is None
+        and raw_html_paths_by_candidate is None
+        and not use_embedded_entries
+    ):
+        raise ValueError(
+            "raw_html_dir or raw_html_paths_by_candidate is required unless "
+            "use_embedded_entries=True"
+        )
     unit_cost = _money_decimal(
         cost_per_missing_document_usd,
         "cost_per_missing_document_usd",
@@ -262,11 +274,20 @@ def plan_public_packet_downloads(
         max_case_mix_share=normalized_case_mix_share,
     )
     html_root = Path(raw_html_dir) if raw_html_dir is not None else None
+    html_paths = (
+        None
+        if raw_html_paths_by_candidate is None
+        else {
+            candidate_id: Path(path)
+            for candidate_id, path in raw_html_paths_by_candidate.items()
+        }
+    )
     evaluated_plans: list[PublicPacketCandidatePlan] = []
     for record in screened_case_records:
         plan = _candidate_plan(
             record,
             raw_html_dir=html_root,
+            raw_html_paths_by_candidate=html_paths,
             allow_inferred_target_mtd=allow_inferred_target_mtd,
             use_embedded_entries=use_embedded_entries,
             cost_per_missing_document=unit_cost,
@@ -300,6 +321,7 @@ def _candidate_plan(
     record: Mapping[str, Any],
     *,
     raw_html_dir: Path | None,
+    raw_html_paths_by_candidate: Mapping[str, Path] | None,
     allow_inferred_target_mtd: bool,
     use_embedded_entries: bool,
     cost_per_missing_document: Decimal,
@@ -307,7 +329,15 @@ def _candidate_plan(
     candidate = _mapping(record, "candidate")
     metadata = _mapping(candidate, "metadata")
     candidate_id = _required_str(candidate, "docket_id", "candidate_key")
-    html_path = raw_html_dir / f"{candidate_id}.html" if raw_html_dir else None
+    html_path = (
+        raw_html_dir / f"{candidate_id}.html"
+        if raw_html_dir is not None
+        else (
+            raw_html_paths_by_candidate.get(candidate_id)
+            if raw_html_paths_by_candidate is not None
+            else None
+        )
+    )
     target_entries = _entry_number_tuple(
         _mapping(record, "ai").get("target_motion_entry_numbers")
     )

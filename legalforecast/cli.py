@@ -6434,7 +6434,7 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
             paid_activity_requested=False,
         )
         raise CommandError(str(exc)) from exc
-    raw_html_dir = _verified_snapshot_raw_html_directory(
+    raw_html_dir, raw_html_paths_by_candidate = _verified_snapshot_raw_html_sources(
         snapshot_path,
         requested=raw_html_dir,
         use_embedded_entries=cast(bool, args.use_embedded_entries),
@@ -6444,6 +6444,7 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
     plan = plan_public_packet_downloads(
         records,
         raw_html_dir=raw_html_dir,
+        raw_html_paths_by_candidate=raw_html_paths_by_candidate,
         target_clean_cases=cast(int, args.target_clean_cases),
         allow_inferred_target_mtd=cast(bool, args.allow_inferred_target_mtd),
         use_embedded_entries=cast(bool, args.use_embedded_entries),
@@ -6454,6 +6455,18 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
         **plan.summary_record(),
         "dry_run": dry_run,
         "raw_html_dir": str(raw_html_dir) if raw_html_dir is not None else None,
+        "raw_html_source_mode": (
+            "verified_artifact_map"
+            if raw_html_paths_by_candidate is not None
+            else "single_directory"
+            if raw_html_dir is not None
+            else "embedded_entries"
+        ),
+        "raw_html_artifact_count": (
+            len(raw_html_paths_by_candidate)
+            if raw_html_paths_by_candidate is not None
+            else len(_read_records(snapshot_path / "raw-artifacts.jsonl"))
+        ),
         "use_embedded_entries": cast(bool, args.use_embedded_entries),
         "verified_snapshot": str(snapshot_path.resolve()),
         "cycle_hash": snapshot_manifest["cycle_hash"],
@@ -9928,12 +9941,12 @@ def _merge_firecrawl_resume_commitments(
     return merged
 
 
-def _verified_snapshot_raw_html_directory(
+def _verified_snapshot_raw_html_sources(
     snapshot_path: Path,
     *,
     requested: Path | None,
     use_embedded_entries: bool,
-) -> Path | None:
+) -> tuple[Path | None, Mapping[str, Path] | None]:
     artifact_records = _read_records(snapshot_path / "raw-artifacts.jsonl")
     artifact_paths: list[Path] = []
     for record in artifact_records:
@@ -9954,18 +9967,35 @@ def _verified_snapshot_raw_html_directory(
                 "verified snapshot has no raw docket artifacts; use embedded entries "
                 "only for an explicitly authorized fixture path"
             )
-        return None
+        return None, None
     parents = {path.parent for path in artifact_paths}
     if len(parents) != 1:
-        raise CommandError(
-            "verified snapshot raw artifacts do not share one planner directory"
-        )
+        if requested is not None:
+            raise CommandError(
+                "--raw-html-dir is not allowed when verified snapshot raw "
+                "artifacts span multiple directories"
+            )
+        by_candidate: dict[str, Path] = {}
+        for path in artifact_paths:
+            if path.suffix.casefold() != ".html" or not path.is_file():
+                raise CommandError(
+                    "verified snapshot contains an invalid raw HTML artifact path"
+                )
+            candidate_id = path.stem
+            prior = by_candidate.get(candidate_id)
+            if prior is not None and prior != path:
+                raise CommandError(
+                    "verified snapshot raw artifacts conflict for candidate "
+                    f"{candidate_id}"
+                )
+            by_candidate[candidate_id] = path
+        return None, by_candidate
     committed_directory = next(iter(parents))
     if requested is not None and requested.resolve() != committed_directory:
         raise CommandError(
             "--raw-html-dir must exactly match the verified snapshot artifact directory"
         )
-    return committed_directory
+    return committed_directory, None
 
 
 def _firecrawl_credit_summary_if_available(
