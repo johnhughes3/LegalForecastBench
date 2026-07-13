@@ -191,6 +191,28 @@ def test_cli_live_discover_requires_durable_request_ledger(
     )
 
 
+def test_cli_temporary_doubled_profile_requires_authenticated_account(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv(COURTLISTENER_API_TOKEN_ENV, raising=False)
+    assert (
+        main(
+            [
+                "batch-002",
+                "discover",
+                "--cycle-store",
+                str(tmp_path / "cycle.sqlite3"),
+                "--live",
+                "--request-ledger",
+                str(tmp_path / "requests.sqlite3"),
+                "--courtlistener-rate-profile",
+                "temporary-doubled",
+            ]
+        )
+        == 2
+    )
+
+
 # ---------------------------------------------------------------------------
 # observe.
 # ---------------------------------------------------------------------------

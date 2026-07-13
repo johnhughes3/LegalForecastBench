@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sqlite3
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -114,3 +116,20 @@ def test_concurrent_process_analogues_cannot_overreserve(tmp_path: Path) -> None
 
     assert outcomes == ["exhausted", "reserved"]
     assert first.total_reservations() == 1
+
+
+def test_reservation_timestamp_is_sampled_after_writer_lock(tmp_path: Path) -> None:
+    path = tmp_path / "requests.sqlite3"
+    budget = CourtListenerRequestBudget(path)
+    blocker = sqlite3.connect(path)
+    blocker.execute("BEGIN IMMEDIATE")
+    started = time.time()
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending = pool.submit(budget.reserve, "GET", "/search/")
+        time.sleep(0.1)
+        blocker.commit()
+        reservation = pending.result(timeout=2)
+
+    blocker.close()
+    assert reservation.reserved_at - started >= 0.08

@@ -99,9 +99,12 @@ class CourtListenerRequestBudget:
 
         waited = 0.0
         while True:
-            now = float(self._clock())
             with self._connect() as connection:
                 connection.execute("BEGIN IMMEDIATE")
+                # Sample the reservation time only after obtaining the writer
+                # lock.  Otherwise a contending process can record a timestamp
+                # from before its lock wait and let capacity expire too early.
+                now = float(self._clock())
                 required_wait, limiting_window = self._required_wait(connection, now)
                 if required_wait <= 0:
                     cursor = connection.execute(
@@ -175,7 +178,8 @@ class CourtListenerRequestBudget:
 
     def _initialize(self) -> None:
         with self._connect() as connection:
-            connection.executescript(
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS courtlistener_request_budget_config (
                     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
@@ -183,16 +187,24 @@ class CourtListenerRequestBudget:
                     per_minute INTEGER NOT NULL,
                     per_hour INTEGER NOT NULL,
                     per_day INTEGER NOT NULL
-                );
+                )
+                """
+            )
+            connection.execute(
+                """
                 CREATE TABLE IF NOT EXISTS courtlistener_request_attempts (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     reserved_at REAL NOT NULL,
                     method TEXT NOT NULL,
                     endpoint TEXT NOT NULL
-                );
+                )
+                """
+            )
+            connection.execute(
+                """
                 CREATE INDEX IF NOT EXISTS
                     courtlistener_request_attempts_reserved_at
-                ON courtlistener_request_attempts(reserved_at);
+                ON courtlistener_request_attempts(reserved_at)
                 """
             )
             expected = (

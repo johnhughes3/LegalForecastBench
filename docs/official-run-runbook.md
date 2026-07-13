@@ -232,7 +232,7 @@ export COURTLISTENER_API_TOKEN=…   # Authorization: Token <token>
 
 The `discover` search index answers anonymously, but `observe` fails closed before any network call when the token is absent. Every live command also requires one shared `--request-ledger`: it durably reserves capacity before every physical HTTP attempt, including retries, and enforces rolling minute/hour/day ceilings across crashes, resumes, and concurrent processes.
 
-The normal `base` profile keeps headroom under 25/minute, 300/hour, and 1,400/day. John confirmed on 2026-07-13 that CourtListener temporarily doubled this account to 50/minute, 600/hour, and 2,800/day for the coming months; while that grant remains active, pass `--courtlistener-rate-profile temporary-doubled`, which enforces 48/minute, 580/hour, and 2,700/day. Return to `base` when the temporary grant expires. Live logical requests are additionally spaced by 6.25 seconds unless explicitly made slower.
+The normal `base` profile keeps headroom under 25/minute, 300/hour, and 1,400/day. John confirmed on 2026-07-13 that CourtListener temporarily doubled this authenticated account to 50/minute, 600/hour, and 2,800/day for the coming months; while that grant remains active, pass `--courtlistener-rate-profile temporary-doubled`, which requires the token and enforces 48/minute, 580/hour, and 2,700/day. The ledger deliberately rejects a profile change because forgetting the previous rolling window would be unsafe. When the temporary grant expires, stop CourtListener activity for a full 24 hours and then start a new ledger under `base`. Live logical requests are additionally spaced by 6.25 seconds unless explicitly made slower.
 
 ### Step 1: Discover
 

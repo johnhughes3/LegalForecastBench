@@ -6146,6 +6146,11 @@ def _batch_002_client(
         if max_wait < 0:
             raise CommandError("--request-budget-max-wait-seconds cannot be negative")
         profile = cast(str, args.courtlistener_rate_profile)
+        if profile == "temporary-doubled" and config.api_token is None:
+            raise CommandError(
+                "--courtlistener-rate-profile temporary-doubled requires "
+                f"{COURTLISTENER_API_TOKEN_ENV}"
+            )
         try:
             budget = CourtListenerRequestBudget(
                 ledger_path,
