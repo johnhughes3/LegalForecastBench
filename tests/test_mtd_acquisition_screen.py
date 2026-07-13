@@ -1111,7 +1111,7 @@ def test_docket_screen_accepts_explicit_adversary_designation(
 
     screen = screen_courtlistener_docket_for_mtd_decision(
         page,
-        candidate_text=f"nysb 26-01030 {designation} No. 26-01030",
+        candidate_text=f"26-01030 {designation} No. 26-01030",
         decision_filed_on_or_after=date(2026, 6, 30),
     )
 

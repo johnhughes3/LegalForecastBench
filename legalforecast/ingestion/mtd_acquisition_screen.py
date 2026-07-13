@@ -1341,8 +1341,8 @@ def _looks_like_bankruptcy_context(text: str) -> bool:
     court_ids = set(re.findall(r"\b[a-z]{2,5}b\b", lowered))
     return bool(
         "bankruptcy" in lowered
-        or "adversary proceeding" in lowered
         or "adversary complaint" in lowered
+        or _looks_like_adversary_designation(text)
         or court_ids.intersection(_BANKRUPTCY_COURT_IDS)
         or re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", lowered)
         or _references_rule_7012(lowered)
