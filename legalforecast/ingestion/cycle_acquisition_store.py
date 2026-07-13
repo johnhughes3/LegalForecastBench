@@ -1460,7 +1460,7 @@ class CycleAcquisitionStore:
         retrieved_at: str,
         validator: Callable[[bytes], None] | None = None,
     ) -> RawArtifact:
-        """Validate, hash, fsync, atomically publish, and commit a raw artifact."""
+        """Validate, publish, and commit or reuse a canonical raw artifact."""
 
         candidate_id = _require_text(candidate_id, "candidate_id")
         retrieved_at = _require_text(retrieved_at, "retrieved_at")
@@ -1492,7 +1492,13 @@ class CycleAcquisitionStore:
                 raise ImmutableArtifactError(
                     f"untracked raw artifact conflicts with content: {destination_path}"
                 )
-        else:
+        canonical = self._connection.execute(
+            "SELECT * FROM raw_artifacts WHERE candidate_id = ? AND sha256 = ?",
+            (candidate_id, digest),
+        ).fetchone()
+        if canonical is not None:
+            return _verify_canonical_raw_artifact_replay(canonical, content)
+        if not destination_path.exists():
             _atomic_write_bytes(destination_path, content)
         with self._transaction():
             try:
@@ -1514,6 +1520,15 @@ class CycleAcquisitionStore:
                     ).fetchone()[0]
                 )
             except sqlite3.IntegrityError as error:
+                canonical = self._connection.execute(
+                    """
+                    SELECT * FROM raw_artifacts
+                    WHERE candidate_id = ? AND sha256 = ?
+                    """,
+                    (candidate_id, digest),
+                ).fetchone()
+                if canonical is not None:
+                    return _verify_canonical_raw_artifact_replay(canonical, content)
                 raise ImmutableArtifactError(
                     f"raw artifact commitment raced for {destination_path}"
                 ) from error
@@ -2401,6 +2416,29 @@ def _raw_artifact_from_row(row: sqlite3.Row) -> RawArtifact:
         byte_count=int(row["byte_count"]),
         retrieved_at=str(row["retrieved_at"]),
     )
+
+
+def _verify_canonical_raw_artifact_replay(
+    row: sqlite3.Row, content: bytes
+) -> RawArtifact:
+    """Return an existing content commitment only while its bytes remain intact."""
+
+    artifact = _raw_artifact_from_row(row)
+    if artifact.byte_count != len(content):
+        raise ImmutableArtifactError(
+            f"canonical raw artifact byte count conflicts with replay: {artifact.path}"
+        )
+    try:
+        canonical_content = artifact.path.read_bytes()
+    except OSError as error:
+        raise ImmutableArtifactError(
+            f"canonical raw artifact is missing: {artifact.path}"
+        ) from error
+    if canonical_content != content:
+        raise ImmutableArtifactError(
+            f"canonical raw artifact content conflicts with replay: {artifact.path}"
+        )
+    return artifact
 
 
 def _firecrawl_attempt_from_row(row: sqlite3.Row) -> FirecrawlAttempt:

@@ -789,6 +789,84 @@ def test_raw_artifact_is_atomic_content_committed_and_immutable(
         assert destination.read_bytes() == b"<html>public docket</html>"
 
 
+def test_raw_artifact_replay_reuses_canonical_candidate_content_commitment(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        content = b"<html>public docket</html>"
+        canonical_path = tmp_path / "first-run" / "candidate-1.html"
+        canonical = store.write_raw_artifact(
+            "candidate-1",
+            canonical_path,
+            content,
+            retrieved_at="2026-07-12T12:00:00Z",
+        )
+        replay_path = tmp_path / "corrected-metadata-run" / "candidate-1.html"
+        replay_path.parent.mkdir()
+        replay_path.write_bytes(content)
+
+        replay = store.write_raw_artifact(
+            "candidate-1",
+            replay_path,
+            content,
+            retrieved_at="2026-07-12T12:01:00Z",
+        )
+
+        assert replay == canonical
+        assert store.raw_artifacts("candidate-1") == (canonical,)
+        assert replay_path.read_bytes() == content
+
+
+def test_raw_artifact_replay_rejects_modified_canonical_content(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        content = b"<html>public docket</html>"
+        canonical_path = tmp_path / "first-run" / "candidate-1.html"
+        store.write_raw_artifact(
+            "candidate-1",
+            canonical_path,
+            content,
+            retrieved_at="2026-07-12T12:00:00Z",
+        )
+        canonical_path.write_bytes(b"modified")
+
+        with pytest.raises(ImmutableArtifactError, match="canonical raw artifact"):
+            store.write_raw_artifact(
+                "candidate-1",
+                tmp_path / "corrected-metadata-run" / "candidate-1.html",
+                content,
+                retrieved_at="2026-07-12T12:01:00Z",
+            )
+
+
+def test_raw_artifact_replay_rejects_conflicting_destination_content(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        content = b"<html>public docket</html>"
+        store.write_raw_artifact(
+            "candidate-1",
+            tmp_path / "first-run" / "candidate-1.html",
+            content,
+            retrieved_at="2026-07-12T12:00:00Z",
+        )
+        replay_path = tmp_path / "corrected-metadata-run" / "candidate-1.html"
+        replay_path.parent.mkdir()
+        replay_path.write_bytes(b"different")
+
+        with pytest.raises(ImmutableArtifactError, match="untracked raw artifact"):
+            store.write_raw_artifact(
+                "candidate-1",
+                replay_path,
+                content,
+                retrieved_at="2026-07-12T12:01:00Z",
+            )
+
+
 def test_complete_snapshot_is_atomic_and_verifiable(tmp_path: Path) -> None:
     with _store(tmp_path) as store:
         store.ensure_terms("batch-001", ["alpha"])
