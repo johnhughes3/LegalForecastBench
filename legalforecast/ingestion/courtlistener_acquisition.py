@@ -754,6 +754,11 @@ def _looks_like_target_mtd_filing(text: str) -> bool:
         return False
     return bool(
         re.search(r"\bmotions?\s+to\s+dismiss\b", text, re.IGNORECASE)
+        or re.search(
+            r"\bmotions?\s+by\b[^\n]{0,240}?\bto\s+dismiss\b",
+            text,
+            re.IGNORECASE,
+        )
         or re.search(r"\bjudgment\s+on\s+the\s+pleadings\b", text, re.IGNORECASE)
         or re.search(r"\brule\s+12\b", text, re.IGNORECASE)
     )
@@ -773,7 +778,16 @@ def _looks_like_generic_mtd_document(text: str) -> bool:
         r"(?:download\s+pdf|buy\s+on\s+pacer)\b)",
         normalized,
     )
-    return any(label.strip() in _GENERIC_MTD_DOCUMENT_LABELS for label in labels)
+    return any(_is_safe_generic_mtd_label(label) for label in labels)
+
+
+def _is_safe_generic_mtd_label(label: str) -> bool:
+    components = tuple(
+        component.strip() for component in re.split(r"\s+and\s+", label.strip())
+    )
+    return bool(components) and all(
+        component in _GENERIC_MTD_DOCUMENT_LABELS for component in components
+    )
 
 
 _GENERIC_MTD_DOCUMENT_LABELS = frozenset(

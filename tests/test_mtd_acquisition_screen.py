@@ -143,6 +143,115 @@ def test_actual_mtd_decision_entry_accepts_report_recommending_mtd_disposition()
     assert screen.exclusion_reasons == ()
 
 
+def test_actual_mtd_decision_entry_accepts_singular_magistrate_recommendation() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "RECOMMENDATION of United States Magistrate Judge re 12 partial "
+            "Motion to Dismiss. The Court recommends granting in part and "
+            "denying in part the motion.",
+            document_description="Main Document",
+        ),
+        source_url="https://www.courtlistener.com/docket/70873021/example/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is True
+    assert screen.exclusion_reasons == ()
+
+
+def test_actual_mtd_decision_entry_accepts_substantive_rr_with_objection_order() -> (
+    None
+):
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "REPORT AND RECOMMENDATION re 18 Motion to Dismiss. The Court "
+            "recommends that the motion be granted in part and denied in part. "
+            "Objections must comply with the District Judge's Standing Order.",
+            document_description="Main Document",
+        ),
+        source_url="https://www.courtlistener.com/docket/69942279/example/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is True
+    assert screen.exclusion_reasons == ()
+
+
+def test_actual_mtd_decision_entry_accepts_explicit_court_minute_disposition() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "MINUTE (IN CHAMBERS) THE COURT GRANTS IN PART AND DENIES IN PART "
+            "DEFENDANT'S MOTION TO DISMISS (DKT. #20).",
+            document_description="Main Document",
+        ),
+        source_url="https://www.courtlistener.com/docket/72310061/example/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is True
+    assert screen.exclusion_reasons == ()
+
+
+def test_actual_mtd_decision_entry_accepts_motion_by_party_syntax() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "MEMORANDUM OPINION AND ORDER: The 8 MOTION by Defendant Example LLC "
+            "to Dismiss 1 Complaint is GRANTED IN PART and DENIED IN PART.",
+            document_description="Main Document",
+        ),
+        source_url="https://www.courtlistener.com/docket/70450240/example/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is True
+    assert screen.exclusion_reasons == ()
+
+
+def test_motion_by_party_syntax_survives_screening_linkage() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Example v. Defendant",
+            entries=(
+                (1, "January 2, 2026", "COMPLAINT filed by Plaintiff."),
+                (
+                    8,
+                    "February 2, 2026",
+                    "MOTION by Defendant Example LLC to Dismiss 1 Complaint.",
+                ),
+                (
+                    21,
+                    "July 9, 2026",
+                    "MEMORANDUM OPINION AND ORDER: The 8 MOTION by Defendant "
+                    "Example LLC to Dismiss 1 Complaint is GRANTED IN PART and "
+                    "DENIED IN PART.",
+                ),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/70450240/example/",
+    )
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    normalized = _linkage_entries(
+        page.entries,
+        actual_decision_row_ids={entry.row_id for entry in screen.decision_entries},
+        docket_id="70450240",
+        source_url=page.source_url or "",
+    )
+
+    assert screen.strict_clean is True
+    assert [entry.document_role for entry in normalized] == [
+        DocumentRole.MTD_NOTICE,
+        DocumentRole.DECISION,
+    ]
+
+
 def test_actual_mtd_decision_entry_rejects_procedural_order() -> None:
     page = parse_courtlistener_docket_html(
         _docket_html("Standing Order governing motions to dismiss in this case."),
