@@ -476,6 +476,7 @@ class CourtListenerRecapFetchClient:
                 "unknown",
                 "queued",
                 "confirmed",
+                "failed",
             }:
                 continue
             operation_key = operation.get("operation_key")
@@ -510,6 +511,36 @@ class CourtListenerRecapFetchClient:
             raise CourtListenerRecapFetchOutcomeUnknown(
                 "broker receipt does not bind to the local operation"
             )
+        response = operation.get("response")
+        durable: Mapping[str, Any] = (
+            cast(Mapping[str, Any], response) if isinstance(response, Mapping) else {}
+        )
+        raw_reservation_id = durable.get("reservation_id")
+        if raw_reservation_id is not None and not isinstance(raw_reservation_id, str):
+            raise CaseDevPurchaseLedgerError(
+                "local broker reservation identity is invalid"
+            )
+        local_reservation_id = raw_reservation_id
+        if (
+            local_reservation_id is not None
+            and validated["reservation_id"] != local_reservation_id
+        ):
+            raise CourtListenerRecapFetchOutcomeUnknown(
+                "broker receipt reservation identity conflicts with the local journal"
+            )
+        raw_queue_id = durable.get("queue_id")
+        if raw_queue_id is not None and not isinstance(raw_queue_id, str):
+            raise CaseDevPurchaseLedgerError("local broker queue identity is invalid")
+        local_queue_id = raw_queue_id
+        receipt_queue_id = cast(str | None, validated["id"])
+        if (
+            local_queue_id is not None
+            and receipt_queue_id is not None
+            and receipt_queue_id != local_queue_id
+        ):
+            raise CourtListenerRecapFetchOutcomeUnknown(
+                "broker receipt queue identity conflicts with the local journal"
+            )
         self.journal.record_broker_receipt(document_id, validated)
         state = validated["state"]
         if state in {"queued", "delivered_but_unreconciled"}:
@@ -528,14 +559,15 @@ class CourtListenerRecapFetchClient:
             return
         if state != "confirmed":
             return
-        queue_id = _identifier(str(validated["id"]))
+        effective_queue_id = receipt_queue_id or local_queue_id
+        if effective_queue_id is None:
+            return
+        queue_id = _identifier(str(effective_queue_id))
         queue = self._request(
             "GET", f"/recap-fetch/{queue_id}/", {}, paid=False, retry=True
         )
         if _status(queue) != 2:
-            raise CourtListenerRecapFetchOutcomeUnknown(
-                "broker-confirmed queue is not locally delivered"
-            )
+            return
         document = self._request(
             "GET",
             f"/recap-documents/{_identifier(document_id)}/",
@@ -543,6 +575,9 @@ class CourtListenerRecapFetchClient:
             paid=False,
             retry=True,
         )
+        _verify_recap_document(document, document_id)
+        if document.get("is_available") is not True:
+            return
         download_url = _verified_download(document, document_id)
         self.journal.reconcile(
             broker_reconciliation_record(validated, download_url=download_url)
@@ -576,6 +611,7 @@ class CourtListenerRecapFetchClient:
                         "queued purchase disappeared during polling"
                     )
                 confirmed = {
+                    **dict(queued),
                     "queue_id": queue_id,
                     "queue_response": dict(payload),
                     "download_url": verified,

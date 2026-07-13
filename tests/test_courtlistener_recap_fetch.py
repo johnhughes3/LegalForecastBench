@@ -661,6 +661,96 @@ def test_authoritative_receipt_is_preserved_then_exactly_reconciled(
             journal.record_broker_receipt("123", changed)
 
 
+@pytest.mark.parametrize(
+    ("field_name", "replacement", "message"),
+    [
+        ("reservation_id", "reservation-changed", "reservation identity"),
+        ("id", "78", "queue identity"),
+    ],
+)
+def test_receipt_must_match_durable_local_broker_identities(
+    tmp_path: Path, field_name: str, replacement: str, message: str
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        journal.plan(_plan())
+        assert journal.submit("123")
+        operation = journal.operation_evidence("123")
+        assert operation is not None
+        journal.queue(
+            "123",
+            response={"queue_id": "77", "reservation_id": "reservation-1"},
+        )
+        receipt = _broker_receipt(
+            str(operation["operation_key"]),
+            policy.policy_sha256,
+            state="queued",
+            authoritative_fee_usd="0.00",
+        )
+        receipt["held_usd"] = "3.05"
+        receipt["authoritative_fee_usd"] = None
+        receipt["reconciled_at"] = None
+        receipt["billing_evidence"] = None
+        receipt[field_name] = replacement
+        with pytest.raises(CourtListenerRecapFetchOutcomeUnknown, match=message):
+            CourtListenerRecapFetchClient(
+                _config(),
+                journal=journal,
+                transport=FixtureRecapFetchTransport([]),
+                purchase_broker=FixtureRecapFetchPurchaseBroker([]),
+            ).apply_broker_receipt("123", receipt)
+
+
+@pytest.mark.parametrize("local_status", ["confirmed", "failed"])
+def test_authoritative_nocharge_can_settle_local_terminal_nonbilling_state(
+    tmp_path: Path, local_status: str
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        journal.plan(_plan())
+        assert journal.submit("123")
+        operation = journal.operation_evidence("123")
+        assert operation is not None
+        operation_key = str(operation["operation_key"])
+        journal.queue(
+            "123",
+            response={"queue_id": "77", "reservation_id": "reservation-1"},
+        )
+        if local_status == "confirmed":
+            journal.confirm_reserved(
+                "123",
+                response={
+                    "queue_id": "77",
+                    "reservation_id": "reservation-1",
+                    "download_url": "https://storage.courtlistener.com/123.pdf",
+                },
+            )
+        else:
+            journal.fail("123", CourtListenerRecapFetchError("terminal queue"))
+        receipt = _broker_receipt(
+            operation_key,
+            policy.policy_sha256,
+            state="failed",
+            authoritative_fee_usd="0.00",
+        )
+        receipt["id"] = "77"
+        receipt["delivered_at"] = None
+        CourtListenerRecapFetchClient(
+            _config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport([]),
+            purchase_broker=FixtureRecapFetchPurchaseBroker([]),
+        ).apply_broker_receipt("123", receipt)
+        evidence = journal.operation_evidence("123")
+        assert evidence is not None
+        assert evidence["status"] == "failed"
+        assert evidence["actual_usd"] is None
+        assert evidence["reconciliation"] is not None
+        assert journal.committed_amount_usd == "0.00"
+
+
 def test_nocharge_receipt_preserves_audit_facts_while_releasing_hold(
     tmp_path: Path,
 ) -> None:
@@ -741,6 +831,134 @@ def test_receipt_recovery_moves_unknown_operation_to_durable_queue(
         assert isinstance(response, Mapping)
         assert response["queue_id"] == "77"
         assert len(response["broker_receipts"]) == 1
+
+
+def test_confirmed_receipt_without_queue_is_stored_without_local_reconciliation(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        journal.plan(_plan())
+        assert journal.submit("123")
+        operation = journal.operation_evidence("123")
+        assert operation is not None
+        receipt = _broker_receipt(
+            str(operation["operation_key"]),
+            policy.policy_sha256,
+            state="confirmed",
+            authoritative_fee_usd="1.20",
+        )
+        receipt["id"] = None
+        receipt["delivered_at"] = None
+        receipt["provider_response_body_sha256"] = None
+        receipt["provider_response_sha256"] = None
+        receipt["held_usd"] = "1.20"
+        transport = FixtureRecapFetchTransport([])
+
+        CourtListenerRecapFetchClient(
+            _config(),
+            journal=journal,
+            transport=transport,
+            purchase_broker=FixtureRecapFetchPurchaseBroker([]),
+        ).apply_broker_receipt("123", receipt)
+
+        evidence = journal.operation_evidence("123")
+        assert evidence is not None
+        assert evidence["status"] == "submitted"
+        assert evidence["reconciliation"] is None
+        response = evidence["response"]
+        assert isinstance(response, Mapping)
+        assert response["broker_receipts"][0]["receipt"] == receipt
+        assert journal.committed_amount_usd == "3.05"
+        assert transport.requests == []
+
+
+def test_confirmed_receipt_waits_for_noncharging_queue_delivery_proof(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        journal.plan(_plan())
+        assert journal.submit("123")
+        operation = journal.operation_evidence("123")
+        assert operation is not None
+        receipt = _broker_receipt(
+            str(operation["operation_key"]),
+            policy.policy_sha256,
+            state="confirmed",
+            authoritative_fee_usd="1.20",
+        )
+        receipt["held_usd"] = "1.20"
+        transport = FixtureRecapFetchTransport(
+            [_response("GET", "/recap-fetch/77/", {"status": 1})]
+        )
+
+        CourtListenerRecapFetchClient(
+            _config(),
+            journal=journal,
+            transport=transport,
+            purchase_broker=FixtureRecapFetchPurchaseBroker([]),
+        ).apply_broker_receipt("123", receipt)
+
+        evidence = journal.operation_evidence("123")
+        assert evidence is not None
+        assert evidence["reconciliation"] is None
+        assert journal.committed_amount_usd == "3.05"
+
+
+def test_receipt_recovery_includes_locally_failed_paid_operation(
+    tmp_path: Path,
+) -> None:
+    class _ReceiptBroker(FixtureRecapFetchPurchaseBroker):
+        def __init__(self, receipt: Mapping[str, object]) -> None:
+            super().__init__([])
+            self.receipt_response = receipt
+            self.receipt_requests: list[str] = []
+
+        def receipt(self, operation_key: str) -> Mapping[str, object]:
+            self.receipt_requests.append(operation_key)
+            return self.receipt_response
+
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        journal.plan(_plan())
+        assert journal.submit("123")
+        operation = journal.operation_evidence("123")
+        assert operation is not None
+        operation_key = str(operation["operation_key"])
+        journal.fail("123", RuntimeError("terminal queue status 3"))
+        receipt = _broker_receipt(
+            operation_key,
+            policy.policy_sha256,
+            state="failed",
+            authoritative_fee_usd="0.00",
+        )
+        receipt["id"] = None
+        receipt["delivered_at"] = None
+        receipt["provider_response_body_sha256"] = None
+        receipt["provider_response_sha256"] = None
+        broker = _ReceiptBroker(receipt)
+
+        CourtListenerRecapFetchClient(
+            _config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport([]),
+            purchase_broker=broker,
+        ).execute_purchase_plan(
+            _plan(),
+            public_documents=_public_documents(),
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
+
+        evidence = journal.operation_evidence("123")
+        assert evidence is not None
+        assert evidence["reconciliation"] is not None
+        assert journal.committed_amount_usd == "0.00"
+        assert broker.receipt_requests == [operation_key]
 
 
 def _response(
@@ -830,7 +1048,7 @@ def _broker_receipt(
         "id": "77",
         "state": state,
         "reservation_usd": "3.05",
-        "held_usd": "0.00",
+        "held_usd": authoritative_fee_usd if state == "confirmed" else "0.00",
         "authoritative_fee_usd": authoritative_fee_usd,
         "provider_response_body_sha256": "d" * 64,
         "provider_response_sha256": "e" * 64,

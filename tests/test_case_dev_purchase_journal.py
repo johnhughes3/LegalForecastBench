@@ -83,6 +83,11 @@ def test_policy_freezes_canonical_opening_case_commitments(tmp_path: Path) -> No
             {"case-1": "2.00", "case-2": "2.00"},
             "opening committed spend",
         ),
+        (
+            "3.00",
+            {"case-1": "2.00"},
+            "must exactly equal opening committed spend",
+        ),
     ],
 )
 def test_policy_rejects_invalid_opening_case_commitments(
@@ -497,6 +502,19 @@ def test_cli_generates_policy_and_records_provider_reconciliation(
     with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
         assert journal.statuses() == {"doc-1": "failed"}
         assert journal.committed_amount_usd == "0.00"
+
+
+@pytest.mark.parametrize("transition", ["fail", "mark_unknown"])
+def test_paid_state_transitions_hard_fail_when_no_row_is_eligible(
+    tmp_path: Path, transition: str
+) -> None:
+    ledger = (tmp_path / f"{transition}.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        journal.plan(_plan(("doc-1",)))
+        method = getattr(journal, transition)
+        with pytest.raises(CaseDevPurchaseLedgerError, match="transition failed"):
+            method("doc-1", RuntimeError("must not disappear"))
 
 
 def _policy(

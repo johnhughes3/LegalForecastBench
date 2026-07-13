@@ -551,11 +551,15 @@ class CaseDevPurchaseJournal:
             ],
         }
         with self._connection:
-            self._connection.execute(
+            cursor = self._connection.execute(
                 """UPDATE purchase_operations SET response_json=?
                 WHERE source_document_id=?""",
                 (_canonical(updated), document_id),
             )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "broker receipt persistence transition failed"
+                )
 
     def fail_before_dispatch(self, document_id: str, error: object) -> None:
         """Release a local hold after a definite broker pre-provider rejection."""
@@ -692,10 +696,11 @@ class CaseDevPurchaseJournal:
                         "pacerFees": evidence["pacer_fees"],
                         "downloadUrl": download_url,
                     }
-                self._connection.execute(
+                cursor = self._connection.execute(
                     """UPDATE purchase_operations SET status='confirmed',
                     actual_usd=?, response_json=?, reconciliation_json=?, error=NULL
-                    WHERE source_document_id=?""",
+                    WHERE source_document_id=? AND status IN
+                    ('submitted','queued','confirmed','failed','unknown')""",
                     (
                         _money(actual),
                         _canonical(response),
@@ -703,6 +708,10 @@ class CaseDevPurchaseJournal:
                         document_id,
                     ),
                 )
+                if cursor.rowcount != 1:
+                    raise CaseDevPurchaseLedgerError(
+                        "confirmed reconciliation transition failed"
+                    )
             return
         if (
             evidence.get("pacer_fees") is not None
@@ -713,23 +722,31 @@ class CaseDevPurchaseJournal:
             )
         if disposition == "failed":
             with self._connection:
-                self._connection.execute(
+                cursor = self._connection.execute(
                     """UPDATE purchase_operations SET status='failed',
-                    reconciliation_json=?
+                    actual_usd=NULL, reconciliation_json=?, error=NULL
                     WHERE source_document_id=? AND status IN
-                    ('submitted','queued','failed','unknown')""",
+                    ('submitted','queued','confirmed','failed','unknown')""",
                     (reconciliation, document_id),
                 )
+                if cursor.rowcount != 1:
+                    raise CaseDevPurchaseLedgerError(
+                        "failed reconciliation transition failed"
+                    )
             return
         if disposition == "write_off":
             with self._connection:
-                self._connection.execute(
+                cursor = self._connection.execute(
                     """UPDATE purchase_operations SET status='unknown',
                     reconciliation_json=?
                     WHERE source_document_id=? AND status IN
                     ('submitted','queued','confirmed','failed','unknown')""",
                     (reconciliation, document_id),
                 )
+                if cursor.rowcount != 1:
+                    raise CaseDevPurchaseLedgerError(
+                        "write-off reconciliation transition failed"
+                    )
             return
         raise CaseDevPurchasePolicyError(
             "reconciliation disposition must be confirmed, failed, or write_off"
@@ -1451,9 +1468,9 @@ def _validated_purchase_policy(
             )
         opening_cases[raw_case_id] = raw_amount
         opening_case_total += amount
-    if opening_case_total > opening_committed:
+    if opening_case_total != opening_committed:
         raise CaseDevPurchasePolicyError(
-            "opening case commitments exceed opening committed spend"
+            "opening case commitments must exactly equal opening committed spend"
         )
     raw_schedule = decisions.get("fee_schedule")
     if not isinstance(raw_schedule, Mapping):

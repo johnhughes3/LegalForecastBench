@@ -289,19 +289,16 @@ class SignedRecapFetchPurchaseBroker:
         nonce = self._nonce()
         if not re.fullmatch(r"[0-9]{13}", timestamp) or not _NONCE.fullmatch(nonce):
             raise ValueError("invalid broker timestamp or nonce")
-        payload = "\n".join(
-            (
-                _DOMAIN,
-                "POST",
-                path,
-                hashlib.sha256(body).hexdigest(),
-                timestamp,
-                nonce,
-                self.config.machine_id,
-                action,
-                self.config.identity_policy_sha256,
-            )
-        ).encode()
+        payload = canonical_signature_payload_bytes(
+            method="POST",
+            path=path,
+            body=body,
+            timestamp=timestamp,
+            nonce=nonce,
+            machine_id=self.config.machine_id,
+            action=action,
+            identity_policy_sha256=self.config.identity_policy_sha256,
+        )
         der = self._key.sign(payload, ec.ECDSA(hashes.SHA256()))
         r, s = decode_dss_signature(der)
         signature = _b64(r.to_bytes(32, "big") + s.to_bytes(32, "big"))
@@ -357,6 +354,61 @@ def canonical_submission_bytes(request: Mapping[str, str]) -> bytes:
     return json.dumps(ordered, ensure_ascii=False, separators=(",", ":")).encode()
 
 
+def parse_canonical_submission_bytes(raw: bytes) -> dict[str, str]:
+    """Parse only the byte-exact canonical request accepted by the broker."""
+
+    try:
+        decoded = raw.decode("utf-8")
+        value: object = json.loads(
+            decoded,
+            object_pairs_hook=_unique_object,
+            parse_constant=_reject_json_constant,
+        )
+        if not isinstance(value, dict):
+            raise ValueError
+        request = cast(dict[str, str], value)
+        if canonical_submission_bytes(request) != raw:
+            raise ValueError
+        return request
+    except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError):
+        raise ValueError("invalid canonical broker submission bytes") from None
+
+
+def canonical_signature_payload_bytes(
+    *,
+    method: str,
+    path: str,
+    body: bytes,
+    timestamp: str,
+    nonce: str,
+    machine_id: str,
+    action: str,
+    identity_policy_sha256: str,
+) -> bytes:
+    """Build the exact cross-language nine-field signing-domain bytes."""
+
+    fields = (
+        _DOMAIN,
+        method,
+        path,
+        hashlib.sha256(body).hexdigest(),
+        timestamp,
+        nonce,
+        machine_id,
+        action,
+        identity_policy_sha256,
+    )
+    if any(not value or "\n" in value or "\r" in value for value in fields):
+        raise ValueError("invalid broker signature field")
+    if method != "POST" or not path.startswith("/") or "?" in path or "#" in path:
+        raise ValueError("invalid broker signature method or path")
+    if not re.fullmatch(r"[0-9]{13}", timestamp) or not _NONCE.fullmatch(nonce):
+        raise ValueError("invalid broker timestamp or nonce")
+    if not _HEX.fullmatch(identity_policy_sha256):
+        raise ValueError("invalid broker identity-policy digest")
+    return "\n".join(fields).encode()
+
+
 def validate_broker_receipt(payload: Mapping[str, Any]) -> dict[str, Any]:
     """Validate and copy the broker's exact nonsecret receipt schema."""
 
@@ -395,10 +447,7 @@ def validate_broker_receipt(payload: Mapping[str, Any]) -> dict[str, Any]:
         not isinstance(queue_id, str) or not _POSITIVE_DECIMAL.fullmatch(queue_id)
     ):
         raise BrokerOutcomeUnknown("broker receipt queue ID is invalid")
-    if (
-        state in {"queued", "delivered_but_unreconciled", "confirmed"}
-        and queue_id is None
-    ):
+    if state in {"queued", "delivered_but_unreconciled"} and queue_id is None:
         raise BrokerOutcomeUnknown("broker receipt state requires a queue ID")
     for hash_field in ("provider_response_body_sha256", "provider_response_sha256"):
         value = receipt[hash_field]
@@ -406,13 +455,19 @@ def validate_broker_receipt(payload: Mapping[str, Any]) -> dict[str, Any]:
             not isinstance(value, str) or not _HEX.fullmatch(value)
         ):
             raise BrokerOutcomeUnknown("broker receipt response commitment is invalid")
+    if (receipt["provider_response_body_sha256"] is None) != (
+        receipt["provider_response_sha256"] is None
+    ):
+        raise BrokerOutcomeUnknown(
+            "broker receipt response commitments must be present as a pair"
+        )
     fee_value = receipt["authoritative_fee_usd"]
     evidence = receipt["billing_evidence"]
     if state == "confirmed":
         fee = _money(_string(fee_value))
         if (
             fee <= 0
-            or held != 0
+            or held != fee
             or evidence is None
             or receipt["reconciled_at"] is None
         ):
@@ -448,7 +503,7 @@ def validate_broker_receipt(payload: Mapping[str, Any]) -> dict[str, Any]:
         for value in (delivered, reconciled)
     ):
         raise BrokerOutcomeUnknown("broker receipt timestamps are inconsistent")
-    if state in {"delivered_but_unreconciled", "confirmed"} and delivered is None:
+    if state == "delivered_but_unreconciled" and delivered is None:
         raise BrokerOutcomeUnknown("broker receipt delivery timestamp is missing")
     return receipt
 
@@ -464,6 +519,10 @@ def broker_reconciliation_record(
     reference = f"recap-fetch-broker:{validated['operation_key']}:{digest}"
     state = validated["state"]
     if state == "confirmed":
+        if validated["id"] is None:
+            raise BrokerOutcomeUnknown(
+                "confirmed broker receipt lacks a verified queue ID"
+            )
         if download_url is None:
             raise BrokerOutcomeUnknown(
                 "confirmed broker receipt lacks verified download"

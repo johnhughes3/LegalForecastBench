@@ -16,6 +16,10 @@ from legalforecast.ingestion.recap_fetch_broker import (
     RecapFetchBrokerConfig,
     SignedRecapFetchPurchaseBroker,
     broker_reconciliation_record,
+    canonical_signature_payload_bytes,
+    canonical_submission_bytes,
+    parse_canonical_submission_bytes,
+    validate_broker_receipt,
 )
 
 
@@ -165,7 +169,7 @@ def test_error_mapping_distinguishes_definite_from_ambiguous(
 def test_reconciliation_uses_exact_existing_six_field_schema() -> None:
     receipt = _receipt(
         state="confirmed",
-        held_usd="0.00",
+        held_usd="1.20",
         authoritative_fee_usd="1.20",
         delivered_at="2026-07-13T20:01:00.000Z",
         reconciled_at="2026-07-13T20:02:00.000Z",
@@ -188,6 +192,157 @@ def test_reconciliation_uses_exact_existing_six_field_schema() -> None:
         "pacer_fees": {"pacerFee": "1.20", "serviceFee": "0.00", "total": "1.20"},
         "download_url": "https://storage.courtlistener.com/123.pdf",
     }
+
+
+def test_confirmed_receipt_requires_authoritative_fee_to_remain_held() -> None:
+    receipt = _receipt(
+        state="confirmed",
+        held_usd="1.20",
+        authoritative_fee_usd="1.20",
+        delivered_at="2026-07-13T20:01:00.000Z",
+        reconciled_at="2026-07-13T20:02:00.000Z",
+        billing_evidence={
+            "kind": "pacer_detailed_transactions",
+            "statement_period": "2026-07",
+            "evidence_sha256": "c" * 64,
+            "evidence_ref": "statement-1",
+            "imported_at": "2026-07-13T20:02:00.000Z",
+        },
+    )
+    assert broker_reconciliation_record(
+        receipt, download_url="https://storage.courtlistener.com/123.pdf"
+    )["pacer_fees"] == {
+        "pacerFee": "1.20",
+        "serviceFee": "0.00",
+        "total": "1.20",
+    }
+    with pytest.raises(BrokerOutcomeUnknown, match="confirmed broker receipt"):
+        broker_reconciliation_record(
+            {**receipt, "held_usd": "0.00"},
+            download_url="https://storage.courtlistener.com/123.pdf",
+        )
+
+
+def test_confirmed_receipt_may_precede_queue_and_delivery_recovery() -> None:
+    receipt = _receipt(
+        id=None,
+        state="confirmed",
+        held_usd="1.20",
+        authoritative_fee_usd="1.20",
+        delivered_at=None,
+        reconciled_at="2026-07-13T20:02:00.000Z",
+        provider_response_body_sha256=None,
+        provider_response_sha256=None,
+        billing_evidence={
+            "kind": "pacer_detailed_transactions",
+            "statement_period": "2026-07",
+            "evidence_sha256": "c" * 64,
+            "evidence_ref": "statement-1",
+            "imported_at": "2026-07-13T20:02:00.000Z",
+        },
+    )
+
+    assert validate_broker_receipt(receipt) == receipt
+    with pytest.raises(BrokerOutcomeUnknown, match="queue ID"):
+        broker_reconciliation_record(
+            receipt, download_url="https://storage.courtlistener.com/123.pdf"
+        )
+
+
+@pytest.mark.parametrize(
+    ("body_hash", "redacted_hash"),
+    [("e" * 64, None), (None, "f" * 64)],
+)
+def test_provider_response_commitments_are_present_as_a_pair(
+    body_hash: str | None, redacted_hash: str | None
+) -> None:
+    with pytest.raises(BrokerOutcomeUnknown, match="response commitment"):
+        validate_broker_receipt(
+            _receipt(
+                provider_response_body_sha256=body_hash,
+                provider_response_sha256=redacted_hash,
+            )
+        )
+
+
+def test_cross_language_wire_vector_binds_raw_body_hash_and_signature_payload() -> None:
+    request = _request(cycle_id="cycle-é")
+    body = canonical_submission_bytes(request)
+    payload = canonical_signature_payload_bytes(
+        method="POST",
+        path="/v1/recap-fetch",
+        body=body,
+        timestamp="1721073600123",
+        nonce="abcdefghijklmnopqrstuv",
+        machine_id="machine-1",
+        action="recap-fetch-submit",
+        identity_policy_sha256="b" * 64,
+    )
+    assert body.hex() == (
+        "7b22726571756573745f74797065223a2232222c2272656361705f646f63756d656e"
+        "74223a22313233222c226379636c655f6964223a226379636c652dc3a9222c227075"
+        "7263686173655f706f6c6963795f736861323536223a22"
+        + "61"
+        * 64
+        + "222c226f7065726174696f6e5f6b6579223a2230303030303030302d303030302d"
+        "343030302d383030302d303030303030303030303030222c22726573657276617469"
+        "6f6e5f757364223a22332e3035227d"
+    )
+    assert hashlib.sha256(body).hexdigest() == (
+        "a7c600d7a0ac3601e3a0f8d4729d4666426adae5946e03b33906aae534161376"
+    )
+    assert (
+        payload
+        == (
+            "SECURE-GATE-RECAP-FETCH-V1\nPOST\n/v1/recap-fetch\n"
+            "a7c600d7a0ac3601e3a0f8d4729d4666426adae5946e03b33906aae534161376\n"
+            "1721073600123\nabcdefghijklmnopqrstuv\nmachine-1\n"
+            "recap-fetch-submit\n" + "b" * 64
+        ).encode()
+    )
+    golden_signature = _decode(
+        "tNAcSXKjJn84LneqPVBQs_AGgf_KMHApzMcKMa598hJ5AzF3j4fKGZGx_6NuDAOS"
+        "FQl5vGkDzUBTQQB1ESBwOA"
+    )
+    assert len(golden_signature) == 64
+    from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
+
+    public_key, _ = _key()
+    public_key.public_key().verify(
+        encode_dss_signature(
+            int.from_bytes(golden_signature[:32], "big"),
+            int.from_bytes(golden_signature[32:], "big"),
+        ),
+        payload,
+        ec.ECDSA(hashes.SHA256()),
+    )
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        b'{"recap_document":"123","request_type":"2","cycle_id":"cycle-1",'
+        + b'"purchase_policy_sha256":"'
+        + b"a" * 64
+        + b'","operation_key":"00000000-0000-4000-8000-000000000000",'
+        + b'"reservation_usd":"3.05"}',
+        b'{"request_type":"2","recap_document":"123","cycle_id":"cycle-1",'
+        + b'"purchase_policy_sha256":"'
+        + b"a" * 64
+        + b'","operation_key":"00000000-0000-4000-8000-000000000000",'
+        + b'"reservation_usd":"3.05"}\n',
+        b'{"request_type":"2","request_type":"2","recap_document":"123",'
+        + b'"cycle_id":"cycle-1","purchase_policy_sha256":"'
+        + b"a" * 64
+        + b'","operation_key":"00000000-0000-4000-8000-000000000000",'
+        + b'"reservation_usd":"3.05"}',
+        b'\xff{"request_type":"2"}',
+    ],
+    ids=("field-order", "trailing-newline", "duplicate-key", "invalid-utf8"),
+)
+def test_noncanonical_raw_submission_bytes_are_rejected(raw: bytes) -> None:
+    with pytest.raises(ValueError, match="canonical broker submission"):
+        parse_canonical_submission_bytes(raw)
 
 
 def test_nocharge_failed_reconciliation_has_null_fees_and_url() -> None:
