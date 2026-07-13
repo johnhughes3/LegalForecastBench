@@ -1175,7 +1175,7 @@ jobs:
           PY
 
       - name: Download dispatch provenance
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: official-dispatch-provenance-${{ github.run_id }}
           path: /tmp
