@@ -327,6 +327,25 @@ def test_actual_mtd_decision_entry_rejects_extension_order() -> None:
     assert "procedural_or_standing_order" in screen.exclusion_reasons
 
 
+def test_actual_mtd_decision_entry_rejects_conditional_amend_or_brief_order() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "ORDER re Motion to Dismiss. Plaintiff shall file any amended "
+            "complaint by August 10, 2026. If Plaintiff amends, Defendants "
+            "shall answer or file a new motion to dismiss, and the Court will "
+            "deny the previously filed motion to dismiss as moot. If no "
+            "amended complaint is filed, Plaintiff shall serve any opposition "
+            "to the motion by August 10, 2026."
+        ),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is False
+    assert "procedural_or_standing_order" in screen.exclusion_reasons
+
+
 @pytest.mark.parametrize(
     "entry_text",
     (
@@ -613,6 +632,42 @@ def test_docket_screen_tracks_actual_but_not_strict_habeas_case() -> None:
     assert screen.strict_clean is False
     assert screen.status is MtdDocketScreenStatus.ACTUAL_MTD_DECISION_REVIEW_OR_EXCLUDED
     assert "habeas_or_immigration_detention_posture" in screen.exclusion_reasons
+
+
+def test_docket_screen_excludes_social_security_merits_jop() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "MEMORANDUM AND ORDER denying Plaintiff's Motion for Judgment on "
+            "the Pleadings and affirming the decision of the Administrative "
+            "Law Judge.",
+            title="KARNS v. COMMISSIONER OF SOCIAL SECURITY",
+            document_description="Order on Motion for Judgment on the Pleadings",
+        ),
+        source_url="https://www.courtlistener.com/docket/2/karns-v-commissioner/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(page)
+
+    assert screen.has_actual_mtd_decision is True
+    assert screen.strict_clean is False
+    assert "social_security_merits_review_posture" in screen.exclusion_reasons
+
+
+def test_docket_screen_retains_true_rule_12c_disposition() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "ORDER granting Defendant's Rule 12(c) Motion for Judgment on the "
+            "Pleadings and dismissing Count I of the Complaint.",
+            title="DOE v. ABC CORPORATION",
+            document_description="Order on Motion for Judgment on the Pleadings",
+        ),
+        source_url="https://www.courtlistener.com/docket/3/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(page)
+
+    assert screen.strict_clean is True
+    assert screen.exclusion_reasons == ()
 
 
 def test_docket_screen_can_require_recent_decision_entry_date() -> None:

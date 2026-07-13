@@ -1007,6 +1007,17 @@ def _looks_like_proposed_order_attachment(text: str) -> bool:
 
 def _looks_like_procedural_or_standing_order(text: str) -> bool:
     standing_order = bool(re.search(r"\bstanding\s+order\b", text, re.I))
+    conditional_amendment_order = bool(
+        re.search(r"\bshall\s+file\b[^.;]{0,120}\bamended\s+complaint\b", text, re.I)
+        and re.search(r"\bif\b[^.;]{0,120}\bamend(?:ed|ment|s)?\b", text, re.I)
+        and re.search(
+            r"\b(?:opposition|response|reply|briefing|new\s+motion\s+to\s+dismiss)\b",
+            text,
+            re.I,
+        )
+    )
+    if conditional_amendment_order:
+        return True
     if _has_direct_mtd_disposition(text) or _has_explicit_mtd_merits_disposition(text):
         return False
     procedural_patterns = (
@@ -1133,7 +1144,36 @@ def _strict_posture_exclusion_reasons(
         reasons.append("bankruptcy_posture")
     if re.search(r"\bcriminal\b|\b(?:united states|u\.s\.|usa)\s+v[. ]", lowered):
         reasons.append("criminal_posture")
+    if _looks_like_social_security_merits_jop(lowered):
+        reasons.append("social_security_merits_review_posture")
     return tuple(dict.fromkeys(reasons))
+
+
+def _looks_like_social_security_merits_jop(text: str) -> bool:
+    """Reject administrative merits review mislabeled as a Rule 12(c) case."""
+
+    social_security_review = bool(
+        re.search(r"\bcommissioner\s+of\s+social\s+security\b", text, re.I)
+        or re.search(r"\bsocial\s+security\s+administration\b", text, re.I)
+    )
+    administrative_merits = bool(
+        re.search(r"\badministrative\s+law\s+judge\b", text, re.I)
+        or re.search(r"\bdecision\s+of\s+the\s+(?:commissioner|agency)\b", text, re.I)
+        or re.search(r"\bremand(?:ed|ing)?\s+to\s+(?:the\s+)?agency\b", text, re.I)
+    )
+    judgment_on_pleadings = bool(
+        re.search(r"\bjudgment\s+on\s+the\s+pleadings\b", text, re.I)
+    )
+    independent_rule_12_basis = bool(
+        re.search(r"\bmotion\s+to\s+dismiss\b|\bmtd\b", text, re.I)
+        or re.search(r"\brule\s+12\b|\b12\s*\(\s*[bc]\s*\)", text, re.I)
+    )
+    return (
+        social_security_review
+        and administrative_merits
+        and judgment_on_pleadings
+        and not independent_rule_12_basis
+    )
 
 
 def _looks_like_bankruptcy_context(text: str) -> bool:
