@@ -7,6 +7,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import pytest
 from legalforecast.cli import main
 
 
@@ -487,6 +488,148 @@ def test_assemble_cycle_acquisition_keys_documents_by_candidate(
     assert len({row["local_path"] for row in manifest}) == 2
 
 
+def test_assemble_cycle_acquisition_composes_split_snapshot_and_artifact_roots(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "immutable-screening-snapshot"
+    downstream = tmp_path / "standardized-free-v3"
+    cycle = tmp_path / "cycle"
+    screened = [
+        _courtlistener_screened(candidate_id) for candidate_id in ("123", "789", "901")
+    ]
+    _write_batch(
+        snapshot,
+        screened=screened,
+        exclusions=[
+            {
+                "candidate_id": "courtlistener-docket-456",
+                "case_id": "courtlistener-docket-456",
+                "primary_exclusion_reason": "decision_before_release_anchor",
+            }
+        ],
+        selections=[],
+        relevance=[],
+        documents=[],
+    )
+    (snapshot / "summary.json").write_text(
+        json.dumps(
+            {
+                "accepted_count": 3,
+                "excluded_count": 1,
+                "processed_count": 4,
+                "reconciliation_complete": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    _write_batch(
+        downstream,
+        screened=[],
+        exclusions=[],
+        selections=[_selection("123")],
+        relevance=[_relevance("123", requires_paid_recovery=False)],
+        core_filters=[{"candidate_id": "123", "included": True}],
+        documents=[
+            ("123", "selected-doc", b"selected"),
+            ("789", "bridge-excluded-doc", b"excluded"),
+        ],
+    )
+    _write_jsonl(downstream / "screened-cases.jsonl", [])
+    (downstream / "summary.json").unlink()
+    _write_jsonl(
+        downstream / "pacer-gap-bridge-exclusions.jsonl",
+        [
+            {
+                "candidate_id": "789",
+                "primary_exclusion_reason": "case_dev_caption_conflict",
+            }
+        ],
+    )
+    _write_jsonl(
+        downstream / "public-packet-exclusions.jsonl",
+        [
+            {
+                "candidate_id": "901",
+                "exclusion_reasons": ["sealed_or_restricted_material"],
+            }
+        ],
+    )
+
+    assert _assemble_batches([snapshot, downstream], cycle) == 0
+
+    assert [
+        record["candidate_id"] for record in _read_jsonl(cycle / "screened-cases.jsonl")
+    ] == ["123"]
+    exclusions = _read_jsonl(cycle / "discovery-exclusions.jsonl")
+    assert [record["candidate_id"] for record in exclusions] == ["456", "789", "901"]
+    assert exclusions[0]["source_candidate_id"] == "courtlistener-docket-456"
+    assert [
+        record["candidate_id"]
+        for record in _read_jsonl(cycle / "public-packet-selection.jsonl")
+    ] == ["123"]
+    assert [
+        record["candidate_id"]
+        for record in _read_jsonl(cycle / "document-downloads-merged.jsonl")
+    ] == ["123"]
+
+
+def test_assemble_cycle_acquisition_help_documents_split_root_order(
+    capsys: Any,
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["acquisition", "assemble-cycle-acquisition", "--help"])
+
+    assert exc_info.value.code == 0
+    output = capsys.readouterr().out
+    assert "screening snapshot root immediately followed" in output
+    assert "standardized plan/download/bridge/filter root" in output
+
+
+def test_assemble_cycle_acquisition_validates_current_screening_summary_counts(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    _write_batch(
+        snapshot,
+        screened=[_courtlistener_screened("123")],
+        exclusions=[],
+        selections=[],
+        relevance=[],
+        documents=[],
+    )
+    (snapshot / "summary.json").write_text(
+        json.dumps({"accepted_count": 2, "excluded_count": 0}),
+        encoding="utf-8",
+    )
+
+    assert _assemble(snapshot, tmp_path / "cycle") == 2
+    assert "accepted_count=2, actual=1" in capsys.readouterr().err
+
+
+def test_assemble_cycle_acquisition_rejects_conflicting_identity_aliases(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    batch = tmp_path / "batch"
+    _write_batch(
+        batch,
+        screened=[
+            {
+                "candidate_id": "courtlistener-docket-123",
+                "candidate": {"docket_id": "999"},
+            }
+        ],
+        exclusions=[],
+        selections=[],
+        relevance=[],
+        documents=[],
+    )
+
+    assert _assemble(batch, tmp_path / "cycle") == 2
+    assert "CourtListener identity alias conflict" in capsys.readouterr().err
+
+
 def _assemble(batch: Path, output: Path) -> int:
     return _assemble_batches([batch], output)
 
@@ -546,6 +689,18 @@ def _write_batch(
         ),
         encoding="utf-8",
     )
+
+
+def _courtlistener_screened(candidate_id: str) -> dict[str, object]:
+    namespaced = f"courtlistener-docket-{candidate_id}"
+    return {
+        "candidate_id": namespaced,
+        "candidate": {
+            "docket_id": candidate_id,
+            "candidate_key": candidate_id,
+            "metadata": {"case_id": namespaced},
+        },
+    }
 
 
 def _manifest(candidate_id: str, document_id: str, content: bytes) -> dict[str, object]:

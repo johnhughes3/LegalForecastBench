@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 from collections import Counter
@@ -45,6 +46,7 @@ _TRANSIENT_EXCLUSION_REASONS = frozenset(
         "firecrawl_provider_blocker",
     }
 )
+_COURTLISTENER_NAMESPACED_ID = re.compile(r"courtlistener-docket-(\d+)\Z")
 
 
 class CycleAssemblyError(ValueError):
@@ -98,7 +100,7 @@ def assemble_cycle_acquisition(
         screened_records = _read_first_jsonl(
             root, ("screened-cases.jsonl", "courtlistener-screened-cases.jsonl")
         )
-        exclusion_records = _read_first_jsonl(
+        screening_exclusion_records = _read_jsonl_union(
             root,
             (
                 "exclusions.jsonl",
@@ -106,12 +108,23 @@ def assemble_cycle_acquisition(
                 "courtlistener-discovery-exclusions.jsonl",
             ),
         )
+        downstream_exclusion_records = _read_jsonl_union(
+            root,
+            (
+                "public-packet-exclusions.jsonl",
+                "pacer-gap-bridge-exclusions.jsonl",
+            ),
+        )
+        exclusion_records = [
+            *screening_exclusion_records,
+            *downstream_exclusion_records,
+        ]
         summary = _read_optional_json(root / "summary.json")
         _validate_discovery_counts(
             root,
             summary=summary,
             screened_count=len(screened_records),
-            exclusion_count=len(exclusion_records),
+            exclusion_count=len(screening_exclusion_records),
         )
         _apply_discovery_batch(current, screened_records, exclusion_records)
         _merge_latest(
@@ -162,7 +175,8 @@ def assemble_cycle_acquisition(
                 "batch_ordinal": ordinal,
                 "batch_root": root.name,
                 "screened_case_count": len(screened_records),
-                "discovery_exclusion_count": len(exclusion_records),
+                "discovery_exclusion_count": len(screening_exclusion_records),
+                "downstream_exclusion_count": len(downstream_exclusion_records),
                 "document_count": len(batch_manifest),
                 "summary_sha256": _optional_file_hash(root / "summary.json"),
                 "summary": summary,
@@ -447,19 +461,74 @@ def _read_first_jsonl(root: Path, filenames: Sequence[str]) -> list[Mapping[str,
     for filename in filenames:
         path = root / filename
         if path.is_file():
-            records: list[Mapping[str, Any]] = []
-            with path.open(encoding="utf-8") as handle:
-                for line_number, line in enumerate(handle, start=1):
-                    if not line.strip():
-                        continue
-                    value = json.loads(line)
-                    if not isinstance(value, dict):
-                        raise CycleAssemblyError(
-                            f"{path}:{line_number} is not a JSON object"
-                        )
-                    records.append(cast(dict[str, Any], value))
-            return records
+            return _read_jsonl(path)
     return []
+
+
+def _read_jsonl_union(root: Path, filenames: Sequence[str]) -> list[Mapping[str, Any]]:
+    records: list[Mapping[str, Any]] = []
+    for filename in filenames:
+        path = root / filename
+        if path.is_file():
+            records.extend(_read_jsonl(path))
+    return records
+
+
+def _read_jsonl(path: Path) -> list[Mapping[str, Any]]:
+    records: list[Mapping[str, Any]] = []
+    with path.open(encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            if not line.strip():
+                continue
+            value = json.loads(line)
+            if not isinstance(value, dict):
+                raise CycleAssemblyError(f"{path}:{line_number} is not a JSON object")
+            records.append(
+                _canonicalize_courtlistener_identity(cast(dict[str, Any], value))
+            )
+    return records
+
+
+def _canonicalize_courtlistener_identity(
+    record: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    aliases: set[str] = set()
+    for key in ("candidate_id", "case_id", "docket_id"):
+        value = record.get(key)
+        if isinstance(value, str) and (
+            match := _COURTLISTENER_NAMESPACED_ID.fullmatch(value.strip())
+        ):
+            aliases.add(match.group(1))
+    candidate = record.get("candidate")
+    nested_docket_id: str | None = None
+    if isinstance(candidate, Mapping):
+        candidate_record = cast(Mapping[str, Any], candidate)
+        value = candidate_record.get("docket_id")
+        if isinstance(value, str) and value.strip():
+            nested_docket_id = value.strip()
+    if not aliases:
+        return record
+    if len(aliases) != 1:
+        raise CycleAssemblyError("CourtListener identity alias conflict")
+    canonical = next(iter(aliases))
+    if nested_docket_id is not None and nested_docket_id != canonical:
+        raise CycleAssemblyError(
+            "CourtListener identity alias conflict: "
+            f"namespaced={canonical}, nested_docket_id={nested_docket_id}"
+        )
+    normalized = dict(record)
+    source_candidate_id = record.get("candidate_id")
+    if isinstance(source_candidate_id, str) and _COURTLISTENER_NAMESPACED_ID.fullmatch(
+        source_candidate_id.strip()
+    ):
+        normalized["source_candidate_id"] = source_candidate_id.strip()
+    for key in ("candidate_id", "case_id", "docket_id"):
+        value = record.get(key)
+        if isinstance(value, str) and _COURTLISTENER_NAMESPACED_ID.fullmatch(
+            value.strip()
+        ):
+            normalized[key] = canonical
+    return normalized
 
 
 def _read_optional_json(path: Path) -> Mapping[str, Any] | None:
@@ -480,17 +549,20 @@ def _validate_discovery_counts(
 ) -> None:
     if summary is None:
         return
-    expected = {
-        "accepted_case_count": screened_count,
-        "excluded_case_count": exclusion_count,
-    }
-    for key, actual in expected.items():
-        committed = summary.get(key)
-        if isinstance(committed, int) and committed != actual:
-            raise CycleAssemblyError(
-                f"discovery count reconciliation failed for {root}: "
-                f"{key}={committed}, actual={actual}"
-            )
+    expected = (
+        (("accepted_case_count", "accepted_count"), screened_count),
+        (("excluded_case_count", "excluded_count"), exclusion_count),
+    )
+    for aliases, actual in expected:
+        committed_values = [
+            (key, summary[key]) for key in aliases if isinstance(summary.get(key), int)
+        ]
+        for key, committed in committed_values:
+            if committed != actual:
+                raise CycleAssemblyError(
+                    f"discovery count reconciliation failed for {root}: "
+                    f"{key}={committed}, actual={actual}"
+                )
 
 
 def _merge_latest(
@@ -565,6 +637,15 @@ def _exclusion_reason(record: Mapping[str, Any]) -> str:
         value = record.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip().lower()
+    reasons = record.get("exclusion_reasons")
+    if (
+        isinstance(reasons, Sequence)
+        and not isinstance(reasons, str)
+        and reasons
+        and isinstance(reasons[0], str)
+        and reasons[0].strip()
+    ):
+        return reasons[0].strip().lower()
     raise CycleAssemblyError("discovery exclusion lacks a reason code")
 
 
