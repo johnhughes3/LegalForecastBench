@@ -10,9 +10,7 @@ import json
 import os
 import re
 import sqlite3
-import stat
 import tempfile
-from contextlib import ExitStack
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -46,7 +44,9 @@ def quarantine_orphan_snapshot(
 
     The cycle database is opened read-only and is never changed. Both the orphan
     and registered canonical snapshot must independently verify against explicit
-    manifest hashes before the orphan is moved on the same filesystem.
+    manifest hashes before the orphan is moved on the same filesystem. A crash
+    after the rename is a manual-reconciliation state and is never finalized
+    automatically.
     """
 
     store_path = cycle_store.resolve()
@@ -61,18 +61,16 @@ def quarantine_orphan_snapshot(
             raise SnapshotQuarantineError(
                 "cycle store is active; refusing concurrent quarantine"
             ) from error
-        with ExitStack() as resources:
-            return _quarantine_orphan_snapshot_locked(
-                cycle_store=store_path,
-                orphan_snapshot=orphan_snapshot,
-                quarantine_root=quarantine_root,
-                receipt_output=receipt_output,
-                expected_snapshot_id=expected_snapshot_id,
-                expected_orphan_manifest_sha256=expected_orphan_manifest_sha256,
-                expected_canonical_manifest_sha256=(expected_canonical_manifest_sha256),
-                execute=execute,
-                resources=resources,
-            )
+        return _quarantine_orphan_snapshot_locked(
+            cycle_store=store_path,
+            orphan_snapshot=orphan_snapshot,
+            quarantine_root=quarantine_root,
+            receipt_output=receipt_output,
+            expected_snapshot_id=expected_snapshot_id,
+            expected_orphan_manifest_sha256=expected_orphan_manifest_sha256,
+            expected_canonical_manifest_sha256=(expected_canonical_manifest_sha256),
+            execute=execute,
+        )
     finally:
         fcntl.flock(lock_descriptor, fcntl.LOCK_UN)
         os.close(lock_descriptor)
@@ -88,7 +86,6 @@ def _quarantine_orphan_snapshot_locked(
     expected_orphan_manifest_sha256: str,
     expected_canonical_manifest_sha256: str,
     execute: bool,
-    resources: ExitStack,
 ) -> dict[str, Any]:
     store_path = cycle_store.resolve()
     store_root = store_path.parent
@@ -124,16 +121,20 @@ def _quarantine_orphan_snapshot_locked(
     target = quarantine_directory / (
         f"{expected_snapshot_id}--orphan--{orphan_manifest_hash[:16]}"
     )
-    target_is_symlink = target.is_symlink()
-    target_entry_exists = target.exists() or target_is_symlink
+    target_entry_exists = target.exists() or target.is_symlink()
     orphan_exists = orphan_path.is_dir()
-    target_exists = target.is_dir()
-    recovering_completed_move = not orphan_exists and target_exists
-    if not orphan_exists and not recovering_completed_move:
+    if not orphan_exists:
+        if target_entry_exists:
+            raise SnapshotQuarantineError(
+                f"manual reconciliation required: orphan source {orphan_path} is "
+                f"absent and quarantine target {target} is occupied; inspect "
+                f"receipt {receipt_path}. Automatic completed-move recovery and "
+                "receipt finalization are prohibited"
+            )
         raise SnapshotQuarantineError(
             f"orphan snapshot directory is missing: {orphan_path}"
         )
-    if orphan_exists and target_entry_exists:
+    if target_entry_exists:
         raise SnapshotQuarantineError(f"quarantine target already exists: {target}")
     if quarantine_directory.is_relative_to(store_root):
         raise SnapshotQuarantineError(
@@ -147,33 +148,7 @@ def _quarantine_orphan_snapshot_locked(
         raise SnapshotQuarantineError(
             f"receipt parent must already exist: {receipt_path.parent}"
         )
-    pinned_target_descriptor: int | None = None
-    if recovering_completed_move and not target_is_symlink:
-        pinned_target_descriptor = _open_pinned_directory(target)
-        resources.callback(os.close, pinned_target_descriptor)
-    pinned_target_path = (
-        Path(f"/proc/self/fd/{pinned_target_descriptor}")
-        if pinned_target_descriptor is not None
-        else None
-    )
-    # Child opens through /proc/self/fd remain rooted at the O_NOFOLLOW-pinned
-    # directory inode even if the lexical target name is concurrently replaced.
-    try:
-        resolved_target = (
-            pinned_target_path.resolve()
-            if pinned_target_path is not None
-            else target.resolve()
-        )
-    except (OSError, RuntimeError) as error:
-        raise SnapshotQuarantineError(
-            f"cannot resolve quarantine target safely: {target}"
-        ) from error
-    if pinned_target_path is not None:
-        verified_orphan_path = pinned_target_path
-    elif recovering_completed_move:
-        verified_orphan_path = target
-    else:
-        verified_orphan_path = orphan_path
+    verified_orphan_path = orphan_path
     cycle_store_hash = _sha256_file(store_path)
 
     connection = _open_immutable_store(store_path)
@@ -195,27 +170,14 @@ def _quarantine_orphan_snapshot_locked(
             "quarantine target": target,
             "receipt": receipt_path,
         }
-        if target_entry_exists:
-            controlled_paths["resolved quarantine target"] = resolved_target
         for row in path_rows:
             registered_path = Path(str(row["path"])).resolve()
             for controlled_name, controlled_path in controlled_paths.items():
                 if _paths_overlap(registered_path, controlled_path):
-                    symlink_context = (
-                        " symbolic link"
-                        if target_is_symlink
-                        and controlled_name
-                        in {"quarantine target", "resolved quarantine target"}
-                        else ""
-                    )
                     raise SnapshotQuarantineError(
-                        f"{controlled_name}{symlink_context} path is not disjoint "
-                        f"from registered snapshot {row['snapshot_id']}"
+                        f"{controlled_name} path is not disjoint from registered "
+                        f"snapshot {row['snapshot_id']}"
                     )
-        if target_is_symlink:
-            raise SnapshotQuarantineError(
-                "quarantine target is a symbolic link; refusing recovery"
-            )
         if not canonical_path.is_relative_to(store_root):
             raise SnapshotQuarantineError(
                 "registered canonical snapshot is outside the cycle store root"
@@ -244,12 +206,7 @@ def _quarantine_orphan_snapshot_locked(
     finally:
         connection.close()
 
-    verified_orphan_stat = (
-        os.fstat(pinned_target_descriptor)
-        if pinned_target_descriptor is not None
-        else verified_orphan_path.stat()
-    )
-    if verified_orphan_stat.st_dev != quarantine_directory.stat().st_dev:
+    if verified_orphan_path.stat().st_dev != quarantine_directory.stat().st_dev:
         raise SnapshotQuarantineError(
             "orphan and quarantine root must be on the same filesystem"
         )
@@ -318,40 +275,6 @@ def _quarantine_orphan_snapshot_locked(
     }
     prior_receipt = _read_prior_receipt(receipt_path, operation_id=operation_id)
     verified_at = datetime.now(UTC).isoformat()
-    if recovering_completed_move:
-        if not execute:
-            raise SnapshotQuarantineError(
-                "quarantine move already occurred; rerun with --execute to finalize "
-                "the pending receipt"
-            )
-        if prior_receipt is None or prior_receipt.get("status") not in {
-            "move_authorized",
-            "quarantined",
-        }:
-            raise SnapshotQuarantineError(
-                "quarantined target exists without a matching authorized receipt"
-            )
-        if pinned_target_descriptor is None:
-            raise SnapshotQuarantineError(
-                "completed move target identity was not pinned"
-            )
-        _assert_pinned_directory_identity(target, pinned_target_descriptor)
-        if prior_receipt.get("status") == "quarantined":
-            return prior_receipt
-        _fsync_directory(orphan_path.parent)
-        _fsync_directory(quarantine_directory)
-        completed_receipt = {
-            **receipt_base,
-            "status": "quarantined",
-            "execute": True,
-            "verified_at": prior_receipt.get("verified_at", verified_at),
-            "move_recovery_verified_at": datetime.now(UTC).isoformat(),
-            "recovered_after_completed_move": True,
-            "quarantine_target_device": verified_orphan_stat.st_dev,
-            "quarantine_target_inode": verified_orphan_stat.st_ino,
-        }
-        _write_receipt(receipt_path, completed_receipt, allow_replace=True)
-        return completed_receipt
     if not execute:
         if prior_receipt is not None:
             if prior_receipt.get("status") != "dry_run_verified":
@@ -443,35 +366,6 @@ def _open_immutable_store(path: Path) -> sqlite3.Connection:
         raise SnapshotQuarantineError(
             f"cannot open cycle store read-only: {error}"
         ) from error
-
-
-def _open_pinned_directory(path: Path) -> int:
-    try:
-        return os.open(
-            path,
-            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
-        )
-    except OSError as error:
-        raise SnapshotQuarantineError(
-            f"quarantine target changed or is a symbolic link: {path}"
-        ) from error
-
-
-def _assert_pinned_directory_identity(path: Path, descriptor: int) -> None:
-    pinned = os.fstat(descriptor)
-    try:
-        current = os.stat(path, follow_symlinks=False)
-    except OSError as error:
-        raise SnapshotQuarantineError(
-            "quarantine target changed after identity was pinned"
-        ) from error
-    if not stat.S_ISDIR(current.st_mode) or (
-        current.st_dev,
-        current.st_ino,
-    ) != (pinned.st_dev, pinned.st_ino):
-        raise SnapshotQuarantineError(
-            "quarantine target changed after identity was pinned"
-        )
 
 
 def _paths_overlap(left: Path, right: Path) -> bool:

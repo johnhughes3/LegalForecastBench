@@ -39,6 +39,7 @@ def test_quarantine_dry_run_then_execute_preserves_store_and_canonical_snapshot(
 ) -> None:
     fixture = _fixture(tmp_path)
     database_before = fixture.store.read_bytes()
+    orphan_before = _snapshot_files(fixture.orphan)
     canonical_before = _snapshot_files(fixture.canonical)
     with CycleAcquisitionStore(fixture.store) as store:
         observation_ids_before = tuple(
@@ -61,6 +62,7 @@ def test_quarantine_dry_run_then_execute_preserves_store_and_canonical_snapshot(
     assert completed["observations_preserved"] is True
     assert not fixture.orphan.exists()
     assert target.is_dir()
+    assert _snapshot_files(target) == orphan_before
     assert verify_snapshot(target)["snapshot_id"] == fixture.snapshot_id
     assert fixture.store.read_bytes() == database_before
     assert _snapshot_files(fixture.canonical) == canonical_before
@@ -74,37 +76,13 @@ def test_quarantine_dry_run_then_execute_preserves_store_and_canonical_snapshot(
     assert receipt["orphan_snapshots_path_reference_count"] == 0
 
 
-def test_quarantine_recovers_crash_after_move_before_final_receipt(
-    tmp_path: Path,
-) -> None:
-    fixture = _fixture(tmp_path)
-    dry_run = _quarantine(fixture, execute=False)
-    target = Path(str(dry_run["quarantine_target_path"]))
-    pending_receipt = dict(dry_run)
-    pending_receipt["status"] = "move_authorized"
-    pending_receipt["execute"] = True
-    fixture.receipt.write_text(json.dumps(pending_receipt), encoding="utf-8")
-    os.rename(fixture.orphan, target)
-
-    completed = _quarantine(fixture, execute=True)
-
-    assert completed["status"] == "quarantined"
-    assert completed["recovered_after_completed_move"] is True
-    assert "move_recovery_verified_at" in completed
-    assert "moved_at" not in completed
-    assert isinstance(completed["quarantine_target_device"], int)
-    assert isinstance(completed["quarantine_target_inode"], int)
-    assert not fixture.orphan.exists()
-    assert target.is_dir()
-    assert json.loads(fixture.receipt.read_text())["status"] == "quarantined"
-
-
-def test_quarantine_recovery_rejects_target_swap_after_identity_pin(
+def test_quarantine_requires_manual_reconciliation_after_rename_crash(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fixture = _fixture(tmp_path)
-    canonical_before = _snapshot_files(fixture.canonical)
+    database_before = fixture.store.read_bytes()
+    orphan_before = _snapshot_files(fixture.orphan)
     dry_run = _quarantine(fixture, execute=False)
     target = Path(str(dry_run["quarantine_target_path"]))
     pending_receipt = dict(dry_run)
@@ -112,41 +90,33 @@ def test_quarantine_recovery_rejects_target_swap_after_identity_pin(
     pending_receipt["execute"] = True
     fixture.receipt.write_text(json.dumps(pending_receipt), encoding="utf-8")
     os.rename(fixture.orphan, target)
-    moved_aside = tmp_path / "verified-target-moved-aside"
-    original_sha256_file = snapshot_quarantine_module._sha256_file
-    swapped = False
+    hash_called = False
 
-    def swap_at_first_cycle_store_hash(path: Path) -> str:
-        nonlocal swapped
-        if not swapped and path.resolve() == fixture.store:
-            os.rename(target, moved_aside)
-            target.symlink_to(fixture.canonical, target_is_directory=True)
-            swapped = True
-        return original_sha256_file(path)
+    def forbidden_hash(path: Path) -> str:
+        nonlocal hash_called
+        hash_called = True
+        raise AssertionError(f"manual reconciliation must precede hashing {path}")
 
-    monkeypatch.setattr(
-        snapshot_quarantine_module,
-        "_sha256_file",
-        swap_at_first_cycle_store_hash,
-    )
+    monkeypatch.setattr(snapshot_quarantine_module, "_sha256_file", forbidden_hash)
 
-    with pytest.raises(SnapshotQuarantineError, match="identity was pinned"):
+    with pytest.raises(SnapshotQuarantineError, match="manual reconciliation"):
         _quarantine(fixture, execute=True)
 
-    assert swapped is True
-    assert target.is_symlink()
-    assert moved_aside.is_dir()
-    assert fixture.canonical.is_dir()
-    assert _snapshot_files(fixture.canonical) == canonical_before
+    assert hash_called is False
+    assert not fixture.orphan.exists()
+    assert target.is_dir()
+    assert _snapshot_files(target) == orphan_before
     assert json.loads(fixture.receipt.read_text()) == pending_receipt
+    assert fixture.store.read_bytes() == database_before
 
 
 @pytest.mark.parametrize("resolved_relationship", ["ancestor", "equal", "descendant"])
-def test_quarantine_rejects_post_move_target_symlink_overlapping_registered_snapshot(
+def test_quarantine_requires_manual_reconciliation_for_registered_target_swap(
     tmp_path: Path,
     resolved_relationship: str,
 ) -> None:
     fixture = _fixture(tmp_path)
+    database_before = fixture.store.read_bytes()
     canonical_before = _snapshot_files(fixture.canonical)
     dry_run = _quarantine(fixture, execute=False)
     target = Path(str(dry_run["quarantine_target_path"]))
@@ -164,19 +134,21 @@ def test_quarantine_rejects_post_move_target_symlink_overlapping_registered_snap
         symlink_destination.mkdir()
     target.symlink_to(symlink_destination, target_is_directory=True)
 
-    with pytest.raises(SnapshotQuarantineError, match=r"symbolic link.*registered"):
+    with pytest.raises(SnapshotQuarantineError, match="manual reconciliation"):
         _quarantine(fixture, execute=True)
 
     assert target.is_symlink()
     assert fixture.canonical.is_dir()
     assert _snapshot_files(fixture.canonical) == canonical_before
     assert json.loads(fixture.receipt.read_text()) == pending_receipt
+    assert fixture.store.read_bytes() == database_before
 
 
-def test_quarantine_rejects_post_move_target_symlink_outside_registry(
+def test_quarantine_requires_manual_reconciliation_for_unregistered_target_swap(
     tmp_path: Path,
 ) -> None:
     fixture = _fixture(tmp_path)
+    database_before = fixture.store.read_bytes()
     dry_run = _quarantine(fixture, execute=False)
     target = Path(str(dry_run["quarantine_target_path"]))
     pending_receipt = dict(dry_run)
@@ -187,12 +159,13 @@ def test_quarantine_rejects_post_move_target_symlink_outside_registry(
     os.rename(fixture.orphan, unregistered_destination)
     target.symlink_to(unregistered_destination, target_is_directory=True)
 
-    with pytest.raises(SnapshotQuarantineError, match="symbolic link"):
+    with pytest.raises(SnapshotQuarantineError, match="manual reconciliation"):
         _quarantine(fixture, execute=True)
 
     assert target.is_symlink()
     assert unregistered_destination.is_dir()
     assert json.loads(fixture.receipt.read_text()) == pending_receipt
+    assert fixture.store.read_bytes() == database_before
 
 
 def test_quarantine_recovers_authorized_move_before_rename(
