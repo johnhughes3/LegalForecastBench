@@ -128,6 +128,45 @@ def test_unknown_broker_outcome_is_reserved_and_never_retried(tmp_path: Path) ->
     assert len(broker.requests) == 1
 
 
+def test_unknown_broker_outcome_preserves_all_later_intended_attempts(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    plan = _plan(("123", "124"))
+    public_documents = {
+        **_public_documents(),
+        "124": {
+            "redaction_or_seal_status": "public",
+            "is_sealed": False,
+            "is_private": False,
+        },
+    }
+    broker = FixtureRecapFetchPurchaseBroker([])
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        result = CourtListenerRecapFetchClient(
+            _config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport(
+                [_response("GET", "/recap-documents/123/", {"id": 123})]
+            ),
+            purchase_broker=broker,
+        ).execute_purchase_plan(
+            plan,
+            public_documents=public_documents,
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
+
+    assert result.intended_purchase_count == 2
+    assert [attempt.status.value for attempt in result.attempts] == [
+        "unknown",
+        "not_attempted",
+    ]
+    assert result.attempts[1].reason == "unknown_outcome_before_attempt"
+    assert len(broker.requests) == 1
+
+
 def test_confirmed_reservation_can_be_reconciled_to_authoritative_fee(
     tmp_path: Path,
 ) -> None:

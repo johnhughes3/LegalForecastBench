@@ -280,22 +280,34 @@ class CourtListenerRecapFetchClient:
             )
         self.journal.plan(plan)
         self.journal.require_reconciled()
+        intended = tuple(
+            (case_plan.candidate_id, document_id)
+            for case_plan in plan.case_plans
+            for document_id in case_plan.purchase_document_ids
+        )
+        for _, document_id in intended:
+            metadata = public_documents.get(document_id)
+            if metadata is None:
+                raise CourtListenerRecapFetchError(
+                    f"missing public restriction evidence for {document_id}"
+                )
+            _require_explicitly_public(metadata, document_id)
         attempts: list[CaseDevPacerPurchaseAttempt] = []
-        halted = False
-        for case_plan in plan.case_plans:
-            for document_id in case_plan.purchase_document_ids:
-                metadata = public_documents.get(document_id)
-                if metadata is None:
-                    raise CourtListenerRecapFetchError(
-                        f"missing public restriction evidence for {document_id}"
+        for index, (candidate_id, document_id) in enumerate(intended):
+            attempt = self._execute_one(candidate_id, document_id)
+            attempts.append(attempt)
+            if attempt.status is CaseDevPacerPurchaseStatus.UNKNOWN:
+                attempts.extend(
+                    _attempt(
+                        remaining_candidate_id,
+                        remaining_document_id,
+                        CaseDevPacerPurchaseStatus.NOT_ATTEMPTED,
+                        "unknown_outcome_before_attempt",
                     )
-                _require_explicitly_public(metadata, document_id)
-                attempt = self._execute_one(case_plan.candidate_id, document_id)
-                attempts.append(attempt)
-                if attempt.status is CaseDevPacerPurchaseStatus.UNKNOWN:
-                    halted = True
-                    break
-            if halted:
+                    for remaining_candidate_id, remaining_document_id in intended[
+                        index + 1 :
+                    ]
+                )
                 break
         return CaseDevPacerPurchaseResult(
             live=True,
