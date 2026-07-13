@@ -7,7 +7,7 @@ import json
 import sqlite3
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from types import TracebackType
@@ -66,6 +66,9 @@ class DocketLiveFetchPlan:
     cycle_budget_usd: Decimal
     max_per_case_usd: Decimal
     docket_fetch_reservation_usd: Decimal
+    daily_budget_usd: Decimal
+    daily_committed_spend_usd: Decimal
+    spend_date_utc: str
     canonical_journal_path: str
     items: tuple[DocketLiveFetchPlanItem, ...]
 
@@ -76,6 +79,24 @@ class DocketLiveFetchPlan:
     @property
     def total_projected_cost_usd(self) -> str:
         return _money(self.total_projected_cost)
+
+    @property
+    def daily_remaining_headroom(self) -> Decimal:
+        return self.daily_budget_usd - self.daily_committed_spend_usd
+
+    @property
+    def executable_items(self) -> tuple[DocketLiveFetchPlanItem, ...]:
+        limit = int(self.daily_remaining_headroom // self.docket_fetch_reservation_usd)
+        return self.items[:limit]
+
+    @property
+    def executable_projected_cost_usd(self) -> str:
+        return _money(
+            sum(
+                (item.reservation_usd for item in self.executable_items),
+                Decimal("0"),
+            )
+        )
 
     @property
     def plan_sha256(self) -> str:
@@ -106,8 +127,14 @@ class DocketLiveFetchPlan:
             "cycle_budget_usd": _money(self.cycle_budget_usd),
             "max_per_case_usd": _money(self.max_per_case_usd),
             "docket_fetch_reservation_usd": _money(self.docket_fetch_reservation_usd),
+            "daily_budget_usd": _money(self.daily_budget_usd),
+            "daily_committed_spend_usd": _money(self.daily_committed_spend_usd),
+            "daily_remaining_headroom_usd": _money(self.daily_remaining_headroom),
+            "spend_date_utc": self.spend_date_utc,
             "canonical_journal_path": self.canonical_journal_path,
             "total_projected_cost_usd": self.total_projected_cost_usd,
+            "executable_item_count": len(self.executable_items),
+            "executable_projected_cost_usd": self.executable_projected_cost_usd,
             "items": [item.to_record() for item in self.items],
             "frontier": self.frontier_records,
         }
@@ -142,6 +169,9 @@ def plan_docket_live_fetches(
     advisory_records: Iterable[Mapping[str, object]] = (),
     cohort_policy: Mapping[str, object],
     docket_fetch_reservation_usd: Decimal | str = "3.05",
+    daily_budget_usd: Decimal | str = "25.00",
+    daily_committed_spend_usd: Decimal | str,
+    spend_date_utc: str,
     canonical_journal_path: str = "case-dev-docket-live-fetch.sqlite3",
 ) -> DocketLiveFetchPlan:
     """Build a deterministic, provider-free frontier from strict exclusions."""
@@ -155,10 +185,17 @@ def plan_docket_live_fetches(
     cycle_budget = _decimal(purchase.get("cycle_budget_usd"), "cycle_budget_usd")
     max_per_case = _decimal(purchase.get("max_per_case_usd"), "max_per_case_usd")
     reservation = _decimal(docket_fetch_reservation_usd, "docket_fetch_reservation_usd")
+    daily_budget = _decimal(daily_budget_usd, "daily_budget_usd")
+    daily_committed = _decimal(daily_committed_spend_usd, "daily_committed_spend_usd")
+    date.fromisoformat(spend_date_utc)
     if reservation <= 0 or reservation > max_per_case:
         raise ValueError(
             "docket fetch reservation must be positive and within max per case"
         )
+    if daily_budget <= 0 or daily_budget > Decimal("25.00"):
+        raise ValueError("daily budget must be positive and cannot exceed 25.00")
+    if daily_committed < 0 or daily_committed > daily_budget:
+        raise ValueError("daily committed spend must be within the daily budget")
 
     fetches = {
         _required_text(record, "candidate_id"): record
@@ -257,6 +294,9 @@ def plan_docket_live_fetches(
         cycle_budget_usd=cycle_budget,
         max_per_case_usd=max_per_case,
         docket_fetch_reservation_usd=reservation,
+        daily_budget_usd=daily_budget,
+        daily_committed_spend_usd=daily_committed,
+        spend_date_utc=spend_date_utc,
         canonical_journal_path=canonical_journal_path,
         items=items,
     )
@@ -282,6 +322,11 @@ def load_docket_live_fetch_plan(record: Mapping[str, object]) -> DocketLiveFetch
             record.get("docket_fetch_reservation_usd"),
             "docket_fetch_reservation_usd",
         ),
+        daily_budget_usd=_decimal(record.get("daily_budget_usd"), "daily_budget_usd"),
+        daily_committed_spend_usd=_decimal(
+            record.get("daily_committed_spend_usd"), "daily_committed_spend_usd"
+        ),
+        spend_date_utc=_required_text(record, "spend_date_utc"),
         canonical_journal_path=_required_text(record, "canonical_journal_path"),
         items=items,
     )
@@ -293,6 +338,17 @@ def load_docket_live_fetch_plan(record: Mapping[str, object]) -> DocketLiveFetch
         raise ValueError("docket live fetch cumulative frontier mismatch")
     if plan.total_projected_cost > plan.cycle_budget_usd:
         raise ValueError("docket live fetch plan exceeds cycle budget")
+    if plan.daily_budget_usd > Decimal("25.00"):
+        raise ValueError("docket live fetch daily budget exceeds provider cap")
+    if plan.daily_remaining_headroom < 0:
+        raise ValueError("docket live fetch daily committed spend exceeds cap")
+    if record.get("executable_item_count") != len(plan.executable_items):
+        raise ValueError("docket live fetch executable prefix mismatch")
+    if (
+        record.get("executable_projected_cost_usd")
+        != plan.executable_projected_cost_usd
+    ):
+        raise ValueError("docket live fetch executable projected cost mismatch")
     if not Path(plan.canonical_journal_path).is_absolute():
         raise ValueError("docket live fetch canonical journal path must be absolute")
     return plan
@@ -339,7 +395,7 @@ class DocketLiveFetchJournal:
             FROM docket_fetch_operations WHERE status != 'planned'"""
         ).fetchone()
         assert row is not None
-        return _money(Decimal(str(row["total"])))
+        return _money(self.plan.daily_committed_spend_usd + Decimal(str(row["total"])))
 
     def submit(self, item: DocketLiveFetchPlanItem) -> bool:
         """Commit submitted state immediately before the single HTTP attempt."""
@@ -360,6 +416,8 @@ class DocketLiveFetchJournal:
             committed = Decimal(self.committed_reservation_usd)
             if committed + item.reservation_usd > self.plan.cycle_budget_usd:
                 raise DocketLiveFetchError("docket fetch reservation exceeds cycle cap")
+            if committed + item.reservation_usd > self.plan.daily_budget_usd:
+                raise DocketLiveFetchError("docket fetch reservation exceeds daily cap")
             cursor = self._connection.execute(
                 """UPDATE docket_fetch_operations SET status='submitted'
                 WHERE docket_id=? AND status='planned'""",
@@ -400,7 +458,10 @@ class DocketLiveFetchJournal:
                 cycle_id TEXT NOT NULL,
                 policy_sha256 TEXT NOT NULL,
                 plan_sha256 TEXT NOT NULL,
-                cycle_budget_usd TEXT NOT NULL
+                cycle_budget_usd TEXT NOT NULL,
+                daily_budget_usd TEXT NOT NULL,
+                daily_committed_spend_usd TEXT NOT NULL,
+                spend_date_utc TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS docket_fetch_operations (
                 docket_id TEXT PRIMARY KEY,
@@ -418,13 +479,17 @@ class DocketLiveFetchJournal:
         with self._connection:
             self._connection.execute(
                 """INSERT OR IGNORE INTO docket_fetch_ledger(
-                    singleton, cycle_id, policy_sha256, plan_sha256, cycle_budget_usd
-                ) VALUES(1, ?, ?, ?, ?)""",
+                    singleton, cycle_id, policy_sha256, plan_sha256, cycle_budget_usd,
+                    daily_budget_usd, daily_committed_spend_usd, spend_date_utc
+                ) VALUES(1, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     self.plan.cycle_id,
                     self.plan.policy_sha256,
                     self.plan.plan_sha256,
                     _money(self.plan.cycle_budget_usd),
+                    _money(self.plan.daily_budget_usd),
+                    _money(self.plan.daily_committed_spend_usd),
+                    self.plan.spend_date_utc,
                 ),
             )
             row = self._connection.execute(
@@ -436,18 +501,24 @@ class DocketLiveFetchJournal:
                 str(row["policy_sha256"]),
                 str(row["plan_sha256"]),
                 str(row["cycle_budget_usd"]),
+                str(row["daily_budget_usd"]),
+                str(row["daily_committed_spend_usd"]),
+                str(row["spend_date_utc"]),
             )
             expected = (
                 self.plan.cycle_id,
                 self.plan.policy_sha256,
                 self.plan.plan_sha256,
                 _money(self.plan.cycle_budget_usd),
+                _money(self.plan.daily_budget_usd),
+                _money(self.plan.daily_committed_spend_usd),
+                self.plan.spend_date_utc,
             )
             if actual != expected:
                 raise DocketLiveFetchError(
                     "docket fetch journal is bound to a different frozen plan"
                 )
-            for item in self.plan.items:
+            for item in self.plan.executable_items:
                 self._connection.execute(
                     """INSERT OR IGNORE INTO docket_fetch_operations(
                         docket_id, candidate_id, reservation_usd, status
@@ -473,12 +544,16 @@ def execute_docket_live_fetch_plan(
 
     if not live or not acknowledge_pacer_fees:
         raise ValueError("live docket fetch and fee acknowledgment are both required")
+    if datetime.now(UTC).date().isoformat() != plan.spend_date_utc:
+        raise DocketLiveFetchError(
+            "frozen docket live-fetch plan is not authorized for the current UTC day"
+        )
     if Path(journal_path).resolve() != Path(plan.canonical_journal_path).resolve():
         raise DocketLiveFetchError(
             "journal path differs from the canonical path frozen in the plan"
         )
     with DocketLiveFetchJournal(journal_path, plan=plan) as journal:
-        for item in plan.items:
+        for item in plan.executable_items:
             if not journal.submit(item):
                 continue
             try:
@@ -499,12 +574,12 @@ def execute_docket_live_fetch_plan(
         statuses = journal.statuses()
     return DocketLiveFetchExecutionResult(
         plan_sha256=plan.plan_sha256,
-        intended_count=len(plan.items),
+        intended_count=len(plan.executable_items),
         confirmed_count=sum(status == "confirmed" for status in statuses.values()),
         statuses=statuses,
         confirmed_candidates=tuple(
             {"candidate_id": item.candidate_id, "docket_id": item.docket_id}
-            for item in plan.items
+            for item in plan.executable_items
             if statuses[item.docket_id] == "confirmed"
         ),
     )

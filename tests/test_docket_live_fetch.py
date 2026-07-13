@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -55,6 +56,8 @@ def test_planner_requires_cited_anchored_disposition_and_ranks_coverage(
             _ranking("200", free=2, missing=1, entries=8),
         ],
         cohort_policy=_policy(),
+        daily_committed_spend_usd="0.00",
+        spend_date_utc=_today(),
         docket_fetch_reservation_usd="3.05",
     )
 
@@ -81,6 +84,8 @@ def test_executor_journals_before_one_fee_bearing_post_and_replays_confirmation(
         fetch_success_records=[_fetch("100", html)],
         ranking_records=[],
         cohort_policy=_policy(),
+        daily_committed_spend_usd="0.00",
+        spend_date_utc=_today(),
         docket_fetch_reservation_usd="3.05",
         canonical_journal_path=str(ledger.resolve()),
     )
@@ -166,10 +171,41 @@ def test_advisory_input_is_a_filter_but_cannot_replace_persisted_evidence(
             },
         ],
         cohort_policy=_policy(),
+        daily_committed_spend_usd="0.00",
+        spend_date_utc=_today(),
     )
 
     assert [item.docket_id for item in plan.items] == ["100"]
     assert plan.items[0].existing_missing_required_document_count == 1
+
+
+def test_daily_provider_cap_limits_executable_prefix_to_eight_dockets(
+    tmp_path: Path,
+) -> None:
+    screening = []
+    fetches = []
+    for number in range(1, 10):
+        docket_id = str(100 + number)
+        entry_id = f"entry-{number}"
+        path = tmp_path / f"{docket_id}.html"
+        path.write_text(
+            _html(str(number), "Jul 8, 2026", "ORDER granting 7 Motion to Dismiss.")
+        )
+        screening.append(_exclusion(docket_id, entry_id, "2026-07-08"))
+        fetches.append(_fetch(docket_id, path))
+
+    plan = plan_docket_live_fetches(
+        screening_records=screening,
+        fetch_success_records=fetches,
+        ranking_records=[],
+        cohort_policy=_policy(),
+        daily_committed_spend_usd="0.00",
+        spend_date_utc=_today(),
+    )
+
+    assert len(plan.items) == 9
+    assert len(plan.executable_items) == 8
+    assert plan.executable_projected_cost_usd == "24.40"
 
 
 def test_ambiguous_paid_post_retains_reservation_and_resume_refuses_reissue(
@@ -183,6 +219,8 @@ def test_ambiguous_paid_post_retains_reservation_and_resume_refuses_reissue(
         fetch_success_records=[_fetch("100", html)],
         ranking_records=[],
         cohort_policy=_policy(),
+        daily_committed_spend_usd="0.00",
+        spend_date_utc=_today(),
         docket_fetch_reservation_usd="3.05",
         canonical_journal_path=str(ledger.resolve()),
     )
@@ -237,6 +275,8 @@ def test_executor_requires_both_live_and_fee_acknowledgment_without_request(
         fetch_success_records=[_fetch("100", html)],
         ranking_records=[],
         cohort_policy=_policy(),
+        daily_committed_spend_usd="0.00",
+        spend_date_utc=_today(),
         docket_fetch_reservation_usd="3.05",
         canonical_journal_path=str(ledger.resolve()),
     )
@@ -268,6 +308,10 @@ def test_cli_exposes_separate_no_provider_plan_and_guarded_execute_commands() ->
             "fetch.jsonl",
             "--cohort-policy",
             "policy.json",
+            "--daily-committed-spend-usd",
+            "0.00",
+            "--spend-date-utc",
+            _today(),
         ]
     )
     executed = parser.parse_args(
@@ -293,6 +337,10 @@ def _client(transport: CaseDevFixtureTransport) -> CaseDevClient:
         transport=transport,
         max_retries=8,
     )
+
+
+def _today() -> str:
+    return datetime.now(UTC).date().isoformat()
 
 
 def _html(entry: str, filed: str, text: str) -> str:

@@ -1964,6 +1964,24 @@ def _add_acquisition_plan_docket_live_fetches_arguments(
             "defaults to the documented Case.dev maximum of 3.05."
         ),
     )
+    parser.add_argument(
+        "--daily-budget-usd",
+        default="25.00",
+        help="Immutable Case.dev organization daily cap; cannot exceed 25.00.",
+    )
+    parser.add_argument(
+        "--daily-committed-spend-usd",
+        required=True,
+        help=(
+            "Verified Case.dev spend already committed for --spend-date-utc; "
+            "used to derive remaining daily headroom."
+        ),
+    )
+    parser.add_argument(
+        "--spend-date-utc",
+        required=True,
+        help="UTC date (YYYY-MM-DD) for the executable daily tranche.",
+    )
     parser.add_argument("--plan-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_plan_docket_live_fetches)
 
@@ -6477,6 +6495,8 @@ def _cmd_acquisition_plan_docket_live_fetches(args: argparse.Namespace) -> int:
         )
         record_count = 0
         projected_cost = "0.00"
+        executable_count = 0
+        executable_cost = "0.00"
     else:
         plan = plan_docket_live_fetches(
             screening_records=(
@@ -6493,6 +6513,9 @@ def _cmd_acquisition_plan_docket_live_fetches(args: argparse.Namespace) -> int:
             ),
             cohort_policy=policy,
             docket_fetch_reservation_usd=cast(str, args.docket_fetch_reservation_usd),
+            daily_budget_usd=cast(str, args.daily_budget_usd),
+            daily_committed_spend_usd=cast(str, args.daily_committed_spend_usd),
+            spend_date_utc=cast(str, args.spend_date_utc),
             canonical_journal_path=str(
                 (output_root / "case-dev-docket-live-fetch.sqlite3").resolve()
             ),
@@ -6500,6 +6523,8 @@ def _cmd_acquisition_plan_docket_live_fetches(args: argparse.Namespace) -> int:
         _write_json(output_path, plan.to_record())
         record_count = len(plan.items)
         projected_cost = plan.total_projected_cost_usd
+        executable_count = len(plan.executable_items)
+        executable_cost = plan.executable_projected_cost_usd
     _write_acquisition_completion(
         args,
         stage="plan-docket-live-fetches",
@@ -6512,6 +6537,8 @@ def _cmd_acquisition_plan_docket_live_fetches(args: argparse.Namespace) -> int:
         extra={
             "provider_requests": 0,
             "projected_cost_usd": projected_cost,
+            "executable_count": executable_count,
+            "executable_projected_cost_usd": executable_cost,
         },
     )
     return 0
@@ -6548,9 +6575,11 @@ def _cmd_acquisition_execute_docket_live_fetches(args: argparse.Namespace) -> in
     if dry_run:
         result = DocketLiveFetchExecutionResult(
             plan_sha256=plan.plan_sha256,
-            intended_count=len(plan.items),
+            intended_count=len(plan.executable_items),
             confirmed_count=0,
-            statuses={item.docket_id: "planned_dry_run" for item in plan.items},
+            statuses={
+                item.docket_id: "planned_dry_run" for item in plan.executable_items
+            },
             confirmed_candidates=(),
         )
         paid_requested = False
