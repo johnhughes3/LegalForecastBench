@@ -227,10 +227,18 @@ def test_screen_firecrawl_dockets_emits_direct_public_planner_input(
         "ORDER granting Motion to Dismiss 5",
     ),
 )
+@pytest.mark.parametrize(
+    "motion_description",
+    (
+        "Dismiss",
+        "Dismiss AND Dismiss for Failure to State a Claim",
+    ),
+)
 def test_screen_recovers_generic_dismiss_row_from_explicit_disposition_reference(
     tmp_path: Path,
     cycle_state: _CycleState,
     decision_text: str,
+    motion_description: str,
 ) -> None:
     output_root = tmp_path / "screening"
     raw_html_dir = tmp_path / "html"
@@ -248,7 +256,7 @@ def test_screen_recovers_generic_dismiss_row_from_explicit_disposition_reference
             number=5,
             filed_at="February 2, 2026",
             text="Main Document",
-            description="Dismiss",
+            description=motion_description,
         )
         + _entry_html(
             number=16,
@@ -404,6 +412,7 @@ def test_screen_does_not_treat_case_number_as_mtd_entry_reference(
         "Dismiss Appeal",
         "Dismiss Counterclaim",
         "Notice of Dismissal",
+        "Dismiss AND Notice of Dismissal",
     ),
 )
 def test_screen_does_not_promote_explicitly_referenced_non_mtd_dismissal(

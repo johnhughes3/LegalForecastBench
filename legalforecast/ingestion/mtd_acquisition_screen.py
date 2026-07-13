@@ -680,6 +680,11 @@ def _entry_search_text(entry: CourtListenerWebDocketEntry) -> str:
 def _references_mtd_or_pleadings_motion(text: str) -> bool:
     return bool(
         re.search(r"\bmotions?\s+to\s+dismiss\b", text, re.I)
+        or re.search(
+            r"\bmotions?\s+by\b[^\n]{0,240}?\bto\s+dismiss\b",
+            text,
+            re.I,
+        )
         or re.search(r"\bmtd\b", text, re.I)
         or re.search(r"\brule\s+12\b", text, re.I)
         or re.search(r"\b12\s*\(\s*b\s*\)\s*\(\s*[126]\s*\)", text, re.I)
@@ -707,6 +712,45 @@ def _has_decision_form(text: str) -> bool:
         or re.search(r"\bjudgment\b", text, re.I)
         or re.search(r"\bmemorandum\s+(?:and\s+)?opinion\b", text, re.I)
         or re.search(r"\breport\s+and\s+recommendation\b", text, re.I)
+        or _has_magistrate_recommendation_form(text)
+        or re.search(
+            r"\bminute(?:\s+\([^)]{0,80}\))?\b[^\n]{0,240}?"
+            r"\bthe\s+court\s+(?:hereby\s+)?"
+            r"(?:grant(?:s|ed)?|den(?:y|ies|ied)|dismiss(?:es|ed)?)\b",
+            text,
+            re.I,
+        )
+    )
+
+
+def _has_magistrate_recommendation_form(text: str) -> bool:
+    return bool(
+        re.search(
+            r"\brecommendation\s+(?:of|by)\s+(?:the\s+)?"
+            r"(?:united\s+states\s+)?magistrate\s+judge\b",
+            text,
+            re.I,
+        )
+    )
+
+
+def _has_substantive_mtd_recommendation(text: str) -> bool:
+    recommendation_form = bool(
+        re.search(r"\breport\s+and\s+recommendation\b", text, re.I)
+        or _has_magistrate_recommendation_form(text)
+    )
+    recommends_disposition = bool(
+        re.search(
+            r"\brecommend(?:s|ed|ing|ation)?\b[^\n]{0,240}?"
+            r"\b(?:grant(?:ed|ing)?|den(?:y|ied|ying)|dismiss(?:ed|ing)?)\b",
+            text,
+            re.I,
+        )
+    )
+    return (
+        recommendation_form
+        and recommends_disposition
+        and _references_mtd_or_pleadings_motion(text)
     )
 
 
@@ -740,8 +784,8 @@ def _looks_like_proposed_order_attachment(text: str) -> bool:
 
 
 def _looks_like_procedural_or_standing_order(text: str) -> bool:
+    standing_order = bool(re.search(r"\bstanding\s+order\b", text, re.I))
     procedural_patterns = (
-        r"\bstanding\s+order\b",
         r"\border\s+governing\b.*\bmotions?\s+to\s+dismiss\b",
         r"\bpre[- ]?motion\s+conference\b",
         r"\bconference\s+before\s+fil(?:ing|e)\b.*\bmotion\s+to\s+dismiss\b",
@@ -754,7 +798,9 @@ def _looks_like_procedural_or_standing_order(text: str) -> bool:
         r"\bfailure\s+to\s+prosecute\b",
         r"\badministrative(?:ly)?\s+clos(?:e|ed|ing)\b",
     )
-    return any(re.search(pattern, text, re.I) for pattern in procedural_patterns)
+    if any(re.search(pattern, text, re.I) for pattern in procedural_patterns):
+        return True
+    return standing_order and not _has_substantive_mtd_recommendation(text)
 
 
 def _looks_like_self_or_voluntary_dismissal(text: str) -> bool:

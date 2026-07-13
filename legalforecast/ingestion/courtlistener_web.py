@@ -512,6 +512,11 @@ def _docket_id_from_url(source_url: str | None) -> str | None:
 def _references_mtd(text: str) -> bool:
     return bool(
         re.search(r"\bmotions?\s+to\s+dismiss\b", text, re.I)
+        or re.search(
+            r"\bmotions?\s+by\b[^\n]{0,240}?\bto\s+dismiss\b",
+            text,
+            re.I,
+        )
         or re.search(r"\b12\s*\(\s*b\s*\)\s*\(\s*[126]\s*\)", text, re.I)
         or re.search(r"\b12\s*\(\s*c\s*\)", text, re.I)
         or re.search(r"\brule\s+12\b", text, re.I)
