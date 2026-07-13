@@ -192,6 +192,18 @@ def test_cli_live_type_rd_is_disabled_before_network(
     assert "live CourtListener REST type=rd is disabled" in capsys.readouterr().err
 
 
+def test_cli_live_help_names_supported_firecrawl_command(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("COLUMNS", "240")
+    with pytest.raises(SystemExit) as exc_info:
+        main(["batch-002", "discover", "--help"])
+    assert exc_info.value.code == 0
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "legalforecast acquisition discover-firecrawl-recap-decisions" in help_text
+
+
 # ---------------------------------------------------------------------------
 # observe.
 # ---------------------------------------------------------------------------

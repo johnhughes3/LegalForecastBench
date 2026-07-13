@@ -1685,7 +1685,8 @@ def _add_batch_002_source_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help=(
             "Disabled: CourtListener does not expose this REST-only type=rd plan "
-            "through the supported web route. Use the Firecrawl decision preset."
+            "through the supported web route. Use `legalforecast acquisition "
+            "discover-firecrawl-recap-decisions`."
         ),
     )
     source.add_argument(
