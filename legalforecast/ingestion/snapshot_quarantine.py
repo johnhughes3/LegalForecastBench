@@ -119,6 +119,14 @@ def _quarantine_orphan_snapshot_locked(
     target = quarantine_directory / (
         f"{expected_snapshot_id}--orphan--{orphan_manifest_hash[:16]}"
     )
+    target_is_symlink = target.is_symlink()
+    target_entry_exists = target.exists() or target_is_symlink
+    try:
+        resolved_target = target.resolve()
+    except (OSError, RuntimeError) as error:
+        raise SnapshotQuarantineError(
+            f"cannot resolve quarantine target safely: {target}"
+        ) from error
     orphan_exists = orphan_path.is_dir()
     target_exists = target.is_dir()
     recovering_completed_move = not orphan_exists and target_exists
@@ -126,7 +134,7 @@ def _quarantine_orphan_snapshot_locked(
         raise SnapshotQuarantineError(
             f"orphan snapshot directory is missing: {orphan_path}"
         )
-    if orphan_exists and target.exists():
+    if orphan_exists and target_entry_exists:
         raise SnapshotQuarantineError(f"quarantine target already exists: {target}")
     if quarantine_directory.is_relative_to(store_root):
         raise SnapshotQuarantineError(
@@ -141,10 +149,6 @@ def _quarantine_orphan_snapshot_locked(
             f"receipt parent must already exist: {receipt_path.parent}"
         )
     verified_orphan_path = target if recovering_completed_move else orphan_path
-    if verified_orphan_path.stat().st_dev != quarantine_directory.stat().st_dev:
-        raise SnapshotQuarantineError(
-            "orphan and quarantine root must be on the same filesystem"
-        )
     cycle_store_hash = _sha256_file(store_path)
 
     connection = _open_immutable_store(store_path)
@@ -166,14 +170,27 @@ def _quarantine_orphan_snapshot_locked(
             "quarantine target": target,
             "receipt": receipt_path,
         }
+        if target_entry_exists:
+            controlled_paths["resolved quarantine target"] = resolved_target
         for row in path_rows:
             registered_path = Path(str(row["path"])).resolve()
             for controlled_name, controlled_path in controlled_paths.items():
                 if _paths_overlap(registered_path, controlled_path):
-                    raise SnapshotQuarantineError(
-                        f"{controlled_name} path is not disjoint from registered "
-                        f"snapshot {row['snapshot_id']}"
+                    symlink_context = (
+                        " symbolic link"
+                        if target_is_symlink
+                        and controlled_name
+                        in {"quarantine target", "resolved quarantine target"}
+                        else ""
                     )
+                    raise SnapshotQuarantineError(
+                        f"{controlled_name}{symlink_context} path is not disjoint "
+                        f"from registered snapshot {row['snapshot_id']}"
+                    )
+        if target_is_symlink:
+            raise SnapshotQuarantineError(
+                "quarantine target is a symbolic link; refusing recovery"
+            )
         if not canonical_path.is_relative_to(store_root):
             raise SnapshotQuarantineError(
                 "registered canonical snapshot is outside the cycle store root"
@@ -201,6 +218,11 @@ def _quarantine_orphan_snapshot_locked(
         ) from error
     finally:
         connection.close()
+
+    if verified_orphan_path.stat().st_dev != quarantine_directory.stat().st_dev:
+        raise SnapshotQuarantineError(
+            "orphan and quarantine root must be on the same filesystem"
+        )
 
     canonical_disk_hash = _sha256_file(canonical_path / "manifest.json")
     if canonical_disk_hash != canonical_manifest_hash:

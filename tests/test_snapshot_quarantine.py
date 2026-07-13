@@ -96,6 +96,60 @@ def test_quarantine_recovers_crash_after_move_before_final_receipt(
     assert json.loads(fixture.receipt.read_text())["status"] == "quarantined"
 
 
+@pytest.mark.parametrize("resolved_relationship", ["ancestor", "equal", "descendant"])
+def test_quarantine_rejects_post_move_target_symlink_overlapping_registered_snapshot(
+    tmp_path: Path,
+    resolved_relationship: str,
+) -> None:
+    fixture = _fixture(tmp_path)
+    canonical_before = _snapshot_files(fixture.canonical)
+    dry_run = _quarantine(fixture, execute=False)
+    target = Path(str(dry_run["quarantine_target_path"]))
+    pending_receipt = dict(dry_run)
+    pending_receipt["status"] = "move_authorized"
+    pending_receipt["execute"] = True
+    fixture.receipt.write_text(json.dumps(pending_receipt), encoding="utf-8")
+    shutil.rmtree(fixture.orphan)
+    symlink_destination = {
+        "ancestor": fixture.canonical.parent,
+        "equal": fixture.canonical,
+        "descendant": fixture.canonical / "registered-descendant",
+    }[resolved_relationship]
+    if resolved_relationship == "descendant":
+        symlink_destination.mkdir()
+    target.symlink_to(symlink_destination, target_is_directory=True)
+
+    with pytest.raises(SnapshotQuarantineError, match=r"symbolic link.*registered"):
+        _quarantine(fixture, execute=True)
+
+    assert target.is_symlink()
+    assert fixture.canonical.is_dir()
+    assert _snapshot_files(fixture.canonical) == canonical_before
+    assert json.loads(fixture.receipt.read_text()) == pending_receipt
+
+
+def test_quarantine_rejects_post_move_target_symlink_outside_registry(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    dry_run = _quarantine(fixture, execute=False)
+    target = Path(str(dry_run["quarantine_target_path"]))
+    pending_receipt = dict(dry_run)
+    pending_receipt["status"] = "move_authorized"
+    pending_receipt["execute"] = True
+    fixture.receipt.write_text(json.dumps(pending_receipt), encoding="utf-8")
+    unregistered_destination = tmp_path / "unregistered-snapshot"
+    os.rename(fixture.orphan, unregistered_destination)
+    target.symlink_to(unregistered_destination, target_is_directory=True)
+
+    with pytest.raises(SnapshotQuarantineError, match="symbolic link"):
+        _quarantine(fixture, execute=True)
+
+    assert target.is_symlink()
+    assert unregistered_destination.is_dir()
+    assert json.loads(fixture.receipt.read_text()) == pending_receipt
+
+
 def test_quarantine_recovers_authorized_move_before_rename(
     tmp_path: Path,
 ) -> None:
