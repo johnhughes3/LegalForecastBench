@@ -562,9 +562,9 @@ class CaseDevClient:
         *,
         acknowledge_pacer_fees: bool,
     ) -> Mapping[str, Any]:
-        """Low-level fee-acknowledged PACER document recovery request."""
+        """Send exactly one fee-bearing document request with no automatic retry."""
 
-        return self._request_json(
+        return self._request_json_once(
             "POST",
             f"/legal/v1/documents/{urllib.parse.quote(document_id, safe='')}/pacer",
             {"live": True, "acknowledgePacerFees": acknowledge_pacer_fees},

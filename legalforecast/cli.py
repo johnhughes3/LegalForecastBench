@@ -102,6 +102,13 @@ from legalforecast.ingestion.case_dev_firecrawl import (
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerCapability,
     CaseDevPacerPurchaseClient,
+    CaseDevPurchaseJournal,
+    CaseDevPurchaseLedgerError,
+    CaseDevPurchasePolicyError,
+    generate_case_dev_purchase_policy,
+    verify_case_dev_purchase_policy,
+    verify_case_dev_purchase_policy_cohort_binding,
+    write_case_dev_purchase_policy,
 )
 from legalforecast.ingestion.case_dev_recap_batch import enrich_recap_discovery_batch
 from legalforecast.ingestion.case_dev_smoke import (
@@ -721,6 +728,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Verify a cohort precommitment and optional expected hash.",
     )
     _add_verify_cohort_policy_arguments(acquisition_verify_cohort_policy)
+    acquisition_generate_purchase_policy = acquisition_subparsers.add_parser(
+        "generate-purchase-policy",
+        help=(
+            "Generate an immutable Case.dev document-purchase cap and canonical "
+            "journal policy from approved decisions."
+        ),
+    )
+    _add_generate_purchase_policy_arguments(acquisition_generate_purchase_policy)
+    acquisition_reconcile_purchase = acquisition_subparsers.add_parser(
+        "reconcile-purchase",
+        help=(
+            "Record provider billing evidence or a cap-counted write-off for an "
+            "ambiguous document purchase."
+        ),
+    )
+    _add_reconcile_purchase_arguments(acquisition_reconcile_purchase)
     acquisition_export_cohort_observations = acquisition_subparsers.add_parser(
         "export-cohort-observations",
         help="Append complete cycle-store snapshots to the observation manifest.",
@@ -1514,6 +1537,42 @@ def _add_verify_cohort_policy_arguments(parser: argparse.ArgumentParser) -> None
     parser.set_defaults(handler=_cmd_verify_cohort_policy)
 
 
+def _add_generate_purchase_policy_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--decisions",
+        type=Path,
+        required=True,
+        help=(
+            "JSON object containing the cycle ID, cohort-policy hash, canonical "
+            "absolute ledger path, hard caps, and verified fee schedule."
+        ),
+    )
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--cohort-policy",
+        type=Path,
+        required=True,
+        help="Frozen cohort policy whose purchase caps this artifact must consume.",
+    )
+    parser.set_defaults(handler=_cmd_generate_purchase_policy)
+
+
+def _add_reconcile_purchase_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--purchase-policy", type=Path, required=True)
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument("--purchase-ledger", type=Path, required=True)
+    parser.add_argument(
+        "--evidence",
+        type=Path,
+        required=True,
+        help=(
+            "JSON provider evidence: document ID, confirmed/failed/write_off "
+            "disposition, billing source type/reference, and PACER fees when confirmed."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_reconcile_purchase)
+
+
 def _add_export_cohort_observations_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--cycle-store", type=Path, required=True)
     parser.add_argument("--policy", type=Path, required=True)
@@ -1901,6 +1960,27 @@ def _add_acquisition_purchase_missing_arguments(
     _add_acquisition_common_arguments(parser)
     parser.add_argument("--budget-plan", type=Path, required=True)
     parser.add_argument("--purchase-output", type=Path)
+    parser.add_argument(
+        "--purchase-policy",
+        type=Path,
+        required=True,
+        help="Immutable hash-bound cycle document-purchase policy artifact.",
+    )
+    parser.add_argument(
+        "--cohort-policy",
+        type=Path,
+        required=True,
+        help="Frozen cohort policy that owns the cycle purchase cap.",
+    )
+    parser.add_argument(
+        "--purchase-ledger",
+        type=Path,
+        required=True,
+        help=(
+            "Cycle-global SQLite journal; its normalized absolute path must equal "
+            "the canonical locator frozen in --purchase-policy."
+        ),
+    )
     parser.add_argument("--case-dev-fixture", type=Path)
     parser.add_argument(
         "--live-purchase",
@@ -5015,6 +5095,45 @@ def _cmd_verify_cohort_policy(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_generate_purchase_policy(args: argparse.Namespace) -> int:
+    try:
+        artifact = generate_case_dev_purchase_policy(
+            _read_json_object(cast(Path, args.decisions))
+        )
+        policy = verify_case_dev_purchase_policy(artifact)
+        verify_case_dev_purchase_policy_cohort_binding(
+            policy,
+            _read_json_object(cast(Path, args.cohort_policy)),
+        )
+        write_case_dev_purchase_policy(cast(Path, args.output), artifact)
+    except (CaseDevPurchasePolicyError, OSError, UnicodeError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _cmd_reconcile_purchase(args: argparse.Namespace) -> int:
+    ledger_path = cast(Path, args.purchase_ledger).resolve()
+    try:
+        policy = verify_case_dev_purchase_policy(
+            _read_json_object(cast(Path, args.purchase_policy))
+        )
+        verify_case_dev_purchase_policy_cohort_binding(
+            policy,
+            _read_json_object(cast(Path, args.cohort_policy)),
+        )
+        with CaseDevPurchaseJournal(ledger_path, policy=policy) as journal:
+            journal.reconcile(_read_json_object(cast(Path, args.evidence)))
+    except (
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
 def _cmd_export_cohort_observations(args: argparse.Namespace) -> int:
     try:
         policy = _read_json_object(cast(Path, args.policy))
@@ -6411,6 +6530,23 @@ def _cmd_acquisition_purchase_missing(args: argparse.Namespace) -> int:
         output_root / "case-dev-pacer-purchases.json",
     )
     plan = _missing_core_budget_plan(_read_json_object(plan_path))
+    policy_path = cast(Path, args.purchase_policy)
+    cohort_policy_path = cast(Path, args.cohort_policy)
+    ledger_path = cast(Path, args.purchase_ledger).resolve()
+    try:
+        purchase_policy = verify_case_dev_purchase_policy(
+            _read_json_object(policy_path)
+        )
+        verify_case_dev_purchase_policy_cohort_binding(
+            purchase_policy,
+            _read_json_object(cohort_policy_path),
+        )
+    except (CaseDevPurchasePolicyError, OSError, UnicodeError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    if ledger_path != purchase_policy.canonical_ledger_path:
+        raise CommandError(
+            "--purchase-ledger conflicts with the canonical policy locator"
+        )
     dry_run = _acquisition_dry_run(args)
     live_purchase = cast(bool, args.live_purchase)
     acknowledge_fees = cast(bool, args.acknowledge_pacer_fees)
@@ -6452,21 +6588,48 @@ def _cmd_acquisition_purchase_missing(args: argparse.Namespace) -> int:
             live=live_purchase,
         )
     )
-    result = CaseDevPacerPurchaseClient(
-        client,
-        capability=capability,
-    ).execute_purchase_plan(
-        execution_plan,
-        live=live_purchase and not dry_run,
-        acknowledge_pacer_fees=acknowledge_fees,
-    )
+    try:
+        if dry_run:
+            result = CaseDevPacerPurchaseClient(
+                client,
+                capability=capability,
+            ).execute_purchase_plan(
+                execution_plan,
+                live=False,
+                acknowledge_pacer_fees=acknowledge_fees,
+            )
+        else:
+            with CaseDevPurchaseJournal(
+                ledger_path,
+                policy=purchase_policy,
+            ) as journal:
+                result = CaseDevPacerPurchaseClient(
+                    client,
+                    capability=capability,
+                    journal=journal,
+                ).execute_purchase_plan(
+                    execution_plan,
+                    live=live_purchase,
+                    acknowledge_pacer_fees=acknowledge_fees,
+                )
+    except (CaseDevPurchaseLedgerError, CaseDevPurchasePolicyError) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="purchase-missing",
+            input_paths=(plan_path, policy_path),
+            output_paths=(output_path, ledger_path),
+            reason=str(exc),
+            paid_activity_requested=live_purchase,
+            paid_activity_executed=client.request_count > 0,
+        )
+        raise CommandError(str(exc)) from exc
     _write_json(output_path, result.to_record())
-    paid_activity_executed = result.executed_purchase_count > 0
+    paid_activity_executed = client.request_count > 0
     _write_acquisition_completion(
         args,
         stage="purchase-missing",
-        input_paths=(plan_path,),
-        output_paths=(output_path,),
+        input_paths=(plan_path, policy_path),
+        output_paths=(output_path,) if dry_run else (output_path, ledger_path),
         record_count=result.intended_purchase_count,
         dry_run=dry_run,
         paid_activity_requested=live_purchase,
