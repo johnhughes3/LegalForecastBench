@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import parse_qs, parse_qsl, urlsplit
 
 import pytest
 from legalforecast.ingestion.firecrawl_recap_discovery import (
@@ -10,6 +10,7 @@ from legalforecast.ingestion.firecrawl_recap_discovery import (
     RecapSearchMarkupError,
     RecapSearchURLValidationError,
     build_recap_search_url,
+    courtlistener_query_expression,
     discover_recap_mtd_entries,
     parse_recap_search_html,
     parse_recap_search_url,
@@ -99,6 +100,35 @@ def test_frozen_vocabulary_includes_mtd_and_eligible_rule_12c_terms() -> None:
     assert len(FROZEN_MTD_SEARCH_TERMS) == len(set(FROZEN_MTD_SEARCH_TERMS))
 
 
+def test_frozen_terms_compile_to_phrase_precise_courtlistener_queries() -> None:
+    assert courtlistener_query_expression("motion to dismiss") == '"motion to dismiss"'
+    assert courtlistener_query_expression("motion to dismiss granted") == (
+        '"motion to dismiss" AND granted'
+    )
+    assert (
+        courtlistener_query_expression("report and recommendation motion to dismiss")
+        == '"motion to dismiss" AND "report and recommendation"'
+    )
+    assert courtlistener_query_expression("order rule 12(b)(6)") == (
+        '"rule 12(b)(6)" AND order'
+    )
+    assert (
+        courtlistener_query_expression("order on motion for judgment on the pleadings")
+        == '"motion for judgment on the pleadings" AND order'
+    )
+    urls = [
+        build_recap_search_url(
+            term=term,
+            entry_date_filed_after=ANCHOR,
+            entry_date_filed_before=WINDOW_END,
+        )
+        for term in FROZEN_MTD_SEARCH_TERMS
+    ]
+    assert len(set(urls)) == len(FROZEN_MTD_SEARCH_TERMS)
+    for term, url in zip(FROZEN_MTD_SEARCH_TERMS, urls, strict=True):
+        assert parse_recap_search_url(url).term == term
+
+
 def test_builder_freezes_entry_date_window_and_parameter_order() -> None:
     url = build_recap_search_url(
         term="motion to dismiss",
@@ -107,12 +137,13 @@ def test_builder_freezes_entry_date_window_and_parameter_order() -> None:
     )
 
     assert url == (
-        "https://www.courtlistener.com/?type=r&q=motion+to+dismiss"
+        "https://www.courtlistener.com/?type=r&q=%22motion+to+dismiss%22"
         "&entry_date_filed_after=06%2F30%2F2026"
         "&entry_date_filed_before=07%2F12%2F2026"
         "&order_by=entry_date_filed+desc"
     )
     assert parse_recap_search_url(url).page == 1
+    assert parse_qs(urlsplit(url).query)["q"] == ['"motion to dismiss"']
 
     page_two = build_recap_search_url(
         term="motion to dismiss",

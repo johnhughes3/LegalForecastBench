@@ -5,6 +5,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+import legalforecast.cli as cli_module
 from legalforecast.cli import main
 from legalforecast.ingestion.firecrawl_recap_discovery import build_recap_search_url
 
@@ -91,6 +92,8 @@ def test_discover_firecrawl_recap_uses_shared_budget_and_reports_potentials(
     assert summary["reported_credits"] == 1
     assert summary["remaining_authorization"] == 44_995
     assert summary["query_terms"] == ["motion to dismiss"]
+    assert summary["courtlistener_query_plan_version"] == "phrase-precise-v1"
+    assert summary["courtlistener_query_expressions"] == ['"motion to dismiss"']
     assert summary["eligibility_anchor"] == "2026-06-30"
     assert summary["search_window_start"] == "2026-06-30"
     assert summary["search_window_end"] == "2026-07-12"
@@ -301,6 +304,56 @@ def test_discover_firecrawl_recap_resume_rejects_changed_window(
                 "2026-07-02",
                 "--search-window-end",
                 "2026-07-02",
+                "--query-term",
+                "motion to dismiss",
+                "--firecrawl-fixture",
+                str(fixture),
+                "--execute",
+                "--resume",
+            ]
+        )
+        == 2
+    )
+    assert "batch config mismatch" in capsys.readouterr().err
+
+
+def test_discover_firecrawl_recap_resume_rejects_changed_query_plan(
+    tmp_path: Path, capsys: Any, monkeypatch: Any
+) -> None:
+    _run_daily_batch(
+        tmp_path,
+        batch_id="batch-001",
+        run_id="run-001",
+        start=date(2026, 7, 1),
+        end=date(2026, 7, 1),
+    )
+    fixture = _empty_firecrawl_fixture(
+        tmp_path / "same-window.jsonl",
+        start=date(2026, 7, 1),
+        end=date(2026, 7, 1),
+    )
+    monkeypatch.setattr(
+        cli_module, "COURTLISTENER_QUERY_PLAN_VERSION", "phrase-precise-v2"
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "discover-firecrawl-recap",
+                "--output-root",
+                str(tmp_path / "changed-output"),
+                "--cycle-store",
+                str(tmp_path / "cycle.sqlite3"),
+                "--batch-id",
+                "batch-001",
+                "--run-id",
+                "run-001",
+                "--eligibility-anchor",
+                "2026-06-30",
+                "--search-window-start",
+                "2026-07-01",
+                "--search-window-end",
+                "2026-07-01",
                 "--query-term",
                 "motion to dismiss",
                 "--firecrawl-fixture",
