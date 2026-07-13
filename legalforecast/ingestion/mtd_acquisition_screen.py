@@ -445,7 +445,9 @@ def screen_courtlistener_entry_for_mtd_decision(
             exclusion_reasons=tuple(exclusion_reasons),
         )
 
-    actual = _looks_like_actual_mtd_decision(text)
+    actual = _has_exact_court_mtd_disposition_event(entry) or (
+        _looks_like_actual_mtd_decision(text)
+    )
     if actual:
         decision_reasons: tuple[str, ...] = ()
     elif _has_decision_form(text):
@@ -739,6 +741,62 @@ def _looks_like_actual_mtd_decision(text: str) -> bool:
     return _has_decision_form(text) and _has_direct_mtd_disposition(text)
 
 
+def _has_exact_court_mtd_disposition_event(
+    entry: CourtListenerWebDocketEntry,
+) -> bool:
+    """Recognize court-coded MTD order events without inferring their outcome.
+
+    CourtListener preserves PACER event descriptions even when the docket text
+    omits ``granted`` or ``denied``.  These exact order forms prove that a
+    written disposition exists; Stage B reads the document to resolve its
+    outcome.  Match complete event labels, not arbitrary text containing an MTD,
+    so motion filings and scheduling or briefing orders remain fail-closed.
+    """
+
+    narrative = _entry_narrative_before_documents(entry)
+    if re.search(
+        r"(?:\bmotions?\s+to\s+dismiss\b[^.;]{0,120}\bfiled\s+by\b|"
+        r"\b(?:defendant|plaintiff|petitioner|respondent|movant|party)\b"
+        r"[^.;]{0,100}\bfiled\b[^.;]{0,80}\bmotions?\s+to\s+dismiss\b)",
+        narrative,
+        re.IGNORECASE,
+    ):
+        return False
+
+    order_event = re.compile(
+        r"order\s+on\s+motion\s+(?:"
+        r"to\s+dismiss(?:\s*(?:/|for\s+)\s*"
+        r"(?:failure\s+to\s+state\s+a\s+claim|lack\s+of\s+jurisdiction|general))?"
+        r"|for\s+judgment\s+on\s+the\s+pleadings)\Z",
+        re.IGNORECASE,
+    )
+    labels = (
+        label
+        for document in entry.documents
+        for label in (document.kind, document.description)
+    )
+    return any(
+        order_event.fullmatch(_normalized_text(component)) is not None
+        for label in labels
+        for component in re.split(r"\s+AND\s+", label, flags=re.IGNORECASE)
+    )
+
+
+def _entry_narrative_before_documents(entry: CourtListenerWebDocketEntry) -> str:
+    """Return row narrative without appended RECAP-document labels."""
+
+    text = _normalized_text(entry.text)
+    folded = text.casefold()
+    offsets = [
+        offset
+        for document in entry.documents
+        for field in (document.kind, document.description)
+        if field
+        if (offset := folded.find(_normalized_text(field).casefold())) >= 0
+    ]
+    return text[: min(offsets)] if offsets else text
+
+
 def _has_direct_mtd_disposition(text: str) -> bool:
     """Return whether a disposition verb acts on the MTD or challenged pleading.
 
@@ -746,7 +804,7 @@ def _has_direct_mtd_disposition(text: str) -> bool:
     still-pending MTD.  Keep the verb and its target in the same clause so an
     order granting a stay or extension cannot borrow ``Motion to Dismiss`` from
     a later sentence.  Generic event labels such as ``Order on Motion to
-    Dismiss`` deliberately provide no outcome and therefore fail closed.
+    Dismiss`` are handled separately as exact court-generated event forms.
     """
 
     action = (
