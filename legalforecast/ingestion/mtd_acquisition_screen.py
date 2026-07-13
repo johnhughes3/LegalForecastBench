@@ -1087,10 +1087,21 @@ def _looks_like_bankruptcy_context(text: str) -> bool:
         or "adversary complaint" in lowered
         or court_ids.intersection(_BANKRUPTCY_COURT_IDS)
         or re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", lowered)
+        or _references_rule_7012(lowered)
+    )
+
+
+def _references_rule_7012(text: str) -> bool:
+    """Return whether text explicitly cites Bankruptcy Rule 7012."""
+
+    return bool(
+        re.search(r"\brule\s+7012\b", text, re.I)
         or re.search(
-            r"\b(?:fed(?:eral)?\.?\s+r\.?\s+bankr\.?\s+p\.?\s+)?7012\b",
-            lowered,
+            r"\b(?:fed(?:eral)?\.?\s+r\.?\s+)?bankr\.?\s+p\.?\s+7012\b",
+            text,
+            re.I,
         )
+        or re.search(r"\bfrbp\s*7012\b", text, re.I)
     )
 
 
@@ -1135,8 +1146,7 @@ def _looks_like_rule_7012_claim_merits_motion(text: str) -> bool:
         and re.search(r"\bdismiss\b|\bjudgment\s+on\s+the\s+pleadings\b", text, re.I)
     )
     rule_basis = bool(
-        re.search(r"\b7012\b", text, re.I)
-        or re.search(r"\brule\s+7012\b", text, re.I)
+        _references_rule_7012(text)
         or re.search(r"\b12\s*\(\s*b\s*\)\s*\(\s*[1-7]\s*\)", text, re.I)
         or re.search(r"\b12\s*\(\s*c\s*\)", text, re.I)
         or re.search(

@@ -721,6 +721,30 @@ def test_rule_7012_entries_establish_bankruptcy_context_without_candidate_text()
     assert screen.case_type_stratum == "bankruptcy_adversary"
 
 
+def test_civil_docket_number_7012_does_not_create_bankruptcy_context() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Doe v. ABC Corporation - 1:26-cv-7012",
+            entries=(
+                (1, "July 1, 2026", "COMPLAINT filed."),
+                (4, "July 3, 2026", "MOTION to Dismiss Count I."),
+                (8, "July 10, 2026", "ORDER granting 4 Motion to Dismiss Count I."),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/73183895/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text="nysd 1:26-cv-7012 Doe v. ABC Corporation",
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert screen.strict_clean is True
+    assert screen.case_type_stratum == "district_civil"
+    assert "bankruptcy_posture" not in screen.exclusion_reasons
+
+
 def test_docket_screen_rejects_ambiguous_dismiss_adversary_text() -> None:
     page = parse_courtlistener_docket_html(
         _multi_entry_docket_html(
