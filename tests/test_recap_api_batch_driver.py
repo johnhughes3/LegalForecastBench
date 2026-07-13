@@ -127,7 +127,7 @@ def _token_client(
 
 def _fresh_store(tmp_path: Path, name: str = "cycle.sqlite3") -> CycleAcquisitionStore:
     store = CycleAcquisitionStore(tmp_path / name)
-    store.ensure_cycle({"schema_version": "test"})
+    store.ensure_cycle({"schema_version": "test", "eligibility_anchor": "2026-06-30"})
     return store
 
 
@@ -287,6 +287,25 @@ def test_run_observe_fails_closed_without_token(tmp_path: Path) -> None:
         store.close()
 
 
+def test_run_observe_rejects_anchor_mismatching_frozen_policy(
+    tmp_path: Path,
+) -> None:
+    store = _fresh_store(tmp_path)
+    try:
+        _seed_one_candidate(store, 555)
+        with pytest.raises(
+            RecapApiBatchDriverError, match="eligibility anchor mismatch"
+        ):
+            run_observe(
+                store,
+                batch_id="batch-002",
+                client=_token_client([]),
+                eligibility_anchor=date(2026, 7, 1),
+            )
+    finally:
+        store.close()
+
+
 def test_run_observe_accepts_and_is_resumable(tmp_path: Path) -> None:
     store = _fresh_store(tmp_path)
     try:
@@ -417,6 +436,55 @@ def test_run_observe_excludes_prescreened_bankruptcy(tmp_path: Path) -> None:
     assert tally.excluded_by_reason == {"bankruptcy_court": 1}
 
 
+def test_run_observe_prefers_api_discovery_payload_over_seed_payload(
+    tmp_path: Path,
+) -> None:
+    store = _fresh_store(tmp_path)
+    try:
+        _seed_one_candidate(store, 555)
+        seed_batch_001_leads(
+            store,
+            batch_id="batch-002",
+            leads=(
+                Batch001Lead(
+                    candidate_id="courtlistener-docket-555",
+                    docket_id="555",
+                    source_first_batch_id="batch-001",
+                    case_name="United States v. Roe",
+                    docket_number="1:26-cr-00001",
+                    court_id="nysd",
+                ),
+            ),
+        )
+        tally = run_observe(
+            store,
+            batch_id="batch-002",
+            client=_token_client(
+                [
+                    _docket_response(555),
+                    _entries_response(
+                        docket_id=555,
+                        results=[
+                            {
+                                "id": 7002,
+                                "docket": 555,
+                                "entry_number": 40,
+                                "description": "ORDER granting motion to dismiss",
+                                "date_filed": "2026-07-05",
+                            }
+                        ],
+                    ),
+                ]
+            ),
+            eligibility_anchor=date(2026, 6, 30),
+        )
+    finally:
+        store.close()
+
+    assert tally.eligible == 1
+    assert tally.excluded_by_reason == {}
+
+
 # ---------------------------------------------------------------------------
 # seed-batch-001-leads.
 # ---------------------------------------------------------------------------
@@ -483,6 +551,39 @@ def test_read_batch_001_failures_selects_unresolved_candidates(tmp_path: Path) -
     assert [lead.docket_id for lead in leads] == ["200", "300"]
     assert all(lead.source_first_batch_id == "batch-001" for lead in leads)
     assert leads[0].candidate_id == "courtlistener-docket-200"
+
+
+def test_read_batch_001_failures_uses_candidate_first_batch_payload(
+    tmp_path: Path,
+) -> None:
+    source = _build_batch_001_store(tmp_path)
+    with CycleAcquisitionStore(source) as store:
+        store.ensure_batch("batch-002", {"provider": "other", "batch": "002"})
+        store.ensure_terms("batch-002", ("other term",))
+        store.commit_search_page(
+            "batch-002",
+            "other term",
+            None,
+            [
+                {
+                    "provider_hit_id": "wrong-batch-hit",
+                    "candidate_id": "courtlistener-docket-200",
+                    "payload": {
+                        "docket_id": "999",
+                        "case_name": "Wrong Batch v. Payload",
+                    },
+                }
+            ],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+
+    leads = read_batch_001_enrichment_failure_leads(source, source_batch_id="batch-001")
+    lead = next(
+        lead for lead in leads if lead.candidate_id == "courtlistener-docket-200"
+    )
+    assert lead.docket_id == "200"
+    assert lead.case_name == "Failed v. Enrichment"
 
 
 def test_read_batch_001_failures_missing_store(tmp_path: Path) -> None:
@@ -552,6 +653,46 @@ def test_seed_batch_001_leads_is_idempotent_and_observable(tmp_path: Path) -> No
         assert tally.observed == 2
         assert tally.eligible == 1
         assert tally.excluded_by_reason == {"criminal_case": 1}
+    finally:
+        store.close()
+
+
+def test_empty_seed_does_not_prevent_corrected_rerun(tmp_path: Path) -> None:
+    store = _fresh_store(tmp_path, "batch-002.sqlite3")
+    try:
+        run_discover(
+            store,
+            batch_id="batch-002",
+            client=_anonymous_client(_empty_search_responses()),
+            decision_window_start=date(2026, 6, 30),
+            decision_window_end=date(2026, 7, 12),
+        )
+        empty = seed_batch_001_leads(store, batch_id="batch-002", leads=())
+        assert empty.leads_seeded == 0
+        assert empty.already_seeded is False
+        assert (
+            store.term_progress(
+                "batch-002", "batch-001-case-dev-reobservation"
+            ).terminal_status
+            is None
+        )
+
+        corrected = seed_batch_001_leads(
+            store,
+            batch_id="batch-002",
+            leads=(
+                Batch001Lead(
+                    candidate_id="courtlistener-docket-555",
+                    docket_id="555",
+                    source_first_batch_id="batch-001",
+                    case_name="Acme Corp v. Roe",
+                    docket_number="1:26-cv-00001",
+                    court_id="nysd",
+                ),
+            ),
+        )
+        assert corrected.leads_seeded == 1
+        assert corrected.already_seeded is False
     finally:
         store.close()
 

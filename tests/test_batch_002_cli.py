@@ -146,6 +146,27 @@ def test_cli_discover_rejects_inverted_window(tmp_path: Path) -> None:
     )
 
 
+def test_cli_discover_rejects_negative_min_interval(tmp_path: Path) -> None:
+    store = tmp_path / "cycle.sqlite3"
+    fixture = tmp_path / "fixture.jsonl"
+    _discover_fixture(fixture, first_term_results=[])
+    assert (
+        main(
+            [
+                "batch-002",
+                "discover",
+                "--cycle-store",
+                str(store),
+                "--min-interval-seconds",
+                "-0.1",
+                "--courtlistener-fixture",
+                str(fixture),
+            ]
+        )
+        == 2
+    )
+
+
 def test_cli_discover_requires_a_source(tmp_path: Path) -> None:
     store = tmp_path / "cycle.sqlite3"
     with pytest.raises(SystemExit):

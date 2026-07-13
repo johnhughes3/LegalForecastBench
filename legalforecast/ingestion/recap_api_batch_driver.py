@@ -270,6 +270,29 @@ def _config_window_end(store: CycleAcquisitionStore, batch_id: str) -> date | No
     return None
 
 
+def _validate_frozen_eligibility_anchor(
+    store: CycleAcquisitionStore, requested: date
+) -> None:
+    """Fail closed unless ``requested`` matches the frozen cycle policy."""
+
+    raw = store.cycle_policy.get("eligibility_anchor")
+    if not isinstance(raw, str) or not raw.strip():
+        raise RecapApiBatchDriverError(
+            "frozen cycle policy is missing eligibility_anchor"
+        )
+    try:
+        frozen = date.fromisoformat(raw)
+    except ValueError as exc:
+        raise RecapApiBatchDriverError(
+            f"frozen cycle policy has invalid eligibility_anchor: {raw!r}"
+        ) from exc
+    if requested != frozen:
+        raise RecapApiBatchDriverError(
+            "eligibility anchor mismatch: "
+            f"requested {requested.isoformat()}, frozen {frozen.isoformat()}"
+        )
+
+
 def _refine_excluded_reason(observation: CandidateObservation) -> str:
     """Expose the underlying strict-screen reason for operator visibility.
 
@@ -310,13 +333,17 @@ def run_observe(
     never become the current observation).
     """
 
-    require_reconstruction_auth(client)
     store.batch_digest(batch_id)
+    _validate_frozen_eligibility_anchor(store, eligibility_anchor)
+    require_reconstruction_auth(client)
     decision_window_end = _config_window_end(store, batch_id)
 
     payloads = {
         hit.candidate_id: hit.payload
-        for hit in store.candidate_discovery_hits(batch_id)
+        for hit in store.candidate_discovery_hits(
+            batch_id,
+            deprioritized_terms=(BATCH_001_REOBSERVATION_TERM,),
+        )
     }
 
     considered = 0
@@ -443,6 +470,7 @@ def read_batch_001_enrichment_failure_leads(
             "c.first_batch_id AS first_batch_id, h.payload_json AS payload_json "
             "FROM candidates c "
             "JOIN discovery_hits h ON h.candidate_id = c.candidate_id "
+            "AND h.batch_id = c.first_batch_id "
             "WHERE c.current_observation_id IS NULL"
         )
         params: tuple[object, ...] = ()
@@ -504,9 +532,10 @@ def seed_batch_001_leads(
 
     The target batch must already be attached (run ``discover`` first); seeding
     only adds discovery hits, it does not freeze the batch config.  Leads are
-    committed as a single exhausted page under
+    Non-empty leads are committed as a single exhausted page under
     :data:`BATCH_001_REOBSERVATION_TERM`, so the operation is idempotent: a re-run
-    finds the term already terminal and seeds nothing new.
+    finds the term already terminal and seeds nothing new. An empty selection
+    leaves the term non-terminal so a corrected source selection can be retried.
     """
 
     store.batch_digest(batch_id)
@@ -518,6 +547,14 @@ def seed_batch_001_leads(
             leads_selected=len(leads),
             leads_seeded=0,
             already_seeded=True,
+        )
+
+    if not leads:
+        return SeedResult(
+            batch_id=batch_id,
+            leads_selected=0,
+            leads_seeded=0,
+            already_seeded=False,
         )
 
     hits = tuple(_lead_to_hit(lead) for lead in leads)

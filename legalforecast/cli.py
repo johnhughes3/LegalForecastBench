@@ -5049,8 +5049,10 @@ def _cmd_batch_002_discover(args: argparse.Namespace) -> int:
         raise CommandError(
             "--decision-window-end cannot precede --decision-window-start"
         )
-    client = _batch_002_client(args, require_token=False)
     override = cast(float | None, args.min_interval_seconds)
+    if override is not None and override < 0:
+        raise CommandError("--min-interval-seconds cannot be negative")
+    client = _batch_002_client(args, require_token=False)
     pacer = (
         RequestPacer(min_interval_seconds=override)
         if override is not None
