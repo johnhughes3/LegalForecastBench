@@ -40,8 +40,11 @@ from legalforecast.ingestion.provenance import (
 )
 from legalforecast.path_safety import safe_path_component
 
-_PURCHASED_PROVIDER = "case.dev+pacer"
-_PURCHASED_PROVIDER_PATH = "case-dev-pacer"
+_DEFAULT_PURCHASED_PROVIDER = "case.dev+pacer"
+_PROVIDER_PATHS = {
+    "case.dev+pacer": "case-dev-pacer",
+    "courtlistener.recap-fetch+pacer": "courtlistener-recap-fetch-pacer",
+}
 _ALLOWED_PURCHASED_DOCUMENT_HOSTS = frozenset(
     {"api.case.dev", "sandbox.case.dev", "case.dev"}
 )
@@ -562,7 +565,7 @@ def _recovered_record(
     )
     local_path = output_path.relative_to(output_root).as_posix()
     provenance = SourceDocumentProvenance(
-        source_provider=_PURCHASED_PROVIDER,
+        source_provider=attempt.source_provider,
         source_case_id=request.source_case_id,
         source_document_id=attempt.source_document_id,
         court=request.court,
@@ -579,7 +582,7 @@ def _recovered_record(
         contains_target_outcome=request.contains_target_outcome,
         packet_section="filings" if is_mounted else None,
         notes=(
-            "Purchased through case.dev PACER recovery for "
+            f"Purchased through {attempt.source_provider} recovery for "
             f"{purchase_cost or 'unknown'}"
         ),
     )
@@ -811,6 +814,7 @@ def _request_sha256(request: PurchasedDocumentRecoveryRequest) -> str:
             None if attempt.pacer_fees is None else dict(attempt.pacer_fees)
         ),
         "download_url": attempt.download_url,
+        "source_provider": attempt.source_provider,
         "source_case_id": request.source_case_id,
         "court": request.court,
         "docket_number": request.docket_number,
@@ -977,7 +981,13 @@ def _document_relative_path(request: PurchasedDocumentRecoveryRequest) -> Path:
         else f"entry-{request.docket_entry_number}"
     )
     filename = f"{entry_prefix}_{document_id}.{extension}"
-    return Path(candidate_id) / _PURCHASED_PROVIDER_PATH / filename
+    try:
+        provider_path = _PROVIDER_PATHS[attempt.source_provider]
+    except KeyError as exc:
+        raise PurchasedDocumentRecoveryError(
+            f"unsupported purchased-document provider: {attempt.source_provider}"
+        ) from exc
+    return Path(candidate_id) / provider_path / filename
 
 
 def _validate_purchased_document_url(source_url: str) -> None:
@@ -1216,6 +1226,9 @@ def _purchase_attempt(record: Mapping[str, Any]) -> CaseDevPacerPurchaseAttempt:
         fee_acknowledged=_optional_bool(record, "fee_acknowledged", default=None),
         pacer_fees=fees,
         download_url=_optional_str(record, "download_url"),
+        source_provider=(
+            _optional_str(record, "source_provider") or _DEFAULT_PURCHASED_PROVIDER
+        ),
     )
 
 

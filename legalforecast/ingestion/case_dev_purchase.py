@@ -313,7 +313,12 @@ class CaseDevPurchaseJournal:
                 "counted write-off is required before any reissue"
             )
 
-    def submit(self, document_id: str) -> bool:
+    def submit(
+        self,
+        document_id: str,
+        *,
+        context: Mapping[str, Any] | None = None,
+    ) -> bool:
         """Reserve cap and durably commit submitted immediately before one POST."""
 
         self._connection.execute("BEGIN IMMEDIATE")
@@ -345,9 +350,13 @@ class CaseDevPurchaseJournal:
             operation_key = str(uuid.uuid4())
             cursor = self._connection.execute(
                 """UPDATE purchase_operations
-                SET status='submitted', operation_key=?
+                SET status='submitted', operation_key=?, response_json=?
                 WHERE source_document_id=? AND status='planned'""",
-                (operation_key, document_id),
+                (
+                    operation_key,
+                    None if context is None else _canonical(context),
+                    document_id,
+                ),
             )
             if cursor.rowcount != 1:
                 raise CaseDevPurchaseLedgerError("purchase submit transition failed")
@@ -394,11 +403,77 @@ class CaseDevPurchaseJournal:
             if cursor.rowcount != 1:
                 raise CaseDevPurchaseLedgerError("cannot confirm unsubmitted purchase")
 
+    def queue(self, document_id: str, *, response: Mapping[str, Any]) -> None:
+        """Durably record the provider queue identity after the one paid POST."""
+
+        with self._connection:
+            cursor = self._connection.execute(
+                """UPDATE purchase_operations SET status='queued', response_json=?,
+                error=NULL WHERE source_document_id=? AND status='submitted'""",
+                (_canonical(response), document_id),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError("cannot queue unsubmitted purchase")
+
+    def confirm_reserved(
+        self,
+        document_id: str,
+        *,
+        response: Mapping[str, Any],
+    ) -> None:
+        """Confirm delivery while retaining the worst-case reservation as spend."""
+
+        with self._connection:
+            cursor = self._connection.execute(
+                """UPDATE purchase_operations SET status='confirmed',
+                actual_usd=NULL, response_json=?, error=NULL
+                WHERE source_document_id=? AND status='queued'""",
+                (_canonical(response), document_id),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError("cannot confirm unqueued purchase")
+
+    def queued_response(self, document_id: str) -> Mapping[str, Any] | None:
+        """Return durable asynchronous provider state without mutating the ledger."""
+
+        row = self._operation(document_id)
+        if row is None or str(row["status"]) != "queued":
+            return None
+        response_json = row["response_json"]
+        if response_json is None:
+            raise CaseDevPurchaseLedgerError("queued purchase lacks provider evidence")
+        return cast(Mapping[str, Any], json.loads(str(response_json)))
+
+    def operation_evidence(self, document_id: str) -> Mapping[str, Any] | None:
+        """Return the durable row needed by provider-specific resume logic."""
+
+        row = self._operation(document_id)
+        if row is None:
+            return None
+        response = (
+            None
+            if row["response_json"] is None
+            else cast(Mapping[str, Any], json.loads(str(row["response_json"])))
+        )
+        return {
+            "candidate_id": str(row["candidate_id"]),
+            "status": str(row["status"]),
+            "operation_key": (
+                None if row["operation_key"] is None else str(row["operation_key"])
+            ),
+            "reservation_usd": str(row["reservation_usd"]),
+            "actual_usd": (
+                None if row["actual_usd"] is None else str(row["actual_usd"])
+            ),
+            "response": response,
+            "error": None if row["error"] is None else str(row["error"]),
+        }
+
     def fail(self, document_id: str, error: BaseException) -> None:
         with self._connection:
             self._connection.execute(
                 """UPDATE purchase_operations SET status='failed', error=?
-                WHERE source_document_id=? AND status='submitted'""",
+                WHERE source_document_id=? AND status IN ('submitted','queued')""",
                 (f"{type(error).__name__}: {error}", document_id),
             )
 
@@ -406,7 +481,7 @@ class CaseDevPurchaseJournal:
         with self._connection:
             self._connection.execute(
                 """UPDATE purchase_operations SET status='unknown', error=?
-                WHERE source_document_id=? AND status='submitted'""",
+                WHERE source_document_id=? AND status IN ('submitted','queued')""",
                 (str(error), document_id),
             )
 
@@ -440,9 +515,16 @@ class CaseDevPurchaseJournal:
             )
         _required_text(evidence.get("source_reference"), "source_reference")
         row = self._operation(document_id)
-        if row is None or str(row["status"]) not in {"submitted", "unknown"}:
+        reconcilable_statuses = {
+            "submitted",
+            "queued",
+            "confirmed",
+            "failed",
+            "unknown",
+        }
+        if row is None or str(row["status"]) not in reconcilable_statuses:
             raise CaseDevPurchaseLedgerError(
-                "reconciliation requires a submitted or unknown operation"
+                "reconciliation requires a paid or reserved operation"
             )
         reconciliation = _canonical(evidence)
         if disposition == "confirmed":
@@ -454,19 +536,32 @@ class CaseDevPurchaseJournal:
                     "reconciled fee exceeds verified worst-case reservation"
                 )
             with self._connection:
+                prior_response: Mapping[str, Any] = (
+                    cast(Mapping[str, Any], {})
+                    if row["response_json"] is None
+                    else cast(Mapping[str, Any], json.loads(str(row["response_json"])))
+                )
+                if prior_response.get("source_provider") == (
+                    "courtlistener.recap-fetch+pacer"
+                ):
+                    response = {
+                        **prior_response,
+                        "actual_fees": dict(fees),
+                        "download_url": download_url,
+                    }
+                else:
+                    response = {
+                        "acknowledgePacerFees": True,
+                        "pacerFees": evidence["pacer_fees"],
+                        "downloadUrl": download_url,
+                    }
                 self._connection.execute(
                     """UPDATE purchase_operations SET status='confirmed',
                     actual_usd=?, response_json=?, reconciliation_json=?, error=NULL
-                    WHERE source_document_id=? AND status IN ('submitted','unknown')""",
+                    WHERE source_document_id=?""",
                     (
                         _money(actual),
-                        _canonical(
-                            {
-                                "acknowledgePacerFees": True,
-                                "pacerFees": evidence["pacer_fees"],
-                                "downloadUrl": download_url,
-                            }
-                        ),
+                        _canonical(response),
                         reconciliation,
                         document_id,
                     ),
@@ -484,7 +579,8 @@ class CaseDevPurchaseJournal:
                 self._connection.execute(
                     """UPDATE purchase_operations SET status='failed',
                     reconciliation_json=?
-                    WHERE source_document_id=? AND status IN ('submitted','unknown')""",
+                    WHERE source_document_id=? AND status IN
+                    ('submitted','queued','failed','unknown')""",
                     (reconciliation, document_id),
                 )
             return
@@ -493,7 +589,8 @@ class CaseDevPurchaseJournal:
                 self._connection.execute(
                     """UPDATE purchase_operations SET status='unknown',
                     reconciliation_json=?
-                    WHERE source_document_id=? AND status IN ('submitted','unknown')""",
+                    WHERE source_document_id=? AND status IN
+                    ('submitted','queued','confirmed','failed','unknown')""",
                     (reconciliation, document_id),
                 )
             return
@@ -557,15 +654,24 @@ class CaseDevPurchaseJournal:
     @property
     def committed_amount_usd(self) -> str:
         rows = self._connection.execute(
-            """SELECT status, reservation_usd, actual_usd
+            """SELECT status, reservation_usd, actual_usd, response_json,
+            reconciliation_json
             FROM purchase_operations"""
         ).fetchall()
         amount = Decimal("0")
         for row in rows:
             status = str(row["status"])
             if status == "confirmed":
-                amount += Decimal(str(row["actual_usd"]))
-            elif status in {"submitted", "unknown"}:
+                amount += (
+                    Decimal(str(row["actual_usd"]))
+                    if row["actual_usd"] is not None
+                    else Decimal(str(row["reservation_usd"]))
+                )
+            elif status in {"submitted", "queued", "unknown"} or (
+                status == "failed"
+                and row["response_json"] is not None
+                and row["reconciliation_json"] is None
+            ):
                 reservation = Decimal(str(row["reservation_usd"]))
                 actual = (
                     Decimal(str(row["actual_usd"]))
@@ -583,7 +689,8 @@ class CaseDevPurchaseJournal:
 
     def _candidate_cap_amount(self, candidate_id: str) -> Decimal:
         rows = self._connection.execute(
-            """SELECT status, reservation_usd, actual_usd
+            """SELECT status, reservation_usd, actual_usd, response_json,
+            reconciliation_json
             FROM purchase_operations WHERE candidate_id=?""",
             (candidate_id,),
         ).fetchall()
@@ -592,8 +699,16 @@ class CaseDevPurchaseJournal:
             status = str(row["status"])
             reservation = Decimal(str(row["reservation_usd"]))
             if status == "confirmed":
-                amount += Decimal(str(row["actual_usd"]))
-            elif status in {"planned", "submitted", "unknown"}:
+                amount += (
+                    Decimal(str(row["actual_usd"]))
+                    if row["actual_usd"] is not None
+                    else reservation
+                )
+            elif status in {"planned", "submitted", "queued", "unknown"} or (
+                status == "failed"
+                and row["response_json"] is not None
+                and row["reconciliation_json"] is None
+            ):
                 actual = (
                     Decimal(str(row["actual_usd"]))
                     if row["actual_usd"] is not None
@@ -621,13 +736,44 @@ class CaseDevPurchaseJournal:
                 candidate_id TEXT NOT NULL,
                 reservation_usd TEXT NOT NULL,
                 status TEXT NOT NULL CHECK(status IN
-                    ('planned','submitted','confirmed','failed','unknown')),
+                    ('planned','submitted','queued','confirmed','failed','unknown')),
                 operation_key TEXT UNIQUE,
                 actual_usd TEXT,
                 response_json TEXT,
                 error TEXT,
                 reconciliation_json TEXT
             );
+            """
+        )
+        schema_row = self._connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' "
+            "AND name='purchase_operations'"
+        ).fetchone()
+        if schema_row is not None and "'queued'" not in str(schema_row["sql"]):
+            self._migrate_purchase_operations_for_queued_state()
+
+    def _migrate_purchase_operations_for_queued_state(self) -> None:
+        """Add the asynchronous state without losing an existing cycle ledger."""
+
+        self._connection.executescript(
+            """
+            BEGIN IMMEDIATE;
+            ALTER TABLE purchase_operations RENAME TO purchase_operations_legacy;
+            CREATE TABLE purchase_operations (
+                source_document_id TEXT PRIMARY KEY,
+                candidate_id TEXT NOT NULL,
+                reservation_usd TEXT NOT NULL,
+                status TEXT NOT NULL CHECK(status IN
+                    ('planned','submitted','queued','confirmed','failed','unknown')),
+                operation_key TEXT UNIQUE,
+                actual_usd TEXT,
+                response_json TEXT,
+                error TEXT,
+                reconciliation_json TEXT
+            );
+            INSERT INTO purchase_operations SELECT * FROM purchase_operations_legacy;
+            DROP TABLE purchase_operations_legacy;
+            COMMIT;
             """
         )
 
@@ -705,6 +851,7 @@ class CaseDevPacerPurchaseAttempt:
     fee_acknowledged: bool | None = None
     pacer_fees: Mapping[str, str] | None = None
     download_url: str | None = None
+    source_provider: str = "case.dev+pacer"
 
     def to_record(self) -> dict[str, Any]:
         return {
@@ -715,6 +862,7 @@ class CaseDevPacerPurchaseAttempt:
             "fee_acknowledged": self.fee_acknowledged,
             "pacer_fees": dict(self.pacer_fees) if self.pacer_fees else None,
             "download_url": self.download_url,
+            "source_provider": self.source_provider,
         }
 
 
