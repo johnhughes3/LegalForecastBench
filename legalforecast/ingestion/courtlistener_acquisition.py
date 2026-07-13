@@ -29,6 +29,7 @@ from legalforecast.ingestion.mtd_acquisition_screen import (
     OPTIMIZED_MTD_DECISION_SEARCH_TERMS,
     SECONDARY_MTD_DECISION_SEARCH_TERMS,
     CaseDevMetadataScreen,
+    is_rule_7012_claim_merits_motion,
     screen_case_dev_docket_metadata,
     screen_courtlistener_docket_for_mtd_decision,
 )
@@ -429,6 +430,7 @@ def screen_courtlistener_docket_html(
         actual_decision_row_ids={entry.row_id for entry in anchored.decision_entries},
         docket_id=docket_id,
         source_url=source_url,
+        case_type_stratum=anchored.case_type_stratum,
     )
     linkage = link_mtd_dispositions(
         normalized_entries,
@@ -510,6 +512,7 @@ def screen_courtlistener_docket_html(
                 "case_name": docket.case_name,
                 "court": docket.court_id,
                 "docket_number": docket.docket_number,
+                "case_type_stratum": anchored.case_type_stratum,
                 **_docket_case_mix_metadata(docket),
             },
             "url": source_url,
@@ -646,6 +649,7 @@ def _docket_case_mix_metadata(docket: CourtListenerDocket) -> dict[str, str]:
             "mdl_id",
             "mdlId",
         ),
+        "case_type_stratum": ("case_type_stratum", "caseTypeStratum"),
     }
     metadata: dict[str, str] = {}
     for output_key, source_keys in aliases.items():
@@ -674,6 +678,7 @@ def _linkage_entries(
     actual_decision_row_ids: set[str],
     docket_id: str,
     source_url: str,
+    case_type_stratum: str = "district_civil",
 ) -> tuple[NormalizedDocketEntry, ...]:
     entry_by_row_id = {entry.row_id: entry for entry in entries}
     explicitly_referenced_numbers: set[int] = set()
@@ -686,16 +691,22 @@ def _linkage_entries(
 
     normalized: list[NormalizedDocketEntry] = []
     for entry in entries:
+        adversary_motion_qualifies = (
+            case_type_stratum != "bankruptcy_adversary"
+            or is_rule_7012_claim_merits_motion(entry.text)
+        )
         if entry.row_id in actual_decision_row_ids:
             role = DocumentRole.DECISION
         elif (
             entry.role is CourtListenerEntryRole.MTD_NOTICE
             and _looks_like_target_mtd_filing(entry.text)
+            and adversary_motion_qualifies
         ):
             role = DocumentRole.MTD_NOTICE
         elif (
             entry.role is CourtListenerEntryRole.MTD_MEMORANDUM
             and _looks_like_target_mtd_filing(entry.text)
+            and adversary_motion_qualifies
         ):
             role = DocumentRole.MTD_MEMORANDUM
         elif (
@@ -706,6 +717,7 @@ def _linkage_entries(
                 _looks_like_target_mtd_filing(entry.text)
                 or _looks_like_generic_mtd_document(entry.text)
             )
+            and adversary_motion_qualifies
         ):
             role = DocumentRole.MTD_NOTICE
         else:

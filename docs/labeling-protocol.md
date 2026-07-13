@@ -6,6 +6,8 @@ LegalForecast-MTD labels each frozen prediction unit from the first written disp
 
 A prediction unit is a challenged claim against a defendant or group of similarly situated defendants. Stage A freezes the prediction units from the pre-decision record. Stage B labels only those frozen units from the written disposition and may not create new scored units from the decision text.
 
+Bankruptcy adversary proceedings are eligible only when the docket is explicitly identified as an adversary proceeding, was begun by a complaint or counterclaim, and a linked motion expressly invokes Bankruptcy Rule 7012 or Civil Rule 12(b)–(i) or 12(c) to challenge identified claims, counts, or pleadings. Ordinary motions to dismiss or convert a main bankruptcy case remain outside the benchmark because they do not produce claim-by-defendant prediction units. Generic docket text such as “dismiss adversary proceeding” is insufficient without the rule basis and claim-merits scope. Eligible adversary matters are reported separately as the `bankruptcy_adversary` case-type stratum; related-family identifiers are preserved only when supplied explicitly and are never inferred from captions or docket-number proximity.
+
 Every scored label must cite a verbatim excerpt from the disposition. Excerpts are validation material: if the cited text is not present in the first written disposition text, the label is invalid.
 
 ## Cycle 1 Model Panel

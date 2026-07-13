@@ -742,6 +742,7 @@ def _case_mix(
         "nos_macro_category": Counter(),
         "related_family_id": Counter(),
         "mdl_family_id": Counter(),
+        "case_type_stratum": Counter(),
     }
     for candidate_id in clean_candidate_ids:
         selection = selections[candidate_id]
@@ -771,6 +772,11 @@ def _case_mix(
                 packet.get("mdl_family_id"),
                 packet_metadata.get("mdl_family_id"),
                 selection.get("mdl_family_id"),
+            ),
+            "case_type_stratum": _case_mix_value(
+                packet_metadata.get("case_type_stratum"),
+                packet.get("case_type_stratum"),
+                selection.get("case_type_stratum"),
             ),
         }
         for dimension, value in values.items():
