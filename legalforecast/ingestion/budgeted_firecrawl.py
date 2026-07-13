@@ -48,7 +48,7 @@ class FirecrawlArtifactValidationError(FirecrawlError):
     """Raised when target-specific response semantics cannot be validated."""
 
     default_failure_code = "invalid_target_artifact"
-    transient = True
+    transient = False
 
     def __init__(
         self,
@@ -308,11 +308,15 @@ class BudgetedFirecrawlScheduler:
                     except FirecrawlArtifactValidationError as error:
                         self.store.finalize_firecrawl_attempt(
                             attempt.attempt_id,
-                            status="transport_error",
+                            status="target_error",
                             reported_credits=error.reported_credits,
                             proxy_used=error.proxy_used,
                             target_http_status=error.target_http_status,
                             **_failure_evidence(error),
+                        )
+                        terminal_failures.add(target.target_id)
+                        self.store.set_firecrawl_target_status(
+                            self.run_id, target.target_id, "terminal_error"
                         )
                         if fatal_error is None:
                             consecutive_5xx = 0

@@ -5,7 +5,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-from legalforecast.cli import main
+from legalforecast.cli import _firecrawl_metered_activity_executed, main
 from legalforecast.ingestion.firecrawl_recap_decision_discovery import (
     DECISION_FIRST_RECAP_MAX_AUTHORIZED_CREDITS,
     DECISION_FIRST_RECAP_SEARCH_TERMS,
@@ -57,6 +57,17 @@ def _fixture(path: Path, *, include_hit: bool = False) -> Path:
         )
     path.write_text("".join(f"{json.dumps(record)}\n" for record in records))
     return path
+
+
+def test_metered_activity_uses_current_run_not_prior_cycle_reservations() -> None:
+    assert not _firecrawl_metered_activity_executed(
+        live=True,
+        summary={"reserved_credits": 7_320, "run_reserved_credits": 0},
+    )
+    assert _firecrawl_metered_activity_executed(
+        live=True,
+        summary={"reserved_credits": 7_325, "run_reserved_credits": 5},
+    )
 
 
 def _args(tmp_path: Path, fixture: Path) -> list[str]:

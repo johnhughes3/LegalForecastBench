@@ -1684,8 +1684,8 @@ def _add_batch_002_source_arguments(parser: argparse.ArgumentParser) -> None:
         "--live",
         action="store_true",
         help=(
-            "Query CourtListener over HTTPS. Discovery search answers "
-            f"anonymously; reconstruction requires {COURTLISTENER_API_TOKEN_ENV}."
+            "Disabled: CourtListener does not expose this REST-only type=rd plan "
+            "through the supported web route. Use the Firecrawl decision preset."
         ),
     )
     source.add_argument(
@@ -5909,12 +5909,9 @@ def _batch_002_client(
     max_retries = cast(int, getattr(args, "max_retries", 2))
     retry_backoff = cast(float, getattr(args, "retry_backoff_seconds", 0.0))
     if live:
-        if require_token and config.api_token is None:
-            raise CommandError(f"{COURTLISTENER_API_TOKEN_ENV} is required with --live")
-        return CourtListenerClient(
-            config=config,
-            max_retries=max_retries,
-            retry_backoff_seconds=retry_backoff,
+        raise CommandError(
+            "batch-002 live CourtListener REST type=rd is disabled; use "
+            "acquisition discover-firecrawl-recap-decisions"
         )
     assert fixture is not None
     return CourtListenerClient(
@@ -9975,7 +9972,7 @@ def _firecrawl_metered_activity_executed(
     live: bool,
     summary: Mapping[str, object],
 ) -> bool:
-    reserved = summary.get("reserved_credits")
+    reserved = summary.get("run_reserved_credits")
     return live and type(reserved) is int and reserved > 0
 
 

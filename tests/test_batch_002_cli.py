@@ -173,6 +173,25 @@ def test_cli_discover_requires_a_source(tmp_path: Path) -> None:
         main(["batch-002", "discover", "--cycle-store", str(store)])
 
 
+@pytest.mark.parametrize("phase", ["discover", "observe"])
+def test_cli_live_type_rd_is_disabled_before_network(
+    tmp_path: Path, phase: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert (
+        main(
+            [
+                "batch-002",
+                phase,
+                "--cycle-store",
+                str(tmp_path / "cycle.sqlite3"),
+                "--live",
+            ]
+        )
+        == 2
+    )
+    assert "live CourtListener REST type=rd is disabled" in capsys.readouterr().err
+
+
 # ---------------------------------------------------------------------------
 # observe.
 # ---------------------------------------------------------------------------
