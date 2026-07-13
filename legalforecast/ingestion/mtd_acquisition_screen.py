@@ -532,7 +532,11 @@ def screen_courtlistener_docket_for_mtd_decision(
     )
     bankruptcy_context = _looks_like_bankruptcy_context(combined_text)
     adversary_exclusions = (
-        _bankruptcy_adversary_exclusion_reasons(page, combined_text=combined_text)
+        _bankruptcy_adversary_exclusion_reasons(
+            page,
+            combined_text=combined_text,
+            candidate_text=candidate_text,
+        )
         if bankruptcy_context
         else ()
     )
@@ -654,7 +658,17 @@ def _looks_like_bankruptcy_adversary_metadata(
 def _looks_like_adversarial_caption(text: str) -> bool:
     """Return whether text contains an explicit party-versus-party caption."""
 
-    return bool(re.search(r"\S\s+v\.?\s+\S", text, re.IGNORECASE))
+    stripped = text.strip()
+    if re.match(
+        r"^(?:in\s+re|in\s+the\s+matter\s+of|matter\s+of|estate\s+of)\b",
+        stripped,
+        re.IGNORECASE,
+    ):
+        return False
+    # Case.dev and CourtListener render the legal separator as lowercase ``v``.
+    # Keeping this case-sensitive avoids treating a party's ``V.`` middle initial
+    # as a versus delimiter.
+    return bool(re.search(r"\S\s+v\.?\s+\S", stripped))
 
 
 def _looks_like_federal_district_court(court_text: str) -> bool:
@@ -1070,8 +1084,13 @@ def _looks_like_bankruptcy_context(text: str) -> bool:
     return bool(
         "bankruptcy" in lowered
         or "adversary proceeding" in lowered
+        or "adversary complaint" in lowered
         or court_ids.intersection(_BANKRUPTCY_COURT_IDS)
         or re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", lowered)
+        or re.search(
+            r"\b(?:fed(?:eral)?\.?\s+r\.?\s+bankr\.?\s+p\.?\s+)?7012\b",
+            lowered,
+        )
     )
 
 
@@ -1079,6 +1098,7 @@ def _bankruptcy_adversary_exclusion_reasons(
     page: CourtListenerWebDocketPage,
     *,
     combined_text: str,
+    candidate_text: str | None,
 ) -> tuple[str, ...]:
     """Fail closed unless docket rows prove the ordinary Rule 12 task."""
 
@@ -1088,6 +1108,7 @@ def _bankruptcy_adversary_exclusion_reasons(
     adversary_identity = bool(
         re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", combined_text, re.I)
         or _looks_like_adversarial_caption(page.title or "")
+        or _looks_like_adversarial_caption(candidate_text or "")
     )
     if not adversary_identity:
         return ("bankruptcy_posture",)
