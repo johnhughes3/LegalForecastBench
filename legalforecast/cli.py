@@ -1239,16 +1239,22 @@ def _add_acquisition_discover_firecrawl_recap_arguments(
         help="Stable Firecrawl run identity used for crash-safe resume.",
     )
     parser.add_argument(
-        "--decision-filed-on-or-after",
+        "--eligibility-anchor",
         required=True,
         metavar="YYYY-MM-DD",
-        help="Inclusive docket-entry disposition discovery anchor.",
+        help="Immutable fail-closed first-written-disposition eligibility anchor.",
     )
     parser.add_argument(
-        "--decision-filed-on-or-before",
+        "--search-window-start",
         required=True,
         metavar="YYYY-MM-DD",
-        help="Inclusive docket-entry discovery upper bound.",
+        help="Inclusive per-batch RECAP search-window lower bound.",
+    )
+    parser.add_argument(
+        "--search-window-end",
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="Inclusive per-batch RECAP search-window upper bound.",
     )
     parser.add_argument(
         "--query-term",
@@ -3553,6 +3559,8 @@ def _cmd_acquisition_project_firecrawl_recap_checkpoint(
                 )
             cycle_hash = store.cycle_hash
             batch_digest = store.batch_digest(batch_id)
+            cycle_policy = store.cycle_policy
+            frozen_batch_config = store.batch_config(batch_id)
     except (
         CycleAcquisitionStoreError,
         FirecrawlArtifactError,
@@ -3593,6 +3601,9 @@ def _cmd_acquisition_project_firecrawl_recap_checkpoint(
         "dry_run": False,
         "cycle_hash": cycle_hash,
         "batch_digest": batch_digest,
+        "eligibility_anchor": cycle_policy.get("eligibility_anchor"),
+        "search_window_start": frozen_batch_config.get("search_window_start"),
+        "search_window_end": frozen_batch_config.get("search_window_end"),
         "store_projection_committed": True,
         "potential_candidate_count": len(docket_records),
         "clean_corpus_count": 0,
@@ -3757,17 +3768,21 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         output_root / "raw-recap-search-html",
     )
     anchor = _iso_date_argument(
-        cast(str, args.decision_filed_on_or_after),
-        "--decision-filed-on-or-after",
+        cast(str, args.eligibility_anchor),
+        "--eligibility-anchor",
+    )
+    window_start = _iso_date_argument(
+        cast(str, args.search_window_start),
+        "--search-window-start",
     )
     window_end = _iso_date_argument(
-        cast(str, args.decision_filed_on_or_before),
-        "--decision-filed-on-or-before",
+        cast(str, args.search_window_end),
+        "--search-window-end",
     )
-    if window_end < anchor:
-        raise CommandError(
-            "--decision-filed-on-or-before cannot precede the eligibility anchor"
-        )
+    if window_start < anchor:
+        raise CommandError("--search-window-start cannot precede --eligibility-anchor")
+    if window_end < window_start:
+        raise CommandError("--search-window-end cannot precede --search-window-start")
     terms = tuple(cast(Sequence[str] | None, args.query_terms) or ())
     if not terms:
         terms = FROZEN_MTD_SEARCH_TERMS
@@ -3803,8 +3818,9 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
     policy = _cycle_acquisition_policy(anchor=anchor)
     batch_config: JsonRecord = {
         "provider": "courtlistener-recap-web-via-firecrawl",
-        "decision_window_start": anchor.isoformat(),
-        "decision_window_end": window_end.isoformat(),
+        "eligibility_anchor": anchor.isoformat(),
+        "search_window_start": window_start.isoformat(),
+        "search_window_end": window_end.isoformat(),
         "query_terms": list(terms),
         "query_term_order_is_frozen": True,
         "max_pages_per_term": max_pages_per_term,
@@ -3887,7 +3903,7 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
             transport = _BudgetedRecapSearchTransport(scheduler)
             discovery = discover_recap_mtd_entries(
                 transport=transport,
-                entry_date_filed_after=anchor,
+                entry_date_filed_after=window_start,
                 entry_date_filed_before=window_end,
                 terms=terms,
                 max_pages_per_term=max_pages_per_term,
