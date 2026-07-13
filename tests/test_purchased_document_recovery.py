@@ -30,7 +30,12 @@ from legalforecast.ingestion.purchased_document_recovery import (
 )
 
 
-def test_live_recovery_source_fetches_only_allowlisted_case_dev_document(
+@pytest.mark.parametrize(
+    "content_type",
+    ("application/pdf", "application/octet-stream"),
+)
+def test_live_recovery_source_accepts_provider_validated_pdf_responses(
+    content_type: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
@@ -39,10 +44,10 @@ def test_live_recovery_source_fetches_only_allowlisted_case_dev_document(
         headers = Message()
 
         def __init__(self) -> None:
-            self._content = b"%PDF purchased motion"
+            self._content = b"provider-validated purchased motion"
 
         def __enter__(self) -> _Response:
-            self.headers["Content-Type"] = "application/pdf"
+            self.headers["Content-Type"] = content_type
             return self
 
         def __exit__(self, *_args: object) -> None:
@@ -80,7 +85,7 @@ def test_live_recovery_source_fetches_only_allowlisted_case_dev_document(
         timeout_seconds=12.5,
     ).fetch("https://api.case.dev/download/doc-1.pdf")
 
-    assert fetch.content == b"%PDF purchased motion"
+    assert fetch.content == b"provider-validated purchased motion"
     assert captured == {
         "url": "https://api.case.dev/download/doc-1.pdf",
         "authorization": "Bearer case-dev-token",
@@ -473,6 +478,46 @@ def test_recovery_resume_rejects_checkpoint_for_changed_request(
             source=FixtureFreeDocumentSource({}),
             retrieved_at=datetime(2026, 5, 18, tzinfo=UTC),
         )
+
+
+@pytest.mark.parametrize("invalid_content", (b"", b"<html>login required</html>"))
+def test_invalid_recovery_payload_does_not_abort_later_items(
+    tmp_path: Path,
+    invalid_content: bytes,
+) -> None:
+    invalid_url = "https://case.dev/download/invalid.pdf"
+    valid_url = "https://case.dev/download/valid.pdf"
+    records = recover_purchased_documents(
+        (
+            _request(
+                _attempt("invalid", download_url=invalid_url),
+                role=DocumentRole.COMPLAINT,
+                docket_entry_number=1,
+            ),
+            _request(
+                _attempt("valid", download_url=valid_url),
+                role=DocumentRole.MTD_MEMORANDUM,
+                docket_entry_number=2,
+            ),
+        ),
+        output_root=tmp_path,
+        source=FixtureFreeDocumentSource(
+            {
+                invalid_url: invalid_content,
+                valid_url: b"%PDF valid purchased motion",
+            }
+        ),
+        retrieved_at=datetime(2026, 5, 17, tzinfo=UTC),
+    )
+
+    assert [record.status for record in records] == [
+        PurchasedDocumentRecoveryStatus.UNAVAILABLE_AFTER_PURCHASE,
+        PurchasedDocumentRecoveryStatus.RECOVERED,
+    ]
+    assert not (tmp_path / "cand-1/case-dev-pacer/entry-1_invalid.pdf").exists()
+    assert (
+        tmp_path / "cand-1/case-dev-pacer/entry-2_valid.pdf"
+    ).read_bytes() == b"%PDF valid purchased motion"
 
 
 def test_recovery_handles_partial_purchases_without_fetching_failed_attempts(

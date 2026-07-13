@@ -509,6 +509,7 @@ def _recover_one(
 
     try:
         fetch = source.fetch(attempt.download_url)
+        _validate_recovery_content(request, fetch.content)
     except RuntimeError as exc:
         return _not_recovered_record(
             request,
@@ -520,7 +521,6 @@ def _recover_one(
             },
         )
 
-    _validate_recovery_content(request, fetch.content)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     digest, byte_count = _atomic_write(output_path, fetch.content)
     return _recovered_record(
@@ -684,6 +684,11 @@ def _canonical_matches_record(
         or not output_path.is_file()
     ):
         return False
+    try:
+        if output_path.stat().st_size != checkpoint.byte_count:
+            return False
+    except OSError:
+        return False
     digest, byte_count = _hash_path(output_path)
     return digest == checkpoint.sha256 and byte_count == checkpoint.byte_count
 
@@ -731,12 +736,6 @@ def _validate_recovery_content(
         raise PurchasedDocumentDownloadError(
             "purchased case.dev document returned HTML instead of a document: "
             f"{source_url}"
-        )
-    if request.file_extension.removeprefix(".").lower() == "pdf" and not (
-        content.lstrip().startswith(b"%PDF")
-    ):
-        raise PurchasedDocumentDownloadError(
-            f"purchased case.dev PDF is missing PDF magic: {source_url}"
         )
 
 
