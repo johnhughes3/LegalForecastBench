@@ -113,6 +113,36 @@ def test_docket_entry_accepts_bare_integer_foreign_key() -> None:
     assert entry.docket_id == "4328339"
 
 
+def test_docket_entry_uses_recap_document_description_when_entry_is_blank() -> None:
+    entry = CourtListenerDocketEntry.from_record(
+        {
+            "id": 7001,
+            "docket": 4328339,
+            "description": "  ",
+            "recap_documents": [
+                {
+                    "id": 9001,
+                    "description": "ORDER granting motion to dismiss Count I",
+                }
+            ],
+        }
+    )
+
+    assert entry.entry_text == "ORDER granting motion to dismiss Count I"
+
+
+def test_docket_entry_rejects_blank_entry_and_document_descriptions() -> None:
+    with pytest.raises(CourtListenerResponseError, match="RECAP documents"):
+        CourtListenerDocketEntry.from_record(
+            {
+                "id": 7001,
+                "docket": 4328339,
+                "description": "",
+                "recap_documents": [{"id": 9001, "description": ""}],
+            }
+        )
+
+
 def test_docket_entry_rejects_unrecognized_foreign_key_shape() -> None:
     with pytest.raises(CourtListenerResponseError, match="docket reference shape"):
         CourtListenerDocketEntry.from_record(

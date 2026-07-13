@@ -163,13 +163,7 @@ class CourtListenerDocketEntry:
                 "entryNumber",
                 "recap_sequence_number",
             ),
-            entry_text=_required_string(
-                record,
-                "description",
-                "entry_text",
-                "docket_text",
-                "text",
-            ),
+            entry_text=_docket_entry_text(record),
             filed_at=_optional_string(
                 record, "date_filed", "dateFiled", "date_entered"
             ),
@@ -633,6 +627,47 @@ def _required_string(record: Mapping[str, Any], *field_names: str) -> str:
             f"missing required CourtListener field: {joined}"
         )
     return value
+
+
+def _docket_entry_text(record: Mapping[str, Any]) -> str:
+    """Return complete entry metadata, including RECAP document fallbacks.
+
+    CourtListener legitimately emits an empty docket-entry ``description`` for
+    rows whose attached RECAP document carries the filing description.  Treating
+    that API shape as a malformed page makes otherwise complete dockets
+    permanently unobservable.  The nested descriptions are public docket
+    metadata from the same response and preserve the information the strict
+    screen needs without reading outcome-bearing PDF text.
+    """
+
+    direct = _optional_string(
+        record,
+        "description",
+        "entry_text",
+        "docket_text",
+        "text",
+    )
+    if direct is not None:
+        return direct
+    raw_documents = record.get("recap_documents")
+    if isinstance(raw_documents, list | tuple):
+        descriptions: list[str] = []
+        for raw_document in cast(Sequence[object], raw_documents):
+            if not isinstance(raw_document, Mapping):
+                continue
+            description = _optional_string(
+                cast(Mapping[str, Any], raw_document),
+                "description",
+                "short_description",
+            )
+            if description is not None and description not in descriptions:
+                descriptions.append(description)
+        if descriptions:
+            return " | ".join(descriptions)
+    raise CourtListenerResponseError(
+        "missing required CourtListener docket-entry description in both the "
+        "entry and its RECAP documents"
+    )
 
 
 def _optional_string(record: Mapping[str, Any], *field_names: str) -> str | None:
