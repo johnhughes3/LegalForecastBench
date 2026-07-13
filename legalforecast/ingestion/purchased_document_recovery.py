@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import os
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -48,6 +51,9 @@ _DEFAULT_USER_AGENT = (
 )
 _DEFAULT_MAX_RESPONSE_BYTES = 100 * 1024 * 1024
 _DOWNLOAD_CHUNK_BYTES = 1024 * 1024
+_RECOVERY_CHECKPOINT_SCHEMA_VERSION = (
+    "legalforecast.purchased_document_recovery_checkpoint.v1"
+)
 
 
 class PurchasedDocumentRecoveryError(ValueError):
@@ -228,6 +234,7 @@ class PurchasedDocumentRecoveryRecord:
     byte_count: int | None = None
     retry_count: int = 0
     rate_limited: bool = False
+    reused_existing: bool = False
 
     def to_record(self) -> dict[str, Any]:
         return {
@@ -243,8 +250,42 @@ class PurchasedDocumentRecoveryRecord:
             "byte_count": self.byte_count,
             "retry_count": self.retry_count,
             "rate_limited": self.rate_limited,
+            "reused_existing": self.reused_existing,
             "provenance": (
                 None if self.provenance is None else self.provenance.to_record()
+            ),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class _RecoveryCheckpoint:
+    candidate_id: str
+    source_document_id: str
+    request_sha256: str
+    status: PurchasedDocumentRecoveryStatus
+    post_purchase_evidence: Mapping[str, str]
+    local_path: str | None
+    sha256: str | None
+    byte_count: int | None
+    retry_count: int
+    rate_limited: bool
+    retrieved_at: datetime | None
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "schema_version": _RECOVERY_CHECKPOINT_SCHEMA_VERSION,
+            "candidate_id": self.candidate_id,
+            "source_document_id": self.source_document_id,
+            "request_sha256": self.request_sha256,
+            "status": self.status.value,
+            "post_purchase_evidence": dict(self.post_purchase_evidence),
+            "local_path": self.local_path,
+            "sha256": self.sha256,
+            "byte_count": self.byte_count,
+            "retry_count": self.retry_count,
+            "rate_limited": self.rate_limited,
+            "retrieved_at": (
+                None if self.retrieved_at is None else self.retrieved_at.isoformat()
             ),
         }
 
@@ -359,7 +400,7 @@ def purchased_document_download_manifest_records(
                 "purchase_cost_usd": record.purchase_cost_usd,
                 "retry_count": record.retry_count,
                 "rate_limited": record.rate_limited,
-                "reused_existing": False,
+                "reused_existing": record.reused_existing,
                 "recovery_status": record.status.value,
                 "parse_eligible": True,
                 "parse_purpose": (
@@ -388,15 +429,22 @@ def recover_purchased_documents(
 
     root = Path(output_root).resolve()
     root.mkdir(parents=True, exist_ok=True)
-    return tuple(
-        _recover_one(
+    checkpoint_path = root / ".recovery-checkpoint.jsonl"
+    checkpoint = _read_checkpoint(checkpoint_path)
+    records: list[PurchasedDocumentRecoveryRecord] = []
+    for request in requests:
+        key = _request_key(request)
+        record = _recover_one(
             request,
             output_root=root,
             source=source,
             retrieved_at=retrieved_at,
+            expected=checkpoint.get(key),
         )
-        for request in requests
-    )
+        records.append(record)
+        checkpoint[key] = _checkpoint_for_record(record, request)
+        _write_checkpoint(checkpoint_path, checkpoint.values())
+    return tuple(records)
 
 
 def _recover_one(
@@ -405,10 +453,20 @@ def _recover_one(
     output_root: Path,
     source: FreeDocumentSource,
     retrieved_at: datetime,
+    expected: _RecoveryCheckpoint | None,
 ) -> PurchasedDocumentRecoveryRecord:
     attempt = request.purchase_attempt
-    purchase_cost = _purchase_cost(attempt)
+    if expected is not None:
+        _validate_checkpoint_identity(expected, request)
     if attempt.status is not CaseDevPacerPurchaseStatus.PURCHASED:
+        if expected is not None and expected.status is (
+            PurchasedDocumentRecoveryStatus.PURCHASE_NOT_EXECUTED
+        ):
+            return _not_recovered_record(
+                request,
+                status=expected.status,
+                post_purchase_evidence=expected.post_purchase_evidence,
+            )
         return _not_recovered_record(
             request,
             status=PurchasedDocumentRecoveryStatus.PURCHASE_NOT_EXECUTED,
@@ -419,6 +477,14 @@ def _recover_one(
             },
         )
     if attempt.download_url is None:
+        if expected is not None and expected.status is (
+            PurchasedDocumentRecoveryStatus.UNAVAILABLE_AFTER_PURCHASE
+        ):
+            return _not_recovered_record(
+                request,
+                status=expected.status,
+                post_purchase_evidence=expected.post_purchase_evidence,
+            )
         return _not_recovered_record(
             request,
             status=PurchasedDocumentRecoveryStatus.UNAVAILABLE_AFTER_PURCHASE,
@@ -428,8 +494,22 @@ def _recover_one(
                 "reason": "missing_post_purchase_download_url",
             },
         )
+    output_path = _document_output_path(output_root, request)
+    if expected is not None and expected.status in {
+        PurchasedDocumentRecoveryStatus.RECOVERED,
+        PurchasedDocumentRecoveryStatus.RECOVERED_AUDIT_ONLY,
+    }:
+        if _canonical_matches_record(output_path, expected):
+            return _recovered_record_from_checkpoint(
+                request,
+                output_root=output_root,
+                output_path=output_path,
+                checkpoint=expected,
+            )
+
     try:
         fetch = source.fetch(attempt.download_url)
+        _validate_recovery_content(request, fetch.content)
     except RuntimeError as exc:
         return _not_recovered_record(
             request,
@@ -441,10 +521,39 @@ def _recover_one(
             },
         )
 
-    output_path = _document_output_path(output_root, request)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_bytes(fetch.content)
-    digest = hashlib.sha256(fetch.content).hexdigest()
+    digest, byte_count = _atomic_write(output_path, fetch.content)
+    return _recovered_record(
+        request,
+        output_root=output_root,
+        output_path=output_path,
+        retrieved_at=retrieved_at,
+        digest=digest,
+        byte_count=byte_count,
+        retry_count=fetch.retry_count,
+        rate_limited=fetch.rate_limited,
+    )
+
+
+def _recovered_record(
+    request: PurchasedDocumentRecoveryRequest,
+    *,
+    output_root: Path,
+    output_path: Path,
+    retrieved_at: datetime,
+    digest: str,
+    byte_count: int,
+    retry_count: int,
+    rate_limited: bool,
+    reused_existing: bool = False,
+) -> PurchasedDocumentRecoveryRecord:
+    attempt = request.purchase_attempt
+    download_url = attempt.download_url
+    if download_url is None:
+        raise PurchasedDocumentRecoveryError(
+            "successful purchased-document recovery requires a download URL"
+        )
+    purchase_cost = _purchase_cost(attempt)
     is_mounted = request.is_predecision_material and not request.contains_target_outcome
     status = (
         PurchasedDocumentRecoveryStatus.RECOVERED
@@ -460,7 +569,7 @@ def _recover_one(
         docket_number=request.docket_number,
         document_role=request.document_role,
         retrieved_at=retrieved_at,
-        source_url_or_reference=attempt.download_url,
+        source_url_or_reference=download_url,
         sha256=digest,
         is_predecision_material=request.is_predecision_material,
         is_mounted_for_model=is_mounted,
@@ -484,14 +593,17 @@ def _recover_one(
         post_purchase_evidence=_post_purchase_evidence(
             attempt,
             digest=digest,
-            fetch=fetch,
+            byte_count=byte_count,
+            retry_count=retry_count,
+            rate_limited=rate_limited,
         ),
         provenance=provenance,
         local_path=local_path,
         sha256=digest,
-        byte_count=len(fetch.content),
-        retry_count=fetch.retry_count,
-        rate_limited=fetch.rate_limited,
+        byte_count=byte_count,
+        retry_count=retry_count,
+        rate_limited=rate_limited,
+        reused_existing=reused_existing,
     )
 
 
@@ -518,23 +630,337 @@ def _post_purchase_evidence(
     attempt: CaseDevPacerPurchaseAttempt,
     *,
     digest: str,
-    fetch: FreeDocumentFetch,
+    byte_count: int,
+    retry_count: int,
+    rate_limited: bool,
 ) -> dict[str, str]:
     return {
         "availability": "available",
         "purchase_status": attempt.status.value,
         "download_url": attempt.download_url or "",
         "sha256": digest,
-        "byte_count": str(len(fetch.content)),
-        "retry_count": str(fetch.retry_count),
-        "rate_limited": "true" if fetch.rate_limited else "false",
+        "byte_count": str(byte_count),
+        "retry_count": str(retry_count),
+        "rate_limited": "true" if rate_limited else "false",
     }
+
+
+def _request_key(request: PurchasedDocumentRecoveryRequest) -> str:
+    attempt = request.purchase_attempt
+    return "\0".join((attempt.candidate_id, attempt.source_document_id))
+
+
+def _validate_checkpoint_identity(
+    checkpoint: _RecoveryCheckpoint,
+    request: PurchasedDocumentRecoveryRequest,
+) -> None:
+    attempt = request.purchase_attempt
+    if (
+        checkpoint.candidate_id != attempt.candidate_id
+        or checkpoint.source_document_id != attempt.source_document_id
+        or checkpoint.request_sha256 != _request_sha256(request)
+        or (
+            checkpoint.status
+            in {
+                PurchasedDocumentRecoveryStatus.RECOVERED,
+                PurchasedDocumentRecoveryStatus.RECOVERED_AUDIT_ONLY,
+            }
+            and checkpoint.local_path != _document_relative_path(request).as_posix()
+        )
+    ):
+        raise PurchasedDocumentRecoveryError(
+            "purchased-document checkpoint conflicts with the recovery request: "
+            f"{attempt.candidate_id}/{attempt.source_document_id}"
+        )
+
+
+def _canonical_matches_record(
+    output_path: Path,
+    checkpoint: _RecoveryCheckpoint,
+) -> bool:
+    if (
+        checkpoint.sha256 is None
+        or checkpoint.byte_count is None
+        or not output_path.is_file()
+    ):
+        return False
+    try:
+        if output_path.stat().st_size != checkpoint.byte_count:
+            return False
+    except OSError:
+        return False
+    digest, byte_count = _hash_path(output_path)
+    return digest == checkpoint.sha256 and byte_count == checkpoint.byte_count
+
+
+def _recovered_record_from_checkpoint(
+    request: PurchasedDocumentRecoveryRequest,
+    *,
+    output_root: Path,
+    output_path: Path,
+    checkpoint: _RecoveryCheckpoint,
+) -> PurchasedDocumentRecoveryRecord:
+    if (
+        checkpoint.retrieved_at is None
+        or checkpoint.sha256 is None
+        or checkpoint.byte_count is None
+    ):
+        raise PurchasedDocumentRecoveryError(
+            "successful purchased-document checkpoint is incomplete: "
+            f"{checkpoint.candidate_id}/{checkpoint.source_document_id}"
+        )
+    return _recovered_record(
+        request,
+        output_root=output_root,
+        output_path=output_path,
+        retrieved_at=checkpoint.retrieved_at,
+        digest=checkpoint.sha256,
+        byte_count=checkpoint.byte_count,
+        retry_count=checkpoint.retry_count,
+        rate_limited=checkpoint.rate_limited,
+        reused_existing=True,
+    )
+
+
+def _validate_recovery_content(
+    request: PurchasedDocumentRecoveryRequest,
+    content: bytes,
+) -> None:
+    source_url = request.purchase_attempt.download_url or "purchased document"
+    if not content:
+        raise PurchasedDocumentDownloadError(
+            f"purchased case.dev document was empty: {source_url}"
+        )
+    prefix = content[:512].lstrip().lower()
+    if prefix.startswith((b"<!doctype html", b"<html")):
+        raise PurchasedDocumentDownloadError(
+            "purchased case.dev document returned HTML instead of a document: "
+            f"{source_url}"
+        )
+
+
+def _atomic_write(path: Path, content: bytes) -> tuple[str, int]:
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".partial",
+    )
+    temporary = Path(temporary_name)
+    digest = hashlib.sha256()
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(content)
+            digest.update(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        _fsync_directory(path.parent)
+        return digest.hexdigest(), len(content)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _fsync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _hash_path(path: Path) -> tuple[str, int]:
+    digest = hashlib.sha256()
+    byte_count = 0
+    with path.open("rb") as handle:
+        while chunk := handle.read(_DOWNLOAD_CHUNK_BYTES):
+            digest.update(chunk)
+            byte_count += len(chunk)
+    return digest.hexdigest(), byte_count
+
+
+def _checkpoint_for_record(
+    record: PurchasedDocumentRecoveryRecord,
+    request: PurchasedDocumentRecoveryRequest,
+) -> _RecoveryCheckpoint:
+    return _RecoveryCheckpoint(
+        candidate_id=record.candidate_id,
+        source_document_id=record.source_document_id,
+        request_sha256=_request_sha256(request),
+        status=record.status,
+        post_purchase_evidence=dict(record.post_purchase_evidence),
+        local_path=record.local_path,
+        sha256=record.sha256,
+        byte_count=record.byte_count,
+        retry_count=record.retry_count,
+        rate_limited=record.rate_limited,
+        retrieved_at=(
+            None if record.provenance is None else record.provenance.retrieved_at
+        ),
+    )
+
+
+def _request_sha256(request: PurchasedDocumentRecoveryRequest) -> str:
+    attempt = request.purchase_attempt
+    payload = {
+        "candidate_id": attempt.candidate_id,
+        "source_document_id": attempt.source_document_id,
+        "purchase_status": attempt.status.value,
+        "purchase_reason": attempt.reason,
+        "fee_acknowledged": attempt.fee_acknowledged,
+        "pacer_fees": (
+            None if attempt.pacer_fees is None else dict(attempt.pacer_fees)
+        ),
+        "download_url": attempt.download_url,
+        "source_case_id": request.source_case_id,
+        "court": request.court,
+        "docket_number": request.docket_number,
+        "document_role": request.document_role.value,
+        "docket_entry_number": request.docket_entry_number,
+        "pre_purchase_evidence": dict(request.pre_purchase_evidence),
+        "is_predecision_material": request.is_predecision_material,
+        "contains_target_outcome": request.contains_target_outcome,
+        "file_extension": request.file_extension,
+    }
+    encoded = json.dumps(
+        payload,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _read_checkpoint(path: Path) -> dict[str, _RecoveryCheckpoint]:
+    if not path.exists():
+        return {}
+    records: dict[str, _RecoveryCheckpoint] = {}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for line in lines:
+            raw = json.loads(line)
+            if not isinstance(raw, Mapping):
+                raise TypeError("checkpoint row must be an object")
+            record = _checkpoint_from_mapping(cast(Mapping[str, Any], raw))
+            key = "\0".join((record.candidate_id, record.source_document_id))
+            if key in records:
+                raise PurchasedDocumentRecoveryError(
+                    "purchased-document checkpoint contains duplicate item keys"
+                )
+            records[key] = record
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        if isinstance(exc, PurchasedDocumentRecoveryError):
+            raise
+        raise PurchasedDocumentRecoveryError(
+            f"invalid purchased-document recovery checkpoint: {path}"
+        ) from exc
+    return records
+
+
+def _write_checkpoint(
+    path: Path,
+    records: Iterable[_RecoveryCheckpoint],
+) -> None:
+    ordered = sorted(
+        records,
+        key=lambda record: (record.candidate_id, record.source_document_id),
+    )
+    payload = "".join(
+        json.dumps(record.to_record(), sort_keys=True) + "\n" for record in ordered
+    ).encode()
+    _atomic_write(path, payload)
+
+
+def _checkpoint_from_mapping(raw: Mapping[str, Any]) -> _RecoveryCheckpoint:
+    if raw["schema_version"] != _RECOVERY_CHECKPOINT_SCHEMA_VERSION:
+        raise ValueError("unsupported purchased-document checkpoint schema")
+    evidence_raw = raw["post_purchase_evidence"]
+    if not isinstance(evidence_raw, Mapping):
+        raise TypeError("checkpoint post_purchase_evidence must be an object")
+    evidence = cast(Mapping[str, Any], evidence_raw)
+    if any(not isinstance(value, str) for value in evidence.values()):
+        raise TypeError("checkpoint evidence keys and values must be strings")
+    retrieved_at_raw = raw["retrieved_at"]
+    if retrieved_at_raw is not None and not isinstance(retrieved_at_raw, str):
+        raise TypeError("checkpoint retrieved_at must be a string or null")
+    retrieved_at = (
+        None if retrieved_at_raw is None else datetime.fromisoformat(retrieved_at_raw)
+    )
+    byte_count = _optional_checkpoint_int(raw["byte_count"], "byte_count")
+    retry_count = _required_checkpoint_int(raw["retry_count"], "retry_count")
+    rate_limited = raw["rate_limited"]
+    if not isinstance(rate_limited, bool):
+        raise TypeError("checkpoint rate_limited must be a boolean")
+    checkpoint = _RecoveryCheckpoint(
+        candidate_id=_required_checkpoint_str(raw["candidate_id"], "candidate_id"),
+        source_document_id=_required_checkpoint_str(
+            raw["source_document_id"], "source_document_id"
+        ),
+        request_sha256=_required_checkpoint_str(
+            raw["request_sha256"], "request_sha256"
+        ),
+        status=PurchasedDocumentRecoveryStatus(
+            _required_checkpoint_str(raw["status"], "status")
+        ),
+        post_purchase_evidence=cast(Mapping[str, str], evidence),
+        local_path=_optional_checkpoint_str(raw["local_path"], "local_path"),
+        sha256=_optional_checkpoint_str(raw["sha256"], "sha256"),
+        byte_count=byte_count,
+        retry_count=retry_count,
+        rate_limited=rate_limited,
+        retrieved_at=retrieved_at,
+    )
+    successful = checkpoint.status in {
+        PurchasedDocumentRecoveryStatus.RECOVERED,
+        PurchasedDocumentRecoveryStatus.RECOVERED_AUDIT_ONLY,
+    }
+    if successful and (
+        checkpoint.local_path is None
+        or checkpoint.sha256 is None
+        or checkpoint.byte_count is None
+        or checkpoint.retrieved_at is None
+    ):
+        raise ValueError("successful purchased-document checkpoint is incomplete")
+    if checkpoint.sha256 is not None and (
+        len(checkpoint.sha256) != 64
+        or any(character not in "0123456789abcdef" for character in checkpoint.sha256)
+    ):
+        raise ValueError("checkpoint sha256 must be lowercase hexadecimal")
+    return checkpoint
+
+
+def _required_checkpoint_str(value: Any, field_name: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise TypeError(f"checkpoint {field_name} must be a non-empty string")
+    return value
+
+
+def _optional_checkpoint_str(value: Any, field_name: str) -> str | None:
+    if value is None:
+        return None
+    return _required_checkpoint_str(value, field_name)
+
+
+def _required_checkpoint_int(value: Any, field_name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise TypeError(f"checkpoint {field_name} must be a nonnegative integer")
+    return value
+
+
+def _optional_checkpoint_int(value: Any, field_name: str) -> int | None:
+    if value is None:
+        return None
+    return _required_checkpoint_int(value, field_name)
 
 
 def _document_output_path(
     output_root: Path,
     request: PurchasedDocumentRecoveryRequest,
 ) -> Path:
+    output_path = (output_root / _document_relative_path(request)).resolve()
+    output_path.relative_to(output_root)
+    return output_path
+
+
+def _document_relative_path(request: PurchasedDocumentRecoveryRequest) -> Path:
     attempt = request.purchase_attempt
     candidate_id = safe_path_component(attempt.candidate_id, field_name="candidate_id")
     document_id = safe_path_component(
@@ -551,11 +977,7 @@ def _document_output_path(
         else f"entry-{request.docket_entry_number}"
     )
     filename = f"{entry_prefix}_{document_id}.{extension}"
-    output_path = (
-        output_root / candidate_id / _PURCHASED_PROVIDER_PATH / filename
-    ).resolve()
-    output_path.relative_to(output_root)
-    return output_path
+    return Path(candidate_id) / _PURCHASED_PROVIDER_PATH / filename
 
 
 def _validate_purchased_document_url(source_url: str) -> None:

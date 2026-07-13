@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import urllib.request
+from dataclasses import replace
 from datetime import UTC, datetime
 from email.message import Message
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
@@ -11,7 +14,10 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerPurchaseAttempt,
     CaseDevPacerPurchaseStatus,
 )
-from legalforecast.ingestion.free_document_downloader import FixtureFreeDocumentSource
+from legalforecast.ingestion.free_document_downloader import (
+    FixtureFreeDocumentSource,
+    FreeDocumentFetch,
+)
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.purchased_document_recovery import (
     PurchasedDocumentRecoveryError,
@@ -24,7 +30,12 @@ from legalforecast.ingestion.purchased_document_recovery import (
 )
 
 
-def test_live_recovery_source_fetches_only_allowlisted_case_dev_document(
+@pytest.mark.parametrize(
+    "content_type",
+    ("application/pdf", "application/octet-stream"),
+)
+def test_live_recovery_source_accepts_provider_validated_pdf_responses(
+    content_type: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
@@ -33,10 +44,10 @@ def test_live_recovery_source_fetches_only_allowlisted_case_dev_document(
         headers = Message()
 
         def __init__(self) -> None:
-            self._content = b"%PDF purchased motion"
+            self._content = b"provider-validated purchased motion"
 
         def __enter__(self) -> _Response:
-            self.headers["Content-Type"] = "application/pdf"
+            self.headers["Content-Type"] = content_type
             return self
 
         def __exit__(self, *_args: object) -> None:
@@ -74,7 +85,7 @@ def test_live_recovery_source_fetches_only_allowlisted_case_dev_document(
         timeout_seconds=12.5,
     ).fetch("https://api.case.dev/download/doc-1.pdf")
 
-    assert fetch.content == b"%PDF purchased motion"
+    assert fetch.content == b"provider-validated purchased motion"
     assert captured == {
         "url": "https://api.case.dev/download/doc-1.pdf",
         "authorization": "Bearer case-dev-token",
@@ -319,7 +330,7 @@ def test_live_recovery_source_bounds_chunked_response_without_content_length(
 
 def test_recovery_downloads_purchased_document_and_marks_provenance(tmp_path) -> None:
     source = FixtureFreeDocumentSource(
-        {"https://case.dev/download/doc-1.pdf": b"purchased complaint pdf"}
+        {"https://case.dev/download/doc-1.pdf": b"%PDF purchased complaint"}
     )
     retrieved_at = datetime(2026, 5, 17, tzinfo=UTC)
 
@@ -340,8 +351,8 @@ def test_recovery_downloads_purchased_document_and_marks_provenance(tmp_path) ->
     record = records[0]
     assert record.status is PurchasedDocumentRecoveryStatus.RECOVERED
     assert record.local_path == "cand-1/case-dev-pacer/entry-1_doc-1.pdf"
-    assert (tmp_path / record.local_path).read_bytes() == b"purchased complaint pdf"
-    assert record.sha256 == hashlib.sha256(b"purchased complaint pdf").hexdigest()
+    assert (tmp_path / record.local_path).read_bytes() == b"%PDF purchased complaint"
+    assert record.sha256 == hashlib.sha256(b"%PDF purchased complaint").hexdigest()
     assert record.free_or_purchased == "purchased"
     assert record.purchase_cost_usd == "3.05"
     assert record.pre_purchase_evidence == {"availability": "pacer_only"}
@@ -353,11 +364,167 @@ def test_recovery_downloads_purchased_document_and_marks_provenance(tmp_path) ->
     assert record.provenance.retrieved_at == retrieved_at
 
 
+def test_recovery_checkpoint_resumes_completed_prefix_without_redownload(
+    tmp_path: Path,
+) -> None:
+    first_url = "https://case.dev/download/doc-1.pdf"
+    second_url = "https://case.dev/download/doc-2.pdf"
+    requests = (
+        _request(
+            _attempt("doc-1", download_url=first_url),
+            role=DocumentRole.COMPLAINT,
+            docket_entry_number=1,
+        ),
+        _request(
+            _attempt("doc-2", download_url=second_url),
+            role=DocumentRole.MTD_MEMORANDUM,
+            docket_entry_number=2,
+        ),
+    )
+
+    class _InterruptedSource:
+        def __init__(self) -> None:
+            self.requested_urls: list[str] = []
+
+        def fetch(self, source_url: str) -> FreeDocumentFetch:
+            self.requested_urls.append(source_url)
+            if source_url == second_url:
+                raise KeyboardInterrupt("simulated process interruption")
+            return FreeDocumentFetch(content=b"%PDF purchased complaint")
+
+    interrupted_source = _InterruptedSource()
+    with pytest.raises(KeyboardInterrupt, match="simulated process interruption"):
+        recover_purchased_documents(
+            requests,
+            output_root=tmp_path,
+            source=interrupted_source,
+            retrieved_at=datetime(2026, 5, 17, tzinfo=UTC),
+        )
+
+    first_path = tmp_path / "cand-1/case-dev-pacer/entry-1_doc-1.pdf"
+    second_path = tmp_path / "cand-1/case-dev-pacer/entry-2_doc-2.pdf"
+    assert first_path.read_bytes() == b"%PDF purchased complaint"
+    assert not second_path.exists()
+    checkpoint_rows = [
+        json.loads(line)
+        for line in (tmp_path / ".recovery-checkpoint.jsonl").read_text().splitlines()
+    ]
+    assert [row["source_document_id"] for row in checkpoint_rows] == ["doc-1"]
+
+    resumed_source = FixtureFreeDocumentSource({second_url: b"%PDF purchased motion"})
+    records = recover_purchased_documents(
+        requests,
+        output_root=tmp_path,
+        source=resumed_source,
+        retrieved_at=datetime(2026, 5, 18, tzinfo=UTC),
+    )
+
+    assert [record.source_document_id for record in records] == ["doc-1", "doc-2"]
+    assert [record.reused_existing for record in records] == [True, False]
+    assert resumed_source.requested_urls == (second_url,)
+    assert second_path.read_bytes() == b"%PDF purchased motion"
+
+
+def test_recovery_failed_atomic_publish_leaves_no_canonical_partial(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_url = "https://case.dev/download/doc-1.pdf"
+    request = _request(
+        _attempt("doc-1", download_url=source_url),
+        role=DocumentRole.COMPLAINT,
+        docket_entry_number=1,
+    )
+
+    def _fail_replace(*_args: object) -> None:
+        raise OSError("simulated atomic rename interruption")
+
+    monkeypatch.setattr(
+        "legalforecast.ingestion.purchased_document_recovery.os.replace",
+        _fail_replace,
+    )
+    with pytest.raises(OSError, match="simulated atomic rename interruption"):
+        recover_purchased_documents(
+            (request,),
+            output_root=tmp_path,
+            source=FixtureFreeDocumentSource({source_url: b"%PDF purchased complaint"}),
+            retrieved_at=datetime(2026, 5, 17, tzinfo=UTC),
+        )
+
+    assert not (tmp_path / "cand-1/case-dev-pacer/entry-1_doc-1.pdf").exists()
+    assert not tuple(tmp_path.rglob("*.partial"))
+
+
+def test_recovery_resume_rejects_checkpoint_for_changed_request(
+    tmp_path: Path,
+) -> None:
+    source_url = "https://case.dev/download/doc-1.pdf"
+    request = _request(
+        _attempt("doc-1", download_url=source_url),
+        role=DocumentRole.COMPLAINT,
+        docket_entry_number=1,
+    )
+    recover_purchased_documents(
+        (request,),
+        output_root=tmp_path,
+        source=FixtureFreeDocumentSource({source_url: b"%PDF purchased complaint"}),
+        retrieved_at=datetime(2026, 5, 17, tzinfo=UTC),
+    )
+
+    with pytest.raises(PurchasedDocumentRecoveryError, match="checkpoint conflicts"):
+        recover_purchased_documents(
+            (replace(request, docket_number="1:26-cv-99999"),),
+            output_root=tmp_path,
+            source=FixtureFreeDocumentSource({}),
+            retrieved_at=datetime(2026, 5, 18, tzinfo=UTC),
+        )
+
+
+@pytest.mark.parametrize("invalid_content", (b"", b"<html>login required</html>"))
+def test_invalid_recovery_payload_does_not_abort_later_items(
+    tmp_path: Path,
+    invalid_content: bytes,
+) -> None:
+    invalid_url = "https://case.dev/download/invalid.pdf"
+    valid_url = "https://case.dev/download/valid.pdf"
+    records = recover_purchased_documents(
+        (
+            _request(
+                _attempt("invalid", download_url=invalid_url),
+                role=DocumentRole.COMPLAINT,
+                docket_entry_number=1,
+            ),
+            _request(
+                _attempt("valid", download_url=valid_url),
+                role=DocumentRole.MTD_MEMORANDUM,
+                docket_entry_number=2,
+            ),
+        ),
+        output_root=tmp_path,
+        source=FixtureFreeDocumentSource(
+            {
+                invalid_url: invalid_content,
+                valid_url: b"%PDF valid purchased motion",
+            }
+        ),
+        retrieved_at=datetime(2026, 5, 17, tzinfo=UTC),
+    )
+
+    assert [record.status for record in records] == [
+        PurchasedDocumentRecoveryStatus.UNAVAILABLE_AFTER_PURCHASE,
+        PurchasedDocumentRecoveryStatus.RECOVERED,
+    ]
+    assert not (tmp_path / "cand-1/case-dev-pacer/entry-1_invalid.pdf").exists()
+    assert (
+        tmp_path / "cand-1/case-dev-pacer/entry-2_valid.pdf"
+    ).read_bytes() == b"%PDF valid purchased motion"
+
+
 def test_recovery_handles_partial_purchases_without_fetching_failed_attempts(
     tmp_path,
 ) -> None:
     source = FixtureFreeDocumentSource(
-        {"https://case.dev/download/doc-1.pdf": b"purchased motion pdf"}
+        {"https://case.dev/download/doc-1.pdf": b"%PDF purchased motion"}
     )
 
     records = recover_purchased_documents(
@@ -394,7 +561,7 @@ def test_recovery_handles_partial_purchases_without_fetching_failed_attempts(
 
 def test_recovery_never_mounts_post_decision_outcome_material(tmp_path) -> None:
     source = FixtureFreeDocumentSource(
-        {"https://case.dev/download/order.pdf": b"outcome order pdf"}
+        {"https://case.dev/download/order.pdf": b"%PDF outcome order"}
     )
 
     records = recover_purchased_documents(
@@ -501,7 +668,7 @@ def test_guarded_purchase_result_converts_to_parser_consumable_manifest(
         requests,
         output_root=tmp_path,
         source=FixtureFreeDocumentSource(
-            {"https://case.dev/download/doc-1.pdf": b"purchased motion pdf"}
+            {"https://case.dev/download/doc-1.pdf": b"%PDF purchased motion"}
         ),
         retrieved_at=datetime(2026, 7, 11, tzinfo=UTC),
     )
@@ -516,8 +683,8 @@ def test_guarded_purchase_result_converts_to_parser_consumable_manifest(
         "document_role": "motion_to_dismiss_memorandum",
         "source_url": "https://case.dev/download/doc-1.pdf",
         "local_path": "cand-1/case-dev-pacer/entry-34_doc-1.pdf",
-        "sha256": hashlib.sha256(b"purchased motion pdf").hexdigest(),
-        "byte_count": len(b"purchased motion pdf"),
+        "sha256": hashlib.sha256(b"%PDF purchased motion").hexdigest(),
+        "byte_count": len(b"%PDF purchased motion"),
         "free_or_purchased": "purchased",
         "purchase_cost_usd": "3.05",
         "retry_count": 0,
