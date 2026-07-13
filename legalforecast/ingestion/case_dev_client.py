@@ -531,6 +531,27 @@ class CaseDevClient:
         docket = payload.get("docket", payload)
         return CaseDevCase.from_record(_mapping(docket, "docket"))
 
+    def live_fetch_docket(
+        self,
+        docket_id: str,
+        *,
+        acknowledge_pacer_fees: bool,
+    ) -> Mapping[str, Any]:
+        """Perform one documented fee-bearing docket lookup without retries."""
+
+        if not acknowledge_pacer_fees:
+            raise ValueError("live docket fetch requires PACER fee acknowledgment")
+        return self._request_json_once(
+            "POST",
+            "/legal/v1/docket",
+            {
+                "type": "lookup",
+                "docketId": docket_id,
+                "live": True,
+                "acknowledgePacerFees": True,
+            },
+        )
+
     def get_document(self, document_id: str) -> CaseDevDocument:
         payload = self._request_json("GET", f"/v1/documents/{document_id}", {})
         return CaseDevDocument.from_record(payload)
@@ -584,6 +605,31 @@ class CaseDevClient:
                     time.sleep(self.retry_backoff_seconds)
                 continue
             raise error
+
+    def _request_json_once(
+        self,
+        method: str,
+        path: str,
+        params: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        """Send exactly one attempt for a non-idempotent fee-bearing request."""
+
+        self._throttle_if_needed()
+        response = self.transport.request(
+            method=method,
+            path=path,
+            params=params,
+            headers=self._headers(),
+            timeout_seconds=self.config.timeout_seconds,
+        )
+        self.request_count += 1
+        self._log_request(path, response.status_code)
+        if 200 <= response.status_code < 300:
+            return response.payload
+        error = _error_for_response(response, path)
+        if 300 <= response.status_code < 400:
+            raise CaseDevPurchaseOutcomeUnknownError(str(error))
+        raise error
 
     def _throttle_if_needed(self) -> None:
         limit = self.config.rate_limit_per_minute
