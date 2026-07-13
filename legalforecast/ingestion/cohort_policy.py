@@ -24,9 +24,12 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 COHORT_POLICY_SCHEMA_VERSION = "legalforecast.cohort_policy.v1"
 OBSERVATION_SCHEMA_VERSION = "legalforecast.cohort_observation_manifest.v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
-_CLAIM_CLASSES = frozenset(
-    {"provisional_feasibility", "official_descriptive", "target", "strong_ranking"}
-)
+_CLAIM_CLASS_RANK = {
+    "provisional_feasibility": 0,
+    "official_descriptive": 1,
+    "target": 2,
+}
+_TERMINAL_REDUCED_N_ACTIONS = frozenset({"pilot_only_no_official_cycle", "abort_cycle"})
 _POLICY_KEYS = frozenset(
     {
         "cycle_id",
@@ -454,17 +457,89 @@ def _validated_policy(raw: Mapping[str, Any]) -> dict[str, Any]:
     reduced = _object(policy.get("reduced_n"), "reduced_n")
     _exact_keys(
         reduced,
-        {"minimum_clean_cases", "target_clean_cases", "claim_class"},
+        {"target_clean_cases", "claim_tiers", "below_minimum_action"},
         "reduced_n",
     )
-    minimum = _positive_int(reduced.get("minimum_clean_cases"), "minimum_clean_cases")
     if _positive_int(reduced.get("target_clean_cases"), "target_clean_cases") != target:
         raise CohortPolicyError("reduced_n target must match stop_rule target")
-    if minimum > target:
-        raise CohortPolicyError("minimum_clean_cases exceeds target_clean_cases")
-    if reduced.get("claim_class") not in _CLAIM_CLASSES:
-        raise CohortPolicyError("reduced_n.claim_class is unsupported")
+    _validate_claim_tiers(reduced.get("claim_tiers"), target=target)
+    if reduced.get("below_minimum_action") not in _TERMINAL_REDUCED_N_ACTIONS:
+        raise CohortPolicyError("reduced_n.below_minimum_action is unsupported")
     return cast(dict[str, Any], json.loads(_canonical(policy)))
+
+
+def _validate_claim_tiers(value: object, *, target: int) -> None:
+    if not isinstance(value, list) or not value:
+        raise CohortPolicyError("reduced_n.claim_tiers must be a non-empty list")
+    tiers = cast(list[object], value)
+    previous_maximum: int | None = None
+    previous_claim_rank: int | None = None
+    final_claim_class: object = None
+    for index, tier_value in enumerate(tiers):
+        tier = _object(tier_value, f"claim_tiers[{index}]")
+        _exact_keys(
+            tier,
+            {
+                "minimum_clean_cases",
+                "maximum_clean_cases",
+                "claim_class",
+                "minimum_prediction_units",
+                "insufficient_units_action",
+            },
+            f"claim_tiers[{index}]",
+        )
+        minimum = _positive_int(
+            tier.get("minimum_clean_cases"),
+            f"claim_tiers[{index}].minimum_clean_cases",
+        )
+        maximum = _positive_int(
+            tier.get("maximum_clean_cases"),
+            f"claim_tiers[{index}].maximum_clean_cases",
+        )
+        if maximum < minimum:
+            raise CohortPolicyError(f"claim_tiers[{index}] has an inverted range")
+        if previous_maximum is not None and minimum != previous_maximum + 1:
+            raise CohortPolicyError(
+                "reduced_n.claim_tiers must be ordered, contiguous, and non-overlapping"
+            )
+        claim_class = tier.get("claim_class")
+        if claim_class not in _CLAIM_CLASS_RANK:
+            raise CohortPolicyError(f"claim_tiers[{index}].claim_class is unsupported")
+        claim_rank = _CLAIM_CLASS_RANK[cast(str, claim_class)]
+        if previous_claim_rank is not None and claim_rank <= previous_claim_rank:
+            raise CohortPolicyError(
+                "reduced_n claim classes must strictly increase with clean-case tiers"
+            )
+        threshold = tier.get("minimum_prediction_units")
+        action = tier.get("insufficient_units_action")
+        if threshold is None:
+            if action is not None:
+                raise CohortPolicyError(
+                    "insufficient_units_action requires minimum_prediction_units"
+                )
+        else:
+            _positive_int(threshold, f"claim_tiers[{index}].minimum_prediction_units")
+            if action not in ({*_CLAIM_CLASS_RANK, *_TERMINAL_REDUCED_N_ACTIONS}):
+                raise CohortPolicyError(
+                    f"claim_tiers[{index}].insufficient_units_action is unsupported"
+                )
+            action_rank = _CLAIM_CLASS_RANK.get(cast(str, action), -1)
+            if action_rank >= claim_rank:
+                raise CohortPolicyError(
+                    "insufficient_units_action must be a lower claim class or "
+                    "terminal action"
+                )
+        previous_maximum = maximum
+        previous_claim_rank = claim_rank
+        final_claim_class = claim_class
+    if previous_maximum != target:
+        raise CohortPolicyError(
+            "reduced_n.claim_tiers must terminate exactly at target_clean_cases"
+        )
+    if final_claim_class != "target":
+        raise CohortPolicyError(
+            "the terminal clean-case tier must use claim_class target"
+        )
 
 
 def _verified_snapshot_manifest_hash(

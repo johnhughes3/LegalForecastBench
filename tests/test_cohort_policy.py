@@ -45,6 +45,49 @@ def test_policy_rejects_forbidden_restatement_and_inconsistent_values() -> None:
     with pytest.raises(CohortPolicyError, match="target must match"):
         generate_cohort_policy(decisions)
 
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("overlap", "ordered, contiguous, and non-overlapping"),
+        ("gap", "ordered, contiguous, and non-overlapping"),
+        ("reordered", "ordered, contiguous, and non-overlapping"),
+        ("wrong_end", "terminate exactly"),
+        ("threshold_without_action", "requires minimum_prediction_units"),
+        ("non_downgrade", "must be a lower claim class"),
+        ("non_monotone_claim", "strictly increase"),
+        ("terminal_not_target", "must use claim_class target"),
+        ("bad_below_minimum", "below_minimum_action is unsupported"),
+    ],
+)
+def test_policy_rejects_invalid_reduced_n_tiers(mutation: str, message: str) -> None:
+    decisions = _decisions("a" * 64)
+    reduced = decisions["reduced_n"]
+    assert isinstance(reduced, dict)
+    tiers = reduced["claim_tiers"]
+    assert isinstance(tiers, list)
+    if mutation == "overlap":
+        tiers[1]["minimum_clean_cases"] = 99
+    elif mutation == "gap":
+        tiers[1]["minimum_clean_cases"] = 101
+    elif mutation == "reordered":
+        tiers[0], tiers[1] = tiers[1], tiers[0]
+    elif mutation == "wrong_end":
+        tiers[-1]["maximum_clean_cases"] = 151
+    elif mutation == "threshold_without_action":
+        tiers[0]["insufficient_units_action"] = "pilot_only_no_official_cycle"
+    elif mutation == "non_downgrade":
+        tiers[1]["insufficient_units_action"] = "target"
+    elif mutation == "non_monotone_claim":
+        tiers[1]["claim_class"] = "provisional_feasibility"
+    elif mutation == "terminal_not_target":
+        tiers.pop()
+        tiers[-1]["maximum_clean_cases"] = 150
+    else:
+        reduced["below_minimum_action"] = "official_descriptive"
+    with pytest.raises(CohortPolicyError, match=message):
+        generate_cohort_policy(decisions)
+
     decisions = _decisions("a" * 64)
     decisions["refresh_policy"]["evidence_precedence"]["accepted"] = 5
     with pytest.raises(CohortPolicyError, match="must increase"):
@@ -337,8 +380,30 @@ def _decisions(cycle_hash: str) -> dict[str, object]:
             "replacement_rule": "next_cheapest_eligible_under_same_cap",
         },
         "reduced_n": {
-            "minimum_clean_cases": 100,
             "target_clean_cases": 150,
-            "claim_class": "official_descriptive",
+            "claim_tiers": [
+                {
+                    "minimum_clean_cases": 40,
+                    "maximum_clean_cases": 99,
+                    "claim_class": "provisional_feasibility",
+                    "minimum_prediction_units": None,
+                    "insufficient_units_action": None,
+                },
+                {
+                    "minimum_clean_cases": 100,
+                    "maximum_clean_cases": 149,
+                    "claim_class": "official_descriptive",
+                    "minimum_prediction_units": 200,
+                    "insufficient_units_action": "provisional_feasibility",
+                },
+                {
+                    "minimum_clean_cases": 150,
+                    "maximum_clean_cases": 150,
+                    "claim_class": "target",
+                    "minimum_prediction_units": None,
+                    "insufficient_units_action": None,
+                },
+            ],
+            "below_minimum_action": "pilot_only_no_official_cycle",
         },
     }

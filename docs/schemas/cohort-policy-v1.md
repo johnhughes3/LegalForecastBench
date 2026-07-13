@@ -12,7 +12,7 @@ The top-level artifact contains exactly `schema_version`, `policy`, and `policy_
 - `target_motion`: the deterministic earliest-eligible-MTD/lowest-entry-number selector and exactly-one-motion invariant.
 - `purchase_policy`: `buy_cheapest_complete`, decimal-string cycle and per-case caps, and reservation-headroom enforcement.
 - `disclosure_clearance`: clearance for every document, quarantine of unknown or unscannable documents, and next-cheapest eligible replacement under the same cap.
-- `reduced_n`: minimum and target clean counts plus the precommitted claim class.
+- `reduced_n`: the target clean count; an ascending list of inclusive `claim_tiers` that is contiguous, non-overlapping, and terminates exactly at the target; and an explicit `below_minimum_action` (`pilot_only_no_official_cycle` or `abort_cycle`). Each tier binds its minimum and maximum clean-case counts, claim class, optional minimum prediction-unit threshold, and a mandatory lower claim class or terminal action when that threshold is not met. The first tier's minimum implicitly defines the below-minimum range. For example, the proposed Cycle 1 values can represent 40-99 as provisional feasibility, 100-149 as official descriptive subject to a unit threshold, and 150 as the target class, while counts below 40 remain pilot-only rather than silently becoming an official cycle.
 
 Unknown fields fail validation. In particular, `cycle_series` and per-batch snapshot hashes are prohibited: `cycle_series` belongs only in the later evaluation execution policy, while observed snapshot hashes belong only in the append-only manifest.
 
