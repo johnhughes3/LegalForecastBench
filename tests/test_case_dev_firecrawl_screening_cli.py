@@ -1283,6 +1283,185 @@ def test_screen_firecrawl_dockets_rejects_existing_snapshot_target(
     assert marker.read_text(encoding="utf-8") == "stale"
 
 
+def test_screen_firecrawl_dockets_resume_reuses_exact_complete_snapshot(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = _docket_html(decision_dates=("June 30, 2026",))
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+    base_command = [
+        "acquisition",
+        "screen-firecrawl-dockets",
+        *cycle_state.cli_args,
+        "--successes",
+        str(successes),
+        "--raw-html-dir",
+        str(raw_html_dir),
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--execute",
+    ]
+
+    assert main([*base_command, "--output-root", str(tmp_path / "first")]) == 0
+    snapshot_before = {
+        path.name: path.read_bytes()
+        for path in cycle_state.snapshot.iterdir()
+        if path.is_file()
+    }
+    with CycleAcquisitionStore(cycle_state.store_path) as store:
+        observation_ids_before = tuple(
+            observation.observation_id
+            for observation in store.observations("case-dev-123")
+        )
+
+    resumed_output = tmp_path / "resumed"
+    assert main([*base_command, "--output-root", str(resumed_output)]) == 0
+
+    assert {
+        path.name: path.read_bytes()
+        for path in cycle_state.snapshot.iterdir()
+        if path.is_file()
+    } == snapshot_before
+    with CycleAcquisitionStore(cycle_state.store_path) as store:
+        assert (
+            tuple(
+                observation.observation_id
+                for observation in store.observations("case-dev-123")
+            )
+            == observation_ids_before
+        )
+    [screened] = _read_jsonl(resumed_output / "firecrawl-screened-cases.jsonl")
+    assert screened["candidate_id"] == "case-dev-123"
+    summary = json.loads(
+        (resumed_output / "firecrawl-screening-summary.json").read_text()
+    )
+    assert summary["resumed_existing_snapshot"] is True
+    assert summary["accepted_case_count"] == 1
+
+
+def test_screen_resume_rejects_snapshot_manifest_mismatch_before_store_writes(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = _docket_html(decision_dates=("June 30, 2026",))
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+    base_command = [
+        "acquisition",
+        "screen-firecrawl-dockets",
+        *cycle_state.cli_args,
+        "--successes",
+        str(successes),
+        "--raw-html-dir",
+        str(raw_html_dir),
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--execute",
+    ]
+    assert main([*base_command, "--output-root", str(tmp_path / "first")]) == 0
+    manifest_path = cycle_state.snapshot / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["created_at"] = "2026-07-13T23:59:59Z"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    snapshot_before = {
+        path.name: path.read_bytes()
+        for path in cycle_state.snapshot.iterdir()
+        if path.is_file()
+    }
+    with CycleAcquisitionStore(cycle_state.store_path) as store:
+        observation_ids_before = tuple(
+            observation.observation_id
+            for observation in store.observations("case-dev-123")
+        )
+
+    assert main([*base_command, "--output-root", str(tmp_path / "resumed")]) == 2
+
+    assert {
+        path.name: path.read_bytes()
+        for path in cycle_state.snapshot.iterdir()
+        if path.is_file()
+    } == snapshot_before
+    with CycleAcquisitionStore(cycle_state.store_path) as store:
+        assert (
+            tuple(
+                observation.observation_id
+                for observation in store.observations("case-dev-123")
+            )
+            == observation_ids_before
+        )
+
+
+def test_screen_resume_rejects_committed_id_at_different_path_before_writes(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = _docket_html(decision_dates=("June 30, 2026",))
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+    base_command = [
+        "acquisition",
+        "screen-firecrawl-dockets",
+        *cycle_state.cli_args,
+        "--successes",
+        str(successes),
+        "--raw-html-dir",
+        str(raw_html_dir),
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--execute",
+    ]
+    assert main([*base_command, "--output-root", str(tmp_path / "first")]) == 0
+    canonical_before = {
+        path.name: path.read_bytes()
+        for path in cycle_state.snapshot.iterdir()
+        if path.is_file()
+    }
+    with CycleAcquisitionStore(cycle_state.store_path) as store:
+        observation_ids_before = tuple(
+            observation.observation_id
+            for observation in store.observations("case-dev-123")
+        )
+
+    wrong_root = tmp_path / "wrong-snapshot-root"
+    assert (
+        main(
+            [
+                *base_command,
+                "--snapshot-root",
+                str(wrong_root),
+                "--output-root",
+                str(tmp_path / "resumed"),
+            ]
+        )
+        == 2
+    )
+
+    assert not wrong_root.exists()
+    assert {
+        path.name: path.read_bytes()
+        for path in cycle_state.snapshot.iterdir()
+        if path.is_file()
+    } == canonical_before
+    with CycleAcquisitionStore(cycle_state.store_path) as store:
+        assert (
+            tuple(
+                observation.observation_id
+                for observation in store.observations("case-dev-123")
+            )
+            == observation_ids_before
+        )
+
+
 def test_screen_excludes_preanchor_report_before_leakage_screening(
     tmp_path: Path,
     cycle_state: _CycleState,

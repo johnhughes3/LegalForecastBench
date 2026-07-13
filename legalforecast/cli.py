@@ -6783,10 +6783,88 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
         return 0
 
     try:
-        if snapshot_path.exists():
-            raise FileExistsError(
-                f"snapshot target already exists; refusing stale reuse: {snapshot_path}"
+        with CycleAcquisitionStore(cycle_store_path) as store:
+            batch_digest = store.batch_digest(batch_id)
+            cycle_hash = store.cycle_hash
+            _validate_frozen_screening_policy(
+                policy=store.cycle_policy,
+                anchor=anchor,
             )
+            existing_snapshot = store.existing_complete_snapshot(
+                snapshot_root,
+                snapshot_id=snapshot_id,
+                batch_id=batch_id,
+            )
+    except (
+        CycleAcquisitionStoreError,
+        SnapshotVerificationError,
+        KeyError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="screen-firecrawl-dockets",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+    if existing_snapshot is not None:
+        if not cast(bool, args.resume):
+            exc = FileExistsError(
+                "complete snapshot already exists and --no-resume forbids reuse: "
+                f"{existing_snapshot[0]}"
+            )
+            _write_acquisition_failure(
+                args,
+                stage="screen-firecrawl-dockets",
+                input_paths=input_paths,
+                output_paths=output_paths,
+                reason=str(exc),
+                paid_activity_requested=False,
+            )
+            raise CommandError(str(exc)) from exc
+        snapshot_path, snapshot_manifest = existing_snapshot
+        screened_cases = _read_records(snapshot_path / "screened-cases.jsonl")
+        all_exclusions = _read_records(snapshot_path / "exclusions.jsonl")
+        snapshot_summary = _read_json_object(snapshot_path / "summary.json")
+        _write_jsonl(screened_cases_path, screened_cases)
+        _write_jsonl(exclusions_path, all_exclusions)
+        summary = {
+            "schema_version": "legalforecast.firecrawl_screening_summary.v1",
+            "dry_run": False,
+            "anchor_date": anchor.isoformat(),
+            "input_success_count": len(success_records),
+            "input_fetch_exclusion_count": len(fetch_exclusion_records),
+            "accepted_case_count": len(screened_cases),
+            "excluded_case_count": len(all_exclusions),
+            "reconciled": snapshot_summary.get("reconciliation_complete") is True,
+            "paid_activity_requested": False,
+            "snapshot_path": str(snapshot_path),
+            "cycle_hash": snapshot_manifest["cycle_hash"],
+            "batch_digest": snapshot_manifest["batch_digest"],
+            "snapshot_complete": snapshot_manifest["complete"],
+            "snapshot_saturated": snapshot_manifest["saturated"],
+            "resumed_existing_snapshot": True,
+        }
+        _write_json(summary_path, summary)
+        _write_acquisition_completion(
+            args,
+            stage="screen-firecrawl-dockets",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=len(screened_cases),
+            dry_run=False,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+        return 0
+
+    try:
         _validate_firecrawl_success_commitments(success_records)
         with CycleAcquisitionStore(cycle_store_path) as store:
             batch_digest = store.batch_digest(batch_id)

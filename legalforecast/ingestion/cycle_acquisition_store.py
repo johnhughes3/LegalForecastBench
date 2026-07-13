@@ -1654,15 +1654,14 @@ class CycleAcquisitionStore:
 
         if _SAFE_SNAPSHOT_ID.fullmatch(snapshot_id) is None:
             raise ValueError("snapshot_id contains unsafe characters")
+        root = Path(destination).resolve()
+        name = snapshot_id if complete else f"{snapshot_id}.partial"
+        target = root / name
+        self._raise_for_snapshot_collision(snapshot_id=snapshot_id, target=target)
         cycle_hash = self.cycle_hash
         batch_digest = self.batch_digest(batch_id)
         saturated = self._snapshot_completion(batch_id) if complete else False
-        root = Path(destination).resolve()
         root.mkdir(parents=True, exist_ok=True)
-        name = snapshot_id if complete else f"{snapshot_id}.partial"
-        target = root / name
-        if target.exists():
-            raise FileExistsError(f"snapshot already exists: {target}")
         staging = root / f".{name}.{uuid.uuid4().hex}.tmp"
         staging.mkdir(mode=0o700)
         try:
@@ -1718,6 +1717,105 @@ class CycleAcquisitionStore:
                 ),
             )
         return target
+
+    def existing_complete_snapshot(
+        self,
+        destination: str | Path,
+        *,
+        snapshot_id: str,
+        batch_id: str,
+    ) -> tuple[Path, Mapping[str, Any]] | None:
+        """Return an exact committed snapshot for safe resume, or fail closed.
+
+        A filesystem-only directory is never treated as resumable. A committed
+        row is reusable only when its immutable database manifest, requested
+        identity, on-disk manifest, and all file commitments agree exactly.
+        """
+
+        if _SAFE_SNAPSHOT_ID.fullmatch(snapshot_id) is None:
+            raise ValueError("snapshot_id contains unsafe characters")
+        target = Path(destination).resolve() / snapshot_id
+        row_by_id = self._connection.execute(
+            "SELECT * FROM snapshots WHERE snapshot_id = ?", (snapshot_id,)
+        ).fetchone()
+        row_by_path = self._connection.execute(
+            "SELECT * FROM snapshots WHERE path = ?", (str(target),)
+        ).fetchone()
+        if row_by_id is None and row_by_path is None:
+            if target.exists():
+                raise FileExistsError(
+                    f"untracked snapshot target already exists: {target}"
+                )
+            return None
+        if row_by_id is None or row_by_path is None:
+            raise SnapshotVerificationError(
+                "snapshot ID/path commitment does not match requested resume target"
+            )
+        if row_by_id["snapshot_id"] != row_by_path["snapshot_id"]:
+            raise SnapshotVerificationError(
+                "snapshot ID/path commitments refer to different snapshots"
+            )
+        if str(row_by_id["batch_id"]) != batch_id:
+            raise SnapshotVerificationError("snapshot batch ID mismatch")
+        if int(row_by_id["complete"]) != 1:
+            raise SnapshotVerificationError("snapshot is not complete")
+        committed_path = Path(str(row_by_id["path"]))
+        if committed_path.resolve() != target:
+            raise SnapshotVerificationError("snapshot committed path mismatch")
+        if not target.is_dir():
+            raise SnapshotVerificationError(
+                f"committed snapshot directory is missing: {target}"
+            )
+        try:
+            parsed = cast(object, json.loads(str(row_by_id["manifest_json"])))
+        except json.JSONDecodeError as error:
+            raise SnapshotVerificationError(
+                "stored snapshot manifest is invalid"
+            ) from error
+        if not isinstance(parsed, dict):
+            raise SnapshotVerificationError("stored snapshot manifest is not an object")
+        stored_manifest = cast(dict[str, Any], parsed)
+        if stored_manifest.get("snapshot_id") != snapshot_id:
+            raise SnapshotVerificationError("stored snapshot manifest ID mismatch")
+        if stored_manifest.get("batch_id") != batch_id:
+            raise SnapshotVerificationError("stored snapshot manifest batch mismatch")
+        if stored_manifest.get("created_at") != row_by_id["created_at"]:
+            raise SnapshotVerificationError("stored snapshot creation time mismatch")
+        disk_manifest = verify_snapshot(
+            target,
+            expected_cycle_hash=self.cycle_hash,
+            expected_batch_digest=self.batch_digest(batch_id),
+            require_complete=True,
+        )
+        if disk_manifest != stored_manifest:
+            raise SnapshotVerificationError(
+                "on-disk snapshot manifest does not match committed store manifest"
+            )
+        return target, stored_manifest
+
+    def _raise_for_snapshot_collision(
+        self,
+        *,
+        snapshot_id: str,
+        target: Path,
+    ) -> None:
+        row_by_id = self._connection.execute(
+            "SELECT path FROM snapshots WHERE snapshot_id = ?", (snapshot_id,)
+        ).fetchone()
+        if row_by_id is not None:
+            raise FileExistsError(
+                f"snapshot ID already committed: {snapshot_id} ({row_by_id['path']})"
+            )
+        row_by_path = self._connection.execute(
+            "SELECT snapshot_id FROM snapshots WHERE path = ?", (str(target),)
+        ).fetchone()
+        if row_by_path is not None:
+            raise FileExistsError(
+                "snapshot path already committed: "
+                f"{target} ({row_by_path['snapshot_id']})"
+            )
+        if target.exists():
+            raise FileExistsError(f"snapshot already exists: {target}")
 
     def _snapshot_payloads(self, batch_id: str) -> dict[str, bytes]:
         candidate_rows = self._connection.execute(
