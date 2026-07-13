@@ -94,8 +94,7 @@ def test_batch_config_is_stable_and_uses_frozen_terms() -> None:
 
 
 def test_batch_config_digest_differs_from_batch_001(tmp_path: Path) -> None:
-    store = CycleAcquisitionStore(tmp_path / "cycle.sqlite3")
-    try:
+    with CycleAcquisitionStore(tmp_path / "cycle.sqlite3") as store:
         store.ensure_cycle(
             {"schema_version": "test", "eligibility_anchor": "2026-06-30"}
         )
@@ -113,8 +112,6 @@ def test_batch_config_digest_differs_from_batch_001(tmp_path: Path) -> None:
             ),
         )
         assert digest_001 != digest_002
-    finally:
-        store.close()
 
 
 def test_batch_config_rejects_inverted_window() -> None:
@@ -253,8 +250,7 @@ def test_fetch_page_parses_hits_and_exhaustion() -> None:
 
 
 def test_scheduler_dedupes_hits_to_docket_candidates(tmp_path: Path) -> None:
-    store = CycleAcquisitionStore(tmp_path / "cycle.sqlite3")
-    try:
+    with CycleAcquisitionStore(tmp_path / "cycle.sqlite3") as store:
         store.ensure_cycle({"schema_version": "test"})
         store.ensure_batch(
             "batch-002",
@@ -315,8 +311,6 @@ def test_scheduler_dedupes_hits_to_docket_candidates(tmp_path: Path) -> None:
             status is TermTerminalStatus.EXHAUSTED
             for status in summary.terminal_status_by_term.values()
         )
-    finally:
-        store.close()
 
 
 def test_fetch_page_fails_closed_on_rate_limit() -> None:
@@ -459,6 +453,18 @@ def test_reconstruct_docket_produces_screenable_page() -> None:
     )
     assert screen.status is MtdDocketScreenStatus.ACCEPTED_STRICT_CIVIL_MTD_DECISION
     assert screen.has_actual_mtd_decision is True
+
+
+def test_reconstruct_normalizes_docket_id() -> None:
+    client = _client(
+        (
+            _docket_response(555),
+            _entries_response(cursor=None, results=[], next_cursor=None),
+        )
+    )
+    reconstructed = reconstruct_docket_page(client, " 555 ")
+    assert reconstructed.docket.docket_id == "555"
+    assert reconstructed.proof.docket_id == "555"
 
 
 def test_reconstruct_excludes_decision_before_anchor() -> None:
@@ -661,7 +667,7 @@ def test_observe_accepts_clean_in_window_decision(tmp_path: Path) -> None:
             "caseName": "Acme Corp v. Roe",
         },
     )
-    try:
+    with store:
         recon_client = _client(
             (
                 _docket_response(555),
@@ -704,8 +710,6 @@ def test_observe_accepts_clean_in_window_decision(tmp_path: Path) -> None:
         assert observation.evidence["eligibility_anchor"] == "2026-06-30"
         current = store.current_observation("courtlistener-docket-555")
         assert current is not None and current.state == "accepted"
-    finally:
-        store.close()
 
 
 def test_observe_excludes_bankruptcy_without_fetch(tmp_path: Path) -> None:
@@ -721,7 +725,7 @@ def test_observe_excludes_bankruptcy_without_fetch(tmp_path: Path) -> None:
             "caseName": "In re Debtor",
         },
     )
-    try:
+    with store:
         # An empty reconstruction client proves no docket fetch is attempted.
         recon_client = _client(())
         observation = observe_recap_api_candidate(
@@ -733,8 +737,6 @@ def test_observe_excludes_bankruptcy_without_fetch(tmp_path: Path) -> None:
         )
         assert observation.state == "excluded"
         assert observation.reason_code == PRESCREEN_BANKRUPTCY_REASON
-    finally:
-        store.close()
 
 
 def test_observe_excludes_first_disposition_before_anchor(tmp_path: Path) -> None:
@@ -750,7 +752,7 @@ def test_observe_excludes_first_disposition_before_anchor(tmp_path: Path) -> Non
             "caseName": "Acme Corp v. Roe",
         },
     )
-    try:
+    with store:
         recon_client = _client(
             (
                 _docket_response(555),
@@ -785,5 +787,136 @@ def test_observe_excludes_first_disposition_before_anchor(tmp_path: Path) -> Non
         )
         assert observation.state == "excluded"
         assert observation.reason_code == "decision_before_release_anchor"
-    finally:
-        store.close()
+
+
+def test_observe_rejects_candidate_id_docket_id_mismatch(tmp_path: Path) -> None:
+    store, payload = _seeded_store(
+        tmp_path,
+        {
+            "id": 9001,
+            "docket_id": 555,
+            "description": "ORDER granting motion to dismiss",
+            "entry_date_filed": "2026-07-05",
+        },
+    )
+    payload["candidate_id"] = "courtlistener-docket-999"
+    with store, pytest.raises(RecapApiResponseError, match="does not match"):
+        observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=_client(()),
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+
+def test_observe_fails_closed_on_undated_mtd_disposition(tmp_path: Path) -> None:
+    store, payload = _seeded_store(
+        tmp_path,
+        {
+            "id": 9001,
+            "docket_id": 555,
+            "description": "ORDER granting motion to dismiss",
+            "entry_date_filed": "2026-07-05",
+            "court_id": "nysd",
+            "docketNumber": "1:26-cv-00001",
+            "caseName": "Acme Corp v. Roe",
+        },
+    )
+    with store:
+        recon_client = _client(
+            (
+                _docket_response(555),
+                _entries_response(
+                    cursor=None,
+                    results=[
+                        {
+                            "id": 7001,
+                            "docket": 555,
+                            "entry_number": 20,
+                            "description": "ORDER granting motion to dismiss",
+                            "date_filed": None,
+                        },
+                        {
+                            "id": 7002,
+                            "docket": 555,
+                            "entry_number": 40,
+                            "description": "ORDER granting renewed motion to dismiss",
+                            "date_filed": "2026-07-05",
+                        },
+                    ],
+                    next_cursor=None,
+                ),
+            )
+        )
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+        assert observation.state == "transient_failure"
+        assert observation.reason_code == "parse_failure"
+        assert observation.evidence["unparseable_mtd_decision_entries"] == [
+            {
+                "row_id": "entry-20",
+                "entry_number": "20",
+                "filed_at": None,
+                "filed_date": None,
+            }
+        ]
+
+
+def test_observe_prescreens_authoritative_bankruptcy_metadata(tmp_path: Path) -> None:
+    store, payload = _seeded_store(
+        tmp_path,
+        {
+            "id": 9001,
+            "docket_id": 555,
+            "description": "ORDER granting motion to dismiss",
+            "entry_date_filed": "2026-07-05",
+        },
+    )
+    with store:
+        recon_client = _client(
+            (
+                _response(
+                    path="/dockets/555/",
+                    payload={
+                        "id": 555,
+                        "court": "nysb",
+                        "docket_number": "1:26-cv-00001",
+                        "case_name": "Acme Corp v. Roe",
+                        "date_filed": "2026-05-01",
+                    },
+                ),
+                _entries_response(
+                    cursor=None,
+                    results=[
+                        {
+                            "id": 7002,
+                            "docket": 555,
+                            "entry_number": 40,
+                            "description": "ORDER granting motion to dismiss",
+                            "date_filed": "2026-07-05",
+                        }
+                    ],
+                    next_cursor=None,
+                ),
+            )
+        )
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+        assert observation.state == "excluded"
+        assert observation.reason_code == PRESCREEN_BANKRUPTCY_REASON
+        assert observation.evidence["authoritative_docket_metadata"] == {
+            "court_id": "nysb",
+            "docket_number": "1:26-cv-00001",
+            "case_name": "Acme Corp v. Roe",
+        }

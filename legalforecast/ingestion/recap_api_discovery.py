@@ -497,7 +497,8 @@ def reconstruct_docket_page(
     reconstruction is authoritative and search hits are only leads.
     """
 
-    if not docket_id.strip():
+    docket_id = docket_id.strip()
+    if not docket_id:
         raise ValueError("docket_id is required")
     require_reconstruction_auth(client)
     if pacer is not None:
@@ -722,7 +723,16 @@ def observe_recap_api_candidate(
     """
 
     docket_id = candidate_docket_id(payload)
-    candidate_id = f"{_CANDIDATE_PREFIX}{docket_id}"
+    expected_candidate_id = f"{_CANDIDATE_PREFIX}{docket_id}"
+    payload_candidate_id = payload.get("candidate_id")
+    if not isinstance(payload_candidate_id, str) or not payload_candidate_id.strip():
+        raise RecapApiResponseError("candidate payload is missing a candidate_id")
+    candidate_id = payload_candidate_id.strip()
+    if candidate_id != expected_candidate_id:
+        raise RecapApiResponseError(
+            "candidate payload candidate_id does not match its docket_id: "
+            f"{candidate_id!r} != {expected_candidate_id!r}"
+        )
     base_evidence: dict[str, object] = {
         "candidate_id": candidate_id,
         "docket_id": docket_id,
@@ -760,6 +770,26 @@ def observe_recap_api_candidate(
             evidence={**base_evidence, "error": str(error)},
         )
 
+    authoritative_metadata = {
+        "court_id": reconstructed.docket.court_id,
+        "docket_number": reconstructed.docket.docket_number,
+        "case_name": reconstructed.docket.case_name,
+    }
+    authoritative_prescreen = prescreen_recap_candidate(**authoritative_metadata)
+    if authoritative_prescreen is not None:
+        return store.record_observation(
+            candidate_id,
+            batch_id=batch_id,
+            state="excluded",
+            reason_code=authoritative_prescreen,
+            evidence={
+                **base_evidence,
+                "prescreen_exclusion_reason": authoritative_prescreen,
+                "authoritative_docket_metadata": authoritative_metadata,
+                "reconstruction_proof": reconstructed.proof.to_record(),
+            },
+        )
+
     anchored = screen_courtlistener_docket_for_mtd_decision(
         reconstructed.page, decision_filed_on_or_after=eligibility_anchor
     )
@@ -769,12 +799,10 @@ def observe_recap_api_candidate(
     # earlier MTD report/decision that predates the eligibility anchor.
     unbounded = screen_courtlistener_docket_for_mtd_decision(reconstructed.page)
     all_decisions = _decision_entry_records(unbounded)
+    unparseable_decisions = [
+        entry for entry in all_decisions if entry["filed_date"] is None
+    ]
     earliest = _earliest_decision_date(unbounded)
-    state, reason_code = _map_screen_outcome(
-        anchored=anchored,
-        earliest_decision_date=earliest,
-        eligibility_anchor=eligibility_anchor,
-    )
     evidence = {
         **base_evidence,
         "screen": anchored.to_record(),
@@ -783,6 +811,23 @@ def observe_recap_api_candidate(
         "first_mtd_decision_date": earliest.isoformat() if earliest else None,
         "eligibility_anchor": eligibility_anchor.isoformat(),
     }
+    if unparseable_decisions:
+        return store.record_observation(
+            candidate_id,
+            batch_id=batch_id,
+            state="transient_failure",
+            reason_code="parse_failure",
+            evidence={
+                **evidence,
+                "unparseable_mtd_decision_entries": unparseable_decisions,
+                "error": "MTD decision entry has a missing or unparseable filed date",
+            },
+        )
+    state, reason_code = _map_screen_outcome(
+        anchored=anchored,
+        earliest_decision_date=earliest,
+        eligibility_anchor=eligibility_anchor,
+    )
     return store.record_observation(
         candidate_id,
         batch_id=batch_id,
