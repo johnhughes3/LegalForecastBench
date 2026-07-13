@@ -237,6 +237,148 @@ def test_daily_batches_share_cycle_hash_but_freeze_distinct_window_digests(
     assert overlapping["search_window_start"] == "2026-07-02"
 
 
+def test_distinct_runs_namespace_default_raw_artifacts_by_run_id(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "output"
+    cycle_store = tmp_path / "cycle.sqlite3"
+    start = date(2026, 7, 1)
+    fixture = _empty_firecrawl_fixture(
+        tmp_path / "same-page.jsonl", start=start, end=start
+    )
+
+    for batch_id, run_id in (
+        ("batch-first", "run-first"),
+        ("batch-second", "run-second"),
+    ):
+        assert (
+            main(
+                [
+                    "acquisition",
+                    "discover-firecrawl-recap",
+                    "--output-root",
+                    str(output_root),
+                    "--cycle-store",
+                    str(cycle_store),
+                    "--batch-id",
+                    batch_id,
+                    "--run-id",
+                    run_id,
+                    "--eligibility-anchor",
+                    "2026-06-30",
+                    "--search-window-start",
+                    start.isoformat(),
+                    "--search-window-end",
+                    start.isoformat(),
+                    "--query-term",
+                    "motion to dismiss",
+                    "--firecrawl-fixture",
+                    str(fixture),
+                    "--execute",
+                ]
+            )
+            == 0
+        )
+
+    first_artifacts = list(
+        (output_root / "raw-recap-search-html" / "run-first").glob("*.html")
+    )
+    second_artifacts = list(
+        (output_root / "raw-recap-search-html" / "run-second").glob("*.html")
+    )
+    assert len(first_artifacts) == 1
+    assert len(second_artifacts) == 1
+    assert first_artifacts[0].name == second_artifacts[0].name
+
+
+def test_explicit_raw_artifact_directory_is_not_namespaced(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "output"
+    explicit_dir = tmp_path / "operator-selected-raw"
+    start = date(2026, 7, 1)
+    fixture = _empty_firecrawl_fixture(
+        tmp_path / "explicit.jsonl", start=start, end=start
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "discover-firecrawl-recap",
+                "--output-root",
+                str(output_root),
+                "--batch-id",
+                "batch-explicit",
+                "--run-id",
+                "run-explicit",
+                "--eligibility-anchor",
+                "2026-06-30",
+                "--search-window-start",
+                start.isoformat(),
+                "--search-window-end",
+                start.isoformat(),
+                "--query-term",
+                "motion to dismiss",
+                "--firecrawl-fixture",
+                str(fixture),
+                "--raw-search-html-dir",
+                str(explicit_dir),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    assert len(list(explicit_dir.glob("*.html"))) == 1
+    assert not (explicit_dir / "run-explicit").exists()
+
+
+def test_resume_rejects_changed_raw_artifact_directory(
+    tmp_path: Path, capsys: Any
+) -> None:
+    output_root = tmp_path / "output"
+    cycle_store = tmp_path / "cycle.sqlite3"
+    start = date(2026, 7, 1)
+    fixture = _empty_firecrawl_fixture(
+        tmp_path / "resume.jsonl", start=start, end=start
+    )
+
+    def run_with_raw_dir(raw_dir: Path) -> int:
+        return main(
+            [
+                "acquisition",
+                "discover-firecrawl-recap",
+                "--output-root",
+                str(output_root),
+                "--cycle-store",
+                str(cycle_store),
+                "--batch-id",
+                "batch-resume",
+                "--run-id",
+                "run-resume",
+                "--eligibility-anchor",
+                "2026-06-30",
+                "--search-window-start",
+                start.isoformat(),
+                "--search-window-end",
+                start.isoformat(),
+                "--query-term",
+                "motion to dismiss",
+                "--firecrawl-fixture",
+                str(fixture),
+                "--raw-search-html-dir",
+                str(raw_dir),
+                "--execute",
+                "--resume",
+            ]
+        )
+
+    assert run_with_raw_dir(tmp_path / "raw-first") == 0
+    assert run_with_raw_dir(tmp_path / "raw-second") == 2
+    assert "Firecrawl run config mismatch" in capsys.readouterr().err
+
+
 def test_discover_firecrawl_recap_rejects_search_start_before_anchor(
     tmp_path: Path, capsys: Any
 ) -> None:
