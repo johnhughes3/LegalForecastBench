@@ -326,6 +326,87 @@ def test_docket_screen_rejects_bankruptcy_main_case_despite_rule_12_words() -> N
     assert "bankruptcy_posture" in screen.exclusion_reasons
 
 
+def test_docket_screen_does_not_treat_ordinary_b_suffix_tokens_as_bankruptcy() -> None:
+    for token in ("Feb", "CAB", "JLB"):
+        page = parse_courtlistener_docket_html(
+            _multi_entry_docket_html(
+                title=f"Doe v. {token} Corporation - 6:26-cv-00106",
+                entries=(
+                    (1, "July 1, 2026", "COMPLAINT filed."),
+                    (4, "July 3, 2026", "MOTION to Dismiss Count I."),
+                    (8, "July 10, 2026", "ORDER granting 4 Motion to Dismiss Count I."),
+                ),
+            ),
+            source_url=(
+                "https://www.courtlistener.com/docket/74000003/"
+                f"doe-v-{token.lower()}-corporation/"
+            ),
+        )
+
+        screen = screen_courtlistener_docket_for_mtd_decision(
+            page,
+            candidate_text=f"Civil action assigned to Judge {token}.",
+            decision_filed_on_or_after=date(2026, 6, 30),
+        )
+
+        assert screen.strict_clean is True, token
+        assert screen.case_type_stratum == "district_civil", token
+        assert "bankruptcy_posture" not in screen.exclusion_reasons, token
+
+
+def test_docket_screen_still_recognizes_bankruptcy_court_identifier() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="In re Debtor - flmb 6:26-06489",
+            entries=(
+                (1, "July 1, 2026", "Voluntary Chapter 13 Petition."),
+                (4, "July 3, 2026", "Trustee MOTION to Dismiss Case under Rule 12."),
+                (8, "July 10, 2026", "ORDER granting 4 Motion to Dismiss Case."),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000004/in-re-debtor/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text="flmb 6:26-06489",
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert screen.strict_clean is False
+    assert "bankruptcy_posture" in screen.exclusion_reasons
+
+
+def test_docket_screen_accepts_adv_marker_for_rule_7012_adversary() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Trustee v. Defendant LLC - 6:26-adv-00107",
+            entries=(
+                (1, "July 1, 2026", "Adversary COMPLAINT filed."),
+                (
+                    4,
+                    "July 3, 2026",
+                    "MOTION to Dismiss Count I under Fed. R. Bankr. P. 7012 "
+                    "and Fed. R. Civ. P. 12(b)(6).",
+                ),
+                (8, "July 10, 2026", "ORDER granting 4 Motion to Dismiss Count I."),
+            ),
+        ),
+        source_url=(
+            "https://www.courtlistener.com/docket/74000005/trustee-v-defendant/"
+        ),
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text="flmb 6:26-adv-00107 Trustee v. Defendant LLC",
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert screen.strict_clean is True
+    assert screen.case_type_stratum == "bankruptcy_adversary"
+
+
 def test_adversary_linkage_cannot_promote_generic_dismissal_motion() -> None:
     page = parse_courtlistener_docket_html(
         _multi_entry_docket_html(

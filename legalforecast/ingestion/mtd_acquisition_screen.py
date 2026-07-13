@@ -46,6 +46,108 @@ LOW_YIELD_MTD_DISCOVERY_TERMS: tuple[str, ...] = (
     "Rule 12",
 )
 
+# CourtListener's federal-bankruptcy court identifiers.  Keep this explicit:
+# the former ``[a-z]{2,4}b`` heuristic also matched ordinary docket text such
+# as "Feb", judge initials ("JLB"), and party abbreviations ("CAB").
+_BANKRUPTCY_COURT_IDS = frozenset(
+    {
+        "akb",
+        "almb",
+        "alnb",
+        "alsb",
+        "areb",
+        "arwb",
+        "azb",
+        "cacb",
+        "caeb",
+        "canb",
+        "casb",
+        "cob",
+        "ctb",
+        "dcb",
+        "deb",
+        "flmb",
+        "flnb",
+        "flsb",
+        "gamb",
+        "ganb",
+        "gasb",
+        "gub",
+        "hib",
+        "ianb",
+        "iasb",
+        "idb",
+        "ilcb",
+        "ilnb",
+        "ilsb",
+        "innb",
+        "insb",
+        "ksb",
+        "kyeb",
+        "kywb",
+        "laeb",
+        "lamb",
+        "lawb",
+        "mab",
+        "mdb",
+        "meb",
+        "mieb",
+        "miwb",
+        "mnb",
+        "moeb",
+        "mowb",
+        "mpb",
+        "msnb",
+        "mssb",
+        "mtb",
+        "nceb",
+        "ncmb",
+        "ncwb",
+        "ndb",
+        "neb",
+        "nhb",
+        "njb",
+        "nmb",
+        "nvb",
+        "nyeb",
+        "nynb",
+        "nysb",
+        "nywb",
+        "ohnb",
+        "ohsb",
+        "okeb",
+        "oknb",
+        "okwb",
+        "orb",
+        "paeb",
+        "pamb",
+        "pawb",
+        "prb",
+        "rib",
+        "scb",
+        "sdb",
+        "tneb",
+        "tnmb",
+        "tnwb",
+        "txeb",
+        "txnb",
+        "txsb",
+        "txwb",
+        "utb",
+        "vaeb",
+        "vawb",
+        "vib",
+        "vtb",
+        "waeb",
+        "wawb",
+        "wieb",
+        "wiwb",
+        "wvnb",
+        "wvsb",
+        "wyb",
+    }
+)
+
 
 class MtdDocketScreenStatus(StrEnum):
     """Case-level acquisition screen outcome."""
@@ -715,10 +817,11 @@ def _strict_posture_exclusion_reasons(
 
 def _looks_like_bankruptcy_context(text: str) -> bool:
     lowered = text.lower()
+    court_ids = set(re.findall(r"\b[a-z]{2,5}b\b", lowered))
     return bool(
         "bankruptcy" in lowered
         or "adversary proceeding" in lowered
-        or re.search(r"(?:^|\W)[a-z]{2,4}b(?:\W|$)", lowered)
+        or court_ids.intersection(_BANKRUPTCY_COURT_IDS)
         or re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", lowered)
     )
 
