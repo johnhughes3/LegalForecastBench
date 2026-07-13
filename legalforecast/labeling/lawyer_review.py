@@ -234,6 +234,7 @@ class AdjudicatedReview:
 
 def _label_signature(label: OutcomeLabel) -> tuple[object, ...]:
     return (
+        label.canonical_unit_resolution.value,
         label.fully_dismissed,
         label.amendment_class,
         label.ambiguous,

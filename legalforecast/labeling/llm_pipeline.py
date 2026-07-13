@@ -707,12 +707,10 @@ def llm_label_cases(
                 candidate_id=candidate_id,
                 ensemble=ensemble,
             )
-            label_audit_packets = _label_audit_review_packets(
-                candidate_id=candidate_id,
-                ensemble=ensemble,
-                frozen_units=tuple(frozen_units),
-                decision_text=decision_text,
-            )
+            # Reliability sampling is deliberately cycle-level. Sampling here
+            # would create one independent sample per case and make the audit
+            # universe depend on processing order.
+            label_audit_packets: tuple[LawyerReviewPacket, ...] = ()
             if lawyer_review_packets:
                 selected_labels = tuple(ensemble.auto_labels)
             else:
@@ -760,10 +758,12 @@ def llm_label_cases(
                     "pending_adjudication_unit_ids": pending_unit_ids,
                     "pending_adjudication_count": pending_review_count,
                     "adjudicated_review_count": adjudicated_review_count,
-                    "label_audit_gate": _label_audit_gate_record(
-                        ensemble,
-                        adjudicated_labels_by_unit_id={},
-                    ),
+                    "label_audit_gate": {
+                        "required": True,
+                        "cycle_level": True,
+                        "status": "awaiting_cycle_level_plan",
+                        "sample_unit_ids": [],
+                    },
                     "consensus_policy": consensus_policy.value,
                     "label_count": len(selected_labels),
                     "unit_count": len(frozen_units),
@@ -1400,47 +1400,6 @@ def _lawyer_review_packets(
     return tuple(packets)
 
 
-def _label_audit_review_packets(
-    *,
-    candidate_id: str,
-    ensemble: EnsembleRunResult,
-    frozen_units: tuple[PredictionUnit, ...],
-    decision_text: StageBDecisionText,
-) -> tuple[LawyerReviewPacket, ...]:
-    """Build blind human-review packets for deterministic auto-label samples."""
-
-    units_by_id = {unit.unit_id: unit for unit in frozen_units}
-    return tuple(
-        LawyerReviewPacket(
-            review_id=f"{candidate_id}:{decision.unit_id}:label-audit",
-            candidate_id=candidate_id,
-            unit_id=decision.unit_id,
-            review_reason="label_audit_sample",
-            blind_reliability_study=True,
-            materials=(
-                ReviewMaterial(
-                    material_id=f"{decision.unit_id}:frozen-unit",
-                    kind=ReviewMaterialKind.UNIT_TEXT,
-                    text=json.dumps(
-                        units_by_id[decision.unit_id].to_record(),
-                        sort_keys=True,
-                    ),
-                ),
-                ReviewMaterial(
-                    material_id=f"{decision.unit_id}:first-written-disposition",
-                    kind=ReviewMaterialKind.DECISION_EXCERPT,
-                    text=decision_text.text,
-                    source_document_id=decision_text.document_id,
-                ),
-            ),
-        )
-        for decision in _label_audit_sample_decisions(
-            ensemble,
-            sample_size=DEFAULT_LABEL_AUDIT_SAMPLE_SIZE,
-        )
-    )
-
-
 def _lawyer_review_queue_records(
     *,
     candidate_id: str,
@@ -1557,9 +1516,12 @@ def apply_adjudicated_reviews(
                 f"duplicate adjudication records for unit: {adjudication.unit_id}"
             )
         adjudications_by_unit_id[adjudication.unit_id] = adjudication
-        labels_by_unit[adjudication.unit_id] = (
-            adjudication.adjudicated_label.to_record()
-        )
+        # Blind reliability-audit responses measure the frozen auto label; they
+        # must never rewrite it. Only routed merits adjudications replace labels.
+        if not adjudication.review_id.endswith(":label-audit"):
+            labels_by_unit[adjudication.unit_id] = (
+                adjudication.adjudicated_label.to_record()
+            )
         audit_records.append(
             {
                 "stage": "lawyer-review-resume",
@@ -1746,6 +1708,7 @@ def _outcome_label(record: Mapping[str, Any]) -> OutcomeLabel:
         first_written_disposition_locked = True
     return OutcomeLabel(
         unit_id=_required_str(record, "unit_id"),
+        unit_resolution=UnitResolution(_required_str(record, "unit_resolution")),
         fully_dismissed=_optional_bool(record, "fully_dismissed"),
         amendment_class=AmendmentClass(_required_str(record, "amendment_class")),
         ambiguous=_required_bool(record, "ambiguous"),

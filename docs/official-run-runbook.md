@@ -2,6 +2,49 @@
 
 This is the operator checklist for `.github/workflows/run-benchmark.yaml` on the current `main` branch. The workflow builds the matrix, runs isolated provider cells, resumes complete matching cells from the durable S3 result store, aggregates successful artifacts, and publishes the public aggregate to S3.
 
+## Acquisition Downstream Preflight
+
+Do not substitute a parser. The LegalForecastBench wrapper pins the reviewed parser revision `9402306972462a5bdd0da7f687c5e6b4cea373a0`, verifies that checkout is clean, requires a nonempty `MISTRAL_API_KEY`, and constructs the parser child environment from only that key, `PATH`, the environment-only fallback guard, and nonempty locale variables.
+
+Until the dedicated `/agents/sandbox/legalforecastbench/parser` folder exists, the approved acquisition folder may inject the parent process. Verify names only, never values:
+
+```bash
+infisical-agent-sandbox run \
+  --path /agents/sandbox/legalforecastbench-acquisition \
+  -- zsh -lc 'for n in MISTRAL_API_KEY; do [[ -n ${(P)n:-} ]] && print -- "$n=present" || print -- "$n=missing"; done'
+```
+
+Run the live parse against the clean pinned checkout explicitly; the default parser checkout may be on a different revision and will correctly fail closed:
+
+```bash
+infisical-agent-sandbox run \
+  --path /agents/sandbox/legalforecastbench-acquisition \
+  -- uv run legalforecast acquisition parse-documents \
+  --output-root <assembled-cycle-root> \
+  --requests <parse-document-requests.jsonl> \
+  --disclosure-clearance <disclosure-clearance.jsonl> \
+  --parser-root /work/Development/.worktrees/parser/fix/env-only-api-keys \
+  --execute --resume
+```
+
+The broad Infisical folder is visible to the LegalForecastBench parent process, but not inherited wholesale by the parser subprocess. The sentinel-`op` and child-environment tests in `tests/test_mistral_markdown_parser.py` enforce that boundary. Provisioning the dedicated parser-only folder remains the preferred steady-state layout.
+
+After Stage B labeling completes, freeze the single cycle-level reliability sample before any lawyer adjudication:
+
+```bash
+uv run legalforecast acquisition plan-label-audit \
+  --output-root <assembled-cycle-root> \
+  --llm-label-audit <llm-label-audit.jsonl> \
+  --selection <selection.jsonl> \
+  --prediction-units <finalized-prediction-units.jsonl> \
+  --decision-texts <decision-texts.jsonl> \
+  --labeling-policy <precommitted-labeling-policy.json> \
+  --lawyer-review-queue <lawyer-review-queue.jsonl> \
+  --execute --no-resume
+```
+
+Keep `llm-label-audit-cycle-planned.jsonl`, `cycle-label-audit-plan.json`, and the merged review queue in controlled private storage for lawyer review. The only check-in-safe outputs are `cycle-label-audit-summary.json` and `adjudication-routing-summary.json`; both are redacted and hash-bound to the private plan. Supply the plan and the same precommitted policy back to `apply-lawyer-review` with `--cycle-label-audit-plan` and `--labeling-policy`; audit-sample adjudications do not replace unanimous model labels.
+
 ## Before Dispatch
 
 Run the release gate at the exact SHA you intend to dispatch:

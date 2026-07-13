@@ -88,6 +88,7 @@ def _label_audit(candidate_id: str) -> dict[str, object]:
 def _label(unit_id: str) -> dict[str, object]:
     return {
         "unit_id": unit_id,
+        "unit_resolution": "fully_dismissed",
         "fully_dismissed": True,
         "amendment_class": "dismissed_without_express_amendment_opportunity",
         "ambiguous": False,
@@ -338,6 +339,40 @@ def test_required_stage_b_label_audit_fails_closed_until_passed() -> None:
     assert passed.clean_candidate_ids == ("cand-1",)
 
 
+def test_cycle_label_audit_gate_must_match_exact_plan_and_corpus_hashes() -> None:
+    planned = {
+        "stage": "llm-label",
+        "candidate_id": "cand-1",
+        "status": "succeeded",
+        "label_audit_gate": {
+            "required": True,
+            "cycle_level": True,
+            "status": "covered_by_cycle_level_plan",
+            "sample_unit_ids": [],
+            "cycle_label_audit_plan_sha256": "a" * 64,
+            "ensemble_corpus_sha256": "b" * 64,
+        },
+    }
+    stale_gate = {
+        "schema_version": "legalforecast.cycle_label_audit_gate.v1",
+        "stage": "label-audit-gate",
+        "status": "passed",
+        "candidate_id": "cand-1",
+        "sample_unit_ids": [],
+        "cycle_label_audit_plan_sha256": "c" * 64,
+        "ensemble_corpus_sha256": "b" * 64,
+        "human_verified": True,
+    }
+
+    report = _single_candidate_report(
+        label_audits=[planned],
+        lawyer_review_audits=[stale_gate],
+    )
+
+    assert report.clean_count == 0
+    assert report.exclusion_reasons["cand-1"] == ("label_audit_pending",)
+
+
 def test_clean_corpus_readiness_joins_all_fail_closed_gates() -> None:
     selections = [
         _selection("cand-clean", "case-clean"),
@@ -503,6 +538,7 @@ def test_clean_corpus_readiness_honors_consolidated_exclusion_ledger() -> None:
     ("field", "value"),
     [
         ("fully_dismissed", None),
+        ("unit_resolution", None),
         ("amendment_class", "not_fully_dismissed"),
         ("label_confidence", 1.1),
         ("supporting_citations", []),

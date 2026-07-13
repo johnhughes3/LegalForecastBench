@@ -54,6 +54,7 @@ from legalforecast.labeling.label_outcomes import (
     LaterProceduralChange,
     OutcomeCitation,
     OutcomeLabel,
+    UnitResolution,
 )
 from legalforecast.protocol.freeze import sha256_file
 from legalforecast.publication.dispatch_provenance import (
@@ -2218,6 +2219,7 @@ def _load_labels(path: Path) -> tuple[OutcomeLabel, ...]:
 def _outcome_label(record: Mapping[str, Any]) -> OutcomeLabel:
     return OutcomeLabel(
         unit_id=_required_str(record, "unit_id"),
+        unit_resolution=UnitResolution(_required_str(record, "unit_resolution")),
         fully_dismissed=_optional_bool(record, "fully_dismissed"),
         amendment_class=AmendmentClass(_required_str(record, "amendment_class")),
         ambiguous=_required_bool(record, "ambiguous"),

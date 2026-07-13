@@ -16,11 +16,17 @@ from legalforecast.evals.response_verification import (
     RESPONSE_VERIFICATION_SCHEMA_FIELD,
     RESPONSE_VERIFICATION_SCHEMA_VERSION,
 )
-from legalforecast.labeling import AmendmentClass, OutcomeCitation, OutcomeLabel
+from legalforecast.labeling import (
+    AmendmentClass,
+    OutcomeCitation,
+    OutcomeLabel,
+    UnitResolution,
+)
 from legalforecast.publication.official_aggregate import (
     OfficialAggregationConfig,
     OfficialAggregationError,
     _ablation_delta_report,
+    _outcome_label,
     _score_row_type,
     aggregate_official_results,
 )
@@ -28,6 +34,24 @@ from legalforecast.publication.official_aggregate import (
     main as official_aggregate_main,
 )
 from legalforecast.reporting.cadence import CycleSeries
+
+
+def test_publication_reader_preserves_partial_and_material_survival_resolution() -> (
+    None
+):
+    records = []
+    for resolution in (
+        UnitResolution.PARTIAL_DISMISSAL_ONLY,
+        UnitResolution.SURVIVES_IN_MATERIAL_RESPECT,
+    ):
+        label = _label("unit-survives", dismissed=False).to_record()
+        label["unit_resolution"] = resolution.value
+        records.append(_outcome_label(label))
+
+    assert [label.canonical_unit_resolution for label in records] == [
+        UnitResolution.PARTIAL_DISMISSAL_ONLY,
+        UnitResolution.SURVIVES_IN_MATERIAL_RESPECT,
+    ]
 
 
 def test_score_row_type_preserves_baseline_with_ablation_suffix() -> None:

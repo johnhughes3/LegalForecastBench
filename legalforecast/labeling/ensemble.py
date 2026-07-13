@@ -481,6 +481,7 @@ def _decision_for_unit(
 
 def _label_signature(label: OutcomeLabel) -> LabelSignature:
     return (
+        label.canonical_unit_resolution.value,
         label.fully_dismissed,
         label.amendment_class.value,
         label.ambiguous,

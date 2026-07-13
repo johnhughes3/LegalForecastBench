@@ -15,6 +15,7 @@ from legalforecast.labeling.ensemble import (
     run_labeling_models,
     sample_unanimous_labels_for_audit,
 )
+from legalforecast.labeling.label_outcomes import UnitResolution
 
 
 class _FixtureLabelingModel:
@@ -25,6 +26,41 @@ class _FixtureLabelingModel:
     def label_units(self, labeling_inputs: object) -> tuple[OutcomeLabel, ...]:
         del labeling_inputs
         return self._labels
+
+
+def test_partial_and_material_survival_are_distinct_ensemble_signatures() -> None:
+    partial = OutcomeLabel(
+        unit_id="unit-resolution",
+        unit_resolution=UnitResolution.PARTIAL_DISMISSAL_ONLY,
+        fully_dismissed=False,
+        amendment_class=AmendmentClass.NOT_FULLY_DISMISSED,
+        ambiguous=False,
+        label_confidence=0.95,
+        supporting_citations=(OutcomeCitation(document_id="decision-1", page=1),),
+        first_written_disposition_id="decision-1",
+        first_written_disposition_date="2026-07-01",
+    )
+    survival = OutcomeLabel(
+        unit_id="unit-resolution",
+        unit_resolution=UnitResolution.SURVIVES_IN_MATERIAL_RESPECT,
+        fully_dismissed=False,
+        amendment_class=AmendmentClass.NOT_FULLY_DISMISSED,
+        ambiguous=False,
+        label_confidence=0.95,
+        supporting_citations=(OutcomeCitation(document_id="decision-1", page=1),),
+        first_written_disposition_id="decision-1",
+        first_written_disposition_date="2026-07-01",
+    )
+    result = evaluate_labeling_ensemble(
+        (
+            _vote("a", partial),
+            _vote("b", survival),
+            _vote("c", survival),
+        )
+    )
+
+    assert result.decisions[0].status is EnsembleDecisionStatus.LAWYER_ADJUDICATION
+    assert result.decisions[0].route_reason is EnsembleRouteReason.DISAGREEMENT
 
 
 def test_unanimous_high_confidence_labels_auto_label_and_sample_audit() -> None:
