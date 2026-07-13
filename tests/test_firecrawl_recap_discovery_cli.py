@@ -97,7 +97,7 @@ def test_discover_firecrawl_recap_uses_shared_budget_and_reports_potentials(
     assert summary["reported_credits"] == 1
     assert summary["remaining_authorization"] == 44_995
     assert summary["query_terms"] == ["motion to dismiss"]
-    assert summary["courtlistener_query_plan_version"] == "phrase-precise-v1"
+    assert summary["courtlistener_query_plan_version"] == "phrase-precise-v2"
     assert summary["courtlistener_query_expressions"] == ['"motion to dismiss"']
     assert summary["eligibility_anchor"] == "2026-06-30"
     assert summary["search_window_start"] == "2026-06-30"
@@ -839,7 +839,7 @@ def test_discover_firecrawl_recap_resume_rejects_changed_query_plan(
         end=date(2026, 7, 1),
     )
     monkeypatch.setattr(
-        cli_module, "COURTLISTENER_QUERY_PLAN_VERSION", "phrase-precise-v2"
+        cli_module, "COURTLISTENER_QUERY_PLAN_VERSION", "phrase-precise-v3-test"
     )
     assert (
         main(
