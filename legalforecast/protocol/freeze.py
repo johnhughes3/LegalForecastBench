@@ -938,13 +938,14 @@ def _json_field_values(
         return ()
     values: list[Any] = []
     try:
-        text = path.read_text(encoding="utf-8")
         if path.suffix == ".json":
-            values.extend(finder(json.loads(text), field_name))
+            with path.open(encoding="utf-8") as handle:
+                values.extend(finder(json.load(handle), field_name))
         else:
-            for line in text.splitlines():
-                if line.strip():
-                    values.extend(finder(json.loads(line), field_name))
+            with path.open(encoding="utf-8") as handle:
+                for line in handle:
+                    if line.strip():
+                        values.extend(finder(json.loads(line), field_name))
     except OSError as exc:
         raise FreezeProtocolError(
             f"cannot inspect frozen JSON artifact {path}: {exc}"

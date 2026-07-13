@@ -175,7 +175,7 @@ def require_dispatch_policy_match(
         raise PolicyArtifactError(
             "dispatch cycle_series does not match frozen execution policy"
         )
-    if allow_no_baselines is not policy["allow_no_baselines"]:
+    if allow_no_baselines != policy["allow_no_baselines"]:
         raise PolicyArtifactError(
             "dispatch allow_no_baselines does not match frozen execution policy"
         )
