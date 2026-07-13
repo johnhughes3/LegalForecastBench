@@ -494,7 +494,7 @@ def test_screen_does_not_count_notice_of_compliance_as_second_mtd(
         + _entry_html(
             number=30,
             filed_at="June 30, 2026",
-            text="Order on Motion to Dismiss for Failure to State a Claim",
+            text="ORDER granting 26 Motion to Dismiss for Failure to State a Claim",
             description="Order on Motion to Dismiss",
         )
         + "</div></body></html>"
@@ -628,6 +628,164 @@ def test_screen_counts_preanchor_report_as_first_written_disposition(
     assert exclusion["reason"] == "decision_before_release_anchor"
     assert exclusion["decision_date"] == "2026-06-29"
     assert exclusion["source_entry_ids"] == ["entry-15", "entry-16"]
+
+
+@pytest.mark.parametrize(
+    ("docket_id", "procedural_date", "procedural_text", "decision_date"),
+    (
+        (
+            "71280017",
+            "November 19, 2025",
+            (
+                "ORDER: Plaintiffs' Unopposed Motion [Doc. 23] is GRANTED. "
+                "Plaintiffs' deadline to respond to the pending Motion to "
+                "Dismiss is extended through December 1, 2025."
+            ),
+            "July 1, 2026",
+        ),
+        (
+            "72283240",
+            "April 21, 2026",
+            (
+                "ORDER Granting 17 Motion to Stay Discovery. The parties shall "
+                "file a discovery plan after entry of an order adjudicating "
+                "defendant's 5 Motion to Dismiss."
+            ),
+            "July 7, 2026",
+        ),
+    ),
+)
+def test_screen_does_not_make_preanchor_procedural_relief_first_disposition(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+    docket_id: str,
+    procedural_date: str,
+    procedural_text: str,
+    decision_date: str,
+) -> None:
+    output_root = tmp_path / "screening"
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = (
+        "<html><head><title>Fixture v. Example</title></head><body>"
+        '<div id="docket-entry-table">'
+        + _entry_html(
+            number=5,
+            filed_at="October 1, 2025",
+            text="MOTION to Dismiss filed by Defendant",
+            description="Motion to Dismiss",
+        )
+        + _entry_html(
+            number=17,
+            filed_at=procedural_date,
+            text=procedural_text,
+            description="Order",
+        )
+        + _entry_html(
+            number=22,
+            filed_at=decision_date,
+            text="ORDER granting in part and denying in part 5 Motion to Dismiss",
+            description="Order on Motion to Dismiss",
+        )
+        + "</div></body></html>"
+    )
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "screen-firecrawl-dockets",
+                *cycle_state.cli_args,
+                "--successes",
+                str(successes),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    ), docket_id
+
+    [screened] = _read_jsonl(output_root / "firecrawl-screened-cases.jsonl")
+    expected_decision_date = _parse_filed_date(decision_date)
+    assert expected_decision_date is not None
+    assert screened["first_written_mtd_disposition_date"] == (
+        expected_decision_date.isoformat()
+    )
+    assert screened["ai"]["decision_entry_numbers"] == ["22"]
+    assert _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl") == []
+
+
+def test_screen_routes_terse_generic_order_row_fail_closed(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    output_root = tmp_path / "screening"
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = (
+        "<html><head><title>Fixture v. Example</title></head><body>"
+        '<div id="docket-entry-table">'
+        + _entry_html(
+            number=5,
+            filed_at="November 6, 2025",
+            text="MOTION to Dismiss filed by Defendant",
+            description="Motion to Dismiss",
+        )
+        + _entry_html(
+            number=17,
+            filed_at="November 7, 2025",
+            text=(
+                "ORDER Response/Briefing Schedule re 5 Motion to Dismiss. "
+                "Plaintiff's response is due November 26, 2025."
+            ),
+            description="Order",
+        )
+        + _entry_html(
+            number=26,
+            filed_at="July 9, 2026",
+            text="Order on Motion to Dismiss for Failure to State a Claim",
+            description="Order on Motion to Dismiss",
+        )
+        + "</div></body></html>"
+    )
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "screen-firecrawl-dockets",
+                *cycle_state.cli_args,
+                "--successes",
+                str(successes),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    assert _read_jsonl(output_root / "firecrawl-screened-cases.jsonl") == []
+    [exclusion] = _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl")
+    assert "mtd_disposition_unproven" in (
+        exclusion["reason"],
+        *exclusion["secondary_exclusion_reasons"],
+    )
 
 
 @pytest.mark.parametrize(

@@ -440,12 +440,18 @@ def screen_courtlistener_entry_for_mtd_decision(
         )
 
     actual = _looks_like_actual_mtd_decision(text)
+    if actual:
+        decision_reasons: tuple[str, ...] = ()
+    elif _has_decision_form(text):
+        decision_reasons = ("mtd_disposition_unproven",)
+    else:
+        decision_reasons = ("motion_filing_only",)
     return MtdDecisionEntryScreen(
         row_id=entry.row_id,
         entry_number=entry.entry_number,
         filed_at=entry.filed_at,
         actual_mtd_decision=actual,
-        exclusion_reasons=() if actual else ("motion_filing_only",),
+        exclusion_reasons=decision_reasons,
     )
 
 
@@ -695,13 +701,135 @@ def _references_mtd_or_pleadings_motion(text: str) -> bool:
 
 
 def _looks_like_actual_mtd_decision(text: str) -> bool:
+    return _has_decision_form(text) and _has_direct_mtd_disposition(text)
+
+
+def _has_direct_mtd_disposition(text: str) -> bool:
+    """Return whether a disposition verb acts on the MTD or challenged pleading.
+
+    Docket rows frequently combine a procedural ruling with a reference to a
+    still-pending MTD.  Keep the verb and its target in the same clause so an
+    order granting a stay or extension cannot borrow ``Motion to Dismiss`` from
+    a later sentence.  Generic event labels such as ``Order on Motion to
+    Dismiss`` deliberately provide no outcome and therefore fail closed.
+    """
+
+    action = (
+        r"(?:grant(?:ed|ing|s)?|den(?:y|ied|ying|ies)|"
+        r"terminat(?:ed|ing|es?)|dismiss(?:ed|es|ing)|"
+        r"adopt(?:ed|ing|s)?)"
+    )
+    rule_12_motion = (
+        r"(?:rule\s+12\s+motions?|"
+        r"(?:rule\s+)?12\s*\(\s*[bc]\s*\)"
+        r"(?:\s*\(\s*[126]\s*\))?\s+"
+        r"(?:motions?|judgments?\s+on\s+the\s+pleadings)|"
+        r"motions?\s+(?:under|pursuant\s+to)\s+(?:rule\s+)?12"
+        r"(?:\s*\(\s*[bc]\s*\)(?:\s*\(\s*[126]\s*\))?)?)"
+    )
+    target_motion = (
+        r"(?:motions?\s+to\s+dismiss|"
+        r"motions?\s+by\b[^.;]{0,100}?\bto\s+dismiss|mtd|"
+        rf"{rule_12_motion}|"
+        r"motions?\s+for\s+judgment\s+on\s+the\s+pleadings)"
+    )
+    procedural_word = (
+        r"(?:motion|extension|extend|respond|reply|stay|page|briefing|expedit\w*)"
+    )
+    before_target = rf"(?:(?!\b{procedural_word}\b)[^.;]){{0,120}}"
+    after_target = rf"(?:(?!\b{procedural_word}\b)[^.;]){{0,120}}"
+    if re.search(rf"\b{action}\b{before_target}\b{target_motion}\b", text, re.I):
+        return True
     if re.search(
-        r"\border\s+on\s+motion\s+(?:to\s+dismiss|for\s+judgment\s+on\s+the\s+pleadings)\b",
+        rf"\b{action}\b[^.;]{{0,80}}\bmotions?\s+to\s+"
+        rf"(?:stay|extend|expedite)\b[^.;]{{0,80}}\band\s+"
+        rf"(?:the\s+)?{target_motion}\b",
         text,
         re.I,
     ):
         return True
-    return _has_decision_form(text) and _has_disposition_terms(text)
+    if re.search(
+        rf"\b{target_motion}\b{after_target}"
+        rf"\b(?:is|are|was|were|be|been|should\s+be)\s+"
+        rf"(?:hereby\s+)?{action}\b",
+        text,
+        re.I,
+    ):
+        return True
+    if re.search(
+        rf"\b{target_motion}\b"
+        rf"(?:\s*(?:\[[^\]]+\]|\([^)]{{0,80}}\)|,|:))*\s+{action}\b",
+        text,
+        re.I,
+    ):
+        return True
+    if re.search(
+        rf"\b{target_motion}\b{after_target}"
+        r"\b(?:is|are|was|were|be|been|deemed|found)\s+moot\b",
+        text,
+        re.I,
+    ):
+        return True
+    if re.search(
+        rf"\b(?:find(?:s|ing)?|found)\b{before_target}\b{target_motion}\b"
+        rf"{after_target}\bmoot\b",
+        text,
+        re.I,
+    ):
+        return True
+
+    # A report may identify the target in one sentence and state its
+    # recommendation in the next.  The report form plus this conventional
+    # formulation proves the grammatical target without relying on proximity.
+    if (
+        re.search(r"\breport\s+and\s+recommendation\b", text, re.I)
+        or _has_magistrate_recommendation_form(text)
+    ) and (
+        (
+            re.search(
+                rf"\brecommends?\s+(?:that\s+)?the\s+motion\s+"
+                rf"(?:should\s+)?(?:be\s+)?{action}\b",
+                text,
+                re.I,
+            )
+            or re.search(
+                rf"\brecommends?\s+{action}\b{before_target}\bthe\s+motion\b",
+                text,
+                re.I,
+            )
+        )
+        and re.search(
+            r"\bmotions?\s+(?:to\s+dismiss|by\b[^.;]{0,100}?\bto\s+dismiss)\b",
+            text,
+            re.I,
+        )
+    ):
+        return True
+
+    # Some merits orders state the result as dismissal of the challenged
+    # pleading rather than disposition of the motion itself.
+    same_clause = r"[^.;]{0,120}"
+    challenged_pleading = r"(?:complaint|amended\s+complaint|claims?|counts?|action)"
+    if re.search(
+        rf"\b(?:dismiss(?:ed|es|ing)|terminat(?:ed|ing|es?))\b"
+        rf"{same_clause}\b{challenged_pleading}\b",
+        text,
+        re.I,
+    ):
+        return True
+    return bool(
+        re.search(
+            rf"\b{challenged_pleading}\b{same_clause}"
+            rf"\b(?:is|are|be|been)\s+(?:dismissed|terminated)\b",
+            text,
+            re.I,
+        )
+        or re.search(
+            r"\bdismissal\s+(?:is|was|be)\s+(?:hereby\s+)?granted\b",
+            text,
+            re.I,
+        )
+    )
 
 
 def _has_decision_form(text: str) -> bool:
@@ -786,14 +914,8 @@ def _looks_like_proposed_order_attachment(text: str) -> bool:
 
 def _looks_like_procedural_or_standing_order(text: str) -> bool:
     standing_order = bool(re.search(r"\bstanding\s+order\b", text, re.I))
-    reply_filing_patterns = (
-        r"\bmotion\s+to\s+file\b.*\breply\b.*\bmotion\s+to\s+dismiss\b",
-        r"\bleave\s+to\s+file\b.*\breply\b",
-    )
-    if any(re.search(pattern, text, re.I) for pattern in reply_filing_patterns):
-        if not _has_explicit_mtd_merits_disposition(text):
-            return True
-
+    if _has_direct_mtd_disposition(text) or _has_explicit_mtd_merits_disposition(text):
+        return False
     procedural_patterns = (
         r"\border\s+governing\b.*\bmotions?\s+to\s+dismiss\b",
         r"\bpre[- ]?motion\s+conference\b",
@@ -803,6 +925,14 @@ def _looks_like_procedural_or_standing_order(text: str) -> bool:
         r"\bset(?:s|ting)?\s+briefing\b",
         r"\bextension\s+of\s+time\b.*\bmotion\s+to\s+dismiss\b",
         r"\btime\s+to\s+(?:respond|reply|file|oppose)\b.*\bmotion\s+to\s+dismiss\b",
+        r"\bmotion\s+to\s+file\b.*\breply\b.*\bmotion\s+to\s+dismiss\b",
+        r"\bleave\s+to\s+file\b.*\breply\b",
+        r"\bdeadline\s+to\s+(?:respond|reply|file|oppose)\b.*\bmotion\s+to\s+dismiss\b",
+        r"\bmotion\s+(?:for|to)\s+(?:stay|extend|extension|expedite)\b.*\bmotion\s+to\s+dismiss\b",
+        r"\bstay(?:ed|ing|s)?\b.*\bpending\b.*\bmotion\s+to\s+dismiss\b",
+        r"\bpending\s+(?:resolution|adjudication)\b.*\bmotion\s+to\s+dismiss\b",
+        r"\b(?:exceed|enlarge|extend)\b.*\bpage\s+limit\b.*\bmotion\s+to\s+dismiss\b",
+        r"\bexpedit(?:e|ed|ing)\b.*\b(?:briefing|hearing|schedule)\b.*\bmotion\s+to\s+dismiss\b",
         r"\border\s+to\s+show\s+cause\b",
         r"\bfailure\s+to\s+prosecute\b",
         r"\badministrative(?:ly)?\s+clos(?:e|ed|ing)\b",

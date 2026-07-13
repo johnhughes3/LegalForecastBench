@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
 from legalforecast.ingestion.courtlistener_acquisition import _linkage_entries
 from legalforecast.ingestion.courtlistener_web import parse_courtlistener_docket_html
 from legalforecast.ingestion.mtd_acquisition_screen import (
@@ -276,6 +277,149 @@ def test_actual_mtd_decision_entry_rejects_extension_order() -> None:
 
     assert screen.actual_mtd_decision is False
     assert "procedural_or_standing_order" in screen.exclusion_reasons
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    (
+        (
+            "ORDER: Plaintiffs' Unopposed Motion [Doc. 23] is GRANTED. "
+            "Plaintiffs' deadline to respond to the pending Motion to Dismiss "
+            "is extended through December 1, 2025."
+        ),
+        (
+            "ORDER granting 18 Motion to Stay. All pretrial and discovery "
+            "deadlines are STAYED pending resolution of the Motion to Dismiss."
+        ),
+        (
+            "ORDER Granting 17 Motion to Stay Discovery. The parties shall file "
+            "a discovery plan after entry of an order adjudicating defendant's "
+            "5 Motion to Dismiss."
+        ),
+        (
+            "ORDER granting motion for leave to exceed the page limit for the "
+            "brief in support of the pending Motion to Dismiss."
+        ),
+        (
+            "ORDER granting motion to expedite the briefing schedule on the "
+            "pending Motion to Dismiss."
+        ),
+    ),
+)
+def test_actual_mtd_decision_entry_rejects_relief_about_pending_mtd(
+    entry_text: str,
+) -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(entry_text, document_description="Order"),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is False
+    assert "procedural_or_standing_order" in screen.exclusion_reasons
+
+
+def test_actual_mtd_decision_entry_rejects_terse_generic_order_title() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "Order on Motion to Dismiss for Failure to State a Claim",
+            document_description="Order on Motion to Dismiss",
+        ),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is False
+    assert screen.exclusion_reasons == ("mtd_disposition_unproven",)
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    (
+        "ORDER granting 12 Motion to Dismiss.",
+        "ORDER denying 12 Motion to Dismiss as moot.",
+        "ORDER terminating 12 Motion to Dismiss as moot.",
+        (
+            "REPORT AND RECOMMENDATION re 12 Motion to Dismiss. The Court "
+            "recommends that the motion be granted."
+        ),
+    ),
+)
+def test_actual_mtd_decision_entry_preserves_substantive_and_moot_dispositions(
+    entry_text: str,
+) -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(entry_text),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is True
+    assert screen.exclusion_reasons == ()
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    (
+        "ORDER: Defendant's Motion to Dismiss GRANTED.",
+        "ORDER: Defendant's Motion to Dismiss DENIED AS MOOT.",
+        "ORDER denying Defendant's Rule 12 motion.",
+        "ORDER denying Defendant's Rule 12(b)(1) motion.",
+        "ORDER denying Defendant's Rule 12(b)(2) motion.",
+        "ORDER denying Defendant's Rule 12(b)(6) motion.",
+        "ORDER denying Defendant's Rule 12(c) motion.",
+        "MEMORANDUM AND ORDER denying Rule 12(c) judgment on the pleadings.",
+        "ORDER denying Defendant's motion under Rule 12(b)(6).",
+        "ORDER: Motion to Dismiss is moot.",
+        "ORDER finding Motion to Dismiss moot.",
+        "ORDER denying Motion to Stay and Motion to Dismiss.",
+    ),
+)
+def test_actual_mtd_decision_entry_accepts_bare_and_rule_12_dispositions(
+    entry_text: str,
+) -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(entry_text, document_description="Order"),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is True
+    assert screen.exclusion_reasons == ()
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    (
+        (
+            "REPORT AND RECOMMENDATION re Motion to Dismiss. The Court "
+            "recommends that plaintiff be granted an extension to respond."
+        ),
+        (
+            "REPORT AND RECOMMENDATION re Motion to Dismiss. The Court "
+            "recommends granting an extension to respond to the motion."
+        ),
+        (
+            "ORDER: Motion to Dismiss briefing is terminated; an amended "
+            "briefing schedule will follow."
+        ),
+    ),
+)
+def test_actual_mtd_decision_entry_rejects_target_first_procedural_relief(
+    entry_text: str,
+) -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(entry_text, document_description="Order"),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is False
 
 
 def test_actual_mtd_decision_entry_rejects_motion_filing_only() -> None:
