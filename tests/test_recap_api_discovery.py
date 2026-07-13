@@ -561,6 +561,143 @@ def test_reconstruct_fails_closed_on_non_advancing_cursor() -> None:
         reconstruct_docket_page(client, "555")
 
 
+def test_reconstruct_handles_hyperlinked_docket_foreign_keys() -> None:
+    # CourtListener v4 renders the docket foreign key on /docket-entries/ as a
+    # hyperlinked resource URL, not a bare id. Reconstruction must extract the id
+    # and still recognize the entry as belonging to the requested docket.
+    client = _client(
+        (
+            _docket_response(555),
+            _entries_response(
+                cursor=None,
+                results=[
+                    {
+                        "id": 7002,
+                        "docket": (
+                            "https://www.courtlistener.com/api/rest/v4/dockets/555/"
+                        ),
+                        "entry_number": 40,
+                        "description": (
+                            "ORDER granting defendant's motion to dismiss the complaint"
+                        ),
+                        "date_filed": "2026-07-05",
+                    }
+                ],
+                next_cursor=None,
+            ),
+        )
+    )
+    reconstructed = reconstruct_docket_page(client, "555")
+    assert reconstructed.proof.complete is True
+    assert reconstructed.proof.entry_count == 1
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        reconstructed.page,
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+    assert screen.status is MtdDocketScreenStatus.ACCEPTED_STRICT_CIVIL_MTD_DECISION
+
+
+def test_reconstruct_sorts_out_of_order_entries_without_failing() -> None:
+    # The API may return entries newest-first (or otherwise out of sequence). A
+    # complete fetch (cursor exhausted, no duplicate ids) must reconstruct into
+    # ascending docket order rather than fail as a false non-monotonic sequence.
+    client = _client(
+        (
+            _docket_response(555),
+            _entries_response(
+                cursor=None,
+                results=[
+                    {
+                        "id": 7003,
+                        "docket": 555,
+                        "entry_number": 41,
+                        "description": "JUDGMENT entered",
+                        "date_filed": "2026-07-06",
+                    },
+                    {
+                        "id": 7002,
+                        "docket": 555,
+                        "entry_number": 40,
+                        "description": (
+                            "ORDER granting defendant's motion to dismiss the complaint"
+                        ),
+                        "date_filed": "2026-07-05",
+                    },
+                    {
+                        "id": 7001,
+                        "docket": 555,
+                        "entry_number": 12,
+                        "description": "COMPLAINT filed",
+                        "date_filed": "2026-05-01",
+                    },
+                ],
+                next_cursor=None,
+            ),
+        )
+    )
+    reconstructed = reconstruct_docket_page(client, "555")
+    assert reconstructed.proof.complete is True
+    assert reconstructed.proof.entry_numbers_monotonic is True
+    assert [entry.entry_number for entry in reconstructed.page.entries] == [
+        "12",
+        "40",
+        "41",
+    ]
+
+
+def test_observe_enforces_frozen_decision_window_end(tmp_path: Path) -> None:
+    # The in-window search hit surfaced the docket, but its only MTD disposition
+    # is filed after the frozen window closes; the upper bound must keep it out of
+    # the accepted pool rather than admit an out-of-window decision.
+    store, payload = _seeded_store(
+        tmp_path,
+        {
+            "id": 9001,
+            "docket_id": 555,
+            "description": "ORDER granting motion to dismiss",
+            "entry_date_filed": "2026-07-20",
+            "court_id": "nysd",
+            "docketNumber": "1:26-cv-00001",
+            "caseName": "Acme Corp v. Roe",
+        },
+    )
+    try:
+        recon_client = _client(
+            (
+                _docket_response(555),
+                _entries_response(
+                    cursor=None,
+                    results=[
+                        {
+                            "id": 7002,
+                            "docket": 555,
+                            "entry_number": 40,
+                            "description": (
+                                "ORDER granting defendant's motion to dismiss the "
+                                "complaint"
+                            ),
+                            "date_filed": "2026-07-20",
+                        }
+                    ],
+                    next_cursor=None,
+                ),
+            )
+        )
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+            decision_window_end=date(2026, 7, 12),
+        )
+        assert observation.state == "excluded"
+        assert observation.reason_code == "strict_clean_screen_failed"
+        assert observation.evidence["decision_window_end"] == "2026-07-12"
+    finally:
+        store.close()
+
+
 # ---------------------------------------------------------------------------
 # Pacer and helpers.
 # ---------------------------------------------------------------------------

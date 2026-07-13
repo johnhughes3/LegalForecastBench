@@ -537,29 +537,35 @@ def reconstruct_docket_page(
         seen_cursors.add(next_cursor)
         cursor = next_cursor
 
+    # CourtListener's ``docket-entries`` endpoint does not guarantee ascending
+    # entry order under cursor pagination, and amended or minute entries can
+    # interleave.  Every page has already been fetched, so cursor exhaustion plus
+    # the no-duplicate-entry-id invariant is the real completeness proof; ordering
+    # is then a deterministic *client-side* sort into docket order rather than a
+    # wire assumption.  This avoids rejecting an otherwise-complete docket merely
+    # because the API returned its entries newest-first or out of sequence.
+    ordered_entries = _sorted_docket_entries(entries)
     proof = RecapReconstructionProof(
         docket_id=docket_id,
         pages_fetched=pages_fetched,
-        entry_count=len(entries),
+        entry_count=len(ordered_entries),
         cursor_exhausted=True,
         duplicate_entry_ids=tuple(sorted(set(duplicate_entry_ids))),
-        entry_numbers_monotonic=_entry_numbers_monotonic(entries),
+        # Computed after the client-side sort, so this is an audit attestation of
+        # the reconstructed order, not a wire-order gate that can false-fail.
+        entry_numbers_monotonic=_entry_numbers_monotonic(ordered_entries),
     )
     if duplicate_entry_ids:
         raise RecapDocketReconstructionError(
             f"docket {docket_id} returned duplicate docket entries across pages: "
             + ", ".join(proof.duplicate_entry_ids)
         )
-    if not proof.entry_numbers_monotonic:
-        raise RecapDocketReconstructionError(
-            f"docket {docket_id} docket entries are not in a monotonic sequence"
-        )
 
     page = CourtListenerWebDocketPage(
         docket_id=docket_id,
         source_url=docket.source_url,
         title=docket.case_name,
-        entries=tuple(_web_entry_from_api(entry) for entry in entries),
+        entries=tuple(_web_entry_from_api(entry) for entry in ordered_entries),
         # Every entry has been fetched, so the reconstructed page is single-page
         # by construction; the screen rejects multi-page HTML scrapes, and this
         # API route is exhaustive rather than truncated.
@@ -588,16 +594,41 @@ def _web_entry_from_api(
     )
 
 
+def _entry_number_int(entry: CourtListenerDocketEntry) -> int | None:
+    if entry.entry_number is None:
+        return None
+    try:
+        return int(entry.entry_number)
+    except ValueError:
+        # Non-numeric entry numbers (minute/amended markers) cannot be ordered
+        # numerically.
+        return None
+
+
+def _sorted_docket_entries(
+    entries: Sequence[CourtListenerDocketEntry],
+) -> list[CourtListenerDocketEntry]:
+    """Order a fully-fetched entry set deterministically into docket order.
+
+    Numbered entries sort ascending by their integer entry number; unnumbered
+    (minute) entries keep a stable order after the numbered ones, keyed by their
+    docket-entry id so the result is reproducible regardless of the wire order.
+    """
+
+    def sort_key(entry: CourtListenerDocketEntry) -> tuple[int, int, str]:
+        number = _entry_number_int(entry)
+        if number is None:
+            return (1, 0, entry.docket_entry_id)
+        return (0, number, entry.docket_entry_id)
+
+    return sorted(entries, key=sort_key)
+
+
 def _entry_numbers_monotonic(entries: Sequence[CourtListenerDocketEntry]) -> bool:
     previous: int | None = None
     for entry in entries:
-        if entry.entry_number is None:
-            continue
-        try:
-            current = int(entry.entry_number)
-        except ValueError:
-            # Non-numeric entry numbers cannot be range-checked; ignore them
-            # rather than assert a false ordering.
+        current = _entry_number_int(entry)
+        if current is None:
             continue
         if previous is not None and current < previous:
             return False
@@ -708,6 +739,7 @@ def observe_recap_api_candidate(
     *,
     client: CourtListenerClient,
     eligibility_anchor: date,
+    decision_window_end: date | None = None,
     pacer: RequestPacer | None = None,
 ) -> CandidateObservation:
     """Reconstruct, screen, and durably observe one discovered candidate.
@@ -719,6 +751,13 @@ def observe_recap_api_candidate(
     are deliberately *not* caught so the surrounding pass fails closed; only a
     genuinely absent docket or an unparseable/incomplete reconstruction is
     recorded as a transient observation.
+
+    ``decision_window_end`` enforces the frozen batch decision window's upper
+    bound at observation time: a docket whose only in-anchor MTD disposition
+    falls *after* the window closes is not accepted, so the frozen config value
+    is honored rather than merely recorded.  The first-disposition anchor check
+    still uses an *unbounded* screen so an earlier out-of-window decision can
+    permanently exclude the candidate.
     """
 
     docket_id = candidate_docket_id(payload)
@@ -761,7 +800,9 @@ def observe_recap_api_candidate(
         )
 
     anchored = screen_courtlistener_docket_for_mtd_decision(
-        reconstructed.page, decision_filed_on_or_after=eligibility_anchor
+        reconstructed.page,
+        decision_filed_on_or_after=eligibility_anchor,
+        decision_filed_on_or_before=decision_window_end,
     )
     # The unbounded screen surfaces *every* actual MTD disposition entry in the
     # docket regardless of date, so the first-disposition anchor can catch a
@@ -782,6 +823,9 @@ def observe_recap_api_candidate(
         "mtd_decision_entries": all_decisions,
         "first_mtd_decision_date": earliest.isoformat() if earliest else None,
         "eligibility_anchor": eligibility_anchor.isoformat(),
+        "decision_window_end": (
+            decision_window_end.isoformat() if decision_window_end else None
+        ),
     }
     return store.record_observation(
         candidate_id,
