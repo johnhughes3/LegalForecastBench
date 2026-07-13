@@ -566,6 +566,67 @@ def test_screen_firecrawl_dockets_fail_closed_on_first_preanchor_disposition(
     assert exclusion["case_id"] == "case-dev-123"
 
 
+def test_exact_order_event_form_preserves_first_disposition_anchor(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    output_root = tmp_path / "screening"
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = (
+        "<html><head><title>Fixture v. Example</title></head><body>"
+        '<div id="docket-entry-table">'
+        + _entry_html(
+            number=5,
+            filed_at="February 2, 2026",
+            text="MOTION to Dismiss filed by Defendant",
+            description="Motion to Dismiss",
+        )
+        + _entry_html(
+            number=15,
+            filed_at="June 29, 2026",
+            text="Main Document Order on Motion to Dismiss Buy on PACER",
+            description="Order on Motion to Dismiss",
+        )
+        + _entry_html(
+            number=16,
+            filed_at="July 1, 2026",
+            text="ORDER denying 5 Motion to Dismiss",
+            description="Order on Motion to Dismiss",
+        )
+        + "</div></body></html>"
+    )
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "screen-firecrawl-dockets",
+                *cycle_state.cli_args,
+                "--successes",
+                str(successes),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    assert _read_jsonl(output_root / "firecrawl-screened-cases.jsonl") == []
+    [exclusion] = _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl")
+    assert exclusion["reason"] == "decision_before_release_anchor"
+    assert exclusion["decision_date"] == "2026-06-29"
+    assert exclusion["source_entry_ids"] == ["entry-15", "entry-16"]
+
+
 def test_screen_counts_preanchor_report_as_first_written_disposition(
     tmp_path: Path,
     cycle_state: _CycleState,
@@ -723,7 +784,7 @@ def test_screen_does_not_make_preanchor_procedural_relief_first_disposition(
     assert _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl") == []
 
 
-def test_screen_routes_terse_generic_order_row_fail_closed(
+def test_screen_accepts_exact_court_order_event_without_outcome_text(
     tmp_path: Path,
     cycle_state: _CycleState,
 ) -> None:
@@ -780,12 +841,11 @@ def test_screen_routes_terse_generic_order_row_fail_closed(
         == 0
     )
 
-    assert _read_jsonl(output_root / "firecrawl-screened-cases.jsonl") == []
-    [exclusion] = _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl")
-    assert "mtd_disposition_unproven" in (
-        exclusion["reason"],
-        *exclusion["secondary_exclusion_reasons"],
-    )
+    [screened] = _read_jsonl(output_root / "firecrawl-screened-cases.jsonl")
+    assert screened["first_written_mtd_disposition_date"] == "2026-07-09"
+    assert screened["ai"]["decision_entry_numbers"] == ["26"]
+    assert screened["ai"]["target_motion_entry_numbers"] == ["5"]
+    assert _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl") == []
 
 
 @pytest.mark.parametrize(

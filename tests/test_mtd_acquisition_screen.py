@@ -368,19 +368,84 @@ def test_actual_mtd_decision_entry_rejects_relief_about_pending_mtd(
     assert "procedural_or_standing_order" in screen.exclusion_reasons
 
 
-def test_actual_mtd_decision_entry_rejects_terse_generic_order_title() -> None:
+@pytest.mark.parametrize(
+    "event_form",
+    (
+        "Order on Motion to Dismiss",
+        "Order on Motion to Dismiss for Failure to State a Claim",
+        "Order on Motion to Dismiss/Failure to State a Claim",
+        "Order on Motion to Dismiss/Lack of Jurisdiction",
+        "Order on Motion to Dismiss / Lack of Jurisdiction",
+        "Order on Motion to Dismiss/General",
+        "Order on Motion for Judgment on the Pleadings",
+    ),
+)
+def test_actual_mtd_decision_entry_accepts_exact_court_event_form(
+    event_form: str,
+) -> None:
     page = parse_courtlistener_docket_html(
         _docket_html(
-            "Order on Motion to Dismiss for Failure to State a Claim",
-            document_description="Order on Motion to Dismiss",
+            f"Main Document {event_form} Buy on PACER",
+            document_description=event_form,
         ),
         source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
     )
 
     screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
 
+    assert screen.actual_mtd_decision is True
+    assert screen.exclusion_reasons == ()
+
+
+@pytest.mark.parametrize(
+    ("entry_text", "document_description", "expected_reason"),
+    (
+        (
+            "Defendant filed a Motion to Dismiss.",
+            "Motion to Dismiss",
+            "motion_filing_only",
+        ),
+        (
+            "Defendant filed a Motion to Dismiss.",
+            "Order on Motion to Dismiss",
+            "mtd_disposition_unproven",
+        ),
+        (
+            "MOTION to Dismiss. Attachments: Proposed Order.",
+            "Proposed Order on Motion to Dismiss",
+            "proposed_order_not_decision",
+        ),
+        (
+            "Standing Order governing motions to dismiss.",
+            "Standing Order on Motions to Dismiss",
+            "procedural_or_standing_order",
+        ),
+        (
+            "Order setting the Motion to Dismiss briefing schedule.",
+            "Order on Motion to Dismiss Briefing Schedule",
+            "procedural_or_standing_order",
+        ),
+        (
+            "Plaintiff's Motion to Dismiss this action voluntarily.",
+            "Order on Motion to Dismiss",
+            "self_or_voluntary_dismissal",
+        ),
+    ),
+)
+def test_actual_mtd_decision_entry_does_not_broaden_beyond_exact_event_forms(
+    entry_text: str,
+    document_description: str,
+    expected_reason: str,
+) -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(entry_text, document_description=document_description),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
     assert screen.actual_mtd_decision is False
-    assert screen.exclusion_reasons == ("mtd_disposition_unproven",)
+    assert expected_reason in screen.exclusion_reasons
 
 
 @pytest.mark.parametrize(
