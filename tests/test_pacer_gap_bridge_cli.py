@@ -202,7 +202,10 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
     budget = _read_json(output_root / "missing-core-budget-plan.json")
     assert budget["max_projected_budget_usd"] == "2250.00"
     assert budget["max_missing_core_documents_per_case"] == 24
-    assert budget["case_plans"][0]["purchase_document_ids"] == ["case-dev-mtd"]
+    paid_case = next(
+        record for record in budget["case_plans"] if record["candidate_id"] == "cl-123"
+    )
+    assert paid_case["purchase_document_ids"] == ["case-dev-mtd"]
 
     purchase_fixture_path = tmp_path / "purchase.jsonl"
     download_url = "https://case.dev/download/case-dev-mtd.pdf"

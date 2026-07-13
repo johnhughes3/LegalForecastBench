@@ -53,6 +53,11 @@ def test_filter_selects_only_core_documents_for_purchase_plan() -> None:
     assert result.missing_operative_complaint is False
     assert result.purchase_document_ids == ("complaint", "motion", "exhibit")
     assert result.core_missing_documents == ("complaint", "motion", "exhibit")
+    assert result.missing_core_roles == (
+        "complaint",
+        "motion_to_dismiss_memorandum",
+        "other",
+    )
     assert result.core_exhibit_documents == ("exhibit",)
     assert result.audit_only_document_ids == ("non-target-motion", "certificate")
     assert result.exclusion_reasons == ()

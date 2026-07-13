@@ -1149,6 +1149,14 @@ def _add_acquisition_plan_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--max-missing-core-documents-per-case", type=int, default=24)
     parser.add_argument("--cost-per-document-usd", default="3.05")
     parser.add_argument("--max-projected-budget-usd", default="2250.00")
+    parser.add_argument(
+        "--truncate-to-budget",
+        action="store_true",
+        help=(
+            "Rank by missing-core purchase count and candidate ID, then emit only "
+            "the largest deterministic frontier prefix within the projected cap."
+        ),
+    )
     parser.set_defaults(handler=_cmd_acquisition_plan)
 
 
@@ -3235,6 +3243,7 @@ def _cmd_acquisition_plan(args: argparse.Namespace) -> int:
         ),
         cost_per_document_usd=cast(str, args.cost_per_document_usd),
         max_projected_budget_usd=cast(str, args.max_projected_budget_usd),
+        truncate_to_budget=cast(bool, args.truncate_to_budget),
     )
     write_missing_core_budget_plan(plan, output_path)
     _write_acquisition_completion(
@@ -3249,6 +3258,8 @@ def _cmd_acquisition_plan(args: argparse.Namespace) -> int:
         extra={
             "total_missing_core_documents": plan.total_missing_core_documents,
             "total_estimated_cost_usd": plan.total_estimated_cost_usd,
+            "frontier_truncated": plan.frontier_truncated,
+            "omitted_candidate_count": len(plan.omitted_candidate_ids),
         },
     )
     return 0
@@ -8472,6 +8483,7 @@ def _core_document_filter_result(
         audit_only_document_ids=_required_str_tuple(record, "audit_only_document_ids"),
         core_missing_documents=_required_str_tuple(record, "core_missing_documents"),
         exclusion_reasons=_required_str_tuple(record, "exclusion_reasons"),
+        missing_core_roles=_optional_str_tuple(record, "missing_core_roles"),
     )
 
 
@@ -8508,6 +8520,7 @@ def _case_missing_core_purchase_plan(
         audit_only_document_count=_required_int(record, "audit_only_document_count"),
         dry_run=_optional_bool(record, "dry_run", default=default_dry_run),
         exclusion_reasons=_required_str_tuple(record, "exclusion_reasons"),
+        missing_core_roles=_optional_str_tuple(record, "missing_core_roles"),
     )
 
 
@@ -8524,6 +8537,7 @@ def _dry_run_missing_core_budget_plan(
                 audit_only_document_count=case_plan.audit_only_document_count,
                 dry_run=True,
                 exclusion_reasons=case_plan.exclusion_reasons,
+                missing_core_roles=case_plan.missing_core_roles,
             )
             for case_plan in plan.case_plans
         ),
@@ -8531,6 +8545,8 @@ def _dry_run_missing_core_budget_plan(
         max_projected_budget=plan.max_projected_budget,
         max_missing_core_documents_per_case=(plan.max_missing_core_documents_per_case),
         dry_run=True,
+        frontier_rows=plan.frontier_rows,
+        omitted_candidate_ids=plan.omitted_candidate_ids,
     )
 
 
@@ -10555,6 +10571,12 @@ def _required_str_tuple(record: Mapping[str, Any], field_name: str) -> tuple[str
             raise ValueError(f"{field_name} must contain non-empty strings")
         strings.append(item)
     return tuple(strings)
+
+
+def _optional_str_tuple(record: Mapping[str, Any], field_name: str) -> tuple[str, ...]:
+    if field_name not in record:
+        return ()
+    return _required_str_tuple(record, field_name)
 
 
 def _optional_str_mapping(value: object, field_name: str) -> dict[str, str]:

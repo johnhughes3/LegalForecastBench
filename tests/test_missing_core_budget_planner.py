@@ -61,11 +61,79 @@ def test_budget_planner_rejects_over_budget() -> None:
         )
 
 
+def test_budget_frontier_ranks_deterministically_and_emits_threshold_table() -> None:
+    results = [
+        _filter_result(
+            "case-two-b", core_missing_count=2, missing_roles=("opposition",)
+        ),
+        _filter_result("case-zero", core_missing_count=0),
+        _filter_result("case-one", core_missing_count=1, missing_roles=("complaint",)),
+        _filter_result("case-two-a", core_missing_count=2, missing_roles=("decision",)),
+    ]
+
+    plan = plan_missing_core_document_budget(results)
+
+    assert [case.candidate_id for case in plan.case_plans] == [
+        "case-zero",
+        "case-one",
+        "case-two-a",
+        "case-two-b",
+    ]
+    assert plan.case_plans[1].estimated_purchase_count == 1
+    assert plan.case_plans[1].missing_core_roles == ("complaint",)
+    assert [row.to_record() for row in plan.frontier_rows] == [
+        {
+            "max_missing_core_documents_per_case": 0,
+            "complete_case_count": 1,
+            "incremental_case_count": 1,
+            "purchase_document_count": 0,
+            "estimated_spend_usd": "0.00",
+        },
+        {
+            "max_missing_core_documents_per_case": 1,
+            "complete_case_count": 2,
+            "incremental_case_count": 1,
+            "purchase_document_count": 1,
+            "estimated_spend_usd": "3.05",
+        },
+        {
+            "max_missing_core_documents_per_case": 2,
+            "complete_case_count": 4,
+            "incremental_case_count": 2,
+            "purchase_document_count": 5,
+            "estimated_spend_usd": "15.25",
+        },
+    ]
+
+
+def test_budget_frontier_can_truncate_at_exact_cap_boundary() -> None:
+    results = [
+        _filter_result("case-one", core_missing_count=1),
+        _filter_result("case-two", core_missing_count=2),
+        _filter_result("case-three", core_missing_count=3),
+    ]
+
+    plan = plan_missing_core_document_budget(
+        results,
+        max_projected_budget_usd="9.15",
+        truncate_to_budget=True,
+    )
+
+    assert [case.candidate_id for case in plan.case_plans] == [
+        "case-one",
+        "case-two",
+    ]
+    assert plan.total_estimated_cost_usd == "9.15"
+    assert plan.frontier_truncated is True
+    assert plan.omitted_candidate_ids == ("case-three",)
+
+
 def _filter_result(
     candidate_id: str,
     *,
     core_missing_count: int,
     audit_only_count: int = 0,
+    missing_roles: tuple[str, ...] = (),
 ) -> CoreDocumentFilterResult:
     core_missing_documents = tuple(
         f"{candidate_id}-core-{index:03d}" for index in range(1, core_missing_count + 1)
@@ -86,4 +154,5 @@ def _filter_result(
         audit_only_document_ids=audit_only_document_ids,
         core_missing_documents=core_missing_documents,
         exclusion_reasons=(),
+        missing_core_roles=missing_roles,
     )
