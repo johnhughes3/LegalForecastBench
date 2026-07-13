@@ -235,6 +235,7 @@ from legalforecast.ingestion.recap_api_discovery import (
     RecapApiResponseError,
     RecapDecisionHit,
     RecapDocketReconstructionError,
+    RecapReconstructionAuthError,
     RecapReconstructionProof,
     ReconstructedDocket,
     RequestPacer,
@@ -243,6 +244,7 @@ from legalforecast.ingestion.recap_api_discovery import (
     pacer_for_client,
     prescreen_recap_candidate,
     reconstruct_docket_page,
+    require_reconstruction_auth,
     resolve_auth_mode,
 )
 from legalforecast.ingestion.recap_client import (
@@ -403,6 +405,7 @@ __all__ = [
     "RecapDocumentUnavailableError",
     "RecapFixtureTransport",
     "RecapRateLimitError",
+    "RecapReconstructionAuthError",
     "RecapReconstructionProof",
     "RecapResponseError",
     "RecapServerError",
@@ -456,6 +459,7 @@ __all__ = [
     "recover_purchased_documents",
     "render_case_dev_smoke_markdown",
     "render_controlled_docket_markdown",
+    "require_reconstruction_auth",
     "resolve_auth_mode",
     "run_case_dev_smoke",
     "screen_case_dev_docket_metadata",

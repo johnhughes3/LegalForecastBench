@@ -34,6 +34,7 @@ from datetime import date, datetime
 from typing import Any
 
 from legalforecast.ingestion.courtlistener_client import (
+    COURTLISTENER_API_TOKEN_ENV,
     CourtListenerClient,
     CourtListenerDocket,
     CourtListenerDocketEntry,
@@ -114,6 +115,16 @@ class RecapDocketReconstructionError(RecapApiDiscoveryError):
     """Raised when a docket cannot be proven completely reconstructed."""
 
 
+class RecapReconstructionAuthError(RecapApiDiscoveryError):
+    """Raised when docket reconstruction is attempted without an API token.
+
+    The CourtListener v4 search index answers anonymously, but the
+    ``dockets`` and ``docket-entries`` endpoints reconstruction depends on
+    return HTTP 401 without a token, so reconstruction is token-required by
+    design rather than falling back to an anonymous route.
+    """
+
+
 # ---------------------------------------------------------------------------
 # Request pacing (conservative anonymous spacing; auth-mode aware).
 # ---------------------------------------------------------------------------
@@ -151,6 +162,23 @@ def resolve_auth_mode(client: CourtListenerClient) -> str:
     """Return ``authenticated`` when a token is configured, else ``anonymous``."""
 
     return "authenticated" if client.config.api_token else "anonymous"
+
+
+def require_reconstruction_auth(client: CourtListenerClient) -> None:
+    """Fail closed unless the client carries an API token for reconstruction.
+
+    Docket reconstruction hits token-required CourtListener endpoints, so this
+    is enforced before any wire request and the error names the environment
+    variable an operator must set.
+    """
+
+    if not client.config.api_token:
+        raise RecapReconstructionAuthError(
+            "CourtListener docket reconstruction requires an API token; set "
+            f"{COURTLISTENER_API_TOKEN_ENV} (Authorization: Token <token>). The "
+            "search index answers anonymously, but dockets/docket-entries return "
+            "HTTP 401 without a token."
+        )
 
 
 def pacer_for_client(
@@ -460,10 +488,18 @@ def reconstruct_docket_page(
     Reconstruction is rejected unless the cursor is exhausted, no docket entry id
     repeats across pages (the pagination-duplicate invariant), and the observed
     entry numbers are monotonically non-decreasing.
+
+    The ``dockets``/``docket-entries`` endpoints reject anonymous callers with
+    HTTP 401, so a token is required up front and its absence raises a precise
+    error naming the environment variable rather than emitting an opaque wire
+    failure partway through the walk. Full untruncated entry descriptions come
+    from ``docket-entries`` (search snippets can be truncated), so this
+    reconstruction is authoritative and search hits are only leads.
     """
 
     if not docket_id.strip():
         raise ValueError("docket_id is required")
+    require_reconstruction_auth(client)
     if pacer is not None:
         pacer.wait()
     docket = client.get_docket(docket_id)
@@ -727,16 +763,25 @@ def observe_recap_api_candidate(
     anchored = screen_courtlistener_docket_for_mtd_decision(
         reconstructed.page, decision_filed_on_or_after=eligibility_anchor
     )
+    # The unbounded screen surfaces *every* actual MTD disposition entry in the
+    # docket regardless of date, so the first-disposition anchor can catch a
+    # docket whose in-window hit (for example "order adopting R&R") sits atop an
+    # earlier MTD report/decision that predates the eligibility anchor.
     unbounded = screen_courtlistener_docket_for_mtd_decision(reconstructed.page)
+    all_decisions = _decision_entry_records(unbounded)
+    earliest = _earliest_decision_date(unbounded)
     state, reason_code = _map_screen_outcome(
         anchored=anchored,
-        unbounded=unbounded,
+        earliest_decision_date=earliest,
         eligibility_anchor=eligibility_anchor,
     )
     evidence = {
         **base_evidence,
         "screen": anchored.to_record(),
         "reconstruction_proof": reconstructed.proof.to_record(),
+        "mtd_decision_entries": all_decisions,
+        "first_mtd_decision_date": earliest.isoformat() if earliest else None,
+        "eligibility_anchor": eligibility_anchor.isoformat(),
     }
     return store.record_observation(
         candidate_id,
@@ -750,11 +795,13 @@ def observe_recap_api_candidate(
 def _map_screen_outcome(
     *,
     anchored: MtdDocketDecisionScreen,
-    unbounded: MtdDocketDecisionScreen,
+    earliest_decision_date: date | None,
     eligibility_anchor: date,
 ) -> tuple[str, str]:
-    earliest = _earliest_decision_date(unbounded)
-    if earliest is not None and earliest < eligibility_anchor:
+    if (
+        earliest_decision_date is not None
+        and earliest_decision_date < eligibility_anchor
+    ):
         # The first written MTD disposition predates the eligibility anchor, so
         # the case is permanently ineligible regardless of later dispositions.
         return "excluded", "decision_before_release_anchor"
@@ -766,6 +813,24 @@ def _map_screen_outcome(
                 return "excluded", reason
         return "excluded", "strict_clean_screen_failed"
     return "excluded", "strict_clean_screen_failed"
+
+
+def _decision_entry_records(
+    screen: MtdDocketDecisionScreen,
+) -> list[dict[str, object]]:
+    return [
+        {
+            "row_id": entry.row_id,
+            "entry_number": entry.entry_number,
+            "filed_at": entry.filed_at,
+            "filed_date": (
+                parsed.isoformat()
+                if (parsed := _parse_long_us_date(entry.filed_at)) is not None
+                else None
+            ),
+        }
+        for entry in screen.decision_entries
+    ]
 
 
 def _earliest_decision_date(screen: MtdDocketDecisionScreen) -> date | None:

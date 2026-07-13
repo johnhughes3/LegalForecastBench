@@ -32,6 +32,7 @@ from legalforecast.ingestion.recap_api_discovery import (
     RecapApiResponseError,
     RecapDecisionHit,
     RecapDocketReconstructionError,
+    RecapReconstructionAuthError,
     RequestPacer,
     build_recap_api_batch_config,
     candidate_docket_id,
@@ -386,10 +387,21 @@ def _entries_response(
 def _client(
     responses: tuple[RecordedCourtListenerResponse, ...],
 ) -> CourtListenerClient:
+    # Reconstruction hits token-required CourtListener endpoints, so the
+    # reconstruction client always carries a token.
     return CourtListenerClient(
-        config=CourtListenerConfig(),
+        config=CourtListenerConfig(api_token="test-token"),
         transport=CourtListenerFixtureTransport(responses),
     )
+
+
+def test_reconstruct_fails_closed_without_token() -> None:
+    client = CourtListenerClient(
+        config=CourtListenerConfig(api_token=None),
+        transport=CourtListenerFixtureTransport(()),
+    )
+    with pytest.raises(RecapReconstructionAuthError, match="COURTLISTENER_API_TOKEN"):
+        reconstruct_docket_page(client, "555")
 
 
 def test_reconstruct_docket_produces_screenable_page() -> None:
@@ -680,6 +692,16 @@ def test_observe_accepts_clean_in_window_decision(tmp_path: Path) -> None:
         )
         assert observation.state == "accepted"
         assert observation.reason_code == "strict_clean_screen_passed"
+        assert observation.evidence["first_mtd_decision_date"] == "2026-07-05"
+        assert observation.evidence["mtd_decision_entries"] == [
+            {
+                "row_id": "entry-40",
+                "entry_number": "40",
+                "filed_at": "July 5, 2026",
+                "filed_date": "2026-07-05",
+            }
+        ]
+        assert observation.evidence["eligibility_anchor"] == "2026-06-30"
         current = store.current_observation("courtlistener-docket-555")
         assert current is not None and current.state == "accepted"
     finally:
