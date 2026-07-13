@@ -114,6 +114,28 @@ _REASON_POLICIES: dict[str, tuple[frozenset[str], str, int]] = {
 }
 
 
+def cohort_reason_policy_taxonomy() -> Mapping[str, tuple[str, ...]]:
+    """Return the exact reason-code classes enforced by candidate transitions."""
+
+    classes = {
+        "immutable_reason_codes": "immutable",
+        "refreshable_reason_codes": "refreshable",
+        "accepted_reason_codes": "accepted",
+        "newly_free_reason_codes": "newly_free",
+        "transient_reason_codes": "transient",
+    }
+    return {
+        field: tuple(
+            sorted(
+                reason
+                for reason, (_, policy_class, _) in _REASON_POLICIES.items()
+                if policy_class == expected_class
+            )
+        )
+        for field, expected_class in classes.items()
+    }
+
+
 class CycleAcquisitionStoreError(RuntimeError):
     """Base class for durable acquisition-state errors."""
 
@@ -170,6 +192,17 @@ class RawArtifact:
     sha256: str
     byte_count: int
     retrieved_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class PublishedSnapshot:
+    """One immutable complete snapshot recorded by the cycle store."""
+
+    snapshot_id: str
+    batch_id: str
+    path: Path
+    manifest: Mapping[str, Any]
+    created_at: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -1471,6 +1504,40 @@ class CycleAcquisitionStore:
                 (candidate_id,),
             )
         return tuple(_raw_artifact_from_row(row) for row in rows)
+
+    def published_snapshots(self) -> tuple[PublishedSnapshot, ...]:
+        """Return complete published snapshots in immutable creation order."""
+
+        rows = self._connection.execute(
+            """
+            SELECT snapshot_id, batch_id, path, manifest_json, created_at
+            FROM snapshots WHERE complete = 1
+            ORDER BY created_at, snapshot_id
+            """
+        ).fetchall()
+        snapshots: list[PublishedSnapshot] = []
+        for row in rows:
+            parsed = cast(object, json.loads(row["manifest_json"]))
+            if not isinstance(parsed, dict):
+                raise CycleAcquisitionStoreError(
+                    f"stored snapshot manifest is not an object: {row['snapshot_id']}"
+                )
+            manifest = cast(dict[str, Any], parsed)
+            if manifest.get("saturated") is not True:
+                raise CycleAcquisitionStoreError(
+                    "published cohort observations require saturated snapshots: "
+                    f"{row['snapshot_id']}"
+                )
+            snapshots.append(
+                PublishedSnapshot(
+                    snapshot_id=str(row["snapshot_id"]),
+                    batch_id=str(row["batch_id"]),
+                    path=Path(str(row["path"])),
+                    manifest=dict(manifest),
+                    created_at=str(row["created_at"]),
+                )
+            )
+        return tuple(snapshots)
 
     def export_snapshot(
         self,

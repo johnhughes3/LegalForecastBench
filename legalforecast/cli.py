@@ -111,6 +111,15 @@ from legalforecast.ingestion.case_dev_smoke import (
     render_case_dev_smoke_markdown,
     run_case_dev_smoke,
 )
+from legalforecast.ingestion.cohort_policy import (
+    CohortPolicyError,
+    export_observation_manifest,
+    generate_cohort_policy,
+    read_observation_manifest,
+    verify_cohort_policy,
+    verify_observation_manifest,
+    write_cohort_policy,
+)
 from legalforecast.ingestion.core_document_filter import (
     CoreDocumentFilterResult,
     filter_core_documents,
@@ -671,6 +680,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Reconcile discovery exclusions into a versioned acquisition funnel.",
     )
     _add_acquisition_funnel_report_arguments(acquisition_funnel_report)
+    acquisition_generate_cohort_policy = acquisition_subparsers.add_parser(
+        "generate-cohort-policy",
+        help="Generate a hash-bound cohort precommitment from supplied decisions.",
+    )
+    _add_generate_cohort_policy_arguments(acquisition_generate_cohort_policy)
+    acquisition_verify_cohort_policy = acquisition_subparsers.add_parser(
+        "verify-cohort-policy",
+        help="Verify a cohort precommitment and optional expected hash.",
+    )
+    _add_verify_cohort_policy_arguments(acquisition_verify_cohort_policy)
+    acquisition_export_cohort_observations = acquisition_subparsers.add_parser(
+        "export-cohort-observations",
+        help="Append complete cycle-store snapshots to the observation manifest.",
+    )
+    _add_export_cohort_observations_arguments(acquisition_export_cohort_observations)
+    acquisition_verify_cohort_observations = acquisition_subparsers.add_parser(
+        "verify-cohort-observations",
+        help="Verify the append-only cohort observation hash chain.",
+    )
+    _add_verify_cohort_observations_arguments(acquisition_verify_cohort_observations)
     acquisition_fetch_firecrawl = acquisition_subparsers.add_parser(
         "fetch-firecrawl-dockets",
         help=(
@@ -1363,6 +1392,36 @@ def _add_acquisition_funnel_report_arguments(parser: argparse.ArgumentParser) ->
     parser.add_argument("--public-download-summary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.set_defaults(handler=_cmd_acquisition_funnel_report)
+
+
+def _add_generate_cohort_policy_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--decisions",
+        type=Path,
+        required=True,
+        help="JSON object containing John-approved cohort policy values.",
+    )
+    parser.add_argument("--output", type=Path, required=True)
+    parser.set_defaults(handler=_cmd_generate_cohort_policy)
+
+
+def _add_verify_cohort_policy_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--policy", type=Path, required=True)
+    parser.add_argument("--expected-sha256")
+    parser.set_defaults(handler=_cmd_verify_cohort_policy)
+
+
+def _add_export_cohort_observations_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--cycle-store", type=Path, required=True)
+    parser.add_argument("--policy", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.set_defaults(handler=_cmd_export_cohort_observations)
+
+
+def _add_verify_cohort_observations_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--policy", type=Path, required=True)
+    parser.set_defaults(handler=_cmd_verify_cohort_observations)
 
 
 def _add_acquisition_enrich_recap_case_dev_arguments(
@@ -4554,6 +4613,57 @@ def _cmd_acquisition_funnel_report(args: argparse.Namespace) -> int:
     except (FunnelReportError, OSError, UnicodeError, ValueError) as exc:
         raise CommandError(str(exc)) from exc
     _write_json(cast(Path, args.output), report)
+    return 0
+
+
+def _cmd_generate_cohort_policy(args: argparse.Namespace) -> int:
+    try:
+        artifact = generate_cohort_policy(_read_json_object(cast(Path, args.decisions)))
+        write_cohort_policy(cast(Path, args.output), artifact)
+    except (CohortPolicyError, OSError, UnicodeError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _cmd_verify_cohort_policy(args: argparse.Namespace) -> int:
+    try:
+        verify_cohort_policy(
+            _read_json_object(cast(Path, args.policy)),
+            expected_sha256=cast(str | None, args.expected_sha256),
+        )
+    except (CohortPolicyError, OSError, UnicodeError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _cmd_export_cohort_observations(args: argparse.Namespace) -> int:
+    try:
+        policy = _read_json_object(cast(Path, args.policy))
+        with CycleAcquisitionStore(cast(Path, args.cycle_store)) as store:
+            export_observation_manifest(
+                store=store,
+                policy_artifact=policy,
+                destination=cast(Path, args.output),
+            )
+    except (
+        CohortPolicyError,
+        CycleAcquisitionStoreError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _cmd_verify_cohort_observations(args: argparse.Namespace) -> int:
+    try:
+        verify_observation_manifest(
+            read_observation_manifest(cast(Path, args.manifest)),
+            policy_artifact=_read_json_object(cast(Path, args.policy)),
+        )
+    except (CohortPolicyError, OSError, UnicodeError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
     return 0
 
 
