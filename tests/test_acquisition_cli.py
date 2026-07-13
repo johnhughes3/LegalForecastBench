@@ -1580,7 +1580,7 @@ def _packet_input_docket_html() -> str:
           <div class="row odd" id="entry-50">
             <div class="col-xs-1"><p>50</p></div>
             <div class="col-xs-3"><p>May 8, 2026</p></div>
-            <div class="col-xs-8"><p>ORDER on Motion to Dismiss.</p></div>
+            <div class="col-xs-8"><p>ORDER granting 34 Motion to Dismiss.</p></div>
           </div>
         </div>
       </body>
