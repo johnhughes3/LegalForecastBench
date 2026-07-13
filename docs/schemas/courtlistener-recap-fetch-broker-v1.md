@@ -30,6 +30,14 @@ The broker identity row stores the same identity-policy digest together with the
 
 The signing key is an EC private JWK containing exactly `kty`, `crv`, `x`, `y`, and `d`, with `kty: "EC"` and `crv: "P-256"`. Each coordinate and the private scalar is an unpadded base64url encoding of exactly 32 bytes; the client rejects extra JWK fields and rejects a public point that does not correspond to `d`. `x-secure-gate-machine-signature` is the unpadded base64url encoding of the 64-byte IEEE P1363 form `r || s`, where each P-256 ECDSA integer is unsigned big-endian and left-padded to exactly 32 bytes. DER-encoded ECDSA signatures are not accepted on the wire.
 
+The client also receives the full reviewed identity-policy JSON and recomputes its digest before signing. Its canonical UTF-8 bytes have this exact field order, compact JSON encoding, and no trailing newline:
+
+```json
+{"version":"recap-fetch-identity-policy-v1","machine_id":"machine-1","public_key_sha256":"<64 lowercase hex>","tailscale_node_id":"node-id","allowed_source_ips":["192.0.2.1"],"activated_at":"2026-07-13T20:00:00.000Z","expires_at":"2026-07-14T20:00:00.000Z"}
+```
+
+`public_key_sha256` is SHA-256 of the UTF-8 bytes of the private JWK's public portion serialized exactly as `{"crv":"P-256","kty":"EC","x":"<unpadded 32-byte base64url>","y":"<unpadded 32-byte base64url>"}`. The policy has exactly the seven fields shown. `machine_id` equals the configured signing identity. `tailscale_node_id` is nonempty. `allowed_source_ips` contains nonempty reviewed exact `cf-connecting-ip` strings with no leading or trailing whitespace or control characters, no duplicates, and Unicode-code-point sort order; neither client nor broker performs DNS or CIDR expansion. Both timestamps are semantically valid UTC RFC 3339 with exactly milliseconds, expiry is later than activation, and lifetime is at most 24 hours. The client requires the recomputed public-key digest to equal `public_key_sha256` and the recomputed policy digest to equal both the configured digest and the signed header. The broker independently recomputes the same digest and requires computed, stored, and signed values to agree.
+
 A purchase identity expires no later than 24 hours after activation. Renewal or revocation is a protected control-plane operation; there is no purchase-identity self-enrollment or renewal route.
 
 ## Submission API
@@ -293,7 +301,7 @@ Operation rows, client-code mappings, policy artifacts, nonce/replay evidence, s
 
 Offline execution requires both `--courtlistener-fixture` and `--purchase-broker-fixture`. `--live-purchase` continues to fail before any journal submission or provider request until the dedicated Worker is deployed, the reviewed policy and document-to-case allowlist are active, the production signed HTTP adapter is configured, and the nonpurchase end-to-end gates pass. Adding raw PACER environment variables to LegalForecastBench is not an acceptable substitute.
 
-The production adapter accepts only the stage-scoped broker URL, machine ID, P-256 private signing JWK, and identity-policy SHA-256, plus the existing CourtListener token used for noncharging lookups. It has no PACER credential fields or environment variables. Merely configuring those values does not enable `--live-purchase`; deployment activation and a nonpurchase end-to-end proof remain separate fail-closed gates.
+The production adapter accepts only the stage-scoped broker URL, machine ID, P-256 private signing JWK, full canonical identity-policy JSON, and identity-policy SHA-256, plus the existing CourtListener token used for noncharging lookups. It has no PACER credential fields or environment variables. Merely configuring those values does not enable `--live-purchase`; deployment activation and a nonpurchase end-to-end proof remain separate fail-closed gates.
 
 The adapter validates the exact receipt schema and binds `operation_key`, `cycle_id`, `purchase_policy_sha256`, `recap_document`, `reservation_usd`, and any queue ID to the local journal before using it. A billing receipt alone never proves delivery. For a `confirmed` charged receipt, LegalForecastBench must also obtain queue status `2` and an available matching document through noncharging CourtListener lookups, then validate the download URL. Only then does it construct this exact six-field journal reconciliation record:
 
