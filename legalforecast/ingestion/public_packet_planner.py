@@ -28,6 +28,11 @@ from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentDownloadRequest,
 )
 from legalforecast.ingestion.missing_core_budget import DEFAULT_PURCHASE_COST_USD
+from legalforecast.ingestion.operative_complaint import (
+    OperativeComplaintKind,
+    select_operative_complaint_document,
+    select_operative_complaint_entry,
+)
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 
@@ -1027,14 +1032,13 @@ def _operative_complaint_entry(
     *,
     before_entry: int | None,
 ) -> CourtListenerWebDocketEntry | None:
-    candidates = [
-        entry
-        for entry in page.entries
-        if _entry_is_before(entry, before_entry) and _looks_like_complaint(entry)
-    ]
-    if not candidates:
+    if before_entry is None:
         return None
-    return sorted(candidates, key=lambda entry: _entry_number(entry) or -1)[-1]
+    selection = select_operative_complaint_entry(
+        page.entries,
+        before_entry=before_entry,
+    )
+    return None if selection is None else selection.entry
 
 
 def _target_mtd_entries(
@@ -1324,27 +1328,6 @@ def _brief_role(entry: CourtListenerWebDocketEntry) -> DocumentRole:
     return DocumentRole.OPPOSITION
 
 
-def _looks_like_complaint(entry: CourtListenerWebDocketEntry) -> bool:
-    if (
-        _best_free_document(entry, DocumentRole.COMPLAINT) is not None
-        or _best_free_document(entry, DocumentRole.AMENDED_COMPLAINT) is not None
-    ):
-        return True
-    text = entry.text.lower()
-    if re.search(r"\banswer\s+to\s+(?:amended\s+)?complaint\b", text):
-        return False
-    if _contains_procedural_complaint_reference(text):
-        return False
-    return bool(
-        re.match(
-            r"^\s*\d*\s*(?:[a-z]{3,9}\s+\d{1,2},\s+\d{4}\s+)?"
-            r"(?:amended\s+)?complaint\s+(?:against|filed|by|with)\b",
-            text,
-        )
-        or re.search(r"\bnotice\s+of\s+removal\s+from\b", text)
-    )
-
-
 def _is_mtd_entry(entry: CourtListenerWebDocketEntry) -> bool:
     if entry.role not in {
         CourtListenerEntryRole.MTD_NOTICE,
@@ -1434,10 +1417,20 @@ def _best_free_document(
     entry: CourtListenerWebDocketEntry,
     role: DocumentRole,
 ):
-    if role is DocumentRole.COMPLAINT:
-        removal_attachment = _best_free_notice_removal_complaint_attachment(entry)
-        if removal_attachment is not None:
-            return removal_attachment
+    if role in {DocumentRole.COMPLAINT, DocumentRole.AMENDED_COMPLAINT}:
+        number = _entry_number(entry)
+        selection = (
+            None
+            if number is None
+            else select_operative_complaint_entry((entry,), before_entry=number + 1)
+        )
+        expected_kind = (
+            OperativeComplaintKind.AMENDED_COMPLAINT
+            if role is DocumentRole.AMENDED_COMPLAINT
+            else OperativeComplaintKind.COMPLAINT
+        )
+        if selection is not None and selection.kind is expected_kind:
+            return select_operative_complaint_document(entry, require_free=True)
     matching_documents = tuple(
         document
         for document in entry.documents
@@ -1457,37 +1450,6 @@ def _best_free_document(
             None,
         )
     return None
-
-
-def _best_free_notice_removal_complaint_attachment(
-    entry: CourtListenerWebDocketEntry,
-):
-    entry_text = " ".join(entry.text.lower().split())
-    if "notice of removal" not in entry_text:
-        return None
-    return next(
-        (
-            document
-            for document in entry.documents
-            if document.freely_available
-            and document.href
-            and _looks_like_notice_removal_complaint_attachment(document.description)
-        ),
-        None,
-    )
-
-
-def _looks_like_notice_removal_complaint_attachment(description: str) -> bool:
-    text = " ".join(description.lower().split())
-    if not text or _contains_procedural_complaint_reference(text):
-        return False
-    if re.search(r"\b(?:civil cover sheet|certificate|notice|summons|service)\b", text):
-        return False
-    if re.search(r"\b(?:amended\s+)?complaint\b", text):
-        return True
-    return bool(
-        re.fullmatch(r"(?:exhibit|exh\.?)\s+[a-z0-9](?:\s*-\s*[a-z0-9])?", text)
-    )
 
 
 def _document_matches_role(description: str, role: DocumentRole) -> bool:

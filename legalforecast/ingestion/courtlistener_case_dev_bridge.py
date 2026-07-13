@@ -31,6 +31,11 @@ from legalforecast.ingestion.courtlistener_web import (
 from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentDownloadRequest,
 )
+from legalforecast.ingestion.operative_complaint import (
+    OperativeComplaintKind,
+    select_operative_complaint_document,
+    select_operative_complaint_entry,
+)
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 
@@ -965,18 +970,20 @@ def _bridge_documents(
     needs_opposition = DocumentRole.OPPOSITION in required_gap_roles
     needs_decision = not paid_gap_reasons or DocumentRole.DECISION in required_gap_roles
     if needs_complaint:
-        complaint_entries = tuple(
-            entry
-            for number, entry in numbered_entries.items()
-            if number < decision_floor and _looks_like_complaint(entry)
+        complaint_selection = select_operative_complaint_entry(
+            numbered_entries.values(),
+            before_entry=min(target_numbers),
         )
-        if not complaint_entries:
+        if complaint_selection is None:
             raise CourtListenerCaseDevBridgeError("operative_complaint_not_found")
-        complaint = max(
-            complaint_entries,
-            key=lambda entry: cast(int, _positive_entry_number(entry.entry_number)),
+        requested.append(
+            (
+                complaint_selection.entry,
+                DocumentRole.AMENDED_COMPLAINT
+                if complaint_selection.kind is OperativeComplaintKind.AMENDED_COMPLAINT
+                else DocumentRole.COMPLAINT,
+            )
         )
-        requested.append((complaint, _complaint_role(complaint)))
     if needs_target_mtd:
         numbered_target_gaps = _numbered_gap_entries(
             paid_gap_reasons,
@@ -1134,6 +1141,14 @@ def _select_courtlistener_document(
     entry: CourtListenerWebDocketEntry,
     role: DocumentRole,
 ) -> CourtListenerWebDocument:
+    if role in {DocumentRole.COMPLAINT, DocumentRole.AMENDED_COMPLAINT}:
+        complaint = select_operative_complaint_document(entry, require_free=False)
+        if complaint is None:
+            raise CourtListenerCaseDevBridgeError(
+                f"operative_complaint_document_not_found: "
+                f"{entry.entry_number or 'unknown'}"
+            )
+        return complaint
     candidates = tuple(entry.documents)
     if not candidates:
         raise CourtListenerCaseDevBridgeError(
@@ -1239,31 +1254,6 @@ def _embedded_entry(record: Mapping[str, Any]) -> CourtListenerWebDocketEntry:
             )
             for document in _mapping_sequence(record.get("documents"), "documents")
         ),
-    )
-
-
-def _looks_like_complaint(entry: CourtListenerWebDocketEntry) -> bool:
-    text = _text_key(
-        " ".join((entry.text, *(document.description for document in entry.documents)))
-    )
-    if "complaint" not in text:
-        return False
-    return not any(
-        marker in text
-        for marker in (
-            "answer to complaint",
-            "motion to dismiss complaint",
-            "order on complaint",
-            "notice of complaint",
-        )
-    )
-
-
-def _complaint_role(entry: CourtListenerWebDocketEntry) -> DocumentRole:
-    return (
-        DocumentRole.AMENDED_COMPLAINT
-        if "amended complaint" in _text_key(entry.text)
-        else DocumentRole.COMPLAINT
     )
 
 

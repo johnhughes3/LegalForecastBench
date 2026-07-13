@@ -73,6 +73,44 @@ def test_bridge_uses_authoritative_case_dev_ids_and_keeps_free_first() -> None:
     assert core_filter.purchase_document_ids == ("case-dev-mtd",)
 
 
+def test_bridge_does_not_replace_pre_target_complaint_with_later_order() -> None:
+    screened = copy.deepcopy(_screened_case())
+    entries = screened["selected_entries"]
+    assert isinstance(entries, list)
+    complaint = entries[0]
+    assert isinstance(complaint, dict)
+    complaint_document = complaint["documents"][0]
+    assert isinstance(complaint_document, dict)
+    complaint_document.update(
+        href="https://ecf.nysd.uscourts.gov/doc1/complaint-1",
+        action_label="Buy on PACER",
+        pacer_only=True,
+    )
+    entries.insert(
+        1,
+        _courtlistener_entry(
+            3,
+            "OPINION AND ORDER granting leave and discussing the complaint.",
+            "Opinion and Order",
+            "https://storage.courtlistener.com/order-3.pdf",
+            pacer_only=False,
+        ),
+    )
+
+    result = bridge_courtlistener_case_dev_documents(
+        (screened,),
+        client=_client(_search_response(_case_dev_docket()), _lookup_response()),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+
+    assert result.exclusions == ()
+    [selection] = result.selection_records
+    assert selection["documents"][0]["source_document_id"] == "case-dev-complaint"
+    assert selection["documents"][0]["docket_entry_number"] == 1
+    assert selection["documents"][0]["requires_paid_recovery"] is True
+
+
 def test_bridge_fails_closed_on_ambiguous_exact_docket_match() -> None:
     duplicate = {
         **_case_dev_docket(),

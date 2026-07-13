@@ -1156,6 +1156,54 @@ def test_public_packet_planner_uses_complaint_before_earliest_target_motion(
     assert candidate.documents[0].docket_entry_number == 1
 
 
+@pytest.mark.parametrize(
+    ("entry_text", "description", "expected_role"),
+    (
+        (
+            "1 TRANSFERREDCOMPLAINT against All Defendants filed by Plaintiff.",
+            "",
+            DocumentRole.COMPLAINT,
+        ),
+        (
+            "1 PRO SE COMPLAINT against Defendant filed by Plaintiff.",
+            "Complaint - Pro Se",
+            DocumentRole.COMPLAINT,
+        ),
+        (
+            "1 Petition (Removal/Transfer) Received From: County Court, "
+            "filed by Plaintiff.",
+            "Complaint (Removal/Transfer) - COURT USE ONLY",
+            DocumentRole.COMPLAINT,
+        ),
+        (
+            "1 Civil Case - Complaint, Amended filed by Plaintiff.",
+            "Civil Case - Complaint, Amended",
+            DocumentRole.AMENDED_COMPLAINT,
+        ),
+    ),
+)
+def test_public_packet_planner_accepts_strict_operative_pleading_variants(
+    tmp_path: Path,
+    entry_text: str,
+    description: str,
+    expected_role: DocumentRole,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    complaint = cast(list[dict[str, Any]], record["selected_entries"])[0]
+    complaint["text"] = entry_text
+    cast(list[dict[str, Any]], complaint["documents"])[0]["description"] = description
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.selected_cases
+    assert candidate.documents[0].document_role is expected_role
+
+
 def _screened_case() -> dict[str, object]:
     return {
         "first_written_mtd_disposition_date": "2026-06-30",
