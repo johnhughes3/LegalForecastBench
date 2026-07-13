@@ -102,6 +102,7 @@ class MissingCoreBudgetPlan:
     dry_run: bool
     frontier_rows: tuple[PurchaseFrontierRow, ...] = ()
     omitted_candidate_ids: tuple[str, ...] = ()
+    excluded_case_plans: tuple[CaseMissingCorePurchasePlan, ...] = ()
 
     @property
     def frontier_truncated(self) -> bool:
@@ -141,6 +142,9 @@ class MissingCoreBudgetPlan:
             "omitted_candidate_ids": list(self.omitted_candidate_ids),
             "frontier_rows": [row.to_record() for row in self.frontier_rows],
             "case_plans": [plan.to_record() for plan in self.case_plans],
+            "excluded_case_plans": [
+                plan.to_record() for plan in self.excluded_case_plans
+            ],
         }
 
 
@@ -188,9 +192,15 @@ def plan_missing_core_document_budget(
             ),
         )
     )
-    frontier_rows = _purchase_frontier_rows(ranked_case_plans)
+    completable_case_plans = tuple(
+        plan for plan in ranked_case_plans if not plan.exclusion_reasons
+    )
+    excluded_case_plans = tuple(
+        plan for plan in ranked_case_plans if plan.exclusion_reasons
+    )
+    frontier_rows = _purchase_frontier_rows(completable_case_plans)
     case_plans, omitted_candidate_ids = _truncate_frontier(
-        ranked_case_plans,
+        completable_case_plans,
         max_projected_budget=max_projected_budget,
         truncate_to_budget=truncate_to_budget,
     )
@@ -202,6 +212,7 @@ def plan_missing_core_document_budget(
         dry_run=dry_run,
         frontier_rows=frontier_rows,
         omitted_candidate_ids=omitted_candidate_ids,
+        excluded_case_plans=excluded_case_plans,
     )
     if plan.total_estimated_cost > max_projected_budget:
         raise PurchaseBudgetExceededError(

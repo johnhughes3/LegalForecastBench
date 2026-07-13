@@ -216,6 +216,7 @@ from legalforecast.ingestion.funnel_report import (
 from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
     MissingCoreBudgetPlan,
+    PurchaseFrontierRow,
     plan_missing_core_document_budget,
     write_missing_core_budget_plan,
 )
@@ -8501,6 +8502,28 @@ def _missing_core_budget_plan(record: Mapping[str, Any]) -> MissingCoreBudgetPla
             "max_missing_core_documents_per_case",
         ),
         dry_run=dry_run,
+        # These fields are absent from plans written before purchase frontiers.
+        frontier_rows=tuple(
+            _purchase_frontier_row(row)
+            for row in _optional_record_sequence(record, "frontier_rows")
+        ),
+        omitted_candidate_ids=_optional_str_tuple(record, "omitted_candidate_ids"),
+        excluded_case_plans=tuple(
+            _case_missing_core_purchase_plan(row, default_dry_run=dry_run)
+            for row in _optional_record_sequence(record, "excluded_case_plans")
+        ),
+    )
+
+
+def _purchase_frontier_row(record: Mapping[str, Any]) -> PurchaseFrontierRow:
+    return PurchaseFrontierRow(
+        max_missing_core_documents_per_case=_required_int(
+            record, "max_missing_core_documents_per_case"
+        ),
+        complete_case_count=_required_int(record, "complete_case_count"),
+        incremental_case_count=_required_int(record, "incremental_case_count"),
+        purchase_document_count=_required_int(record, "purchase_document_count"),
+        estimated_spend=Decimal(_required_str(record, "estimated_spend_usd")),
     )
 
 
@@ -8547,6 +8570,19 @@ def _dry_run_missing_core_budget_plan(
         dry_run=True,
         frontier_rows=plan.frontier_rows,
         omitted_candidate_ids=plan.omitted_candidate_ids,
+        excluded_case_plans=tuple(
+            CaseMissingCorePurchasePlan(
+                candidate_id=case_plan.candidate_id,
+                purchase_document_ids=case_plan.purchase_document_ids,
+                missing_core_document_count=case_plan.missing_core_document_count,
+                estimated_cost=case_plan.estimated_cost,
+                audit_only_document_count=case_plan.audit_only_document_count,
+                dry_run=True,
+                exclusion_reasons=case_plan.exclusion_reasons,
+                missing_core_roles=case_plan.missing_core_roles,
+            )
+            for case_plan in plan.excluded_case_plans
+        ),
     )
 
 

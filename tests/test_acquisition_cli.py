@@ -188,6 +188,10 @@ def test_acquisition_plan_can_emit_budget_capped_frontier(tmp_path: Path) -> Non
     assert [row["candidate_id"] for row in plan["case_plans"]] == ["cand-1"]
     assert plan["frontier_truncated"] is True
     assert plan["omitted_candidate_ids"] == ["candidate-b"]
+    reloaded = cli._missing_core_budget_plan(plan).to_record()
+    assert reloaded["frontier_rows"] == plan["frontier_rows"]
+    assert reloaded["omitted_candidate_ids"] == plan["omitted_candidate_ids"]
+    assert reloaded["frontier_truncated"] is True
 
 
 def test_purchase_missing_requires_non_dry_run_plan_and_paid_activity_flags(
