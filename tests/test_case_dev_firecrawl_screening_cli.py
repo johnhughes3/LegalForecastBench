@@ -1556,6 +1556,213 @@ def test_screen_resume_rejects_changed_input_candidate_set_before_output_writes(
         )
 
 
+def test_screen_resume_rejects_success_changed_to_fetch_exclusion(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = _docket_html(decision_dates=("June 30, 2026",))
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    fetch_exclusions = tmp_path / "fetch-exclusions.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+    _write_jsonl(fetch_exclusions, [])
+    base_command = [
+        "acquisition",
+        "screen-firecrawl-dockets",
+        *cycle_state.cli_args,
+        "--successes",
+        str(successes),
+        "--fetch-exclusions",
+        str(fetch_exclusions),
+        "--raw-html-dir",
+        str(raw_html_dir),
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--execute",
+    ]
+    assert main([*base_command, "--output-root", str(tmp_path / "first")]) == 0
+    _write_jsonl(successes, [])
+    _write_jsonl(
+        fetch_exclusions,
+        [{"case_id": "case-dev-123", "reason": "criminal_posture"}],
+    )
+
+    resumed_output = tmp_path / "resumed"
+    assert main([*base_command, "--output-root", str(resumed_output)]) == 2
+
+    assert not (resumed_output / "firecrawl-screened-cases.jsonl").exists()
+    assert not (resumed_output / "firecrawl-screening-summary.json").exists()
+
+
+def test_screen_resume_rejects_changed_fetch_exclusion_reason_or_evidence(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    successes = tmp_path / "successes.jsonl"
+    fetch_exclusions = tmp_path / "fetch-exclusions.jsonl"
+    _write_jsonl(successes, [])
+    exclusion = {
+        "case_id": "case-dev-123",
+        "reason": "criminal_posture",
+        "provider_evidence": {"status": "initial"},
+    }
+    _write_jsonl(fetch_exclusions, [exclusion])
+    base_command = [
+        "acquisition",
+        "screen-firecrawl-dockets",
+        *cycle_state.cli_args,
+        "--successes",
+        str(successes),
+        "--fetch-exclusions",
+        str(fetch_exclusions),
+        "--raw-html-dir",
+        str(raw_html_dir),
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--execute",
+    ]
+    assert main([*base_command, "--output-root", str(tmp_path / "first")]) == 0
+    exclusion["reason"] = "bankruptcy_posture"
+    exclusion["provider_evidence"] = {"status": "changed"}
+    _write_jsonl(fetch_exclusions, [exclusion])
+
+    resumed_output = tmp_path / "resumed"
+    assert main([*base_command, "--output-root", str(resumed_output)]) == 2
+
+    assert not (resumed_output / "firecrawl-screening-exclusions.jsonl").exists()
+    assert not (resumed_output / "firecrawl-screening-summary.json").exists()
+
+
+def test_screen_resume_rejects_changed_success_metadata(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = _docket_html(decision_dates=("June 30, 2026",))
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    success = _success_record(raw_html)
+    _write_jsonl(successes, [success])
+    base_command = [
+        "acquisition",
+        "screen-firecrawl-dockets",
+        *cycle_state.cli_args,
+        "--successes",
+        str(successes),
+        "--raw-html-dir",
+        str(raw_html_dir),
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--execute",
+    ]
+    assert main([*base_command, "--output-root", str(tmp_path / "first")]) == 0
+    success["source_url"] = "https://www.courtlistener.com/docket/123/changed/"
+    _write_jsonl(successes, [success])
+
+    resumed_output = tmp_path / "resumed"
+    assert main([*base_command, "--output-root", str(resumed_output)]) == 2
+
+    assert not (resumed_output / "firecrawl-screened-cases.jsonl").exists()
+    assert not (resumed_output / "firecrawl-screening-summary.json").exists()
+
+
+@pytest.mark.parametrize(
+    "output_flag",
+    [
+        "--screened-cases-output",
+        "--exclusions-output",
+        "--summary-output",
+        "--run-card-output",
+        "--log-output",
+    ],
+)
+def test_screen_resume_rejects_every_writable_output_inside_snapshot(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+    output_flag: str,
+) -> None:
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = _docket_html(decision_dates=("June 30, 2026",))
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+    base_command = [
+        "acquisition",
+        "screen-firecrawl-dockets",
+        *cycle_state.cli_args,
+        "--successes",
+        str(successes),
+        "--raw-html-dir",
+        str(raw_html_dir),
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--execute",
+    ]
+    assert main([*base_command, "--output-root", str(tmp_path / "first")]) == 0
+    snapshot_before = {
+        path.relative_to(cycle_state.snapshot): path.read_bytes()
+        for path in cycle_state.snapshot.rglob("*")
+        if path.is_file()
+    }
+    unsafe_output = cycle_state.snapshot / "unsafe" / "output.json"
+
+    assert (
+        main(
+            [
+                *base_command,
+                output_flag,
+                str(unsafe_output),
+                "--output-root",
+                str(tmp_path / "resumed"),
+            ]
+        )
+        == 2
+    )
+
+    assert not unsafe_output.exists()
+    assert {
+        path.relative_to(cycle_state.snapshot): path.read_bytes()
+        for path in cycle_state.snapshot.rglob("*")
+        if path.is_file()
+    } == snapshot_before
+
+
+def test_screen_resume_rejects_output_root_inside_snapshot_before_creation(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = _docket_html(decision_dates=("June 30, 2026",))
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+    base_command = [
+        "acquisition",
+        "screen-firecrawl-dockets",
+        *cycle_state.cli_args,
+        "--successes",
+        str(successes),
+        "--raw-html-dir",
+        str(raw_html_dir),
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--execute",
+    ]
+    assert main([*base_command, "--output-root", str(tmp_path / "first")]) == 0
+    unsafe_root = cycle_state.snapshot / "unsafe-output-root"
+
+    assert main([*base_command, "--output-root", str(unsafe_root)]) == 2
+
+    assert not unsafe_root.exists()
+
+
 def test_screen_excludes_preanchor_report_before_leakage_screening(
     tmp_path: Path,
     cycle_state: _CycleState,

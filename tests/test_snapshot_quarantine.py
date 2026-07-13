@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +15,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 )
 from legalforecast.ingestion.snapshot_quarantine import (
     SnapshotQuarantineError,
+    _rename_noreplace,
     quarantine_orphan_snapshot,
 )
 
@@ -70,12 +72,50 @@ def test_quarantine_dry_run_then_execute_preserves_store_and_canonical_snapshot(
     assert receipt["orphan_snapshots_path_reference_count"] == 0
 
 
+def test_quarantine_recovers_crash_after_move_before_final_receipt(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    dry_run = _quarantine(fixture, execute=False)
+    target = Path(str(dry_run["quarantine_target_path"]))
+    pending_receipt = dict(dry_run)
+    pending_receipt["status"] = "move_authorized"
+    pending_receipt["execute"] = True
+    fixture.receipt.write_text(json.dumps(pending_receipt), encoding="utf-8")
+    os.rename(fixture.orphan, target)
+
+    completed = _quarantine(fixture, execute=True)
+
+    assert completed["status"] == "quarantined"
+    assert completed["recovered_after_completed_move"] is True
+    assert not fixture.orphan.exists()
+    assert target.is_dir()
+    assert json.loads(fixture.receipt.read_text())["status"] == "quarantined"
+
+
+def test_atomic_quarantine_move_never_replaces_existing_target(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    source.mkdir()
+    destination.mkdir()
+    (source / "source-marker").write_text("source", encoding="utf-8")
+    (destination / "destination-marker").write_text("destination", encoding="utf-8")
+
+    with pytest.raises(SnapshotQuarantineError, match="appeared"):
+        _rename_noreplace(source, destination)
+
+    assert (source / "source-marker").read_text() == "source"
+    assert (destination / "destination-marker").read_text() == "destination"
+
+
 def test_quarantine_rejects_registered_path_without_receipt_or_move(
     tmp_path: Path,
 ) -> None:
     fixture = _fixture(tmp_path)
 
-    with pytest.raises(SnapshotQuarantineError, match="registered"):
+    with pytest.raises(SnapshotQuarantineError, match="disjoint"):
         quarantine_orphan_snapshot(
             cycle_store=fixture.store,
             orphan_snapshot=fixture.canonical,
@@ -90,6 +130,52 @@ def test_quarantine_rejects_registered_path_without_receipt_or_move(
     assert fixture.canonical.is_dir()
     assert not fixture.receipt.exists()
     assert list(fixture.quarantine.iterdir()) == []
+
+
+def test_quarantine_rejects_orphan_ancestor_of_canonical_snapshot(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    canonical_parent = fixture.canonical.parent
+
+    with pytest.raises(SnapshotQuarantineError, match="disjoint"):
+        quarantine_orphan_snapshot(
+            cycle_store=fixture.store,
+            orphan_snapshot=canonical_parent,
+            quarantine_root=fixture.quarantine,
+            receipt_output=fixture.receipt,
+            expected_snapshot_id=fixture.snapshot_id,
+            expected_orphan_manifest_sha256=fixture.orphan_manifest_sha256,
+            expected_canonical_manifest_sha256=fixture.canonical_manifest_sha256,
+            execute=True,
+        )
+
+    assert fixture.canonical.is_dir()
+    assert not fixture.receipt.exists()
+
+
+def test_quarantine_rejects_orphan_descendant_of_canonical_snapshot(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    nested_orphan = fixture.canonical / "nested-orphan"
+    shutil.copytree(fixture.orphan, nested_orphan)
+
+    with pytest.raises(SnapshotQuarantineError, match="disjoint"):
+        quarantine_orphan_snapshot(
+            cycle_store=fixture.store,
+            orphan_snapshot=nested_orphan,
+            quarantine_root=fixture.quarantine,
+            receipt_output=fixture.receipt,
+            expected_snapshot_id=fixture.snapshot_id,
+            expected_orphan_manifest_sha256=_sha256(nested_orphan / "manifest.json"),
+            expected_canonical_manifest_sha256=fixture.canonical_manifest_sha256,
+            execute=True,
+        )
+
+    assert nested_orphan.is_dir()
+    assert fixture.canonical.is_dir()
+    assert not fixture.receipt.exists()
 
 
 def test_quarantine_rejects_wrong_or_corrupt_orphan_commitment(

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import ctypes
+import errno
 import fcntl
 import hashlib
 import json
@@ -106,10 +108,6 @@ def _quarantine_orphan_snapshot_locked(
             "cycle store has a nonempty WAL; immutable read-only verification "
             "would not observe all committed state"
         )
-    if not orphan_path.is_dir():
-        raise SnapshotQuarantineError(
-            f"orphan snapshot directory is missing: {orphan_path}"
-        )
     if not orphan_path.is_relative_to(store_root):
         raise SnapshotQuarantineError(
             "orphan snapshot must be inside the cycle store root"
@@ -118,6 +116,18 @@ def _quarantine_orphan_snapshot_locked(
         raise SnapshotQuarantineError(
             f"quarantine root must already exist: {quarantine_directory}"
         )
+    target = quarantine_directory / (
+        f"{expected_snapshot_id}--orphan--{orphan_manifest_hash[:16]}"
+    )
+    orphan_exists = orphan_path.is_dir()
+    target_exists = target.is_dir()
+    recovering_completed_move = not orphan_exists and target_exists
+    if not orphan_exists and not recovering_completed_move:
+        raise SnapshotQuarantineError(
+            f"orphan snapshot directory is missing: {orphan_path}"
+        )
+    if orphan_exists and target.exists():
+        raise SnapshotQuarantineError(f"quarantine target already exists: {target}")
     if quarantine_directory.is_relative_to(store_root):
         raise SnapshotQuarantineError(
             "quarantine root must be outside the cycle store root"
@@ -130,7 +140,8 @@ def _quarantine_orphan_snapshot_locked(
         raise SnapshotQuarantineError(
             f"receipt parent must already exist: {receipt_path.parent}"
         )
-    if orphan_path.stat().st_dev != quarantine_directory.stat().st_dev:
+    verified_orphan_path = target if recovering_completed_move else orphan_path
+    if verified_orphan_path.stat().st_dev != quarantine_directory.stat().st_dev:
         raise SnapshotQuarantineError(
             "orphan and quarantine root must be on the same filesystem"
         )
@@ -138,16 +149,6 @@ def _quarantine_orphan_snapshot_locked(
 
     connection = _open_immutable_store(store_path)
     try:
-        path_rows = connection.execute(
-            "SELECT snapshot_id, path FROM snapshots ORDER BY snapshot_id"
-        ).fetchall()
-        orphan_references = [
-            row for row in path_rows if Path(str(row["path"])).resolve() == orphan_path
-        ]
-        if orphan_references:
-            raise SnapshotQuarantineError(
-                "orphan path is registered in snapshots.path; refusing quarantine"
-            )
         canonical_row = connection.execute(
             "SELECT * FROM snapshots WHERE snapshot_id = ?",
             (expected_snapshot_id,),
@@ -157,9 +158,23 @@ def _quarantine_orphan_snapshot_locked(
                 f"snapshot ID is not registered: {expected_snapshot_id}"
             )
         canonical_path = Path(str(canonical_row["path"])).resolve()
-        if canonical_path == orphan_path:
+        if (
+            canonical_path == orphan_path
+            or canonical_path.is_relative_to(orphan_path)
+            or orphan_path.is_relative_to(canonical_path)
+        ):
             raise SnapshotQuarantineError(
-                "registered canonical snapshot path is not distinct from orphan"
+                "registered canonical and orphan snapshot paths must be disjoint"
+            )
+        path_rows = connection.execute(
+            "SELECT snapshot_id, path FROM snapshots ORDER BY snapshot_id"
+        ).fetchall()
+        orphan_references = [
+            row for row in path_rows if Path(str(row["path"])).resolve() == orphan_path
+        ]
+        if orphan_references:
+            raise SnapshotQuarantineError(
+                "orphan path is registered in snapshots.path; refusing quarantine"
             )
         if not canonical_path.is_relative_to(store_root):
             raise SnapshotQuarantineError(
@@ -194,7 +209,7 @@ def _quarantine_orphan_snapshot_locked(
         raise SnapshotQuarantineError(
             "canonical snapshot manifest SHA-256 does not match expected commitment"
         )
-    orphan_disk_hash = _sha256_file(orphan_path / "manifest.json")
+    orphan_disk_hash = _sha256_file(verified_orphan_path / "manifest.json")
     if orphan_disk_hash != orphan_manifest_hash:
         raise SnapshotQuarantineError(
             "orphan snapshot manifest SHA-256 does not match expected commitment"
@@ -203,7 +218,9 @@ def _quarantine_orphan_snapshot_locked(
         canonical_manifest = dict(
             verify_snapshot(canonical_path, require_complete=True)
         )
-        orphan_manifest = dict(verify_snapshot(orphan_path, require_complete=True))
+        orphan_manifest = dict(
+            verify_snapshot(verified_orphan_path, require_complete=True)
+        )
     except SnapshotVerificationError as error:
         raise SnapshotQuarantineError(str(error)) from error
     if canonical_manifest != database_manifest:
@@ -222,11 +239,6 @@ def _quarantine_orphan_snapshot_locked(
                 f"orphan and canonical snapshot {field} commitments differ"
             )
 
-    target = quarantine_directory / (
-        f"{expected_snapshot_id}--orphan--{orphan_manifest_hash[:16]}"
-    )
-    if target.exists():
-        raise SnapshotQuarantineError(f"quarantine target already exists: {target}")
     operation_fields = {
         "cycle_store": str(store_path),
         "cycle_store_sha256": cycle_store_hash,
@@ -256,6 +268,33 @@ def _quarantine_orphan_snapshot_locked(
     }
     prior_receipt = _read_prior_receipt(receipt_path, operation_id=operation_id)
     verified_at = datetime.now(UTC).isoformat()
+    if recovering_completed_move:
+        if not execute:
+            raise SnapshotQuarantineError(
+                "quarantine move already occurred; rerun with --execute to finalize "
+                "the pending receipt"
+            )
+        if prior_receipt is None or prior_receipt.get("status") not in {
+            "move_authorized",
+            "quarantined",
+        }:
+            raise SnapshotQuarantineError(
+                "quarantined target exists without a matching authorized receipt"
+            )
+        if prior_receipt.get("status") == "quarantined":
+            return prior_receipt
+        _fsync_directory(orphan_path.parent)
+        _fsync_directory(quarantine_directory)
+        completed_receipt = {
+            **receipt_base,
+            "status": "quarantined",
+            "execute": True,
+            "verified_at": prior_receipt.get("verified_at", verified_at),
+            "moved_at": datetime.now(UTC).isoformat(),
+            "recovered_after_completed_move": True,
+        }
+        _write_receipt(receipt_path, completed_receipt, allow_replace=True)
+        return completed_receipt
     if not execute:
         if prior_receipt is not None:
             if prior_receipt.get("status") != "dry_run_verified":
@@ -311,7 +350,7 @@ def _quarantine_orphan_snapshot_locked(
         raise SnapshotQuarantineError(
             f"quarantine target appeared after verification: {target}"
         )
-    os.rename(orphan_path, target)
+    _rename_noreplace(orphan_path, target)
     _fsync_directory(orphan_path.parent)
     _fsync_directory(quarantine_directory)
     if _sha256_file(store_path) != cycle_store_hash:
@@ -410,6 +449,43 @@ def _write_receipt(
     except BaseException:
         temporary_path.unlink(missing_ok=True)
         raise
+
+
+def _rename_noreplace(source: Path, destination: Path) -> None:
+    """Atomically rename a directory without ever replacing a destination."""
+
+    renameat2 = getattr(ctypes.CDLL(None, use_errno=True), "renameat2", None)
+    if renameat2 is None:
+        raise SnapshotQuarantineError(
+            "renameat2(RENAME_NOREPLACE) is unavailable; refusing unsafe move"
+        )
+    renameat2.argtypes = [
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_uint,
+    ]
+    renameat2.restype = ctypes.c_int
+    at_fdcwd = -100
+    rename_noreplace = 1
+    result = renameat2(
+        at_fdcwd,
+        os.fsencode(source),
+        at_fdcwd,
+        os.fsencode(destination),
+        rename_noreplace,
+    )
+    if result == 0:
+        return
+    error_number = ctypes.get_errno()
+    if error_number == errno.EEXIST:
+        raise SnapshotQuarantineError(
+            f"quarantine target appeared before move: {destination}"
+        )
+    raise SnapshotQuarantineError(
+        f"atomic no-replace quarantine move failed: {os.strerror(error_number)}"
+    )
 
 
 def _fsync_directory(path: Path) -> None:
