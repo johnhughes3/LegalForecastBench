@@ -54,6 +54,7 @@ from legalforecast.ingestion.decision_first_terms import (
 )
 from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, DiscoveryPage
 from legalforecast.ingestion.mtd_acquisition_screen import (
+    CaseDevDocketMetadata,
     MtdDocketDecisionScreen,
     MtdDocketScreenStatus,
     courtlistener_case_name_slug,
@@ -261,7 +262,24 @@ def prescreen_recap_candidate(
     """
 
     if court_id is not None and court_id.strip().lower().endswith("b"):
-        return PRESCREEN_BANKRUPTCY_REASON
+        # Bankruptcy adversary proceedings are eligible Rule 12 analogues.
+        # A bare bankruptcy court id cannot distinguish an adversary from the
+        # main estate case, so incomplete search metadata must proceed to the
+        # authoritative docket record rather than being dropped cheaply.
+        metadata = CaseDevDocketMetadata(
+            case_id="courtlistener-prescreen",
+            query=None,
+            court_id=court_id,
+            court=None,
+            docket_number=docket_number,
+            case_name=case_name,
+            nature_of_suit=None,
+            cause=None,
+        )
+        if metadata.case_type_stratum == "bankruptcy_adversary":
+            return None
+        if docket_number is not None or case_name is not None:
+            return PRESCREEN_BANKRUPTCY_REASON
     if docket_number is not None and _CRIMINAL_DOCKET_TOKEN.search(docket_number):
         return PRESCREEN_CRIMINAL_REASON
     if case_name is not None and case_name.strip():
@@ -475,6 +493,7 @@ def reconstruct_docket_page(
     *,
     pacer: RequestPacer | None = None,
     page_size: int = _DEFAULT_PAGE_SIZE,
+    docket: CourtListenerDocket | None = None,
 ) -> ReconstructedDocket:
     """Rebuild the strict-screen docket page from the REST v4 API, fail-closed.
 
@@ -495,9 +514,14 @@ def reconstruct_docket_page(
     if not docket_id:
         raise ValueError("docket_id is required")
     require_reconstruction_auth(client)
-    if pacer is not None:
-        pacer.wait()
-    docket = client.get_docket(docket_id)
+    if docket is None:
+        if pacer is not None:
+            pacer.wait()
+        docket = client.get_docket(docket_id)
+    elif docket.docket_id != docket_id:
+        raise RecapDocketReconstructionError(
+            f"requested docket {docket_id} but supplied record {docket.docket_id}"
+        )
 
     entries: list[CourtListenerDocketEntry] = []
     seen_entry_ids: set[str] = set()
@@ -784,8 +808,11 @@ def observe_recap_api_candidate(
             evidence={**base_evidence, "prescreen_exclusion_reason": prescreen},
         )
 
+    require_reconstruction_auth(client)
     try:
-        reconstructed = reconstruct_docket_page(client, docket_id, pacer=pacer)
+        if pacer is not None:
+            pacer.wait()
+        docket = client.get_docket(docket_id)
     except CourtListenerUnavailableError as error:
         return store.record_observation(
             candidate_id,
@@ -804,9 +831,9 @@ def observe_recap_api_candidate(
         )
 
     authoritative_metadata = {
-        "court_id": reconstructed.docket.court_id,
-        "docket_number": reconstructed.docket.docket_number,
-        "case_name": reconstructed.docket.case_name,
+        "court_id": docket.court_id,
+        "docket_number": docket.docket_number,
+        "case_name": docket.case_name,
     }
     authoritative_prescreen = prescreen_recap_candidate(**authoritative_metadata)
     if authoritative_prescreen is not None:
@@ -819,8 +846,24 @@ def observe_recap_api_candidate(
                 **base_evidence,
                 "prescreen_exclusion_reason": authoritative_prescreen,
                 "authoritative_docket_metadata": authoritative_metadata,
-                "reconstruction_proof": reconstructed.proof.to_record(),
+                "entry_reconstruction_skipped": True,
             },
+        )
+
+    try:
+        reconstructed = reconstruct_docket_page(
+            client,
+            docket_id,
+            pacer=pacer,
+            docket=docket,
+        )
+    except (CourtListenerResponseError, RecapDocketReconstructionError) as error:
+        return store.record_observation(
+            candidate_id,
+            batch_id=batch_id,
+            state="transient_failure",
+            reason_code="parse_failure",
+            evidence={**base_evidence, "error": str(error)},
         )
 
     anchored = screen_courtlistener_docket_for_mtd_decision(

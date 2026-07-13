@@ -132,6 +132,8 @@ def test_batch_config_rejects_inverted_window() -> None:
     ("court_id", "docket_number", "case_name", "expected"),
     [
         ("nysb", "1:26-bk-00001", "In re Debtor", PRESCREEN_BANKRUPTCY_REASON),
+        ("nysb", "1:26-ap-00001", "Trustee v. Roe", None),
+        ("nysb", None, None, None),
         ("cacd", "2:26-cr-00123", "United States v. Roe", PRESCREEN_CRIMINAL_REASON),
         ("nysd", "1:26-cv-00001", "United States v. Roe", PRESCREEN_CRIMINAL_REASON),
         ("nysd", "1:26-cv-00001", "USA v. Roe", PRESCREEN_CRIMINAL_REASON),
@@ -1023,23 +1025,10 @@ def test_observe_prescreens_authoritative_bankruptcy_metadata(tmp_path: Path) ->
                     payload={
                         "id": 555,
                         "court": "nysb",
-                        "docket_number": "1:26-cv-00001",
-                        "case_name": "Acme Corp v. Roe",
+                        "docket_number": "1:26-bk-00001",
+                        "case_name": "In re Debtor",
                         "date_filed": "2026-05-01",
                     },
-                ),
-                _entries_response(
-                    cursor=None,
-                    results=[
-                        {
-                            "id": 7002,
-                            "docket": 555,
-                            "entry_number": 40,
-                            "description": "ORDER granting motion to dismiss",
-                            "date_filed": "2026-07-05",
-                        }
-                    ],
-                    next_cursor=None,
                 ),
             )
         )
@@ -1054,6 +1043,120 @@ def test_observe_prescreens_authoritative_bankruptcy_metadata(tmp_path: Path) ->
         assert observation.reason_code == PRESCREEN_BANKRUPTCY_REASON
         assert observation.evidence["authoritative_docket_metadata"] == {
             "court_id": "nysb",
-            "docket_number": "1:26-cv-00001",
-            "case_name": "Acme Corp v. Roe",
+            "docket_number": "1:26-bk-00001",
+            "case_name": "In re Debtor",
         }
+        assert observation.evidence["entry_reconstruction_skipped"] is True
+        assert recon_client.request_count == 1
+
+
+def test_observe_retains_authoritative_bankruptcy_adversary(tmp_path: Path) -> None:
+    store, payload = _seeded_store(
+        tmp_path,
+        {
+            "id": 9001,
+            "docket_id": 555,
+            "description": "ORDER granting motion to dismiss",
+            "entry_date_filed": "2026-07-05",
+        },
+    )
+    with store:
+        recon_client = _client(
+            (
+                _response(
+                    path="/dockets/555/",
+                    payload={
+                        "id": 555,
+                        "court": "nysb",
+                        "docket_number": "1:26-ap-00001",
+                        "case_name": "Trustee v. Roe",
+                        "date_filed": "2026-05-01",
+                    },
+                ),
+                _entries_response(
+                    cursor=None,
+                    results=[
+                        {
+                            "id": 7001,
+                            "docket": 555,
+                            "entry_number": 1,
+                            "description": "Adversary complaint filed by Trustee",
+                            "date_filed": "2026-05-01",
+                        },
+                        {
+                            "id": 7002,
+                            "docket": 555,
+                            "entry_number": 10,
+                            "description": (
+                                "Motion to dismiss Count I of the adversary "
+                                "complaint under Fed. R. Bankr. P. 7012"
+                            ),
+                            "date_filed": "2026-05-20",
+                        },
+                        {
+                            "id": 7003,
+                            "docket": 555,
+                            "entry_number": 20,
+                            "description": (
+                                "ORDER granting motion to dismiss Count I of the "
+                                "adversary complaint under Rule 7012"
+                            ),
+                            "date_filed": "2026-07-05",
+                        },
+                    ],
+                    next_cursor=None,
+                ),
+            )
+        )
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.state == "accepted"
+        assert observation.reason_code == "strict_clean_screen_passed"
+        screen = observation.evidence["screen"]
+        assert isinstance(screen, dict)
+        assert screen["case_type_stratum"] == "bankruptcy_adversary"
+        assert recon_client.request_count == 2
+
+
+def test_observe_authoritative_criminal_metadata_skips_entries(tmp_path: Path) -> None:
+    store, payload = _seeded_store(
+        tmp_path,
+        {
+            "id": 9001,
+            "docket_id": 555,
+            "description": "ORDER granting motion to dismiss",
+            "entry_date_filed": "2026-07-05",
+        },
+    )
+    with store:
+        recon_client = _client(
+            (
+                _response(
+                    path="/dockets/555/",
+                    payload={
+                        "id": 555,
+                        "court": "cacd",
+                        "docket_number": "5:13-cr-00015",
+                        "case_name": "United States v. Roe",
+                    },
+                ),
+            )
+        )
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.state == "excluded"
+        assert observation.reason_code == PRESCREEN_CRIMINAL_REASON
+        assert observation.evidence["entry_reconstruction_skipped"] is True
+        assert recon_client.request_count == 1
