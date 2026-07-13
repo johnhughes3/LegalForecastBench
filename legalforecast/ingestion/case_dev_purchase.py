@@ -173,10 +173,14 @@ def verify_case_dev_purchase_policy_cohort_binding(
             "purchase policy is bound to a different cohort policy hash"
         )
     raw_policy = cohort_artifact.get("policy")
-    assert isinstance(raw_policy, Mapping)
+    if not isinstance(raw_policy, Mapping):
+        raise CaseDevPurchasePolicyError("cohort policy content must be an object")
     typed_policy = cast(Mapping[str, object], raw_policy)
     raw_purchase = typed_policy.get("purchase_policy")
-    assert isinstance(raw_purchase, Mapping)
+    if not isinstance(raw_purchase, Mapping):
+        raise CaseDevPurchasePolicyError(
+            "cohort purchase policy content must be an object"
+        )
     typed_purchase = cast(Mapping[str, object], raw_purchase)
     cohort_cap = _policy_money(
         typed_purchase.get("cycle_budget_usd"), "cohort cycle_budget_usd"
@@ -260,10 +264,22 @@ class CaseDevPurchaseJournal:
         reservation = self.policy.per_document_reservation_usd
         with self._connection:
             for case_plan in plan.case_plans:
-                case_reservation = reservation * len(case_plan.purchase_document_ids)
-                if case_reservation > self.policy.max_per_case_usd:
+                existing_ids = {
+                    str(row["source_document_id"])
+                    for row in self._connection.execute(
+                        """SELECT source_document_id FROM purchase_operations
+                        WHERE candidate_id=?""",
+                        (case_plan.candidate_id,),
+                    ).fetchall()
+                }
+                new_ids = set(case_plan.purchase_document_ids) - existing_ids
+                cumulative_reservation = self._candidate_cap_amount(
+                    case_plan.candidate_id
+                ) + reservation * len(new_ids)
+                if cumulative_reservation > self.policy.max_per_case_usd:
                     raise CaseDevPurchaseLedgerError(
-                        f"{case_plan.candidate_id} reservation exceeds per-case cap"
+                        f"{case_plan.candidate_id} cumulative reservation exceeds "
+                        "per-case cap"
                     )
                 for document_id in case_plan.purchase_document_ids:
                     self._connection.execute(
@@ -314,6 +330,11 @@ class CaseDevPurchaseJournal:
                     f"document {document_id} has {status} paid outcome"
                 )
             reservation = Decimal(str(row["reservation_usd"]))
+            candidate_id = str(row["candidate_id"])
+            if self._candidate_cap_amount(candidate_id) > self.policy.max_per_case_usd:
+                raise CaseDevPurchaseLedgerError(
+                    f"{candidate_id} cumulative reservation exceeds per-case cap"
+                )
             if (
                 Decimal(self.committed_amount_usd) + reservation
                 > self.policy.hard_cap_usd
@@ -426,7 +447,6 @@ class CaseDevPurchaseJournal:
         reconciliation = _canonical(evidence)
         if disposition == "confirmed":
             fees = _pacer_fees(evidence.get("pacer_fees"))
-            assert fees is not None
             download_url = _required_text(evidence.get("download_url"), "download_url")
             actual = Decimal(fees["total_usd"])
             if actual > Decimal(str(row["reservation_usd"])):
@@ -560,6 +580,27 @@ class CaseDevPurchaseJournal:
             """SELECT * FROM purchase_operations WHERE source_document_id=?""",
             (document_id,),
         ).fetchone()
+
+    def _candidate_cap_amount(self, candidate_id: str) -> Decimal:
+        rows = self._connection.execute(
+            """SELECT status, reservation_usd, actual_usd
+            FROM purchase_operations WHERE candidate_id=?""",
+            (candidate_id,),
+        ).fetchall()
+        amount = Decimal("0")
+        for row in rows:
+            status = str(row["status"])
+            reservation = Decimal(str(row["reservation_usd"]))
+            if status == "confirmed":
+                amount += Decimal(str(row["actual_usd"]))
+            elif status in {"planned", "submitted", "unknown"}:
+                actual = (
+                    Decimal(str(row["actual_usd"]))
+                    if row["actual_usd"] is not None
+                    else Decimal("0")
+                )
+                amount += max(reservation, actual)
+        return amount
 
     def _create_schema(self) -> None:
         self._connection.executescript(
@@ -836,11 +877,18 @@ class CaseDevPacerPurchaseClient:
             if replayed is not None:
                 attempts.append(replayed)
                 continue
-            self.journal.submit(document_id)
+            if not self.journal.submit(document_id):
+                replayed = self.journal.replay_attempt(candidate_id, document_id)
+                if replayed is None:
+                    raise CaseDevPurchaseLedgerError(
+                        "purchase submit was skipped without a replayable result"
+                    )
+                attempts.append(replayed)
+                continue
             try:
                 payload = self.client.purchase_pacer_document(
                     document_id,
-                    acknowledge_pacer_fees=True,
+                    acknowledge_pacer_fees=acknowledge_pacer_fees,
                 )
             except (
                 CaseDevPurchaseOutcomeUnknownError,
@@ -896,7 +944,8 @@ class CaseDevPacerPurchaseClient:
                 break
             try:
                 attempt = _successful_attempt(candidate_id, document_id, payload)
-                assert attempt.pacer_fees is not None
+                if attempt.pacer_fees is None:
+                    raise ValueError("successful purchase is missing validated fees")
                 self.journal.confirm(
                     document_id,
                     response=payload,
@@ -994,7 +1043,7 @@ def _result(
     )
 
 
-def _pacer_fees(value: object) -> Mapping[str, str] | None:
+def _pacer_fees(value: object) -> Mapping[str, str]:
     if value is None:
         raise ValueError("purchase response must include PACER fees")
     if not isinstance(value, Mapping):

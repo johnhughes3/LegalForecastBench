@@ -18,6 +18,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerPurchaseClient,
     CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerBusyError,
+    CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicyError,
     CaseDevPurchaseReconciliationRequired,
     generate_case_dev_purchase_policy,
@@ -238,7 +239,7 @@ def test_reservation_refuses_request_that_would_cross_cycle_cap(
     policy = verify_case_dev_purchase_policy(_policy(ledger, cap="3.05"))
     transport = _success_transport("doc-1", "doc-2")
 
-    with pytest.raises(Exception, match="cycle cap"):
+    with pytest.raises(CaseDevPurchaseLedgerError, match="cycle cap"):
         with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
             CaseDevPacerPurchaseClient(
                 _client(transport),
@@ -251,6 +252,44 @@ def test_reservation_refuses_request_that_would_cross_cycle_cap(
             )
 
     assert len(transport.requests) == 1
+
+
+def test_per_case_cap_is_cumulative_across_separate_purchase_runs(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(
+        _policy(ledger, cap="9.15", max_per_case="6.10")
+    )
+    transport = _success_transport("doc-1", "doc-2")
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        first = CaseDevPacerPurchaseClient(
+            _client(transport),
+            capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
+            journal=journal,
+        ).execute_purchase_plan(
+            _plan(("doc-1", "doc-2")),
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
+        assert first.executed_purchase_count == 2
+
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        with pytest.raises(
+            CaseDevPurchaseLedgerError,
+            match="cumulative reservation exceeds per-case cap",
+        ):
+            CaseDevPacerPurchaseClient(
+                _client(CaseDevFixtureTransport([])),
+                capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
+                journal=journal,
+            ).execute_purchase_plan(
+                _plan(("doc-3",)),
+                live=True,
+                acknowledge_pacer_fees=True,
+            )
+
+    assert len(transport.requests) == 2
 
 
 def test_second_writer_and_conflicting_identity_are_rejected(tmp_path: Path) -> None:

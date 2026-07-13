@@ -24,6 +24,6 @@ The command persists every intended document as `planned`, commits `submitted` w
 Confirmed rows settle to validated actual fees; submitted, unknown, and written-off rows retain at least the full reservation against the cap.
 
 An unresolved `submitted` or `unknown` row blocks every subsequent purchase and cannot be retried.
-Resolve it with `legalforecast acquisition reconcile-purchase --purchase-policy <policy.json> --purchase-ledger <ledger.sqlite3> --evidence <evidence.json>`.
+Resolve it with `legalforecast acquisition reconcile-purchase --purchase-policy <policy.json> --cohort-policy <cohort-policy.json> --purchase-ledger <ledger.sqlite3> --evidence <evidence.json>`.
 Evidence must name a provider-side billing receipt, statement export, or support confirmation; document availability alone is not payment evidence.
 `confirmed` evidence requires parseable PACER, service, and total fees plus the provider download URL; `failed` releases the reservation; `write_off` permits the Cycle to continue but permanently retains the reservation against the cap.
