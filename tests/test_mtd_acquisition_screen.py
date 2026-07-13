@@ -115,14 +115,17 @@ def test_case_dev_metadata_screen_admits_adversary_caption_with_local_number() -
     assert screen.metadata.case_type_stratum == "bankruptcy_adversary"
 
 
-def test_case_dev_metadata_screen_admits_explicit_adversary_designation() -> None:
+@pytest.mark.parametrize("designation", ("Adversary Proceeding", "Adversary Case"))
+def test_case_dev_metadata_screen_admits_explicit_adversary_designation(
+    designation: str,
+) -> None:
     screen = screen_case_dev_docket_metadata(
         {
             "id": "74000007",
             "courtId": "nysb",
             "court": "Bankruptcy Court, S.D. New York",
             "docketNumber": "26-01030",
-            "caseName": "Adversary Proceeding No. 26-01030",
+            "caseName": f"{designation} No. 26-01030",
         },
         query="order on motion to dismiss",
     )
@@ -1086,13 +1089,16 @@ def test_docket_screen_accepts_adversary_caption_with_local_number() -> None:
     assert screen.case_type_stratum == "bankruptcy_adversary"
 
 
-def test_docket_screen_accepts_explicit_adversary_designation() -> None:
+@pytest.mark.parametrize("designation", ("Adversary Proceeding", "Adversary Case"))
+def test_docket_screen_accepts_explicit_adversary_designation(
+    designation: str,
+) -> None:
     page = parse_courtlistener_docket_html(
         _multi_entry_docket_html(
             title="Docket 26-01030",
             entries=(
                 (1, "July 1, 2026", "Adversary COMPLAINT filed."),
-                (4, "July 3, 2026", "Motion, Dismiss Adversary Proceeding"),
+                (4, "July 3, 2026", f"Motion to Dismiss {designation}"),
                 (
                     8,
                     "July 10, 2026",
@@ -1105,12 +1111,70 @@ def test_docket_screen_accepts_explicit_adversary_designation() -> None:
 
     screen = screen_courtlistener_docket_for_mtd_decision(
         page,
-        candidate_text="nysb 26-01030 Adversary Proceeding No. 26-01030",
+        candidate_text=f"nysb 26-01030 {designation} No. 26-01030",
         decision_filed_on_or_after=date(2026, 6, 30),
     )
 
     assert screen.strict_clean is True
     assert screen.case_type_stratum == "bankruptcy_adversary"
+
+
+@pytest.mark.parametrize(
+    ("entries", "expected_reason"),
+    (
+        (
+            (
+                (4, "July 3, 2026", "Motion to Dismiss Adversary Proceeding"),
+                (8, "July 10, 2026", "ORDER granting 4 Motion to Dismiss."),
+            ),
+            "bankruptcy_adversary_initiating_pleading_unproven",
+        ),
+        (
+            (
+                (1, "July 1, 2026", "Adversary COMPLAINT filed."),
+                (
+                    4,
+                    "July 3, 2026",
+                    "Plaintiff's voluntary Motion to Dismiss Adversary Proceeding",
+                ),
+                (8, "July 10, 2026", "ORDER granting 4 Motion to Dismiss."),
+            ),
+            "bankruptcy_adversary_rule_basis_unproven",
+        ),
+        (
+            (
+                (1, "July 1, 2026", "Adversary COMPLAINT filed."),
+                (4, "July 3, 2026", "Motion to Dismiss Adversary Proceeding"),
+            ),
+            "motion_filing_only",
+        ),
+        (
+            (
+                (1, "June 1, 2026", "Adversary COMPLAINT filed."),
+                (4, "June 3, 2026", "Motion to Dismiss Adversary Proceeding"),
+                (8, "June 29, 2026", "ORDER granting 4 Motion to Dismiss."),
+            ),
+            "mtd_decision_outside_date_window",
+        ),
+    ),
+)
+def test_explicit_adversary_designation_retains_all_downstream_gates(
+    entries: tuple[tuple[int, str, str], ...],
+    expected_reason: str,
+) -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(title="Docket 26-01030", entries=entries),
+        source_url="https://www.courtlistener.com/docket/74000007/adversary-proceeding/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text="nysb 26-01030 Adversary Proceeding No. 26-01030",
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert screen.strict_clean is False
+    assert expected_reason in screen.exclusion_reasons
 
 
 def test_rule_7012_entries_establish_bankruptcy_context_without_candidate_text() -> (

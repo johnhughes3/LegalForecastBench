@@ -1426,7 +1426,7 @@ def _looks_like_rule_7012_claim_merits_motion(text: str) -> bool:
     # when the clerk omits a Rule 7012 citation; generic case dismissals do not.
     explicit_adversary_pleading_target = bool(
         re.search(
-            r"\bdismiss\b[^.;]{0,100}\b(?:adversary\s+(?:proceeding|complaint)|"
+            r"\bdismiss\b[^.;]{0,100}\b(?:adversary\s+(?:proceeding|case|complaint)|"
             r"complaint|counterclaim|count|claim|cause\s+of\s+action)s?\b",
             text,
             re.I,
