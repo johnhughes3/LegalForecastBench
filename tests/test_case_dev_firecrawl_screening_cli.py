@@ -21,6 +21,8 @@ from legalforecast.protocol.freeze import sha256_file
 @dataclass(frozen=True, slots=True)
 class _CycleState:
     cli_args: tuple[str, ...]
+    store_path: Path
+    batch_id: str
     snapshot: Path
     cycle_hash: str
     batch_digest: str
@@ -76,10 +78,115 @@ def _create_cycle_state(
             "--snapshot-id",
             snapshot_id,
         ),
+        store_path=store_path,
+        batch_id=batch_id,
         snapshot=snapshot_root / snapshot_id,
         cycle_hash=cycle_hash,
         batch_digest=batch_digest,
     )
+
+
+def test_metadata_rich_firecrawl_rescreen_replaces_absent_metadata_snapshot_state(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    with CycleAcquisitionStore(cycle_state.store_path) as store:
+        store.record_observation(
+            "case-dev-123",
+            batch_id=cycle_state.batch_id,
+            state="excluded",
+            reason_code="not_federal_district_court",
+            evidence={
+                "candidate_id": "case-dev-123",
+                "case_id": "case-dev-123",
+                "court": None,
+                "decision_date": None,
+                "primary_exclusion_reason": "not_federal_district_court",
+                "reason": "not_federal_district_court",
+                "secondary_exclusion_reasons": ["missing_docket_number"],
+                "source_document_ids": [],
+                "source_entry_ids": [],
+                "stage": "discovery",
+            },
+        )
+
+    output_root = tmp_path / "screening"
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = _docket_html(decision_dates=("June 30, 2026",))
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "screen-firecrawl-dockets",
+                *cycle_state.cli_args,
+                "--successes",
+                str(successes),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    [snapshot_case] = _read_jsonl(cycle_state.snapshot / "screened-cases.jsonl")
+    assert snapshot_case["candidate_id"] == "case-dev-123"
+    assert _read_jsonl(cycle_state.snapshot / "exclusions.jsonl") == []
+    with CycleAcquisitionStore(cycle_state.store_path) as store:
+        observations = store.observations("case-dev-123")
+        assert [observation.state for observation in observations] == [
+            "excluded",
+            "accepted",
+        ]
+        assert store.current_observation("case-dev-123") == observations[-1]
+
+
+def test_metadata_repair_proof_mismatch_remains_reconciled_parse_exclusion(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    successes = tmp_path / "successes.jsonl"
+    success = _success_record()
+    metadata = cast(dict[str, object], success["case_metadata"])
+    metadata["case_id"] = "different-case"
+    _write_jsonl(successes, [success])
+
+    output_root = tmp_path / "screening"
+    assert (
+        main(
+            [
+                "acquisition",
+                "screen-firecrawl-dockets",
+                *cycle_state.cli_args,
+                "--successes",
+                str(successes),
+                "--raw-html-dir",
+                str(tmp_path / "unused-html"),
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    [exclusion] = _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl")
+    assert exclusion["case_id"] == "case-dev-123"
+    assert exclusion["reason"] == "parse_error"
+    assert _read_jsonl(cycle_state.snapshot / "screened-cases.jsonl") == []
+    [snapshot_exclusion] = _read_jsonl(cycle_state.snapshot / "exclusions.jsonl")
+    assert snapshot_exclusion["candidate_id"] == "case-dev-123"
 
 
 def test_screen_firecrawl_dockets_emits_direct_public_planner_input(

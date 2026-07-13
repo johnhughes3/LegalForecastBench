@@ -711,6 +711,309 @@ def test_actual_metadata_reason_codes_are_immutable(
         assert store.current_observation("candidate-1") == immutable
 
 
+def test_metadata_rich_rescreen_supersedes_absent_metadata_exclusion(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        deficient = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="not_federal_district_court",
+            evidence={
+                "candidate_id": "candidate-1",
+                "case_id": "candidate-1",
+                "court": None,
+                "decision_date": None,
+                "primary_exclusion_reason": "not_federal_district_court",
+                "reason": "not_federal_district_court",
+                "secondary_exclusion_reasons": ["missing_docket_number"],
+                "source_document_ids": [],
+                "source_entry_ids": [],
+                "stage": "discovery",
+            },
+        )
+
+        repaired = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"screen": "passed"},
+            metadata_repair_evidence={
+                "case_id": "candidate-1",
+                "court_id": "nysd",
+                "docket_number": "1:26-cv-00001",
+            },
+        )
+
+        assert repaired.state == "accepted"
+        assert repaired.supersedes_observation_id == deficient.observation_id
+        assert repaired.evidence["metadata_repair_evidence"] == {
+            "case_id": "candidate-1",
+            "court_id": "nysd",
+            "docket_number": "1:26-cv-00001",
+        }
+        assert store.current_observation("candidate-1") == repaired
+
+
+def test_metadata_rescreen_does_not_resurrect_authoritative_immutable_exclusion(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        immutable = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="not_federal_district_court",
+            evidence={
+                "candidate_id": "candidate-1",
+                "case_id": "candidate-1",
+                "court": "ca9",
+                "decision_date": None,
+                "primary_exclusion_reason": "not_federal_district_court",
+                "reason": "not_federal_district_court",
+                "secondary_exclusion_reasons": [],
+                "source_document_ids": [],
+                "source_entry_ids": [],
+                "stage": "discovery",
+            },
+        )
+
+        skipped = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"screen": "passed"},
+            metadata_repair_evidence={
+                "case_id": "candidate-1",
+                "court_id": "nysd",
+                "docket_number": "1:26-cv-00001",
+            },
+        )
+
+        assert skipped.state == "skipped_immutable"
+        assert store.current_observation("candidate-1") == immutable
+
+
+def test_metadata_rescreen_does_not_repair_partially_present_metadata(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        immutable = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="missing_docket_number",
+            evidence={
+                "candidate_id": "candidate-1",
+                "case_id": "candidate-1",
+                "court": "nysd",
+                "decision_date": None,
+                "primary_exclusion_reason": "missing_docket_number",
+                "reason": "missing_docket_number",
+                "secondary_exclusion_reasons": [],
+                "source_document_ids": [],
+                "source_entry_ids": [],
+                "stage": "discovery",
+            },
+        )
+
+        skipped = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"screen": "passed"},
+            metadata_repair_evidence={
+                "case_id": "candidate-1",
+                "court_id": "nysd",
+                "docket_number": "1:26-cv-00001",
+            },
+        )
+
+        assert skipped.state == "skipped_immutable"
+        assert store.current_observation("candidate-1") == immutable
+
+
+def test_absent_metadata_exclusion_requires_explicit_valid_repair_evidence(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        immutable = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="missing_docket_number",
+            evidence={
+                "candidate_id": "candidate-1",
+                "case_id": "candidate-1",
+                "court": None,
+                "decision_date": None,
+                "primary_exclusion_reason": "missing_docket_number",
+                "reason": "missing_docket_number",
+                "secondary_exclusion_reasons": [],
+                "source_document_ids": [],
+                "source_entry_ids": [],
+                "stage": "discovery",
+            },
+        )
+        skipped = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"screen": "passed"},
+        )
+        assert skipped.state == "skipped_immutable"
+        assert store.current_observation("candidate-1") == immutable
+
+        with pytest.raises(ValueError, match="metadata repair evidence"):
+            store.record_observation(
+                "candidate-1",
+                batch_id="batch-001",
+                state="accepted",
+                reason_code="strict_clean_screen_passed",
+                evidence={"screen": "passed"},
+                metadata_repair_evidence={
+                    "case_id": "different-candidate",
+                    "court_id": "nysd",
+                    "docket_number": "1:26-cv-00001",
+                },
+            )
+
+
+def test_metadata_repair_cannot_skip_strict_screen_via_newly_free_state(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        immutable = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="missing_docket_number",
+            evidence={
+                "candidate_id": "candidate-1",
+                "case_id": "candidate-1",
+                "court": None,
+                "decision_date": None,
+                "primary_exclusion_reason": "missing_docket_number",
+                "reason": "missing_docket_number",
+                "secondary_exclusion_reasons": [],
+                "source_document_ids": [],
+                "source_entry_ids": [],
+                "stage": "discovery",
+            },
+        )
+
+        skipped = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="newly_free",
+            reason_code="required_documents_newly_free",
+            evidence={"document_id": "44"},
+            metadata_repair_evidence={
+                "case_id": "candidate-1",
+                "court_id": "nysd",
+                "docket_number": "1:26-cv-00001",
+            },
+        )
+
+        assert skipped.state == "skipped_immutable"
+        assert store.current_observation("candidate-1") == immutable
+
+
+def test_metadata_repair_preserves_unrelated_secondary_immutable_reason(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        immutable = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="not_federal_district_court",
+            evidence={
+                "candidate_id": "candidate-1",
+                "case_id": "candidate-1",
+                "court": None,
+                "decision_date": None,
+                "primary_exclusion_reason": "not_federal_district_court",
+                "reason": "not_federal_district_court",
+                "secondary_exclusion_reasons": [
+                    "missing_docket_number",
+                    "criminal_style_caption",
+                ],
+                "source_document_ids": [],
+                "source_entry_ids": [],
+                "stage": "discovery",
+            },
+        )
+
+        skipped = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"screen": "passed"},
+            metadata_repair_evidence={
+                "case_id": "candidate-1",
+                "court_id": "nysd",
+                "docket_number": "1:26-cv-00001",
+            },
+        )
+
+        assert skipped.state == "skipped_immutable"
+        assert store.current_observation("candidate-1") == immutable
+
+
+def test_metadata_repair_requires_screen_exclusion_not_parse_failure(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        immutable = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="missing_docket_number",
+            evidence={
+                "candidate_id": "candidate-1",
+                "case_id": "candidate-1",
+                "court": None,
+                "decision_date": None,
+                "primary_exclusion_reason": "missing_docket_number",
+                "reason": "missing_docket_number",
+                "secondary_exclusion_reasons": [],
+                "source_document_ids": [],
+                "source_entry_ids": [],
+                "stage": "discovery",
+            },
+        )
+
+        skipped = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="strict_clean_screen_failed",
+            evidence={"stage": "extraction", "reason": "parse_error"},
+            metadata_repair_evidence={
+                "case_id": "candidate-1",
+                "court_id": "nysd",
+                "docket_number": "1:26-cv-00001",
+            },
+        )
+
+        assert skipped.state == "skipped_immutable"
+        assert store.current_observation("candidate-1") == immutable
+
+
 def test_unknown_reason_code_is_rejected(tmp_path: Path) -> None:
     with _store(tmp_path) as store:
         with pytest.raises(ValueError, match="unknown candidate observation reason"):
