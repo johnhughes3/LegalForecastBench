@@ -411,6 +411,37 @@ def test_abbreviated_date_does_not_promote_non_merits_orders() -> None:
         assert expected_reason in screen.exclusion_reasons
 
 
+def test_reply_leave_language_does_not_hide_mtd_merits_disposition() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "ORDER granting leave to file a late reply and DENYING "
+            "Defendant's Motion to Dismiss."
+        ),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is True
+    assert screen.exclusion_reasons == ()
+
+
+def test_alternative_transfer_caption_does_not_hide_mtd_merits_grant() -> None:
+    for outcome in ("The Motion to Dismiss is GRANTED.", "Dismissal is GRANTED."):
+        page = parse_courtlistener_docket_html(
+            _docket_html(
+                "ORDER on Defendant's Motion to Dismiss or, in the alternative, "
+                f"Transfer. {outcome}"
+            ),
+            source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+        )
+
+        screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+        assert screen.actual_mtd_decision is True
+        assert screen.exclusion_reasons == ()
+
+
 def test_docket_screen_accepts_rule_7012_adversary_claim_merits_disposition() -> None:
     page = parse_courtlistener_docket_html(
         _multi_entry_docket_html(
