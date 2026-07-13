@@ -57,7 +57,7 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
                     "type": "lookup",
                     "docketId": "case-dev-777",
                     "includeEntries": True,
-                    "limit": 500,
+                    "limit": 100,
                 },
                 payload={
                     "docket": {

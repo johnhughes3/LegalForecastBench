@@ -484,6 +484,321 @@ def test_public_first_bridge_recovers_only_target_linked_opposition() -> None:
     assert paid_ids == {"case-dev-mtd", "case-dev-opposition"}
 
 
+def test_public_first_bridge_accepts_numbered_paid_gap_reason() -> None:
+    screened = _screened_case()
+    candidate = screened["candidate"]
+    assert isinstance(candidate, dict)
+    candidate["docket_id"] = "71280017"
+    candidate["candidate_key"] = "71280017"
+    candidate["url"] = "https://www.courtlistener.com/docket/71280017/example/"
+    entries = screened["selected_entries"]
+    assert isinstance(entries, list)
+    ai = screened["ai"]
+    assert isinstance(ai, dict)
+    ai["target_motion_entry_numbers"] = ["9"]
+    ai["decision_entry_numbers"] = ["30"]
+    target = entries[1]
+    assert isinstance(target, dict)
+    target["entry_number"] = "9"
+    target["row_id"] = "entry-9"
+    target_documents = target["documents"]
+    assert isinstance(target_documents, list)
+    target_document = target_documents[0]
+    assert isinstance(target_document, dict)
+    target_document.update(
+        {
+            "description": "Memorandum in Support of Motion to Dismiss",
+            "href": "https://storage.courtlistener.com/mtd.pdf",
+            "action_label": "Download PDF",
+            "pacer_only": False,
+        }
+    )
+    decision = entries[-1]
+    assert isinstance(decision, dict)
+    decision["entry_number"] = "30"
+    decision["row_id"] = "entry-30"
+    entries.insert(
+        2,
+        _courtlistener_entry(
+            19,
+            "OPPOSITION to Motion to Dismiss at Docket 9.",
+            "Opposition to Motion to Dismiss",
+            "https://ecf.nysd.uscourts.gov/doc1/opposition",
+            pacer_only=True,
+        ),
+    )
+    public_plan = plan_public_packet_downloads(
+        (screened,), use_embedded_entries=True, target_clean_cases=1
+    )
+    [gap] = public_plan.paid_gap_cases
+    assert gap.paid_gap_reasons == ("no_free_opposition",)
+    gap_record = gap.to_record()
+    gap_record["paid_gap_reasons"] = ["no_free_opposition:19"]
+    downloads = tuple(
+        {
+            **request.to_record(),
+            "local_path": f"71280017/{request.source_document_id}.pdf",
+            "sha256": "a" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in public_plan.download_requests
+    )
+    lookup = _lookup_response_for("71280017")
+    docket = lookup.payload["docket"]
+    assert isinstance(docket, dict)
+    docket["entries"] = [
+        _case_dev_entry(19, "Opposition to Motion to Dismiss", "case-dev-opposition")
+    ]
+
+    result = bridge_public_plan_paid_gaps(
+        (screened,),
+        public_selection_records=(),
+        paid_gap_records=(gap_record,),
+        free_download_records=downloads,
+        client=_client(lookup),
+        use_embedded_entries=True,
+    )
+
+    assert result.exclusions == ()
+    [selection] = result.selection_records
+    assert selection["planning_status"] == "selected_after_paid_recovery"
+    assert selection["paid_gap_reasons"] == []
+    assert selection["resolved_paid_gap_reasons"] == ["no_free_opposition:19"]
+    assert selection["identity_resolution"]["matched_by"] == (
+        "direct_numeric_id_exact_court_docket_caption"
+    )
+
+
+def test_bridge_numeric_courtlistener_id_uses_direct_lookup_and_corroborates() -> None:
+    screened = _screened_case()
+    candidate = screened["candidate"]
+    assert isinstance(candidate, dict)
+    candidate["docket_id"] = "71280017"
+    candidate["candidate_key"] = "71280017"
+    candidate["url"] = "https://www.courtlistener.com/docket/71280017/example/"
+    lookup = _lookup_response_for("71280017")
+    transport = CaseDevFixtureTransport((lookup,))
+
+    result = bridge_courtlistener_case_dev_documents(
+        (screened,),
+        client=CaseDevClient(config=CaseDevConfig(api_key=None), transport=transport),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+
+    assert result.exclusions == ()
+    [selection] = result.selection_records
+    assert selection["case_id"] == "71280017"
+    assert selection["identity_resolution"]["matched_by"] == (
+        "direct_numeric_id_exact_court_docket_caption"
+    )
+    assert [params for _, _, params in transport.requests] == [
+        {
+            "type": "lookup",
+            "docketId": "71280017",
+            "includeEntries": True,
+            "limit": 100,
+        }
+    ]
+    assert all(
+        "live" not in params and "acknowledgePacerFees" not in params
+        for _, _, params in transport.requests
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "reason"),
+    (
+        ("id", "999", "case_dev_direct_id_conflict"),
+        ("courtId", "cacd", "case_dev_exact_match_not_found"),
+        ("courtId", None, "case_dev_exact_match_not_found"),
+        ("docketNumber", "9:99-cv-99999", "case_dev_exact_match_not_found"),
+        ("caseName", "Wrong v. Caption", "case_dev_caption_conflict"),
+    ),
+)
+def test_bridge_numeric_courtlistener_id_fails_closed_on_metadata_conflict(
+    field: str,
+    value: object,
+    reason: str,
+) -> None:
+    screened = _screened_case()
+    candidate = screened["candidate"]
+    assert isinstance(candidate, dict)
+    candidate["docket_id"] = "71280017"
+    candidate["candidate_key"] = "71280017"
+    lookup = _lookup_response_for("71280017")
+    docket = lookup.payload["docket"]
+    assert isinstance(docket, dict)
+    docket[field] = value
+
+    result = bridge_courtlistener_case_dev_documents(
+        (screened,),
+        client=_client(lookup),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+
+    assert result.selection_records == ()
+    [exclusion] = result.exclusions
+    assert exclusion["exclusion_reasons"] == [reason]
+
+
+def test_bridge_numeric_courtlistener_id_rejects_source_url_mismatch() -> None:
+    screened = _screened_case()
+    candidate = screened["candidate"]
+    assert isinstance(candidate, dict)
+    candidate["docket_id"] = "71280017"
+    candidate["candidate_key"] = "71280017"
+    candidate["url"] = "https://www.courtlistener.com/docket/99999999/example/"
+
+    result = bridge_courtlistener_case_dev_documents(
+        (screened,),
+        client=_client(),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+
+    assert result.selection_records == ()
+    [exclusion] = result.exclusions
+    assert exclusion["exclusion_reasons"] == ["courtlistener_source_id_conflict"]
+
+
+def test_bridge_numeric_lookup_fails_closed_when_exhaustion_is_unproven() -> None:
+    screened = _numeric_screened_case()
+    lookup = _lookup_response_for("71280017")
+    docket = lookup.payload["docket"]
+    assert isinstance(docket, dict)
+    docket["entries"] = [
+        _case_dev_entry(number, f"Entry {number}", f"document-{number}")
+        for number in range(1, 101)
+    ]
+
+    result = bridge_courtlistener_case_dev_documents(
+        (screened,),
+        client=_client(lookup),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+
+    assert result.selection_records == ()
+    [exclusion] = result.exclusions
+    assert exclusion["exclusion_reasons"] == ["case_dev_pagination_exhaustion_unproven"]
+
+
+def test_bridge_numeric_lookup_follows_explicit_pagination_to_exhaustion() -> None:
+    screened = _numeric_screened_case()
+    first = _lookup_response_for("71280017")
+    first_docket = first.payload["docket"]
+    assert isinstance(first_docket, dict)
+    first_docket["entries"] = [
+        _case_dev_entry(number, f"Entry {number}", f"document-{number}")
+        for number in range(1, 101)
+    ]
+    first_payload = dict(first.payload)
+    first_payload["next_offset"] = 100
+    first = RecordedCaseDevResponse(
+        method=first.method,
+        path=first.path,
+        params=first.params,
+        status_code=first.status_code,
+        payload=first_payload,
+    )
+    second = _lookup_response_for("71280017")
+    second_docket = second.payload["docket"]
+    assert isinstance(second_docket, dict)
+    second_docket["entries"] = [
+        _case_dev_entry(101, "Order on Motion to Dismiss", "case-dev-decision")
+    ]
+    second = RecordedCaseDevResponse(
+        method=second.method,
+        path=second.path,
+        params={**second.params, "offset": 100},
+        status_code=second.status_code,
+        payload=second.payload,
+    )
+    transport = CaseDevFixtureTransport((first, second))
+
+    result = bridge_courtlistener_case_dev_documents(
+        (screened,),
+        client=CaseDevClient(config=CaseDevConfig(api_key=None), transport=transport),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+
+    assert result.exclusions == ()
+    assert len(transport.requests) == 2
+
+
+def test_public_bridge_numbered_decision_recovers_only_missing_entry() -> None:
+    screened = _screened_case()
+    entries = screened["selected_entries"]
+    assert isinstance(entries, list)
+    target = entries[1]
+    assert isinstance(target, dict)
+    target_document = target["documents"][0]
+    assert isinstance(target_document, dict)
+    target_document.update(
+        description="Memorandum in Support of Motion to Dismiss",
+        href="https://storage.courtlistener.com/mtd.pdf",
+        action_label="Download PDF",
+        pacer_only=False,
+    )
+    decision = entries[-1]
+    assert isinstance(decision, dict)
+    decision_document = decision["documents"][0]
+    assert isinstance(decision_document, dict)
+    decision_document.update(
+        href="https://ecf.nysd.uscourts.gov/doc1/decision-16",
+        action_label="Buy on PACER",
+        pacer_only=True,
+    )
+    entries.append(
+        _courtlistener_entry(
+            20,
+            "Second ORDER on Motion to Dismiss.",
+            "Second Order on Motion to Dismiss",
+            "https://storage.courtlistener.com/decision-20.pdf",
+            pacer_only=False,
+        )
+    )
+    ai = screened["ai"]
+    assert isinstance(ai, dict)
+    ai["decision_entry_numbers"] = ["16", "20"]
+    public_plan = plan_public_packet_downloads(
+        (screened,), use_embedded_entries=True, target_clean_cases=1
+    )
+    [gap] = public_plan.paid_gap_cases
+    assert gap.paid_gap_reasons == ("no_free_decision_document:16",)
+    downloads = tuple(
+        {
+            **request.to_record(),
+            "local_path": f"cl-123/{request.source_document_id}.pdf",
+            "sha256": "a" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in public_plan.download_requests
+    )
+    lookup = _lookup_response()
+    docket = lookup.payload["docket"]
+    assert isinstance(docket, dict)
+    docket["entries"] = [
+        _case_dev_entry(16, "Order on Motion to Dismiss", "case-dev-decision")
+    ]
+
+    result = bridge_public_plan_paid_gaps(
+        (screened,),
+        public_selection_records=(),
+        paid_gap_records=(gap.to_record(),),
+        free_download_records=downloads,
+        client=_client(_search_response(_case_dev_docket()), lookup),
+        use_embedded_entries=True,
+    )
+
+    assert result.exclusions == ()
+    [selection] = result.selection_records
+    assert selection["resolved_paid_gap_reasons"] == ["no_free_decision_document:16"]
+
+
 def test_public_first_bridge_requires_completed_free_manifest() -> None:
     screened = _screened_case()
     public_plan = plan_public_packet_downloads(
@@ -551,7 +866,7 @@ def _lookup_response() -> RecordedCaseDevResponse:
             "type": "lookup",
             "docketId": "case-dev-777",
             "includeEntries": True,
-            "limit": 500,
+            "limit": 100,
         },
         status_code=200,
         payload={
@@ -568,6 +883,20 @@ def _lookup_response() -> RecordedCaseDevResponse:
                 ],
             }
         },
+    )
+
+
+def _lookup_response_for(docket_id: str) -> RecordedCaseDevResponse:
+    response = _lookup_response()
+    docket = response.payload["docket"]
+    assert isinstance(docket, dict)
+    docket["id"] = docket_id
+    return RecordedCaseDevResponse(
+        method=response.method,
+        path=response.path,
+        params={**response.params, "docketId": docket_id},
+        status_code=response.status_code,
+        payload=response.payload,
     )
 
 
@@ -647,6 +976,16 @@ def _screened_case() -> dict[str, object]:
             ),
         ],
     }
+
+
+def _numeric_screened_case() -> dict[str, object]:
+    screened = _screened_case()
+    candidate = screened["candidate"]
+    assert isinstance(candidate, dict)
+    candidate["docket_id"] = "71280017"
+    candidate["candidate_key"] = "71280017"
+    candidate["url"] = "https://www.courtlistener.com/docket/71280017/example/"
+    return screened
 
 
 def _courtlistener_entry(

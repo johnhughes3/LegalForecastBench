@@ -21,6 +21,7 @@ from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketEntry,
     CourtListenerWebDocketPage,
     CourtListenerWebDocument,
+    is_substantive_mtd_opposition_entry,
     parse_courtlistener_docket_html,
 )
 from legalforecast.ingestion.free_document_downloader import (
@@ -930,6 +931,7 @@ def _core_packet_restriction_reasons(
         elif (
             _entry_is_before(entry, decision_floor)
             and entry.role is CourtListenerEntryRole.OPPOSITION
+            and is_substantive_mtd_opposition_entry(entry)
             and _brief_targets_motion(entry, target_entries)
         ):
             required_role = "opposition"
@@ -1072,6 +1074,7 @@ def _required_opposition_entries(
         for entry in page.entries
         if _entry_is_before(entry, before_entry)
         and entry.role is CourtListenerEntryRole.OPPOSITION
+        and is_substantive_mtd_opposition_entry(entry)
         and _brief_targets_motion(entry, target_entries)
     )
 
