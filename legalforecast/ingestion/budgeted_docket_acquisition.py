@@ -236,7 +236,7 @@ def acquire_ranked_dockets(
                     target_kind="docket",
                     source_url=url,
                     page_number=page_number,
-                    ordinal=target.rank,
+                    ordinal=(page_number - 1) * len(ranked) + target.rank,
                 )
             )
         run = scheduler.run(specs)
