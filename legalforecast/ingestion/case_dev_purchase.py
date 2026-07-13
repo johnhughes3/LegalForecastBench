@@ -476,8 +476,135 @@ class CaseDevPurchaseJournal:
                 None if row["actual_usd"] is None else str(row["actual_usd"])
             ),
             "response": response,
+            "reconciliation": (
+                None
+                if row["reconciliation_json"] is None
+                else cast(
+                    Mapping[str, Any], json.loads(str(row["reconciliation_json"]))
+                )
+            ),
             "error": None if row["error"] is None else str(row["error"]),
         }
+
+    def record_broker_receipt(
+        self, document_id: str, receipt: Mapping[str, Any]
+    ) -> None:
+        """Durably append a validated nonsecret broker receipt to provider evidence."""
+
+        row = self._operation(document_id)
+        if row is None or str(row["status"]) not in {
+            "submitted",
+            "queued",
+            "confirmed",
+            "failed",
+            "unknown",
+        }:
+            raise CaseDevPurchaseLedgerError(
+                "broker receipt requires a paid or reserved operation"
+            )
+        prior = (
+            {}
+            if row["response_json"] is None
+            else cast(dict[str, Any], json.loads(str(row["response_json"])))
+        )
+        canonical_receipt = _canonical(receipt)
+        digest = hashlib.sha256(canonical_receipt.encode()).hexdigest()
+        raw_history: object = prior.get("broker_receipts", [])
+        if not isinstance(raw_history, list):
+            raise CaseDevPurchaseLedgerError("broker receipt history is invalid")
+        history = cast(list[object], raw_history)
+        for item in history:
+            if isinstance(item, Mapping):
+                record = cast(Mapping[str, object], item)
+                if record.get("sha256") == digest:
+                    return
+                prior_receipt = record.get("receipt")
+                if isinstance(prior_receipt, Mapping):
+                    prior_record = cast(Mapping[str, object], prior_receipt)
+                    immutable_fields = (
+                        "operation_key",
+                        "reservation_id",
+                        "cycle_id",
+                        "purchase_policy_sha256",
+                        "recap_document",
+                        "case_id",
+                        "client_code",
+                        "reservation_usd",
+                    )
+                    if any(
+                        prior_record.get(field_name) != receipt.get(field_name)
+                        for field_name in immutable_fields
+                    ):
+                        raise CaseDevPurchaseLedgerError(
+                            "broker receipt immutable identity changed"
+                        )
+                    prior_queue = prior_record.get("id")
+                    if prior_queue is not None and prior_queue != receipt.get("id"):
+                        raise CaseDevPurchaseLedgerError(
+                            "broker receipt queue identity changed"
+                        )
+        updated: dict[str, Any] = {
+            **prior,
+            "broker_receipts": [
+                *history,
+                {"sha256": digest, "receipt": dict(receipt)},
+            ],
+        }
+        with self._connection:
+            self._connection.execute(
+                """UPDATE purchase_operations SET response_json=?
+                WHERE source_document_id=?""",
+                (_canonical(updated), document_id),
+            )
+
+    def fail_before_dispatch(self, document_id: str, error: object) -> None:
+        """Release a local hold after a definite broker pre-provider rejection."""
+
+        with self._connection:
+            cursor = self._connection.execute(
+                """UPDATE purchase_operations SET status='failed',
+                response_json=NULL, reconciliation_json=NULL, actual_usd=NULL, error=?
+                WHERE source_document_id=? AND status='submitted'""",
+                (str(error), document_id),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "definite failure requires a submitted operation"
+                )
+
+    def recover_broker_queue(
+        self, document_id: str, *, queue_id: str, reservation_id: str
+    ) -> None:
+        """Resolve submitted or unknown local state from a durable broker queue ID."""
+
+        row = self._operation(document_id)
+        if row is None or str(row["status"]) not in {"submitted", "unknown"}:
+            raise CaseDevPurchaseLedgerError(
+                "broker queue recovery requires submitted or unknown state"
+            )
+        prior = (
+            {}
+            if row["response_json"] is None
+            else cast(dict[str, Any], json.loads(str(row["response_json"])))
+        )
+        response = {
+            **prior,
+            "source_provider": "courtlistener.recap-fetch+pacer",
+            "reservation_usd": str(row["reservation_usd"]),
+            "queue_id": queue_id,
+            "reservation_id": reservation_id,
+        }
+        with self._connection:
+            cursor = self._connection.execute(
+                """UPDATE purchase_operations SET status='queued', response_json=?,
+                error=NULL WHERE source_document_id=? AND status IN
+                ('submitted','unknown')""",
+                (_canonical(response), document_id),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "broker queue recovery transition failed"
+                )
 
     def fail(self, document_id: str, error: BaseException) -> None:
         with self._connection:
