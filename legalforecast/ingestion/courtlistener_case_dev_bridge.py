@@ -25,6 +25,7 @@ from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketEntry,
     CourtListenerWebDocketPage,
     CourtListenerWebDocument,
+    is_substantive_mtd_opposition_entry,
     parse_courtlistener_docket_html,
 )
 from legalforecast.ingestion.free_document_downloader import (
@@ -34,7 +35,7 @@ from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 
 _CASE_DEV_SEARCH_LIMIT = 20
-_CASE_DEV_DOCKET_PAGE_SIZE = 500
+_CASE_DEV_DOCKET_PAGE_SIZE = 100
 _RECOVERABLE_ROLES = frozenset(
     {
         DocumentRole.COMPLAINT,
@@ -397,7 +398,11 @@ def _validate_public_plan_routes(
             raise CourtListenerCaseDevBridgeError(
                 f"paid_gap_route_invalid: {candidate_id}"
             )
-        unsupported = set(reasons) - set(_PAID_GAP_ROLES)
+        unsupported = {
+            reason
+            for reason in reasons
+            if _paid_gap_reason_base_or_none(reason) is None
+        }
         if unsupported:
             raise CourtListenerCaseDevBridgeError(
                 f"paid_gap_reason_unsupported: {candidate_id}: "
@@ -459,7 +464,11 @@ def _reconcile_paid_gap(
 ) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
     candidate_id = _required_str(gap, "candidate_id")
     reasons = _string_sequence(gap.get("paid_gap_reasons"))
-    required_roles = {role for reason in reasons for role in _PAID_GAP_ROLES[reason]}
+    required_roles = {
+        role
+        for reason in reasons
+        for role in _PAID_GAP_ROLES[_paid_gap_reason_base(reason)]
+    }
     bridged_documents = _mapping_sequence(
         bridged_selection.get("documents"), "documents"
     )
@@ -469,12 +478,18 @@ def _reconcile_paid_gap(
         if document.get("requires_paid_recovery") is True
         and DocumentRole(_required_str(document, "document_role")) in required_roles
     )
-    paid_roles = {
-        DocumentRole(_required_str(document, "document_role"))
-        for document in paid_documents
-    }
     for reason in reasons:
-        if not (paid_roles & _PAID_GAP_ROLES[reason]):
+        required_entry_number = _paid_gap_reason_entry_number(reason)
+        matching_paid_document = any(
+            DocumentRole(_required_str(document, "document_role"))
+            in _PAID_GAP_ROLES[_paid_gap_reason_base(reason)]
+            and (
+                required_entry_number is None
+                or document.get("docket_entry_number") == required_entry_number
+            )
+            for document in paid_documents
+        )
+        if not matching_paid_document:
             raise CourtListenerCaseDevBridgeError(
                 f"paid_gap_document_not_found: {candidate_id}: {reason}"
             )
@@ -506,6 +521,7 @@ def _reconcile_paid_gap(
         "exclusion_reasons": [],
         "paid_recovery_required": False,
         "paid_gap_reasons": [],
+        "resolved_paid_gap_reasons": list(reasons),
         "planning_status": "selected_after_paid_recovery",
         "identity_resolution": bridged_selection["identity_resolution"],
         "documents": [*public_documents, *paid_documents],
@@ -519,6 +535,31 @@ def _reconcile_paid_gap(
         ],
     }
     return selection, case_relevance
+
+
+def _paid_gap_reason_base_or_none(reason: str) -> str | None:
+    base, separator, suffix = reason.partition(":")
+    if base not in _PAID_GAP_ROLES:
+        return None
+    if separator and not (
+        suffix == "unknown_entry" or (suffix.isdecimal() and int(suffix) > 0)
+    ):
+        return None
+    return base
+
+
+def _paid_gap_reason_base(reason: str) -> str:
+    base = _paid_gap_reason_base_or_none(reason)
+    if base is None:
+        raise CourtListenerCaseDevBridgeError(f"paid_gap_reason_unsupported: {reason}")
+    return base
+
+
+def _paid_gap_reason_entry_number(reason: str) -> int | None:
+    _, separator, suffix = reason.partition(":")
+    if not separator or suffix == "unknown_entry":
+        return None
+    return int(suffix)
 
 
 def _public_relevance_document(document: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -610,27 +651,30 @@ def _bridge_candidate(
     court = _required_str(metadata, "court")
     docket_number = _required_str(metadata, "docket_number")
     caption = _required_str(metadata, "case_name")
+    source_url = _optional_str(candidate, "url")
+    source_docket_id = _courtlistener_docket_id_from_url(source_url)
+    if (
+        candidate_id.isdecimal()
+        and source_docket_id is not None
+        and source_docket_id != candidate_id
+    ):
+        raise CourtListenerCaseDevBridgeError("courtlistener_source_id_conflict")
     page = _courtlistener_page(
         record,
         candidate_id=candidate_id,
-        source_url=_optional_str(candidate, "url"),
+        source_url=source_url,
         raw_html_dir=raw_html_dir,
         use_embedded_entries=use_embedded_entries,
     )
     if page.has_next_page:
         raise CourtListenerCaseDevBridgeError("courtlistener_docket_more_than_one_page")
 
-    matched_case_id = _resolve_case_dev_case_id(
+    matched_case_id, case_dev_entries, matched_by = _resolve_case_dev_docket(
         client,
+        candidate_id=candidate_id,
         court=court,
         docket_number=docket_number,
         caption=caption,
-    )
-    case_dev_entries = tuple(
-        client.get_case_docket_entries(
-            matched_case_id,
-            limit=_CASE_DEV_DOCKET_PAGE_SIZE,
-        ).items
     )
     documents = _bridge_documents(
         record,
@@ -668,7 +712,7 @@ def _bridge_candidate(
         "identity_resolution": {
             "courtlistener_candidate_id": candidate_id,
             "case_dev_case_id": matched_case_id,
-            "matched_by": "exact_court_docket_caption",
+            "matched_by": matched_by,
         },
         "documents": [document.selection_record() for document in documents],
     }
@@ -766,6 +810,124 @@ def _resolve_case_dev_case_id(
     return next(iter(unique_ids))
 
 
+def _resolve_case_dev_docket(
+    client: CaseDevClient,
+    *,
+    candidate_id: str,
+    court: str,
+    docket_number: str,
+    caption: str,
+) -> tuple[str, tuple[CaseDevDocketHit, ...], str]:
+    if candidate_id.isdecimal():
+        docket, entries = _lookup_case_dev_docket_entries(
+            client,
+            candidate_id,
+        )
+        _corroborate_case_dev_docket(
+            docket,
+            expected_case_id=candidate_id,
+            court=court,
+            docket_number=docket_number,
+            caption=caption,
+        )
+        return (
+            candidate_id,
+            entries,
+            "direct_numeric_id_exact_court_docket_caption",
+        )
+
+    case_id = _resolve_case_dev_case_id(
+        client,
+        court=court,
+        docket_number=docket_number,
+        caption=caption,
+    )
+    docket, entries = _lookup_case_dev_docket_entries(
+        client,
+        case_id,
+    )
+    _corroborate_case_dev_docket(
+        docket,
+        expected_case_id=case_id,
+        court=court,
+        docket_number=docket_number,
+        caption=caption,
+    )
+    return case_id, entries, "exact_court_docket_caption"
+
+
+def _lookup_case_dev_docket_entries(
+    client: CaseDevClient,
+    case_id: str,
+) -> tuple[Mapping[str, Any], tuple[CaseDevDocketHit, ...]]:
+    cursor: str | None = None
+    seen_cursors: set[str] = set()
+    docket_metadata: Mapping[str, Any] | None = None
+    entries: list[CaseDevDocketHit] = []
+    while True:
+        page = client.get_case_docket_entries(
+            case_id,
+            cursor=cursor,
+            limit=_CASE_DEV_DOCKET_PAGE_SIZE,
+        )
+        current_docket = _mapping(page.raw.get("docket", page.raw), "legal_docket")
+        if docket_metadata is None:
+            docket_metadata = current_docket
+        elif dict(current_docket) != dict(docket_metadata):
+            current_without_entries = {
+                key: value for key, value in current_docket.items() if key != "entries"
+            }
+            original_without_entries = {
+                key: value for key, value in docket_metadata.items() if key != "entries"
+            }
+            if current_without_entries != original_without_entries:
+                raise CourtListenerCaseDevBridgeError(
+                    "case_dev_pagination_metadata_conflict"
+                )
+        entries.extend(page.items)
+        next_cursor = page.next_cursor
+        if next_cursor is None:
+            if len(page.items) >= _CASE_DEV_DOCKET_PAGE_SIZE:
+                raise CourtListenerCaseDevBridgeError(
+                    "case_dev_pagination_exhaustion_unproven"
+                )
+            return docket_metadata, tuple(entries)
+        if next_cursor in seen_cursors:
+            raise CourtListenerCaseDevBridgeError("case_dev_pagination_cursor_cycle")
+        seen_cursors.add(next_cursor)
+        cursor = next_cursor
+
+
+def _corroborate_case_dev_docket(
+    docket: Mapping[str, Any],
+    *,
+    expected_case_id: str,
+    court: str,
+    docket_number: str,
+    caption: str,
+) -> None:
+    hit_id = _optional_str_any(docket, "id", "docketId", "docket_id")
+    hit_court = _optional_str_any(docket, "courtId", "court_id", "court")
+    hit_docket = _optional_str_any(
+        docket,
+        "docketNumber",
+        "docket_number",
+        "case_number",
+    )
+    hit_caption = _optional_str_any(docket, "caseName", "caption", "name")
+    if hit_id is None or hit_id != expected_case_id:
+        raise CourtListenerCaseDevBridgeError("case_dev_direct_id_conflict")
+    if (
+        hit_court is None
+        or hit_docket is None
+        or _identifier(hit_court) != _identifier(court)
+        or _docket_identifier(hit_docket) != _docket_identifier(docket_number)
+    ):
+        raise CourtListenerCaseDevBridgeError("case_dev_exact_match_not_found")
+    if hit_caption is None or _caption(hit_caption) != _caption(caption):
+        raise CourtListenerCaseDevBridgeError("case_dev_caption_conflict")
+
+
 def _bridge_documents(
     record: Mapping[str, Any],
     *,
@@ -790,7 +952,9 @@ def _bridge_documents(
     }
     requested: list[tuple[CourtListenerWebDocketEntry, DocumentRole]] = []
     required_gap_roles = {
-        role for reason in paid_gap_reasons for role in _PAID_GAP_ROLES[reason]
+        role
+        for reason in paid_gap_reasons
+        for role in _PAID_GAP_ROLES[_paid_gap_reason_base(reason)]
     }
     needs_complaint = not paid_gap_reasons or bool(
         required_gap_roles & {DocumentRole.COMPLAINT, DocumentRole.AMENDED_COMPLAINT}
@@ -814,7 +978,12 @@ def _bridge_documents(
         )
         requested.append((complaint, _complaint_role(complaint)))
     if needs_target_mtd:
-        for number in target_numbers:
+        numbered_target_gaps = _numbered_gap_entries(
+            paid_gap_reasons,
+            "no_free_target_mtd_document",
+        )
+        required_target_numbers = numbered_target_gaps or target_numbers
+        for number in required_target_numbers:
             entry = numbered_entries.get(number)
             if entry is None:
                 raise CourtListenerCaseDevBridgeError(
@@ -830,38 +999,72 @@ def _bridge_documents(
                 )
             )
     if needs_opposition:
-        for target_number in sorted(target_numbers):
-            upper_bound = min(
-                (
-                    *(number for number in target_numbers if number > target_number),
-                    decision_floor,
-                )
+        numbered_oppositions = tuple(
+            sorted(
+                number
+                for reason in paid_gap_reasons
+                if _paid_gap_reason_base(reason) == "no_free_opposition"
+                if (number := _paid_gap_reason_entry_number(reason)) is not None
             )
-            linked = tuple(
-                entry
-                for number, entry in sorted(numbered_entries.items())
-                if target_number < number < upper_bound
-                and entry.role is CourtListenerEntryRole.OPPOSITION
-            )
-            if not linked:
-                raise CourtListenerCaseDevBridgeError(
-                    f"opposition_entry_not_found: {target_number}"
+        )
+        if numbered_oppositions:
+            for number in numbered_oppositions:
+                entry = numbered_entries.get(number)
+                if (
+                    entry is None
+                    or number >= decision_floor
+                    or not is_substantive_mtd_opposition_entry(entry)
+                    or not _brief_targets_motion(entry, target_numbers)
+                ):
+                    raise CourtListenerCaseDevBridgeError(
+                        f"opposition_entry_not_found: {number}"
+                    )
+                requested.append((entry, DocumentRole.OPPOSITION))
+        else:
+            for target_number in sorted(target_numbers):
+                upper_bound = min(
+                    (
+                        *(
+                            number
+                            for number in target_numbers
+                            if number > target_number
+                        ),
+                        decision_floor,
+                    )
                 )
-            # The first opposition before the next target/decision belongs to this
-            # target-motion interval; later opposition entries are not guessed in.
-            requested.append((linked[0], DocumentRole.OPPOSITION))
+                linked = tuple(
+                    entry
+                    for number, entry in sorted(numbered_entries.items())
+                    if target_number < number < upper_bound
+                    and entry.role is CourtListenerEntryRole.OPPOSITION
+                    and is_substantive_mtd_opposition_entry(entry)
+                    and _brief_targets_motion(entry, target_numbers)
+                )
+                if not linked:
+                    raise CourtListenerCaseDevBridgeError(
+                        f"opposition_entry_not_found: {target_number}"
+                    )
+                # Without an entry-qualified gap, the first substantive linked
+                # opposition in the target-motion interval is the only safe choice.
+                requested.append((linked[0], DocumentRole.OPPOSITION))
     if not paid_gap_reasons:
         for number, entry in sorted(numbered_entries.items()):
             if number >= decision_floor:
                 continue
             if entry.role is CourtListenerEntryRole.OPPOSITION:
-                requested.append((entry, DocumentRole.OPPOSITION))
+                if is_substantive_mtd_opposition_entry(entry):
+                    requested.append((entry, DocumentRole.OPPOSITION))
             elif entry.role is CourtListenerEntryRole.REPLY and any(
                 document.freely_available for document in entry.documents
             ):
                 requested.append((entry, DocumentRole.REPLY))
     if needs_decision:
-        for number in decision_numbers:
+        numbered_decision_gaps = _numbered_gap_entries(
+            paid_gap_reasons,
+            "no_free_decision_document",
+        )
+        required_decision_numbers = numbered_decision_gaps or decision_numbers
+        for number in required_decision_numbers:
             entry = numbered_entries.get(number)
             if entry is None:
                 raise CourtListenerCaseDevBridgeError(
@@ -1163,6 +1366,47 @@ def _entry_numbers(value: object) -> tuple[int, ...]:
         if number not in numbers:
             numbers.append(number)
     return tuple(numbers)
+
+
+def _brief_targets_motion(
+    entry: CourtListenerWebDocketEntry,
+    target_entries: tuple[int, ...],
+) -> bool:
+    text = " ".join(entry.text.lower().split())
+    explicit_references = {
+        int(match.group(1))
+        for match in re.finditer(
+            r"\b(?:re|regarding|opposition\s+to|motion|dkt\.?|docket|ecf\s+no\.?)"
+            r"\s*(?:#|no\.?)?\s*(\d+)\b",
+            text,
+        )
+    }
+    if explicit_references:
+        return bool(explicit_references.intersection(target_entries))
+    return len(target_entries) <= 1
+
+
+def _numbered_gap_entries(
+    reasons: tuple[str, ...],
+    base: str,
+) -> tuple[int, ...]:
+    return tuple(
+        sorted(
+            {
+                number
+                for reason in reasons
+                if _paid_gap_reason_base(reason) == base
+                if (number := _paid_gap_reason_entry_number(reason)) is not None
+            }
+        )
+    )
+
+
+def _courtlistener_docket_id_from_url(record_url: str | None) -> str | None:
+    if record_url is None:
+        return None
+    match = re.search(r"/docket/(\d+)(?:/|$)", record_url)
+    return match.group(1) if match else None
 
 
 def _positive_entry_number(value: object) -> int | None:

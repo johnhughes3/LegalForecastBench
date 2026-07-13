@@ -228,7 +228,7 @@ def classify_courtlistener_entry_role(
         return CourtListenerEntryRole.DECISION
     if "reply" in text and references_mtd:
         return CourtListenerEntryRole.REPLY
-    if ("opposition" in text or "response" in text) and references_mtd:
+    if _looks_like_substantive_mtd_opposition(text):
         return CourtListenerEntryRole.OPPOSITION
     if "memorandum" in text and references_mtd:
         return CourtListenerEntryRole.MTD_MEMORANDUM
@@ -237,6 +237,46 @@ def classify_courtlistener_entry_role(
     if references_mtd:
         return CourtListenerEntryRole.MTD_NOTICE
     return CourtListenerEntryRole.OTHER
+
+
+def is_substantive_mtd_opposition_entry(
+    entry: CourtListenerWebDocketEntry,
+) -> bool:
+    """Return whether a docket row is an actual MTD opposition brief.
+
+    CourtListener docket text often contains ``response`` or ``opposition`` in
+    deadline motions and extension orders. Those procedural rows are not model
+    inputs and must not create required opposition slots.
+    """
+
+    text = _normalized_text(
+        " ".join(
+            (
+                entry.text,
+                " ".join(document.description for document in entry.documents),
+                " ".join(document.kind for document in entry.documents),
+            )
+        )
+    ).lower()
+    return _looks_like_substantive_mtd_opposition(text)
+
+
+def _looks_like_substantive_mtd_opposition(text: str) -> bool:
+    if not _references_mtd(text):
+        return False
+    if re.search(
+        r"\bmotions?\s+(?:for\s+(?:an?\s+)?)?"
+        r"(?:extension|enlargement)\s+of\s+time\b"
+        r"|\bmotions?\s+to\s+(?:extend|enlarge)\b"
+        r"|\b(?:request|application|letter|order)\b[^.;]{0,100}"
+        r"(?:\b(?:extension|enlargement)\s+of\s+time\b"
+        r"|\b(?:extend|extending|additional)\s+(?:the\s+)?time\b"
+        r"|\btime\s+to\s+(?:file|respond|oppose)\b"
+        r"|\bdeadline\b|\bdue\s+date\b|\bleave\s+to\s+file\b)",
+        text,
+    ):
+        return False
+    return bool(re.search(r"\bopposition\b|\bresponse\b", text))
 
 
 def estimate_briefing_completeness(

@@ -729,6 +729,111 @@ def test_public_packet_planner_ignores_opposition_explicitly_tied_to_other_motio
     assert candidate.paid_gap_reasons == ()
 
 
+def test_public_packet_planner_requires_substantive_target_opposition(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    candidate = cast(dict[str, Any], record["candidate"])
+    candidate["docket_id"] = "71280017"
+    candidate["candidate_key"] = "71280017"
+    candidate["url"] = "https://www.courtlistener.com/docket/71280017/example/"
+    entries = cast(list[dict[str, Any]], record["selected_entries"])
+    cast(dict[str, object], record["ai"])["target_motion_entry_numbers"] = [9]
+    cast(dict[str, object], record["ai"])["decision_entry_numbers"] = [33]
+    target = entries[1]
+    target["entry_number"] = "9"
+    target["row_id"] = "entry-9"
+    decision = entries[-1]
+    decision["entry_number"] = "33"
+    decision["row_id"] = "entry-33"
+    entries[1:1] = [
+        _embedded_entry(
+            16,
+            "MOTION for Extension of Time to File Response re: 9 MOTION TO "
+            "DISMISS FOR FAILURE TO STATE A CLAIM.",
+        ),
+        _embedded_entry(
+            19,
+            "RESPONSE in Opposition re 9 MOTION TO DISMISS FOR FAILURE TO "
+            "STATE A CLAIM.",
+        ),
+        _embedded_entry(
+            23,
+            "MOTION for Extension of Time to File Response re: 9 MOTION TO "
+            "DISMISS FOR FAILURE TO STATE A CLAIM.",
+        ),
+        _embedded_entry(
+            26,
+            "Second MOTION for Extension of Time to File Response re: 9 "
+            "MOTION TO DISMISS FOR FAILURE TO STATE A CLAIM.",
+        ),
+    ]
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.paid_gap_cases
+    assert candidate.paid_gap_reasons == ("no_free_opposition",)
+    assert candidate.required_document_count == 4
+    assert candidate.missing_required_document_count == 1
+    opposition_documents = [
+        document
+        for document in candidate.documents
+        if document.document_role is DocumentRole.OPPOSITION
+    ]
+    assert opposition_documents == []
+
+
+@pytest.mark.parametrize(
+    "opposition_text",
+    (
+        "Opposition to Motion for Judgment on the Pleadings under Rule 12(c).",
+        "Response to Defendant's Rule 12(b)(6) Motion.",
+        "Response in Opposition to Motion to Dismiss, filed after the deadline.",
+    ),
+)
+def test_public_packet_planner_preserves_rule_12_opposition_forms(
+    tmp_path: Path,
+    opposition_text: str,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    entries = cast(list[dict[str, Any]], record["selected_entries"])
+    entries.insert(2, _embedded_entry(8, opposition_text))
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.paid_gap_cases
+    assert candidate.paid_gap_reasons == ("no_free_opposition",)
+    assert candidate.required_document_count == 4
+
+
+def _embedded_entry(entry_number: int, text: str) -> dict[str, object]:
+    return {
+        "row_id": f"entry-{entry_number}",
+        "entry_number": str(entry_number),
+        "filed_at": "Mar 1, 2026",
+        "text": text,
+        "documents": [
+            {
+                "kind": "Main Document",
+                "description": text,
+                "href": f"https://ecf.example.invalid/{entry_number}",
+                "action_label": "Buy on PACER",
+                "pacer_only": True,
+            }
+        ],
+    }
+
+
 def test_public_packet_planner_applies_mix_caps_after_cost_ranking(
     tmp_path: Path,
 ) -> None:
