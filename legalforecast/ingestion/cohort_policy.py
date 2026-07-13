@@ -332,14 +332,23 @@ def _validated_policy(raw: Mapping[str, Any]) -> dict[str, Any]:
     ):
         raise CohortPolicyError("refresh reason-code classes must be disjoint")
     precedence = _object(refresh.get("evidence_precedence"), "evidence_precedence")
-    if not precedence:
-        raise CohortPolicyError("evidence_precedence cannot be empty")
+    precedence_order = (
+        "transient",
+        "excluded_refreshable",
+        "accepted",
+        "newly_free",
+    )
+    _exact_keys(precedence, set(precedence_order), "evidence_precedence")
     priorities = [
-        _nonnegative_int(value, f"evidence_precedence.{key}")
-        for key, value in precedence.items()
+        _nonnegative_int(precedence[key], f"evidence_precedence.{key}")
+        for key in precedence_order
     ]
     if len(set(priorities)) != len(priorities):
         raise CohortPolicyError("evidence_precedence priorities must be unique")
+    if priorities != sorted(priorities):
+        raise CohortPolicyError(
+            "evidence_precedence must increase from transient through newly_free"
+        )
 
     packet = _object(policy.get("packet_completeness"), "packet_completeness")
     _exact_keys(
@@ -466,7 +475,7 @@ def _append_records(path: Path, records: Sequence[Mapping[str, Any]]) -> None:
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
     try:
         for record in records:
-            os.write(fd, f"{_canonical(record)}\n".encode())
+            _write_all(fd, f"{_canonical(record)}\n".encode())
         os.fsync(fd)
     finally:
         os.close(fd)
@@ -545,9 +554,21 @@ def _sha(value: object, label: str) -> str:
 def _date(value: object, label: str) -> date:
     text = _text(value, label)
     try:
-        return date.fromisoformat(text)
+        parsed = date.fromisoformat(text)
     except ValueError as error:
         raise CohortPolicyError(f"{label} must be an ISO date") from error
+    if parsed.isoformat() != text:
+        raise CohortPolicyError(f"{label} must use YYYY-MM-DD format")
+    return parsed
+
+
+def _write_all(fd: int, payload: bytes) -> None:
+    view = memoryview(payload)
+    while view:
+        written = os.write(fd, view)
+        if written <= 0:
+            raise OSError("short write while appending observation manifest")
+        view = view[written:]
 
 
 def _nonnegative_int(value: object, label: str) -> int:

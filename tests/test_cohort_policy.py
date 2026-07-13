@@ -41,6 +41,11 @@ def test_policy_rejects_forbidden_restatement_and_inconsistent_values() -> None:
     with pytest.raises(CohortPolicyError, match="target must match"):
         generate_cohort_policy(decisions)
 
+    decisions = _decisions("a" * 64)
+    decisions["refresh_policy"]["evidence_precedence"]["accepted"] = 5
+    with pytest.raises(CohortPolicyError, match="must increase"):
+        generate_cohort_policy(decisions)
+
 
 def test_policy_file_is_immutable(tmp_path: Path) -> None:
     path = tmp_path / "cohort-policy.json"
