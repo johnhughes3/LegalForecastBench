@@ -173,6 +173,17 @@ class RawArtifact:
 
 
 @dataclass(frozen=True, slots=True)
+class PublishedSnapshot:
+    """One immutable complete snapshot recorded by the cycle store."""
+
+    snapshot_id: str
+    batch_id: str
+    path: Path
+    manifest: Mapping[str, Any]
+    created_at: str
+
+
+@dataclass(frozen=True, slots=True)
 class FirecrawlAttempt:
     """One permanently reserved Firecrawl request attempt."""
 
@@ -1471,6 +1482,34 @@ class CycleAcquisitionStore:
                 (candidate_id,),
             )
         return tuple(_raw_artifact_from_row(row) for row in rows)
+
+    def published_snapshots(self) -> tuple[PublishedSnapshot, ...]:
+        """Return complete published snapshots in immutable creation order."""
+
+        rows = self._connection.execute(
+            """
+            SELECT snapshot_id, batch_id, path, manifest_json, created_at
+            FROM snapshots WHERE complete = 1
+            ORDER BY created_at, snapshot_id
+            """
+        ).fetchall()
+        snapshots: list[PublishedSnapshot] = []
+        for row in rows:
+            parsed = cast(object, json.loads(row["manifest_json"]))
+            if not isinstance(parsed, dict):
+                raise CycleAcquisitionStoreError(
+                    f"stored snapshot manifest is not an object: {row['snapshot_id']}"
+                )
+            snapshots.append(
+                PublishedSnapshot(
+                    snapshot_id=str(row["snapshot_id"]),
+                    batch_id=str(row["batch_id"]),
+                    path=Path(str(row["path"])),
+                    manifest=dict(cast(dict[str, Any], parsed)),
+                    created_at=str(row["created_at"]),
+                )
+            )
+        return tuple(snapshots)
 
     def export_snapshot(
         self,
