@@ -55,6 +55,51 @@ FROZEN_MTD_SEARCH_TERMS: tuple[str, ...] = (
     "order rule 12(c)",
 )
 
+# CourtListener does not treat an unquoted multiword query as one legal phrase.
+# The vocabulary above remains the stable logical identity in provenance; this
+# versioned compiler controls only the provider query expression.
+COURTLISTENER_QUERY_PLAN_VERSION = "phrase-precise-v1"
+_COURTLISTENER_QUERY_EXPRESSIONS: dict[str, str] = {
+    "motion to dismiss": '"motion to dismiss"',
+    "motions to dismiss": '"motions to dismiss"',
+    "motion to dismiss granted": '"motion to dismiss" AND granted',
+    "motion to dismiss denied": '"motion to dismiss" AND denied',
+    "motion to dismiss granted in part": '"motion to dismiss" AND "granted in part"',
+    "motion to dismiss denied in part": '"motion to dismiss" AND "denied in part"',
+    "ruling on motion to dismiss": '"motion to dismiss" AND ruling',
+    "order on motion to dismiss": '"motion to dismiss" AND order',
+    "minute order motion to dismiss": '"motion to dismiss" AND "minute order"',
+    "text order motion to dismiss": '"motion to dismiss" AND "text order"',
+    "order dismissing complaint": '"dismissing complaint" AND order',
+    "order dismissing amended complaint": '"dismissing amended complaint" AND order',
+    "report and recommendation motion to dismiss": (
+        '"motion to dismiss" AND "report and recommendation"'
+    ),
+    "findings and recommendation motion to dismiss": (
+        '"motion to dismiss" AND "findings and recommendation"'
+    ),
+    "order adopting report and recommendation motion to dismiss": (
+        '"motion to dismiss" AND "report and recommendation" AND adopting'
+    ),
+    "memorandum opinion rule 12(b)(6)": '"rule 12(b)(6)" AND "memorandum opinion"',
+    "order rule 12(b)(6)": '"rule 12(b)(6)" AND order',
+    "order rule 12(b)(1)": '"rule 12(b)(1)" AND order',
+    "order rule 12(b)(2)": '"rule 12(b)(2)" AND order',
+    "motion for judgment on the pleadings": '"motion for judgment on the pleadings"',
+    "order on motion for judgment on the pleadings": (
+        '"motion for judgment on the pleadings" AND order'
+    ),
+    "order rule 12(c)": '"rule 12(c)" AND order',
+}
+if tuple(_COURTLISTENER_QUERY_EXPRESSIONS) != FROZEN_MTD_SEARCH_TERMS:
+    raise RuntimeError(
+        "CourtListener query plan must exactly cover the ordered frozen vocabulary"
+    )
+if len(set(_COURTLISTENER_QUERY_EXPRESSIONS.values())) != len(
+    _COURTLISTENER_QUERY_EXPRESSIONS
+):
+    raise RuntimeError("CourtListener query expressions must be unique")
+
 _ALLOWED_QUERY_KEYS = frozenset(
     {
         "type",
@@ -204,6 +249,13 @@ class RecapSearchHTMLTransport(Protocol):
     def fetch(self, *, source_url: str) -> str: ...
 
 
+def courtlistener_query_expression(term: str) -> str:
+    """Compile one frozen logical term to its precise provider query."""
+
+    _validate_term(term)
+    return _COURTLISTENER_QUERY_EXPRESSIONS[term]
+
+
 def build_recap_search_url(
     *,
     term: str,
@@ -219,7 +271,7 @@ def build_recap_search_url(
         raise ValueError("page must be a positive integer")
     params: list[tuple[str, str]] = [
         ("type", "r"),
-        ("q", term),
+        ("q", courtlistener_query_expression(term)),
         ("entry_date_filed_after", entry_date_filed_after.strftime("%m/%d/%Y")),
         ("entry_date_filed_before", entry_date_filed_before.strftime("%m/%d/%Y")),
         ("order_by", "entry_date_filed desc"),
@@ -257,11 +309,19 @@ def parse_recap_search_url(source_url: str) -> RecapSearchTarget:
     values = dict(pairs)
     if values["type"] != "r":
         raise RecapSearchURLValidationError("RECAP search type must be r")
-    term = values["q"]
+    expression = values["q"]
     try:
-        _validate_term(term)
-    except ValueError as exc:
-        raise RecapSearchURLValidationError(str(exc)) from exc
+        term = next(
+            logical_term
+            for logical_term, query_expression in (
+                _COURTLISTENER_QUERY_EXPRESSIONS.items()
+            )
+            if query_expression == expression
+        )
+    except StopIteration as exc:
+        raise RecapSearchURLValidationError(
+            "RECAP search query is not in the frozen CourtListener query plan"
+        ) from exc
     if values["order_by"] != "entry_date_filed desc":
         raise RecapSearchURLValidationError(
             "RECAP search must order by newest docket entry first"

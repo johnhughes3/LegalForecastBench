@@ -182,10 +182,12 @@ from legalforecast.ingestion.docket_sync import (
     NormalizedDocketEntry,
 )
 from legalforecast.ingestion.firecrawl_recap_discovery import (
+    COURTLISTENER_QUERY_PLAN_VERSION,
     FROZEN_MTD_SEARCH_TERMS,
     RecapDiscoveredEntry,
     RecapSearchError,
     RecapSearchHit,
+    courtlistener_query_expression,
     discover_recap_mtd_entries,
     parse_recap_search_html,
     parse_recap_search_url,
@@ -3822,6 +3824,10 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         "search_window_start": window_start.isoformat(),
         "search_window_end": window_end.isoformat(),
         "query_terms": list(terms),
+        "courtlistener_query_plan_version": COURTLISTENER_QUERY_PLAN_VERSION,
+        "courtlistener_query_expressions": [
+            courtlistener_query_expression(term) for term in terms
+        ],
         "query_term_order_is_frozen": True,
         "max_pages_per_term": max_pages_per_term,
     }
@@ -3832,6 +3838,10 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         "max_attempts_per_page": max_attempts,
         "provider_breaker_threshold": breaker_threshold,
         "query_terms": list(terms),
+        "courtlistener_query_plan_version": COURTLISTENER_QUERY_PLAN_VERSION,
+        "courtlistener_query_expressions": [
+            courtlistener_query_expression(term) for term in terms
+        ],
         "raw_artifact_root": str(raw_search_html_dir.resolve()),
     }
     if dry_run:
