@@ -125,11 +125,10 @@ def test_bridge_continues_after_bounded_case_dev_server_failure() -> None:
         status_code=503,
         payload={"error": "temporary upstream failure"},
     )
+    max_retries = 2
     transport = CaseDevFixtureTransport(
         (
-            server_failure,
-            server_failure,
-            server_failure,
+            *((server_failure,) * (max_retries + 1)),
             _search_response(_case_dev_docket()),
             _lookup_response(),
         )
@@ -137,6 +136,7 @@ def test_bridge_continues_after_bounded_case_dev_server_failure() -> None:
     client = CaseDevClient(
         config=CaseDevConfig(api_key=None),
         transport=transport,
+        max_retries=max_retries,
     )
 
     result = bridge_courtlistener_case_dev_documents(
@@ -150,7 +150,7 @@ def test_bridge_continues_after_bounded_case_dev_server_failure() -> None:
     [exclusion] = result.exclusions
     assert exclusion["candidate_id"] == "cl-failed"
     assert exclusion["exclusion_reasons"] == ["case_dev_server_error_retries_exhausted"]
-    assert client.request_count == 5
+    assert client.request_count == max_retries + 3
     assert all(
         "live" not in params and "acknowledgePacerFees" not in params
         for _, _, params in transport.requests
@@ -322,10 +322,12 @@ def test_public_first_bridge_ledgers_exhausted_case_dev_server_failure() -> None
         status_code=503,
         payload={"error": "temporary upstream failure"},
     )
-    transport = CaseDevFixtureTransport((server_failure,) * 3)
+    max_retries = 2
+    transport = CaseDevFixtureTransport((server_failure,) * (max_retries + 1))
     client = CaseDevClient(
         config=CaseDevConfig(api_key=None),
         transport=transport,
+        max_retries=max_retries,
     )
 
     result = bridge_public_plan_paid_gaps(
@@ -341,7 +343,7 @@ def test_public_first_bridge_ledgers_exhausted_case_dev_server_failure() -> None
     [exclusion] = result.exclusions
     assert exclusion["candidate_id"] == "cl-123"
     assert exclusion["exclusion_reasons"] == ["case_dev_server_error_retries_exhausted"]
-    assert client.request_count == 3
+    assert client.request_count == max_retries + 1
     assert all(
         "live" not in params and "acknowledgePacerFees" not in params
         for _, _, params in transport.requests
