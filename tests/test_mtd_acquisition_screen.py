@@ -18,6 +18,7 @@ from legalforecast.ingestion.mtd_acquisition_screen import (
     screen_courtlistener_entry_for_mtd_decision,
 )
 from legalforecast.ingestion.provenance import DocumentRole
+from legalforecast.selection.motion_linkage import link_mtd_dispositions
 
 
 def test_optimized_search_terms_prioritize_decision_language() -> None:
@@ -346,6 +347,56 @@ def test_actual_mtd_decision_entry_rejects_procedural_order() -> None:
 
     assert screen.actual_mtd_decision is False
     assert "procedural_or_standing_order" in screen.exclusion_reasons
+
+
+def test_explicit_disposition_reference_selects_motion_over_support_appendix() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Plaintiff v. Defendant",
+            entries=(
+                (
+                    24,
+                    "December 5, 2025",
+                    "MOTION to Dismiss Plaintiff's Complaint filed by Defendant "
+                    "with Brief/Memorandum in Support. "
+                    "(Attachments: # 1 Proposed Order)",
+                ),
+                (
+                    25,
+                    "December 5, 2025",
+                    "Appendix in Support filed by Defendant re 24 MOTION to "
+                    "Dismiss Plaintiff's Complaint.",
+                ),
+                (
+                    31,
+                    "July 9, 2026",
+                    "MEMORANDUM OPINION AND ORDER granting Defendant's 24 Motion "
+                    "to Dismiss.",
+                ),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/70476447/example/",
+    )
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+    normalized = _linkage_entries(
+        page.entries,
+        actual_decision_row_ids={entry.row_id for entry in screen.decision_entries},
+        docket_id="70476447",
+        source_url=page.source_url or "",
+    )
+
+    linkage = link_mtd_dispositions(
+        normalized,
+        candidate_id="70476447:entry-31",
+        case_id="70476447",
+    )
+
+    assert screen.strict_clean is True
+    assert linkage.is_clean is True
+    assert linkage.links[0].motion_entry_ids == ("entry-24",)
 
 
 def test_actual_mtd_decision_entry_rejects_extension_order() -> None:

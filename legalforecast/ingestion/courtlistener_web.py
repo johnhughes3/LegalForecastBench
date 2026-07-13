@@ -222,7 +222,7 @@ def classify_courtlistener_entry_role(
         )
     ).lower()
     references_mtd = _references_mtd(text)
-    if references_mtd and _starts_with_dispositive_motion(text):
+    if references_mtd and starts_with_dispositive_motion(text):
         return CourtListenerEntryRole.MTD_NOTICE
     if references_mtd and _looks_like_decision(text):
         return CourtListenerEntryRole.DECISION
@@ -574,11 +574,13 @@ def _looks_like_decision(text: str) -> bool:
     )
 
 
-def _starts_with_dispositive_motion(text: str) -> bool:
+def starts_with_dispositive_motion(text: str) -> bool:
+    """Return whether a docket row begins with an MTD after row metadata."""
     return bool(
         re.match(
-            r"^\s*\d*\s*"
-            r"(?:[a-z]{3,9}\s+\d{1,2},\s+\d{4}\s+)?"
+            r"^\s*"
+            r"(?:(?:\d+\s+)|(?:[a-z]{3,9}\s+\d{1,2},\s+\d{4}"
+            r"(?:,\s+\d{1,2}:\d{2}\s*(?:a\.?m\.?|p\.?m\.?))?\s+))*"
             r"(?:(?:amended|corrected|defendant(?:s'?|'s)?|first|joint|partial|"
             r"renewed|second|third)\s+)*"
             r"motions?\s+(?:to\s+dismiss|for\s+judgment\s+on\s+the\s+pleadings)\b",
