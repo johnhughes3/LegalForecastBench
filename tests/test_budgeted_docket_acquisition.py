@@ -11,13 +11,17 @@ from legalforecast.ingestion.budgeted_docket_acquisition import (
     materialize_selected_slice_batch,
     render_complete_docket_html,
 )
-from legalforecast.ingestion.budgeted_firecrawl import FirecrawlTargetSpec
+from legalforecast.ingestion.budgeted_firecrawl import (
+    BudgetedFirecrawlScheduler,
+    FirecrawlTargetSpec,
+)
 from legalforecast.ingestion.courtlistener_web import parse_courtlistener_docket_html
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
     DiscoveryHit,
     TermTerminalStatus,
 )
+from legalforecast.ingestion.firecrawl_source import FirecrawlScrapeResult
 
 
 def test_ranked_dockets_are_paginated_in_budgeted_page_waves() -> None:
@@ -52,6 +56,65 @@ def test_ranked_dockets_are_paginated_in_budgeted_page_waves() -> None:
     )
     assert len(reparsed.entries) == 2
     assert reparsed.entries[0].documents[0].pacer_only is True
+
+
+def test_ranked_docket_continuation_pages_have_run_unique_ordinals(
+    tmp_path: Path,
+) -> None:
+    records = [_record("20", 0), _record("10", 1)]
+
+    class _Source:
+        def scrape_url(self, *, source_url: str) -> FirecrawlScrapeResult:
+            docket_id = source_url.split("/docket/", 1)[1].split("/", 1)[0]
+            page_number = int(source_url.rsplit("page=", 1)[1])
+            return FirecrawlScrapeResult(
+                source_url=source_url,
+                docket_id=docket_id,
+                raw_html=_page(
+                    docket_id,
+                    page_number,
+                    has_next=docket_id == "20" and page_number == 1,
+                ),
+                target_status_code=200,
+                proxy_requested="auto",
+                proxy_used="stealth",
+                cache_state="miss",
+                credits_used=1.0,
+                raw={"success": True},
+                resolved_url=source_url,
+            )
+
+    with CycleAcquisitionStore(tmp_path / "cycle.sqlite3") as store:
+        store.ensure_cycle({"anchor": "2026-06-30T00:00:00Z"})
+        store.ensure_batch("batch-001", {"terms": ["motion to dismiss"]})
+        store.ensure_firecrawl_run(
+            "run-001",
+            batch_id="batch-001",
+            config={"proxy": "auto", "max_attempts": 3},
+            credit_cap=100,
+            reserved_credits_per_attempt=5,
+        )
+        scheduler = BudgetedFirecrawlScheduler(
+            store=store,
+            source=_Source(),
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+        )
+
+        result = acquire_ranked_dockets(
+            records=records,
+            scheduler=scheduler,
+            limit=2,
+            max_pages_per_docket=3,
+            decision_anchor=date(2026, 6, 30),
+        )
+
+        assert [bundle.docket_id for bundle in result.bundles] == ["20", "10"]
+        assert [target.ordinal for target in store.firecrawl_targets("run-001")] == [
+            0,
+            1,
+            2,
+        ]
 
 
 def test_failed_docket_is_not_exposed_as_partial_screening_input() -> None:
