@@ -8,11 +8,27 @@ The `acquisition purchase-missing-recap-fetch` adapter therefore supports offlin
 
 The production broker is a dedicated Worker on `https://secure-gate-recap-fetch.johnjhughes.com` with its own D1 database. It must not share a runtime with secure-gate Broker/Admin and must not receive GitHub App, deployment-approval, sudo, workflow, browser-session, or general secure-gate machine-grant authority.
 
-The LegalForecastBench client receives a dedicated, expiring P-256 machine identity that is recognized only by this Worker. Requests use the `SECURE-GATE-MACHINE-V1` signed-request format, a single-use nonce, and the approved Tailscale App Connector source path. Ordinary secure-gate machine grants and keys are not valid broker identities.
+The LegalForecastBench client receives a dedicated, expiring P-256 machine identity that is recognized only by this Worker. Requests use the dedicated signature domain defined below, a single-use nonce, and the approved Tailscale App Connector source path. Ordinary secure-gate machine grants and keys are not valid broker identities.
 
 The purchase identity may invoke only the submission and receipt routes below. Policy activation and billing reconciliation use a separate protected control-plane identity and are never authorized by the purchase identity.
 
-Every authenticated request carries `x-secure-gate-machine-id`, `x-secure-gate-machine-timestamp`, `x-secure-gate-machine-nonce`, and `x-secure-gate-machine-signature`. The timestamp is 13-digit Unix epoch milliseconds, may be at most 60 seconds in the future, and expires five minutes after issuance. The nonce is 22 to 128 unpadded base64url characters and is consumed atomically. The P-256/SHA-256 signature covers `SECURE-GATE-MACHINE-V1`, uppercase method, path and query, lowercase SHA-256 of the exact body bytes, timestamp, nonce, and machine ID, joined in that order by newline characters.
+Every authenticated request carries `x-secure-gate-machine-id`, `x-secure-gate-machine-timestamp`, `x-secure-gate-machine-nonce`, `x-secure-gate-machine-signature`, `x-secure-gate-action`, and `x-secure-gate-identity-policy-sha256`. The timestamp is 13-digit Unix epoch milliseconds, may be at most 60 seconds in the future, and expires five minutes after issuance. The nonce is 22 to 128 unpadded base64url characters and is consumed atomically. The identity-policy digest is exactly 64 lowercase hexadecimal characters.
+
+This dedicated broker does not reuse the general secure-gate signature domain. Its P-256/SHA-256 signature input is exactly these nine UTF-8 fields joined in order by one newline character, with no trailing newline:
+
+1. `SECURE-GATE-RECAP-FETCH-V1`;
+2. the uppercase HTTP method;
+3. the exact path and query string sent on the wire;
+4. the lowercase SHA-256 of the exact request body bytes;
+5. the 13-digit timestamp;
+6. the nonce;
+7. the machine ID;
+8. the exact `x-secure-gate-action` value; and
+9. the `x-secure-gate-identity-policy-sha256` value.
+
+The broker identity row stores the same identity-policy digest together with the identity's exact `tailscale_node_id` and `allowed_source_ips_json`. Authentication requires the request digest and source to match that identity-specific policy; no global or cross-identity source allowlist may authorize the request. The broker consumes the nonce only after the signature, action, identity-policy digest, and source binding validate.
+
+The signing key is an EC private JWK containing exactly `kty`, `crv`, `x`, `y`, and `d`, with `kty: "EC"` and `crv: "P-256"`. Each coordinate and the private scalar is an unpadded base64url encoding of exactly 32 bytes; the client rejects extra JWK fields and rejects a public point that does not correspond to `d`. `x-secure-gate-machine-signature` is the unpadded base64url encoding of the 64-byte IEEE P1363 form `r || s`, where each P-256 ECDSA integer is unsigned big-endian and left-padded to exactly 32 bytes. DER-encoded ECDSA signatures are not accepted on the wire.
 
 A purchase identity expires no later than 24 hours after activation. Renewal or revocation is a protected control-plane operation; there is no purchase-identity self-enrollment or renewal route.
 
@@ -30,6 +46,14 @@ The body is a JSON object containing exactly these six string fields and no othe
 - `reservation_usd`: canonical USD with exactly two fractional digits, matching `^(0|[1-9][0-9]*)\.[0-9]{2}$`, and exactly equal to the active policy's per-document reservation.
 
 The request never contains a PACER username, PACER password, PACER client code, CourtListener token, case ID, candidate ID, cap, or opening-spend value. Authentication fields are request headers, not JSON fields.
+
+The exact request bytes are canonical UTF-8 JSON with the fields in the order listed above, no insignificant whitespace, no escaping of `/`, and no trailing newline. JSON escapes only quotation mark, reverse solidus, and required control characters; all other Unicode characters are emitted directly as UTF-8 rather than `\u` escapes. For example:
+
+```json
+{"request_type":"2","recap_document":"123","cycle_id":"cycle-1","purchase_policy_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","operation_key":"00000000-0000-4000-8000-000000000000","reservation_usd":"3.05"}
+```
+
+The body SHA-256 in the signature and the stored request digest are computed over those exact bytes. A semantically equivalent JSON object with different field order or whitespace is not canonical and returns `400 invalid_request`.
 
 The broker parses every USD value to a nonnegative integer number of cents before comparison or storage. It must never use binary floating-point or a database `REAL` value for caps, reservations, holds, or fees.
 
@@ -53,9 +77,9 @@ Before a cycle can accept submissions, an out-of-band reviewed deployment must i
 }
 ```
 
-All USD fields use the canonical two-decimal representation defined above. `opening_case_committed_spend_usd` maps case IDs to canonical amounts already committed before activation; its sum must not exceed `opening_committed_spend_usd`. Any unattributed remainder counts against the cycle cap but cannot be used to reduce a case's committed amount.
+All USD fields use the canonical two-decimal representation defined above. `opening_case_committed_spend_usd` maps nonempty case IDs to canonical amounts already committed before activation. Every key must occur as a `case_id` in `allowed_documents`, every value must be less than or equal to `per_case_cap_usd`, and the sum must not exceed `opening_committed_spend_usd`. An allowlisted case omitted from the map has zero opening case commitment. Any unattributed remainder counts against the cycle cap but cannot be used to reduce a case's committed amount. LegalForecastBench freezes the same mapping inside the purchase-policy artifact whose digest is `purchase_policy_sha256`; activation rejects any mapping that does not exactly equal that commitment.
 
-The activation process must validate that document IDs are unique, every document maps to exactly one nonempty case ID, all amounts are nonnegative, the reservation and per-case cap are positive, the per-case cap does not exceed the cycle cap, and opening committed spend does not exceed the cycle cap. The broker stores the reviewed artifact's SHA-256 digest and activation evidence reference in addition to the LegalForecastBench `purchase_policy_sha256`.
+The activation process must validate that document IDs are unique, every document maps to exactly one nonempty case ID, all amounts are nonnegative, the reservation and per-case cap are positive, the per-case cap does not exceed the cycle cap, opening committed spend does not exceed the cycle cap, and the opening per-case mapping satisfies the equality, membership, per-case, and sum constraints above. The broker stores the reviewed artifact's SHA-256 digest and activation evidence reference in addition to the LegalForecastBench `purchase_policy_sha256`.
 
 Activation is append-only. A cycle ID or purchase-policy digest may not be overwritten, and at most one policy may accept new submissions for a cycle. Changes require a new reviewed artifact and policy identity; disabling a policy prevents new reservations but does not release existing holds.
 
@@ -70,7 +94,7 @@ For cap calculations, committed spend is the policy's opening committed spend pl
 - cycle committed cents plus reservation cents is less than or equal to the cycle cap cents;
 - the server-derived case's committed cents plus reservation cents is less than or equal to the per-case cap cents.
 
-`operation_key` is the idempotency key and primary operation identity. The broker stores a SHA-256 digest of the canonical six-field request. A replay with the same operation key and a different request digest returns `409 operation_key_conflict` and never calls CourtListener. A byte-equivalent replay never calls CourtListener and behaves as follows:
+`operation_key` is the idempotency key and primary operation identity. The broker stores the originating authenticated `machine_id` and a SHA-256 digest of the canonical six-field request. A replay from a different machine identity, or a replay from the owning identity with a different request digest, returns `409 operation_key_conflict` and never calls CourtListener. A byte-equivalent replay from the owning identity never calls CourtListener and behaves as follows:
 
 - If a queue ID is known, return the original exact two-field success receipt with HTTP `200`.
 - If the operation is still `submitted` or `unknown` and no queue ID is known, return `409 operation_outcome_pending` and direct the caller to the receipt endpoint.
@@ -92,7 +116,7 @@ After `submitted` is durably committed, the broker issues exactly one request to
 
 - method: `POST`;
 - redirect mode: disabled/manual, with every redirect treated as an unknown paid outcome;
-- `Authorization: Bearer <broker-custodied COURTLISTENER_API_TOKEN>`;
+- `Authorization: Token <broker-custodied COURTLISTENER_API_TOKEN>`;
 - `Content-Type: application/x-www-form-urlencoded`;
 - form fields: `request_type=2`, `pacer_username`, `pacer_password`, `recap_document`, and the derived `client_code`;
 - automatic retries: zero for every timeout, transport error, redirect, HTTP response, parse error, or Worker exception.
@@ -116,7 +140,9 @@ The state machine is:
 
 Receipt lookup for `queued` operations performs at most one noncharging CourtListener status refresh in that HTTP request. A successful delivery result advances the operation to `delivered_but_unreconciled`. A transient status-refresh failure leaves the state unchanged. A scheduled broker poller may perform the same noncharging refresh with bounded retries, but neither path may repeat the paid POST.
 
-Any timeout, transport error, redirect, malformed success body, missing queue ID, or non-success CourtListener response after the paid request begins is conservatively stored as `unknown`. It returns a sanitized broker error and retains the full hold. `failed` must not be inferred merely from a provider HTTP status unless a later reviewed contract version identifies that response as authoritative no-charge evidence.
+A syntactically valid provider success contains an `id` that canonicalizes to a positive base-10 decimal string matching `^[1-9][0-9]*$`. A JSON string must already be canonical. A JSON number is accepted only when it is a safe positive integer and is then canonicalized to its decimal string; zero, negative, fractional, exponent-ambiguous, boolean, or unsafe numeric values are invalid.
+
+A definite exception before the provider fetch function is invoked transitions the operation to `failed` and releases the hold. Once fetch invocation begins, every timeout, transport error, redirect, malformed success body, invalid or missing queue ID, non-success CourtListener response, persistence error, or Worker exception is conservatively stored as `unknown` and retains the full hold. `failed` must not be inferred from a provider HTTP status. The broker durably records a provider-attempt marker before dispatch and, after a syntactically valid response, a separately durable queue-receipt commitment before attempting the normal operation-row transition. This lets receipt recovery repair a failed D1 transition without repeating the paid POST.
 
 ## Submission response and errors
 
@@ -153,7 +179,7 @@ The broker uses these status and code mappings:
 | `500` | `client_code_collision` | The deterministic client code conflicts with a different operation. |
 | `502` | `provider_outcome_unknown` | The provider returned an unusable or non-success response after submission began. |
 | `504` | `provider_outcome_unknown` | A provider timeout or transport failure left the paid outcome ambiguous. |
-| `503` | `broker_unavailable` | The broker failed before any provider request and made no reservation or submission. |
+| `503` | `broker_unavailable` | A definite broker failure occurred before provider fetch invocation; any inserted operation is `failed` and its hold is released. |
 
 Messages must not reproduce provider response bodies or secret-bearing exception text. An HTTP error from the broker after `submitted` is not proof that no provider charge occurred.
 
@@ -178,6 +204,7 @@ An existing operation returns HTTP `200` with exactly these fields; nullable fie
   "reservation_usd": "3.05",
   "held_usd": "3.05",
   "authoritative_fee_usd": null,
+  "provider_response_body_sha256": "<64 lowercase hex characters or null>",
   "provider_response_sha256": "<64 lowercase hex characters or null>",
   "submitted_at": "2026-07-13T20:00:00.000Z",
   "updated_at": "2026-07-13T20:01:00.000Z",
@@ -187,7 +214,11 @@ An existing operation returns HTTP `200` with exactly these fields; nullable fie
 }
 ```
 
-`id` is the CourtListener queue ID and is null until known. `held_usd` is the amount currently counted against the caps. `authoritative_fee_usd` is null until protected billing reconciliation. `delivered_at` and `reconciled_at` are independently nullable.
+`id` is the canonical positive-decimal CourtListener queue ID and is null until known. `held_usd` is the amount currently counted against the caps. `authoritative_fee_usd` is null until protected billing reconciliation, a positive canonical amount for a reconciled charge, and exactly `0.00` for a reconciled no-charge failure. `delivered_at` and `reconciled_at` are independently nullable.
+
+The receipt also contains nullable `provider_response_body_sha256` immediately before `provider_response_sha256`. `provider_response_body_sha256` commits to the exact raw provider response-body bytes without storing or returning those bytes. `provider_response_sha256` commits to the canonical redacted JSON object `{"status":<integer>,"id":"<canonical positive decimal>"}` and excludes headers, credentials, request form fields, and raw response bytes. Both fields are exactly 64 lowercase hexadecimal characters when present.
+
+The receipt operation is machine-owned. A different authenticated machine receives `404 receipt_not_found`, even when the operation key exists, to prevent cross-identity enumeration. When the owning identity requests a receipt for `submitted` or `unknown` with no queue ID, the broker may perform at most one noncharging CourtListener lookup using the persisted deterministic `client_code`. A unique valid match may durably repair the queue ID and receipt commitments; absence, ambiguity, or lookup failure leaves the full hold and current state unchanged. This recovery path never repeats the paid POST.
 
 After reconciliation, `billing_evidence` is exactly:
 
@@ -202,6 +233,8 @@ After reconciliation, `billing_evidence` is exactly:
 ```
 
 `kind` is either `pacer_detailed_transactions` or `pacer_quarterly_invoice`. The receipt never contains the imported statement, PACER account data, credentials, or unrelated transactions. A missing operation returns `404 receipt_not_found` using the standard error shape.
+
+The receipt intentionally contains neither a download URL nor fee components. `authoritative_fee_usd` is the total PACER fee established by the protected billing source. LegalForecastBench obtains the delivered file URL only through its existing noncharging queue and document lookups, validates that URL against the CourtListener/storage allowlist, and converts the authoritative total to the local journal's componentized fee object as PACER fee equal to the authoritative total, service fee `0.00`, and total equal to the authoritative total.
 
 ## Authoritative billing reconciliation
 
@@ -232,11 +265,19 @@ The import body contains exactly this logical schema:
 
 `kind` is `pacer_detailed_transactions` or `pacer_quarterly_invoice`; `outcome` is `charged` or `no_charge`. A `charged` entry requires a positive canonical fee. A `no_charge` entry requires `authoritative_fee_usd` to be `0.00`. Client codes must be unique within the manifest, every client code must resolve to one operation, and the evidence digest and reference must not have been imported with different contents.
 
-A successful import returns HTTP `200` and exactly `{ "import_id": "<durable import ID>", "applied": <integer>, "unchanged": <integer> }`. A byte-equivalent replay returns the original response with HTTP `200`. Reuse of an evidence digest or evidence reference with different contents returns `409 reconciliation_conflict`. Invalid or unmatched entries make the entire import fail atomically with `400 invalid_reconciliation`; partial application is forbidden.
+`statement_period` syntax depends on `kind`: Detailed Transactions requires an actual calendar month in exact `YYYY-MM` form; a quarterly invoice requires exact `YYYY-Q[1-4]`. The quarterly period covers its three corresponding calendar months.
+
+A successful import returns HTTP `200` and exactly `{ "import_id": "<durable import ID>", "applied": <integer>, "unchanged": <integer> }`. An exact manifest replay with the same canonical manifest digest, evidence SHA-256, evidence reference, and canonical content returns the original response with HTTP `200`. Reuse of an evidence digest or evidence reference with different canonical content returns `409 reconciliation_conflict` and changes nothing. Invalid or unmatched entries make the entire import fail atomically with `400 invalid_reconciliation`; partial application is forbidden.
 
 The protected importer correlates each charge to the persisted `client_code`, validates the operation and statement period, and records an append-only reconciliation event. A Detailed Transactions match may replace the full hold with the authoritative fee and set `confirmed`. A documented no-charge result may release the hold and set `failed`. An unmatched, ambiguous, incomplete, or conflicting record leaves the full hold and current state unchanged.
 
-A later quarterly invoice controls over an earlier Detailed Transactions import if they conflict. Corrections are append-only: retain both evidence digests and events, update the authoritative fee and hold from the later final record, and never delete or rewrite the earlier evidence history.
+Precedence is deterministic per operation and covered period, independent of cross-kind arrival order:
+
+- Before any covering quarterly invoice, the latest successfully imported Detailed Transactions entry for the same operation and month controls. A later Detailed Transactions entry is an append-only correction; if its outcome or fee differs, it updates the authoritative result, and if it is identical it is retained but counted as unchanged.
+- A quarterly invoice entry dominates every Detailed Transactions entry for its operation and any month covered by that quarter, even when the invoice was imported first. Detailed Transactions evidence imported after a covering invoice is retained as an append-only event but cannot change the authoritative fee, hold, or state and is counted as unchanged.
+- A later successfully imported quarterly invoice entry for the same operation and quarter is an append-only correction to the earlier invoice. The latest invoice controls; an identical later entry is retained but counted as unchanged.
+
+No evidence or event is deleted or rewritten. Imports and corrections use a single deterministic database ordering assigned by the successful atomic import, never an untrusted timestamp from the manifest.
 
 For `submitted`, `queued`, `unknown`, and `delivered_but_unreconciled`, `held_usd` remains the full reservation. The broker may release a hold or replace it with an authoritative fee only through the protected reconciliation path. Disabling a policy, receiving a local download, observing CourtListener delivery, aging an operation, or receiving an operator assertion without protected source evidence cannot release it.
 
@@ -251,3 +292,24 @@ Operation rows, client-code mappings, policy artifacts, nonce/replay evidence, s
 ## Local command behavior
 
 Offline execution requires both `--courtlistener-fixture` and `--purchase-broker-fixture`. `--live-purchase` continues to fail before any journal submission or provider request until the dedicated Worker is deployed, the reviewed policy and document-to-case allowlist are active, the production signed HTTP adapter is configured, and the nonpurchase end-to-end gates pass. Adding raw PACER environment variables to LegalForecastBench is not an acceptable substitute.
+
+The production adapter accepts only the stage-scoped broker URL, machine ID, P-256 private signing JWK, and identity-policy SHA-256, plus the existing CourtListener token used for noncharging lookups. It has no PACER credential fields or environment variables. Merely configuring those values does not enable `--live-purchase`; deployment activation and a nonpurchase end-to-end proof remain separate fail-closed gates.
+
+The adapter validates the exact receipt schema and binds `operation_key`, `cycle_id`, `purchase_policy_sha256`, `recap_document`, `reservation_usd`, and any queue ID to the local journal before using it. A billing receipt alone never proves delivery. For a `confirmed` charged receipt, LegalForecastBench must also obtain queue status `2` and an available matching document through noncharging CourtListener lookups, then validate the download URL. Only then does it construct this exact six-field journal reconciliation record:
+
+```json
+{
+  "source_document_id": "123",
+  "disposition": "confirmed",
+  "source_type": "statement_export",
+  "source_reference": "recap-fetch-broker:00000000-0000-4000-8000-000000000000:<billing-evidence-sha256>",
+  "pacer_fees": {
+    "pacerFee": "0.10",
+    "serviceFee": "0.00",
+    "total": "0.10"
+  },
+  "download_url": "https://storage.courtlistener.com/123.pdf"
+}
+```
+
+The source reference uses the literal prefix `recap-fetch-broker:`, the canonical operation key, one colon, and the billing evidence SHA-256. Before applying the six-field record, LegalForecastBench durably stores the entire validated nonsecret broker receipt in the operation's local provider evidence. For a protected `no_charge` receipt in state `failed`, the same transformation uses `disposition: "failed"`, the same source type/reference construction, and JSON null for both `pacer_fees` and `download_url`; the stored broker receipt preserves its reservation and held-spend audit facts. Any other state, missing billing evidence, missing authoritative fee, mismatched identity, non-success queue status, unavailable document, or invalid URL produces no reconciliation record and leaves the local full reservation in place.
