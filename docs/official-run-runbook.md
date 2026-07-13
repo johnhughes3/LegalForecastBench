@@ -144,3 +144,62 @@ Review `index.html`, `artifact-index.json`, the aggregate run card, leaderboard 
 ## Recovery Acceptance Criteria
 
 A recovery is complete only when every expected matrix cell is present exactly once, artifact hashes match, aggregation succeeds without incomplete-model overrides, the public/private split passes guardrails, and the rendered site refers only to public artifacts. If inputs, prompt, scorer, registry, packet hashes, repeat count, or labels change, treat that as a new frozen run rather than a retry.
+
+## Cycle 1 Batch-002 RECAP API Acquisition
+
+Batch-002 acquires MTD dispositions through the decision-first CourtListener REST v4 route (`legalforecast batch-002 …`). Each of the three phases is one command, resumable through the acquisition store, and fails closed. Run them against the official acquisition store; never against a batch-001 store.
+
+### Token Prerequisite
+
+Reconstruction reads the token-required `dockets`/`docket-entries` endpoints, so `observe` and any live reconstruction require an API token:
+
+```bash
+export COURTLISTENER_API_TOKEN=…   # Authorization: Token <token>
+```
+
+The `discover` search index answers anonymously (it is paced at ~3s/request without a token, 0s with one), but `observe` fails closed before any network call when the token is absent. The moment the token is set, the three commands below are runnable end to end.
+
+### First-Run Smoke Step (required)
+
+Before sweeping the backlog, validate the live foreign-key and ordering assumptions with a **single** reconstruction by observing one candidate:
+
+```bash
+uv run legalforecast batch-002 observe \
+  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --live --limit 1
+```
+
+If that one reconstruction succeeds (the tally shows `observed: 1`), the docket foreign-key shape and entry ordering are sound and the full sweep is safe. If it fails closed, stop and inspect before spending the backlog.
+
+### The Three Commands
+
+```bash
+# 1. Discover: attach batch-002 and materialize each frozen decision-first term.
+uv run legalforecast batch-002 discover \
+  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --live
+
+# 2. (Optional) Seed batch-001 Case.dev enrichment failures as re-observation leads.
+uv run legalforecast batch-002 seed-batch-001-leads \
+  --source-store artifacts/cycle-1/batch-001-zero-paid/cycle-acquisition.sqlite3 \
+  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3
+
+# 3. Observe: reconstruct + strict-screen every unresolved candidate.
+uv run legalforecast batch-002 observe \
+  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --live
+```
+
+`discover` and `observe` are both resumable: re-running `discover` continues from durable per-term cursors, and re-running `observe` skips candidates that already carry a current observation (candidates whose only prior result was a transient failure are retried). `seed-batch-001-leads` is idempotent — a second run finds the re-observation term already terminal and seeds nothing new.
+
+### Expected Volumes
+
+The June 30 – July 12 decision-window backlog is roughly ~830 dockets. `seed-batch-001-leads` additionally carries the batch-001 candidates that never reached a terminal observation (the ~608 Case.dev enrichment failures, identified as `current_observation_id IS NULL` in the batch-001 store) into batch-002 for re-observation through the API route.
+
+### Reading The Tallies
+
+Each command prints a machine-readable JSON summary to stdout (use `--summary-output PATH` to also persist it):
+
+- `discover` funnel: `terms_terminal`/`terms_total` (how many frozen terms reached a bounded terminal state), `total_hits` (raw document hits), `distinct_candidates` (deduped dockets), `prescreen_exclusions_by_reason` (bankruptcy/criminal dockets dropped before any fetch), and `per_term` progress. `complete: true` means every term is bounded; `saturated: true` means every term was exhausted rather than limit-bound.
+- `observe` tally: `considered` (candidates scanned), `skipped_already_observed` (resume skips), `observed` (fetched this pass), `eligible` (strict-clean accepted), `excluded_by_reason` (immutable/posture exclusions, with the underlying strict-screen reason surfaced as `strict_clean_screen_failed:<screen_reason>`), and `transient_by_reason` (retryable failures to re-run).
+- `seed-batch-001-leads`: `leads_selected`, `leads_seeded`, and `already_seeded`.

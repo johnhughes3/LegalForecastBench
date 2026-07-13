@@ -7,9 +7,11 @@ import hashlib
 import json
 import math
 import os
+import random
 import re
 import shutil
 import sys
+import time
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
@@ -248,6 +250,18 @@ from legalforecast.ingestion.purchased_document_recovery import (
     purchased_document_download_manifest_records,
     purchased_document_recovery_requests_from_records,
     recover_purchased_documents,
+)
+from legalforecast.ingestion.recap_api_batch_driver import (
+    RecapApiBatchDriverError,
+    read_batch_001_enrichment_failure_leads,
+    run_discover,
+    run_observe,
+    seed_batch_001_leads,
+)
+from legalforecast.ingestion.recap_api_discovery import (
+    RecapApiDiscoveryError,
+    RequestPacer,
+    pacer_for_client,
 )
 from legalforecast.ingestion.recap_partial_checkpoint import (
     RecapPartialProjectionError,
@@ -609,6 +623,42 @@ def build_parser() -> argparse.ArgumentParser:
     _add_pilot_fallback_arguments(pilot_fallback)
 
     add_multiharness_parser(subparsers)
+
+    batch_002 = subparsers.add_parser(
+        "batch-002",
+        help=(
+            "Cycle 1 batch-002 decision-first RECAP REST v4 acquisition driver "
+            "(discover / observe / seed-batch-001-leads)."
+        ),
+    )
+    batch_002_subparsers = batch_002.add_subparsers(
+        dest="batch_002_command",
+        metavar="COMMAND",
+    )
+    batch_002_discover = batch_002_subparsers.add_parser(
+        "discover",
+        help=(
+            "Attach batch-002 and materialize each frozen decision-first term's "
+            "own top-K, printing a discovery funnel."
+        ),
+    )
+    _add_batch_002_discover_arguments(batch_002_discover)
+    batch_002_observe = batch_002_subparsers.add_parser(
+        "observe",
+        help=(
+            "Reconstruct and strictly screen every candidate lacking a current "
+            "observation; token-gated, politely paced, resumable."
+        ),
+    )
+    _add_batch_002_observe_arguments(batch_002_observe)
+    batch_002_seed = batch_002_subparsers.add_parser(
+        "seed-batch-001-leads",
+        help=(
+            "Seed batch-001 Case.dev enrichment-failure dockets into batch-002 "
+            "as re-observation leads (idempotent)."
+        ),
+    )
+    _add_batch_002_seed_arguments(batch_002_seed)
 
     acquisition = subparsers.add_parser(
         "acquisition",
@@ -1440,6 +1490,156 @@ def _add_acquisition_funnel_report_arguments(parser: argparse.ArgumentParser) ->
     parser.add_argument("--public-download-summary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.set_defaults(handler=_cmd_acquisition_funnel_report)
+
+
+# ---------------------------------------------------------------------------
+# batch-002 RECAP API acquisition driver arguments.
+# ---------------------------------------------------------------------------
+
+_BATCH_002_DEFAULT_BATCH_ID = "batch-002"
+_BATCH_002_DEFAULT_ANCHOR = "2026-06-30"
+_BATCH_002_DEFAULT_WINDOW_START = "2026-06-30"
+_BATCH_002_DEFAULT_WINDOW_END = "2026-07-12"
+
+
+def _add_batch_002_source_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the mutually-exclusive live/fixture CourtListener source flags."""
+
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument(
+        "--live",
+        action="store_true",
+        help=(
+            "Query CourtListener over HTTPS. Discovery search answers "
+            f"anonymously; reconstruction requires {COURTLISTENER_API_TOKEN_ENV}."
+        ),
+    )
+    source.add_argument(
+        "--courtlistener-fixture",
+        type=Path,
+        help="Replay recorded CourtListener API JSONL responses without network use.",
+    )
+
+
+def _add_batch_002_discover_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help=(
+            "Acquisition store sqlite path (for example "
+            "artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3). "
+            "Never a batch-001 store."
+        ),
+    )
+    parser.add_argument("--batch-id", default=_BATCH_002_DEFAULT_BATCH_ID)
+    parser.add_argument(
+        "--eligibility-anchor",
+        default=_BATCH_002_DEFAULT_ANCHOR,
+        metavar="YYYY-MM-DD",
+        help="Immutable first-written-disposition eligibility anchor.",
+    )
+    parser.add_argument(
+        "--decision-window-start",
+        default=_BATCH_002_DEFAULT_WINDOW_START,
+        metavar="YYYY-MM-DD",
+        help="Inclusive entry_date_filed lower bound for decision discovery.",
+    )
+    parser.add_argument(
+        "--decision-window-end",
+        default=_BATCH_002_DEFAULT_WINDOW_END,
+        metavar="YYYY-MM-DD",
+        help="Inclusive entry_date_filed upper bound for decision discovery.",
+    )
+    parser.add_argument("--top-k-per-term", type=int, default=5_000)
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=100,
+        help="CourtListener search page size, from 1 through 100.",
+    )
+    parser.add_argument(
+        "--min-interval-seconds",
+        type=float,
+        default=None,
+        help=(
+            "Override request spacing. Default: anonymous 3s / authenticated 0s "
+            "(the client's auth-aware pacing)."
+        ),
+    )
+    _add_batch_002_source_arguments(parser)
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_discover)
+
+
+def _add_batch_002_observe_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Acquisition store sqlite path holding the attached batch.",
+    )
+    parser.add_argument("--batch-id", default=_BATCH_002_DEFAULT_BATCH_ID)
+    parser.add_argument(
+        "--eligibility-anchor",
+        default=_BATCH_002_DEFAULT_ANCHOR,
+        metavar="YYYY-MM-DD",
+        help="Immutable first-written-disposition eligibility anchor.",
+    )
+    parser.add_argument(
+        "--min-interval-seconds",
+        type=float,
+        default=1.0,
+        help="Minimum wall-clock spacing between metered requests; default 1.0.",
+    )
+    parser.add_argument(
+        "--jitter-seconds",
+        type=float,
+        default=0.25,
+        help="Uniform random jitter added to each pause; default 0.25.",
+    )
+    parser.add_argument(
+        "--retry-backoff-seconds",
+        type=float,
+        default=2.0,
+        help="Backoff between 429/5xx retries; reuses the client retry loop.",
+    )
+    parser.add_argument("--max-retries", type=int, default=2)
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Observe at most N candidates this pass (smoke runs); default all.",
+    )
+    _add_batch_002_source_arguments(parser)
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_observe)
+
+
+def _add_batch_002_seed_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--source-store",
+        type=Path,
+        required=True,
+        help=(
+            "Batch-001 store sqlite path, opened read-only (for example "
+            "artifacts/cycle-1/batch-001-zero-paid/cycle-acquisition.sqlite3)."
+        ),
+    )
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Target batch-002 acquisition store; the batch must already exist.",
+    )
+    parser.add_argument("--batch-id", default=_BATCH_002_DEFAULT_BATCH_ID)
+    parser.add_argument(
+        "--source-batch-id",
+        default=None,
+        help="Optional batch-001 first_batch_id filter; default all unresolved.",
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_seed)
 
 
 def _add_generate_cohort_policy_arguments(parser: argparse.ArgumentParser) -> None:
@@ -4775,6 +4975,174 @@ def _cmd_acquisition_funnel_report(args: argparse.Namespace) -> int:
     except (FunnelReportError, OSError, UnicodeError, ValueError) as exc:
         raise CommandError(str(exc)) from exc
     _write_json(cast(Path, args.output), report)
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# batch-002 RECAP API acquisition driver handlers.
+# ---------------------------------------------------------------------------
+
+
+def _batch_002_client(
+    args: argparse.Namespace,
+    *,
+    require_token: bool,
+) -> CourtListenerClient:
+    """Build a live or fixture CourtListener client for a batch-002 phase."""
+
+    live = cast(bool, args.live)
+    fixture = cast(Path | None, args.courtlistener_fixture)
+    config = CourtListenerConfig.from_env()
+    max_retries = cast(int, getattr(args, "max_retries", 2))
+    retry_backoff = cast(float, getattr(args, "retry_backoff_seconds", 0.0))
+    if live:
+        if require_token and config.api_token is None:
+            raise CommandError(f"{COURTLISTENER_API_TOKEN_ENV} is required with --live")
+        return CourtListenerClient(
+            config=config,
+            max_retries=max_retries,
+            retry_backoff_seconds=retry_backoff,
+        )
+    assert fixture is not None
+    return CourtListenerClient(
+        config=config,
+        transport=CourtListenerFixtureTransport.from_jsonl(fixture),
+        max_retries=max_retries,
+        retry_backoff_seconds=retry_backoff,
+    )
+
+
+def _batch_002_observe_pacer(args: argparse.Namespace) -> RequestPacer | None:
+    """Build a jittered ~1 req/sec pacer, or None when pacing is disabled."""
+
+    min_interval = cast(float, args.min_interval_seconds)
+    jitter = cast(float, args.jitter_seconds)
+    if min_interval <= 0 and jitter <= 0:
+        return None
+    if jitter <= 0:
+        return RequestPacer(min_interval_seconds=max(min_interval, 0.0))
+    rng = random.Random()
+    base_sleep = time.sleep
+
+    def jittered_sleep(seconds: float) -> None:
+        base_sleep(seconds + rng.uniform(0.0, jitter))
+
+    return RequestPacer(
+        min_interval_seconds=max(min_interval, 0.0),
+        sleep=jittered_sleep,
+    )
+
+
+def _cmd_batch_002_discover(args: argparse.Namespace) -> int:
+    cycle_store = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    anchor = _iso_date_argument(
+        cast(str, args.eligibility_anchor), "--eligibility-anchor"
+    )
+    window_start = _iso_date_argument(
+        cast(str, args.decision_window_start), "--decision-window-start"
+    )
+    window_end = _iso_date_argument(
+        cast(str, args.decision_window_end), "--decision-window-end"
+    )
+    if window_end < window_start:
+        raise CommandError(
+            "--decision-window-end cannot precede --decision-window-start"
+        )
+    client = _batch_002_client(args, require_token=False)
+    override = cast(float | None, args.min_interval_seconds)
+    pacer = (
+        RequestPacer(min_interval_seconds=override)
+        if override is not None
+        else pacer_for_client(client)
+    )
+    try:
+        with CycleAcquisitionStore(cycle_store) as store:
+            store.ensure_cycle(_cycle_acquisition_policy(anchor=anchor))
+            funnel = run_discover(
+                store,
+                batch_id=batch_id,
+                client=client,
+                decision_window_start=window_start,
+                decision_window_end=window_end,
+                top_k_per_term=cast(int, args.top_k_per_term),
+                page_size=cast(int, args.page_size),
+                pacer=pacer,
+            )
+    except (
+        CycleAcquisitionStoreError,
+        RecapApiBatchDriverError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    record = funnel.to_record()
+    summary_output = cast(Path | None, args.summary_output)
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cmd_batch_002_observe(args: argparse.Namespace) -> int:
+    cycle_store = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    anchor = _iso_date_argument(
+        cast(str, args.eligibility_anchor), "--eligibility-anchor"
+    )
+    limit = cast(int | None, args.limit)
+    if limit is not None and limit <= 0:
+        raise CommandError("--limit must be a positive integer")
+    client = _batch_002_client(args, require_token=True)
+    pacer = _batch_002_observe_pacer(args)
+    try:
+        with CycleAcquisitionStore(cycle_store) as store:
+            tally = run_observe(
+                store,
+                batch_id=batch_id,
+                client=client,
+                eligibility_anchor=anchor,
+                pacer=pacer,
+                limit=limit,
+            )
+    except (
+        CycleAcquisitionStoreError,
+        RecapApiBatchDriverError,
+        RecapApiDiscoveryError,
+        KeyError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    record = tally.to_record()
+    summary_output = cast(Path | None, args.summary_output)
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cmd_batch_002_seed(args: argparse.Namespace) -> int:
+    source_store = cast(Path, args.source_store)
+    cycle_store = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    source_batch_id = cast(str | None, args.source_batch_id)
+    try:
+        leads = read_batch_001_enrichment_failure_leads(
+            source_store, source_batch_id=source_batch_id
+        )
+        with CycleAcquisitionStore(cycle_store) as store:
+            result = seed_batch_001_leads(store, batch_id=batch_id, leads=leads)
+    except (
+        CycleAcquisitionStoreError,
+        RecapApiBatchDriverError,
+        KeyError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    record = result.to_record()
+    summary_output = cast(Path | None, args.summary_output)
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
     return 0
 
 
