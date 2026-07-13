@@ -15,6 +15,7 @@ from legalforecast.ingestion.docket_live_fetch import (
     DocketLiveFetchJournal,
     DocketLiveFetchReconciliationRequired,
     execute_docket_live_fetch_plan,
+    load_docket_live_fetch_plan,
     plan_docket_live_fetches,
 )
 
@@ -56,6 +57,7 @@ def test_planner_requires_cited_anchored_disposition_and_ranks_coverage(
             _ranking("200", free=2, missing=1, entries=8),
         ],
         cohort_policy=_policy(),
+        cycle_committed_spend_usd="0.00",
         daily_committed_spend_usd="0.00",
         spend_date_utc=_today(),
         docket_fetch_reservation_usd="3.05",
@@ -84,6 +86,7 @@ def test_executor_journals_before_one_fee_bearing_post_and_replays_confirmation(
         fetch_success_records=[_fetch("100", html)],
         ranking_records=[],
         cohort_policy=_policy(),
+        cycle_committed_spend_usd="0.00",
         daily_committed_spend_usd="0.00",
         spend_date_utc=_today(),
         docket_fetch_reservation_usd="3.05",
@@ -171,6 +174,7 @@ def test_advisory_input_is_a_filter_but_cannot_replace_persisted_evidence(
             },
         ],
         cohort_policy=_policy(),
+        cycle_committed_spend_usd="0.00",
         daily_committed_spend_usd="0.00",
         spend_date_utc=_today(),
     )
@@ -199,6 +203,7 @@ def test_daily_provider_cap_limits_executable_prefix_to_eight_dockets(
         fetch_success_records=fetches,
         ranking_records=[],
         cohort_policy=_policy(),
+        cycle_committed_spend_usd="0.00",
         daily_committed_spend_usd="0.00",
         spend_date_utc=_today(),
     )
@@ -217,6 +222,7 @@ def test_missing_persisted_html_fails_planning_instead_of_silently_shrinking(
             fetch_success_records=[_fetch("100", tmp_path / "missing.html")],
             ranking_records=[],
             cohort_policy=_policy(),
+            cycle_committed_spend_usd="0.00",
             daily_committed_spend_usd="0.00",
             spend_date_utc=_today(),
         )
@@ -233,6 +239,7 @@ def test_ambiguous_paid_post_retains_reservation_and_resume_refuses_reissue(
         fetch_success_records=[_fetch("100", html)],
         ranking_records=[],
         cohort_policy=_policy(),
+        cycle_committed_spend_usd="0.00",
         daily_committed_spend_usd="0.00",
         spend_date_utc=_today(),
         docket_fetch_reservation_usd="3.05",
@@ -289,6 +296,7 @@ def test_executor_requires_both_live_and_fee_acknowledgment_without_request(
         fetch_success_records=[_fetch("100", html)],
         ranking_records=[],
         cohort_policy=_policy(),
+        cycle_committed_spend_usd="0.00",
         daily_committed_spend_usd="0.00",
         spend_date_utc=_today(),
         docket_fetch_reservation_usd="3.05",
@@ -322,6 +330,8 @@ def test_cli_exposes_separate_no_provider_plan_and_guarded_execute_commands() ->
             "fetch.jsonl",
             "--cohort-policy",
             "policy.json",
+            "--cycle-committed-spend-usd",
+            "0.00",
             "--daily-committed-spend-usd",
             "0.00",
             "--spend-date-utc",
@@ -343,6 +353,63 @@ def test_cli_exposes_separate_no_provider_plan_and_guarded_execute_commands() ->
     assert executed.execute is False
     assert executed.live_case_dev is False
     assert executed.acknowledge_pacer_fees is False
+
+
+def test_loaded_plan_rejects_nonpositive_reservation_with_domain_error(
+    tmp_path: Path,
+) -> None:
+    html = tmp_path / "100.html"
+    html.write_text(_html("11", "Jul 8, 2026", "ORDER granting Motion to Dismiss."))
+    plan = plan_docket_live_fetches(
+        screening_records=[_exclusion("100", "entry-11", "2026-07-08")],
+        fetch_success_records=[_fetch("100", html)],
+        ranking_records=[],
+        cohort_policy=_policy(),
+        cycle_committed_spend_usd="0.00",
+        daily_committed_spend_usd="0.00",
+        spend_date_utc=_today(),
+    )
+    record = plan.to_record()
+    record["docket_fetch_reservation_usd"] = "0.00"
+
+    with pytest.raises(ValueError, match="reservation must be positive"):
+        load_docket_live_fetch_plan(record)
+
+
+def test_cycle_committed_spend_limits_new_day_to_cycle_remaining_headroom(
+    tmp_path: Path,
+) -> None:
+    screening = []
+    fetches = []
+    for number in range(1, 4):
+        docket_id = str(100 + number)
+        path = tmp_path / f"{docket_id}.html"
+        path.write_text(
+            _html(str(number), "Jul 8, 2026", "ORDER granting Motion to Dismiss.")
+        )
+        screening.append(_exclusion(docket_id, f"entry-{number}", "2026-07-08"))
+        fetches.append(_fetch(docket_id, path))
+    policy = _policy()
+    policy["policy"]["purchase_policy"]["cycle_budget_usd"] = "9.15"
+    ledger = tmp_path / "cycle-journal.sqlite3"
+
+    plan = plan_docket_live_fetches(
+        screening_records=screening,
+        fetch_success_records=fetches,
+        ranking_records=[],
+        cohort_policy=policy,
+        cycle_committed_spend_usd="6.10",
+        daily_committed_spend_usd="0.00",
+        spend_date_utc=_today(),
+        canonical_journal_path=str(ledger.resolve()),
+    )
+
+    assert len(plan.items) == 3
+    assert len(plan.executable_items) == 1
+    assert str(plan.cycle_remaining_headroom) == "3.05"
+    with DocketLiveFetchJournal(ledger, plan=plan) as journal:
+        assert journal.submit(plan.executable_items[0]) is True
+        assert journal.cycle_committed_reservation_usd == "9.15"
 
 
 def _client(transport: CaseDevFixtureTransport) -> CaseDevClient:

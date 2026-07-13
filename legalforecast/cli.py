@@ -1965,6 +1965,14 @@ def _add_acquisition_plan_docket_live_fetches_arguments(
         ),
     )
     parser.add_argument(
+        "--cycle-committed-spend-usd",
+        required=True,
+        help=(
+            "Verified spend already committed across all docket-live-fetch "
+            "journals for this cycle; used to enforce the frozen cycle cap."
+        ),
+    )
+    parser.add_argument(
         "--daily-budget-usd",
         default="25.00",
         help="Immutable Case.dev organization daily cap; cannot exceed 25.00.",
@@ -6513,6 +6521,7 @@ def _cmd_acquisition_plan_docket_live_fetches(args: argparse.Namespace) -> int:
             ),
             cohort_policy=policy,
             docket_fetch_reservation_usd=cast(str, args.docket_fetch_reservation_usd),
+            cycle_committed_spend_usd=cast(str, args.cycle_committed_spend_usd),
             daily_budget_usd=cast(str, args.daily_budget_usd),
             daily_committed_spend_usd=cast(str, args.daily_committed_spend_usd),
             spend_date_utc=cast(str, args.spend_date_utc),

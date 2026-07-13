@@ -66,6 +66,7 @@ class DocketLiveFetchPlan:
     cycle_budget_usd: Decimal
     max_per_case_usd: Decimal
     docket_fetch_reservation_usd: Decimal
+    cycle_committed_spend_usd: Decimal
     daily_budget_usd: Decimal
     daily_committed_spend_usd: Decimal
     spend_date_utc: str
@@ -85,8 +86,16 @@ class DocketLiveFetchPlan:
         return self.daily_budget_usd - self.daily_committed_spend_usd
 
     @property
+    def cycle_remaining_headroom(self) -> Decimal:
+        return self.cycle_budget_usd - self.cycle_committed_spend_usd
+
+    @property
     def executable_items(self) -> tuple[DocketLiveFetchPlanItem, ...]:
-        limit = int(self.daily_remaining_headroom // self.docket_fetch_reservation_usd)
+        remaining = min(
+            self.daily_remaining_headroom,
+            self.cycle_remaining_headroom,
+        )
+        limit = int(remaining // self.docket_fetch_reservation_usd)
         return self.items[:limit]
 
     @property
@@ -127,6 +136,8 @@ class DocketLiveFetchPlan:
             "cycle_budget_usd": _money(self.cycle_budget_usd),
             "max_per_case_usd": _money(self.max_per_case_usd),
             "docket_fetch_reservation_usd": _money(self.docket_fetch_reservation_usd),
+            "cycle_committed_spend_usd": _money(self.cycle_committed_spend_usd),
+            "cycle_remaining_headroom_usd": _money(self.cycle_remaining_headroom),
             "daily_budget_usd": _money(self.daily_budget_usd),
             "daily_committed_spend_usd": _money(self.daily_committed_spend_usd),
             "daily_remaining_headroom_usd": _money(self.daily_remaining_headroom),
@@ -169,6 +180,7 @@ def plan_docket_live_fetches(
     advisory_records: Iterable[Mapping[str, object]] = (),
     cohort_policy: Mapping[str, object],
     docket_fetch_reservation_usd: Decimal | str = "3.05",
+    cycle_committed_spend_usd: Decimal | str,
     daily_budget_usd: Decimal | str = "25.00",
     daily_committed_spend_usd: Decimal | str,
     spend_date_utc: str,
@@ -185,6 +197,7 @@ def plan_docket_live_fetches(
     cycle_budget = _decimal(purchase.get("cycle_budget_usd"), "cycle_budget_usd")
     max_per_case = _decimal(purchase.get("max_per_case_usd"), "max_per_case_usd")
     reservation = _decimal(docket_fetch_reservation_usd, "docket_fetch_reservation_usd")
+    cycle_committed = _decimal(cycle_committed_spend_usd, "cycle_committed_spend_usd")
     daily_budget = _decimal(daily_budget_usd, "daily_budget_usd")
     daily_committed = _decimal(daily_committed_spend_usd, "daily_committed_spend_usd")
     date.fromisoformat(spend_date_utc)
@@ -192,6 +205,8 @@ def plan_docket_live_fetches(
         raise ValueError(
             "docket fetch reservation must be positive and within max per case"
         )
+    if cycle_committed < 0 or cycle_committed > cycle_budget:
+        raise ValueError("cycle committed spend must be within the cycle budget")
     if daily_budget <= 0 or daily_budget > Decimal("25.00"):
         raise ValueError("daily budget must be positive and cannot exceed 25.00")
     if daily_committed < 0 or daily_committed > daily_budget:
@@ -294,6 +309,7 @@ def plan_docket_live_fetches(
         cycle_budget_usd=cycle_budget,
         max_per_case_usd=max_per_case,
         docket_fetch_reservation_usd=reservation,
+        cycle_committed_spend_usd=cycle_committed,
         daily_budget_usd=daily_budget,
         daily_committed_spend_usd=daily_committed,
         spend_date_utc=spend_date_utc,
@@ -322,6 +338,9 @@ def load_docket_live_fetch_plan(record: Mapping[str, object]) -> DocketLiveFetch
             record.get("docket_fetch_reservation_usd"),
             "docket_fetch_reservation_usd",
         ),
+        cycle_committed_spend_usd=_decimal(
+            record.get("cycle_committed_spend_usd"), "cycle_committed_spend_usd"
+        ),
         daily_budget_usd=_decimal(record.get("daily_budget_usd"), "daily_budget_usd"),
         daily_committed_spend_usd=_decimal(
             record.get("daily_committed_spend_usd"), "daily_committed_spend_usd"
@@ -330,6 +349,19 @@ def load_docket_live_fetch_plan(record: Mapping[str, object]) -> DocketLiveFetch
         canonical_journal_path=_required_text(record, "canonical_journal_path"),
         items=items,
     )
+    if (
+        plan.docket_fetch_reservation_usd <= 0
+        or plan.docket_fetch_reservation_usd > plan.max_per_case_usd
+    ):
+        raise ValueError(
+            "docket fetch reservation must be positive and within max per case"
+        )
+    if plan.cycle_remaining_headroom < 0:
+        raise ValueError("docket live fetch cycle committed spend exceeds cap")
+    if plan.daily_budget_usd <= 0 or plan.daily_budget_usd > Decimal("25.00"):
+        raise ValueError("docket live fetch daily budget exceeds provider cap")
+    if plan.daily_remaining_headroom < 0:
+        raise ValueError("docket live fetch daily committed spend exceeds cap")
     if record.get("plan_sha256") != plan.plan_sha256:
         raise ValueError("docket live fetch plan hash mismatch")
     if record.get("total_projected_cost_usd") != plan.total_projected_cost_usd:
@@ -338,10 +370,6 @@ def load_docket_live_fetch_plan(record: Mapping[str, object]) -> DocketLiveFetch
         raise ValueError("docket live fetch cumulative frontier mismatch")
     if plan.total_projected_cost > plan.cycle_budget_usd:
         raise ValueError("docket live fetch plan exceeds cycle budget")
-    if plan.daily_budget_usd > Decimal("25.00"):
-        raise ValueError("docket live fetch daily budget exceeds provider cap")
-    if plan.daily_remaining_headroom < 0:
-        raise ValueError("docket live fetch daily committed spend exceeds cap")
     if record.get("executable_item_count") != len(plan.executable_items):
         raise ValueError("docket live fetch executable prefix mismatch")
     if (
@@ -397,6 +425,15 @@ class DocketLiveFetchJournal:
         assert row is not None
         return _money(self.plan.daily_committed_spend_usd + Decimal(str(row["total"])))
 
+    @property
+    def cycle_committed_reservation_usd(self) -> str:
+        row = self._connection.execute(
+            """SELECT COALESCE(SUM(reservation_usd), 0) AS total
+            FROM docket_fetch_operations WHERE status != 'planned'"""
+        ).fetchone()
+        assert row is not None
+        return _money(self.plan.cycle_committed_spend_usd + Decimal(str(row["total"])))
+
     def submit(self, item: DocketLiveFetchPlanItem) -> bool:
         """Commit submitted state immediately before the single HTTP attempt."""
 
@@ -413,10 +450,11 @@ class DocketLiveFetchJournal:
                     f"docket {item.docket_id} has {status} paid outcome; "
                     "provider evidence is required before any reissue"
                 )
-            committed = Decimal(self.committed_reservation_usd)
-            if committed + item.reservation_usd > self.plan.cycle_budget_usd:
+            cycle_committed = Decimal(self.cycle_committed_reservation_usd)
+            if cycle_committed + item.reservation_usd > self.plan.cycle_budget_usd:
                 raise DocketLiveFetchError("docket fetch reservation exceeds cycle cap")
-            if committed + item.reservation_usd > self.plan.daily_budget_usd:
+            daily_committed = Decimal(self.committed_reservation_usd)
+            if daily_committed + item.reservation_usd > self.plan.daily_budget_usd:
                 raise DocketLiveFetchError("docket fetch reservation exceeds daily cap")
             cursor = self._connection.execute(
                 """UPDATE docket_fetch_operations SET status='submitted'
@@ -459,6 +497,7 @@ class DocketLiveFetchJournal:
                 policy_sha256 TEXT NOT NULL,
                 plan_sha256 TEXT NOT NULL,
                 cycle_budget_usd TEXT NOT NULL,
+                cycle_committed_spend_usd TEXT NOT NULL,
                 daily_budget_usd TEXT NOT NULL,
                 daily_committed_spend_usd TEXT NOT NULL,
                 spend_date_utc TEXT NOT NULL
@@ -480,13 +519,15 @@ class DocketLiveFetchJournal:
             self._connection.execute(
                 """INSERT OR IGNORE INTO docket_fetch_ledger(
                     singleton, cycle_id, policy_sha256, plan_sha256, cycle_budget_usd,
-                    daily_budget_usd, daily_committed_spend_usd, spend_date_utc
-                ) VALUES(1, ?, ?, ?, ?, ?, ?, ?)""",
+                    cycle_committed_spend_usd, daily_budget_usd,
+                    daily_committed_spend_usd, spend_date_utc
+                ) VALUES(1, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     self.plan.cycle_id,
                     self.plan.policy_sha256,
                     self.plan.plan_sha256,
                     _money(self.plan.cycle_budget_usd),
+                    _money(self.plan.cycle_committed_spend_usd),
                     _money(self.plan.daily_budget_usd),
                     _money(self.plan.daily_committed_spend_usd),
                     self.plan.spend_date_utc,
@@ -501,6 +542,7 @@ class DocketLiveFetchJournal:
                 str(row["policy_sha256"]),
                 str(row["plan_sha256"]),
                 str(row["cycle_budget_usd"]),
+                str(row["cycle_committed_spend_usd"]),
                 str(row["daily_budget_usd"]),
                 str(row["daily_committed_spend_usd"]),
                 str(row["spend_date_utc"]),
@@ -510,6 +552,7 @@ class DocketLiveFetchJournal:
                 self.plan.policy_sha256,
                 self.plan.plan_sha256,
                 _money(self.plan.cycle_budget_usd),
+                _money(self.plan.cycle_committed_spend_usd),
                 _money(self.plan.daily_budget_usd),
                 _money(self.plan.daily_committed_spend_usd),
                 self.plan.spend_date_utc,
