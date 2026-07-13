@@ -288,6 +288,7 @@ class BudgetedFirecrawlScheduler:
                             self.store.finalize_firecrawl_attempt(
                                 attempt.attempt_id,
                                 status="transport_error",
+                                provider_http_status=provider_status,
                                 **_failure_evidence(error),
                             )
                             if fatal_error is None:

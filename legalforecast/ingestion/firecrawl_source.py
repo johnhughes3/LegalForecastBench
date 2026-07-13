@@ -715,6 +715,11 @@ def _raise_for_status(status_code: int) -> None:
             "Firecrawl rate limit reached (HTTP 429)",
             provider_http_status=status_code,
         )
+    if status_code == 408:
+        raise FirecrawlServerError(
+            "Firecrawl request timed out (HTTP 408)",
+            provider_http_status=status_code,
+        )
     if status_code >= 500:
         raise FirecrawlServerError(
             f"Firecrawl server failure (HTTP {status_code})",

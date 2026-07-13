@@ -397,6 +397,40 @@ def test_scheduler_is_widest_first_and_isolates_provider_5xx(tmp_path: Path) -> 
         assert all(attempt.failure_transient is True for attempt in failed_attempts)
 
 
+def test_scheduler_retries_provider_http_timeout_within_attempt_cap(
+    tmp_path: Path,
+) -> None:
+    target = _target("search-timeout", 0)
+    source = FixtureSource(
+        {
+            target.source_url: [
+                FirecrawlServerError(
+                    "Firecrawl request timed out (HTTP 408)",
+                    provider_http_status=408,
+                ),
+                _success(target, "recovered"),
+            ]
+        }
+    )
+    with _store(tmp_path) as store:
+        result = BudgetedFirecrawlScheduler(
+            store=store,
+            source=source,
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+        ).run([target])
+
+        assert [page.target_id for page in result.pages] == [target.target_id]
+        assert source.calls == [target.source_url, target.source_url]
+        attempts = store.firecrawl_attempts("run-001")
+        assert [attempt.status for attempt in attempts] == [
+            "transport_error",
+            "succeeded",
+        ]
+        assert attempts[0].provider_http_status == 408
+        assert attempts[0].failure_transient is True
+
+
 def test_scheduler_does_not_retry_deterministic_response_errors_and_persists_evidence(
     tmp_path: Path,
 ) -> None:
