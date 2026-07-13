@@ -333,6 +333,30 @@ def test_ranking_prioritizes_explicit_district_12c_over_cheaper_bankruptcy() -> 
     )
 
 
+def test_ranking_retains_bankruptcy_adversary_with_local_docket_number() -> None:
+    client, _ = _client(
+        _lookup(
+            docket_id="203",
+            court_id="nysb",
+            docket_number="26-01028",
+            case_name="Higgins v. Celsius Network LLC",
+            entries=(),
+            limit=5,
+        )
+    )
+
+    enrichment = enrich_recap_docket_with_case_dev(
+        client=client,
+        discovery=_discovery("203"),
+        page_size=5,
+    )
+
+    assert enrichment.structural_priority == (
+        0,
+        "bankruptcy_adversary_metadata",
+    )
+
+
 def test_unknown_metadata_is_retained_ahead_of_hard_structural_exclusion() -> None:
     unknown_client, _ = _client(_lookup(docket_id="301", entries=(), limit=5))
     bankruptcy_client, _ = _client(
@@ -566,6 +590,7 @@ def _lookup(
     next_offset: int | None = None,
     court_id: str | None = None,
     docket_number: str | None = None,
+    case_name: str | None = None,
 ) -> RecordedCaseDevResponse:
     params: dict[str, object] = {
         "type": "lookup",
@@ -587,6 +612,8 @@ def _lookup(
         docket["courtId"] = court_id
     if docket_number is not None:
         docket["docketNumber"] = docket_number
+    if case_name is not None:
+        docket["caseName"] = case_name
     payload: dict[str, object] = {"docket": docket}
     if next_offset is not None:
         payload["nextOffset"] = next_offset

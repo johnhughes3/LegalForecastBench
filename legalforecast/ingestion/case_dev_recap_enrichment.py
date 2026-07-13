@@ -204,6 +204,8 @@ class CaseDevRecapEnrichment:
             return (1, "metadata_incomplete_or_unknown")
         screen = screen_case_dev_docket_metadata(metadata)
         if screen.accepted_for_scrape:
+            if screen.metadata.case_type_stratum == "bankruptcy_adversary":
+                return (0, "bankruptcy_adversary_metadata")
             return (0, "federal_civil_district_metadata")
         return (2, "hard_structural_exclusion_metadata")
 
