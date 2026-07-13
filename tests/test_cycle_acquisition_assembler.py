@@ -607,19 +607,28 @@ def test_assemble_cycle_acquisition_validates_current_screening_summary_counts(
     assert "accepted_count=2, actual=1" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    "screened_record",
+    (
+        {
+            "candidate_id": "courtlistener-docket-123",
+            "candidate": {"docket_id": "999"},
+        },
+        {
+            "candidate_id": "999",
+            "case_id": "courtlistener-docket-123",
+        },
+    ),
+)
 def test_assemble_cycle_acquisition_rejects_conflicting_identity_aliases(
     tmp_path: Path,
     capsys: Any,
+    screened_record: dict[str, object],
 ) -> None:
     batch = tmp_path / "batch"
     _write_batch(
         batch,
-        screened=[
-            {
-                "candidate_id": "courtlistener-docket-123",
-                "candidate": {"docket_id": "999"},
-            }
-        ],
+        screened=[screened_record],
         exclusions=[],
         selections=[],
         relevance=[],

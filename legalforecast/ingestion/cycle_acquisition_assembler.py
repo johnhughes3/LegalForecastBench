@@ -493,12 +493,15 @@ def _canonicalize_courtlistener_identity(
     record: Mapping[str, Any],
 ) -> Mapping[str, Any]:
     aliases: set[str] = set()
+    numeric_ids: set[str] = set()
     for key in ("candidate_id", "case_id", "docket_id"):
         value = record.get(key)
-        if isinstance(value, str) and (
-            match := _COURTLISTENER_NAMESPACED_ID.fullmatch(value.strip())
-        ):
-            aliases.add(match.group(1))
+        if isinstance(value, str):
+            normalized = value.strip()
+            if match := _COURTLISTENER_NAMESPACED_ID.fullmatch(normalized):
+                aliases.add(match.group(1))
+            elif normalized.isdecimal():
+                numeric_ids.add(normalized)
     candidate = record.get("candidate")
     nested_docket_id: str | None = None
     if isinstance(candidate, Mapping):
@@ -511,6 +514,11 @@ def _canonicalize_courtlistener_identity(
     if len(aliases) != 1:
         raise CycleAssemblyError("CourtListener identity alias conflict")
     canonical = next(iter(aliases))
+    if any(value != canonical for value in numeric_ids):
+        raise CycleAssemblyError(
+            "CourtListener identity alias conflict: "
+            f"namespaced={canonical}, numeric_ids={sorted(numeric_ids)}"
+        )
     if nested_docket_id is not None and nested_docket_id != canonical:
         raise CycleAssemblyError(
             "CourtListener identity alias conflict: "
