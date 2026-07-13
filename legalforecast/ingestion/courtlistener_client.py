@@ -154,7 +154,9 @@ class CourtListenerDocketEntry:
     def from_record(cls, record: Mapping[str, Any]) -> CourtListenerDocketEntry:
         return cls(
             docket_entry_id=_required_string(record, "id", "docket_entry_id"),
-            docket_id=_required_string(record, "docket", "docket_id", "docketId"),
+            docket_id=_required_docket_reference(
+                record, "docket", "docket_id", "docketId"
+            ),
             entry_number=_optional_string(
                 record,
                 "entry_number",
@@ -435,6 +437,27 @@ class CourtListenerClient:
         )
         return _page_from_payload(payload, parser)
 
+    def search_raw(
+        self,
+        params: Mapping[str, Any],
+        *,
+        cursor: str | None = None,
+    ) -> CourtListenerPage[Mapping[str, Any]]:
+        """Run one ``/search/`` request and return unparsed result mappings.
+
+        This preserves the client's fail-closed retry and status-code mapping
+        (429/5xx/auth) while letting callers own result parsing for search
+        types the typed helpers do not model (for example ``type=rd`` decision
+        discovery). ``params`` must already be fully formed; ``cursor`` is
+        merged in when resuming CourtListener cursor pagination.
+        """
+
+        merged: dict[str, Any] = dict(params)
+        if cursor is not None:
+            merged["cursor"] = cursor
+        payload = self._request_json("GET", "/search/", merged)
+        return _page_from_payload(payload, _identity_mapping)
+
     def list_docket_entries(
         self,
         docket_id: str,
@@ -526,6 +549,10 @@ class CourtListenerClient:
         )
 
 
+def _identity_mapping(record: Mapping[str, Any]) -> Mapping[str, Any]:
+    return record
+
+
 def _error_for_response(
     response: CourtListenerHTTPResponse,
     path: str,
@@ -610,6 +637,38 @@ def _optional_string(record: Mapping[str, Any], *field_names: str) -> str | None
         if isinstance(value, int) and not isinstance(value, bool):
             return str(value)
     return None
+
+
+# CourtListener v4 renders relational foreign keys either as a bare integer id
+# or as a hyperlinked resource URL, e.g.
+# ``https://www.courtlistener.com/api/rest/v4/dockets/555/``. Docket
+# reconstruction compares an entry's docket foreign key against a bare docket id,
+# so the id must be extracted from either shape and any other shape must fail
+# closed rather than silently mismatch every entry.
+_DOCKET_REFERENCE_URL_ID = re.compile(r"/dockets/(\d+)/?(?:\?.*)?$")
+
+
+def _required_docket_reference(record: Mapping[str, Any], *field_names: str) -> str:
+    for field_name in field_names:
+        value = record.get(field_name)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int):
+            return str(value)
+        if isinstance(value, str) and value.strip():
+            text = value.strip()
+            match = _DOCKET_REFERENCE_URL_ID.search(text)
+            if match is not None:
+                return match.group(1)
+            if text.isdigit():
+                return text
+            raise CourtListenerResponseError(
+                "unrecognized CourtListener docket reference shape for "
+                f"{field_name!r}: {text!r} (expected a bare id or a "
+                "/dockets/<id>/ URL)"
+            )
+    joined = ", ".join(field_names)
+    raise CourtListenerResponseError(f"missing required CourtListener field: {joined}")
 
 
 def _required_int(record: Mapping[str, Any], field_name: str) -> int:

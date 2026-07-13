@@ -54,6 +54,15 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
     ):
         assert amendment_contract in runbook
 
+    batch_002_section = runbook.split(
+        "## Cycle 1 Batch-002 RECAP API Acquisition", maxsplit=1
+    )[1]
+    assert (
+        batch_002_section.index("### Step 1: Discover")
+        < batch_002_section.index("### First-Run Observation Smoke Step (required)")
+        < batch_002_section.index("### Steps 2 and 3: Seed and Observe")
+    )
+
     assert "--profile official-cycle" not in reproduce
     assert "does not implement an `official-cycle` profile" in reproduce
     combined = "\n".join((runbook, reproduce, methods)).lower()
