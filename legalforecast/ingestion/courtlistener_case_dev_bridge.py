@@ -679,6 +679,7 @@ def _case_mix_metadata(
             "relatedCaseFamilyId",
         ),
         "mdl_family_id": ("mdl_family_id", "mdlFamilyId", "mdl_id", "mdlId"),
+        "case_type_stratum": ("case_type_stratum", "caseTypeStratum"),
     }
     return {
         output_key: _first_optional_string(

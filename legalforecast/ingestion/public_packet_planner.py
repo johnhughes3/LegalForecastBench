@@ -99,6 +99,7 @@ class PublicPacketCandidatePlan:
     missing_required_document_count: int = 0
     projected_paid_cost_usd: str = "0.00"
     cost_rank: int | None = None
+    case_type_stratum: str = "district_civil"
 
     def to_record(self) -> dict[str, Any]:
         return {
@@ -126,6 +127,7 @@ class PublicPacketCandidatePlan:
             "missing_required_document_count": self.missing_required_document_count,
             "projected_paid_cost_usd": self.projected_paid_cost_usd,
             "cost_rank": self.cost_rank,
+            "case_type_stratum": self.case_type_stratum,
         }
 
     @property
@@ -415,6 +417,7 @@ def _candidate_plan(
         nos_macro_category=case_mix_metadata["nos_macro_category"],
         related_family_id=case_mix_metadata["related_family_id"],
         mdl_family_id=case_mix_metadata["mdl_family_id"],
+        case_type_stratum=case_mix_metadata["case_type_stratum"] or "district_civil",
         source_url=source_url,
         selected=not reasons,
         exclusion_reasons=(),
@@ -1201,6 +1204,7 @@ def _excluded_plan(
         nos_macro_category=case_mix_metadata["nos_macro_category"],
         related_family_id=case_mix_metadata["related_family_id"],
         mdl_family_id=case_mix_metadata["mdl_family_id"],
+        case_type_stratum=case_mix_metadata["case_type_stratum"] or "district_civil",
         source_url=source_url,
         selected=False,
         exclusion_reasons=(reason,),
@@ -1227,6 +1231,7 @@ def _case_mix_metadata(
             "relatedCaseFamilyId",
         ),
         "mdl_family_id": ("mdl_family_id", "mdlFamilyId", "mdl_id", "mdlId"),
+        "case_type_stratum": ("case_type_stratum", "caseTypeStratum"),
     }
     return {
         output_key: _first_optional_string(

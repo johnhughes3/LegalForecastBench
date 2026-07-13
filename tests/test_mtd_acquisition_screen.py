@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from legalforecast.ingestion.courtlistener_acquisition import _linkage_entries
 from legalforecast.ingestion.courtlistener_web import parse_courtlistener_docket_html
 from legalforecast.ingestion.mtd_acquisition_screen import (
     LOW_YIELD_MTD_DISCOVERY_TERMS,
@@ -15,6 +16,7 @@ from legalforecast.ingestion.mtd_acquisition_screen import (
     screen_courtlistener_docket_for_mtd_decision,
     screen_courtlistener_entry_for_mtd_decision,
 )
+from legalforecast.ingestion.provenance import DocumentRole
 
 
 def test_optimized_search_terms_prioritize_decision_language() -> None:
@@ -78,6 +80,38 @@ def test_case_dev_metadata_screen_excludes_non_civil_and_detention_postures() ->
 
     assert screen.accepted_for_scrape is False
     assert "habeas_or_immigration_detention_posture" in screen.exclusion_reasons
+
+
+def test_case_dev_metadata_screen_admits_potential_bankruptcy_adversary() -> None:
+    screen = screen_case_dev_docket_metadata(
+        {
+            "id": "74000001",
+            "courtId": "flmb",
+            "court": "Bankruptcy Court, M.D. Florida",
+            "docketNumber": "6:26-ap-00106",
+            "caseName": "Trustee v. Defendant LLC",
+        },
+        query="order on motion to dismiss",
+    )
+
+    assert screen.accepted_for_scrape is True
+    assert screen.metadata.case_type_stratum == "bankruptcy_adversary"
+
+
+def test_case_dev_metadata_screen_still_excludes_main_bankruptcy_case() -> None:
+    screen = screen_case_dev_docket_metadata(
+        {
+            "id": "74000002",
+            "courtId": "flmb",
+            "court": "Bankruptcy Court, M.D. Florida",
+            "docketNumber": "6:26-bk-06489",
+            "caseName": "In re Debtor",
+        },
+        query="order on motion to dismiss case",
+    )
+
+    assert screen.accepted_for_scrape is False
+    assert screen.exclusion_reasons[0] == "bankruptcy_court"
 
 
 def test_actual_mtd_decision_entry_accepts_order_on_motion_to_dismiss() -> None:
@@ -216,6 +250,105 @@ def test_docket_screen_can_require_recent_decision_entry_date() -> None:
     assert screen.exclusion_reasons == ("mtd_decision_outside_date_window",)
 
 
+def test_docket_screen_accepts_rule_7012_adversary_claim_merits_disposition() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Trustee v. Defendant LLC - 6:26-ap-00106",
+            entries=(
+                (1, "July 1, 2026", "Adversary COMPLAINT filed."),
+                (
+                    4,
+                    "July 3, 2026",
+                    "MOTION to Dismiss Count I under Fed. R. Bankr. P. 7012 "
+                    "and Fed. R. Civ. P. 12(b)(6).",
+                ),
+                (8, "July 10, 2026", "ORDER granting 4 Motion to Dismiss Count I."),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000001/trustee-v-defendant/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text=(
+            "flmb Bankruptcy Court, M.D. Florida 6:26-ap-00106 Trustee v. Defendant LLC"
+        ),
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert screen.strict_clean is True
+    assert screen.case_type_stratum == "bankruptcy_adversary"
+
+
+def test_docket_screen_rejects_ambiguous_dismiss_adversary_text() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Trustee v. Defendant LLC - 6:26-ap-00106",
+            entries=(
+                (1, "July 1, 2026", "Adversary COMPLAINT filed."),
+                (4, "July 3, 2026", "MOTION to Dismiss Adversary Proceeding."),
+                (8, "July 10, 2026", "ORDER granting Motion to Dismiss Adversary."),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000001/trustee-v-defendant/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text="flmb Bankruptcy Court 6:26-ap-00106",
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert screen.strict_clean is False
+    assert "bankruptcy_adversary_rule_basis_unproven" in screen.exclusion_reasons
+
+
+def test_docket_screen_rejects_bankruptcy_main_case_despite_rule_12_words() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="In re Debtor - 6:26-bk-06489",
+            entries=(
+                (1, "July 1, 2026", "Voluntary Chapter 13 Petition."),
+                (4, "July 3, 2026", "Trustee MOTION to Dismiss Case under Rule 12."),
+                (8, "July 10, 2026", "ORDER granting 4 Motion to Dismiss Case."),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000002/in-re-debtor/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text="flmb Bankruptcy Court 6:26-bk-06489",
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert screen.strict_clean is False
+    assert "bankruptcy_posture" in screen.exclusion_reasons
+
+
+def test_adversary_linkage_cannot_promote_generic_dismissal_motion() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Trustee v. Defendant LLC - 6:26-ap-00106",
+            entries=(
+                (4, "July 3, 2026", "MOTION to Dismiss Adversary Proceeding."),
+                (8, "July 10, 2026", "ORDER granting 4 Motion to Dismiss Adversary."),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000001/trustee-v-defendant/",
+    )
+
+    normalized = _linkage_entries(
+        page.entries,
+        actual_decision_row_ids={"entry-8"},
+        docket_id="74000001",
+        source_url=page.source_url or "",
+        case_type_stratum="bankruptcy_adversary",
+    )
+
+    assert [entry.document_role for entry in normalized] == [DocumentRole.DECISION]
+
+
 def test_target_yield_estimate_extrapolates_needed_screening_depth() -> None:
     estimate = TargetYieldEstimate(
         screened_count=320,
@@ -262,4 +395,38 @@ def _docket_html(
         </div>
       </body>
     </html>
+    """
+
+
+def _multi_entry_docket_html(
+    *,
+    title: str,
+    entries: tuple[tuple[int, str, str], ...],
+) -> str:
+    rows = "".join(
+        f"""
+        <div class="row odd" id="entry-{number}">
+          <div class="col-xs-1 text-center"><p>{number}</p></div>
+          <div class="col-xs-3 col-sm-2">
+            <p><span title="{filed_date}, 9:39 a.m.">{filed_date}</span></p>
+          </div>
+          <div class="col-xs-8 col-lg-7">
+            <p>{text}</p>
+            <div class="row recap-documents">
+              <div class="col-xs-3"><p>Main Document</p></div>
+              <div class="col-xs-6"><p>{text}</p></div>
+              <a href="https://storage.courtlistener.com/recap/{number}.pdf">
+                Download PDF
+              </a>
+            </div>
+          </div>
+        </div>
+        """
+        for number, filed_date, text in entries
+    )
+    return f"""
+    <html><head><title>{title}</title></head><body>
+      <a rel="next" class="btn btn-default disabled" href="#">Next</a>
+      <div class="fake-table col-xs-12" id="docket-entry-table">{rows}</div>
+    </body></html>
     """

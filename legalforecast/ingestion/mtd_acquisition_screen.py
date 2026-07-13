@@ -68,6 +68,14 @@ class CaseDevDocketMetadata:
     nature_of_suit: str | None
     cause: str | None
 
+    @property
+    def case_type_stratum(self) -> str:
+        """Return the acquisition stratum proved by source metadata."""
+
+        if _looks_like_bankruptcy_adversary_metadata(self):
+            return "bankruptcy_adversary"
+        return "district_civil"
+
     @classmethod
     def from_mapping(
         cls,
@@ -128,6 +136,7 @@ class CaseDevDocketMetadata:
             "case_name": self.case_name,
             "nature_of_suit": self.nature_of_suit,
             "cause": self.cause,
+            "case_type_stratum": self.case_type_stratum,
         }
 
 
@@ -181,6 +190,7 @@ class MtdDocketDecisionScreen:
     exclusion_reasons: tuple[str, ...]
     decision_entries: tuple[MtdDecisionEntryScreen, ...]
     completeness: CourtListenerBriefingCompleteness
+    case_type_stratum: str = "district_civil"
 
     @property
     def has_actual_mtd_decision(self) -> bool:
@@ -200,6 +210,7 @@ class MtdDocketDecisionScreen:
             "actual_mtd_decision_entry_count": len(self.decision_entries),
             "decision_entries": [entry.to_record() for entry in self.decision_entries],
             "completeness": self.completeness.to_record(),
+            "case_type_stratum": self.case_type_stratum,
         }
 
 
@@ -335,6 +346,12 @@ def screen_courtlistener_entry_for_mtd_decision(
     )
 
 
+def is_rule_7012_claim_merits_motion(text: str) -> bool:
+    """Return whether one row proves an adversary Rule 12 claim challenge."""
+
+    return _looks_like_rule_7012_claim_merits_motion(_normalized_text(text).lower())
+
+
 def screen_courtlistener_docket_for_mtd_decision(
     page: CourtListenerWebDocketPage,
     *,
@@ -389,15 +406,32 @@ def screen_courtlistener_docket_for_mtd_decision(
             completeness=completeness,
         )
 
-    strict_exclusions = _strict_posture_exclusion_reasons(
-        " ".join(
-            item
-            for item in (
-                page.title,
-                candidate_text,
-                " ".join(entry.text for entry in page.entries),
+    combined_text = " ".join(
+        item
+        for item in (
+            page.title,
+            candidate_text,
+            " ".join(entry.text for entry in page.entries),
+        )
+        if item is not None
+    )
+    bankruptcy_context = _looks_like_bankruptcy_context(combined_text)
+    adversary_exclusions = (
+        _bankruptcy_adversary_exclusion_reasons(page, combined_text=combined_text)
+        if bankruptcy_context
+        else ()
+    )
+    strict_exclusions = tuple(
+        dict.fromkeys(
+            (
+                *adversary_exclusions,
+                *_strict_posture_exclusion_reasons(
+                    combined_text,
+                    allow_bankruptcy_adversary=(
+                        bankruptcy_context and not adversary_exclusions
+                    ),
+                ),
             )
-            if item is not None
         )
     )
     return MtdDocketDecisionScreen(
@@ -412,6 +446,9 @@ def screen_courtlistener_docket_for_mtd_decision(
         exclusion_reasons=strict_exclusions,
         decision_entries=decision_entries,
         completeness=completeness,
+        case_type_stratum=(
+            "bankruptcy_adversary" if bankruptcy_context else "district_civil"
+        ),
     )
 
 
@@ -440,8 +477,11 @@ def _case_dev_metadata_exclusion_reasons(
     docket_number = metadata.docket_number or ""
     searchable_text = metadata.searchable_text
 
-    if "bankruptcy" in court_text.lower() or (metadata.court_id or "").endswith("b"):
-        reasons.append("bankruptcy_court")
+    bankruptcy_court = _looks_like_bankruptcy_court(metadata)
+    bankruptcy_adversary = _looks_like_bankruptcy_adversary_metadata(metadata)
+    if bankruptcy_court:
+        if not bankruptcy_adversary:
+            reasons.append("bankruptcy_court")
     elif not _looks_like_federal_district_court(court_text):
         reasons.append("not_federal_district_court")
 
@@ -449,15 +489,42 @@ def _case_dev_metadata_exclusion_reasons(
         reasons.append("missing_docket_number")
     elif _looks_like_placeholder_or_sealed_docket(docket_number):
         reasons.append("placeholder_or_sealed_docket_number")
-    elif _looks_like_non_civil_docket_number(docket_number):
+    elif (
+        _looks_like_non_civil_docket_number(docket_number) and not bankruptcy_adversary
+    ):
         reasons.append("not_civil_cv_docket")
-    elif not _looks_like_civil_cv_docket_number(docket_number):
+    elif (
+        not _looks_like_civil_cv_docket_number(docket_number)
+        and not bankruptcy_adversary
+    ):
         reasons.append("not_civil_cv_docket")
 
     if _looks_like_criminal_caption(metadata.case_name or ""):
         reasons.append("criminal_style_caption")
-    reasons.extend(_strict_posture_exclusion_reasons(searchable_text))
+    reasons.extend(
+        _strict_posture_exclusion_reasons(
+            searchable_text,
+            allow_bankruptcy_adversary=bankruptcy_adversary,
+        )
+    )
     return tuple(dict.fromkeys(reasons))
+
+
+def _looks_like_bankruptcy_court(metadata: CaseDevDocketMetadata) -> bool:
+    court_text = f"{metadata.court_id or ''} {metadata.court or ''}".lower()
+    return "bankruptcy" in court_text or (metadata.court_id or "").lower().endswith("b")
+
+
+def _looks_like_bankruptcy_adversary_metadata(
+    metadata: CaseDevDocketMetadata,
+) -> bool:
+    if not _looks_like_bankruptcy_court(metadata):
+        return False
+    docket_number = metadata.docket_number or ""
+    explicit_adversary_number = bool(
+        re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", docket_number, re.I)
+    )
+    return explicit_adversary_number
 
 
 def _looks_like_federal_district_court(court_text: str) -> bool:
@@ -621,7 +688,11 @@ def _text_before_first_attachment(text: str) -> str:
     return re.split(r"\battachments?:\b|\batt\s+\d+\b", text, maxsplit=1, flags=re.I)[0]
 
 
-def _strict_posture_exclusion_reasons(text: str) -> tuple[str, ...]:
+def _strict_posture_exclusion_reasons(
+    text: str,
+    *,
+    allow_bankruptcy_adversary: bool = False,
+) -> tuple[str, ...]:
     lowered = text.lower()
     reasons: list[str] = []
     if re.search(
@@ -633,11 +704,81 @@ def _strict_posture_exclusion_reasons(text: str) -> tuple[str, ...]:
         re.I,
     ):
         reasons.append("habeas_or_immigration_detention_posture")
-    if "bankruptcy" in lowered or "adversary proceeding" in lowered:
+    if (
+        "bankruptcy" in lowered or "adversary proceeding" in lowered
+    ) and not allow_bankruptcy_adversary:
         reasons.append("bankruptcy_posture")
     if re.search(r"\bcriminal\b|\b(?:united states|u\.s\.|usa)\s+v[. ]", lowered):
         reasons.append("criminal_posture")
     return tuple(dict.fromkeys(reasons))
+
+
+def _looks_like_bankruptcy_context(text: str) -> bool:
+    lowered = text.lower()
+    return bool(
+        "bankruptcy" in lowered
+        or "adversary proceeding" in lowered
+        or re.search(r"(?:^|\W)[a-z]{2,4}b(?:\W|$)", lowered)
+        or re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", lowered)
+    )
+
+
+def _bankruptcy_adversary_exclusion_reasons(
+    page: CourtListenerWebDocketPage,
+    *,
+    combined_text: str,
+) -> tuple[str, ...]:
+    """Fail closed unless docket rows prove the ordinary Rule 12 task."""
+
+    reasons: list[str] = []
+    if re.search(r"(?:^|[-:])bk(?:[-:]|\b)", combined_text, re.I):
+        return ("bankruptcy_posture",)
+    adversary_identity = bool(
+        re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", combined_text, re.I)
+    )
+    if not adversary_identity:
+        return ("bankruptcy_posture",)
+
+    entry_texts = tuple(_entry_search_text(entry) for entry in page.entries)
+    if not any(_looks_like_adversary_initiating_pleading(text) for text in entry_texts):
+        reasons.append("bankruptcy_adversary_initiating_pleading_unproven")
+    if not any(_looks_like_rule_7012_claim_merits_motion(text) for text in entry_texts):
+        reasons.append("bankruptcy_adversary_rule_basis_unproven")
+    return tuple(reasons)
+
+
+def _looks_like_adversary_initiating_pleading(text: str) -> bool:
+    if re.search(r"\b(?:certificate|notice|response|opposition)\b", text, re.I):
+        return False
+    return bool(
+        re.search(r"\b(?:adversary\s+)?complaint\b|\bcounterclaim\b", text, re.I)
+    )
+
+
+def _looks_like_rule_7012_claim_merits_motion(text: str) -> bool:
+    motion = bool(
+        re.search(r"\bmotion\b", text, re.I)
+        and re.search(r"\bdismiss\b|\bjudgment\s+on\s+the\s+pleadings\b", text, re.I)
+    )
+    rule_basis = bool(
+        re.search(r"\b7012\b", text, re.I)
+        or re.search(r"\brule\s+7012\b", text, re.I)
+        or re.search(r"\b12\s*\(\s*b\s*\)\s*\(\s*[1-7]\s*\)", text, re.I)
+        or re.search(r"\b12\s*\(\s*c\s*\)", text, re.I)
+        or re.search(
+            r"\brule\s+12\s*\(\s*b\s*\)\s*[-\u2013]\s*\(\s*i\s*\)",
+            text,
+            re.I,
+        )
+    )
+    pleading_scope = bool(
+        re.search(
+            r"\b(?:complaint|counterclaim|count|claim|cause\s+of\s+action)s?\b",
+            text,
+            re.I,
+        )
+    )
+    return motion and rule_basis and pleading_scope
 
 
 def _dominant_exclusion_reasons(

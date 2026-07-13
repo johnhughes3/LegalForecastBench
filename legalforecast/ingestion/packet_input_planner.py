@@ -340,6 +340,7 @@ def _plan_candidate(
         "decision_date": _format_optional_date(_selection_decision_date(selection)),
         "related_family_id": _optional_str(selection, "related_family_id"),
         "mdl_family_id": _optional_str(selection, "mdl_family_id"),
+        "case_type_stratum": _optional_str(selection, "case_type_stratum"),
         "generated_at": _format_datetime(generated_at),
         "docket_markdown": _controlled_docket_record(
             render_controlled_docket_markdown(
@@ -587,6 +588,7 @@ def _candidate_manifest_record(
         "nos_macro_category": _optional_str(selection, "nos_macro_category"),
         "related_family_id": _optional_str(selection, "related_family_id"),
         "mdl_family_id": _optional_str(selection, "mdl_family_id"),
+        "case_type_stratum": _optional_str(selection, "case_type_stratum"),
         "source_url": _optional_str(selection, "source_url"),
         "documents": [dict(document) for document in documents],
         "mtd_decision_screen": (
@@ -617,7 +619,11 @@ def _packet_metadata(
         metadata["decision_date"] = decision_date.isoformat()
     if decision_filed_on_or_after is not None:
         metadata["decision_filed_on_or_after"] = decision_filed_on_or_after.isoformat()
-    for field_name in ("nature_of_suit", "nos_macro_category"):
+    for field_name in (
+        "nature_of_suit",
+        "nos_macro_category",
+        "case_type_stratum",
+    ):
         value = _optional_str(selection, field_name)
         if value is not None:
             metadata[field_name] = value
