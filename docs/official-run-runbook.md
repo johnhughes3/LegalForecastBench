@@ -159,9 +159,19 @@ export COURTLISTENER_API_TOKEN=…   # Authorization: Token <token>
 
 The `discover` search index answers anonymously (it is paced at ~3s/request without a token, 0s with one), but `observe` fails closed before any network call when the token is absent. The moment the token is set, the three commands below are runnable end to end.
 
-### First-Run Smoke Step (required)
+### Step 1: Discover
 
-Before sweeping the backlog, validate the live foreign-key and ordering assumptions with a **single** reconstruction by observing one candidate:
+Attach batch-002 and materialize each frozen decision-first term before attempting any observation:
+
+```bash
+uv run legalforecast batch-002 discover \
+  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --live
+```
+
+### First-Run Observation Smoke Step (required)
+
+After discovery has attached the batch and materialized candidates, validate the live foreign-key and ordering assumptions with a **single** reconstruction before observing the full backlog:
 
 ```bash
 uv run legalforecast batch-002 observe \
@@ -171,14 +181,9 @@ uv run legalforecast batch-002 observe \
 
 If that one reconstruction succeeds (the tally shows `observed: 1`), the docket foreign-key shape and entry ordering are sound and the full sweep is safe. If it fails closed, stop and inspect before spending the backlog.
 
-### The Three Commands
+### Steps 2 and 3: Seed and Observe
 
 ```bash
-# 1. Discover: attach batch-002 and materialize each frozen decision-first term.
-uv run legalforecast batch-002 discover \
-  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
-  --live
-
 # 2. (Optional) Seed batch-001 Case.dev enrichment failures as re-observation leads.
 uv run legalforecast batch-002 seed-batch-001-leads \
   --source-store artifacts/cycle-1/batch-001-zero-paid/cycle-acquisition.sqlite3 \
