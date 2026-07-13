@@ -205,7 +205,13 @@ class CaseDevDocketMetadata:
                 "docket_number",
                 "case_number",
             ),
-            case_name=_optional_text(source, "caseName", "caption", "name"),
+            case_name=_optional_text(
+                source,
+                "caseName",
+                "case_name",
+                "caption",
+                "name",
+            ),
             nature_of_suit=_optional_text(source, "natureOfSuit", "nature_of_suit"),
             cause=_optional_text(source, "cause"),
         )
@@ -630,10 +636,25 @@ def _looks_like_bankruptcy_adversary_metadata(
     if not _looks_like_bankruptcy_court(metadata):
         return False
     docket_number = metadata.docket_number or ""
+    if re.search(r"(?:^|[-:])bk(?:[-:]|\b)", docket_number, re.I):
+        return False
     explicit_adversary_number = bool(
         re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", docket_number, re.I)
     )
-    return explicit_adversary_number
+    # Some bankruptcy courts expose adversary proceedings through Case.dev with
+    # a court-local number such as ``26-01028`` rather than an ``ap``/``adv``
+    # marker.  A party-versus-party caption is still explicit adversary metadata
+    # and is safe to retain for the later fail-closed Rule 7012 docket screen.
+    explicit_adversary_caption = _looks_like_adversarial_caption(
+        metadata.case_name or ""
+    )
+    return explicit_adversary_number or explicit_adversary_caption
+
+
+def _looks_like_adversarial_caption(text: str) -> bool:
+    """Return whether text contains an explicit party-versus-party caption."""
+
+    return bool(re.search(r"\S\s+v\.?\s+\S", text, re.IGNORECASE))
 
 
 def _looks_like_federal_district_court(court_text: str) -> bool:
@@ -1066,6 +1087,7 @@ def _bankruptcy_adversary_exclusion_reasons(
         return ("bankruptcy_posture",)
     adversary_identity = bool(
         re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", combined_text, re.I)
+        or _looks_like_adversarial_caption(page.title or "")
     )
     if not adversary_identity:
         return ("bankruptcy_posture",)
