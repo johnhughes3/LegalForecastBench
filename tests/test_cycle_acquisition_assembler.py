@@ -702,6 +702,146 @@ def test_assemble_cycle_acquisition_accepts_multiple_ordered_split_pairs(
     ] == ["123", "456"]
 
 
+def test_assemble_cycle_acquisition_composes_ordered_multi_component_roots(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "screening-snapshot"
+    plan = tmp_path / "public-plan"
+    free_download = tmp_path / "free-download"
+    bridge = tmp_path / "gap-bridge"
+    core_filter = tmp_path / "core-filter"
+    roots = (snapshot, plan, free_download, bridge, core_filter)
+    _write_batch(
+        snapshot,
+        screened=[
+            _courtlistener_screened("123"),
+            _courtlistener_screened("456"),
+        ],
+        exclusions=[],
+        selections=[],
+        relevance=[],
+        documents=[],
+    )
+    _write_downstream_component(
+        plan,
+        selections=[_selection("123")],
+        paid_gaps=[{"candidate_id": "123", "paid_gap_reasons": ["missing_motion"]}],
+    )
+    _write_downstream_component(
+        free_download,
+        documents=[("123", "decision", b"free decision")],
+    )
+    _write_downstream_component(
+        bridge,
+        relevance=[_relevance("123", requires_paid_recovery=True)],
+    )
+    _write_downstream_component(
+        core_filter,
+        core_filters=[{"candidate_id": "123", "included": True}],
+    )
+    _write_jsonl(
+        core_filter / "pacer-gap-bridge-exclusions.jsonl",
+        [
+            {
+                "candidate_id": "456",
+                "primary_exclusion_reason": "missing_core_documents",
+            }
+        ],
+    )
+
+    cycle = tmp_path / "cycle"
+    assert _assemble_batches(list(roots), cycle) == 0
+    assert [
+        record["candidate_id"] for record in _read_jsonl(cycle / "screened-cases.jsonl")
+    ] == ["123"]
+    assert [
+        record["candidate_id"]
+        for record in _read_jsonl(cycle / "discovery-exclusions.jsonl")
+    ] == ["456"]
+    assert [
+        record["candidate_id"]
+        for record in _read_jsonl(cycle / "public-packet-selection.jsonl")
+    ] == ["123"]
+    assert [
+        record["candidate_id"]
+        for record in _read_jsonl(cycle / "document-downloads-merged.jsonl")
+    ] == ["123"]
+    summary = json.loads(
+        (cycle / "cycle-acquisition-summary.json").read_text(encoding="utf-8")
+    )
+    assert [
+        batch["screening_snapshot_batch_ordinal"] for batch in summary["batches"]
+    ] == [
+        1,
+        1,
+        1,
+        1,
+        1,
+    ]
+    assert [batch["downstream_component_ordinal"] for batch in summary["batches"]] == [
+        0,
+        1,
+        2,
+        3,
+        4,
+    ]
+
+
+def test_assemble_cycle_acquisition_empty_component_preserves_snapshot_binding(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "screening-snapshot"
+    empty = tmp_path / "empty"
+    downstream = tmp_path / "public-plan"
+    _write_batch(
+        snapshot,
+        screened=[_courtlistener_screened("123")],
+        exclusions=[],
+        selections=[],
+        relevance=[],
+        documents=[],
+    )
+    _write_downstream_component(empty)
+    _write_downstream_component(
+        downstream,
+        selections=[_selection("123")],
+        relevance=[_relevance("123", requires_paid_recovery=False)],
+    )
+
+    cycle = tmp_path / "cycle"
+    assert _assemble_batches([snapshot, empty, downstream], cycle) == 0
+    summary = json.loads(
+        (cycle / "cycle-acquisition-summary.json").read_text(encoding="utf-8")
+    )
+    assert [batch["downstream_component_ordinal"] for batch in summary["batches"]] == [
+        0,
+        1,
+        2,
+    ]
+
+
+def test_assemble_cycle_acquisition_unrecognized_empty_root_breaks_binding(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    snapshot = tmp_path / "screening-snapshot"
+    empty = tmp_path / "empty"
+    downstream = tmp_path / "public-plan"
+    _write_batch(
+        snapshot,
+        screened=[_courtlistener_screened("123")],
+        exclusions=[],
+        selections=[],
+        relevance=[],
+        documents=[],
+    )
+    empty.mkdir()
+    _write_downstream_component(downstream, selections=[_selection("123")])
+
+    assert _assemble_batches([snapshot, empty, downstream], tmp_path / "cycle") == 2
+    assert "non-empty screening snapshot root" in capsys.readouterr().err
+
+
 def test_assemble_cycle_acquisition_help_documents_split_root_order(
     capsys: Any,
 ) -> None:
@@ -710,8 +850,9 @@ def test_assemble_cycle_acquisition_help_documents_split_root_order(
 
     assert exc_info.value.code == 0
     output = capsys.readouterr().out
-    assert "screening snapshot root immediately followed" in output
-    assert "standardized plan/download/bridge/filter root" in output
+    assert "non-empty screening snapshot" in output
+    assert "plan/download/bridge/filter component roots" in output
+    assert "downstream-only root remains tied" in output
 
 
 def test_assemble_cycle_acquisition_validates_current_screening_summary_counts(
@@ -827,6 +968,29 @@ def _write_batch(
         ),
         encoding="utf-8",
     )
+
+
+def _write_downstream_component(
+    root: Path,
+    *,
+    selections: list[dict[str, object]] | None = None,
+    relevance: list[dict[str, object]] | None = None,
+    documents: list[tuple[str, str, bytes]] | None = None,
+    paid_gaps: list[dict[str, object]] | None = None,
+    core_filters: list[dict[str, object]] | None = None,
+) -> None:
+    _write_batch(
+        root,
+        screened=[],
+        exclusions=[],
+        selections=selections or [],
+        relevance=relevance or [],
+        documents=documents or [],
+        paid_gaps=paid_gaps,
+        core_filters=core_filters,
+    )
+    _write_jsonl(root / "screened-cases.jsonl", [])
+    (root / "summary.json").unlink()
 
 
 def _courtlistener_screened(candidate_id: str) -> dict[str, object]:

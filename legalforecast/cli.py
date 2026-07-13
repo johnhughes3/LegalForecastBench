@@ -2523,8 +2523,10 @@ def _add_acquisition_assemble_cycle_arguments(parser: argparse.ArgumentParser) -
         help=(
             "Immutable acquisition artifact root. Repeat in chronological order; "
             "later evidenced records supersede refreshable earlier records. For "
-            "split batches, pass the screening snapshot root immediately followed "
-            "by its standardized plan/download/bridge/filter root."
+            "split batches, pass a non-empty screening snapshot followed by its "
+            "ordered plan/download/bridge/filter component roots. Every downstream-"
+            "only root remains tied to the most recent snapshot until the next "
+            "snapshot."
         ),
     )
     parser.set_defaults(handler=_cmd_acquisition_assemble_cycle)
