@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+
 import pytest
 from legalforecast.ingestion.case_dev_client import (
     CaseDevClient,
@@ -104,6 +106,55 @@ def test_bridge_fails_closed_on_caption_conflict() -> None:
     assert result.selection_records == ()
     [exclusion] = result.exclusions
     assert exclusion["exclusion_reasons"] == ["case_dev_caption_conflict"]
+
+
+def test_bridge_continues_after_bounded_case_dev_server_failure() -> None:
+    failed = copy.deepcopy(_screened_case())
+    failed_candidate = failed["candidate"]
+    assert isinstance(failed_candidate, dict)
+    failed_candidate["docket_id"] = "cl-failed"
+    failed_candidate["candidate_key"] = "cl-failed"
+    failed_metadata = failed_candidate["metadata"]
+    assert isinstance(failed_metadata, dict)
+    failed_metadata["case_id"] = "cl-failed"
+    failed_metadata["docket_number"] = "1:26-cv-00000"
+    server_failure = RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params={"type": "search", "query": "1:26-cv-00000", "limit": 20},
+        status_code=503,
+        payload={"error": "temporary upstream failure"},
+    )
+    max_retries = 2
+    transport = CaseDevFixtureTransport(
+        (
+            *((server_failure,) * (max_retries + 1)),
+            _search_response(_case_dev_docket()),
+            _lookup_response(),
+        )
+    )
+    client = CaseDevClient(
+        config=CaseDevConfig(api_key=None),
+        transport=transport,
+        max_retries=max_retries,
+    )
+
+    result = bridge_courtlistener_case_dev_documents(
+        (failed, _screened_case()),
+        client=client,
+        use_embedded_entries=True,
+        target_clean_cases=2,
+    )
+
+    assert [record["candidate_id"] for record in result.selection_records] == ["cl-123"]
+    [exclusion] = result.exclusions
+    assert exclusion["candidate_id"] == "cl-failed"
+    assert exclusion["exclusion_reasons"] == ["case_dev_server_error_retries_exhausted"]
+    assert client.request_count == max_retries + 3
+    assert all(
+        "live" not in params and "acknowledgePacerFees" not in params
+        for _, _, params in transport.requests
+    )
 
 
 def test_bridge_fails_closed_on_restricted_core_document() -> None:
@@ -245,6 +296,58 @@ def test_public_first_bridge_routes_only_paid_gap_and_retains_free_ids() -> None
     [core_filter] = filter_core_documents((relevance,))
     assert core_filter.purchase_document_ids == ("case-dev-mtd",)
     assert core_filter.exclusion_reasons == ()
+
+
+def test_public_first_bridge_ledgers_exhausted_case_dev_server_failure() -> None:
+    screened = _screened_case()
+    public_plan = plan_public_packet_downloads(
+        (screened,),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+    [gap] = public_plan.paid_gap_cases
+    downloads = tuple(
+        {
+            **request.to_record(),
+            "local_path": f"cl-123/courtlistener/{request.source_document_id}.pdf",
+            "sha256": "a" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in public_plan.download_requests
+    )
+    server_failure = RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params={"type": "search", "query": "1:26-cv-00001", "limit": 20},
+        status_code=503,
+        payload={"error": "temporary upstream failure"},
+    )
+    max_retries = 2
+    transport = CaseDevFixtureTransport((server_failure,) * (max_retries + 1))
+    client = CaseDevClient(
+        config=CaseDevConfig(api_key=None),
+        transport=transport,
+        max_retries=max_retries,
+    )
+
+    result = bridge_public_plan_paid_gaps(
+        (screened,),
+        public_selection_records=(),
+        paid_gap_records=(gap.to_record(),),
+        free_download_records=downloads,
+        client=client,
+        use_embedded_entries=True,
+    )
+
+    assert result.selection_records == ()
+    [exclusion] = result.exclusions
+    assert exclusion["candidate_id"] == "cl-123"
+    assert exclusion["exclusion_reasons"] == ["case_dev_server_error_retries_exhausted"]
+    assert client.request_count == max_retries + 1
+    assert all(
+        "live" not in params and "acknowledgePacerFees" not in params
+        for _, _, params in transport.requests
+    )
 
 
 def test_public_first_bridge_emits_relevance_for_fully_free_and_paid_gap() -> None:

@@ -15,7 +15,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from legalforecast.ingestion.case_dev_client import CaseDevClient, CaseDevDocketHit
+from legalforecast.ingestion.case_dev_client import (
+    CaseDevClient,
+    CaseDevDocketHit,
+    CaseDevServerError,
+)
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerEntryRole,
     CourtListenerWebDocketEntry,
@@ -246,6 +250,15 @@ def bridge_courtlistener_case_dev_documents(
             reason, _, detail = str(exc).partition(":")
             exclusions.append(_exclusion(record, reason, detail=detail.strip() or None))
             continue
+        except CaseDevServerError as exc:
+            exclusions.append(
+                _exclusion(
+                    record,
+                    "case_dev_server_error_retries_exhausted",
+                    detail=str(exc),
+                )
+            )
+            continue
         selections.append(candidate)
         relevance.append(case_relevance)
         free_requests.extend(requests)
@@ -317,6 +330,15 @@ def bridge_public_plan_paid_gaps(
         except CourtListenerCaseDevBridgeError as exc:
             reason, _, detail = str(exc).partition(":")
             exclusions.append(_exclusion(record, reason, detail=detail.strip() or None))
+            continue
+        except CaseDevServerError as exc:
+            exclusions.append(
+                _exclusion(
+                    record,
+                    "case_dev_server_error_retries_exhausted",
+                    detail=str(exc),
+                )
+            )
             continue
         selections.append(selection)
         relevance.append(case_relevance)
