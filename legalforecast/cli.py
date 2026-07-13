@@ -4128,9 +4128,7 @@ def _cmd_acquisition_project_firecrawl_recap_checkpoint(
                 )
             frozen_term_items = cast(list[object], frozen_terms_value)
             frozen_terms = tuple(
-                term
-                for term in frozen_term_items
-                if isinstance(term, str)
+                term for term in frozen_term_items if isinstance(term, str)
             )
             if len(frozen_terms) != len(frozen_term_items):
                 raise ConfigMismatchError(
