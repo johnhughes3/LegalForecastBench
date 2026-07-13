@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+import legalforecast.ingestion.firecrawl_source as firecrawl_source
 import pytest
 from legalforecast.ingestion.firecrawl_source import (
     FIRECRAWL_SCRAPE_ENDPOINT,
@@ -17,11 +18,35 @@ from legalforecast.ingestion.firecrawl_source import (
     FirecrawlResponseError,
     FirecrawlServerError,
     FirecrawlURLValidationError,
+    UrlLibFirecrawlTransport,
     canonicalize_courtlistener_source_url,
     validate_courtlistener_recap_search_url,
 )
 
 _URL = "https://www.courtlistener.com/docket/70649963/sam-v-easy-honda/"
+
+
+def test_url_lib_transport_classifies_socket_read_timeout_as_transient(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def timeout(*args: object, **kwargs: object) -> object:
+        raise TimeoutError("read operation timed out")
+
+    monkeypatch.setattr(firecrawl_source.urllib.request, "urlopen", timeout)
+
+    with pytest.raises(FirecrawlServerError) as raised:
+        UrlLibFirecrawlTransport().scrape(
+            endpoint=FIRECRAWL_SCRAPE_ENDPOINT,
+            headers={"Authorization": "Bearer redacted"},
+            payload={"url": _URL},
+            timeout_seconds=1.0,
+        )
+
+    assert raised.value.failure_code == "provider_server_error"
+    assert raised.value.transient is True
+    assert str(raised.value) == (
+        "Firecrawl request failed before receiving an HTTP response"
+    )
 
 
 def _success_response(
