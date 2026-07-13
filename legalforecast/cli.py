@@ -15,7 +15,7 @@ import time
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -1359,6 +1359,28 @@ def _add_acquisition_discover_firecrawl_recap_arguments(
         help="Stable Firecrawl run identity used for crash-safe resume.",
     )
     parser.add_argument(
+        "--recover-terminal-errors-from-run",
+        metavar="RUN_ID",
+        help=(
+            "Run one bounded fallback generation after RUN_ID ended with terminal "
+            "target errors. The new --run-id must be unique, --proxy enhanced and "
+            "--force-browser are required, verified parent successes are reused, "
+            "and fallback runs cannot be chained."
+        ),
+    )
+    parser.add_argument(
+        "--reuse-verified-pages-from-run",
+        dest="recovery_source_run_ids",
+        action="append",
+        default=[],
+        metavar="RUN_ID",
+        help=(
+            "Additional bounded same-batch run whose verified successful pages "
+            "are unioned into terminal recovery. Repeatable; conflicting bytes "
+            "for one search URL fail closed."
+        ),
+    )
+    parser.add_argument(
         "--eligibility-anchor",
         required=True,
         metavar="YYYY-MM-DD",
@@ -1462,8 +1484,14 @@ def _add_acquisition_project_firecrawl_recap_checkpoint_arguments(
     )
     parser.add_argument(
         "--run-id",
+        dest="run_ids",
+        action="append",
         required=True,
-        help="Firecrawl run whose successful search artifacts will be verified.",
+        help=(
+            "Firecrawl run whose successful search artifacts will be verified. "
+            "Repeat to union bounded runs from the same frozen batch; conflicting "
+            "bytes for one term/page fail closed."
+        ),
     )
     parser.add_argument("--pages-output", type=Path)
     parser.add_argument("--entries-output", type=Path)
@@ -3893,10 +3921,23 @@ def _cmd_acquisition_discover_case_dev(args: argparse.Namespace) -> int:
 class _BudgetedRecapSearchTransport:
     """Adapt page-at-a-time RECAP discovery to the durable scheduler."""
 
-    def __init__(self, scheduler: BudgetedFirecrawlScheduler) -> None:
+    def __init__(
+        self,
+        scheduler: BudgetedFirecrawlScheduler,
+        *,
+        inherited_pages: Sequence[FirecrawlPageRecord] = (),
+        continuation_scheduler: BudgetedFirecrawlScheduler | None = None,
+        fallback_source_urls: frozenset[str] = frozenset(),
+    ) -> None:
         self.scheduler = scheduler
+        self.continuation_scheduler = continuation_scheduler or scheduler
+        self._fallback_source_urls = fallback_source_urls
+        self._traversed_fallback_urls: set[str] = set()
         self._ordinals: dict[str, int] = {}
         self._pages: dict[str, FirecrawlPageRecord] = {}
+        self._inherited_pages = {page.source_url: page for page in inherited_pages}
+        if len(self._inherited_pages) != len(inherited_pages):
+            raise ValueError("recovery parent contains duplicate successful page URLs")
 
     @property
     def pages(self) -> tuple[FirecrawlPageRecord, ...]:
@@ -3907,14 +3948,30 @@ class _BudgetedRecapSearchTransport:
             )
         )
 
+    @property
+    def unrecovered_fallback_urls(self) -> frozenset[str]:
+        return self._fallback_source_urls - self._traversed_fallback_urls
+
     def fetch(self, *, source_url: str) -> str:
         target = parse_recap_search_url(source_url)
         ordinal = self._ordinals.setdefault(source_url, len(self._ordinals))
+        inherited = self._inherited_pages.get(source_url)
+        if inherited is not None:
+            if inherited.target_kind != "search":
+                raise RecapSearchError(
+                    "recovery parent page is not a RECAP search target"
+                )
+            self._pages[source_url] = inherited
+            return inherited.raw_html
         target_id = (
             "recap-search-"
             + hashlib.sha256(source_url.encode("utf-8")).hexdigest()[:24]
         )
-        result = self.scheduler.run(
+        use_fallback = source_url in self._fallback_source_urls
+        selected_scheduler = (
+            self.scheduler if use_fallback else self.continuation_scheduler
+        )
+        result = selected_scheduler.run(
             (
                 FirecrawlTargetSpec(
                     target_id=target_id,
@@ -3934,6 +3991,8 @@ class _BudgetedRecapSearchTransport:
                 "Firecrawl retries were exhausted before a complete RECAP page "
                 f"was acquired: {target.term} page {target.page}"
             )
+        if use_fallback:
+            self._traversed_fallback_urls.add(source_url)
         self._pages[source_url] = page
         return page.raw_html
 
@@ -3945,26 +4004,33 @@ def _cmd_acquisition_project_firecrawl_recap_checkpoint(
 
     output_root = _acquisition_output_root(args)
     store_path = cast(Path, args.cycle_store)
-    run_id = cast(str, args.run_id)
+    run_ids = tuple(cast(Sequence[str], args.run_ids))
+    if len(set(run_ids)) != len(run_ids):
+        raise CommandError("--run-id values must be unique")
+    run_id = run_ids[0]
+    projection_id = run_id
+    if len(run_ids) > 1:
+        digest = hashlib.sha256("\0".join(run_ids).encode("utf-8")).hexdigest()[:12]
+        projection_id = f"{run_id}-union-{digest}"
     pages_path = _acquisition_path(
         args,
         "pages_output",
-        output_root / "checkpoints" / f"{run_id}-partial-recap-pages.jsonl",
+        output_root / "checkpoints" / f"{projection_id}-partial-recap-pages.jsonl",
     )
     entries_path = _acquisition_path(
         args,
         "entries_output",
-        output_root / "checkpoints" / f"{run_id}-partial-recap-entries.jsonl",
+        output_root / "checkpoints" / f"{projection_id}-partial-recap-entries.jsonl",
     )
     dockets_path = _acquisition_path(
         args,
         "dockets_output",
-        output_root / "checkpoints" / f"{run_id}-partial-recap-dockets.jsonl",
+        output_root / "checkpoints" / f"{projection_id}-partial-recap-dockets.jsonl",
     )
     summary_path = _acquisition_path(
         args,
         "summary_output",
-        output_root / "checkpoints" / f"{run_id}-partial-recap-summary.json",
+        output_root / "checkpoints" / f"{projection_id}-partial-recap-summary.json",
     )
     input_paths = (store_path,)
     output_paths = (pages_path, entries_path, dockets_path, summary_path)
@@ -3974,6 +4040,7 @@ def _cmd_acquisition_project_firecrawl_recap_checkpoint(
             "schema_version": "legalforecast.recap_partial_checkpoint_summary.v1",
             "dry_run": True,
             "run_id": run_id,
+            "run_ids": list(run_ids),
             "store_projection_committed": False,
             "acquired_page_count": 0,
             "raw_hit_count": 0,
@@ -4015,18 +4082,87 @@ def _cmd_acquisition_project_firecrawl_recap_checkpoint(
 
     try:
         with CycleAcquisitionStore(store_path) as store:
-            credit_summary = dict(store.firecrawl_run_summary(run_id))
+            credit_summaries = {
+                source_run_id: dict(store.firecrawl_run_summary(source_run_id))
+                for source_run_id in run_ids
+            }
+            credit_summary = credit_summaries[run_id]
             batch_id_value = credit_summary.get("batch_id")
             if not isinstance(batch_id_value, str) or not batch_id_value:
                 raise CycleAcquisitionStoreError(
                     "durable Firecrawl run has no valid batch identity"
                 )
             batch_id = batch_id_value
-            pages = load_successful_firecrawl_pages(store=store, run_id=run_id)
+            pages_by_url: dict[str, FirecrawlPageRecord] = {}
+            for source_run_id in run_ids:
+                source_summary = credit_summaries[source_run_id]
+                if source_summary.get("batch_id") != batch_id:
+                    raise ConfigMismatchError(
+                        "Firecrawl checkpoint union crosses frozen batches"
+                    )
+                for page in load_successful_firecrawl_pages(
+                    store=store, run_id=source_run_id
+                ):
+                    prior = pages_by_url.get(page.source_url)
+                    if (
+                        prior is not None
+                        and prior.artifact_sha256 != page.artifact_sha256
+                    ):
+                        raise FirecrawlArtifactError(
+                            "conflicting verified bytes for checkpoint search URL "
+                            f"{page.source_url}"
+                        )
+                    pages_by_url.setdefault(page.source_url, page)
+            pages = tuple(pages_by_url.values())
             if not pages:
                 raise RecapPartialProjectionError(
                     "durable Firecrawl run contains no successful search pages"
                 )
+            frozen_config = store.batch_config(batch_id)
+            frozen_terms_value = frozen_config.get("query_terms")
+            if frozen_terms_value is None:
+                frozen_terms_value = frozen_config.get("terms")
+            if not isinstance(frozen_terms_value, list):
+                raise ConfigMismatchError(
+                    "frozen batch has no valid ordered search-term plan"
+                )
+            frozen_term_items = cast(list[object], frozen_terms_value)
+            frozen_terms = tuple(
+                term
+                for term in frozen_term_items
+                if isinstance(term, str)
+            )
+            if len(frozen_terms) != len(frozen_term_items):
+                raise ConfigMismatchError(
+                    "frozen batch has no valid ordered search-term plan"
+                )
+            frozen_term_ordinals = {
+                term: ordinal for ordinal, term in enumerate(frozen_terms)
+            }
+            parsed_targets = {
+                page.source_url: parse_recap_search_url(page.source_url)
+                for page in pages
+            }
+            if any(
+                target.term not in frozen_term_ordinals
+                for target in parsed_targets.values()
+            ):
+                raise ConfigMismatchError(
+                    "verified page term is absent from the frozen batch plan"
+                )
+            pages = tuple(
+                replace(page, ordinal=ordinal)
+                for ordinal, page in enumerate(
+                    sorted(
+                        pages,
+                        key=lambda item: (
+                            frozen_term_ordinals[parsed_targets[item.source_url].term],
+                            parsed_targets[item.source_url].page,
+                            item.source_url,
+                        ),
+                    )
+                )
+            )
             projection = project_partial_recap_checkpoint(pages)
             _commit_recap_discovery_pages(
                 store=store,
@@ -4064,6 +4200,7 @@ def _cmd_acquisition_project_firecrawl_recap_checkpoint(
             paid_activity_executed=False,
             extra={
                 "run_id": run_id,
+                "run_ids": list(run_ids),
                 "checkpoint_only": True,
                 "complete": False,
                 "saturated": False,
@@ -4090,6 +4227,8 @@ def _cmd_acquisition_project_firecrawl_recap_checkpoint(
         "search_window_start": frozen_batch_config.get("search_window_start"),
         "search_window_end": frozen_batch_config.get("search_window_end"),
         "store_projection_committed": True,
+        "run_ids": list(run_ids),
+        "source_run_credit_summaries": credit_summaries,
         "potential_candidate_count": len(docket_records),
         "clean_corpus_count": 0,
         "candidate_count_semantics": (
@@ -4229,23 +4368,59 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     batch_id = cast(str, args.batch_id)
     run_id = cast(str, args.run_id)
+    recovery_of_run_id = cast(str | None, args.recover_terminal_errors_from_run)
+    additional_recovery_source_run_ids = tuple(
+        cast(Sequence[str], args.recovery_source_run_ids)
+    )
+    if additional_recovery_source_run_ids and recovery_of_run_id is None:
+        raise CommandError(
+            "--reuse-verified-pages-from-run requires "
+            "--recover-terminal-errors-from-run"
+        )
+    recovery_source_run_ids = (
+        ()
+        if recovery_of_run_id is None
+        else (recovery_of_run_id, *additional_recovery_source_run_ids)
+    )
+    if len(set(recovery_source_run_ids)) != len(recovery_source_run_ids):
+        raise CommandError("terminal recovery source run IDs must be unique")
+    if run_id in recovery_source_run_ids:
+        raise CommandError("recovery --run-id must differ from every source run")
+    default_output_identity = batch_id
+    if recovery_of_run_id is not None:
+        try:
+            default_output_identity = safe_path_component(run_id, field_name="run_id")
+        except ValueError as exc:
+            raise CommandError(str(exc)) from exc
+        if cast(Path | None, args.run_card_output) is None:
+            args.run_card_output = (
+                output_root
+                / "run-cards"
+                / f"discover-firecrawl-recap-{default_output_identity}.json"
+            )
+        if cast(Path | None, args.log_output) is None:
+            args.log_output = (
+                output_root
+                / "logs"
+                / f"discover-firecrawl-recap-{default_output_identity}.jsonl"
+            )
     store_path = _acquisition_path(
         args, "cycle_store", output_root / "cycle-acquisition.sqlite3"
     )
     entries_path = _acquisition_path(
         args,
         "entries_output",
-        output_root / "checkpoints" / f"{batch_id}-recap-entries.jsonl",
+        output_root / "checkpoints" / f"{default_output_identity}-recap-entries.jsonl",
     )
     dockets_path = _acquisition_path(
         args,
         "dockets_output",
-        output_root / "checkpoints" / f"{batch_id}-recap-dockets.jsonl",
+        output_root / "checkpoints" / f"{default_output_identity}-recap-dockets.jsonl",
     )
     summary_path = _acquisition_path(
         args,
         "summary_output",
-        output_root / "checkpoints" / f"{batch_id}-recap-summary.json",
+        output_root / "checkpoints" / f"{default_output_identity}-recap-summary.json",
     )
     configured_raw_search_html_dir = cast(Path | None, args.raw_search_html_dir)
     if configured_raw_search_html_dir is None:
@@ -4289,6 +4464,10 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         raise CommandError("--credit-cap must be between 1 and 45000")
     proxy = cast(str, args.proxy)
     force_browser = cast(bool, args.force_browser)
+    if recovery_of_run_id is not None and (proxy != "enhanced" or not force_browser):
+        raise CommandError(
+            "terminal target recovery requires --proxy enhanced --force-browser"
+        )
     fixture_path = cast(Path | None, args.firecrawl_fixture)
     live = cast(bool, args.live_firecrawl)
     if live == (fixture_path is not None):
@@ -4331,6 +4510,10 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         ],
         "raw_artifact_root": str(raw_search_html_dir.resolve()),
     }
+    if recovery_of_run_id is not None:
+        run_config["recovery_of_run_id"] = recovery_of_run_id
+        run_config["recovery_source_run_ids"] = list(recovery_source_run_ids)
+        run_config["recovery_generation"] = 1
     if dry_run:
         summary: JsonRecord = {
             "schema_version": "legalforecast.firecrawl_recap_discovery_summary.v1",
@@ -4361,27 +4544,163 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         )
         return 0
 
+    recovery_parent_credit_summary: Mapping[str, object] = {}
     try:
-        source = (
-            FirecrawlCourtListenerHTMLSource(
-                FirecrawlConfig.from_env(
-                    proxy=cast(Any, proxy), force_browser=force_browser
+        fixture_transport = (
+            None if live else _firecrawl_fixture_transport(cast(Path, fixture_path))
+        )
+
+        def make_source(
+            *, source_proxy: str, source_force_browser: bool
+        ) -> FirecrawlCourtListenerHTMLSource:
+            if live:
+                return FirecrawlCourtListenerHTMLSource(
+                    FirecrawlConfig.from_env(
+                        proxy=cast(Any, source_proxy),
+                        force_browser=source_force_browser,
+                    )
                 )
-            )
-            if live
-            else FirecrawlCourtListenerHTMLSource(
+            return FirecrawlCourtListenerHTMLSource(
                 FirecrawlConfig(
                     api_key="offline-fixture",
-                    proxy=cast(Any, proxy),
-                    force_browser=force_browser,
+                    proxy=cast(Any, source_proxy),
+                    force_browser=source_force_browser,
                 ),
-                transport=_firecrawl_fixture_transport(cast(Path, fixture_path)),
+                transport=fixture_transport,
             )
-        )
+
+        source = make_source(source_proxy=proxy, source_force_browser=force_browser)
         with CycleAcquisitionStore(store_path) as store:
             cycle_hash = store.ensure_cycle(policy)
             batch_digest = store.ensure_batch(batch_id, batch_config)
             store.ensure_terms(batch_id, terms)
+            inherited_pages: tuple[FirecrawlPageRecord, ...] = ()
+            recovery_terminal_target_count = 0
+            terminal_source_urls: frozenset[str] = frozenset()
+            continuation_scheduler: BudgetedFirecrawlScheduler | None = None
+            if recovery_of_run_id is not None:
+                frozen_parent_run_fields = (
+                    "query_terms",
+                    "courtlistener_query_plan_version",
+                    "courtlistener_query_expressions",
+                )
+                pages_by_url: dict[str, FirecrawlPageRecord] = {}
+                all_terminal_source_urls: set[str] = set()
+                primary_config: Mapping[str, object] | None = None
+                primary_terminal_count = 0
+                source_summaries: dict[str, Mapping[str, object]] = {}
+                for source_run_id in recovery_source_run_ids:
+                    source_summary = store.firecrawl_run_summary(source_run_id)
+                    source_summaries[source_run_id] = source_summary
+                    source_config = store.firecrawl_run_config(source_run_id)
+                    if source_summary.get("batch_id") != batch_id:
+                        raise ConfigMismatchError(
+                            "recovery source does not belong to the frozen batch"
+                        )
+                    if "recovery_of_run_id" in source_config:
+                        raise ConfigMismatchError(
+                            "cannot recover a fallback run; recovery is limited to one "
+                            "bounded generation"
+                        )
+                    if source_config.get("purpose") != "anchored-recap-entry-discovery":
+                        raise ConfigMismatchError(
+                            "recovery source is not an anchored RECAP discovery run"
+                        )
+                    if any(
+                        source_config.get(field) != run_config.get(field)
+                        for field in frozen_parent_run_fields
+                    ):
+                        raise ConfigMismatchError(
+                            "recovery source query plan does not match the frozen batch"
+                        )
+                    terminal_targets = tuple(
+                        target
+                        for target in store.firecrawl_targets(source_run_id)
+                        if target.status == "terminal_error"
+                    )
+                    if source_run_id == recovery_of_run_id:
+                        primary_config = source_config
+                        primary_terminal_count = len(terminal_targets)
+                    if any(
+                        target.target_kind != "search" for target in terminal_targets
+                    ):
+                        raise ConfigMismatchError(
+                            "recovery source contains a non-search terminal target"
+                        )
+                    source_attempts = store.firecrawl_attempts(source_run_id)
+                    terminal_target_ids = {
+                        target.target_id for target in terminal_targets
+                    }
+                    evidenced_target_ids = {
+                        attempt.target_id
+                        for attempt in source_attempts
+                        if attempt.target_id in terminal_target_ids
+                        and attempt.status == "target_error"
+                        and attempt.failure_transient is False
+                    }
+                    if evidenced_target_ids != terminal_target_ids:
+                        raise ConfigMismatchError(
+                            "recovery source terminal targets lack nontransient "
+                            "target-error evidence"
+                        )
+                    all_terminal_source_urls.update(
+                        target.source_url for target in terminal_targets
+                    )
+                    for page in load_successful_firecrawl_pages(
+                        store=store, run_id=source_run_id
+                    ):
+                        prior = pages_by_url.get(page.source_url)
+                        if (
+                            prior is not None
+                            and prior.artifact_sha256 != page.artifact_sha256
+                        ):
+                            raise FirecrawlArtifactError(
+                                "conflicting verified bytes for recovery search URL "
+                                f"{page.source_url}"
+                            )
+                        pages_by_url.setdefault(page.source_url, page)
+                if primary_terminal_count == 0:
+                    raise ConfigMismatchError(
+                        "recovery parent has no terminal target errors"
+                    )
+                recovery_parent_credit_summary = {"source_runs": source_summaries}
+                inherited_pages = tuple(pages_by_url.values())
+                terminal_source_urls = frozenset(
+                    all_terminal_source_urls - pages_by_url.keys()
+                )
+                recovery_terminal_target_count = len(terminal_source_urls)
+                assert primary_config is not None
+                parent_config = primary_config
+                parent_proxy = parent_config.get("proxy")
+                parent_force_browser = parent_config.get("force_browser")
+                parent_max_attempts = parent_config.get("max_attempts_per_page")
+                parent_breaker_threshold = parent_config.get(
+                    "provider_breaker_threshold"
+                )
+                parent_artifact_root = parent_config.get("raw_artifact_root")
+                if (
+                    parent_proxy not in {"basic", "auto", "enhanced"}
+                    or not isinstance(parent_force_browser, bool)
+                    or not isinstance(parent_max_attempts, int)
+                    or isinstance(parent_max_attempts, bool)
+                    or not isinstance(parent_breaker_threshold, int)
+                    or isinstance(parent_breaker_threshold, bool)
+                    or not isinstance(parent_artifact_root, str)
+                ):
+                    raise ConfigMismatchError(
+                        "recovery parent has an invalid immutable scheduler config"
+                    )
+                continuation_scheduler = BudgetedFirecrawlScheduler(
+                    store=store,
+                    source=make_source(
+                        source_proxy=cast(str, parent_proxy),
+                        source_force_browser=parent_force_browser,
+                    ),
+                    run_id=recovery_of_run_id,
+                    artifact_dir=parent_artifact_root,
+                    max_attempts=parent_max_attempts,
+                    provider_5xx_circuit_threshold=parent_breaker_threshold,
+                )
             run_digest = store.ensure_firecrawl_run(
                 run_id,
                 batch_id=batch_id,
@@ -4397,7 +4716,12 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
                 max_attempts=max_attempts,
                 provider_5xx_circuit_threshold=breaker_threshold,
             )
-            transport = _BudgetedRecapSearchTransport(scheduler)
+            transport = _BudgetedRecapSearchTransport(
+                scheduler,
+                inherited_pages=inherited_pages,
+                continuation_scheduler=continuation_scheduler,
+                fallback_source_urls=terminal_source_urls,
+            )
             discovery = discover_recap_mtd_entries(
                 transport=transport,
                 entry_date_filed_after=window_start,
@@ -4405,6 +4729,19 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
                 terms=terms,
                 max_pages_per_term=max_pages_per_term,
             )
+            if transport.unrecovered_fallback_urls:
+                raise RecapSearchError(
+                    "recovery did not traverse every frozen terminal target"
+                )
+            if recovery_of_run_id is not None:
+                fallback_targets = store.firecrawl_targets(run_id)
+                if (
+                    frozenset(target.source_url for target in fallback_targets)
+                    != terminal_source_urls
+                ):
+                    raise RecapSearchError(
+                        "fallback run acquired a target outside the frozen terminal set"
+                    )
             _commit_recap_discovery_pages(
                 store=store,
                 batch_id=batch_id,
@@ -4441,6 +4778,8 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
                 "firecrawl_metered_activity_executed": metered_executed,
                 "pacer_paid_activity_requested": False,
                 "pacer_paid_activity_executed": False,
+                "recovery_of_run_id": recovery_of_run_id,
+                "recovery_parent_credit_summary": dict(recovery_parent_credit_summary),
                 **failure_credit_summary,
             },
         )
@@ -4470,6 +4809,11 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         "cycle_hash": cycle_hash,
         "batch_digest": batch_digest,
         "run_digest": run_digest,
+        "recovery_of_run_id": recovery_of_run_id,
+        "recovery_terminal_target_count": recovery_terminal_target_count,
+        "recovery_parent_credit_summary": dict(recovery_parent_credit_summary),
+        "proxy": proxy,
+        "force_browser": force_browser,
         "query_terms": list(discovery.terms),
         "pages_fetched": discovery.pages_fetched,
         "raw_hit_count": discovery.raw_hit_count,

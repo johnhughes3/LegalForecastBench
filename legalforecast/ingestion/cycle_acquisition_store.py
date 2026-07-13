@@ -482,6 +482,9 @@ class CycleAcquisitionStore:
             raise ValueError("reserved_credits_per_attempt exceeds credit_cap")
         config_json = _canonical_json(config)
         config_digest = _sha256_text(config_json)
+        recovery_parent = config.get("recovery_of_run_id")
+        if recovery_parent is not None:
+            recovery_parent = _require_text(recovery_parent, "recovery_of_run_id")
         now = _utc_now()
         with self._transaction():
             budget = self._connection.execute(
@@ -515,6 +518,22 @@ class CycleAcquisitionStore:
             existing = self._connection.execute(
                 "SELECT * FROM firecrawl_runs WHERE run_id = ?", (run_id,)
             ).fetchone()
+            if existing is None and recovery_parent is not None:
+                for prior in self._connection.execute(
+                    "SELECT run_id, config_json FROM firecrawl_runs"
+                ):
+                    prior_config = json.loads(str(prior["config_json"]))
+                    if (
+                        isinstance(prior_config, dict)
+                        and cast(dict[str, object], prior_config).get(
+                            "recovery_of_run_id"
+                        )
+                        == recovery_parent
+                    ):
+                        raise ConfigMismatchError(
+                            "terminal target recovery already exists for "
+                            f"{recovery_parent}: {prior['run_id']}"
+                        )
             if existing is None:
                 self._connection.execute(
                     """
