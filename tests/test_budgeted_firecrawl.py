@@ -163,7 +163,7 @@ def test_scheduler_authorizes_before_network_and_materializes_success(
         assert result.summary["reported_credits"] == 5
 
 
-def test_semantically_invalid_artifact_is_retried_before_commit(tmp_path: Path) -> None:
+def test_semantically_invalid_artifact_is_terminal_before_commit(tmp_path: Path) -> None:
     target = _target("search-semantic", 0)
     invalid = _success(target, "<html>invalid</html>")
 
