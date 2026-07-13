@@ -140,6 +140,105 @@ def test_motion_description_without_combined_briefing_cue_remains_notice(
     assert gap.paid_gap_reasons == ("no_free_mtd_memorandum",)
 
 
+def test_exact_frozen_target_uses_free_mtd_role_document_when_row_text_is_noisy(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    target = cast(list[dict[str, Any]], record["selected_entries"])[1]
+    target["text"] = "5 Feb 1, 2026 Main Document Dismiss Download PDF"
+    cast(list[dict[str, Any]], target["documents"])[0]["description"] = "Dismiss"
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.paid_gap_cases
+    assert candidate.paid_gap_reasons == ("no_free_mtd_memorandum",)
+    target_documents = [
+        document
+        for document in candidate.documents
+        if document.docket_entry_number == 5
+    ]
+    assert [document.document_role for document in target_documents] == [
+        DocumentRole.MTD_NOTICE
+    ]
+
+
+@pytest.mark.parametrize("description", ("Remand", "Proposed Order", "Exhibit A"))
+def test_exact_frozen_target_rejects_non_mtd_document_roles(
+    tmp_path: Path,
+    description: str,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    target = cast(list[dict[str, Any]], record["selected_entries"])[1]
+    target["text"] = f"5 Feb 1, 2026 Main Document {description} Download PDF"
+    cast(list[dict[str, Any]], target["documents"])[0]["description"] = description
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.paid_gap_cases
+    assert candidate.paid_gap_reasons == (
+        "no_free_target_mtd_document",
+        "no_free_mtd_memorandum",
+    )
+
+
+def test_exact_target_document_rule_does_not_infer_entry_number(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    target = cast(list[dict[str, Any]], record["selected_entries"])[1]
+    target["entry_number"] = None
+    target["text"] = "Main Document Dismiss Download PDF"
+    cast(list[dict[str, Any]], target["documents"])[0]["description"] = "Dismiss"
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        allow_inferred_target_mtd=True,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.paid_gap_cases
+    assert "no_free_target_mtd_document" in candidate.paid_gap_reasons
+
+
+def test_exact_target_document_rule_does_not_use_adjacent_role_match(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    entries = cast(list[dict[str, Any]], record["selected_entries"])
+    target = entries[1]
+    target["text"] = "5 Feb 1, 2026 Main Document Exhibit Download PDF"
+    cast(list[dict[str, Any]], target["documents"])[0]["description"] = "Exhibit A"
+    adjacent = deepcopy(target)
+    adjacent["row_id"] = "entry-6"
+    adjacent["entry_number"] = "6"
+    adjacent["text"] = "6 Feb 2, 2026 Main Document Dismiss Download PDF"
+    cast(list[dict[str, Any]], adjacent["documents"])[0]["description"] = "Dismiss"
+    entries.insert(2, adjacent)
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        allow_inferred_target_mtd=True,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.paid_gap_cases
+    assert "no_free_target_mtd_document" in candidate.paid_gap_reasons
+
+
 def test_planner_rejects_candidate_with_two_selected_target_motions(
     tmp_path: Path,
 ) -> None:

@@ -812,7 +812,8 @@ def _free_target_mtd_entry_numbers(
             (
                 entry
                 for entry in page.entries
-                if _entry_number(entry) == target_entry and _is_target_mtd_entry(entry)
+                if _entry_number(entry) == target_entry
+                and _is_exact_target_mtd_entry(entry)
             ),
             None,
         )
@@ -1052,7 +1053,8 @@ def _target_mtd_entries(
     exact = tuple(
         entry
         for entry in page.entries
-        if _entry_number(entry) in target_entry_set and _is_target_mtd_entry(entry)
+        if _entry_number(entry) in target_entry_set
+        and _is_exact_target_mtd_entry(entry)
     )
     target_support = tuple(
         entry
@@ -1334,18 +1336,9 @@ def _is_mtd_entry(entry: CourtListenerWebDocketEntry) -> bool:
     )
 
 
-def _is_target_mtd_entry(entry: CourtListenerWebDocketEntry) -> bool:
-    if _is_mtd_entry(entry):
-        return True
-    text = entry.text.lower()
-    if not (
-        re.search(r"\bmotions?\s+to\s+dismiss\b", text)
-        or re.search(r"\b12\s*\(\s*b\s*\)\s*\(\s*[126]\s*\)", text)
-        or re.search(r"\b12\s*\(\s*c\s*\)", text)
-        or re.search(r"\brule\s+12\b", text)
-        or re.search(r"\bjudgment\s+on\s+the\s+pleadings\b", text)
-    ):
-        return False
+def _is_exact_target_mtd_entry(entry: CourtListenerWebDocketEntry) -> bool:
+    """Accept MTD-role documents only at an already frozen exact target entry."""
+
     return (
         _best_free_document(entry, DocumentRole.MTD_NOTICE) is not None
         or _best_free_document(entry, DocumentRole.MTD_MEMORANDUM) is not None
