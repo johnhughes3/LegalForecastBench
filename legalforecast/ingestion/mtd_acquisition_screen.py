@@ -786,6 +786,14 @@ def _looks_like_proposed_order_attachment(text: str) -> bool:
 
 def _looks_like_procedural_or_standing_order(text: str) -> bool:
     standing_order = bool(re.search(r"\bstanding\s+order\b", text, re.I))
+    reply_filing_patterns = (
+        r"\bmotion\s+to\s+file\b.*\breply\b.*\bmotion\s+to\s+dismiss\b",
+        r"\bleave\s+to\s+file\b.*\breply\b",
+    )
+    if any(re.search(pattern, text, re.I) for pattern in reply_filing_patterns):
+        if not _has_explicit_mtd_merits_disposition(text):
+            return True
+
     procedural_patterns = (
         r"\border\s+governing\b.*\bmotions?\s+to\s+dismiss\b",
         r"\bpre[- ]?motion\s+conference\b",
@@ -795,8 +803,6 @@ def _looks_like_procedural_or_standing_order(text: str) -> bool:
         r"\bset(?:s|ting)?\s+briefing\b",
         r"\bextension\s+of\s+time\b.*\bmotion\s+to\s+dismiss\b",
         r"\btime\s+to\s+(?:respond|reply|file|oppose)\b.*\bmotion\s+to\s+dismiss\b",
-        r"\bmotion\s+to\s+file\b.*\breply\b.*\bmotion\s+to\s+dismiss\b",
-        r"\bleave\s+to\s+file\b.*\breply\b",
         r"\border\s+to\s+show\s+cause\b",
         r"\bfailure\s+to\s+prosecute\b",
         r"\badministrative(?:ly)?\s+clos(?:e|ed|ing)\b",
@@ -838,7 +844,44 @@ def _looks_like_transfer_only(text: str) -> bool:
         text,
         re.I,
     )
-    return references_alternative_transfer and no_claim_dismissal
+    return (
+        references_alternative_transfer
+        and no_claim_dismissal
+        and not _has_explicit_mtd_merits_disposition(text)
+    )
+
+
+def _has_explicit_mtd_merits_disposition(text: str) -> bool:
+    motion = (
+        r"(?:\d+\s+)?motions?\s+(?:to\s+dismiss|"
+        r"for\s+judgment\s+on\s+the\s+pleadings)"
+    )
+    disposition = r"(?:grant(?:ed|ing|s)?|den(?:y|ied|ying|ies))"
+    return bool(
+        re.search(
+            rf"\b{motion}\s+(?:is|are|was|were|be)\s+"
+            rf"(?:hereby\s+)?{disposition}\b",
+            text,
+            re.I,
+        )
+        or re.search(
+            rf"\b{disposition}\s+(?:in\s+part\s+)?(?:the\s+)?"
+            rf"(?:[A-Za-z][\w'.\-]*\s+)?{motion}\b",
+            text,
+            re.I,
+        )
+        or re.search(
+            r"\b(?:complaint|claim|count|case|action)\s+"
+            r"(?:is|are|was|were|be)\s+(?:hereby\s+)?dismissed\b",
+            text,
+            re.I,
+        )
+        or re.search(
+            r"\bdismissal\s+(?:is|was|be)\s+(?:hereby\s+)?granted\b",
+            text,
+            re.I,
+        )
+    )
 
 
 def _text_before_first_attachment(text: str) -> str:
