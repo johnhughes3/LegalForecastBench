@@ -550,7 +550,7 @@ def test_assemble_cycle_acquisition_composes_split_snapshot_and_artifact_roots(
         [
             {
                 "candidate_id": "901",
-                "exclusion_reasons": ["sealed_or_restricted_material"],
+                "exclusion_reasons": [None, " ", "sealed_or_restricted_material"],
             }
         ],
     )

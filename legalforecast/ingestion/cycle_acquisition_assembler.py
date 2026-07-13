@@ -674,14 +674,10 @@ def _exclusion_reason(record: Mapping[str, Any]) -> str:
         if isinstance(value, str) and value.strip():
             return value.strip().lower()
     reasons = record.get("exclusion_reasons")
-    if (
-        isinstance(reasons, Sequence)
-        and not isinstance(reasons, str)
-        and reasons
-        and isinstance(reasons[0], str)
-        and reasons[0].strip()
-    ):
-        return reasons[0].strip().lower()
+    if isinstance(reasons, Sequence) and not isinstance(reasons, str):
+        for reason in cast(Sequence[object], reasons):
+            if isinstance(reason, str) and reason.strip():
+                return reason.strip().lower()
     raise CycleAssemblyError("discovery exclusion lacks a reason code")
 
 
