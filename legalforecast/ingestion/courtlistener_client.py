@@ -392,6 +392,7 @@ class CourtListenerClient:
         transport: CourtListenerTransport | None = None,
         max_retries: int = 2,
         retry_backoff_seconds: float = 0.0,
+        before_request: Callable[[str, str], None] | None = None,
     ) -> None:
         self.config = CourtListenerConfig.from_env() if config is None else config
         self.transport = (
@@ -401,6 +402,7 @@ class CourtListenerClient:
         )
         self.max_retries = max_retries
         self.retry_backoff_seconds = retry_backoff_seconds
+        self.before_request = before_request
         self.request_count = 0
 
     def get_docket(self, docket_id: str) -> CourtListenerDocket:
@@ -503,6 +505,10 @@ class CourtListenerClient:
         headers = self._headers()
         attempt = 0
         while True:
+            if self.before_request is not None:
+                # Reserve provider capacity before every physical attempt,
+                # including retries, so a crash cannot erase metered activity.
+                self.before_request(method, path)
             response = self.transport.request(
                 method=method,
                 path=path,

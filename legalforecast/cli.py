@@ -171,6 +171,11 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     FixtureRecapFetchTransport,
     public_documents_from_selection,
 )
+from legalforecast.ingestion.courtlistener_request_budget import (
+    CourtListenerRequestBudget,
+    CourtListenerRequestBudgetError,
+    CourtListenerRequestLimits,
+)
 from legalforecast.ingestion.cycle_acquisition_assembler import (
     CycleAssembly,
     assemble_cycle_acquisition,
@@ -307,7 +312,6 @@ from legalforecast.ingestion.recap_api_batch_driver import (
 from legalforecast.ingestion.recap_api_discovery import (
     RecapApiDiscoveryError,
     RequestPacer,
-    pacer_for_client,
 )
 from legalforecast.ingestion.recap_fetch_broker_policy import (
     RecapFetchBrokerPolicyError,
@@ -1703,6 +1707,14 @@ _BATCH_002_DEFAULT_BATCH_ID = "batch-002"
 _BATCH_002_DEFAULT_ANCHOR = "2026-06-30"
 _BATCH_002_DEFAULT_WINDOW_START = "2026-06-30"
 _BATCH_002_DEFAULT_WINDOW_END = "2026-07-12"
+_COURTLISTENER_RATE_PROFILES = {
+    "base": CourtListenerRequestLimits(
+        per_minute=24,
+        per_hour=290,
+        per_day=1_350,
+    ),
+    "temporary-doubled": CourtListenerRequestLimits(),
+}
 
 
 def _add_batch_002_source_arguments(parser: argparse.ArgumentParser) -> None:
@@ -1722,6 +1734,32 @@ def _add_batch_002_source_arguments(parser: argparse.ArgumentParser) -> None:
         "--courtlistener-fixture",
         type=Path,
         help="Replay recorded CourtListener API JSONL responses without network use.",
+    )
+    parser.add_argument(
+        "--request-ledger",
+        type=Path,
+        help=(
+            "Crash-durable SQLite ledger for every physical CourtListener HTTP "
+            "attempt. Required with --live; omitted for fixtures."
+        ),
+    )
+    parser.add_argument(
+        "--courtlistener-rate-profile",
+        choices=tuple(_COURTLISTENER_RATE_PROFILES),
+        default="base",
+        help=(
+            "Provider ceiling profile with headroom. Use temporary-doubled only "
+            "while CourtListener has explicitly doubled this account's limits."
+        ),
+    )
+    parser.add_argument(
+        "--request-budget-max-wait-seconds",
+        type=float,
+        default=120.0,
+        help=(
+            "Maximum cumulative wait for one HTTP-attempt reservation before "
+            "failing closed; default 120."
+        ),
     )
 
 
@@ -1767,8 +1805,9 @@ def _add_batch_002_discover_arguments(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=None,
         help=(
-            "Override request spacing. Default: anonymous 3s / authenticated 0s "
-            "(the client's auth-aware pacing)."
+            "Minimum spacing between logical search-page requests. Live default: "
+            "6.25 seconds; fixtures are unpaced. The durable attempt ledger "
+            "independently enforces all windows."
         ),
     )
     _add_batch_002_source_arguments(parser)
@@ -1793,8 +1832,11 @@ def _add_batch_002_observe_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--min-interval-seconds",
         type=float,
-        default=1.0,
-        help="Minimum wall-clock spacing between metered requests; default 1.0.",
+        default=None,
+        help=(
+            "Minimum spacing between logical requests. Live default: 6.25 "
+            "seconds; fixtures are unpaced."
+        ),
     )
     parser.add_argument(
         "--jitter-seconds",
@@ -6086,7 +6128,7 @@ def _batch_002_client(
     args: argparse.Namespace,
     *,
     require_token: bool,
-) -> CourtListenerClient:
+) -> tuple[CourtListenerClient, CourtListenerRequestBudget | None]:
     """Build a live or fixture CourtListener client for a batch-002 phase."""
 
     live = cast(bool, args.live)
@@ -6095,23 +6137,80 @@ def _batch_002_client(
     max_retries = cast(int, getattr(args, "max_retries", 2))
     retry_backoff = cast(float, getattr(args, "retry_backoff_seconds", 0.0))
     if live:
-        raise CommandError(
-            "batch-002 live CourtListener REST type=rd is disabled; use "
-            "acquisition discover-firecrawl-recap-decisions"
-        )
+        if require_token and config.api_token is None:
+            raise CommandError(f"{COURTLISTENER_API_TOKEN_ENV} is required with --live")
+        ledger_path = cast(Path | None, args.request_ledger)
+        if ledger_path is None:
+            raise CommandError("--request-ledger is required with --live")
+        max_wait = cast(float, args.request_budget_max_wait_seconds)
+        if max_wait < 0:
+            raise CommandError("--request-budget-max-wait-seconds cannot be negative")
+        profile = cast(str, args.courtlistener_rate_profile)
+        try:
+            budget = CourtListenerRequestBudget(
+                ledger_path,
+                limits=_COURTLISTENER_RATE_PROFILES[profile],
+                max_wait_seconds=max_wait,
+            )
+        except (CourtListenerRequestBudgetError, OSError) as exc:
+            raise CommandError(str(exc)) from exc
+        return (
+            CourtListenerClient(
+                config=config,
+                max_retries=max_retries,
+                retry_backoff_seconds=retry_backoff,
+                before_request=budget.before_request,
+             ),
+             budget,
+         )
     assert fixture is not None
-    return CourtListenerClient(
-        config=config,
-        transport=CourtListenerFixtureTransport.from_jsonl(fixture),
-        max_retries=max_retries,
-        retry_backoff_seconds=retry_backoff,
+    return (
+        CourtListenerClient(
+            config=config,
+            transport=CourtListenerFixtureTransport.from_jsonl(fixture),
+            max_retries=max_retries,
+            retry_backoff_seconds=retry_backoff,
+        ),
+        None,
     )
 
 
-def _batch_002_observe_pacer(args: argparse.Namespace) -> RequestPacer | None:
-    """Build a jittered ~1 req/sec pacer, or None when pacing is disabled."""
+def _batch_002_rate_evidence(
+    args: argparse.Namespace,
+    client: CourtListenerClient,
+    budget: CourtListenerRequestBudget | None,
+    reservations_before: int,
+) -> dict[str, object]:
+    """Return auditable request-budget evidence for a phase summary."""
 
-    min_interval = cast(float, args.min_interval_seconds)
+    if budget is None:
+        return {
+            "courtlistener_live": False,
+            "courtlistener_physical_requests": client.request_count,
+        }
+    total = budget.total_reservations()
+    return {
+        "courtlistener_live": True,
+        "courtlistener_rate_profile": cast(str, args.courtlistener_rate_profile),
+        "courtlistener_request_ledger": str(budget.path.resolve()),
+        "courtlistener_physical_requests": client.request_count,
+        "courtlistener_reservations_this_phase": total - reservations_before,
+        "courtlistener_reservations_total": total,
+        "courtlistener_limits": {
+            "per_minute": budget.limits.per_minute,
+            "per_hour": budget.limits.per_hour,
+            "per_day": budget.limits.per_day,
+        },
+    }
+
+
+def _batch_002_observe_pacer(args: argparse.Namespace) -> RequestPacer | None:
+    """Build a conservatively spaced pacer, or None when pacing is disabled."""
+
+    configured = cast(float | None, args.min_interval_seconds)
+    if configured is None and not cast(bool, args.live):
+        return None
+    min_interval = 6.25 if configured is None else configured
     jitter = cast(float, args.jitter_seconds)
     if min_interval <= 0 and jitter <= 0:
         return None
@@ -6148,12 +6247,14 @@ def _cmd_batch_002_discover(args: argparse.Namespace) -> int:
     override = cast(float | None, args.min_interval_seconds)
     if override is not None and override < 0:
         raise CommandError("--min-interval-seconds cannot be negative")
-    client = _batch_002_client(args, require_token=False)
-    pacer = (
-        RequestPacer(min_interval_seconds=override)
-        if override is not None
-        else pacer_for_client(client)
-    )
+    client, budget = _batch_002_client(args, require_token=False)
+    reservations_before = budget.total_reservations() if budget is not None else 0
+    if override is not None:
+        pacer: RequestPacer | None = RequestPacer(min_interval_seconds=override)
+    elif cast(bool, args.live):
+        pacer = RequestPacer(min_interval_seconds=6.25)
+    else:
+        pacer = None
     try:
         with CycleAcquisitionStore(cycle_store) as store:
             store.ensure_cycle(_cycle_acquisition_policy(anchor=anchor))
@@ -6169,11 +6270,15 @@ def _cmd_batch_002_discover(args: argparse.Namespace) -> int:
             )
     except (
         CycleAcquisitionStoreError,
+        CourtListenerRequestBudgetError,
         RecapApiBatchDriverError,
         ValueError,
     ) as exc:
         raise CommandError(str(exc)) from exc
-    record = funnel.to_record()
+    record = {
+        **funnel.to_record(),
+        **_batch_002_rate_evidence(args, client, budget, reservations_before),
+    }
     summary_output = cast(Path | None, args.summary_output)
     if summary_output is not None:
         _write_json(summary_output, record)
@@ -6190,7 +6295,8 @@ def _cmd_batch_002_observe(args: argparse.Namespace) -> int:
     limit = cast(int | None, args.limit)
     if limit is not None and limit <= 0:
         raise CommandError("--limit must be a positive integer")
-    client = _batch_002_client(args, require_token=True)
+    client, budget = _batch_002_client(args, require_token=True)
+    reservations_before = budget.total_reservations() if budget is not None else 0
     pacer = _batch_002_observe_pacer(args)
     try:
         with CycleAcquisitionStore(cycle_store) as store:
@@ -6204,13 +6310,17 @@ def _cmd_batch_002_observe(args: argparse.Namespace) -> int:
             )
     except (
         CycleAcquisitionStoreError,
+        CourtListenerRequestBudgetError,
         RecapApiBatchDriverError,
         RecapApiDiscoveryError,
         KeyError,
         ValueError,
     ) as exc:
         raise CommandError(str(exc)) from exc
-    record = tally.to_record()
+    record = {
+        **tally.to_record(),
+        **_batch_002_rate_evidence(args, client, budget, reservations_before),
+    }
     summary_output = cast(Path | None, args.summary_output)
     if summary_output is not None:
         _write_json(summary_output, record)

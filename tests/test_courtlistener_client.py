@@ -189,6 +189,7 @@ def test_courtlistener_unavailable_auth_rate_and_server_errors() -> None:
 
 
 def test_courtlistener_rate_limit_retries_before_success() -> None:
+    reservations: list[tuple[str, str]] = []
     client = CourtListenerClient(
         config=CourtListenerConfig(),
         transport=CourtListenerFixtureTransport(
@@ -205,12 +206,14 @@ def test_courtlistener_rate_limit_retries_before_success() -> None:
             )
         ),
         max_retries=1,
+        before_request=lambda method, path: reservations.append((method, path)),
     )
 
     docket = client.get_docket("123")
 
     assert docket.case_name == "Retried v. Fixture"
     assert client.request_count == 2
+    assert reservations == [("GET", "/dockets/123/"), ("GET", "/dockets/123/")]
 
 
 def test_courtlistener_page_extracts_cursor_from_next_url() -> None:

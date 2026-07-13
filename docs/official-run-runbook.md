@@ -230,7 +230,9 @@ Reconstruction reads the token-required `dockets`/`docket-entries` endpoints, so
 export COURTLISTENER_API_TOKEN=…   # Authorization: Token <token>
 ```
 
-The `discover` search index answers anonymously (it is paced at ~3s/request without a token, 0s with one), but `observe` fails closed before any network call when the token is absent. The moment the token is set, the three commands below are runnable end to end.
+The `discover` search index answers anonymously, but `observe` fails closed before any network call when the token is absent. Every live command also requires one shared `--request-ledger`: it durably reserves capacity before every physical HTTP attempt, including retries, and enforces rolling minute/hour/day ceilings across crashes, resumes, and concurrent processes.
+
+The normal `base` profile keeps headroom under 25/minute, 300/hour, and 1,400/day. John confirmed on 2026-07-13 that CourtListener temporarily doubled this account to 50/minute, 600/hour, and 2,800/day for the coming months; while that grant remains active, pass `--courtlistener-rate-profile temporary-doubled`, which enforces 48/minute, 580/hour, and 2,700/day. Return to `base` when the temporary grant expires. Live logical requests are additionally spaced by 6.25 seconds unless explicitly made slower.
 
 ### Step 1: Discover
 
@@ -238,7 +240,13 @@ Attach batch-002 and materialize each frozen decision-first term before attempti
 
 ```bash
 uv run legalforecast batch-002 discover \
-  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --cycle-store artifacts/cycle-1/official-acquisition-v10/cycle-acquisition.sqlite3 \
+  --batch-id v10-courtlistener-rest-v4-2026-06-30-to-2026-07-13-v1 \
+  --eligibility-anchor 2026-06-30 \
+  --decision-window-start 2026-06-30 \
+  --decision-window-end 2026-07-13 \
+  --request-ledger artifacts/cycle-1/official-acquisition-v10/rest-v4/courtlistener-request-ledger.sqlite3 \
+  --courtlistener-rate-profile temporary-doubled \
   --live
 ```
 
@@ -248,7 +256,11 @@ After discovery has attached the batch and materialized candidates, validate the
 
 ```bash
 uv run legalforecast batch-002 observe \
-  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --cycle-store artifacts/cycle-1/official-acquisition-v10/cycle-acquisition.sqlite3 \
+  --batch-id v10-courtlistener-rest-v4-2026-06-30-to-2026-07-13-v1 \
+  --eligibility-anchor 2026-06-30 \
+  --request-ledger artifacts/cycle-1/official-acquisition-v10/rest-v4/courtlistener-request-ledger.sqlite3 \
+  --courtlistener-rate-profile temporary-doubled \
   --live --limit 1
 ```
 
@@ -260,11 +272,16 @@ If that one reconstruction succeeds (the tally shows `observed: 1`), the docket 
 # 2. (Optional) Seed batch-001 Case.dev enrichment failures as re-observation leads.
 uv run legalforecast batch-002 seed-batch-001-leads \
   --source-store artifacts/cycle-1/batch-001-zero-paid/cycle-acquisition.sqlite3 \
-  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3
+  --cycle-store artifacts/cycle-1/official-acquisition-v10/cycle-acquisition.sqlite3 \
+  --batch-id v10-courtlistener-rest-v4-2026-06-30-to-2026-07-13-v1
 
 # 3. Observe: reconstruct + strict-screen every unresolved candidate.
 uv run legalforecast batch-002 observe \
-  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --cycle-store artifacts/cycle-1/official-acquisition-v10/cycle-acquisition.sqlite3 \
+  --batch-id v10-courtlistener-rest-v4-2026-06-30-to-2026-07-13-v1 \
+  --eligibility-anchor 2026-06-30 \
+  --request-ledger artifacts/cycle-1/official-acquisition-v10/rest-v4/courtlistener-request-ledger.sqlite3 \
+  --courtlistener-rate-profile temporary-doubled \
   --live
 ```
 
@@ -272,7 +289,7 @@ uv run legalforecast batch-002 observe \
 
 ### Expected Volumes
 
-The June 30 – July 12 decision-window backlog is roughly ~830 dockets. `seed-batch-001-leads` additionally carries the batch-001 candidates that never reached a terminal observation (the ~608 Case.dev enrichment failures, identified as `current_observation_id IS NULL` in the batch-001 store) into batch-002 for re-observation through the API route.
+The June 30 – July 13 decision-window backlog is expected to contain hundreds of dockets. `seed-batch-001-leads` additionally carries the 608 batch-001 candidates that never reached a terminal observation (identified as `current_observation_id IS NULL` in the batch-001 store) into batch-002 for re-observation through the API route.
 
 ### Reading The Tallies
 
@@ -281,3 +298,5 @@ Each command prints a machine-readable JSON summary to stdout (use `--summary-ou
 - `discover` funnel: `terms_terminal`/`terms_total` (how many frozen terms reached a bounded terminal state), `total_hits` (raw document hits), `distinct_candidates` (deduped dockets), `prescreen_exclusions_by_reason` (bankruptcy/criminal dockets dropped before any fetch), and `per_term` progress. `complete: true` means every term is bounded; `saturated: true` means every term was exhausted rather than limit-bound.
 - `observe` tally: `considered` (candidates scanned), `skipped_already_observed` (resume skips), `observed` (fetched this pass), `eligible` (strict-clean accepted), `excluded_by_reason` (immutable/posture exclusions, with the underlying strict-screen reason surfaced as `strict_clean_screen_failed:<screen_reason>`), and `transient_by_reason` (retryable failures to re-run).
 - `seed-batch-001-leads`: `leads_selected`, `leads_seeded`, and `already_seeded`.
+
+Live `discover` and `observe` summaries also record the resolved request-ledger path, selected rate profile, enforced limits, physical response count, reservations made in that phase, and cumulative durable reservations. A reservation can outnumber responses when a transport failure happens after the pre-wire checkpoint; that conservative accounting is intentional.
