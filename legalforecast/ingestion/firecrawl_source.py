@@ -245,7 +245,7 @@ class UrlLibFirecrawlTransport:
                 headers=dict(exc.headers.items()),
                 response_sha256=hashlib.sha256(raw_response).hexdigest(),
             )
-        except urllib.error.URLError as exc:
+        except (urllib.error.URLError, TimeoutError) as exc:
             raise FirecrawlServerError(
                 "Firecrawl request failed before receiving an HTTP response"
             ) from exc
