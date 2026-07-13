@@ -46,6 +46,78 @@ def test_policy_is_hashed_and_binds_the_canonical_ledger(tmp_path: Path) -> None
         verify_case_dev_purchase_policy(artifact)
 
 
+def test_policy_freezes_canonical_opening_case_commitments(tmp_path: Path) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    decisions = _policy_decisions(ledger)
+    decisions["opening_committed_spend_usd"] = "4.00"
+    decisions["opening_case_committed_spend_usd"] = {
+        "case-z": "1.00",
+        "case-a": "3.00",
+    }
+
+    artifact = generate_case_dev_purchase_policy(decisions)
+    policy = verify_case_dev_purchase_policy(artifact)
+
+    assert list(artifact["policy"]["opening_case_committed_spend_usd"]) == [
+        "case-a",
+        "case-z",
+    ]
+    assert policy.opening_case_committed_spend_usd == {
+        "case-a": Decimal("3.00"),
+        "case-z": Decimal("1.00"),
+    }
+
+
+@pytest.mark.parametrize(
+    ("opening_total", "mapping", "message"),
+    [
+        ("0.00", [], "must be an object"),
+        ("1.00", {"": "1.00"}, "case ID"),
+        ("1.00", {" case-1 ": "1.00"}, "case ID"),
+        ("1.00", {"case-1": 1}, "canonical nonnegative USD"),
+        ("1.00", {"case-1": "1.0"}, "canonical nonnegative USD"),
+        ("1.00", {"case-1": "-1.00"}, "canonical nonnegative USD"),
+        ("4.00", {"case-1": "4.00"}, "per-case cap"),
+        (
+            "3.00",
+            {"case-1": "2.00", "case-2": "2.00"},
+            "opening committed spend",
+        ),
+    ],
+)
+def test_policy_rejects_invalid_opening_case_commitments(
+    tmp_path: Path,
+    opening_total: str,
+    mapping: object,
+    message: str,
+) -> None:
+    decisions = _policy_decisions((tmp_path / "cycle-purchases.sqlite3").resolve())
+    decisions["opening_committed_spend_usd"] = opening_total
+    decisions["max_per_case_usd"] = "3.05"
+    decisions["opening_case_committed_spend_usd"] = mapping
+
+    with pytest.raises(CaseDevPurchasePolicyError, match=message):
+        generate_case_dev_purchase_policy(decisions)
+
+
+def test_opening_case_commitment_consumes_per_case_headroom(tmp_path: Path) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    decisions = _policy_decisions(ledger)
+    decisions["opening_committed_spend_usd"] = "3.05"
+    decisions["opening_case_committed_spend_usd"] = {"case-1": "3.05"}
+    decisions["max_per_case_usd"] = "6.10"
+    policy = verify_case_dev_purchase_policy(
+        generate_case_dev_purchase_policy(decisions)
+    )
+
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        with pytest.raises(
+            CaseDevPurchaseLedgerError,
+            match="cumulative reservation exceeds per-case cap",
+        ):
+            journal.plan(_plan(("doc-1", "doc-2")))
+
+
 def test_crash_before_post_leaves_planned_and_reopen_can_submit(
     tmp_path: Path,
 ) -> None:
@@ -448,6 +520,7 @@ def _policy_decisions(ledger: Path) -> dict[str, object]:
         "canonical_ledger_path": str(ledger),
         "hard_cap_usd": "9.15",
         "opening_committed_spend_usd": "0.00",
+        "opening_case_committed_spend_usd": {},
         "max_per_case_usd": "9.15",
         "per_document_reservation_usd": "3.05",
         "fee_schedule": {

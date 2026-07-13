@@ -35,6 +35,7 @@ from legalforecast.ingestion.missing_core_budget import (
 
 CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION = "legalforecast.case_dev_purchase_policy.v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_CANONICAL_USD = re.compile(r"(?:0|[1-9][0-9]*)\.[0-9]{2}")
 
 
 class CaseDevPurchasePolicyError(ValueError):
@@ -62,6 +63,7 @@ class CaseDevPurchasePolicy:
     canonical_ledger_path: Path
     hard_cap_usd: Decimal
     opening_committed_spend_usd: Decimal
+    opening_case_committed_spend_usd: Mapping[str, Decimal]
     max_per_case_usd: Decimal
     per_document_reservation_usd: Decimal
     policy_sha256: str
@@ -109,6 +111,12 @@ def verify_case_dev_purchase_policy(
         opening_committed_spend_usd=Decimal(
             cast(str, policy["opening_committed_spend_usd"])
         ),
+        opening_case_committed_spend_usd={
+            case_id: Decimal(amount)
+            for case_id, amount in cast(
+                Mapping[str, str], policy["opening_case_committed_spend_usd"]
+            ).items()
+        },
         max_per_case_usd=Decimal(cast(str, policy["max_per_case_usd"])),
         per_document_reservation_usd=Decimal(
             cast(str, policy["per_document_reservation_usd"])
@@ -694,7 +702,9 @@ class CaseDevPurchaseJournal:
             FROM purchase_operations WHERE candidate_id=?""",
             (candidate_id,),
         ).fetchall()
-        amount = Decimal("0")
+        amount = self.policy.opening_case_committed_spend_usd.get(
+            candidate_id, Decimal("0")
+        )
         for row in rows:
             status = str(row["status"])
             reservation = Decimal(str(row["reservation_usd"]))
@@ -1241,6 +1251,7 @@ def _validated_purchase_policy(
             "canonical_ledger_path",
             "hard_cap_usd",
             "opening_committed_spend_usd",
+            "opening_case_committed_spend_usd",
             "max_per_case_usd",
             "per_document_reservation_usd",
             "fee_schedule",
@@ -1279,6 +1290,42 @@ def _validated_purchase_policy(
         raise CaseDevPurchasePolicyError("max per-case cap exceeds cycle hard cap")
     if reservation > max_per_case:
         raise CaseDevPurchasePolicyError("document reservation exceeds per-case cap")
+    raw_opening_cases = decisions.get("opening_case_committed_spend_usd")
+    if not isinstance(raw_opening_cases, Mapping):
+        raise CaseDevPurchasePolicyError(
+            "opening_case_committed_spend_usd must be an object"
+        )
+    typed_opening_cases = cast(Mapping[object, object], raw_opening_cases)
+    opening_cases: dict[str, str] = {}
+    opening_case_total = Decimal("0")
+    for raw_case_id in sorted(typed_opening_cases, key=str):
+        if (
+            not isinstance(raw_case_id, str)
+            or not raw_case_id
+            or raw_case_id.strip() != raw_case_id
+        ):
+            raise CaseDevPurchasePolicyError(
+                "opening commitment case ID must be a non-empty canonical string"
+            )
+        raw_amount = typed_opening_cases[raw_case_id]
+        if (
+            not isinstance(raw_amount, str)
+            or _CANONICAL_USD.fullmatch(raw_amount) is None
+        ):
+            raise CaseDevPurchasePolicyError(
+                "opening case commitment must be canonical nonnegative USD"
+            )
+        amount = Decimal(raw_amount)
+        if amount > max_per_case:
+            raise CaseDevPurchasePolicyError(
+                "opening case commitment exceeds per-case cap"
+            )
+        opening_cases[raw_case_id] = raw_amount
+        opening_case_total += amount
+    if opening_case_total > opening_committed:
+        raise CaseDevPurchasePolicyError(
+            "opening case commitments exceed opening committed spend"
+        )
     raw_schedule = decisions.get("fee_schedule")
     if not isinstance(raw_schedule, Mapping):
         raise CaseDevPurchasePolicyError("fee_schedule must be an object")
@@ -1315,6 +1362,7 @@ def _validated_purchase_policy(
         "canonical_ledger_path": str(ledger_path),
         "hard_cap_usd": _money(hard_cap),
         "opening_committed_spend_usd": _money(opening_committed),
+        "opening_case_committed_spend_usd": opening_cases,
         "max_per_case_usd": _money(max_per_case),
         "per_document_reservation_usd": _money(reservation),
         "fee_schedule": {

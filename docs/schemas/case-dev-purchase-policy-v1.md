@@ -12,6 +12,7 @@ The decisions object contains:
 - `canonical_ledger_path`: normalized absolute path of the only permitted Cycle-wide document-purchase SQLite journal.
 - `hard_cap_usd`: immutable Cycle-wide document-purchase ceiling; a budget plan can be lower but cannot raise it.
 - `opening_committed_spend_usd`: already-committed Cycle spend imported before this canonical document journal is created; it remains counted against the hard cap.
+- `opening_case_committed_spend_usd`: case ID to canonical nonnegative USD mapping for the portion of opening committed spend attributable to individual cases; every value is bounded by the per-case cap and the mapping sum cannot exceed `opening_committed_spend_usd`.
 - `max_per_case_usd`: immutable per-case reservation ceiling.
 - `per_document_reservation_usd`: verified worst-case amount reserved immediately before each POST.
 - `fee_schedule`: a nonempty source citation and UTC verification time, plus true assertions that the reservation includes PACER fees, service fees, and rounding.
@@ -22,6 +23,7 @@ The generated artifact adds `schema_version` and `policy_sha256`.
 For an executing run, the ledger path must exactly match the canonical path frozen in the policy.
 The command persists every intended document as `planned`, commits `submitted` with a unique operation key immediately before one zero-retry POST, and then transitions to `confirmed`, `failed`, or `unknown`.
 Confirmed rows settle to validated actual fees; submitted, unknown, and written-off rows retain at least the full reservation against the cap.
+Each case's cumulative cap accounting begins with its frozen `opening_case_committed_spend_usd` amount; any unattributed remainder of `opening_committed_spend_usd` counts only against the Cycle cap.
 
 An unresolved `submitted` or `unknown` row blocks every subsequent purchase and cannot be retried.
 Resolve it with `legalforecast acquisition reconcile-purchase --purchase-policy <policy.json> --cohort-policy <cohort-policy.json> --purchase-ledger <ledger.sqlite3> --evidence <evidence.json>`.

@@ -609,6 +609,7 @@ def _policy(ledger: Path) -> dict[str, object]:
             "canonical_ledger_path": str(ledger),
             "hard_cap_usd": "9.15",
             "opening_committed_spend_usd": "0.00",
+            "opening_case_committed_spend_usd": {},
             "max_per_case_usd": "9.15",
             "per_document_reservation_usd": "3.05",
             "fee_schedule": {
