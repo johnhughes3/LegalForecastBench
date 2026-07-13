@@ -435,6 +435,27 @@ class CourtListenerClient:
         )
         return _page_from_payload(payload, parser)
 
+    def search_raw(
+        self,
+        params: Mapping[str, Any],
+        *,
+        cursor: str | None = None,
+    ) -> CourtListenerPage[Mapping[str, Any]]:
+        """Run one ``/search/`` request and return unparsed result mappings.
+
+        This preserves the client's fail-closed retry and status-code mapping
+        (429/5xx/auth) while letting callers own result parsing for search
+        types the typed helpers do not model (for example ``type=rd`` decision
+        discovery). ``params`` must already be fully formed; ``cursor`` is
+        merged in when resuming CourtListener cursor pagination.
+        """
+
+        merged: dict[str, Any] = dict(params)
+        if cursor is not None:
+            merged["cursor"] = cursor
+        payload = self._request_json("GET", "/search/", merged)
+        return _page_from_payload(payload, _identity_mapping)
+
     def list_docket_entries(
         self,
         docket_id: str,
@@ -524,6 +545,10 @@ class CourtListenerClient:
                 "courtlistener_status_code": status_code,
             },
         )
+
+
+def _identity_mapping(record: Mapping[str, Any]) -> Mapping[str, Any]:
+    return record
 
 
 def _error_for_response(
