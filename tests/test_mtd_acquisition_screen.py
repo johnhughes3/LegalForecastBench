@@ -397,6 +397,21 @@ def test_actual_mtd_decision_entry_accepts_exact_court_event_form(
     assert screen.exclusion_reasons == ()
 
 
+def test_exact_order_event_is_not_confused_with_court_filing_language() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "ORDER filed by the Court re Motion to Dismiss.",
+            document_description="Order on Motion to Dismiss",
+        ),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is True
+    assert screen.exclusion_reasons == ()
+
+
 @pytest.mark.parametrize(
     ("entry_text", "document_description", "expected_reason"),
     (

@@ -755,8 +755,9 @@ def _has_exact_court_mtd_disposition_event(
 
     narrative = _entry_narrative_before_documents(entry)
     if re.search(
-        r"(?:\bfiled\b[^.;]{0,120}\bmotions?\s+to\s+dismiss\b|"
-        r"\bmotions?\s+to\s+dismiss\b[^.;]{0,120}\bfiled\b)",
+        r"(?:\bmotions?\s+to\s+dismiss\b[^.;]{0,120}\bfiled\s+by\b|"
+        r"\b(?:defendant|plaintiff|petitioner|respondent|movant|party)\b"
+        r"[^.;]{0,100}\bfiled\b[^.;]{0,80}\bmotions?\s+to\s+dismiss\b)",
         narrative,
         re.IGNORECASE,
     ):
