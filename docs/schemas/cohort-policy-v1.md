@@ -7,7 +7,7 @@ The top-level artifact contains exactly `schema_version`, `policy`, and `policy_
 - `cycle_id`, `cycle_acquisition_hash`, and `eligibility_anchor`.
 - `stop_rule`: `mode` (`deadline_only` or `target_or_deadline`), `target_clean_cases`, `search_window_end`, and mandatory frontier-exhaustion and budget-headroom stop flags.
 - `window_policy`: `overlap_days`, `backfill_late_indexed`, and `refresh_before_purchase`.
-- `refresh_policy`: disjoint immutable, refreshable, and transient reason-code lists plus a unique integer `evidence_precedence` table.
+- `refresh_policy`: immutable, refreshable, accepted, newly-free, and transient reason-code lists derived from and required to equal the cycle store's complete transition taxonomy; the exact ordered evidence classes `transient`, `excluded_refreshable`, `accepted`, `newly_free`, and `excluded_immutable`; and explicit transition semantics requiring immutable exclusions never be reconsidered, transient failures never supersede evidenced state, higher-ranked evidence supersede lower-ranked evidence, and latest observations win only among equal ranks.
 - `packet_completeness`: required motion-or-combined memorandum, conditionally required docketed opposition, and non-required reply definitions.
 - `target_motion`: the deterministic earliest-eligible-MTD/lowest-entry-number selector and exactly-one-motion invariant.
 - `purchase_policy`: `buy_cheapest_complete`, decimal-string cycle and per-case caps, and reservation-headroom enforcement.

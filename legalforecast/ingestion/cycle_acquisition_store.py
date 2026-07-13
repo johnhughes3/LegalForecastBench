@@ -114,6 +114,28 @@ _REASON_POLICIES: dict[str, tuple[frozenset[str], str, int]] = {
 }
 
 
+def cohort_reason_policy_taxonomy() -> Mapping[str, tuple[str, ...]]:
+    """Return the exact reason-code classes enforced by candidate transitions."""
+
+    classes = {
+        "immutable_reason_codes": "immutable",
+        "refreshable_reason_codes": "refreshable",
+        "accepted_reason_codes": "accepted",
+        "newly_free_reason_codes": "newly_free",
+        "transient_reason_codes": "transient",
+    }
+    return {
+        field: tuple(
+            sorted(
+                reason
+                for reason, (_, policy_class, _) in _REASON_POLICIES.items()
+                if policy_class == expected_class
+            )
+        )
+        for field, expected_class in classes.items()
+    }
+
+
 class CycleAcquisitionStoreError(RuntimeError):
     """Base class for durable acquisition-state errors."""
 
@@ -1500,12 +1522,18 @@ class CycleAcquisitionStore:
                 raise CycleAcquisitionStoreError(
                     f"stored snapshot manifest is not an object: {row['snapshot_id']}"
                 )
+            manifest = cast(dict[str, Any], parsed)
+            if manifest.get("saturated") is not True:
+                raise CycleAcquisitionStoreError(
+                    "published cohort observations require saturated snapshots: "
+                    f"{row['snapshot_id']}"
+                )
             snapshots.append(
                 PublishedSnapshot(
                     snapshot_id=str(row["snapshot_id"]),
                     batch_id=str(row["batch_id"]),
                     path=Path(str(row["path"])),
-                    manifest=dict(cast(dict[str, Any], parsed)),
+                    manifest=dict(manifest),
                     created_at=str(row["created_at"]),
                 )
             )

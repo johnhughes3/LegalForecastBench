@@ -17,6 +17,7 @@ from typing import Any, cast
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
     PublishedSnapshot,
+    cohort_reason_policy_taxonomy,
     verify_snapshot,
 )
 
@@ -50,7 +51,13 @@ class CohortPolicyError(ValueError):
 def generate_cohort_policy(decisions: Mapping[str, Any]) -> dict[str, Any]:
     """Validate supplied decisions and bind them into a canonical policy artifact."""
 
-    policy = _validated_policy(decisions)
+    normalized = cast(dict[str, Any], json.loads(_canonical(decisions)))
+    refresh_value = normalized.get("refresh_policy")
+    if isinstance(refresh_value, dict):
+        refresh = cast(dict[str, Any], refresh_value)
+        for field, reason_codes in cohort_reason_policy_taxonomy().items():
+            refresh.setdefault(field, list(reason_codes))
+    policy = _validated_policy(normalized)
     return {
         "schema_version": COHORT_POLICY_SCHEMA_VERSION,
         "policy": policy,
@@ -142,7 +149,7 @@ def export_observation_manifest(
             _append_records(path, existing)
 
         snapshots = store.published_snapshots()
-        _require_existing_snapshot_prefix(existing, snapshots)
+        _verify_existing_snapshot_prefix(store, existing, snapshots)
         recorded_ids = {
             cast(str, record["snapshot_id"])
             for record in existing
@@ -312,19 +319,23 @@ def _validated_policy(raw: Mapping[str, Any]) -> dict[str, Any]:
         {
             "immutable_reason_codes",
             "refreshable_reason_codes",
+            "accepted_reason_codes",
+            "newly_free_reason_codes",
             "transient_reason_codes",
             "evidence_precedence",
+            "transition_semantics",
         },
         "refresh_policy",
     )
-    groups = [
-        set(_string_list(refresh.get(key), key))
-        for key in (
-            "immutable_reason_codes",
-            "refreshable_reason_codes",
-            "transient_reason_codes",
-        )
-    ]
+    taxonomy = cohort_reason_policy_taxonomy()
+    groups: list[set[str]] = []
+    for key, expected in taxonomy.items():
+        supplied = _string_list(refresh.get(key), key)
+        if supplied != expected:
+            raise CohortPolicyError(
+                f"{key} must exactly match the cycle-store reason taxonomy"
+            )
+        groups.append(set(supplied))
     if any(
         left & right
         for index, left in enumerate(groups)
@@ -337,6 +348,7 @@ def _validated_policy(raw: Mapping[str, Any]) -> dict[str, Any]:
         "excluded_refreshable",
         "accepted",
         "newly_free",
+        "excluded_immutable",
     )
     _exact_keys(precedence, set(precedence_order), "evidence_precedence")
     priorities = [
@@ -347,8 +359,31 @@ def _validated_policy(raw: Mapping[str, Any]) -> dict[str, Any]:
         raise CohortPolicyError("evidence_precedence priorities must be unique")
     if priorities != sorted(priorities):
         raise CohortPolicyError(
-            "evidence_precedence must increase from transient through newly_free"
+            "evidence_precedence must increase from transient through "
+            "excluded_immutable"
         )
+    semantics = _object(refresh.get("transition_semantics"), "transition_semantics")
+    _exact_keys(
+        semantics,
+        {
+            "immutable_reconsideration",
+            "transient_supersedes_evidenced",
+            "higher_rank_supersedes_lower_rank",
+            "latest_wins_equal_rank",
+        },
+        "transition_semantics",
+    )
+    if semantics.get("immutable_reconsideration") != "never":
+        raise CohortPolicyError("immutable_reconsideration must be never")
+    if semantics.get("transient_supersedes_evidenced") is not False:
+        raise CohortPolicyError(
+            "transient observations must not supersede evidenced state"
+        )
+    _true(
+        semantics.get("higher_rank_supersedes_lower_rank"),
+        "higher_rank_supersedes_lower_rank",
+    )
+    _true(semantics.get("latest_wins_equal_rank"), "latest_wins_equal_rank")
 
     packet = _object(policy.get("packet_completeness"), "packet_completeness")
     _exact_keys(
@@ -450,19 +485,32 @@ def _verified_snapshot_manifest_hash(
     return hashlib.sha256(payload).hexdigest()
 
 
-def _require_existing_snapshot_prefix(
-    records: Sequence[Mapping[str, Any]], snapshots: Sequence[PublishedSnapshot]
+def _verify_existing_snapshot_prefix(
+    store: CycleAcquisitionStore,
+    records: Sequence[Mapping[str, Any]],
+    snapshots: Sequence[PublishedSnapshot],
 ) -> None:
-    existing = [
-        _text(record.get("snapshot_id"), "snapshot_id")
-        for record in records
-        if record.get("record_type") == "snapshot"
-    ]
-    available = [snapshot.snapshot_id for snapshot in snapshots]
-    if existing != available[: len(existing)]:
+    existing = [record for record in records if record.get("record_type") == "snapshot"]
+    if [record.get("snapshot_id") for record in existing] != [
+        snapshot.snapshot_id for snapshot in snapshots[: len(existing)]
+    ]:
         raise CohortPolicyError(
             "existing observation snapshots are not a prefix of the cycle store"
         )
+    for record, snapshot in zip(existing, snapshots, strict=False):
+        manifest_sha256 = _verified_snapshot_manifest_hash(store, snapshot)
+        expected = {
+            "batch_id": snapshot.batch_id,
+            "batch_digest": _sha(snapshot.manifest.get("batch_digest"), "batch_digest"),
+            "snapshot_created_at": snapshot.created_at,
+            "snapshot_manifest_sha256": manifest_sha256,
+        }
+        for field, value in expected.items():
+            if record.get(field) != value:
+                raise CohortPolicyError(
+                    "existing observation no longer matches cycle store/disk "
+                    f"commitment: {snapshot.snapshot_id} {field}"
+                )
 
 
 def _commit_record(payload: Mapping[str, Any]) -> dict[str, Any]:

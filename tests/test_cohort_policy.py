@@ -14,7 +14,11 @@ from legalforecast.ingestion.cohort_policy import (
     verify_observation_manifest,
     write_cohort_policy,
 )
-from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+from legalforecast.ingestion.cycle_acquisition_store import (
+    CycleAcquisitionStore,
+    CycleAcquisitionStoreError,
+    cohort_reason_policy_taxonomy,
+)
 
 
 def test_policy_generation_is_stable_and_tampering_fails() -> None:
@@ -44,6 +48,29 @@ def test_policy_rejects_forbidden_restatement_and_inconsistent_values() -> None:
     decisions = _decisions("a" * 64)
     decisions["refresh_policy"]["evidence_precedence"]["accepted"] = 5
     with pytest.raises(CohortPolicyError, match="must increase"):
+        generate_cohort_policy(decisions)
+
+
+@pytest.mark.parametrize("mutation", ["omission", "extra", "misclassification"])
+def test_policy_rejects_reason_taxonomy_drift(mutation: str) -> None:
+    decisions = _decisions("a" * 64)
+    refresh = decisions["refresh_policy"]
+    assert isinstance(refresh, dict)
+    if mutation == "omission":
+        refresh["immutable_reason_codes"] = refresh["immutable_reason_codes"][1:]
+    elif mutation == "extra":
+        refresh["transient_reason_codes"] = [
+            *refresh["transient_reason_codes"],
+            "invented_reason",
+        ]
+    else:
+        moved = refresh["immutable_reason_codes"][0]
+        refresh["immutable_reason_codes"] = refresh["immutable_reason_codes"][1:]
+        refresh["refreshable_reason_codes"] = [
+            *refresh["refreshable_reason_codes"],
+            moved,
+        ]
+    with pytest.raises(CohortPolicyError, match="cycle-store reason taxonomy"):
         generate_cohort_policy(decisions)
 
 
@@ -127,6 +154,67 @@ def test_observation_export_appends_verified_snapshots_only(tmp_path: Path) -> N
         verify_observation_manifest(tampered, policy_artifact=policy)
 
 
+def test_observation_export_rejects_unsaturated_snapshot(tmp_path: Path) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    with CycleAcquisitionStore(store_path) as store:
+        cycle_hash = store.ensure_cycle({"schema": "test", "anchor": "2026-06-30"})
+        store.ensure_batch("batch-001", {"window": "one"})
+        store.ensure_terms("batch-001", ["term"])
+        store.commit_search_page(
+            "batch-001",
+            "term",
+            None,
+            [],
+            next_cursor=None,
+            terminal_status="limit_bound",
+        )
+        store.export_snapshot(
+            tmp_path / "snapshots",
+            snapshot_id="unsaturated",
+            batch_id="batch-001",
+            complete=True,
+        )
+        with pytest.raises(CycleAcquisitionStoreError, match="require saturated"):
+            export_observation_manifest(
+                store=store,
+                policy_artifact=generate_cohort_policy(_decisions(cycle_hash)),
+                destination=tmp_path / "observations.jsonl",
+            )
+
+
+def test_observation_export_reverifies_existing_same_id_snapshot(
+    tmp_path: Path,
+) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    snapshot_root = tmp_path / "snapshots"
+    with CycleAcquisitionStore(store_path) as store:
+        cycle_hash = store.ensure_cycle({"schema": "test", "anchor": "2026-06-30"})
+        store.ensure_batch("batch-001", {"window": "one"})
+        store.ensure_terms("batch-001", ["term"])
+        store.commit_search_page(
+            "batch-001", "term", None, [], next_cursor=None, terminal_status="exhausted"
+        )
+        snapshot = store.export_snapshot(
+            snapshot_root,
+            snapshot_id="same-id",
+            batch_id="batch-001",
+            complete=True,
+        )
+        policy = generate_cohort_policy(_decisions(cycle_hash))
+        destination = tmp_path / "observations.jsonl"
+        export_observation_manifest(
+            store=store, policy_artifact=policy, destination=destination
+        )
+        manifest_path = snapshot / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["created_at"] = "2099-01-01T00:00:00Z"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with pytest.raises(CohortPolicyError, match="snapshot manifest"):
+            export_observation_manifest(
+                store=store, policy_artifact=policy, destination=destination
+            )
+
+
 def test_cohort_policy_and_observation_cli_round_trip(tmp_path: Path) -> None:
     store_path = tmp_path / "cycle.sqlite3"
     with CycleAcquisitionStore(store_path) as store:
@@ -195,6 +283,7 @@ def test_cohort_policy_and_observation_cli_round_trip(tmp_path: Path) -> None:
 
 
 def _decisions(cycle_hash: str) -> dict[str, object]:
+    taxonomy = cohort_reason_policy_taxonomy()
     return {
         "cycle_id": "cycle-1",
         "cycle_acquisition_hash": cycle_hash,
@@ -212,14 +301,19 @@ def _decisions(cycle_hash: str) -> dict[str, object]:
             "refresh_before_purchase": True,
         },
         "refresh_policy": {
-            "immutable_reason_codes": ["not_federal_district_court"],
-            "refreshable_reason_codes": ["strict_clean_screen_failed"],
-            "transient_reason_codes": ["fetch_error"],
+            **{field: list(reason_codes) for field, reason_codes in taxonomy.items()},
             "evidence_precedence": {
                 "transient": 0,
                 "excluded_refreshable": 10,
                 "accepted": 20,
                 "newly_free": 30,
+                "excluded_immutable": 100,
+            },
+            "transition_semantics": {
+                "immutable_reconsideration": "never",
+                "transient_supersedes_evidenced": False,
+                "higher_rank_supersedes_lower_rank": True,
+                "latest_wins_equal_rank": True,
             },
         },
         "packet_completeness": {
