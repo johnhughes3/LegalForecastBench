@@ -82,19 +82,46 @@ def test_observation_export_appends_verified_snapshots_only(tmp_path: Path) -> N
             store=store, policy_artifact=policy, destination=manifest_path
         )
         first_bytes = manifest_path.read_bytes()
+        store.ensure_batch("batch-002", {"window": "two"})
+        store.ensure_terms("batch-002", ["term"])
+        store.commit_search_page(
+            "batch-002",
+            "term",
+            None,
+            [],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        store.export_snapshot(
+            snapshot_root,
+            snapshot_id="batch-002-snapshot",
+            batch_id="batch-002",
+            complete=True,
+        )
         second = export_observation_manifest(
             store=store, policy_artifact=policy, destination=manifest_path
         )
+        second_bytes = manifest_path.read_bytes()
+        third = export_observation_manifest(
+            store=store, policy_artifact=policy, destination=manifest_path
+        )
 
-    assert first == second
-    assert manifest_path.read_bytes() == first_bytes
+    assert second == third
+    assert manifest_path.read_bytes() == second_bytes
+    assert second_bytes.startswith(first_bytes)
+    assert len(second_bytes) > len(first_bytes)
     assert [record["record_type"] for record in first] == ["header", "snapshot"]
+    assert [record["record_type"] for record in second] == [
+        "header",
+        "snapshot",
+        "snapshot",
+    ]
     assert (
-        verify_observation_manifest(first, policy_artifact=policy)
-        == first[-1]["record_sha256"]
+        verify_observation_manifest(second, policy_artifact=policy)
+        == second[-1]["record_sha256"]
     )
 
-    tampered = [dict(record) for record in first]
+    tampered = [dict(record) for record in second]
     tampered[1]["batch_id"] = "batch-999"
     with pytest.raises(CohortPolicyError, match="hash does not match"):
         verify_observation_manifest(tampered, policy_artifact=policy)
