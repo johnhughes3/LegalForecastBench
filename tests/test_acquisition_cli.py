@@ -8,6 +8,9 @@ from typing import Any, cast
 import legalforecast.cli as cli
 import pytest
 from legalforecast.cli import main
+from legalforecast.ingestion.case_dev_purchase import (
+    generate_case_dev_purchase_policy,
+)
 from legalforecast.ingestion.free_document_downloader import FreeDocumentFetch
 from legalforecast.unitization.review import apply_unitization_reviews
 from pytest import CaptureFixture, MonkeyPatch
@@ -200,6 +203,7 @@ def test_purchase_missing_requires_non_dry_run_plan_and_paid_activity_flags(
 ) -> None:
     output_root = tmp_path / "acquisition"
     plan_path = _write_execute_budget_plan(tmp_path, output_root)
+    policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
 
     assert (
         main(
@@ -208,6 +212,12 @@ def test_purchase_missing_requires_non_dry_run_plan_and_paid_activity_flags(
                 "purchase-missing",
                 "--budget-plan",
                 str(plan_path),
+                "--purchase-policy",
+                str(policy_path),
+                "--cohort-policy",
+                str(cohort_path),
+                "--purchase-ledger",
+                str(ledger_path),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -231,6 +241,7 @@ def test_purchase_missing_uses_fixture_only_after_explicit_fee_flags(
 ) -> None:
     output_root = tmp_path / "acquisition"
     plan_path = _write_execute_budget_plan(tmp_path, output_root)
+    policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
     fixture_path = tmp_path / "case-dev-purchase.jsonl"
     _write_jsonl(
         fixture_path,
@@ -260,6 +271,12 @@ def test_purchase_missing_uses_fixture_only_after_explicit_fee_flags(
                 "purchase-missing",
                 "--budget-plan",
                 str(plan_path),
+                "--purchase-policy",
+                str(policy_path),
+                "--cohort-policy",
+                str(cohort_path),
+                "--purchase-ledger",
+                str(ledger_path),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -346,6 +363,7 @@ def test_core_filter_purchase_and_recovery_flow_builds_parser_requests(
         )
         == 0
     )
+    policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
     purchase_fixture_path = tmp_path / "case-dev-purchase.jsonl"
     download_url = "https://case.dev/download/mtd-memo.pdf"
     _write_jsonl(
@@ -375,6 +393,12 @@ def test_core_filter_purchase_and_recovery_flow_builds_parser_requests(
                 "purchase-missing",
                 "--budget-plan",
                 str(output_root / "missing-core-budget-plan.json"),
+                "--purchase-policy",
+                str(policy_path),
+                "--cohort-policy",
+                str(cohort_path),
+                "--purchase-ledger",
+                str(ledger_path),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -1410,6 +1434,43 @@ def _write_execute_budget_plan(tmp_path: Path, output_root: Path) -> Path:
         == 0
     )
     return output_root / "missing-core-budget-plan.json"
+
+
+def _write_purchase_policy(tmp_path: Path) -> tuple[Path, Path, Path]:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy_path = tmp_path / "purchase-policy.json"
+    cohort_path = tmp_path / "cohort-policy.json"
+    decisions = cli._fixture_cohort_policy_decisions()
+    decisions["purchase_policy"] = {
+        "rule": "buy_cheapest_complete",
+        "cycle_budget_usd": "2250.00",
+        "max_per_case_usd": "73.20",
+        "reservation_headroom_required": True,
+    }
+    cohort = cli.generate_cohort_policy(decisions)
+    _write_json(cohort_path, cohort)
+    _write_json(
+        policy_path,
+        generate_case_dev_purchase_policy(
+            {
+                "cycle_id": "cycle-1",
+                "cohort_policy_sha256": cohort["policy_sha256"],
+                "canonical_ledger_path": str(ledger),
+                "hard_cap_usd": "2250.00",
+                "opening_committed_spend_usd": "0.00",
+                "max_per_case_usd": "73.20",
+                "per_document_reservation_usd": "3.05",
+                "fee_schedule": {
+                    "source_citation": "case.dev pricing docs",
+                    "verified_at_utc": "2026-07-13T00:00:00Z",
+                    "includes_pacer_fees": True,
+                    "includes_service_fees": True,
+                    "includes_rounding": True,
+                },
+            }
+        ),
+    )
+    return policy_path, ledger, cohort_path
 
 
 def _write_merge_root(root: Path, *, case_id: str, unit_id: str) -> None:

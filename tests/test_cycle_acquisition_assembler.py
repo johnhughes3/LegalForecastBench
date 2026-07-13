@@ -7,8 +7,10 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import legalforecast.cli as cli
 import pytest
 from legalforecast.cli import main
+from legalforecast.ingestion.case_dev_purchase import generate_case_dev_purchase_policy
 
 
 def test_assemble_cycle_acquisition_rebases_and_reconciles_two_batches(
@@ -168,6 +170,7 @@ def test_assemble_cycle_acquisition_rebases_and_reconciles_two_batches(
     assert (cycle / "parse-document-requests.jsonl").read_bytes() == (
         single_batch / "parse-document-requests.jsonl"
     ).read_bytes()
+    purchase_policy, purchase_ledger, cohort_policy = _purchase_policy(tmp_path)
     assert (
         main(
             [
@@ -175,6 +178,12 @@ def test_assemble_cycle_acquisition_rebases_and_reconciles_two_batches(
                 "purchase-missing",
                 "--budget-plan",
                 str(cycle / "missing-core-budget-plan.json"),
+                "--purchase-policy",
+                str(purchase_policy),
+                "--cohort-policy",
+                str(cohort_policy),
+                "--purchase-ledger",
+                str(purchase_ledger),
                 "--output-root",
                 str(cycle / "purchase-parser-dry-run"),
             ]
@@ -893,3 +902,43 @@ def _write_jsonl(path: Path, records: Sequence[Mapping[str, object]]) -> None:
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text().splitlines() if line]
+
+
+def _purchase_policy(tmp_path: Path) -> tuple[Path, Path, Path]:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    path = tmp_path / "purchase-policy.json"
+    cohort_path = tmp_path / "cohort-policy.json"
+    decisions = cli._fixture_cohort_policy_decisions()
+    decisions["purchase_policy"] = {
+        "rule": "buy_cheapest_complete",
+        "cycle_budget_usd": "2250.00",
+        "max_per_case_usd": "73.20",
+        "reservation_headroom_required": True,
+    }
+    cohort = cli.generate_cohort_policy(decisions)
+    cohort_path.write_text(json.dumps(cohort), encoding="utf-8")
+    path.write_text(
+        json.dumps(
+            generate_case_dev_purchase_policy(
+                {
+                    "cycle_id": "cycle-1",
+                    "cohort_policy_sha256": cohort["policy_sha256"],
+                    "canonical_ledger_path": str(ledger),
+                    "hard_cap_usd": "2250.00",
+                    "opening_committed_spend_usd": "0.00",
+                    "max_per_case_usd": "73.20",
+                    "per_document_reservation_usd": "3.05",
+                    "fee_schedule": {
+                        "source_citation": "case.dev pricing docs",
+                        "verified_at_utc": "2026-07-13T00:00:00Z",
+                        "includes_pacer_fees": True,
+                        "includes_service_fees": True,
+                        "includes_rounding": True,
+                    },
+                }
+            ),
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    return path, ledger, cohort_path

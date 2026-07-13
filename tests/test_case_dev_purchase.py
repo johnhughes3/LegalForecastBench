@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from legalforecast.ingestion import (
@@ -16,6 +17,9 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerCapability,
     CaseDevPacerPurchaseClient,
     CaseDevPacerPurchaseStatus,
+    CaseDevPurchaseJournal,
+    generate_case_dev_purchase_policy,
+    verify_case_dev_purchase_policy,
 )
 from legalforecast.ingestion.missing_core_budget import (
     plan_missing_core_document_budget,
@@ -69,9 +73,9 @@ def test_purchase_client_records_capability_blocked_for_docket_level_only() -> N
     assert result.attempts[0].reason == "document_level_purchase_unavailable"
 
 
-def test_purchase_client_posts_acknowledged_document_purchase_and_records_fees() -> (
-    None
-):
+def test_purchase_client_posts_acknowledged_document_purchase_and_records_fees(
+    tmp_path: Path,
+) -> None:
     transport = CaseDevFixtureTransport(
         [
             RecordedCaseDevResponse(
@@ -92,16 +96,17 @@ def test_purchase_client_posts_acknowledged_document_purchase_and_records_fees()
             )
         ]
     )
-    client = CaseDevPacerPurchaseClient(
-        _case_dev_client(transport),
-        capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
-    )
-
-    result = client.execute_purchase_plan(
-        _budget_plan("case-1", ("doc-1",), dry_run=False),
-        live=True,
-        acknowledge_pacer_fees=True,
-    )
+    with _journal(tmp_path) as journal:
+        client = CaseDevPacerPurchaseClient(
+            _case_dev_client(transport),
+            capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
+            journal=journal,
+        )
+        result = client.execute_purchase_plan(
+            _budget_plan("case-1", ("doc-1",), dry_run=False),
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
 
     assert transport.requests == [
         (
@@ -119,7 +124,9 @@ def test_purchase_client_posts_acknowledged_document_purchase_and_records_fees()
     }
 
 
-def test_purchase_client_records_case_dev_errors_without_continuing_blindly() -> None:
+def test_purchase_client_records_case_dev_errors_without_continuing_blindly(
+    tmp_path: Path,
+) -> None:
     transport = CaseDevFixtureTransport(
         [
             RecordedCaseDevResponse(
@@ -131,22 +138,25 @@ def test_purchase_client_records_case_dev_errors_without_continuing_blindly() ->
             )
         ]
     )
-    client = CaseDevPacerPurchaseClient(
-        _case_dev_client(transport),
-        capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
-    )
-
-    result = client.execute_purchase_plan(
-        _budget_plan("case-1", ("doc-1",), dry_run=False),
-        live=True,
-        acknowledge_pacer_fees=True,
-    )
+    with _journal(tmp_path) as journal:
+        client = CaseDevPacerPurchaseClient(
+            _case_dev_client(transport),
+            capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
+            journal=journal,
+        )
+        result = client.execute_purchase_plan(
+            _budget_plan("case-1", ("doc-1",), dry_run=False),
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
 
     assert result.attempts[0].status is CaseDevPacerPurchaseStatus.PROVIDER_ERROR
     assert result.attempts[0].reason == "pacer fee cap exceeded"
 
 
-def test_purchase_redirect_records_unknown_and_retains_full_plan_reservation() -> None:
+def test_purchase_redirect_records_unknown_and_retains_full_plan_reservation(
+    tmp_path: Path,
+) -> None:
     transport = CaseDevFixtureTransport(
         [
             RecordedCaseDevResponse(
@@ -159,22 +169,23 @@ def test_purchase_redirect_records_unknown_and_retains_full_plan_reservation() -
         ]
     )
     case_dev_client = _case_dev_client(transport)
-    client = CaseDevPacerPurchaseClient(
-        case_dev_client,
-        capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
-    )
-
-    result = client.execute_purchase_plan(
-        _budget_plan("case-1", ("doc-1", "doc-2"), dry_run=False),
-        live=True,
-        acknowledge_pacer_fees=True,
-    )
+    with _journal(tmp_path) as journal:
+        client = CaseDevPacerPurchaseClient(
+            case_dev_client,
+            capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
+            journal=journal,
+        )
+        result = client.execute_purchase_plan(
+            _budget_plan("case-1", ("doc-1", "doc-2"), dry_run=False),
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
 
     assert [attempt.status for attempt in result.attempts] == [
         CaseDevPacerPurchaseStatus.UNKNOWN,
         CaseDevPacerPurchaseStatus.NOT_ATTEMPTED,
     ]
-    assert result.attempts[0].reason == "purchase_redirect_outcome_unknown"
+    assert result.attempts[0].reason == "purchase_outcome_unknown"
     assert result.attempts[1].reason == "unknown_outcome_before_attempt"
     assert result.projected_cost_usd == "6.10"
     assert result.executed_purchase_count == 0
@@ -249,4 +260,30 @@ def _case_dev_client(transport: CaseDevFixtureTransport) -> CaseDevClient:
     return CaseDevClient(
         config=CaseDevConfig(api_key=None, base_url="https://api.case.dev"),
         transport=transport,
+    )
+
+
+def _journal(tmp_path: Path) -> CaseDevPurchaseJournal:
+    ledger = (tmp_path / "purchase.sqlite3").resolve()
+    artifact = generate_case_dev_purchase_policy(
+        {
+            "cycle_id": "cycle-1",
+            "cohort_policy_sha256": "a" * 64,
+            "canonical_ledger_path": str(ledger),
+            "hard_cap_usd": "2250.00",
+            "opening_committed_spend_usd": "0.00",
+            "max_per_case_usd": "73.20",
+            "per_document_reservation_usd": "3.05",
+            "fee_schedule": {
+                "source_citation": "case.dev docs",
+                "verified_at_utc": "2026-07-13T00:00:00Z",
+                "includes_pacer_fees": True,
+                "includes_service_fees": True,
+                "includes_rounding": True,
+            },
+        }
+    )
+    return CaseDevPurchaseJournal(
+        ledger,
+        policy=verify_case_dev_purchase_policy(artifact),
     )

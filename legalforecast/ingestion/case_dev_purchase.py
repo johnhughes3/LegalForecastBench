@@ -2,22 +2,635 @@
 
 from __future__ import annotations
 
+import fcntl
+import hashlib
+import json
+import os
+import re
+import sqlite3
+import tempfile
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from enum import StrEnum
+from pathlib import Path
+from types import TracebackType
 from typing import Any, cast
 
 from legalforecast.ingestion.case_dev_client import (
     CaseDevClient,
     CaseDevClientError,
     CaseDevPurchaseOutcomeUnknownError,
+    CaseDevResponseError,
+    CaseDevServerError,
 )
+from legalforecast.ingestion.cohort_policy import verify_cohort_policy
 from legalforecast.ingestion.missing_core_budget import (
     CaseDocumentCapExceededError,
     MissingCoreBudgetPlan,
     PurchaseBudgetExceededError,
 )
+
+CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION = "legalforecast.case_dev_purchase_policy.v1"
+_SHA256 = re.compile(r"[0-9a-f]{64}")
+
+
+class CaseDevPurchasePolicyError(ValueError):
+    """Raised when the immutable cycle purchase policy is invalid or conflicts."""
+
+
+class CaseDevPurchaseLedgerError(RuntimeError):
+    """Raised when a purchase journal cannot make a safe state transition."""
+
+
+class CaseDevPurchaseLedgerBusyError(CaseDevPurchaseLedgerError):
+    """Raised when another process owns the cycle purchase journal."""
+
+
+class CaseDevPurchaseReconciliationRequired(CaseDevPurchaseLedgerError):
+    """Raised when an ambiguous paid request needs provider-side evidence."""
+
+
+@dataclass(frozen=True, slots=True)
+class CaseDevPurchasePolicy:
+    """Verified immutable policy controlling one cycle's document purchases."""
+
+    cycle_id: str
+    cohort_policy_sha256: str
+    canonical_ledger_path: Path
+    hard_cap_usd: Decimal
+    opening_committed_spend_usd: Decimal
+    max_per_case_usd: Decimal
+    per_document_reservation_usd: Decimal
+    policy_sha256: str
+    fee_schedule: Mapping[str, Any]
+
+
+def generate_case_dev_purchase_policy(
+    decisions: Mapping[str, object],
+) -> dict[str, object]:
+    """Validate and hash a pre-committed cycle document-purchase policy."""
+
+    policy = _validated_purchase_policy(decisions)
+    return {
+        "schema_version": CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION,
+        "policy": policy,
+        "policy_sha256": _hash(policy),
+    }
+
+
+def verify_case_dev_purchase_policy(
+    artifact: Mapping[str, object],
+) -> CaseDevPurchasePolicy:
+    """Verify a purchase policy artifact and return its typed immutable identity."""
+
+    _exact_keys(
+        artifact,
+        {"schema_version", "policy", "policy_sha256"},
+        "purchase policy artifact",
+    )
+    if artifact.get("schema_version") != CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION:
+        raise CaseDevPurchasePolicyError("unsupported purchase policy schema")
+    raw_policy = artifact.get("policy")
+    if not isinstance(raw_policy, Mapping):
+        raise CaseDevPurchasePolicyError("purchase policy must be an object")
+    policy = _validated_purchase_policy(cast(Mapping[str, object], raw_policy))
+    committed = _required_sha(artifact.get("policy_sha256"), "policy_sha256")
+    if _hash(policy) != committed:
+        raise CaseDevPurchasePolicyError("purchase policy hash does not match content")
+    fee_schedule = cast(Mapping[str, Any], policy["fee_schedule"])
+    return CaseDevPurchasePolicy(
+        cycle_id=cast(str, policy["cycle_id"]),
+        cohort_policy_sha256=cast(str, policy["cohort_policy_sha256"]),
+        canonical_ledger_path=Path(cast(str, policy["canonical_ledger_path"])),
+        hard_cap_usd=Decimal(cast(str, policy["hard_cap_usd"])),
+        opening_committed_spend_usd=Decimal(
+            cast(str, policy["opening_committed_spend_usd"])
+        ),
+        max_per_case_usd=Decimal(cast(str, policy["max_per_case_usd"])),
+        per_document_reservation_usd=Decimal(
+            cast(str, policy["per_document_reservation_usd"])
+        ),
+        policy_sha256=committed,
+        fee_schedule=fee_schedule,
+    )
+
+
+def write_case_dev_purchase_policy(
+    path: str | Path,
+    artifact: Mapping[str, object],
+) -> Path:
+    """Atomically publish an immutable verified purchase policy artifact."""
+
+    verify_case_dev_purchase_policy(artifact)
+    target = Path(path)
+    payload = f"{json.dumps(artifact, indent=2, sort_keys=True)}\n".encode()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        if target.read_bytes() != payload:
+            raise CaseDevPurchasePolicyError(
+                "refusing to overwrite a different purchase policy artifact"
+            )
+        return target
+    fd, temporary_name = tempfile.mkstemp(
+        dir=target.parent,
+        prefix=f".{target.name}.",
+        suffix=".tmp",
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.link(temporary, target)
+        directory_fd = os.open(target.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    except FileExistsError:
+        if target.read_bytes() != payload:
+            raise CaseDevPurchasePolicyError(
+                "purchase policy was concurrently created with different content"
+            ) from None
+    finally:
+        temporary.unlink(missing_ok=True)
+    return target
+
+
+def verify_case_dev_purchase_policy_cohort_binding(
+    policy: CaseDevPurchasePolicy,
+    cohort_artifact: Mapping[str, Any],
+) -> None:
+    """Require the purchase envelope to consume the frozen cohort policy caps."""
+
+    cohort_hash = verify_cohort_policy(cohort_artifact)
+    if policy.cohort_policy_sha256 != cohort_hash:
+        raise CaseDevPurchasePolicyError(
+            "purchase policy is bound to a different cohort policy hash"
+        )
+    raw_policy = cohort_artifact.get("policy")
+    assert isinstance(raw_policy, Mapping)
+    typed_policy = cast(Mapping[str, object], raw_policy)
+    raw_purchase = typed_policy.get("purchase_policy")
+    assert isinstance(raw_purchase, Mapping)
+    typed_purchase = cast(Mapping[str, object], raw_purchase)
+    cohort_cap = _policy_money(
+        typed_purchase.get("cycle_budget_usd"), "cohort cycle_budget_usd"
+    )
+    cohort_per_case = _policy_money(
+        typed_purchase.get("max_per_case_usd"), "cohort max_per_case_usd"
+    )
+    if policy.hard_cap_usd != cohort_cap:
+        raise CaseDevPurchasePolicyError(
+            "purchase hard cap must equal the frozen cohort cycle budget"
+        )
+    if policy.max_per_case_usd != cohort_per_case:
+        raise CaseDevPurchasePolicyError(
+            "purchase per-case cap must equal the frozen cohort per-case cap"
+        )
+
+
+class CaseDevPurchaseJournal:
+    """Single-writer durable state machine for non-idempotent paid POSTs."""
+
+    def __init__(self, path: str | Path, *, policy: CaseDevPurchasePolicy) -> None:
+        self.path = Path(path).resolve()
+        if self.path != policy.canonical_ledger_path:
+            raise CaseDevPurchasePolicyError(
+                "purchase ledger path conflicts with canonical policy locator"
+            )
+        self.policy = policy
+        self._closed = False
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock_path = Path(f"{self.path}.lock")
+        self._lock_fd = os.open(self._lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            fcntl.flock(self._lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            os.close(self._lock_fd)
+            raise CaseDevPurchaseLedgerBusyError(
+                f"cycle purchase journal is already locked: {self.path}"
+            ) from exc
+        try:
+            if not self.path.exists():
+                fd = os.open(self.path, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o600)
+                os.close(fd)
+            self._connection: sqlite3.Connection = sqlite3.connect(
+                self.path, isolation_level=None
+            )
+            self._connection.row_factory = sqlite3.Row
+            self._connection.execute("PRAGMA journal_mode=WAL")
+            self._connection.execute("PRAGMA synchronous=FULL")
+            self._create_schema()
+            self._bind_policy()
+        except BaseException:
+            connection = getattr(self, "_connection", None)
+            if connection is not None:
+                connection.close()
+            fcntl.flock(self._lock_fd, fcntl.LOCK_UN)
+            os.close(self._lock_fd)
+            raise
+
+    def __enter__(self) -> CaseDevPurchaseJournal:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.close()
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._connection.close()
+        fcntl.flock(self._lock_fd, fcntl.LOCK_UN)
+        os.close(self._lock_fd)
+        self._closed = True
+
+    def plan(self, plan: MissingCoreBudgetPlan) -> None:
+        """Persist every intent as planned before any submission can occur."""
+
+        reservation = self.policy.per_document_reservation_usd
+        with self._connection:
+            for case_plan in plan.case_plans:
+                case_reservation = reservation * len(case_plan.purchase_document_ids)
+                if case_reservation > self.policy.max_per_case_usd:
+                    raise CaseDevPurchaseLedgerError(
+                        f"{case_plan.candidate_id} reservation exceeds per-case cap"
+                    )
+                for document_id in case_plan.purchase_document_ids:
+                    self._connection.execute(
+                        """INSERT OR IGNORE INTO purchase_operations(
+                        source_document_id, candidate_id, reservation_usd, status)
+                        VALUES (?, ?, ?, 'planned')""",
+                        (document_id, case_plan.candidate_id, _money(reservation)),
+                    )
+                    row = self._operation(document_id)
+                    assert row is not None
+                    if str(row["candidate_id"]) != case_plan.candidate_id or str(
+                        row["reservation_usd"]
+                    ) != _money(reservation):
+                        raise CaseDevPurchaseLedgerError(
+                            f"purchase intent conflicts for document {document_id}"
+                        )
+
+    def require_reconciled(self) -> None:
+        row = self._connection.execute(
+            """SELECT source_document_id, status FROM purchase_operations
+            WHERE status='submitted' OR
+              (status='unknown' AND reconciliation_json IS NULL)
+            ORDER BY source_document_id LIMIT 1"""
+        ).fetchone()
+        if row is not None:
+            identity = row["source_document_id"]
+            status = row["status"]
+            raise CaseDevPurchaseReconciliationRequired(
+                f"document {identity} has {status} paid outcome; "
+                "billing receipt, statement export, support confirmation, or a "
+                "counted write-off is required before any reissue"
+            )
+
+    def submit(self, document_id: str) -> bool:
+        """Reserve cap and durably commit submitted immediately before one POST."""
+
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            row = self._operation(document_id)
+            if row is None:
+                raise CaseDevPurchaseLedgerError("purchase intent was not planned")
+            status = str(row["status"])
+            if status == "confirmed":
+                self._connection.commit()
+                return False
+            if status != "planned":
+                raise CaseDevPurchaseReconciliationRequired(
+                    f"document {document_id} has {status} paid outcome"
+                )
+            reservation = Decimal(str(row["reservation_usd"]))
+            if (
+                Decimal(self.committed_amount_usd) + reservation
+                > self.policy.hard_cap_usd
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    f"document {document_id} reservation would exceed cycle cap"
+                )
+            operation_key = str(uuid.uuid4())
+            cursor = self._connection.execute(
+                """UPDATE purchase_operations
+                SET status='submitted', operation_key=?
+                WHERE source_document_id=? AND status='planned'""",
+                (operation_key, document_id),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError("purchase submit transition failed")
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+        return True
+
+    def confirm(
+        self,
+        document_id: str,
+        *,
+        response: Mapping[str, Any],
+        fees: Mapping[str, str],
+    ) -> None:
+        actual = Decimal(fees["total_usd"])
+        row = self._operation(document_id)
+        if row is None:
+            raise CaseDevPurchaseLedgerError("purchase operation is missing")
+        if actual > Decimal(str(row["reservation_usd"])):
+            with self._connection:
+                self._connection.execute(
+                    """UPDATE purchase_operations SET status='unknown',
+                    actual_usd=?, response_json=?, error=?
+                    WHERE source_document_id=? AND status='submitted'""",
+                    (
+                        _money(actual),
+                        _canonical(response),
+                        "provider fee exceeded verified worst-case reservation",
+                        document_id,
+                    ),
+                )
+            raise CaseDevPurchaseLedgerError(
+                "provider fee exceeds the verified worst-case reservation"
+            )
+        with self._connection:
+            cursor = self._connection.execute(
+                """UPDATE purchase_operations SET status='confirmed',
+                actual_usd=?, response_json=?, error=NULL
+                WHERE source_document_id=? AND status='submitted'""",
+                (_money(actual), _canonical(response), document_id),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError("cannot confirm unsubmitted purchase")
+
+    def fail(self, document_id: str, error: BaseException) -> None:
+        with self._connection:
+            self._connection.execute(
+                """UPDATE purchase_operations SET status='failed', error=?
+                WHERE source_document_id=? AND status='submitted'""",
+                (f"{type(error).__name__}: {error}", document_id),
+            )
+
+    def mark_unknown(self, document_id: str, error: object) -> None:
+        with self._connection:
+            self._connection.execute(
+                """UPDATE purchase_operations SET status='unknown', error=?
+                WHERE source_document_id=? AND status='submitted'""",
+                (str(error), document_id),
+            )
+
+    def reconcile(self, evidence: Mapping[str, object]) -> None:
+        """Resolve or write off an ambiguous row using recorded provider evidence."""
+
+        _exact_keys(
+            evidence,
+            {
+                "source_document_id",
+                "disposition",
+                "source_type",
+                "source_reference",
+                "pacer_fees",
+                "download_url",
+            },
+            "purchase reconciliation evidence",
+        )
+        document_id = _required_text(
+            evidence.get("source_document_id"), "source_document_id"
+        )
+        disposition = _required_text(evidence.get("disposition"), "disposition")
+        source_type = _required_text(evidence.get("source_type"), "source_type")
+        if source_type not in {
+            "billing_receipt",
+            "statement_export",
+            "support_confirmation",
+        }:
+            raise CaseDevPurchasePolicyError(
+                "reconciliation source must be provider-side billing evidence"
+            )
+        _required_text(evidence.get("source_reference"), "source_reference")
+        row = self._operation(document_id)
+        if row is None or str(row["status"]) not in {"submitted", "unknown"}:
+            raise CaseDevPurchaseLedgerError(
+                "reconciliation requires a submitted or unknown operation"
+            )
+        reconciliation = _canonical(evidence)
+        if disposition == "confirmed":
+            fees = _pacer_fees(evidence.get("pacer_fees"))
+            assert fees is not None
+            download_url = _required_text(evidence.get("download_url"), "download_url")
+            actual = Decimal(fees["total_usd"])
+            if actual > Decimal(str(row["reservation_usd"])):
+                raise CaseDevPurchaseLedgerError(
+                    "reconciled fee exceeds verified worst-case reservation"
+                )
+            with self._connection:
+                self._connection.execute(
+                    """UPDATE purchase_operations SET status='confirmed',
+                    actual_usd=?, response_json=?, reconciliation_json=?, error=NULL
+                    WHERE source_document_id=? AND status IN ('submitted','unknown')""",
+                    (
+                        _money(actual),
+                        _canonical(
+                            {
+                                "acknowledgePacerFees": True,
+                                "pacerFees": evidence["pacer_fees"],
+                                "downloadUrl": download_url,
+                            }
+                        ),
+                        reconciliation,
+                        document_id,
+                    ),
+                )
+            return
+        if (
+            evidence.get("pacer_fees") is not None
+            or evidence.get("download_url") is not None
+        ):
+            raise CaseDevPurchasePolicyError(
+                "failed or written-off reconciliation cannot assert fees or a URL"
+            )
+        if disposition == "failed":
+            with self._connection:
+                self._connection.execute(
+                    """UPDATE purchase_operations SET status='failed',
+                    reconciliation_json=?
+                    WHERE source_document_id=? AND status IN ('submitted','unknown')""",
+                    (reconciliation, document_id),
+                )
+            return
+        if disposition == "write_off":
+            with self._connection:
+                self._connection.execute(
+                    """UPDATE purchase_operations SET status='unknown',
+                    reconciliation_json=?
+                    WHERE source_document_id=? AND status IN ('submitted','unknown')""",
+                    (reconciliation, document_id),
+                )
+            return
+        raise CaseDevPurchasePolicyError(
+            "reconciliation disposition must be confirmed, failed, or write_off"
+        )
+
+    def statuses(self) -> dict[str, str]:
+        rows = self._connection.execute(
+            """SELECT source_document_id, status FROM purchase_operations
+            ORDER BY source_document_id"""
+        ).fetchall()
+        return {str(row["source_document_id"]): str(row["status"]) for row in rows}
+
+    def replay_attempt(
+        self,
+        candidate_id: str,
+        document_id: str,
+    ) -> CaseDevPacerPurchaseAttempt | None:
+        """Reconstruct a terminal result without another provider call."""
+
+        row = self._operation(document_id)
+        if row is None or str(row["status"]) == "planned":
+            return None
+        status = str(row["status"])
+        if status == "confirmed":
+            response_json = row["response_json"]
+            if response_json is not None:
+                response = cast(Mapping[str, Any], json.loads(str(response_json)))
+                return _successful_attempt(candidate_id, document_id, response)
+            reconciliation_json = row["reconciliation_json"]
+            if reconciliation_json is None:
+                raise CaseDevPurchaseLedgerError(
+                    "confirmed purchase lacks durable provider evidence"
+                )
+            evidence = cast(Mapping[str, Any], json.loads(str(reconciliation_json)))
+            fees = _pacer_fees(evidence.get("pacer_fees"))
+            return CaseDevPacerPurchaseAttempt(
+                candidate_id=candidate_id,
+                source_document_id=document_id,
+                status=CaseDevPacerPurchaseStatus.PURCHASED,
+                reason="confirmed_purchase_replayed_from_provider_evidence",
+                pacer_fees=fees,
+            )
+        if status == "failed":
+            return CaseDevPacerPurchaseAttempt(
+                candidate_id=candidate_id,
+                source_document_id=document_id,
+                status=CaseDevPacerPurchaseStatus.PROVIDER_ERROR,
+                reason=str(row["error"] or "provider_evidence_confirmed_failure"),
+            )
+        if status == "unknown" and row["reconciliation_json"] is not None:
+            return CaseDevPacerPurchaseAttempt(
+                candidate_id=candidate_id,
+                source_document_id=document_id,
+                status=CaseDevPacerPurchaseStatus.UNKNOWN,
+                reason="purchase_written_off_and_counted_against_cycle_cap",
+            )
+        return None
+
+    @property
+    def committed_amount_usd(self) -> str:
+        rows = self._connection.execute(
+            """SELECT status, reservation_usd, actual_usd
+            FROM purchase_operations"""
+        ).fetchall()
+        amount = Decimal("0")
+        for row in rows:
+            status = str(row["status"])
+            if status == "confirmed":
+                amount += Decimal(str(row["actual_usd"]))
+            elif status in {"submitted", "unknown"}:
+                reservation = Decimal(str(row["reservation_usd"]))
+                actual = (
+                    Decimal(str(row["actual_usd"]))
+                    if row["actual_usd"] is not None
+                    else Decimal("0")
+                )
+                amount += max(reservation, actual)
+        return _money(self.policy.opening_committed_spend_usd + amount)
+
+    def _operation(self, document_id: str) -> sqlite3.Row | None:
+        return self._connection.execute(
+            """SELECT * FROM purchase_operations WHERE source_document_id=?""",
+            (document_id,),
+        ).fetchone()
+
+    def _create_schema(self) -> None:
+        self._connection.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS purchase_ledger (
+                singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+                cycle_id TEXT NOT NULL,
+                cohort_policy_sha256 TEXT NOT NULL,
+                purchase_policy_sha256 TEXT NOT NULL,
+                canonical_ledger_path TEXT NOT NULL,
+                hard_cap_usd TEXT NOT NULL,
+                opening_committed_spend_usd TEXT NOT NULL,
+                max_per_case_usd TEXT NOT NULL,
+                per_document_reservation_usd TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS purchase_operations (
+                source_document_id TEXT PRIMARY KEY,
+                candidate_id TEXT NOT NULL,
+                reservation_usd TEXT NOT NULL,
+                status TEXT NOT NULL CHECK(status IN
+                    ('planned','submitted','confirmed','failed','unknown')),
+                operation_key TEXT UNIQUE,
+                actual_usd TEXT,
+                response_json TEXT,
+                error TEXT,
+                reconciliation_json TEXT
+            );
+            """
+        )
+
+    def _bind_policy(self) -> None:
+        expected = (
+            self.policy.cycle_id,
+            self.policy.cohort_policy_sha256,
+            self.policy.policy_sha256,
+            str(self.policy.canonical_ledger_path),
+            _money(self.policy.hard_cap_usd),
+            _money(self.policy.opening_committed_spend_usd),
+            _money(self.policy.max_per_case_usd),
+            _money(self.policy.per_document_reservation_usd),
+        )
+        with self._connection:
+            self._connection.execute(
+                """INSERT OR IGNORE INTO purchase_ledger(
+                singleton, cycle_id, cohort_policy_sha256, purchase_policy_sha256,
+                canonical_ledger_path, hard_cap_usd, opening_committed_spend_usd,
+                max_per_case_usd, per_document_reservation_usd)
+                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                expected,
+            )
+        row = self._connection.execute(
+            "SELECT * FROM purchase_ledger WHERE singleton=1"
+        ).fetchone()
+        assert row is not None
+        actual = tuple(
+            str(row[field])
+            for field in (
+                "cycle_id",
+                "cohort_policy_sha256",
+                "purchase_policy_sha256",
+                "canonical_ledger_path",
+                "hard_cap_usd",
+                "opening_committed_spend_usd",
+                "max_per_case_usd",
+                "per_document_reservation_usd",
+            )
+        )
+        if actual != expected:
+            raise CaseDevPurchasePolicyError(
+                "purchase journal identity conflicts with immutable cycle policy"
+            )
 
 
 class CaseDevPacerCapability(StrEnum):
@@ -110,9 +723,11 @@ class CaseDevPacerPurchaseClient:
         client: CaseDevClient,
         *,
         capability: CaseDevPacerCapability = CaseDevPacerCapability.UNKNOWN,
+        journal: CaseDevPurchaseJournal | None = None,
     ) -> None:
         self.client = client
         self.capability = capability
+        self.journal = journal
 
     def execute_purchase_plan(
         self,
@@ -163,6 +778,11 @@ class CaseDevPacerPurchaseClient:
                 reason=reason,
             )
 
+        if self.journal is None:
+            raise CaseDevPurchaseLedgerError(
+                "live document purchase requires the canonical cycle journal"
+            )
+
         return self._execute_document_purchases(
             plan,
             live=live,
@@ -202,25 +822,42 @@ class CaseDevPacerPurchaseClient:
         live: bool,
         acknowledge_pacer_fees: bool,
     ) -> CaseDevPacerPurchaseResult:
+        assert self.journal is not None
         intended = tuple(
             (case_plan.candidate_id, document_id)
             for case_plan in plan.case_plans
             for document_id in case_plan.purchase_document_ids
         )
+        self.journal.plan(plan)
+        self.journal.require_reconciled()
         attempts: list[CaseDevPacerPurchaseAttempt] = []
         for index, (candidate_id, document_id) in enumerate(intended):
+            replayed = self.journal.replay_attempt(candidate_id, document_id)
+            if replayed is not None:
+                attempts.append(replayed)
+                continue
+            self.journal.submit(document_id)
             try:
                 payload = self.client.purchase_pacer_document(
                     document_id,
                     acknowledge_pacer_fees=True,
                 )
-            except CaseDevPurchaseOutcomeUnknownError:
+            except (
+                CaseDevPurchaseOutcomeUnknownError,
+                CaseDevServerError,
+                CaseDevResponseError,
+                ValueError,
+                TimeoutError,
+                ConnectionError,
+                OSError,
+            ) as exc:
+                self.journal.mark_unknown(document_id, exc)
                 attempts.append(
                     CaseDevPacerPurchaseAttempt(
                         candidate_id=candidate_id,
                         source_document_id=document_id,
                         status=CaseDevPacerPurchaseStatus.UNKNOWN,
-                        reason="purchase_redirect_outcome_unknown",
+                        reason="purchase_outcome_unknown",
                     )
                 )
                 attempts.extend(
@@ -236,6 +873,7 @@ class CaseDevPacerPurchaseClient:
                 )
                 break
             except CaseDevClientError as exc:
+                self.journal.fail(document_id, exc)
                 attempts.append(
                     CaseDevPacerPurchaseAttempt(
                         candidate_id=candidate_id,
@@ -256,7 +894,37 @@ class CaseDevPacerPurchaseClient:
                     ]
                 )
                 break
-            attempts.append(_successful_attempt(candidate_id, document_id, payload))
+            try:
+                attempt = _successful_attempt(candidate_id, document_id, payload)
+                assert attempt.pacer_fees is not None
+                self.journal.confirm(
+                    document_id,
+                    response=payload,
+                    fees=attempt.pacer_fees,
+                )
+            except (ValueError, CaseDevPurchaseLedgerError) as exc:
+                self.journal.mark_unknown(document_id, exc)
+                attempts.append(
+                    CaseDevPacerPurchaseAttempt(
+                        candidate_id=candidate_id,
+                        source_document_id=document_id,
+                        status=CaseDevPacerPurchaseStatus.UNKNOWN,
+                        reason="unparseable_provider_fees",
+                    )
+                )
+                attempts.extend(
+                    CaseDevPacerPurchaseAttempt(
+                        candidate_id=remaining_candidate_id,
+                        source_document_id=remaining_document_id,
+                        status=CaseDevPacerPurchaseStatus.NOT_ATTEMPTED,
+                        reason="unknown_outcome_before_attempt",
+                    )
+                    for remaining_candidate_id, remaining_document_id in intended[
+                        index + 1 :
+                    ]
+                )
+                break
+            attempts.append(attempt)
         return _result(
             plan,
             live=live,
@@ -290,15 +958,18 @@ def _successful_attempt(
     document_id: str,
     payload: Mapping[str, Any],
 ) -> CaseDevPacerPurchaseAttempt:
+    fee_acknowledged = _optional_bool(
+        payload,
+        "acknowledgePacerFees",
+        "feeAcknowledged",
+    )
+    if fee_acknowledged is not True:
+        raise ValueError("purchase response must confirm PACER fee acknowledgment")
     return CaseDevPacerPurchaseAttempt(
         candidate_id=candidate_id,
         source_document_id=document_id,
         status=CaseDevPacerPurchaseStatus.PURCHASED,
-        fee_acknowledged=_optional_bool(
-            payload,
-            "acknowledgePacerFees",
-            "feeAcknowledged",
-        ),
+        fee_acknowledged=fee_acknowledged,
         pacer_fees=_pacer_fees(payload.get("pacerFees", payload.get("pacer_fees"))),
         download_url=_optional_string(payload, "downloadUrl", "download_url", "url"),
     )
@@ -325,15 +996,20 @@ def _result(
 
 def _pacer_fees(value: object) -> Mapping[str, str] | None:
     if value is None:
-        return None
+        raise ValueError("purchase response must include PACER fees")
     if not isinstance(value, Mapping):
-        return None
+        raise ValueError("purchase response PACER fees must be an object")
     fees = cast(Mapping[object, object], value)
-    return {
+    parsed = {
         "pacer_fee_usd": _money_field(fees, "pacerFee", "pacer_fee"),
         "service_fee_usd": _money_field(fees, "serviceFee", "service_fee"),
         "total_usd": _money_field(fees, "total", "totalFee", "total_fee"),
     }
+    if Decimal(parsed["pacer_fee_usd"]) + Decimal(parsed["service_fee_usd"]) != Decimal(
+        parsed["total_usd"]
+    ):
+        raise ValueError("PACER fee total must equal PACER plus service fees")
+    return parsed
 
 
 def _money_field(record: Mapping[object, object], *field_names: str) -> str:
@@ -341,7 +1017,7 @@ def _money_field(record: Mapping[object, object], *field_names: str) -> str:
         value = record.get(field_name)
         if value is not None:
             return _money(value)
-    return "0.00"
+    raise ValueError(f"PACER fee response is missing {field_names[0]}")
 
 
 def _money(value: object) -> str:
@@ -349,9 +1025,154 @@ def _money(value: object) -> str:
         amount = Decimal(str(value))
     except InvalidOperation as exc:
         raise ValueError("PACER fee values must be decimal dollar amounts") from exc
-    if amount < 0:
+    if not amount.is_finite() or amount < 0:
         raise ValueError("PACER fee values cannot be negative")
-    return f"{amount.quantize(Decimal('0.01')):.2f}"
+    quantized = amount.quantize(Decimal("0.01"))
+    if amount != quantized:
+        raise ValueError("PACER fee values cannot use sub-cent precision")
+    return f"{quantized:.2f}"
+
+
+def _validated_purchase_policy(
+    decisions: Mapping[str, object],
+) -> dict[str, object]:
+    _exact_keys(
+        decisions,
+        {
+            "cycle_id",
+            "cohort_policy_sha256",
+            "canonical_ledger_path",
+            "hard_cap_usd",
+            "opening_committed_spend_usd",
+            "max_per_case_usd",
+            "per_document_reservation_usd",
+            "fee_schedule",
+        },
+        "purchase policy",
+    )
+    cycle_id = _required_text(decisions.get("cycle_id"), "cycle_id")
+    cohort_hash = _required_sha(
+        decisions.get("cohort_policy_sha256"), "cohort_policy_sha256"
+    )
+    ledger_text = _required_text(
+        decisions.get("canonical_ledger_path"), "canonical_ledger_path"
+    )
+    ledger_path = Path(ledger_text)
+    if not ledger_path.is_absolute() or ledger_path != ledger_path.resolve():
+        raise CaseDevPurchasePolicyError(
+            "canonical_ledger_path must be an absolute normalized path"
+        )
+    hard_cap = _policy_money(decisions.get("hard_cap_usd"), "hard_cap_usd")
+    opening_committed = _policy_money(
+        decisions.get("opening_committed_spend_usd"),
+        "opening_committed_spend_usd",
+    )
+    max_per_case = _policy_money(decisions.get("max_per_case_usd"), "max_per_case_usd")
+    reservation = _policy_money(
+        decisions.get("per_document_reservation_usd"),
+        "per_document_reservation_usd",
+    )
+    if hard_cap <= 0 or max_per_case <= 0 or reservation <= 0:
+        raise CaseDevPurchasePolicyError("purchase policy amounts must be positive")
+    if opening_committed < 0 or opening_committed > hard_cap:
+        raise CaseDevPurchasePolicyError(
+            "opening committed spend must be within the cycle hard cap"
+        )
+    if max_per_case > hard_cap:
+        raise CaseDevPurchasePolicyError("max per-case cap exceeds cycle hard cap")
+    if reservation > max_per_case:
+        raise CaseDevPurchasePolicyError("document reservation exceeds per-case cap")
+    raw_schedule = decisions.get("fee_schedule")
+    if not isinstance(raw_schedule, Mapping):
+        raise CaseDevPurchasePolicyError("fee_schedule must be an object")
+    schedule = cast(Mapping[str, object], raw_schedule)
+    _exact_keys(
+        schedule,
+        {
+            "source_citation",
+            "verified_at_utc",
+            "includes_pacer_fees",
+            "includes_service_fees",
+            "includes_rounding",
+        },
+        "fee_schedule",
+    )
+    source = _required_text(schedule.get("source_citation"), "source_citation")
+    verified_at = _required_text(schedule.get("verified_at_utc"), "verified_at_utc")
+    try:
+        parsed_verified_at = datetime.fromisoformat(verified_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise CaseDevPurchasePolicyError("verified_at_utc must be ISO-8601") from exc
+    if parsed_verified_at.tzinfo is None:
+        raise CaseDevPurchasePolicyError("verified_at_utc must include a timezone")
+    for field in (
+        "includes_pacer_fees",
+        "includes_service_fees",
+        "includes_rounding",
+    ):
+        if schedule.get(field) is not True:
+            raise CaseDevPurchasePolicyError(f"fee_schedule {field} must be true")
+    return {
+        "cycle_id": cycle_id,
+        "cohort_policy_sha256": cohort_hash,
+        "canonical_ledger_path": str(ledger_path),
+        "hard_cap_usd": _money(hard_cap),
+        "opening_committed_spend_usd": _money(opening_committed),
+        "max_per_case_usd": _money(max_per_case),
+        "per_document_reservation_usd": _money(reservation),
+        "fee_schedule": {
+            "source_citation": source,
+            "verified_at_utc": verified_at,
+            "includes_pacer_fees": True,
+            "includes_service_fees": True,
+            "includes_rounding": True,
+        },
+    }
+
+
+def _exact_keys(
+    value: Mapping[str, object],
+    expected: set[str],
+    label: str,
+) -> None:
+    actual = set(value)
+    if actual != expected:
+        missing = sorted(expected - actual)
+        unexpected = sorted(actual - expected)
+        raise CaseDevPurchasePolicyError(
+            f"{label} keys mismatch; missing={missing}, unexpected={unexpected}"
+        )
+
+
+def _required_text(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise CaseDevPurchasePolicyError(f"{label} must be a non-empty string")
+    return value.strip()
+
+
+def _required_sha(value: object, label: str) -> str:
+    text = _required_text(value, label)
+    if _SHA256.fullmatch(text) is None:
+        raise CaseDevPurchasePolicyError(f"{label} must be a lowercase SHA-256")
+    return text
+
+
+def _policy_money(value: object, label: str) -> Decimal:
+    try:
+        amount = Decimal(str(value))
+    except InvalidOperation as exc:
+        raise CaseDevPurchasePolicyError(f"{label} must be decimal money") from exc
+    if not amount.is_finite() or amount != amount.quantize(Decimal("0.01")):
+        raise CaseDevPurchasePolicyError(f"{label} must have at most two decimals")
+    return amount
+
+
+def _canonical(value: object) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _hash(value: object) -> str:
+    return hashlib.sha256(_canonical(value).encode()).hexdigest()
 
 
 def _optional_bool(record: Mapping[str, Any], *field_names: str) -> bool | None:
