@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from html.parser import HTMLParser
@@ -195,6 +195,7 @@ class RecapSearchPage:
     total_results: int
     total_pages: int
     next_url: str | None
+    result_card_count: int | None = None
 
     @property
     def complete(self) -> bool:
@@ -366,7 +367,24 @@ def parse_recap_search_html(
 ) -> RecapSearchPage:
     """Parse one search page and reject any unprovable/truncated response."""
 
-    target = parse_recap_search_url(source_url)
+    return parse_recap_search_html_with_plan(
+        raw_html,
+        source_url=source_url,
+        parse_search_url=parse_recap_search_url,
+        build_search_url=build_recap_search_url,
+    )
+
+
+def parse_recap_search_html_with_plan(
+    raw_html: str,
+    *,
+    source_url: str,
+    parse_search_url: Callable[[str], RecapSearchTarget],
+    build_search_url: Callable[..., str],
+) -> RecapSearchPage:
+    """Shared fail-closed parser for allowlisted RECAP HTML search plans."""
+
+    target = parse_search_url(source_url)
     if not raw_html.strip() or not re.search(r"</html>\s*$", raw_html, re.I):
         raise RecapSearchMarkupError("RECAP search HTML is empty or truncated")
     parser = _RecapResultHTMLParser()
@@ -400,6 +418,8 @@ def parse_recap_search_html(
         target=target,
         total_results=total_results,
         article_count=len(article_builders),
+        parse_search_url=parse_search_url,
+        build_search_url=build_search_url,
     )
     raw_html_sha256 = hashlib.sha256(raw_html.encode("utf-8")).hexdigest()
     hits: list[RecapSearchHit] = []
@@ -419,6 +439,7 @@ def parse_recap_search_html(
         hits=tuple(hits),
         total_results=total_results,
         total_pages=total_pages,
+        result_card_count=len(article_builders),
         next_url=next_url,
     )
 
@@ -433,20 +454,49 @@ def discover_recap_mtd_entries(
 ) -> RecapDiscoveryRun:
     """Exhaust every term, then return stable entry- and docket-level unions."""
 
+    return discover_recap_entries_with_plan(
+        transport=transport,
+        entry_date_filed_after=entry_date_filed_after,
+        entry_date_filed_before=entry_date_filed_before,
+        terms=terms,
+        max_pages_per_term=max_pages_per_term,
+        validate_terms=_validated_terms,
+        build_search_url=build_recap_search_url,
+        parse_search_html=parse_recap_search_html,
+    )
+
+
+def discover_recap_entries_with_plan(
+    *,
+    transport: RecapSearchHTMLTransport,
+    entry_date_filed_after: date,
+    entry_date_filed_before: date,
+    terms: Sequence[str],
+    max_pages_per_term: int,
+    validate_terms: Callable[[Sequence[str]], tuple[str, ...]],
+    build_search_url: Callable[..., str],
+    parse_search_html: Callable[..., RecapSearchPage],
+    reconcile_declared_counts: bool = False,
+) -> RecapDiscoveryRun:
+    """Exhaust a frozen RECAP HTML query plan and return stable unions."""
+
     _validate_window(entry_date_filed_after, entry_date_filed_before)
-    validated_terms = _validated_terms(terms)
+    validated_terms = validate_terms(terms)
     if type(max_pages_per_term) is not int or max_pages_per_term <= 0:
         raise ValueError("max_pages_per_term must be positive")
     raw_hits: list[RecapSearchHit] = []
     pages_fetched = 0
     for term in validated_terms:
-        next_url: str | None = build_recap_search_url(
+        next_url: str | None = build_search_url(
             term=term,
             entry_date_filed_after=entry_date_filed_after,
             entry_date_filed_before=entry_date_filed_before,
         )
         seen_urls: set[str] = set()
         pages_for_term = 0
+        declared_total_results: int | None = None
+        declared_total_pages: int | None = None
+        accumulated_result_cards = 0
         while next_url is not None:
             if next_url in seen_urls:
                 raise RecapSearchCompletenessError(
@@ -458,11 +508,40 @@ def discover_recap_mtd_entries(
                 )
             seen_urls.add(next_url)
             raw_html = transport.fetch(source_url=next_url)
-            page = parse_recap_search_html(raw_html, source_url=next_url)
+            page = parse_search_html(raw_html, source_url=next_url)
+            if declared_total_results is None:
+                declared_total_results = page.total_results
+                declared_total_pages = page.total_pages
+            elif reconcile_declared_counts and (
+                page.total_results != declared_total_results
+                or page.total_pages != declared_total_pages
+            ):
+                raise RecapSearchCompletenessError(
+                    f"RECAP result or page count changed during pagination: {term}"
+                )
+            if reconcile_declared_counts and page.result_card_count is None:
+                raise RecapSearchCompletenessError(
+                    f"RECAP result-card count is unavailable: {term}"
+                )
+            accumulated_result_cards += page.result_card_count or 0
             raw_hits.extend(page.hits)
             next_url = page.next_url
             pages_for_term += 1
             pages_fetched += 1
+        assert declared_total_results is not None
+        assert declared_total_pages is not None
+        if reconcile_declared_counts and pages_for_term != declared_total_pages:
+            raise RecapSearchCompletenessError(
+                f"RECAP pagination did not visit every declared page: {term}"
+            )
+        if (
+            reconcile_declared_counts
+            and accumulated_result_cards != declared_total_results
+        ):
+            raise RecapSearchCompletenessError(
+                "RECAP result cards do not reconcile to the declared result count: "
+                f"{term}"
+            )
 
     entries = _dedupe_entries(raw_hits, term_order=validated_terms)
     dockets = _dedupe_dockets(entries, term_order=validated_terms)
@@ -614,6 +693,8 @@ def _validated_pagination(
     target: RecapSearchTarget,
     total_results: int,
     article_count: int,
+    parse_search_url: Callable[[str], RecapSearchTarget],
+    build_search_url: Callable[..., str],
 ) -> tuple[int, str | None]:
     page_text = _normalized_text(parser.pagination_text)
     if page_text:
@@ -634,7 +715,7 @@ def _validated_pagination(
         raise RecapSearchMarkupError("RECAP page has multiple next-page links")
     expected_next: str | None = None
     if target.page < total_pages:
-        expected_next = build_recap_search_url(
+        expected_next = build_search_url(
             term=target.term,
             entry_date_filed_after=target.entry_date_filed_after,
             entry_date_filed_before=target.entry_date_filed_before,
@@ -645,7 +726,7 @@ def _validated_pagination(
         href = parser.next_hrefs[0]
         candidate = urljoin(COURTLISTENER_RECAP_SEARCH_URL, href)
         try:
-            normalized_next = parse_recap_search_url(candidate).url
+            normalized_next = parse_search_url(candidate).url
         except (RecapSearchURLValidationError, ValueError) as exc:
             raise RecapSearchMarkupError(
                 "RECAP next-page link escapes the frozen search"
@@ -786,7 +867,10 @@ def _dedupe_entries(
 ) -> tuple[RecapDiscoveredEntry, ...]:
     by_key: dict[str, list[RecapSearchHit]] = {}
     for hit in hits:
-        by_key.setdefault(hit.entry_key, []).append(hit)
+        dedupe_key = hit.entry_key
+        if hit.attachment_number is not None:
+            dedupe_key = f"{dedupe_key}:attachment:{hit.attachment_number}"
+        by_key.setdefault(dedupe_key, []).append(hit)
     term_rank = {term: index for index, term in enumerate(term_order)}
     entries: list[RecapDiscoveredEntry] = []
     for entry_key in sorted(by_key, key=_identity_sort_key):
@@ -798,6 +882,8 @@ def _dedupe_entries(
                 or other.entry_date_filed != canonical.entry_date_filed
                 or other.document_number != canonical.document_number
                 or other.docket_entry_id != canonical.docket_entry_id
+                or other.attachment_number != canonical.attachment_number
+                or other.document_url != canonical.document_url
             ):
                 raise RecapSearchCompletenessError(
                     f"conflicting duplicate RECAP entry identity: {entry_key}"
@@ -942,3 +1028,15 @@ def _numericish_sort_key(raw: str) -> tuple[int, str]:
         return int(raw), raw
     except ValueError:
         return 2**63 - 1, raw
+
+
+def parse_recap_search_date(raw: str, *, key: str) -> date:
+    """Public composition seam for alternate allowlisted HTML query plans."""
+
+    return _parse_search_date(raw, key=key)
+
+
+def validate_recap_search_window(after: date, before: date) -> None:
+    """Validate shared inclusive RECAP entry-date bounds."""
+
+    _validate_window(after, before)

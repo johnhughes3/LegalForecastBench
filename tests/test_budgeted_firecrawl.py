@@ -163,6 +163,46 @@ def test_scheduler_authorizes_before_network_and_materializes_success(
         assert result.summary["reported_credits"] == 5
 
 
+def test_semantically_invalid_artifact_is_retried_before_commit(tmp_path: Path) -> None:
+    target = _target("search-semantic", 0)
+    invalid = _success(target, "<html>invalid</html>")
+    valid = _success(target, "<html>valid</html>")
+
+    def validate(raw_html: str, source_url: str) -> None:
+        assert source_url == target.source_url
+        if "invalid" in raw_html:
+            raise ValueError("invalid fixture markup")
+
+    with _store(tmp_path) as store:
+        source = FixtureSource({target.source_url: [invalid, valid]})
+        result = BudgetedFirecrawlScheduler(
+            store=store,
+            source=source,
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+            artifact_validator=validate,
+            semantic_failure_quarantine_dir=tmp_path / "quarantine",
+        ).run([target])
+
+        assert source.calls == [target.source_url, target.source_url]
+        assert result.pages[0].raw_html == "<html>valid</html>"
+        attempts = store.firecrawl_attempts("run-001")
+        assert [attempt.status for attempt in attempts] == [
+            "transport_error",
+            "succeeded",
+        ]
+        assert attempts[0].failure_code == "invalid_target_artifact"
+        assert attempts[0].artifact_path is None
+        quarantined = tuple((tmp_path / "quarantine").glob("*.semantic-invalid.html"))
+        assert len(quarantined) == 1
+        assert quarantined[0].read_text() == "<html>invalid</html>"
+        assert hashlib.sha256(quarantined[0].read_bytes()).hexdigest() in (
+            quarantined[0].name
+        )
+        assert result.summary["run_reserved_credits"] == 10
+        assert result.summary["run_reported_credits"] == 10
+
+
 def test_scheduler_bounds_live_network_concurrency_and_commits_in_rank_order(
     tmp_path: Path,
 ) -> None:

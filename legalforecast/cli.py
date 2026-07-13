@@ -209,12 +209,28 @@ from legalforecast.ingestion.docket_sync import (
     DocketRetrievalPipeline,
     NormalizedDocketEntry,
 )
+from legalforecast.ingestion.firecrawl_recap_decision_discovery import (
+    DECISION_FIRST_RECAP_MAX_AUTHORIZED_CREDITS,
+    DECISION_FIRST_RECAP_MAX_PAGES_PER_TERM,
+    DECISION_FIRST_RECAP_QUERY_PLAN_VERSION,
+    DECISION_FIRST_RECAP_SEARCH_TERMS,
+    FROZEN_COMBINED_FIRECRAWL_CREDIT_CEILING,
+    FROZEN_EXISTING_FIRECRAWL_COMMITMENT_CREDITS,
+    FROZEN_OTHER_RESCUE_COMMITMENT_CREDITS,
+    decision_recap_query_expression,
+    decision_rescue_worst_case_credits,
+    discover_decision_recap_entries,
+    parse_decision_recap_search_html,
+    parse_decision_recap_search_url,
+)
 from legalforecast.ingestion.firecrawl_recap_discovery import (
     COURTLISTENER_QUERY_PLAN_VERSION,
     FROZEN_MTD_SEARCH_TERMS,
     RecapDiscoveredEntry,
     RecapSearchError,
     RecapSearchHit,
+    RecapSearchPage,
+    RecapSearchTarget,
     courtlistener_query_expression,
     discover_recap_mtd_entries,
     parse_recap_search_html,
@@ -735,6 +751,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_discover_firecrawl_recap_arguments(
         acquisition_discover_firecrawl_recap
+    )
+    acquisition_discover_firecrawl_recap_decisions = acquisition_subparsers.add_parser(
+        "discover-firecrawl-recap-decisions",
+        help=(
+            "Recover frozen decision-first type=r CourtListener results "
+            "through cycle-budgeted Firecrawl for free Case.dev enrichment."
+        ),
+        description=(
+            "Scrape the frozen eight decision-first CourtListener type=r "
+            "HTML searches only through Firecrawl. Emits docket IDs accepted "
+            "by acquisition enrich-recap-case-dev, then the existing ranked "
+            "docket acquisition and strict screen; no CourtListener API token, "
+            "PACER fee acknowledgment, or screening relaxation is used."
+        ),
+    )
+    _add_acquisition_discover_firecrawl_recap_arguments(
+        acquisition_discover_firecrawl_recap_decisions,
+        decision_first=True,
     )
     acquisition_project_firecrawl_recap_checkpoint = acquisition_subparsers.add_parser(
         "project-firecrawl-recap-checkpoint",
@@ -1366,6 +1400,8 @@ def _add_acquisition_discover_case_dev_arguments(
 
 def _add_acquisition_discover_firecrawl_recap_arguments(
     parser: argparse.ArgumentParser,
+    *,
+    decision_first: bool = False,
 ) -> None:
     _add_acquisition_common_arguments(parser)
     parser.add_argument(
@@ -1424,15 +1460,23 @@ def _add_acquisition_discover_firecrawl_recap_arguments(
         dest="query_terms",
         action="append",
         help=(
-            "MTD or eligible Rule 12(c) RECAP entry-search term. Repeat to "
+            "Frozen decision-first type=r query. Repeat to replace the eight-term "
+            "default with a frozen subset."
+            if decision_first
+            else "MTD or eligible Rule 12(c) RECAP entry-search term. Repeat to "
             "replace the frozen default set."
         ),
     )
     parser.add_argument(
         "--max-pages-per-term",
         type=int,
-        default=1_000,
-        help="Fail-closed pagination ceiling per term; default 1000.",
+        default=100 if decision_first else 1_000,
+        help=(
+            "Fail-closed pagination ceiling per decision term; default and hard "
+            "maximum 100."
+            if decision_first
+            else "Fail-closed pagination ceiling per term; default 1000."
+        ),
     )
     parser.add_argument(
         "--credit-cap",
@@ -1490,7 +1534,10 @@ def _add_acquisition_discover_firecrawl_recap_arguments(
             "used exactly as supplied."
         ),
     )
-    parser.set_defaults(handler=_cmd_acquisition_discover_firecrawl_recap)
+    parser.set_defaults(
+        handler=_cmd_acquisition_discover_firecrawl_recap,
+        recap_search_plan="decision-first-r" if decision_first else "mtd-entry-r",
+    )
 
 
 def _add_acquisition_project_firecrawl_recap_checkpoint_arguments(
@@ -3986,6 +4033,12 @@ def _cmd_acquisition_discover_case_dev(args: argparse.Namespace) -> int:
     return 0
 
 
+def _validate_decision_recap_artifact(raw_html: str, source_url: str) -> None:
+    """Reject malformed decision-search HTML before it becomes a success."""
+
+    parse_decision_recap_search_html(raw_html, source_url=source_url)
+
+
 class _BudgetedRecapSearchTransport:
     """Adapt page-at-a-time RECAP discovery to the durable scheduler."""
 
@@ -3996,10 +4049,12 @@ class _BudgetedRecapSearchTransport:
         inherited_pages: Sequence[FirecrawlPageRecord] = (),
         continuation_scheduler: BudgetedFirecrawlScheduler | None = None,
         fallback_source_urls: frozenset[str] = frozenset(),
+        parse_search_url: Callable[[str], RecapSearchTarget] = parse_recap_search_url,
     ) -> None:
         self.scheduler = scheduler
         self.continuation_scheduler = continuation_scheduler or scheduler
         self._fallback_source_urls = fallback_source_urls
+        self._parse_search_url = parse_search_url
         self._traversed_fallback_urls: set[str] = set()
         self._ordinals: dict[str, int] = {}
         self._pages: dict[str, FirecrawlPageRecord] = {}
@@ -4021,7 +4076,7 @@ class _BudgetedRecapSearchTransport:
         return self._fallback_source_urls - self._traversed_fallback_urls
 
     def fetch(self, *, source_url: str) -> str:
-        target = parse_recap_search_url(source_url)
+        target = self._parse_search_url(source_url)
         ordinal = self._ordinals.setdefault(source_url, len(self._ordinals))
         inherited = self._inherited_pages.get(source_url)
         if inherited is not None:
@@ -4432,6 +4487,31 @@ def _cmd_acquisition_init_cycle(args: argparse.Namespace) -> int:
 
 def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
+    decision_first = cast(str, args.recap_search_plan) == "decision-first-r"
+    stage_name = (
+        "discover-firecrawl-recap-decisions"
+        if decision_first
+        else "discover-firecrawl-recap"
+    )
+    default_terms = (
+        DECISION_FIRST_RECAP_SEARCH_TERMS if decision_first else FROZEN_MTD_SEARCH_TERMS
+    )
+    query_plan_version = (
+        DECISION_FIRST_RECAP_QUERY_PLAN_VERSION
+        if decision_first
+        else COURTLISTENER_QUERY_PLAN_VERSION
+    )
+    query_expression: Callable[[str], str] = (
+        decision_recap_query_expression
+        if decision_first
+        else courtlistener_query_expression
+    )
+    search_type = "r"
+    run_purpose = (
+        "anchored-recap-decision-discovery"
+        if decision_first
+        else "anchored-recap-entry-discovery"
+    )
     batch_id = cast(str, args.batch_id)
     run_id = cast(str, args.run_id)
     recovery_of_run_id = cast(str | None, args.recover_terminal_errors_from_run)
@@ -4462,13 +4542,11 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
             args.run_card_output = (
                 output_root
                 / "run-cards"
-                / f"discover-firecrawl-recap-{default_output_identity}.json"
+                / f"{stage_name}-{default_output_identity}.json"
             )
         if cast(Path | None, args.log_output) is None:
             args.log_output = (
-                output_root
-                / "logs"
-                / f"discover-firecrawl-recap-{default_output_identity}.jsonl"
+                output_root / "logs" / f"{stage_name}-{default_output_identity}.jsonl"
             )
     store_path = _acquisition_path(
         args, "cycle_store", output_root / "cycle-acquisition.sqlite3"
@@ -4515,7 +4593,7 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         raise CommandError("--search-window-end cannot precede --search-window-start")
     terms = tuple(cast(Sequence[str] | None, args.query_terms) or ())
     if not terms:
-        terms = FROZEN_MTD_SEARCH_TERMS
+        terms = default_terms
     max_pages_per_term = cast(int, args.max_pages_per_term)
     max_attempts = cast(int, args.max_attempts_per_page)
     breaker_threshold = cast(int, args.provider_breaker_threshold)
@@ -4528,6 +4606,39 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         raise CommandError("--provider-breaker-threshold must be positive")
     if credit_cap <= 0 or credit_cap > 45_000:
         raise CommandError("--credit-cap must be between 1 and 45000")
+    worst_case_authorized_credits: int | None = None
+    frozen_combined_worst_case_credits: int | None = None
+    if decision_first:
+        if max_pages_per_term > DECISION_FIRST_RECAP_MAX_PAGES_PER_TERM:
+            raise CommandError(
+                "decision-first Firecrawl plan exceeds the frozen 12000-credit "
+                "decision-rescue bound: --max-pages-per-term cannot exceed 100"
+            )
+        try:
+            worst_case_authorized_credits = decision_rescue_worst_case_credits(
+                terms=terms,
+                max_pages_per_term=max_pages_per_term,
+                max_attempts_per_page=max_attempts,
+            )
+        except ValueError as exc:
+            raise CommandError(str(exc)) from exc
+        if worst_case_authorized_credits > DECISION_FIRST_RECAP_MAX_AUTHORIZED_CREDITS:
+            raise CommandError(
+                "decision-first Firecrawl plan exceeds the frozen 12000-credit "
+                "decision-rescue bound"
+            )
+        frozen_combined_worst_case_credits = (
+            worst_case_authorized_credits
+            + FROZEN_EXISTING_FIRECRAWL_COMMITMENT_CREDITS
+            + FROZEN_OTHER_RESCUE_COMMITMENT_CREDITS
+        )
+        if (
+            frozen_combined_worst_case_credits
+            >= FROZEN_COMBINED_FIRECRAWL_CREDIT_CEILING
+        ):
+            raise CommandError(
+                "combined frozen Firecrawl plans must remain below 45000 credits"
+            )
     proxy = cast(str, args.proxy)
     force_browser = cast(bool, args.force_browser)
     if recovery_of_run_id is not None and (proxy != "enhanced" or not force_browser):
@@ -4551,31 +4662,79 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
     )
     policy = _cycle_acquisition_policy(anchor=anchor)
     batch_config: JsonRecord = {
-        "provider": "courtlistener-recap-web-via-firecrawl",
+        "provider": (
+            "courtlistener-recap-decision-web-via-firecrawl"
+            if decision_first
+            else "courtlistener-recap-web-via-firecrawl"
+        ),
         "eligibility_anchor": anchor.isoformat(),
         "search_window_start": window_start.isoformat(),
         "search_window_end": window_end.isoformat(),
         "query_terms": list(terms),
-        "courtlistener_query_plan_version": COURTLISTENER_QUERY_PLAN_VERSION,
-        "courtlistener_query_expressions": [
-            courtlistener_query_expression(term) for term in terms
-        ],
+        "courtlistener_query_plan_version": query_plan_version,
+        "courtlistener_query_expressions": [query_expression(term) for term in terms],
         "query_term_order_is_frozen": True,
         "max_pages_per_term": max_pages_per_term,
     }
+    if decision_first:
+        assert worst_case_authorized_credits is not None
+        assert frozen_combined_worst_case_credits is not None
+        batch_config.update(
+            {
+                "worst_case_authorized_credits": worst_case_authorized_credits,
+                "courtlistener_search_type": search_type,
+                "frozen_existing_firecrawl_commitment_credits": (
+                    FROZEN_EXISTING_FIRECRAWL_COMMITMENT_CREDITS
+                ),
+                "frozen_other_rescue_commitment_credits": (
+                    FROZEN_OTHER_RESCUE_COMMITMENT_CREDITS
+                ),
+                "frozen_combined_worst_case_credits": (
+                    frozen_combined_worst_case_credits
+                ),
+                "next_stage": "acquisition enrich-recap-case-dev",
+                "downstream_stages": [
+                    "acquisition enrich-recap-case-dev",
+                    "acquisition acquire-ranked-firecrawl-dockets",
+                    "acquisition screen-firecrawl-dockets",
+                ],
+            }
+        )
     run_config: JsonRecord = {
-        "purpose": "anchored-recap-entry-discovery",
+        "purpose": run_purpose,
         "proxy": proxy,
         "force_browser": force_browser,
         "max_attempts_per_page": max_attempts,
         "provider_breaker_threshold": breaker_threshold,
         "query_terms": list(terms),
-        "courtlistener_query_plan_version": COURTLISTENER_QUERY_PLAN_VERSION,
-        "courtlistener_query_expressions": [
-            courtlistener_query_expression(term) for term in terms
-        ],
+        "courtlistener_query_plan_version": query_plan_version,
+        "courtlistener_query_expressions": [query_expression(term) for term in terms],
         "raw_artifact_root": str(raw_search_html_dir.resolve()),
     }
+    if decision_first:
+        assert worst_case_authorized_credits is not None
+        assert frozen_combined_worst_case_credits is not None
+        run_config.update(
+            {
+                "worst_case_authorized_credits": worst_case_authorized_credits,
+                "courtlistener_search_type": search_type,
+                "frozen_existing_firecrawl_commitment_credits": (
+                    FROZEN_EXISTING_FIRECRAWL_COMMITMENT_CREDITS
+                ),
+                "frozen_other_rescue_commitment_credits": (
+                    FROZEN_OTHER_RESCUE_COMMITMENT_CREDITS
+                ),
+                "frozen_combined_worst_case_credits": (
+                    frozen_combined_worst_case_credits
+                ),
+                "next_stage": "acquisition enrich-recap-case-dev",
+                "downstream_stages": [
+                    "acquisition enrich-recap-case-dev",
+                    "acquisition acquire-ranked-firecrawl-dockets",
+                    "acquisition screen-firecrawl-dockets",
+                ],
+            }
+        )
     if recovery_of_run_id is not None:
         run_config["recovery_of_run_id"] = recovery_of_run_id
         run_config["recovery_source_run_ids"] = list(recovery_source_run_ids)
@@ -4599,7 +4758,7 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         _write_json(summary_path, summary)
         _write_acquisition_completion(
             args,
-            stage="discover-firecrawl-recap",
+            stage=stage_name,
             input_paths=input_paths,
             output_paths=output_paths,
             record_count=0,
@@ -4650,6 +4809,11 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
                     "courtlistener_query_plan_version",
                     "courtlistener_query_expressions",
                 )
+                if decision_first:
+                    frozen_parent_run_fields = (
+                        *frozen_parent_run_fields,
+                        "courtlistener_search_type",
+                    )
                 pages_by_url: dict[str, FirecrawlPageRecord] = {}
                 all_terminal_source_urls: set[str] = set()
                 primary_config: Mapping[str, object] | None = None
@@ -4668,9 +4832,10 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
                             "cannot recover a fallback run; recovery is limited to one "
                             "bounded generation"
                         )
-                    if source_config.get("purpose") != "anchored-recap-entry-discovery":
+                    if source_config.get("purpose") != run_purpose:
                         raise ConfigMismatchError(
-                            "recovery source is not an anchored RECAP discovery run"
+                            "recovery source is not the same anchored RECAP "
+                            "discovery plan"
                         )
                     if any(
                         source_config.get(field) != run_config.get(field)
@@ -4766,6 +4931,14 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
                     artifact_dir=parent_artifact_root,
                     max_attempts=parent_max_attempts,
                     provider_5xx_circuit_threshold=parent_breaker_threshold,
+                    artifact_validator=(
+                        _validate_decision_recap_artifact if decision_first else None
+                    ),
+                    semantic_failure_quarantine_dir=(
+                        raw_search_html_dir / "semantic-failure-quarantine"
+                        if decision_first
+                        else None
+                    ),
                 )
             run_digest = store.ensure_firecrawl_run(
                 run_id,
@@ -4781,20 +4954,42 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
                 artifact_dir=raw_search_html_dir,
                 max_attempts=max_attempts,
                 provider_5xx_circuit_threshold=breaker_threshold,
+                artifact_validator=(
+                    _validate_decision_recap_artifact if decision_first else None
+                ),
+                semantic_failure_quarantine_dir=(
+                    raw_search_html_dir / "semantic-failure-quarantine"
+                    if decision_first
+                    else None
+                ),
             )
             transport = _BudgetedRecapSearchTransport(
                 scheduler,
                 inherited_pages=inherited_pages,
                 continuation_scheduler=continuation_scheduler,
                 fallback_source_urls=terminal_source_urls,
+                parse_search_url=(
+                    parse_decision_recap_search_url
+                    if decision_first
+                    else parse_recap_search_url
+                ),
             )
-            discovery = discover_recap_mtd_entries(
-                transport=transport,
-                entry_date_filed_after=window_start,
-                entry_date_filed_before=window_end,
-                terms=terms,
-                max_pages_per_term=max_pages_per_term,
-            )
+            if decision_first:
+                discovery = discover_decision_recap_entries(
+                    transport=transport,
+                    entry_date_filed_after=window_start,
+                    entry_date_filed_before=window_end,
+                    terms=terms,
+                    max_pages_per_term=max_pages_per_term,
+                )
+            else:
+                discovery = discover_recap_mtd_entries(
+                    transport=transport,
+                    entry_date_filed_after=window_start,
+                    entry_date_filed_before=window_end,
+                    terms=terms,
+                    max_pages_per_term=max_pages_per_term,
+                )
             if transport.unrecovered_fallback_urls:
                 raise RecapSearchError(
                     "recovery did not traverse every frozen terminal target"
@@ -4812,6 +5007,11 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
                 store=store,
                 batch_id=batch_id,
                 pages=transport.pages,
+                parse_search_html=(
+                    parse_decision_recap_search_html
+                    if decision_first
+                    else parse_recap_search_html
+                ),
             )
             credit_summary = dict(store.firecrawl_run_summary(run_id))
     except (
@@ -4833,7 +5033,7 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         )
         _write_acquisition_failure(
             args,
-            stage="discover-firecrawl-recap",
+            stage=stage_name,
             input_paths=input_paths,
             output_paths=output_paths,
             reason=str(exc),
@@ -4908,7 +5108,7 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
     _write_json(summary_path, summary)
     _write_acquisition_completion(
         args,
-        stage="discover-firecrawl-recap",
+        stage=stage_name,
         input_paths=input_paths,
         output_paths=output_paths,
         record_count=len(docket_records),
@@ -4928,11 +5128,12 @@ def _commit_recap_discovery_pages(
     store: CycleAcquisitionStore,
     batch_id: str,
     pages: Sequence[FirecrawlPageRecord],
+    parse_search_html: Callable[..., RecapSearchPage] = parse_recap_search_html,
 ) -> None:
     """Project verified raw RECAP pages into durable discovery progress."""
 
     for record in pages:
-        page = parse_recap_search_html(record.raw_html, source_url=record.source_url)
+        page = parse_search_html(record.raw_html, source_url=record.source_url)
         hits = tuple(
             DiscoveryHit(
                 provider_hit_id=_recap_provider_hit_id(hit),

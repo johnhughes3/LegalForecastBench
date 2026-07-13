@@ -1,0 +1,11 @@
+{
+  "captured_at": "2026-07-13T18:36:29Z",
+  "capture_route": "Firecrawl v2 scrape via acquisition discover-firecrawl-recap-decisions",
+  "original_byte_count": 145153,
+  "original_sha256": "806644e65ebfdbaece509e5977405c5dc166c06465a84a40607caa76f1e4e0df",
+  "query_type": "rd",
+  "reported_credits": 5,
+  "reserved_credits": 5,
+  "sanitization": "Retained only the title, supported type switcher, and public error-result markup; removed scripts, styles, banners, navigation, court lists, and dynamic assets.",
+  "source_url": "https://www.courtlistener.com/?type=rd&q=order+AND+granting+AND+%22motion+to+dismiss%22&entry_date_filed_after=06%2F30%2F2026&entry_date_filed_before=07%2F13%2F2026&order_by=entry_date_filed+desc"
+}

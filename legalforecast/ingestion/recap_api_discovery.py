@@ -49,6 +49,9 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     CandidateObservation,
     CycleAcquisitionStore,
 )
+from legalforecast.ingestion.decision_first_terms import (
+    DECISION_FIRST_RECAP_SEARCH_TERMS,
+)
 from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, DiscoveryPage
 from legalforecast.ingestion.mtd_acquisition_screen import (
     MtdDocketDecisionScreen,
@@ -70,16 +73,7 @@ RECAP_API_POLICY_SCHEMA = "legalforecast.recap_api_discovery_batch.v1"
 # dominated by actual dispositions instead of dockets that merely mention a
 # motion.  Additions or reordering require an intentional code change and a fresh
 # batch config digest.
-DECISION_FIRST_RECAP_API_SEARCH_TERMS: tuple[str, ...] = (
-    'order AND granting AND "motion to dismiss"',
-    'order AND denying AND "motion to dismiss"',
-    '"motion to dismiss" AND "granted in part"',
-    '"order on motion to dismiss"',
-    '"memorandum opinion" AND "motion to dismiss"',
-    '"report and recommendation" AND "motion to dismiss"',
-    'order AND (granting OR denying) AND "judgment on the pleadings"',
-    'order AND (granting OR denying) AND "12(b)(6)"',
-)
+DECISION_FIRST_RECAP_API_SEARCH_TERMS = DECISION_FIRST_RECAP_SEARCH_TERMS
 
 _ANONYMOUS_MIN_INTERVAL_SECONDS = 3.0
 _DEFAULT_PAGE_SIZE = 100
