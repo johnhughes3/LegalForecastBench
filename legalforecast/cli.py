@@ -1320,7 +1320,15 @@ def _add_acquisition_discover_firecrawl_recap_arguments(
     parser.add_argument("--entries-output", type=Path)
     parser.add_argument("--dockets-output", type=Path)
     parser.add_argument("--summary-output", type=Path)
-    parser.add_argument("--raw-search-html-dir", type=Path)
+    parser.add_argument(
+        "--raw-search-html-dir",
+        type=Path,
+        help=(
+            "Raw Firecrawl search-page artifact directory. Defaults to "
+            "<output-root>/raw-recap-search-html/<run-id>; an explicit path is "
+            "used exactly as supplied."
+        ),
+    )
     parser.set_defaults(handler=_cmd_acquisition_discover_firecrawl_recap)
 
 
@@ -3764,11 +3772,15 @@ def _cmd_acquisition_discover_firecrawl_recap(args: argparse.Namespace) -> int:
         "summary_output",
         output_root / "checkpoints" / f"{batch_id}-recap-summary.json",
     )
-    raw_search_html_dir = _acquisition_path(
-        args,
-        "raw_search_html_dir",
-        output_root / "raw-recap-search-html",
-    )
+    configured_raw_search_html_dir = cast(Path | None, args.raw_search_html_dir)
+    if configured_raw_search_html_dir is None:
+        try:
+            raw_run_id = safe_path_component(run_id, field_name="run_id")
+        except ValueError as exc:
+            raise CommandError(str(exc)) from exc
+        raw_search_html_dir = output_root / "raw-recap-search-html" / raw_run_id
+    else:
+        raw_search_html_dir = configured_raw_search_html_dir
     anchor = _iso_date_argument(
         cast(str, args.eligibility_anchor),
         "--eligibility-anchor",
