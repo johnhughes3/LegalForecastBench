@@ -364,6 +364,31 @@ def test_recovery_downloads_purchased_document_and_marks_provenance(tmp_path) ->
     assert record.provenance.retrieved_at == retrieved_at
 
 
+def test_recovery_preserves_courtlistener_recap_fetch_provenance(tmp_path) -> None:
+    url = "https://storage.courtlistener.com/doc-1.pdf"
+    attempt = CaseDevPacerPurchaseAttempt(
+        candidate_id="cand-1",
+        source_document_id="doc-1",
+        status=CaseDevPacerPurchaseStatus.PURCHASED,
+        fee_acknowledged=True,
+        pacer_fees={"total_usd": "3.05"},
+        download_url=url,
+        source_provider="courtlistener.recap-fetch+pacer",
+    )
+    records = recover_purchased_documents(
+        (_request(attempt, role=DocumentRole.COMPLAINT, docket_entry_number=1),),
+        output_root=tmp_path,
+        source=FixtureFreeDocumentSource({url: b"%PDF recap fetch"}),
+        retrieved_at=datetime(2026, 7, 13, tzinfo=UTC),
+    )
+
+    assert records[0].local_path == (
+        "cand-1/courtlistener-recap-fetch-pacer/entry-1_doc-1.pdf"
+    )
+    assert records[0].provenance is not None
+    assert records[0].provenance.source_provider == "courtlistener.recap-fetch+pacer"
+
+
 def test_recovery_checkpoint_resumes_completed_prefix_without_redownload(
     tmp_path: Path,
 ) -> None:

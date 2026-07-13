@@ -108,6 +108,16 @@ from legalforecast.ingestion.courtlistener_client import (
     CourtListenerUnavailableError,
     RecordedCourtListenerResponse,
 )
+from legalforecast.ingestion.courtlistener_recap_fetch import (
+    COURTLISTENER_RECAP_FETCH_PROVIDER,
+    CourtListenerRecapFetchClient,
+    CourtListenerRecapFetchConfig,
+    CourtListenerRecapFetchError,
+    FixtureRecapFetchPurchaseBroker,
+    FixtureRecapFetchTransport,
+    RecordedRecapFetchResponse,
+    public_documents_from_selection,
+)
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerBriefingCompleteness,
     CourtListenerEntryRole,
@@ -284,6 +294,7 @@ from legalforecast.ingestion.recap_client import (
 )
 
 __all__ = [
+    "COURTLISTENER_RECAP_FETCH_PROVIDER",
     "DECISION_FIRST_RECAP_API_SEARCH_TERMS",
     "DEFAULT_MAX_MISSING_CORE_DOCUMENTS_PER_CASE",
     "DEFAULT_MAX_PROJECTED_BUDGET_USD",
@@ -361,6 +372,9 @@ __all__ = [
     "CourtListenerFixtureTransport",
     "CourtListenerPage",
     "CourtListenerRateLimitError",
+    "CourtListenerRecapFetchClient",
+    "CourtListenerRecapFetchConfig",
+    "CourtListenerRecapFetchError",
     "CourtListenerResponseError",
     "CourtListenerServerError",
     "CourtListenerUnavailableError",
@@ -396,6 +410,8 @@ __all__ = [
     "FirecrawlServerError",
     "FirecrawlURLValidationError",
     "FixtureFreeDocumentSource",
+    "FixtureRecapFetchPurchaseBroker",
+    "FixtureRecapFetchTransport",
     "FreeDocumentDownloadError",
     "FreeDocumentDownloadRecord",
     "FreeDocumentDownloadRequest",
@@ -446,6 +462,7 @@ __all__ = [
     "RecapServerError",
     "ReconstructedDocket",
     "RecordedCourtListenerResponse",
+    "RecordedRecapFetchResponse",
     "RecordedRecapResponse",
     "RedactionOrSealStatus",
     "RequestPacer",
@@ -492,6 +509,7 @@ __all__ = [
     "plan_packet_build_inputs",
     "plan_public_packet_downloads",
     "prescreen_recap_candidate",
+    "public_documents_from_selection",
     "rank_cheapest_complete_candidates",
     "read_case_relevance_jsonl",
     "reconstruct_docket_page",

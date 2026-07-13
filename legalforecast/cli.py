@@ -103,7 +103,10 @@ from legalforecast.ingestion.case_dev_firecrawl import (
 )
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerCapability,
+    CaseDevPacerPurchaseAttempt,
     CaseDevPacerPurchaseClient,
+    CaseDevPacerPurchaseResult,
+    CaseDevPacerPurchaseStatus,
     CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicyError,
@@ -158,6 +161,14 @@ from legalforecast.ingestion.courtlistener_client import (
     CourtListenerClientError,
     CourtListenerConfig,
     CourtListenerFixtureTransport,
+)
+from legalforecast.ingestion.courtlistener_recap_fetch import (
+    CourtListenerRecapFetchClient,
+    CourtListenerRecapFetchConfig,
+    CourtListenerRecapFetchError,
+    FixtureRecapFetchPurchaseBroker,
+    FixtureRecapFetchTransport,
+    public_documents_from_selection,
 )
 from legalforecast.ingestion.cycle_acquisition_assembler import (
     CycleAssembly,
@@ -853,6 +864,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Execute guarded case.dev/PACER missing-core purchases.",
     )
     _add_acquisition_purchase_missing_arguments(acquisition_purchase)
+    acquisition_recap_fetch_purchase = acquisition_subparsers.add_parser(
+        "purchase-missing-recap-fetch",
+        help=(
+            "Execute individual-document purchases through a budget-enforcing "
+            "CourtListener RECAP Fetch broker."
+        ),
+    )
+    _add_acquisition_purchase_missing_recap_fetch_arguments(
+        acquisition_recap_fetch_purchase
+    )
     acquisition_docket_fetch_plan = acquisition_subparsers.add_parser(
         "plan-docket-live-fetches",
         help=(
@@ -2228,6 +2249,45 @@ def _add_acquisition_purchase_missing_arguments(
     parser.set_defaults(handler=_cmd_acquisition_purchase_missing)
 
 
+def _add_acquisition_purchase_missing_recap_fetch_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--budget-plan", type=Path, required=True)
+    parser.add_argument("--selection", type=Path, required=True)
+    parser.add_argument("--purchase-output", type=Path)
+    parser.add_argument("--purchase-policy", type=Path, required=True)
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument("--purchase-ledger", type=Path, required=True)
+    parser.add_argument(
+        "--courtlistener-fixture",
+        type=Path,
+        help="Offline JSONL for noncharging document verification and queue polling.",
+    )
+    parser.add_argument(
+        "--purchase-broker-fixture",
+        type=Path,
+        help=(
+            "Offline JSON array of budget-broker receipts; never contains "
+            "PACER credentials."
+        ),
+    )
+    parser.add_argument(
+        "--live-purchase",
+        action="store_true",
+        help=(
+            "Request the production budget broker. Currently fails closed until "
+            "the bounded broker is deployed."
+        ),
+    )
+    parser.add_argument(
+        "--acknowledge-pacer-fees",
+        action="store_true",
+        help="Acknowledge that the brokered request may incur PACER fees.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_purchase_missing_recap_fetch)
+
+
 def _add_acquisition_plan_docket_live_fetches_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
@@ -2370,6 +2430,14 @@ def _add_acquisition_recover_purchased_arguments(
         help=(
             "Download only URLs returned by successful case.dev purchases. "
             "Requires CASE_DEV_API_KEY and never calls a purchase endpoint."
+        ),
+    )
+    parser.add_argument(
+        "--live-courtlistener-download",
+        action="store_true",
+        help=(
+            "Download only public CourtListener/RECAP URLs returned by a "
+            "successful brokered purchase; never calls a purchase endpoint."
         ),
     )
     parser.set_defaults(handler=_cmd_acquisition_recover_purchased)
@@ -7370,6 +7438,141 @@ def _cmd_acquisition_purchase_missing(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    plan_path = cast(Path, args.budget_plan)
+    selection_path = cast(Path, args.selection)
+    policy_path = cast(Path, args.purchase_policy)
+    cohort_policy_path = cast(Path, args.cohort_policy)
+    ledger_path = cast(Path, args.purchase_ledger).resolve()
+    output_path = _acquisition_path(
+        args,
+        "purchase_output",
+        output_root / "courtlistener-recap-fetch-purchases.json",
+    )
+    plan = _missing_core_budget_plan(_read_json_object(plan_path))
+    try:
+        purchase_policy = verify_case_dev_purchase_policy(
+            _read_json_object(policy_path)
+        )
+        verify_case_dev_purchase_policy_cohort_binding(
+            purchase_policy, _read_json_object(cohort_policy_path)
+        )
+        public_documents = public_documents_from_selection(
+            _read_records(selection_path)
+        )
+    except (
+        CaseDevPurchasePolicyError,
+        CourtListenerRecapFetchError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    if ledger_path != purchase_policy.canonical_ledger_path:
+        raise CommandError(
+            "--purchase-ledger conflicts with the canonical policy locator"
+        )
+    dry_run = _acquisition_dry_run(args)
+    live_purchase = cast(bool, args.live_purchase)
+    acknowledge_fees = cast(bool, args.acknowledge_pacer_fees)
+    courtlistener_fixture = cast(Path | None, args.courtlistener_fixture)
+    broker_fixture = cast(Path | None, args.purchase_broker_fixture)
+    if dry_run:
+        attempts = tuple(
+            CaseDevPacerPurchaseAttempt(
+                candidate_id=case_plan.candidate_id,
+                source_document_id=document_id,
+                status=CaseDevPacerPurchaseStatus.PLANNED_DRY_RUN,
+                reason="dry_run_no_paid_request",
+                source_provider="courtlistener.recap-fetch+pacer",
+            )
+            for case_plan in plan.case_plans
+            for document_id in case_plan.purchase_document_ids
+        )
+        result = CaseDevPacerPurchaseResult(
+            live=False,
+            acknowledge_pacer_fees=acknowledge_fees,
+            capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
+            dry_run=True,
+            projected_cost_usd=plan.total_estimated_cost_usd,
+            max_projected_budget_usd=plan.max_projected_budget_usd,
+            attempts=attempts,
+        )
+        paid_executed = False
+    else:
+        if plan.dry_run:
+            raise CommandError(
+                "purchase-missing-recap-fetch requires a non-dry-run budget plan"
+            )
+        if not acknowledge_fees:
+            raise CommandError(
+                "purchase-missing-recap-fetch --execute requires "
+                "--acknowledge-pacer-fees"
+            )
+        if live_purchase:
+            raise CommandError(
+                "live RECAP Fetch is disabled until a budget-enforcing PACER "
+                "credential broker is deployed"
+            )
+        if courtlistener_fixture is None or broker_fixture is None:
+            raise CommandError(
+                "offline execution requires --courtlistener-fixture and "
+                "--purchase-broker-fixture"
+            )
+        raw_broker_responses = _loads_json(broker_fixture.read_text(encoding="utf-8"))
+        if isinstance(raw_broker_responses, str) or not isinstance(
+            raw_broker_responses, Sequence
+        ):
+            raise CommandError("purchase broker fixture must be a JSON array")
+        broker_responses = tuple(
+            _mapping(item, "purchase broker fixture response")
+            for item in cast(Sequence[object], raw_broker_responses)
+        )
+        client = CourtListenerRecapFetchClient(
+            CourtListenerRecapFetchConfig(api_token="offline-fixture"),
+            journal=CaseDevPurchaseJournal(ledger_path, policy=purchase_policy),
+            transport=FixtureRecapFetchTransport.from_jsonl(courtlistener_fixture),
+            purchase_broker=FixtureRecapFetchPurchaseBroker(broker_responses),
+        )
+        try:
+            with client.journal:
+                result = client.execute_purchase_plan(
+                    plan,
+                    public_documents=public_documents,
+                    live=True,
+                    acknowledge_pacer_fees=True,
+                )
+        except (
+            CaseDevPurchaseLedgerError,
+            CourtListenerRecapFetchError,
+        ) as exc:
+            _write_acquisition_failure(
+                args,
+                stage="purchase-missing-recap-fetch",
+                input_paths=(plan_path, selection_path, policy_path),
+                output_paths=(output_path, ledger_path),
+                reason=str(exc),
+                paid_activity_requested=False,
+                paid_activity_executed=False,
+            )
+            raise CommandError(str(exc)) from exc
+        paid_executed = False
+    _write_json(output_path, result.to_record())
+    _write_acquisition_completion(
+        args,
+        stage="purchase-missing-recap-fetch",
+        input_paths=(plan_path, selection_path, policy_path),
+        output_paths=(output_path,) if dry_run else (output_path, ledger_path),
+        record_count=result.intended_purchase_count,
+        dry_run=dry_run,
+        paid_activity_requested=live_purchase,
+        paid_activity_executed=paid_executed,
+        extra={"executed_purchase_count": result.executed_purchase_count},
+    )
+    return 0 if result.executed_purchase_count == result.intended_purchase_count else 2
+
+
 def _cmd_acquisition_plan_docket_live_fetches(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     screening_paths = tuple(cast(list[Path], args.screening_candidates))
@@ -7594,6 +7797,9 @@ def _cmd_acquisition_recover_purchased(args: argparse.Namespace) -> int:
             source = _purchased_document_source(
                 fixture_path=cast(Path | None, args.fixture_documents),
                 live_case_dev_download=cast(bool, args.live_case_dev_download),
+                live_courtlistener_download=cast(
+                    bool, args.live_courtlistener_download
+                ),
             )
             records = recover_purchased_documents(
                 requests,
@@ -9883,11 +10089,18 @@ def _purchased_document_source(
     *,
     fixture_path: Path | None,
     live_case_dev_download: bool,
+    live_courtlistener_download: bool = False,
 ) -> FreeDocumentSource:
-    if fixture_path is not None and live_case_dev_download:
+    selected_modes = sum(
+        (
+            fixture_path is not None,
+            live_case_dev_download,
+            live_courtlistener_download,
+        )
+    )
+    if selected_modes > 1:
         raise CommandError(
-            "acquisition recover-purchased accepts either --fixture-documents "
-            "or --live-case-dev-download, not both"
+            "acquisition recover-purchased accepts exactly one download source"
         )
     if fixture_path is not None:
         return _fixture_free_document_source(fixture_path)
@@ -9902,10 +10115,12 @@ def _purchased_document_source(
             api_key=api_key,
             timeout_seconds=config.timeout_seconds,
         )
+    if live_courtlistener_download:
+        return UrlLibFreeDocumentSource()
     raise CommandError(
         "acquisition recover-purchased --execute requires --fixture-documents "
-        "for offline fixtures or --live-case-dev-download for already-purchased "
-        "case.dev documents"
+        "for offline fixtures, --live-case-dev-download for case.dev documents, "
+        "or --live-courtlistener-download for public RECAP documents"
     )
 
 
