@@ -323,7 +323,7 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
 def test_official_eval_matrix_workflow_aggregates_after_matrix_success() -> None:
     assert "aggregate-results:" in WORKFLOW
     assert "needs.run-case.result == 'success'" in WORKFLOW
-    assert "actions/download-artifact@v7" in WORKFLOW
+    assert "actions/download-artifact@v8.0.1" in WORKFLOW
     assert "uv run python -m legalforecast.publication.official_aggregate" in WORKFLOW
     assert "--per-case-dir /tmp/lfb-per-case-artifacts" in WORKFLOW
     assert "/tmp/lfb-run-inputs-requested-ablations.json" in WORKFLOW
