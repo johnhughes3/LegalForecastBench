@@ -8,6 +8,7 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
+import legalforecast.ingestion.snapshot_quarantine as snapshot_quarantine_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.cycle_acquisition_store import (
@@ -91,9 +92,53 @@ def test_quarantine_recovers_crash_after_move_before_final_receipt(
     assert completed["recovered_after_completed_move"] is True
     assert "move_recovery_verified_at" in completed
     assert "moved_at" not in completed
+    assert isinstance(completed["quarantine_target_device"], int)
+    assert isinstance(completed["quarantine_target_inode"], int)
     assert not fixture.orphan.exists()
     assert target.is_dir()
     assert json.loads(fixture.receipt.read_text())["status"] == "quarantined"
+
+
+def test_quarantine_recovery_rejects_target_swap_after_identity_pin(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(tmp_path)
+    canonical_before = _snapshot_files(fixture.canonical)
+    dry_run = _quarantine(fixture, execute=False)
+    target = Path(str(dry_run["quarantine_target_path"]))
+    pending_receipt = dict(dry_run)
+    pending_receipt["status"] = "move_authorized"
+    pending_receipt["execute"] = True
+    fixture.receipt.write_text(json.dumps(pending_receipt), encoding="utf-8")
+    os.rename(fixture.orphan, target)
+    moved_aside = tmp_path / "verified-target-moved-aside"
+    original_sha256_file = snapshot_quarantine_module._sha256_file
+    swapped = False
+
+    def swap_at_first_cycle_store_hash(path: Path) -> str:
+        nonlocal swapped
+        if not swapped and path.resolve() == fixture.store:
+            os.rename(target, moved_aside)
+            target.symlink_to(fixture.canonical, target_is_directory=True)
+            swapped = True
+        return original_sha256_file(path)
+
+    monkeypatch.setattr(
+        snapshot_quarantine_module,
+        "_sha256_file",
+        swap_at_first_cycle_store_hash,
+    )
+
+    with pytest.raises(SnapshotQuarantineError, match="identity was pinned"):
+        _quarantine(fixture, execute=True)
+
+    assert swapped is True
+    assert target.is_symlink()
+    assert moved_aside.is_dir()
+    assert fixture.canonical.is_dir()
+    assert _snapshot_files(fixture.canonical) == canonical_before
+    assert json.loads(fixture.receipt.read_text()) == pending_receipt
 
 
 @pytest.mark.parametrize("resolved_relationship", ["ancestor", "equal", "descendant"])
