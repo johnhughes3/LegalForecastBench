@@ -216,23 +216,11 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
     assert labels[0]["first_written_disposition_date"] == "2026-06-30"
     label_audit = _read_jsonl(output_root / "llm-label-audit.jsonl")[0]
     assert label_audit["consensus_policy"] == "unanimous"
-    assert label_audit["status"] == "adjudication_pending"
+    assert label_audit["status"] == "succeeded"
     assert label_audit["human_verified"] is False
     assert label_audit["model_outputs"][0]["model_key"] == "openai:gpt-test"
-    queue = _read_jsonl(output_root / "lawyer-review-queue.jsonl")
-    assert [record["review_id"] for record in queue] == ["cand-1:unit-1:label-audit"]
-    assert queue[0]["route_reason"] == "label_audit_sample"
-    assert queue[0]["packet"]["blind_reliability_study"] is True
-    materials = queue[0]["packet"]["materials"]
-    assert [material["kind"] for material in materials] == [
-        "unit_text",
-        "decision_excerpt",
-    ]
-    assert json.loads(materials[0]["text"])["unit_id"] == "unit-1"
-    assert materials[1]["text"] == (
-        "The motion to dismiss Count I is granted without leave to amend."
-    )
-    assert "ensemble" not in queue[0]["packet"]
+    assert label_audit["label_audit_gate"]["status"] == "awaiting_cycle_level_plan"
+    assert _read_jsonl(output_root / "lawyer-review-queue.jsonl") == []
 
 
 def test_acquisition_llm_label_persists_lawyer_review_queue_with_partial_success(
@@ -342,21 +330,20 @@ def test_acquisition_llm_label_persists_lawyer_review_queue_with_partial_success
     audit = _read_jsonl(output_root / "llm-label-audit.jsonl")[0]
     assert audit["status"] == "adjudication_pending"
     assert audit["human_verified"] is False
-    assert audit["pending_adjudication_unit_ids"] == ["unit-review", "unit-auto"]
-    assert audit["pending_adjudication_count"] == 2
+    assert audit["pending_adjudication_unit_ids"] == ["unit-review"]
+    assert audit["pending_adjudication_count"] == 1
     assert audit["label_count"] == 1
     assert audit["unit_count"] == 2
-    assert audit["label_audit_gate"]["status"] == "awaiting_human_adjudicated_labels"
+    assert audit["label_audit_gate"]["status"] == "awaiting_cycle_level_plan"
 
     queue = _read_jsonl(output_root / "lawyer-review-queue.jsonl")
-    assert len(queue) == 2
+    assert len(queue) == 1
     queue_by_unit = {record["unit_id"]: record for record in queue}
     assert queue_by_unit["unit-review"]["status"] == "pending_adjudication"
     assert queue_by_unit["unit-review"]["case_id"] == "case-1"
     assert queue_by_unit["unit-review"]["route_reason"] == "low_confidence"
     assert queue_by_unit["unit-review"]["packet"]["review_reason"] == ("low_confidence")
-    assert queue_by_unit["unit-auto"]["review_id"] == ("cand-1:unit-auto:label-audit")
-    assert queue_by_unit["unit-auto"]["route_reason"] == "label_audit_sample"
+    assert "unit-auto" not in queue_by_unit
 
 
 def test_acquisition_apply_lawyer_review_merges_checked_in_adjudication(
@@ -1515,6 +1502,50 @@ def _registry_record(
     }
 
 
+def test_resume_and_lawyer_deserialization_preserve_false_label_resolution() -> None:
+    labels = []
+    for resolution in ("partial_dismissal_only", "survives_in_material_respect"):
+        label = _label_record("unit-1", dismissed=False, excerpt="Count I survives.")
+        label["unit_resolution"] = resolution
+        labels.append(label)
+
+    reconstructed_votes = [
+        llm_pipeline._ensemble_label_vote(
+            {
+                "model_id": f"judge-{index}",
+                "unit_id": "unit-1",
+                "label": label,
+                "confidence": 0.9,
+                "rationale": "Fixture.",
+                "raw_response_id": f"response-{index}",
+            }
+        )
+        for index, label in enumerate(labels)
+    ]
+    reconstructed_responses = [
+        llm_pipeline._lawyer_review_response(
+            {
+                "review_id": "review-1",
+                "reviewer_id": f"lawyer-{index}",
+                "reviewer_expertise": "senior_litigator",
+                "proposed_label": label,
+                "confidence": 0.9,
+                "minutes_spent": 10.0,
+                "notes": "Fixture.",
+            }
+        )
+        for index, label in enumerate(labels)
+    ]
+
+    assert {
+        vote.label.canonical_unit_resolution.value for vote in reconstructed_votes
+    } == {"partial_dismissal_only", "survives_in_material_respect"}
+    assert {
+        response.proposed_label.canonical_unit_resolution.value
+        for response in reconstructed_responses
+    } == {"partial_dismissal_only", "survives_in_material_respect"}
+
+
 def _label_record(
     unit_id: str,
     *,
@@ -1523,6 +1554,9 @@ def _label_record(
 ) -> JsonRecord:
     return {
         "unit_id": unit_id,
+        "unit_resolution": (
+            "fully_dismissed" if dismissed else "survives_in_material_respect"
+        ),
         "fully_dismissed": dismissed,
         "primary_outcome": 1 if dismissed else 0,
         "amendment_class": (

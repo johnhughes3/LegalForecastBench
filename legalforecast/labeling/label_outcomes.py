@@ -278,6 +278,7 @@ class OutcomeLabel:
     first_written_disposition_locked: bool = True
     later_procedural_changes: tuple[LaterProceduralChange, ...] = ()
     notes: str | None = None
+    unit_resolution: UnitResolution | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty(self.unit_id, "unit_id")
@@ -297,6 +298,37 @@ class OutcomeLabel:
             raise ValueError("supporting_citations must include at least one citation")
         if self.notes is not None:
             _require_non_empty(self.notes, "notes")
+
+        resolution = self.unit_resolution
+        if resolution is None:
+            resolution = _legacy_unit_resolution(
+                fully_dismissed=self.fully_dismissed,
+                ambiguous=self.ambiguous,
+            )
+            object.__setattr__(
+                self,
+                "unit_resolution",
+                resolution,
+            )
+
+        if resolution is UnitResolution.FULLY_DISMISSED:
+            if self.fully_dismissed is not True or self.ambiguous:
+                raise ValueError(
+                    "fully_dismissed resolution requires a non-ambiguous true label"
+                )
+        elif resolution in {
+            UnitResolution.SURVIVES_IN_MATERIAL_RESPECT,
+            UnitResolution.PARTIAL_DISMISSAL_ONLY,
+        }:
+            if self.fully_dismissed is not False or self.ambiguous:
+                raise ValueError(
+                    "survival/partial resolution requires a non-ambiguous false label"
+                )
+        elif self.fully_dismissed is not None or not self.ambiguous:
+            raise ValueError(
+                "ambiguous/not-addressed resolution requires an ambiguous label "
+                "that must omit fully_dismissed"
+            )
 
         if self.ambiguous:
             if self.fully_dismissed is not None:
@@ -322,6 +354,14 @@ class OutcomeLabel:
             raise ValueError(
                 "surviving units must use not_fully_dismissed amendment_class"
             )
+
+    @property
+    def canonical_unit_resolution(self) -> UnitResolution:
+        """Return the explicit or schema-migrated raw disposition resolution."""
+
+        if self.unit_resolution is None:  # pragma: no cover - guarded by __post_init__
+            raise AssertionError("unit_resolution was not initialized")
+        return self.unit_resolution
 
     @property
     def primary_outcome(self) -> int | None:
@@ -354,6 +394,7 @@ class OutcomeLabel:
 
         return OutcomeLabel(
             unit_id=self.unit_id,
+            unit_resolution=self.unit_resolution,
             fully_dismissed=self.fully_dismissed,
             amendment_class=self.amendment_class,
             ambiguous=self.ambiguous,
@@ -369,6 +410,7 @@ class OutcomeLabel:
     def to_record(self) -> dict[str, Any]:
         return {
             "unit_id": self.unit_id,
+            "unit_resolution": self.canonical_unit_resolution.value,
             "fully_dismissed": self.fully_dismissed,
             "primary_outcome": self.primary_outcome,
             "amendment_class": self.amendment_class.value,
@@ -453,6 +495,7 @@ def _label_from_finding(
     fully_dismissed = _fully_dismissed(finding.resolution)
     return OutcomeLabel(
         unit_id=finding.unit_id,
+        unit_resolution=finding.resolution,
         fully_dismissed=fully_dismissed,
         amendment_class=_amendment_class(finding),
         ambiguous=finding.resolution
@@ -559,6 +602,18 @@ def _validate_excerpts(
 def _require_non_empty(value: str, field_name: str) -> None:
     if not value.strip():
         raise ValueError(f"{field_name} is required")
+
+
+def _legacy_unit_resolution(
+    *, fully_dismissed: bool | None, ambiguous: bool
+) -> UnitResolution:
+    """Migrate pre-resolution records without collapsing new explicit values."""
+
+    if fully_dismissed is True and not ambiguous:
+        return UnitResolution.FULLY_DISMISSED
+    if fully_dismissed is False and not ambiguous:
+        return UnitResolution.SURVIVES_IN_MATERIAL_RESPECT
+    return UnitResolution.AMBIGUOUS
 
 
 def _positive_int(value: int | None, field_name: str) -> None:

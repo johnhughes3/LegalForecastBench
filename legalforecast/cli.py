@@ -256,6 +256,11 @@ from legalforecast.ingestion.recap_partial_checkpoint import (
     RecapPartialProjectionError,
     project_partial_recap_checkpoint,
 )
+from legalforecast.labeling.cycle_label_audit import (
+    CycleLabelAuditError,
+    evaluate_cycle_label_audit,
+    plan_cycle_label_audit,
+)
 from legalforecast.labeling.label_outcomes import (
     AmendmentClass,
     AmendmentSignal,
@@ -822,6 +827,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use registry-backed LLM judges to create Stage B labels.",
     )
     _add_acquisition_llm_label_arguments(acquisition_llm_label)
+    acquisition_plan_label_audit = acquisition_subparsers.add_parser(
+        "plan-label-audit",
+        help="Freeze one stratified cycle-level audit sample after Stage B labeling.",
+    )
+    _add_acquisition_plan_label_audit_arguments(acquisition_plan_label_audit)
     acquisition_apply_lawyer_review = acquisition_subparsers.add_parser(
         "apply-lawyer-review",
         help="Apply checked-in lawyer adjudications to pending Stage B labels.",
@@ -2291,7 +2301,17 @@ def _add_acquisition_apply_lawyer_review_arguments(
         "--llm-label-audit",
         type=Path,
         required=True,
-        help="Audit JSONL emitted by acquisition llm-label.",
+        help="Cycle-planned audit JSONL emitted by acquisition plan-label-audit.",
+    )
+    parser.add_argument(
+        "--cycle-label-audit-plan",
+        type=Path,
+        help="Frozen cycle-level audit plan; required for production cycle audits.",
+    )
+    parser.add_argument(
+        "--labeling-policy",
+        type=Path,
+        help="Pinned pre-labeling policy; required with --cycle-label-audit-plan.",
     )
     parser.add_argument(
         "--labels-output",
@@ -2316,6 +2336,29 @@ def _add_acquisition_apply_lawyer_review_arguments(
         help="Human-human blind disagreement rate ceiling for label-audit acceptance.",
     )
     parser.set_defaults(handler=_cmd_acquisition_apply_lawyer_review)
+
+
+def _add_acquisition_plan_label_audit_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--llm-label-audit", type=Path, required=True)
+    parser.add_argument("--selection", type=Path, required=True)
+    parser.add_argument("--prediction-units", type=Path, required=True)
+    parser.add_argument("--decision-texts", type=Path, required=True)
+    parser.add_argument("--labeling-policy", type=Path, required=True)
+    parser.add_argument(
+        "--lawyer-review-queue",
+        type=Path,
+        required=True,
+        help="Existing disagreement/ambiguity queue emitted by llm-label.",
+    )
+    parser.add_argument("--cycle-label-audit-plan-output", type=Path)
+    parser.add_argument("--cycle-label-audit-summary-output", type=Path)
+    parser.add_argument("--adjudication-routing-summary-output", type=Path)
+    parser.add_argument("--planned-llm-label-audit-output", type=Path)
+    parser.add_argument("--lawyer-review-queue-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_plan_label_audit)
 
 
 def _add_acquisition_plan_packet_inputs_arguments(
@@ -6982,6 +7025,12 @@ def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
     adjudications_path = cast(Path, args.adjudications)
     decision_texts_path = cast(Path, args.decision_texts)
     llm_label_audit_path = cast(Path, args.llm_label_audit)
+    cycle_label_audit_plan_path = cast(Path | None, args.cycle_label_audit_plan)
+    labeling_policy_path = cast(Path | None, args.labeling_policy)
+    if cycle_label_audit_plan_path is not None and labeling_policy_path is None:
+        raise CommandError(
+            "--labeling-policy is required with --cycle-label-audit-plan"
+        )
     labels_output_path = _acquisition_path(
         args,
         "labels_output",
@@ -7011,19 +7060,44 @@ def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
         llm_label_audit_records = _read_records(llm_label_audit_path)
         if not llm_label_audit_records:
             raise CommandError("llm-label audit must include at least one record")
+        adjudication_records = _read_records(adjudications_path)
         result = apply_adjudicated_reviews(
             label_records=_read_records(labels_path),
-            adjudication_records=_read_records(adjudications_path),
+            adjudication_records=adjudication_records,
             decision_texts=_load_decision_texts(decision_texts_path),
-            label_audit_records=llm_label_audit_records,
+            label_audit_records=(
+                ()
+                if cycle_label_audit_plan_path is not None
+                else llm_label_audit_records
+            ),
             audit_sample_size=cast(int, args.audit_sample_size),
             human_blind_disagreement_rate=cast(
                 float,
                 args.human_blind_disagreement_rate,
             ),
         )
+        cycle_gate_records: tuple[JsonRecord, ...] = ()
+        if cycle_label_audit_plan_path is not None:
+            try:
+                adjudications_by_review_id: dict[str, Mapping[str, Any]] = {}
+                for record in adjudication_records:
+                    review_id = _required_str(record, "review_id")
+                    if review_id in adjudications_by_review_id:
+                        raise CommandError(
+                            f"duplicate lawyer adjudication row: {review_id}"
+                        )
+                    adjudications_by_review_id[review_id] = record
+                validated_labeling_policy_path = cast(Path, labeling_policy_path)
+                cycle_gate_records = evaluate_cycle_label_audit(
+                    plan=_read_json_object(cycle_label_audit_plan_path),
+                    label_audit_records=llm_label_audit_records,
+                    adjudications_by_review_id=adjudications_by_review_id,
+                    policy_record=_read_json_object(validated_labeling_policy_path),
+                )
+            except CycleLabelAuditError as exc:
+                raise CommandError(str(exc)) from exc
         _write_jsonl(labels_output_path, result.records)
-        _write_jsonl(audit_path, result.audit_records)
+        _write_jsonl(audit_path, (*result.audit_records, *cycle_gate_records))
     _write_acquisition_completion(
         args,
         stage="apply-lawyer-review",
@@ -7032,9 +7106,145 @@ def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
             adjudications_path,
             decision_texts_path,
             llm_label_audit_path,
+            *((cycle_label_audit_plan_path,) if cycle_label_audit_plan_path else ()),
+            *((labeling_policy_path,) if labeling_policy_path else ()),
         ),
         output_paths=(labels_output_path, audit_path),
         record_count=len(_read_records(adjudications_path)) if not dry_run else 0,
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+    )
+    return 0
+
+
+def _cmd_acquisition_plan_label_audit(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    llm_audit_path = cast(Path, args.llm_label_audit)
+    selection_path = cast(Path, args.selection)
+    prediction_units_path = cast(Path, args.prediction_units)
+    decision_texts_path = cast(Path, args.decision_texts)
+    policy_path = cast(Path, args.labeling_policy)
+    existing_queue_path = cast(Path, args.lawyer_review_queue)
+    plan_path = _acquisition_path(
+        args,
+        "cycle_label_audit_plan_output",
+        output_root / "cycle-label-audit-plan.json",
+    )
+    summary_path = _acquisition_path(
+        args,
+        "cycle_label_audit_summary_output",
+        output_root / "cycle-label-audit-summary.json",
+    )
+    routing_summary_path = _acquisition_path(
+        args,
+        "adjudication_routing_summary_output",
+        output_root / "adjudication-routing-summary.json",
+    )
+    planned_audit_path = _acquisition_path(
+        args,
+        "planned_llm_label_audit_output",
+        output_root / "llm-label-audit-cycle-planned.jsonl",
+    )
+    queue_path = _acquisition_path(
+        args,
+        "lawyer_review_queue_output",
+        output_root / "lawyer-review-queue-cycle-planned.jsonl",
+    )
+    dry_run = _acquisition_dry_run(args)
+    if dry_run:
+        _write_json(
+            plan_path,
+            {
+                "stage": "plan-label-audit",
+                "dry_run": True,
+                "llm_label_audit": str(llm_audit_path),
+                "labeling_policy": str(policy_path),
+            },
+        )
+        _write_jsonl(planned_audit_path, [])
+        _write_jsonl(queue_path, _read_records(existing_queue_path))
+        _write_json(summary_path, {"stage": "plan-label-audit", "dry_run": True})
+        _write_json(
+            routing_summary_path,
+            {"stage": "plan-label-audit", "dry_run": True},
+        )
+        record_count = 0
+    else:
+        try:
+            plan, planned_audits, audit_queue = plan_cycle_label_audit(
+                label_audit_records=_read_records(llm_audit_path),
+                selection_records=_read_records(selection_path),
+                finalized_prediction_unit_records=_read_records(prediction_units_path),
+                decision_text_records=_read_records(decision_texts_path),
+                policy_record=_read_json_object(policy_path),
+            )
+        except (CycleLabelAuditError, KeyError) as exc:
+            raise CommandError(str(exc)) from exc
+        existing_queue = _read_records(existing_queue_path)
+        queue_by_review_id: dict[str, Mapping[str, Any]] = {}
+        for record in (*existing_queue, *audit_queue):
+            review_id = _required_str(record, "review_id")
+            if review_id in queue_by_review_id:
+                raise CommandError(f"duplicate lawyer review queue row: {review_id}")
+            queue_by_review_id[review_id] = record
+        _write_json(plan_path, plan)
+        _write_jsonl(planned_audit_path, planned_audits)
+        _write_jsonl(
+            queue_path,
+            [queue_by_review_id[key] for key in sorted(queue_by_review_id)],
+        )
+        _write_json(
+            summary_path,
+            {
+                "schema_version": "legalforecast.cycle_label_audit_summary.v1",
+                "cycle_id": plan["cycle_id"],
+                "plan_sha256": plan["plan_sha256"],
+                "labeling_policy_sha256": plan["labeling_policy_sha256"],
+                "judge_registry_sha256": plan["judge_registry_sha256"],
+                "ensemble_corpus_sha256": plan["ensemble_corpus_sha256"],
+                "seed_sha256": plan["seed_sha256"],
+                "population_count": plan["population_count"],
+                "sample_count": plan["sample_count"],
+                "strata": plan["strata"],
+                "redacted": True,
+            },
+        )
+        route_counts = Counter(
+            _required_str(record, "route_reason")
+            for record in queue_by_review_id.values()
+        )
+        _write_json(
+            routing_summary_path,
+            {
+                "schema_version": "legalforecast.adjudication_routing_summary.v1",
+                "cycle_id": plan["cycle_id"],
+                "plan_sha256": plan["plan_sha256"],
+                "total_routed_count": sum(route_counts.values()),
+                "counts_by_reason": dict(sorted(route_counts.items())),
+                "redacted": True,
+            },
+        )
+        record_count = len(audit_queue)
+    _write_acquisition_completion(
+        args,
+        stage="plan-label-audit",
+        input_paths=(
+            llm_audit_path,
+            selection_path,
+            prediction_units_path,
+            decision_texts_path,
+            policy_path,
+            existing_queue_path,
+        ),
+        output_paths=(
+            plan_path,
+            summary_path,
+            routing_summary_path,
+            planned_audit_path,
+            queue_path,
+        ),
+        record_count=record_count,
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
@@ -9920,6 +10130,7 @@ def _outcome_label(record: Mapping[str, Any]) -> OutcomeLabel:
         raise ValueError("fully_dismissed must be a boolean or null")
     return OutcomeLabel(
         unit_id=_required_str(record, "unit_id"),
+        unit_resolution=UnitResolution(_required_str(record, "unit_resolution")),
         fully_dismissed=fully_dismissed,
         amendment_class=AmendmentClass(_required_str(record, "amendment_class")),
         ambiguous=_required_bool(record, "ambiguous"),

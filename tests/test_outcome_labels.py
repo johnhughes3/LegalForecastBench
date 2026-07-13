@@ -8,6 +8,7 @@ from legalforecast.labeling import (
     LaterProceduralChange,
     OutcomeCitation,
     OutcomeLabel,
+    UnitResolution,
 )
 
 
@@ -106,6 +107,35 @@ def test_partial_theory_dismissal_does_not_count_as_full_dismissal() -> None:
 
     assert label.primary_outcome == 0
     assert label.to_record()["fully_dismissed"] is False
+
+
+def test_persisted_resolution_distinguishes_partial_from_material_survival() -> None:
+    records = {
+        resolution: OutcomeLabel(
+            unit_id="count_iv_contract",
+            unit_resolution=resolution,
+            fully_dismissed=False,
+            amendment_class=AmendmentClass.NOT_FULLY_DISMISSED,
+            ambiguous=False,
+            label_confidence=0.9,
+            supporting_citations=(_citation(),),
+            first_written_disposition_id="decision-42",
+            first_written_disposition_date="2026-05-18",
+        ).to_record()
+        for resolution in (
+            UnitResolution.PARTIAL_DISMISSAL_ONLY,
+            UnitResolution.SURVIVES_IN_MATERIAL_RESPECT,
+        )
+    }
+
+    assert records[UnitResolution.PARTIAL_DISMISSAL_ONLY]["fully_dismissed"] is False
+    assert (
+        records[UnitResolution.SURVIVES_IN_MATERIAL_RESPECT]["fully_dismissed"] is False
+    )
+    assert {record["unit_resolution"] for record in records.values()} == {
+        "partial_dismissal_only",
+        "survives_in_material_respect",
+    }
 
 
 def test_silence_on_leave_is_distinct_from_express_leave() -> None:

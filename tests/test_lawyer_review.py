@@ -15,12 +15,19 @@ from legalforecast.labeling import (
     ReviewMaterial,
     ReviewMaterialKind,
     ReviewPacketAudience,
+    UnitResolution,
 )
 
 
-def _label(unit_id: str, fully_dismissed: bool) -> OutcomeLabel:
+def _label(
+    unit_id: str,
+    fully_dismissed: bool,
+    *,
+    unit_resolution: UnitResolution | None = None,
+) -> OutcomeLabel:
     return OutcomeLabel(
         unit_id=unit_id,
+        unit_resolution=unit_resolution,
         fully_dismissed=fully_dismissed,
         amendment_class=(
             AmendmentClass.DISMISSED_WITHOUT_EXPRESS_AMENDMENT_OPPORTUNITY
@@ -194,3 +201,44 @@ def test_adjudication_rejects_duplicate_reviewer_ids() -> None:
             adjudicator_id="senior-adjudicator",
             adjudication_notes="duplicate reviewer",
         )
+
+
+def test_partial_and_material_survival_are_serialized_as_lawyer_disagreement() -> None:
+    responses = tuple(
+        LawyerReviewResponse(
+            review_id="review-1",
+            reviewer_id=f"lawyer-{index}",
+            reviewer_expertise=ReviewerExpertise.SENIOR_LITIGATOR,
+            proposed_label=_label(
+                "unit-1",
+                fully_dismissed=False,
+                unit_resolution=resolution,
+            ),
+            confidence=0.9,
+            minutes_spent=10,
+            notes="Resolution classification fixture.",
+        )
+        for index, resolution in enumerate(
+            (
+                UnitResolution.PARTIAL_DISMISSAL_ONLY,
+                UnitResolution.SURVIVES_IN_MATERIAL_RESPECT,
+            ),
+            start=1,
+        )
+    )
+    adjudication = AdjudicatedReview(
+        review_id="review-1",
+        candidate_id="cand-1",
+        unit_id="unit-1",
+        reviewer_responses=responses,
+        adjudicated_label=responses[0].proposed_label,
+        adjudicator_id="senior-adjudicator",
+        adjudication_notes="Partial dismissal controls.",
+    )
+
+    assert adjudication.disagreement_state is ReviewDisagreementState.DISAGREEMENT
+    record = adjudication.to_record()
+    assert {
+        response["proposed_label"]["unit_resolution"]
+        for response in record["reviewer_responses"]
+    } == {"partial_dismissal_only", "survives_in_material_respect"}

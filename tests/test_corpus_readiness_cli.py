@@ -116,6 +116,7 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
         [
             {
                 "unit_id": "unit-1",
+                "unit_resolution": "fully_dismissed",
                 "fully_dismissed": True,
                 "amendment_class": ("dismissed_without_express_amendment_opportunity"),
                 "ambiguous": False,

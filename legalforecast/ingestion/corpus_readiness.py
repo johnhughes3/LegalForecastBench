@@ -14,6 +14,7 @@ from legalforecast.labeling.label_outcomes import (
     OutcomeCitation,
     OutcomeLabel,
     StageBDecisionText,
+    UnitResolution,
 )
 from legalforecast.unitization.review import (
     UnitizationReviewError,
@@ -449,6 +450,16 @@ def _label_audit_gate_reasons(
             continue
         if status == "passed":
             continue
+        if status == "covered_by_cycle_level_plan":
+            if not _has_passed_cycle_label_audit_gate(
+                candidate_id=candidate_id,
+                sample_unit_ids=sample_unit_ids,
+                plan_sha256=_optional_str(gate, "cycle_label_audit_plan_sha256"),
+                corpus_sha256=_optional_str(gate, "ensemble_corpus_sha256"),
+                audit_records=lawyer_review_audit_records,
+            ):
+                reasons.append("label_audit_pending")
+            continue
         if status == "awaiting_human_adjudicated_labels":
             expected_review_ids = {
                 f"{candidate_id}:{unit_id}:label-audit" for unit_id in sample_unit_ids
@@ -461,10 +472,21 @@ def _label_audit_gate_reasons(
                 if review_id in queued_reviews_by_id
             ):
                 reasons.append("label_audit_review_queue_invalid")
-            if not _has_passed_label_audit_gate(
-                sample_unit_ids,
-                lawyer_review_audit_records,
-            ):
+            passed = (
+                _has_passed_cycle_label_audit_gate(
+                    candidate_id=candidate_id,
+                    sample_unit_ids=sample_unit_ids,
+                    plan_sha256=_optional_str(gate, "cycle_label_audit_plan_sha256"),
+                    corpus_sha256=_optional_str(gate, "ensemble_corpus_sha256"),
+                    audit_records=lawyer_review_audit_records,
+                )
+                if gate.get("cycle_level") is True
+                else _has_passed_label_audit_gate(
+                    sample_unit_ids,
+                    lawyer_review_audit_records,
+                )
+            )
+            if not passed:
                 reasons.append("label_audit_pending")
             continue
         reasons.append("label_audit_failed")
@@ -516,6 +538,40 @@ def _has_passed_label_audit_gate(
             if isinstance(unit_id, str) and unit_id
         }
         if actual == expected:
+            return True
+    return False
+
+
+def _has_passed_cycle_label_audit_gate(
+    *,
+    candidate_id: str,
+    sample_unit_ids: Sequence[str],
+    plan_sha256: str | None,
+    corpus_sha256: str | None,
+    audit_records: Sequence[Mapping[str, Any]],
+) -> bool:
+    if plan_sha256 is None or corpus_sha256 is None:
+        return False
+    expected = set(sample_unit_ids)
+    for record in audit_records:
+        sample_value = record.get("sample_unit_ids")
+        if not isinstance(sample_value, Sequence) or isinstance(sample_value, str):
+            continue
+        actual = {
+            unit_id
+            for unit_id in cast(Sequence[object], sample_value)
+            if isinstance(unit_id, str) and unit_id
+        }
+        if (
+            record.get("schema_version") == "legalforecast.cycle_label_audit_gate.v1"
+            and record.get("stage") == "label-audit-gate"
+            and record.get("status") == "passed"
+            and record.get("human_verified") is True
+            and record.get("candidate_id") == candidate_id
+            and record.get("cycle_label_audit_plan_sha256") == plan_sha256
+            and record.get("ensemble_corpus_sha256") == corpus_sha256
+            and actual == expected
+        ):
             return True
     return False
 
@@ -606,6 +662,7 @@ def _canonical_outcome_label(record: Mapping[str, Any]) -> OutcomeLabel:
 
     return OutcomeLabel(
         unit_id=_required_str(record, "unit_id"),
+        unit_resolution=UnitResolution(_required_str(record, "unit_resolution")),
         fully_dismissed=_optional_bool(record, "fully_dismissed"),
         amendment_class=AmendmentClass(_required_str(record, "amendment_class")),
         ambiguous=_required_bool(record, "ambiguous"),

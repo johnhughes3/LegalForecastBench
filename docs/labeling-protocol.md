@@ -20,6 +20,8 @@ Google's documentation calls `gemini-3.5-flash` a stable ID that "usually" does 
 
 Once all three Stage B snapshots are eligible and frozen, an automatic label requires exact three-model agreement on the structured outcome tuple and valid verbatim disposition evidence from every voter. Any outcome disagreement, ambiguity, low-confidence response, structural objection, or invalid excerpt routes to lawyer review; a two-model majority does not set the label.
 
+The structured outcome tuple includes `unit_resolution`, so `partial_dismissal_only` and `survives_in_material_respect` remain distinct even though both map to `fully_dismissed = false`. The field is preserved through model votes, auto labels, lawyer responses, adjudications, resume reconstruction, and audit comparisons.
+
 ## First Written Disposition
 
 The benchmark locks labels to the first written disposition that resolves the relevant motion-to-dismiss issue. Reconsideration orders, appeals, amended complaints, settlements, and later voluntary dismissals can be recorded as later procedural changes, but they do not change the locked primary label.
@@ -85,7 +87,9 @@ Drain Stage A manually before labeling:
 3. Inspect the resulting `finalized-prediction-units.jsonl` diff and reconcile candidate/unit counts. The command fails unless every queued review is consumed exactly once and every output is hash-linked to its raw units and adjudication.
 4. Pass only that finalized artifact to `llm-label`, packet planning, readiness, and `finalize-corpus`. Those gates reject the raw `llm-unitize` artifact.
 
-Stage B automatically samples unanimous auto-labels for blind human audit. Each required sample is written to `lawyer-review-queue.jsonl` with the frozen unit and first written disposition text needed to label it, but without the ensemble's proposed outcome. The case cannot count clean until checked-in adjudication records produce a successful `lawyer-review-resume` audit and the corresponding `label-audit-gate` passes. A recorded `no_unanimous_auto_labels` skip is acceptable only when the deterministic sample is empty.
+Stage B does not sample inside the per-case labeling loop. After the whole cycle's ensembles are durable, run `acquisition plan-label-audit` with the labeling-policy artifact precommitted through the freeze-policy workflow. The command hashes the pre-adjudication ensemble corpus, derives its seed from `SHA-256(cycle_id || ensemble_corpus_sha256 || labeling_policy_sha256)`, allocates one sample across grant, deny, and partial strata by largest remainder with the frozen per-stratum minimum, and writes blinded review packets without the ensemble's proposed outcome. Empty population strata are recorded as empty; any observed but unsampled stratum fails closed.
+
+Pass the generated cycle-planned audit JSONL, immutable cycle audit plan, and exact precommitted labeling policy to `apply-lawyer-review`. Audit-sample adjudications measure but never replace the frozen unanimous auto label. The case cannot count clean until the cycle-level gate reconstructs the plan from that policy and the pre-adjudication ensemble corpus, then passes its per-stratum LLM-error and human-disagreement ceilings. Keep the full plan, ensembles, review queue, and annotations in controlled private storage; only the redacted hash-bound audit and routing summaries are check-in safe. Pending adjudications remain John decisions.
 
 Pending adjudications are John decisions. Automation may assemble the queues and validate checked-in results, but it must not self-adjudicate them.
 
