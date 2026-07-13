@@ -661,6 +661,9 @@ def _looks_like_bankruptcy_adversary_metadata(
     explicit_adversary_number = bool(
         re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", docket_number, re.I)
     )
+    explicit_adversary_designation = _looks_like_adversary_designation(
+        metadata.case_name or ""
+    )
     # Some bankruptcy courts expose adversary proceedings through Case.dev with
     # a court-local number such as ``26-01028`` rather than an ``ap``/``adv``
     # marker.  A party-versus-party caption is still explicit adversary metadata
@@ -668,7 +671,11 @@ def _looks_like_bankruptcy_adversary_metadata(
     explicit_adversary_caption = _looks_like_adversarial_caption(
         metadata.case_name or ""
     )
-    return explicit_adversary_number or explicit_adversary_caption
+    return (
+        explicit_adversary_number
+        or explicit_adversary_designation
+        or explicit_adversary_caption
+    )
 
 
 def _looks_like_adversarial_caption(text: str) -> bool:
@@ -685,6 +692,12 @@ def _looks_like_adversarial_caption(text: str) -> bool:
     # Keeping this case-sensitive avoids treating a party's ``V.`` middle initial
     # as a versus delimiter.
     return bool(re.search(r"\S\s+v\.?\s+\S", stripped))
+
+
+def _looks_like_adversary_designation(text: str) -> bool:
+    """Return whether text explicitly designates an adversary docket."""
+
+    return bool(re.search(r"\badversary\s+(?:proceeding|case)\b", text, re.I))
 
 
 def _looks_like_federal_district_court(court_text: str) -> bool:
@@ -1328,8 +1341,8 @@ def _looks_like_bankruptcy_context(text: str) -> bool:
     court_ids = set(re.findall(r"\b[a-z]{2,5}b\b", lowered))
     return bool(
         "bankruptcy" in lowered
-        or "adversary proceeding" in lowered
         or "adversary complaint" in lowered
+        or _looks_like_adversary_designation(text)
         or court_ids.intersection(_BANKRUPTCY_COURT_IDS)
         or re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", lowered)
         or _references_rule_7012(lowered)
@@ -1363,6 +1376,8 @@ def _bankruptcy_adversary_exclusion_reasons(
         return ("bankruptcy_posture",)
     adversary_identity = bool(
         re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", combined_text, re.I)
+        or _looks_like_adversary_designation(page.title or "")
+        or _looks_like_adversary_designation(candidate_text or "")
         or _looks_like_adversarial_caption(page.title or "")
         or _looks_like_adversarial_caption(candidate_text or "")
     )
@@ -1412,7 +1427,7 @@ def _looks_like_rule_7012_claim_merits_motion(text: str) -> bool:
     # when the clerk omits a Rule 7012 citation; generic case dismissals do not.
     explicit_adversary_pleading_target = bool(
         re.search(
-            r"\bdismiss\b[^.;]{0,100}\b(?:adversary\s+(?:proceeding|complaint)|"
+            r"\bdismiss\b[^.;]{0,100}\b(?:adversary\s+(?:proceeding|case|complaint)|"
             r"complaint|counterclaim|count|claim|cause\s+of\s+action)s?\b",
             text,
             re.I,
