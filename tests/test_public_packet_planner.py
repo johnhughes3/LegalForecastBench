@@ -99,6 +99,47 @@ def test_bare_mtd_notice_is_a_paid_memorandum_gap(tmp_path: Path) -> None:
     assert candidate.missing_required_document_count == 1
 
 
+def test_explicit_combined_motion_and_memorandum_satisfies_memorandum_slot(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    target = cast(list[dict[str, Any]], record["selected_entries"])[1]
+    target["text"] = (
+        "5 MOTION to Dismiss and Memorandum of Points and Authorities in "
+        "Support filed by Defendant."
+    )
+    cast(list[dict[str, Any]], target["documents"])[0]["description"] = "Dismiss"
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.selected_cases
+    assert candidate.documents[1].document_role is DocumentRole.MTD_MEMORANDUM
+
+
+def test_motion_description_without_combined_briefing_cue_remains_notice(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    target = cast(list[dict[str, Any]], record["selected_entries"])[1]
+    target["text"] = "5 MOTION to Dismiss filed by Defendant."
+    cast(list[dict[str, Any]], target["documents"])[0]["description"] = "Dismiss"
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [gap] = plan.paid_gap_cases
+    assert gap.paid_gap_reasons == ("no_free_mtd_memorandum",)
+
+
 def test_planner_rejects_candidate_with_two_selected_target_motions(
     tmp_path: Path,
 ) -> None:
@@ -482,8 +523,10 @@ def test_public_packet_planner_accepts_exact_target_mtd_memorandum_when_role_is_
     )
 
 
-def test_public_packet_planner_prefers_free_support_memo_for_pacer_only_target(
+@pytest.mark.parametrize("document_description", ("Memorandum", ""))
+def test_public_packet_planner_links_free_support_memo_explicitly_referencing_target(
     tmp_path: Path,
+    document_description: str,
 ) -> None:
     raw_html_dir = tmp_path / "raw_html"
     record = _screened_case_with_embedded_entries()
@@ -508,7 +551,7 @@ def test_public_packet_planner_prefers_free_support_memo_for_pacer_only_target(
             "documents": [
                 {
                     "kind": "Main Document",
-                    "description": "Memorandum",
+                    "description": document_description,
                     "href": "https://www.courtlistener.com/docket/123/6/example/",
                     "action_label": "Download PDF",
                     "pacer_only": False,
@@ -539,7 +582,6 @@ def test_public_packet_planner_prefers_free_support_memo_for_pacer_only_target(
         (record,),
         raw_html_dir=raw_html_dir,
         target_clean_cases=25,
-        allow_inferred_target_mtd=True,
         use_embedded_entries=True,
     )
 
@@ -548,6 +590,54 @@ def test_public_packet_planner_prefers_free_support_memo_for_pacer_only_target(
     assert selected.documents[1].document_role is DocumentRole.MTD_MEMORANDUM
     assert selected.documents[1].source_url == (
         "https://www.courtlistener.com/docket/123/6/example/"
+    )
+
+
+def test_public_packet_planner_does_not_link_adjacent_unreferenced_support_brief(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    target_entry = record["selected_entries"][1]
+    assert isinstance(target_entry, dict)
+    target_entry["documents"] = [
+        {
+            "kind": "Main Document",
+            "description": "Dismiss",
+            "href": "https://ecf.example.invalid/doc1",
+            "action_label": "Buy on PACER",
+            "pacer_only": True,
+        }
+    ]
+    record["selected_entries"].insert(
+        2,
+        {
+            "row_id": "entry-6",
+            "entry_number": "6",
+            "filed_at": "Feb 2, 2026",
+            "text": "6 Feb 2, 2026 Brief in Support filed by Defendant.",
+            "documents": [
+                {
+                    "kind": "Main Document",
+                    "description": "Brief in Support",
+                    "href": "https://www.courtlistener.com/docket/123/6/example/",
+                    "action_label": "Download PDF",
+                    "pacer_only": False,
+                },
+            ],
+        },
+    )
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [gap] = plan.paid_gap_cases
+    assert gap.paid_gap_reasons == (
+        "no_free_target_mtd_document",
+        "no_free_mtd_memorandum",
     )
 
 

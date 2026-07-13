@@ -819,7 +819,7 @@ def _free_target_mtd_entry_numbers(
         if exact is not None:
             free.add(target_entry)
             continue
-        if allow_inferred_target_mtd and any(
+        if any(
             _entry_is_before(entry, decision_floor)
             and _is_mtd_entry(entry)
             and _references_target_motion(entry, (target_entry,))
@@ -1054,23 +1054,17 @@ def _target_mtd_entries(
         for entry in page.entries
         if _entry_number(entry) in target_entry_set and _is_target_mtd_entry(entry)
     )
-    if not allow_inferred_target_mtd:
-        return exact
-    exact_numbers = {_entry_number(entry) for entry in exact}
-    missing_targets = tuple(
-        entry_number
-        for entry_number in target_entries
-        if entry_number not in exact_numbers
-    )
     target_support = tuple(
         entry
         for entry in page.entries
         if _entry_is_before(entry, decision_floor)
         and _is_mtd_entry(entry)
-        and _references_target_motion(entry, missing_targets)
+        and _references_target_motion(entry, target_entries)
     )
     if exact or target_support:
         return _dedupe_entries((*exact, *target_support))
+    if not allow_inferred_target_mtd:
+        return ()
     if target_entries:
         return ()
     return tuple(
@@ -1440,6 +1434,28 @@ def _best_free_document(
     )
     if matching_documents:
         return matching_documents[0]
+    if role is DocumentRole.MTD_MEMORANDUM and entry.role is (
+        CourtListenerEntryRole.MTD_MEMORANDUM
+    ):
+        main_documents = tuple(
+            document
+            for document in entry.documents
+            if document.freely_available
+            and document.href
+            and "main" in document.kind.lower()
+        )
+        if len(main_documents) == 1:
+            return main_documents[0]
+    if role is DocumentRole.MTD_MEMORANDUM and _is_explicit_combined_mtd(entry):
+        main_documents = tuple(
+            document
+            for document in entry.documents
+            if document.freely_available
+            and document.href
+            and "main" in document.kind.lower()
+        )
+        if len(main_documents) == 1:
+            return main_documents[0]
     if role is DocumentRole.DECISION:
         return next(
             (
@@ -1450,6 +1466,17 @@ def _best_free_document(
             None,
         )
     return None
+
+
+def _is_explicit_combined_mtd(entry: CourtListenerWebDocketEntry) -> bool:
+    text = " ".join(entry.text.lower().split())
+    return bool(
+        re.search(
+            r"\bmotion\s+to\s+dismiss\b.{0,200}\b(?:and|with)\b.{0,100}"
+            r"\b(?:memorandum|brief)\b.{0,100}\b(?:in\s+)?support\b",
+            text,
+        )
+    )
 
 
 def _document_matches_role(description: str, role: DocumentRole) -> bool:
