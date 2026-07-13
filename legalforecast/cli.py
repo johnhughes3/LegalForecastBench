@@ -7087,13 +7087,12 @@ def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
                             f"duplicate lawyer adjudication row: {review_id}"
                         )
                     adjudications_by_review_id[review_id] = record
-                if labeling_policy_path is None:  # pragma: no cover - guarded above
-                    raise AssertionError("labeling policy path was not validated")
+                validated_labeling_policy_path = cast(Path, labeling_policy_path)
                 cycle_gate_records = evaluate_cycle_label_audit(
                     plan=_read_json_object(cycle_label_audit_plan_path),
                     label_audit_records=llm_label_audit_records,
                     adjudications_by_review_id=adjudications_by_review_id,
-                    policy_record=_read_json_object(labeling_policy_path),
+                    policy_record=_read_json_object(validated_labeling_policy_path),
                 )
             except CycleLabelAuditError as exc:
                 raise CommandError(str(exc)) from exc
