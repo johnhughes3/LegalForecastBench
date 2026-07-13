@@ -158,24 +158,22 @@ def _quarantine_orphan_snapshot_locked(
                 f"snapshot ID is not registered: {expected_snapshot_id}"
             )
         canonical_path = Path(str(canonical_row["path"])).resolve()
-        if (
-            canonical_path == orphan_path
-            or canonical_path.is_relative_to(orphan_path)
-            or orphan_path.is_relative_to(canonical_path)
-        ):
-            raise SnapshotQuarantineError(
-                "registered canonical and orphan snapshot paths must be disjoint"
-            )
         path_rows = connection.execute(
             "SELECT snapshot_id, path FROM snapshots ORDER BY snapshot_id"
         ).fetchall()
-        orphan_references = [
-            row for row in path_rows if Path(str(row["path"])).resolve() == orphan_path
-        ]
-        if orphan_references:
-            raise SnapshotQuarantineError(
-                "orphan path is registered in snapshots.path; refusing quarantine"
-            )
+        controlled_paths = {
+            "orphan source": orphan_path,
+            "quarantine target": target,
+            "receipt": receipt_path,
+        }
+        for row in path_rows:
+            registered_path = Path(str(row["path"])).resolve()
+            for controlled_name, controlled_path in controlled_paths.items():
+                if _paths_overlap(registered_path, controlled_path):
+                    raise SnapshotQuarantineError(
+                        f"{controlled_name} path is not disjoint from registered "
+                        f"snapshot {row['snapshot_id']}"
+                    )
         if not canonical_path.is_relative_to(store_root):
             raise SnapshotQuarantineError(
                 "registered canonical snapshot is outside the cycle store root"
@@ -290,7 +288,7 @@ def _quarantine_orphan_snapshot_locked(
             "status": "quarantined",
             "execute": True,
             "verified_at": prior_receipt.get("verified_at", verified_at),
-            "moved_at": datetime.now(UTC).isoformat(),
+            "move_recovery_verified_at": datetime.now(UTC).isoformat(),
             "recovered_after_completed_move": True,
         }
         _write_receipt(receipt_path, completed_receipt, allow_replace=True)
@@ -311,11 +309,10 @@ def _quarantine_orphan_snapshot_locked(
         _write_receipt(receipt_path, receipt)
         return receipt
 
-    if prior_receipt is not None and prior_receipt.get("status") != (
-        "dry_run_verified"
-    ):
+    prior_status = None if prior_receipt is None else prior_receipt.get("status")
+    if prior_status not in {None, "dry_run_verified", "move_authorized"}:
         raise SnapshotQuarantineError(
-            "existing receipt is not an eligible dry-run authorization receipt"
+            "existing receipt is not an eligible move authorization receipt"
         )
     pending_receipt = {
         **receipt_base,
@@ -323,6 +320,11 @@ def _quarantine_orphan_snapshot_locked(
         "execute": True,
         "verified_at": verified_at,
     }
+    if prior_status == "move_authorized":
+        pending_receipt["resumed_move_authorization"] = True
+        pending_receipt["initial_move_authorized_at"] = cast(
+            dict[str, Any], prior_receipt
+        ).get("verified_at")
     _write_receipt(
         receipt_path, pending_receipt, allow_replace=prior_receipt is not None
     )
@@ -382,6 +384,10 @@ def _open_immutable_store(path: Path) -> sqlite3.Connection:
         raise SnapshotQuarantineError(
             f"cannot open cycle store read-only: {error}"
         ) from error
+
+
+def _paths_overlap(left: Path, right: Path) -> bool:
+    return left == right or left.is_relative_to(right) or right.is_relative_to(left)
 
 
 def _normalize_sha256(value: str, *, field: str) -> str:

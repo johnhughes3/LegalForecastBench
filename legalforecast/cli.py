@@ -6847,15 +6847,14 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
         summary_path,
         snapshot_path,
     )
-    if snapshot_path.exists():
-        _validate_screen_resume_output_paths(
-            args=args,
-            snapshot_path=snapshot_path,
-            output_root=output_root,
-            screened_cases_path=screened_cases_path,
-            exclusions_path=exclusions_path,
-            summary_path=summary_path,
-        )
+    _validate_screen_resume_output_paths(
+        args=args,
+        snapshot_path=snapshot_path,
+        output_root=output_root,
+        screened_cases_path=screened_cases_path,
+        exclusions_path=exclusions_path,
+        summary_path=summary_path,
+    )
     if dry_run:
         summary: JsonRecord = {
             "schema_version": "legalforecast.firecrawl_screening_summary.v1",
@@ -6948,6 +6947,7 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
                 input_commitments=input_commitments,
                 raw_html_directory=raw_html_dir,
                 snapshot_path=snapshot_path,
+                snapshot_manifest=snapshot_manifest,
             )
         except (CycleAcquisitionStoreError, KeyError, OSError, ValueError) as exc:
             _write_acquisition_failure(
@@ -7044,7 +7044,6 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
                 candidate_id = _screened_case_dev_id(screened)
                 evidence = dict(screened)
                 evidence["candidate_id"] = candidate_id
-                evidence["screening_input_commitment"] = input_commitments
                 store.record_observation(
                     candidate_id,
                     batch_id=batch_id,
@@ -7059,7 +7058,6 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
                 evidence = exclusion.to_record()
                 candidate_id = exclusion.case_id
                 evidence["candidate_id"] = candidate_id
-                evidence["screening_input_commitment"] = input_commitments
                 reason_code = _canonical_screen_exclusion_reason(exclusion.reason)
                 store.record_observation(
                     candidate_id,
@@ -7076,7 +7074,6 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
                     store,
                     batch_id=batch_id,
                     record=exclusion,
-                    input_commitment=input_commitments,
                 )
 
             snapshot_path = store.export_snapshot(
@@ -7084,6 +7081,9 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
                 snapshot_id=snapshot_id,
                 batch_id=batch_id,
                 complete=True,
+                stage_commitments={
+                    "firecrawl_screen_inputs": input_commitments,
+                },
             )
             snapshot_manifest = verify_snapshot(
                 snapshot_path,
@@ -9980,7 +9980,25 @@ def _validate_firecrawl_snapshot_resume_inputs(
     input_commitments: Mapping[str, object],
     raw_html_directory: Path,
     snapshot_path: Path,
+    snapshot_manifest: Mapping[str, Any],
 ) -> None:
+    stage_commitments = snapshot_manifest.get("stage_commitments")
+    if not isinstance(stage_commitments, Mapping):
+        raise CycleAcquisitionStoreError(
+            "snapshot lacks committed screening stage inputs"
+        )
+    committed_inputs = cast(Mapping[str, object], stage_commitments).get(
+        "firecrawl_screen_inputs"
+    )
+    if not isinstance(committed_inputs, Mapping):
+        raise CycleAcquisitionStoreError(
+            "snapshot lacks a normalized screening input commitment"
+        )
+    if dict(cast(Mapping[str, object], committed_inputs)) != dict(input_commitments):
+        raise CycleAcquisitionStoreError(
+            "snapshot resume outcome classes or normalized input records do not "
+            "match the committed screening stage inputs"
+        )
     input_candidate_ids = [
         *(_required_str(record, "case_id") for record in success_records),
         *(_required_str(record, "case_id") for record in fetch_exclusion_records),
@@ -9993,30 +10011,6 @@ def _validate_firecrawl_snapshot_resume_inputs(
         raise CycleAcquisitionStoreError(
             "snapshot resume input candidate IDs do not match the committed snapshot"
         )
-    snapshot_outcomes = [
-        *_read_records(snapshot_path / "screened-cases.jsonl"),
-        *_read_records(snapshot_path / "exclusions.jsonl"),
-    ]
-    snapshot_candidate_ids_with_commitments: set[str] = set()
-    for record in snapshot_outcomes:
-        candidate_id = _required_str(record, "candidate_id")
-        if candidate_id in snapshot_candidate_ids_with_commitments:
-            raise CycleAcquisitionStoreError(
-                f"snapshot has duplicate outcome records for {candidate_id}"
-            )
-        snapshot_candidate_ids_with_commitments.add(candidate_id)
-        commitment = record.get("screening_input_commitment")
-        if not isinstance(commitment, Mapping):
-            raise CycleAcquisitionStoreError(
-                "snapshot lacks a normalized screening input commitment for "
-                f"{candidate_id}"
-            )
-        if dict(cast(Mapping[str, object], commitment)) != dict(input_commitments):
-            raise CycleAcquisitionStoreError(
-                "snapshot resume outcome classes or normalized input records "
-                f"do not match for {candidate_id}"
-            )
-
     artifact_commitments: dict[str, set[tuple[str, int]]] = defaultdict(set)
     for artifact in _read_records(snapshot_path / "raw-artifacts.jsonl"):
         candidate_id = _required_str(artifact, "candidate_id")
@@ -10239,13 +10233,11 @@ def _record_fetch_exclusion(
     *,
     batch_id: str,
     record: Mapping[str, Any],
-    input_commitment: Mapping[str, object],
 ) -> None:
     candidate_id = _required_str(record, "case_id")
     reason = _required_str(record, "reason")
     evidence = dict(record)
     evidence["candidate_id"] = candidate_id
-    evidence["screening_input_commitment"] = dict(input_commitment)
     if reason in _IMMUTABLE_ACQUISITION_EXCLUSIONS:
         store.record_observation(
             candidate_id,

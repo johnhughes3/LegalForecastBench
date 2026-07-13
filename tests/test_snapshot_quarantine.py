@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import shutil
+import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -88,6 +89,29 @@ def test_quarantine_recovers_crash_after_move_before_final_receipt(
 
     assert completed["status"] == "quarantined"
     assert completed["recovered_after_completed_move"] is True
+    assert "move_recovery_verified_at" in completed
+    assert "moved_at" not in completed
+    assert not fixture.orphan.exists()
+    assert target.is_dir()
+    assert json.loads(fixture.receipt.read_text())["status"] == "quarantined"
+
+
+def test_quarantine_recovers_authorized_move_before_rename(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    dry_run = _quarantine(fixture, execute=False)
+    target = Path(str(dry_run["quarantine_target_path"]))
+    pending_receipt = dict(dry_run)
+    pending_receipt["status"] = "move_authorized"
+    pending_receipt["execute"] = True
+    fixture.receipt.write_text(json.dumps(pending_receipt), encoding="utf-8")
+
+    completed = _quarantine(fixture, execute=True)
+
+    assert completed["status"] == "quarantined"
+    assert completed["resumed_move_authorization"] is True
+    assert "moved_at" in completed
     assert not fixture.orphan.exists()
     assert target.is_dir()
     assert json.loads(fixture.receipt.read_text())["status"] == "quarantined"
@@ -176,6 +200,37 @@ def test_quarantine_rejects_orphan_descendant_of_canonical_snapshot(
     assert nested_orphan.is_dir()
     assert fixture.canonical.is_dir()
     assert not fixture.receipt.exists()
+
+
+@pytest.mark.parametrize("controlled_path", ["orphan", "target", "receipt"])
+@pytest.mark.parametrize("registered_relationship", ["ancestor", "equal", "descendant"])
+def test_quarantine_rejects_every_controlled_path_overlapping_any_registered_snapshot(
+    tmp_path: Path,
+    controlled_path: str,
+    registered_relationship: str,
+) -> None:
+    fixture = _fixture(tmp_path)
+    target = fixture.quarantine / (
+        f"{fixture.snapshot_id}--orphan--{fixture.orphan_manifest_sha256[:16]}"
+    )
+    controlled = {
+        "orphan": fixture.orphan,
+        "target": target,
+        "receipt": fixture.receipt,
+    }[controlled_path]
+    overlap = {
+        "ancestor": controlled.parent,
+        "equal": controlled,
+        "descendant": controlled / "registered-child",
+    }[registered_relationship]
+    _register_snapshot_path(fixture, overlap)
+
+    with pytest.raises(SnapshotQuarantineError, match="registered snapshot"):
+        _quarantine(fixture, execute=False)
+
+    assert fixture.orphan.is_dir()
+    assert not fixture.receipt.exists()
+    assert list(fixture.quarantine.iterdir()) == []
 
 
 def test_quarantine_rejects_wrong_or_corrupt_orphan_commitment(
@@ -398,6 +453,27 @@ def _snapshot_files(path: Path) -> dict[str, bytes]:
     return {
         child.name: child.read_bytes() for child in path.iterdir() if child.is_file()
     }
+
+
+def _register_snapshot_path(fixture: _Fixture, path: Path) -> None:
+    with sqlite3.connect(fixture.store) as connection:
+        connection.execute(
+            """
+            INSERT INTO snapshots(
+                snapshot_id, batch_id, complete, path, manifest_json, created_at
+            ) VALUES(?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "unrelated-snapshot",
+                "batch-1",
+                1,
+                str(path.resolve()),
+                "{}",
+                "2026-07-13T00:00:00+00:00",
+            ),
+        )
+        connection.commit()
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 
 
 def _sha256(path: Path) -> str:

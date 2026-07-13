@@ -1649,6 +1649,7 @@ class CycleAcquisitionStore:
         snapshot_id: str,
         batch_id: str,
         complete: bool,
+        stage_commitments: Mapping[str, object] | None = None,
     ) -> Path:
         """Atomically publish a complete snapshot or isolated checkpoint export."""
 
@@ -1690,6 +1691,11 @@ class CycleAcquisitionStore:
                 "created_at": _utc_now(),
                 "files": files,
             }
+            if stage_commitments is not None:
+                normalized_commitments = json.loads(_canonical_json(stage_commitments))
+                if not isinstance(normalized_commitments, dict):
+                    raise ValueError("stage_commitments must be a JSON object")
+                manifest["stage_commitments"] = normalized_commitments
             _write_fsynced(
                 staging / "manifest.json",
                 f"{_canonical_json(manifest)}\n".encode(),

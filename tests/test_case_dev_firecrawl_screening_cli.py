@@ -1763,6 +1763,83 @@ def test_screen_resume_rejects_output_root_inside_snapshot_before_creation(
     assert not unsafe_root.exists()
 
 
+def test_screen_resume_uses_snapshot_level_commitment_when_observation_is_immutable(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    with CycleAcquisitionStore(cycle_state.store_path) as store:
+        store.record_observation(
+            "case-dev-123",
+            batch_id=cycle_state.batch_id,
+            state="excluded",
+            reason_code="criminal_case",
+            evidence={"candidate_id": "case-dev-123", "source": "frozen"},
+        )
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = _docket_html(decision_dates=("June 30, 2026",))
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    success = _success_record(raw_html)
+    _write_jsonl(successes, [success])
+    base_command = [
+        "acquisition",
+        "screen-firecrawl-dockets",
+        *cycle_state.cli_args,
+        "--successes",
+        str(successes),
+        "--raw-html-dir",
+        str(raw_html_dir),
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--execute",
+    ]
+
+    assert main([*base_command, "--output-root", str(tmp_path / "first")]) == 0
+    manifest = json.loads((cycle_state.snapshot / "manifest.json").read_text())
+    assert "firecrawl_screen_inputs" in manifest["stage_commitments"]
+    assert main([*base_command, "--output-root", str(tmp_path / "resume")]) == 0
+
+    success["source_url"] = "https://www.courtlistener.com/docket/123/drifted/"
+    _write_jsonl(successes, [success])
+    assert main([*base_command, "--output-root", str(tmp_path / "drift")]) == 2
+
+
+def test_fresh_screen_rejects_prospective_output_root_inside_snapshot(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = _docket_html(decision_dates=("June 30, 2026",))
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+    unsafe_root = cycle_state.snapshot / "prospective-output"
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "screen-firecrawl-dockets",
+                *cycle_state.cli_args,
+                "--successes",
+                str(successes),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--output-root",
+                str(unsafe_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+
+    assert not cycle_state.snapshot.exists()
+
+
 def test_screen_excludes_preanchor_report_before_leakage_screening(
     tmp_path: Path,
     cycle_state: _CycleState,

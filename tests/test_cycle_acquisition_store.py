@@ -1204,6 +1204,12 @@ def test_complete_snapshot_is_atomic_and_verifiable(tmp_path: Path) -> None:
             snapshot_id="snapshot-1",
             batch_id="batch-001",
             complete=True,
+            stage_commitments={
+                "firecrawl_screen_inputs": {
+                    "schema_version": "test.input-commitment.v1",
+                    "ordered_input_sha256": "sha256:abc123",
+                }
+            },
         )
         verified = verify_snapshot(
             published,
@@ -1211,6 +1217,12 @@ def test_complete_snapshot_is_atomic_and_verifiable(tmp_path: Path) -> None:
             expected_batch_digest=store.batch_digest("batch-001"),
         )
         assert verified["complete"] is True
+        assert verified["stage_commitments"] == {
+            "firecrawl_screen_inputs": {
+                "ordered_input_sha256": "sha256:abc123",
+                "schema_version": "test.input-commitment.v1",
+            }
+        }
         records = [
             json.loads(line)
             for line in (published / "candidates.jsonl").read_text().splitlines()
