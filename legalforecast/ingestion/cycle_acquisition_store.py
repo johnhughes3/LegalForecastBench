@@ -51,6 +51,9 @@ _IMMUTABLE_REASON_CODES = frozenset(
     }
 )
 _EVIDENCED_STATES = frozenset({"accepted", "newly_free", "excluded"})
+_REPAIRABLE_ABSENT_METADATA_REASONS = frozenset(
+    {"missing_docket_number", "not_federal_district_court"}
+)
 _OBSERVATION_STATES = _EVIDENCED_STATES | frozenset(
     {"transient_failure", "skipped_immutable"}
 )
@@ -1348,8 +1351,15 @@ class CycleAcquisitionStore:
         evidence: Mapping[str, object],
         observed_at: str | None = None,
         audit_immutable_skip: bool = True,
+        metadata_repair_evidence: Mapping[str, object] | None = None,
     ) -> CandidateObservation:
-        """Append evidence while preserving immutable and transient precedence."""
+        """Append evidence while preserving immutable and transient precedence.
+
+        ``metadata_repair_evidence`` is a narrow migration path for a prior
+        discovery exclusion caused solely by absent court and docket metadata.
+        It must identify this candidate and provide both a court and docket
+        number.  It cannot supersede an exclusion backed by actual metadata.
+        """
 
         candidate_id = _require_text(candidate_id, "candidate_id")
         reason_code = _require_text(reason_code, "reason_code")
@@ -1366,7 +1376,12 @@ class CycleAcquisitionStore:
                 f"reason code {reason_code!r} does not permit state {state!r}"
             )
         self.batch_digest(batch_id)
-        evidence_json = _canonical_json(evidence)
+        evidence_record = dict(evidence)
+        repair_evidence = None
+        if metadata_repair_evidence is not None:
+            repair_evidence = _validate_metadata_repair_evidence(
+                candidate_id, metadata_repair_evidence
+            )
         timestamp = observed_at or _utc_now()
         with self._transaction():
             discovery = self._connection.execute(
@@ -1386,6 +1401,18 @@ class CycleAcquisitionStore:
                 and current["state"] == "excluded"
                 and current["reason_code"] in _IMMUTABLE_REASON_CODES
             )
+            repairs_absent_metadata = bool(
+                current_is_immutable
+                and repair_evidence is not None
+                and current is not None
+                and _is_absent_metadata_exclusion(current)
+                and _is_metadata_rescreen_terminal_state(
+                    state, reason_code, evidence_record
+                )
+            )
+            if repairs_absent_metadata:
+                evidence_record["metadata_repair_evidence"] = repair_evidence
+            evidence_json = _canonical_json(evidence_record)
             inserted_state = state
             supersedes = int(current["observation_id"]) if current else None
             current_precedence = (
@@ -1394,7 +1421,9 @@ class CycleAcquisitionStore:
             update_current = (
                 state in _EVIDENCED_STATES and precedence >= current_precedence
             )
-            if current_is_immutable:
+            if repairs_absent_metadata:
+                update_current = state in _EVIDENCED_STATES
+            elif current_is_immutable:
                 assert current is not None
                 if not audit_immutable_skip:
                     raise ImmutableCandidateStateError(
@@ -2323,6 +2352,74 @@ def _normalize_hit(
         candidate_id = _require_text(hit.candidate_id, "candidate_id")
         payload = hit.payload
     return provider_hit_id, candidate_id, _canonical_json(payload)
+
+
+def _validate_metadata_repair_evidence(
+    candidate_id: str, evidence: Mapping[str, object]
+) -> dict[str, object]:
+    """Validate the minimum metadata needed to repair an absent-metadata screen."""
+
+    repair = dict(evidence)
+    repair_case_id = repair.get("case_id")
+    if repair_case_id != candidate_id:
+        raise ValueError(
+            "metadata repair evidence case_id must match the observed candidate"
+        )
+    court = repair.get("court_id") or repair.get("court")
+    if not isinstance(court, str) or not court.strip():
+        raise ValueError("metadata repair evidence must include a non-empty court")
+    docket_number = repair.get("docket_number")
+    if not isinstance(docket_number, str) or not docket_number.strip():
+        raise ValueError(
+            "metadata repair evidence must include a non-empty docket_number"
+        )
+    return repair
+
+
+def _is_absent_metadata_exclusion(row: sqlite3.Row) -> bool:
+    """Identify only the legacy exclusion shape produced from absent metadata."""
+
+    reason_code = str(row["reason_code"])
+    if reason_code not in _REPAIRABLE_ABSENT_METADATA_REASONS:
+        return False
+    parsed = json.loads(str(row["evidence_json"]))
+    if not isinstance(parsed, dict):
+        return False
+    evidence = cast(dict[str, object], parsed)
+    if evidence.get("stage") != "discovery":
+        return False
+    if evidence.get("reason") != reason_code:
+        return False
+    if evidence.get("primary_exclusion_reason") != reason_code:
+        return False
+    if evidence.get("decision_date") not in (None, ""):
+        return False
+    if evidence.get("source_document_ids") != []:
+        return False
+    if evidence.get("source_entry_ids") != []:
+        return False
+    secondary = evidence.get("secondary_exclusion_reasons")
+    if not isinstance(secondary, list):
+        return False
+    if reason_code == "not_federal_district_court":
+        return evidence.get("court") in (None, "") and secondary == [
+            "missing_docket_number"
+        ]
+    return evidence.get("court") in (None, "") and secondary == []
+
+
+def _is_metadata_rescreen_terminal_state(
+    state: str, reason_code: str, evidence: Mapping[str, object]
+) -> bool:
+    """Allow repair only after a strict-screen terminal result."""
+
+    if state == "accepted":
+        return reason_code == "strict_clean_screen_passed"
+    return state == "excluded" and evidence.get("stage") in {
+        "discovery",
+        "motion_linkage",
+        "eligibility",
+    }
 
 
 def _require_text(value: object, name: str) -> str:

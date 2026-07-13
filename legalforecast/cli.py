@@ -6162,6 +6162,9 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
                 raw_html_directory=raw_html_dir,
                 decision_filed_on_or_after=anchor,
             )
+            rescreen_metadata_by_candidate = _rescreen_metadata_by_candidate(
+                success_records
+            )
             for record in success_records:
                 candidate_id = _required_str(record, "case_id")
                 docket_id = _required_str(record, "docket_id")
@@ -6201,6 +6204,9 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
                     state="accepted",
                     reason_code="strict_clean_screen_passed",
                     evidence=evidence,
+                    metadata_repair_evidence=rescreen_metadata_by_candidate[
+                        candidate_id
+                    ],
                 )
             for exclusion in result.exclusions:
                 evidence = exclusion.to_record()
@@ -6213,6 +6219,9 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
                     state="excluded",
                     reason_code=reason_code,
                     evidence=evidence,
+                    metadata_repair_evidence=rescreen_metadata_by_candidate[
+                        candidate_id
+                    ],
                 )
             for exclusion in fetch_exclusion_records:
                 _record_fetch_exclusion(
@@ -9026,6 +9035,38 @@ def _screened_case_dev_id(record: Mapping[str, Any]) -> str:
     if not isinstance(case_id, str) or not case_id.strip():
         raise ValueError("screened case is missing its Case.dev case ID")
     return case_id.strip()
+
+
+def _rescreen_metadata_by_candidate(
+    success_records: Sequence[Mapping[str, Any]],
+) -> dict[str, Mapping[str, object] | None]:
+    """Return the complete Case.dev metadata that justifies a metadata rescreen."""
+
+    metadata_by_candidate: dict[str, Mapping[str, object] | None] = {}
+    for record in success_records:
+        candidate_id = _required_str(record, "case_id")
+        metadata_value = record.get("case_metadata")
+        metadata = (
+            dict(cast(Mapping[str, object], metadata_value))
+            if isinstance(metadata_value, Mapping)
+            else None
+        )
+        if candidate_id in metadata_by_candidate:
+            metadata_by_candidate[candidate_id] = None
+            continue
+        if metadata is None or metadata.get("case_id") != candidate_id:
+            metadata_by_candidate[candidate_id] = None
+            continue
+        court = metadata.get("court_id") or metadata.get("court")
+        docket_number = metadata.get("docket_number")
+        if not isinstance(court, str) or not court.strip():
+            metadata_by_candidate[candidate_id] = None
+            continue
+        if not isinstance(docket_number, str) or not docket_number.strip():
+            metadata_by_candidate[candidate_id] = None
+            continue
+        metadata_by_candidate[candidate_id] = metadata
+    return metadata_by_candidate
 
 
 def _canonical_screen_exclusion_reason(reason: str) -> str:
