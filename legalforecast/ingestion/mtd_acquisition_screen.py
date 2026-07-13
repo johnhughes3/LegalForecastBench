@@ -661,6 +661,9 @@ def _looks_like_bankruptcy_adversary_metadata(
     explicit_adversary_number = bool(
         re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", docket_number, re.I)
     )
+    explicit_adversary_designation = _looks_like_adversary_designation(
+        metadata.case_name or ""
+    )
     # Some bankruptcy courts expose adversary proceedings through Case.dev with
     # a court-local number such as ``26-01028`` rather than an ``ap``/``adv``
     # marker.  A party-versus-party caption is still explicit adversary metadata
@@ -668,7 +671,11 @@ def _looks_like_bankruptcy_adversary_metadata(
     explicit_adversary_caption = _looks_like_adversarial_caption(
         metadata.case_name or ""
     )
-    return explicit_adversary_number or explicit_adversary_caption
+    return (
+        explicit_adversary_number
+        or explicit_adversary_designation
+        or explicit_adversary_caption
+    )
 
 
 def _looks_like_adversarial_caption(text: str) -> bool:
@@ -685,6 +692,12 @@ def _looks_like_adversarial_caption(text: str) -> bool:
     # Keeping this case-sensitive avoids treating a party's ``V.`` middle initial
     # as a versus delimiter.
     return bool(re.search(r"\S\s+v\.?\s+\S", stripped))
+
+
+def _looks_like_adversary_designation(text: str) -> bool:
+    """Return whether text explicitly designates an adversary docket."""
+
+    return bool(re.search(r"\badversary\s+(?:proceeding|case)\b", text, re.I))
 
 
 def _looks_like_federal_district_court(court_text: str) -> bool:
@@ -1363,6 +1376,7 @@ def _bankruptcy_adversary_exclusion_reasons(
         return ("bankruptcy_posture",)
     adversary_identity = bool(
         re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", combined_text, re.I)
+        or _looks_like_adversary_designation(combined_text)
         or _looks_like_adversarial_caption(page.title or "")
         or _looks_like_adversarial_caption(candidate_text or "")
     )

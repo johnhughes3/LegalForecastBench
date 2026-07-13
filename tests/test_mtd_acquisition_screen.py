@@ -115,6 +115,22 @@ def test_case_dev_metadata_screen_admits_adversary_caption_with_local_number() -
     assert screen.metadata.case_type_stratum == "bankruptcy_adversary"
 
 
+def test_case_dev_metadata_screen_admits_explicit_adversary_designation() -> None:
+    screen = screen_case_dev_docket_metadata(
+        {
+            "id": "74000007",
+            "courtId": "nysb",
+            "court": "Bankruptcy Court, S.D. New York",
+            "docketNumber": "26-01030",
+            "caseName": "Adversary Proceeding No. 26-01030",
+        },
+        query="order on motion to dismiss",
+    )
+
+    assert screen.accepted_for_scrape is True
+    assert screen.metadata.case_type_stratum == "bankruptcy_adversary"
+
+
 def test_case_dev_metadata_screen_still_excludes_main_bankruptcy_case() -> None:
     screen = screen_case_dev_docket_metadata(
         {
@@ -139,6 +155,22 @@ def test_adversarial_caption_cannot_promote_explicit_bk_docket() -> None:
             "court": "Bankruptcy Court, M.D. Florida",
             "docketNumber": "8:26-bk-04258",
             "caseName": "Creditor LLC v. Robert Scott Super",
+        },
+        query="order on motion to dismiss case",
+    )
+
+    assert screen.accepted_for_scrape is False
+    assert screen.exclusion_reasons[0] == "bankruptcy_court"
+
+
+def test_adversary_designation_cannot_promote_explicit_bk_docket() -> None:
+    screen = screen_case_dev_docket_metadata(
+        {
+            "id": "74000008",
+            "courtId": "flmb",
+            "court": "Bankruptcy Court, M.D. Florida",
+            "docketNumber": "8:26-bk-04258",
+            "caseName": "Adversary Proceeding concerning Robert Scott Super",
         },
         query="order on motion to dismiss case",
     )
@@ -1047,6 +1079,33 @@ def test_docket_screen_accepts_adversary_caption_with_local_number() -> None:
     screen = screen_courtlistener_docket_for_mtd_decision(
         page,
         candidate_text="nysb 26-01028 Higgins v. Celsius Network LLC",
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert screen.strict_clean is True
+    assert screen.case_type_stratum == "bankruptcy_adversary"
+
+
+def test_docket_screen_accepts_explicit_adversary_designation() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Docket 26-01030",
+            entries=(
+                (1, "July 1, 2026", "Adversary COMPLAINT filed."),
+                (4, "July 3, 2026", "Motion, Dismiss Adversary Proceeding"),
+                (
+                    8,
+                    "July 10, 2026",
+                    "Memorandum Opinion and Order granting 4 Motion to Dismiss.",
+                ),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000007/adversary-proceeding/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text="nysb 26-01030 Adversary Proceeding No. 26-01030",
         decision_filed_on_or_after=date(2026, 6, 30),
     )
 
