@@ -1376,7 +1376,8 @@ def _bankruptcy_adversary_exclusion_reasons(
         return ("bankruptcy_posture",)
     adversary_identity = bool(
         re.search(r"(?:^|[-:])(?:ap|adv)(?:[-:]|\b)", combined_text, re.I)
-        or _looks_like_adversary_designation(combined_text)
+        or _looks_like_adversary_designation(page.title or "")
+        or _looks_like_adversary_designation(candidate_text or "")
         or _looks_like_adversarial_caption(page.title or "")
         or _looks_like_adversarial_caption(candidate_text or "")
     )

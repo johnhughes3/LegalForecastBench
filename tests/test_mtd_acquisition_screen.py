@@ -1177,6 +1177,29 @@ def test_explicit_adversary_designation_retains_all_downstream_gates(
     assert expected_reason in screen.exclusion_reasons
 
 
+def test_entry_only_adversary_designation_cannot_establish_identity() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Docket 26-01031",
+            entries=(
+                (1, "July 1, 2026", "COMPLAINT filed."),
+                (4, "July 3, 2026", "Motion to Dismiss Adversary Proceeding"),
+                (8, "July 10, 2026", "ORDER granting 4 Motion to Dismiss."),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000009/debtor/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text="nysb 26-01031 Debtor",
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert screen.strict_clean is False
+    assert "bankruptcy_posture" in screen.exclusion_reasons
+
+
 def test_rule_7012_entries_establish_bankruptcy_context_without_candidate_text() -> (
     None
 ):
