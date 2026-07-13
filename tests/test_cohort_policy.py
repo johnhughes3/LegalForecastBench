@@ -55,6 +55,8 @@ def test_policy_rejects_forbidden_restatement_and_inconsistent_values() -> None:
         ("wrong_end", "terminate exactly"),
         ("threshold_without_action", "requires minimum_prediction_units"),
         ("non_downgrade", "must be a lower claim class"),
+        ("non_monotone_claim", "strictly increase"),
+        ("terminal_not_target", "must use claim_class target"),
         ("bad_below_minimum", "below_minimum_action is unsupported"),
     ],
 )
@@ -76,6 +78,11 @@ def test_policy_rejects_invalid_reduced_n_tiers(mutation: str, message: str) -> 
         tiers[0]["insufficient_units_action"] = "pilot_only_no_official_cycle"
     elif mutation == "non_downgrade":
         tiers[1]["insufficient_units_action"] = "target"
+    elif mutation == "non_monotone_claim":
+        tiers[1]["claim_class"] = "provisional_feasibility"
+    elif mutation == "terminal_not_target":
+        tiers.pop()
+        tiers[-1]["maximum_clean_cases"] = 150
     else:
         reduced["below_minimum_action"] = "official_descriptive"
     with pytest.raises(CohortPolicyError, match=message):

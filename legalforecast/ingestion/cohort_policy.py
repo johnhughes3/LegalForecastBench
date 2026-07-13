@@ -473,6 +473,8 @@ def _validate_claim_tiers(value: object, *, target: int) -> None:
         raise CohortPolicyError("reduced_n.claim_tiers must be a non-empty list")
     tiers = cast(list[object], value)
     previous_maximum: int | None = None
+    previous_claim_rank: int | None = None
+    final_claim_class: object = None
     for index, tier_value in enumerate(tiers):
         tier = _object(tier_value, f"claim_tiers[{index}]")
         _exact_keys(
@@ -503,6 +505,11 @@ def _validate_claim_tiers(value: object, *, target: int) -> None:
         claim_class = tier.get("claim_class")
         if claim_class not in _CLAIM_CLASS_RANK:
             raise CohortPolicyError(f"claim_tiers[{index}].claim_class is unsupported")
+        claim_rank = _CLAIM_CLASS_RANK[cast(str, claim_class)]
+        if previous_claim_rank is not None and claim_rank <= previous_claim_rank:
+            raise CohortPolicyError(
+                "reduced_n claim classes must strictly increase with clean-case tiers"
+            )
         threshold = tier.get("minimum_prediction_units")
         action = tier.get("insufficient_units_action")
         if threshold is None:
@@ -516,7 +523,6 @@ def _validate_claim_tiers(value: object, *, target: int) -> None:
                 raise CohortPolicyError(
                     f"claim_tiers[{index}].insufficient_units_action is unsupported"
                 )
-            claim_rank = _CLAIM_CLASS_RANK[cast(str, claim_class)]
             action_rank = _CLAIM_CLASS_RANK.get(cast(str, action), -1)
             if action_rank >= claim_rank:
                 raise CohortPolicyError(
@@ -524,9 +530,15 @@ def _validate_claim_tiers(value: object, *, target: int) -> None:
                     "terminal action"
                 )
         previous_maximum = maximum
+        previous_claim_rank = claim_rank
+        final_claim_class = claim_class
     if previous_maximum != target:
         raise CohortPolicyError(
             "reduced_n.claim_tiers must terminate exactly at target_clean_cases"
+        )
+    if final_claim_class != "target":
+        raise CohortPolicyError(
+            "the terminal clean-case tier must use claim_class target"
         )
 
 
