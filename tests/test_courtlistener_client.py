@@ -12,7 +12,10 @@ from legalforecast.ingestion import (
     CourtListenerUnavailableError,
     RecordedCourtListenerResponse,
 )
-from legalforecast.ingestion.courtlistener_client import COURTLISTENER_BASE_URL_ENV
+from legalforecast.ingestion.courtlistener_client import (
+    COURTLISTENER_BASE_URL_ENV,
+    CourtListenerDocketEntry,
+)
 
 
 def test_courtlistener_reconstructs_public_docket_entries() -> None:
@@ -84,6 +87,41 @@ def test_courtlistener_missing_required_fields_fail_clearly() -> None:
 
     with pytest.raises(CourtListenerResponseError, match="description"):
         client.list_docket_entries("123")
+
+
+def test_docket_entry_extracts_id_from_hyperlinked_foreign_key() -> None:
+    entry = CourtListenerDocketEntry.from_record(
+        {
+            "id": 7001,
+            "docket": "https://www.courtlistener.com/api/rest/v4/dockets/4328339/",
+            "entry_number": 12,
+            "description": "ORDER granting motion to dismiss",
+            "date_filed": "2026-07-05",
+        }
+    )
+    assert entry.docket_id == "4328339"
+
+
+def test_docket_entry_accepts_bare_integer_foreign_key() -> None:
+    entry = CourtListenerDocketEntry.from_record(
+        {
+            "id": 7001,
+            "docket": 4328339,
+            "description": "ORDER",
+        }
+    )
+    assert entry.docket_id == "4328339"
+
+
+def test_docket_entry_rejects_unrecognized_foreign_key_shape() -> None:
+    with pytest.raises(CourtListenerResponseError, match="docket reference shape"):
+        CourtListenerDocketEntry.from_record(
+            {
+                "id": 7001,
+                "docket": "not-a-docket-reference",
+                "description": "ORDER",
+            }
+        )
 
 
 def test_courtlistener_unavailable_auth_rate_and_server_errors() -> None:

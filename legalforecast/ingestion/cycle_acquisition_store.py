@@ -1284,17 +1284,34 @@ class CycleAcquisitionStore:
         )
         return tuple(str(row[0]) for row in rows)
 
-    def candidate_discovery_hits(self, batch_id: str) -> tuple[DiscoveryHit, ...]:
-        """Return one deterministic raw provider hit for each candidate."""
+    def candidate_discovery_hits(
+        self,
+        batch_id: str,
+        *,
+        deprioritized_terms: Sequence[str] = (),
+    ) -> tuple[DiscoveryHit, ...]:
+        """Return one deterministic raw provider hit for each candidate.
+
+        Terms listed in ``deprioritized_terms`` sort after every other term. This
+        lets callers prefer direct provider discovery over synthetic carry-forward
+        hits without making the store aware of provider-specific term names.
+        """
 
         self.batch_digest(batch_id)
+        terms = tuple(deprioritized_terms)
+        priority_sql = ""
+        params: tuple[object, ...] = (batch_id,)
+        if terms:
+            placeholders = ", ".join("?" for _term in terms)
+            priority_sql = f"CASE WHEN h.term IN ({placeholders}) THEN 1 ELSE 0 END, "
+            params = (*terms, batch_id)
         rows = self._connection.execute(
-            """
+            f"""
             WITH ranked AS (
                 SELECT h.provider_hit_id, h.candidate_id, h.payload_json,
                        ROW_NUMBER() OVER (
                            PARTITION BY h.candidate_id
-                           ORDER BY h.term, h.provider_hit_id
+                           ORDER BY {priority_sql}h.term, h.provider_hit_id
                        ) AS candidate_rank
                 FROM discovery_hits h
                 WHERE h.batch_id = ?
@@ -1303,7 +1320,7 @@ class CycleAcquisitionStore:
             FROM ranked WHERE candidate_rank = 1
             ORDER BY candidate_id
             """,
-            (batch_id,),
+            params,
         )
         hits: list[DiscoveryHit] = []
         for row in rows:
