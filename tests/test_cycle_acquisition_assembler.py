@@ -615,6 +615,84 @@ def test_assemble_cycle_acquisition_preserves_accepted_case_after_bridge_transie
     assert _read_jsonl(cycle / "discovery-exclusions.jsonl") == []
 
 
+def test_assemble_cycle_acquisition_rejects_downstream_root_before_snapshot(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    snapshot = tmp_path / "immutable-screening-snapshot"
+    downstream = tmp_path / "standardized-free-v3"
+    _write_batch(
+        snapshot,
+        screened=[_courtlistener_screened("123")],
+        exclusions=[],
+        selections=[],
+        relevance=[],
+        documents=[],
+    )
+    _write_batch(
+        downstream,
+        screened=[],
+        exclusions=[],
+        selections=[],
+        relevance=[],
+        documents=[],
+    )
+    _write_jsonl(downstream / "screened-cases.jsonl", [])
+    (downstream / "summary.json").unlink()
+    _write_jsonl(
+        downstream / "pacer-gap-bridge-exclusions.jsonl",
+        [
+            {
+                "candidate_id": "123",
+                "primary_exclusion_reason": "case_dev_caption_conflict",
+            }
+        ],
+    )
+
+    assert _assemble_batches([downstream, snapshot], tmp_path / "cycle") == 2
+    assert (
+        "downstream-only batch root must immediately follow" in capsys.readouterr().err
+    )
+
+
+def test_assemble_cycle_acquisition_accepts_multiple_ordered_split_pairs(
+    tmp_path: Path,
+) -> None:
+    roots: list[Path] = []
+    for candidate_id in ("123", "456"):
+        snapshot = tmp_path / f"snapshot-{candidate_id}"
+        downstream = tmp_path / f"downstream-{candidate_id}"
+        _write_batch(
+            snapshot,
+            screened=[_courtlistener_screened(candidate_id)],
+            exclusions=[],
+            selections=[],
+            relevance=[],
+            documents=[],
+        )
+        _write_batch(
+            downstream,
+            screened=[],
+            exclusions=[],
+            selections=[_selection(candidate_id)],
+            relevance=[_relevance(candidate_id, requires_paid_recovery=False)],
+            documents=[],
+        )
+        _write_jsonl(downstream / "screened-cases.jsonl", [])
+        (downstream / "summary.json").unlink()
+        roots.extend((snapshot, downstream))
+
+    cycle = tmp_path / "cycle"
+    assert _assemble_batches(roots, cycle) == 0
+    assert [
+        record["candidate_id"] for record in _read_jsonl(cycle / "screened-cases.jsonl")
+    ] == ["123", "456"]
+    assert [
+        record["candidate_id"]
+        for record in _read_jsonl(cycle / "public-packet-selection.jsonl")
+    ] == ["123", "456"]
+
+
 def test_assemble_cycle_acquisition_help_documents_split_root_order(
     capsys: Any,
 ) -> None:

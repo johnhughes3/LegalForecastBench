@@ -96,6 +96,7 @@ def assemble_cycle_acquisition(
     manifest: dict[tuple[str, str], Mapping[str, Any]] = {}
     prepared_by_key: dict[tuple[str, str], PreparedDocument] = {}
     batch_provenance: list[dict[str, Any]] = []
+    previous_was_screening_only = False
 
     for ordinal, root in enumerate(roots, start=1):
         screened_records = _read_first_jsonl(
@@ -120,6 +121,43 @@ def assemble_cycle_acquisition(
             *screening_exclusion_records,
             *downstream_exclusion_records,
         ]
+        batch_selections = _read_first_jsonl(
+            root,
+            (
+                "public-packet-selection-reconciled.jsonl",
+                "public-packet-selection.jsonl",
+            ),
+        )
+        batch_paid_gaps = _read_first_jsonl(root, ("public-packet-paid-gaps.jsonl",))
+        batch_relevance = _read_first_jsonl(root, ("case-relevance.jsonl",))
+        batch_filters = _read_first_jsonl(root, ("core-filter-results.jsonl",))
+        batch_manifest = _read_first_jsonl(
+            root,
+            (
+                "document-downloads-merged.jsonl",
+                "free-document-downloads.jsonl",
+            ),
+        )
+        downstream_record_count = sum(
+            len(records)
+            for records in (
+                downstream_exclusion_records,
+                batch_selections,
+                batch_paid_gaps,
+                batch_relevance,
+                batch_filters,
+                batch_manifest,
+            )
+        )
+        if (
+            not screened_records
+            and downstream_record_count
+            and not previous_was_screening_only
+        ):
+            raise CycleAssemblyError(
+                "downstream-only batch root must immediately follow its non-empty "
+                f"screening snapshot root: {root}"
+            )
         summary = _read_optional_json(root / "summary.json")
         _validate_discovery_counts(
             root,
@@ -130,34 +168,20 @@ def assemble_cycle_acquisition(
         _apply_discovery_batch(current, screened_records, exclusion_records)
         _merge_latest(
             selections,
-            _read_first_jsonl(
-                root,
-                (
-                    "public-packet-selection-reconciled.jsonl",
-                    "public-packet-selection.jsonl",
-                ),
-            ),
+            batch_selections,
             artifact="selection",
         )
         _merge_latest(
             paid_gaps,
-            _read_first_jsonl(root, ("public-packet-paid-gaps.jsonl",)),
+            batch_paid_gaps,
             artifact="paid-gap",
         )
-        batch_relevance = _read_first_jsonl(root, ("case-relevance.jsonl",))
         _reject_duplicate_ids(batch_relevance, artifact="case-relevance")
         _merge_latest(relevance, batch_relevance, artifact="case-relevance")
         _merge_latest(
             filters,
-            _read_first_jsonl(root, ("core-filter-results.jsonl",)),
+            batch_filters,
             artifact="core-filter-result",
-        )
-        batch_manifest = _read_first_jsonl(
-            root,
-            (
-                "document-downloads-merged.jsonl",
-                "free-document-downloads.jsonl",
-            ),
         )
         for record in batch_manifest:
             prepared = _prepare_document(root, output, record)
@@ -182,6 +206,9 @@ def assemble_cycle_acquisition(
                 "summary_sha256": _optional_file_hash(root / "summary.json"),
                 "summary": summary,
             }
+        )
+        previous_was_screening_only = (
+            bool(screened_records) and not downstream_record_count
         )
 
     accepted_ids = {
