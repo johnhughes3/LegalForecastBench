@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -11,6 +10,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.ingestion.courtlistener_dates import parse_courtlistener_filed_date
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketEntry,
     parse_courtlistener_docket_html,
@@ -685,7 +685,7 @@ def _docket_screen_with_first_disposition_anchor(
     dated_entries: list[tuple[date, Mapping[str, Any]]] = []
     undated_entries: list[Mapping[str, Any]] = []
     for entry in decision_entries:
-        filed_date = _courtlistener_filed_date(_optional_str(entry, "filed_at"))
+        filed_date = parse_courtlistener_filed_date(_optional_str(entry, "filed_at"))
         if filed_date is None:
             undated_entries.append(entry)
         else:
@@ -728,23 +728,6 @@ def _docket_screen_with_first_disposition_anchor(
         }
     )
     return record
-
-
-_COURTLISTENER_FILED_DATE_PATTERN = re.compile(r"\b[A-Z][a-z]+\s+\d{1,2},\s+\d{4}\b")
-
-
-def _courtlistener_filed_date(value: str | None) -> date | None:
-    if value is None:
-        return None
-    match = _COURTLISTENER_FILED_DATE_PATTERN.search(value)
-    if match is None:
-        return None
-    for date_format in ("%B %d, %Y", "%b %d, %Y"):
-        try:
-            return datetime.strptime(match.group(0), date_format).date()
-        except ValueError:
-            continue
-    return None
 
 
 def _decision_entry_source_ids(docket_screen: Mapping[str, Any]) -> tuple[str, ...]:

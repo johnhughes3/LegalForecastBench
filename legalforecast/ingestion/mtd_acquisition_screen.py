@@ -18,6 +18,7 @@ from datetime import date
 from enum import StrEnum
 from typing import cast
 
+from legalforecast.ingestion.courtlistener_dates import parse_courtlistener_filed_date
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerBriefingCompleteness,
     CourtListenerWebDocketEntry,
@@ -750,6 +751,8 @@ def _looks_like_procedural_or_standing_order(text: str) -> bool:
         r"\bset(?:s|ting)?\s+briefing\b",
         r"\bextension\s+of\s+time\b.*\bmotion\s+to\s+dismiss\b",
         r"\btime\s+to\s+(?:respond|reply|file|oppose)\b.*\bmotion\s+to\s+dismiss\b",
+        r"\bmotion\s+to\s+file\b.*\breply\b.*\bmotion\s+to\s+dismiss\b",
+        r"\bleave\s+to\s+file\b.*\breply\b",
         r"\border\s+to\s+show\s+cause\b",
         r"\bfailure\s+to\s+prosecute\b",
         r"\badministrative(?:ly)?\s+clos(?:e|ed|ing)\b",
@@ -776,6 +779,12 @@ def _looks_like_transfer_only(text: str) -> bool:
         return False
     references_alternative_transfer = bool(
         re.search(r"\bmotion\s+to\s+dismiss\s+or\s+transfer\b", text, re.I)
+        or re.search(
+            r"\bmotion\s+to\s+dismiss\s+or\s*,?\s*"
+            r"(?:in\s+the\s+alternative\s*,?\s*)?transfer\b",
+            text,
+            re.I,
+        )
         or re.search(r"\balternative\s+motion\s+to\s+transfer\b", text, re.I)
     )
     no_claim_dismissal = not re.search(
@@ -933,7 +942,7 @@ def _decision_date_in_window(
 ) -> bool:
     if decision_filed_on_or_after is None and decision_filed_on_or_before is None:
         return True
-    filed_date = _courtlistener_filed_date(filed_at)
+    filed_date = parse_courtlistener_filed_date(filed_at)
     if filed_date is None:
         return False
     if (
@@ -947,25 +956,6 @@ def _decision_date_in_window(
     ):
         return False
     return True
-
-
-def _courtlistener_filed_date(filed_at: str | None) -> date | None:
-    if filed_at is None:
-        return None
-    match = re.search(
-        r"\b(?P<month>[A-Z][a-z]+)\s+(?P<day>\d{1,2}),\s+(?P<year>\d{4})\b",
-        filed_at,
-    )
-    if match is None:
-        return None
-    month = _MONTHS_BY_NAME.get(match.group("month").lower())
-    if month is None:
-        return None
-    return date(
-        int(match.group("year")),
-        month,
-        int(match.group("day")),
-    )
 
 
 def _nested_mapping(
@@ -990,19 +980,3 @@ def _optional_text(record: Mapping[str, object], *field_names: str) -> str | Non
 
 def _normalized_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
-
-
-_MONTHS_BY_NAME = {
-    "january": 1,
-    "february": 2,
-    "march": 3,
-    "april": 4,
-    "may": 5,
-    "june": 6,
-    "july": 7,
-    "august": 8,
-    "september": 9,
-    "october": 10,
-    "november": 11,
-    "december": 12,
-}

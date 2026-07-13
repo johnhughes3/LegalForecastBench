@@ -6,10 +6,13 @@ import hashlib
 import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
-from datetime import date, datetime
+from datetime import date
 from itertools import pairwise
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
+from legalforecast.ingestion.courtlistener_dates import (
+    parse_courtlistener_filed_date as _parse_filed_date,
+)
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketEntry,
     CourtListenerWebDocketPage,
@@ -18,9 +21,6 @@ from legalforecast.ingestion.courtlistener_web import (
 
 _COURTLISTENER_HOST = "www.courtlistener.com"
 _DOCKET_PATH = re.compile(r"^/docket/(?P<docket_id>[1-9][0-9]*)/(?P<slug>[^/]+)/?$")
-_LONG_DATE = re.compile(
-    r"^(?P<month>[A-Za-z]+)\s+(?P<day>[0-9]{1,2}),\s+(?P<year>[0-9]{4})(?:,|$)"
-)
 
 
 class CourtListenerDocketPaginationError(ValueError):
@@ -309,25 +309,3 @@ def _merge_duplicate_entry(
             sorted(set(first.restriction_markers) | set(second.restriction_markers))
         ),
     )
-
-
-def _parse_filed_date(value: str | None) -> date | None:
-    if value is None:
-        return None
-    normalized = value.strip()
-    if not normalized:
-        return None
-    try:
-        return date.fromisoformat(normalized[:10])
-    except ValueError:
-        pass
-    match = _LONG_DATE.match(normalized)
-    if match is None:
-        return None
-    date_text = f"{match.group('month')} {match.group('day')}, {match.group('year')}"
-    for pattern in ("%B %d, %Y", "%b %d, %Y"):
-        try:
-            return datetime.strptime(date_text, pattern).date()
-        except ValueError:
-            continue
-    return None

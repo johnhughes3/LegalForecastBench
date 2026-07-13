@@ -250,6 +250,58 @@ def test_docket_screen_can_require_recent_decision_entry_date() -> None:
     assert screen.exclusion_reasons == ("mtd_decision_outside_date_window",)
 
 
+def test_docket_screen_treats_full_and_abbreviated_anchor_dates_identically() -> None:
+    screens = []
+    for filed_date in ("June 30, 2026", "Jun 30, 2026", "Jun. 30, 2026"):
+        page = parse_courtlistener_docket_html(
+            _multi_entry_docket_html(
+                title="DOE v. ABC CORPORATION",
+                entries=((12, filed_date, "ORDER granting 10 Motion to Dismiss."),),
+            ),
+            source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+        )
+        screens.append(
+            screen_courtlistener_docket_for_mtd_decision(
+                page,
+                decision_filed_on_or_after=date(2026, 6, 30),
+            )
+        )
+
+    assert all(screen.strict_clean for screen in screens)
+    assert all(screen.exclusion_reasons == () for screen in screens)
+
+
+def test_abbreviated_date_does_not_promote_non_merits_orders() -> None:
+    for entry_text, expected_reason in (
+        (
+            "Defendant's Motion to Dismiss or, in the alternative, Transfer "
+            "is GRANTED in part. The Clerk shall transfer this action.",
+            "transfer_only",
+        ),
+        (
+            "Before the Court is Defendant's Motion to File Instanter Reply "
+            "to Plaintiff's Opposition to Motion to Dismiss. The Court GRANTS "
+            "Defendant leave to file his reply brief late.",
+            "procedural_or_standing_order",
+        ),
+    ):
+        page = parse_courtlistener_docket_html(
+            _multi_entry_docket_html(
+                title="DOE v. ABC CORPORATION",
+                entries=((12, "Jul. 10, 2026", entry_text),),
+            ),
+            source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+        )
+
+        screen = screen_courtlistener_docket_for_mtd_decision(
+            page,
+            decision_filed_on_or_after=date(2026, 6, 30),
+        )
+
+        assert screen.strict_clean is False
+        assert expected_reason in screen.exclusion_reasons
+
+
 def test_docket_screen_accepts_rule_7012_adversary_claim_merits_disposition() -> None:
     page = parse_courtlistener_docket_html(
         _multi_entry_docket_html(

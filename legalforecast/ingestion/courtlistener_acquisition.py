@@ -18,6 +18,9 @@ from legalforecast.ingestion.courtlistener_client import (
     CourtListenerDocket,
     CourtListenerUnavailableError,
 )
+from legalforecast.ingestion.courtlistener_dates import (
+    parse_courtlistener_filed_date as _parse_filed_date,
+)
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerEntryRole,
     CourtListenerWebDocketEntry,
@@ -809,29 +812,6 @@ def _first_decision_date(entries: Sequence[Any]) -> date | None:
         if (parsed := _parse_filed_date(entry.filed_at)) is not None
     )
     return min(parsed_dates) if parsed_dates else None
-
-
-def _parse_filed_date(value: str | None) -> date | None:
-    if value is None:
-        return None
-    try:
-        return date.fromisoformat(value[:10])
-    except ValueError:
-        pass
-    match = re.fullmatch(
-        r"(?P<date>[A-Z][a-z]+\.? \d{1,2}, \d{4})"
-        r"(?:, (?:noon|midnight|(?:1[0-2]|[1-9])(?::[0-5]\d)? [ap]\.m\.))?",
-        value.strip(),
-    )
-    if match is None:
-        return None
-    date_text = match.group("date")
-    for pattern in ("%B %d, %Y", "%b %d, %Y", "%b. %d, %Y"):
-        try:
-            return datetime.strptime(date_text, pattern).date()
-        except ValueError:
-            continue
-    return None
 
 
 def _exclusion(
