@@ -11,12 +11,16 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from legalforecast.labeling.label_outcomes import UnitResolution
+from legalforecast.protocol.policy_artifacts import (
+    PolicyArtifactError,
+    labeling_policy_content,
+    verify_labeling_policy,
+)
 
 JsonRecord = dict[str, Any]
 PLAN_SCHEMA_VERSION = "legalforecast.cycle_label_audit_plan.v1"
-POLICY_SCHEMA_VERSION = "legalforecast.labeling_policy.v1"
 QUEUE_SCHEMA_VERSION = "legalforecast.lawyer_review_queue.v1"
-STRATA = ("unanimous-grant", "unanimous-deny", "partial")
+STRATA = ("unanimous_grant", "unanimous_deny", "partial")
 
 
 class CycleLabelAuditError(ValueError):
@@ -35,18 +39,17 @@ class CycleLabelAuditPolicy:
     policy_sha256: str
 
     @classmethod
-    def from_record(
-        cls, record: Mapping[str, Any], *, policy_sha256: str
-    ) -> CycleLabelAuditPolicy:
-        if record.get("schema_version") != POLICY_SCHEMA_VERSION:
-            raise CycleLabelAuditError(
-                f"labeling policy must use {POLICY_SCHEMA_VERSION}"
-            )
-        section = _mapping(record.get("label_audit"), "label_audit")
+    def from_record(cls, record: Mapping[str, Any]) -> CycleLabelAuditPolicy:
+        try:
+            policy_sha256 = verify_labeling_policy(record)
+            content = labeling_policy_content(record)
+        except PolicyArtifactError as exc:
+            raise CycleLabelAuditError(str(exc)) from exc
+        section = _mapping(content.get("label_audit"), "label_audit")
         policy = cls(
-            cycle_id=_required_str(record, "cycle_id"),
+            cycle_id=_required_str(content, "cycle_id"),
             judge_registry_sha256=_sha256(
-                _required_str(record, "judge_registry_sha256"),
+                _required_str(content, "judge_registry_sha256"),
                 "judge_registry_sha256",
             ),
             sample_fraction=_probability(section, "sample_fraction", positive=True),
@@ -92,13 +95,10 @@ def plan_cycle_label_audit(
     finalized_prediction_unit_records: Iterable[Mapping[str, Any]],
     decision_text_records: Iterable[Mapping[str, Any]],
     policy_record: Mapping[str, Any],
-    policy_sha256: str,
 ) -> tuple[JsonRecord, tuple[JsonRecord, ...], tuple[JsonRecord, ...]]:
     """Freeze one cycle-wide sample and return plan, augmented audits, and queue."""
 
-    policy = CycleLabelAuditPolicy.from_record(
-        policy_record, policy_sha256=policy_sha256
-    )
+    policy = CycleLabelAuditPolicy.from_record(policy_record)
     audits = [dict(record) for record in label_audit_records]
     population = _population(audits)
     plan, sampled = _expected_plan(policy=policy, population=population)
@@ -157,7 +157,6 @@ def evaluate_cycle_label_audit(
     label_audit_records: Iterable[Mapping[str, Any]],
     adjudications_by_review_id: Mapping[str, Mapping[str, Any]],
     policy_record: Mapping[str, Any],
-    policy_sha256: str,
 ) -> tuple[JsonRecord, ...]:
     """Evaluate the frozen sample without using post-adjudication label bytes."""
 
@@ -170,10 +169,7 @@ def evaluate_cycle_label_audit(
         raise CycleLabelAuditError("cycle label audit plan hash mismatch")
     audit_rows = tuple(label_audit_records)
     population = _population(audit_rows)
-    policy = CycleLabelAuditPolicy.from_record(
-        policy_record,
-        policy_sha256=policy_sha256,
-    )
+    policy = CycleLabelAuditPolicy.from_record(policy_record)
     expected_plan, _ = _expected_plan(policy=policy, population=population)
     if plan_without_hash != expected_plan:
         raise CycleLabelAuditError(
@@ -563,11 +559,11 @@ def _decision_document_id(selection: Mapping[str, Any]) -> str:
 def _stratum(label: Mapping[str, Any]) -> str:
     resolution = UnitResolution(_required_str(label, "unit_resolution"))
     if resolution is UnitResolution.FULLY_DISMISSED:
-        return "unanimous-grant"
+        return "unanimous_grant"
     if resolution is UnitResolution.PARTIAL_DISMISSAL_ONLY:
         return "partial"
     if resolution is UnitResolution.SURVIVES_IN_MATERIAL_RESPECT:
-        return "unanimous-deny"
+        return "unanimous_deny"
     raise CycleLabelAuditError("ambiguous resolution cannot be auto-labeled")
 
 

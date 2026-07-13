@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,9 @@ from legalforecast.labeling.cycle_label_audit import (
     evaluate_cycle_label_audit,
     plan_cycle_label_audit,
 )
+from legalforecast.protocol.policy_artifacts import generate_labeling_policy
+
+JUDGE_REGISTRY = Path("model_registries/cycle-1-stage-b-judges-2026-07-12.json")
 
 
 def test_cycle_plan_samples_all_observed_resolution_strata_and_is_non_circular() -> (
@@ -23,7 +27,6 @@ def test_cycle_plan_samples_all_observed_resolution_strata_and_is_non_circular()
         _audit("cand-partial", "partial_dismissal_only", False),
     ]
     policy = _policy()
-    policy_sha = hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()
     plan, augmented, queue = plan_cycle_label_audit(
         label_audit_records=audits,
         selection_records=[_selection(candidate) for candidate in _candidates()],
@@ -35,14 +38,13 @@ def test_cycle_plan_samples_all_observed_resolution_strata_and_is_non_circular()
             for candidate in _candidates()
         ],
         policy_record=policy,
-        policy_sha256=policy_sha,
     )
 
     assert plan["population_count"] == 3
     assert plan["sample_count"] == 3
     assert {row["stratum"] for row in plan["sampled_units"]} == {
-        "unanimous-grant",
-        "unanimous-deny",
+        "unanimous_grant",
+        "unanimous_deny",
         "partial",
     }
     assert len(queue) == 3
@@ -59,7 +61,6 @@ def test_cycle_plan_samples_all_observed_resolution_strata_and_is_non_circular()
         label_audit_records=augmented,
         adjudications_by_review_id=adjudications,
         policy_record=policy,
-        policy_sha256=policy_sha,
     )
     assert all(gate["status"] == "passed" for gate in gates)
     assert plan["seed_sha256"] == seed
@@ -83,7 +84,6 @@ def test_cycle_gate_fails_closed_on_per_stratum_error() -> None:
             for candidate in _candidates()
         ],
         policy_record=policy,
-        policy_sha256="a" * 64,
     )
     adjudications = {
         row["review_id"]: _adjudication(row, matching=row["stratum"] != "partial")
@@ -96,7 +96,6 @@ def test_cycle_gate_fails_closed_on_per_stratum_error() -> None:
             label_audit_records=augmented,
             adjudications_by_review_id=adjudications,
             policy_record=policy,
-            policy_sha256="a" * 64,
         )
 
 
@@ -123,7 +122,6 @@ def test_cycle_gate_reconstructs_plan_from_policy_and_rejects_rehashed_tampering
             label_audit_records=augmented,
             adjudications_by_review_id=adjudications,
             policy_record=policy,
-            policy_sha256="a" * 64,
         )
 
 
@@ -143,7 +141,6 @@ def test_cycle_gate_rejects_wrong_adjudication_identity() -> None:
             label_audit_records=augmented,
             adjudications_by_review_id=adjudications,
             policy_record=policy,
-            policy_sha256="a" * 64,
         )
 
 
@@ -165,7 +162,6 @@ def test_cycle_gate_rejects_single_reviewer_as_null_disagreement_rate() -> None:
             label_audit_records=augmented,
             adjudications_by_review_id=adjudications,
             policy_record=policy,
-            policy_sha256="a" * 64,
         )
 
 
@@ -184,7 +180,6 @@ def test_audit_adjudication_cannot_rewrite_label_or_change_drawn_sample() -> Non
             }
         ],
         "policy_record": policy,
-        "policy_sha256": "a" * 64,
     }
     plan, augmented, _ = plan_cycle_label_audit(**kwargs)
     sample = plan["sampled_units"][0]
@@ -220,7 +215,6 @@ def test_cycle_plan_rejects_empty_auto_label_population() -> None:
             finalized_prediction_unit_records=[],
             decision_text_records=[],
             policy_record=_policy(),
-            policy_sha256="a" * 64,
         )
 
 
@@ -306,23 +300,16 @@ def _fixture_plan(
             for candidate in candidates
         ],
         policy_record=policy,
-        policy_sha256="a" * 64,
     )
 
 
 def _policy() -> dict[str, object]:
-    return {
-        "schema_version": "legalforecast.labeling_policy.v1",
-        "cycle_id": "cycle-1",
-        "judge_registry_sha256": "b" * 64,
-        "label_audit": {
-            "sample_fraction": 1.0,
-            "minimum_sample_size": 1,
-            "minimum_per_stratum": 1,
-            "max_llm_error_rate": 0.05,
-            "max_human_disagreement_rate": 0.05,
-        },
-    }
+    return generate_labeling_policy(
+        cycle_id="cycle-1",
+        judge_registry_path=JUDGE_REGISTRY,
+        published_at=datetime(2026, 7, 13, tzinfo=UTC),
+        threshold_source="Cycle 1 labeling protocol fixture.",
+    )
 
 
 def _audit(candidate: str, resolution: str, dismissed: bool) -> dict[str, object]:
@@ -414,10 +401,10 @@ def _units(candidate: str) -> dict[str, object]:
 def _adjudication(sample: dict[str, object], *, matching: bool) -> dict[str, object]:
     candidate = str(sample["candidate_id"])
     stratum = str(sample["stratum"])
-    dismissed = stratum == "unanimous-grant"
+    dismissed = stratum == "unanimous_grant"
     resolution = {
-        "unanimous-grant": "fully_dismissed",
-        "unanimous-deny": "survives_in_material_respect",
+        "unanimous_grant": "fully_dismissed",
+        "unanimous_deny": "survives_in_material_respect",
         "partial": "partial_dismissal_only",
     }[stratum]
     if not matching:

@@ -7094,7 +7094,6 @@ def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
                     label_audit_records=llm_label_audit_records,
                     adjudications_by_review_id=adjudications_by_review_id,
                     policy_record=_read_json_object(labeling_policy_path),
-                    policy_sha256=sha256_file(labeling_policy_path),
                 )
             except CycleLabelAuditError as exc:
                 raise CommandError(str(exc)) from exc
@@ -7180,7 +7179,6 @@ def _cmd_acquisition_plan_label_audit(args: argparse.Namespace) -> int:
                 finalized_prediction_unit_records=_read_records(prediction_units_path),
                 decision_text_records=_read_records(decision_texts_path),
                 policy_record=_read_json_object(policy_path),
-                policy_sha256=sha256_file(policy_path),
             )
         except (CycleLabelAuditError, KeyError) as exc:
             raise CommandError(str(exc)) from exc
