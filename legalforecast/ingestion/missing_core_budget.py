@@ -39,6 +39,13 @@ class CaseMissingCorePurchasePlan:
     audit_only_document_count: int
     dry_run: bool
     exclusion_reasons: tuple[str, ...] = ()
+    missing_core_roles: tuple[str, ...] = ()
+
+    @property
+    def estimated_purchase_count(self) -> int:
+        """Return the number of paid documents needed to complete the case."""
+
+        return self.missing_core_document_count
 
     @property
     def estimated_cost_usd(self) -> str:
@@ -49,10 +56,38 @@ class CaseMissingCorePurchasePlan:
             "candidate_id": self.candidate_id,
             "purchase_document_ids": list(self.purchase_document_ids),
             "missing_core_document_count": self.missing_core_document_count,
+            "estimated_purchase_count": self.estimated_purchase_count,
+            "missing_core_roles": list(self.missing_core_roles),
             "estimated_cost_usd": self.estimated_cost_usd,
             "audit_only_document_count": self.audit_only_document_count,
             "dry_run": self.dry_run,
             "exclusion_reasons": list(self.exclusion_reasons),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class PurchaseFrontierRow:
+    """Cumulative N1(k) and spend(k) values for one missing-document threshold."""
+
+    max_missing_core_documents_per_case: int
+    complete_case_count: int
+    incremental_case_count: int
+    purchase_document_count: int
+    estimated_spend: Decimal
+
+    @property
+    def estimated_spend_usd(self) -> str:
+        return _money(self.estimated_spend)
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "max_missing_core_documents_per_case": (
+                self.max_missing_core_documents_per_case
+            ),
+            "complete_case_count": self.complete_case_count,
+            "incremental_case_count": self.incremental_case_count,
+            "purchase_document_count": self.purchase_document_count,
+            "estimated_spend_usd": self.estimated_spend_usd,
         }
 
 
@@ -65,6 +100,12 @@ class MissingCoreBudgetPlan:
     max_projected_budget: Decimal
     max_missing_core_documents_per_case: int
     dry_run: bool
+    frontier_rows: tuple[PurchaseFrontierRow, ...] = ()
+    omitted_candidate_ids: tuple[str, ...] = ()
+
+    @property
+    def frontier_truncated(self) -> bool:
+        return bool(self.omitted_candidate_ids)
 
     @property
     def total_missing_core_documents(self) -> int:
@@ -96,6 +137,9 @@ class MissingCoreBudgetPlan:
             ),
             "total_missing_core_documents": self.total_missing_core_documents,
             "total_estimated_cost_usd": self.total_estimated_cost_usd,
+            "frontier_truncated": self.frontier_truncated,
+            "omitted_candidate_ids": list(self.omitted_candidate_ids),
+            "frontier_rows": [row.to_record() for row in self.frontier_rows],
             "case_plans": [plan.to_record() for plan in self.case_plans],
         }
 
@@ -109,6 +153,7 @@ def plan_missing_core_document_budget(
     ),
     cost_per_document_usd: Decimal | str = DEFAULT_PURCHASE_COST_USD,
     max_projected_budget_usd: Decimal | str = DEFAULT_MAX_PROJECTED_BUDGET_USD,
+    truncate_to_budget: bool = False,
 ) -> MissingCoreBudgetPlan:
     """Build a paid-recovery budget plan from core-document filter results."""
 
@@ -125,14 +170,29 @@ def plan_missing_core_document_budget(
         "max_projected_budget_usd",
     )
 
-    case_plans = tuple(
-        _case_purchase_plan(
-            result,
-            dry_run=dry_run,
-            cost_per_document=cost_per_document,
-            max_missing_core_documents_per_case=max_missing_core_documents_per_case,
+    ranked_case_plans = tuple(
+        sorted(
+            (
+                _case_purchase_plan(
+                    result,
+                    dry_run=dry_run,
+                    cost_per_document=cost_per_document,
+                    max_missing_core_documents_per_case=max_missing_core_documents_per_case,
+                )
+                for result in filter_results
+            ),
+            key=lambda plan: (
+                plan.missing_core_document_count,
+                plan.estimated_cost,
+                plan.candidate_id,
+            ),
         )
-        for result in filter_results
+    )
+    frontier_rows = _purchase_frontier_rows(ranked_case_plans)
+    case_plans, omitted_candidate_ids = _truncate_frontier(
+        ranked_case_plans,
+        max_projected_budget=max_projected_budget,
+        truncate_to_budget=truncate_to_budget,
     )
     plan = MissingCoreBudgetPlan(
         case_plans=case_plans,
@@ -140,6 +200,8 @@ def plan_missing_core_document_budget(
         max_projected_budget=max_projected_budget,
         max_missing_core_documents_per_case=max_missing_core_documents_per_case,
         dry_run=dry_run,
+        frontier_rows=frontier_rows,
+        omitted_candidate_ids=omitted_candidate_ids,
     )
     if plan.total_estimated_cost > max_projected_budget:
         raise PurchaseBudgetExceededError(
@@ -186,7 +248,60 @@ def _case_purchase_plan(
         audit_only_document_count=len(result.audit_only_document_ids),
         dry_run=dry_run,
         exclusion_reasons=tuple(result.exclusion_reasons),
+        missing_core_roles=tuple(result.missing_core_roles),
     )
+
+
+def _purchase_frontier_rows(
+    case_plans: tuple[CaseMissingCorePurchasePlan, ...],
+) -> tuple[PurchaseFrontierRow, ...]:
+    if not case_plans:
+        return ()
+    rows: list[PurchaseFrontierRow] = []
+    prior_count = 0
+    for threshold in range(
+        max(plan.missing_core_document_count for plan in case_plans) + 1
+    ):
+        eligible = tuple(
+            plan for plan in case_plans if plan.missing_core_document_count <= threshold
+        )
+        complete_case_count = len(eligible)
+        rows.append(
+            PurchaseFrontierRow(
+                max_missing_core_documents_per_case=threshold,
+                complete_case_count=complete_case_count,
+                incremental_case_count=complete_case_count - prior_count,
+                purchase_document_count=sum(
+                    plan.missing_core_document_count for plan in eligible
+                ),
+                estimated_spend=sum(
+                    (plan.estimated_cost for plan in eligible), Decimal("0")
+                ),
+            )
+        )
+        prior_count = complete_case_count
+    return tuple(rows)
+
+
+def _truncate_frontier(
+    case_plans: tuple[CaseMissingCorePurchasePlan, ...],
+    *,
+    max_projected_budget: Decimal,
+    truncate_to_budget: bool,
+) -> tuple[tuple[CaseMissingCorePurchasePlan, ...], tuple[str, ...]]:
+    if not truncate_to_budget:
+        return case_plans, ()
+    selected: list[CaseMissingCorePurchasePlan] = []
+    omitted: list[str] = []
+    spend = Decimal("0")
+    for index, plan in enumerate(case_plans):
+        if spend + plan.estimated_cost <= max_projected_budget:
+            selected.append(plan)
+            spend += plan.estimated_cost
+        else:
+            omitted.extend(item.candidate_id for item in case_plans[index:])
+            break
+    return tuple(selected), tuple(omitted)
 
 
 def _decimal_money(value: Decimal | str, field_name: str) -> Decimal:

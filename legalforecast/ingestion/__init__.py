@@ -161,6 +161,7 @@ from legalforecast.ingestion.missing_core_budget import (
     MissingCoreBudgetError,
     MissingCoreBudgetPlan,
     PurchaseBudgetExceededError,
+    PurchaseFrontierRow,
     plan_missing_core_document_budget,
     write_missing_core_budget_plan,
 )
@@ -367,6 +368,7 @@ __all__ = [
     "PublicPacketDocumentPlan",
     "PublicPacketDownloadPlan",
     "PurchaseBudgetExceededError",
+    "PurchaseFrontierRow",
     "PurchasedDocumentRecoveryRecord",
     "PurchasedDocumentRecoveryRequest",
     "PurchasedDocumentRecoveryStatus",

@@ -125,6 +125,7 @@ class CoreDocumentFilterResult:
     audit_only_document_ids: tuple[str, ...]
     core_missing_documents: tuple[str, ...]
     exclusion_reasons: tuple[str, ...]
+    missing_core_roles: tuple[str, ...] = ()
 
     @property
     def missing_operative_complaint(self) -> bool:
@@ -145,6 +146,7 @@ class CoreDocumentFilterResult:
             "operative_complaint_documents": list(self.operative_complaint_documents),
             "audit_only_document_ids": list(self.audit_only_document_ids),
             "core_missing_documents": list(self.core_missing_documents),
+            "missing_core_roles": list(self.missing_core_roles),
             "missing_operative_complaint": self.missing_operative_complaint,
             "exclusion_reasons": list(self.exclusion_reasons),
             "excluded": self.excluded,
@@ -287,6 +289,9 @@ def _filter_candidate_documents(
             document.source_document_id for document in purchase_documents
         ),
         exclusion_reasons=_exclusion_reasons(documents),
+        missing_core_roles=tuple(
+            sorted({document.document_role.value for document in purchase_documents})
+        ),
     )
 
 

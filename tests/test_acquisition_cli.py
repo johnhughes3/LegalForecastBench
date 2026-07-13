@@ -158,6 +158,38 @@ def test_acquisition_plan_defaults_to_dry_run_with_log_and_run_card(
     assert run_card["stage"] == "acquisition-plan"
 
 
+def test_acquisition_plan_can_emit_budget_capped_frontier(tmp_path: Path) -> None:
+    core_results = tmp_path / "core-filter-results.jsonl"
+    output_root = tmp_path / "acquisition"
+    first = _core_filter_result()
+    second = {**first, "candidate_id": "candidate-b"}
+    second["core_missing_documents"] = ["document-b1", "document-b2"]
+    second["purchase_document_ids"] = ["document-b1", "document-b2"]
+    _write_jsonl(core_results, [second, first])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan",
+                "--core-filter-results",
+                str(core_results),
+                "--output-root",
+                str(output_root),
+                "--max-projected-budget-usd",
+                "3.05",
+                "--truncate-to-budget",
+            ]
+        )
+        == 0
+    )
+
+    plan = _read_json(output_root / "missing-core-budget-plan.json")
+    assert [row["candidate_id"] for row in plan["case_plans"]] == ["cand-1"]
+    assert plan["frontier_truncated"] is True
+    assert plan["omitted_candidate_ids"] == ["candidate-b"]
+
+
 def test_purchase_missing_requires_non_dry_run_plan_and_paid_activity_flags(
     tmp_path: Path,
     capsys: CaptureFixture[str],
