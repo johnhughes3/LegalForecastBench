@@ -147,6 +147,22 @@ def test_adversarial_caption_cannot_promote_explicit_bk_docket() -> None:
     assert screen.exclusion_reasons[0] == "bankruptcy_court"
 
 
+def test_debtor_middle_initial_is_not_an_adversarial_caption() -> None:
+    screen = screen_case_dev_docket_metadata(
+        {
+            "id": "74000006",
+            "courtId": "nysb",
+            "court": "Bankruptcy Court, S.D. New York",
+            "docketNumber": "26-01029",
+            "caseName": "In re David V. Reynolds",
+        },
+        query="order on motion to dismiss case",
+    )
+
+    assert screen.accepted_for_scrape is False
+    assert screen.exclusion_reasons[0] == "bankruptcy_court"
+
+
 def test_actual_mtd_decision_entry_accepts_order_on_motion_to_dismiss() -> None:
     page = parse_courtlistener_docket_html(
         _docket_html("ORDER granting 12 Motion to Dismiss."),
@@ -651,7 +667,7 @@ def test_docket_screen_accepts_rule_7012_adversary_claim_merits_disposition() ->
 def test_docket_screen_accepts_adversary_caption_with_local_number() -> None:
     page = parse_courtlistener_docket_html(
         _multi_entry_docket_html(
-            title="Higgins v. Celsius Network LLC - 26-01028",
+            title="Docket 26-01028",
             entries=(
                 (1, "July 1, 2026", "Adversary COMPLAINT filed."),
                 (
@@ -674,6 +690,59 @@ def test_docket_screen_accepts_adversary_caption_with_local_number() -> None:
 
     assert screen.strict_clean is True
     assert screen.case_type_stratum == "bankruptcy_adversary"
+
+
+def test_rule_7012_entries_establish_bankruptcy_context_without_candidate_text() -> (
+    None
+):
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Higgins v. Celsius Network LLC - 26-01028",
+            entries=(
+                (1, "July 1, 2026", "Adversary COMPLAINT filed."),
+                (
+                    4,
+                    "July 3, 2026",
+                    "MOTION to Dismiss Count I under Fed. R. Bankr. P. 7012 "
+                    "and Fed. R. Civ. P. 12(b)(6).",
+                ),
+                (8, "July 10, 2026", "ORDER granting 4 Motion to Dismiss Count I."),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/73183894/higgins-v-celsius/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert screen.strict_clean is True
+    assert screen.case_type_stratum == "bankruptcy_adversary"
+
+
+def test_civil_docket_number_7012_does_not_create_bankruptcy_context() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Doe v. ABC Corporation - 1:26-cv-7012",
+            entries=(
+                (1, "July 1, 2026", "COMPLAINT filed."),
+                (4, "July 3, 2026", "MOTION to Dismiss Count I."),
+                (8, "July 10, 2026", "ORDER granting 4 Motion to Dismiss Count I."),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/73183895/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text="nysd 1:26-cv-7012 Doe v. ABC Corporation",
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert screen.strict_clean is True
+    assert screen.case_type_stratum == "district_civil"
+    assert "bankruptcy_posture" not in screen.exclusion_reasons
 
 
 def test_docket_screen_rejects_ambiguous_dismiss_adversary_text() -> None:
