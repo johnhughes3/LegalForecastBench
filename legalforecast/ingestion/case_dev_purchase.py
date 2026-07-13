@@ -16,7 +16,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from pathlib import Path
-from types import TracebackType
+from types import MappingProxyType, TracebackType
 from typing import Any, cast
 
 from legalforecast.ingestion.case_dev_client import (
@@ -111,12 +111,14 @@ def verify_case_dev_purchase_policy(
         opening_committed_spend_usd=Decimal(
             cast(str, policy["opening_committed_spend_usd"])
         ),
-        opening_case_committed_spend_usd={
-            case_id: Decimal(amount)
-            for case_id, amount in cast(
-                Mapping[str, str], policy["opening_case_committed_spend_usd"]
-            ).items()
-        },
+        opening_case_committed_spend_usd=MappingProxyType(
+            {
+                case_id: Decimal(amount)
+                for case_id, amount in cast(
+                    Mapping[str, str], policy["opening_case_committed_spend_usd"]
+                ).items()
+            }
+        ),
         max_per_case_usd=Decimal(cast(str, policy["max_per_case_usd"])),
         per_document_reservation_usd=Decimal(
             cast(str, policy["per_document_reservation_usd"])
