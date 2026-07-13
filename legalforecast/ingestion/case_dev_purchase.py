@@ -389,7 +389,7 @@ class CaseDevPurchaseJournal:
             raise CaseDevPurchaseLedgerError("purchase operation is missing")
         if actual > Decimal(str(row["reservation_usd"])):
             with self._connection:
-                self._connection.execute(
+                cursor = self._connection.execute(
                     """UPDATE purchase_operations SET status='unknown',
                     actual_usd=?, response_json=?, error=?
                     WHERE source_document_id=? AND status='submitted'""",
@@ -400,6 +400,8 @@ class CaseDevPurchaseJournal:
                         document_id,
                     ),
                 )
+                if cursor.rowcount != 1:
+                    raise CaseDevPurchaseLedgerError("over-cap fee transition failed")
             raise CaseDevPurchaseLedgerError(
                 "provider fee exceeds the verified worst-case reservation"
             )
@@ -612,19 +614,23 @@ class CaseDevPurchaseJournal:
 
     def fail(self, document_id: str, error: BaseException) -> None:
         with self._connection:
-            self._connection.execute(
+            cursor = self._connection.execute(
                 """UPDATE purchase_operations SET status='failed', error=?
                 WHERE source_document_id=? AND status IN ('submitted','queued')""",
                 (f"{type(error).__name__}: {error}", document_id),
             )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError("failed purchase transition failed")
 
     def mark_unknown(self, document_id: str, error: object) -> None:
         with self._connection:
-            self._connection.execute(
+            cursor = self._connection.execute(
                 """UPDATE purchase_operations SET status='unknown', error=?
                 WHERE source_document_id=? AND status IN ('submitted','queued')""",
                 (str(error), document_id),
             )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError("unknown purchase transition failed")
 
     def reconcile(self, evidence: Mapping[str, object]) -> None:
         """Resolve or write off an ambiguous row using recorded provider evidence."""
@@ -1256,7 +1262,17 @@ class CaseDevPacerPurchaseClient:
                     fees=attempt.pacer_fees,
                 )
             except (ValueError, CaseDevPurchaseLedgerError) as exc:
-                self.journal.mark_unknown(document_id, exc)
+                operation = self.journal.operation_evidence(document_id)
+                if operation is None:
+                    raise CaseDevPurchaseLedgerError(
+                        "purchase disappeared while recording unknown fees"
+                    ) from exc
+                if operation["status"] in {"submitted", "queued"}:
+                    self.journal.mark_unknown(document_id, exc)
+                elif operation["status"] != "unknown":
+                    raise CaseDevPurchaseLedgerError(
+                        "fee failure did not retain a reconcilable purchase state"
+                    ) from exc
                 attempts.append(
                     CaseDevPacerPurchaseAttempt(
                         candidate_id=candidate_id,
