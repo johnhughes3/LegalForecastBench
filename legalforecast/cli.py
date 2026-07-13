@@ -177,6 +177,13 @@ from legalforecast.ingestion.discovery_scheduler import (
     TermTerminalStatus,
     materialize_independent_term_sets,
 )
+from legalforecast.ingestion.docket_live_fetch import (
+    DocketLiveFetchError,
+    DocketLiveFetchExecutionResult,
+    execute_docket_live_fetch_plan,
+    load_docket_live_fetch_plan,
+    plan_docket_live_fetches,
+)
 from legalforecast.ingestion.docket_markdown import ControlledDocketMarkdownArtifacts
 from legalforecast.ingestion.docket_sync import (
     DocketRetrievalPipeline,
@@ -773,6 +780,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Execute guarded case.dev/PACER missing-core purchases.",
     )
     _add_acquisition_purchase_missing_arguments(acquisition_purchase)
+    acquisition_docket_fetch_plan = acquisition_subparsers.add_parser(
+        "plan-docket-live-fetches",
+        help=(
+            "Build a deterministic no-provider frontier for fee-bearing "
+            "Case.dev docket refreshes."
+        ),
+    )
+    _add_acquisition_plan_docket_live_fetches_arguments(acquisition_docket_fetch_plan)
+    acquisition_docket_fetch = acquisition_subparsers.add_parser(
+        "execute-docket-live-fetches",
+        help=(
+            "Execute a frozen Case.dev docket-refresh plan through a durable "
+            "one-attempt journal."
+        ),
+    )
+    _add_acquisition_execute_docket_live_fetches_arguments(acquisition_docket_fetch)
     acquisition_recover_purchased = acquisition_subparsers.add_parser(
         "recover-purchased",
         help=("Recover already-purchased case.dev documents into parser manifests."),
@@ -1895,6 +1918,118 @@ def _add_acquisition_purchase_missing_arguments(
         default=CaseDevPacerCapability.UNKNOWN.value,
     )
     parser.set_defaults(handler=_cmd_acquisition_purchase_missing)
+
+
+def _add_acquisition_plan_docket_live_fetches_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--screening-candidates",
+        type=Path,
+        action="append",
+        required=True,
+        help=(
+            "Repeatable immutable screening candidates.jsonl input; only "
+            "strict no_target_motion exclusions are considered."
+        ),
+    )
+    parser.add_argument(
+        "--fetch-successes",
+        type=Path,
+        action="append",
+        required=True,
+        help="Repeatable matching Firecrawl docket-success JSONL input.",
+    )
+    parser.add_argument(
+        "--case-dev-ranking",
+        type=Path,
+        action="append",
+        default=[],
+        help="Repeatable free Case.dev coverage ranking JSONL used only for ordering.",
+    )
+    parser.add_argument(
+        "--advisory-candidates",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "Repeatable advisory recovery JSONL. When supplied, only "
+            "recovery_class=high_confidence rows are eligible, and every row "
+            "must rejoin to the persisted strict exclusion and cited raw entry."
+        ),
+    )
+    parser.add_argument(
+        "--cohort-policy",
+        type=Path,
+        required=True,
+        help="Frozen cohort-policy.json supplying anchor and immutable purchase caps.",
+    )
+    parser.add_argument(
+        "--docket-fetch-reservation-usd",
+        default="3.05",
+        help=(
+            "Verified worst-case docket-sheet reservation including service fee; "
+            "defaults to the documented Case.dev maximum of 3.05."
+        ),
+    )
+    parser.add_argument(
+        "--cycle-committed-spend-usd",
+        required=True,
+        help=(
+            "Verified spend already committed across all docket-live-fetch "
+            "journals for this cycle; used to enforce the frozen cycle cap."
+        ),
+    )
+    parser.add_argument(
+        "--daily-budget-usd",
+        default="25.00",
+        help="Immutable Case.dev organization daily cap; cannot exceed 25.00.",
+    )
+    parser.add_argument(
+        "--daily-committed-spend-usd",
+        required=True,
+        help=(
+            "Verified Case.dev spend already committed for --spend-date-utc; "
+            "used to derive remaining daily headroom."
+        ),
+    )
+    parser.add_argument(
+        "--spend-date-utc",
+        required=True,
+        help="UTC date (YYYY-MM-DD) for the executable daily tranche.",
+    )
+    parser.add_argument("--plan-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_plan_docket_live_fetches)
+
+
+def _add_acquisition_execute_docket_live_fetches_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--docket-live-fetch-plan", type=Path, required=True)
+    parser.add_argument(
+        "--journal",
+        type=Path,
+        help="Canonical cycle-wide SQLite journal; defaults under --output-root.",
+    )
+    parser.add_argument("--result-output", type=Path)
+    parser.add_argument(
+        "--case-dev-fixture",
+        type=Path,
+        help="Offline Case.dev response fixture; mutually exclusive with live access.",
+    )
+    parser.add_argument(
+        "--live-case-dev",
+        action="store_true",
+        help="Allow fee-bearing live Case.dev docket lookup requests.",
+    )
+    parser.add_argument(
+        "--acknowledge-pacer-fees",
+        action="store_true",
+        help="Acknowledge that each submitted docket lookup may incur PACER fees.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_execute_docket_live_fetches)
 
 
 def _add_acquisition_recover_purchased_arguments(
@@ -6341,6 +6476,176 @@ def _cmd_acquisition_purchase_missing(args: argparse.Namespace) -> int:
     )
     if not dry_run and result.executed_purchase_count != result.intended_purchase_count:
         return 2
+    return 0
+
+
+def _cmd_acquisition_plan_docket_live_fetches(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    screening_paths = tuple(cast(list[Path], args.screening_candidates))
+    fetch_paths = tuple(cast(list[Path], args.fetch_successes))
+    ranking_paths = tuple(cast(list[Path], args.case_dev_ranking))
+    advisory_paths = tuple(cast(list[Path], args.advisory_candidates))
+    policy_path = cast(Path, args.cohort_policy)
+    output_path = _acquisition_path(
+        args,
+        "plan_output",
+        output_root / "docket-live-fetch-plan.json",
+    )
+    policy = _read_json_object(policy_path)
+    try:
+        verify_cohort_policy(policy)
+    except CohortPolicyError as exc:
+        raise CommandError(str(exc)) from exc
+    dry_run = _acquisition_dry_run(args)
+    input_paths = (
+        *screening_paths,
+        *fetch_paths,
+        *ranking_paths,
+        *advisory_paths,
+        policy_path,
+    )
+    if dry_run:
+        _write_json(
+            output_path,
+            {
+                "stage": "plan-docket-live-fetches",
+                "dry_run": True,
+                "provider_requests": 0,
+            },
+        )
+        record_count = 0
+        projected_cost = "0.00"
+        executable_count = 0
+        executable_cost = "0.00"
+    else:
+        plan = plan_docket_live_fetches(
+            screening_records=(
+                record for path in screening_paths for record in _read_records(path)
+            ),
+            fetch_success_records=(
+                record for path in fetch_paths for record in _read_records(path)
+            ),
+            ranking_records=(
+                record for path in ranking_paths for record in _read_records(path)
+            ),
+            advisory_records=(
+                record for path in advisory_paths for record in _read_records(path)
+            ),
+            cohort_policy=policy,
+            docket_fetch_reservation_usd=cast(str, args.docket_fetch_reservation_usd),
+            cycle_committed_spend_usd=cast(str, args.cycle_committed_spend_usd),
+            daily_budget_usd=cast(str, args.daily_budget_usd),
+            daily_committed_spend_usd=cast(str, args.daily_committed_spend_usd),
+            spend_date_utc=cast(str, args.spend_date_utc),
+            canonical_journal_path=str(
+                (output_root / "case-dev-docket-live-fetch.sqlite3").resolve()
+            ),
+        )
+        _write_json(output_path, plan.to_record())
+        record_count = len(plan.items)
+        projected_cost = plan.total_projected_cost_usd
+        executable_count = len(plan.executable_items)
+        executable_cost = plan.executable_projected_cost_usd
+    _write_acquisition_completion(
+        args,
+        stage="plan-docket-live-fetches",
+        input_paths=input_paths,
+        output_paths=(output_path,),
+        record_count=record_count,
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "provider_requests": 0,
+            "projected_cost_usd": projected_cost,
+            "executable_count": executable_count,
+            "executable_projected_cost_usd": executable_cost,
+        },
+    )
+    return 0
+
+
+def _cmd_acquisition_execute_docket_live_fetches(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    plan_path = cast(Path, args.docket_live_fetch_plan)
+    journal_path = _acquisition_path(
+        args,
+        "journal",
+        output_root / "case-dev-docket-live-fetch.sqlite3",
+    )
+    result_path = _acquisition_path(
+        args,
+        "result_output",
+        output_root / "case-dev-docket-live-fetch-result.json",
+    )
+    plan = load_docket_live_fetch_plan(_read_json_object(plan_path))
+    dry_run = _acquisition_dry_run(args)
+    fixture_path = cast(Path | None, args.case_dev_fixture)
+    live_case_dev = cast(bool, args.live_case_dev)
+    acknowledge_fees = cast(bool, args.acknowledge_pacer_fees)
+    if fixture_path is not None and live_case_dev:
+        raise CommandError("case-dev fixture and live access are mutually exclusive")
+    if not dry_run and not acknowledge_fees:
+        raise CommandError(
+            "execute-docket-live-fetches requires --acknowledge-pacer-fees"
+        )
+    if not dry_run and fixture_path is None and not live_case_dev:
+        raise CommandError(
+            "execute-docket-live-fetches requires --case-dev-fixture or --live-case-dev"
+        )
+    if dry_run:
+        result = DocketLiveFetchExecutionResult(
+            plan_sha256=plan.plan_sha256,
+            intended_count=len(plan.executable_items),
+            confirmed_count=0,
+            statuses={
+                item.docket_id: "planned_dry_run" for item in plan.executable_items
+            },
+            confirmed_candidates=(),
+        )
+        paid_requested = False
+        paid_executed = False
+    else:
+        client = _case_dev_client(
+            command="acquisition execute-docket-live-fetches",
+            fixture_path=fixture_path,
+            live=live_case_dev,
+        )
+        try:
+            result = execute_docket_live_fetch_plan(
+                plan,
+                client=client,
+                journal_path=journal_path,
+                live=True,
+                acknowledge_pacer_fees=True,
+            )
+        except (CaseDevClientError, DocketLiveFetchError, ValueError) as exc:
+            paid_post_sent = live_case_dev and client.request_count > 0
+            _write_acquisition_failure(
+                args,
+                stage="execute-docket-live-fetches",
+                input_paths=(plan_path,),
+                output_paths=(journal_path, result_path),
+                reason=str(exc),
+                paid_activity_requested=live_case_dev,
+                paid_activity_executed=paid_post_sent,
+            )
+            raise CommandError(str(exc)) from exc
+        paid_requested = live_case_dev
+        paid_executed = live_case_dev and client.request_count > 0
+    _write_json(result_path, result.to_record())
+    outputs = (result_path,) if dry_run else (result_path, journal_path)
+    _write_acquisition_completion(
+        args,
+        stage="execute-docket-live-fetches",
+        input_paths=(plan_path,),
+        output_paths=outputs,
+        record_count=result.intended_count,
+        dry_run=dry_run,
+        paid_activity_requested=paid_requested,
+        paid_activity_executed=paid_executed,
+        extra={"confirmed_count": result.confirmed_count},
+    )
     return 0
 
 
