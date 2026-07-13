@@ -1162,7 +1162,26 @@ def _looks_like_rule_7012_claim_merits_motion(text: str) -> bool:
             re.I,
         )
     )
-    return motion and rule_basis and pleading_scope
+    # Bankruptcy docket event codes often say only ``Motion, Dismiss Adversary
+    # Proceeding``.  That directly identifies the Rule-12-equivalent target even
+    # when the clerk omits a Rule 7012 citation; generic case dismissals do not.
+    explicit_adversary_pleading_target = bool(
+        re.search(
+            r"\bdismiss\b[^.;]{0,100}\b(?:adversary\s+(?:proceeding|complaint)|"
+            r"complaint|counterclaim|count|claim|cause\s+of\s+action)s?\b",
+            text,
+            re.I,
+        )
+    )
+    nonmerits_dismissal = bool(
+        re.search(r"\b(?:administrative|voluntary|stipulated)\b", text, re.I)
+        or _looks_like_self_or_voluntary_dismissal(text)
+    )
+    return (
+        motion
+        and not nonmerits_dismissal
+        and ((rule_basis and pleading_scope) or explicit_adversary_pleading_target)
+    )
 
 
 def _dominant_exclusion_reasons(

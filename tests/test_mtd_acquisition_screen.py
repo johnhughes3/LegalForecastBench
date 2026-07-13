@@ -745,14 +745,62 @@ def test_civil_docket_number_7012_does_not_create_bankruptcy_context() -> None:
     assert "bankruptcy_posture" not in screen.exclusion_reasons
 
 
-def test_docket_screen_rejects_ambiguous_dismiss_adversary_text() -> None:
+@pytest.mark.parametrize(
+    "motion_text",
+    (
+        "Motion, Dismiss Adversary Proceeding",
+        "Motion to Dismiss the Adversary Complaint",
+    ),
+)
+def test_docket_screen_accepts_explicit_adversary_mtd_without_rule_citation(
+    motion_text: str,
+) -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Higgins v. Celsius Network LLC - 26-01028",
+            entries=(
+                (1, "April 10, 2026", "Complaint (fee)"),
+                (2, "May 1, 2026", motion_text),
+                (
+                    12,
+                    "July 6, 2026",
+                    "Memorandum Opinion and Order, Signed on 7/6/2026, "
+                    "Granting the Motion to Dismiss. (related document(s)2)",
+                ),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/73183894/higgins-v-celsius/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text="nysb 26-01028 Higgins v. Celsius Network LLC",
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert screen.strict_clean is True
+    assert screen.case_type_stratum == "bankruptcy_adversary"
+
+
+@pytest.mark.parametrize(
+    "motion_text",
+    (
+        "Debtor's Motion to Dismiss Bankruptcy Case",
+        "Administrative Motion to Close Adversary Proceeding",
+        "Plaintiff's Voluntary Motion to Dismiss Adversary Proceeding",
+        "Notice of Voluntary Dismissal of Adversary Proceeding",
+    ),
+)
+def test_adversary_screen_does_not_promote_nonmerits_dismissals(
+    motion_text: str,
+) -> None:
     page = parse_courtlistener_docket_html(
         _multi_entry_docket_html(
             title="Trustee v. Defendant LLC - 6:26-ap-00106",
             entries=(
                 (1, "July 1, 2026", "Adversary COMPLAINT filed."),
-                (4, "July 3, 2026", "MOTION to Dismiss Adversary Proceeding."),
-                (8, "July 10, 2026", "ORDER granting Motion to Dismiss Adversary."),
+                (4, "July 3, 2026", motion_text),
+                (8, "July 10, 2026", "ORDER granting 4 Motion to Dismiss."),
             ),
         ),
         source_url="https://www.courtlistener.com/docket/74000001/trustee-v-defendant/",
@@ -766,6 +814,30 @@ def test_docket_screen_rejects_ambiguous_dismiss_adversary_text() -> None:
 
     assert screen.strict_clean is False
     assert "bankruptcy_adversary_rule_basis_unproven" in screen.exclusion_reasons
+
+
+def test_explicit_adversary_mtd_still_requires_initiating_pleading() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Trustee v. Defendant LLC - 6:26-ap-00106",
+            entries=(
+                (4, "July 3, 2026", "Motion, Dismiss Adversary Proceeding"),
+                (8, "July 10, 2026", "ORDER granting 4 Motion to Dismiss."),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000001/trustee-v-defendant/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text="flmb Bankruptcy Court 6:26-ap-00106",
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert screen.strict_clean is False
+    assert (
+        "bankruptcy_adversary_initiating_pleading_unproven" in screen.exclusion_reasons
+    )
 
 
 def test_docket_screen_rejects_bankruptcy_main_case_despite_rule_12_words() -> None:
@@ -872,7 +944,7 @@ def test_docket_screen_accepts_adv_marker_for_rule_7012_adversary() -> None:
     assert screen.case_type_stratum == "bankruptcy_adversary"
 
 
-def test_adversary_linkage_cannot_promote_generic_dismissal_motion() -> None:
+def test_adversary_linkage_promotes_explicit_adversary_dismissal_motion() -> None:
     page = parse_courtlistener_docket_html(
         _multi_entry_docket_html(
             title="Trustee v. Defendant LLC - 6:26-ap-00106",
@@ -892,7 +964,10 @@ def test_adversary_linkage_cannot_promote_generic_dismissal_motion() -> None:
         case_type_stratum="bankruptcy_adversary",
     )
 
-    assert [entry.document_role for entry in normalized] == [DocumentRole.DECISION]
+    assert [entry.document_role for entry in normalized] == [
+        DocumentRole.MTD_NOTICE,
+        DocumentRole.DECISION,
+    ]
 
 
 def test_target_yield_estimate_extrapolates_needed_screening_depth() -> None:
