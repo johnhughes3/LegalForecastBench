@@ -6599,6 +6599,7 @@ def _cmd_acquisition_execute_docket_live_fetches(args: argparse.Namespace) -> in
                 acknowledge_pacer_fees=True,
             )
         except (CaseDevClientError, DocketLiveFetchError, ValueError) as exc:
+            paid_post_sent = live_case_dev and client.request_count > 0
             _write_acquisition_failure(
                 args,
                 stage="execute-docket-live-fetches",
@@ -6606,10 +6607,11 @@ def _cmd_acquisition_execute_docket_live_fetches(args: argparse.Namespace) -> in
                 output_paths=(journal_path, result_path),
                 reason=str(exc),
                 paid_activity_requested=live_case_dev,
+                paid_activity_executed=paid_post_sent,
             )
             raise CommandError(str(exc)) from exc
         paid_requested = live_case_dev
-        paid_executed = live_case_dev and result.confirmed_count > 0
+        paid_executed = live_case_dev and client.request_count > 0
     _write_json(result_path, result.to_record())
     outputs = (result_path,) if dry_run else (result_path, journal_path)
     _write_acquisition_completion(

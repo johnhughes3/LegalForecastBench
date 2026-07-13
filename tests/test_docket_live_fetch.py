@@ -208,6 +208,20 @@ def test_daily_provider_cap_limits_executable_prefix_to_eight_dockets(
     assert plan.executable_projected_cost_usd == "24.40"
 
 
+def test_missing_persisted_html_fails_planning_instead_of_silently_shrinking(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(FileNotFoundError):
+        plan_docket_live_fetches(
+            screening_records=[_exclusion("100", "entry-11", "2026-07-08")],
+            fetch_success_records=[_fetch("100", tmp_path / "missing.html")],
+            ranking_records=[],
+            cohort_policy=_policy(),
+            daily_committed_spend_usd="0.00",
+            spend_date_utc=_today(),
+        )
+
+
 def test_ambiguous_paid_post_retains_reservation_and_resume_refuses_reissue(
     tmp_path: Path,
 ) -> None:

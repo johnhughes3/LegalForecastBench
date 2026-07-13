@@ -558,7 +558,8 @@ def execute_docket_live_fetch_plan(
                 continue
             try:
                 response = client.live_fetch_docket(
-                    item.docket_id, acknowledge_pacer_fees=True
+                    item.docket_id,
+                    acknowledge_pacer_fees=acknowledge_pacer_fees,
                 )
                 _validate_live_fetch_response(response, item=item)
                 docket = _mapping(response.get("docket", response), "live docket")
