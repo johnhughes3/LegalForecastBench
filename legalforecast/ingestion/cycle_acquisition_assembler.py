@@ -43,6 +43,7 @@ _TRANSIENT_EXCLUSION_REASONS = frozenset(
         "courtlistener_docket_unavailable",
         "courtlistener_docket_html_unavailable",
         "case_dev_provider_blocker",
+        "case_dev_server_error_retries_exhausted",
         "firecrawl_provider_blocker",
     }
 )

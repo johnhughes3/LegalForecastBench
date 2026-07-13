@@ -573,6 +573,48 @@ def test_assemble_cycle_acquisition_composes_split_snapshot_and_artifact_roots(
     ] == ["123"]
 
 
+def test_assemble_cycle_acquisition_preserves_accepted_case_after_bridge_transient(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "immutable-screening-snapshot"
+    downstream = tmp_path / "standardized-free-v3"
+    cycle = tmp_path / "cycle"
+    _write_batch(
+        snapshot,
+        screened=[_courtlistener_screened("123")],
+        exclusions=[],
+        selections=[],
+        relevance=[],
+        documents=[],
+    )
+    _write_batch(
+        downstream,
+        screened=[],
+        exclusions=[],
+        selections=[],
+        relevance=[],
+        documents=[],
+    )
+    _write_jsonl(downstream / "screened-cases.jsonl", [])
+    (downstream / "summary.json").unlink()
+    _write_jsonl(
+        downstream / "pacer-gap-bridge-exclusions.jsonl",
+        [
+            {
+                "candidate_id": "123",
+                "primary_exclusion_reason": ("case_dev_server_error_retries_exhausted"),
+            }
+        ],
+    )
+
+    assert _assemble_batches([snapshot, downstream], cycle) == 0
+
+    assert [
+        record["candidate_id"] for record in _read_jsonl(cycle / "screened-cases.jsonl")
+    ] == ["123"]
+    assert _read_jsonl(cycle / "discovery-exclusions.jsonl") == []
+
+
 def test_assemble_cycle_acquisition_help_documents_split_root_order(
     capsys: Any,
 ) -> None:
