@@ -128,12 +128,50 @@ def test_budget_frontier_can_truncate_at_exact_cap_boundary() -> None:
     assert plan.omitted_candidate_ids == ("case-three",)
 
 
+def test_budget_frontier_excludes_uncompletable_cases_from_counts_and_prefix() -> None:
+    excluded = _filter_result(
+        "excluded-zero",
+        core_missing_count=0,
+        exclusion_reasons=("missing_operative_complaint",),
+    )
+    eligible = _filter_result("eligible-one", core_missing_count=1)
+
+    plan = plan_missing_core_document_budget(
+        [excluded, eligible],
+        max_projected_budget_usd="3.05",
+        truncate_to_budget=True,
+    )
+
+    assert [case.candidate_id for case in plan.case_plans] == ["eligible-one"]
+    assert [case.candidate_id for case in plan.excluded_case_plans] == ["excluded-zero"]
+    assert plan.omitted_candidate_ids == ()
+    assert plan.total_missing_core_documents == 1
+    assert plan.total_estimated_cost_usd == "3.05"
+    assert [row.to_record() for row in plan.frontier_rows] == [
+        {
+            "max_missing_core_documents_per_case": 0,
+            "complete_case_count": 0,
+            "incremental_case_count": 0,
+            "purchase_document_count": 0,
+            "estimated_spend_usd": "0.00",
+        },
+        {
+            "max_missing_core_documents_per_case": 1,
+            "complete_case_count": 1,
+            "incremental_case_count": 1,
+            "purchase_document_count": 1,
+            "estimated_spend_usd": "3.05",
+        },
+    ]
+
+
 def _filter_result(
     candidate_id: str,
     *,
     core_missing_count: int,
     audit_only_count: int = 0,
     missing_roles: tuple[str, ...] = (),
+    exclusion_reasons: tuple[str, ...] = (),
 ) -> CoreDocumentFilterResult:
     core_missing_documents = tuple(
         f"{candidate_id}-core-{index:03d}" for index in range(1, core_missing_count + 1)
@@ -153,6 +191,6 @@ def _filter_result(
         operative_complaint_documents=core_missing_documents[:1],
         audit_only_document_ids=audit_only_document_ids,
         core_missing_documents=core_missing_documents,
-        exclusion_reasons=(),
+        exclusion_reasons=exclusion_reasons,
         missing_core_roles=missing_roles,
     )
