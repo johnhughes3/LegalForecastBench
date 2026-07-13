@@ -513,6 +513,37 @@ def test_page_commit_is_atomic_replay_safe_and_order_neutral(tmp_path: Path) -> 
             )
 
 
+def test_provider_hit_identity_contradiction_does_not_advance_cursor(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        store.ensure_terms("batch-001", ["alpha"])
+        committed = store.commit_search_page(
+            "batch-001",
+            "alpha",
+            None,
+            [_hit("shared-provider-id", "candidate-1")],
+            next_cursor="2",
+            terminal_status=None,
+        )
+
+        with pytest.raises(
+            PageReplayMismatchError,
+            match="provider hit identity changed: shared-provider-id",
+        ):
+            store.commit_search_page(
+                "batch-001",
+                "alpha",
+                "2",
+                [_hit("shared-provider-id", "candidate-2")],
+                next_cursor="3",
+                terminal_status=None,
+            )
+
+        assert store.term_progress("batch-001", "alpha") == committed
+        assert store.candidate_ids("batch-001") == ("candidate-1",)
+
+
 def test_candidate_representative_is_invariant_to_query_term_order(
     tmp_path: Path,
 ) -> None:
