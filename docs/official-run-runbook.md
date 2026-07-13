@@ -4,6 +4,36 @@ This is the operator checklist for `.github/workflows/run-benchmark.yaml` on the
 
 ## Acquisition Downstream Preflight
 
+### Bounded Firecrawl terminal-target recovery
+
+`discover-firecrawl-recap --resume` deliberately does not retry a nontransient `terminal_error`. If a primary discovery fails for that reason, run exactly one child recovery with a unique run ID, `--proxy enhanced`, `--force-browser`, and `--recover-terminal-errors-from-run <primary-run-id>`. If bounded fresh runs were already attempted, repeat `--reuse-verified-pages-from-run <run-id>` for each one. The command verifies that every source uses the exact frozen batch/query plan, SHA-checks and deduplicates successful pages by search URL, rejects conflicting bytes, routes only still-unresolved evidenced terminal URLs through the child, resumes newly revealed continuation pages under the parent's immutable scheduler settings, shares the cycle-wide credit cap, and refuses both recovery chaining and a second child of the same parent.
+
+Generated or private acquisition runbooks must guard each primary discovery explicitly and let either command's failure stop the script. Never use `|| true`. Repeat every frozen batch/window/query argument byte-for-byte in the recovery command; only the child run ID, recovery flag, proxy, and browser setting differ:
+
+```zsh
+if uv run legalforecast acquisition discover-firecrawl-recap \
+  --output-root "$cycle_root" --cycle-store "$cycle_store" \
+  --batch-id "$batch_id" --run-id "$primary_run_id" \
+  --eligibility-anchor "$anchor" --search-window-start "$window_start" \
+  --search-window-end "$window_end" "${frozen_query_args[@]}" \
+  --credit-cap 45000 --live-firecrawl --execute --resume; then
+  discovery_prefix="$batch_id"
+else
+  recovery_run_id="${primary_run_id}-recovery-1"
+  uv run legalforecast acquisition discover-firecrawl-recap \
+    --output-root "$cycle_root" --cycle-store "$cycle_store" \
+    --batch-id "$batch_id" --run-id "$recovery_run_id" \
+    --recover-terminal-errors-from-run "$primary_run_id" \
+    --eligibility-anchor "$anchor" --search-window-start "$window_start" \
+    --search-window-end "$window_end" "${frozen_query_args[@]}" \
+    --credit-cap 45000 --proxy enhanced --force-browser \
+    --live-firecrawl --execute --resume
+  discovery_prefix="$recovery_run_id"
+fi
+```
+
+Recovery outputs default to `checkpoints/<recovery-run-id>-recap-{entries,dockets,summary}.*` so they cannot overwrite the primary batch paths. Every downstream command in that runbook must consume `$discovery_prefix` rather than assuming the primary batch filename. The recovery summary and failure run card include parent lineage and both runs' reconcilable budget evidence.
+
 Do not substitute a parser. The LegalForecastBench wrapper pins the reviewed parser revision `9402306972462a5bdd0da7f687c5e6b4cea373a0`, verifies that checkout is clean, requires a nonempty `MISTRAL_API_KEY`, and constructs the parser child environment from only that key, `PATH`, the environment-only fallback guard, and nonempty locale variables.
 
 Until the dedicated `/agents/sandbox/legalforecastbench/parser` folder exists, the approved acquisition folder may inject the parent process. Verify names only, never values:

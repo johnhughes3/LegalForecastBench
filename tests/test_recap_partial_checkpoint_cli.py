@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 from legalforecast.cli import main
 from legalforecast.ingestion.case_dev_recap_batch import (
@@ -161,6 +162,47 @@ def _seed_repeated_hit_across_pages(store_path: Path, artifact_root: Path) -> No
             )
 
 
+def _seed_split_pages_across_runs(store_path: Path, artifact_root: Path) -> None:
+    _seed_partial_run(store_path, artifact_root / "run-001-page-001.html")
+    term = "motion to dismiss"
+    source_url = build_recap_search_url(
+        term=term,
+        entry_date_filed_after=ANCHOR,
+        entry_date_filed_before=WINDOW_END,
+        page=2,
+    )
+    raw_html = _partial_search_html(next_url=None, page_number=2)
+    with CycleAcquisitionStore(store_path) as store:
+        store.ensure_firecrawl_run(
+            "run-002",
+            batch_id="batch-001",
+            config={"proxy": "enhanced"},
+            credit_cap=45_000,
+            reserved_credits_per_attempt=5,
+        )
+        store.ensure_firecrawl_target(
+            "run-002",
+            target_id="search-page-002",
+            target_kind="search",
+            source_url=source_url,
+            ordinal=0,
+        )
+        attempt = store.authorize_firecrawl_attempt(
+            "run-002",
+            target_id="search-page-002",
+            page_number=2,
+            request_url=source_url,
+        )
+        store.commit_firecrawl_artifact(
+            attempt.attempt_id,
+            artifact_root / "run-002-page-002.html",
+            raw_html.encode("utf-8"),
+            reported_credits=5,
+            proxy_used="stealth",
+            target_http_status=200,
+        )
+
+
 def _read_jsonl(path: Path) -> list[dict[str, object]]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 
@@ -280,6 +322,114 @@ def test_repeated_cross_page_hit_commits_once_and_replays_exactly(
 
     assert main(command) == 0
     assert {path: path.read_bytes() for path in output_paths} == first_artifacts
+
+
+def test_unions_verified_pages_across_bounded_same_batch_runs(tmp_path: Path) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    output_root = tmp_path / "output"
+    _seed_split_pages_across_runs(store_path, tmp_path / "raw")
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "project-firecrawl-recap-checkpoint",
+                "--output-root",
+                str(output_root),
+                "--cycle-store",
+                str(store_path),
+                "--run-id",
+                "run-001",
+                "--run-id",
+                "run-002",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    summaries = list(
+        (output_root / "checkpoints").glob("run-001-union-*-partial-recap-summary.json")
+    )
+    assert len(summaries) == 1
+    summary = json.loads(summaries[0].read_text(encoding="utf-8"))
+    assert summary["run_ids"] == ["run-001", "run-002"]
+    assert summary["acquired_page_count"] == 2
+    assert summary["checkpoint_only"] is True
+    assert summary["complete"] is False
+    assert set(summary["source_run_credit_summaries"]) == {"run-001", "run-002"}
+    with CycleAcquisitionStore(store_path) as store:
+        progress = store.term_progress("batch-001", "motion to dismiss")
+    assert progress.terminal_status == "exhausted"
+
+
+def test_union_rejects_conflicting_verified_bytes_for_same_search_url(
+    tmp_path: Path, capsys: Any
+) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    source_url = build_recap_search_url(
+        term="motion to dismiss",
+        entry_date_filed_after=ANCHOR,
+        entry_date_filed_before=WINDOW_END,
+    )
+    _seed_partial_run(store_path, tmp_path / "raw" / "run-001.html")
+    conflicting_html = _partial_search_html(
+        next_url=build_recap_search_url(
+            term="motion to dismiss",
+            entry_date_filed_after=ANCHOR,
+            entry_date_filed_before=WINDOW_END,
+            page=2,
+        )
+    ).replace("Example v. Example", "Changed v. Example")
+    with CycleAcquisitionStore(store_path) as store:
+        store.ensure_firecrawl_run(
+            "run-002",
+            batch_id="batch-001",
+            config={"proxy": "enhanced"},
+            credit_cap=45_000,
+            reserved_credits_per_attempt=5,
+        )
+        store.ensure_firecrawl_target(
+            "run-002",
+            target_id="search-page-001",
+            target_kind="search",
+            source_url=source_url,
+            ordinal=0,
+        )
+        attempt = store.authorize_firecrawl_attempt(
+            "run-002",
+            target_id="search-page-001",
+            page_number=1,
+            request_url=source_url,
+        )
+        store.commit_firecrawl_artifact(
+            attempt.attempt_id,
+            tmp_path / "raw" / "run-002.html",
+            conflicting_html.encode("utf-8"),
+            reported_credits=5,
+            proxy_used="stealth",
+            target_http_status=200,
+        )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "project-firecrawl-recap-checkpoint",
+                "--output-root",
+                str(tmp_path / "output"),
+                "--cycle-store",
+                str(store_path),
+                "--run-id",
+                "run-001",
+                "--run-id",
+                "run-002",
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert "conflicting verified bytes" in capsys.readouterr().err
 
 
 def test_partial_checkpoint_dry_run_does_not_require_or_mutate_store(
