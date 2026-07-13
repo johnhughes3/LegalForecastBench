@@ -618,6 +618,19 @@ def build_parser() -> argparse.ArgumentParser:
         dest="acquisition_command",
         metavar="COMMAND",
     )
+    acquisition_init_cycle = acquisition_subparsers.add_parser(
+        "init-cycle",
+        help=(
+            "Freeze or verify the acquisition cycle identity without contacting "
+            "any provider."
+        ),
+        description=(
+            "Freeze or verify the acquisition cycle identity without contacting "
+            "any provider. This command performs no Firecrawl, Case.dev, "
+            "CourtListener, RECAP, or PACER activity."
+        ),
+    )
+    _add_acquisition_init_cycle_arguments(acquisition_init_cycle)
     acquisition_discover_case_dev = acquisition_subparsers.add_parser(
         "discover-case-dev",
         help=(
@@ -1083,6 +1096,35 @@ def _add_acquisition_common_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_false",
         help="Fail instead of reusing existing deterministic artifacts.",
     )
+
+
+def _add_acquisition_init_cycle_arguments(parser: argparse.ArgumentParser) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--eligibility-anchor",
+        required=True,
+        help=(
+            "Immutable first-written-disposition eligibility anchor as an ISO "
+            "date (YYYY-MM-DD). Reusing a store with a different anchor fails."
+        ),
+    )
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        help=(
+            "Cycle acquisition SQLite store. Defaults to "
+            "<output-root>/cycle-acquisition.sqlite3."
+        ),
+    )
+    parser.add_argument(
+        "--identity-output",
+        type=Path,
+        help=(
+            "Hash-bound cycle identity JSON. Defaults to "
+            "<output-root>/cycle-identity.json."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_init_cycle)
 
 
 def _add_acquisition_plan_arguments(parser: argparse.ArgumentParser) -> None:
@@ -3579,6 +3621,110 @@ def _cmd_acquisition_project_firecrawl_recap_checkpoint(
         paid_activity_requested=False,
         paid_activity_executed=False,
         extra=summary,
+    )
+    return 0
+
+
+def _cmd_acquisition_init_cycle(args: argparse.Namespace) -> int:
+    """Freeze or verify acquisition identity before any provider-backed stage."""
+
+    output_root = _acquisition_output_root(args)
+    store_path = _acquisition_path(
+        args,
+        "cycle_store",
+        output_root / "cycle-acquisition.sqlite3",
+    )
+    identity_path = _acquisition_path(
+        args,
+        "identity_output",
+        output_root / "cycle-identity.json",
+    )
+    anchor = _iso_date_argument(
+        cast(str, args.eligibility_anchor),
+        "--eligibility-anchor",
+    )
+    policy = _cycle_acquisition_policy(anchor=anchor)
+    dry_run = _acquisition_dry_run(args)
+    output_paths = (store_path, identity_path)
+    zero_activity: JsonRecord = {
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "firecrawl_metered_activity_requested": False,
+        "firecrawl_metered_activity_executed": False,
+        "pacer_paid_activity_requested": False,
+        "pacer_paid_activity_executed": False,
+    }
+    if dry_run:
+        summary: JsonRecord = {
+            "schema_version": "legalforecast.cycle_acquisition_identity.v1",
+            "dry_run": True,
+            "eligibility_anchor": anchor.isoformat(),
+            "cycle_store": str(store_path),
+            "policy": policy,
+            "initialized_or_verified": False,
+            **zero_activity,
+        }
+        _write_json(identity_path, summary)
+        _write_acquisition_completion(
+            args,
+            stage="init-cycle",
+            input_paths=(),
+            output_paths=output_paths,
+            record_count=0,
+            dry_run=True,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+        return 0
+
+    try:
+        if store_path.exists() and not cast(bool, args.resume):
+            raise CycleAcquisitionStoreError(
+                "cycle store already exists and --no-resume forbids verification"
+            )
+        with CycleAcquisitionStore(store_path) as store:
+            cycle_hash = store.ensure_cycle(policy)
+            _validate_frozen_screening_policy(policy=store.cycle_policy, anchor=anchor)
+    except (
+        ConfigMismatchError,
+        CycleAcquisitionStoreError,
+        OSError,
+        ValueError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="init-cycle",
+            input_paths=(),
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=zero_activity,
+        )
+        raise CommandError(str(exc)) from exc
+
+    identity: JsonRecord = {
+        "schema_version": "legalforecast.cycle_acquisition_identity.v1",
+        "dry_run": False,
+        "eligibility_anchor": anchor.isoformat(),
+        "cycle_hash": cycle_hash,
+        "cycle_store": str(store_path),
+        "policy": policy,
+        "initialized_or_verified": True,
+        **zero_activity,
+    }
+    _write_json(identity_path, identity)
+    _write_acquisition_completion(
+        args,
+        stage="init-cycle",
+        input_paths=(),
+        output_paths=output_paths,
+        record_count=1,
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra=identity,
     )
     return 0
 
