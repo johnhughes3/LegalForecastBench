@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -16,6 +17,7 @@ from legalforecast.ingestion.recap_fetch_broker import (
     RecapFetchBrokerConfig,
     SignedRecapFetchPurchaseBroker,
     broker_reconciliation_record,
+    canonical_provider_response_commitment_bytes,
     canonical_signature_payload_bytes,
     canonical_submission_bytes,
     parse_canonical_submission_bytes,
@@ -263,6 +265,64 @@ def test_provider_response_commitments_are_present_as_a_pair(
                 provider_response_sha256=redacted_hash,
             )
         )
+
+
+def test_provider_response_commitment_uses_exact_versioned_canonical_schema() -> None:
+    body_sha256 = "d" * 64
+    assert canonical_provider_response_commitment_bytes(
+        outcome="accepted",
+        http_status=201,
+        queue_id="77",
+        body_sha256=body_sha256,
+    ) == (
+        b'{"version":"courtlistener-recap-fetch-provider-response-v1",'
+        b'"outcome":"accepted","http_status":201,"queue_id":"77",'
+        b'"body_sha256":"' + b"d" * 64 + b'"}'
+    )
+    assert canonical_provider_response_commitment_bytes(
+        outcome="unknown",
+        http_status=502,
+        queue_id=None,
+        body_sha256=body_sha256,
+    ) == (
+        b'{"version":"courtlistener-recap-fetch-provider-response-v1",'
+        b'"outcome":"unknown","http_status":502,"queue_id":null,'
+        b'"body_sha256":"' + b"d" * 64 + b'"}'
+    )
+
+
+@pytest.mark.parametrize(
+    ("outcome", "status", "queue_id"),
+    [
+        ("accepted", 201, None),
+        ("unknown", 502, "77"),
+        ("other", 201, "77"),
+        ("accepted", True, "77"),
+        ("accepted", 99, "77"),
+        ("accepted", 404, "77"),
+    ],
+)
+def test_provider_response_commitment_rejects_noncanonical_states(
+    outcome: str, status: object, queue_id: str | None
+) -> None:
+    with pytest.raises(ValueError, match="provider response commitment"):
+        canonical_provider_response_commitment_bytes(
+            outcome=outcome,
+            http_status=status,
+            queue_id=queue_id,
+            body_sha256="d" * 64,
+        )
+
+
+def test_frozen_contract_names_the_versioned_provider_commitment() -> None:
+    contract = Path("docs/schemas/courtlistener-recap-fetch-broker-v1.md").read_text(
+        encoding="utf-8"
+    )
+    assert (
+        "exact field order `version`, `outcome`, `http_status`, `queue_id`, "
+        "`body_sha256`" in contract
+    )
+    assert "exact field order `status`, `id`" not in contract
 
 
 def test_cross_language_wire_vector_binds_raw_body_hash_and_signature_payload() -> None:

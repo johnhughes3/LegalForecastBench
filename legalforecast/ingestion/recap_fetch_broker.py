@@ -374,6 +374,43 @@ def parse_canonical_submission_bytes(raw: bytes) -> dict[str, str]:
         raise ValueError("invalid canonical broker submission bytes") from None
 
 
+def canonical_provider_response_commitment_bytes(
+    *,
+    outcome: str,
+    http_status: object,
+    queue_id: str | None,
+    body_sha256: str,
+) -> bytes:
+    """Build the broker's exact versioned redacted provider commitment."""
+
+    if (
+        outcome not in {"accepted", "unknown"}
+        or isinstance(http_status, bool)
+        or not isinstance(http_status, int)
+        or not 100 <= http_status <= 599
+        or not _HEX.fullmatch(body_sha256)
+        or (
+            outcome == "accepted"
+            and (
+                not 200 <= http_status <= 299
+                or not _POSITIVE_DECIMAL.fullmatch(queue_id or "")
+            )
+        )
+        or (outcome == "unknown" and queue_id is not None)
+    ):
+        raise ValueError("invalid canonical provider response commitment")
+    return json.dumps(
+        {
+            "version": "courtlistener-recap-fetch-provider-response-v1",
+            "outcome": outcome,
+            "http_status": http_status,
+            "queue_id": queue_id,
+            "body_sha256": body_sha256,
+        },
+        separators=(",", ":"),
+    ).encode()
+
+
 def canonical_signature_payload_bytes(
     *,
     method: str,
