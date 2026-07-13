@@ -51,8 +51,15 @@ def _seed_partial_run(store_path: Path, artifact_path: Path) -> None:
     )
     raw_html = _partial_search_html(next_url=next_url)
     with CycleAcquisitionStore(store_path) as store:
-        store.ensure_cycle({"anchor": "2026-06-30T00:00:00Z"})
-        store.ensure_batch("batch-001", {"terms": [term]})
+        store.ensure_cycle({"eligibility_anchor": "2026-06-30"})
+        store.ensure_batch(
+            "batch-001",
+            {
+                "terms": [term],
+                "search_window_start": "2026-06-30",
+                "search_window_end": "2026-07-12",
+            },
+        )
         store.ensure_terms("batch-001", [term])
         store.ensure_firecrawl_run(
             "run-001",
@@ -131,6 +138,9 @@ def test_projects_durable_run_into_case_dev_compatible_partial_checkpoint(
     assert converted.docket_id == "70649963"
     assert summary["batch_id"] == "batch-001"
     assert summary["run_id"] == "run-001"
+    assert summary["eligibility_anchor"] == "2026-06-30"
+    assert summary["search_window_start"] == "2026-06-30"
+    assert summary["search_window_end"] == "2026-07-12"
     assert summary["acquired_page_count"] == 1
     assert summary["potential_candidate_count"] == 1
     assert summary["clean_corpus_count"] == 0

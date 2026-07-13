@@ -435,6 +435,19 @@ class CycleAcquisitionStore:
             raise KeyError(f"unknown batch: {batch_id}")
         return str(row[0])
 
+    def batch_config(self, batch_id: str) -> Mapping[str, object]:
+        """Return a detached copy of the frozen configuration for ``batch_id``."""
+
+        row = self._connection.execute(
+            "SELECT config_json FROM batches WHERE batch_id = ?", (batch_id,)
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"unknown batch: {batch_id}")
+        parsed = cast(object, json.loads(row[0]))
+        if not isinstance(parsed, dict):
+            raise CycleAcquisitionStoreError("stored batch config is not an object")
+        return dict(cast(dict[str, object], parsed))
+
     def ensure_firecrawl_run(
         self,
         run_id: str,
