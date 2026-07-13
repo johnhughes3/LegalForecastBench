@@ -312,6 +312,10 @@ from legalforecast.ingestion.recap_partial_checkpoint import (
     RecapPartialProjectionError,
     project_partial_recap_checkpoint,
 )
+from legalforecast.ingestion.snapshot_quarantine import (
+    SnapshotQuarantineError,
+    quarantine_orphan_snapshot,
+)
 from legalforecast.labeling.cycle_label_audit import (
     CycleLabelAuditError,
     evaluate_cycle_label_audit,
@@ -865,6 +869,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_screen_firecrawl_arguments(acquisition_screen_firecrawl)
+    acquisition_quarantine_snapshot = acquisition_subparsers.add_parser(
+        "quarantine-orphan-snapshot",
+        help=(
+            "Verify and optionally atomically quarantine an unregistered snapshot "
+            "directory without changing the cycle store."
+        ),
+    )
+    _add_acquisition_quarantine_snapshot_arguments(acquisition_quarantine_snapshot)
     acquisition_bridge_pacer_gaps = acquisition_subparsers.add_parser(
         "bridge-pacer-gaps",
         help=(
@@ -2154,6 +2166,64 @@ def _add_acquisition_screen_firecrawl_arguments(
         help="Immutable complete snapshot directory name.",
     )
     parser.set_defaults(handler=_cmd_acquisition_screen_firecrawl)
+
+
+def _add_acquisition_quarantine_snapshot_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Cycle acquisition SQLite store, opened immutable and read-only.",
+    )
+    parser.add_argument(
+        "--orphan-snapshot",
+        type=Path,
+        required=True,
+        help=(
+            "Unregistered snapshot directory inside the cycle-store root to "
+            "verify and quarantine."
+        ),
+    )
+    parser.add_argument(
+        "--quarantine-root",
+        type=Path,
+        required=True,
+        help=(
+            "Existing same-filesystem directory outside the cycle-store root; "
+            "the orphan is atomically renamed beneath it."
+        ),
+    )
+    parser.add_argument(
+        "--receipt-output",
+        type=Path,
+        required=True,
+        help=(
+            "Immutable JSON receipt outside the cycle-store root. Dry runs write "
+            "a verification receipt without moving the orphan."
+        ),
+    )
+    parser.add_argument("--expected-snapshot-id", required=True)
+    parser.add_argument(
+        "--expected-orphan-manifest-sha256",
+        required=True,
+        help="Expected SHA-256 of the orphan's manifest.json bytes.",
+    )
+    parser.add_argument(
+        "--expected-canonical-manifest-sha256",
+        required=True,
+        help="Expected SHA-256 of the registered snapshot's manifest.json bytes.",
+    )
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help=(
+            "Perform the atomic quarantine move after all proofs pass. Omit for "
+            "a receipt-producing dry run."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_quarantine_snapshot)
 
 
 def _add_acquisition_bridge_pacer_gaps_arguments(
@@ -6708,6 +6778,27 @@ def _cmd_acquisition_fetch_firecrawl(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_acquisition_quarantine_snapshot(args: argparse.Namespace) -> int:
+    try:
+        quarantine_orphan_snapshot(
+            cycle_store=cast(Path, args.cycle_store),
+            orphan_snapshot=cast(Path, args.orphan_snapshot),
+            quarantine_root=cast(Path, args.quarantine_root),
+            receipt_output=cast(Path, args.receipt_output),
+            expected_snapshot_id=cast(str, args.expected_snapshot_id),
+            expected_orphan_manifest_sha256=cast(
+                str, args.expected_orphan_manifest_sha256
+            ),
+            expected_canonical_manifest_sha256=cast(
+                str, args.expected_canonical_manifest_sha256
+            ),
+            execute=cast(bool, args.execute),
+        )
+    except (OSError, SnapshotQuarantineError) as error:
+        raise CommandError(str(error)) from error
+    return 0
+
+
 def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     cycle_store_path = cast(Path, args.cycle_store)
@@ -6783,6 +6874,7 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
         return 0
 
     try:
+        _validate_firecrawl_success_commitments(success_records)
         with CycleAcquisitionStore(cycle_store_path) as store:
             batch_digest = store.batch_digest(batch_id)
             cycle_hash = store.cycle_hash
@@ -6828,6 +6920,23 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
             )
             raise CommandError(str(exc)) from exc
         snapshot_path, snapshot_manifest = existing_snapshot
+        try:
+            _validate_firecrawl_snapshot_resume_inputs(
+                success_records=success_records,
+                fetch_exclusion_records=fetch_exclusion_records,
+                raw_html_directory=raw_html_dir,
+                snapshot_path=snapshot_path,
+            )
+        except (CycleAcquisitionStoreError, KeyError, OSError, ValueError) as exc:
+            _write_acquisition_failure(
+                args,
+                stage="screen-firecrawl-dockets",
+                input_paths=input_paths,
+                output_paths=output_paths,
+                reason=str(exc),
+                paid_activity_requested=False,
+            )
+            raise CommandError(str(exc)) from exc
         screened_cases = _read_records(snapshot_path / "screened-cases.jsonl")
         all_exclusions = _read_records(snapshot_path / "exclusions.jsonl")
         snapshot_summary = _read_json_object(snapshot_path / "summary.json")
@@ -6865,7 +6974,6 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
         return 0
 
     try:
-        _validate_firecrawl_success_commitments(success_records)
         with CycleAcquisitionStore(cycle_store_path) as store:
             batch_digest = store.batch_digest(batch_id)
             cycle_hash = store.cycle_hash
@@ -9837,6 +9945,77 @@ def _validate_firecrawl_success_commitments(
             raise ValueError(
                 "retrieved_at must be a canonical UTC ISO timestamp in Firecrawl "
                 f"success row {row_number}"
+            )
+
+
+def _validate_firecrawl_snapshot_resume_inputs(
+    *,
+    success_records: Sequence[Mapping[str, Any]],
+    fetch_exclusion_records: Sequence[Mapping[str, Any]],
+    raw_html_directory: Path,
+    snapshot_path: Path,
+) -> None:
+    input_candidate_ids = [
+        *(_required_str(record, "case_id") for record in success_records),
+        *(_required_str(record, "case_id") for record in fetch_exclusion_records),
+    ]
+    duplicate_ids = sorted(
+        candidate_id
+        for candidate_id, count in Counter(input_candidate_ids).items()
+        if count != 1
+    )
+    if duplicate_ids:
+        raise CycleAcquisitionStoreError(
+            "snapshot resume inputs contain duplicate candidate IDs: "
+            + ", ".join(duplicate_ids)
+        )
+    snapshot_candidates = _read_records(snapshot_path / "candidates.jsonl")
+    snapshot_candidate_ids = {
+        _required_str(record, "candidate_id") for record in snapshot_candidates
+    }
+    if set(input_candidate_ids) != snapshot_candidate_ids:
+        raise CycleAcquisitionStoreError(
+            "snapshot resume input candidate IDs do not match the committed snapshot"
+        )
+
+    artifact_commitments: dict[str, set[tuple[str, int]]] = defaultdict(set)
+    for artifact in _read_records(snapshot_path / "raw-artifacts.jsonl"):
+        candidate_id = _required_str(artifact, "candidate_id")
+        digest = _required_str(artifact, "sha256")
+        byte_count = artifact.get("byte_count")
+        if not isinstance(byte_count, int) or isinstance(byte_count, bool):
+            raise CycleAcquisitionStoreError(
+                f"snapshot raw artifact byte count is invalid for {candidate_id}"
+            )
+        artifact_commitments[candidate_id].add((digest, byte_count))
+
+    for record in success_records:
+        candidate_id = _required_str(record, "case_id")
+        docket_id = _required_str(record, "docket_id")
+        if not docket_id.isdigit():
+            continue
+        raw_path = raw_html_directory / f"{docket_id}.html"
+        try:
+            raw_bytes = raw_path.read_bytes()
+        except OSError as error:
+            raise CycleAcquisitionStoreError(
+                f"snapshot resume raw HTML is unavailable for {candidate_id}"
+            ) from error
+        expected_bytes = cast(int, record["raw_html_bytes"])
+        expected_sha256 = cast(str, record["raw_html_sha256"])
+        actual_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+        if len(raw_bytes) != expected_bytes or expected_sha256 != (
+            f"sha256:{actual_sha256}"
+        ):
+            raise CycleAcquisitionStoreError(
+                f"snapshot resume raw HTML commitment mismatch for {candidate_id}"
+            )
+        if (actual_sha256, expected_bytes) not in artifact_commitments.get(
+            candidate_id, set()
+        ):
+            raise CycleAcquisitionStoreError(
+                "snapshot resume raw HTML is not committed by the snapshot for "
+                f"{candidate_id}"
             )
 
 

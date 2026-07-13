@@ -1462,6 +1462,100 @@ def test_screen_resume_rejects_committed_id_at_different_path_before_writes(
         )
 
 
+def test_screen_resume_rejects_malformed_success_commitment_before_output_writes(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = _docket_html(decision_dates=("June 30, 2026",))
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+    base_command = [
+        "acquisition",
+        "screen-firecrawl-dockets",
+        *cycle_state.cli_args,
+        "--successes",
+        str(successes),
+        "--raw-html-dir",
+        str(raw_html_dir),
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--execute",
+    ]
+    assert main([*base_command, "--output-root", str(tmp_path / "first")]) == 0
+    malformed = _success_record(raw_html)
+    malformed["raw_html_sha256"] = "not-a-commitment"
+    _write_jsonl(successes, [malformed])
+    with CycleAcquisitionStore(cycle_state.store_path) as store:
+        observation_ids_before = tuple(
+            observation.observation_id
+            for observation in store.observations("case-dev-123")
+        )
+
+    resumed_output = tmp_path / "resumed"
+    assert main([*base_command, "--output-root", str(resumed_output)]) == 2
+
+    assert not (resumed_output / "firecrawl-screened-cases.jsonl").exists()
+    assert not (resumed_output / "firecrawl-screening-summary.json").exists()
+    with CycleAcquisitionStore(cycle_state.store_path) as store:
+        assert (
+            tuple(
+                observation.observation_id
+                for observation in store.observations("case-dev-123")
+            )
+            == observation_ids_before
+        )
+
+
+def test_screen_resume_rejects_changed_input_candidate_set_before_output_writes(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = _docket_html(decision_dates=("June 30, 2026",))
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+    base_command = [
+        "acquisition",
+        "screen-firecrawl-dockets",
+        *cycle_state.cli_args,
+        "--successes",
+        str(successes),
+        "--raw-html-dir",
+        str(raw_html_dir),
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--execute",
+    ]
+    assert main([*base_command, "--output-root", str(tmp_path / "first")]) == 0
+    unrelated = _success_record(raw_html)
+    unrelated["case_id"] = "case-dev-unrelated"
+    _write_jsonl(successes, [unrelated])
+    with CycleAcquisitionStore(cycle_state.store_path) as store:
+        observation_ids_before = tuple(
+            observation.observation_id
+            for observation in store.observations("case-dev-123")
+        )
+
+    resumed_output = tmp_path / "resumed"
+    assert main([*base_command, "--output-root", str(resumed_output)]) == 2
+
+    assert not (resumed_output / "firecrawl-screened-cases.jsonl").exists()
+    assert not (resumed_output / "firecrawl-screening-summary.json").exists()
+    with CycleAcquisitionStore(cycle_state.store_path) as store:
+        assert (
+            tuple(
+                observation.observation_id
+                for observation in store.observations("case-dev-123")
+            )
+            == observation_ids_before
+        )
+
+
 def test_screen_excludes_preanchor_report_before_leakage_screening(
     tmp_path: Path,
     cycle_state: _CycleState,
