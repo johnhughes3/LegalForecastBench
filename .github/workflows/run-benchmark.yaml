@@ -995,17 +995,17 @@ jobs:
             "${resume_args[@]}"
         env:
           ABLATION: ${{ matrix.ablation }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ startsWith(matrix.model_key, 'anthropic:') && !contains(fromJSON('["bedrock","aws-bedrock","aws_bedrock"]'), vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || '' }}
           CASE_ID: ${{ matrix.case_id }}
           CYCLE_ID: ${{ inputs.cycle_id }}
           EXPECTED_PACKET_OBJECT_KEY: ${{ matrix.packet_object_key }}
           EXPECTED_PACKET_SHA256: ${{ matrix.packet_sha256 }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ (startsWith(matrix.model_key, 'google:') || startsWith(matrix.model_key, 'gemini:')) && secrets.GEMINI_API_KEY || '' }}
           LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
           LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}
           MODEL_KEY: ${{ matrix.model_key }}
           MODEL_KEY_SLUG: ${{ matrix.model_key_slug }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_KEY: ${{ startsWith(matrix.model_key, 'openai:') && secrets.OPENAI_API_KEY || '' }}
           REPEAT_COUNT: ${{ matrix.repeat_count }}
           RESUME_EXISTING_RESULTS: ${{ inputs.resume_existing_results }}
 
