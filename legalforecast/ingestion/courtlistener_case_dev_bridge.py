@@ -239,11 +239,8 @@ class _CourtListenerRestGapDocument:
             "availability_status": "unavailable",
             "requires_paid_recovery": True,
             "redaction_or_seal_status": "public",
-            "restriction_evidence": [
-                "courtlistener_rest_docket_entry_exact_match",
-                "courtlistener_rest_recap_document_nonsealed_nonprivate",
-            ],
-            "is_private": False,
+            "restriction_evidence": COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE,
+            "is_private": None,
             "is_sealed": False,
             "contains_target_outcome": self.contains_target_outcome,
             "model_visible": self.model_visible,
@@ -1464,6 +1461,7 @@ def _bridge_courtlistener_rest_gap_documents(
             client,
             hit=hit,
             entry_number=number,
+            web_document=web_document,
         )
         if recap_document.document_id in seen_document_ids:
             continue
@@ -1519,12 +1517,13 @@ def _select_courtlistener_recap_document(
     *,
     hit: CourtListenerDocketEntry,
     entry_number: int,
+    web_document: CourtListenerWebDocument,
 ) -> CourtListenerRecapDocument:
     if not hit.recap_document_ids:
         raise CourtListenerCaseDevBridgeError(
             f"courtlistener_recap_document_id_missing: {entry_number}"
         )
-    main_documents: list[CourtListenerRecapDocument] = []
+    matching_documents: list[CourtListenerRecapDocument] = []
     for expected_document_id in hit.recap_document_ids:
         document = client.get_recap_document(expected_document_id)
         if document.document_id != expected_document_id:
@@ -1535,8 +1534,6 @@ def _select_courtlistener_recap_document(
             raise CourtListenerCaseDevBridgeError(
                 f"courtlistener_recap_entry_conflict: {entry_number}"
             )
-        if document.attachment_number is not None:
-            continue
         if (
             document.document_number is not None
             and _positive_entry_number(document.document_number) != entry_number
@@ -1544,36 +1541,53 @@ def _select_courtlistener_recap_document(
             raise CourtListenerCaseDevBridgeError(
                 f"courtlistener_recap_document_number_conflict: {entry_number}"
             )
-        if document.is_available is True:
-            raise CourtListenerCaseDevBridgeError(
-                f"courtlistener_recap_already_available: {entry_number}"
-            )
-        if document.is_available is not False:
-            raise CourtListenerCaseDevBridgeError(
-                f"courtlistener_recap_availability_unproven: {entry_number}"
-            )
-        if document.is_sealed is True:
-            raise CourtListenerCaseDevBridgeError(
-                f"restricted_core_document: {entry_number}"
-            )
-        if document.is_sealed is not False:
-            raise CourtListenerCaseDevBridgeError(
-                f"courtlistener_recap_privacy_unproven: {entry_number}"
-            )
-        if _record_is_restricted(document.raw):
-            raise CourtListenerCaseDevBridgeError(
-                f"restricted_core_document: {entry_number}"
-            )
-        main_documents.append(document)
-    if not main_documents:
+        if _recap_document_matches_web_document(web_document, document):
+            matching_documents.append(document)
+    if not matching_documents:
         raise CourtListenerCaseDevBridgeError(
-            f"courtlistener_recap_main_document_not_found: {entry_number}"
+            f"courtlistener_recap_document_match_not_found: {entry_number}"
         )
-    if len(main_documents) != 1:
+    if len(matching_documents) != 1:
         raise CourtListenerCaseDevBridgeError(
-            f"courtlistener_recap_main_document_ambiguous: {entry_number}"
+            f"courtlistener_recap_document_match_ambiguous: {entry_number}"
         )
-    return main_documents[0]
+    selected = matching_documents[0]
+    if selected.is_available is True:
+        raise CourtListenerCaseDevBridgeError(
+            f"courtlistener_recap_already_available: {entry_number}"
+        )
+    if selected.is_available is not False:
+        raise CourtListenerCaseDevBridgeError(
+            f"courtlistener_recap_availability_unproven: {entry_number}"
+        )
+    if selected.is_sealed is True or _record_is_restricted(selected.raw):
+        raise CourtListenerCaseDevBridgeError(
+            f"restricted_core_document: {entry_number}"
+        )
+    if selected.is_sealed is not False:
+        raise CourtListenerCaseDevBridgeError(
+            f"courtlistener_recap_privacy_unproven: {entry_number}"
+        )
+    return selected
+
+
+def _recap_document_matches_web_document(
+    web_document: CourtListenerWebDocument,
+    recap_document: CourtListenerRecapDocument,
+) -> bool:
+    if _text_key(web_document.description) != _text_key(
+        recap_document.description or ""
+    ):
+        return False
+    kind = _text_key(web_document.kind)
+    if "main" in kind:
+        return recap_document.attachment_number is None
+    if "attachment" not in kind:
+        return True
+    if recap_document.attachment_number is None:
+        return False
+    stated_numbers = tuple(re.findall(r"\d+", kind))
+    return not stated_numbers or recap_document.attachment_number in stated_numbers
 
 
 def _requested_paid_gap_entries(

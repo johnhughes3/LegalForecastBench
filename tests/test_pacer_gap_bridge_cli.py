@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+from argparse import Namespace
 from pathlib import Path
 from typing import Any, cast
 
@@ -39,7 +40,46 @@ def test_bridge_pacer_gaps_help_documents_identity_and_free_first_flags(
     assert "Run download-free" in output
     assert "--checkpoint-dir" in output
     assert "--checkpoint-config-output" in output
+    assert "--request-ledger" in output
+    assert "--courtlistener-rate-profile" in output
+    assert "--request-budget-max-wait-seconds" in output
     assert "resume skips terminal candidates" in normalized
+
+
+def test_live_courtlistener_bridge_reserves_every_physical_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("COURTLISTENER_API_TOKEN", "fixture-token")
+    args = Namespace(
+        request_ledger=tmp_path / "courtlistener-requests.sqlite3",
+        request_budget_max_wait_seconds=0.0,
+        courtlistener_rate_profile="base",
+    )
+
+    client, budget = cli._courtlistener_bridge_client(
+        args, fixture_path=None, live=True
+    )
+
+    assert budget is not None
+    assert client.before_request is not None
+    client.before_request("GET", "/dockets/123/")
+    assert budget.local_reservations == 1
+    assert budget.total_reservations() == 1
+
+
+def test_live_courtlistener_bridge_requires_durable_request_ledger(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("COURTLISTENER_API_TOKEN", "fixture-token")
+    args = Namespace(
+        request_ledger=None,
+        request_budget_max_wait_seconds=0.0,
+        courtlistener_rate_profile="base",
+    )
+
+    with pytest.raises(cli.CommandError, match="--request-ledger"):
+        cli._courtlistener_bridge_client(args, fixture_path=None, live=True)
 
 
 def test_bridge_pacer_gaps_dry_run_emits_complete_v2_summary(tmp_path: Path) -> None:

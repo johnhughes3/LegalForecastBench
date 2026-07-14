@@ -2620,6 +2620,32 @@ def _add_acquisition_bridge_pacer_gaps_arguments(
             "CourtListener REST GETs. Never invokes RECAP Fetch or PACER."
         ),
     )
+    parser.add_argument(
+        "--request-ledger",
+        type=Path,
+        help=(
+            "Crash-durable SQLite ledger for every physical CourtListener HTTP "
+            "attempt. Required with --live-courtlistener; omitted for fixtures."
+        ),
+    )
+    parser.add_argument(
+        "--courtlistener-rate-profile",
+        choices=tuple(_COURTLISTENER_RATE_PROFILES),
+        default="base",
+        help=(
+            "Provider ceiling profile with headroom. Use temporary-doubled only "
+            "while CourtListener has explicitly doubled this account's limits."
+        ),
+    )
+    parser.add_argument(
+        "--request-budget-max-wait-seconds",
+        type=float,
+        default=120.0,
+        help=(
+            "Maximum cumulative wait for one HTTP-attempt reservation before "
+            "failing closed; default 120."
+        ),
+    )
     parser.add_argument("--target-clean-cases", type=int, default=150)
     parser.add_argument(
         "--public-selection",
@@ -6485,6 +6511,78 @@ def _batch_002_client(
     )
 
 
+def _courtlistener_bridge_client(
+    args: argparse.Namespace,
+    *,
+    fixture_path: Path | None,
+    live: bool,
+) -> tuple[CourtListenerClient, CourtListenerRequestBudget | None]:
+    """Build the paid-gap metadata client with durable live request accounting."""
+
+    config = CourtListenerConfig.from_env()
+    if fixture_path is not None:
+        return (
+            CourtListenerClient(
+                config=config,
+                transport=CourtListenerFixtureTransport.from_jsonl(fixture_path),
+            ),
+            None,
+        )
+    if not live:
+        raise CommandError(
+            "CourtListener bridge requires --courtlistener-fixture or "
+            "--live-courtlistener"
+        )
+    if config.api_token is None:
+        raise CommandError(
+            f"{COURTLISTENER_API_TOKEN_ENV} is required with --live-courtlistener"
+        )
+    ledger_path = cast(Path | None, args.request_ledger)
+    if ledger_path is None:
+        raise CommandError("--request-ledger is required with --live-courtlistener")
+    max_wait = cast(float, args.request_budget_max_wait_seconds)
+    if max_wait < 0:
+        raise CommandError("--request-budget-max-wait-seconds cannot be negative")
+    profile = cast(str, args.courtlistener_rate_profile)
+    try:
+        budget = CourtListenerRequestBudget(
+            ledger_path,
+            limits=_COURTLISTENER_RATE_PROFILES[profile],
+            max_wait_seconds=max_wait,
+        )
+    except (CourtListenerRequestBudgetError, OSError) as exc:
+        raise CommandError(str(exc)) from exc
+    return (
+        CourtListenerClient(config=config, before_request=budget.before_request),
+        budget,
+    )
+
+
+def _courtlistener_bridge_rate_evidence(
+    args: argparse.Namespace,
+    client: CourtListenerClient,
+    budget: CourtListenerRequestBudget | None,
+) -> JsonRecord:
+    if budget is None:
+        return {
+            "courtlistener_live": False,
+            "courtlistener_physical_requests": client.request_count,
+        }
+    return {
+        "courtlistener_live": True,
+        "courtlistener_rate_profile": cast(str, args.courtlistener_rate_profile),
+        "courtlistener_request_ledger": str(budget.path.resolve()),
+        "courtlistener_physical_requests": client.request_count,
+        "courtlistener_reservations_this_phase": budget.local_reservations,
+        "courtlistener_reservations_total": budget.total_reservations(),
+        "courtlistener_limits": {
+            "per_minute": budget.limits.per_minute,
+            "per_hour": budget.limits.per_hour,
+            "per_day": budget.limits.per_day,
+        },
+    }
+
+
 def _batch_002_rate_evidence(
     args: argparse.Namespace,
     client: CourtListenerClient,
@@ -8482,6 +8580,24 @@ def _public_first_bridge_with_checkpoints(
     }
     if bridge_provider == "courtlistener_rest":
         config["bridge_provider"] = bridge_provider
+        if fixture_path is None:
+            request_ledger = cast(Path, args.request_ledger)
+            profile = cast(str, args.courtlistener_rate_profile)
+            limits = _COURTLISTENER_RATE_PROFILES[profile]
+            config.update(
+                {
+                    "courtlistener_request_ledger": str(request_ledger.resolve()),
+                    "courtlistener_rate_profile": profile,
+                    "courtlistener_limits": {
+                        "per_minute": limits.per_minute,
+                        "per_hour": limits.per_hour,
+                        "per_day": limits.per_day,
+                    },
+                    "request_budget_max_wait_seconds": cast(
+                        float, args.request_budget_max_wait_seconds
+                    ),
+                }
+            )
     resume = cast(bool, args.resume)
     existing_checkpoint_paths = {
         path.resolve()
@@ -9092,35 +9208,34 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         excluded_count = 0
     else:
         if courtlistener_mode:
-            config = CourtListenerConfig.from_env()
-            if live_courtlistener and config.api_token is None:
-                raise CommandError(
-                    f"{COURTLISTENER_API_TOKEN_ENV} is required with "
-                    "--live-courtlistener"
-                )
-            courtlistener_client = CourtListenerClient(
-                config=config,
-                transport=(
-                    CourtListenerFixtureTransport.from_jsonl(courtlistener_fixture_path)
-                    if courtlistener_fixture_path is not None
-                    else None
-                ),
+            courtlistener_client, request_budget = _courtlistener_bridge_client(
+                args,
+                fixture_path=courtlistener_fixture_path,
+                live=live_courtlistener,
             )
             assert public_selection_path is not None
             assert paid_gaps_path is not None
             assert free_download_manifest_path is not None
-            result_or_none, bridge_evidence = _public_first_bridge_with_checkpoints(
-                args=args,
-                records=records,
-                client=courtlistener_client,
-                bridge_provider="courtlistener_rest",
-                raw_html_dir=raw_html_dir,
-                public_selection_path=public_selection_path,
-                paid_gaps_path=paid_gaps_path,
-                free_download_manifest_path=free_download_manifest_path,
-                fixture_path=courtlistener_fixture_path,
-                checkpoint_dir=checkpoint_dir,
-                checkpoint_config_path=checkpoint_config_path,
+            try:
+                result_or_none, bridge_evidence = _public_first_bridge_with_checkpoints(
+                    args=args,
+                    records=records,
+                    client=courtlistener_client,
+                    bridge_provider="courtlistener_rest",
+                    raw_html_dir=raw_html_dir,
+                    public_selection_path=public_selection_path,
+                    paid_gaps_path=paid_gaps_path,
+                    free_download_manifest_path=free_download_manifest_path,
+                    fixture_path=courtlistener_fixture_path,
+                    checkpoint_dir=checkpoint_dir,
+                    checkpoint_config_path=checkpoint_config_path,
+                )
+            except CourtListenerRequestBudgetError as exc:
+                raise CommandError(str(exc)) from exc
+            bridge_evidence.update(
+                _courtlistener_bridge_rate_evidence(
+                    args, courtlistener_client, request_budget
+                )
             )
             if result_or_none is None:
                 reason = (
@@ -9192,7 +9307,10 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         _write_jsonl(selection_path, result.selection_records)
         _write_jsonl(case_relevance_path, result.case_relevance_records)
         _write_jsonl(exclusions_path, result.exclusions)
-        _write_json(summary_path, {**result.summary_record(), "dry_run": False})
+        _write_json(
+            summary_path,
+            {**result.summary_record(), "dry_run": False, **bridge_evidence},
+        )
         selected_count = result.selected_case_count
         paid_document_count = result.paid_document_count
         paid_recovery_required_case_count = result.paid_recovery_required_case_count

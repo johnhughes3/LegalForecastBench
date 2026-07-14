@@ -58,6 +58,13 @@ def test_courtlistener_rest_bridge_emits_real_public_recap_id_for_plan() -> None
         "courtlistener_docket_id": "123",
         "matched_by": "direct_rest_exact_docket_court_caption_entries",
     }
+    [paid_relevance] = [
+        document
+        for document in relevance["documents"]
+        if document.get("requires_paid_recovery") is True
+    ]
+    assert paid_relevance["is_private"] is None
+    assert paid_relevance["restriction_evidence"] == paid[0]["restriction_evidence"]
     [result] = filter_core_documents((relevance,))
     assert result.purchase_document_ids == ("9005",)
     assert client.request_count == 3
@@ -259,6 +266,135 @@ def test_batch_bridge_excludes_exhausted_transient_and_continues() -> None:
     assert exclusion["exclusion_reasons"] == [
         "courtlistener_rest_rate_limit_retries_exhausted"
     ]
+
+
+def test_bridge_matches_selected_memo_attachment_not_main_notice() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    motion = next(entry for entry in selected_entries if entry["entry_number"] == "5")
+    documents = cast(list[dict[str, object]], motion["documents"])
+    documents[0]["kind"] = "Main Document"
+    documents[0].update(
+        {
+            "href": "https://storage.courtlistener.com/recap/notice.pdf",
+            "action_label": "Download PDF",
+            "pacer_only": False,
+        }
+    )
+    documents.append(
+        {
+            "kind": "Attachment 1",
+            "description": "Memorandum in Support",
+            "href": "https://ecf.nysd.uscourts.gov/doc1/67890",
+            "action_label": "Buy on PACER",
+            "pacer_only": True,
+        }
+    )
+    responses = list(_clean_responses())
+    entry_payload = dict(responses[1].payload)
+    rest_entries = cast(list[dict[str, object]], entry_payload["results"])
+    rest_entries[0]["recap_documents"] = [{"id": 9005}, {"id": 9006}]
+    responses[1] = _response(
+        path="/docket-entries/",
+        params={"docket": "123", "page_size": 100},
+        payload=entry_payload,
+    )
+    main_payload = dict(responses[2].payload)
+    main_payload["is_available"] = True
+    responses[2] = _response(path="/recap-documents/9005/", payload=main_payload)
+    responses.append(
+        _response(
+            path="/recap-documents/9006/",
+            payload={
+                "id": 9006,
+                "docket_entry": 7005,
+                "document_number": "5",
+                "attachment_number": 1,
+                "description": "Memorandum in Support",
+                "is_available": False,
+                "is_sealed": False,
+            },
+        )
+    )
+
+    selection, _ = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap,
+        free_download_records=downloads,
+        client=_authenticated_client(*responses),
+        use_embedded_entries=True,
+    )
+
+    paid = [
+        document
+        for document in selection["documents"]
+        if document.get("requires_paid_recovery") is True
+    ]
+    assert [
+        (document["source_document_id"], document["document_role"]) for document in paid
+    ] == [("9006", "motion_to_dismiss_memorandum")]
+
+
+def test_bridge_fails_closed_on_ambiguous_attachment_identity() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    motion = next(entry for entry in selected_entries if entry["entry_number"] == "5")
+    motion["documents"] = [
+        {
+            "kind": "Attachment",
+            "description": "Memorandum in Support",
+            "href": "https://ecf.nysd.uscourts.gov/doc1/67890",
+            "action_label": "Buy on PACER",
+            "pacer_only": True,
+        }
+    ]
+    responses = list(_clean_responses())
+    entry_payload = dict(responses[1].payload)
+    rest_entries = cast(list[dict[str, object]], entry_payload["results"])
+    rest_entries[0]["recap_documents"] = [{"id": 9006}, {"id": 9007}]
+    responses[1] = _response(
+        path="/docket-entries/",
+        params={"docket": "123", "page_size": 100},
+        payload=entry_payload,
+    )
+    responses[2] = _response(
+        path="/recap-documents/9006/",
+        payload={
+            "id": 9006,
+            "docket_entry": 7005,
+            "document_number": "5",
+            "attachment_number": 1,
+            "description": "Memorandum in Support",
+            "is_available": False,
+            "is_sealed": False,
+        },
+    )
+    responses.append(
+        _response(
+            path="/recap-documents/9007/",
+            payload={
+                "id": 9007,
+                "docket_entry": 7005,
+                "document_number": "5",
+                "attachment_number": 2,
+                "description": "Memorandum in Support",
+                "is_available": False,
+                "is_sealed": False,
+            },
+        )
+    )
+
+    with pytest.raises(
+        CourtListenerCaseDevBridgeError,
+        match="courtlistener_recap_document_match_ambiguous",
+    ):
+        bridge_public_plan_paid_gap_candidate_via_courtlistener(
+            screened,
+            paid_gap_record=gap,
+            free_download_records=downloads,
+            client=_authenticated_client(*responses),
+            use_embedded_entries=True,
+        )
 
 
 def test_bridge_pacer_gaps_cli_runs_noncharging_courtlistener_rest_mode(
@@ -556,7 +692,7 @@ def test_courtlistener_rest_bridge_rejects_entry_mismatch(
         ({"is_sealed": True}, "restricted_core_document"),
         ({"is_private": True}, "restricted_core_document"),
         ({"is_available": True}, "courtlistener_recap_already_available"),
-        ({"attachment_number": 1}, "courtlistener_recap_main_document_not_found"),
+        ({"attachment_number": 1}, "courtlistener_recap_document_match_not_found"),
     ),
 )
 def test_courtlistener_rest_bridge_rejects_unproven_or_restricted_document(
