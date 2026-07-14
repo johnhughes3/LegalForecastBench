@@ -10,8 +10,10 @@ from legalforecast.ingestion.readiness_provenance import (
     verify_stage_a_readiness_provenance,
     verify_stage_b_readiness_provenance,
 )
+from legalforecast.labeling.llm_pipeline import merge_structural_flags_into_review_queue
 from legalforecast.protocol import sha256_file
 from legalforecast.unitization.review import (
+    ADJUDICATION_SCHEMA_VERSION,
     UnitizationReviewError,
     apply_unitization_reviews,
     canonical_records_sha256,
@@ -120,27 +122,65 @@ def _stage_a_fixture() -> dict[str, object]:
             ],
         }
     ]
-    finalized = list(
-        apply_unitization_reviews(
-            prediction_unit_records=raw,
-            review_records=[],
-            adjudication_records=[],
-        )
-    )
     registry = load_model_registry(LABELING_REGISTRY)
     gemini = next(
         entry for entry in registry.entries if entry.registry_key == GEMINI_KEY
     )
     registry_sha = sha256_file(LABELING_REGISTRY)
+    flag_content = {
+        "flag_type": "combined",
+        "affected_unit_ids": ["unit-1"],
+        "source_document_ids": ["motion-1"],
+        "citation_excerpt": "Count I contains two theories.",
+        "explanation": "The frozen unit may combine separately challenged theories.",
+    }
+    structural_flags = [
+        {
+            "schema_version": "legalforecast.stage_a_structural_flag.v1",
+            "candidate_id": "cand-1",
+            "case_id": "case-1",
+            "reviewer_model_key": GEMINI_KEY,
+            "model_registry_sha256": registry_sha,
+            "raw_prediction_units_sha256": canonical_sha256(raw[0]),
+            # The producer hashes the validated flag payload, before envelope fields
+            # such as candidate_id are attached.
+            "flag_sha256": canonical_sha256(flag_content),
+            **flag_content,
+        }
+    ]
+    merged_reviews = list(
+        merge_structural_flags_into_review_queue([], structural_flags)
+    )
+    adjudications = [
+        {
+            "schema_version": ADJUDICATION_SCHEMA_VERSION,
+            "adjudication_id": "adj-cand-1",
+            "candidate_id": "cand-1",
+            "case_id": "case-1",
+            "review_ids": [merged_reviews[0]["review_id"]],
+            "source_unit_ids": ["unit-1"],
+            "disposition": "ACCEPT",
+            "finalized_units": [],
+            "adjudicator_id": "lawyer-1",
+            "adjudication_notes": "Reviewed against blinded predecision materials.",
+        }
+    ]
+    finalized = list(
+        apply_unitization_reviews(
+            prediction_unit_records=raw,
+            review_records=merged_reviews,
+            adjudication_records=adjudications,
+        )
+    )
     return {
         "selection_records": [{"candidate_id": "cand-1", "case_id": "case-1"}],
         "raw_prediction_unit_records": raw,
         "original_review_records": [],
-        "structural_flag_records": [],
+        "structural_flag_records": structural_flags,
         "structural_review_audit_records": [
             {
                 "stage": "llm-review-stage-a",
-                "status": "passed",
+                "status": "flags_pending",
                 "candidate_id": "cand-1",
                 "case_id": "case-1",
                 "model_key": GEMINI_KEY,
@@ -149,14 +189,14 @@ def _stage_a_fixture() -> dict[str, object]:
                 "raw_prediction_units_sha256": canonical_sha256(raw[0]),
                 "prompt_sha256": "1" * 64,
                 "raw_output_sha256": "2" * 64,
-                "structural_flags_sha256": canonical_records_sha256([]),
-                "flag_count": 0,
+                "structural_flags_sha256": canonical_records_sha256(structural_flags),
+                "flag_count": 1,
                 "metadata": {"served_model_version": gemini.model_version_or_snapshot},
             }
         ],
-        "merged_review_records": [],
+        "merged_review_records": merged_reviews,
         "finalized_prediction_unit_records": finalized,
-        "adjudication_records": [],
+        "adjudication_records": adjudications,
         "reviewer_registry_entries": registry.entries,
         "reviewer_registry_sha256": registry_sha,
         "reviewer_model_key": GEMINI_KEY,

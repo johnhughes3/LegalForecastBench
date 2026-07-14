@@ -16,7 +16,6 @@ from legalforecast.unitization.review import (
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _STRUCTURAL_FLAG_FIELDS = (
-    "candidate_id",
     "flag_type",
     "affected_unit_ids",
     "source_document_ids",
