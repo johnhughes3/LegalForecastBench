@@ -1190,6 +1190,43 @@ def test_raw_artifact_replay_reuses_canonical_candidate_content_commitment(
         assert replay_path.read_bytes() == content
 
 
+def test_rehome_raw_artifact_rejects_invalid_same_destination(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        content = b"<html>public docket</html>"
+        source = tmp_path / "source" / "candidate-1.html"
+        store.write_raw_artifact(
+            "candidate-1",
+            source,
+            content,
+            retrieved_at="2026-07-12T12:00:00Z",
+        )
+        owned = tmp_path / "owned" / "candidate-1.html"
+        store.rehome_raw_artifact("candidate-1", owned, content)
+        owned.unlink()
+
+        with pytest.raises(ImmutableArtifactError, match="content changed"):
+            store.rehome_raw_artifact("candidate-1", owned, content)
+
+        owned.mkdir()
+        with pytest.raises(ImmutableArtifactError, match="content changed"):
+            store.rehome_raw_artifact("candidate-1", owned, content)
+        owned.rmdir()
+        owned.write_bytes(content)
+        original_read_bytes = Path.read_bytes
+
+        def fail_owned_read(path: Path) -> bytes:
+            if path == owned:
+                raise PermissionError("fixture denied")
+            return original_read_bytes(path)
+
+        monkeypatch.setattr(Path, "read_bytes", fail_owned_read)
+        with pytest.raises(ImmutableArtifactError, match="unreadable"):
+            store.rehome_raw_artifact("candidate-1", owned, content)
+
+
 def test_raw_artifact_replay_rejects_modified_canonical_content(
     tmp_path: Path,
 ) -> None:

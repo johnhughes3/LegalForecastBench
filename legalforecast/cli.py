@@ -12417,6 +12417,8 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                     raise CycleAcquisitionStoreError(
                         "complete union snapshot exists and --no-resume forbids reuse"
                     )
+                owned_raw_records = _owned_raw_records_from_snapshot(existing[0])
+                _write_jsonl(owned_raw_manifest_path, owned_raw_records)
                 owned_raw_commitment = _file_commitment(owned_raw_manifest_path)
                 expected_commitments = {
                     "screening_snapshot_union_inputs": dict(union.stage_commitment),
@@ -12576,6 +12578,28 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
         )
         raise CommandError(str(exc)) from exc
     return 0
+
+
+def _owned_raw_records_from_snapshot(snapshot_path: Path) -> list[JsonRecord]:
+    """Regenerate the auxiliary owned-raw manifest from immutable snapshot rows."""
+
+    records: list[JsonRecord] = []
+    for record in _read_records(snapshot_path / "raw-artifacts.jsonl"):
+        byte_count = record.get("byte_count")
+        if not isinstance(byte_count, int) or isinstance(byte_count, bool):
+            raise CycleAcquisitionStoreError(
+                "snapshot owned raw artifact has an invalid byte count"
+            )
+        records.append(
+            {
+                "candidate_id": _required_str(record, "candidate_id"),
+                "path": _required_str(record, "path"),
+                "sha256": _required_str(record, "sha256"),
+                "byte_count": byte_count,
+                "retrieved_at": _required_str(record, "retrieved_at"),
+            }
+        )
+    return records
 
 
 def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:

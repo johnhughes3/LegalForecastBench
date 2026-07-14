@@ -1644,10 +1644,17 @@ class CycleAcquisitionStore:
                 f"raw artifact is not committed for candidate {candidate_id}: {digest}"
             )
         if Path(str(canonical["path"])) == destination_path:
-            if (
-                destination_path.is_symlink()
-                or destination_path.read_bytes() != content
-            ):
+            try:
+                valid_destination = (
+                    not destination_path.is_symlink()
+                    and destination_path.is_file()
+                    and destination_path.read_bytes() == content
+                )
+            except OSError as error:
+                raise ImmutableArtifactError(
+                    f"owned raw artifact is unreadable: {destination_path}"
+                ) from error
+            if not valid_destination:
                 raise ImmutableArtifactError(
                     f"owned raw artifact content changed: {destination_path}"
                 )

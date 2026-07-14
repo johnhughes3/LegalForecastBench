@@ -269,8 +269,11 @@ def test_old_and_direct_snapshots_union_provider_free_then_prepare(
     ]
     assert len(_read_jsonl(union_snapshot / "screened-cases.jsonl")) == 2
     first_manifest = (union_snapshot / "manifest.json").read_bytes()
+    auxiliary_manifest = tmp_path / "union-output" / "union-raw-artifacts.jsonl"
+    auxiliary_manifest.unlink()
     assert main(union_command) == 0
     assert (union_snapshot / "manifest.json").read_bytes() == first_manifest
+    assert auxiliary_manifest.is_file()
     monkeypatch.undo()
     shutil.rmtree(old_snapshot)
     shutil.rmtree(direct_snapshot)
@@ -371,6 +374,97 @@ def test_snapshot_union_rejects_symlinked_source_metadata(tmp_path: Path) -> Non
     with pytest.raises(ScreeningSnapshotUnionError, match="not a regular file"):
         load_screening_snapshot_union(
             (old_snapshot, direct_snapshot),
+            expected_manifest_sha256=(
+                _manifest_sha256(old_snapshot),
+                _manifest_sha256(direct_snapshot),
+            ),
+            expected_cycle_hash=cycle_hash,
+        )
+
+
+def test_snapshot_union_rejects_noncanonical_raw_path(tmp_path: Path) -> None:
+    discovery_root, cycle_store = _run_saturated_discovery(tmp_path)
+    direct_snapshot = _materialize_discovery(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    old_snapshot = _create_old_replay_snapshot(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    [raw_record] = _read_jsonl(old_snapshot / "raw-artifacts.jsonl")
+    canonical = Path(cast(str, raw_record["path"]))
+    (canonical.parent / "nested").mkdir()
+    raw_record["path"] = str(canonical.parent / "nested" / ".." / canonical.name)
+    _rewrite_snapshot_jsonl(old_snapshot, "raw-artifacts.jsonl", [raw_record])
+    with CycleAcquisitionStore(cycle_store) as store:
+        cycle_hash = store.cycle_hash
+
+    with pytest.raises(ScreeningSnapshotUnionError, match="canonical absolute path"):
+        load_screening_snapshot_union(
+            (old_snapshot, direct_snapshot),
+            expected_manifest_sha256=(
+                _manifest_sha256(old_snapshot),
+                _manifest_sha256(direct_snapshot),
+            ),
+            expected_cycle_hash=cycle_hash,
+        )
+
+
+def test_snapshot_union_rejects_raw_path_through_symlinked_parent(
+    tmp_path: Path,
+) -> None:
+    discovery_root, cycle_store = _run_saturated_discovery(tmp_path)
+    direct_snapshot = _materialize_discovery(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    old_snapshot = _create_old_replay_snapshot(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    raw_parent = tmp_path / "old-raw"
+    real_parent = tmp_path / "old-raw-real"
+    raw_parent.rename(real_parent)
+    raw_parent.symlink_to(real_parent, target_is_directory=True)
+    with CycleAcquisitionStore(cycle_store) as store:
+        cycle_hash = store.cycle_hash
+
+    with pytest.raises(ScreeningSnapshotUnionError, match="canonical absolute path"):
+        load_screening_snapshot_union(
+            (old_snapshot, direct_snapshot),
+            expected_manifest_sha256=(
+                _manifest_sha256(old_snapshot),
+                _manifest_sha256(direct_snapshot),
+            ),
+            expected_cycle_hash=cycle_hash,
+        )
+
+
+def test_snapshot_union_rejects_symlinked_source_root(tmp_path: Path) -> None:
+    discovery_root, cycle_store = _run_saturated_discovery(tmp_path)
+    direct_snapshot = _materialize_discovery(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    old_snapshot = _create_old_replay_snapshot(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    old_alias = tmp_path / "old-snapshot-alias"
+    old_alias.symlink_to(old_snapshot, target_is_directory=True)
+    with CycleAcquisitionStore(cycle_store) as store:
+        cycle_hash = store.cycle_hash
+
+    with pytest.raises(ScreeningSnapshotUnionError, match="without symlinks"):
+        load_screening_snapshot_union(
+            (old_alias, direct_snapshot),
             expected_manifest_sha256=(
                 _manifest_sha256(old_snapshot),
                 _manifest_sha256(direct_snapshot),
@@ -532,6 +626,43 @@ def test_materializer_rejects_changed_committed_output(
         == 2
     )
     assert "output commitment mismatch" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("path_kind", ["traversal", "symlink-parent"])
+def test_materializer_rejects_noncanonical_committed_output_path(
+    tmp_path: Path,
+    capsys: Any,
+    path_kind: str,
+) -> None:
+    discovery_root, cycle_store = _run_saturated_discovery(tmp_path)
+    run_card_path = discovery_root / "run-cards" / "discover-courtlistener.json"
+    run_card = _read_json(run_card_path)
+    output_paths = cast(list[str], run_card["output_paths"])
+    canonical = Path(output_paths[0])
+    if path_kind == "traversal":
+        (canonical.parent / "nested").mkdir()
+        output_paths[0] = str(canonical.parent / "nested" / ".." / canonical.name)
+    else:
+        alias = tmp_path / "discovery-alias"
+        alias.symlink_to(discovery_root, target_is_directory=True)
+        output_paths[0] = str(alias / canonical.relative_to(discovery_root))
+    run_card_path.write_text(
+        json.dumps(run_card, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    assert (
+        main(
+            _materialize_command(
+                tmp_path=tmp_path,
+                discovery_root=discovery_root,
+                cycle_store=cycle_store,
+                snapshot_id=f"must-not-publish-{path_kind}",
+            )
+        )
+        == 2
+    )
+    assert "canonical absolute path" in capsys.readouterr().err
+    assert not (tmp_path / "snapshots" / f"must-not-publish-{path_kind}").exists()
 
 
 def test_discover_courtlistener_produces_plan_public_downloads_input(
@@ -1227,6 +1358,25 @@ def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
         "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),
         encoding="utf-8",
     )
+
+
+def _rewrite_snapshot_jsonl(
+    snapshot: Path, filename: str, records: list[dict[str, object]]
+) -> None:
+    payload = b"".join(
+        json.dumps(record, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+        for record in records
+    )
+    (snapshot / filename).write_bytes(payload)
+    manifest_path = snapshot / "manifest.json"
+    manifest = _read_json(manifest_path)
+    files = cast(dict[str, object], manifest["files"])
+    files[filename] = {
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "byte_count": len(payload),
+        "row_count": len(records),
+    }
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
 
 def _run_saturated_discovery(

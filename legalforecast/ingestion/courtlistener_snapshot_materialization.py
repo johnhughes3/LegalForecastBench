@@ -656,6 +656,16 @@ def _absolute_path(value: object, label: str) -> Path:
     path = Path(value)
     if not path.is_absolute():
         raise CourtListenerSnapshotMaterializationError(f"{label} must be absolute")
+    try:
+        resolved = path.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        raise CourtListenerSnapshotMaterializationError(
+            f"{label} must be an existing canonical absolute path without symlinks"
+        ) from error
+    if path != resolved:
+        raise CourtListenerSnapshotMaterializationError(
+            f"{label} must be an existing canonical absolute path without symlinks"
+        )
     return path
 
 

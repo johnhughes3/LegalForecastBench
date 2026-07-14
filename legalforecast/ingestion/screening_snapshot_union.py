@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import stat
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,12 +50,15 @@ def load_screening_snapshot_union(
 ) -> ScreeningSnapshotUnion:
     """Verify and normalize at least two same-cycle saturated snapshots."""
 
-    resolved = tuple(path.resolve() for path in source_snapshots)
-    if len(resolved) < 2 or len(set(resolved)) != len(resolved):
+    snapshots = tuple(
+        _canonical_snapshot_directory(path, f"source snapshot {index}")
+        for index, path in enumerate(source_snapshots, start=1)
+    )
+    if len(snapshots) < 2 or len(set(snapshots)) != len(snapshots):
         raise ScreeningSnapshotUnionError(
             "snapshot union requires at least two distinct source manifests"
         )
-    if len(expected_manifest_sha256) != len(resolved):
+    if len(expected_manifest_sha256) != len(snapshots):
         raise ScreeningSnapshotUnionError(
             "each source snapshot requires one ordered expected manifest SHA-256"
         )
@@ -66,18 +70,8 @@ def load_screening_snapshot_union(
     seen_manifest_sha256: set[str] = set()
     seen_batch_digests: set[str] = set()
     for snapshot, expected_manifest_hash in zip(
-        resolved, expected_manifest_sha256, strict=True
+        snapshots, expected_manifest_sha256, strict=True
     ):
-        if snapshot.is_symlink() or not snapshot.is_dir():
-            raise ScreeningSnapshotUnionError(
-                f"source snapshot is not a regular directory: {snapshot}"
-            )
-        manifest = verify_snapshot(
-            snapshot,
-            expected_cycle_hash=expected_cycle_hash,
-            require_complete=True,
-            require_saturated=True,
-        )
         manifest_path = snapshot / "manifest.json"
         manifest_sha256 = hashlib.sha256(
             _read_regular_file(manifest_path, "source manifest")
@@ -86,6 +80,14 @@ def load_screening_snapshot_union(
             raise ScreeningSnapshotUnionError(
                 f"source snapshot manifest SHA-256 mismatch: {manifest_path}"
             )
+        _read_regular_file(snapshot / "candidates.jsonl", "source candidates")
+        _preflight_raw_paths(snapshot / "raw-artifacts.jsonl")
+        manifest = verify_snapshot(
+            snapshot,
+            expected_cycle_hash=expected_cycle_hash,
+            require_complete=True,
+            require_saturated=True,
+        )
         batch_digest = _string(manifest.get("batch_digest"), "source batch digest")
         if manifest_sha256 in seen_manifest_sha256:
             raise ScreeningSnapshotUnionError(
@@ -194,14 +196,18 @@ def _raw_records(path: Path) -> tuple[UnionRawArtifact, ...]:
         candidate_id = _string(
             record.get("candidate_id"), f"raw row {row_number} candidate_id"
         )
-        raw_path = Path(_string(record.get("path"), f"raw row {row_number} path"))
-        if (
-            not raw_path.is_absolute()
-            or raw_path.is_symlink()
-            or not raw_path.is_file()
-        ):
+        raw_path = _canonical_absolute_path(
+            record.get("path"), f"raw row {row_number} path"
+        )
+        try:
+            is_regular = stat.S_ISREG(raw_path.lstat().st_mode)
+        except OSError as error:
             raise ScreeningSnapshotUnionError(
-                f"raw artifact is not a regular file for {candidate_id}"
+                f"raw artifact is not a canonical regular file for {candidate_id}"
+            ) from error
+        if not is_regular:
+            raise ScreeningSnapshotUnionError(
+                f"raw artifact is not a canonical regular file for {candidate_id}"
             )
         content = _read_regular_file(raw_path, f"raw artifact for {candidate_id}")
         digest = hashlib.sha256(content).hexdigest()
@@ -253,6 +259,43 @@ def _read_regular_file(path: Path, label: str) -> bytes:
     if path.is_symlink() or not path.is_file():
         raise ScreeningSnapshotUnionError(f"{label} is not a regular file: {path}")
     return path.read_bytes()
+
+
+def _preflight_raw_paths(path: Path) -> None:
+    for row_number, record in enumerate(_jsonl(path), start=1):
+        _canonical_absolute_path(record.get("path"), f"raw row {row_number} path")
+
+
+def _canonical_absolute_path(value: object, label: str) -> Path:
+    path = Path(_string(value, label))
+    if not path.is_absolute():
+        raise ScreeningSnapshotUnionError(f"{label} must be absolute")
+    try:
+        resolved = path.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        raise ScreeningSnapshotUnionError(
+            f"{label} must be an existing canonical absolute path without symlinks"
+        ) from error
+    if path != resolved:
+        raise ScreeningSnapshotUnionError(
+            f"{label} must be an existing canonical absolute path without symlinks"
+        )
+    return path
+
+
+def _canonical_snapshot_directory(path: Path, label: str) -> Path:
+    lexical = path if path.is_absolute() else Path.cwd() / path
+    try:
+        resolved = lexical.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        raise ScreeningSnapshotUnionError(
+            f"{label} must be an existing canonical directory without symlinks"
+        ) from error
+    if lexical != resolved or lexical.is_symlink() or not lexical.is_dir():
+        raise ScreeningSnapshotUnionError(
+            f"{label} must be an existing canonical directory without symlinks"
+        )
+    return lexical
 
 
 def _string(value: object, label: str) -> str:
