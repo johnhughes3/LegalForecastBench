@@ -259,12 +259,18 @@ def test_courtlistener_relationship_parser_fails_closed_on_long_malformed_input(
     long_digits = "1" * 50_000
     long_list = ", #1" * 20_000
 
-    assert courtlistener_relationship_entry_numbers(
-        f"Order (Re:{long_tabs}#{long_tabs}{long_digits}x)"
-    ) == set()
-    assert courtlistener_relationship_entry_numbers(
-        f"Order (related document(s){long_tabs}1{long_list}x)"
-    ) == set()
+    assert (
+        courtlistener_relationship_entry_numbers(
+            f"Order (Re:{long_tabs}#{long_tabs}{long_digits}x)"
+        )
+        == set()
+    )
+    assert (
+        courtlistener_relationship_entry_numbers(
+            f"Order (related document(s){long_tabs}1{long_list}x)"
+        )
+        == set()
+    )
     assert courtlistener_relationship_entry_numbers(
         ("unrelated (parenthetical) " * 10_000) + "Order (Re: #103)"
     ) == {103}
