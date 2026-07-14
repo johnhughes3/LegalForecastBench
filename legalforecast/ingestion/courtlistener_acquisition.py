@@ -800,14 +800,37 @@ _COUNT_OR_CLAIM_SCOPE_PATTERN = (
     r"(?:\s+(?:with|without)\s+prejudice)?"
 )
 _ALLOWED_JOP_MERITS_DISPOSITION_RE = re.compile(
-    r"\b(?:order\s+)?(?:granting|granted|denying|denied)\s+(?:the\s+)?"
+    r"(?:memorandum\s+opinion\s+and\s+order|opinion\s+and\s+order|order)\s+"
+    r"(?:granting|granted|denying|denied)\s+(?:the\s+)?"
     r"motions?\s+for\s+judgment\s+on\s+the\s+pleadings"
     rf"(?:\s+(?:as\s+to|on)\s+{_COUNT_OR_CLAIM_SCOPE_PATTERN})?"
     r"(?:\s*,?\s+and\s+(?:"
     r"(?:granting|granted|denying|denied)\s+(?:the\s+)?dismissal\s+of\s+"
     rf"{_COUNT_OR_CLAIM_SCOPE_PATTERN}"
     rf"|(?:dismissing|dismissed)\s+{_COUNT_OR_CLAIM_SCOPE_PATTERN}"
-    r"))?\s*[.;]?\s*(?=\(\s*(?:re\s*:|related\s+document(?:\(s\)|s)))",
+    r"))?\s*[.;]?",
+    re.IGNORECASE,
+)
+_DECISION_RELIEF_INTRO_RE = re.compile(
+    r"\b(?:memorandum\s+opinion\s+and\s+order|opinion\s+and\s+order|order)\b",
+    re.IGNORECASE,
+)
+_COURTLISTENER_PARENTHETICAL_RE = re.compile(r"\([^()]*\)")
+_HARMLESS_COURTLISTENER_PREFIX_WORD_RE = re.compile(
+    r"(?<!\w)(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|"
+    r"jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|"
+    r"nov(?:ember)?|dec(?:ember)?|a\.?m\.?|p\.?m\.?|filed|entered|no\.?)"
+    r"(?!\w)",
+    re.IGNORECASE,
+)
+_HARMLESS_COURTLISTENER_SUFFIX_PARENTHETICAL_RE = re.compile(
+    r"\((?:[a-z .'-]+,\s*[a-z .'-]+|\$[0-9]+(?:\.[0-9]+)?)\)",
+    re.IGNORECASE,
+)
+_HARMLESS_COURTLISTENER_SUFFIX_PHRASE_RE = re.compile(
+    r"\b(?:toggle\s+dropdown|from\s+internet\s+archive|from\s+courtlistener|"
+    r"from\s+pacer|buy\s+on\s+pacer|main\s+doc\s*ument|miscellaneous\s+motion|"
+    r"download\s+pdf|order)\b",
     re.IGNORECASE,
 )
 
@@ -815,9 +838,58 @@ _ALLOWED_JOP_MERITS_DISPOSITION_RE = re.compile(
 def _has_unambiguous_qualifying_adversary_motion(text: str) -> bool:
     """Require only whitelisted Rule 12(c) merits relief for a generic row."""
 
-    return bool(
-        _ALLOWED_JOP_MERITS_DISPOSITION_RE.search(text.replace("\xad", ""))
-    ) and is_rule_7012_claim_merits_motion(text)
+    normalized = text.replace("\xad", "")
+    relationship_numbers = courtlistener_relationship_entry_numbers(normalized)
+    if len(relationship_numbers) != 1:
+        return False
+    relationship = next(
+        (
+            match
+            for match in _COURTLISTENER_PARENTHETICAL_RE.finditer(normalized)
+            if courtlistener_relationship_entry_numbers(match.group())
+            == relationship_numbers
+        ),
+        None,
+    )
+    if relationship is None:
+        return False
+    before_relationship = normalized[: relationship.start()].strip()
+    intro = _DECISION_RELIEF_INTRO_RE.search(before_relationship)
+    if intro is None or not _is_harmless_courtlistener_decision_prefix(
+        before_relationship[: intro.start()]
+    ):
+        return False
+    relief_segment = before_relationship[intro.start() :].strip()
+    return (
+        bool(_ALLOWED_JOP_MERITS_DISPOSITION_RE.fullmatch(relief_segment))
+        and _is_harmless_courtlistener_decision_suffix(
+            normalized[relationship.end() :],
+            relief_segment=relief_segment,
+            relationship_annotation=relationship.group(),
+        )
+        and is_rule_7012_claim_merits_motion(text)
+    )
+
+
+def _is_harmless_courtlistener_decision_prefix(text: str) -> bool:
+    residue = _HARMLESS_COURTLISTENER_PREFIX_WORD_RE.sub("", text)
+    return re.fullmatch(r"[\s\d,.:/()\-]*", residue) is not None
+
+
+def _is_harmless_courtlistener_decision_suffix(
+    text: str,
+    *,
+    relief_segment: str,
+    relationship_annotation: str,
+) -> bool:
+    duplicate = re.compile(
+        re.escape(relief_segment) + r"\s*" + re.escape(relationship_annotation),
+        re.IGNORECASE,
+    )
+    residue = duplicate.sub("", text)
+    residue = _HARMLESS_COURTLISTENER_SUFFIX_PARENTHETICAL_RE.sub("", residue)
+    residue = _HARMLESS_COURTLISTENER_SUFFIX_PHRASE_RE.sub("", residue)
+    return re.fullmatch(r"[\s\d$.,:()/\-]*", residue) is not None
 
 
 def _looks_like_target_mtd_filing(text: str) -> bool:

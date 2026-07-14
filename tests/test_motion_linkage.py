@@ -233,3 +233,12 @@ def test_courtlistener_relationship_parser_is_narrow_and_syntactically_coupled()
         courtlistener_relationship_entry_numbers("Order (related document(s)103/104)")
         == set()
     )
+    for malformed in (
+        "Order (Re: #103 to 104)",
+        "Order (Re: #103 through 104)",
+        "Order (Re: #103a)",
+        "Order (Re: #103.5)",
+        "Order (Re: #103\u2013104)",
+        "Order (Re: #103 & #104)",
+    ):
+        assert courtlistener_relationship_entry_numbers(malformed) == set()
