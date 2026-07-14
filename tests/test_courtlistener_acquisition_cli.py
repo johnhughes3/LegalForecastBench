@@ -1,28 +1,39 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import shutil
 import urllib.request
 from datetime import date
 from email.message import Message
 from pathlib import Path
 from typing import Any, cast
 
+import legalforecast.cli as cli
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.courtlistener_acquisition import (
     CourtListenerClientError,
     _CourtListenerRedirectHandler,
+    courtlistener_search_hit_id,
     screen_courtlistener_docket_page,
 )
 from legalforecast.ingestion.courtlistener_client import CourtListenerDocket
 from legalforecast.ingestion.courtlistener_web import parse_courtlistener_docket_html
-from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+from legalforecast.ingestion.cycle_acquisition_store import (
+    CycleAcquisitionStore,
+    verify_snapshot,
+)
 from legalforecast.ingestion.discovery_scheduler import (
     DiscoveryHit,
     TermTerminalStatus,
 )
 from legalforecast.ingestion.mtd_acquisition_screen import (
     screen_case_dev_docket_metadata,
+)
+from legalforecast.ingestion.screening_snapshot_union import (
+    ScreeningSnapshotUnionError,
+    load_screening_snapshot_union,
 )
 
 
@@ -55,6 +66,453 @@ def test_discover_courtlistener_help_documents_live_authority(
     assert "--docket-html-fixture-dir" in output
     assert "--screened-cases-output" in output
     assert "--exclusions-output" in output
+
+
+def test_materialize_courtlistener_snapshot_help_documents_source_binding(
+    capsys: Any,
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["acquisition", "materialize-courtlistener-snapshot", "--help"])
+    assert exc_info.value.code == 0
+
+    output = capsys.readouterr().out
+    assert "--cycle-store" in output
+    assert "--batch-id" in output
+    assert "--discovery-run-card" in output
+    assert "--expected-discovery-run-card-sha256" in output
+    assert "--snapshot-root" in output
+    assert "--snapshot-id" in output
+
+
+def test_materialize_courtlistener_snapshot_publishes_saturated_source_lineage(
+    tmp_path: Path,
+) -> None:
+    discovery_root, cycle_store = _run_saturated_discovery(tmp_path)
+    run_card = discovery_root / "run-cards" / "discover-courtlistener.json"
+    snapshot_root = tmp_path / "snapshots"
+    materialization_root = tmp_path / "materialization"
+
+    command = [
+        "acquisition",
+        "materialize-courtlistener-snapshot",
+        "--cycle-store",
+        str(cycle_store),
+        "--batch-id",
+        "batch-001",
+        "--discovery-run-card",
+        str(run_card),
+        "--expected-discovery-run-card-sha256",
+        hashlib.sha256(run_card.read_bytes()).hexdigest(),
+        "--snapshot-root",
+        str(snapshot_root),
+        "--snapshot-id",
+        "courtlistener-complete",
+        "--output-root",
+        str(materialization_root),
+        "--execute",
+    ]
+    assert main(command) == 0
+
+    snapshot = snapshot_root / "courtlistener-complete"
+    with CycleAcquisitionStore(cycle_store) as store:
+        cycle_hash = store.cycle_hash
+    manifest = verify_snapshot(
+        snapshot,
+        expected_cycle_hash=cycle_hash,
+        require_complete=True,
+        require_saturated=True,
+    )
+    assert manifest["complete"] is True
+    assert manifest["saturated"] is True
+    lineage = manifest["stage_commitments"]["courtlistener_discovery_inputs"]
+    assert (
+        lineage["discovery_run_card_sha256"]
+        == hashlib.sha256(run_card.read_bytes()).hexdigest()
+    )
+    assert lineage["eligibility_anchor"] == "2026-06-30"
+    assert lineage["source_saturated"] is True
+    assert _read_json(snapshot / "summary.json") == {
+        "accepted_count": 1,
+        "batch_id": "batch-001",
+        "excluded_count": 0,
+        "processed_count": 1,
+        "reconciliation_complete": True,
+    }
+    [screened] = _read_jsonl(snapshot / "screened-cases.jsonl")
+    assert screened["first_written_mtd_disposition_date"] == "2026-06-30"
+    first_manifest_bytes = (snapshot / "manifest.json").read_bytes()
+
+    assert main(command) == 0
+    assert (snapshot / "manifest.json").read_bytes() == first_manifest_bytes
+
+
+def test_materialized_courtlistener_snapshot_is_prepare_target_cohort_input(
+    tmp_path: Path,
+) -> None:
+    discovery_root, cycle_store = _run_saturated_discovery(tmp_path)
+    snapshot = _materialize_discovery(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    fixture_documents = tmp_path / "free-documents.json"
+    fixture_documents.write_text(
+        json.dumps(
+            {
+                f"https://storage.courtlistener.com/{name}": _fixture_pdf_text(
+                    "Benign public court filing"
+                )
+                for name in ("1.pdf", "5.pdf", "5-memo.pdf", "16.pdf")
+            }
+        ),
+        encoding="utf-8",
+    )
+    courtlistener_fixture = tmp_path / "bridge-courtlistener.jsonl"
+    courtlistener_fixture.write_text("", encoding="utf-8")
+    with CycleAcquisitionStore(cycle_store) as store:
+        cycle_hash = store.cycle_hash
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-cohort",
+                "--output-root",
+                str(tmp_path / "prepared"),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--target-case-count",
+                "1",
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--use-embedded-entries",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    prepared = _read_json(
+        tmp_path / "prepared" / "target-cohort-preparation-summary.json"
+    )
+    assert prepared["selected_case_count"] == 1
+
+
+def test_old_and_direct_snapshots_union_provider_free_then_prepare(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discovery_root, cycle_store = _run_saturated_discovery(tmp_path)
+    direct_snapshot = _materialize_discovery(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+        snapshot_id="fresh-direct",
+    )
+    old_snapshot = _create_old_replay_snapshot(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    with CycleAcquisitionStore(cycle_store) as store:
+        cycle_hash = store.cycle_hash
+
+    def unexpected_provider(*args: object, **kwargs: object) -> object:
+        raise AssertionError("snapshot union must not construct a provider client")
+
+    monkeypatch.setattr(cli, "CourtListenerClient", unexpected_provider)
+    union_root = tmp_path / "union-snapshots"
+    union_command = [
+        "acquisition",
+        "union-screening-snapshots",
+        "--cycle-store",
+        str(cycle_store),
+        "--batch-id",
+        "old-plus-direct",
+        "--expected-cycle-hash",
+        cycle_hash,
+        "--source-snapshot",
+        str(old_snapshot),
+        "--source-snapshot",
+        str(direct_snapshot),
+        "--expected-source-snapshot-manifest-sha256",
+        _manifest_sha256(old_snapshot),
+        "--expected-source-snapshot-manifest-sha256",
+        _manifest_sha256(direct_snapshot),
+        "--snapshot-root",
+        str(union_root),
+        "--snapshot-id",
+        "complete-union",
+        "--output-root",
+        str(tmp_path / "union-output"),
+        "--execute",
+    ]
+    assert main(union_command) == 0
+    union_snapshot = union_root / "complete-union"
+    manifest = verify_snapshot(
+        union_snapshot,
+        expected_cycle_hash=cycle_hash,
+        require_complete=True,
+        require_saturated=True,
+    )
+    sources = manifest["stage_commitments"]["screening_snapshot_union_inputs"][
+        "sources"
+    ]
+    assert [source["manifest_path"] for source in sources] == [
+        str(old_snapshot / "manifest.json"),
+        str(direct_snapshot / "manifest.json"),
+    ]
+    assert len(_read_jsonl(union_snapshot / "screened-cases.jsonl")) == 2
+    first_manifest = (union_snapshot / "manifest.json").read_bytes()
+    assert main(union_command) == 0
+    assert (union_snapshot / "manifest.json").read_bytes() == first_manifest
+    monkeypatch.undo()
+    shutil.rmtree(old_snapshot)
+    shutil.rmtree(direct_snapshot)
+    shutil.rmtree(discovery_root / "raw-courtlistener-html")
+    shutil.rmtree(tmp_path / "old-raw")
+    verify_snapshot(
+        union_snapshot,
+        expected_cycle_hash=cycle_hash,
+        require_complete=True,
+        require_saturated=True,
+    )
+
+    fixture_documents = tmp_path / "union-free-documents.json"
+    fixture_documents.write_text(
+        json.dumps(
+            {
+                f"https://storage.courtlistener.com/{name}": _fixture_pdf_text(
+                    "Benign public court filing"
+                )
+                for name in ("1.pdf", "5.pdf", "5-memo.pdf", "16.pdf")
+            }
+        ),
+        encoding="utf-8",
+    )
+    empty_courtlistener = tmp_path / "union-courtlistener.jsonl"
+    empty_courtlistener.write_text("", encoding="utf-8")
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-cohort",
+                "--output-root",
+                str(tmp_path / "union-prepared"),
+                "--snapshot",
+                str(union_snapshot),
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--target-case-count",
+                "2",
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(empty_courtlistener),
+                "--use-embedded-entries",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    prepared = _read_json(
+        tmp_path / "union-prepared" / "target-cohort-preparation-summary.json"
+    )
+    assert prepared["selected_case_count"] == 2
+
+
+def test_snapshot_union_rejects_copied_identical_source(tmp_path: Path) -> None:
+    discovery_root, cycle_store = _run_saturated_discovery(tmp_path)
+    direct_snapshot = _materialize_discovery(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    copied_snapshot = tmp_path / "copied-snapshot"
+    shutil.copytree(direct_snapshot, copied_snapshot)
+    with CycleAcquisitionStore(cycle_store) as store:
+        cycle_hash = store.cycle_hash
+
+    with pytest.raises(ScreeningSnapshotUnionError, match="duplicate source manifest"):
+        load_screening_snapshot_union(
+            (direct_snapshot, copied_snapshot),
+            expected_manifest_sha256=(
+                _manifest_sha256(direct_snapshot),
+                _manifest_sha256(copied_snapshot),
+            ),
+            expected_cycle_hash=cycle_hash,
+        )
+
+
+def test_snapshot_union_rejects_symlinked_source_metadata(tmp_path: Path) -> None:
+    discovery_root, cycle_store = _run_saturated_discovery(tmp_path)
+    direct_snapshot = _materialize_discovery(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    old_snapshot = _create_old_replay_snapshot(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    candidates = old_snapshot / "candidates.jsonl"
+    real_candidates = tmp_path / "old-candidates.jsonl"
+    candidates.rename(real_candidates)
+    candidates.symlink_to(real_candidates)
+    with CycleAcquisitionStore(cycle_store) as store:
+        cycle_hash = store.cycle_hash
+
+    with pytest.raises(ScreeningSnapshotUnionError, match="not a regular file"):
+        load_screening_snapshot_union(
+            (old_snapshot, direct_snapshot),
+            expected_manifest_sha256=(
+                _manifest_sha256(old_snapshot),
+                _manifest_sha256(direct_snapshot),
+            ),
+            expected_cycle_hash=cycle_hash,
+        )
+
+
+def test_snapshot_union_rejects_unpinned_manifest_substitution(tmp_path: Path) -> None:
+    discovery_root, cycle_store = _run_saturated_discovery(tmp_path)
+    direct_snapshot = _materialize_discovery(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    old_snapshot = _create_old_replay_snapshot(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    with CycleAcquisitionStore(cycle_store) as store:
+        cycle_hash = store.cycle_hash
+
+    with pytest.raises(ScreeningSnapshotUnionError, match="SHA-256 mismatch"):
+        load_screening_snapshot_union(
+            (old_snapshot, direct_snapshot),
+            expected_manifest_sha256=("0" * 64, _manifest_sha256(direct_snapshot)),
+            expected_cycle_hash=cycle_hash,
+        )
+
+
+def test_materialize_courtlistener_snapshot_rejects_limit_bound_discovery(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    discovery_root, cycle_store = _run_saturated_discovery(
+        tmp_path,
+        target_clean_cases=1,
+    )
+    run_card = discovery_root / "run-cards" / "discover-courtlistener.json"
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "materialize-courtlistener-snapshot",
+                "--cycle-store",
+                str(cycle_store),
+                "--batch-id",
+                "batch-001",
+                "--discovery-run-card",
+                str(run_card),
+                "--expected-discovery-run-card-sha256",
+                hashlib.sha256(run_card.read_bytes()).hexdigest(),
+                "--snapshot-root",
+                str(tmp_path / "snapshots"),
+                "--snapshot-id",
+                "must-not-publish",
+                "--output-root",
+                str(tmp_path / "materialization"),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert "not saturated" in capsys.readouterr().err
+    assert not (tmp_path / "snapshots" / "must-not-publish").exists()
+
+
+def test_limit_bound_transcript_preserves_provider_next_cursor(tmp_path: Path) -> None:
+    discovery_root, _cycle_store = _run_saturated_discovery(
+        tmp_path,
+        target_clean_cases=1,
+        next_cursor="provider-cursor-2",
+    )
+
+    [page] = _read_jsonl(discovery_root / "courtlistener-search-pages.jsonl")
+    assert page["terminal_status"] == "limit_bound:target_clean_cases"
+    assert page["next_cursor"] == "provider-cursor-2"
+
+
+def test_discovery_raw_manifest_is_stable_across_resume(tmp_path: Path) -> None:
+    discovery_root, _cycle_store = _run_saturated_discovery(tmp_path)
+    manifest = discovery_root / "courtlistener-raw-artifacts.jsonl"
+    first_bytes = manifest.read_bytes()
+
+    _run_saturated_discovery(tmp_path, reuse_fixtures=True)
+
+    assert manifest.read_bytes() == first_bytes
+    [record] = _read_jsonl(manifest)
+    assert "retrieved_at" not in record
+
+
+def test_fallback_search_hit_identity_includes_page_context() -> None:
+    record = {"docket_id": 123, "description": "Order"}
+
+    first = courtlistener_search_hit_id(
+        record, term="order", request_cursor=None, index=0
+    )
+    second = courtlistener_search_hit_id(
+        record,
+        term="order",
+        request_cursor="provider-cursor-2",
+        index=0,
+    )
+
+    assert first != second
+
+
+def test_materializer_rejects_missing_raw_html(tmp_path: Path, capsys: Any) -> None:
+    discovery_root, cycle_store = _run_saturated_discovery(tmp_path)
+    (discovery_root / "raw-courtlistener-html" / "123.html").unlink()
+
+    assert (
+        main(
+            _materialize_command(
+                tmp_path=tmp_path,
+                discovery_root=discovery_root,
+                cycle_store=cycle_store,
+            )
+        )
+        == 2
+    )
+    assert "not a regular file" in capsys.readouterr().err
+
+
+def test_materializer_rejects_changed_committed_output(
+    tmp_path: Path, capsys: Any
+) -> None:
+    discovery_root, cycle_store = _run_saturated_discovery(tmp_path)
+    screened = discovery_root / "courtlistener-screened-cases.jsonl"
+    screened.write_bytes(screened.read_bytes() + b"\n")
+
+    assert (
+        main(
+            _materialize_command(
+                tmp_path=tmp_path,
+                discovery_root=discovery_root,
+                cycle_store=cycle_store,
+            )
+        )
+        == 2
+    )
+    assert "output commitment mismatch" in capsys.readouterr().err
 
 
 def test_discover_courtlistener_produces_plan_public_downloads_input(
@@ -750,6 +1208,226 @@ def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
         "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),
         encoding="utf-8",
     )
+
+
+def _run_saturated_discovery(
+    tmp_path: Path,
+    *,
+    target_clean_cases: int = 2,
+    next_cursor: str | None = None,
+    reuse_fixtures: bool = False,
+) -> tuple[Path, Path]:
+    output_root = tmp_path / "discovery"
+    cycle_store = tmp_path / "cycle.sqlite3"
+    fixture_path = tmp_path / "courtlistener.jsonl"
+    html_fixture_dir = tmp_path / "html-fixtures"
+    html_fixture_dir.mkdir(exist_ok=reuse_fixtures)
+    (html_fixture_dir / "123.html").write_text(
+        _docket_html(decision_dates=("June 30, 2026",)),
+        encoding="utf-8",
+    )
+    _write_jsonl(
+        fixture_path,
+        [
+            _response(
+                path="/search/",
+                params={
+                    "q": (
+                        '"order on motion to dismiss" AND '
+                        "entry_date_filed:[2026-06-30 TO 2026-07-12]"
+                    ),
+                    "type": "r",
+                    "order_by": "score desc",
+                    "available_only": "on",
+                    "page_size": 50,
+                },
+                payload={
+                    "results": [
+                        {
+                            "docket_id": 123,
+                            "docket_entry_id": 16,
+                            "description": "Order on motion to dismiss",
+                            "entry_date_filed": "2026-06-30",
+                        }
+                    ],
+                    "next": next_cursor,
+                },
+            ),
+            _response(
+                path="/dockets/123/",
+                payload={
+                    "id": 123,
+                    "court": "nysd",
+                    "docket_number": "1:26-cv-00001",
+                    "case_name": "Fixture v. Example",
+                    "absolute_url": (
+                        "https://www.courtlistener.com/docket/123/fixture-v-example/"
+                    ),
+                },
+            ),
+        ],
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "discover-courtlistener",
+                "--eligibility-anchor",
+                "2026-06-30",
+                "--search-window-start",
+                "2026-06-30",
+                "--search-window-end",
+                "2026-07-12",
+                "--cycle-store",
+                str(cycle_store),
+                "--batch-id",
+                "batch-001",
+                "--query-term",
+                "order on motion to dismiss",
+                "--target-clean-cases",
+                str(target_clean_cases),
+                "--max-candidates",
+                "5",
+                "--courtlistener-fixture",
+                str(fixture_path),
+                "--docket-html-fixture-dir",
+                str(html_fixture_dir),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    return output_root, cycle_store
+
+
+def _materialize_discovery(
+    *,
+    tmp_path: Path,
+    discovery_root: Path,
+    cycle_store: Path,
+    snapshot_id: str = "courtlistener-complete",
+) -> Path:
+    snapshot_root = tmp_path / "snapshots"
+    assert (
+        main(
+            _materialize_command(
+                tmp_path=tmp_path,
+                discovery_root=discovery_root,
+                cycle_store=cycle_store,
+                snapshot_id=snapshot_id,
+            )
+        )
+        == 0
+    )
+    return snapshot_root / snapshot_id
+
+
+def _materialize_command(
+    *,
+    tmp_path: Path,
+    discovery_root: Path,
+    cycle_store: Path,
+    snapshot_id: str = "courtlistener-complete",
+) -> list[str]:
+    run_card = discovery_root / "run-cards" / "discover-courtlistener.json"
+    return [
+        "acquisition",
+        "materialize-courtlistener-snapshot",
+        "--cycle-store",
+        str(cycle_store),
+        "--batch-id",
+        "batch-001",
+        "--discovery-run-card",
+        str(run_card),
+        "--expected-discovery-run-card-sha256",
+        hashlib.sha256(run_card.read_bytes()).hexdigest(),
+        "--snapshot-root",
+        str(tmp_path / "snapshots"),
+        "--snapshot-id",
+        snapshot_id,
+        "--output-root",
+        str(tmp_path / "materialization"),
+        "--execute",
+    ]
+
+
+def _create_old_replay_snapshot(
+    *,
+    tmp_path: Path,
+    discovery_root: Path,
+    cycle_store: Path,
+) -> Path:
+    [source_record] = _read_jsonl(discovery_root / "courtlistener-screened-cases.jsonl")
+    record = json.loads(json.dumps(source_record))
+    record["candidate"]["docket_id"] = "124"
+    record["candidate"]["candidate_key"] = "124"
+    record["candidate"]["metadata"]["case_id"] = "124"
+    record["candidate"]["metadata"]["docket_number"] = "1:26-cv-00002"
+    record["candidate"]["url"] = (
+        "https://www.courtlistener.com/docket/124/old-v-example/"
+    )
+    record["candidate_id"] = "124"
+    raw_path = tmp_path / "old-raw" / "124.html"
+    raw_path.parent.mkdir()
+    raw_path.write_bytes(
+        (discovery_root / "raw-courtlistener-html" / "123.html").read_bytes()
+    )
+    snapshot_root = tmp_path / "old-snapshots"
+    with CycleAcquisitionStore(cycle_store) as store:
+        store.ensure_batch("old-replay", {"provider": "provider-free-old-replay"})
+        store.ensure_terms("old-replay", ("old-replay",))
+        store.commit_search_page(
+            "old-replay",
+            "old-replay",
+            None,
+            [
+                DiscoveryHit(
+                    provider_hit_id="old:124",
+                    candidate_id="124",
+                    payload={"source": "old-replay"},
+                )
+            ],
+            next_cursor=None,
+            terminal_status=TermTerminalStatus.EXHAUSTED,
+        )
+        store.write_raw_artifact(
+            "124",
+            raw_path,
+            raw_path.read_bytes(),
+            retrieved_at="2026-07-14T00:00:00Z",
+        )
+        store.record_observation(
+            "124",
+            batch_id="old-replay",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence=record,
+            observed_at="2026-06-30T00:00:00Z",
+        )
+        return store.export_snapshot(
+            snapshot_root,
+            snapshot_id="old-replay",
+            batch_id="old-replay",
+            complete=True,
+        )
+
+
+def _fixture_pdf_text(text: str) -> str:
+    stream = f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET"
+    body = stream.encode("utf-8")
+    objects = [
+        "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
+        "2 0 obj << /Type /Pages /Count 1 /Kids [] >> endobj",
+        "3 0 obj << /Type /Page /Contents 23 0 R >> endobj",
+        f"23 0 obj << /Length {len(body)} >> stream\n{stream}\nendstream endobj",
+    ]
+    return "%PDF-1.4\n" + "\n".join(objects) + "\n%%EOF"
+
+
+def _manifest_sha256(snapshot: Path) -> str:
+    return hashlib.sha256((snapshot / "manifest.json").read_bytes()).hexdigest()
 
 
 def _complete_snapshot(
