@@ -163,13 +163,7 @@ class CourtListenerDocketEntry:
                 "entryNumber",
                 "recap_sequence_number",
             ),
-            entry_text=_required_string(
-                record,
-                "description",
-                "entry_text",
-                "docket_text",
-                "text",
-            ),
+            entry_text=_docket_entry_text(record),
             filed_at=_optional_string(
                 record, "date_filed", "dateFiled", "date_entered"
             ),
@@ -637,6 +631,35 @@ def _optional_string(record: Mapping[str, Any], *field_names: str) -> str | None
         if isinstance(value, int) and not isinstance(value, bool):
             return str(value)
     return None
+
+
+_DOCKET_ENTRY_TEXT_FIELDS = (
+    "description",
+    "entry_text",
+    "docket_text",
+    "text",
+)
+
+
+def _docket_entry_text(record: Mapping[str, Any]) -> str:
+    """Normalize absent or blank docket text without coercing bad shapes.
+
+    CourtListener v4 may emit a legitimate docket row with an empty description.
+    An omitted description is semantically equivalent because entry identity,
+    chronology, and attached-document identity remain independently required.
+    """
+    first_nonblank: str | None = None
+    for field_name in _DOCKET_ENTRY_TEXT_FIELDS:
+        if field_name not in record:
+            continue
+        value = record[field_name]
+        if value is None:
+            continue
+        if not isinstance(value, str):
+            raise CourtListenerResponseError(f"{field_name} must be a string or null")
+        if first_nonblank is None and value.strip():
+            first_nonblank = value
+    return first_nonblank or ""
 
 
 # CourtListener v4 renders relational foreign keys either as a bare integer id

@@ -1,0 +1,22 @@
+{
+  "id": 469359369,
+  "docket": "https://www.courtlistener.com/api/rest/v4/dockets/70649963/",
+  "entry_number": 86,
+  "date_filed": "2026-06-30",
+  "description": "",
+  "absolute_url": null,
+  "recap_documents": [
+    {
+      "id": 484692641,
+      "description": "Amend",
+      "document_number": "86",
+      "attachment_number": null,
+      "document_type": 1,
+      "is_available": false,
+      "is_sealed": null,
+      "pacer_doc_id": "179050666215",
+      "filepath_local": null,
+      "resource_uri": "https://www.courtlistener.com/api/rest/v4/recap-documents/484692641/"
+    }
+  ]
+}
