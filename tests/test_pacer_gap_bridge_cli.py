@@ -1077,6 +1077,24 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
         main(
             [
                 "acquisition",
+                "init-purchase-ledger",
+                "--purchase-policy",
+                str(purchase_policy),
+                "--cohort-policy",
+                str(cohort_policy),
+                "--purchase-ledger",
+                str(purchase_ledger),
+                "--output-root",
+                str(tmp_path / "purchase-ledger-initialization"),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "acquisition",
                 "purchase-missing",
                 "--budget-plan",
                 str(output_root / "missing-core-budget-plan.json"),

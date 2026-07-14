@@ -1193,6 +1193,24 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
         main(
             [
                 "acquisition",
+                "init-purchase-ledger",
+                "--purchase-policy",
+                str(purchase_policy),
+                "--cohort-policy",
+                str(cohort_policy),
+                "--purchase-ledger",
+                str(purchase_ledger),
+                "--output-root",
+                str(tmp_path / "purchase-ledger-initialization"),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "acquisition",
                 "purchase-missing-recap-fetch",
                 "--output-root",
                 str(purchase_output),

@@ -117,6 +117,8 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
     generate_case_dev_purchase_policy,
+    initialize_case_dev_purchase_journal,
+    verify_case_dev_purchase_journal_initialization,
     verify_case_dev_purchase_policy,
     verify_case_dev_purchase_policy_cohort_binding,
     write_case_dev_purchase_policy,
@@ -950,6 +952,20 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_generate_purchase_policy_arguments(acquisition_generate_purchase_policy)
+    acquisition_init_purchase_ledger = acquisition_subparsers.add_parser(
+        "init-purchase-ledger",
+        help=(
+            "Exclusively initialize the policy-bound purchase ledger without "
+            "contacting any provider or acknowledging fees."
+        ),
+        description=(
+            "Create exactly one new canonical purchase ledger under its lock, "
+            "bind it to the verified purchase and cohort policies, and emit an "
+            "authenticated initialization receipt. This command performs no "
+            "provider request, fee acknowledgment, or purchase."
+        ),
+    )
+    _add_init_purchase_ledger_arguments(acquisition_init_purchase_ledger)
     acquisition_build_clearance_replacement_frontier = (
         acquisition_subparsers.add_parser(
             "build-clearance-replacement-frontier",
@@ -2476,6 +2492,40 @@ def _add_generate_purchase_policy_arguments(parser: argparse.ArgumentParser) -> 
         help="Frozen cohort policy whose purchase caps this artifact must consume.",
     )
     parser.set_defaults(handler=_cmd_generate_purchase_policy)
+
+
+def _add_init_purchase_ledger_arguments(parser: argparse.ArgumentParser) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--purchase-policy",
+        type=Path,
+        required=True,
+        help="Frozen purchase policy containing the canonical ledger locator.",
+    )
+    parser.add_argument(
+        "--cohort-policy",
+        type=Path,
+        required=True,
+        help="Frozen cohort policy whose purchase caps must match exactly.",
+    )
+    parser.add_argument(
+        "--purchase-ledger",
+        type=Path,
+        required=True,
+        help=(
+            "Exact absolute canonical ledger path from the purchase policy. "
+            "An unreceipted existing path is never initialized or repaired."
+        ),
+    )
+    parser.add_argument(
+        "--initialization-receipt-output",
+        type=Path,
+        help=(
+            "Immutable hash-bound initialization receipt. Defaults to "
+            "<output-root>/purchase-ledger-initialization.json."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_init_purchase_ledger)
 
 
 def _add_build_clearance_replacement_frontier_arguments(
@@ -11177,6 +11227,300 @@ def _cmd_generate_purchase_policy(args: argparse.Namespace) -> int:
     except (CaseDevPurchasePolicyError, OSError, UnicodeError, ValueError) as exc:
         raise CommandError(str(exc)) from exc
     return 0
+
+
+def _cmd_init_purchase_ledger(args: argparse.Namespace) -> int:
+    """Exclusively initialize or authenticate one pristine purchase ledger."""
+
+    output_root = cast(Path, args.output_root)
+    purchase_policy_path = cast(Path, args.purchase_policy)
+    cohort_policy_path = cast(Path, args.cohort_policy)
+    ledger_path = cast(Path, args.purchase_ledger)
+    receipt_path = _acquisition_path(
+        args,
+        "initialization_receipt_output",
+        output_root / "purchase-ledger-initialization.json",
+    )
+    run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards/init-purchase-ledger.json",
+    )
+    log_path = _acquisition_path(
+        args,
+        "log_output",
+        output_root / "logs/init-purchase-ledger.jsonl",
+    )
+    input_paths = (purchase_policy_path, cohort_policy_path)
+    output_paths = (ledger_path, receipt_path)
+    zero_activity: JsonRecord = {
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "pacer_paid_activity_requested": False,
+        "pacer_paid_activity_executed": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+    }
+    try:
+        _validate_init_purchase_ledger_no_mutation_paths(
+            output_root=output_root,
+            ledger_path=ledger_path,
+            purchase_policy_path=purchase_policy_path,
+            cohort_policy_path=cohort_policy_path,
+            receipt_path=receipt_path,
+            run_card_path=run_card_path,
+            log_path=log_path,
+        )
+    except (OSError, ValueError) as exc:
+        # These paths carry the failure record itself. If they are unsafe, do
+        # not touch them in an attempt to report that they are unsafe.
+        raise CommandError(str(exc)) from exc
+    try:
+        purchase_policy = verify_case_dev_purchase_policy(
+            _read_json_object(purchase_policy_path)
+        )
+        verify_case_dev_purchase_policy_cohort_binding(
+            purchase_policy,
+            _read_json_object(cohort_policy_path),
+        )
+        _validate_init_purchase_ledger_paths(
+            ledger_path=ledger_path,
+            canonical_ledger_path=purchase_policy.canonical_ledger_path,
+            purchase_policy_path=purchase_policy_path,
+            cohort_policy_path=cohort_policy_path,
+            receipt_path=receipt_path,
+            run_card_path=run_card_path,
+            log_path=log_path,
+        )
+    except (
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="init-purchase-ledger",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=zero_activity,
+        )
+        raise CommandError(str(exc)) from exc
+
+    if _acquisition_dry_run(args):
+        _write_acquisition_completion(
+            args,
+            stage="init-purchase-ledger",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=0,
+            dry_run=True,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra={
+                **zero_activity,
+                "canonical_ledger_path": str(ledger_path),
+                "purchase_policy_sha256": purchase_policy.policy_sha256,
+                "cohort_policy_sha256": purchase_policy.cohort_policy_sha256,
+                "initialized_or_verified": False,
+            },
+        )
+        return 0
+
+    try:
+        if receipt_path.exists() or receipt_path.is_symlink():
+            if not cast(bool, args.resume):
+                raise CaseDevPurchaseLedgerError(
+                    "initialization receipt already exists and --no-resume "
+                    "forbids verification"
+                )
+            receipt = verify_case_dev_purchase_journal_initialization(
+                ledger_path,
+                policy=purchase_policy,
+                receipt_path=receipt_path,
+                purchase_policy_file_sha256=_path_sha256(purchase_policy_path),
+                cohort_policy_file_sha256=_path_sha256(cohort_policy_path),
+            )
+        else:
+            receipt = initialize_case_dev_purchase_journal(
+                ledger_path,
+                policy=purchase_policy,
+                receipt_path=receipt_path,
+                purchase_policy_file_sha256=_path_sha256(purchase_policy_path),
+                cohort_policy_file_sha256=_path_sha256(cohort_policy_path),
+                initialized_at=_iso_datetime(datetime.now(UTC)),
+            )
+    except (
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
+        OSError,
+        sqlite3.Error,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="init-purchase-ledger",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=zero_activity,
+        )
+        raise CommandError(str(exc)) from exc
+
+    try:
+        _write_acquisition_completion(
+            args,
+            stage="init-purchase-ledger",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=1,
+            dry_run=False,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra={**receipt, **zero_activity},
+        )
+    except (OSError, ValueError) as exc:
+        raise CommandError(
+            "purchase ledger initialization is durable, but completion "
+            f"artifact publication failed: {exc}"
+        ) from exc
+    return 0
+
+
+def _validate_init_purchase_ledger_no_mutation_paths(
+    *,
+    output_root: Path,
+    ledger_path: Path,
+    purchase_policy_path: Path,
+    cohort_policy_path: Path,
+    receipt_path: Path,
+    run_card_path: Path,
+    log_path: Path,
+) -> None:
+    named = {
+        "purchase policy": purchase_policy_path,
+        "cohort policy": cohort_policy_path,
+        "initialization receipt": receipt_path,
+        "run card": run_card_path,
+        "stage log": log_path,
+    }
+    ledger = ledger_path.resolve(strict=False)
+    output = output_root.resolve(strict=False)
+    if output == ledger or ledger in output.parents:
+        raise ValueError(
+            "--output-root must not equal or descend from --purchase-ledger"
+        )
+    reserved = tuple(
+        path.resolve(strict=False)
+        for path in (
+            ledger_path,
+            Path(f"{ledger_path}.lock"),
+            Path(f"{ledger_path}-wal"),
+            Path(f"{ledger_path}-shm"),
+            Path(f"{ledger_path}-journal"),
+        )
+    )
+    resolved: dict[Path, str] = {}
+    existing: list[tuple[str, Path]] = []
+    for label, path in named.items():
+        identity = path.resolve(strict=False)
+        for reserved_path in reserved:
+            if (
+                identity == reserved_path
+                or identity in reserved_path.parents
+                or reserved_path in identity.parents
+            ):
+                raise ValueError(
+                    "init-purchase-ledger path conflicts with reserved ledger "
+                    f"namespace: {label}: {path}"
+                )
+        previous = resolved.get(identity)
+        if previous is not None:
+            raise ValueError(
+                f"init-purchase-ledger writable paths alias: {previous} and {label}"
+            )
+        resolved[identity] = label
+        if path.is_symlink():
+            raise ValueError(
+                f"init-purchase-ledger writable path must not be a symlink: "
+                f"{label}: {path}"
+            )
+        if path.exists():
+            metadata = path.stat()
+            if not path.is_file() or metadata.st_nlink != 1:
+                raise ValueError(
+                    "init-purchase-ledger writable path must be a singly linked "
+                    f"regular file: {label}: {path}"
+                )
+            existing.append((label, path))
+    for index, (left_label, left_path) in enumerate(existing):
+        for right_label, right_path in existing[index + 1 :]:
+            if left_path.samefile(right_path):
+                raise ValueError(
+                    f"init-purchase-ledger writable paths alias: {left_label} and "
+                    f"{right_label}"
+                )
+
+
+def _validate_init_purchase_ledger_paths(
+    *,
+    ledger_path: Path,
+    canonical_ledger_path: Path,
+    purchase_policy_path: Path,
+    cohort_policy_path: Path,
+    receipt_path: Path,
+    run_card_path: Path,
+    log_path: Path,
+) -> None:
+    if not ledger_path.is_absolute() or ledger_path != canonical_ledger_path:
+        raise CaseDevPurchasePolicyError(
+            "purchase ledger path conflicts with canonical policy locator"
+        )
+    named_paths = {
+        "purchase ledger": ledger_path,
+        "purchase policy": purchase_policy_path,
+        "cohort policy": cohort_policy_path,
+        "initialization receipt": receipt_path,
+        "run card": run_card_path,
+        "stage log": log_path,
+    }
+    resolved: dict[Path, str] = {}
+    for label, path in named_paths.items():
+        identity = path.resolve()
+        previous = resolved.get(identity)
+        if previous is not None:
+            raise CaseDevPurchaseLedgerError(
+                f"init-purchase-ledger paths alias: {previous} and {label}"
+            )
+        resolved[identity] = label
+    existing = [(label, path) for label, path in named_paths.items() if path.exists()]
+    for index, (left_label, left_path) in enumerate(existing):
+        left_stat = left_path.stat()
+        if (
+            left_label
+            in {
+                "purchase ledger",
+                "initialization receipt",
+                "run card",
+                "stage log",
+            }
+            and left_stat.st_nlink > 1
+        ):
+            raise CaseDevPurchaseLedgerError(
+                f"{left_label} must not be hard-linked: {left_path}"
+            )
+        for right_label, right_path in existing[index + 1 :]:
+            if left_path.samefile(right_path):
+                raise CaseDevPurchaseLedgerError(
+                    f"init-purchase-ledger paths alias: {left_label} and {right_label}"
+                )
 
 
 def _cmd_build_clearance_replacement_frontier(args: argparse.Namespace) -> int:

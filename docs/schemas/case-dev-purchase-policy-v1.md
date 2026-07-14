@@ -19,6 +19,23 @@ The decisions object contains:
 
 The generated artifact adds `schema_version` and `policy_sha256`.
 
+Initialize the canonical journal explicitly after both policies are frozen and before any projection, replacement, or purchase command that consumes journal state:
+
+```console
+uv run legalforecast acquisition init-purchase-ledger \
+  --output-root PURCHASE_LEDGER_INIT_ROOT \
+  --purchase-policy PURCHASE_POLICY.json \
+  --cohort-policy COHORT_POLICY.json \
+  --purchase-ledger /absolute/canonical/cycle-purchases.sqlite3 \
+  --execute
+```
+
+`init-purchase-ledger` contacts no provider, acknowledges no fees, and performs no purchase.
+It acquires the canonical journal lock, creates the ledger with exclusive-create semantics, binds the exact purchase-policy identity, verifies the pristine SQLite state, and publishes an immutable `legalforecast.purchase_ledger_initialization.v1` receipt containing the policy hashes, canonical path, ledger-byte hash, semantic purchase-state hash, and byte count.
+An existing ledger without that exact receipt is never initialized or repaired; empty, truncated, symlinked, hard-linked, noncanonical, policy-mismatched, or changed-state paths fail closed.
+With `--resume`, an exact completed receipt and still-pristine ledger are verified read-only; `--no-resume` refuses any completed initialization.
+Run the command only once before operational journal use, because a later purchase or replacement event correctly changes the authenticated state.
+
 `purchase-missing` requires `--cohort-policy`, `--purchase-policy`, and `--purchase-ledger` even in dry-run mode; it re-verifies the hash and caps at execution time.
 For an executing run, the ledger path must exactly match the canonical path frozen in the policy.
 The command persists every intended document as `planned`, commits `submitted` with a unique operation key immediately before one zero-retry POST, and then transitions to `confirmed`, `failed`, or `unknown`.

@@ -35,7 +35,9 @@ def test_quarantined_purchase_is_replaced_once_and_writeoff_stays_committed(
     policy = verify_case_dev_purchase_policy(policy_artifact)
     frontier = _frontier(cohort, policy_artifact)
 
-    with CaseDevPurchaseJournal(policy.canonical_ledger_path, policy=policy) as journal:
+    with CaseDevPurchaseJournal(
+        policy.canonical_ledger_path, policy=policy, allow_create=True
+    ) as journal:
         _confirm_candidate(journal, "200", "202", actual="3.05")
         first = plan_clearance_replacements(
             cohort_policy_artifact=cohort,
@@ -117,7 +119,9 @@ def test_case_mix_recomputed_from_retained_cases_and_uncapped_is_explicit(
         source_commitments={"pool": "sha256:" + "b" * 64},
     )
 
-    with CaseDevPurchaseJournal(policy.canonical_ledger_path, policy=policy) as journal:
+    with CaseDevPurchaseJournal(
+        policy.canonical_ledger_path, policy=policy, allow_create=True
+    ) as journal:
         _confirm_candidate(journal, "200", "202", actual="3.05")
         result = plan_clearance_replacements(
             cohort_policy_artifact=cohort,
@@ -146,7 +150,9 @@ def test_exact_headroom_boundary_and_one_cent_over(
     policy_artifact = _purchase_policy(tmp_path, cohort, hard_cap=hard_cap)
     policy = verify_case_dev_purchase_policy(policy_artifact)
     frontier = _frontier(cohort, policy_artifact)
-    with CaseDevPurchaseJournal(policy.canonical_ledger_path, policy=policy) as journal:
+    with CaseDevPurchaseJournal(
+        policy.canonical_ledger_path, policy=policy, allow_create=True
+    ) as journal:
         _confirm_candidate(journal, "200", "202", actual="3.05")
         result = plan_clearance_replacements(
             cohort_policy_artifact=cohort,
@@ -184,7 +190,9 @@ def test_frontier_and_unresolved_purchase_fail_closed(tmp_path: Path) -> None:
     with pytest.raises(ClearanceReplacementError, match="initial selected"):
         verify_replacement_frontier(missing_b)
 
-    with CaseDevPurchaseJournal(policy.canonical_ledger_path, policy=policy) as journal:
+    with CaseDevPurchaseJournal(
+        policy.canonical_ledger_path, policy=policy, allow_create=True
+    ) as journal:
         journal.plan(_single_case_plan("200", "202"))
         assert journal.submit("202") is True
         with pytest.raises(ClearanceReplacementError, match="unresolved"):
@@ -249,7 +257,9 @@ def test_unrelated_counted_writeoff_reduces_replacement_headroom(
     policy_artifact = _purchase_policy(tmp_path, cohort)
     policy = verify_case_dev_purchase_policy(policy_artifact)
     frontier = _frontier(cohort, policy_artifact)
-    with CaseDevPurchaseJournal(policy.canonical_ledger_path, policy=policy) as journal:
+    with CaseDevPurchaseJournal(
+        policy.canonical_ledger_path, policy=policy, allow_create=True
+    ) as journal:
         _confirm_candidate(journal, "200", "202", actual="3.05")
         journal.plan(_single_case_plan("historical", "909"))
         assert journal.submit("909") is True
@@ -283,7 +293,9 @@ def test_replacement_event_hash_chain_detects_storage_tampering(tmp_path: Path) 
     policy_artifact = _purchase_policy(tmp_path, cohort)
     policy = verify_case_dev_purchase_policy(policy_artifact)
     frontier = _frontier(cohort, policy_artifact)
-    with CaseDevPurchaseJournal(policy.canonical_ledger_path, policy=policy) as journal:
+    with CaseDevPurchaseJournal(
+        policy.canonical_ledger_path, policy=policy, allow_create=True
+    ) as journal:
         _confirm_candidate(journal, "200", "202", actual="3.05")
         plan_clearance_replacements(
             cohort_policy_artifact=cohort,
@@ -309,7 +321,9 @@ def test_replacement_event_hash_chain_detects_stored_hash_column_tampering(
     policy_artifact = _purchase_policy(tmp_path, cohort)
     policy = verify_case_dev_purchase_policy(policy_artifact)
     frontier = _frontier(cohort, policy_artifact)
-    with CaseDevPurchaseJournal(policy.canonical_ledger_path, policy=policy) as journal:
+    with CaseDevPurchaseJournal(
+        policy.canonical_ledger_path, policy=policy, allow_create=True
+    ) as journal:
         _confirm_candidate(journal, "200", "202", actual="3.05")
         plan_clearance_replacements(
             cohort_policy_artifact=cohort,
@@ -359,7 +373,9 @@ def test_later_clearance_run_card_selects_only_the_next_unbilled_replacement(
         case_mix_max_per_bucket=None,
         source_commitments={"pool": "sha256:" + "b" * 64},
     )
-    with CaseDevPurchaseJournal(policy.canonical_ledger_path, policy=policy) as journal:
+    with CaseDevPurchaseJournal(
+        policy.canonical_ledger_path, policy=policy, allow_create=True
+    ) as journal:
         _confirm_candidate(journal, "200", "202", actual="3.05")
         first = plan_clearance_replacements(
             cohort_policy_artifact=cohort,
@@ -440,7 +456,9 @@ def test_cli_separates_broad_allowlist_from_narrow_iteration(tmp_path: Path) -> 
         == 0
     )
 
-    with CaseDevPurchaseJournal(policy.canonical_ledger_path, policy=policy) as journal:
+    with CaseDevPurchaseJournal(
+        policy.canonical_ledger_path, policy=policy, allow_create=True
+    ) as journal:
         _confirm_candidate(journal, "200", "202", actual="3.05")
     clearance_path = tmp_path / "purchased-clearance.jsonl"
     clearance_path.write_text(

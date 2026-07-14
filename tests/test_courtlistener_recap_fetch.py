@@ -57,7 +57,7 @@ def test_purchase_verifies_id_then_submits_exact_broker_contract_and_recovers(
         [{"id": "77", "reservation_id": "reservation-1"}]
     )
     policy = verify_case_dev_purchase_policy(_policy(ledger))
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         result = CourtListenerRecapFetchClient(
             _config(), journal=journal, transport=transport, purchase_broker=broker
         ).execute_purchase_plan(
@@ -129,7 +129,7 @@ def test_purchase_accepts_exact_courtlistener_rest_nonsealed_evidence(
     }
     policy = verify_case_dev_purchase_policy(_policy(ledger))
 
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         result = CourtListenerRecapFetchClient(
             _config(), journal=journal, transport=transport, purchase_broker=broker
         ).execute_purchase_plan(
@@ -150,7 +150,7 @@ def test_live_fails_closed_without_budget_broker_before_paid_submission(
     transport = FixtureRecapFetchTransport(
         [_response("GET", "/recap-documents/123/", {"id": 123})]
     )
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         with pytest.raises(CourtListenerRecapFetchError, match="budget-enforcing"):
             CourtListenerRecapFetchClient(
                 _config(), journal=journal, transport=transport
@@ -167,7 +167,7 @@ def test_unknown_broker_outcome_is_reserved_and_never_retried(tmp_path: Path) ->
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
     broker = FixtureRecapFetchPurchaseBroker([])
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         result = CourtListenerRecapFetchClient(
             _config(),
             journal=journal,
@@ -202,7 +202,7 @@ def test_unknown_broker_outcome_preserves_all_later_intended_attempts(
         },
     }
     broker = FixtureRecapFetchPurchaseBroker([])
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         result = CourtListenerRecapFetchClient(
             _config(),
             journal=journal,
@@ -231,7 +231,7 @@ def test_confirmed_reservation_can_be_reconciled_to_authoritative_fee(
 ) -> None:
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         CourtListenerRecapFetchClient(
             _config(),
             journal=journal,
@@ -288,7 +288,7 @@ def test_reconciliation_replays_every_preconfirmation_paid_state(
         "source_provider": "courtlistener.recap-fetch+pacer",
         "reservation_usd": "3.05",
     }
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         journal.plan(_plan())
         journal.submit("123", context=context)
         if starting_status in {"queued", "confirmed", "failed"}:
@@ -382,7 +382,7 @@ def test_noncharging_poll_retries_transient_transport_failure(
     policy = verify_case_dev_purchase_policy(_policy(ledger))
     transport = _TransientPollTransport()
     request_budget = CourtListenerRequestBudget(tmp_path / "requests.sqlite3")
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         client = CourtListenerRecapFetchClient(
             _config(),
             journal=journal,
@@ -446,7 +446,7 @@ def test_all_non_success_queue_statuses_are_fail_closed(
             ],
         ]
     )
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         result = CourtListenerRecapFetchClient(
             _config(),
             journal=journal,
@@ -471,7 +471,7 @@ def test_resume_queued_polls_without_duplicate_paid_submission(tmp_path: Path) -
     first_broker = FixtureRecapFetchPurchaseBroker(
         [{"id": "77", "reservation_id": "reservation-1"}]
     )
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         first = CourtListenerRecapFetchClient(
             _config(),
             journal=journal,
@@ -493,7 +493,7 @@ def test_resume_queued_polls_without_duplicate_paid_submission(tmp_path: Path) -
         assert journal.statuses() == {"123": "queued"}
 
     second_broker = FixtureRecapFetchPurchaseBroker([])
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         second = CourtListenerRecapFetchClient(
             _config(),
             journal=journal,
@@ -529,7 +529,7 @@ def test_replayed_terminal_failure_does_not_starve_later_document(
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
     plan = _plan(("123", "124"))
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         journal.plan(plan)
         journal.submit("123")
         journal.queue("123", response={"queue_id": "77"})
@@ -538,7 +538,7 @@ def test_replayed_terminal_failure_does_not_starve_later_document(
     broker = FixtureRecapFetchPurchaseBroker(
         [{"id": "78", "reservation_id": "reservation-2"}]
     )
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         result = CourtListenerRecapFetchClient(
             _config(),
             journal=journal,
@@ -594,7 +594,7 @@ def test_restricted_or_unknown_documents_never_reach_provider(
     policy = verify_case_dev_purchase_policy(_policy(ledger))
     transport = FixtureRecapFetchTransport([])
     broker = FixtureRecapFetchPurchaseBroker([])
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         with pytest.raises(CourtListenerRecapFetchError, match="public"):
             CourtListenerRecapFetchClient(
                 _config(), journal=journal, transport=transport, purchase_broker=broker
@@ -612,7 +612,7 @@ def test_document_identity_mismatch_blocks_paid_submission(tmp_path: Path) -> No
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
     broker = FixtureRecapFetchPurchaseBroker([])
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         with pytest.raises(CourtListenerRecapFetchError, match="identity mismatch"):
             CourtListenerRecapFetchClient(
                 _config(),
@@ -639,7 +639,7 @@ def test_definite_broker_rejection_releases_local_hold(tmp_path: Path) -> None:
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
     broker = RejectingBroker([])
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         result = CourtListenerRecapFetchClient(
             _config(),
             journal=journal,
@@ -663,7 +663,7 @@ def test_authoritative_receipt_is_preserved_then_exactly_reconciled(
 ) -> None:
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         journal.plan(_plan())
         assert journal.submit(
             "123",
@@ -737,7 +737,7 @@ def test_receipt_must_match_durable_local_broker_identities(
 ) -> None:
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         journal.plan(_plan())
         assert journal.submit("123")
         operation = journal.operation_evidence("123")
@@ -772,7 +772,7 @@ def test_authoritative_nocharge_can_settle_local_terminal_nonbilling_state(
 ) -> None:
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         journal.plan(_plan())
         assert journal.submit("123")
         operation = journal.operation_evidence("123")
@@ -820,7 +820,7 @@ def test_nocharge_receipt_preserves_audit_facts_while_releasing_hold(
 ) -> None:
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         journal.plan(_plan())
         assert journal.submit(
             "123", context={"source_provider": "courtlistener.recap-fetch+pacer"}
@@ -866,7 +866,7 @@ def test_receipt_recovery_moves_unknown_operation_to_durable_queue(
 ) -> None:
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         journal.plan(_plan())
         assert journal.submit("123")
         journal.mark_unknown("123", "connection lost after dispatch")
@@ -902,7 +902,7 @@ def test_confirmed_receipt_without_queue_is_stored_without_local_reconciliation(
 ) -> None:
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         journal.plan(_plan())
         assert journal.submit("123")
         operation = journal.operation_evidence("123")
@@ -943,7 +943,7 @@ def test_confirmed_receipt_waits_for_noncharging_queue_delivery_proof(
 ) -> None:
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         journal.plan(_plan())
         assert journal.submit("123")
         operation = journal.operation_evidence("123")
@@ -987,7 +987,7 @@ def test_receipt_recovery_includes_locally_failed_paid_operation(
 
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         journal.plan(_plan())
         assert journal.submit("123")
         operation = journal.operation_evidence("123")

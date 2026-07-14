@@ -328,7 +328,7 @@ def test_purchase_obligations_are_derived_from_every_committed_journal_state(
     ledger = (tmp_path / "purchase.sqlite3").resolve()
     artifact = _purchase_policy_artifact(ledger, cohort, opening="2.00")
     policy = verify_case_dev_purchase_policy(artifact)
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         journal.plan(_journal_plan(("reserved", "unknown", "writeoff", "confirmed")))
         journal.submit("reserved")
         journal.submit("unknown")
@@ -631,6 +631,7 @@ def _cli_fixture(
     with CaseDevPurchaseJournal(
         purchase_ledger,
         policy=verify_case_dev_purchase_policy(purchase_policy_artifact),
+        allow_create=True,
     ):
         pass
     restriction_path = full_root / "06-clearance-inputs/restriction-evidence.jsonl"

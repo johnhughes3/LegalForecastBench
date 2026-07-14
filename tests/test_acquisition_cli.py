@@ -451,6 +451,12 @@ def test_purchase_missing_uses_fixture_only_after_explicit_fee_flags(
     output_root = tmp_path / "acquisition"
     plan_path = _write_execute_budget_plan(tmp_path, output_root)
     policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+    _initialize_purchase_ledger(
+        tmp_path,
+        policy_path=policy_path,
+        ledger_path=ledger_path,
+        cohort_path=cohort_path,
+    )
     fixture_path = tmp_path / "case-dev-purchase.jsonl"
     _write_jsonl(
         fixture_path,
@@ -516,6 +522,12 @@ def test_recap_fetch_live_purchase_wires_signed_broker_without_pacer_credentials
     output_root = tmp_path / "acquisition"
     plan_path, selection_path = _write_recap_fetch_inputs(tmp_path, output_root)
     policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+    _initialize_purchase_ledger(
+        tmp_path,
+        policy_path=policy_path,
+        ledger_path=ledger_path,
+        cohort_path=cohort_path,
+    )
     request_ledger = tmp_path / "courtlistener-requests.sqlite3"
     broker_transport = _BrokerTransport(
         recap_broker.BrokerRawResponse(
@@ -966,7 +978,9 @@ def test_recap_fetch_live_receipt_rejection_is_clean_nonpaid_failure(
     request_ledger = tmp_path / "courtlistener-requests.sqlite3"
     policy = cli.verify_case_dev_purchase_policy(_read_json(policy_path))
     plan = cli._missing_core_budget_plan(_read_json(plan_path))
-    with CaseDevPurchaseJournal(ledger_path, policy=policy) as journal:
+    with CaseDevPurchaseJournal(
+        ledger_path, policy=policy, allow_create=True
+    ) as journal:
         journal.plan(plan)
         assert journal.submit("123")
         journal.mark_unknown("123", "prior ambiguous submission")
@@ -1026,7 +1040,9 @@ def test_recap_fetch_live_receipt_rejection_is_clean_nonpaid_failure(
     assert run_card["paid_activity_requested"] is True
     assert run_card["paid_activity_executed"] is False
     assert run_card["courtlistener_physical_requests"] == 0
-    with CaseDevPurchaseJournal(ledger_path, policy=policy) as journal:
+    with CaseDevPurchaseJournal(
+        ledger_path, policy=policy, allow_create=True
+    ) as journal:
         assert journal.statuses() == {"123": "unknown"}
 
 
@@ -1094,6 +1110,12 @@ def test_core_filter_purchase_and_recovery_flow_builds_parser_requests(
         == 0
     )
     policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+    _initialize_purchase_ledger(
+        tmp_path,
+        policy_path=policy_path,
+        ledger_path=ledger_path,
+        cohort_path=cohort_path,
+    )
     purchase_fixture_path = tmp_path / "case-dev-purchase.jsonl"
     download_url = "https://case.dev/download/mtd-memo.pdf"
     _write_jsonl(
@@ -2303,6 +2325,33 @@ def _write_purchase_policy(tmp_path: Path) -> tuple[Path, Path, Path]:
         ),
     )
     return policy_path, ledger, cohort_path
+
+
+def _initialize_purchase_ledger(
+    tmp_path: Path,
+    *,
+    policy_path: Path,
+    ledger_path: Path,
+    cohort_path: Path,
+) -> None:
+    assert (
+        main(
+            [
+                "acquisition",
+                "init-purchase-ledger",
+                "--purchase-policy",
+                str(policy_path),
+                "--cohort-policy",
+                str(cohort_path),
+                "--purchase-ledger",
+                str(ledger_path),
+                "--output-root",
+                str(tmp_path / "ledger-initialization"),
+                "--execute",
+            ]
+        )
+        == 0
+    )
 
 
 class _BrokerTransport:

@@ -115,7 +115,7 @@ def test_opening_case_commitment_consumes_per_case_headroom(tmp_path: Path) -> N
         generate_case_dev_purchase_policy(decisions)
     )
 
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         with pytest.raises(
             CaseDevPurchaseLedgerError,
             match="cumulative reservation exceeds per-case cap",
@@ -130,12 +130,12 @@ def test_crash_before_post_leaves_planned_and_reopen_can_submit(
     policy = verify_case_dev_purchase_policy(_policy(ledger))
     plan = _plan(("doc-1",))
 
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         journal.plan(plan)
         assert journal.statuses() == {"doc-1": "planned"}
 
     transport = _success_transport("doc-1")
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         result = CaseDevPacerPurchaseClient(
             _client(transport),
             capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
@@ -159,7 +159,9 @@ def test_crash_after_post_leaves_submitted_and_resume_requires_reconciliation(
     client = _CrashAfterPostClient()
 
     with pytest.raises(KeyboardInterrupt):
-        with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        with CaseDevPurchaseJournal(
+            ledger, policy=policy, allow_create=True
+        ) as journal:
             CaseDevPacerPurchaseClient(
                 client,  # type: ignore[arg-type]
                 capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
@@ -171,7 +173,7 @@ def test_crash_after_post_leaves_submitted_and_resume_requires_reconciliation(
             )
 
     assert client.calls == 1
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         assert journal.statuses() == {"doc-1": "submitted"}
         with pytest.raises(CaseDevPurchaseReconciliationRequired):
             CaseDevPacerPurchaseClient(
@@ -211,7 +213,7 @@ def test_ambiguous_response_is_unknown_and_paid_post_is_never_retried(
         ]
     )
 
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         result = CaseDevPacerPurchaseClient(
             _client(transport, max_retries=9),
             capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
@@ -257,7 +259,7 @@ def test_missing_or_malformed_fees_are_unknown_with_full_reservation(
         ]
     )
 
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         result = CaseDevPacerPurchaseClient(
             _client(transport),
             capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
@@ -296,7 +298,7 @@ def test_fee_above_verified_worst_case_is_unknown_and_counts_actual(
         ]
     )
 
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         result = CaseDevPacerPurchaseClient(
             _client(transport),
             capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
@@ -317,7 +319,9 @@ def test_reservation_refuses_request_that_would_cross_cycle_cap(
     transport = _success_transport("doc-1", "doc-2")
 
     with pytest.raises(CaseDevPurchaseLedgerError, match="cycle cap"):
-        with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        with CaseDevPurchaseJournal(
+            ledger, policy=policy, allow_create=True
+        ) as journal:
             CaseDevPacerPurchaseClient(
                 _client(transport),
                 capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
@@ -339,7 +343,7 @@ def test_per_case_cap_is_cumulative_across_separate_purchase_runs(
         _policy(ledger, cap="9.15", max_per_case="6.10")
     )
     transport = _success_transport("doc-1", "doc-2")
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         first = CaseDevPacerPurchaseClient(
             _client(transport),
             capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
@@ -351,7 +355,7 @@ def test_per_case_cap_is_cumulative_across_separate_purchase_runs(
         )
         assert first.executed_purchase_count == 2
 
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         with pytest.raises(
             CaseDevPurchaseLedgerError,
             match="cumulative reservation exceeds per-case cap",
@@ -372,16 +376,16 @@ def test_per_case_cap_is_cumulative_across_separate_purchase_runs(
 def test_second_writer_and_conflicting_identity_are_rejected(tmp_path: Path) -> None:
     ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
-    first = CaseDevPurchaseJournal(ledger, policy=policy)
+    first = CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True)
     try:
         with pytest.raises(CaseDevPurchaseLedgerBusyError):
-            CaseDevPurchaseJournal(ledger, policy=policy)
+            CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True)
     finally:
         first.close()
 
     conflicting = verify_case_dev_purchase_policy(_policy(ledger, cycle_id="cycle-2"))
     with pytest.raises(CaseDevPurchasePolicyError, match="identity"):
-        CaseDevPurchaseJournal(ledger, policy=conflicting)
+        CaseDevPurchaseJournal(ledger, policy=conflicting, allow_create=True)
 
 
 def test_provider_evidence_reconciles_unknown_and_writeoff_stays_counted(
@@ -389,7 +393,7 @@ def test_provider_evidence_reconciles_unknown_and_writeoff_stays_counted(
 ) -> None:
     ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         journal.plan(_two_case_plan())
         assert journal.submit("doc-1") is True
         journal.mark_unknown("doc-1", "lost response")
@@ -463,7 +467,7 @@ def test_cli_generates_policy_and_records_provider_reconciliation(
     policy = verify_case_dev_purchase_policy(
         json.loads(policy_path.read_text(encoding="utf-8"))
     )
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         journal.plan(_plan(("doc-1",)))
         assert journal.submit("doc-1") is True
         journal.mark_unknown("doc-1", "lost response")
@@ -499,7 +503,7 @@ def test_cli_generates_policy_and_records_provider_reconciliation(
         )
         == 0
     )
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         assert journal.statuses() == {"doc-1": "failed"}
         assert journal.committed_amount_usd == "0.00"
 
@@ -510,7 +514,7 @@ def test_paid_state_transitions_hard_fail_when_no_row_is_eligible(
 ) -> None:
     ledger = (tmp_path / f"{transition}.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
-    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
         journal.plan(_plan(("doc-1",)))
         method = getattr(journal, transition)
         with pytest.raises(CaseDevPurchaseLedgerError, match="transition failed"):
