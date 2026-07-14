@@ -441,7 +441,11 @@ from legalforecast.selection.eligibility import (
     SeriesCaseTiming,
     TrainingCutoffStatus,
 )
-from legalforecast.selection.exclusion_ledger import merge_exclusion_ledger_records
+from legalforecast.selection.exclusion_ledger import (
+    ExclusionLedgerEntry,
+    ExclusionStage,
+    merge_exclusion_ledger_records,
+)
 from legalforecast.selection.motion_linkage import link_mtd_dispositions
 from legalforecast.unitization.construct_units import (
     StageAConstructionInput,
@@ -982,12 +986,13 @@ def build_parser() -> argparse.ArgumentParser:
             "public acquisition and budget planning."
         ),
         description=(
-            "Starting from a complete saturated screened snapshot produced by a "
-            "supported discovery route, run the resumable public-first acquisition "
-            "chain and emit the exact cheapest 100-case budget plan. CourtListener/"
-            "RECAP supplies public downloads and remains authoritative for paid-gap "
-            "resolution; Case.dev is used only for equivalent free bulk identity "
-            "lookups. This command never purchases documents."
+            "Starting from the complete saturated screened snapshot produced by "
+            "batch-002 discover, observe, and snapshot, run the resumable public-"
+            "first acquisition chain and emit the exact cheapest 100-case budget "
+            "plan. CourtListener REST is the canonical paid-gap authority. Case.dev "
+            "may be used upstream only where its free API is equivalent, and "
+            "Firecrawl remains a compatibility fallback. This command performs no "
+            "discovery and never purchases documents."
         ),
     )
     _add_acquisition_prepare_target_100_arguments(acquisition_prepare_target_100)
@@ -1414,6 +1419,11 @@ def _add_acquisition_plan_arguments(parser: argparse.ArgumentParser) -> None:
     _add_acquisition_common_arguments(parser)
     parser.add_argument("--core-filter-results", type=Path, required=True)
     parser.add_argument("--budget-plan-output", type=Path)
+    parser.add_argument(
+        "--exclusions-output",
+        type=Path,
+        help="Ledgered per-case planning exclusions; defaults under output root.",
+    )
     parser.add_argument("--max-missing-core-documents-per-case", type=int, default=24)
     parser.add_argument("--cost-per-document-usd", default="3.05")
     parser.add_argument("--max-projected-budget-usd", default="2250.00")
@@ -1444,14 +1454,15 @@ def _add_acquisition_prepare_target_100_arguments(
         "--snapshot",
         type=Path,
         required=True,
-        help="Complete saturated screened snapshot from supported discovery.",
+        help=(
+            "Complete saturated snapshot from `batch-002 snapshot`; all viable "
+            "rows are carried through authoritative resolution before ranking."
+        ),
     )
-    parser.add_argument("--expected-cycle-hash", required=True)
     parser.add_argument(
-        "--candidate-pool-size",
-        type=int,
-        default=165,
-        help="Reserve candidates before bridge exclusions; default 165.",
+        "--expected-cycle-hash",
+        required=True,
+        help="Exact cycle_hash committed by the batch-002 snapshot manifest.",
     )
     parser.add_argument("--raw-html-dir", type=Path)
     parser.add_argument("--use-embedded-entries", action="store_true")
@@ -1461,16 +1472,27 @@ def _add_acquisition_prepare_target_100_arguments(
     public_source = parser.add_mutually_exclusive_group(required=True)
     public_source.add_argument("--live-public-download", action="store_true")
     public_source.add_argument("--fixture-documents", type=Path)
-    identity_source = parser.add_mutually_exclusive_group(required=True)
-    identity_source.add_argument(
-        "--live-case-dev",
+    bridge_source = parser.add_mutually_exclusive_group(required=True)
+    bridge_source.add_argument(
+        "--live-courtlistener",
         action="store_true",
         help=(
-            "Use Case.dev only for free bulk identity/entry lookup; this never "
-            "uses its paid PACER path."
+            "Use authenticated noncharging CourtListener REST as final paid-gap "
+            "authority. Requires --request-ledger."
         ),
     )
-    identity_source.add_argument("--case-dev-fixture", type=Path)
+    bridge_source.add_argument("--courtlistener-fixture", type=Path)
+    parser.add_argument(
+        "--request-ledger",
+        type=Path,
+        help="Shared CourtListener request ledger; required for live REST.",
+    )
+    parser.add_argument(
+        "--courtlistener-rate-profile",
+        choices=("base", "temporary-doubled"),
+        default="base",
+    )
+    parser.add_argument("--request-budget-max-wait-seconds", type=float, default=120.0)
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_prepare_target_100)
 
@@ -2826,7 +2848,10 @@ def _add_acquisition_purchase_missing_arguments(
     parser.add_argument(
         "--live-purchase",
         action="store_true",
-        help="Allow live paid case.dev/PACER purchase requests.",
+        help=(
+            "Disabled legacy path. Live paid acquisition is supported only by "
+            "purchase-missing-recap-fetch."
+        ),
     )
     parser.add_argument(
         "--acknowledge-pacer-fees",
@@ -3008,7 +3033,10 @@ def _add_acquisition_execute_docket_live_fetches_arguments(
     parser.add_argument(
         "--live-case-dev",
         action="store_true",
-        help="Allow fee-bearing live Case.dev docket lookup requests.",
+        help=(
+            "Disabled legacy fee-bearing path. Use CourtListener REST discovery "
+            "and purchase-missing-recap-fetch."
+        ),
     )
     parser.add_argument(
         "--acknowledge-pacer-fees",
@@ -4410,6 +4438,11 @@ def _cmd_acquisition_plan(args: argparse.Namespace) -> int:
         "budget_plan_output",
         output_root / "missing-core-budget-plan.json",
     )
+    exclusions_path = _acquisition_path(
+        args,
+        "exclusions_output",
+        output_root / "missing-core-budget-exclusions.jsonl",
+    )
     records = _read_records(input_path)
     dry_run = _acquisition_dry_run(args)
     plan = plan_missing_core_document_budget(
@@ -4425,11 +4458,25 @@ def _cmd_acquisition_plan(args: argparse.Namespace) -> int:
         target_case_count=cast(int | None, args.target_case_count),
     )
     write_missing_core_budget_plan(plan, output_path)
+    exclusion_ledger = merge_exclusion_ledger_records(
+        ExclusionLedgerEntry(
+            candidate_id=case_plan.candidate_id,
+            case_id=case_plan.candidate_id,
+            stage=ExclusionStage.EXTRACTION,
+            reason=case_plan.exclusion_reasons[0],
+            secondary_reasons=case_plan.exclusion_reasons[1:],
+            source_entry_ids=(),
+            source_document_ids=case_plan.purchase_document_ids,
+            notes=_missing_core_exclusion_notes(case_plan, plan),
+        ).to_record()
+        for case_plan in plan.excluded_case_plans
+    )
+    exclusion_ledger.write_jsonl(exclusions_path)
     _write_acquisition_completion(
         args,
         stage="acquisition-plan",
         input_paths=(input_path,),
-        output_paths=(output_path,),
+        output_paths=(output_path, exclusions_path),
         record_count=len(plan.case_plans),
         dry_run=dry_run,
         paid_activity_requested=False,
@@ -4441,18 +4488,10 @@ def _cmd_acquisition_plan(args: argparse.Namespace) -> int:
             "target_case_count": plan.target_case_count,
             "target_case_count_met": plan.target_case_count_met,
             "omitted_candidate_count": len(plan.omitted_candidate_ids),
+            "excluded_case_count": len(plan.excluded_case_plans),
         },
     )
     return 0
-
-
-_COURTLISTENER_AUTHORITATIVE_FALLBACK_REASONS = frozenset(
-    {
-        "case_dev_entry_ambiguous",
-        "case_dev_entry_not_found",
-        "paid_gap_document_not_found",
-    }
-)
 
 
 def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
@@ -4464,11 +4503,23 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
         "summary_output",
         output_root / "target-100-preparation-summary.json",
     )
+    snapshot = cast(Path, args.snapshot)
+    expected_cycle_hash = cast(str, args.expected_cycle_hash)
+    try:
+        snapshot_manifest = verify_snapshot(
+            snapshot,
+            expected_cycle_hash=expected_cycle_hash,
+            require_complete=True,
+            require_saturated=True,
+        )
+    except SnapshotVerificationError as exc:
+        raise CommandError(str(exc)) from exc
+    candidate_pool_size = len(_read_records(snapshot / "screened-cases.jsonl"))
     config = Target100PreparationConfig(
         output_root=output_root,
-        snapshot=cast(Path, args.snapshot),
-        expected_cycle_hash=cast(str, args.expected_cycle_hash),
-        candidate_pool_size=cast(int, args.candidate_pool_size),
+        snapshot=snapshot,
+        expected_cycle_hash=expected_cycle_hash,
+        candidate_pool_size=candidate_pool_size,
         cost_per_document_usd=cast(str, args.cost_per_document_usd),
         max_projected_budget_usd=cast(str, args.max_projected_budget_usd),
         max_missing_core_documents_per_case=cast(
@@ -4478,8 +4529,13 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
         use_embedded_entries=cast(bool, args.use_embedded_entries),
         live_public_download=cast(bool, args.live_public_download),
         fixture_documents=cast(Path | None, args.fixture_documents),
-        live_case_dev=cast(bool, args.live_case_dev),
-        case_dev_fixture=cast(Path | None, args.case_dev_fixture),
+        live_courtlistener=cast(bool, args.live_courtlistener),
+        courtlistener_fixture=cast(Path | None, args.courtlistener_fixture),
+        request_ledger=cast(Path | None, args.request_ledger),
+        courtlistener_rate_profile=cast(str, args.courtlistener_rate_profile),
+        request_budget_max_wait_seconds=cast(
+            float, args.request_budget_max_wait_seconds
+        ),
         resume=cast(bool, args.resume),
     )
     try:
@@ -4489,6 +4545,17 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
     command_records = [
         {"stage": command.stage, "argv": list(command.argv)} for command in commands
     ]
+    config_path = output_root / "target-100-config.json"
+    config_record = _target_100_config_record(
+        config,
+        snapshot_manifest=snapshot_manifest,
+        stage_commands=command_records,
+    )
+    _ensure_target_100_config(
+        config_path,
+        config_record,
+        resume=cast(bool, args.resume),
+    )
     dry_run = _acquisition_dry_run(args)
     if dry_run:
         _write_json(
@@ -4498,6 +4565,7 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
                 "dry_run": True,
                 "target_case_count": 100,
                 "candidate_pool_size": config.candidate_pool_size,
+                "config_sha256": config_record["config_sha256"],
                 "stage_commands": command_records,
                 "paid_activity_requested": False,
                 "paid_activity_executed": False,
@@ -4515,25 +4583,64 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
         )
         return 0
 
+    if candidate_pool_size < 100:
+        reason = (
+            f"complete snapshot contains only {candidate_pool_size} viable cases; "
+            "100 are required"
+        )
+        _write_acquisition_failure(
+            args,
+            stage="prepare-target-100",
+            input_paths=(snapshot, config_path),
+            output_paths=(summary_path,),
+            reason=reason,
+            paid_activity_requested=False,
+            extra={"config_sha256": config_record["config_sha256"]},
+        )
+        raise CommandError(reason)
+
     for command in commands:
         result = main(command.argv)
         if result != 0:
-            raise CommandError(
+            reason = (
                 f"target-100 preparation stopped at {command.stage}; "
                 "fix the recorded failure and rerun with --resume"
             )
-        if command.stage == "bridge-pacer-gaps":
-            _require_no_unresolved_courtlistener_fallback(output_root)
+            _write_acquisition_failure(
+                args,
+                stage="prepare-target-100",
+                input_paths=(snapshot, config_path),
+                output_paths=(summary_path,),
+                reason=reason,
+                paid_activity_requested=False,
+                extra={"config_sha256": config_record["config_sha256"]},
+            )
+            raise CommandError(reason)
 
     budget_plan_path = output_root / "05-budget" / "missing-core-budget-plan.json"
     budget_plan = _missing_core_budget_plan(_read_json_object(budget_plan_path))
     if budget_plan.dry_run:
         raise CommandError("target-100 budget plan must be executable, not dry-run")
     if not budget_plan.target_case_count_met or len(budget_plan.case_plans) != 100:
-        raise CommandError(
+        reason = (
             "target-100 preparation did not produce exactly 100 complete cases; "
             "acquire additional screened candidates without relaxing any gate"
         )
+        _write_acquisition_failure(
+            args,
+            stage="prepare-target-100",
+            input_paths=(snapshot, config_path, budget_plan_path),
+            output_paths=(summary_path,),
+            reason=reason,
+            paid_activity_requested=False,
+            extra={"config_sha256": config_record["config_sha256"]},
+        )
+        raise CommandError(reason)
+    stage_commitments = _target_100_stage_commitments(output_root)
+    stage_input_commitments = _target_100_stage_input_commitments(
+        output_root, config=config
+    )
+    selected_ids = [plan.candidate_id for plan in budget_plan.case_plans]
     _write_json(
         summary_path,
         {
@@ -4541,6 +4648,16 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
             "dry_run": False,
             "target_case_count": 100,
             "candidate_pool_size": config.candidate_pool_size,
+            "snapshot_manifest_sha256": "sha256:"
+            + hashlib.sha256((snapshot / "manifest.json").read_bytes()).hexdigest(),
+            "snapshot_batch_digest": snapshot_manifest["batch_digest"],
+            "config_sha256": config_record["config_sha256"],
+            "stage_input_commitments": stage_input_commitments,
+            "stage_commitments": stage_commitments,
+            "selected_candidate_ids_sha256": _canonical_json_sha256(selected_ids),
+            "frontier_sha256": _canonical_json_sha256(
+                [row.to_record() for row in budget_plan.frontier_rows]
+            ),
             "selected_case_count": len(budget_plan.case_plans),
             "total_missing_core_documents": (budget_plan.total_missing_core_documents),
             "total_estimated_cost_usd": budget_plan.total_estimated_cost_usd,
@@ -4561,7 +4678,7 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
         args,
         stage="prepare-target-100",
         input_paths=(config.snapshot,),
-        output_paths=(summary_path, budget_plan_path),
+        output_paths=(config_path, summary_path, budget_plan_path),
         record_count=100,
         dry_run=False,
         paid_activity_requested=False,
@@ -4569,31 +4686,174 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
         extra={
             "selected_case_count": 100,
             "total_estimated_cost_usd": budget_plan.total_estimated_cost_usd,
+            "config_sha256": config_record["config_sha256"],
+            "completed_stages": list(stage_commitments),
+            "zero_paid_activity_evidence": True,
         },
     )
     return 0
 
 
-def _require_no_unresolved_courtlistener_fallback(output_root: Path) -> None:
-    """Fail until the authoritative CourtListener paid-gap fallback is wired."""
-
-    exclusions_path = (
-        output_root / "03-gap-bridge" / "pacer-gap-bridge-exclusions.jsonl"
-    )
-    reasons = {
-        _optional_str(record, "primary_exclusion_reason")
-        for record in _read_records(exclusions_path)
+def _target_100_config_record(
+    config: Target100PreparationConfig,
+    *,
+    snapshot_manifest: Mapping[str, Any],
+    stage_commands: Sequence[Mapping[str, Any]],
+) -> JsonRecord:
+    snapshot_manifest_path = config.snapshot / "manifest.json"
+    record: JsonRecord = {
+        "schema_version": "legalforecast.target_100_config.v1",
+        "snapshot": str(config.snapshot.resolve()),
+        "snapshot_manifest_sha256": _path_sha256(snapshot_manifest_path),
+        "snapshot_screened_cases_sha256": _path_sha256(
+            config.snapshot / "screened-cases.jsonl"
+        ),
+        "snapshot_cycle_hash": snapshot_manifest["cycle_hash"],
+        "snapshot_batch_digest": snapshot_manifest["batch_digest"],
+        "candidate_pool_size": config.candidate_pool_size,
+        "target_case_count": config.target_case_count,
+        "cost_per_document_usd": config.cost_per_document_usd,
+        "max_projected_budget_usd": config.max_projected_budget_usd,
+        "max_missing_core_documents_per_case": (
+            config.max_missing_core_documents_per_case
+        ),
+        "use_embedded_entries": config.use_embedded_entries,
+        "raw_html_dir": (
+            str(config.raw_html_dir.resolve())
+            if config.raw_html_dir is not None
+            else None
+        ),
+        "public_download_provider": (
+            "courtlistener_live" if config.live_public_download else "fixture"
+        ),
+        "fixture_documents_sha256": (
+            _path_sha256(config.fixture_documents)
+            if config.fixture_documents is not None
+            else None
+        ),
+        "paid_gap_authority": "courtlistener_rest",
+        "courtlistener_mode": ("live" if config.live_courtlistener else "fixture"),
+        "courtlistener_fixture_sha256": (
+            _path_sha256(config.courtlistener_fixture)
+            if config.courtlistener_fixture is not None
+            else None
+        ),
+        "request_ledger": (
+            str(config.request_ledger.resolve())
+            if config.request_ledger is not None
+            else None
+        ),
+        "courtlistener_rate_profile": config.courtlistener_rate_profile,
+        "request_budget_max_wait_seconds": config.request_budget_max_wait_seconds,
+        "stage_commands": _semantic_target_100_stage_commands(stage_commands),
     }
-    unresolved = sorted(
-        reason
-        for reason in reasons & _COURTLISTENER_AUTHORITATIVE_FALLBACK_REASONS
-        if reason is not None
-    )
-    if unresolved:
-        raise CommandError(
-            "CourtListener authoritative paid-gap fallback is required before "
-            "budgeting these cases; unresolved bridge reasons: " + ", ".join(unresolved)
+    record["config_sha256"] = _canonical_json_sha256(record)
+    return record
+
+
+def _ensure_target_100_config(
+    path: Path,
+    record: Mapping[str, Any],
+    *,
+    resume: bool,
+) -> None:
+    if path.exists():
+        if not resume:
+            raise CommandError(
+                "target-100 config already exists; use --resume or a new output root"
+            )
+        existing = _read_json_object(path)
+        if existing != record:
+            raise CommandError(
+                "target-100 config mismatch: refusing changed-config resume"
+            )
+        return
+    _atomic_write_json(path, record)
+
+
+def _path_sha256(path: Path) -> str:
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _semantic_target_100_stage_commands(
+    stage_commands: Sequence[Mapping[str, Any]],
+) -> list[JsonRecord]:
+    """Exclude execution-only resume toggles from the frozen semantic config."""
+
+    return [
+        {
+            "stage": command["stage"],
+            "argv": [
+                argument
+                for argument in cast(Sequence[str], command["argv"])
+                if argument not in {"--resume", "--no-resume"}
+            ],
+        }
+        for command in stage_commands
+    ]
+
+
+def _target_100_stage_commitments(output_root: Path) -> JsonRecord:
+    commitments: JsonRecord = {}
+    for stage_name in (
+        "01-public-plan",
+        "02-free-download",
+        "03-gap-bridge",
+        "04-core-filter",
+        "05-budget",
+    ):
+        stage_root = output_root / stage_name
+        commitments[stage_name] = {
+            str(path.relative_to(stage_root)): _path_sha256(path)
+            for path in sorted(stage_root.rglob("*"))
+            if path.is_file()
+        }
+    return commitments
+
+
+def _target_100_stage_input_commitments(
+    output_root: Path,
+    *,
+    config: Target100PreparationConfig,
+) -> JsonRecord:
+    """Hash the authoritative inputs consumed at each preparation boundary."""
+
+    paths: dict[str, tuple[Path, ...]] = {
+        "01-public-plan": (
+            config.snapshot / "manifest.json",
+            config.snapshot / "screened-cases.jsonl",
+        ),
+        "02-free-download": (
+            output_root / "01-public-plan/free-document-requests.jsonl",
+        ),
+        "03-gap-bridge": (
+            config.snapshot / "screened-cases.jsonl",
+            output_root / "01-public-plan/public-packet-selection.jsonl",
+            output_root / "01-public-plan/public-packet-paid-gaps.jsonl",
+            output_root / "02-free-download/free-document-downloads.jsonl",
+        ),
+        "04-core-filter": (output_root / "03-gap-bridge/case-relevance.jsonl",),
+        "05-budget": (output_root / "04-core-filter/core-filter-results.jsonl",),
+    }
+    if config.courtlistener_fixture is not None:
+        paths["03-gap-bridge"] += (config.courtlistener_fixture,)
+    return {
+        stage: {str(path.resolve()): _path_sha256(path) for path in stage_paths}
+        for stage, stage_paths in paths.items()
+    }
+
+
+def _missing_core_exclusion_notes(
+    case_plan: CaseMissingCorePurchasePlan,
+    plan: MissingCoreBudgetPlan,
+) -> str:
+    if "missing_core_document_cap_exceeded" in case_plan.exclusion_reasons:
+        return (
+            f"Candidate requires {case_plan.missing_core_document_count} missing "
+            "core documents; configured per-case cap is "
+            f"{plan.max_missing_core_documents_per_case}."
         )
+    return "Candidate failed the core-document acquisition gate."
 
 
 def _cmd_acquisition_filter_core_documents(args: argparse.Namespace) -> int:
@@ -10189,6 +10449,11 @@ def _cmd_acquisition_purchase_missing(args: argparse.Namespace) -> int:
     live_purchase = cast(bool, args.live_purchase)
     acknowledge_fees = cast(bool, args.acknowledge_pacer_fees)
     capability = CaseDevPacerCapability(cast(str, args.capability))
+    if live_purchase and cast(Path | None, args.case_dev_fixture) is None:
+        raise CommandError(
+            "legacy Case.dev live document purchase is disabled; use "
+            "purchase-missing-recap-fetch"
+        )
     if not dry_run and plan.dry_run:
         _write_acquisition_failure(
             args,
@@ -10608,6 +10873,11 @@ def _cmd_acquisition_execute_docket_live_fetches(args: argparse.Namespace) -> in
     fixture_path = cast(Path | None, args.case_dev_fixture)
     live_case_dev = cast(bool, args.live_case_dev)
     acknowledge_fees = cast(bool, args.acknowledge_pacer_fees)
+    if live_case_dev and fixture_path is None:
+        raise CommandError(
+            "legacy fee-bearing Case.dev docket fetch is disabled; use the "
+            "CourtListener-first acquisition path"
+        )
     if fixture_path is not None and live_case_dev:
         raise CommandError("case-dev fixture and live access are mutually exclusive")
     if not dry_run and not acknowledge_fees:

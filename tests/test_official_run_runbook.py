@@ -55,13 +55,36 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
         assert amendment_contract in runbook
 
     batch_002_section = runbook.split(
-        "## Cycle 1 Batch-002 RECAP API Acquisition", maxsplit=1
+        "## Cycle 1 Batch-002 CourtListener-First Acquisition", maxsplit=1
     )[1]
-    assert (
-        batch_002_section.index("### Step 1: Discover")
-        < batch_002_section.index("### First-Run Observation Smoke Step (required)")
-        < batch_002_section.index("### Steps 2 and 3: Seed and Observe")
+    ordered_acquisition_steps = (
+        "### Step 1: Discover",
+        "### First-Run Observation Smoke Step (required)",
+        "### Step 2: Seed Optional Leads, Then Observe",
+        "### Step 3: Freeze The Complete Saturated Snapshot",
+        "### Step 4: Prepare The Exact Target-100 Budget Plan",
+        "### Step 5: Generate The Broker Allowlist, Then Purchase Explicitly",
     )
+    assert [
+        batch_002_section.index(step) for step in ordered_acquisition_steps
+    ] == sorted(batch_002_section.index(step) for step in ordered_acquisition_steps)
+    for command in (
+        "legalforecast batch-002 discover",
+        "legalforecast batch-002 observe",
+        "legalforecast batch-002 snapshot",
+        "legalforecast acquisition prepare-target-100",
+        "legalforecast acquisition generate-recap-fetch-broker-policy",
+        "legalforecast acquisition purchase-missing-recap-fetch",
+    ):
+        assert command in batch_002_section
+    for hierarchy_contract in (
+        "CourtListener REST v4 is the primary",
+        "Case.dev is permitted only as an optional free equivalent",
+        "Firecrawl is a compatibility fallback only",
+        "It never purchases a document",
+        "only fee-bearing happy path",
+    ):
+        assert hierarchy_contract in batch_002_section
 
     assert "--profile official-cycle" not in reproduce
     assert "does not implement an `official-cycle` profile" in reproduce

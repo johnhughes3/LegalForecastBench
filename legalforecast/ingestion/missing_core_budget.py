@@ -264,11 +264,11 @@ def _case_purchase_plan(
 ) -> CaseMissingCorePurchasePlan:
     purchase_document_ids = tuple(result.core_missing_documents)
     missing_core_document_count = len(purchase_document_ids)
+    exclusion_reasons = tuple(result.exclusion_reasons)
     if missing_core_document_count > max_missing_core_documents_per_case:
-        raise CaseDocumentCapExceededError(
-            f"{result.candidate_id} has {missing_core_document_count} "
-            "missing core documents; cap is "
-            f"{max_missing_core_documents_per_case}"
+        exclusion_reasons = (
+            *exclusion_reasons,
+            "missing_core_document_cap_exceeded",
         )
     return CaseMissingCorePurchasePlan(
         candidate_id=result.candidate_id,
@@ -277,7 +277,7 @@ def _case_purchase_plan(
         estimated_cost=cost_per_document * missing_core_document_count,
         audit_only_document_count=len(result.audit_only_document_ids),
         dry_run=dry_run,
-        exclusion_reasons=tuple(result.exclusion_reasons),
+        exclusion_reasons=exclusion_reasons,
         missing_core_roles=tuple(result.missing_core_roles),
     )
 

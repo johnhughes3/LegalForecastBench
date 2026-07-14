@@ -4,7 +4,9 @@ This is the operator checklist for `.github/workflows/run-benchmark.yaml` on the
 
 ## Acquisition Downstream Preflight
 
-### Bounded Firecrawl terminal-target recovery
+### Bounded Firecrawl terminal-target recovery (compatibility fallback only)
+
+The official happy path is the CourtListener REST workflow documented under [Cycle 1 Batch-002 CourtListener-First Acquisition](#cycle-1-batch-002-courtlistener-first-acquisition). Use Firecrawl only as a compatibility fallback when a required search is not exposed by a supported CourtListener API. Case.dev may supply an optional free upstream or bulk lookup only when its response is equivalent to the CourtListener data needed at that step; it is never the final authority for paid gaps and must not perform a fee-bearing fetch.
 
 `discover-firecrawl-recap --resume` deliberately does not retry a nontransient `terminal_error`. If a primary discovery fails for that reason, run exactly one child recovery with a unique run ID, `--proxy enhanced`, `--force-browser`, and `--recover-terminal-errors-from-run <primary-run-id>`. If bounded fresh runs were already attempted, repeat `--reuse-verified-pages-from-run <run-id>` for each one. The command verifies that every source uses the exact frozen batch/query plan, SHA-checks and deduplicates successful pages by search URL, rejects conflicting bytes, routes only still-unresolved evidenced terminal URLs through the child, resumes newly revealed continuation pages under the parent's immutable scheduler settings, shares the cycle-wide credit cap, and refuses both recovery chaining and a second child of the same parent.
 
@@ -218,9 +220,9 @@ Review `index.html`, `artifact-index.json`, the aggregate run card, leaderboard 
 
 A recovery is complete only when every expected matrix cell is present exactly once, artifact hashes match, aggregation succeeds without incomplete-model overrides, the public/private split passes guardrails, and the rendered site refers only to public artifacts. If inputs, prompt, scorer, registry, packet hashes, repeat count, or labels change, treat that as a new frozen run rather than a retry.
 
-## Cycle 1 Batch-002 RECAP API Acquisition
+## Cycle 1 Batch-002 CourtListener-First Acquisition
 
-Batch-002 acquires MTD dispositions through the decision-first CourtListener REST v4 route (`legalforecast batch-002 …`). Each of the three phases is one command, resumable through the acquisition store, and fails closed. Run them against the official acquisition store; never against a batch-001 store.
+The canonical hierarchy is `batch-002 discover` → `batch-002 observe` → `batch-002 snapshot` → `acquisition prepare-target-100`. CourtListener REST v4 is the primary discovery and reconstruction source and the final authority for unresolved paid gaps. Case.dev is permitted only as an optional free equivalent upstream or bulk source; Firecrawl is a compatibility fallback only when a required search is unavailable through a supported CourtListener API. Run the batch commands against the official acquisition store, never a batch-001 store, and do not skip directly from mutable observations to preparation.
 
 ### Token Prerequisite
 
@@ -254,7 +256,7 @@ uv run legalforecast batch-002 observe \
 
 If that one reconstruction succeeds (the tally shows `observed: 1`), the docket foreign-key shape and entry ordering are sound and the full sweep is safe. If it fails closed, stop and inspect before spending the backlog.
 
-### Steps 2 and 3: Seed and Observe
+### Step 2: Seed Optional Leads, Then Observe
 
 ```bash
 # 2. (Optional) Seed batch-001 Case.dev enrichment failures as re-observation leads.
@@ -262,13 +264,73 @@ uv run legalforecast batch-002 seed-batch-001-leads \
   --source-store artifacts/cycle-1/batch-001-zero-paid/cycle-acquisition.sqlite3 \
   --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3
 
-# 3. Observe: reconstruct + strict-screen every unresolved candidate.
+# Observe: reconstruct + strict-screen every unresolved candidate.
 uv run legalforecast batch-002 observe \
   --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
   --live
 ```
 
 `discover` and `observe` are both resumable: re-running `discover` continues from durable per-term cursors, and re-running `observe` skips candidates that already carry a current observation (candidates whose only prior result was a transient failure are retried). `seed-batch-001-leads` is idempotent — a second run finds the re-observation term already terminal and seeds nothing new.
+
+### Step 3: Freeze The Complete Saturated Snapshot
+
+Do not choose or rank the cheapest cases from a partial candidate set. After observation is complete, require the discovery summary to report `complete: true` and `saturated: true`, then freeze the full viable screened cohort:
+
+```bash
+uv run legalforecast batch-002 snapshot \
+  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --snapshot-id <immutable-snapshot-id> \
+  --output-root artifacts/cycle-1/official-acquisition/snapshots
+```
+
+Record the snapshot manifest's exact `cycle_hash`. `prepare-target-100` rejects a partial, unsaturated, changed, or wrong-cycle snapshot and carries every viable snapshot row through authoritative public-document and paid-gap resolution before it ranks the cheapest 100.
+
+### Step 4: Prepare The Exact Target-100 Budget Plan
+
+Run the public-first preparation chain from that immutable snapshot. This command plans public downloads, downloads free documents, resolves remaining gap metadata through authenticated noncharging CourtListener REST, applies the core-document filter, and emits the exact cheapest 100-case budget plan. It never purchases a document.
+
+```bash
+uv run legalforecast acquisition prepare-target-100 \
+  --output-root artifacts/cycle-1/official-acquisition/target-100 \
+  --snapshot artifacts/cycle-1/official-acquisition/snapshots/<immutable-snapshot-id> \
+  --expected-cycle-hash <snapshot-cycle-hash> \
+  --live-public-download \
+  --live-courtlistener \
+  --request-ledger artifacts/cycle-1/official-acquisition/courtlistener-requests.sqlite3 \
+  --execute --resume
+```
+
+The successful preparation summary commits the snapshot, immutable semantic configuration, stage inputs and outputs, selected candidate IDs, and cost frontier. If fewer than 100 cases remain or the projected budget exceeds its configured cap, preparation fails durably; acquire more candidates or obtain John's approval for a budget change rather than relaxing a gate.
+
+### Step 5: Generate The Broker Allowlist, Then Purchase Explicitly
+
+Paid acquisition remains a separate, operator-visible stage. First freeze the cohort and purchase-policy artifacts required by the CLI, then generate the signed RECAP Fetch broker allowlist from the successful preparation outputs:
+
+```bash
+uv run legalforecast acquisition generate-recap-fetch-broker-policy \
+  --purchase-policy <verified-purchase-policy.json> \
+  --cohort-policy <frozen-cohort-policy.json> \
+  --budget-plan artifacts/cycle-1/official-acquisition/target-100/05-budget/missing-core-budget-plan.json \
+  --selection artifacts/cycle-1/official-acquisition/target-100/03-gap-bridge/public-packet-selection-reconciled.jsonl \
+  --output artifacts/cycle-1/official-acquisition/target-100/courtlistener-recap-fetch-policy-v1.json
+```
+
+Inspect the projected total, allowlisted numeric RECAP document IDs, and remaining budget before invoking the only fee-bearing happy path:
+
+```bash
+uv run legalforecast acquisition purchase-missing-recap-fetch \
+  --output-root artifacts/cycle-1/official-acquisition/target-100 \
+  --budget-plan artifacts/cycle-1/official-acquisition/target-100/05-budget/missing-core-budget-plan.json \
+  --selection artifacts/cycle-1/official-acquisition/target-100/03-gap-bridge/public-packet-selection-reconciled.jsonl \
+  --purchase-policy <verified-purchase-policy.json> \
+  --cohort-policy <frozen-cohort-policy.json> \
+  --purchase-ledger artifacts/cycle-1/official-acquisition/recap-fetch-purchases.sqlite3 \
+  --request-ledger artifacts/cycle-1/official-acquisition/courtlistener-requests.sqlite3 \
+  --live-purchase --acknowledge-pacer-fees \
+  --execute --resume
+```
+
+Never substitute a Case.dev live purchase, a Case.dev fee-bearing docket refresh, or an implicit purchase inside preparation. The RECAP Fetch purchase stage may dispatch only IDs present in the generated broker policy and remains bounded by the verified purchase policy and broker-side budget controls.
 
 ### Expected Volumes
 

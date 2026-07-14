@@ -32,26 +32,35 @@ class Target100PreparationConfig:
     use_embedded_entries: bool = False
     live_public_download: bool = False
     fixture_documents: Path | None = None
-    live_case_dev: bool = False
-    case_dev_fixture: Path | None = None
+    live_courtlistener: bool = False
+    courtlistener_fixture: Path | None = None
+    request_ledger: Path | None = None
+    courtlistener_rate_profile: str = "base"
+    request_budget_max_wait_seconds: float = 120.0
     resume: bool = True
 
     def validate(self) -> None:
         if self.target_case_count != 100:
             raise Target100PreparationError("target case count must be exactly 100")
-        if self.candidate_pool_size < self.target_case_count:
-            raise Target100PreparationError(
-                "candidate pool size cannot be smaller than the 100-case target"
-            )
+        if self.candidate_pool_size < 1:
+            raise Target100PreparationError("candidate pool size must be positive")
         if self.live_public_download == (self.fixture_documents is not None):
             raise Target100PreparationError(
                 "choose exactly one public download source: live CourtListener/RECAP "
                 "or --fixture-documents"
             )
-        if self.live_case_dev == (self.case_dev_fixture is not None):
+        if self.live_courtlistener == (self.courtlistener_fixture is not None):
             raise Target100PreparationError(
-                "choose exactly one free identity source: live Case.dev or "
-                "--case-dev-fixture"
+                "choose exactly one authoritative paid-gap source: live "
+                "CourtListener REST or --courtlistener-fixture"
+            )
+        if self.live_courtlistener and self.request_ledger is None:
+            raise Target100PreparationError(
+                "--request-ledger is required with live CourtListener REST"
+            )
+        if not self.live_courtlistener and self.request_ledger is not None:
+            raise Target100PreparationError(
+                "--request-ledger is only valid with live CourtListener REST"
             )
 
 
@@ -136,11 +145,22 @@ def build_target_100_stage_commands(
         bridge.extend(("--raw-html-dir", str(config.raw_html_dir)))
     if config.use_embedded_entries:
         bridge.append("--use-embedded-entries")
-    if config.live_case_dev:
-        bridge.append("--live-case-dev")
+    if config.live_courtlistener:
+        assert config.request_ledger is not None
+        bridge.extend(
+            (
+                "--live-courtlistener",
+                "--request-ledger",
+                str(config.request_ledger),
+                "--courtlistener-rate-profile",
+                config.courtlistener_rate_profile,
+                "--request-budget-max-wait-seconds",
+                str(config.request_budget_max_wait_seconds),
+            )
+        )
     else:
-        assert config.case_dev_fixture is not None
-        bridge.extend(("--case-dev-fixture", str(config.case_dev_fixture)))
+        assert config.courtlistener_fixture is not None
+        bridge.extend(("--courtlistener-fixture", str(config.courtlistener_fixture)))
 
     filter_core = (
         "acquisition",
