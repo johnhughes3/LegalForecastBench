@@ -522,13 +522,13 @@ _COURTLISTENER_RELATIONSHIP_REFERENCE_RES = (
     re.compile(
         r"\brelated\s+document(?:\(s\)|s)\s*:?[ \t]*"
         r"(?P<numbers>[1-9][0-9]*(?:[ \t]*(?:,|and)[ \t]*#?[ \t]*"
-        r"[1-9][0-9]*)*)",
+        r"[1-9][0-9]*)*)(?![ \t]*(?:[0-9/,\-]|\band\b))",
         re.IGNORECASE,
     ),
     re.compile(
         r"\bre[ \t]*:[ \t]*#[ \t]*"
         r"(?P<numbers>[1-9][0-9]*(?:[ \t]*(?:,|and)[ \t]*#?[ \t]*"
-        r"[1-9][0-9]*)*)",
+        r"[1-9][0-9]*)*)(?![ \t]*(?:[0-9/,\-]|\band\b))",
         re.IGNORECASE,
     ),
 )

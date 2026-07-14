@@ -794,28 +794,30 @@ def _looks_like_exact_referenced_generic_motion(text: str) -> bool:
     )
 
 
-def _has_unambiguous_qualifying_adversary_motion(text: str) -> bool:
-    """Require a sole Rule 12(c) motion before propagating its generic row."""
+_COUNT_OR_CLAIM_SCOPE_PATTERN = (
+    r"(?:counts?|claims?)\s+(?:[ivxlcdm]+|[0-9]+|[a-z])"
+    r"(?:\s*(?:,|through|to|and|-)\s*(?:[ivxlcdm]+|[0-9]+|[a-z]))*"
+    r"(?:\s+(?:with|without)\s+prejudice)?"
+)
+_ALLOWED_JOP_MERITS_DISPOSITION_RE = re.compile(
+    r"\b(?:order\s+)?(?:granting|granted|denying|denied)\s+(?:the\s+)?"
+    r"motions?\s+for\s+judgment\s+on\s+the\s+pleadings"
+    rf"(?:\s+(?:as\s+to|on)\s+{_COUNT_OR_CLAIM_SCOPE_PATTERN})?"
+    r"(?:\s*,?\s+and\s+(?:"
+    r"(?:granting|granted|denying|denied)\s+(?:the\s+)?dismissal\s+of\s+"
+    rf"{_COUNT_OR_CLAIM_SCOPE_PATTERN}"
+    rf"|(?:dismissing|dismissed)\s+{_COUNT_OR_CLAIM_SCOPE_PATTERN}"
+    r"))?\s*[.;]?\s*(?=\(\s*(?:re\s*:|related\s+document(?:\(s\)|s)))",
+    re.IGNORECASE,
+)
 
-    judgment_motion = re.compile(
-        r"\bmotions?\s+for\s+judgment\s+on\s+the\s+pleadings\b",
-        re.IGNORECASE,
-    )
-    if judgment_motion.search(text) is None:
-        return False
-    without_judgment_motion = judgment_motion.sub("", text)
-    without_judgment_motion = re.sub(
-        r"\bmain\s+doc\s*ument\s+miscellaneous\s+motion\b",
-        "",
-        without_judgment_motion.replace("\xad", ""),
-        flags=re.IGNORECASE,
-    )
-    return re.search(
-        r"\b(?:motions?|applications?|requests?|objections?|petitions?|"
-        r"cross[ -]?motions?|appeals?)\b",
-        without_judgment_motion,
-        re.IGNORECASE,
-    ) is None and is_rule_7012_claim_merits_motion(text)
+
+def _has_unambiguous_qualifying_adversary_motion(text: str) -> bool:
+    """Require only whitelisted Rule 12(c) merits relief for a generic row."""
+
+    return bool(
+        _ALLOWED_JOP_MERITS_DISPOSITION_RE.search(text.replace("\xad", ""))
+    ) and is_rule_7012_claim_merits_motion(text)
 
 
 def _looks_like_target_mtd_filing(text: str) -> bool:

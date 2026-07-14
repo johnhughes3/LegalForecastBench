@@ -1681,6 +1681,10 @@ def test_adversary_jop_does_not_assign_generic_reference_in_multi_motion_order()
         "Denying Request for Sanctions",
         "Overruling Objection to Claim",
         "Denying Petition for Compensation",
+        "Granting Stay",
+        "Awarding Sanctions",
+        "Quashing Subpoena",
+        "Granting Motion to Compel",
     ),
 )
 def test_adversary_jop_does_not_assign_generic_reference_for_secondary_relief(
