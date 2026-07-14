@@ -414,9 +414,10 @@ def screen_courtlistener_docket_page(
         decision_filed_on_or_after=decision_filed_on_or_after,
         decision_filed_on_or_before=decision_filed_on_or_before,
     )
+    anchor_disposition_entries = unanchored.anchor_disposition_entries
     unparseable_decision_entries = tuple(
         entry
-        for entry in unanchored.decision_entries
+        for entry in anchor_disposition_entries
         if _parse_filed_date(entry.filed_at) is None
     )
     if unparseable_decision_entries:
@@ -434,7 +435,7 @@ def screen_courtlistener_docket_page(
                 "so the first disposition cannot be proven eligible."
             ),
         )
-    first_decision_date = _first_decision_date(unanchored.decision_entries)
+    first_decision_date = _first_decision_date(anchor_disposition_entries)
     if (
         first_decision_date is not None
         and first_decision_date < decision_filed_on_or_after
@@ -446,7 +447,7 @@ def screen_courtlistener_docket_page(
             stage=ExclusionStage.ELIGIBILITY,
             reason=ExclusionReason.DECISION_BEFORE_RELEASE_ANCHOR.value,
             source_entry_ids=tuple(
-                entry.row_id for entry in unanchored.decision_entries
+                entry.row_id for entry in anchor_disposition_entries
             ),
             decision_date=first_decision_date,
             notes=(

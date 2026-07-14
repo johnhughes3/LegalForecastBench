@@ -685,6 +685,10 @@ def test_actual_mtd_decision_entry_does_not_broaden_beyond_exact_event_forms(
         "ORDER denying 12 Motion to Dismiss as moot.",
         "ORDER terminating 12 Motion to Dismiss as moot.",
         (
+            "ELECTRONIC ORDER entered: In light of the filing of the amended "
+            "complaint, ECF 15, the motion to dismiss, ECF 11, is denied as moot."
+        ),
+        (
             "REPORT AND RECOMMENDATION re 12 Motion to Dismiss. The Court "
             "recommends that the motion be granted."
         ),
@@ -1700,6 +1704,135 @@ def test_adversary_jop_does_not_promote_osborne_generic_motion_reference() -> No
     assert screen.case_type_stratum == "bankruptcy_adversary"
     assert [entry.entry_number for entry in normalized] == ["170"]
     assert [entry.document_role for entry in normalized] == [DocumentRole.DECISION]
+
+
+def test_anchor_entries_include_generic_preanchor_order_on_mtd_relation() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Plaintiff v. Defendant - 1:26-cv-00123",
+            entries=(
+                (5, "May 1, 2026", "MOTION to Dismiss Complaint"),
+                (16, "June 10, 2026", "Order on Motion to Dismiss"),
+                (20, "July 2, 2026", "ORDER granting 5 Motion to Dismiss"),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000123/example/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert [entry.row_id for entry in screen.decision_entries] == ["entry-20"]
+    assert [entry.row_id for entry in screen.anchor_disposition_entries] == [
+        "entry-16",
+        "entry-20",
+    ]
+
+
+def test_anchor_entries_preserve_order_regarding_mtd_with_generic_document_label() -> (
+    None
+):
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "ORDER regarding 9 motion to dismiss",
+            document_description="Order",
+        ),
+        source_url="https://www.courtlistener.com/docket/74000123/example/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(page)
+
+    assert screen.decision_entries == ()
+    assert [entry.row_id for entry in screen.anchor_disposition_entries] == ["entry-12"]
+
+
+def test_anchor_entries_include_preanchor_recommendation_later_adopted() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Plaintiff v. Defendant - 1:26-cv-00123",
+            entries=(
+                (18, "January 5, 2026", "MOTION to Dismiss Complaint"),
+                (31, "January 29, 2026", "Report & Recommendation"),
+                (
+                    33,
+                    "July 9, 2026",
+                    "MEMORANDUM ORDER adopting 31 Report & Recommendation; "
+                    "granting 18 Motion to Dismiss",
+                ),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000123/example/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert [entry.row_id for entry in screen.decision_entries] == ["entry-33"]
+    assert [entry.row_id for entry in screen.anchor_disposition_entries] == [
+        "entry-31",
+        "entry-33",
+    ]
+
+
+def test_anchor_entries_preserve_genuinely_first_postanchor_disposition() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Plaintiff v. Defendant - 1:26-cv-00123",
+            entries=(
+                (5, "May 1, 2026", "MOTION to Dismiss Complaint"),
+                (
+                    16,
+                    "June 20, 2026",
+                    "Order re Rule 12(b) Motions AND ~Util - Set Deadlines",
+                ),
+                (20, "July 1, 2026", "Order on Motion to Dismiss"),
+                (21, "July 2, 2026", "ORDER granting 5 Motion to Dismiss"),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000123/example/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert [entry.row_id for entry in screen.anchor_disposition_entries] == [
+        "entry-20",
+        "entry-21",
+    ]
+
+
+def test_anchor_entries_include_preanchor_moot_denial() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Plaintiff v. Defendant - 1:26-cv-00123",
+            entries=(
+                (11, "September 1, 2025", "MOTION to Dismiss Complaint"),
+                (
+                    16,
+                    "October 23, 2025",
+                    "ELECTRONIC ORDER: motion to dismiss 11 is denied as moot",
+                ),
+                (21, "July 2, 2026", "ORDER granting 18 Motion to Dismiss"),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000123/example/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert [entry.row_id for entry in screen.anchor_disposition_entries] == [
+        "entry-16",
+        "entry-21",
+    ]
 
 
 def test_adversary_jop_does_not_promote_ambiguous_generic_motion_references() -> None:
