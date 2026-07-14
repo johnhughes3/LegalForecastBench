@@ -53,6 +53,8 @@ def test_saved_orders_require_grammatically_proven_merits_disposition(
         "ORDER granting in part and denying in part the Motion for Judgment on "
         "the Pleadings and extending the deadline to amend the complaint.",
         "ORDER denying as moot 26 Motion for Judgment on the Pleadings.",
+        "ORDER denying without prejudice Defendant's Motion to Dismiss.",
+        "ORDER granting with prejudice Defendant's Motion to Dismiss.",
     ),
 )
 def test_actual_merits_disposition_survives_ancillary_procedural_relief(
@@ -79,6 +81,11 @@ def test_actual_merits_disposition_survives_ancillary_procedural_relief(
         "ORDER granting Plaintiff's request to supplement the record "
         "regarding Defendant's Motion to Dismiss.",
         "ORDER granting a hearing on Defendant's Motion to Dismiss.",
+        "ORDER granting Motion by Defendant for leave to file late Motion to Dismiss.",
+        "ORDER granting Motion by Defendant for an extension to respond to the "
+        "Motion to Dismiss.",
+        "ORDER: Motion by Defendant for leave to file late Motion to Dismiss "
+        "is granted.",
     ),
 )
 def test_ancillary_request_is_not_the_disposition_object(text: str) -> None:
@@ -93,6 +100,20 @@ def test_ancillary_request_is_not_the_disposition_object(text: str) -> None:
 
     assert screen.actual_mtd_decision is False
     assert screen.exclusion_reasons
+
+
+def test_bounded_motion_by_party_disposition_remains_proven() -> None:
+    entry = CourtListenerWebDocketEntry(
+        row_id="entry-motion-by-party",
+        entry_number="102",
+        filed_at="July 13, 2026",
+        text="ORDER: Motion by Defendant Smith to Dismiss is denied.",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(entry)
+
+    assert screen.actual_mtd_decision is True
+    assert screen.exclusion_reasons == ()
 
 
 def _record(name: str) -> dict[str, Any]:

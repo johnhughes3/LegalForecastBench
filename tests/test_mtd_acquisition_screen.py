@@ -875,6 +875,24 @@ def test_named_social_security_caption_excludes_bare_jop_disposition(
     assert "social_security_merits_review_posture" in screen.exclusion_reasons
 
 
+def test_social_security_agency_employment_jop_is_not_disability_review() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "ORDER granting Defendant's Motion for Judgment on the Pleadings "
+            "on Plaintiff's Title VII employment discrimination claims.",
+            title="DOE v. SOCIAL SECURITY ADMINISTRATION",
+            document_description="Order on Motion for Judgment on the Pleadings",
+        ),
+        source_url="https://www.courtlistener.com/docket/2/ssa-employment/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(page)
+
+    assert screen.has_actual_mtd_decision is True
+    assert screen.strict_clean is True
+    assert "social_security_merits_review_posture" not in screen.exclusion_reasons
+
+
 def test_unrelated_rule_12_row_does_not_clear_social_security_merits_jop() -> None:
     page = parse_courtlistener_docket_html(
         _multi_entry_docket_html(

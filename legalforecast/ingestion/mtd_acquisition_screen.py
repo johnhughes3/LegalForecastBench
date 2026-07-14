@@ -545,7 +545,7 @@ def screen_courtlistener_docket_for_mtd_decision(
         )
         social_security_exclusions = (
             ("social_security_merits_review_posture",)
-            if _looks_like_named_social_security_context(combined_text)
+            if _looks_like_commissioner_social_security_context(combined_text)
             and re.search(
                 r"\b(?:partial\s+)?judgment\s+on\s+(?:the\s+)?pleadings\b",
                 combined_text,
@@ -852,16 +852,24 @@ def _has_direct_mtd_disposition(text: str) -> bool:
         r"motions?\s+(?:under|pursuant\s+to)\s+(?:rule\s+)?12"
         r"(?:\s*\(\s*[bc]\s*\)(?:\s*\(\s*[126]\s*\))?)?)"
     )
-    target_motion = (
+    before_target_procedural_word = (
+        r"(?:motion|extension|extend|respond|reply|stay|page|briefing|expedit\w*|"
+        r"leave|file|filing|late|deadline|due)"
+    )
+    by_party_to_dismiss = (
+        rf"motions?\s+by\b(?:(?!\b{before_target_procedural_word}\b)[^.;])"
+        r"{0,100}?\bto\s+dismiss"
+    )
+    direct_object_target_motion = (
         r"(?:motions?\s+to\s+dismiss|"
-        r"motions?\s+by\b[^.;]{0,100}?\bto\s+dismiss|mtd|"
+        r"mtd|"
         rf"{rule_12_motion}|"
         r"motions?\s+for\s+(?:partial\s+)?judgment\s+on\s+"
         r"(?:the\s+)?pleadings)"
     )
-    before_target_procedural_word = (
-        r"(?:motion|extension|extend|respond|reply|stay|page|briefing|expedit\w*|"
-        r"leave|file|filing|late|deadline|due)"
+    target_motion = (
+        rf"(?:{direct_object_target_motion}|"
+        rf"{by_party_to_dismiss})"
     )
     after_target_procedural_word = (
         r"(?:extension|extend|respond|reply|stay|page|briefing|expedit\w*|"
@@ -869,9 +877,13 @@ def _has_direct_mtd_disposition(text: str) -> bool:
     )
     before_target = rf"(?:(?!\b{before_target_procedural_word}\b)[^.;]){{0,120}}"
     after_target = rf"(?:(?!\b{after_target_procedural_word}\b)[^.;]){{0,240}}"
+    clean_clause_prefix = (
+        rf"(?:^|[.;])(?:(?!\b{before_target_procedural_word}\b)[^.;]){{0,240}}?"
+    )
     disposition_qualifier = (
         r"(?:(?:in\s+part(?:\s+and\s+"
-        r"(?:grant(?:ed|ing)?|den(?:ied|ying)?)\s+in\s+part)?|as\s+moot)\s+)?"
+        r"(?:grant(?:ed|ing)?|den(?:ied|ying)?)\s+in\s+part)?|as\s+moot|"
+        r"with(?:out)?\s+prejudice)\s+)?"
     )
     party_role = (
         r"(?:plaintiffs?|defendants?|petitioners?|respondents?|movants?|"
@@ -900,7 +912,7 @@ def _has_direct_mtd_disposition(text: str) -> bool:
         rf"{numbered_or_owned_target}"
     )
     if re.search(
-        rf"\b{action}\b\s+{direct_target_lead}\b{target_motion}\b",
+        rf"\b{action}\b\s+{direct_target_lead}\b{direct_object_target_motion}\b",
         text,
         re.I,
     ):
@@ -908,13 +920,13 @@ def _has_direct_mtd_disposition(text: str) -> bool:
     if re.search(
         rf"\b{action}\b[^.;]{{0,80}}\bmotions?\s+to\s+"
         rf"(?:stay|extend|expedite)\b[^.;]{{0,80}}\band\s+"
-        rf"(?:the\s+)?{target_motion}\b",
+        rf"(?:the\s+)?{direct_object_target_motion}\b",
         text,
         re.I,
     ):
         return True
     if re.search(
-        rf"\b{target_motion}\b{after_target}"
+        rf"{clean_clause_prefix}\b{target_motion}\b{after_target}"
         rf"\b(?:is|are|was|were|be|been|should\s+be)\s+"
         rf"(?:hereby\s+)?{action}\b",
         text,
@@ -922,14 +934,14 @@ def _has_direct_mtd_disposition(text: str) -> bool:
     ):
         return True
     if re.search(
-        rf"\b{target_motion}\b"
+        rf"{clean_clause_prefix}\b{target_motion}\b"
         rf"(?:\s*(?:\[[^\]]+\]|\([^)]{{0,80}}\)|,|:))*\s+{action}\b",
         text,
         re.I,
     ):
         return True
     if re.search(
-        rf"\b{target_motion}\b{after_target}"
+        rf"{clean_clause_prefix}\b{target_motion}\b{after_target}"
         r"\b(?:is|are|was|were|be|been|deemed|found)\s+moot\b",
         text,
         re.I,
@@ -1279,8 +1291,16 @@ def _looks_like_social_security_merits_jop(
 ) -> bool:
     """Reject administrative merits review mislabeled as a Rule 12(c) case."""
 
-    named_social_security_review = _looks_like_named_social_security_context(
-        context_text
+    commissioner_social_security_review = (
+        _looks_like_commissioner_social_security_context(context_text)
+    )
+    named_social_security_agency = bool(
+        commissioner_social_security_review
+        or re.search(
+            r"\bsocial\s+security\s+administration\b",
+            context_text,
+            re.I,
+        )
     )
     alj_reference = bool(
         re.search(r"\badministrative\s+law\s+judge\b", decision_text, re.I)
@@ -1318,13 +1338,13 @@ def _looks_like_social_security_merits_jop(
         administrative_disposition or administrative_remand
     )
     social_security_review = (
-        named_social_security_review or strong_administrative_review
+        named_social_security_agency or strong_administrative_review
     )
     administrative_merits = bool(
         # An explicit Commissioner-of-Social-Security caption identifies the
         # statutory merits-review posture even when the terse docket row says
         # only that a cross-motion for judgment on the pleadings was resolved.
-        named_social_security_review
+        commissioner_social_security_review
         or alj_reference
         or re.search(
             r"\bdecision\s+of\s+the\s+(?:commissioner|agency)\b",
@@ -1355,8 +1375,8 @@ def _looks_like_social_security_merits_jop(
     )
 
 
-def _looks_like_named_social_security_context(text: str) -> bool:
-    """Return whether a caption or docket text names the Social Security agency."""
+def _looks_like_commissioner_social_security_context(text: str) -> bool:
+    """Return whether a caption names the disability-review Commissioner."""
 
     return bool(
         re.search(
@@ -1365,7 +1385,6 @@ def _looks_like_named_social_security_context(text: str) -> bool:
             text,
             re.I,
         )
-        or re.search(r"\bsocial\s+security\s+administration\b", text, re.I)
     )
 
 
@@ -1374,7 +1393,9 @@ def _has_disposition_linked_rule_12_basis(decision_text: str) -> bool:
 
     for clause in re.split(r"(?<=[.;])\s+", decision_text):
         judgment_on_pleadings = re.search(
-            r"\bjudgment\s+on\s+the\s+pleadings\b", clause, re.I
+            r"\b(?:partial\s+)?judgment\s+on\s+(?:the\s+)?pleadings\b",
+            clause,
+            re.I,
         )
         explicit_jop_rule = bool(
             judgment_on_pleadings
