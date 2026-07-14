@@ -58,6 +58,7 @@ from legalforecast.ingestion.decision_first_terms import (
 from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, DiscoveryPage
 from legalforecast.ingestion.mtd_acquisition_screen import (
     CaseDevDocketMetadata,
+    MtdDecisionEntryScreen,
     MtdDocketDecisionScreen,
     MtdDocketScreenStatus,
     courtlistener_case_name_slug,
@@ -1113,9 +1114,10 @@ def observe_recap_api_candidate(
     # docket whose in-window hit (for example "order adopting R&R") sits atop an
     # earlier MTD report/decision that predates the eligibility anchor.
     unbounded = screen_courtlistener_docket_for_mtd_decision(reconstructed.page)
-    all_decisions = _decision_entry_records(unbounded)
+    all_decisions = _decision_entry_records(unbounded.decision_entries)
+    anchor_dispositions = _decision_entry_records(unbounded.anchor_disposition_entries)
     unparseable_decisions = [
-        entry for entry in all_decisions if entry["filed_date"] is None
+        entry for entry in anchor_dispositions if entry["filed_date"] is None
     ]
     earliest = _earliest_decision_date(unbounded)
     evidence = {
@@ -1123,6 +1125,7 @@ def observe_recap_api_candidate(
         "screen": anchored.to_record(),
         "reconstruction_proof": reconstructed.proof.to_record(),
         "mtd_decision_entries": all_decisions,
+        "mtd_anchor_disposition_entries": anchor_dispositions,
         "first_mtd_decision_date": earliest.isoformat() if earliest else None,
         "eligibility_anchor": eligibility_anchor.isoformat(),
         "decision_window_end": (
@@ -1239,7 +1242,7 @@ def _map_screen_outcome(
 
 
 def _decision_entry_records(
-    screen: MtdDocketDecisionScreen,
+    entries: Sequence[MtdDecisionEntryScreen],
 ) -> list[dict[str, object]]:
     return [
         {
@@ -1252,13 +1255,13 @@ def _decision_entry_records(
                 else None
             ),
         }
-        for entry in screen.decision_entries
+        for entry in entries
     ]
 
 
 def _earliest_decision_date(screen: MtdDocketDecisionScreen) -> date | None:
     earliest: date | None = None
-    for entry in screen.decision_entries:
+    for entry in screen.anchor_disposition_entries:
         parsed = _parse_long_us_date(entry.filed_at)
         if parsed is None:
             continue

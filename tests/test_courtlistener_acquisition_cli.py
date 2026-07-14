@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import urllib.request
+from datetime import date
 from email.message import Message
 from pathlib import Path
 from typing import Any, cast
@@ -11,11 +12,17 @@ from legalforecast.cli import main
 from legalforecast.ingestion.courtlistener_acquisition import (
     CourtListenerClientError,
     _CourtListenerRedirectHandler,
+    screen_courtlistener_docket_page,
 )
+from legalforecast.ingestion.courtlistener_client import CourtListenerDocket
+from legalforecast.ingestion.courtlistener_web import parse_courtlistener_docket_html
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.discovery_scheduler import (
     DiscoveryHit,
     TermTerminalStatus,
+)
+from legalforecast.ingestion.mtd_acquisition_screen import (
+    screen_case_dev_docket_metadata,
 )
 
 
@@ -297,6 +304,75 @@ def test_discover_courtlistener_excludes_unproven_or_preanchor_first_disposition
     assert exclusion["primary_exclusion_reason"] == expected_reason
     assert notes_fragment in exclusion["notes"]
     assert (output_root / "raw-courtlistener-html" / "123.html").is_file()
+
+
+@pytest.mark.parametrize(
+    "preanchor_entry",
+    (
+        (16, "June 10, 2026", "Order on Motion to Dismiss"),
+        (
+            16,
+            "October 23, 2025",
+            "ELECTRONIC ORDER: motion to dismiss 5 is denied as moot",
+        ),
+        (16, "June 9, 2026", "ORDER regarding 5 motion to dismiss"),
+    ),
+)
+def test_canonical_screen_excludes_preanchor_generic_or_moot_mtd_disposition(
+    preanchor_entry: tuple[int, str, str],
+) -> None:
+    screened, exclusion = _screen_custom_docket(
+        entries=(
+            (1, "January 2, 2026", "COMPLAINT filed by Plaintiff"),
+            (5, "February 2, 2026", "MOTION to Dismiss filed by Defendant"),
+            preanchor_entry,
+            (40, "July 2, 2026", "ORDER granting 5 Motion to Dismiss"),
+        )
+    )
+
+    assert screened is None
+    assert exclusion is not None
+    assert exclusion.reason == "decision_before_release_anchor"
+
+
+def test_canonical_screen_excludes_preanchor_recommendation_later_adopted() -> None:
+    screened, exclusion = _screen_custom_docket(
+        entries=(
+            (1, "January 2, 2026", "COMPLAINT filed by Plaintiff"),
+            (18, "January 5, 2026", "MOTION to Dismiss filed by Defendant"),
+            (31, "January 29, 2026", "Report & Recommendation"),
+            (
+                33,
+                "July 9, 2026",
+                "MEMORANDUM ORDER adopting 31 Report & Recommendation; "
+                "granting 18 Motion to Dismiss",
+            ),
+        )
+    )
+
+    assert screened is None
+    assert exclusion is not None
+    assert exclusion.reason == "decision_before_release_anchor"
+
+
+def test_canonical_screen_accepts_genuinely_first_postanchor_disposition() -> None:
+    screened, exclusion = _screen_custom_docket(
+        entries=(
+            (1, "January 2, 2026", "COMPLAINT filed by Plaintiff"),
+            (5, "February 2, 2026", "MOTION to Dismiss filed by Defendant"),
+            (
+                16,
+                "June 20, 2026",
+                "Order re Rule 12(b) Motions AND ~Util - Set Deadlines",
+            ),
+            (20, "July 1, 2026", "Order on Motion to Dismiss"),
+            (21, "July 2, 2026", "ORDER granting 5 Motion to Dismiss"),
+        )
+    )
+
+    assert exclusion is None
+    assert screened is not None
+    assert screened["first_written_mtd_disposition_date"] == "2026-07-01"
 
 
 def test_discover_courtlistener_execute_requires_live_or_complete_fixture_pair(
@@ -617,6 +693,56 @@ def _entry_html(
         f'<a href="https://storage.courtlistener.com/{number}.pdf">Download PDF</a>'
         f"</div>{extra_document}</div></div>"
     )
+
+
+def _screen_custom_docket(
+    *,
+    entries: tuple[tuple[int, str, str], ...],
+) -> tuple[dict[str, Any] | None, Any]:
+    html = (
+        "<html><head><title>Fixture v. Example</title></head><body>"
+        '<div id="docket-entry-table">'
+        + "".join(
+            _entry_html(
+                number=number,
+                filed_at=filed_at,
+                text=text,
+                description=text,
+            )
+            for number, filed_at, text in entries
+        )
+        + "</div></body></html>"
+    )
+    docket = CourtListenerDocket(
+        docket_id="123",
+        court_id="nysd",
+        docket_number="1:26-cv-00001",
+        case_name="Fixture v. Example",
+        date_filed="2026-01-02",
+        source_url="https://www.courtlistener.com/docket/123/fixture-v-example/",
+        raw={},
+    )
+    metadata_screen = screen_case_dev_docket_metadata(
+        {
+            "id": "123",
+            "courtId": "nysd",
+            "court": "District Court, S.D. New York",
+            "docketNumber": "1:26-cv-00001",
+            "caseName": "Fixture v. Example",
+        }
+    )
+    page = parse_courtlistener_docket_html(
+        html,
+        source_url=docket.source_url,
+        docket_id=docket.docket_id,
+    )
+    screened, exclusion = screen_courtlistener_docket_page(
+        docket=docket,
+        metadata_screen=metadata_screen,
+        page=page,
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+    return (None if screened is None else dict(screened)), exclusion
 
 
 def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:

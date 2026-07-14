@@ -1662,6 +1662,93 @@ def test_observe_excludes_first_disposition_before_anchor(tmp_path: Path) -> Non
         assert observation.reason_code == "decision_before_release_anchor"
 
 
+@pytest.mark.parametrize(
+    "results",
+    (
+        [
+            {
+                "id": 7001,
+                "docket": 555,
+                "entry_number": 20,
+                "description": "Order on Motion to Dismiss",
+                "date_filed": "2026-06-15",
+            },
+            {
+                "id": 7002,
+                "docket": 555,
+                "entry_number": 40,
+                "description": "ORDER granting renewed motion to dismiss",
+                "date_filed": "2026-07-05",
+            },
+        ],
+        [
+            {
+                "id": 7001,
+                "docket": 555,
+                "entry_number": 18,
+                "description": "Motion to Dismiss",
+                "date_filed": "2026-01-05",
+            },
+            {
+                "id": 7002,
+                "docket": 555,
+                "entry_number": 31,
+                "description": "Report & Recommendation",
+                "date_filed": "2026-01-29",
+            },
+            {
+                "id": 7003,
+                "docket": 555,
+                "entry_number": 33,
+                "description": (
+                    "MEMORANDUM ORDER adopting 31 Report & Recommendation; "
+                    "granting 18 Motion to Dismiss"
+                ),
+                "date_filed": "2026-07-09",
+            },
+        ],
+    ),
+)
+def test_observe_excludes_preanchor_generic_order_or_adopted_recommendation(
+    tmp_path: Path,
+    results: list[dict[str, object]],
+) -> None:
+    store, payload = _seeded_store(
+        tmp_path,
+        {
+            "id": 9001,
+            "docket_id": 555,
+            "description": "ORDER granting motion to dismiss",
+            "entry_date_filed": "2026-07-05",
+            "court_id": "nysd",
+            "docketNumber": "1:26-cv-00001",
+            "caseName": "Acme Corp v. Roe",
+        },
+    )
+    with store:
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=_client(
+                (
+                    _docket_response(555),
+                    _entries_response(
+                        cursor=None,
+                        results=results,
+                        next_cursor=None,
+                    ),
+                )
+            ),
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+    assert observation.state == "excluded"
+    assert observation.reason_code == "decision_before_release_anchor"
+    assert observation.evidence["first_mtd_decision_date"] < "2026-06-30"
+    assert observation.evidence["mtd_anchor_disposition_entries"]
+
+
 def test_observe_rejects_candidate_id_docket_id_mismatch(tmp_path: Path) -> None:
     store, payload = _seeded_store(
         tmp_path,

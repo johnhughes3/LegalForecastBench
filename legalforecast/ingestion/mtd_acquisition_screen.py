@@ -299,6 +299,7 @@ class MtdDocketDecisionScreen:
     exclusion_reasons: tuple[str, ...]
     decision_entries: tuple[MtdDecisionEntryScreen, ...]
     completeness: CourtListenerBriefingCompleteness
+    anchor_disposition_entries: tuple[MtdDecisionEntryScreen, ...] = ()
     case_type_stratum: str = "district_civil"
 
     @property
@@ -318,6 +319,9 @@ class MtdDocketDecisionScreen:
             "exclusion_reasons": list(self.exclusion_reasons),
             "actual_mtd_decision_entry_count": len(self.decision_entries),
             "decision_entries": [entry.to_record() for entry in self.decision_entries],
+            "anchor_disposition_entries": [
+                entry.to_record() for entry in self.anchor_disposition_entries
+            ],
             "completeness": self.completeness.to_record(),
             "case_type_stratum": self.case_type_stratum,
         }
@@ -519,6 +523,11 @@ def screen_courtlistener_docket_for_mtd_decision(
         for entry_screen in entry_screens
         if entry_screen.actual_mtd_decision
     )
+    anchor_disposition_entries = _anchor_disposition_entries(
+        page.entries,
+        entry_screens=entry_screens,
+        actual_decision_entries=actual_decision_entries,
+    )
     decision_entries = tuple(
         entry_screen
         for entry_screen in actual_decision_entries
@@ -565,6 +574,7 @@ def screen_courtlistener_docket_for_mtd_decision(
             ),
             decision_entries=(),
             completeness=completeness,
+            anchor_disposition_entries=anchor_disposition_entries,
         )
 
     bankruptcy_context = _looks_like_bankruptcy_context(combined_text)
@@ -616,9 +626,168 @@ def screen_courtlistener_docket_for_mtd_decision(
         exclusion_reasons=strict_exclusions,
         decision_entries=decision_entries,
         completeness=completeness,
+        anchor_disposition_entries=anchor_disposition_entries,
         case_type_stratum=(
             "bankruptcy_adversary" if bankruptcy_context else "district_civil"
         ),
+    )
+
+
+def _anchor_disposition_entries(
+    entries: Sequence[CourtListenerWebDocketEntry],
+    *,
+    entry_screens: Sequence[MtdDecisionEntryScreen],
+    actual_decision_entries: Sequence[MtdDecisionEntryScreen],
+) -> tuple[MtdDecisionEntryScreen, ...]:
+    """Return every row that can establish the case-level anchor date.
+
+    Strict decision selection requires an outcome verb.  The release anchor is
+    different: an exact CourtListener relationship label such as ``Order on
+    Motion to Dismiss`` proves that a written disposition exists even when the
+    docket text omits its result.  Likewise, a later MTD order that expressly
+    adopts a recommendation proves that the earlier recommendation was written
+    before adoption.  These rows must participate in the earliest-date gate,
+    but they remain ineligible to serve as the benchmark decision by
+    themselves.
+    """
+
+    screen_by_row_id = {screen.row_id: screen for screen in entry_screens}
+    entry_by_row_id = {entry.row_id: entry for entry in entries}
+    anchor_row_ids = {screen.row_id for screen in actual_decision_entries}
+    anchor_row_ids.update(
+        entry.row_id for entry in entries if _has_generic_mtd_order_relation(entry)
+    )
+
+    recommendation_entries = tuple(
+        entry for entry in entries if _is_generic_recommendation_entry(entry)
+    )
+    for decision_screen in actual_decision_entries:
+        decision_entry = entry_by_row_id[decision_screen.row_id]
+        if not _is_recommendation_adoption(decision_entry):
+            continue
+        candidates = tuple(
+            entry
+            for entry in recommendation_entries
+            if _entry_precedes(entry, decision_entry)
+        )
+        referenced_numbers = _recommendation_reference_numbers(decision_entry)
+        referenced_candidates = tuple(
+            entry for entry in candidates if _entry_number(entry) in referenced_numbers
+        )
+        anchor_row_ids.update(
+            entry.row_id for entry in (referenced_candidates or candidates)
+        )
+
+    return tuple(
+        screen
+        for entry in entries
+        if entry.row_id in anchor_row_ids
+        if (screen := screen_by_row_id.get(entry.row_id)) is not None
+    )
+
+
+_GENERIC_MTD_ORDER_RELATION = re.compile(
+    r"\border\s+(?:on|re(?:garding)?)\s+(?:\d+\s+)?(?:"
+    r"motions?\s+to\s+dismiss(?:\s+for\s+failure\s+to\s+state\s+a\s+claim)?"
+    r"(?:\s*/\s*lack\s+of\s+jurisdiction)?|"
+    r"rule\s+12\s*\([^)]*\)\s+motions?|"
+    r"motions?\s+for\s+(?:partial\s+)?judgment\s+on\s+the\s+pleadings"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _has_generic_mtd_order_relation(entry: CourtListenerWebDocketEntry) -> bool:
+    search_text = _entry_search_text(entry)
+    if _looks_like_proposed_order_attachment(search_text):
+        return False
+    if re.search(r"\border\s+re\b", search_text, re.I) and re.search(
+        r"\b(?:set|reset)\s+deadlines?\b|\bbriefing\s+schedule\b",
+        search_text,
+        re.I,
+    ):
+        return False
+    return any(
+        _GENERIC_MTD_ORDER_RELATION.search(text) is not None
+        for text in (
+            _entry_narrative_before_documents(entry),
+            entry.text,
+            *(document.kind for document in entry.documents),
+            *(document.description for document in entry.documents),
+        )
+    )
+
+
+_GENERIC_RECOMMENDATION = re.compile(
+    r"^(?:reports?|memorand(?:um|a)|findings)\s+(?:and|&)\s+recommendations?$",
+    re.IGNORECASE,
+)
+
+
+def _is_generic_recommendation_entry(entry: CourtListenerWebDocketEntry) -> bool:
+    texts = (
+        _entry_narrative_before_documents(entry),
+        *(document.kind for document in entry.documents),
+        *(document.description for document in entry.documents),
+    )
+    return any(
+        _GENERIC_RECOMMENDATION.fullmatch(_normalized_text(text)) is not None
+        for text in texts
+    )
+
+
+def _is_recommendation_adoption(entry: CourtListenerWebDocketEntry) -> bool:
+    text = _entry_search_text(entry)
+    recommendation = (
+        r"(?:reports?|memorand(?:um|a)|findings)\s+(?:and|&)\s+recommendations?"
+    )
+    return bool(
+        re.search(rf"\badopt\w*\b[^.;]{{0,180}}\b{recommendation}\b", text, re.I)
+        or re.search(
+            rf"\b{recommendation}\b[^.;]{{0,180}}\b(?:is|are|was|were)\s+"
+            r"(?:hereby\s+)?adopt\w*\b",
+            text,
+            re.I,
+        )
+    )
+
+
+def _recommendation_reference_numbers(
+    entry: CourtListenerWebDocketEntry,
+) -> set[int]:
+    text = _entry_search_text(entry)
+    recommendation = re.compile(
+        r"(?:reports?|memorand(?:um|a)|findings)\s+(?:and|&)\s+recommendations?",
+        re.IGNORECASE,
+    )
+    numbers: set[int] = set()
+    for match in recommendation.finditer(text):
+        start = max(0, match.start() - 60)
+        end = min(len(text), match.end() + 60)
+        numbers.update(int(value) for value in re.findall(r"\b\d+\b", text[start:end]))
+    return numbers
+
+
+def _entry_number(entry: CourtListenerWebDocketEntry) -> int | None:
+    if entry.entry_number is None or not entry.entry_number.isdigit():
+        return None
+    return int(entry.entry_number)
+
+
+def _entry_precedes(
+    candidate: CourtListenerWebDocketEntry,
+    disposition: CourtListenerWebDocketEntry,
+) -> bool:
+    candidate_number = _entry_number(candidate)
+    disposition_number = _entry_number(disposition)
+    if candidate_number is not None and disposition_number is not None:
+        return candidate_number < disposition_number
+    candidate_date = parse_courtlistener_filed_date(candidate.filed_at)
+    disposition_date = parse_courtlistener_filed_date(disposition.filed_at)
+    return (
+        candidate_date is not None
+        and disposition_date is not None
+        and candidate_date <= disposition_date
     )
 
 
@@ -839,6 +1008,15 @@ def _has_direct_mtd_disposition(text: str) -> bool:
         text,
         flags=re.IGNORECASE,
     )
+    if re.search(
+        r"\bmotions?\s+to\s+dismiss\b\s*,?\s*"
+        r"(?:(?:ecf|dkt|docket|doc(?:ument)?)\s*(?:no\.?\s*)?\d+\s*,?\s*)?"
+        r"\b(?:is|are|was|were)\s+(?:hereby\s+)?"
+        r"(?:denied|dismissed)\s+as\s+moot\b",
+        text,
+        re.IGNORECASE,
+    ):
+        return True
     action = (
         r"(?:grant(?:ed|ing|s)?|den(?:y|ied|ying|ies)|"
         r"terminat(?:ed|ing|es?)|dismiss(?:ed|es|ing)|"

@@ -815,7 +815,7 @@ def test_screen_firecrawl_dockets_fail_closed_on_first_preanchor_disposition(
     assert exclusion["case_id"] == "case-dev-123"
 
 
-def test_generic_order_event_does_not_precede_explicit_disposition_anchor(
+def test_generic_order_event_proves_preanchor_written_disposition(
     tmp_path: Path,
     cycle_state: _CycleState,
 ) -> None:
@@ -869,11 +869,11 @@ def test_generic_order_event_does_not_precede_explicit_disposition_anchor(
         == 0
     )
 
-    [screened] = _read_jsonl(output_root / "firecrawl-screened-cases.jsonl")
-    assert screened["first_written_mtd_disposition_date"] == "2026-07-01"
-    assert screened["ai"]["decision_entry_numbers"] == ["16"]
-    assert screened["ai"]["target_motion_entry_numbers"] == ["5"]
-    assert _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl") == []
+    assert _read_jsonl(output_root / "firecrawl-screened-cases.jsonl") == []
+    [exclusion] = _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl")
+    assert exclusion["reason"] == "decision_before_release_anchor"
+    assert exclusion["decision_date"] == "2026-06-29"
+    assert exclusion["source_entry_ids"] == ["entry-15", "entry-16"]
 
 
 def test_screen_counts_preanchor_report_as_first_written_disposition(
