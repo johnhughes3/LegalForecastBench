@@ -349,6 +349,45 @@ def test_public_packet_planner_excludes_explicit_restricted_document_status(
     )
 
 
+def test_embedded_restriction_markers_survive_snapshot_round_trip(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    selected_entries = cast(list[dict[str, Any]], record["selected_entries"])
+    target_document = cast(list[dict[str, Any]], selected_entries[1]["documents"])[0]
+    target_document["restriction_markers"] = ["field_issealed"]
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [excluded] = plan.final_exclusions
+    assert not plan.download_requests
+    assert excluded.exclusion_reasons[0].startswith(
+        "sealed_or_restricted_material:target_mtd_entry_5:field_issealed"
+    )
+
+
+def test_embedded_restriction_markers_fail_closed_when_malformed(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    selected_entries = cast(list[dict[str, Any]], record["selected_entries"])
+    target_document = cast(list[dict[str, Any]], selected_entries[1]["documents"])[0]
+    target_document["restriction_markers"] = "field_issealed"
+
+    with pytest.raises(ValueError, match="restriction_markers must be a list"):
+        plan_public_packet_downloads(
+            (record,),
+            raw_html_dir=tmp_path / "unused",
+            target_clean_cases=1,
+            use_embedded_entries=True,
+        )
+
+
 def test_public_packet_planner_excludes_explicit_restricted_candidate_status(
     tmp_path: Path,
 ) -> None:

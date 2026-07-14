@@ -1828,6 +1828,18 @@ class CycleAcquisitionStore:
         if target.exists():
             raise FileExistsError(f"snapshot already exists: {target}")
 
+    def snapshot_is_saturated(self, batch_id: str) -> bool:
+        """Return whether a complete snapshot would be fully exhausted.
+
+        This performs the same terminal-candidate preflight as publication but
+        does not create a directory or database row.  Commands that promise a
+        saturated snapshot must call it before choosing an immutable snapshot
+        ID, so a limit-bound batch cannot poison that ID and fail only after
+        rename.
+        """
+
+        return self._snapshot_completion(batch_id)
+
     def _snapshot_payloads(self, batch_id: str) -> dict[str, bytes]:
         candidate_rows = self._connection.execute(
             """
@@ -2465,6 +2477,15 @@ def _validate_snapshot_target_motion_invariant(payload: bytes) -> None:
         if not isinstance(record, dict):
             continue
         typed_record = cast(dict[str, object], record)
+        if typed_record.get("provider") == "courtlistener-recap-rest-v4" and (
+            typed_record.get("canonical_rest_screen_complete") is not True
+            or not isinstance(typed_record.get("selected_entries"), list)
+        ):
+            candidate_id = typed_record.get("candidate_id", "unknown")
+            raise SnapshotVerificationError(
+                f"REST screened candidate {candidate_id} lacks canonical linkage, "
+                "leakage, or embedded-entry evidence"
+            )
         ai = typed_record.get("ai")
         if not isinstance(ai, dict):
             continue  # Legacy synthetic store records predate screened-case schema.

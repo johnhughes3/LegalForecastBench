@@ -695,7 +695,7 @@ def build_parser() -> argparse.ArgumentParser:
         "batch-002",
         help=(
             "Cycle 1 batch-002 decision-first RECAP REST v4 acquisition driver "
-            "(discover / observe / seed-batch-001-leads)."
+            "(discover / observe / seed-batch-001-leads / snapshot)."
         ),
     )
     batch_002_subparsers = batch_002.add_subparsers(
@@ -726,6 +726,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_batch_002_seed_arguments(batch_002_seed)
+    batch_002_snapshot = batch_002_subparsers.add_parser(
+        "snapshot",
+        help=(
+            "Publish and verify one immutable, saturated REST acquisition "
+            "snapshot after every candidate is terminal."
+        ),
+    )
+    _add_batch_002_snapshot_arguments(batch_002_snapshot)
 
     acquisition = subparsers.add_parser(
         "acquisition",
@@ -1886,6 +1894,29 @@ def _add_batch_002_seed_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_batch_002_seed)
+
+
+def _add_batch_002_snapshot_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Acquisition store sqlite path holding the completed REST batch.",
+    )
+    parser.add_argument("--batch-id", default=_BATCH_002_DEFAULT_BATCH_ID)
+    parser.add_argument(
+        "--snapshot-id",
+        required=True,
+        help="Immutable snapshot identifier; safe filename characters only.",
+    )
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        required=True,
+        help="Directory in which the immutable snapshot directory is created.",
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_snapshot)
 
 
 def _add_generate_cohort_policy_arguments(parser: argparse.ArgumentParser) -> None:
@@ -6359,6 +6390,59 @@ def _cmd_batch_002_seed(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_batch_002_snapshot(args: argparse.Namespace) -> int:
+    cycle_store = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    snapshot_id = cast(str, args.snapshot_id)
+    output_root = cast(Path, args.output_root)
+    try:
+        with CycleAcquisitionStore(cycle_store) as store:
+            cycle_hash = store.cycle_hash
+            batch_digest = store.batch_digest(batch_id)
+            if not store.snapshot_is_saturated(batch_id):
+                raise SnapshotVerificationError(
+                    "batch-002 snapshot requires every discovery term to be "
+                    "exhausted before publication"
+                )
+            snapshot_path = store.export_snapshot(
+                output_root,
+                snapshot_id=snapshot_id,
+                batch_id=batch_id,
+                complete=True,
+            )
+        manifest = verify_snapshot(
+            snapshot_path,
+            expected_cycle_hash=cycle_hash,
+            expected_batch_digest=batch_digest,
+            require_complete=True,
+            require_saturated=True,
+        )
+    except (
+        CycleAcquisitionStoreError,
+        FileExistsError,
+        KeyError,
+        OSError,
+        SnapshotVerificationError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    record = {
+        "schema_version": "legalforecast.batch_002_snapshot_result.v1",
+        "batch_id": batch_id,
+        "snapshot_id": snapshot_id,
+        "snapshot_path": str(snapshot_path.resolve()),
+        "cycle_hash": cycle_hash,
+        "batch_digest": batch_digest,
+        "verified": True,
+        "saturated": manifest.get("saturated") is True,
+    }
+    summary_output = cast(Path | None, args.summary_output)
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
 def _cmd_generate_cohort_policy(args: argparse.Namespace) -> int:
     try:
         artifact = generate_cohort_policy(_read_json_object(cast(Path, args.decisions)))
@@ -10576,6 +10660,16 @@ def _verified_snapshot_raw_html_sources(
     requested: Path | None,
     use_embedded_entries: bool,
 ) -> tuple[Path | None, Mapping[str, Path] | None]:
+    screened_records = _read_records(snapshot_path / "screened-cases.jsonl")
+    for record in screened_records:
+        if record.get("provider") == "courtlistener-recap-rest-v4" and (
+            record.get("canonical_rest_screen_complete") is not True
+            or not isinstance(record.get("selected_entries"), list)
+        ):
+            raise CommandError(
+                "verified snapshot contains preliminary REST evidence without "
+                "canonical linkage, leakage, and embedded entries"
+            )
     artifact_records = _read_records(snapshot_path / "raw-artifacts.jsonl")
     artifact_paths: list[Path] = []
     for record in artifact_records:
@@ -10594,7 +10688,8 @@ def _verified_snapshot_raw_html_sources(
         if not use_embedded_entries:
             raise CommandError(
                 "verified snapshot has no raw docket artifacts; use embedded entries "
-                "only for an explicitly authorized fixture path"
+                "only for canonical authenticated REST evidence or an explicitly "
+                "authorized fixture path"
             )
         return None, None
     parents = {path.parent for path in artifact_paths}

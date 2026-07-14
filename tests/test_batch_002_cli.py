@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.courtlistener_client import COURTLISTENER_API_TOKEN_ENV
+from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.recap_api_discovery import (
     DECISION_FIRST_RECAP_API_SEARCH_TERMS,
 )
@@ -309,6 +310,32 @@ def test_cli_observe_accepts_with_token_fixture(
                 "payload": {
                     "results": [
                         {
+                            "id": 7001,
+                            "docket": (
+                                "https://www.courtlistener.com/api/rest/v4/dockets/555/"
+                            ),
+                            "entry_number": 20,
+                            "description": "Motion to dismiss the complaint",
+                            "date_filed": "2026-06-20",
+                            "recap_documents": [
+                                {
+                                    "id": 8001,
+                                    "document_number": "20",
+                                    "attachment_number": None,
+                                    "description": "Motion to dismiss",
+                                    "filepath_local": (
+                                        "https://storage.courtlistener.com/"
+                                        "recap/motion.pdf"
+                                    ),
+                                    "is_available": True,
+                                    "is_sealed": False,
+                                    "is_private": False,
+                                    "redaction_or_seal_status": "public",
+                                    "pacer_doc_id": "02004678901",
+                                }
+                            ],
+                        },
+                        {
                             "id": 7002,
                             "docket": (
                                 "https://www.courtlistener.com/api/rest/v4/dockets/555/"
@@ -319,7 +346,7 @@ def test_cli_observe_accepts_with_token_fixture(
                                 "complaint"
                             ),
                             "date_filed": "2026-07-05",
-                        }
+                        },
                     ],
                     "next": None,
                 },
@@ -346,6 +373,164 @@ def test_cli_observe_accepts_with_token_fixture(
     out = json.loads(capsys.readouterr().out)
     assert out["observed"] == 1
     assert out["eligible"] == 1
+
+
+def test_cli_snapshot_publishes_verified_rest_evidence(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(COURTLISTENER_API_TOKEN_ENV, "test-token")
+    store = tmp_path / "cycle.sqlite3"
+    test_cli_observe_accepts_with_token_fixture(tmp_path, capsys, monkeypatch)
+    capsys.readouterr()
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "snapshot",
+                "--cycle-store",
+                str(store),
+                "--batch-id",
+                "batch-002",
+                "--snapshot-id",
+                "batch-002-rest-v1",
+                "--output-root",
+                str(tmp_path / "snapshots"),
+            ]
+        )
+        == 0
+    )
+    summary = json.loads(capsys.readouterr().out)
+    snapshot = Path(summary["snapshot_path"])
+    assert summary["verified"] is True
+    screened = [
+        json.loads(line)
+        for line in (snapshot / "screened-cases.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert screened[0]["ai"]["target_motion_entry_numbers"] == ["20"]
+    assert (
+        screened[0]["selected_entries"][0]["documents"][0]["freely_available"] is True
+    )
+
+    plan_root = tmp_path / "public-plan"
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-public-downloads",
+                "--output-root",
+                str(plan_root),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                summary["cycle_hash"],
+                "--use-embedded-entries",
+                "--target-clean-cases",
+                "1",
+            ]
+        )
+        == 0
+    )
+    plan_summary = json.loads(
+        (plan_root / "public-packet-plan-summary.json").read_text(encoding="utf-8")
+    )
+    assert plan_summary["screened_case_count"] == 1
+    assert plan_summary["use_embedded_entries"] is True
+
+
+def test_cli_snapshot_rejects_preliminary_rest_accept(tmp_path: Path) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    with CycleAcquisitionStore(store_path) as store:
+        store.ensure_cycle(
+            {"schema_version": "test", "eligibility_anchor": "2026-06-30"}
+        )
+        store.ensure_batch("batch-002", {"provider": "courtlistener-recap-rest-v4"})
+        store.ensure_terms("batch-002", ("term",))
+        store.commit_search_page(
+            "batch-002",
+            "term",
+            None,
+            [
+                {
+                    "provider_hit_id": "hit-1",
+                    "candidate_id": "courtlistener-docket-555",
+                    "payload": {"docket_id": "555"},
+                }
+            ],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        store.record_observation(
+            "courtlistener-docket-555",
+            batch_id="batch-002",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={
+                "candidate_id": "courtlistener-docket-555",
+                "provider": "courtlistener-recap-rest-v4",
+                "screen": {"strict_clean": True},
+            },
+        )
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "snapshot",
+                "--cycle-store",
+                str(store_path),
+                "--snapshot-id",
+                "preliminary-rest",
+                "--output-root",
+                str(tmp_path / "snapshots"),
+            ]
+        )
+        == 2
+    )
+
+
+def test_cli_snapshot_preflights_saturation_without_poisoning_id(
+    tmp_path: Path,
+) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    output_root = tmp_path / "snapshots"
+    with CycleAcquisitionStore(store_path) as store:
+        store.ensure_cycle(
+            {"schema_version": "test", "eligibility_anchor": "2026-06-30"}
+        )
+        store.ensure_batch("batch-002", {"provider": "courtlistener-recap-rest-v4"})
+        store.ensure_terms("batch-002", ("term",))
+        store.commit_search_page(
+            "batch-002",
+            "term",
+            None,
+            [],
+            next_cursor=None,
+            terminal_status="limit_bound",
+        )
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "snapshot",
+                "--cycle-store",
+                str(store_path),
+                "--snapshot-id",
+                "not-yet-saturated",
+                "--output-root",
+                str(output_root),
+            ]
+        )
+        == 2
+    )
+    assert not (output_root / "not-yet-saturated").exists()
+    with CycleAcquisitionStore(store_path) as store:
+        assert store.published_snapshots() == ()
 
 
 # ---------------------------------------------------------------------------

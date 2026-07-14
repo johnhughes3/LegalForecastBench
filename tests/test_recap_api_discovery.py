@@ -678,6 +678,30 @@ def test_observe_enforces_frozen_decision_window_end(tmp_path: Path) -> None:
                     cursor=None,
                     results=[
                         {
+                            "id": 7001,
+                            "docket": 555,
+                            "entry_number": 20,
+                            "description": "Motion to dismiss the complaint",
+                            "date_filed": "2026-06-20",
+                            "recap_documents": [
+                                {
+                                    "id": 8001,
+                                    "document_number": "20",
+                                    "attachment_number": None,
+                                    "description": "Motion to dismiss",
+                                    "filepath_local": (
+                                        "https://storage.courtlistener.com/"
+                                        "recap/motion.pdf"
+                                    ),
+                                    "is_available": True,
+                                    "is_sealed": False,
+                                    "is_private": False,
+                                    "redaction_or_seal_status": "public",
+                                    "pacer_doc_id": "02004678901",
+                                }
+                            ],
+                        },
+                        {
                             "id": 7002,
                             "docket": 555,
                             "entry_number": 40,
@@ -686,7 +710,7 @@ def test_observe_enforces_frozen_decision_window_end(tmp_path: Path) -> None:
                                 "complaint"
                             ),
                             "date_filed": "2026-07-20",
-                        }
+                        },
                     ],
                     next_cursor=None,
                 ),
@@ -815,6 +839,30 @@ def test_observe_accepts_clean_in_window_decision(tmp_path: Path) -> None:
                     cursor=None,
                     results=[
                         {
+                            "id": 7001,
+                            "docket": 555,
+                            "entry_number": 20,
+                            "description": "Motion to dismiss the complaint",
+                            "date_filed": "2026-06-20",
+                            "recap_documents": [
+                                {
+                                    "id": 8001,
+                                    "document_number": "20",
+                                    "attachment_number": None,
+                                    "description": "Motion to dismiss",
+                                    "filepath_local": (
+                                        "https://storage.courtlistener.com/"
+                                        "recap/motion.pdf"
+                                    ),
+                                    "is_available": True,
+                                    "is_sealed": False,
+                                    "is_private": False,
+                                    "redaction_or_seal_status": "public",
+                                    "pacer_doc_id": "02004678901",
+                                }
+                            ],
+                        },
+                        {
                             "id": 7002,
                             "docket": 555,
                             "entry_number": 40,
@@ -823,7 +871,7 @@ def test_observe_accepts_clean_in_window_decision(tmp_path: Path) -> None:
                                 "complaint"
                             ),
                             "date_filed": "2026-07-05",
-                        }
+                        },
                     ],
                     next_cursor=None,
                 ),
@@ -848,8 +896,61 @@ def test_observe_accepts_clean_in_window_decision(tmp_path: Path) -> None:
             }
         ]
         assert observation.evidence["eligibility_anchor"] == "2026-06-30"
+        assert observation.evidence["ai"] == {
+            "target_motion_entry_numbers": ["20"],
+            "decision_entry_numbers": ["40"],
+        }
+        selected_entries = observation.evidence["selected_entries"]
+        assert isinstance(selected_entries, list)
+        assert selected_entries[0]["documents"][0] == {
+            "kind": "main",
+            "description": "Motion to dismiss",
+            "href": "https://storage.courtlistener.com/recap/motion.pdf",
+            "action_label": "Download PDF",
+            "pacer_only": False,
+            "freely_available": True,
+            "restriction_markers": [],
+        }
         current = store.current_observation("courtlistener-docket-555")
         assert current is not None and current.state == "accepted"
+
+
+def test_reconstruction_does_not_infer_public_access_from_availability() -> None:
+    client = _client(
+        (
+            _docket_response(555),
+            _entries_response(
+                cursor=None,
+                results=[
+                    {
+                        "id": 7001,
+                        "docket": 555,
+                        "entry_number": 20,
+                        "description": "Motion to dismiss",
+                        "date_filed": "2026-06-20",
+                        "recap_documents": [
+                            {
+                                "id": 8001,
+                                "description": "Motion to dismiss",
+                                "filepath_local": (
+                                    "https://storage.courtlistener.com/recap/motion.pdf"
+                                ),
+                                "is_available": True,
+                            }
+                        ],
+                    }
+                ],
+                next_cursor=None,
+            ),
+        )
+    )
+
+    reconstructed = reconstruct_docket_page(client, "555")
+
+    [document] = reconstructed.page.entries[0].documents
+    assert document.href is None
+    assert document.pacer_only is True
+    assert document.freely_available is False
 
 
 def test_observe_excludes_bankruptcy_without_fetch(tmp_path: Path) -> None:

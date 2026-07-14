@@ -220,7 +220,7 @@ A recovery is complete only when every expected matrix cell is present exactly o
 
 ## Cycle 1 Batch-002 RECAP API Acquisition
 
-Batch-002 acquires MTD dispositions through the decision-first CourtListener REST v4 route (`legalforecast batch-002 …`). Each of the three phases is one command, resumable through the acquisition store, and fails closed. Run them against the official acquisition store; never against a batch-001 store.
+Batch-002 acquires MTD dispositions through the decision-first CourtListener REST v4 route (`legalforecast batch-002 …`). Discovery, seeding, observation, and snapshot publication are each one command and fail closed. Run them against the official acquisition store; never against a batch-001 store.
 
 ### Token Prerequisite
 
@@ -275,7 +275,7 @@ uv run legalforecast batch-002 seed-batch-001-leads \
   --cycle-store artifacts/cycle-1/official-acquisition-v10/cycle-acquisition.sqlite3 \
   --batch-id v10-courtlistener-rest-v4-2026-06-30-to-2026-07-13-v1
 
-# 3. Observe: reconstruct + strict-screen every unresolved candidate.
+# 3. Observe: reconstruct + canonical linkage/leakage-screen every unresolved candidate.
 uv run legalforecast batch-002 observe \
   --cycle-store artifacts/cycle-1/official-acquisition-v10/cycle-acquisition.sqlite3 \
   --batch-id v10-courtlistener-rest-v4-2026-06-30-to-2026-07-13-v1 \
@@ -284,6 +284,20 @@ uv run legalforecast batch-002 observe \
   --courtlistener-rate-profile temporary-doubled \
   --live
 ```
+
+### Step 4: Publish The Verified REST Snapshot
+
+Do not publish a partial checkpoint or hand-export the store. After every candidate is terminal, publish and immediately verify the immutable, saturated snapshot:
+
+```bash
+uv run legalforecast batch-002 snapshot \
+  --cycle-store artifacts/cycle-1/official-acquisition-v10/cycle-acquisition.sqlite3 \
+  --batch-id v10-courtlistener-rest-v4-2026-06-30-to-2026-07-13-v1 \
+  --snapshot-id v10-courtlistener-rest-v4-2026-06-30-to-2026-07-13-v1 \
+  --output-root artifacts/cycle-1/official-acquisition-v10/rest-v4/snapshots
+```
+
+The snapshot command refuses unresolved candidates, preliminary REST accepts, a non-saturated search, multiple target motions, missing canonical linkage/leakage evidence, missing embedded docket entries, and any snapshot commitment or reconciliation mismatch. Its `screened-cases.jsonl` is the authorized input to `acquisition plan-public-downloads --use-embedded-entries`; the authenticated REST entries replace raw HTML for this route.
 
 `discover` and `observe` are both resumable: re-running `discover` continues from durable per-term cursors, and re-running `observe` skips candidates that already carry a current observation (candidates whose only prior result was a transient failure are retried). `seed-batch-001-leads` is idempotent — a second run finds the re-observation term already terminal and seeds nothing new.
 
@@ -300,5 +314,6 @@ Each command prints a machine-readable JSON summary to stdout (use `--summary-ou
 - `discover` funnel: `terms_terminal`/`terms_total` (how many frozen terms reached a bounded terminal state), `total_hits` (raw document hits), `distinct_candidates` (deduped dockets), `prescreen_exclusions_by_reason` (bankruptcy/criminal dockets dropped before any fetch), and `per_term` progress. `complete: true` means every term is bounded; `saturated: true` means every term was exhausted rather than limit-bound.
 - `observe` tally: `considered` (candidates scanned), `skipped_already_observed` (resume skips), `observed` (fetched this pass), `eligible` (strict-clean accepted), `excluded_by_reason` (immutable/posture exclusions, with the underlying strict-screen reason surfaced as `strict_clean_screen_failed:<screen_reason>`), and `transient_by_reason` (retryable failures to re-run).
 - `seed-batch-001-leads`: `leads_selected`, `leads_seeded`, and `already_seeded`.
+- `snapshot`: the verified path, cycle and batch commitments, and `saturated: true`.
 
 Live `discover` and `observe` summaries also record the resolved request-ledger path, selected rate profile, enforced limits, physical response count, reservations made in that phase, and cumulative durable reservations. A reservation can outnumber responses when a transport failure happens after the pre-wire checkpoint; that conservative accounting is intentional.

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import re
 import time
+import urllib.parse
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -44,6 +45,7 @@ from legalforecast.ingestion.courtlistener_client import (
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketEntry,
     CourtListenerWebDocketPage,
+    CourtListenerWebDocument,
 )
 from legalforecast.ingestion.cycle_acquisition_store import (
     CandidateObservation,
@@ -58,8 +60,10 @@ from legalforecast.ingestion.mtd_acquisition_screen import (
     MtdDocketDecisionScreen,
     MtdDocketScreenStatus,
     courtlistener_case_name_slug,
+    screen_case_dev_docket_metadata,
     screen_courtlistener_docket_for_mtd_decision,
 )
+from legalforecast.ingestion.restricted_material import restricted_material_markers
 
 # ---------------------------------------------------------------------------
 # Frozen decision-first vocabulary (ordered; this order is a versioned input).
@@ -606,6 +610,10 @@ def reconstruct_docket_page(
 def _web_entry_from_api(
     entry: CourtListenerDocketEntry,
 ) -> CourtListenerWebDocketEntry:
+    restriction_markers = restricted_material_markers(
+        records=(entry.raw,),
+        text_fields=(entry.entry_text,),
+    )
     return CourtListenerWebDocketEntry(
         row_id=(
             f"entry-{entry.entry_number}"
@@ -619,7 +627,90 @@ def _web_entry_from_api(
         # fails the screen's date-window test, which is the safe direction.
         filed_at=_long_us_date(entry.filed_at),
         text=entry.entry_text,
-        documents=(),
+        documents=_web_documents_from_api(entry),
+        restriction_markers=restriction_markers,
+    )
+
+
+def _web_documents_from_api(
+    entry: CourtListenerDocketEntry,
+) -> tuple[CourtListenerWebDocument, ...]:
+    """Preserve public RECAP availability without inferring missing URLs.
+
+    CourtListener embeds RECAP document objects on docket-entry responses.  A
+    document is free only when the provider explicitly marks it available and
+    supplies an allowlisted HTTPS download URL.  All other embedded documents
+    remain explicit PACER gaps, and sealed/restricted metadata propagates into
+    the downstream fail-closed clearance gates.
+    """
+
+    raw_documents = entry.raw.get("recap_documents")
+    if not isinstance(raw_documents, list):
+        return ()
+    documents: list[CourtListenerWebDocument] = []
+    for value in cast(list[object], raw_documents):
+        if not isinstance(value, Mapping):
+            continue
+        record = cast(Mapping[str, object], value)
+        description = _optional_document_string(record, "description") or ""
+        href: str | None = None
+        explicitly_public = (
+            record.get("redaction_or_seal_status") == "public"
+            and record.get("is_sealed") is False
+            and record.get("is_private") is False
+        )
+        if record.get("is_available") is True and explicitly_public:
+            candidate_href = _optional_document_string(
+                record,
+                "filepath_local",
+                "download_url",
+            )
+            if candidate_href is not None and _is_public_recap_download_url(
+                candidate_href
+            ):
+                href = candidate_href
+        attachment = record.get("attachment_number")
+        kind = (
+            "main"
+            if attachment is None or attachment == "" or attachment == 0
+            else "attachment"
+        )
+        restriction_markers = restricted_material_markers(
+            records=(record,),
+            text_fields=(description,),
+        )
+        if record.get("is_sealed") is True and "sealed" not in restriction_markers:
+            restriction_markers = (*restriction_markers, "sealed")
+        documents.append(
+            CourtListenerWebDocument(
+                kind=kind,
+                description=description,
+                href=href,
+                action_label="Download PDF" if href is not None else "Buy on PACER",
+                pacer_only=href is None,
+                restriction_markers=tuple(sorted(set(restriction_markers))),
+            )
+        )
+    return tuple(documents)
+
+
+def _optional_document_string(
+    record: Mapping[str, object], *field_names: str
+) -> str | None:
+    for field_name in field_names:
+        value = record.get(field_name)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _is_public_recap_download_url(value: str) -> bool:
+    parsed = urllib.parse.urlparse(value)
+    return (
+        parsed.scheme == "https"
+        and parsed.hostname in {"storage.courtlistener.com", "www.courtlistener.com"}
+        and parsed.username is None
+        and parsed.password is None
     )
 
 
@@ -945,6 +1036,54 @@ def observe_recap_api_candidate(
         earliest_decision_date=earliest,
         eligibility_anchor=eligibility_anchor,
     )
+    if state == "accepted":
+        # Local import avoids the package initialization cycle:
+        # courtlistener_acquisition imports motion_linkage, whose package exports
+        # this REST module through legalforecast.ingestion.__init__.
+        from legalforecast.ingestion.courtlistener_acquisition import (
+            screen_courtlistener_docket_page,
+        )
+
+        query = payload.get("query_term")
+        metadata_screen = screen_case_dev_docket_metadata(
+            {
+                "id": docket.docket_id,
+                "court_id": docket.court_id,
+                "docket_number": docket.docket_number,
+                "case_name": docket.case_name,
+            },
+            query=query if isinstance(query, str) else None,
+        )
+        canonical, canonical_exclusion = screen_courtlistener_docket_page(
+            docket=docket,
+            metadata_screen=metadata_screen,
+            page=reconstructed.page,
+            decision_filed_on_or_after=eligibility_anchor,
+            decision_filed_on_or_before=decision_window_end,
+        )
+        if canonical is None:
+            state = "excluded"
+            reason_code = "strict_clean_screen_failed"
+            if canonical_exclusion is None:
+                raise RecapApiResponseError(
+                    "canonical REST screen returned neither a case nor exclusion"
+                )
+            evidence = {
+                **evidence,
+                "canonical_screen_exclusion": canonical_exclusion.to_record(),
+            }
+        else:
+            canonical_evidence = dict(canonical)
+            canonical_screen = canonical_evidence.get("mtd_decision_screen")
+            evidence = {
+                **canonical_evidence,
+                **evidence,
+                "screen": canonical_screen,
+                "candidate_id": candidate_id,
+                "docket_id": docket_id,
+                "provider": RECAP_API_PROVIDER,
+                "canonical_rest_screen_complete": True,
+            }
     return store.record_observation(
         candidate_id,
         batch_id=batch_id,

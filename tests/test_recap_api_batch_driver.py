@@ -107,6 +107,16 @@ def _entries_response(
     )
 
 
+def _motion_entry(docket_id: int, *, entry_id: int = 7001) -> dict[str, Any]:
+    return {
+        "id": entry_id,
+        "docket": docket_id,
+        "entry_number": 20,
+        "description": "Motion to dismiss the complaint",
+        "date_filed": "2026-06-20",
+    }
+
+
 def _anonymous_client(
     responses: list[RecordedCourtListenerResponse],
 ) -> CourtListenerClient:
@@ -316,6 +326,7 @@ def test_run_observe_accepts_and_is_resumable(tmp_path: Path) -> None:
                 _entries_response(
                     docket_id=555,
                     results=[
+                        _motion_entry(555),
                         {
                             "id": 7002,
                             "docket": 555,
@@ -325,7 +336,7 @@ def test_run_observe_accepts_and_is_resumable(tmp_path: Path) -> None:
                                 "complaint"
                             ),
                             "date_filed": "2026-07-05",
-                        }
+                        },
                     ],
                 ),
             ]
@@ -465,13 +476,14 @@ def test_run_observe_prefers_api_discovery_payload_over_seed_payload(
                     _entries_response(
                         docket_id=555,
                         results=[
+                            _motion_entry(555),
                             {
                                 "id": 7002,
                                 "docket": 555,
                                 "entry_number": 40,
                                 "description": "ORDER granting motion to dismiss",
                                 "date_filed": "2026-07-05",
-                            }
+                            },
                         ],
                     ),
                 ]
@@ -631,6 +643,7 @@ def test_seed_batch_001_leads_is_idempotent_and_observable(tmp_path: Path) -> No
                 _entries_response(
                     docket_id=200,
                     results=[
+                        _motion_entry(200, entry_id=8000),
                         {
                             "id": 8001,
                             "docket": 200,
@@ -639,7 +652,7 @@ def test_seed_batch_001_leads_is_idempotent_and_observable(tmp_path: Path) -> No
                                 "ORDER granting defendant's motion to dismiss"
                             ),
                             "date_filed": "2026-07-06",
-                        }
+                        },
                     ],
                 ),
             ]
