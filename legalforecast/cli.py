@@ -14,6 +14,7 @@ import sqlite3
 import sys
 import tempfile
 import time
+import uuid
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
@@ -779,6 +780,10 @@ def build_parser() -> argparse.ArgumentParser:
     acquisition = subparsers.add_parser(
         "acquisition",
         help="Production acquisition pipeline commands.",
+        description=(
+            "CourtListener REST is the only production final authority for paid "
+            "document gaps. Legacy Case.dev paid commands are disabled for live use."
+        ),
     )
     acquisition_subparsers = acquisition.add_subparsers(
         dest="acquisition_command",
@@ -964,8 +969,8 @@ def build_parser() -> argparse.ArgumentParser:
     acquisition_bridge_pacer_gaps = acquisition_subparsers.add_parser(
         "bridge-pacer-gaps",
         help=(
-            "Resolve paid gaps to authoritative Case.dev or CourtListener RECAP "
-            "document IDs and emit free-first recovery inputs."
+            "Resolve paid gaps to authoritative CourtListener RECAP document IDs; "
+            "Case.dev fixture support is legacy compatibility only."
         ),
     )
     _add_acquisition_bridge_pacer_gaps_arguments(acquisition_bridge_pacer_gaps)
@@ -1008,7 +1013,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_acquisition_download_free_arguments(acquisition_download)
     acquisition_purchase = acquisition_subparsers.add_parser(
         "purchase-missing",
-        help="Execute guarded case.dev/PACER missing-core purchases.",
+        help=(
+            "DISABLED for live use: legacy Case.dev/PACER purchase compatibility "
+            "fixtures only."
+        ),
     )
     _add_acquisition_purchase_missing_arguments(acquisition_purchase)
     acquisition_recap_fetch_purchase = acquisition_subparsers.add_parser(
@@ -1023,18 +1031,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     acquisition_docket_fetch_plan = acquisition_subparsers.add_parser(
         "plan-docket-live-fetches",
-        help=(
-            "Build a deterministic no-provider frontier for fee-bearing "
-            "Case.dev docket refreshes."
-        ),
+        help=("DEPRECATED: build a no-provider legacy Case.dev docket-fetch frontier."),
     )
     _add_acquisition_plan_docket_live_fetches_arguments(acquisition_docket_fetch_plan)
     acquisition_docket_fetch = acquisition_subparsers.add_parser(
         "execute-docket-live-fetches",
-        help=(
-            "Execute a frozen Case.dev docket-refresh plan through a durable "
-            "one-attempt journal."
-        ),
+        help=("DISABLED for live use: legacy Case.dev docket-refresh fixtures only."),
     )
     _add_acquisition_execute_docket_live_fetches_arguments(acquisition_docket_fetch)
     acquisition_recover_purchased = acquisition_subparsers.add_parser(
@@ -4497,7 +4499,7 @@ def _cmd_acquisition_plan(args: argparse.Namespace) -> int:
 def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
     """Run the noncharging public-first chain and emit an exact 100-case plan."""
 
-    output_root = _acquisition_output_root(args)
+    output_root = cast(Path, args.output_root)
     summary_path = _acquisition_path(
         args,
         "summary_output",
@@ -4506,6 +4508,24 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
     snapshot = cast(Path, args.snapshot)
     expected_cycle_hash = cast(str, args.expected_cycle_hash)
     try:
+        _validate_target_100_paths(
+            args=args,
+            output_root=output_root,
+            summary_path=summary_path,
+            snapshot=snapshot,
+            raw_html_dir=cast(Path | None, args.raw_html_dir),
+            fixture_documents=cast(Path | None, args.fixture_documents),
+            courtlistener_fixture=cast(Path | None, args.courtlistener_fixture),
+            request_ledger=cast(Path | None, args.request_ledger),
+        )
+    except CommandError as exc:
+        _write_target_100_attempt_failure(
+            args,
+            reason=str(exc),
+            protected_paths=_target_100_protected_paths(args),
+        )
+        raise
+    try:
         snapshot_manifest = verify_snapshot(
             snapshot,
             expected_cycle_hash=expected_cycle_hash,
@@ -4513,6 +4533,11 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
             require_saturated=True,
         )
     except SnapshotVerificationError as exc:
+        _write_target_100_attempt_failure(
+            args,
+            reason=str(exc),
+            protected_paths=_target_100_protected_paths(args),
+        )
         raise CommandError(str(exc)) from exc
     candidate_pool_size = len(_read_records(snapshot / "screened-cases.jsonl"))
     config = Target100PreparationConfig(
@@ -4541,21 +4566,45 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
     try:
         commands = build_target_100_stage_commands(config)
     except Target100PreparationError as exc:
+        _write_target_100_attempt_failure(
+            args,
+            reason=str(exc),
+            protected_paths=_target_100_protected_paths(args),
+        )
         raise CommandError(str(exc)) from exc
     command_records = [
         {"stage": command.stage, "argv": list(command.argv)} for command in commands
     ]
     config_path = output_root / "target-100-config.json"
-    config_record = _target_100_config_record(
-        config,
-        snapshot_manifest=snapshot_manifest,
-        stage_commands=command_records,
-    )
-    _ensure_target_100_config(
-        config_path,
-        config_record,
-        resume=cast(bool, args.resume),
-    )
+    try:
+        config_record = _target_100_config_record(
+            config,
+            snapshot_manifest=snapshot_manifest,
+            stage_commands=command_records,
+            driver_execute=not _acquisition_dry_run(args),
+        )
+        _ensure_target_100_config(
+            config_path,
+            config_record,
+            resume=cast(bool, args.resume),
+        )
+        if cast(bool, args.resume) and summary_path.exists():
+            _validate_target_100_successful_resume(
+                summary_path=summary_path,
+                output_root=output_root,
+                config=config,
+                config_sha256=cast(str, config_record["config_sha256"]),
+            )
+            return 0
+    except (CommandError, OSError, UnicodeError, ValueError) as exc:
+        _write_target_100_attempt_failure(
+            args,
+            reason=str(exc),
+            protected_paths=_target_100_protected_paths(args),
+        )
+        if isinstance(exc, CommandError):
+            raise
+        raise CommandError(str(exc)) from exc
     dry_run = _acquisition_dry_run(args)
     if dry_run:
         _write_json(
@@ -4588,14 +4637,11 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
             f"complete snapshot contains only {candidate_pool_size} viable cases; "
             "100 are required"
         )
-        _write_acquisition_failure(
+        _write_target_100_attempt_failure(
             args,
-            stage="prepare-target-100",
-            input_paths=(snapshot, config_path),
-            output_paths=(summary_path,),
             reason=reason,
-            paid_activity_requested=False,
             extra={"config_sha256": config_record["config_sha256"]},
+            protected_paths=_target_100_protected_paths(args),
         )
         raise CommandError(reason)
 
@@ -4606,14 +4652,11 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
                 f"target-100 preparation stopped at {command.stage}; "
                 "fix the recorded failure and rerun with --resume"
             )
-            _write_acquisition_failure(
+            _write_target_100_attempt_failure(
                 args,
-                stage="prepare-target-100",
-                input_paths=(snapshot, config_path),
-                output_paths=(summary_path,),
                 reason=reason,
-                paid_activity_requested=False,
                 extra={"config_sha256": config_record["config_sha256"]},
+                protected_paths=_target_100_protected_paths(args),
             )
             raise CommandError(reason)
 
@@ -4626,14 +4669,11 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
             "target-100 preparation did not produce exactly 100 complete cases; "
             "acquire additional screened candidates without relaxing any gate"
         )
-        _write_acquisition_failure(
+        _write_target_100_attempt_failure(
             args,
-            stage="prepare-target-100",
-            input_paths=(snapshot, config_path, budget_plan_path),
-            output_paths=(summary_path,),
             reason=reason,
-            paid_activity_requested=False,
             extra={"config_sha256": config_record["config_sha256"]},
+            protected_paths=_target_100_protected_paths(args),
         )
         raise CommandError(reason)
     stage_commitments = _target_100_stage_commitments(output_root)
@@ -4694,11 +4734,283 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
     return 0
 
 
+def _target_100_protected_scopes(
+    args: argparse.Namespace,
+) -> list[tuple[str, Path, bool]]:
+    snapshot = cast(Path, args.snapshot)
+    scopes: list[tuple[str, Path, bool]] = [("--snapshot", snapshot, True)]
+    for label, path, is_tree in (
+        ("snapshot manifest", snapshot / "manifest.json", False),
+        ("--raw-html-dir", cast(Path | None, args.raw_html_dir), True),
+        ("--fixture-documents", cast(Path | None, args.fixture_documents), False),
+        (
+            "--courtlistener-fixture",
+            cast(Path | None, args.courtlistener_fixture),
+            False,
+        ),
+        ("--request-ledger", cast(Path | None, args.request_ledger), False),
+    ):
+        if path is not None:
+            scopes.append((label, path, is_tree))
+    request_ledger = cast(Path | None, args.request_ledger)
+    if request_ledger is not None:
+        scopes.extend(
+            (f"--request-ledger {suffix}", Path(f"{request_ledger}{suffix}"), False)
+            for suffix in ("-wal", "-shm", "-journal")
+        )
+    return scopes
+
+
+def _target_100_protected_paths(args: argparse.Namespace) -> tuple[Path, ...]:
+    return tuple(path for _, path, _ in _target_100_protected_scopes(args))
+
+
+def _validate_target_100_paths(
+    *,
+    args: argparse.Namespace,
+    output_root: Path,
+    summary_path: Path,
+    snapshot: Path,
+    raw_html_dir: Path | None,
+    fixture_documents: Path | None,
+    courtlistener_fixture: Path | None,
+    request_ledger: Path | None,
+) -> None:
+    """Reject every target-100 writable/protected alias before writing."""
+
+    del snapshot, raw_html_dir, fixture_documents, courtlistener_fixture, request_ledger
+    writable_scopes: list[tuple[str, Path, bool]] = [
+        ("--output-root", output_root, True),
+        ("--summary-output", summary_path, False),
+        (
+            "--run-card-output",
+            _acquisition_path(
+                args,
+                "run_card_output",
+                output_root / "run-cards/prepare-target-100.json",
+            ),
+            False,
+        ),
+        (
+            "--log-output",
+            _acquisition_path(
+                args,
+                "log_output",
+                output_root / "logs/prepare-target-100.jsonl",
+            ),
+            False,
+        ),
+    ]
+    protected_scopes = _target_100_protected_scopes(args)
+    controlled_defaults = {
+        "summary_output": output_root / "target-100-preparation-summary.json",
+        "run_card_output": output_root / "run-cards/prepare-target-100.json",
+        "log_output": output_root / "logs/prepare-target-100.jsonl",
+    }
+    for attribute, default in controlled_defaults.items():
+        configured = cast(Path | None, getattr(args, attribute))
+        if (
+            configured is not None
+            and configured.resolve() != default.resolve()
+            and configured.resolve().is_relative_to(output_root.resolve())
+        ):
+            raise CommandError(
+                f"--{attribute.replace('_', '-')} custom path must be outside the "
+                "controlled target-100 output tree"
+            )
+    for writable_label, writable_path, writable_tree in writable_scopes:
+        writable = writable_path.resolve()
+        if not writable_tree:
+            _reject_hardlinked_writable_replay_scope(
+                label=writable_label,
+                path=writable,
+                is_tree=False,
+            )
+        for protected_label, protected_path, protected_tree in protected_scopes:
+            protected = protected_path.resolve()
+            if _replay_scopes_overlap(
+                left_label=writable_label,
+                left=writable,
+                left_tree=writable_tree,
+                right_label=protected_label,
+                right=protected,
+                right_tree=protected_tree,
+            ):
+                raise CommandError(
+                    "target-100 writable output overlaps protected input: "
+                    f"{writable_label} vs {protected_label}: "
+                    f"{writable} vs {protected}"
+                )
+
+    file_writes = writable_scopes[1:]
+    for index, (label, path, _) in enumerate(file_writes):
+        resolved = path.resolve()
+        for other_label, other_path, _ in file_writes[index + 1 :]:
+            other = other_path.resolve()
+            if _replay_scopes_overlap(
+                left_label=label,
+                left=resolved,
+                left_tree=False,
+                right_label=other_label,
+                right=other,
+                right_tree=False,
+            ):
+                raise CommandError(
+                    "target-100 writable outputs alias: "
+                    f"{label} vs {other_label}: {resolved} vs {other}"
+                )
+
+    _reject_target_100_tree_hardlink_aliases(
+        output_root=output_root,
+        protected_scopes=protected_scopes,
+    )
+
+
+def _reject_target_100_tree_hardlink_aliases(
+    *,
+    output_root: Path,
+    protected_scopes: Sequence[tuple[str, Path, bool]],
+) -> None:
+    if not output_root.exists() or not output_root.is_dir():
+        return
+    protected_identities: dict[tuple[int, int], str] = {}
+    for label, path, is_tree in protected_scopes:
+        candidates = path.rglob("*") if is_tree and path.is_dir() else (path,)
+        for candidate in candidates:
+            if not candidate.is_file():
+                continue
+            try:
+                metadata = candidate.stat()
+            except OSError as exc:
+                raise CommandError(
+                    f"cannot inspect {label} for hard-link aliases: {candidate}: {exc}"
+                ) from exc
+            protected_identities[(metadata.st_dev, metadata.st_ino)] = label
+    for candidate in output_root.rglob("*"):
+        if not candidate.is_file():
+            continue
+        try:
+            metadata = candidate.stat()
+        except OSError as exc:
+            raise CommandError(
+                f"cannot inspect --output-root for hard-link aliases: "
+                f"{candidate}: {exc}"
+            ) from exc
+        protected_label = protected_identities.get((metadata.st_dev, metadata.st_ino))
+        if protected_label is not None:
+            raise CommandError(
+                "target-100 output tree contains a hard-link alias to protected "
+                f"input {protected_label}: {candidate}"
+            )
+
+
+def _write_target_100_attempt_failure(
+    args: argparse.Namespace,
+    *,
+    reason: str,
+    protected_paths: Sequence[Path],
+    extra: Mapping[str, Any] | None = None,
+) -> Path:
+    """Write a unique nonpaid failure card without replacing canonical success."""
+
+    output_root = cast(Path, args.output_root).resolve()
+    candidates = (
+        output_root / "attempts",
+        Path(tempfile.gettempdir()).resolve() / "legalforecast-attempts",
+        Path.cwd().resolve() / ".legalforecast-attempts",
+        Path.home().resolve() / ".cache/legalforecast/attempts",
+    )
+    protected = tuple(path.resolve() for path in protected_paths)
+    attempt_parent = next(
+        (
+            candidate
+            for candidate in candidates
+            if all(
+                candidate != path
+                and not candidate.is_relative_to(path)
+                and not path.is_relative_to(candidate)
+                for path in protected
+            )
+        ),
+        None,
+    )
+    if attempt_parent is None:
+        raise CommandError(
+            "target-100 failure could not select a safe attempt-card directory"
+        )
+    attempt_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%S.%fZ')}-{uuid.uuid4().hex}"
+    attempt_root = attempt_parent / "prepare-target-100" / attempt_id
+    run_card_path = attempt_root / "run-card.json"
+    record: JsonRecord = {
+        "schema_version": "legalforecast.target_100_attempt.v1",
+        "attempt_id": attempt_id,
+        "stage": "prepare-target-100",
+        "status": "failed",
+        "failure_reason": reason,
+        "dry_run": _acquisition_dry_run(args),
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "requested_output_root": str(output_root),
+        "generated_at": _iso_datetime(datetime.now(UTC)),
+    }
+    if extra is not None:
+        record.update(extra)
+    _write_json(run_card_path, record)
+    _log_event("prepare-target-100", "attempt_failed", run_card_path, 0)
+    return run_card_path
+
+
+def _validate_target_100_successful_resume(
+    *,
+    summary_path: Path,
+    output_root: Path,
+    config: Target100PreparationConfig,
+    config_sha256: str,
+) -> None:
+    summary = _read_json_object(summary_path)
+    if summary.get("dry_run") is not False:
+        raise CommandError(
+            "target-100 successful resume requires an executed success summary"
+        )
+    if summary.get("paid_activity_executed") is not False:
+        raise CommandError("target-100 success summary claims paid activity")
+    if summary.get("config_sha256") != config_sha256:
+        raise CommandError("target-100 resume config commitment mismatch")
+    committed_inputs = summary.get("stage_input_commitments")
+    committed_outputs = summary.get("stage_commitments")
+    if not isinstance(committed_inputs, Mapping) or not isinstance(
+        committed_outputs, Mapping
+    ):
+        raise CommandError("target-100 success summary lacks stage commitments")
+    actual_inputs = _target_100_stage_input_commitments(output_root, config=config)
+    actual_outputs = _target_100_stage_commitments(output_root)
+    if dict(cast(Mapping[str, Any], committed_inputs)) != actual_inputs:
+        raise CommandError("target-100 resume stage input commitment mismatch")
+    if dict(cast(Mapping[str, Any], committed_outputs)) != actual_outputs:
+        raise CommandError(
+            "target-100 resume stage output commitment mismatch; mutated or "
+            "unexpected stage artifact"
+        )
+    budget_plan = _missing_core_budget_plan(
+        _read_json_object(output_root / "05-budget/missing-core-budget-plan.json")
+    )
+    selected_ids = [plan.candidate_id for plan in budget_plan.case_plans]
+    if summary.get("selected_candidate_ids_sha256") != _canonical_json_sha256(
+        selected_ids
+    ):
+        raise CommandError("target-100 resume selected-case commitment mismatch")
+    if summary.get("frontier_sha256") != _canonical_json_sha256(
+        [row.to_record() for row in budget_plan.frontier_rows]
+    ):
+        raise CommandError("target-100 resume cost-frontier commitment mismatch")
+
+
 def _target_100_config_record(
     config: Target100PreparationConfig,
     *,
     snapshot_manifest: Mapping[str, Any],
     stage_commands: Sequence[Mapping[str, Any]],
+    driver_execute: bool,
 ) -> JsonRecord:
     snapshot_manifest_path = config.snapshot / "manifest.json"
     record: JsonRecord = {
@@ -4745,6 +5057,7 @@ def _target_100_config_record(
         ),
         "courtlistener_rate_profile": config.courtlistener_rate_profile,
         "request_budget_max_wait_seconds": config.request_budget_max_wait_seconds,
+        "driver_execute": driver_execute,
         "stage_commands": _semantic_target_100_stage_commands(stage_commands),
     }
     record["config_sha256"] = _canonical_json_sha256(record)

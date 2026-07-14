@@ -65,6 +65,22 @@ def test_target_100_cli_help_explains_provider_boundary(
     assert "CourtListener" in output
     assert "Case.dev" in output
 
+    with pytest.raises(SystemExit, match="0"):
+        main(["acquisition", "--help"])
+    top_help = capsys.readouterr().out
+    assert "CourtListener REST is the only production final authority" in top_help
+    assert "DISABLED for live use: legacy Case.dev/PACER" in top_help
+    assert "DISABLED for live use: legacy Case.dev docket-refresh" in top_help
+
+
+def test_target_100_candidate_pool_size_has_no_stale_default(tmp_path: Path) -> None:
+    with pytest.raises(TypeError, match="candidate_pool_size"):
+        Target100PreparationConfig(  # type: ignore[call-arg]
+            output_root=tmp_path / "run",
+            snapshot=tmp_path / "snapshot",
+            expected_cycle_hash="a" * 64,
+        )
+
 
 def test_target_100_dry_run_writes_a_nonpurchase_stage_plan(tmp_path: Path) -> None:
     output_root = tmp_path / "run"
@@ -327,13 +343,218 @@ def test_target_100_underfilled_snapshot_writes_durable_failure_only(
         )
         == 2
     )
-    run_card = json.loads(
-        (output_root / "run-cards/prepare-target-100.json").read_text()
-    )
+    [attempt_path] = output_root.glob("attempts/prepare-target-100/*/run-card.json")
+    run_card = json.loads(attempt_path.read_text())
     assert run_card["status"] == "failed"
     assert run_card["paid_activity_executed"] is False
+    assert not (output_root / "run-cards/prepare-target-100.json").exists()
     assert not (output_root / "target-100-preparation-summary.json").exists()
     assert not (output_root / "01-public-plan").exists()
+
+
+@pytest.mark.parametrize(
+    "collision",
+    (
+        "output_snapshot",
+        "output_snapshot_symlink",
+        "summary_manifest",
+        "summary_manifest_hardlink",
+        "run_card_fixture",
+        "log_request_ledger",
+    ),
+)
+def test_target_100_preflight_rejects_protected_output_overlap_before_writes(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    collision: str,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=100)
+    )
+    manifest = snapshot / "manifest.json"
+    manifest_before = manifest.read_bytes()
+    output_root = snapshot if collision == "output_snapshot" else tmp_path / "run"
+    if collision == "output_snapshot_symlink":
+        output_root.symlink_to(snapshot, target_is_directory=True)
+    command = [
+        "acquisition",
+        "prepare-target-100",
+        "--output-root",
+        str(output_root),
+        "--snapshot",
+        str(snapshot),
+        "--expected-cycle-hash",
+        cycle_hash,
+        "--fixture-documents",
+        str(fixture_documents),
+        "--courtlistener-fixture",
+        str(courtlistener_fixture),
+        "--use-embedded-entries",
+    ]
+    request_ledger = tmp_path / "requests.sqlite3"
+    if collision == "summary_manifest":
+        command.extend(("--summary-output", str(manifest)))
+    elif collision == "summary_manifest_hardlink":
+        summary_alias = tmp_path / "summary-hardlink.json"
+        summary_alias.hardlink_to(manifest)
+        command.extend(("--summary-output", str(summary_alias)))
+    elif collision == "run_card_fixture":
+        command.extend(("--run-card-output", str(courtlistener_fixture)))
+    elif collision == "log_request_ledger":
+        fixture_index = command.index("--courtlistener-fixture")
+        del command[fixture_index : fixture_index + 2]
+        command.extend(
+            (
+                "--live-courtlistener",
+                "--request-ledger",
+                str(request_ledger),
+                "--log-output",
+                str(request_ledger),
+            )
+        )
+
+    assert main(command) == 2
+    stderr = capsys.readouterr().err
+    assert "overlap" in stderr or "hard-link alias" in stderr
+    attempt_events = [
+        json.loads(line)
+        for line in stderr.splitlines()
+        if line.startswith("{") and '"event": "attempt_failed"' in line
+    ]
+    [event] = attempt_events
+    attempt_card = json.loads(Path(event["artifact_path"]).read_text())
+    assert attempt_card["paid_activity_requested"] is False
+    assert attempt_card["paid_activity_executed"] is False
+    assert manifest.read_bytes() == manifest_before
+    assert not (snapshot / "target-100-config.json").exists()
+
+
+def test_target_100_resume_rejects_mutated_and_injected_stage_artifacts(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=100)
+    )
+    output_root = tmp_path / "run"
+    command = [
+        "acquisition",
+        "prepare-target-100",
+        "--output-root",
+        str(output_root),
+        "--snapshot",
+        str(snapshot),
+        "--expected-cycle-hash",
+        cycle_hash,
+        "--fixture-documents",
+        str(fixture_documents),
+        "--courtlistener-fixture",
+        str(courtlistener_fixture),
+        "--use-embedded-entries",
+        "--execute",
+    ]
+    assert main(command) == 0
+    summary_path = output_root / "target-100-preparation-summary.json"
+    success_card_path = output_root / "run-cards/prepare-target-100.json"
+    summary_before = summary_path.read_bytes()
+    success_card_before = success_card_path.read_bytes()
+    stage_artifact = output_root / "04-core-filter/core-filter-results.jsonl"
+    stage_before = stage_artifact.read_bytes()
+
+    def unexpected_bridge(*args: object, **kwargs: object) -> object:
+        raise AssertionError("resume guard must run before any child provider")
+
+    monkeypatch.setattr(cli, "_courtlistener_bridge_client", unexpected_bridge)
+    stage_artifact.write_bytes(stage_before + b"\n")
+    assert main(command) == 2
+    assert "stage input commitment mismatch" in capsys.readouterr().err
+    assert summary_path.read_bytes() == summary_before
+    assert success_card_path.read_bytes() == success_card_before
+
+    stage_artifact.write_bytes(stage_before)
+    injected = output_root / "03-gap-bridge/unexpected.json"
+    injected.write_text("{}\n")
+    assert main(command) == 2
+    assert "unexpected stage artifact" in capsys.readouterr().err
+    assert summary_path.read_bytes() == summary_before
+    assert success_card_path.read_bytes() == success_card_before
+    assert (
+        len(list(output_root.glob("attempts/prepare-target-100/*/run-card.json"))) == 2
+    )
+
+
+def test_target_100_changed_config_failure_preserves_prior_success(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=100)
+    )
+    output_root = tmp_path / "run"
+    command = [
+        "acquisition",
+        "prepare-target-100",
+        "--output-root",
+        str(output_root),
+        "--snapshot",
+        str(snapshot),
+        "--expected-cycle-hash",
+        cycle_hash,
+        "--fixture-documents",
+        str(fixture_documents),
+        "--courtlistener-fixture",
+        str(courtlistener_fixture),
+        "--use-embedded-entries",
+    ]
+    assert main(command) == 0
+    success_card = output_root / "run-cards/prepare-target-100.json"
+    success_before = success_card.read_bytes()
+
+    assert main([*command, "--cost-per-document-usd", "4.00"]) == 2
+    assert "changed-config resume" in capsys.readouterr().err
+    assert success_card.read_bytes() == success_before
+    [attempt] = output_root.glob("attempts/prepare-target-100/*/run-card.json")
+    failure = json.loads(attempt.read_text())
+    assert failure["status"] == "failed"
+    assert failure["paid_activity_executed"] is False
+
+
+def test_target_100_snapshot_failure_is_attempt_scoped_and_nonpaid(
+    tmp_path: Path,
+) -> None:
+    snapshot, _, fixture_documents, courtlistener_fixture = _target_100_fixture(
+        tmp_path, case_count=100
+    )
+    output_root = tmp_path / "run"
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-100",
+                "--output-root",
+                str(output_root),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                "f" * 64,
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--use-embedded-entries",
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    [attempt] = output_root.glob("attempts/prepare-target-100/*/run-card.json")
+    record = json.loads(attempt.read_text())
+    assert record["status"] == "failed"
+    assert record["paid_activity_requested"] is False
+    assert record["paid_activity_executed"] is False
+    assert not (output_root / "run-cards/prepare-target-100.json").exists()
+    assert not (output_root / "target-100-config.json").exists()
 
 
 def _target_100_fixture(

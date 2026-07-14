@@ -23,7 +23,7 @@ class Target100PreparationConfig:
     output_root: Path
     snapshot: Path
     expected_cycle_hash: str
-    candidate_pool_size: int = 165
+    candidate_pool_size: int
     target_case_count: int = 100
     cost_per_document_usd: str = "3.05"
     max_projected_budget_usd: str = "2250.00"
