@@ -327,7 +327,9 @@ from legalforecast.ingestion.snapshot_quarantine import (
     quarantine_orphan_snapshot,
 )
 from legalforecast.ingestion.snapshot_replay import (
+    SnapshotReplayBundle,
     SnapshotReplayError,
+    SupplementalReplaySource,
     collect_snapshot_replay_bundle,
     firecrawl_screen_input_commitments,
     read_verified_replay_raw,
@@ -2296,9 +2298,25 @@ def _add_acquisition_replay_screening_arguments(
         help="Exact lowercase SHA-256 of --source-assembly-run-card.",
     )
     parser.add_argument(
+        "--expected-source-closure-sha256",
+        required=True,
+        help=(
+            "Exact lowercase SHA-256 of the recursive source closure: every "
+            "assembly run card and every assembly/supplemental snapshot manifest."
+        ),
+    )
+    parser.add_argument(
         "--expected-source-cycle-hash",
         required=True,
         help="Required cycle hash for every snapshot expanded from the assembly.",
+    )
+    parser.add_argument(
+        "--expected-legacy-screen-inputs-sha256",
+        help=(
+            "Aggregate SHA-256 frozen for historical assembly snapshots that "
+            "predate per-snapshot firecrawl_screen_inputs commitments. Required "
+            "only when such snapshots are present; a mismatch fails closed."
+        ),
     )
     parser.add_argument(
         "--source-snapshot",
@@ -2318,6 +2336,36 @@ def _add_acquisition_replay_screening_arguments(
         help=(
             "Exact cycle hash for the corresponding --source-snapshot. "
             "Repeat once per supplemental snapshot, in the same order."
+        ),
+    )
+    parser.add_argument(
+        "--source-snapshot-screen-run-card",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "Exact screen-firecrawl-dockets run card for the corresponding "
+            "supplemental snapshot. Repeat once per --source-snapshot."
+        ),
+    )
+    parser.add_argument(
+        "--expected-source-snapshot-screen-run-card-sha256",
+        action="append",
+        default=[],
+        help=(
+            "Exact lowercase SHA-256 for the corresponding supplemental screen "
+            "run card. Repeat once per --source-snapshot."
+        ),
+    )
+    parser.add_argument(
+        "--source-snapshot-bundle-root",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "Self-contained durable root holding the corresponding snapshot, "
+            "screen inputs, and raw HTML at their original relative paths. "
+            "Repeat once per --source-snapshot."
         ),
     )
     parser.add_argument(
@@ -7436,6 +7484,15 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
     additional_source_cycle_hashes = tuple(
         cast(Sequence[str], args.expected_source_snapshot_cycle_hash)
     )
+    additional_source_screen_run_cards = tuple(
+        cast(Sequence[Path], args.source_snapshot_screen_run_card)
+    )
+    additional_source_screen_run_card_hashes = tuple(
+        cast(Sequence[str], args.expected_source_snapshot_screen_run_card_sha256)
+    )
+    additional_source_bundle_roots = tuple(
+        cast(Sequence[Path], args.source_snapshot_bundle_root)
+    )
     snapshot_root = _acquisition_path(
         args,
         "snapshot_root",
@@ -7464,12 +7521,18 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
         "--decision-filed-on-or-after",
     )
     expected_source_assembly_sha256 = cast(str, args.expected_source_assembly_sha256)
+    expected_source_closure_sha256 = cast(str, args.expected_source_closure_sha256)
     expected_source_cycle_hash = cast(str, args.expected_source_cycle_hash)
+    expected_legacy_screen_inputs_sha256 = cast(
+        str | None, args.expected_legacy_screen_inputs_sha256
+    )
     expected_target_cycle_hash = cast(str, args.expected_target_cycle_hash)
     input_paths = (
         cycle_store_path,
         source_assembly_run_card,
         *additional_source_snapshots,
+        *additional_source_screen_run_cards,
+        *additional_source_bundle_roots,
     )
     output_paths = (
         screened_cases_path,
@@ -7485,6 +7548,7 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
         exclusions_path=exclusions_path,
         summary_path=summary_path,
         raw_html_dir=raw_html_dir,
+        cycle_store_path=cycle_store_path,
     )
     provider_flags: JsonRecord = {
         "provider_activity_requested": False,
@@ -7492,23 +7556,63 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
     }
 
     try:
-        if len(additional_source_snapshots) != len(additional_source_cycle_hashes):
+        supplemental_counts = {
+            len(additional_source_snapshots),
+            len(additional_source_cycle_hashes),
+            len(additional_source_screen_run_cards),
+            len(additional_source_screen_run_card_hashes),
+            len(additional_source_bundle_roots),
+        }
+        if len(supplemental_counts) != 1:
             raise SnapshotReplayError(
-                "exactly one --expected-source-snapshot-cycle-hash is required "
-                "for each --source-snapshot"
+                "each --source-snapshot requires exactly one cycle hash, screen "
+                "run card, screen run-card SHA-256, and bundle root"
             )
         bundle = collect_snapshot_replay_bundle(
             source_assembly_run_card=source_assembly_run_card,
             expected_source_assembly_sha256=expected_source_assembly_sha256,
+            expected_source_closure_sha256=expected_source_closure_sha256,
             expected_source_cycle_hash=expected_source_cycle_hash,
+            expected_legacy_screen_inputs_sha256=(expected_legacy_screen_inputs_sha256),
             additional_source_snapshots=tuple(
-                zip(
+                SupplementalReplaySource(
+                    snapshot=snapshot,
+                    expected_cycle_hash=cycle_hash,
+                    screen_run_card=screen_run_card,
+                    expected_screen_run_card_sha256=screen_run_card_sha256,
+                    bundle_root=bundle_root,
+                )
+                for (
+                    snapshot,
+                    cycle_hash,
+                    screen_run_card,
+                    screen_run_card_sha256,
+                    bundle_root,
+                ) in zip(
                     additional_source_snapshots,
                     additional_source_cycle_hashes,
+                    additional_source_screen_run_cards,
+                    additional_source_screen_run_card_hashes,
+                    additional_source_bundle_roots,
                     strict=True,
                 )
             ),
         )
+    except (SnapshotReplayError, SnapshotVerificationError, OSError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+
+    _validate_replay_output_paths(
+        args=args,
+        snapshot_path=snapshot_path,
+        screened_cases_path=screened_cases_path,
+        exclusions_path=exclusions_path,
+        summary_path=summary_path,
+        raw_html_dir=raw_html_dir,
+        cycle_store_path=cycle_store_path,
+        source_bundle=bundle,
+    )
+
+    try:
         success_records = [dict(success.record) for success in bundle.successes]
         fetch_exclusion_records = [
             dict(exclusion.record) for exclusion in bundle.exclusions
@@ -10733,6 +10837,8 @@ def _validate_replay_output_paths(
     exclusions_path: Path,
     summary_path: Path,
     raw_html_dir: Path,
+    cycle_store_path: Path,
+    source_bundle: SnapshotReplayBundle | None = None,
 ) -> None:
     snapshot_tree = snapshot_path.resolve()
     output_root = cast(Path, args.output_root)
@@ -10758,6 +10864,193 @@ def _validate_replay_output_paths(
             raise CommandError(
                 f"{flag} must be outside the committed snapshot tree: {snapshot_tree}"
             )
+    writable_scopes: list[tuple[str, Path, bool, str]] = [
+        ("--cycle-store", cycle_store_path, False, "cycle-store"),
+        (
+            "--cycle-store WAL",
+            Path(f"{cycle_store_path}-wal"),
+            False,
+            "cycle-store",
+        ),
+        (
+            "--cycle-store SHM",
+            Path(f"{cycle_store_path}-shm"),
+            False,
+            "cycle-store",
+        ),
+        (
+            "--cycle-store journal",
+            Path(f"{cycle_store_path}-journal"),
+            False,
+            "cycle-store",
+        ),
+        ("--screened-cases-output", screened_cases_path, False, "screened"),
+        ("--exclusions-output", exclusions_path, False, "exclusions"),
+        ("--summary-output", summary_path, False, "summary"),
+        ("replayed raw HTML directory", raw_html_dir, True, "raw-html"),
+        ("target snapshot", snapshot_path, True, "snapshot"),
+        ("target snapshot staging root", snapshot_path.parent, True, "snapshot"),
+        (
+            "--run-card-output",
+            _acquisition_path(
+                args,
+                "run_card_output",
+                output_root / "run-cards" / "replay-screening-snapshots.json",
+            ),
+            False,
+            "run-card",
+        ),
+        (
+            "--log-output",
+            _acquisition_path(
+                args,
+                "log_output",
+                output_root / "logs" / "replay-screening-snapshots.jsonl",
+            ),
+            False,
+            "log",
+        ),
+    ]
+    for label, path, is_tree, _ in writable_scopes:
+        _reject_hardlinked_writable_replay_scope(
+            label=label,
+            path=path.resolve(),
+            is_tree=is_tree,
+        )
+    for index, (label, path, is_tree, family) in enumerate(writable_scopes):
+        resolved = path.resolve()
+        for other_label, other_path, other_is_tree, other_family in writable_scopes[
+            index + 1 :
+        ]:
+            if family == other_family == "snapshot":
+                continue
+            other = other_path.resolve()
+            if _replay_scopes_overlap(
+                left_label=label,
+                left=resolved,
+                left_tree=is_tree,
+                right_label=other_label,
+                right=other,
+                right_tree=other_is_tree,
+            ):
+                raise CommandError(
+                    f"writable replay outputs overlap: {label} vs {other_label}: "
+                    f"{resolved} vs {other}"
+                )
+
+    if source_bundle is None:
+        return
+
+    protected_scopes: list[tuple[str, Path, bool]] = [
+        ("source assembly run card", path, False)
+        for path in source_bundle.source_assembly_run_cards
+    ]
+    for source in source_bundle.sources:
+        protected_scopes.extend(
+            (
+                ("source snapshot", source.path, True),
+                ("source screen run card", source.screen_run_card, False),
+            )
+        )
+        protected_scopes.extend(
+            ("source snapshot file", path, False)
+            for path in source.path.rglob("*")
+            if path.is_file()
+        )
+        protected_scopes.extend(
+            ("source screen input", path, path.is_dir()) for path in source.input_paths
+        )
+        if source.input_paths:
+            source_store = source.input_paths[0]
+            protected_scopes.extend(
+                (
+                    ("source cycle-store WAL", Path(f"{source_store}-wal"), False),
+                    ("source cycle-store SHM", Path(f"{source_store}-shm"), False),
+                    (
+                        "source cycle-store journal",
+                        Path(f"{source_store}-journal"),
+                        False,
+                    ),
+                )
+            )
+        if source.bundle_root is not None:
+            protected_scopes.append(
+                ("supplemental source bundle", source.bundle_root, True)
+            )
+    protected_scopes.extend(
+        ("source raw artifact", success.raw_path, False)
+        for success in source_bundle.successes
+    )
+
+    for writable_label, writable_path, writable_tree, _ in writable_scopes:
+        writable = writable_path.resolve()
+        for protected_label, protected_path, protected_tree in protected_scopes:
+            protected = protected_path.resolve()
+            if _replay_scopes_overlap(
+                left_label=writable_label,
+                left=writable,
+                left_tree=writable_tree,
+                right_label=protected_label,
+                right=protected,
+                right_tree=protected_tree,
+            ):
+                raise CommandError(
+                    f"{writable_label} overlaps {protected_label}: "
+                    f"{writable} vs {protected}"
+                )
+
+
+def _replay_scopes_overlap(
+    *,
+    left_label: str,
+    left: Path,
+    left_tree: bool,
+    right_label: str,
+    right: Path,
+    right_tree: bool,
+) -> bool:
+    if left == right:
+        return True
+    if left_tree and right.is_relative_to(left):
+        return True
+    if right_tree and left.is_relative_to(right):
+        return True
+    left_identity = _existing_replay_scope_identity(left, label=left_label)
+    right_identity = _existing_replay_scope_identity(right, label=right_label)
+    return left_identity is not None and left_identity == right_identity
+
+
+def _existing_replay_scope_identity(
+    path: Path, *, label: str
+) -> tuple[int, int] | None:
+    try:
+        metadata = path.stat()
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise CommandError(
+            f"cannot inspect {label} for output overlap: {path}: {exc}"
+        ) from exc
+    return metadata.st_dev, metadata.st_ino
+
+
+def _reject_hardlinked_writable_replay_scope(
+    *, label: str, path: Path, is_tree: bool
+) -> None:
+    if is_tree:
+        return
+    try:
+        metadata = path.stat()
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise CommandError(
+            f"cannot inspect {label} for hard-link aliases: {path}: {exc}"
+        ) from exc
+    if metadata.st_nlink > 1:
+        raise CommandError(
+            f"writable replay output overlap via hard-link aliases: {label}: {path}"
+        )
 
 
 _IMMUTABLE_ACQUISITION_EXCLUSIONS = frozenset(

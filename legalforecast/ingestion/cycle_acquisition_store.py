@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sqlite3
+import stat
 import tempfile
 import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -2234,6 +2235,7 @@ def verify_snapshot(
     expected_batch_digest: str | None = None,
     require_complete: bool = True,
     require_saturated: bool = False,
+    raw_artifact_relocation: tuple[Path, Path] | None = None,
 ) -> Mapping[str, Any]:
     """Verify completeness, config identity, and every exported file commitment."""
 
@@ -2288,12 +2290,19 @@ def verify_snapshot(
             raise SnapshotVerificationError(
                 f"snapshot file commitment mismatch: {filename}"
             )
-    _verify_snapshot_raw_artifacts(path)
+    _verify_snapshot_raw_artifacts(
+        path,
+        raw_artifact_relocation=raw_artifact_relocation,
+    )
     _verify_snapshot_reconciliation(path)
     return manifest
 
 
-def _verify_snapshot_raw_artifacts(path: Path) -> None:
+def _verify_snapshot_raw_artifacts(
+    path: Path,
+    *,
+    raw_artifact_relocation: tuple[Path, Path] | None,
+) -> None:
     artifacts = _read_jsonl_records(path / "raw-artifacts.jsonl")
     for line_number, artifact in enumerate(artifacts, start=1):
         raw_path = artifact.get("path")
@@ -2319,8 +2328,26 @@ def _verify_snapshot_raw_artifacts(path: Path) -> None:
                 f"raw-artifacts.jsonl line {line_number} has an invalid sha256"
             )
         artifact_path = Path(raw_path)
+        bundle_root: Path | None = None
+        if raw_artifact_relocation is not None:
+            original_root, bundle_root = raw_artifact_relocation
+            try:
+                relative_path = artifact_path.relative_to(original_root)
+            except ValueError as error:
+                raise SnapshotVerificationError(
+                    "committed raw artifact escapes relocation source root: "
+                    f"{artifact_path}"
+                ) from error
+            artifact_path = bundle_root / relative_path
         try:
-            payload = artifact_path.read_bytes()
+            if raw_artifact_relocation is not None:
+                assert bundle_root is not None
+                payload = _read_contained_regular_file(
+                    artifact_path,
+                    root=bundle_root,
+                )
+            else:
+                payload = artifact_path.read_bytes()
         except OSError as error:
             raise SnapshotVerificationError(
                 f"missing committed raw artifact: {artifact_path}"
@@ -2333,6 +2360,28 @@ def _verify_snapshot_raw_artifacts(path: Path) -> None:
             raise SnapshotVerificationError(
                 f"raw artifact sha256 mismatch: {artifact_path}"
             )
+
+
+def _read_contained_regular_file(path: Path, *, root: Path) -> bytes:
+    normalized_root = Path(os.path.abspath(os.fspath(root)))
+    normalized_path = Path(os.path.abspath(os.fspath(path)))
+    if not normalized_path.is_relative_to(normalized_root):
+        raise SnapshotVerificationError(
+            f"relocated raw artifact escapes bundle root: {path}"
+        )
+    current = normalized_root
+    for component in normalized_path.relative_to(normalized_root).parts:
+        current /= component
+        mode = current.lstat().st_mode
+        if stat.S_ISLNK(mode):
+            raise SnapshotVerificationError(
+                f"relocated raw artifact contains a symlink: {path}"
+            )
+    if not stat.S_ISREG(normalized_path.lstat().st_mode):
+        raise SnapshotVerificationError(
+            f"relocated raw artifact is not a regular file: {path}"
+        )
+    return normalized_path.read_bytes()
 
 
 def _verify_snapshot_reconciliation(path: Path) -> None:
