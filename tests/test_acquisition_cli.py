@@ -203,6 +203,76 @@ def test_acquisition_plan_can_emit_budget_capped_frontier(tmp_path: Path) -> Non
     assert reloaded["frontier_truncated"] is True
 
 
+def test_acquisition_plan_can_cap_the_cheapest_complete_case_count(
+    tmp_path: Path,
+) -> None:
+    core_results = tmp_path / "core-filter-results.jsonl"
+    output_root = tmp_path / "acquisition"
+    cheapest = {**_core_filter_result(), "candidate_id": "candidate-free"}
+    cheapest["core_missing_documents"] = []
+    cheapest["purchase_document_ids"] = []
+    one_gap = {**_core_filter_result(), "candidate_id": "candidate-one-gap"}
+    two_gaps = {**_core_filter_result(), "candidate_id": "candidate-two-gaps"}
+    two_gaps["core_missing_documents"] = ["document-b1", "document-b2"]
+    two_gaps["purchase_document_ids"] = ["document-b1", "document-b2"]
+    _write_jsonl(core_results, [two_gaps, one_gap, cheapest])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan",
+                "--core-filter-results",
+                str(core_results),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--target-case-count",
+                "2",
+            ]
+        )
+        == 0
+    )
+
+    plan = _read_json(output_root / "missing-core-budget-plan.json")
+    assert [row["candidate_id"] for row in plan["case_plans"]] == [
+        "candidate-free",
+        "candidate-one-gap",
+    ]
+    assert plan["target_case_count"] == 2
+    assert plan["target_case_count_met"] is True
+    assert plan["omitted_candidate_ids"] == ["candidate-two-gaps"]
+    assert plan["total_estimated_cost_usd"] == "3.05"
+
+
+def test_acquisition_plan_records_target_case_shortfall(tmp_path: Path) -> None:
+    core_results = tmp_path / "core-filter-results.jsonl"
+    output_root = tmp_path / "acquisition"
+    _write_jsonl(core_results, [_core_filter_result()])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan",
+                "--core-filter-results",
+                str(core_results),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--target-case-count",
+                "100",
+            ]
+        )
+        == 0
+    )
+
+    plan = _read_json(output_root / "missing-core-budget-plan.json")
+    assert plan["target_case_count"] == 100
+    assert plan["target_case_count_met"] is False
+    assert len(plan["case_plans"]) == 1
+
+
 def test_purchase_missing_requires_non_dry_run_plan_and_paid_activity_flags(
     tmp_path: Path,
     capsys: CaptureFixture[str],
