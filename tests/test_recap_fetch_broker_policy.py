@@ -96,6 +96,65 @@ def test_explicit_public_evidence_is_allowlisted() -> None:
     ]
 
 
+def test_explicit_broad_frontier_allowlist_may_exceed_aggregate_cap() -> None:
+    cases = tuple(
+        CaseMissingCorePurchasePlan(
+            candidate_id=f"case-{index}",
+            purchase_document_ids=(str(1000 + index),),
+            missing_core_document_count=1,
+            estimated_cost=Decimal("3.05"),
+            audit_only_document_count=0,
+            dry_run=True,
+        )
+        for index in range(1, 35)
+    )
+    plan = MissingCoreBudgetPlan(
+        case_plans=cases,
+        cost_per_document=Decimal("3.05"),
+        max_projected_budget=Decimal("100.00"),
+        max_missing_core_documents_per_case=24,
+        dry_run=True,
+    )
+    selection = [
+        {
+            "candidate_id": case.candidate_id,
+            "selected": False,
+            "exclusion_reasons": ["target_clean_case_cap_reached"],
+            "documents": [_document(case.purchase_document_ids[0])],
+        }
+        for case in cases
+    ]
+    purchase = _purchase_policy()
+    purchase["policy"]["opening_committed_spend_usd"] = "0.00"
+    purchase["policy"]["opening_case_committed_spend_usd"] = {}
+    purchase = generate_case_dev_purchase_policy(purchase["policy"])
+
+    policy = generate_recap_fetch_broker_policy(
+        purchase_policy_artifact=purchase,
+        cohort_policy_artifact=_cohort_policy(),
+        budget_plan=plan,
+        budget_plan_artifact=plan.to_record(),
+        selection_records=selection,
+        broad_frontier_allowlist=True,
+    )
+
+    assert len(policy["allowed_documents"]) == 34
+    assert Decimal("3.05") * 34 > Decimal(policy["cycle_cap_usd"])
+
+
+def test_broad_frontier_mode_requires_dry_run_scope() -> None:
+    plan = _budget_plan()
+    with pytest.raises(RecapFetchBrokerPolicyError, match="explicitly dry-run"):
+        generate_recap_fetch_broker_policy(
+            purchase_policy_artifact=_purchase_policy(),
+            cohort_policy_artifact=_cohort_policy(),
+            budget_plan=plan,
+            budget_plan_artifact=plan.to_record(),
+            selection_records=_selection(),
+            broad_frontier_allowlist=True,
+        )
+
+
 @pytest.mark.parametrize(
     "restriction_evidence",
     (

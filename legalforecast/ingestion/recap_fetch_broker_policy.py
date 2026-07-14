@@ -51,12 +51,15 @@ def generate_recap_fetch_broker_policy(
     budget_plan: MissingCoreBudgetPlan,
     budget_plan_artifact: Mapping[str, object],
     selection_records: Sequence[Mapping[str, Any]],
+    broad_frontier_allowlist: bool = False,
 ) -> dict[str, object]:
     """Build the exact broker policy accepted by secure-gate.
 
     The budget plan is the sole authority for which documents may be charged.
-    Selection metadata can only prove that those planned documents are public;
-    extra selection documents never expand the allowlist.
+    In normal mode it is the exact executable iteration. In explicit broad-
+    frontier mode it is a dry-run scope artifact whose documents may exceed the
+    aggregate Cycle cap; the broker's signed journal still enforces that cap on
+    every request. Selection metadata can only prove those documents public.
     """
 
     try:
@@ -68,9 +71,13 @@ def generate_recap_fetch_broker_policy(
     except CaseDevPurchasePolicyError as exc:
         raise RecapFetchBrokerPolicyError(str(exc)) from exc
 
-    if budget_plan.dry_run:
+    if budget_plan.dry_run and not broad_frontier_allowlist:
         raise RecapFetchBrokerPolicyError(
             "broker policy requires an executable non-dry-run budget plan"
+        )
+    if broad_frontier_allowlist and not budget_plan.dry_run:
+        raise RecapFetchBrokerPolicyError(
+            "broad frontier allowlist requires an explicitly dry-run scope plan"
         )
     _validate_budget_plan_artifact(
         budget_plan_artifact,
@@ -82,6 +89,7 @@ def generate_recap_fetch_broker_policy(
             purchase_policy.opening_case_committed_spend_usd
         ),
         per_case_cap_usd=purchase_policy.max_per_case_usd,
+        broad_frontier_allowlist=broad_frontier_allowlist,
     )
     if len(purchase_policy.cycle_id) > 128:
         raise RecapFetchBrokerPolicyError(
@@ -98,7 +106,9 @@ def generate_recap_fetch_broker_policy(
     ):
         _require_javascript_safe_money(amount, field)
 
-    selection = _index_selection(selection_records)
+    selection = _index_selection(
+        selection_records, allow_unselected=broad_frontier_allowlist
+    )
     allowed_documents: list[dict[str, str]] = []
     seen_candidates: set[str] = set()
     seen_documents: set[str] = set()
@@ -110,9 +120,9 @@ def generate_recap_fetch_broker_policy(
                 "executable case plan candidate IDs must be unique"
             )
         seen_candidates.add(candidate_id)
-        if case_plan.dry_run:
+        if case_plan.dry_run != broad_frontier_allowlist:
             raise RecapFetchBrokerPolicyError(
-                f"case plan {candidate_id} is marked dry-run"
+                f"case plan {candidate_id} dry-run state conflicts with allowlist mode"
             )
         if case_plan.exclusion_reasons:
             raise RecapFetchBrokerPolicyError(
@@ -257,6 +267,8 @@ def write_recap_fetch_broker_policy(
 
 def _index_selection(
     selection_records: Sequence[Mapping[str, Any]],
+    *,
+    allow_unselected: bool = False,
 ) -> dict[str, dict[str, Mapping[str, Any]]]:
     indexed: dict[str, dict[str, Mapping[str, Any]]] = {}
     for selection in selection_records:
@@ -265,7 +277,7 @@ def _index_selection(
         )
         if candidate_id in indexed:
             raise RecapFetchBrokerPolicyError("selection candidate IDs must be unique")
-        if (
+        if not allow_unselected and (
             selection.get("selected") is not True
             or selection.get("exclusion_reasons") != []
         ):
@@ -468,10 +480,11 @@ def _validate_budget_plan_artifact(
     opening_committed_spend_usd: Decimal,
     opening_case_committed_spend_usd: Mapping[str, Decimal],
     per_case_cap_usd: Decimal,
+    broad_frontier_allowlist: bool,
 ) -> None:
-    if artifact.get("dry_run") is not False:
+    if artifact.get("dry_run") is not broad_frontier_allowlist:
         raise RecapFetchBrokerPolicyError(
-            "budget plan artifact must explicitly be non-dry-run"
+            "budget plan artifact dry-run state conflicts with allowlist mode"
         )
     raw_cost = _canonical_money(
         artifact.get("cost_per_document_usd"), "cost_per_document_usd"
@@ -524,9 +537,13 @@ def _validate_budget_plan_artifact(
             raise RecapFetchBrokerPolicyError(
                 f"budget case plan {case_plan.candidate_id} exceeds its document cap"
             )
-        if typed_case.get("dry_run") is not False or case_plan.dry_run:
+        if (
+            typed_case.get("dry_run") is not broad_frontier_allowlist
+            or case_plan.dry_run is not broad_frontier_allowlist
+        ):
             raise RecapFetchBrokerPolicyError(
-                f"budget case plan {case_plan.candidate_id} is marked dry-run"
+                f"budget case plan {case_plan.candidate_id} dry-run state conflicts "
+                "with allowlist mode"
             )
         if typed_case.get("exclusion_reasons") != [] or case_plan.exclusion_reasons:
             raise RecapFetchBrokerPolicyError(
@@ -570,7 +587,7 @@ def _validate_budget_plan_artifact(
         raise RecapFetchBrokerPolicyError(
             "budget plan total estimated cost is internally inconsistent"
         )
-    if (
+    if not broad_frontier_allowlist and (
         total_cost > raw_budget
         or opening_committed_spend_usd + total_cost > hard_cap_usd
     ):
