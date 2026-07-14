@@ -22,6 +22,12 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseLedgerError,
 )
 from legalforecast.ingestion.missing_core_budget import MissingCoreBudgetPlan
+from legalforecast.ingestion.recap_fetch_broker import (
+    BrokerDefiniteRejection,
+    BrokerOutcomeUnknown,
+    broker_reconciliation_record,
+    validate_broker_receipt,
+)
 
 COURTLISTENER_RECAP_FETCH_PROVIDER = "courtlistener.recap-fetch+pacer"
 _DEFAULT_BASE_URL = "https://www.courtlistener.com/api/rest/v4"
@@ -88,6 +94,8 @@ class RecapFetchPurchaseBroker(Protocol):
     """Budget-enforcing custody boundary for the PACER credentialed POST."""
 
     def submit(self, request: Mapping[str, str]) -> Mapping[str, Any]: ...
+
+    def receipt(self, operation_key: str) -> Mapping[str, Any]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,6 +186,12 @@ class FixtureRecapFetchPurchaseBroker:
                 "purchase broker outcome is unknown"
             )
         return self._responses.pop(0)
+
+    def receipt(self, operation_key: str) -> Mapping[str, Any]:
+        del operation_key
+        raise CourtListenerRecapFetchOutcomeUnknown(
+            "offline fixture has no broker receipt response"
+        )
 
 
 class _RejectRedirects(urllib.request.HTTPRedirectHandler):
@@ -279,7 +293,6 @@ class CourtListenerRecapFetchClient:
                 "acknowledgment"
             )
         self.journal.plan(plan)
-        self.journal.require_reconciled()
         intended = tuple(
             (case_plan.candidate_id, document_id)
             for case_plan in plan.case_plans
@@ -292,6 +305,8 @@ class CourtListenerRecapFetchClient:
                     f"missing public restriction evidence for {document_id}"
                 )
             _require_explicitly_public(metadata, document_id)
+        self._recover_receipts(intended)
+        self.journal.require_reconciled()
         attempts: list[CaseDevPacerPurchaseAttempt] = []
         for index, (candidate_id, document_id) in enumerate(intended):
             attempt = self._execute_one(candidate_id, document_id)
@@ -378,9 +393,26 @@ class CourtListenerRecapFetchClient:
             "reservation_usd": str(evidence["reservation_usd"]),
         }
         try:
-            response = self.purchase_broker.submit(broker_request)
             self.paid_request_count += 1
+            response = self.purchase_broker.submit(broker_request)
+        except ValueError as exc:
+            self.journal.fail_before_dispatch(document_id, exc)
+            return _attempt(
+                candidate_id,
+                document_id,
+                CaseDevPacerPurchaseStatus.PROVIDER_ERROR,
+                "purchase_broker_local_validation_failed",
+            )
+        except BrokerDefiniteRejection as exc:
+            self.journal.fail_before_dispatch(document_id, exc)
+            return _attempt(
+                candidate_id,
+                document_id,
+                CaseDevPacerPurchaseStatus.PROVIDER_ERROR,
+                f"purchase_broker_{exc.code}",
+            )
         except (
+            BrokerOutcomeUnknown,
             CourtListenerRecapFetchOutcomeUnknown,
             TimeoutError,
             ConnectionError,
@@ -432,6 +464,125 @@ class CourtListenerRecapFetchClient:
         self.journal.queue(document_id, response=queued)
         return self._poll(candidate_id, document_id, queued)
 
+    def _recover_receipts(self, intended: Sequence[tuple[str, str]]) -> None:
+        """Resume ambiguous broker operations through receipt lookup only."""
+
+        if self.purchase_broker is None:
+            return
+        for _, document_id in intended:
+            operation = self.journal.operation_evidence(document_id)
+            if operation is None or operation["status"] not in {
+                "submitted",
+                "unknown",
+                "queued",
+                "confirmed",
+                "failed",
+            }:
+                continue
+            operation_key = operation.get("operation_key")
+            if not isinstance(operation_key, str):
+                raise CaseDevPurchaseLedgerError(
+                    "reserved operation lacks operation key"
+                )
+            try:
+                receipt = self.purchase_broker.receipt(operation_key)
+            except (BrokerOutcomeUnknown, CourtListenerRecapFetchOutcomeUnknown):
+                continue
+            self.apply_broker_receipt(document_id, receipt)
+
+    def apply_broker_receipt(
+        self, document_id: str, receipt: Mapping[str, Any]
+    ) -> None:
+        """Bind, preserve, and apply one authoritative broker receipt."""
+
+        validated = validate_broker_receipt(receipt)
+        operation = self.journal.operation_evidence(document_id)
+        if operation is None:
+            raise CaseDevPurchaseLedgerError("broker receipt operation is missing")
+        expected = {
+            "operation_key": operation.get("operation_key"),
+            "cycle_id": self.journal.policy.cycle_id,
+            "purchase_policy_sha256": self.journal.policy.policy_sha256,
+            "recap_document": document_id,
+            "case_id": operation.get("candidate_id"),
+            "reservation_usd": operation.get("reservation_usd"),
+        }
+        if any(validated[field] != value for field, value in expected.items()):
+            raise CourtListenerRecapFetchOutcomeUnknown(
+                "broker receipt does not bind to the local operation"
+            )
+        response = operation.get("response")
+        durable: Mapping[str, Any] = (
+            cast(Mapping[str, Any], response) if isinstance(response, Mapping) else {}
+        )
+        raw_reservation_id = durable.get("reservation_id")
+        if raw_reservation_id is not None and not isinstance(raw_reservation_id, str):
+            raise CaseDevPurchaseLedgerError(
+                "local broker reservation identity is invalid"
+            )
+        local_reservation_id = raw_reservation_id
+        if (
+            local_reservation_id is not None
+            and validated["reservation_id"] != local_reservation_id
+        ):
+            raise CourtListenerRecapFetchOutcomeUnknown(
+                "broker receipt reservation identity conflicts with the local journal"
+            )
+        raw_queue_id = durable.get("queue_id")
+        if raw_queue_id is not None and not isinstance(raw_queue_id, str):
+            raise CaseDevPurchaseLedgerError("local broker queue identity is invalid")
+        local_queue_id = raw_queue_id
+        receipt_queue_id = cast(str | None, validated["id"])
+        if (
+            local_queue_id is not None
+            and receipt_queue_id is not None
+            and receipt_queue_id != local_queue_id
+        ):
+            raise CourtListenerRecapFetchOutcomeUnknown(
+                "broker receipt queue identity conflicts with the local journal"
+            )
+        self.journal.record_broker_receipt(document_id, validated)
+        state = validated["state"]
+        if state in {"queued", "delivered_but_unreconciled"}:
+            if operation["status"] in {"submitted", "unknown"}:
+                self.journal.recover_broker_queue(
+                    document_id,
+                    queue_id=str(validated["id"]),
+                    reservation_id=str(validated["reservation_id"]),
+                )
+            return
+        if state == "failed":
+            if validated["billing_evidence"] is not None:
+                self.journal.reconcile(
+                    broker_reconciliation_record(validated, download_url=None)
+                )
+            return
+        if state != "confirmed":
+            return
+        effective_queue_id = receipt_queue_id or local_queue_id
+        if effective_queue_id is None:
+            return
+        queue_id = _identifier(str(effective_queue_id))
+        queue = self._request(
+            "GET", f"/recap-fetch/{queue_id}/", {}, paid=False, retry=True
+        )
+        if _status(queue) != 2:
+            return
+        document = self._request(
+            "GET",
+            f"/recap-documents/{_identifier(document_id)}/",
+            {},
+            paid=False,
+            retry=True,
+        )
+        _verify_recap_document(document, document_id)
+        if document.get("is_available") is not True:
+            return
+        download_url = _verified_download(document, document_id)
+        self.journal.reconcile(
+            broker_reconciliation_record(validated, download_url=download_url)
+        )
+
     def _poll(
         self,
         candidate_id: str,
@@ -460,6 +611,7 @@ class CourtListenerRecapFetchClient:
                         "queued purchase disappeared during polling"
                     )
                 confirmed = {
+                    **dict(queued),
                     "queue_id": queue_id,
                     "queue_response": dict(payload),
                     "download_url": verified,
@@ -672,11 +824,11 @@ def _attempt(
 
 def _queue_id(payload: Mapping[str, Any]) -> str:
     value = payload.get("id")
-    if isinstance(value, bool) or not isinstance(value, str | int):
+    if not isinstance(value, str) or not value.isdigit() or value.startswith("0"):
         raise CourtListenerRecapFetchOutcomeUnknown(
-            "paid RECAP Fetch response lacks a queue ID"
+            "paid RECAP Fetch response lacks a canonical positive queue ID"
         )
-    return _identifier(str(value))
+    return value
 
 
 def _status(payload: Mapping[str, Any]) -> int:
@@ -687,8 +839,10 @@ def _status(payload: Mapping[str, Any]) -> int:
 
 
 def _identifier(value: str) -> str:
-    if not value.isdigit():
-        raise CourtListenerRecapFetchError("CourtListener identifiers must be digits")
+    if not value.isdigit() or value.startswith("0"):
+        raise CourtListenerRecapFetchError(
+            "CourtListener identifiers must be positive canonical decimals"
+        )
     return value
 
 

@@ -16,7 +16,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from pathlib import Path
-from types import TracebackType
+from types import MappingProxyType, TracebackType
 from typing import Any, cast
 
 from legalforecast.ingestion.case_dev_client import (
@@ -35,6 +35,7 @@ from legalforecast.ingestion.missing_core_budget import (
 
 CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION = "legalforecast.case_dev_purchase_policy.v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_CANONICAL_USD = re.compile(r"(?:0|[1-9][0-9]*)\.[0-9]{2}")
 
 
 class CaseDevPurchasePolicyError(ValueError):
@@ -62,6 +63,7 @@ class CaseDevPurchasePolicy:
     canonical_ledger_path: Path
     hard_cap_usd: Decimal
     opening_committed_spend_usd: Decimal
+    opening_case_committed_spend_usd: Mapping[str, Decimal]
     max_per_case_usd: Decimal
     per_document_reservation_usd: Decimal
     policy_sha256: str
@@ -108,6 +110,14 @@ def verify_case_dev_purchase_policy(
         hard_cap_usd=Decimal(cast(str, policy["hard_cap_usd"])),
         opening_committed_spend_usd=Decimal(
             cast(str, policy["opening_committed_spend_usd"])
+        ),
+        opening_case_committed_spend_usd=MappingProxyType(
+            {
+                case_id: Decimal(amount)
+                for case_id, amount in cast(
+                    Mapping[str, str], policy["opening_case_committed_spend_usd"]
+                ).items()
+            }
         ),
         max_per_case_usd=Decimal(cast(str, policy["max_per_case_usd"])),
         per_document_reservation_usd=Decimal(
@@ -379,7 +389,7 @@ class CaseDevPurchaseJournal:
             raise CaseDevPurchaseLedgerError("purchase operation is missing")
         if actual > Decimal(str(row["reservation_usd"])):
             with self._connection:
-                self._connection.execute(
+                cursor = self._connection.execute(
                     """UPDATE purchase_operations SET status='unknown',
                     actual_usd=?, response_json=?, error=?
                     WHERE source_document_id=? AND status='submitted'""",
@@ -390,6 +400,8 @@ class CaseDevPurchaseJournal:
                         document_id,
                     ),
                 )
+                if cursor.rowcount != 1:
+                    raise CaseDevPurchaseLedgerError("over-cap fee transition failed")
             raise CaseDevPurchaseLedgerError(
                 "provider fee exceeds the verified worst-case reservation"
             )
@@ -466,24 +478,159 @@ class CaseDevPurchaseJournal:
                 None if row["actual_usd"] is None else str(row["actual_usd"])
             ),
             "response": response,
+            "reconciliation": (
+                None
+                if row["reconciliation_json"] is None
+                else cast(
+                    Mapping[str, Any], json.loads(str(row["reconciliation_json"]))
+                )
+            ),
             "error": None if row["error"] is None else str(row["error"]),
         }
 
+    def record_broker_receipt(
+        self, document_id: str, receipt: Mapping[str, Any]
+    ) -> None:
+        """Durably append a validated nonsecret broker receipt to provider evidence."""
+
+        row = self._operation(document_id)
+        if row is None or str(row["status"]) not in {
+            "submitted",
+            "queued",
+            "confirmed",
+            "failed",
+            "unknown",
+        }:
+            raise CaseDevPurchaseLedgerError(
+                "broker receipt requires a paid or reserved operation"
+            )
+        prior = (
+            {}
+            if row["response_json"] is None
+            else cast(dict[str, Any], json.loads(str(row["response_json"])))
+        )
+        canonical_receipt = _canonical(receipt)
+        digest = hashlib.sha256(canonical_receipt.encode()).hexdigest()
+        raw_history: object = prior.get("broker_receipts", [])
+        if not isinstance(raw_history, list):
+            raise CaseDevPurchaseLedgerError("broker receipt history is invalid")
+        history = cast(list[object], raw_history)
+        for item in history:
+            if isinstance(item, Mapping):
+                record = cast(Mapping[str, object], item)
+                if record.get("sha256") == digest:
+                    return
+                prior_receipt = record.get("receipt")
+                if isinstance(prior_receipt, Mapping):
+                    prior_record = cast(Mapping[str, object], prior_receipt)
+                    immutable_fields = (
+                        "operation_key",
+                        "reservation_id",
+                        "cycle_id",
+                        "purchase_policy_sha256",
+                        "recap_document",
+                        "case_id",
+                        "client_code",
+                        "reservation_usd",
+                    )
+                    if any(
+                        prior_record.get(field_name) != receipt.get(field_name)
+                        for field_name in immutable_fields
+                    ):
+                        raise CaseDevPurchaseLedgerError(
+                            "broker receipt immutable identity changed"
+                        )
+                    prior_queue = prior_record.get("id")
+                    if prior_queue is not None and prior_queue != receipt.get("id"):
+                        raise CaseDevPurchaseLedgerError(
+                            "broker receipt queue identity changed"
+                        )
+        updated: dict[str, Any] = {
+            **prior,
+            "broker_receipts": [
+                *history,
+                {"sha256": digest, "receipt": dict(receipt)},
+            ],
+        }
+        with self._connection:
+            cursor = self._connection.execute(
+                """UPDATE purchase_operations SET response_json=?
+                WHERE source_document_id=?""",
+                (_canonical(updated), document_id),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "broker receipt persistence transition failed"
+                )
+
+    def fail_before_dispatch(self, document_id: str, error: object) -> None:
+        """Release a local hold after a definite broker pre-provider rejection."""
+
+        with self._connection:
+            cursor = self._connection.execute(
+                """UPDATE purchase_operations SET status='failed',
+                response_json=NULL, reconciliation_json=NULL, actual_usd=NULL, error=?
+                WHERE source_document_id=? AND status='submitted'""",
+                (str(error), document_id),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "definite failure requires a submitted operation"
+                )
+
+    def recover_broker_queue(
+        self, document_id: str, *, queue_id: str, reservation_id: str
+    ) -> None:
+        """Resolve submitted or unknown local state from a durable broker queue ID."""
+
+        row = self._operation(document_id)
+        if row is None or str(row["status"]) not in {"submitted", "unknown"}:
+            raise CaseDevPurchaseLedgerError(
+                "broker queue recovery requires submitted or unknown state"
+            )
+        prior = (
+            {}
+            if row["response_json"] is None
+            else cast(dict[str, Any], json.loads(str(row["response_json"])))
+        )
+        response = {
+            **prior,
+            "source_provider": "courtlistener.recap-fetch+pacer",
+            "reservation_usd": str(row["reservation_usd"]),
+            "queue_id": queue_id,
+            "reservation_id": reservation_id,
+        }
+        with self._connection:
+            cursor = self._connection.execute(
+                """UPDATE purchase_operations SET status='queued', response_json=?,
+                error=NULL WHERE source_document_id=? AND status IN
+                ('submitted','unknown')""",
+                (_canonical(response), document_id),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "broker queue recovery transition failed"
+                )
+
     def fail(self, document_id: str, error: BaseException) -> None:
         with self._connection:
-            self._connection.execute(
+            cursor = self._connection.execute(
                 """UPDATE purchase_operations SET status='failed', error=?
                 WHERE source_document_id=? AND status IN ('submitted','queued')""",
                 (f"{type(error).__name__}: {error}", document_id),
             )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError("failed purchase transition failed")
 
     def mark_unknown(self, document_id: str, error: object) -> None:
         with self._connection:
-            self._connection.execute(
+            cursor = self._connection.execute(
                 """UPDATE purchase_operations SET status='unknown', error=?
                 WHERE source_document_id=? AND status IN ('submitted','queued')""",
                 (str(error), document_id),
             )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError("unknown purchase transition failed")
 
     def reconcile(self, evidence: Mapping[str, object]) -> None:
         """Resolve or write off an ambiguous row using recorded provider evidence."""
@@ -555,10 +702,11 @@ class CaseDevPurchaseJournal:
                         "pacerFees": evidence["pacer_fees"],
                         "downloadUrl": download_url,
                     }
-                self._connection.execute(
+                cursor = self._connection.execute(
                     """UPDATE purchase_operations SET status='confirmed',
                     actual_usd=?, response_json=?, reconciliation_json=?, error=NULL
-                    WHERE source_document_id=?""",
+                    WHERE source_document_id=? AND status IN
+                    ('submitted','queued','confirmed','failed','unknown')""",
                     (
                         _money(actual),
                         _canonical(response),
@@ -566,6 +714,10 @@ class CaseDevPurchaseJournal:
                         document_id,
                     ),
                 )
+                if cursor.rowcount != 1:
+                    raise CaseDevPurchaseLedgerError(
+                        "confirmed reconciliation transition failed"
+                    )
             return
         if (
             evidence.get("pacer_fees") is not None
@@ -576,23 +728,31 @@ class CaseDevPurchaseJournal:
             )
         if disposition == "failed":
             with self._connection:
-                self._connection.execute(
+                cursor = self._connection.execute(
                     """UPDATE purchase_operations SET status='failed',
-                    reconciliation_json=?
+                    actual_usd=NULL, reconciliation_json=?, error=NULL
                     WHERE source_document_id=? AND status IN
-                    ('submitted','queued','failed','unknown')""",
+                    ('submitted','queued','confirmed','failed','unknown')""",
                     (reconciliation, document_id),
                 )
+                if cursor.rowcount != 1:
+                    raise CaseDevPurchaseLedgerError(
+                        "failed reconciliation transition failed"
+                    )
             return
         if disposition == "write_off":
             with self._connection:
-                self._connection.execute(
+                cursor = self._connection.execute(
                     """UPDATE purchase_operations SET status='unknown',
                     reconciliation_json=?
                     WHERE source_document_id=? AND status IN
                     ('submitted','queued','confirmed','failed','unknown')""",
                     (reconciliation, document_id),
                 )
+                if cursor.rowcount != 1:
+                    raise CaseDevPurchaseLedgerError(
+                        "write-off reconciliation transition failed"
+                    )
             return
         raise CaseDevPurchasePolicyError(
             "reconciliation disposition must be confirmed, failed, or write_off"
@@ -694,7 +854,9 @@ class CaseDevPurchaseJournal:
             FROM purchase_operations WHERE candidate_id=?""",
             (candidate_id,),
         ).fetchall()
-        amount = Decimal("0")
+        amount = self.policy.opening_case_committed_spend_usd.get(
+            candidate_id, Decimal("0")
+        )
         for row in rows:
             status = str(row["status"])
             reservation = Decimal(str(row["reservation_usd"]))
@@ -1100,7 +1262,17 @@ class CaseDevPacerPurchaseClient:
                     fees=attempt.pacer_fees,
                 )
             except (ValueError, CaseDevPurchaseLedgerError) as exc:
-                self.journal.mark_unknown(document_id, exc)
+                operation = self.journal.operation_evidence(document_id)
+                if operation is None:
+                    raise CaseDevPurchaseLedgerError(
+                        "purchase disappeared while recording unknown fees"
+                    ) from exc
+                if operation["status"] in {"submitted", "queued"}:
+                    self.journal.mark_unknown(document_id, exc)
+                elif operation["status"] != "unknown":
+                    raise CaseDevPurchaseLedgerError(
+                        "fee failure did not retain a reconcilable purchase state"
+                    ) from exc
                 attempts.append(
                     CaseDevPacerPurchaseAttempt(
                         candidate_id=candidate_id,
@@ -1241,6 +1413,7 @@ def _validated_purchase_policy(
             "canonical_ledger_path",
             "hard_cap_usd",
             "opening_committed_spend_usd",
+            "opening_case_committed_spend_usd",
             "max_per_case_usd",
             "per_document_reservation_usd",
             "fee_schedule",
@@ -1279,6 +1452,42 @@ def _validated_purchase_policy(
         raise CaseDevPurchasePolicyError("max per-case cap exceeds cycle hard cap")
     if reservation > max_per_case:
         raise CaseDevPurchasePolicyError("document reservation exceeds per-case cap")
+    raw_opening_cases = decisions.get("opening_case_committed_spend_usd")
+    if not isinstance(raw_opening_cases, Mapping):
+        raise CaseDevPurchasePolicyError(
+            "opening_case_committed_spend_usd must be an object"
+        )
+    typed_opening_cases = cast(Mapping[object, object], raw_opening_cases)
+    opening_cases: dict[str, str] = {}
+    opening_case_total = Decimal("0")
+    for raw_case_id in sorted(typed_opening_cases, key=str):
+        if (
+            not isinstance(raw_case_id, str)
+            or not raw_case_id
+            or raw_case_id.strip() != raw_case_id
+        ):
+            raise CaseDevPurchasePolicyError(
+                "opening commitment case ID must be a non-empty canonical string"
+            )
+        raw_amount = typed_opening_cases[raw_case_id]
+        if (
+            not isinstance(raw_amount, str)
+            or _CANONICAL_USD.fullmatch(raw_amount) is None
+        ):
+            raise CaseDevPurchasePolicyError(
+                "opening case commitment must be canonical nonnegative USD"
+            )
+        amount = Decimal(raw_amount)
+        if amount > max_per_case:
+            raise CaseDevPurchasePolicyError(
+                "opening case commitment exceeds per-case cap"
+            )
+        opening_cases[raw_case_id] = raw_amount
+        opening_case_total += amount
+    if opening_case_total != opening_committed:
+        raise CaseDevPurchasePolicyError(
+            "opening case commitments must exactly equal opening committed spend"
+        )
     raw_schedule = decisions.get("fee_schedule")
     if not isinstance(raw_schedule, Mapping):
         raise CaseDevPurchasePolicyError("fee_schedule must be an object")
@@ -1315,6 +1524,7 @@ def _validated_purchase_policy(
         "canonical_ledger_path": str(ledger_path),
         "hard_cap_usd": _money(hard_cap),
         "opening_committed_spend_usd": _money(opening_committed),
+        "opening_case_committed_spend_usd": opening_cases,
         "max_per_case_usd": _money(max_per_case),
         "per_document_reservation_usd": _money(reservation),
         "fee_schedule": {

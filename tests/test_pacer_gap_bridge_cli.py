@@ -598,6 +598,7 @@ def _purchase_policy(tmp_path: Path) -> tuple[Path, Path, Path]:
                 "canonical_ledger_path": str(ledger),
                 "hard_cap_usd": "2250.00",
                 "opening_committed_spend_usd": "0.00",
+                "opening_case_committed_spend_usd": {},
                 "max_per_case_usd": "73.20",
                 "per_document_reservation_usd": "3.05",
                 "fee_schedule": {
