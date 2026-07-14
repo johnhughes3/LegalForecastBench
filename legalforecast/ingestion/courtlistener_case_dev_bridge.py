@@ -46,6 +46,7 @@ from legalforecast.ingestion.operative_complaint import (
     select_operative_complaint_entry,
 )
 from legalforecast.ingestion.provenance import DocumentRole
+from legalforecast.ingestion.recap_api_discovery import public_recap_download_url
 from legalforecast.ingestion.recap_fetch_broker_policy import (
     COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE,
 )
@@ -73,6 +74,14 @@ _MODEL_VISIBLE_ROLES = frozenset(
         DocumentRole.OPPOSITION,
         DocumentRole.REPLY,
     }
+)
+_COURTLISTENER_REST_FREE_RESTRICTION_EVIDENCE = (
+    "courtlistener_rest_docket_exact_match",
+    "courtlistener_rest_docket_entry_exact_match",
+    "courtlistener_rest_recap_document_exact_match",
+    "courtlistener_rest_recap_document_is_available_true",
+    "courtlistener_rest_recap_document_is_sealed_false",
+    "courtlistener_rest_public_download_url_allowlisted",
 )
 _RESTRICTED_STATUS_VALUES = frozenset({"private", "restricted", "sealed", "under_seal"})
 _PAID_GAP_ROLES = {
@@ -146,6 +155,7 @@ class _BridgeDocument:
             "is_private": None,
             "is_sealed": None,
             "file_extension": "pdf",
+            "resolved_from_paid_gap": True,
         }
 
     def case_relevance_record(self) -> dict[str, Any]:
@@ -167,6 +177,7 @@ class _BridgeDocument:
             "is_sealed": None,
             "contains_target_outcome": self.contains_target_outcome,
             "model_visible": self.model_visible,
+            "resolved_from_paid_gap": True,
         }
 
     def free_download_request(self) -> FreeDocumentDownloadRequest | None:
@@ -192,6 +203,7 @@ class _CourtListenerRestGapDocument:
     document_role: DocumentRole
     source_url_or_reference: str
     description: str
+    free: bool = False
 
     @property
     def contains_target_outcome(self) -> bool:
@@ -204,7 +216,9 @@ class _CourtListenerRestGapDocument:
     def selection_record(self) -> dict[str, Any]:
         return {
             "candidate_id": self.candidate_id,
-            "source_provider": "courtlistener+recap-fetch",
+            "source_provider": (
+                "courtlistener" if self.free else "courtlistener+recap-fetch"
+            ),
             "source_document_id": self.source_document_id,
             "courtlistener_docket_entry_id": self.docket_entry_id,
             "docket_entry_number": self.docket_entry_number,
@@ -215,13 +229,18 @@ class _CourtListenerRestGapDocument:
             "model_visible": self.model_visible,
             "is_predecision_material": not self.contains_target_outcome,
             "contains_target_outcome": self.contains_target_outcome,
-            "availability_status": "unavailable",
-            "requires_paid_recovery": True,
+            "availability_status": "available" if self.free else "unavailable",
+            "requires_paid_recovery": not self.free,
             "redaction_or_seal_status": "public",
-            "restriction_evidence": COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE,
+            "restriction_evidence": list(
+                _COURTLISTENER_REST_FREE_RESTRICTION_EVIDENCE
+                if self.free
+                else COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE
+            ),
             "is_private": None,
             "is_sealed": False,
             "file_extension": "pdf",
+            "resolved_from_paid_gap": True,
         }
 
     def case_relevance_record(self) -> dict[str, Any]:
@@ -236,15 +255,33 @@ class _CourtListenerRestGapDocument:
             "docket_entry_number": self.docket_entry_number,
             "docket_entry_text": self.description,
             "source_url_or_reference": self.source_url_or_reference,
-            "availability_status": "unavailable",
-            "requires_paid_recovery": True,
+            "availability_status": "available" if self.free else "unavailable",
+            "requires_paid_recovery": not self.free,
             "redaction_or_seal_status": "public",
-            "restriction_evidence": COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE,
+            "restriction_evidence": list(
+                _COURTLISTENER_REST_FREE_RESTRICTION_EVIDENCE
+                if self.free
+                else COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE
+            ),
             "is_private": None,
             "is_sealed": False,
             "contains_target_outcome": self.contains_target_outcome,
             "model_visible": self.model_visible,
+            "resolved_from_paid_gap": True,
         }
+
+    def free_download_request(self) -> FreeDocumentDownloadRequest | None:
+        if not self.free:
+            return None
+        return FreeDocumentDownloadRequest(
+            candidate_id=self.candidate_id,
+            source_provider="courtlistener",
+            source_document_id=self.source_document_id,
+            docket_entry_number=self.docket_entry_number,
+            document_role=self.document_role,
+            source_url=self.source_url_or_reference,
+            file_extension="pdf",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -295,11 +332,19 @@ class CourtListenerCaseDevBridgeResult:
     def document_bytes_ready_case_count(self) -> int:
         # The legacy bridge runs before download-free and only proves that a
         # public URL exists. The public-first route validates its completed
-        # free-download manifest before constructing this result.
+        # free-download manifest before constructing this result. Documents
+        # that become public during the bridge are new download requests and
+        # therefore are not byte-ready until a later download-free replay.
         if not self.public_first_reconciled:
             return 0
 
+        pending_free_candidates = {
+            request.candidate_id for request in self.free_download_requests
+        }
+
         def bytes_ready(record: Mapping[str, Any]) -> bool:
+            if _required_str(record, "candidate_id") in pending_free_candidates:
+                return False
             documents = _mapping_sequence(record.get("documents"), "documents")
             return bool(documents) and all(
                 document.get("availability_status") == "available"
@@ -535,6 +580,7 @@ def bridge_public_plan_paid_gaps_via_courtlistener(
     relevance: list[Mapping[str, Any]] = [
         _public_case_relevance(record) for record in public_selections
     ]
+    free_requests: list[FreeDocumentDownloadRequest] = []
     exclusions: list[Mapping[str, Any]] = []
     for gap in paid_gaps:
         candidate_id = _required_str(gap, "candidate_id")
@@ -571,6 +617,7 @@ def bridge_public_plan_paid_gaps_via_courtlistener(
             continue
         selections.append(selection)
         relevance.append(candidate_relevance)
+        free_requests.extend(bridge_free_download_requests_from_selection(selection))
     selected_ids = {_required_str(record, "candidate_id") for record in selections}
     excluded_ids = {_required_str(record, "candidate_id") for record in exclusions}
     overlap = selected_ids & excluded_ids
@@ -581,7 +628,7 @@ def bridge_public_plan_paid_gaps_via_courtlistener(
     return CourtListenerCaseDevBridgeResult(
         selection_records=tuple(selections),
         case_relevance_records=tuple(relevance),
-        free_download_requests=(),
+        free_download_requests=tuple(free_requests),
         exclusions=tuple(exclusions),
         screened_case_count=len(public_selections) + len(paid_gaps),
         public_first_reconciled=True,
@@ -768,6 +815,69 @@ def bridge_public_plan_paid_gap_candidate_via_courtlistener(
     )
 
 
+def bridge_free_download_requests_from_selection(
+    selection_record: Mapping[str, Any],
+) -> tuple[FreeDocumentDownloadRequest, ...]:
+    """Return only authoritative documents newly recovered from a paid gap."""
+
+    candidate_id = _required_str(selection_record, "candidate_id")
+    requests: list[FreeDocumentDownloadRequest] = []
+    seen_ids: set[str] = set()
+    for document in _mapping_sequence(selection_record.get("documents"), "documents"):
+        if document.get("resolved_from_paid_gap") is not True:
+            continue
+        if (
+            document.get("availability_status") == "unavailable"
+            and document.get("requires_paid_recovery") is True
+        ):
+            continue
+        if (
+            document.get("availability_status") != "available"
+            or document.get("requires_paid_recovery") is not False
+            or _required_str(document, "source_provider") != "courtlistener"
+            or document.get("redaction_or_seal_status") != "public"
+            or document.get("is_sealed") is not False
+            or _string_sequence(document.get("restriction_evidence"))
+            != _COURTLISTENER_REST_FREE_RESTRICTION_EVIDENCE
+        ):
+            raise CourtListenerCaseDevBridgeError(
+                f"bridge_free_document_evidence_invalid: {candidate_id}"
+            )
+        source_document_id = _required_str(document, "source_document_id")
+        if source_document_id in seen_ids:
+            raise CourtListenerCaseDevBridgeError(
+                f"bridge_free_document_duplicate: {candidate_id}/{source_document_id}"
+            )
+        seen_ids.add(source_document_id)
+        entry_number = document.get("docket_entry_number")
+        if not isinstance(entry_number, int) or isinstance(entry_number, bool):
+            raise CourtListenerCaseDevBridgeError(
+                "bridge_free_document_entry_invalid: "
+                f"{candidate_id}/{source_document_id}"
+            )
+        source_url = _required_str(document, "source_url")
+        if (
+            public_recap_download_url(source_url) != source_url
+            or _required_str(document, "source_url_or_reference") != source_url
+            or _required_str(document, "file_extension").lower() != "pdf"
+        ):
+            raise CourtListenerCaseDevBridgeError(
+                f"bridge_free_document_url_invalid: {candidate_id}/{source_document_id}"
+            )
+        requests.append(
+            FreeDocumentDownloadRequest(
+                candidate_id=candidate_id,
+                source_provider="courtlistener",
+                source_document_id=source_document_id,
+                docket_entry_number=entry_number,
+                document_role=DocumentRole(_required_str(document, "document_role")),
+                source_url=source_url,
+                file_extension="pdf",
+            )
+        )
+    return tuple(requests)
+
+
 def case_dev_bridge_exclusion_record(
     screened_case_record: Mapping[str, Any],
     *,
@@ -908,24 +1018,24 @@ def _reconcile_paid_gap(
     bridged_documents = _mapping_sequence(
         bridged_selection.get("documents"), "documents"
     )
-    paid_documents = tuple(
+    resolved_documents = tuple(
         document
         for document in bridged_documents
-        if document.get("requires_paid_recovery") is True
-        and DocumentRole(_required_str(document, "document_role")) in required_roles
+        if DocumentRole(_required_str(document, "document_role")) in required_roles
+        and document.get("resolved_from_paid_gap") is True
     )
     for reason in reasons:
         required_entry_number = _paid_gap_reason_entry_number(reason)
-        matching_paid_document = any(
+        matching_resolved_document = any(
             DocumentRole(_required_str(document, "document_role"))
             in _PAID_GAP_ROLES[_paid_gap_reason_base(reason)]
             and (
                 required_entry_number is None
                 or document.get("docket_entry_number") == required_entry_number
             )
-            for document in paid_documents
+            for document in resolved_documents
         )
-        if not matching_paid_document:
+        if not matching_resolved_document:
             raise CourtListenerCaseDevBridgeError(
                 f"paid_gap_document_not_found: {candidate_id}: {reason}"
             )
@@ -933,7 +1043,7 @@ def _reconcile_paid_gap(
     document_ids = {
         _required_str(document, "source_document_id") for document in public_documents
     }
-    for document in paid_documents:
+    for document in resolved_documents:
         document_id = _required_str(document, "source_document_id")
         if document_id in document_ids:
             raise CourtListenerCaseDevBridgeError(
@@ -946,10 +1056,16 @@ def _reconcile_paid_gap(
             bridged_relevance.get("documents"), "documents"
         )
     }
-    paid_relevance = tuple(
+    resolved_relevance = tuple(
         relevance_by_id[_required_str(document, "source_document_id")]
-        for document in paid_documents
+        for document in resolved_documents
     )
+    paid_documents = tuple(
+        document
+        for document in resolved_documents
+        if document.get("requires_paid_recovery") is True
+    )
+    paid_recovery_required = bool(paid_documents)
     selection = {
         **gap,
         "case_id": _required_str(bridged_selection, "case_id"),
@@ -958,14 +1074,22 @@ def _reconcile_paid_gap(
         # Identity resolution makes the candidate purchasable; it does not
         # recover document bytes. Keep the legacy selected route for downstream
         # selection compatibility while stating recovery readiness explicitly.
-        "paid_recovery_required": True,
+        "paid_recovery_required": paid_recovery_required,
         "paid_gap_reasons": [],
         "resolved_paid_gap_reasons": list(reasons),
-        "planning_status": "identity_resolved_paid_recovery_required",
+        "planning_status": (
+            "identity_resolved_paid_recovery_required"
+            if paid_recovery_required
+            else "free_recovery_required"
+        ),
         "identity_resolution_status": "resolved",
-        "document_recovery_status": "paid_recovery_required",
+        "document_recovery_status": (
+            "paid_recovery_required"
+            if paid_recovery_required
+            else "free_recovery_required"
+        ),
         "identity_resolution": bridged_selection["identity_resolution"],
-        "documents": [*public_documents, *paid_documents],
+        "documents": [*public_documents, *resolved_documents],
     }
     identity_fields: dict[str, str] = {}
     for field_name in ("case_dev_case_id", "courtlistener_docket_id"):
@@ -981,7 +1105,7 @@ def _reconcile_paid_gap(
         **identity_fields,
         "documents": [
             *(_public_relevance_document(document) for document in public_documents),
-            *paid_relevance,
+            *resolved_relevance,
         ],
     }
     return selection, case_relevance
@@ -1457,7 +1581,7 @@ def _bridge_courtlistener_rest_gap_documents(
             raise CourtListenerCaseDevBridgeError(
                 f"paid_gap_public_document_conflict: {number}"
             )
-        recap_document = _select_courtlistener_recap_document(
+        recap_document, public_download_url = _select_courtlistener_recap_document(
             client,
             hit=hit,
             entry_number=number,
@@ -1479,11 +1603,13 @@ def _bridge_courtlistener_rest_gap_documents(
                 docket_entry_id=hit.docket_entry_id,
                 docket_entry_number=number,
                 document_role=role,
-                source_url_or_reference=(
+                source_url_or_reference=public_download_url
+                or (
                     "https://www.courtlistener.com/api/rest/v4/recap-documents/"
                     f"{recap_document.document_id}/"
                 ),
                 description=description,
+                free=public_download_url is not None,
             )
         )
     return tuple(bridged)
@@ -1518,7 +1644,7 @@ def _select_courtlistener_recap_document(
     hit: CourtListenerDocketEntry,
     entry_number: int,
     web_document: CourtListenerWebDocument,
-) -> CourtListenerRecapDocument:
+) -> tuple[CourtListenerRecapDocument, str | None]:
     if not hit.recap_document_ids:
         raise CourtListenerCaseDevBridgeError(
             f"courtlistener_recap_document_id_missing: {entry_number}"
@@ -1552,14 +1678,6 @@ def _select_courtlistener_recap_document(
             f"courtlistener_recap_document_match_ambiguous: {entry_number}"
         )
     selected = matching_documents[0]
-    if selected.is_available is True:
-        raise CourtListenerCaseDevBridgeError(
-            f"courtlistener_recap_already_available: {entry_number}"
-        )
-    if selected.is_available is not False:
-        raise CourtListenerCaseDevBridgeError(
-            f"courtlistener_recap_availability_unproven: {entry_number}"
-        )
     if selected.is_sealed is True or _record_is_restricted(selected.raw):
         raise CourtListenerCaseDevBridgeError(
             f"restricted_core_document: {entry_number}"
@@ -1568,7 +1686,23 @@ def _select_courtlistener_recap_document(
         raise CourtListenerCaseDevBridgeError(
             f"courtlistener_recap_privacy_unproven: {entry_number}"
         )
-    return selected
+    if selected.is_available is True:
+        raw_url = _optional_str_any(
+            selected.raw,
+            "filepath_local",
+            "download_url",
+        )
+        public_url = None if raw_url is None else public_recap_download_url(raw_url)
+        if public_url is None:
+            raise CourtListenerCaseDevBridgeError(
+                f"courtlistener_recap_public_url_unproven: {entry_number}"
+            )
+        return selected, public_url
+    if selected.is_available is not False:
+        raise CourtListenerCaseDevBridgeError(
+            f"courtlistener_recap_availability_unproven: {entry_number}"
+        )
+    return selected, None
 
 
 def _recap_document_matches_web_document(

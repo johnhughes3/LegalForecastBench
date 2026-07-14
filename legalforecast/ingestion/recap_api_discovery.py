@@ -703,7 +703,7 @@ def _web_documents_from_api(
                 "download_url",
             )
             if candidate_href is not None:
-                href = _public_recap_download_url(candidate_href)
+                href = public_recap_download_url(candidate_href)
         attachment = record.get("attachment_number")
         kind = (
             "main"
@@ -733,9 +733,11 @@ def _optional_document_string(
     return None
 
 
-def _public_recap_download_url(value: str) -> str | None:
+def public_recap_download_url(value: str) -> str | None:
     """Normalize one v4 storage path and enforce the HTTPS download allowlist."""
 
+    if any(character.isspace() or ord(character) < 32 for character in value):
+        return None
     url = urllib.parse.urljoin("https://www.courtlistener.com/", value)
     parsed = urllib.parse.urlparse(url)
     try:
@@ -748,7 +750,15 @@ def _public_recap_download_url(value: str) -> str | None:
         or parsed.username is not None
         or parsed.password is not None
         or port not in {None, 443}
+        or bool(parsed.fragment)
     ):
+        return None
+    path = parsed.path
+    if not path.lower().endswith(".pdf"):
+        return None
+    if parsed.hostname == "www.courtlistener.com" and not path.startswith("/recap/"):
+        return None
+    if parsed.hostname == "storage.courtlistener.com" and path == "/":
         return None
     return url
 
