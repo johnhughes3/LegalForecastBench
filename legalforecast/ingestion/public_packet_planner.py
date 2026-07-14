@@ -897,9 +897,12 @@ def _entry_from_embedded_record(
         filed_at=_optional_str(record, "filed_at"),
         text=_optional_str(record, "text") or "",
         documents=documents,
-        restriction_markers=restricted_material_markers(
-            records=(record,),
-            text_fields=(_optional_str(record, "text") or "",),
+        restriction_markers=_merged_restriction_markers(
+            record,
+            restricted_material_markers(
+                records=(record,),
+                text_fields=(_optional_str(record, "text") or "",),
+            ),
         ),
     )
 
@@ -913,15 +916,36 @@ def _document_from_embedded_record(
         href=_optional_str(record, "href"),
         action_label=_optional_str(record, "action_label"),
         pacer_only=bool(record.get("pacer_only", False)),
-        restriction_markers=restricted_material_markers(
-            records=(record,),
-            text_fields=(
-                _optional_str(record, "kind") or "",
-                _optional_str(record, "description") or "",
+        restriction_markers=_merged_restriction_markers(
+            record,
+            restricted_material_markers(
+                records=(record,),
+                text_fields=(
+                    _optional_str(record, "kind") or "",
+                    _optional_str(record, "description") or "",
+                ),
+                access_label_fields=(_optional_str(record, "action_label") or "",),
             ),
-            access_label_fields=(_optional_str(record, "action_label") or "",),
         ),
     )
+
+
+def _merged_restriction_markers(
+    record: Mapping[str, Any], detected: tuple[str, ...]
+) -> tuple[str, ...]:
+    explicit = record.get("restriction_markers")
+    if explicit is None:
+        return detected
+    if not isinstance(explicit, list):
+        raise ValueError("embedded restriction_markers must be a list")
+    markers: list[str] = []
+    for marker in cast(list[object], explicit):
+        if not isinstance(marker, str) or not marker.strip():
+            raise ValueError(
+                "embedded restriction_markers must contain non-empty strings"
+            )
+        markers.append(marker.strip())
+    return tuple(sorted(set((*detected, *markers))))
 
 
 def _dedupe_entries(

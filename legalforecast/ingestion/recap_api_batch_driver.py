@@ -32,10 +32,11 @@ Nothing here mutates the frozen screening files or the source batch-001 store.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -43,6 +44,7 @@ from legalforecast.ingestion.courtlistener_client import CourtListenerClient
 from legalforecast.ingestion.cycle_acquisition_store import (
     CandidateObservation,
     CycleAcquisitionStore,
+    cohort_reason_policy_taxonomy,
 )
 from legalforecast.ingestion.discovery_scheduler import (
     DiscoveryHit,
@@ -259,6 +261,74 @@ class ObserveTally:
 
 # Observation states the strict-screen route can emit through the store.
 _ELIGIBLE_STATES = frozenset({"accepted", "newly_free"})
+_INTEGER_PREFIX = re.compile(r"^\s*(\d+)")
+
+
+def _positive_integer_prefix(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if not isinstance(value, str):
+        return None
+    match = _INTEGER_PREFIX.match(value)
+    return int(match.group(1)) if match is not None else None
+
+
+def _observation_priority(
+    candidate_id: str, payload: Mapping[str, Any]
+) -> tuple[int, int, int, int, int, int, str]:
+    """Order unresolved candidates by expected free-screening cost.
+
+    The sort key uses only frozen discovery evidence, so it changes traversal
+    order without changing candidate membership or selected evidence.  Stored
+    prescreens are zero-request outcomes.  A low triggering entry number is the
+    strongest available proxy for a short docket; unknown sizes precede dockets
+    already proven likely to exceed the six-page reconstruction cap.  Direct
+    decision-search hits then outrank synthetic batch-001 retry leads, with
+    recent decisions and newer docket ids as stable final cost proxies.
+    """
+
+    prescreen_rank = 0 if observe_prescreened_reason(payload) is not None else 1
+    raw_evidence = payload.get("decision_entry_evidence")
+    evidence = (
+        cast("Mapping[str, object]", raw_evidence)
+        if isinstance(raw_evidence, Mapping)
+        else None
+    )
+    direct_rank = 0 if evidence is not None else 1
+    entry_number: int | None = None
+    decision_ordinal = 0
+    if evidence is not None:
+        entry_number = _positive_integer_prefix(evidence.get("entry_number"))
+        raw_decision_date = evidence.get("entry_date_filed")
+        if isinstance(raw_decision_date, str):
+            try:
+                decision_ordinal = date.fromisoformat(raw_decision_date).toordinal()
+            except ValueError:
+                # Malformed provider dates remain unknown and keep the neutral
+                # rank; eligibility parsing later still fails closed.
+                decision_ordinal = 0
+    if entry_number is None:
+        entry_bucket, entry_value = 1, 0
+    elif entry_number > 600:
+        entry_bucket, entry_value = 2, entry_number
+    else:
+        entry_bucket, entry_value = 0, entry_number
+    docket_number = _positive_integer_prefix(payload.get("docket_id"))
+    if docket_number is None:
+        docket_number = _positive_integer_prefix(
+            candidate_id.removeprefix("courtlistener-docket-")
+        )
+    return (
+        prescreen_rank,
+        entry_bucket,
+        entry_value,
+        direct_rank,
+        -decision_ordinal,
+        -(docket_number or 0),
+        candidate_id,
+    )
 
 
 def _config_window_end(store: CycleAcquisitionStore, batch_id: str) -> date | None:
@@ -321,6 +391,9 @@ def run_observe(
     eligibility_anchor: date,
     pacer: RequestPacer | None = None,
     limit: int | None = None,
+    refresh_reason_codes: Sequence[str] = (),
+    revalidate_candidate_ids: Sequence[str] = (),
+    refresh_campaign_cutoff: str | None = None,
     progress_callback: Callable[[ObserveTally], None] | None = None,
 ) -> ObserveTally:
     """Reconstruct, screen, and durably observe every unresolved candidate.
@@ -330,13 +403,38 @@ def run_observe(
     already carries a current (terminal) observation is skipped, so re-running is
     safe and resumes exactly where a prior pass stopped; a candidate whose only
     prior observation was a transient failure is retried (transient failures
-    never become the current observation).
+    never become the current observation). ``refresh_reason_codes`` is an
+    explicit, auditable escape hatch for re-running current observations whose
+    policy class is refreshable after a screening implementation correction.
+    ``revalidate_candidate_ids`` narrowly re-runs named accepted candidates
+    after a documented false-positive correction. Refresh/revalidation campaigns
+    require a frozen UTC cutoff; only observations predating it are eligible, so
+    repeated limited invocations advance instead of consuming requests on the
+    same candidates.
     """
 
     store.batch_digest(batch_id)
     _validate_frozen_eligibility_anchor(store, eligibility_anchor)
     require_reconstruction_auth(client)
     decision_window_end = _config_window_end(store, batch_id)
+    refresh_reasons = frozenset(refresh_reason_codes)
+    campaign_requested = bool(refresh_reasons or revalidate_candidate_ids)
+    if campaign_requested and refresh_campaign_cutoff is None:
+        raise RecapApiBatchDriverError(
+            "refresh/revalidation requires --refresh-campaign-cutoff"
+        )
+    campaign_cutoff = (
+        _utc_timestamp(refresh_campaign_cutoff, "refresh_campaign_cutoff")
+        if refresh_campaign_cutoff is not None
+        else None
+    )
+    allowed_refresh_reasons = frozenset(
+        cohort_reason_policy_taxonomy()["refreshable_reason_codes"]
+    )
+    invalid_refresh_reasons = refresh_reasons - allowed_refresh_reasons
+    if invalid_refresh_reasons:
+        invalid = sorted(invalid_refresh_reasons)[0]
+        raise RecapApiBatchDriverError(f"reason code {invalid!r} is not refreshable")
 
     payloads = {
         hit.candidate_id: hit.payload
@@ -353,18 +451,69 @@ def run_observe(
     excluded: dict[str, int] = {}
     transient: dict[str, int] = {}
 
-    for candidate_id in store.candidate_ids(batch_id):
+    candidate_ids = store.candidate_ids(batch_id)
+    candidate_id_set = frozenset(candidate_ids)
+    revalidate_ids = frozenset(revalidate_candidate_ids)
+    unknown_revalidation_ids = revalidate_ids - candidate_id_set
+    if unknown_revalidation_ids:
+        unknown = sorted(unknown_revalidation_ids)[0]
+        raise RecapApiBatchDriverError(
+            f"revalidation candidate {unknown!r} is not in batch {batch_id}"
+        )
+    missing_payloads = tuple(
+        candidate_id for candidate_id in candidate_ids if candidate_id not in payloads
+    )
+    if missing_payloads:
+        raise RecapApiBatchDriverError(
+            f"candidate {missing_payloads[0]} has no discovery hit payload to observe"
+        )
+    current_observations = {
+        candidate_id: store.current_observation(candidate_id)
+        for candidate_id in candidate_ids
+    }
+    for candidate_id in sorted(revalidate_ids):
+        current = current_observations[candidate_id]
+        if current is None or current.state not in {"accepted", "newly_free"}:
+            raise RecapApiBatchDriverError(
+                f"revalidation candidate {candidate_id!r} is not currently accepted"
+            )
+
+    def predates_campaign(candidate_id: str) -> bool:
+        current = current_observations[candidate_id]
+        return bool(
+            current is not None
+            and campaign_cutoff is not None
+            and _utc_timestamp(current.observed_at, "observation observed_at")
+            < campaign_cutoff
+        )
+
+    def selected_for_campaign(candidate_id: str) -> bool:
+        current = current_observations[candidate_id]
+        return predates_campaign(candidate_id) and bool(
+            candidate_id in revalidate_ids
+            or (current is not None and current.reason_code in refresh_reasons)
+        )
+
+    def refresh_rank(candidate_id: str) -> int:
+        return 0 if selected_for_campaign(candidate_id) else 1
+
+    ordered_candidate_ids = sorted(
+        candidate_ids,
+        key=lambda candidate_id: (
+            refresh_rank(candidate_id),
+            _observation_priority(candidate_id, payloads[candidate_id]),
+        ),
+    )
+
+    for candidate_id in ordered_candidate_ids:
         if limit is not None and observed >= limit:
             break
         considered += 1
-        if store.current_observation(candidate_id) is not None:
+        current = current_observations[candidate_id]
+        if current is not None and not selected_for_campaign(candidate_id):
             skipped += 1
             continue
-        payload = payloads.get(candidate_id)
-        if payload is None:
-            raise RecapApiBatchDriverError(
-                f"candidate {candidate_id} has no discovery hit payload to observe"
-            )
+        payload = payloads[candidate_id]
         observation = observe_recap_api_candidate(
             store,
             batch_id,
@@ -404,6 +553,20 @@ def run_observe(
         excluded_by_reason=excluded,
         transient_by_reason=transient,
     )
+
+
+def _utc_timestamp(raw: str, field: str) -> datetime:
+    """Parse one timezone-aware timestamp and normalize it to UTC."""
+
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise RecapApiBatchDriverError(
+            f"{field} must be an ISO-8601 timestamp"
+        ) from exc
+    if parsed.tzinfo is None:
+        raise RecapApiBatchDriverError(f"{field} must include a UTC offset")
+    return parsed.astimezone(UTC)
 
 
 # ---------------------------------------------------------------------------

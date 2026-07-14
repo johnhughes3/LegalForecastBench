@@ -413,6 +413,24 @@ def test_actual_mtd_decision_entry_rejects_extension_order() -> None:
     assert "procedural_or_standing_order" in screen.exclusion_reasons
 
 
+def test_actual_mtd_decision_entry_rejects_show_cause_before_future_mtd_ruling() -> (
+    None
+):
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "ORDER by the Court DIRECTING Plaintiff TO SHOW CAUSE why Dkt. No. 9 "
+            "Defendants' motion to dismiss should not be granted for failure to "
+            "file a response. Plaintiff shall file a statement by July 20, 2026."
+        ),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is False
+    assert "procedural_or_standing_order" in screen.exclusion_reasons
+
+
 def test_actual_mtd_decision_entry_rejects_conditional_amend_or_brief_order() -> None:
     page = parse_courtlistener_docket_html(
         _docket_html(
@@ -539,6 +557,15 @@ def test_merits_reasoning_with_if_is_not_a_prospective_condition(
         (
             "ORDER granting motion to expedite the briefing schedule on the "
             "pending Motion to Dismiss."
+        ),
+        (
+            "ORDER granting Defendants' Motion to Exceed Page Limit for "
+            "Defendants' Motion to Dismiss (Doc. 9). Defendants' Motion to "
+            "Dismiss (Doc. 8) is considered within the page limit. IT IS "
+            "FURTHER ORDERED granting the parties' Stipulation of Time to File "
+            "Response to Motion to Dismiss (Doc. 13). Plaintiff's Response to "
+            "Defendants' Motion to Dismiss (Doc. 8) shall be filed no later "
+            "than July 17, 2026."
         ),
     ),
 )

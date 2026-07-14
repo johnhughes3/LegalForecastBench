@@ -1092,9 +1092,9 @@ def test_screen_rejects_court_order_event_without_outcome_text(
 
     assert _read_jsonl(output_root / "firecrawl-screened-cases.jsonl") == []
     [exclusion] = _read_jsonl(output_root / "firecrawl-screening-exclusions.jsonl")
-    assert exclusion["reason"] == "motion_filing_only"
+    assert exclusion["reason"] == "procedural_or_standing_order"
     assert exclusion["secondary_exclusion_reasons"] == [
-        "procedural_or_standing_order",
+        "motion_filing_only",
         "mtd_disposition_unproven",
     ]
 
