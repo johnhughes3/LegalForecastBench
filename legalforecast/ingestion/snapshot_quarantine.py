@@ -68,7 +68,7 @@ def quarantine_orphan_snapshot(
             receipt_output=receipt_output,
             expected_snapshot_id=expected_snapshot_id,
             expected_orphan_manifest_sha256=expected_orphan_manifest_sha256,
-            expected_canonical_manifest_sha256=(expected_canonical_manifest_sha256),
+            expected_canonical_manifest_sha256=expected_canonical_manifest_sha256,
             execute=execute,
         )
     finally:

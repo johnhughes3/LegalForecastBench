@@ -171,8 +171,40 @@ def test_verified_snapshot_raw_html_sources_selects_requested_refresh_directory(
         use_embedded_entries=False,
     )
 
-    assert directory == second.parent.resolve()
-    assert paths is None
+    assert directory is None
+    assert paths == {"123": second.resolve()}
+
+
+def test_verified_snapshot_raw_html_sources_preserves_other_committed_directories(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    old_duplicate = tmp_path / "old-refresh" / "123.html"
+    new_duplicate = tmp_path / "new-refresh" / "123.html"
+    old_only = tmp_path / "old-refresh" / "456.html"
+    old_duplicate.parent.mkdir()
+    new_duplicate.parent.mkdir()
+    old_duplicate.write_text("<html>old 123</html>", encoding="utf-8")
+    new_duplicate.write_text("<html>new 123</html>", encoding="utf-8")
+    old_only.write_text("<html>old 456</html>", encoding="utf-8")
+    _write_jsonl(
+        snapshot / "raw-artifacts.jsonl",
+        [
+            {"candidate_id": "courtlistener-docket-123", "path": str(old_duplicate)},
+            {"candidate_id": "courtlistener-docket-123", "path": str(new_duplicate)},
+            {"candidate_id": "courtlistener-docket-456", "path": str(old_only)},
+        ],
+    )
+
+    directory, paths = _verified_snapshot_raw_html_sources(
+        snapshot,
+        requested=new_duplicate.parent,
+        use_embedded_entries=False,
+    )
+
+    assert directory is None
+    assert paths == {"123": new_duplicate.resolve(), "456": old_only.resolve()}
 
 
 def test_verified_snapshot_raw_html_sources_rejects_uncommitted_requested_directory(
@@ -1391,6 +1423,50 @@ def test_screen_firecrawl_dockets_resume_reuses_exact_complete_snapshot(
     )
     assert summary["resumed_existing_snapshot"] is True
     assert summary["accepted_case_count"] == 1
+
+
+def test_screen_resume_run_card_records_committed_snapshot_path(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = _docket_html(decision_dates=("June 30, 2026",))
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+    base_command = [
+        "acquisition",
+        "screen-firecrawl-dockets",
+        *cycle_state.cli_args,
+        "--successes",
+        str(successes),
+        "--raw-html-dir",
+        str(raw_html_dir),
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--execute",
+    ]
+    assert main([*base_command, "--output-root", str(tmp_path / "first")]) == 0
+    snapshot_root_link = tmp_path / "snapshot-root-link"
+    snapshot_root_link.symlink_to(cycle_state.snapshot.parent, target_is_directory=True)
+    resumed_output = tmp_path / "resumed"
+
+    assert (
+        main(
+            [
+                *base_command,
+                "--snapshot-root",
+                str(snapshot_root_link),
+                "--output-root",
+                str(resumed_output),
+            ]
+        )
+        == 0
+    )
+
+    run_card = _read_json(resumed_output / "run-cards/screen-firecrawl-dockets.json")
+    assert run_card["output_paths"][-1] == str(cycle_state.snapshot.resolve())
 
 
 def test_screen_resume_rejects_snapshot_manifest_mismatch_before_store_writes(

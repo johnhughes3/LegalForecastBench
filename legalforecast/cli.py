@@ -6457,7 +6457,7 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
             "--screened-cases must be the screened-cases.jsonl inside --snapshot"
         )
     screened_cases_path = canonical_screened_cases_path
-    raw_html_dir = cast(Path | None, args.raw_html_dir)
+    requested_raw_html_dir = cast(Path | None, args.raw_html_dir)
     requests_path = _acquisition_path(
         args,
         "requests_output",
@@ -6508,7 +6508,7 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
         raise CommandError(str(exc)) from exc
     raw_html_dir, raw_html_paths_by_candidate = _verified_snapshot_raw_html_sources(
         snapshot_path,
-        requested=raw_html_dir,
+        requested=requested_raw_html_dir,
         use_embedded_entries=cast(bool, args.use_embedded_entries),
     )
     records = _read_records(screened_cases_path)
@@ -6527,6 +6527,9 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
         **plan.summary_record(),
         "dry_run": dry_run,
         "raw_html_dir": str(raw_html_dir) if raw_html_dir is not None else None,
+        "requested_raw_html_dir": (
+            str(requested_raw_html_dir) if requested_raw_html_dir is not None else None
+        ),
         "raw_html_source_mode": (
             "verified_artifact_map"
             if raw_html_paths_by_candidate is not None
@@ -6579,8 +6582,8 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
         stage="plan-public-downloads",
         input_paths=(
             (snapshot_path, screened_cases_path)
-            if raw_html_dir is None
-            else (snapshot_path, screened_cases_path, raw_html_dir)
+            if requested_raw_html_dir is None
+            else (snapshot_path, screened_cases_path, requested_raw_html_dir)
         ),
         output_paths=(
             requests_path,
@@ -6916,6 +6919,7 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
         raise CommandError(str(exc)) from exc
     if existing_snapshot is not None:
         snapshot_path, snapshot_manifest = existing_snapshot
+        resumed_output_paths = (*output_paths[:-1], snapshot_path)
         _validate_screen_resume_output_paths(
             args=args,
             snapshot_path=snapshot_path,
@@ -6984,7 +6988,7 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
             args,
             stage="screen-firecrawl-dockets",
             input_paths=input_paths,
-            output_paths=output_paths,
+            output_paths=resumed_output_paths,
             record_count=len(screened_cases),
             dry_run=False,
             paid_activity_requested=False,
@@ -10343,32 +10347,41 @@ def _verified_snapshot_raw_html_sources(
             )
         return None, None
     parents = {path.parent for path in artifact_paths}
+    requested_directory: Path | None = None
     if requested is not None:
-        committed_directory = requested.resolve()
-        if committed_directory not in parents:
+        requested_directory = requested.resolve()
+        if requested_directory not in parents:
             raise CommandError(
                 "--raw-html-dir must exactly match a committed verified snapshot "
                 "artifact directory"
             )
-        return committed_directory, None
-    if len(parents) != 1:
-        by_candidate: dict[str, Path] = {}
-        for path in artifact_paths:
-            if path.suffix.casefold() != ".html" or not path.is_file():
-                raise CommandError(
-                    "verified snapshot contains an invalid raw HTML artifact path"
-                )
-            candidate_id = path.stem
-            prior = by_candidate.get(candidate_id)
-            if prior is not None and prior != path:
-                raise CommandError(
-                    "verified snapshot raw artifacts conflict for candidate "
-                    f"{candidate_id}"
-                )
-            by_candidate[candidate_id] = path
-        return None, by_candidate
-    committed_directory = next(iter(parents))
-    return committed_directory, None
+    if len(parents) == 1:
+        return next(iter(parents)), None
+
+    paths_by_candidate: dict[str, list[Path]] = defaultdict(list)
+    for path in artifact_paths:
+        if path.suffix.casefold() != ".html" or not path.is_file():
+            raise CommandError(
+                "verified snapshot contains an invalid raw HTML artifact path"
+            )
+        paths_by_candidate[path.stem].append(path)
+
+    by_candidate: dict[str, Path] = {}
+    for candidate_id, candidate_paths in paths_by_candidate.items():
+        if len(candidate_paths) == 1:
+            by_candidate[candidate_id] = candidate_paths[0]
+            continue
+        requested_paths = [
+            path
+            for path in candidate_paths
+            if requested_directory is not None and path.parent == requested_directory
+        ]
+        if len(requested_paths) != 1:
+            raise CommandError(
+                f"verified snapshot raw artifacts conflict for candidate {candidate_id}"
+            )
+        by_candidate[candidate_id] = requested_paths[0]
+    return None, by_candidate
 
 
 def _firecrawl_credit_summary_if_available(
