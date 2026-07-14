@@ -29,6 +29,7 @@ from legalforecast.ingestion.recap_api_discovery import (
     PRESCREEN_CRIMINAL_REASON,
     RECAP_API_PROVIDER,
     REST_DOCKET_ENTRY_SOFT_CAP,
+    REST_DOCKET_PAGE_HARD_CAP,
     RecapApiDiscoverySource,
     RecapApiResponseError,
     RecapDecisionHit,
@@ -1051,7 +1052,7 @@ def test_observe_soft_skips_after_rest_page_cap(tmp_path: Path) -> None:
         },
     )
     responses = [_docket_response(555)]
-    for page_index in range(25):
+    for page_index in range(REST_DOCKET_PAGE_HARD_CAP):
         cursor = None if page_index == 0 else f"cursor-{page_index}"
         responses.append(
             _entries_response(
@@ -1081,9 +1082,12 @@ def test_observe_soft_skips_after_rest_page_cap(tmp_path: Path) -> None:
 
         assert observation.state == "excluded"
         assert observation.reason_code == "oversized_docket_soft_skip"
-        assert observation.evidence["rest_docket_page_hard_cap"] == 25
+        assert (
+            observation.evidence["rest_docket_page_hard_cap"]
+            == REST_DOCKET_PAGE_HARD_CAP
+        )
         assert observation.evidence["sampling_exclusion"] is True
-        assert client.request_count == 26
+        assert client.request_count == REST_DOCKET_PAGE_HARD_CAP + 1
 
 
 def test_observe_excludes_first_disposition_before_anchor(tmp_path: Path) -> None:

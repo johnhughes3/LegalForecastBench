@@ -72,7 +72,7 @@ from legalforecast.ingestion.restricted_material import restricted_material_mark
 RECAP_API_PROVIDER = "courtlistener-recap-rest-v4"
 RECAP_API_POLICY_SCHEMA = "legalforecast.recap_api_discovery_batch.v1"
 REST_DOCKET_ENTRY_SOFT_CAP = 500
-REST_DOCKET_PAGE_HARD_CAP = 25
+REST_DOCKET_PAGE_HARD_CAP = 6
 
 # The ``description`` field of a ``type=rd`` search carries the docket-entry text.
 # These queries target the *decision* itself (order granting/denying, memorandum
