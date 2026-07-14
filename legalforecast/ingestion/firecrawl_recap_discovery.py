@@ -873,7 +873,10 @@ def _dedupe_entries(
         by_key.setdefault(dedupe_key, []).append(hit)
     term_rank = {term: index for index, term in enumerate(term_order)}
     entries: list[RecapDiscoveredEntry] = []
-    for entry_key in sorted(by_key, key=_identity_sort_key):
+    for entry_key in sorted(
+        by_key,
+        key=lambda key: _hit_identity_sort_key(by_key[key][0]),
+    ):
         grouped_hits = by_key[entry_key]
         canonical = grouped_hits[0]
         for other in grouped_hits[1:]:
@@ -1018,9 +1021,27 @@ def _numeric_text_sort_key(raw: str) -> tuple[int, str]:
     return int(raw), raw
 
 
-def _identity_sort_key(raw: str) -> tuple[int, str, tuple[int, str]]:
-    docket_id, identity_type, identity_value = raw.split(":", 2)
-    return int(docket_id), identity_type, _numericish_sort_key(identity_value)
+def _hit_identity_sort_key(
+    hit: RecapSearchHit,
+) -> tuple[int, str, tuple[int, str], tuple[int, int]]:
+    if hit.docket_entry_id is not None:
+        identity_type = "entry"
+        identity_value = hit.docket_entry_id
+    elif hit.document_number is not None:
+        identity_type = "document"
+        identity_value = hit.document_number
+    else:  # pragma: no cover - parser-created hits always have one identity
+        identity_type = ""
+        identity_value = hit.entry_key
+    attachment_key = (
+        (0, 0) if hit.attachment_number is None else (1, hit.attachment_number)
+    )
+    return (
+        int(hit.docket_id),
+        identity_type,
+        _numericish_sort_key(identity_value),
+        attachment_key,
+    )
 
 
 def _numericish_sort_key(raw: str) -> tuple[int, str]:

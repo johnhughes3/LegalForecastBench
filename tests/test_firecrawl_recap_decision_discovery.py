@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import inspect
 from datetime import date
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from legalforecast.ingestion import firecrawl_recap_decision_discovery
 from legalforecast.ingestion.firecrawl_recap_decision_discovery import (
     DECISION_FIRST_RECAP_SEARCH_TERMS,
     DecisionRecapSearchCompletenessError,
@@ -71,9 +73,7 @@ def test_decision_terms_are_the_existing_frozen_eight_without_api_dependency() -
         'order AND (granting OR denying) AND "judgment on the pleadings"',
         'order AND (granting OR denying) AND "12(b)(6)"',
     )
-    source = Path(
-        "legalforecast/ingestion/firecrawl_recap_decision_discovery.py"
-    ).read_text()
+    source = inspect.getsource(firecrawl_recap_decision_discovery)
     assert "courtlistener_client" not in source
     assert "recap_api_discovery" not in source
     assert "COURTLISTENER_API_TOKEN" not in source
@@ -206,7 +206,7 @@ def test_type_r_attachment_identity_does_not_collapse_distinct_files() -> None:
         entry_date_filed_before=WINDOW_END,
     )
     first = _article().replace(
-        "/docket/12345/27/alpha-v-beta/", "/docket/12345/27/1/alpha-v-beta/"
+        "/docket/12345/27/alpha-v-beta/", "/docket/12345/27/100/alpha-v-beta/"
     )
     second = _article().replace(
         "/docket/12345/27/alpha-v-beta/", "/docket/12345/27/2/alpha-v-beta/"
@@ -225,10 +225,10 @@ def test_type_r_attachment_identity_does_not_collapse_distinct_files() -> None:
         terms=(DECISION_FIRST_RECAP_SEARCH_TERMS[0],),
         max_pages_per_term=1,
     )
-    assert {entry.entry_key for entry in discovered.entries} == {
-        "12345:document:27:attachment:1",
+    assert [entry.entry_key for entry in discovered.entries] == [
         "12345:document:27:attachment:2",
-    }
+        "12345:document:27:attachment:100",
+    ]
 
 
 def test_type_r_html_fails_closed_for_truncation_or_identity_mismatch() -> None:

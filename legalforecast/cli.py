@@ -4261,9 +4261,19 @@ def _cmd_acquisition_project_firecrawl_recap_checkpoint(
             frozen_term_ordinals = {
                 term: ordinal for ordinal, term in enumerate(frozen_terms)
             }
+            frozen_query_plan = frozen_config.get("courtlistener_query_plan_version")
+            if frozen_query_plan == DECISION_FIRST_RECAP_QUERY_PLAN_VERSION:
+                parse_search_url = parse_decision_recap_search_url
+                parse_search_html = parse_decision_recap_search_html
+            elif frozen_query_plan in (None, COURTLISTENER_QUERY_PLAN_VERSION):
+                parse_search_url = parse_recap_search_url
+                parse_search_html = parse_recap_search_html
+            else:
+                raise ConfigMismatchError(
+                    "frozen batch has an unknown CourtListener query plan"
+                )
             parsed_targets = {
-                page.source_url: parse_recap_search_url(page.source_url)
-                for page in pages
+                page.source_url: parse_search_url(page.source_url) for page in pages
             }
             if any(
                 target.term not in frozen_term_ordinals
@@ -4285,11 +4295,15 @@ def _cmd_acquisition_project_firecrawl_recap_checkpoint(
                     )
                 )
             )
-            projection = project_partial_recap_checkpoint(pages)
+            projection = project_partial_recap_checkpoint(
+                pages,
+                parse_search_html=parse_search_html,
+            )
             _commit_recap_discovery_pages(
                 store=store,
                 batch_id=batch_id,
                 pages=pages,
+                parse_search_html=parse_search_html,
             )
             projected_candidate_ids = {
                 candidate.candidate_id for candidate in projection.candidates
