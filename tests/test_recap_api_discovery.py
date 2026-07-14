@@ -33,6 +33,7 @@ from legalforecast.ingestion.recap_api_discovery import (
     RecapApiDiscoverySource,
     RecapApiResponseError,
     RecapDecisionHit,
+    RecapDocketContradictionError,
     RecapDocketReconstructionError,
     RecapDocketTooLargeError,
     RecapReconstructionAuthError,
@@ -534,6 +535,108 @@ def test_reconstruct_fails_closed_on_duplicate_entries() -> None:
     )
     with pytest.raises(RecapDocketReconstructionError, match="duplicate"):
         reconstruct_docket_page(client, "555")
+
+
+def test_reconstruct_fails_closed_on_conflicting_duplicate_entry_numbers() -> None:
+    client = _client(
+        (
+            _docket_response(555),
+            _entries_response(
+                cursor=None,
+                results=[
+                    {
+                        "id": 7002,
+                        "docket": 555,
+                        "entry_number": 4,
+                        "description": "Corporate disclosure statement",
+                        "date_filed": "2026-06-01",
+                    },
+                    {
+                        "id": 7999,
+                        "docket": 555,
+                        "entry_number": 4,
+                        "description": "Criminal defense counsel appearance",
+                        "date_filed": "2025-12-24",
+                    },
+                ],
+                next_cursor=None,
+            ),
+        )
+    )
+
+    with pytest.raises(RecapDocketContradictionError, match="entry number 4"):
+        reconstruct_docket_page(client, "555")
+
+
+def test_reconstruct_detects_conflicting_entry_numbers_across_pages() -> None:
+    client = _client(
+        (
+            _docket_response(555),
+            _entries_response(
+                cursor=None,
+                results=[
+                    {
+                        "id": 7002,
+                        "docket": 555,
+                        "entry_number": 4,
+                        "description": "Corporate disclosure statement",
+                        "date_filed": "2026-06-01",
+                    }
+                ],
+                next_cursor="cursor-2",
+            ),
+            _entries_response(
+                cursor="cursor-2",
+                results=[
+                    {
+                        "id": 7999,
+                        "docket": 555,
+                        "entry_number": 4,
+                        "description": "Criminal defense counsel appearance",
+                        "date_filed": "2025-12-24",
+                    }
+                ],
+                next_cursor=None,
+            ),
+        )
+    )
+
+    with pytest.raises(RecapDocketContradictionError, match="entry number 4"):
+        reconstruct_docket_page(client, "555")
+
+
+def test_reconstruct_allows_duplicate_recap_sequence_numbers() -> None:
+    client = _client(
+        (
+            _docket_response(555),
+            _entries_response(
+                cursor=None,
+                results=[
+                    {
+                        "id": 7002,
+                        "docket": 555,
+                        "entry_number": None,
+                        "recap_sequence_number": "2026-07-13.001",
+                        "description": "Clerk reassignment notice",
+                        "date_filed": "2026-07-13",
+                    },
+                    {
+                        "id": 7999,
+                        "docket": 555,
+                        "entry_number": None,
+                        "recap_sequence_number": "2026-07-13.001",
+                        "description": "Case reassigned",
+                        "date_filed": "2026-07-13",
+                    },
+                ],
+                next_cursor=None,
+            ),
+        )
+    )
+
+    reconstructed = reconstruct_docket_page(client, "555")
+
+    assert reconstructed.proof.entry_count == 2
 
 
 def test_reconstruct_fails_closed_on_non_advancing_cursor() -> None:
@@ -1085,6 +1188,74 @@ def test_observe_rejects_procedural_order_that_leaves_mtd_pending(
         screen = observation.evidence["screen"]
         assert isinstance(screen, dict)
         assert "procedural_or_standing_order" in screen["exclusion_reasons"]
+        current = store.current_observation("courtlistener-docket-555")
+        assert current is not None
+        assert current.observation_id == observation.observation_id
+        assert current.supersedes_observation_id == stale_acceptance.observation_id
+
+
+def test_observe_supersedes_acceptance_on_contradictory_provider_entries(
+    tmp_path: Path,
+) -> None:
+    store, payload = _seeded_store(
+        tmp_path,
+        {
+            "id": 9001,
+            "docket_id": 555,
+            "description": "MEMORANDUM OPINION granting motion to dismiss",
+            "entry_date_filed": "2026-07-01",
+            "court_id": "dcd",
+            "docketNumber": "1:26-cv-00001",
+            "caseName": "Brown v. Alphasense",
+        },
+    )
+    with store:
+        stale_acceptance = store.record_observation(
+            "courtlistener-docket-555",
+            batch_id="batch-002",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"screening_kernel": "before-provider-contradiction-gate"},
+        )
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=_client(
+                (
+                    _docket_response(555),
+                    _entries_response(
+                        cursor=None,
+                        results=[
+                            {
+                                "id": 7002,
+                                "docket": 555,
+                                "entry_number": 4,
+                                "description": "Corporate disclosure statement",
+                                "date_filed": "2026-06-01",
+                            },
+                            {
+                                "id": 7999,
+                                "docket": 555,
+                                "entry_number": 4,
+                                "description": "Criminal counsel appearance",
+                                "date_filed": "2025-12-24",
+                            },
+                        ],
+                        next_cursor=None,
+                    ),
+                )
+            ),
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.state == "excluded"
+        assert observation.reason_code == "invalid_civil_case_metadata"
+        assert observation.evidence["provider_contradiction"] is True
+        assert (
+            observation.evidence["exclusion_detail"]
+            == "contradictory_docket_entry_metadata"
+        )
         current = store.current_observation("courtlistener-docket-555")
         assert current is not None
         assert current.observation_id == observation.observation_id

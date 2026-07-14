@@ -116,6 +116,10 @@ class RecapDocketReconstructionError(RecapApiDiscoveryError):
     """Raised when a docket cannot be proven completely reconstructed."""
 
 
+class RecapDocketContradictionError(RecapDocketReconstructionError):
+    """Raised when provider rows contradict one another within one docket."""
+
+
 class RecapDocketTooLargeError(RecapDocketReconstructionError):
     """Raised when a docket exceeds the approved REST reconstruction page cap."""
 
@@ -538,6 +542,7 @@ def reconstruct_docket_page(
 
     entries: list[CourtListenerDocketEntry] = []
     seen_entry_ids: set[str] = set()
+    entry_id_by_number: dict[str, str] = {}
     duplicate_entry_ids: list[str] = []
     seen_cursors: set[str] = set()
     cursor: str | None = None
@@ -558,6 +563,21 @@ def reconstruct_docket_page(
                 duplicate_entry_ids.append(entry.docket_entry_id)
             else:
                 seen_entry_ids.add(entry.docket_entry_id)
+            raw_entry_number = _optional_string(
+                entry.raw, "entry_number", "entryNumber"
+            )
+            if raw_entry_number is not None:
+                prior_entry_id = entry_id_by_number.get(raw_entry_number)
+                if (
+                    prior_entry_id is not None
+                    and prior_entry_id != entry.docket_entry_id
+                ):
+                    raise RecapDocketContradictionError(
+                        f"docket {docket_id} returned contradictory entry number "
+                        f"{raw_entry_number} for entry ids {prior_entry_id} and "
+                        f"{entry.docket_entry_id}"
+                    )
+                entry_id_by_number[raw_entry_number] = entry.docket_entry_id
             entries.append(entry)
         next_cursor = result.next_cursor
         if next_cursor is None:
@@ -998,6 +1018,19 @@ def observe_recap_api_candidate(
                 **base_evidence,
                 "rest_docket_page_hard_cap": REST_DOCKET_PAGE_HARD_CAP,
                 "sampling_exclusion": True,
+                "error": str(error),
+            },
+        )
+    except RecapDocketContradictionError as error:
+        return store.record_observation(
+            candidate_id,
+            batch_id=batch_id,
+            state="excluded",
+            reason_code="invalid_civil_case_metadata",
+            evidence={
+                **base_evidence,
+                "provider_contradiction": True,
+                "exclusion_detail": "contradictory_docket_entry_metadata",
                 "error": str(error),
             },
         )
