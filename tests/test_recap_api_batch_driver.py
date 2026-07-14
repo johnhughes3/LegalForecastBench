@@ -369,6 +369,89 @@ def test_run_observe_accepts_and_is_resumable(tmp_path: Path) -> None:
         store.close()
 
 
+def test_run_observe_prioritizes_cheaper_recent_candidates_deterministically(
+    tmp_path: Path,
+) -> None:
+    store = _fresh_store(tmp_path)
+    responses = _empty_search_responses()
+    responses[0] = _search_response(
+        term=_TERMS[0],
+        results=[
+            {
+                "id": 9001,
+                "docket_id": 999,
+                "entry_number": "650",
+                "description": "ORDER granting motion to dismiss",
+                "entry_date_filed": "2026-07-06",
+                "court_id": "nysd",
+                "docketNumber": "1:20-cv-00001",
+                "caseName": "Old Corp v. Roe",
+            },
+            {
+                "id": 9002,
+                "docket_id": 555,
+                "entry_number": "20",
+                "description": "ORDER granting motion to dismiss",
+                "entry_date_filed": "2026-07-05",
+                "court_id": "nysd",
+                "docketNumber": "1:26-cv-00002",
+                "caseName": "Small Corp v. Roe",
+            },
+            {
+                "id": 9003,
+                "docket_id": 777,
+                "entry_number": "20",
+                "description": "ORDER granting motion to dismiss",
+                "entry_date_filed": "2026-07-06",
+                "court_id": "nysd",
+                "docketNumber": "1:26-cv-00003",
+                "caseName": "Recent Corp v. Roe",
+            },
+        ],
+    )
+    run_discover(
+        store,
+        batch_id="batch-002",
+        client=_anonymous_client(responses),
+        decision_window_start=date(2026, 6, 30),
+        decision_window_end=date(2026, 7, 12),
+    )
+    try:
+        tally = run_observe(
+            store,
+            batch_id="batch-002",
+            client=_token_client(
+                [
+                    _docket_response(777),
+                    _entries_response(
+                        docket_id=777,
+                        results=[
+                            _motion_entry(777),
+                            {
+                                "id": 7002,
+                                "docket": 777,
+                                "entry_number": 40,
+                                "description": (
+                                    "ORDER granting defendant's motion to dismiss "
+                                    "the complaint"
+                                ),
+                                "date_filed": "2026-07-06",
+                            },
+                        ],
+                    ),
+                ]
+            ),
+            eligibility_anchor=date(2026, 6, 30),
+            limit=1,
+        )
+        assert tally.observed == 1
+        assert store.current_observation("courtlistener-docket-777") is not None
+        assert store.current_observation("courtlistener-docket-555") is None
+        assert store.current_observation("courtlistener-docket-999") is None
+    finally:
+        store.close()
+
+
 def test_run_observe_enforces_frozen_window_end_from_config(tmp_path: Path) -> None:
     store = _fresh_store(tmp_path)
     try:

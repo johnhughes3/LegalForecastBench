@@ -32,6 +32,7 @@ Nothing here mutates the frozen screening files or the source batch-001 store.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -259,6 +260,72 @@ class ObserveTally:
 
 # Observation states the strict-screen route can emit through the store.
 _ELIGIBLE_STATES = frozenset({"accepted", "newly_free"})
+_INTEGER_PREFIX = re.compile(r"^\s*(\d+)")
+
+
+def _positive_integer_prefix(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if not isinstance(value, str):
+        return None
+    match = _INTEGER_PREFIX.match(value)
+    return int(match.group(1)) if match is not None else None
+
+
+def _observation_priority(
+    candidate_id: str, payload: Mapping[str, Any]
+) -> tuple[int, int, int, int, int, int, str]:
+    """Order unresolved candidates by expected free-screening cost.
+
+    The sort key uses only frozen discovery evidence, so it changes traversal
+    order without changing candidate membership or selected evidence.  Stored
+    prescreens are zero-request outcomes.  A low triggering entry number is the
+    strongest available proxy for a short docket; unknown sizes precede dockets
+    already proven likely to exceed the six-page reconstruction cap.  Direct
+    decision-search hits then outrank synthetic batch-001 retry leads, with
+    recent decisions and newer docket ids as stable final cost proxies.
+    """
+
+    prescreen_rank = 0 if observe_prescreened_reason(payload) is not None else 1
+    raw_evidence = payload.get("decision_entry_evidence")
+    evidence = (
+        cast("Mapping[str, object]", raw_evidence)
+        if isinstance(raw_evidence, Mapping)
+        else None
+    )
+    direct_rank = 0 if evidence is not None else 1
+    entry_number: int | None = None
+    decision_ordinal = 0
+    if evidence is not None:
+        entry_number = _positive_integer_prefix(evidence.get("entry_number"))
+        raw_decision_date = evidence.get("entry_date_filed")
+        if isinstance(raw_decision_date, str):
+            try:
+                decision_ordinal = date.fromisoformat(raw_decision_date).toordinal()
+            except ValueError:
+                pass
+    if entry_number is None:
+        entry_bucket, entry_value = 1, 0
+    elif entry_number > 600:
+        entry_bucket, entry_value = 2, entry_number
+    else:
+        entry_bucket, entry_value = 0, entry_number
+    docket_number = _positive_integer_prefix(payload.get("docket_id"))
+    if docket_number is None:
+        docket_number = _positive_integer_prefix(
+            candidate_id.removeprefix("courtlistener-docket-")
+        )
+    return (
+        prescreen_rank,
+        entry_bucket,
+        entry_value,
+        direct_rank,
+        -decision_ordinal,
+        -(docket_number or 0),
+        candidate_id,
+    )
 
 
 def _config_window_end(store: CycleAcquisitionStore, batch_id: str) -> date | None:
@@ -353,18 +420,29 @@ def run_observe(
     excluded: dict[str, int] = {}
     transient: dict[str, int] = {}
 
-    for candidate_id in store.candidate_ids(batch_id):
+    candidate_ids = store.candidate_ids(batch_id)
+    missing_payloads = tuple(
+        candidate_id for candidate_id in candidate_ids if candidate_id not in payloads
+    )
+    if missing_payloads:
+        raise RecapApiBatchDriverError(
+            f"candidate {missing_payloads[0]} has no discovery hit payload to observe"
+        )
+    ordered_candidate_ids = sorted(
+        candidate_ids,
+        key=lambda candidate_id: _observation_priority(
+            candidate_id, payloads[candidate_id]
+        ),
+    )
+
+    for candidate_id in ordered_candidate_ids:
         if limit is not None and observed >= limit:
             break
         considered += 1
         if store.current_observation(candidate_id) is not None:
             skipped += 1
             continue
-        payload = payloads.get(candidate_id)
-        if payload is None:
-            raise RecapApiBatchDriverError(
-                f"candidate {candidate_id} has no discovery hit payload to observe"
-            )
+        payload = payloads[candidate_id]
         observation = observe_recap_api_candidate(
             store,
             batch_id,
