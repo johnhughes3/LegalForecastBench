@@ -28,6 +28,7 @@ from legalforecast.ingestion.recap_api_discovery import (
     PRESCREEN_BANKRUPTCY_REASON,
     PRESCREEN_CRIMINAL_REASON,
     RECAP_API_PROVIDER,
+    REST_DOCKET_ENTRY_SOFT_CAP,
     RecapApiDiscoverySource,
     RecapApiResponseError,
     RecapDecisionHit,
@@ -876,6 +877,62 @@ def test_observe_excludes_bankruptcy_without_fetch(tmp_path: Path) -> None:
         )
         assert observation.state == "excluded"
         assert observation.reason_code == PRESCREEN_BANKRUPTCY_REASON
+
+
+def test_observe_soft_skips_docket_proven_above_entry_cap(tmp_path: Path) -> None:
+    store, payload = _seeded_store(
+        tmp_path,
+        {
+            "id": 9001,
+            "docket_id": 555,
+            "description": "ORDER granting motion to dismiss",
+            "entry_number": REST_DOCKET_ENTRY_SOFT_CAP + 1,
+            "entry_date_filed": "2026-07-05",
+        },
+    )
+    with store:
+        recon_client = _client(())
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.state == "excluded"
+        assert observation.reason_code == "oversized_docket_soft_skip"
+        assert observation.evidence["entry_number_lower_bound"] == 501
+        assert observation.evidence["sampling_exclusion"] is True
+        assert recon_client.request_count == 0
+
+
+def test_reconstruction_fails_closed_at_page_cap(tmp_path: Path) -> None:
+    del tmp_path
+    client = _client(
+        (
+            _response(
+                path="/dockets/555/",
+                payload={"id": 555, "case_name": "Acme Corp v. Roe"},
+            ),
+            _entries_response(
+                cursor=None,
+                results=[
+                    {
+                        "id": 7001,
+                        "docket": 555,
+                        "description": "Complaint",
+                    }
+                ],
+                next_cursor="more",
+            ),
+        )
+    )
+
+    with pytest.raises(RecapDocketReconstructionError, match="1-page"):
+        reconstruct_docket_page(client, "555", max_pages=1)
+
+    assert client.request_count == 2
 
 
 def test_observe_excludes_first_disposition_before_anchor(tmp_path: Path) -> None:

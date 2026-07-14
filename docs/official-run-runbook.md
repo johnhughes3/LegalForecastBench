@@ -287,6 +287,8 @@ uv run legalforecast batch-002 observe \
 
 `discover` and `observe` are both resumable: re-running `discover` continues from durable per-term cursors, and re-running `observe` skips candidates that already carry a current observation (candidates whose only prior result was a transient failure are retried). `seed-batch-001-leads` is idempotent — a second run finds the re-observation term already terminal and seeds nothing new.
 
+To preserve the API budget for plausible corpus cases, a triggering decision entry above 500 proves that the docket already exceeds the approved soft size cap and is ledgered as the refreshable sampling exclusion `oversized_docket_soft_skip` before reconstruction. Dockets whose lower bound is unavailable are allowed to start reconstruction, but the route stops after 25 API pages unless cursor exhaustion has been proved; that outcome remains a transient parse failure rather than a false terminal exclusion. These bounds implement John's 2026-07-13 judgment that dockets with hundreds upon hundreds of entries are unlikely to survive the later gates and may be deprioritized, without relaxing any eligibility or leakage rule.
+
 ### Expected Volumes
 
 The June 30 – July 13 decision-window backlog is expected to contain hundreds of dockets. `seed-batch-001-leads` additionally carries the 608 batch-001 candidates that never reached a terminal observation (identified as `current_observation_id IS NULL` in the batch-001 store) into batch-002 for re-observation through the API route.

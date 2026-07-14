@@ -114,6 +114,11 @@ _REASON_POLICIES: dict[str, tuple[frozenset[str], str, int]] = {
         "transient",
         0,
     ),
+    "oversized_docket_soft_skip": (
+        frozenset({"excluded"}),
+        "refreshable",
+        10,
+    ),
 }
 
 

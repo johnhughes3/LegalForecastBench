@@ -31,7 +31,7 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Any
+from typing import Any, cast
 
 from legalforecast.ingestion.courtlistener_client import (
     COURTLISTENER_API_TOKEN_ENV,
@@ -67,6 +67,8 @@ from legalforecast.ingestion.mtd_acquisition_screen import (
 
 RECAP_API_PROVIDER = "courtlistener-recap-rest-v4"
 RECAP_API_POLICY_SCHEMA = "legalforecast.recap_api_discovery_batch.v1"
+REST_DOCKET_ENTRY_SOFT_CAP = 500
+REST_DOCKET_PAGE_HARD_CAP = 25
 
 # The ``description`` field of a ``type=rd`` search carries the docket-entry text.
 # These queries target the *decision* itself (order granting/denying, memorandum
@@ -494,6 +496,7 @@ def reconstruct_docket_page(
     pacer: RequestPacer | None = None,
     page_size: int = _DEFAULT_PAGE_SIZE,
     docket: CourtListenerDocket | None = None,
+    max_pages: int = REST_DOCKET_PAGE_HARD_CAP,
 ) -> ReconstructedDocket:
     """Rebuild the strict-screen docket page from the REST v4 API, fail-closed.
 
@@ -513,6 +516,8 @@ def reconstruct_docket_page(
     docket_id = docket_id.strip()
     if not docket_id:
         raise ValueError("docket_id is required")
+    if max_pages <= 0:
+        raise ValueError("max_pages must be positive")
     require_reconstruction_auth(client)
     if docket is None:
         if pacer is not None:
@@ -549,6 +554,11 @@ def reconstruct_docket_page(
         next_cursor = result.next_cursor
         if next_cursor is None:
             break
+        if pages_fetched >= max_pages:
+            raise RecapDocketReconstructionError(
+                f"docket {docket_id} exceeds the {max_pages}-page REST "
+                "reconstruction cap; pagination exhaustion is unproven"
+            )
         if next_cursor in seen_cursors or next_cursor == cursor:
             raise RecapDocketReconstructionError(
                 f"docket {docket_id} pagination cursor did not advance"
@@ -807,6 +817,32 @@ def observe_recap_api_candidate(
             reason_code=prescreen,
             evidence={**base_evidence, "prescreen_exclusion_reason": prescreen},
         )
+
+    decision_evidence = payload.get("decision_entry_evidence")
+    if isinstance(decision_evidence, Mapping):
+        raw_entry_number = cast(Mapping[str, object], decision_evidence).get(
+            "entry_number"
+        )
+        try:
+            entry_number_lower_bound = int(str(raw_entry_number))
+        except (TypeError, ValueError):
+            entry_number_lower_bound = None
+        if (
+            entry_number_lower_bound is not None
+            and entry_number_lower_bound > REST_DOCKET_ENTRY_SOFT_CAP
+        ):
+            return store.record_observation(
+                candidate_id,
+                batch_id=batch_id,
+                state="excluded",
+                reason_code="oversized_docket_soft_skip",
+                evidence={
+                    **base_evidence,
+                    "entry_number_lower_bound": entry_number_lower_bound,
+                    "rest_docket_entry_soft_cap": REST_DOCKET_ENTRY_SOFT_CAP,
+                    "sampling_exclusion": True,
+                },
+            )
 
     require_reconstruction_auth(client)
     try:
