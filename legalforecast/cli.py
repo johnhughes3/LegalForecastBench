@@ -329,6 +329,8 @@ from legalforecast.ingestion.snapshot_quarantine import (
 from legalforecast.ingestion.snapshot_replay import (
     SnapshotReplayError,
     collect_snapshot_replay_bundle,
+    firecrawl_screen_input_commitments,
+    read_verified_replay_raw,
     source_replay_commitment,
 )
 from legalforecast.labeling.cycle_label_audit import (
@@ -7157,7 +7159,7 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
 
     try:
         _validate_firecrawl_success_commitments(success_records)
-        input_commitments = _firecrawl_screen_input_commitments(
+        input_commitments = firecrawl_screen_input_commitments(
             success_records=success_records,
             fetch_exclusion_records=fetch_exclusion_records,
         )
@@ -7466,6 +7468,14 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
         raw_html_dir,
         snapshot_path,
     )
+    _validate_replay_output_paths(
+        args=args,
+        snapshot_path=snapshot_path,
+        screened_cases_path=screened_cases_path,
+        exclusions_path=exclusions_path,
+        summary_path=summary_path,
+        raw_html_dir=raw_html_dir,
+    )
     provider_flags: JsonRecord = {
         "provider_activity_requested": False,
         "provider_activity_executed": False,
@@ -7569,7 +7579,7 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
                 store.write_raw_artifact(
                     success.candidate_id,
                     destination,
-                    success.raw_bytes,
+                    read_verified_replay_raw(success),
                     retrieved_at=_required_str(success.record, "retrieved_at"),
                     validator=_validate_raw_docket_bytes,
                 )
@@ -10694,54 +10704,39 @@ def _validate_screen_resume_output_paths(
             )
 
 
-_FIRECRAWL_SCREEN_INPUT_COMMITMENT_SCHEMA = (
-    "legalforecast.firecrawl_screen_input_commitment.v1"
-)
-
-
-def _firecrawl_screen_input_commitments(
+def _validate_replay_output_paths(
     *,
-    success_records: Sequence[Mapping[str, Any]],
-    fetch_exclusion_records: Sequence[Mapping[str, Any]],
-) -> dict[str, object]:
-    per_record_commitments: list[dict[str, object]] = []
-    input_ordinal = 0
-    for outcome_class, records in (
-        ("success", success_records),
-        ("fetch_exclusion", fetch_exclusion_records),
-    ):
-        for record in records:
-            input_ordinal += 1
-            candidate_id = _required_str(record, "case_id")
-            normalized_record = json.dumps(
-                dict(record),
-                sort_keys=True,
-                separators=(",", ":"),
-                allow_nan=False,
-            )
-            per_record_commitments.append(
-                {
-                    "candidate_id": candidate_id,
-                    "input_ordinal": input_ordinal,
-                    "outcome_class": outcome_class,
-                    "normalized_record_sha256": hashlib.sha256(
-                        normalized_record.encode()
-                    ).hexdigest(),
-                }
-            )
-    normalized_commitments = json.dumps(
-        per_record_commitments,
-        sort_keys=True,
-        separators=(",", ":"),
-        allow_nan=False,
-    )
-    return {
-        "schema_version": _FIRECRAWL_SCREEN_INPUT_COMMITMENT_SCHEMA,
-        "input_record_count": len(per_record_commitments),
-        "per_candidate_outcome_record_sha256": hashlib.sha256(
-            normalized_commitments.encode()
-        ).hexdigest(),
+    args: argparse.Namespace,
+    snapshot_path: Path,
+    screened_cases_path: Path,
+    exclusions_path: Path,
+    summary_path: Path,
+    raw_html_dir: Path,
+) -> None:
+    snapshot_tree = snapshot_path.resolve()
+    output_root = cast(Path, args.output_root)
+    writable_paths = {
+        "--screened-cases-output": screened_cases_path,
+        "--exclusions-output": exclusions_path,
+        "--summary-output": summary_path,
+        "replayed raw HTML directory": raw_html_dir,
+        "--run-card-output": _acquisition_path(
+            args,
+            "run_card_output",
+            output_root / "run-cards" / "replay-screening-snapshots.json",
+        ),
+        "--log-output": _acquisition_path(
+            args,
+            "log_output",
+            output_root / "logs" / "replay-screening-snapshots.jsonl",
+        ),
     }
+    for flag, path in writable_paths.items():
+        resolved = path.resolve()
+        if resolved == snapshot_tree or resolved.is_relative_to(snapshot_tree):
+            raise CommandError(
+                f"{flag} must be outside the committed snapshot tree: {snapshot_tree}"
+            )
 
 
 _IMMUTABLE_ACQUISITION_EXCLUSIONS = frozenset(

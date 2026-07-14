@@ -68,13 +68,17 @@ def test_replay_screening_snapshots_is_provider_free_and_globally_plannable(
         target_cycle_hash = store.ensure_cycle(_cycle_policy())
     output_root = tmp_path / "replay"
     snapshot_id = "global-replay"
+    normalized_assembly_path = (
+        assembly_root / "unused" / ".." / "run-cards/assemble-cycle-acquisition.json"
+    )
     command = _replay_command(
         output_root=output_root,
         target_store=target_store,
         target_cycle_hash=target_cycle_hash,
         source_cycle_hash=source_cycle_hash,
-        assembly_run_card=assembly_run_card,
+        assembly_run_card=normalized_assembly_path,
         snapshot_id=snapshot_id,
+        expected_assembly_sha256=sha256_file(assembly_run_card),
     )
 
     assert main(command) == 0
@@ -89,6 +93,10 @@ def test_replay_screening_snapshots_is_provider_free_and_globally_plannable(
         manifest["stage_commitments"]["source_bound_replay"]["source_candidate_count"]
         == 3
     )
+    replay_commitment = manifest["stage_commitments"]["source_bound_replay"]
+    assert str(tmp_path) not in json.dumps(replay_commitment, sort_keys=True)
+    assert "source_assembly_run_card" not in replay_commitment
+    assert all("path" not in source for source in replay_commitment["source_snapshots"])
     summary = _read_json(snapshot / "summary.json")
     assert summary == {
         "accepted_count": 2,
@@ -207,6 +215,8 @@ def test_replay_screening_snapshots_combines_explicit_target_cycle_snapshot(
         ("raw_html", "raw artifact"),
         ("missing_raw", "raw artifact"),
         ("symlink_raw", "symlink"),
+        ("success_record", "source screen input commitment mismatch"),
+        ("relative_run_card_path", "relative input_paths"),
     ),
 )
 def test_replay_screening_snapshots_rejects_unbound_or_unsafe_inputs(
@@ -272,6 +282,21 @@ def test_replay_screening_snapshots_rejects_unbound_or_unsafe_inputs(
         original = raw_path.with_suffix(".original")
         raw_path.rename(original)
         raw_path.symlink_to(original)
+    elif mutation in {"success_record", "relative_run_card_path"}:
+        screen_run_card = (
+            source.parent.parent / "run-cards/screen-firecrawl-dockets.json"
+        )
+        run_card = _read_json(screen_run_card)
+        if mutation == "success_record":
+            successes_path = Path(run_card["input_paths"][1])
+            [success] = _read_jsonl(successes_path)
+            success["case_metadata"]["case_name"] = "Tampered v. Metadata"
+            _write_jsonl(successes_path, [success])
+        else:
+            run_card["input_paths"][1] = "relative/successes.jsonl"
+            screen_run_card.write_text(
+                json.dumps(run_card, sort_keys=True) + "\n", encoding="utf-8"
+            )
 
     assert main(command) == 2
     assert error_pattern in capsys.readouterr().err
@@ -405,6 +430,67 @@ def test_replay_screening_snapshots_rejects_docket_identity_collision(
     assert "docket ID collision" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    "flag",
+    (
+        "--screened-cases-output",
+        "--exclusions-output",
+        "--summary-output",
+        "--run-card-output",
+        "--log-output",
+    ),
+)
+def test_replay_screening_snapshots_rejects_side_outputs_inside_snapshot(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    flag: str,
+) -> None:
+    source = _source_snapshot(
+        tmp_path,
+        store_path=tmp_path / "source.sqlite3",
+        policy=_cycle_policy(extra={"fixture_generation": "old"}),
+        batch_id="source",
+        successes=("451",),
+    )
+    source_cycle_hash = str(verify_snapshot(source)["cycle_hash"])
+    assembly_root = tmp_path / "source-assembly"
+    assert (
+        main(
+            [
+                "acquisition",
+                "assemble-cycle-acquisition",
+                "--output-root",
+                str(assembly_root),
+                "--expected-cycle-hash",
+                source_cycle_hash,
+                "--batch-root",
+                str(source),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    target_store = tmp_path / "target.sqlite3"
+    with CycleAcquisitionStore(target_store) as store:
+        target_cycle_hash = store.ensure_cycle(_cycle_policy())
+    output_root = tmp_path / "replay"
+    snapshot = output_root / "snapshots/rejected-output"
+    command = _replay_command(
+        output_root=output_root,
+        target_store=target_store,
+        target_cycle_hash=target_cycle_hash,
+        source_cycle_hash=source_cycle_hash,
+        assembly_run_card=(assembly_root / "run-cards/assemble-cycle-acquisition.json"),
+        snapshot_id="rejected-output",
+    )
+    command.extend((flag, str(snapshot / f"{flag[2:]}.json")))
+
+    assert main(command) == 2
+
+    assert "must be outside the committed snapshot tree" in capsys.readouterr().err
+    assert not snapshot.exists()
+
+
 def test_replay_screening_snapshots_help_states_no_provider_semantics(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -460,7 +546,7 @@ def _source_snapshot(
         exclusion_records.append(
             {
                 "case_id": case_id,
-                "candidate_id": docket_id,
+                "candidate_id": case_id,
                 "reason": "decision_before_release_anchor",
                 "primary_exclusion_reason": "decision_before_release_anchor",
                 "stage": "eligibility",

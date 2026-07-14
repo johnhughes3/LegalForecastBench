@@ -7,6 +7,7 @@ import json
 import os
 import re
 import stat
+import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +21,9 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _SCREEN_RUN_CARD = Path("run-cards/screen-firecrawl-dockets.json")
 _ASSEMBLY_RUN_CARD = Path("run-cards/assemble-cycle-acquisition.json")
+_FIRECRAWL_SCREEN_INPUT_COMMITMENT_SCHEMA = (
+    "legalforecast.firecrawl_screen_input_commitment.v1"
+)
 
 
 class SnapshotReplayError(ValueError):
@@ -28,14 +32,14 @@ class SnapshotReplayError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class ReplaySuccess:
-    """One verified successful docket fetch and its immutable raw bytes."""
+    """One verified successful docket fetch and its immutable raw commitment."""
 
     candidate_id: str
     docket_id: str
     record: Mapping[str, Any]
     raw_path: Path
-    raw_bytes: bytes
     raw_sha256: str
+    raw_byte_count: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,13 +137,17 @@ def collect_snapshot_replay_bundle(
             raise SnapshotReplayError(
                 f"source screen run card has the wrong stage: {screen_run_card}"
             )
-        output_paths = _string_list(run_card.get("output_paths"), "output_paths")
-        if snapshot not in {Path(value).resolve() for value in output_paths}:
+        output_paths = _absolute_run_card_paths(
+            run_card.get("output_paths"), "output_paths"
+        )
+        if snapshot not in {_normalized_resolved_path(value) for value in output_paths}:
             raise SnapshotReplayError(
                 "source screen run card does not commit the supplied snapshot: "
                 f"{snapshot}"
             )
-        input_paths = _string_list(run_card.get("input_paths"), "input_paths")
+        input_paths = _absolute_run_card_paths(
+            run_card.get("input_paths"), "input_paths"
+        )
         if len(input_paths) < 4:
             raise SnapshotReplayError(
                 f"source screen run card has incomplete inputs: {screen_run_card}"
@@ -153,6 +161,12 @@ def collect_snapshot_replay_bundle(
         raw_dir = _safe_directory(Path(input_paths[3]), label="source raw HTML")
         successes = _read_jsonl(successes_path, label="source successes JSONL")
         exclusions = _read_jsonl(exclusions_path, label="source fetch exclusions JSONL")
+        _verify_screen_input_commitment(
+            manifest=manifest,
+            successes=successes,
+            exclusions=exclusions,
+            snapshot=snapshot,
+        )
         snapshot_candidate_ids = {
             _required_text(row, "candidate_id")
             for row in _read_jsonl(
@@ -255,7 +269,7 @@ def source_replay_commitment(bundle: SnapshotReplayBundle) -> dict[str, object]:
 
     source_snapshots = [
         {
-            "path": str(source.path),
+            "snapshot_id": source.manifest["snapshot_id"],
             "manifest_sha256": source.manifest_sha256,
             "screen_run_card_sha256": source.screen_run_card_sha256,
             "cycle_hash": source.manifest["cycle_hash"],
@@ -286,7 +300,6 @@ def source_replay_commitment(bundle: SnapshotReplayBundle) -> dict[str, object]:
     )
     return {
         "schema_version": "legalforecast.source_bound_snapshot_replay.v1",
-        "source_assembly_run_card": str(bundle.source_assembly_run_card),
         "source_assembly_sha256": bundle.source_assembly_sha256,
         "source_snapshot_count": len(bundle.sources),
         "source_candidate_count": bundle.candidate_count,
@@ -314,8 +327,10 @@ def _expand_assembly_snapshots(run_card_path: Path) -> tuple[Path, ...]:
             raise SnapshotReplayError(
                 f"source assembly run card has the wrong stage: {safe_path}"
             )
-        for raw_input in _string_list(record.get("input_paths"), "input_paths"):
-            root = _safe_directory(Path(raw_input), label="assembly input root")
+        for raw_input in _absolute_run_card_paths(
+            record.get("input_paths"), "input_paths"
+        ):
+            root = _safe_directory(raw_input, label="assembly input root")
             if root in seen_roots:
                 continue
             seen_roots.add(root)
@@ -386,31 +401,136 @@ def _verified_success(record: Mapping[str, Any], *, raw_dir: Path) -> ReplaySucc
         docket_id=docket_id,
         record=dict(record),
         raw_path=raw_path,
-        raw_bytes=raw_bytes,
         raw_sha256=actual_sha256,
+        raw_byte_count=expected_bytes,
     )
 
 
+def read_verified_replay_raw(success: ReplaySuccess) -> bytes:
+    """Read one replay artifact and recheck it immediately before publication."""
+
+    raw_path = _safe_regular_file(success.raw_path, label="source raw HTML")
+    raw_bytes = raw_path.read_bytes()
+    actual_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+    if actual_sha256 != success.raw_sha256:
+        raise SnapshotReplayError(
+            f"raw artifact sha256 changed for candidate {success.candidate_id}"
+        )
+    if len(raw_bytes) != success.raw_byte_count:
+        raise SnapshotReplayError(
+            f"raw artifact byte_count changed for candidate {success.candidate_id}"
+        )
+    return raw_bytes
+
+
+def firecrawl_screen_input_commitments(
+    *,
+    success_records: Sequence[Mapping[str, Any]],
+    fetch_exclusion_records: Sequence[Mapping[str, Any]],
+) -> dict[str, object]:
+    """Commit normalized screen inputs in the same order as the screening stage."""
+
+    per_record_commitments: list[dict[str, object]] = []
+    input_ordinal = 0
+    for outcome_class, records in (
+        ("success", success_records),
+        ("fetch_exclusion", fetch_exclusion_records),
+    ):
+        for record in records:
+            input_ordinal += 1
+            candidate_id = _required_text(record, "case_id")
+            normalized_record = _canonical_json(dict(record))
+            per_record_commitments.append(
+                {
+                    "candidate_id": candidate_id,
+                    "input_ordinal": input_ordinal,
+                    "outcome_class": outcome_class,
+                    "normalized_record_sha256": hashlib.sha256(
+                        normalized_record.encode()
+                    ).hexdigest(),
+                }
+            )
+    return {
+        "schema_version": _FIRECRAWL_SCREEN_INPUT_COMMITMENT_SCHEMA,
+        "input_record_count": len(per_record_commitments),
+        "per_candidate_outcome_record_sha256": hashlib.sha256(
+            _canonical_json(per_record_commitments).encode()
+        ).hexdigest(),
+    }
+
+
+def _verify_screen_input_commitment(
+    *,
+    manifest: Mapping[str, Any],
+    successes: Sequence[Mapping[str, Any]],
+    exclusions: Sequence[Mapping[str, Any]],
+    snapshot: Path,
+) -> None:
+    stage_commitments = manifest.get("stage_commitments")
+    if not isinstance(stage_commitments, Mapping):
+        raise SnapshotReplayError(
+            f"source snapshot lacks screening stage commitments: {snapshot}"
+        )
+    committed = cast(Mapping[str, object], stage_commitments).get(
+        "firecrawl_screen_inputs"
+    )
+    if not isinstance(committed, Mapping):
+        raise SnapshotReplayError(
+            f"source snapshot lacks firecrawl_screen_inputs commitment: {snapshot}"
+        )
+    recomputed = firecrawl_screen_input_commitments(
+        success_records=successes,
+        fetch_exclusion_records=exclusions,
+    )
+    if dict(cast(Mapping[str, object], committed)) != recomputed:
+        raise SnapshotReplayError(
+            f"source screen input commitment mismatch: {snapshot}"
+        )
+
+
 def _safe_regular_file(path: Path, *, label: str) -> Path:
-    absolute = path.absolute()
-    resolved = path.resolve(strict=True)
-    if absolute != resolved:
-        raise SnapshotReplayError(f"{label} contains a symlink: {path}")
-    mode = os.stat(resolved, follow_symlinks=False).st_mode
+    resolved = _safe_existing_path(path, label=label)
+    mode = resolved.lstat().st_mode
     if not stat.S_ISREG(mode):
         raise SnapshotReplayError(f"{label} is not a regular file: {path}")
     return resolved
 
 
 def _safe_directory(path: Path, *, label: str) -> Path:
-    absolute = path.absolute()
-    resolved = path.resolve(strict=True)
-    if absolute != resolved:
-        raise SnapshotReplayError(f"{label} contains a symlink: {path}")
-    mode = os.stat(resolved, follow_symlinks=False).st_mode
+    resolved = _safe_existing_path(path, label=label)
+    mode = resolved.lstat().st_mode
     if not stat.S_ISDIR(mode):
         raise SnapshotReplayError(f"{label} is not a directory: {path}")
     return resolved
+
+
+def _safe_existing_path(path: Path, *, label: str) -> Path:
+    normalized = Path(os.path.abspath(os.fspath(path)))
+    current = Path(normalized.anchor)
+    for component in normalized.parts[1:]:
+        current /= component
+        try:
+            mode = current.lstat().st_mode
+        except OSError as exc:
+            raise SnapshotReplayError(f"cannot access {label}: {path}: {exc}") from exc
+        if stat.S_ISLNK(mode) and not _allowed_macos_system_alias(current):
+            raise SnapshotReplayError(f"{label} contains a symlink: {path}")
+    try:
+        return normalized.resolve(strict=True)
+    except OSError as exc:
+        raise SnapshotReplayError(f"cannot resolve {label}: {path}: {exc}") from exc
+
+
+def _allowed_macos_system_alias(path: Path) -> bool:
+    return sys.platform == "darwin" and path in {
+        Path("/etc"),
+        Path("/tmp"),
+        Path("/var"),
+    }
+
+
+def _normalized_resolved_path(path: Path) -> Path:
+    return Path(os.path.abspath(os.fspath(path))).resolve()
 
 
 def _read_json_object(path: Path, *, label: str) -> dict[str, Any]:
@@ -460,6 +580,16 @@ def _string_list(value: object, field: str) -> tuple[str, ...]:
     if any(not isinstance(item, str) or not item.strip() for item in items):
         raise SnapshotReplayError(f"invalid {field} in source run card")
     return tuple(cast(list[str], items))
+
+
+def _absolute_run_card_paths(value: object, field: str) -> tuple[Path, ...]:
+    paths = tuple(Path(item) for item in _string_list(value, field))
+    relative = tuple(str(path) for path in paths if not path.is_absolute())
+    if relative:
+        raise SnapshotReplayError(
+            f"relative {field} in source run card are not replay-safe: {relative}"
+        )
+    return paths
 
 
 def _require_sha256(value: str, label: str) -> None:
