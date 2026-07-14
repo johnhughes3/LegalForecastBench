@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
-from legalforecast.cli import main
+from legalforecast.cli import (
+    CommandError,
+    _verified_snapshot_raw_html_sources,
+    main,
+)
 from legalforecast.ingestion.courtlistener_acquisition import _parse_filed_date
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.discovery_scheduler import (
@@ -84,6 +88,62 @@ def _create_cycle_state(
         cycle_hash=cycle_hash,
         batch_digest=batch_digest,
     )
+
+
+def test_verified_snapshot_raw_html_sources_maps_multiple_directories(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    first = tmp_path / "first" / "123.html"
+    second = tmp_path / "second" / "456.html"
+    first.parent.mkdir()
+    second.parent.mkdir()
+    first.write_text("<html>first</html>", encoding="utf-8")
+    second.write_text("<html>second</html>", encoding="utf-8")
+    _write_jsonl(
+        snapshot / "raw-artifacts.jsonl",
+        [
+            {"candidate_id": "courtlistener-docket-123", "path": str(first)},
+            {"candidate_id": "courtlistener-docket-456", "path": str(second)},
+        ],
+    )
+
+    directory, paths = _verified_snapshot_raw_html_sources(
+        snapshot,
+        requested=None,
+        use_embedded_entries=False,
+    )
+
+    assert directory is None
+    assert paths == {"123": first.resolve(), "456": second.resolve()}
+
+
+def test_verified_snapshot_raw_html_sources_rejects_duplicate_candidate_paths(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    first = tmp_path / "first" / "123.html"
+    second = tmp_path / "second" / "123.html"
+    first.parent.mkdir()
+    second.parent.mkdir()
+    first.write_text("<html>first</html>", encoding="utf-8")
+    second.write_text("<html>second</html>", encoding="utf-8")
+    _write_jsonl(
+        snapshot / "raw-artifacts.jsonl",
+        [
+            {"candidate_id": "case-dev-first", "path": str(first)},
+            {"candidate_id": "case-dev-second", "path": str(second)},
+        ],
+    )
+
+    with pytest.raises(CommandError, match="conflict for candidate 123"):
+        _verified_snapshot_raw_html_sources(
+            snapshot,
+            requested=None,
+            use_embedded_entries=False,
+        )
 
 
 def test_metadata_rich_firecrawl_rescreen_replaces_absent_metadata_snapshot_state(

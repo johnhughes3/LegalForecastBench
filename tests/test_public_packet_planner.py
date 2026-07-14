@@ -99,6 +99,146 @@ def test_bare_mtd_notice_is_a_paid_memorandum_gap(tmp_path: Path) -> None:
     assert candidate.missing_required_document_count == 1
 
 
+def test_explicit_combined_motion_and_memorandum_satisfies_memorandum_slot(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    target = cast(list[dict[str, Any]], record["selected_entries"])[1]
+    target["text"] = (
+        "5 MOTION to Dismiss and Memorandum of Points and Authorities in "
+        "Support filed by Defendant."
+    )
+    cast(list[dict[str, Any]], target["documents"])[0]["description"] = "Dismiss"
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.selected_cases
+    assert candidate.documents[1].document_role is DocumentRole.MTD_MEMORANDUM
+
+
+def test_motion_description_without_combined_briefing_cue_remains_notice(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    target = cast(list[dict[str, Any]], record["selected_entries"])[1]
+    target["text"] = "5 MOTION to Dismiss filed by Defendant."
+    cast(list[dict[str, Any]], target["documents"])[0]["description"] = "Dismiss"
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [gap] = plan.paid_gap_cases
+    assert gap.paid_gap_reasons == ("no_free_mtd_memorandum",)
+
+
+def test_exact_frozen_target_uses_free_mtd_role_document_when_row_text_is_noisy(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    target = cast(list[dict[str, Any]], record["selected_entries"])[1]
+    target["text"] = "5 Feb 1, 2026 Main Document Dismiss Download PDF"
+    cast(list[dict[str, Any]], target["documents"])[0]["description"] = "Dismiss"
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.paid_gap_cases
+    assert candidate.paid_gap_reasons == ("no_free_mtd_memorandum",)
+    target_documents = [
+        document
+        for document in candidate.documents
+        if document.docket_entry_number == 5
+    ]
+    assert [document.document_role for document in target_documents] == [
+        DocumentRole.MTD_NOTICE
+    ]
+
+
+@pytest.mark.parametrize("description", ("Remand", "Proposed Order", "Exhibit A"))
+def test_exact_frozen_target_rejects_non_mtd_document_roles(
+    tmp_path: Path,
+    description: str,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    target = cast(list[dict[str, Any]], record["selected_entries"])[1]
+    target["text"] = f"5 Feb 1, 2026 Main Document {description} Download PDF"
+    cast(list[dict[str, Any]], target["documents"])[0]["description"] = description
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.paid_gap_cases
+    assert candidate.paid_gap_reasons == (
+        "no_free_target_mtd_document",
+        "no_free_mtd_memorandum",
+    )
+
+
+def test_exact_target_document_rule_does_not_infer_entry_number(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    target = cast(list[dict[str, Any]], record["selected_entries"])[1]
+    target["entry_number"] = None
+    target["text"] = "Main Document Dismiss Download PDF"
+    cast(list[dict[str, Any]], target["documents"])[0]["description"] = "Dismiss"
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        allow_inferred_target_mtd=True,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.paid_gap_cases
+    assert "no_free_target_mtd_document" in candidate.paid_gap_reasons
+
+
+def test_exact_target_document_rule_does_not_use_adjacent_role_match(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    entries = cast(list[dict[str, Any]], record["selected_entries"])
+    target = entries[1]
+    target["text"] = "5 Feb 1, 2026 Main Document Exhibit Download PDF"
+    cast(list[dict[str, Any]], target["documents"])[0]["description"] = "Exhibit A"
+    adjacent = deepcopy(target)
+    adjacent["row_id"] = "entry-6"
+    adjacent["entry_number"] = "6"
+    adjacent["text"] = "6 Feb 2, 2026 Main Document Dismiss Download PDF"
+    cast(list[dict[str, Any]], adjacent["documents"])[0]["description"] = "Dismiss"
+    entries.insert(2, adjacent)
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        allow_inferred_target_mtd=True,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.paid_gap_cases
+    assert "no_free_target_mtd_document" in candidate.paid_gap_reasons
+
+
 def test_planner_rejects_candidate_with_two_selected_target_motions(
     tmp_path: Path,
 ) -> None:
@@ -390,6 +530,47 @@ def test_public_packet_planner_can_use_embedded_selected_entries(
     )
 
 
+def test_public_packet_planner_accepts_verified_raw_html_paths_from_multiple_roots(
+    tmp_path: Path,
+) -> None:
+    first = deepcopy(_screened_case())
+    second = deepcopy(_screened_case())
+    cast(dict[str, Any], first["candidate"])["docket_id"] = "123"
+    cast(dict[str, Any], second["candidate"])["docket_id"] = "456"
+    first_path = tmp_path / "first" / "123.html"
+    second_path = tmp_path / "second" / "456.html"
+    first_path.parent.mkdir()
+    second_path.parent.mkdir()
+    first_path.write_text(_docket_html(), encoding="utf-8")
+    second_path.write_text(_docket_html(), encoding="utf-8")
+
+    plan = plan_public_packet_downloads(
+        (first, second),
+        raw_html_paths_by_candidate={"123": first_path, "456": second_path},
+        target_clean_cases=2,
+    )
+
+    assert plan.selected_case_count == 2
+    assert {candidate.candidate_id for candidate in plan.selected_cases} == {
+        "123",
+        "456",
+    }
+
+
+def test_public_packet_planner_rejects_directory_and_path_map_together(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="raw_html_dir and raw_html_paths_by_candidate are mutually exclusive",
+    ):
+        plan_public_packet_downloads(
+            (_screened_case(),),
+            raw_html_dir=tmp_path,
+            raw_html_paths_by_candidate={"123": tmp_path / "123.html"},
+        )
+
+
 def test_public_packet_planner_accepts_exact_target_mtd_memorandum_when_role_is_noisy(
     tmp_path: Path,
 ) -> None:
@@ -441,8 +622,10 @@ def test_public_packet_planner_accepts_exact_target_mtd_memorandum_when_role_is_
     )
 
 
-def test_public_packet_planner_prefers_free_support_memo_for_pacer_only_target(
+@pytest.mark.parametrize("document_description", ("Memorandum", ""))
+def test_public_packet_planner_links_free_support_memo_explicitly_referencing_target(
     tmp_path: Path,
+    document_description: str,
 ) -> None:
     raw_html_dir = tmp_path / "raw_html"
     record = _screened_case_with_embedded_entries()
@@ -467,7 +650,7 @@ def test_public_packet_planner_prefers_free_support_memo_for_pacer_only_target(
             "documents": [
                 {
                     "kind": "Main Document",
-                    "description": "Memorandum",
+                    "description": document_description,
                     "href": "https://www.courtlistener.com/docket/123/6/example/",
                     "action_label": "Download PDF",
                     "pacer_only": False,
@@ -498,7 +681,6 @@ def test_public_packet_planner_prefers_free_support_memo_for_pacer_only_target(
         (record,),
         raw_html_dir=raw_html_dir,
         target_clean_cases=25,
-        allow_inferred_target_mtd=True,
         use_embedded_entries=True,
     )
 
@@ -507,6 +689,54 @@ def test_public_packet_planner_prefers_free_support_memo_for_pacer_only_target(
     assert selected.documents[1].document_role is DocumentRole.MTD_MEMORANDUM
     assert selected.documents[1].source_url == (
         "https://www.courtlistener.com/docket/123/6/example/"
+    )
+
+
+def test_public_packet_planner_does_not_link_adjacent_unreferenced_support_brief(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    target_entry = record["selected_entries"][1]
+    assert isinstance(target_entry, dict)
+    target_entry["documents"] = [
+        {
+            "kind": "Main Document",
+            "description": "Dismiss",
+            "href": "https://ecf.example.invalid/doc1",
+            "action_label": "Buy on PACER",
+            "pacer_only": True,
+        }
+    ]
+    record["selected_entries"].insert(
+        2,
+        {
+            "row_id": "entry-6",
+            "entry_number": "6",
+            "filed_at": "Feb 2, 2026",
+            "text": "6 Feb 2, 2026 Brief in Support filed by Defendant.",
+            "documents": [
+                {
+                    "kind": "Main Document",
+                    "description": "Brief in Support",
+                    "href": "https://www.courtlistener.com/docket/123/6/example/",
+                    "action_label": "Download PDF",
+                    "pacer_only": False,
+                },
+            ],
+        },
+    )
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [gap] = plan.paid_gap_cases
+    assert gap.paid_gap_reasons == (
+        "no_free_target_mtd_document",
+        "no_free_mtd_memorandum",
     )
 
 
@@ -1113,6 +1343,54 @@ def test_public_packet_planner_uses_complaint_before_earliest_target_motion(
 
     [candidate] = plan.selected_cases
     assert candidate.documents[0].docket_entry_number == 1
+
+
+@pytest.mark.parametrize(
+    ("entry_text", "description", "expected_role"),
+    (
+        (
+            "1 TRANSFERREDCOMPLAINT against All Defendants filed by Plaintiff.",
+            "",
+            DocumentRole.COMPLAINT,
+        ),
+        (
+            "1 PRO SE COMPLAINT against Defendant filed by Plaintiff.",
+            "Complaint - Pro Se",
+            DocumentRole.COMPLAINT,
+        ),
+        (
+            "1 Petition (Removal/Transfer) Received From: County Court, "
+            "filed by Plaintiff.",
+            "Complaint (Removal/Transfer) - COURT USE ONLY",
+            DocumentRole.COMPLAINT,
+        ),
+        (
+            "1 Civil Case - Complaint, Amended filed by Plaintiff.",
+            "Civil Case - Complaint, Amended",
+            DocumentRole.AMENDED_COMPLAINT,
+        ),
+    ),
+)
+def test_public_packet_planner_accepts_strict_operative_pleading_variants(
+    tmp_path: Path,
+    entry_text: str,
+    description: str,
+    expected_role: DocumentRole,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    complaint = cast(list[dict[str, Any]], record["selected_entries"])[0]
+    complaint["text"] = entry_text
+    cast(list[dict[str, Any]], complaint["documents"])[0]["description"] = description
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.selected_cases
+    assert candidate.documents[0].document_role is expected_role
 
 
 def _screened_case() -> dict[str, object]:

@@ -28,6 +28,11 @@ from legalforecast.ingestion.free_document_downloader import (
     FreeDocumentDownloadRequest,
 )
 from legalforecast.ingestion.missing_core_budget import DEFAULT_PURCHASE_COST_USD
+from legalforecast.ingestion.operative_complaint import (
+    OperativeComplaintKind,
+    select_operative_complaint_document,
+    select_operative_complaint_entry,
+)
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 
@@ -240,6 +245,7 @@ def plan_public_packet_downloads(
     screened_case_records: Iterable[Mapping[str, Any]],
     *,
     raw_html_dir: str | Path | None = None,
+    raw_html_paths_by_candidate: Mapping[str, str | Path] | None = None,
     target_clean_cases: int = 25,
     allow_inferred_target_mtd: bool = False,
     use_embedded_entries: bool = False,
@@ -250,8 +256,19 @@ def plan_public_packet_downloads(
 
     if target_clean_cases <= 0:
         raise ValueError("target_clean_cases must be positive")
-    if raw_html_dir is None and not use_embedded_entries:
-        raise ValueError("raw_html_dir is required unless use_embedded_entries=True")
+    if raw_html_dir is not None and raw_html_paths_by_candidate is not None:
+        raise ValueError(
+            "raw_html_dir and raw_html_paths_by_candidate are mutually exclusive"
+        )
+    if (
+        raw_html_dir is None
+        and raw_html_paths_by_candidate is None
+        and not use_embedded_entries
+    ):
+        raise ValueError(
+            "raw_html_dir or raw_html_paths_by_candidate is required unless "
+            "use_embedded_entries=True"
+        )
     unit_cost = _money_decimal(
         cost_per_missing_document_usd,
         "cost_per_missing_document_usd",
@@ -262,11 +279,20 @@ def plan_public_packet_downloads(
         max_case_mix_share=normalized_case_mix_share,
     )
     html_root = Path(raw_html_dir) if raw_html_dir is not None else None
+    html_paths = (
+        None
+        if raw_html_paths_by_candidate is None
+        else {
+            candidate_id: Path(path)
+            for candidate_id, path in raw_html_paths_by_candidate.items()
+        }
+    )
     evaluated_plans: list[PublicPacketCandidatePlan] = []
     for record in screened_case_records:
         plan = _candidate_plan(
             record,
             raw_html_dir=html_root,
+            raw_html_paths_by_candidate=html_paths,
             allow_inferred_target_mtd=allow_inferred_target_mtd,
             use_embedded_entries=use_embedded_entries,
             cost_per_missing_document=unit_cost,
@@ -300,6 +326,7 @@ def _candidate_plan(
     record: Mapping[str, Any],
     *,
     raw_html_dir: Path | None,
+    raw_html_paths_by_candidate: Mapping[str, Path] | None,
     allow_inferred_target_mtd: bool,
     use_embedded_entries: bool,
     cost_per_missing_document: Decimal,
@@ -307,7 +334,15 @@ def _candidate_plan(
     candidate = _mapping(record, "candidate")
     metadata = _mapping(candidate, "metadata")
     candidate_id = _required_str(candidate, "docket_id", "candidate_key")
-    html_path = raw_html_dir / f"{candidate_id}.html" if raw_html_dir else None
+    html_path = (
+        raw_html_dir / f"{candidate_id}.html"
+        if raw_html_dir is not None
+        else (
+            raw_html_paths_by_candidate.get(candidate_id)
+            if raw_html_paths_by_candidate is not None
+            else None
+        )
+    )
     target_entries = _entry_number_tuple(
         _mapping(record, "ai").get("target_motion_entry_numbers")
     )
@@ -777,14 +812,15 @@ def _free_target_mtd_entry_numbers(
             (
                 entry
                 for entry in page.entries
-                if _entry_number(entry) == target_entry and _is_target_mtd_entry(entry)
+                if _entry_number(entry) == target_entry
+                and _is_exact_target_mtd_entry(entry)
             ),
             None,
         )
         if exact is not None:
             free.add(target_entry)
             continue
-        if allow_inferred_target_mtd and any(
+        if any(
             _entry_is_before(entry, decision_floor)
             and _is_mtd_entry(entry)
             and _references_target_motion(entry, (target_entry,))
@@ -997,14 +1033,13 @@ def _operative_complaint_entry(
     *,
     before_entry: int | None,
 ) -> CourtListenerWebDocketEntry | None:
-    candidates = [
-        entry
-        for entry in page.entries
-        if _entry_is_before(entry, before_entry) and _looks_like_complaint(entry)
-    ]
-    if not candidates:
+    if before_entry is None:
         return None
-    return sorted(candidates, key=lambda entry: _entry_number(entry) or -1)[-1]
+    selection = select_operative_complaint_entry(
+        page.entries,
+        before_entry=before_entry,
+    )
+    return None if selection is None else selection.entry
 
 
 def _target_mtd_entries(
@@ -1018,25 +1053,20 @@ def _target_mtd_entries(
     exact = tuple(
         entry
         for entry in page.entries
-        if _entry_number(entry) in target_entry_set and _is_target_mtd_entry(entry)
-    )
-    if not allow_inferred_target_mtd:
-        return exact
-    exact_numbers = {_entry_number(entry) for entry in exact}
-    missing_targets = tuple(
-        entry_number
-        for entry_number in target_entries
-        if entry_number not in exact_numbers
+        if _entry_number(entry) in target_entry_set
+        and _is_exact_target_mtd_entry(entry)
     )
     target_support = tuple(
         entry
         for entry in page.entries
         if _entry_is_before(entry, decision_floor)
         and _is_mtd_entry(entry)
-        and _references_target_motion(entry, missing_targets)
+        and _references_target_motion(entry, target_entries)
     )
     if exact or target_support:
         return _dedupe_entries((*exact, *target_support))
+    if not allow_inferred_target_mtd:
+        return ()
     if target_entries:
         return ()
     return tuple(
@@ -1294,27 +1324,6 @@ def _brief_role(entry: CourtListenerWebDocketEntry) -> DocumentRole:
     return DocumentRole.OPPOSITION
 
 
-def _looks_like_complaint(entry: CourtListenerWebDocketEntry) -> bool:
-    if (
-        _best_free_document(entry, DocumentRole.COMPLAINT) is not None
-        or _best_free_document(entry, DocumentRole.AMENDED_COMPLAINT) is not None
-    ):
-        return True
-    text = entry.text.lower()
-    if re.search(r"\banswer\s+to\s+(?:amended\s+)?complaint\b", text):
-        return False
-    if _contains_procedural_complaint_reference(text):
-        return False
-    return bool(
-        re.match(
-            r"^\s*\d*\s*(?:[a-z]{3,9}\s+\d{1,2},\s+\d{4}\s+)?"
-            r"(?:amended\s+)?complaint\s+(?:against|filed|by|with)\b",
-            text,
-        )
-        or re.search(r"\bnotice\s+of\s+removal\s+from\b", text)
-    )
-
-
 def _is_mtd_entry(entry: CourtListenerWebDocketEntry) -> bool:
     if entry.role not in {
         CourtListenerEntryRole.MTD_NOTICE,
@@ -1327,18 +1336,9 @@ def _is_mtd_entry(entry: CourtListenerWebDocketEntry) -> bool:
     )
 
 
-def _is_target_mtd_entry(entry: CourtListenerWebDocketEntry) -> bool:
-    if _is_mtd_entry(entry):
-        return True
-    text = entry.text.lower()
-    if not (
-        re.search(r"\bmotions?\s+to\s+dismiss\b", text)
-        or re.search(r"\b12\s*\(\s*b\s*\)\s*\(\s*[126]\s*\)", text)
-        or re.search(r"\b12\s*\(\s*c\s*\)", text)
-        or re.search(r"\brule\s+12\b", text)
-        or re.search(r"\bjudgment\s+on\s+the\s+pleadings\b", text)
-    ):
-        return False
+def _is_exact_target_mtd_entry(entry: CourtListenerWebDocketEntry) -> bool:
+    """Accept MTD-role documents only at an already frozen exact target entry."""
+
     return (
         _best_free_document(entry, DocumentRole.MTD_NOTICE) is not None
         or _best_free_document(entry, DocumentRole.MTD_MEMORANDUM) is not None
@@ -1404,10 +1404,20 @@ def _best_free_document(
     entry: CourtListenerWebDocketEntry,
     role: DocumentRole,
 ):
-    if role is DocumentRole.COMPLAINT:
-        removal_attachment = _best_free_notice_removal_complaint_attachment(entry)
-        if removal_attachment is not None:
-            return removal_attachment
+    if role in {DocumentRole.COMPLAINT, DocumentRole.AMENDED_COMPLAINT}:
+        number = _entry_number(entry)
+        selection = (
+            None
+            if number is None
+            else select_operative_complaint_entry((entry,), before_entry=number + 1)
+        )
+        expected_kind = (
+            OperativeComplaintKind.AMENDED_COMPLAINT
+            if role is DocumentRole.AMENDED_COMPLAINT
+            else OperativeComplaintKind.COMPLAINT
+        )
+        if selection is not None and selection.kind is expected_kind:
+            return select_operative_complaint_document(entry, require_free=True)
     matching_documents = tuple(
         document
         for document in entry.documents
@@ -1417,6 +1427,28 @@ def _best_free_document(
     )
     if matching_documents:
         return matching_documents[0]
+    if role is DocumentRole.MTD_MEMORANDUM and entry.role is (
+        CourtListenerEntryRole.MTD_MEMORANDUM
+    ):
+        main_documents = tuple(
+            document
+            for document in entry.documents
+            if document.freely_available
+            and document.href
+            and "main" in document.kind.lower()
+        )
+        if len(main_documents) == 1:
+            return main_documents[0]
+    if role is DocumentRole.MTD_MEMORANDUM and _is_explicit_combined_mtd(entry):
+        main_documents = tuple(
+            document
+            for document in entry.documents
+            if document.freely_available
+            and document.href
+            and "main" in document.kind.lower()
+        )
+        if len(main_documents) == 1:
+            return main_documents[0]
     if role is DocumentRole.DECISION:
         return next(
             (
@@ -1429,34 +1461,14 @@ def _best_free_document(
     return None
 
 
-def _best_free_notice_removal_complaint_attachment(
-    entry: CourtListenerWebDocketEntry,
-):
-    entry_text = " ".join(entry.text.lower().split())
-    if "notice of removal" not in entry_text:
-        return None
-    return next(
-        (
-            document
-            for document in entry.documents
-            if document.freely_available
-            and document.href
-            and _looks_like_notice_removal_complaint_attachment(document.description)
-        ),
-        None,
-    )
-
-
-def _looks_like_notice_removal_complaint_attachment(description: str) -> bool:
-    text = " ".join(description.lower().split())
-    if not text or _contains_procedural_complaint_reference(text):
-        return False
-    if re.search(r"\b(?:civil cover sheet|certificate|notice|summons|service)\b", text):
-        return False
-    if re.search(r"\b(?:amended\s+)?complaint\b", text):
-        return True
+def _is_explicit_combined_mtd(entry: CourtListenerWebDocketEntry) -> bool:
+    text = " ".join(entry.text.lower().split())
     return bool(
-        re.fullmatch(r"(?:exhibit|exh\.?)\s+[a-z0-9](?:\s*-\s*[a-z0-9])?", text)
+        re.search(
+            r"\bmotion\s+to\s+dismiss\b.{0,200}\b(?:and|with)\b.{0,100}"
+            r"\b(?:memorandum|brief)\b.{0,100}\b(?:in\s+)?support\b",
+            text,
+        )
     )
 
 

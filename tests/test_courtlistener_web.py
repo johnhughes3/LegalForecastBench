@@ -2,11 +2,60 @@ from __future__ import annotations
 
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerEntryRole,
+    CourtListenerWebDocketEntry,
+    CourtListenerWebDocument,
     CourtListenerWebParseError,
+    classify_courtlistener_entry_role,
     estimate_briefing_completeness,
     parse_courtlistener_docket_html,
     rank_cheapest_complete_candidates,
+    starts_with_dispositive_motion,
 )
+
+
+def test_duplicated_metadata_prefix_does_not_let_proposed_order_mask_mtd() -> None:
+    entry = CourtListenerWebDocketEntry(
+        row_id="entry-24",
+        entry_number="24",
+        filed_at="Dec 5, 2025",
+        text=(
+            "24 Dec 5, 2025 24 Dec 5, 2025 MOTION to Dismiss Plaintiff's "
+            "Complaint filed by Defendant with Brief/Memorandum in Support. "
+            "(Attachments: # 1 Proposed Order)"
+        ),
+        documents=(
+            CourtListenerWebDocument(
+                kind="Main Document",
+                description="",
+                href="https://storage.courtlistener.com/recap/motion.pdf",
+                action_label="Download PDF",
+                pacer_only=False,
+            ),
+            CourtListenerWebDocument(
+                kind="Attachment 1",
+                description="Proposed Order",
+                href="https://storage.courtlistener.com/recap/proposed-order.pdf",
+                action_label="Download PDF",
+                pacer_only=False,
+            ),
+        ),
+    )
+
+    assert classify_courtlistener_entry_role(entry) is CourtListenerEntryRole.MTD_NOTICE
+
+
+def test_support_appendix_reference_does_not_look_like_leading_motion() -> None:
+    entry = CourtListenerWebDocketEntry(
+        row_id="entry-25",
+        entry_number="25",
+        filed_at="Dec 5, 2025",
+        text=(
+            "25 Dec 5, 2025 25 Dec 5, 2025 Appendix in Support filed by "
+            "Defendant re 24 MOTION to Dismiss Plaintiff's Complaint"
+        ),
+    )
+
+    assert starts_with_dispositive_motion(entry.text) is False
 
 
 def test_parse_public_docket_html_extracts_entries_documents_and_availability() -> None:

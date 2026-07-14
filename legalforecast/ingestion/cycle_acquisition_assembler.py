@@ -48,6 +48,38 @@ _TRANSIENT_EXCLUSION_REASONS = frozenset(
     }
 )
 _COURTLISTENER_NAMESPACED_ID = re.compile(r"courtlistener-docket-(\d+)\Z")
+_SCREENED_ARTIFACTS = (
+    "screened-cases.jsonl",
+    "courtlistener-screened-cases.jsonl",
+)
+_SCREENING_EXCLUSION_ARTIFACTS = (
+    "exclusions.jsonl",
+    "discovery-exclusions.jsonl",
+    "courtlistener-discovery-exclusions.jsonl",
+)
+_DOWNSTREAM_EXCLUSION_ARTIFACTS = (
+    "public-packet-exclusions.jsonl",
+    "pacer-gap-bridge-exclusions.jsonl",
+)
+_SELECTION_ARTIFACTS = (
+    "public-packet-selection-reconciled.jsonl",
+    "public-packet-selection.jsonl",
+)
+_PAID_GAP_ARTIFACTS = ("public-packet-paid-gaps.jsonl",)
+_RELEVANCE_ARTIFACTS = ("case-relevance.jsonl",)
+_FILTER_ARTIFACTS = ("core-filter-results.jsonl",)
+_MANIFEST_ARTIFACTS = (
+    "document-downloads-merged.jsonl",
+    "free-document-downloads.jsonl",
+)
+_DOWNSTREAM_COMPONENT_ARTIFACTS = (
+    *_DOWNSTREAM_EXCLUSION_ARTIFACTS,
+    *_SELECTION_ARTIFACTS,
+    *_PAID_GAP_ARTIFACTS,
+    *_RELEVANCE_ARTIFACTS,
+    *_FILTER_ARTIFACTS,
+    *_MANIFEST_ARTIFACTS,
+)
 
 
 class CycleAssemblyError(ValueError):
@@ -96,48 +128,29 @@ def assemble_cycle_acquisition(
     manifest: dict[tuple[str, str], Mapping[str, Any]] = {}
     prepared_by_key: dict[tuple[str, str], PreparedDocument] = {}
     batch_provenance: list[dict[str, Any]] = []
-    previous_was_screening_only = False
+    active_screening_snapshot_ordinal: int | None = None
+    active_screening_snapshot_root: str | None = None
+    downstream_component_ordinal: int | None = None
 
     for ordinal, root in enumerate(roots, start=1):
-        screened_records = _read_first_jsonl(
-            root, ("screened-cases.jsonl", "courtlistener-screened-cases.jsonl")
-        )
+        screened_records = _read_first_jsonl(root, _SCREENED_ARTIFACTS)
         screening_exclusion_records = _read_jsonl_union(
             root,
-            (
-                "exclusions.jsonl",
-                "discovery-exclusions.jsonl",
-                "courtlistener-discovery-exclusions.jsonl",
-            ),
+            _SCREENING_EXCLUSION_ARTIFACTS,
         )
         downstream_exclusion_records = _read_jsonl_union(
             root,
-            (
-                "public-packet-exclusions.jsonl",
-                "pacer-gap-bridge-exclusions.jsonl",
-            ),
+            _DOWNSTREAM_EXCLUSION_ARTIFACTS,
         )
         exclusion_records = [
             *screening_exclusion_records,
             *downstream_exclusion_records,
         ]
-        batch_selections = _read_first_jsonl(
-            root,
-            (
-                "public-packet-selection-reconciled.jsonl",
-                "public-packet-selection.jsonl",
-            ),
-        )
-        batch_paid_gaps = _read_first_jsonl(root, ("public-packet-paid-gaps.jsonl",))
-        batch_relevance = _read_first_jsonl(root, ("case-relevance.jsonl",))
-        batch_filters = _read_first_jsonl(root, ("core-filter-results.jsonl",))
-        batch_manifest = _read_first_jsonl(
-            root,
-            (
-                "document-downloads-merged.jsonl",
-                "free-document-downloads.jsonl",
-            ),
-        )
+        batch_selections = _read_first_jsonl(root, _SELECTION_ARTIFACTS)
+        batch_paid_gaps = _read_first_jsonl(root, _PAID_GAP_ARTIFACTS)
+        batch_relevance = _read_first_jsonl(root, _RELEVANCE_ARTIFACTS)
+        batch_filters = _read_first_jsonl(root, _FILTER_ARTIFACTS)
+        batch_manifest = _read_first_jsonl(root, _MANIFEST_ARTIFACTS)
         downstream_record_count = sum(
             len(records)
             for records in (
@@ -149,16 +162,36 @@ def assemble_cycle_acquisition(
                 batch_manifest,
             )
         )
-        if (
-            not screened_records
-            and downstream_record_count
-            and not previous_was_screening_only
-        ):
-            raise CycleAssemblyError(
-                "downstream-only batch root must immediately follow its non-empty "
-                f"screening snapshot root: {root}"
-            )
         summary = _read_optional_json(root / "summary.json")
+        has_empty_downstream_component = (
+            summary is None
+            and not screening_exclusion_records
+            and any(
+                (root / filename).is_file()
+                for filename in _DOWNSTREAM_COMPONENT_ARTIFACTS
+            )
+        )
+        is_downstream_only = not screened_records and (
+            bool(downstream_record_count) or has_empty_downstream_component
+        )
+        if is_downstream_only and active_screening_snapshot_ordinal is None:
+            raise CycleAssemblyError(
+                "downstream-only batch root must immediately follow a non-empty "
+                "screening snapshot root or an ordered downstream component tied "
+                f"to that snapshot: {root}"
+            )
+        if screened_records:
+            active_screening_snapshot_ordinal = ordinal
+            active_screening_snapshot_root = root.name
+            downstream_component_ordinal = 0
+        elif is_downstream_only:
+            if downstream_component_ordinal is None:  # pragma: no cover - invariant
+                raise CycleAssemblyError("missing downstream component ordinal")
+            downstream_component_ordinal += 1
+        else:
+            active_screening_snapshot_ordinal = None
+            active_screening_snapshot_root = None
+            downstream_component_ordinal = None
         _validate_discovery_counts(
             root,
             summary=summary,
@@ -199,6 +232,9 @@ def assemble_cycle_acquisition(
             {
                 "batch_ordinal": ordinal,
                 "batch_root": root.name,
+                "screening_snapshot_batch_ordinal": (active_screening_snapshot_ordinal),
+                "screening_snapshot_root": active_screening_snapshot_root,
+                "downstream_component_ordinal": downstream_component_ordinal,
                 "screened_case_count": len(screened_records),
                 "discovery_exclusion_count": len(screening_exclusion_records),
                 "downstream_exclusion_count": len(downstream_exclusion_records),
@@ -207,10 +243,6 @@ def assemble_cycle_acquisition(
                 "summary": summary,
             }
         )
-        previous_was_screening_only = (
-            bool(screened_records) and not downstream_record_count
-        )
-
     accepted_ids = {
         candidate_id
         for candidate_id, (state, _) in current.items()

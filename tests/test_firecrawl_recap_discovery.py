@@ -88,7 +88,7 @@ def _article(
     )
 
 
-def test_frozen_vocabulary_includes_mtd_and_eligible_rule_12c_terms() -> None:
+def test_frozen_vocabulary_includes_mtd_rule_12c_and_adversary_terms() -> None:
     assert len(FROZEN_MTD_SEARCH_TERMS) >= 15
     assert "motion to dismiss" in FROZEN_MTD_SEARCH_TERMS
     assert "motions to dismiss" in FROZEN_MTD_SEARCH_TERMS
@@ -97,6 +97,10 @@ def test_frozen_vocabulary_includes_mtd_and_eligible_rule_12c_terms() -> None:
     assert "memorandum opinion rule 12(b)(6)" in FROZEN_MTD_SEARCH_TERMS
     assert "motion for judgment on the pleadings" in FROZEN_MTD_SEARCH_TERMS
     assert "order rule 12(c)" in FROZEN_MTD_SEARCH_TERMS
+    assert "motion to dismiss adversary complaint" in FROZEN_MTD_SEARCH_TERMS
+    assert "order dismissing adversary complaint" in FROZEN_MTD_SEARCH_TERMS
+    assert "order rule 7012" in FROZEN_MTD_SEARCH_TERMS
+    assert "memorandum opinion rule 7012" in FROZEN_MTD_SEARCH_TERMS
     assert len(FROZEN_MTD_SEARCH_TERMS) == len(set(FROZEN_MTD_SEARCH_TERMS))
 
 
@@ -115,6 +119,29 @@ def test_frozen_terms_compile_to_phrase_precise_courtlistener_queries() -> None:
     assert (
         courtlistener_query_expression("order on motion for judgment on the pleadings")
         == '"motion for judgment on the pleadings" AND order'
+    )
+    assert courtlistener_query_expression("motion to dismiss adversary complaint") == (
+        '"motion to dismiss" AND "adversary complaint"'
+    )
+    assert courtlistener_query_expression("order dismissing adversary complaint") == (
+        '"dismissing adversary complaint" AND order'
+    )
+    assert courtlistener_query_expression("order rule 7012") == (
+        '"rule 7012" AND order'
+    )
+    assert courtlistener_query_expression("memorandum opinion rule 7012") == (
+        '"rule 7012" AND "memorandum opinion"'
+    )
+    assert courtlistener_query_expression(
+        "report and recommendation motion to dismiss adversary complaint"
+    ) == (
+        '"motion to dismiss" AND "adversary complaint" AND "report and recommendation"'
+    )
+    assert (
+        courtlistener_query_expression(
+            "order adopting report and recommendation rule 7012"
+        )
+        == '"rule 7012" AND "report and recommendation" AND adopting'
     )
     urls = [
         build_recap_search_url(

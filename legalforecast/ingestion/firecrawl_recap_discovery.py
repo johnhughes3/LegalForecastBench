@@ -53,12 +53,18 @@ FROZEN_MTD_SEARCH_TERMS: tuple[str, ...] = (
     "motion for judgment on the pleadings",
     "order on motion for judgment on the pleadings",
     "order rule 12(c)",
+    "motion to dismiss adversary complaint",
+    "order dismissing adversary complaint",
+    "report and recommendation motion to dismiss adversary complaint",
+    "order rule 7012",
+    "memorandum opinion rule 7012",
+    "order adopting report and recommendation rule 7012",
 )
 
 # CourtListener does not treat an unquoted multiword query as one legal phrase.
 # The vocabulary above remains the stable logical identity in provenance; this
 # versioned compiler controls only the provider query expression.
-COURTLISTENER_QUERY_PLAN_VERSION = "phrase-precise-v1"
+COURTLISTENER_QUERY_PLAN_VERSION = "phrase-precise-v2"
 _COURTLISTENER_QUERY_EXPRESSIONS: dict[str, str] = {
     "motion to dismiss": '"motion to dismiss"',
     "motions to dismiss": '"motions to dismiss"',
@@ -90,6 +96,20 @@ _COURTLISTENER_QUERY_EXPRESSIONS: dict[str, str] = {
         '"motion for judgment on the pleadings" AND order'
     ),
     "order rule 12(c)": '"rule 12(c)" AND order',
+    "motion to dismiss adversary complaint": (
+        '"motion to dismiss" AND "adversary complaint"'
+    ),
+    "order dismissing adversary complaint": (
+        '"dismissing adversary complaint" AND order'
+    ),
+    "report and recommendation motion to dismiss adversary complaint": (
+        '"motion to dismiss" AND "adversary complaint" AND "report and recommendation"'
+    ),
+    "order rule 7012": '"rule 7012" AND order',
+    "memorandum opinion rule 7012": '"rule 7012" AND "memorandum opinion"',
+    "order adopting report and recommendation rule 7012": (
+        '"rule 7012" AND "report and recommendation" AND adopting'
+    ),
 }
 if tuple(_COURTLISTENER_QUERY_EXPRESSIONS) != FROZEN_MTD_SEARCH_TERMS:
     raise RuntimeError(

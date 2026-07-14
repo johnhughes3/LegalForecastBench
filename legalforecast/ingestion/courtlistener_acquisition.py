@@ -26,6 +26,7 @@ from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketEntry,
     CourtListenerWebParseError,
     parse_courtlistener_docket_html,
+    starts_with_dispositive_motion,
 )
 from legalforecast.ingestion.docket_sync import NormalizedDocketEntry
 from legalforecast.ingestion.mtd_acquisition_screen import (
@@ -746,6 +747,8 @@ def _linkage_entries(
 
 
 def _looks_like_target_mtd_filing(text: str) -> bool:
+    if starts_with_dispositive_motion(text):
+        return True
     if re.search(
         r"\b(?:report and recommendation|r&r|tentative ruling|minute order|"
         r"oral ruling|hearing transcript|opinion|order)\b",
