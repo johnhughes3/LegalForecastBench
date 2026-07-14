@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from legalforecast.cli import main
 from legalforecast.protocol.freeze import cli_freeze
 from legalforecast.protocol.policy_artifacts import (
     PolicyArtifactError,
@@ -143,6 +144,95 @@ def test_policy_generator_and_verifier_clis_round_trip(tmp_path: Path) -> None:
         )
         == 0
     )
+
+
+def test_acquisition_labeling_policy_is_byte_identical_and_never_dispatches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    acquisition_path = tmp_path / "acquisition-labeling-policy.json"
+    freeze_path = tmp_path / "freeze-labeling-policy.json"
+    arguments = [
+        "cycle-1",
+        "--judge-registry",
+        str(JUDGE_REGISTRY),
+        "--published-at",
+        "2026-07-12T20:00:00Z",
+        "--threshold-source",
+        "Cycle 1 protocol decision, 2026-07-13",
+    ]
+
+    def forbidden_freeze_handler(*_args: object, **_kwargs: object) -> int:
+        raise AssertionError("acquisition policy generation invoked a freeze handler")
+
+    monkeypatch.setattr(
+        "legalforecast.protocol.freeze.cli_freeze", forbidden_freeze_handler
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "generate-labeling-policy",
+                *arguments,
+                "--output",
+                str(acquisition_path),
+            ]
+        )
+        == 0
+    )
+
+    monkeypatch.undo()
+    assert (
+        cli_freeze(
+            ["generate-labeling-policy", *arguments, "--output", str(freeze_path)]
+        )
+        == 0
+    )
+    assert acquisition_path.read_bytes() == freeze_path.read_bytes()
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "verify-labeling-policy",
+                "--artifact",
+                str(acquisition_path),
+                "--judge-registry",
+                str(JUDGE_REGISTRY),
+                "--cycle-id",
+                "cycle-1",
+            ]
+        )
+        == 0
+    )
+
+
+def test_acquisition_labeling_policy_is_immutable(tmp_path: Path) -> None:
+    output = tmp_path / "labeling-policy.json"
+    base = [
+        "acquisition",
+        "generate-labeling-policy",
+        "cycle-1",
+        "--judge-registry",
+        str(JUDGE_REGISTRY),
+        "--published-at",
+        "2026-07-12T20:00:00Z",
+        "--threshold-source",
+        "Cycle 1 protocol decision, 2026-07-13",
+        "--output",
+        str(output),
+    ]
+
+    assert main(base) == 0
+    assert main(base) == 0
+    changed = [
+        (
+            "different threshold source"
+            if value == "Cycle 1 protocol decision, 2026-07-13"
+            else value
+        )
+        for value in base
+    ]
+    assert main(changed) == 2
 
 
 def _labeling_policy() -> dict[str, object]:

@@ -38,11 +38,11 @@ Recovery outputs default to `checkpoints/<recovery-run-id>-recap-{entries,docket
 
 Do not substitute a parser. The LegalForecastBench wrapper pins the reviewed parser revision `9402306972462a5bdd0da7f687c5e6b4cea373a0`, verifies that checkout is clean, requires a nonempty `MISTRAL_API_KEY`, and constructs the parser child environment from only that key, `PATH`, the environment-only fallback guard, and nonempty locale variables.
 
-Until the dedicated `/agents/sandbox/legalforecastbench/parser` folder exists, the approved acquisition folder may inject the parent process. Verify names only, never values:
+The live parser may run only from the dedicated development path `/agents/sandbox/legalforecastbench/parser`, containing only `MISTRAL_API_KEY`. If the path is absent or exposes any additional secret name, stop the parse stage. Verify names only, never values:
 
 ```bash
 infisical-agent-sandbox run \
-  --path /agents/sandbox/legalforecastbench-acquisition \
+  --path /agents/sandbox/legalforecastbench/parser \
   -- zsh -lc 'for n in MISTRAL_API_KEY; do [[ -n ${(P)n:-} ]] && print -- "$n=present" || print -- "$n=missing"; done'
 ```
 
@@ -50,7 +50,7 @@ Run the live parse against the clean pinned checkout explicitly; the default par
 
 ```bash
 infisical-agent-sandbox run \
-  --path /agents/sandbox/legalforecastbench-acquisition \
+  --path /agents/sandbox/legalforecastbench/parser \
   -- uv run legalforecast acquisition parse-documents \
   --output-root <assembled-cycle-root> \
   --requests <parse-document-requests.jsonl> \
@@ -59,7 +59,7 @@ infisical-agent-sandbox run \
   --execute --resume
 ```
 
-The broad Infisical folder is visible to the LegalForecastBench parent process, but not inherited wholesale by the parser subprocess. The sentinel-`op` and child-environment tests in `tests/test_mistral_markdown_parser.py` enforce that boundary. Provisioning the dedicated parser-only folder remains the preferred steady-state layout.
+The sentinel-`op` and child-environment tests in `tests/test_mistral_markdown_parser.py` enforce the subprocess boundary, but they do not authorize injecting a broad acquisition secret set into the parent process.
 
 After Stage B labeling completes, freeze the single cycle-level reliability sample before any lawyer adjudication:
 

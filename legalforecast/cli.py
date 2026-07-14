@@ -413,6 +413,8 @@ from legalforecast.protocol import (
     generate_execution_policy,
     generate_labeling_policy,
     sha256_file,
+    verify_labeling_policy,
+    write_labeling_policy,
 )
 from legalforecast.publication.static_sites import render_official_results_site
 from legalforecast.reporting.fallback_pilot import (
@@ -888,6 +890,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Reconcile discovery exclusions into a versioned acquisition funnel.",
     )
     _add_acquisition_funnel_report_arguments(acquisition_funnel_report)
+    acquisition_generate_labeling_policy = acquisition_subparsers.add_parser(
+        "generate-labeling-policy",
+        help=(
+            "Generate the immutable pre-labeling policy without freezing or "
+            "dispatching a cycle."
+        ),
+    )
+    _add_acquisition_generate_labeling_policy_arguments(
+        acquisition_generate_labeling_policy
+    )
+    acquisition_verify_labeling_policy = acquisition_subparsers.add_parser(
+        "verify-labeling-policy",
+        help="Verify a pre-labeling policy without touching official freeze state.",
+    )
+    _add_acquisition_verify_labeling_policy_arguments(
+        acquisition_verify_labeling_policy
+    )
     acquisition_generate_cohort_policy = acquisition_subparsers.add_parser(
         "generate-cohort-policy",
         help="Generate a hash-bound cohort precommitment from supplied decisions.",
@@ -1937,6 +1956,26 @@ def _add_acquisition_funnel_report_arguments(parser: argparse.ArgumentParser) ->
     parser.add_argument("--public-download-summary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.set_defaults(handler=_cmd_acquisition_funnel_report)
+
+
+def _add_acquisition_generate_labeling_policy_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("cycle_id")
+    parser.add_argument("--judge-registry", type=Path, required=True)
+    parser.add_argument("--published-at", required=True)
+    parser.add_argument("--threshold-source", required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.set_defaults(handler=_cmd_acquisition_generate_labeling_policy)
+
+
+def _add_acquisition_verify_labeling_policy_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--artifact", type=Path, required=True)
+    parser.add_argument("--judge-registry", type=Path, required=True)
+    parser.add_argument("--cycle-id")
+    parser.set_defaults(handler=_cmd_acquisition_verify_labeling_policy)
 
 
 # ---------------------------------------------------------------------------
@@ -8079,6 +8118,36 @@ def _cmd_acquisition_funnel_report(args: argparse.Namespace) -> int:
     except (FunnelReportError, OSError, UnicodeError, ValueError) as exc:
         raise CommandError(str(exc)) from exc
     _write_json(cast(Path, args.output), report)
+    return 0
+
+
+def _cmd_acquisition_generate_labeling_policy(args: argparse.Namespace) -> int:
+    """Publish the canonical pre-labeling policy without invoking freeze state."""
+
+    artifact = generate_labeling_policy(
+        cycle_id=cast(str, args.cycle_id),
+        judge_registry_path=cast(Path, args.judge_registry),
+        published_at=_parse_datetime(cast(str, args.published_at)),
+        threshold_source=cast(str, args.threshold_source),
+    )
+    output = cast(Path, args.output)
+    write_labeling_policy(output, artifact)
+    verify_labeling_policy(
+        _read_json_object(output),
+        judge_registry_path=cast(Path, args.judge_registry),
+        expected_cycle_id=cast(str, args.cycle_id),
+    )
+    print(json.dumps(artifact, sort_keys=True))
+    return 0
+
+
+def _cmd_acquisition_verify_labeling_policy(args: argparse.Namespace) -> int:
+    policy_sha256 = verify_labeling_policy(
+        _read_json_object(cast(Path, args.artifact)),
+        judge_registry_path=cast(Path, args.judge_registry),
+        expected_cycle_id=cast(str | None, args.cycle_id),
+    )
+    print(policy_sha256)
     return 0
 
 

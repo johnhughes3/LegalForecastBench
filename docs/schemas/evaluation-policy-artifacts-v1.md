@@ -28,7 +28,8 @@ The labeling policy must be generated and hash-published before production label
 Generate and verify it with:
 
 ```text
-legalforecast freeze generate-labeling-policy CYCLE_ID --judge-registry PATH --published-at TIMESTAMP --threshold-source SOURCE --output PATH
+legalforecast acquisition generate-labeling-policy CYCLE_ID --judge-registry PATH --published-at TIMESTAMP --threshold-source SOURCE --output PATH
+legalforecast acquisition verify-labeling-policy --artifact PATH --judge-registry PATH --cycle-id CYCLE_ID
 legalforecast freeze verify-labeling-policy --artifact PATH --judge-registry PATH --cycle-id CYCLE_ID
 ```
 
