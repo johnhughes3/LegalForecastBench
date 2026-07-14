@@ -283,11 +283,11 @@ uv run legalforecast batch-002 snapshot \
   --output-root artifacts/cycle-1/official-acquisition/snapshots
 ```
 
-Record the snapshot manifest's exact `cycle_hash`. `prepare-target-100` rejects a partial, unsaturated, changed, or wrong-cycle snapshot and carries every viable snapshot row through authoritative public-document and paid-gap resolution before it ranks the cheapest 100.
+Record the snapshot manifest's exact `cycle_hash`. `prepare-target-100` rejects a partial, unsaturated, changed, or wrong-cycle snapshot and carries every viable snapshot row through authoritative public-document and paid-gap resolution. Its budget is provisional until disclosure clearance removes unsafe documents and `project-target-cohort` recomputes the frontier.
 
-### Step 4: Prepare The Exact Target-100 Budget Plan
+### Step 4: Prepare The Resolved Pool And Provisional Budget
 
-Run the public-first preparation chain from that immutable snapshot. This command plans public downloads, downloads free documents, resolves remaining gap metadata through authenticated noncharging CourtListener REST, applies the core-document filter, and emits the exact cheapest 100-case budget plan. It never purchases a document.
+Run the public-first preparation chain from that immutable snapshot. This command plans public downloads, downloads free documents, resolves remaining gap metadata through authenticated noncharging CourtListener REST, applies the core-document filter, and emits disclosure-review requests plus a provisional 100-case budget. It never purchases a document.
 
 ```bash
 uv run legalforecast acquisition prepare-target-100 \
@@ -300,18 +300,53 @@ uv run legalforecast acquisition prepare-target-100 \
   --execute --resume
 ```
 
-The successful preparation summary commits the snapshot, immutable semantic configuration, stage inputs and outputs, selected candidate IDs, and cost frontier. If fewer than 100 cases remain or the projected budget exceeds its configured cap, preparation fails durably; acquire more candidates or obtain John's approval for a budget change rather than relaxing a gate.
+The successful preparation summary commits the snapshot, immutable semantic configuration, stage inputs and outputs, provisional selected candidate IDs, and cost frontier. The `06-clearance-inputs/` directory contains one restriction-evidence row and one disclosure-review request for every downloaded free document. The summary deliberately names `clear-disclosures`, not purchase, as the next stage.
 
-### Step 5: Generate The Broker Allowlist, Then Purchase Explicitly
+### Step 5: Clear Every Free Document And Freeze The Exact Cohort
 
-Paid acquisition remains a separate, operator-visible stage. First freeze the cohort and purchase-policy artifacts required by the CLI, then generate the signed RECAP Fetch broker allowlist from the successful preparation outputs:
+Complete the authenticated legal-review artifact and its controlled-store receipt, then run the existing clearance gate over the full free manifest. Do not hand-edit any preparation artifact.
+
+```bash
+uv run legalforecast acquisition clear-disclosures \
+  --output-root artifacts/cycle-1/official-acquisition/target-100/free-clearance \
+  --download-manifest artifacts/cycle-1/official-acquisition/target-100/03c-merged-downloads/document-downloads-merged.jsonl \
+  --document-root artifacts/cycle-1/official-acquisition/target-100/documents/free \
+  --reviews <controlled-store-review-export.jsonl> \
+  --review-receipt <controlled-store-review-receipt.json> \
+  --restriction-evidence artifacts/cycle-1/official-acquisition/target-100/06-clearance-inputs/restriction-evidence.jsonl \
+  --execute
+```
+
+Only after clearance succeeds may the exact downstream cohort be projected. This recomputes the cheapest complete frontier after quarantines and writes selection, relevance, restriction, manifest, clearance, budget, and exclusion artifacts containing exactly the chosen cases.
+
+```bash
+uv run legalforecast acquisition project-target-cohort \
+  --output-root artifacts/cycle-1/official-acquisition/target-100/exact-cohort \
+  --selection artifacts/cycle-1/official-acquisition/target-100/03-gap-bridge/public-packet-selection-reconciled.jsonl \
+  --case-relevance artifacts/cycle-1/official-acquisition/target-100/03-gap-bridge/case-relevance.jsonl \
+  --download-manifest artifacts/cycle-1/official-acquisition/target-100/03c-merged-downloads/document-downloads-merged.jsonl \
+  --disclosure-clearance artifacts/cycle-1/official-acquisition/target-100/free-clearance/disclosure-clearance.jsonl \
+  --clearance-run-card artifacts/cycle-1/official-acquisition/target-100/free-clearance/run-cards/clear-disclosures.json \
+  --restriction-evidence artifacts/cycle-1/official-acquisition/target-100/06-clearance-inputs/restriction-evidence.jsonl \
+  --preparation-summary artifacts/cycle-1/official-acquisition/target-100/target-100-preparation-summary.json \
+  --preparation-config artifacts/cycle-1/official-acquisition/target-100/target-100-config.json \
+  --snapshot-manifest artifacts/cycle-1/official-acquisition/snapshots/<immutable-snapshot-id>/manifest.json \
+  --target-case-count 100 \
+  --execute --resume
+```
+
+If fewer than 100 post-clearance cases fit the unchanged cap, acquire more candidates rather than restoring a quarantined case or weakening a gate. The exact-cohort summary binds every source and output hash and reconciles every unselected resolved-pool candidate into `target-cohort-exclusions.jsonl`.
+
+### Step 6: Generate The Broker Allowlist, Then Purchase Explicitly
+
+Paid acquisition remains a separate, operator-visible stage. First freeze the cohort and purchase-policy artifacts required by the CLI, then generate the signed RECAP Fetch broker allowlist from the exact post-clearance outputs:
 
 ```bash
 uv run legalforecast acquisition generate-recap-fetch-broker-policy \
   --purchase-policy <verified-purchase-policy.json> \
   --cohort-policy <frozen-cohort-policy.json> \
-  --budget-plan artifacts/cycle-1/official-acquisition/target-100/05-budget/missing-core-budget-plan.json \
-  --selection artifacts/cycle-1/official-acquisition/target-100/03-gap-bridge/public-packet-selection-reconciled.jsonl \
+  --budget-plan artifacts/cycle-1/official-acquisition/target-100/exact-cohort/missing-core-budget-plan.json \
+  --selection artifacts/cycle-1/official-acquisition/target-100/exact-cohort/target-cohort-selection.jsonl \
   --output artifacts/cycle-1/official-acquisition/target-100/courtlistener-recap-fetch-policy-v1.json
 ```
 
@@ -320,8 +355,8 @@ Inspect the projected total, allowlisted numeric RECAP document IDs, and remaini
 ```bash
 uv run legalforecast acquisition purchase-missing-recap-fetch \
   --output-root artifacts/cycle-1/official-acquisition/target-100 \
-  --budget-plan artifacts/cycle-1/official-acquisition/target-100/05-budget/missing-core-budget-plan.json \
-  --selection artifacts/cycle-1/official-acquisition/target-100/03-gap-bridge/public-packet-selection-reconciled.jsonl \
+  --budget-plan artifacts/cycle-1/official-acquisition/target-100/exact-cohort/missing-core-budget-plan.json \
+  --selection artifacts/cycle-1/official-acquisition/target-100/exact-cohort/target-cohort-selection.jsonl \
   --purchase-policy <verified-purchase-policy.json> \
   --cohort-policy <frozen-cohort-policy.json> \
   --purchase-ledger artifacts/cycle-1/official-acquisition/recap-fetch-purchases.sqlite3 \

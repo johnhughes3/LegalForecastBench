@@ -365,6 +365,11 @@ from legalforecast.ingestion.target_100_acquisition import (
     Target100PreparationError,
     build_target_100_stage_commands,
 )
+from legalforecast.ingestion.target_cohort_projection import (
+    TargetCohortProjectionError,
+    project_target_cohort,
+    restriction_evidence_from_case_relevance,
+)
 from legalforecast.labeling.cycle_label_audit import (
     CycleLabelAuditError,
     evaluate_cycle_label_audit,
@@ -987,20 +992,33 @@ def build_parser() -> argparse.ArgumentParser:
     acquisition_prepare_target_100 = acquisition_subparsers.add_parser(
         "prepare-target-100",
         help=(
-            "Prepare the exact cheapest 100-case frontier through noncharging "
-            "public acquisition and budget planning."
+            "Prepare the full resolved pool and a provisional pre-clearance "
+            "100-case budget."
         ),
         description=(
             "Starting from the complete saturated screened snapshot produced by "
             "batch-002 discover, observe, and snapshot, run the resumable public-"
-            "first acquisition chain and emit the exact cheapest 100-case budget "
-            "plan. CourtListener REST is the canonical paid-gap authority. Case.dev "
-            "may be used upstream only where its free API is equivalent, and "
-            "Firecrawl remains a compatibility fallback. This command performs no "
-            "discovery and never purchases documents."
+            "first acquisition chain, resolve every paid gap through CourtListener "
+            "REST, and emit disclosure-review inputs plus a provisional 100-case "
+            "budget. The exact downstream cohort is frozen only by "
+            "project-target-cohort after authenticated clearance. Case.dev may be "
+            "used upstream only where its free API is equivalent, and Firecrawl "
+            "remains a compatibility fallback. This command performs no discovery "
+            "and never purchases documents."
         ),
     )
     _add_acquisition_prepare_target_100_arguments(acquisition_prepare_target_100)
+    acquisition_project_target_cohort = acquisition_subparsers.add_parser(
+        "project-target-cohort",
+        help=("Freeze an exact post-clearance cheapest cohort for downstream stages."),
+        description=(
+            "Consume the full CourtListener-resolved pool plus authenticated "
+            "disclosure clearance, remove quarantined cases, recompute the "
+            "cheapest complete frontier, and emit exact hash-bound downstream "
+            "artifacts. This command never calls a provider or purchases documents."
+        ),
+    )
+    _add_acquisition_project_target_cohort_arguments(acquisition_project_target_cohort)
     acquisition_public_downloads = acquisition_subparsers.add_parser(
         "plan-public-downloads",
         help="Plan free public CourtListener/RECAP packet-document downloads.",
@@ -1497,6 +1515,71 @@ def _add_acquisition_prepare_target_100_arguments(
     parser.add_argument("--request-budget-max-wait-seconds", type=float, default=120.0)
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_prepare_target_100)
+
+
+def _add_acquisition_project_target_cohort_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--selection",
+        type=Path,
+        required=True,
+        help="Full CourtListener-resolved public-packet selection JSONL.",
+    )
+    parser.add_argument(
+        "--case-relevance",
+        type=Path,
+        required=True,
+        help="Full resolved-pool case relevance JSONL.",
+    )
+    parser.add_argument(
+        "--download-manifest",
+        type=Path,
+        required=True,
+        help="Acquired-document manifest whose bytes passed disclosure review.",
+    )
+    parser.add_argument(
+        "--disclosure-clearance",
+        type=Path,
+        required=True,
+        help="Authenticated hash-bound clearance rows for every manifest document.",
+    )
+    parser.add_argument(
+        "--clearance-run-card",
+        type=Path,
+        required=True,
+        help="Completed clear-disclosures run card binding the authenticated review.",
+    )
+    parser.add_argument(
+        "--restriction-evidence",
+        type=Path,
+        required=True,
+        help="Prepared docket-derived restriction evidence reviewed by clearance.",
+    )
+    parser.add_argument(
+        "--preparation-summary",
+        type=Path,
+        required=True,
+        help="Completed noncharging prepare-target-100 summary for the full pool.",
+    )
+    parser.add_argument(
+        "--preparation-config",
+        type=Path,
+        required=True,
+        help="Frozen target-100 config whose semantic caps projection must preserve.",
+    )
+    parser.add_argument(
+        "--snapshot-manifest",
+        type=Path,
+        required=True,
+        help="Immutable screened snapshot manifest committed by preparation.",
+    )
+    parser.add_argument("--target-case-count", type=int, default=100)
+    parser.add_argument("--cost-per-document-usd", default="3.05")
+    parser.add_argument("--max-projected-budget-usd", default="2250.00")
+    parser.add_argument("--max-missing-core-documents-per-case", type=int, default=24)
+    parser.set_defaults(handler=_cmd_acquisition_project_target_cohort)
 
 
 def _add_acquisition_filter_core_documents_arguments(
@@ -4497,7 +4580,7 @@ def _cmd_acquisition_plan(args: argparse.Namespace) -> int:
 
 
 def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
-    """Run the noncharging public-first chain and emit an exact 100-case plan."""
+    """Run the noncharging public-first chain and emit clearance inputs."""
 
     output_root = cast(Path, args.output_root)
     summary_path = _acquisition_path(
@@ -4681,6 +4764,22 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
             )
             raise CommandError(reason)
 
+    try:
+        _prepare_target_100_clearance_inputs(
+            output_root,
+            resume=cast(bool, args.resume),
+        )
+    except (CommandError, TargetCohortProjectionError) as exc:
+        _write_target_100_attempt_failure(
+            args,
+            reason=str(exc),
+            extra={"config_sha256": config_record["config_sha256"]},
+            protected_paths=_target_100_protected_paths(args),
+        )
+        if isinstance(exc, CommandError):
+            raise
+        raise CommandError(str(exc)) from exc
+
     budget_plan_path = output_root / "05-budget" / "missing-core-budget-plan.json"
     budget_plan = _missing_core_budget_plan(_read_json_object(budget_plan_path))
     if budget_plan.dry_run:
@@ -4722,16 +4821,21 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
             "selected_case_count": len(budget_plan.case_plans),
             "total_missing_core_documents": (budget_plan.total_missing_core_documents),
             "total_estimated_cost_usd": budget_plan.total_estimated_cost_usd,
+            "cost_per_document_usd": str(budget_plan.cost_per_document),
             "max_projected_budget_usd": budget_plan.max_projected_budget_usd,
+            "max_missing_core_documents_per_case": (
+                budget_plan.max_missing_core_documents_per_case
+            ),
             "budget_plan": str(budget_plan_path),
             "stage_commands": command_records,
             "paid_activity_requested": False,
             "paid_activity_executed": False,
-            "next_stage": "purchase-missing-recap-fetch",
+            "budget_status": "provisional_pre_clearance",
+            "next_stage": "clear-disclosures",
             "next_stage_blocked_until": (
-                "dedicated CourtListener RECAP Fetch broker deployment, signed "
-                "adapter proof, frozen purchase/cohort policies, and explicit fee "
-                "acknowledgment"
+                "authenticated human review receipts exist for every free "
+                "document; then project-target-cohort must recompute the exact "
+                "post-clearance frontier before any purchase"
             ),
         },
     )
@@ -4753,6 +4857,645 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
         },
     )
     return 0
+
+
+def _prepare_target_100_clearance_inputs(
+    output_root: Path,
+    *,
+    resume: bool,
+) -> None:
+    relevance = _read_records(output_root / "03-gap-bridge/case-relevance.jsonl")
+    manifest = _read_records(
+        output_root / "03c-merged-downloads/document-downloads-merged.jsonl"
+    )
+    restrictions = restriction_evidence_from_case_relevance(relevance)
+    restriction_index = {
+        (
+            cast(str, row["candidate_id"]),
+            cast(str, row["source_document_id"]),
+        ): row
+        for row in restrictions
+    }
+    manifest_keys = {
+        (
+            cast(str, row.get("candidate_id")),
+            cast(str, row.get("source_document_id")),
+        )
+        for row in manifest
+    }
+    if any(
+        not candidate_id or not document_id
+        for candidate_id, document_id in manifest_keys
+    ):
+        raise CommandError("free document manifest contains an invalid document key")
+    missing = sorted(manifest_keys - set(restriction_index))
+    if missing:
+        raise CommandError(
+            "free document lacks case-relevance restriction evidence: "
+            + ", ".join(f"{candidate}/{document}" for candidate, document in missing)
+        )
+    exact_restrictions = tuple(restriction_index[key] for key in sorted(manifest_keys))
+    manifest_index = {
+        (cast(str, row["candidate_id"]), cast(str, row["source_document_id"])): row
+        for row in manifest
+    }
+    review_requests: list[JsonRecord] = []
+    for candidate_id, document_id in sorted(manifest_keys):
+        manifest_record = manifest_index[(candidate_id, document_id)]
+        sha256 = _required_str(manifest_record, "sha256")
+        if re.fullmatch(r"[0-9a-f]{64}", sha256) is None:
+            raise CommandError(
+                "free document manifest has invalid sha256: "
+                f"{candidate_id}/{document_id}"
+            )
+        byte_count = _required_int(manifest_record, "byte_count")
+        if byte_count < 0:
+            raise CommandError(
+                "free document manifest has negative byte_count: "
+                f"{candidate_id}/{document_id}"
+            )
+        free_or_purchased = _required_str(manifest_record, "free_or_purchased")
+        if free_or_purchased not in {"free", "purchased"}:
+            raise CommandError(
+                "free document manifest has invalid free_or_purchased: "
+                f"{candidate_id}/{document_id}"
+            )
+        review_requests.append(
+            {
+                "schema_version": "legalforecast.disclosure_review_request.v1",
+                "candidate_id": candidate_id,
+                "source_document_id": document_id,
+                "sha256": sha256,
+                "byte_count": byte_count,
+                "free_or_purchased": free_or_purchased,
+                "restriction_status": restriction_index[(candidate_id, document_id)][
+                    "restriction_status"
+                ],
+                "restriction_evidence": restriction_index[(candidate_id, document_id)][
+                    "restriction_evidence"
+                ],
+                "required_human_decision": "cleared_or_quarantined",
+            }
+        )
+    clearance_root = output_root / "06-clearance-inputs"
+    _ensure_projection_artifact(
+        clearance_root / "restriction-evidence.jsonl",
+        _projection_jsonl_bytes(exact_restrictions),
+        resume=resume,
+    )
+    _ensure_projection_artifact(
+        clearance_root / "disclosure-review-requests.jsonl",
+        _projection_jsonl_bytes(review_requests),
+        resume=resume,
+    )
+
+
+def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
+    """Freeze exact post-clearance artifacts from the resolved candidate pool."""
+
+    output_root = _acquisition_output_root(args)
+    source_paths = {
+        "selection": cast(Path, args.selection),
+        "case_relevance": cast(Path, args.case_relevance),
+        "download_manifest": cast(Path, args.download_manifest),
+        "disclosure_clearance": cast(Path, args.disclosure_clearance),
+        "clearance_run_card": cast(Path, args.clearance_run_card),
+        "restriction_evidence": cast(Path, args.restriction_evidence),
+        "preparation_summary": cast(Path, args.preparation_summary),
+        "preparation_config": cast(Path, args.preparation_config),
+        "snapshot_manifest": cast(Path, args.snapshot_manifest),
+    }
+    input_paths = tuple(source_paths.values())
+    _validate_projection_output_scope(output_root, input_paths=input_paths)
+    try:
+        source_bytes = {name: path.read_bytes() for name, path in source_paths.items()}
+    except OSError as exc:
+        raise CommandError(str(exc)) from exc
+    source_sha256 = {
+        name: _bytes_sha256(payload) for name, payload in source_bytes.items()
+    }
+    preparation_summary = _projection_json_object(
+        source_bytes["preparation_summary"],
+        source=source_paths["preparation_summary"],
+    )
+    preparation_config = _projection_json_object(
+        source_bytes["preparation_config"],
+        source=source_paths["preparation_config"],
+    )
+    snapshot_manifest = _projection_json_object(
+        source_bytes["snapshot_manifest"],
+        source=source_paths["snapshot_manifest"],
+    )
+    clearance_run_card = _projection_json_object(
+        source_bytes["clearance_run_card"],
+        source=source_paths["clearance_run_card"],
+    )
+    _projection_jsonl_records(
+        source_bytes["restriction_evidence"],
+        source=source_paths["restriction_evidence"],
+    )
+    _validate_projection_source_commitments(
+        preparation_summary=preparation_summary,
+        preparation_config=preparation_config,
+        snapshot_manifest=snapshot_manifest,
+        clearance_run_card=clearance_run_card,
+        source_paths=source_paths,
+        source_sha256=source_sha256,
+        target_case_count=cast(int, args.target_case_count),
+        cost_per_document_usd=cast(str, args.cost_per_document_usd),
+        max_projected_budget_usd=cast(str, args.max_projected_budget_usd),
+        max_missing_core_documents_per_case=cast(
+            int, args.max_missing_core_documents_per_case
+        ),
+    )
+    try:
+        projection = project_target_cohort(
+            selections=_projection_jsonl_records(
+                source_bytes["selection"], source=source_paths["selection"]
+            ),
+            case_relevance=_projection_jsonl_records(
+                source_bytes["case_relevance"],
+                source=source_paths["case_relevance"],
+            ),
+            download_manifest=_projection_jsonl_records(
+                source_bytes["download_manifest"],
+                source=source_paths["download_manifest"],
+            ),
+            clearance_records=_projection_jsonl_records(
+                source_bytes["disclosure_clearance"],
+                source=source_paths["disclosure_clearance"],
+            ),
+            target_case_count=cast(int, args.target_case_count),
+            cost_per_document_usd=cast(str, args.cost_per_document_usd),
+            max_projected_budget_usd=cast(str, args.max_projected_budget_usd),
+            max_missing_core_documents_per_case=cast(
+                int,
+                args.max_missing_core_documents_per_case,
+            ),
+        )
+    except TargetCohortProjectionError as exc:
+        raise CommandError(str(exc)) from exc
+
+    manifest_records = projection.download_manifest
+    free_manifest = tuple(
+        record
+        for record in manifest_records
+        if record.get("free_or_purchased") == "free"
+    )
+    purchased_manifest = tuple(
+        record
+        for record in manifest_records
+        if record.get("free_or_purchased") == "purchased"
+    )
+    if len(free_manifest) + len(purchased_manifest) != len(manifest_records):
+        raise CommandError(
+            "projected manifest contains an invalid free_or_purchased value"
+        )
+
+    output_records: dict[Path, bytes] = {
+        output_root / "target-cohort-selection.jsonl": _projection_jsonl_bytes(
+            projection.selections
+        ),
+        output_root / "case-relevance.jsonl": _projection_jsonl_bytes(
+            projection.case_relevance
+        ),
+        output_root / "free-document-downloads.jsonl": _projection_jsonl_bytes(
+            free_manifest
+        ),
+        output_root / "purchased-document-downloads.jsonl": (
+            _projection_jsonl_bytes(purchased_manifest)
+        ),
+        output_root / "document-downloads-merged.jsonl": _projection_jsonl_bytes(
+            manifest_records
+        ),
+        output_root / "disclosure-clearance.jsonl": _projection_jsonl_bytes(
+            projection.clearance_records
+        ),
+        output_root / "restriction-evidence.jsonl": _projection_jsonl_bytes(
+            projection.restriction_evidence
+        ),
+        output_root / "core-filter-results.jsonl": _projection_jsonl_bytes(
+            tuple(row.to_record() for row in projection.core_filter_results)
+        ),
+        output_root / "target-cohort-exclusions.jsonl": _projection_jsonl_bytes(
+            projection.exclusions
+        ),
+        output_root / "missing-core-budget-plan.json": _projection_json_bytes(
+            projection.budget_plan.to_record()
+        ),
+    }
+    summary = dict(projection.summary)
+    summary.update(
+        {
+            "snapshot_cycle_hash": snapshot_manifest["cycle_hash"],
+            "snapshot_batch_digest": snapshot_manifest["batch_digest"],
+            "preparation_summary_sha256": source_sha256["preparation_summary"],
+            "preparation_config_sha256": source_sha256["preparation_config"],
+            "snapshot_manifest_sha256": source_sha256["snapshot_manifest"],
+            "clearance_run_card_sha256": source_sha256["clearance_run_card"],
+            "input_commitments": {
+                str(path.resolve()): source_sha256[name]
+                for name, path in source_paths.items()
+            },
+            "output_commitments": {
+                str(path.relative_to(output_root)): "sha256:"
+                + hashlib.sha256(payload).hexdigest()
+                for path, payload in sorted(
+                    output_records.items(),
+                    key=lambda item: str(item[0]),
+                )
+            },
+            "next_stage": "generate-recap-fetch-broker-policy",
+            "next_stage_blocked_until": (
+                "explicit human approval of this post-clearance budget and the "
+                "bounded signed RECAP Fetch broker deployment"
+            ),
+        }
+    )
+    summary_path = output_root / "target-cohort-projection.json"
+    output_records[summary_path] = _projection_json_bytes(summary)
+
+    dry_run = _acquisition_dry_run(args)
+    if not dry_run:
+        for path, payload in output_records.items():
+            _ensure_projection_artifact(
+                path,
+                payload,
+                resume=cast(bool, args.resume),
+            )
+    _write_acquisition_completion(
+        args,
+        stage="project-target-cohort",
+        input_paths=input_paths,
+        output_paths=tuple(output_records),
+        record_count=len(projection.selected_candidate_ids),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "selected_case_count": len(projection.selected_candidate_ids),
+            "excluded_case_count": len(projection.exclusions),
+            "projection_sha256": projection.summary["projection_sha256"],
+            "total_estimated_cost_usd": (
+                projection.budget_plan.total_estimated_cost_usd
+            ),
+        },
+    )
+    return 0
+
+
+def _validate_projection_output_scope(
+    output_root: Path,
+    *,
+    input_paths: Sequence[Path],
+) -> None:
+    output = output_root.resolve()
+    for path in input_paths:
+        source = path.resolve()
+        if (
+            output == source
+            or output.is_relative_to(source)
+            or source.is_relative_to(output)
+        ):
+            raise CommandError(
+                "project-target-cohort output overlaps immutable input: "
+                f"{output} vs {source}"
+            )
+
+
+def _validate_projection_source_commitments(
+    *,
+    preparation_summary: Mapping[str, Any],
+    preparation_config: Mapping[str, Any],
+    snapshot_manifest: Mapping[str, Any],
+    clearance_run_card: Mapping[str, Any],
+    source_paths: Mapping[str, Path],
+    source_sha256: Mapping[str, str],
+    target_case_count: int,
+    cost_per_document_usd: str,
+    max_projected_budget_usd: str,
+    max_missing_core_documents_per_case: int,
+) -> None:
+    if preparation_summary.get("schema_version") != (
+        "legalforecast.target_100_preparation.v1"
+    ):
+        raise CommandError("unsupported prepare-target-100 summary schema")
+    if preparation_summary.get("dry_run") is not False:
+        raise CommandError("projection requires an executed preparation summary")
+    if preparation_summary.get("paid_activity_executed") is not False:
+        raise CommandError("preparation summary unexpectedly claims paid activity")
+    if (
+        preparation_summary.get("budget_status") != "provisional_pre_clearance"
+        or preparation_summary.get("next_stage") != "clear-disclosures"
+    ):
+        raise CommandError("preparation summary is not at the clearance boundary")
+    if preparation_config.get("schema_version") != "legalforecast.target_100_config.v1":
+        raise CommandError("unsupported target-100 preparation config schema")
+    committed_config_sha256 = preparation_config.get("config_sha256")
+    config_payload = dict(preparation_config)
+    config_payload.pop("config_sha256", None)
+    if committed_config_sha256 != _canonical_json_sha256(config_payload):
+        raise CommandError("target-100 preparation config self-hash mismatch")
+    if preparation_summary.get("config_sha256") != committed_config_sha256:
+        raise CommandError("preparation summary config commitment mismatch")
+    if preparation_config.get("driver_execute") is not True:
+        raise CommandError("projection requires an executed target-100 config")
+
+    _validate_projection_semantic_config(
+        preparation_summary=preparation_summary,
+        preparation_config=preparation_config,
+        target_case_count=target_case_count,
+        cost_per_document_usd=cost_per_document_usd,
+        max_projected_budget_usd=max_projected_budget_usd,
+        max_missing_core_documents_per_case=max_missing_core_documents_per_case,
+    )
+
+    expected_snapshot_hash = preparation_summary.get("snapshot_manifest_sha256")
+    if expected_snapshot_hash != source_sha256["snapshot_manifest"]:
+        raise CommandError("preparation summary snapshot commitment mismatch")
+    cycle_hash = snapshot_manifest.get("cycle_hash")
+    batch_digest = snapshot_manifest.get("batch_digest")
+    if not isinstance(cycle_hash, str) or not cycle_hash:
+        raise CommandError("snapshot manifest lacks cycle_hash")
+    if not isinstance(batch_digest, str) or not batch_digest:
+        raise CommandError("snapshot manifest lacks batch_digest")
+    if preparation_summary.get("snapshot_batch_digest") != batch_digest:
+        raise CommandError("preparation summary batch digest mismatch")
+    if (
+        preparation_config.get("snapshot_manifest_sha256")
+        != source_sha256["snapshot_manifest"]
+        or preparation_config.get("snapshot_cycle_hash") != cycle_hash
+        or preparation_config.get("snapshot_batch_digest") != batch_digest
+    ):
+        raise CommandError("target-100 config snapshot commitment mismatch")
+
+    _validate_prepared_stage_commitment(
+        preparation_summary,
+        stage="03-gap-bridge",
+        relative_path="public-packet-selection-reconciled.jsonl",
+        actual_sha256=source_sha256["selection"],
+    )
+    _validate_prepared_stage_commitment(
+        preparation_summary,
+        stage="03-gap-bridge",
+        relative_path="case-relevance.jsonl",
+        actual_sha256=source_sha256["case_relevance"],
+    )
+    _validate_prepared_stage_commitment(
+        preparation_summary,
+        stage="03c-merged-downloads",
+        relative_path="document-downloads-merged.jsonl",
+        actual_sha256=source_sha256["download_manifest"],
+    )
+    _validate_prepared_stage_commitment(
+        preparation_summary,
+        stage="06-clearance-inputs",
+        relative_path="restriction-evidence.jsonl",
+        actual_sha256=source_sha256["restriction_evidence"],
+    )
+    _validate_clearance_run_card_commitments(
+        clearance_run_card,
+        source_paths=source_paths,
+        source_sha256=source_sha256,
+    )
+
+
+def _validate_projection_semantic_config(
+    *,
+    preparation_summary: Mapping[str, Any],
+    preparation_config: Mapping[str, Any],
+    target_case_count: int,
+    cost_per_document_usd: str,
+    max_projected_budget_usd: str,
+    max_missing_core_documents_per_case: int,
+) -> None:
+    exact_values = {
+        "target_case_count": target_case_count,
+        "max_missing_core_documents_per_case": max_missing_core_documents_per_case,
+    }
+    for field, actual in exact_values.items():
+        if (
+            preparation_config.get(field) != actual
+            or preparation_summary.get(field) != actual
+        ):
+            raise CommandError(f"projection {field} differs from prepared config")
+    money_values = {
+        "cost_per_document_usd": cost_per_document_usd,
+        "max_projected_budget_usd": max_projected_budget_usd,
+    }
+    for field, actual in money_values.items():
+        try:
+            actual_decimal = Decimal(actual)
+            config_decimal = Decimal(str(preparation_config.get(field)))
+            summary_decimal = Decimal(str(preparation_summary.get(field)))
+        except InvalidOperation as exc:
+            raise CommandError(f"projection {field} is invalid") from exc
+        if actual_decimal != config_decimal or actual_decimal != summary_decimal:
+            raise CommandError(f"projection {field} differs from prepared config")
+
+
+def _validate_prepared_stage_commitment(
+    preparation_summary: Mapping[str, Any],
+    *,
+    stage: str,
+    relative_path: str,
+    actual_sha256: str,
+) -> None:
+    stages = preparation_summary.get("stage_commitments")
+    if not isinstance(stages, Mapping):
+        raise CommandError("preparation summary lacks stage commitments")
+    stage_record = cast(Mapping[str, object], stages).get(stage)
+    if not isinstance(stage_record, Mapping):
+        raise CommandError(f"preparation summary lacks {stage} commitment")
+    if cast(Mapping[str, object], stage_record).get(relative_path) != actual_sha256:
+        raise CommandError(f"prepared {stage}/{relative_path} commitment mismatch")
+
+
+def _validate_clearance_run_card_commitments(
+    run_card: Mapping[str, Any],
+    *,
+    source_paths: Mapping[str, Path],
+    source_sha256: Mapping[str, str],
+) -> None:
+    if (
+        run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or run_card.get("stage") != "clear-disclosures"
+        or run_card.get("status") != "completed"
+        or run_card.get("dry_run") is not False
+        or run_card.get("execute") is not True
+        or run_card.get("paid_activity_executed") is not False
+    ):
+        raise CommandError("projection requires an executed clear-disclosures run card")
+    source_commitments = run_card.get("source_commitments")
+    output_commitments = run_card.get("output_commitments")
+    if not isinstance(source_commitments, Mapping) or not isinstance(
+        output_commitments, Mapping
+    ):
+        raise CommandError("clear-disclosures run card lacks commitments")
+    for card_name, source_name in (
+        ("download_manifest", "download_manifest"),
+        ("restriction_evidence", "restriction_evidence"),
+    ):
+        _validate_named_path_commitment(
+            cast(Mapping[str, object], source_commitments),
+            name=card_name,
+            expected_path=source_paths[source_name],
+            expected_sha256=source_sha256[source_name],
+        )
+    _validate_named_path_commitment(
+        cast(Mapping[str, object], output_commitments),
+        name="disclosure_clearance",
+        expected_path=source_paths["disclosure_clearance"],
+        expected_sha256=source_sha256["disclosure_clearance"],
+    )
+    for name in ("reviews", "review_receipt"):
+        commitment = cast(Mapping[str, object], source_commitments).get(name)
+        if not isinstance(commitment, Mapping) or not _valid_prefixed_sha256(
+            cast(Mapping[str, object], commitment).get("sha256")
+        ):
+            raise CommandError(f"clear-disclosures run card lacks {name} commitment")
+    authority = run_card.get("review_authority")
+    if not isinstance(authority, Mapping):
+        raise CommandError("clear-disclosures run card lacks review authority")
+    authority_record = cast(Mapping[str, object], authority)
+    for field in (
+        "reviewer_id",
+        "controlled_store_uri",
+        "authentication_method",
+        "authenticated_at",
+    ):
+        value = authority_record.get(field)
+        if not isinstance(value, str) or not value:
+            raise CommandError(
+                "clear-disclosures run card has invalid review authority"
+            )
+    if not cast(str, authority_record["controlled_store_uri"]).startswith(
+        "private-store://"
+    ) or authority_record["authentication_method"] not in {
+        "cloudflare_access_oidc",
+        "controlled_store_service_identity",
+        "github_verified_signature",
+    }:
+        raise CommandError("clear-disclosures run card has invalid review authority")
+    reviews_commitment = cast(
+        Mapping[str, object],
+        cast(Mapping[str, object], source_commitments)["reviews"],
+    )
+    if authority_record.get("review_artifact_sha256") != reviews_commitment.get(
+        "sha256"
+    ):
+        raise CommandError("clear-disclosures review authority hash mismatch")
+
+
+def _validate_named_path_commitment(
+    commitments: Mapping[str, object],
+    *,
+    name: str,
+    expected_path: Path,
+    expected_sha256: str,
+) -> None:
+    commitment = commitments.get(name)
+    if not isinstance(commitment, Mapping):
+        raise CommandError(f"clear-disclosures run card lacks {name} commitment")
+    record = cast(Mapping[str, object], commitment)
+    if (
+        record.get("path") != str(expected_path.resolve())
+        or record.get("sha256") != expected_sha256
+    ):
+        raise CommandError(f"clear-disclosures {name} commitment mismatch")
+
+
+def _valid_prefixed_sha256(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and re.fullmatch(r"sha256:[0-9a-f]{64}", value) is not None
+    )
+
+
+def _projection_jsonl_bytes(records: Iterable[Mapping[str, Any]]) -> bytes:
+    return "".join(
+        f"{json.dumps(dict(record), sort_keys=True, allow_nan=False)}\n"
+        for record in records
+    ).encode("utf-8")
+
+
+def _projection_jsonl_records(payload: bytes, *, source: Path) -> list[JsonRecord]:
+    records: list[JsonRecord] = []
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise CommandError(f"projection input is not UTF-8: {source}") from exc
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            loaded = _loads_json(line)
+        except ValueError as exc:
+            raise CommandError(
+                f"projection input has invalid JSON: {source}:{line_number}"
+            ) from exc
+        if not isinstance(loaded, Mapping):
+            raise CommandError(
+                f"projection input must contain JSON objects: {source}:{line_number}"
+            )
+        records.append(dict(cast(Mapping[str, Any], loaded)))
+    return records
+
+
+def _projection_json_object(payload: bytes, *, source: Path) -> JsonRecord:
+    try:
+        loaded = _loads_json(payload.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise CommandError(
+            f"projection input has invalid JSON object: {source}"
+        ) from exc
+    if not isinstance(loaded, Mapping):
+        raise CommandError(f"projection input must be a JSON object: {source}")
+    return dict(cast(Mapping[str, Any], loaded))
+
+
+def _bytes_sha256(payload: bytes) -> str:
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _projection_json_bytes(payload: Mapping[str, Any]) -> bytes:
+    return (
+        json.dumps(dict(payload), indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode("utf-8")
+
+
+def _ensure_projection_artifact(path: Path, payload: bytes, *, resume: bool) -> None:
+    if path.exists():
+        if not resume:
+            raise CommandError(f"project-target-cohort output already exists: {path}")
+        if path.is_symlink() or not path.is_file() or path.read_bytes() != payload:
+            raise CommandError(
+                f"project-target-cohort resume artifact mismatch: {path}"
+            )
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if temporary_path is not None and temporary_path.exists():
+            temporary_path.unlink()
 
 
 def _target_100_protected_scopes(
@@ -5156,8 +5899,12 @@ def _target_100_stage_commitments(output_root: Path) -> JsonRecord:
         "01-public-plan",
         "02-free-download",
         "03-gap-bridge",
+        "03b-bridge-free-download",
+        "03c-merged-downloads",
         "04-core-filter",
         "05-budget",
+        "06-clearance-inputs",
+        "documents",
     ):
         stage_root = output_root / stage_name
         commitments[stage_name] = {
@@ -5190,7 +5937,18 @@ def _target_100_stage_input_commitments(
             output_root / "02-free-download/free-document-downloads.jsonl",
         ),
         "04-core-filter": (output_root / "03-gap-bridge/case-relevance.jsonl",),
+        "03b-bridge-free-download": (
+            output_root / "03-gap-bridge/pacer-gap-free-document-requests.jsonl",
+        ),
+        "03c-merged-downloads": (
+            output_root / "02-free-download/free-document-downloads.jsonl",
+            output_root / "03b-bridge-free-download/free-document-downloads.jsonl",
+        ),
         "05-budget": (output_root / "04-core-filter/core-filter-results.jsonl",),
+        "06-clearance-inputs": (
+            output_root / "03-gap-bridge/case-relevance.jsonl",
+            output_root / "03c-merged-downloads/document-downloads-merged.jsonl",
+        ),
     }
     if config.courtlistener_fixture is not None:
         paths["03-gap-bridge"] += (config.courtlistener_fixture,)
@@ -11455,9 +12213,42 @@ def _cmd_acquisition_disclosure_clearance(args: argparse.Namespace) -> int:
         raise CommandError(str(exc)) from exc
     clearance_rows = [record.to_record() for record in records]
     quarantined = [row for row in clearance_rows if row["status"] != "cleared"]
-    if not _acquisition_dry_run(args):
+    dry_run = _acquisition_dry_run(args)
+    if not dry_run:
         _write_jsonl(clearance_path, clearance_rows)
         _write_jsonl(quarantine_path, quarantined)
+    source_commitments = {
+        "download_manifest": {
+            "path": str(manifest_path.resolve()),
+            "sha256": _path_sha256(manifest_path),
+        },
+        "reviews": {
+            "path": str(reviews_path.resolve()),
+            "sha256": _path_sha256(reviews_path),
+        },
+        "review_receipt": {
+            "path": str(review_receipt_path.resolve()),
+            "sha256": _path_sha256(review_receipt_path),
+        },
+        "restriction_evidence": {
+            "path": str(restriction_path.resolve()),
+            "sha256": _path_sha256(restriction_path),
+        },
+    }
+    output_commitments = (
+        {}
+        if dry_run
+        else {
+            "disclosure_clearance": {
+                "path": str(clearance_path.resolve()),
+                "sha256": _path_sha256(clearance_path),
+            },
+            "disclosure_quarantine": {
+                "path": str(quarantine_path.resolve()),
+                "sha256": _path_sha256(quarantine_path),
+            },
+        }
+    )
     _write_acquisition_completion(
         args,
         stage="clear-disclosures",
@@ -11470,10 +12261,23 @@ def _cmd_acquisition_disclosure_clearance(args: argparse.Namespace) -> int:
         ),
         output_paths=(clearance_path, quarantine_path),
         record_count=len(records),
-        dry_run=_acquisition_dry_run(args),
+        dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
-        extra={"quarantined_document_count": len(quarantined)},
+        extra={
+            "quarantined_document_count": len(quarantined),
+            "source_commitments": source_commitments,
+            "output_commitments": output_commitments,
+            "review_authority": {
+                "reviewer_id": review_authority.reviewer_id,
+                "controlled_store_uri": review_authority.controlled_store_uri,
+                "authentication_method": review_authority.authentication_method,
+                "authenticated_at": review_authority.authenticated_at,
+                "review_artifact_sha256": (
+                    "sha256:" + review_authority.review_artifact_sha256
+                ),
+            },
+        },
     )
     return 0
 

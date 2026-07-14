@@ -1,9 +1,10 @@
-"""Canonical noncharging preparation commands for a 100-case acquisition.
+"""Canonical noncharging preparation commands for a target-100 tranche.
 
 Discovery and strict screening remain provider-specific, durable phases.  This
 module begins at their common, immutable boundary: a complete saturated
-snapshot.  It composes only noncharging stages and deliberately has no paid
-purchase operation.
+snapshot. It composes only noncharging stages, produces a provisional
+pre-clearance budget, and deliberately has no paid purchase operation. The
+exact cohort is projected only after authenticated disclosure clearance.
 """
 
 from __future__ import annotations
@@ -82,6 +83,8 @@ def build_target_100_stage_commands(
     public_plan_root = root / "01-public-plan"
     free_download_root = root / "02-free-download"
     bridge_root = root / "03-gap-bridge"
+    bridge_free_download_root = root / "03b-bridge-free-download"
+    merged_download_root = root / "03c-merged-downloads"
     filter_root = root / "04-core-filter"
     budget_root = root / "05-budget"
     resume_flag = "--resume" if config.resume else "--no-resume"
@@ -116,6 +119,8 @@ def build_target_100_stage_commands(
         resume_flag,
         "--requests",
         str(public_plan_root / "free-document-requests.jsonl"),
+        "--document-output-root",
+        str(root / "documents/free"),
     ]
     if config.live_public_download:
         download_free.append("--live-public-download")
@@ -162,6 +167,39 @@ def build_target_100_stage_commands(
         assert config.courtlistener_fixture is not None
         bridge.extend(("--courtlistener-fixture", str(config.courtlistener_fixture)))
 
+    download_bridge_free = [
+        "acquisition",
+        "download-free",
+        "--output-root",
+        str(bridge_free_download_root),
+        "--execute",
+        resume_flag,
+        "--requests",
+        str(bridge_root / "pacer-gap-free-document-requests.jsonl"),
+        "--document-output-root",
+        str(root / "documents/free"),
+    ]
+    if config.live_public_download:
+        download_bridge_free.append("--live-public-download")
+    else:
+        assert config.fixture_documents is not None
+        download_bridge_free.extend(
+            ("--fixture-documents", str(config.fixture_documents))
+        )
+
+    merge_free_downloads = (
+        "acquisition",
+        "merge-download-manifests",
+        "--output-root",
+        str(merged_download_root),
+        "--execute",
+        resume_flag,
+        "--download-manifest",
+        str(free_download_root / "free-document-downloads.jsonl"),
+        "--download-manifest",
+        str(bridge_free_download_root / "free-document-downloads.jsonl"),
+    )
+
     filter_core = (
         "acquisition",
         "filter-core-documents",
@@ -195,6 +233,11 @@ def build_target_100_stage_commands(
         Target100StageCommand("plan-public-downloads", tuple(public_plan)),
         Target100StageCommand("download-free", tuple(download_free)),
         Target100StageCommand("bridge-pacer-gaps", tuple(bridge)),
+        Target100StageCommand(
+            "download-bridge-free",
+            tuple(download_bridge_free),
+        ),
+        Target100StageCommand("merge-free-downloads", merge_free_downloads),
         Target100StageCommand("filter-core-documents", filter_core),
         Target100StageCommand("plan", budget),
     )
