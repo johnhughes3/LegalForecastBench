@@ -446,9 +446,10 @@ def referenced_entry_numbers(text: str) -> set[int]:
 def courtlistener_relationship_entry_numbers(text: str) -> set[int]:
     """Return only entry numbers in CourtListener relationship annotations.
 
-    These narrow forms are safe for fetching or promoting an otherwise generic
-    row. Broader docket and bracket citations remain useful for linking already
-    classified motions, but do not prove that a generic row is the target.
+    These narrow forms support bounded fetching and coupling only. They never
+    promote a generic row to a motion role. Broader docket and bracket citations
+    remain useful for linking already classified motions, but likewise do not
+    prove that a generic row is the target.
     """
 
     numbers: set[int] = set()
