@@ -83,6 +83,10 @@ _COURTLISTENER_REST_FREE_RESTRICTION_EVIDENCE = (
     "courtlistener_rest_recap_document_is_sealed_false",
     "courtlistener_rest_public_download_url_allowlisted",
 )
+_CASE_DEV_FREE_RESTRICTION_EVIDENCE = (
+    "courtlistener_docket_entry_checked",
+    "case_dev_entry_and_document_checked",
+)
 _RESTRICTED_STATUS_VALUES = frozenset({"private", "restricted", "sealed", "under_seal"})
 _PAID_GAP_ROLES = {
     "no_free_operative_complaint": frozenset(
@@ -496,6 +500,7 @@ def bridge_public_plan_paid_gaps(
     relevance: list[Mapping[str, Any]] = [
         _public_case_relevance(record) for record in public_selections
     ]
+    free_requests: list[FreeDocumentDownloadRequest] = []
     exclusions: list[Mapping[str, Any]] = []
     for gap in paid_gaps:
         candidate_id = _required_str(gap, "candidate_id")
@@ -534,6 +539,7 @@ def bridge_public_plan_paid_gaps(
             continue
         selections.append(selection)
         relevance.append(case_relevance)
+        free_requests.extend(bridge_free_download_requests_from_selection(selection))
     selected_ids = {_required_str(record, "candidate_id") for record in selections}
     excluded_ids = {_required_str(record, "candidate_id") for record in exclusions}
     overlap = selected_ids & excluded_ids
@@ -544,7 +550,7 @@ def bridge_public_plan_paid_gaps(
     return CourtListenerCaseDevBridgeResult(
         selection_records=tuple(selections),
         case_relevance_records=tuple(relevance),
-        free_download_requests=(),
+        free_download_requests=tuple(free_requests),
         exclusions=tuple(exclusions),
         screened_case_count=len(public_selections) + len(paid_gaps),
         public_first_reconciled=True,
@@ -831,14 +837,21 @@ def bridge_free_download_requests_from_selection(
             and document.get("requires_paid_recovery") is True
         ):
             continue
+        restriction_evidence = _string_sequence(document.get("restriction_evidence"))
+        rest_evidence_valid = (
+            restriction_evidence == _COURTLISTENER_REST_FREE_RESTRICTION_EVIDENCE
+            and document.get("is_sealed") is False
+        )
+        case_dev_evidence_valid = (
+            restriction_evidence == _CASE_DEV_FREE_RESTRICTION_EVIDENCE
+            and document.get("is_sealed") is None
+        )
         if (
             document.get("availability_status") != "available"
             or document.get("requires_paid_recovery") is not False
             or _required_str(document, "source_provider") != "courtlistener"
             or document.get("redaction_or_seal_status") != "public"
-            or document.get("is_sealed") is not False
-            or _string_sequence(document.get("restriction_evidence"))
-            != _COURTLISTENER_REST_FREE_RESTRICTION_EVIDENCE
+            or not (rest_evidence_valid or case_dev_evidence_valid)
         ):
             raise CourtListenerCaseDevBridgeError(
                 f"bridge_free_document_evidence_invalid: {candidate_id}"
@@ -864,13 +877,21 @@ def bridge_free_download_requests_from_selection(
             raise CourtListenerCaseDevBridgeError(
                 f"bridge_free_document_url_invalid: {candidate_id}/{source_document_id}"
             )
+        role_value = _required_str(document, "document_role")
+        try:
+            document_role = DocumentRole(role_value)
+        except ValueError as exc:
+            raise CourtListenerCaseDevBridgeError(
+                "bridge_free_document_role_invalid: "
+                f"{candidate_id}/{source_document_id}/{role_value}"
+            ) from exc
         requests.append(
             FreeDocumentDownloadRequest(
                 candidate_id=candidate_id,
                 source_provider="courtlistener",
                 source_document_id=source_document_id,
                 docket_entry_number=entry_number,
-                document_role=DocumentRole(_required_str(document, "document_role")),
+                document_role=document_role,
                 source_url=source_url,
                 file_extension="pdf",
             )

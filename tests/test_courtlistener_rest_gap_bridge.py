@@ -886,6 +886,8 @@ def test_courtlistener_rest_bridge_recovers_gap_that_became_public() -> None:
         "https://www.courtlistener.com/api/rest/v4/recap-documents/9005/",
         "https://www.courtlistener.com/recap/newly free motion.pdf",
         "https://www.courtlistener.com/recap/newly-free-motion.pdf#fragment",
+        "https://www.courtlistener.com/recap/newly-free-motion.pdf?download=1",
+        "https://www.courtlistener.com/recap/newly-free-motion.pdf;download",
         "https://storage.courtlistener.com/not-a-pdf",
     ),
 )

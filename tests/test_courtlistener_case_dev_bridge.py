@@ -14,6 +14,7 @@ from legalforecast.ingestion.courtlistener_case_dev_bridge import (
     CourtListenerCaseDevBridgeError,
     CourtListenerCaseDevBridgeResult,
     bridge_courtlistener_case_dev_documents,
+    bridge_free_download_requests_from_selection,
     bridge_public_plan_paid_gaps,
     merge_download_manifest_records,
 )
@@ -107,6 +108,33 @@ def test_legacy_bridge_does_not_treat_available_urls_as_ready_bytes() -> None:
     )
     assert result.document_bytes_ready_case_count == 0
     assert result.summary_record()["document_bytes_ready_case_count"] == 0
+
+
+def test_free_download_request_role_tampering_fails_as_bridge_error() -> None:
+    result = bridge_courtlistener_case_dev_documents(
+        (_screened_case(),),
+        client=_client(
+            _search_response(_case_dev_docket()),
+            _lookup_response(),
+        ),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+    selection = copy.deepcopy(result.selection_records[0])
+    documents = selection["documents"]
+    assert isinstance(documents, list)
+    free_document = next(
+        document
+        for document in documents
+        if document.get("requires_paid_recovery") is False
+    )
+    free_document["document_role"] = "tampered_role"
+
+    with pytest.raises(
+        CourtListenerCaseDevBridgeError,
+        match="bridge_free_document_role_invalid",
+    ):
+        bridge_free_download_requests_from_selection(selection)
 
 
 def test_bridge_does_not_replace_pre_target_complaint_with_later_order() -> None:
@@ -374,6 +402,64 @@ def test_public_first_bridge_routes_only_paid_gap_and_retains_free_ids() -> None
     [core_filter] = filter_core_documents((relevance,))
     assert core_filter.purchase_document_ids == ("case-dev-mtd",)
     assert core_filter.exclusion_reasons == ()
+
+
+def test_public_first_case_dev_bridge_recovers_gap_that_became_free() -> None:
+    screened = _screened_case()
+    public_plan = plan_public_packet_downloads(
+        (screened,), use_embedded_entries=True, target_clean_cases=1
+    )
+    [gap] = public_plan.paid_gap_cases
+    downloads = tuple(
+        {
+            **request.to_record(),
+            "local_path": f"cl-123/courtlistener/{request.source_document_id}.pdf",
+            "sha256": "a" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in public_plan.download_requests
+    )
+    entries = screened["selected_entries"]
+    assert isinstance(entries, list)
+    motion = entries[1]
+    assert isinstance(motion, dict)
+    motion_documents = motion["documents"]
+    assert isinstance(motion_documents, list)
+    motion_document = motion_documents[0]
+    assert isinstance(motion_document, dict)
+    motion_document.update(
+        {
+            "href": "https://storage.courtlistener.com/newly-free-motion.pdf",
+            "action_label": "Download PDF",
+            "pacer_only": False,
+        }
+    )
+
+    result = bridge_public_plan_paid_gaps(
+        (screened,),
+        public_selection_records=(),
+        paid_gap_records=(gap.to_record(),),
+        free_download_records=downloads,
+        client=_client(_search_response(_case_dev_docket()), _lookup_response()),
+        use_embedded_entries=True,
+    )
+
+    assert result.exclusions == ()
+    assert result.paid_document_count == 0
+    assert result.document_bytes_ready_case_count == 0
+    [selection] = result.selection_records
+    assert selection["planning_status"] == "free_recovery_required"
+    assert [request.to_record() for request in result.free_download_requests] == [
+        {
+            "candidate_id": "cl-123",
+            "document_role": "motion_to_dismiss_memorandum",
+            "docket_entry_number": 5,
+            "file_extension": "pdf",
+            "source_document_id": "case-dev-mtd",
+            "source_provider": "courtlistener",
+            "source_url": ("https://storage.courtlistener.com/newly-free-motion.pdf"),
+        }
+    ]
 
 
 def test_bridge_summary_distinguishes_three_identity_resolutions_from_recovery() -> (

@@ -751,6 +751,8 @@ def public_recap_download_url(value: str) -> str | None:
         or parsed.password is not None
         or port not in {None, 443}
         or bool(parsed.fragment)
+        or bool(parsed.query)
+        or bool(parsed.params)
     ):
         return None
     path = parsed.path
