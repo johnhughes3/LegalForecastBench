@@ -96,6 +96,9 @@ class RecapFetchTransport(Protocol):
 class RecapFetchPurchaseBroker(Protocol):
     """Budget-enforcing custody boundary for the PACER credentialed POST."""
 
+    @property
+    def paid_dispatch_count(self) -> int: ...
+
     def submit(self, request: Mapping[str, str]) -> Mapping[str, Any]: ...
 
     def receipt(self, operation_key: str) -> Mapping[str, Any]: ...
@@ -181,6 +184,12 @@ class FixtureRecapFetchPurchaseBroker:
     def __init__(self, responses: Sequence[Mapping[str, Any]]) -> None:
         self._responses = list(responses)
         self.requests: list[dict[str, str]] = []
+
+    @property
+    def paid_dispatch_count(self) -> int:
+        """Offline fixtures never cross a charge-bearing transport boundary."""
+
+        return 0
 
     def submit(self, request: Mapping[str, str]) -> Mapping[str, Any]:
         self.requests.append(dict(request))
@@ -280,7 +289,14 @@ class CourtListenerRecapFetchClient:
         self.purchase_broker = purchase_broker
         self.poll_attempts = poll_attempts
         self.poll_backoff_seconds = poll_backoff_seconds
-        self.paid_request_count = 0
+
+    @property
+    def paid_request_count(self) -> int:
+        """Return only broker-confirmed charge-bearing transport dispatches."""
+
+        if self.purchase_broker is None:
+            return 0
+        return self.purchase_broker.paid_dispatch_count
 
     def execute_purchase_plan(
         self,
@@ -396,7 +412,6 @@ class CourtListenerRecapFetchClient:
             "reservation_usd": str(evidence["reservation_usd"]),
         }
         try:
-            self.paid_request_count += 1
             response = self.purchase_broker.submit(broker_request)
         except ValueError as exc:
             self.journal.fail_before_dispatch(document_id, exc)
@@ -489,6 +504,10 @@ class CourtListenerRecapFetchClient:
                 )
             try:
                 receipt = self.purchase_broker.receipt(operation_key)
+            except BrokerDefiniteRejection as exc:
+                raise CourtListenerRecapFetchError(
+                    f"purchase broker rejected receipt recovery: {exc.code}"
+                ) from exc
             except (BrokerOutcomeUnknown, CourtListenerRecapFetchOutcomeUnknown):
                 continue
             self.apply_broker_receipt(document_id, receipt)

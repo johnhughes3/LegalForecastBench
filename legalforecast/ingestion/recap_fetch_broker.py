@@ -249,6 +249,13 @@ class SignedRecapFetchPurchaseBroker:
         self._transport = transport or UrlLibBrokerTransport()
         self._clock_ms = clock_ms or (lambda: time.time_ns() // 1_000_000)
         self._nonce = nonce or (lambda: _b64(secrets.token_bytes(18)))
+        self._paid_dispatch_count = 0
+
+    @property
+    def paid_dispatch_count(self) -> int:
+        """Count charge-bearing submissions that reached the transport boundary."""
+
+        return self._paid_dispatch_count
 
     def submit(self, request: Mapping[str, str]) -> Mapping[str, Any]:
         """Submit canonical purchase bytes exactly once."""
@@ -312,6 +319,8 @@ class SignedRecapFetchPurchaseBroker:
             "x-secure-gate-action": action,
             "x-secure-gate-identity-policy-sha256": self.config.identity_policy_sha256,
         }
+        if action == "recap-fetch-submit":
+            self._paid_dispatch_count += 1
         response = self._transport.request(
             method="POST",
             url=f"{self.config.broker_url}{path}",

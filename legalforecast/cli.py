@@ -10130,7 +10130,9 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                 output_paths=(output_path, ledger_path),
                 reason=str(exc),
                 paid_activity_requested=live_purchase,
-                paid_activity_executed=client.paid_request_count > 0,
+                paid_activity_executed=(
+                    live_purchase and client.paid_request_count > 0
+                ),
             )
             raise CommandError(str(exc)) from exc
         paid_executed = live_purchase and client.paid_request_count > 0

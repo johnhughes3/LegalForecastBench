@@ -102,6 +102,22 @@ def test_signs_exact_canonical_six_field_submission_and_nine_field_domain() -> N
     )
 
 
+def test_local_signing_validation_does_not_count_or_dispatch_paid_request() -> None:
+    transport = _Transport()
+    _, jwk = _key()
+    broker = SignedRecapFetchPurchaseBroker(
+        _config(jwk),
+        transport=transport,
+        nonce=lambda: "invalid nonce",
+    )
+
+    with pytest.raises(ValueError, match="timestamp or nonce"):
+        broker.submit(_request())
+
+    assert broker.paid_dispatch_count == 0
+    assert transport.requests == []
+
+
 def test_receipt_signs_empty_body_and_validates_exact_schema() -> None:
     receipt = _receipt()
     transport = _Transport(

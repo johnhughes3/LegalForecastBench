@@ -14,10 +14,10 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
 from legalforecast.cli import main
 from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseJournal,
     generate_case_dev_purchase_policy,
 )
 from legalforecast.ingestion.free_document_downloader import FreeDocumentFetch
-from legalforecast.ingestion.recap_fetch_broker import BrokerRawResponse
 from legalforecast.unitization.review import apply_unitization_reviews
 from pytest import CaptureFixture, MonkeyPatch
 
@@ -314,7 +314,7 @@ def test_recap_fetch_live_purchase_wires_signed_broker_without_pacer_credentials
     plan_path, selection_path = _write_recap_fetch_inputs(tmp_path, output_root)
     policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
     broker_transport = _BrokerTransport(
-        BrokerRawResponse(
+        recap_broker.BrokerRawResponse(
             201,
             b'{"reservation_id":"reservation-1","id":"77"}',
             {"content-type": "application/json"},
@@ -451,6 +451,191 @@ def test_recap_fetch_live_purchase_missing_config_fails_before_journal_or_http(
     assert "RECAP_FETCH_BROKER_PRIVATE_KEY_JWK" in error
     assert not ledger_path.exists()
     assert not (output_root / "courtlistener-recap-fetch-purchases.json").exists()
+
+
+def test_recap_fetch_live_rejects_offline_fixtures_before_ledger(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    output_root = tmp_path / "acquisition"
+    plan_path, selection_path = _write_recap_fetch_inputs(tmp_path, output_root)
+    policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+    courtlistener_fixture = tmp_path / "courtlistener.jsonl"
+    broker_fixture = tmp_path / "broker.json"
+    _write_jsonl(courtlistener_fixture, [])
+    _write_json(broker_fixture, [])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "purchase-missing-recap-fetch",
+                "--budget-plan",
+                str(plan_path),
+                "--selection",
+                str(selection_path),
+                "--purchase-policy",
+                str(policy_path),
+                "--cohort-policy",
+                str(cohort_path),
+                "--purchase-ledger",
+                str(ledger_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--live-purchase",
+                "--acknowledge-pacer-fees",
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--purchase-broker-fixture",
+                str(broker_fixture),
+            ]
+        )
+        == 2
+    )
+
+    assert "cannot be combined with offline fixtures" in capsys.readouterr().err
+    assert not ledger_path.exists()
+
+
+def test_recap_fetch_offline_failure_never_records_paid_activity(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    plan_path, selection_path = _write_recap_fetch_inputs(tmp_path, output_root)
+    policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+    courtlistener_fixture = tmp_path / "courtlistener.jsonl"
+    broker_fixture = tmp_path / "broker.json"
+    _write_jsonl(
+        courtlistener_fixture,
+        [
+            {
+                "method": "GET",
+                "path": "/recap-documents/123/",
+                "status_code": 200,
+                "payload": {"id": 123},
+            }
+        ],
+    )
+    _write_json(
+        broker_fixture,
+        [{"reservation_id": "reservation-1", "id": "77"}],
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "purchase-missing-recap-fetch",
+                "--budget-plan",
+                str(plan_path),
+                "--selection",
+                str(selection_path),
+                "--purchase-policy",
+                str(policy_path),
+                "--cohort-policy",
+                str(cohort_path),
+                "--purchase-ledger",
+                str(ledger_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--acknowledge-pacer-fees",
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--purchase-broker-fixture",
+                str(broker_fixture),
+            ]
+        )
+        == 2
+    )
+
+    run_card = _read_json(
+        output_root / "run-cards" / "purchase-missing-recap-fetch.json"
+    )
+    assert run_card["paid_activity_requested"] is False
+    assert run_card["paid_activity_executed"] is False
+
+
+@pytest.mark.parametrize(
+    ("status_code", "error_code"),
+    [
+        (401, "machine_auth_required"),
+        (409, "policy_not_active"),
+        (503, "broker_unavailable"),
+    ],
+)
+def test_recap_fetch_live_receipt_rejection_is_clean_nonpaid_failure(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+    status_code: int,
+    error_code: str,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    plan_path, selection_path = _write_recap_fetch_inputs(tmp_path, output_root)
+    policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+    policy = cli.verify_case_dev_purchase_policy(_read_json(policy_path))
+    plan = cli._missing_core_budget_plan(_read_json(plan_path))
+    with CaseDevPurchaseJournal(ledger_path, policy=policy) as journal:
+        journal.plan(plan)
+        assert journal.submit("123")
+        journal.mark_unknown("123", "prior ambiguous submission")
+        operation = journal.operation_evidence("123")
+        assert operation is not None
+        operation_key = str(operation["operation_key"])
+    broker_transport = _BrokerTransport(
+        recap_broker.BrokerRawResponse(
+            status_code,
+            json.dumps(
+                {"error": {"code": error_code, "message": "rejected"}},
+                separators=(",", ":"),
+            ).encode(),
+            {"content-type": "application/json"},
+        )
+    )
+    monkeypatch.setattr(recap_broker, "UrlLibBrokerTransport", lambda: broker_transport)
+    for name, value in _recap_fetch_broker_env().items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("COURTLISTENER_API_TOKEN", "fixture-token")
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "purchase-missing-recap-fetch",
+                "--budget-plan",
+                str(plan_path),
+                "--selection",
+                str(selection_path),
+                "--purchase-policy",
+                str(policy_path),
+                "--cohort-policy",
+                str(cohort_path),
+                "--purchase-ledger",
+                str(ledger_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--live-purchase",
+                "--acknowledge-pacer-fees",
+            ]
+        )
+        == 2
+    )
+
+    error = capsys.readouterr().err
+    assert f"purchase broker rejected receipt recovery: {error_code}" in error
+    assert "Traceback" not in error
+    assert len(broker_transport.requests) == 1
+    assert broker_transport.requests[0][1].endswith(f"/v1/receipts/{operation_key}")
+    run_card = _read_json(
+        output_root / "run-cards" / "purchase-missing-recap-fetch.json"
+    )
+    assert run_card["paid_activity_requested"] is True
+    assert run_card["paid_activity_executed"] is False
+    with CaseDevPurchaseJournal(ledger_path, policy=policy) as journal:
+        assert journal.statuses() == {"123": "unknown"}
 
 
 def test_core_filter_purchase_and_recovery_flow_builds_parser_requests(
@@ -1671,7 +1856,7 @@ def _write_purchase_policy(tmp_path: Path) -> tuple[Path, Path, Path]:
 
 
 class _BrokerTransport:
-    def __init__(self, *responses: BrokerRawResponse) -> None:
+    def __init__(self, *responses: recap_broker.BrokerRawResponse) -> None:
         self.responses = list(responses)
         self.requests: list[tuple[str, str, bytes, dict[str, str]]] = []
 
@@ -1683,7 +1868,7 @@ class _BrokerTransport:
         body: bytes,
         headers: Mapping[str, str],
         timeout_seconds: float,
-    ) -> BrokerRawResponse:
+    ) -> recap_broker.BrokerRawResponse:
         del timeout_seconds
         self.requests.append((method, url, body, dict(headers)))
         return self.responses.pop(0)
