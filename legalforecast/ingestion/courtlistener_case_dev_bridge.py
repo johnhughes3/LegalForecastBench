@@ -189,20 +189,66 @@ class CourtListenerCaseDevBridgeResult:
 
     @property
     def paid_document_count(self) -> int:
+        """Legacy count of documents whose bytes still require paid recovery."""
+
         return sum(
             document.get("requires_paid_recovery") is True
             for record in self.case_relevance_records
             for document in _mapping_sequence(record.get("documents"), "documents")
         )
 
+    @property
+    def paid_recovery_required_case_count(self) -> int:
+        return sum(
+            any(
+                document.get("requires_paid_recovery") is True
+                for document in _mapping_sequence(record.get("documents"), "documents")
+            )
+            for record in self.case_relevance_records
+        )
+
+    @property
+    def identity_resolved_paid_gap_case_count(self) -> int:
+        return sum(
+            record.get("identity_resolution_status") == "resolved"
+            and record.get("document_recovery_status") == "paid_recovery_required"
+            for record in self.selection_records
+        )
+
+    @property
+    def document_bytes_ready_case_count(self) -> int:
+        # The legacy bridge runs before download-free and only proves that a
+        # public URL exists. The public-first route validates its completed
+        # free-download manifest before constructing this result.
+        if not self.public_first_reconciled:
+            return 0
+
+        def bytes_ready(record: Mapping[str, Any]) -> bool:
+            documents = _mapping_sequence(record.get("documents"), "documents")
+            return bool(documents) and all(
+                document.get("availability_status") == "available"
+                and document.get("requires_paid_recovery") is not True
+                for document in documents
+            )
+
+        return sum(bytes_ready(record) for record in self.case_relevance_records)
+
     def summary_record(self) -> dict[str, Any]:
         return {
-            "schema_version": "legalforecast.courtlistener_case_dev_bridge.v1",
+            "schema_version": "legalforecast.courtlistener_case_dev_bridge.v2",
             "screened_case_count": self.screened_case_count,
             "selected_case_count": self.selected_case_count,
             "excluded_case_count": len(self.exclusions),
             "free_download_request_count": len(self.free_download_requests),
             "paid_document_count": self.paid_document_count,
+            "paid_recovery_required_document_count": self.paid_document_count,
+            "paid_recovery_required_case_count": (
+                self.paid_recovery_required_case_count
+            ),
+            "identity_resolved_paid_gap_case_count": (
+                self.identity_resolved_paid_gap_case_count
+            ),
+            "document_bytes_ready_case_count": self.document_bytes_ready_case_count,
             "identity_policy": (
                 "fully-free CourtListener IDs retained; paid-gap case.dev IDs use "
                 "exact court+docket match with caption corroboration"
@@ -613,10 +659,15 @@ def _reconcile_paid_gap(
         "case_id": _required_str(bridged_selection, "case_id"),
         "selected": True,
         "exclusion_reasons": [],
-        "paid_recovery_required": False,
+        # Identity resolution makes the candidate purchasable; it does not
+        # recover document bytes. Keep the legacy selected route for downstream
+        # selection compatibility while stating recovery readiness explicitly.
+        "paid_recovery_required": True,
         "paid_gap_reasons": [],
         "resolved_paid_gap_reasons": list(reasons),
-        "planning_status": "selected_after_paid_recovery",
+        "planning_status": "identity_resolved_paid_recovery_required",
+        "identity_resolution_status": "resolved",
+        "document_recovery_status": "paid_recovery_required",
         "identity_resolution": bridged_selection["identity_resolution"],
         "documents": [*public_documents, *paid_documents],
     }

@@ -7842,6 +7842,14 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
 
 
 _PACER_GAP_MAX_RESUMABLE_ATTEMPTS = 3
+_PACER_GAP_LEGACY_CHECKPOINT_SCHEMA = (
+    "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
+)
+_PACER_GAP_CHECKPOINT_SCHEMA = "legalforecast.pacer_gap_bridge_candidate_checkpoint.v2"
+_PACER_GAP_LEGACY_PROGRESS_CONFIG_SCHEMA = (
+    "legalforecast.pacer_gap_bridge_progress_config.v1"
+)
+_PACER_GAP_PROGRESS_CONFIG_SCHEMA = "legalforecast.pacer_gap_bridge_progress_config.v2"
 
 
 def _canonical_json_sha256(value: object) -> str:
@@ -7974,7 +7982,7 @@ def _validate_bridge_checkpoint(
     attempt_count = checkpoint.get("resumable_attempt_count")
     if (
         checkpoint.get("schema_version")
-        != "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
+        not in {_PACER_GAP_LEGACY_CHECKPOINT_SCHEMA, _PACER_GAP_CHECKPOINT_SCHEMA}
         or checkpoint.get("input_index") != input_index
         or checkpoint.get("candidate_id") != candidate_id
         or checkpoint.get("candidate_input_sha256") != candidate_input_sha256
@@ -7993,6 +8001,120 @@ def _validate_bridge_checkpoint(
         raise CommandError(
             f"PACER-gap bridge retryable checkpoint is exhausted for {candidate_id}"
         )
+
+
+def _normalize_bridge_checkpoint(checkpoint: JsonRecord) -> JsonRecord:
+    """Upgrade a verified v1 checkpoint without repeating provider requests."""
+
+    schema = checkpoint.get("schema_version")
+    candidate_id = _required_str(checkpoint, "candidate_id")
+    normalized: JsonRecord = {
+        **checkpoint,
+        "schema_version": _PACER_GAP_CHECKPOINT_SCHEMA,
+    }
+    if checkpoint.get("outcome") != "success":
+        return normalized
+
+    payload = _mapping(checkpoint.get("payload"), "payload")
+    selection = _mapping(payload.get("selection_record"), "selection_record")
+    relevance = _mapping(payload.get("case_relevance_record"), "case_relevance_record")
+    selection_documents = _mapping_sequence_for_bridge_normalization(
+        selection.get("documents"), candidate_id=candidate_id, source="selection"
+    )
+    relevance_documents = _mapping_sequence_for_bridge_normalization(
+        relevance.get("documents"), candidate_id=candidate_id, source="case_relevance"
+    )
+
+    def pending_ids(documents: Sequence[Mapping[str, Any]]) -> set[str]:
+        return {
+            _required_str(document, "source_document_id")
+            for document in documents
+            if document.get("requires_paid_recovery") is True
+            and document.get("availability_status") == "unavailable"
+        }
+
+    selection_pending = pending_ids(selection_documents)
+    relevance_pending = pending_ids(relevance_documents)
+    resolved_reasons = selection.get("resolved_paid_gap_reasons")
+    shared_evidence_is_valid = (
+        selection.get("selected") is True
+        and isinstance(selection.get("identity_resolution"), Mapping)
+        and selection.get("paid_gap_reasons") == []
+        and _is_nonempty_string_list(resolved_reasons)
+        and bool(selection_pending)
+        and selection_pending == relevance_pending
+    )
+    if schema == _PACER_GAP_CHECKPOINT_SCHEMA:
+        if (
+            not shared_evidence_is_valid
+            or selection.get("paid_recovery_required") is not True
+            or selection.get("planning_status")
+            != "identity_resolved_paid_recovery_required"
+            or selection.get("identity_resolution_status") != "resolved"
+            or selection.get("document_recovery_status") != "paid_recovery_required"
+        ):
+            raise CommandError(
+                f"PACER-gap v2 success checkpoint is ambiguous for {candidate_id}"
+            )
+        return checkpoint
+    if (
+        not shared_evidence_is_valid
+        or selection.get("paid_recovery_required") is not False
+        or selection.get("planning_status") != "selected_after_paid_recovery"
+    ):
+        raise CommandError(
+            f"legacy PACER-gap success checkpoint is ambiguous for {candidate_id}"
+        )
+    normalized_selection = {
+        **selection,
+        "paid_recovery_required": True,
+        "planning_status": "identity_resolved_paid_recovery_required",
+        "identity_resolution_status": "resolved",
+        "document_recovery_status": "paid_recovery_required",
+    }
+    normalized["payload"] = {
+        **payload,
+        "selection_record": normalized_selection,
+        "case_relevance_record": relevance,
+    }
+    return normalized
+
+
+def _mapping_sequence_for_bridge_normalization(
+    value: object,
+    *,
+    candidate_id: str,
+    source: str,
+) -> tuple[Mapping[str, Any], ...]:
+    if not isinstance(value, list):
+        raise CommandError(
+            f"legacy PACER-gap success checkpoint has malformed {source} documents "
+            f"for {candidate_id}"
+        )
+    items = cast(list[object], value)
+    if not items or not all(isinstance(item, Mapping) for item in items):
+        raise CommandError(
+            f"legacy PACER-gap success checkpoint has malformed {source} documents "
+            f"for {candidate_id}"
+        )
+    return tuple(cast(Mapping[str, Any], item) for item in items)
+
+
+def _is_nonempty_string_list(value: object) -> bool:
+    if not isinstance(value, list):
+        return False
+    values = cast(list[object], value)
+    return bool(values) and all(isinstance(item, str) and bool(item) for item in values)
+
+
+def _bridge_progress_config_matches(existing: JsonRecord, current: JsonRecord) -> bool:
+    schema = existing.get("schema_version")
+    if schema not in {
+        _PACER_GAP_LEGACY_PROGRESS_CONFIG_SCHEMA,
+        _PACER_GAP_PROGRESS_CONFIG_SCHEMA,
+    }:
+        return False
+    return {**existing, "schema_version": _PACER_GAP_PROGRESS_CONFIG_SCHEMA} == current
 
 
 def _bridge_checkpoint_payload_matches_candidate(
@@ -8054,7 +8176,7 @@ def _public_first_bridge_with_checkpoints(
         use_embedded_entries=cast(bool, args.use_embedded_entries),
     )
     config: JsonRecord = {
-        "schema_version": "legalforecast.pacer_gap_bridge_progress_config.v1",
+        "schema_version": _PACER_GAP_PROGRESS_CONFIG_SCHEMA,
         "mode": "public_first",
         "screened_cases_sha256": "sha256:"
         + hashlib.sha256(cast(Path, args.screened_cases).read_bytes()).hexdigest(),
@@ -8096,7 +8218,9 @@ def _public_first_bridge_with_checkpoints(
             raise CommandError(
                 "PACER-gap bridge progress exists; use --resume or remove it"
             )
-        if _read_json_object(checkpoint_config_path) != config:
+        if not _bridge_progress_config_matches(
+            _read_json_object(checkpoint_config_path), config
+        ):
             raise CommandError(
                 "PACER-gap bridge progress does not match the current input/config"
             )
@@ -8128,6 +8252,7 @@ def _public_first_bridge_with_checkpoints(
                 candidate_id=candidate_id,
                 candidate_input_sha256=candidate_input_sha256,
             )
+            prior = _normalize_bridge_checkpoint(prior)
             if prior["outcome"] in {"success", "exclusion"}:
                 resumed_terminal_count += 1
                 checkpoints.append(prior)
@@ -8147,9 +8272,7 @@ def _public_first_bridge_with_checkpoints(
                 validate_free_downloads=False,
             )
             checkpoint: JsonRecord = {
-                "schema_version": (
-                    "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
-                ),
+                "schema_version": _PACER_GAP_CHECKPOINT_SCHEMA,
                 "input_index": input_index,
                 "candidate_id": candidate_id,
                 "candidate_input_sha256": candidate_input_sha256,
@@ -8172,9 +8295,7 @@ def _public_first_bridge_with_checkpoints(
         except CourtListenerCaseDevBridgeError as exc:
             reason, _, detail = str(exc).partition(":")
             checkpoint = {
-                "schema_version": (
-                    "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
-                ),
+                "schema_version": _PACER_GAP_CHECKPOINT_SCHEMA,
                 "input_index": input_index,
                 "candidate_id": candidate_id,
                 "candidate_input_sha256": candidate_input_sha256,
@@ -8220,9 +8341,7 @@ def _public_first_bridge_with_checkpoints(
             else:
                 payload = {"reason": reason, "detail": str(exc)}
             checkpoint = {
-                "schema_version": (
-                    "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
-                ),
+                "schema_version": _PACER_GAP_CHECKPOINT_SCHEMA,
                 "input_index": input_index,
                 "candidate_id": candidate_id,
                 "candidate_input_sha256": candidate_input_sha256,
@@ -8540,6 +8659,14 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
     )
     bridge_evidence: JsonRecord = {}
     if dry_run:
+        dry_run_summary = CourtListenerCaseDevBridgeResult(
+            selection_records=(),
+            case_relevance_records=(),
+            free_download_requests=(),
+            exclusions=(),
+            screened_case_count=len(records),
+            public_first_reconciled=public_first,
+        ).summary_record()
         _write_jsonl(
             requests_path,
             [
@@ -8554,14 +8681,15 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         _write_json(
             summary_path,
             {
-                "schema_version": ("legalforecast.courtlistener_case_dev_bridge.v1"),
+                **dry_run_summary,
                 "dry_run": True,
-                "screened_case_count": len(records),
-                "free_first_required": True,
             },
         )
         selected_count = 0
         paid_document_count = 0
+        paid_recovery_required_case_count = 0
+        identity_resolved_paid_gap_case_count = 0
+        document_bytes_ready_case_count = 0
         free_request_count = 0
         excluded_count = 0
     else:
@@ -8619,6 +8747,11 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         _write_json(summary_path, {**result.summary_record(), "dry_run": False})
         selected_count = result.selected_case_count
         paid_document_count = result.paid_document_count
+        paid_recovery_required_case_count = result.paid_recovery_required_case_count
+        identity_resolved_paid_gap_case_count = (
+            result.identity_resolved_paid_gap_case_count
+        )
+        document_bytes_ready_case_count = result.document_bytes_ready_case_count
         free_request_count = len(result.free_download_requests)
         excluded_count = len(result.exclusions)
     _write_acquisition_completion(
@@ -8635,6 +8768,12 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
             "excluded_case_count": excluded_count,
             "free_download_request_count": free_request_count,
             "paid_document_count": paid_document_count,
+            "paid_recovery_required_document_count": paid_document_count,
+            "paid_recovery_required_case_count": paid_recovery_required_case_count,
+            "identity_resolved_paid_gap_case_count": (
+                identity_resolved_paid_gap_case_count
+            ),
+            "document_bytes_ready_case_count": document_bytes_ready_case_count,
             "free_first_required": True,
             "next_stage": (
                 "filter-core-documents" if public_first else "download-free"

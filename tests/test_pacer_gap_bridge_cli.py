@@ -39,6 +39,47 @@ def test_bridge_pacer_gaps_help_documents_identity_and_free_first_flags(
     assert "resume skips terminal candidates" in normalized
 
 
+def test_bridge_pacer_gaps_dry_run_emits_complete_v2_summary(tmp_path: Path) -> None:
+    output_root = tmp_path / "bridge"
+    screened_path = tmp_path / "screened.jsonl"
+    _write_jsonl(screened_path, [])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "bridge-pacer-gaps",
+                "--screened-cases",
+                str(screened_path),
+                "--use-embedded-entries",
+                "--output-root",
+                str(output_root),
+            ]
+        )
+        == 0
+    )
+
+    assert _read_json(output_root / "pacer-gap-bridge-summary.json") == {
+        "schema_version": "legalforecast.courtlistener_case_dev_bridge.v2",
+        "dry_run": True,
+        "screened_case_count": 0,
+        "selected_case_count": 0,
+        "excluded_case_count": 0,
+        "free_download_request_count": 0,
+        "paid_document_count": 0,
+        "paid_recovery_required_document_count": 0,
+        "paid_recovery_required_case_count": 0,
+        "identity_resolved_paid_gap_case_count": 0,
+        "document_bytes_ready_case_count": 0,
+        "identity_policy": (
+            "exact court+docket match with caption corroboration; "
+            "case.dev document IDs only"
+        ),
+        "free_first_required": True,
+        "public_first_reconciled": False,
+    }
+
+
 def test_public_first_bridge_checkpoints_429_and_resumes_without_repeat_lookups(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -176,6 +217,33 @@ def test_public_first_bridge_checkpoints_429_and_resumes_without_repeat_lookups(
     assert first_run_card["input_route_count"] == 2
     assert first_run_card["reconciled"] is False
 
+    # Simulate the durable progress emitted before bridge summary v2. Resume
+    # must preserve this terminal success without preserving its stale claim
+    # that paid bytes were already recovered.
+    checkpoint_dir = output_root / "checkpoints" / "pacer-gap-bridge"
+    success_checkpoint_path = next(
+        path
+        for path in checkpoint_dir.glob("*.json")
+        if _read_json(path)["outcome"] == "success"
+    )
+    success_checkpoint = _read_json(success_checkpoint_path)
+    success_checkpoint["schema_version"] = (
+        "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
+    )
+    success_payload = cast(dict[str, object], success_checkpoint["payload"])
+    success_selection = cast(dict[str, object], success_payload["selection_record"])
+    success_selection["paid_recovery_required"] = False
+    success_selection["planning_status"] = "selected_after_paid_recovery"
+    success_selection.pop("identity_resolution_status")
+    success_selection.pop("document_recovery_status")
+    _write_json(success_checkpoint_path, success_checkpoint)
+    config_path = output_root / "checkpoints" / "pacer-gap-bridge-progress-config.json"
+    progress_config = _read_json(config_path)
+    progress_config["schema_version"] = (
+        "legalforecast.pacer_gap_bridge_progress_config.v1"
+    )
+    _write_json(config_path, progress_config)
+
     _write_jsonl(
         fixture_path,
         [
@@ -208,12 +276,20 @@ def test_public_first_bridge_checkpoints_429_and_resumes_without_repeat_lookups(
 
     assert main(command) == 0
 
-    assert {
-        record["candidate_id"]
-        for record in _read_jsonl(
-            output_root / "public-packet-selection-reconciled.jsonl"
-        )
-    } == {"cl-123", "cl-456"}
+    resumed_selections = _read_jsonl(
+        output_root / "public-packet-selection-reconciled.jsonl"
+    )
+    assert {record["candidate_id"] for record in resumed_selections} == {
+        "cl-123",
+        "cl-456",
+    }
+    resumed_legacy = next(
+        record for record in resumed_selections if record["candidate_id"] == "cl-456"
+    )
+    assert resumed_legacy["paid_recovery_required"] is True
+    assert resumed_legacy["planning_status"] == (
+        "identity_resolved_paid_recovery_required"
+    )
     assert _read_jsonl(output_root / "pacer-gap-bridge-exclusions.jsonl") == []
     resumed_run_card = _read_json(output_root / "run-cards" / "bridge-pacer-gaps.json")
     assert resumed_run_card["case_dev_request_count"] == 2
@@ -424,7 +500,7 @@ def test_bridge_checkpoint_payload_is_bound_to_candidate(outcome: str) -> None:
     else:
         payload = {"exclusion_record": {"candidate_id": "other"}}
     checkpoint = {
-        "schema_version": "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1",
+        "schema_version": "legalforecast.pacer_gap_bridge_candidate_checkpoint.v2",
         "input_index": 0,
         "candidate_id": "cl-123",
         "candidate_input_sha256": "sha256:input",
@@ -432,6 +508,158 @@ def test_bridge_checkpoint_payload_is_bound_to_candidate(outcome: str) -> None:
         "resumable_attempt_count": 1,
         "cumulative_case_dev_request_count": 0,
         "payload": payload,
+    }
+
+    with pytest.raises(cli.CommandError, match="invalid for cl-123"):
+        cli._validate_bridge_checkpoint(
+            checkpoint,
+            input_index=0,
+            candidate_id="cl-123",
+            candidate_input_sha256="sha256:input",
+        )
+
+
+def _legacy_v1_terminal_success_checkpoint() -> dict[str, object]:
+    paid_document = {
+        "source_document_id": "case-dev-mtd",
+        "availability_status": "unavailable",
+        "requires_paid_recovery": True,
+    }
+    return {
+        "schema_version": "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1",
+        "input_index": 0,
+        "candidate_id": "cl-123",
+        "candidate_input_sha256": "sha256:input",
+        "outcome": "success",
+        "resumable_attempt_count": 1,
+        "cumulative_case_dev_request_count": 2,
+        "payload": {
+            "selection_record": {
+                "candidate_id": "cl-123",
+                "selected": True,
+                "paid_recovery_required": False,
+                "paid_gap_reasons": [],
+                "resolved_paid_gap_reasons": ["no_free_target_mtd_document"],
+                "planning_status": "selected_after_paid_recovery",
+                "identity_resolution": {"matched_by": "exact"},
+                "documents": [paid_document],
+            },
+            "case_relevance_record": {
+                "candidate_id": "cl-123",
+                "documents": [paid_document],
+            },
+        },
+    }
+
+
+def test_bridge_resume_normalizes_legacy_v1_terminal_success_checkpoint() -> None:
+    checkpoint = _legacy_v1_terminal_success_checkpoint()
+
+    cli._validate_bridge_checkpoint(
+        checkpoint,
+        input_index=0,
+        candidate_id="cl-123",
+        candidate_input_sha256="sha256:input",
+    )
+    normalized = cli._normalize_bridge_checkpoint(checkpoint)
+
+    assert normalized["schema_version"] == (
+        "legalforecast.pacer_gap_bridge_candidate_checkpoint.v2"
+    )
+    payload = cast(dict[str, object], normalized["payload"])
+    selection = cast(dict[str, object], payload["selection_record"])
+    assert selection["paid_recovery_required"] is True
+    assert selection["planning_status"] == ("identity_resolved_paid_recovery_required")
+    assert selection["identity_resolution_status"] == "resolved"
+    assert selection["document_recovery_status"] == "paid_recovery_required"
+
+
+def test_bridge_resume_rejects_v2_success_with_stale_recovery_status() -> None:
+    normalized = cli._normalize_bridge_checkpoint(
+        _legacy_v1_terminal_success_checkpoint()
+    )
+    payload = cast(dict[str, object], normalized["payload"])
+    selection = cast(dict[str, object], payload["selection_record"])
+    selection["paid_recovery_required"] = False
+
+    with pytest.raises(cli.CommandError, match="v2 success checkpoint is ambiguous"):
+        cli._normalize_bridge_checkpoint(normalized)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "match"),
+    [
+        ("hash_mismatch", "invalid for cl-123"),
+        ("missing_documents", "malformed selection documents"),
+        ("mismatched_pending_ids", "ambiguous for cl-123"),
+    ],
+)
+def test_bridge_resume_fails_closed_on_unverifiable_legacy_v1_success(
+    mutation: str,
+    match: str,
+) -> None:
+    checkpoint = _legacy_v1_terminal_success_checkpoint()
+    if mutation == "hash_mismatch":
+        with pytest.raises(cli.CommandError, match=match):
+            cli._validate_bridge_checkpoint(
+                checkpoint,
+                input_index=0,
+                candidate_id="cl-123",
+                candidate_input_sha256="sha256:different",
+            )
+        return
+    payload = cast(dict[str, object], checkpoint["payload"])
+    if mutation == "missing_documents":
+        selection = cast(dict[str, object], payload["selection_record"])
+        selection.pop("documents")
+    else:
+        relevance = cast(dict[str, object], payload["case_relevance_record"])
+        relevance["documents"] = [
+            {
+                "source_document_id": "different-document",
+                "availability_status": "unavailable",
+                "requires_paid_recovery": True,
+            }
+        ]
+
+    cli._validate_bridge_checkpoint(
+        checkpoint,
+        input_index=0,
+        candidate_id="cl-123",
+        candidate_input_sha256="sha256:input",
+    )
+    with pytest.raises(cli.CommandError, match=match):
+        cli._normalize_bridge_checkpoint(checkpoint)
+
+
+def test_bridge_resume_accepts_only_semantically_identical_v1_config() -> None:
+    current = {
+        "schema_version": "legalforecast.pacer_gap_bridge_progress_config.v2",
+        "screened_cases_sha256": "sha256:screened",
+        "paid_gap_count": 3,
+    }
+    legacy = {
+        **current,
+        "schema_version": "legalforecast.pacer_gap_bridge_progress_config.v1",
+    }
+
+    assert cli._bridge_progress_config_matches(legacy, current) is True
+    assert (
+        cli._bridge_progress_config_matches({**legacy, "paid_gap_count": 4}, current)
+        is False
+    )
+
+
+def test_bridge_resume_rejects_unrecognized_checkpoint_schema() -> None:
+    checkpoint = {
+        "schema_version": "legalforecast.pacer_gap_bridge_candidate_checkpoint.v0",
+        "input_index": 0,
+        "candidate_id": "cl-123",
+        "candidate_input_sha256": "sha256:input",
+        "outcome": "success",
+        "resumable_attempt_count": 1,
+        "cumulative_case_dev_request_count": 2,
+        "payload": {"reason": "retryable"},
     }
 
     with pytest.raises(cli.CommandError, match="invalid for cl-123"):
@@ -726,6 +954,20 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
     reconciled_selection = output_root / "public-packet-selection-reconciled.jsonl"
     selections = _read_jsonl(reconciled_selection)
     assert {record["candidate_id"] for record in selections} == {"cl-free", "cl-123"}
+    paid_selection = next(
+        record for record in selections if record["candidate_id"] == "cl-123"
+    )
+    assert paid_selection["paid_recovery_required"] is True
+    assert (
+        paid_selection["planning_status"] == "identity_resolved_paid_recovery_required"
+    )
+    bridge_summary = _read_json(output_root / "pacer-gap-bridge-summary.json")
+    assert bridge_summary["schema_version"] == (
+        "legalforecast.courtlistener_case_dev_bridge.v2"
+    )
+    assert bridge_summary["identity_resolved_paid_gap_case_count"] == 1
+    assert bridge_summary["paid_recovery_required_case_count"] == 1
+    assert bridge_summary["document_bytes_ready_case_count"] == 1
     assert _read_jsonl(output_root / "pacer-gap-bridge-exclusions.jsonl") == []
     assert not (
         {record["candidate_id"] for record in selections}
