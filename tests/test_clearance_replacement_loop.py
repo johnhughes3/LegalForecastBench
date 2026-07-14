@@ -258,6 +258,32 @@ def test_replacement_event_hash_chain_detects_storage_tampering(tmp_path: Path) 
             journal.replacement_events()
 
 
+def test_replacement_event_hash_chain_detects_stored_hash_column_tampering(
+    tmp_path: Path,
+) -> None:
+    cohort = _cohort_policy()
+    policy_artifact = _purchase_policy(tmp_path, cohort)
+    policy = verify_case_dev_purchase_policy(policy_artifact)
+    frontier = _frontier(cohort, policy_artifact)
+    with CaseDevPurchaseJournal(policy.canonical_ledger_path, policy=policy) as journal:
+        _confirm_candidate(journal, "200", "202", actual="3.05")
+        plan_clearance_replacements(
+            cohort_policy_artifact=cohort,
+            purchase_policy_artifact=policy_artifact,
+            frontier_artifact=frontier,
+            purchase_journal=journal,
+            purchased_clearance_records=(_clearance("200", "202", "quarantined"),),
+            clearance_run_card_sha256="sha256:" + "1" * 64,
+        )
+        with sqlite3.connect(policy.canonical_ledger_path) as connection:
+            connection.execute(
+                "UPDATE replacement_events SET record_sha256 = ? WHERE sequence = 0",
+                ("sha256:" + "f" * 64,),
+            )
+        with pytest.raises(CaseDevPurchaseLedgerError, match="stored hash column"):
+            journal.replacement_events()
+
+
 def test_later_clearance_run_card_selects_only_the_next_unbilled_replacement(
     tmp_path: Path,
 ) -> None:
