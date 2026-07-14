@@ -1,0 +1,63 @@
+{
+  "provenance": {
+    "captured_at": "2026-07-14",
+    "lageman_source_artifact_sha256": "27534d3d33e8c7b74f661bee4d0f235f24c2f276ab35126fb1456b3ba7b2ca16",
+    "shteerman_source_artifact_sha256": "bf76523ada8531fdddb5fa20a05edac5de3723c8603dde106d6384052ea3a168"
+  },
+  "cases": [
+    {
+      "name": "lageman",
+      "docket_id": "73231091",
+      "entry_number": "14",
+      "filed_at": "July 13, 2026, 11:42 a.m.",
+      "expected_actual_mtd_decision": false,
+      "text": "ORDER granting Defendants' Motion to Exceed Page Limit for Defendants' Motion to Dismiss Plaintiff's First Amended Complaint (Doc. [9]). Defendants' Motion to Dismiss (Doc. [8]) is considered within the page limit. IT IS FURTHER ORDERED granting Defendants' Motion for Leave to File Non-Electronic Exhibits in support of Defendants' Motion to Dismiss Plaintiff's First Amended Complaint (Doc. [10]). Exhibits A through E as cited in Defendants' Motion to Dismiss Plaintiff's First Amended Complaint (Doc. [8]) shall be filed non-electronically with the Clerk of Court forthwith. IT IS FURTHER ORDERED granting the parties' Stipulation of Time to File Response to Motion to Dismiss (Doc. [13]). Plaintiff's Response to Defendants' Motion to Dismiss (Doc. [8]) shall be filed no later than 7/17/2026. Signed by Magistrate Judge Alison S Bachus on 7/13/2026. (KJ)",
+      "document_description": "Order on Motion for Leave to File Excess Pages AND Order on Motion for Miscellaneous Relief"
+    },
+    {
+      "name": "shteerman",
+      "docket_id": "70029886",
+      "entry_number": "92",
+      "filed_at": "July 7, 2026, 7:59 a.m.",
+      "expected_actual_mtd_decision": false,
+      "text": "ORDER Signed by Judge Rita F. Lin granting 82 leave to file the late motion for judgment on the pleadings. Motions for Judgment on the Pleadings due by 7/21/2026. Replies due by 8/25/2026. Responses due by 8/11/2026. (spp, COURT STAFF) (Filed on 7/7/2026)",
+      "document_description": "Order on Motion for Miscellaneous Relief"
+    },
+    {
+      "name": "wahl",
+      "docket_id": "71369950",
+      "entry_number": "44",
+      "filed_at": "July 7, 2026",
+      "expected_actual_mtd_decision": false,
+      "text": "Order on Motion for Judgment on the Pleadings AND Order on Motion for Leave to File AND Order on Motion to Compel",
+      "document_description": "Order on Motion for Judgment on the Pleadings AND Order on Motion for Leave to File AND Order on Motion to Compel"
+    },
+    {
+      "name": "kepler",
+      "docket_id": "68016573",
+      "entry_number": "30",
+      "filed_at": "July 8, 2026, 1 p.m.",
+      "expected_actual_mtd_decision": true,
+      "text": "ORDER granting in part and denying in part 23 Defendant's Motion for Partial Judgment on the Pleadings. Signed by Judge Timothy S. Black on 7/8/2026. (rrs)",
+      "document_description": "Order on Motion for Extension of Time to File Response/Reply AND Order on Motion for Judgment on the Pleadings"
+    },
+    {
+      "name": "coordinated_summary_judgment",
+      "docket_id": "69466572",
+      "entry_number": "63",
+      "filed_at": "July 10, 2026, 5:09 p.m.",
+      "expected_actual_mtd_decision": true,
+      "text": "ORDER. For the reasons described in the attached ruling and order, Defendant's motion for judgment on the pleadings, ECF No. 38, and Defendant's motion for summary judgment, ECF No. 54, are GRANTED. The Clerk is directed to enter judgment for Defendant and close this action.",
+      "document_description": "Order on Motion for Judgment on the Pleadings AND Order on Motion for Summary Judgment"
+    },
+    {
+      "name": "coordinated_mtd_jop",
+      "docket_id": "71899546",
+      "entry_number": "80",
+      "filed_at": "July 8, 2026, 4:29 p.m.",
+      "expected_actual_mtd_decision": true,
+      "text": "IT IS HEREBY ORDERED that: 1. Defendant Hennepin County's Motion to Dismiss (Docket No. 40) and Defendant City of Minneapolis's Motion for Judgment on the Pleadings (Docket No. 50) are GRANTED; and 2. This matter is DISMISSED with prejudice.",
+      "document_description": "Order on Motion for Judgment on the Pleadings AND Order on Motion to Dismiss/General"
+    }
+  ]
+}
