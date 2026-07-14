@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 from legalforecast.ingestion import (
     CourtListenerAuthError,
@@ -71,7 +74,57 @@ def test_courtlistener_reconstructs_public_docket_entries() -> None:
     assert client.request_count == 2
 
 
-def test_courtlistener_missing_required_fields_fail_clearly() -> None:
+def test_courtlistener_live_v4_entry_with_blank_description_normalizes_to_blank() -> (
+    None
+):
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "courtlistener"
+        / "docket-entry-with-blank-description-v4.json"
+    )
+    record = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    entry = CourtListenerDocketEntry.from_record(record)
+
+    assert entry.docket_entry_id == "469359369"
+    assert entry.docket_id == "70649963"
+    assert entry.entry_number == "86"
+    assert entry.entry_text == ""
+    assert entry.filed_at == "2026-06-30"
+    assert entry.recap_document_ids == ("484692641",)
+    assert entry.source_url is None
+
+
+@pytest.mark.parametrize("description", ["", "   ", None])
+def test_courtlistener_blank_docket_entry_description_normalizes_to_blank(
+    description: str | None,
+) -> None:
+    entry = CourtListenerDocketEntry.from_record(
+        {
+            "id": 7001,
+            "docket": 123,
+            "description": description,
+        }
+    )
+
+    assert entry.entry_text == ""
+
+
+def test_courtlistener_blank_description_falls_back_to_entry_text_alias() -> None:
+    entry = CourtListenerDocketEntry.from_record(
+        {
+            "id": 7001,
+            "docket": 123,
+            "description": "   ",
+            "entry_text": "ORDER granting motion to dismiss",
+        }
+    )
+
+    assert entry.entry_text == "ORDER granting motion to dismiss"
+
+
+def test_courtlistener_missing_all_docket_entry_text_fields_fails_closed() -> None:
     client = CourtListenerClient(
         config=CourtListenerConfig(),
         transport=CourtListenerFixtureTransport(
@@ -85,8 +138,36 @@ def test_courtlistener_missing_required_fields_fail_clearly() -> None:
         ),
     )
 
-    with pytest.raises(CourtListenerResponseError, match="description"):
+    with pytest.raises(
+        CourtListenerResponseError,
+        match="one of description, entry_text, docket_text, or text is required",
+    ):
         client.list_docket_entries("123")
+
+
+@pytest.mark.parametrize(
+    ("field_name", "description"),
+    [
+        (field_name, description)
+        for field_name in ("description", "entry_text", "docket_text", "text")
+        for description in (7, True, [], {})
+    ],
+)
+def test_courtlistener_malformed_docket_entry_description_fails_closed(
+    field_name: str,
+    description: object,
+) -> None:
+    with pytest.raises(
+        CourtListenerResponseError,
+        match=rf"{field_name} must be a string or null",
+    ):
+        CourtListenerDocketEntry.from_record(
+            {
+                "id": 7001,
+                "docket": 123,
+                field_name: description,
+            }
+        )
 
 
 def test_docket_entry_extracts_id_from_hyperlinked_foreign_key() -> None:

@@ -455,6 +455,44 @@ def test_reconstruct_docket_produces_screenable_page() -> None:
     assert screen.has_actual_mtd_decision is True
 
 
+def test_reconstruct_retains_blank_description_entry_without_hiding_decision() -> None:
+    client = _client(
+        (
+            _docket_response(555),
+            _entries_response(
+                cursor=None,
+                results=[
+                    {
+                        "id": 7001,
+                        "docket": 555,
+                        "entry_number": 39,
+                        "description": "",
+                        "date_filed": "2026-07-04",
+                    },
+                    {
+                        "id": 7002,
+                        "docket": 555,
+                        "entry_number": 40,
+                        "description": "ORDER granting motion to dismiss",
+                        "date_filed": "2026-07-05",
+                    },
+                ],
+                next_cursor=None,
+            ),
+        )
+    )
+
+    reconstructed = reconstruct_docket_page(client, "555")
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        reconstructed.page,
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert reconstructed.proof.entry_count == 2
+    assert reconstructed.page.entries[0].text == ""
+    assert screen.status is MtdDocketScreenStatus.ACCEPTED_STRICT_CIVIL_MTD_DECISION
+
+
 def test_reconstruct_normalizes_docket_id() -> None:
     client = _client(
         (
