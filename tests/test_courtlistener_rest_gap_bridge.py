@@ -43,8 +43,14 @@ def test_courtlistener_rest_bridge_emits_real_public_recap_id_for_plan() -> None
     assert paid[0]["source_document_id"] == "9005"
     assert paid[0]["courtlistener_docket_entry_id"] == "7005"
     assert paid[0]["is_sealed"] is False
-    assert paid[0]["is_private"] is False
+    assert paid[0]["is_private"] is None
     assert paid[0]["redaction_or_seal_status"] == "public"
+    assert paid[0]["restriction_evidence"] == [
+        "courtlistener_rest_docket_exact_match",
+        "courtlistener_rest_docket_entry_exact_match",
+        "courtlistener_rest_recap_document_exact_match",
+        "courtlistener_rest_recap_document_is_sealed_false",
+    ]
     assert selection["identity_resolution"] == {
         "courtlistener_candidate_id": "123",
         "courtlistener_docket_id": "123",
@@ -260,6 +266,51 @@ def test_courtlistener_rest_bridge_rejects_docket_identity_mismatch(
 
 
 @pytest.mark.parametrize(
+    "source_url",
+    (
+        None,
+        "https://www.courtlistener.com/api/rest/v4/dockets/123/",
+    ),
+)
+def test_courtlistener_rest_bridge_accepts_source_without_web_docket_id(
+    source_url: str | None,
+) -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    candidate = cast(dict[str, object], screened["candidate"])
+    if source_url is None:
+        candidate.pop("url")
+    else:
+        candidate["url"] = source_url
+
+    selection, _ = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap,
+        free_download_records=downloads,
+        client=_client(*_clean_responses()),
+        use_embedded_entries=True,
+    )
+
+    assert selection["candidate_id"] == "123"
+
+
+def test_courtlistener_rest_bridge_rejects_positive_source_id_mismatch() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    candidate = cast(dict[str, object], screened["candidate"])
+    candidate["url"] = "https://www.courtlistener.com/docket/999/wrong/"
+
+    with pytest.raises(
+        CourtListenerCaseDevBridgeError, match="courtlistener_source_id_conflict"
+    ):
+        bridge_public_plan_paid_gap_candidate_via_courtlistener(
+            screened,
+            paid_gap_record=gap,
+            free_download_records=downloads,
+            client=_client(*_clean_responses()),
+            use_embedded_entries=True,
+        )
+
+
+@pytest.mark.parametrize(
     ("entry_patch", "reason"),
     (
         ({"docket": 999}, "courtlistener_entry_docket_conflict"),
@@ -302,9 +353,9 @@ def test_courtlistener_rest_bridge_rejects_entry_mismatch(
         ({"id": 9999}, "courtlistener_recap_document_id_conflict"),
         ({"docket_entry": 7999}, "courtlistener_recap_entry_conflict"),
         ({"is_sealed": None}, "courtlistener_recap_privacy_unproven"),
-        ({"is_private": None}, "courtlistener_recap_privacy_unproven"),
         ({"is_sealed": True}, "restricted_core_document"),
         ({"is_private": True}, "restricted_core_document"),
+        ({"is_available": True}, "courtlistener_recap_already_available"),
         ({"attachment_number": 1}, "courtlistener_recap_main_document_not_found"),
     ),
 )
@@ -324,6 +375,33 @@ def test_courtlistener_rest_bridge_rejects_unproven_or_restricted_document(
             paid_gap_record=gap,
             free_download_records=downloads,
             client=_client(*responses),
+            use_embedded_entries=True,
+        )
+
+
+def test_courtlistener_rest_bridge_rejects_web_document_that_became_free() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    motion = next(entry for entry in selected_entries if entry["entry_number"] == "5")
+    documents = cast(list[dict[str, object]], motion["documents"])
+    documents[0].update(
+        {
+            "action_label": "Download PDF",
+            "freely_available": True,
+            "href": "https://storage.courtlistener.com/recap/newly-free.pdf",
+            "pacer_only": False,
+        }
+    )
+
+    with pytest.raises(
+        CourtListenerCaseDevBridgeError,
+        match="paid_gap_public_document_conflict: 5",
+    ):
+        bridge_public_plan_paid_gap_candidate_via_courtlistener(
+            screened,
+            paid_gap_record=gap,
+            free_download_records=downloads,
+            client=_client(*_clean_responses()),
             use_embedded_entries=True,
         )
 
@@ -403,7 +481,6 @@ def _clean_responses_for(
                 "description": "Motion to Dismiss",
                 "is_available": False,
                 "is_sealed": False,
-                "is_private": False,
             },
         ),
     )

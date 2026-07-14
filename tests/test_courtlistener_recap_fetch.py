@@ -87,6 +87,58 @@ def test_purchase_verifies_id_then_submits_exact_broker_contract_and_recovers(
     ]
 
 
+def test_purchase_accepts_exact_courtlistener_rest_nonsealed_evidence(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    transport = FixtureRecapFetchTransport(
+        [
+            _response("GET", "/recap-documents/123/", {"id": 123}),
+            _response("GET", "/recap-fetch/77/", {"status": 2}),
+            _response(
+                "GET",
+                "/recap-documents/123/",
+                {
+                    "id": 123,
+                    "is_available": True,
+                    "filepath_local": "https://storage.courtlistener.com/123.pdf",
+                },
+            ),
+        ]
+    )
+    broker = FixtureRecapFetchPurchaseBroker(
+        [{"id": "77", "reservation_id": "reservation-1"}]
+    )
+    metadata = {
+        "123": {
+            "redaction_or_seal_status": "public",
+            "is_sealed": False,
+            "is_private": None,
+            "availability_status": "unavailable",
+            "requires_paid_recovery": True,
+            "restriction_evidence": [
+                "courtlistener_rest_docket_exact_match",
+                "courtlistener_rest_docket_entry_exact_match",
+                "courtlistener_rest_recap_document_exact_match",
+                "courtlistener_rest_recap_document_is_sealed_false",
+            ],
+        }
+    }
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        result = CourtListenerRecapFetchClient(
+            _config(), journal=journal, transport=transport, purchase_broker=broker
+        ).execute_purchase_plan(
+            _plan(),
+            public_documents=metadata,
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
+
+    assert result.executed_purchase_count == 1
+
+
 def test_live_fails_closed_without_budget_broker_before_paid_submission(
     tmp_path: Path,
 ) -> None:

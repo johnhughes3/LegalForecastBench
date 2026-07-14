@@ -43,6 +43,9 @@ from legalforecast.ingestion.operative_complaint import (
     select_operative_complaint_entry,
 )
 from legalforecast.ingestion.provenance import DocumentRole
+from legalforecast.ingestion.recap_fetch_broker_policy import (
+    COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE,
+)
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 
 _CASE_DEV_SEARCH_LIMIT = 20
@@ -212,11 +215,8 @@ class _CourtListenerRestGapDocument:
             "availability_status": "unavailable",
             "requires_paid_recovery": True,
             "redaction_or_seal_status": "public",
-            "restriction_evidence": [
-                "courtlistener_rest_docket_entry_exact_match",
-                "courtlistener_rest_recap_document_nonsealed_nonprivate",
-            ],
-            "is_private": False,
+            "restriction_evidence": COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE,
+            "is_private": None,
             "is_sealed": False,
             "file_extension": "pdf",
         }
@@ -565,8 +565,11 @@ def bridge_public_plan_paid_gaps_via_courtlistener(
         relevance.append(candidate_relevance)
     selected_ids = {_required_str(record, "candidate_id") for record in selections}
     excluded_ids = {_required_str(record, "candidate_id") for record in exclusions}
-    if selected_ids & excluded_ids:
-        raise CourtListenerCaseDevBridgeError("selection_exclusion_overlap")
+    overlap = selected_ids & excluded_ids
+    if overlap:
+        raise CourtListenerCaseDevBridgeError(
+            "selection_exclusion_overlap: " + ", ".join(sorted(overlap))
+        )
     return CourtListenerCaseDevBridgeResult(
         selection_records=tuple(selections),
         case_relevance_records=tuple(relevance),
@@ -663,7 +666,8 @@ def bridge_public_plan_paid_gap_candidate_via_courtlistener(
             f"courtlistener_docket_id_invalid: {candidate_id}"
         )
     source_url = _optional_str(candidate, "url")
-    if _courtlistener_docket_id_from_url(source_url) != candidate_id:
+    source_docket_id = _courtlistener_docket_id_from_url(source_url)
+    if source_docket_id is not None and source_docket_id != candidate_id:
         raise CourtListenerCaseDevBridgeError("courtlistener_source_id_conflict")
     metadata = _mapping(candidate.get("metadata"), "candidate.metadata")
     court = _required_str(metadata, "court")
@@ -1441,6 +1445,10 @@ def _bridge_courtlistener_rest_gap_documents(
                 f"courtlistener_entry_date_conflict: {number}"
             )
         web_document = _select_courtlistener_document(web_entry, role)
+        if web_document.freely_available:
+            raise CourtListenerCaseDevBridgeError(
+                f"paid_gap_public_document_conflict: {number}"
+            )
         recap_document = _select_courtlistener_recap_document(
             client,
             hit=hit,
@@ -1502,11 +1510,19 @@ def _select_courtlistener_recap_document(
             raise CourtListenerCaseDevBridgeError(
                 f"courtlistener_recap_document_number_conflict: {entry_number}"
             )
-        if document.is_sealed is True or document.is_private is True:
+        if document.is_available is True:
+            raise CourtListenerCaseDevBridgeError(
+                f"courtlistener_recap_already_available: {entry_number}"
+            )
+        if document.is_available is not False:
+            raise CourtListenerCaseDevBridgeError(
+                f"courtlistener_recap_availability_unproven: {entry_number}"
+            )
+        if document.is_sealed is True:
             raise CourtListenerCaseDevBridgeError(
                 f"restricted_core_document: {entry_number}"
             )
-        if document.is_sealed is not False or document.is_private is not False:
+        if document.is_sealed is not False:
             raise CourtListenerCaseDevBridgeError(
                 f"courtlistener_recap_privacy_unproven: {entry_number}"
             )

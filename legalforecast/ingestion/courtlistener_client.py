@@ -209,7 +209,6 @@ class CourtListenerRecapDocument:
     description: str | None
     is_available: bool | None
     is_sealed: bool | None
-    is_private: bool | None
     raw: Mapping[str, Any]
 
     @classmethod
@@ -242,7 +241,6 @@ class CourtListenerRecapDocument:
             description=_optional_string(record, "description"),
             is_available=_optional_bool(record, "is_available", "isAvailable"),
             is_sealed=_optional_bool(record, "is_sealed", "isSealed"),
-            is_private=_optional_bool(record, "is_private", "isPrivate"),
             raw=record,
         )
 

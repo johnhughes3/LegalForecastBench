@@ -28,6 +28,9 @@ from legalforecast.ingestion.recap_fetch_broker import (
     broker_reconciliation_record,
     validate_broker_receipt,
 )
+from legalforecast.ingestion.recap_fetch_broker_policy import (
+    COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE,
+)
 
 COURTLISTENER_RECAP_FETCH_PROVIDER = "courtlistener.recap-fetch+pacer"
 _DEFAULT_BASE_URL = "https://www.courtlistener.com/api/rest/v4"
@@ -717,14 +720,23 @@ def public_documents_from_selection(
 
 
 def _require_explicitly_public(metadata: Mapping[str, Any], document_id: str) -> None:
-    if (
-        metadata.get("redaction_or_seal_status") != "public"
-        or metadata.get("is_sealed") is not False
-        or metadata.get("is_private") is not False
-    ):
+    explicitly_public = (
+        metadata.get("redaction_or_seal_status") == "public"
+        and metadata.get("is_sealed") is False
+        and metadata.get("is_private") is False
+    )
+    courtlistener_rest_public = (
+        metadata.get("redaction_or_seal_status") == "public"
+        and metadata.get("is_sealed") is False
+        and metadata.get("is_private") is None
+        and metadata.get("requires_paid_recovery") is True
+        and metadata.get("availability_status") == "unavailable"
+        and metadata.get("restriction_evidence")
+        == COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE
+    )
+    if not explicitly_public and not courtlistener_rest_public:
         raise CourtListenerRecapFetchError(
-            f"document {document_id} lacks explicit public/nonsealed/nonprivate "
-            "evidence"
+            f"document {document_id} lacks accepted public/nonsealed evidence"
         )
 
 
