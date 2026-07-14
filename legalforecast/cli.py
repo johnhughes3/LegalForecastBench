@@ -159,6 +159,7 @@ from legalforecast.ingestion.courtlistener_case_dev_bridge import (
     bridge_courtlistener_case_dev_documents,
     bridge_public_plan_paid_gap_candidate,
     bridge_public_plan_paid_gaps,
+    bridge_public_plan_paid_gaps_via_courtlistener,
     case_dev_bridge_exclusion_record,
     merge_download_manifest_records,
     validate_public_plan_bridge_inputs,
@@ -942,8 +943,8 @@ def build_parser() -> argparse.ArgumentParser:
     acquisition_bridge_pacer_gaps = acquisition_subparsers.add_parser(
         "bridge-pacer-gaps",
         help=(
-            "Resolve CourtListener candidates to authoritative case.dev document "
-            "IDs and emit free-first recovery inputs."
+            "Resolve paid gaps to authoritative Case.dev or CourtListener RECAP "
+            "document IDs and emit free-first recovery inputs."
         ),
     )
     _add_acquisition_bridge_pacer_gaps_arguments(acquisition_bridge_pacer_gaps)
@@ -2595,6 +2596,22 @@ def _add_acquisition_bridge_pacer_gaps_arguments(
         help=(
             "Resolve identities using live case.dev search/lookup. Requires "
             "CASE_DEV_API_KEY and never invokes a PACER purchase endpoint."
+        ),
+    )
+    parser.add_argument(
+        "--courtlistener-fixture",
+        type=Path,
+        help=(
+            "Replay noncharging CourtListener REST docket, entry, and RECAP "
+            "document metadata for public-first paid gaps."
+        ),
+    )
+    parser.add_argument(
+        "--live-courtlistener",
+        action="store_true",
+        help=(
+            "Resolve public-first paid gaps with authenticated noncharging "
+            "CourtListener REST GETs. Never invokes RECAP Fetch or PACER."
         ),
     )
     parser.add_argument("--target-clean-cases", type=int, default=150)
@@ -8709,6 +8726,7 @@ def _validate_pacer_gap_bridge_paths(
     screened_cases_path: Path,
     raw_html_dir: Path | None,
     fixture_path: Path | None,
+    courtlistener_fixture_path: Path | None,
     public_selection_path: Path | None,
     paid_gaps_path: Path | None,
     free_download_manifest_path: Path | None,
@@ -8731,6 +8749,7 @@ def _validate_pacer_gap_bridge_paths(
         for label, path, is_tree in (
             ("--raw-html-dir", raw_html_dir, True),
             ("--case-dev-fixture", fixture_path, False),
+            ("--courtlistener-fixture", courtlistener_fixture_path, False),
             ("--public-selection", public_selection_path, False),
             ("--paid-gaps", paid_gaps_path, False),
             ("--free-download-manifest", free_download_manifest_path, False),
@@ -8816,6 +8835,7 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
     screened_cases_path = cast(Path, args.screened_cases)
     raw_html_dir = cast(Path | None, args.raw_html_dir)
     fixture_path = cast(Path | None, args.case_dev_fixture)
+    courtlistener_fixture_path = cast(Path | None, args.courtlistener_fixture)
     public_selection_path = cast(Path | None, args.public_selection)
     paid_gaps_path = cast(Path | None, args.paid_gaps)
     free_download_manifest_path = cast(Path | None, args.free_download_manifest)
@@ -8881,6 +8901,7 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         screened_cases_path=screened_cases_path,
         raw_html_dir=raw_html_dir,
         fixture_path=fixture_path,
+        courtlistener_fixture_path=courtlistener_fixture_path,
         public_selection_path=public_selection_path,
         paid_gaps_path=paid_gaps_path,
         free_download_manifest_path=free_download_manifest_path,
@@ -8896,12 +8917,33 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
     records = _read_records(screened_cases_path)
     dry_run = _acquisition_dry_run(args)
     live = cast(bool, args.live_case_dev)
+    live_courtlistener = cast(bool, args.live_courtlistener)
+    courtlistener_mode = courtlistener_fixture_path is not None or live_courtlistener
+    case_dev_mode = fixture_path is not None or live
+    if courtlistener_fixture_path is not None and live_courtlistener:
+        raise CommandError(
+            "choose --courtlistener-fixture or --live-courtlistener, not both"
+        )
+    if courtlistener_mode and case_dev_mode:
+        raise CommandError(
+            "choose a Case.dev bridge provider or CourtListener REST, not both"
+        )
+    if courtlistener_mode and not public_first:
+        raise CommandError(
+            "CourtListener REST bridge mode requires --public-selection, "
+            "--paid-gaps, and --free-download-manifest"
+        )
+    if not courtlistener_mode and not case_dev_mode and not dry_run:
+        raise CommandError(
+            "bridge-pacer-gaps requires a fixture or live flag for one provider"
+        )
     input_paths = tuple(
         path
         for path in (
             screened_cases_path,
             raw_html_dir,
             fixture_path,
+            courtlistener_fixture_path,
             public_selection_path,
             paid_gaps_path,
             free_download_manifest_path,
@@ -8952,50 +8994,87 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         free_request_count = 0
         excluded_count = 0
     else:
-        client = _case_dev_client(
-            command="acquisition bridge-pacer-gaps",
-            fixture_path=fixture_path,
-            live=live,
-        )
-        if public_first:
+        if courtlistener_mode:
+            config = CourtListenerConfig.from_env()
+            if live_courtlistener and config.api_token is None:
+                raise CommandError(
+                    f"{COURTLISTENER_API_TOKEN_ENV} is required with "
+                    "--live-courtlistener"
+                )
+            courtlistener_client = CourtListenerClient(
+                config=config,
+                transport=(
+                    CourtListenerFixtureTransport.from_jsonl(courtlistener_fixture_path)
+                    if courtlistener_fixture_path is not None
+                    else None
+                ),
+            )
             assert public_selection_path is not None
             assert paid_gaps_path is not None
             assert free_download_manifest_path is not None
-            result, bridge_evidence = _public_first_bridge_with_checkpoints(
-                args=args,
-                records=records,
-                client=client,
-                raw_html_dir=raw_html_dir,
-                public_selection_path=public_selection_path,
-                paid_gaps_path=paid_gaps_path,
-                free_download_manifest_path=free_download_manifest_path,
-                fixture_path=fixture_path,
-                checkpoint_dir=checkpoint_dir,
-                checkpoint_config_path=checkpoint_config_path,
-            )
-            if result is None:
-                reason = (
-                    "PACER-gap bridge retained retryable Case.dev candidates; "
-                    "rerun with --resume"
-                )
-                _write_acquisition_failure(
-                    args,
-                    stage="bridge-pacer-gaps",
-                    input_paths=input_paths,
-                    output_paths=output_paths,
-                    reason=reason,
-                    paid_activity_requested=False,
-                    extra=bridge_evidence,
-                )
-                raise CommandError(reason)
-        else:
-            result = bridge_courtlistener_case_dev_documents(
+            result = bridge_public_plan_paid_gaps_via_courtlistener(
                 records,
-                client=client,
+                public_selection_records=_read_records(public_selection_path),
+                paid_gap_records=_read_records(paid_gaps_path),
+                free_download_records=_read_records(free_download_manifest_path),
+                client=courtlistener_client,
                 raw_html_dir=raw_html_dir,
                 use_embedded_entries=cast(bool, args.use_embedded_entries),
-                target_clean_cases=cast(int, args.target_clean_cases),
             )
+            bridge_evidence = {
+                "bridge_provider": "courtlistener_rest",
+                "courtlistener_request_count": courtlistener_client.request_count,
+                "free_lookup_only": True,
+                "pacer_fee_acknowledgment_allowed": False,
+                "pacer_spend_usd": "0.00",
+                "reconciled": True,
+            }
+        else:
+            client = _case_dev_client(
+                command="acquisition bridge-pacer-gaps",
+                fixture_path=fixture_path,
+                live=live,
+            )
+            if public_first:
+                assert public_selection_path is not None
+                assert paid_gaps_path is not None
+                assert free_download_manifest_path is not None
+                result_or_none, bridge_evidence = _public_first_bridge_with_checkpoints(
+                    args=args,
+                    records=records,
+                    client=client,
+                    raw_html_dir=raw_html_dir,
+                    public_selection_path=public_selection_path,
+                    paid_gaps_path=paid_gaps_path,
+                    free_download_manifest_path=free_download_manifest_path,
+                    fixture_path=fixture_path,
+                    checkpoint_dir=checkpoint_dir,
+                    checkpoint_config_path=checkpoint_config_path,
+                )
+                if result_or_none is None:
+                    reason = (
+                        "PACER-gap bridge retained retryable Case.dev candidates; "
+                        "rerun with --resume"
+                    )
+                    _write_acquisition_failure(
+                        args,
+                        stage="bridge-pacer-gaps",
+                        input_paths=input_paths,
+                        output_paths=output_paths,
+                        reason=reason,
+                        paid_activity_requested=False,
+                        extra=bridge_evidence,
+                    )
+                    raise CommandError(reason)
+                result = result_or_none
+            else:
+                result = bridge_courtlistener_case_dev_documents(
+                    records,
+                    client=client,
+                    raw_html_dir=raw_html_dir,
+                    use_embedded_entries=cast(bool, args.use_embedded_entries),
+                    target_clean_cases=cast(int, args.target_clean_cases),
+                )
         _write_jsonl(
             requests_path,
             [request.to_record() for request in result.free_download_requests],

@@ -199,6 +199,55 @@ class _RejectCourtListenerRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 @dataclass(frozen=True, slots=True)
+class CourtListenerRecapDocument:
+    """Noncharging RECAP-document metadata used to prove purchase identity."""
+
+    document_id: str
+    docket_entry_id: str
+    document_number: str | None
+    attachment_number: str | None
+    description: str | None
+    is_available: bool | None
+    is_sealed: bool | None
+    is_private: bool | None
+    raw: Mapping[str, Any]
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> CourtListenerRecapDocument:
+        return cls(
+            document_id=_required_positive_identifier(
+                record,
+                "id",
+                "recap_document_id",
+            ),
+            docket_entry_id=_required_positive_identifier_value(
+                _required_resource_reference(
+                    record,
+                    resource_name="docket entry",
+                    url_segment="docket-entries",
+                    field_names=("docket_entry", "docket_entry_id"),
+                ),
+                "docket_entry",
+            ),
+            document_number=_optional_string(
+                record,
+                "document_number",
+                "documentNumber",
+            ),
+            attachment_number=_optional_string(
+                record,
+                "attachment_number",
+                "attachmentNumber",
+            ),
+            description=_optional_string(record, "description"),
+            is_available=_optional_bool(record, "is_available", "isAvailable"),
+            is_sealed=_optional_bool(record, "is_sealed", "isSealed"),
+            is_private=_optional_bool(record, "is_private", "isPrivate"),
+            raw=record,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class CourtListenerRecapSearchHit:
     """Minimal RECAP search hit used to discover candidate dockets."""
 
@@ -428,6 +477,14 @@ class CourtListenerClient:
     def get_docket(self, docket_id: str) -> CourtListenerDocket:
         payload = self._request_json("GET", f"/dockets/{docket_id}/", {})
         return CourtListenerDocket.from_record(payload)
+
+    def get_recap_document(self, document_id: str) -> CourtListenerRecapDocument:
+        payload = self._request_json(
+            "GET",
+            f"/recap-documents/{document_id}/",
+            {},
+        )
+        return CourtListenerRecapDocument.from_record(payload)
 
     def search_recap_documents(
         self,
@@ -666,6 +723,21 @@ def _required_string(record: Mapping[str, Any], *field_names: str) -> str:
     return value
 
 
+def _required_positive_identifier(record: Mapping[str, Any], *field_names: str) -> str:
+    return _required_positive_identifier_value(
+        _required_string(record, *field_names),
+        field_names[0],
+    )
+
+
+def _required_positive_identifier_value(value: str, field_name: str) -> str:
+    if not value.isdecimal() or value.startswith("0"):
+        raise CourtListenerResponseError(
+            f"CourtListener field {field_name} must be a canonical positive decimal"
+        )
+    return value
+
+
 def _optional_string(record: Mapping[str, Any], *field_names: str) -> str | None:
     for field_name in field_names:
         value = record.get(field_name)
@@ -743,11 +815,53 @@ def _required_docket_reference(record: Mapping[str, Any], *field_names: str) -> 
     raise CourtListenerResponseError(f"missing required CourtListener field: {joined}")
 
 
+def _required_resource_reference(
+    record: Mapping[str, Any],
+    *,
+    resource_name: str,
+    url_segment: str,
+    field_names: tuple[str, ...],
+) -> str:
+    pattern = re.compile(rf"/{re.escape(url_segment)}/(\d+)/?(?:\?.*)?$")
+    for field_name in field_names:
+        value = record.get(field_name)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int):
+            return str(value)
+        if isinstance(value, str) and value.strip():
+            text = value.strip()
+            match = pattern.search(text)
+            if match is not None:
+                return match.group(1)
+            if text.isdigit():
+                return text
+            raise CourtListenerResponseError(
+                f"unrecognized CourtListener {resource_name} reference shape for "
+                f"{field_name!r}: {text!r}"
+            )
+    joined = ", ".join(field_names)
+    raise CourtListenerResponseError(f"missing required CourtListener field: {joined}")
+
+
 def _required_int(record: Mapping[str, Any], field_name: str) -> int:
     value = record.get(field_name)
     if not isinstance(value, int) or isinstance(value, bool):
         raise CourtListenerResponseError(f"{field_name} must be an integer")
     return value
+
+
+def _optional_bool(record: Mapping[str, Any], *field_names: str) -> bool | None:
+    for field_name in field_names:
+        if field_name not in record or record[field_name] is None:
+            continue
+        value = record[field_name]
+        if not isinstance(value, bool):
+            raise CourtListenerResponseError(
+                f"CourtListener field {field_name} must be boolean or null"
+            )
+        return value
+    return None
 
 
 def _recap_document_ids(record: Mapping[str, Any]) -> tuple[str, ...]:

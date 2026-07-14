@@ -28,7 +28,10 @@ def test_bridge_pacer_gaps_help_documents_identity_and_free_first_flags(
     normalized = " ".join(output.split())
     assert "--screened-cases" in output
     assert "--live-case-dev" in output
+    assert "--live-courtlistener" in output
+    assert "--courtlistener-fixture" in output
     assert "never invokes a PACER purchase endpoint" in normalized
+    assert "Never invokes RECAP Fetch or PACER" in normalized
     assert "--case-relevance-output" in output
     assert "--public-selection" in output
     assert "--paid-gaps" in output
