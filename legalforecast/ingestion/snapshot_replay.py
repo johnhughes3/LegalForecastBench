@@ -81,14 +81,14 @@ def collect_snapshot_replay_bundle(
     source_assembly_run_card: Path,
     expected_source_assembly_sha256: str,
     expected_source_cycle_hash: str,
-    additional_source_snapshots: Sequence[Path],
-    expected_additional_cycle_hash: str,
+    additional_source_snapshots: Sequence[tuple[Path, str]],
 ) -> SnapshotReplayBundle:
     """Verify and combine historical assembly snapshots without provider access."""
 
     _require_sha256(expected_source_assembly_sha256, "source assembly SHA-256")
     _require_sha256(expected_source_cycle_hash, "source cycle hash")
-    _require_sha256(expected_additional_cycle_hash, "target cycle hash")
+    for _, expected_cycle_hash in additional_source_snapshots:
+        _require_sha256(expected_cycle_hash, "supplemental source cycle hash")
     assembly_path = _safe_regular_file(
         source_assembly_run_card, label="source assembly run card"
     )
@@ -104,18 +104,25 @@ def collect_snapshot_replay_bundle(
     source_paths: list[tuple[Path, str]] = [
         (path, expected_source_cycle_hash) for path in assembly_snapshots
     ]
-    source_paths.extend(
-        (path, expected_additional_cycle_hash) for path in additional_source_snapshots
-    )
+    source_paths.extend(additional_source_snapshots)
 
     verified_sources: list[ReplaySourceSnapshot] = []
     ordered_outcomes: list[ReplaySuccess | ReplayExclusion] = []
-    seen_snapshots: set[Path] = set()
+    seen_snapshot_cycle_hashes: dict[Path, str] = {}
     for source_path, expected_cycle_hash in source_paths:
         snapshot = _safe_directory(source_path, label="source snapshot")
-        if snapshot in seen_snapshots:
+        prior_expected_cycle_hash = seen_snapshot_cycle_hashes.get(snapshot)
+        if (
+            prior_expected_cycle_hash is not None
+            and prior_expected_cycle_hash != expected_cycle_hash
+        ):
+            raise SnapshotReplayError(
+                "conflicting expected cycle hashes for duplicate source snapshot: "
+                f"{snapshot}"
+            )
+        if prior_expected_cycle_hash is not None:
             continue
-        seen_snapshots.add(snapshot)
+        seen_snapshot_cycle_hashes[snapshot] = expected_cycle_hash
         try:
             manifest = verify_snapshot(
                 snapshot,

@@ -145,7 +145,7 @@ def test_replay_screening_snapshots_is_provider_free_and_globally_plannable(
     )
 
 
-def test_replay_screening_snapshots_combines_explicit_target_cycle_snapshot(
+def test_replay_screening_snapshots_combines_cross_cycle_supplemental_snapshots(
     tmp_path: Path,
 ) -> None:
     old_policy = _cycle_policy(extra={"fixture_generation": "old"})
@@ -173,17 +173,27 @@ def test_replay_screening_snapshots_combines_explicit_target_cycle_snapshot(
         )
         == 0
     )
-    current_policy = _cycle_policy()
-    current_snapshot = _source_snapshot(
+    first_supplemental_policy = _cycle_policy(extra={"fixture_generation": "jop"})
+    first_supplemental = _source_snapshot(
         tmp_path,
-        store_path=tmp_path / "current-source.sqlite3",
-        policy=current_policy,
-        batch_id="current-source",
+        store_path=tmp_path / "jop-source.sqlite3",
+        policy=first_supplemental_policy,
+        batch_id="jop-source",
         successes=("152",),
+    )
+    second_supplemental_policy = _cycle_policy(
+        extra={"fixture_generation": "adversary"}
+    )
+    second_supplemental = _source_snapshot(
+        tmp_path,
+        store_path=tmp_path / "adversary-source.sqlite3",
+        policy=second_supplemental_policy,
+        batch_id="adversary-source",
+        successes=("153",),
     )
     target_store = tmp_path / "target.sqlite3"
     with CycleAcquisitionStore(target_store) as store:
-        target_cycle_hash = store.ensure_cycle(current_policy)
+        target_cycle_hash = store.ensure_cycle(_cycle_policy())
     assembly_run_card = assembly_root / "run-cards/assemble-cycle-acquisition.json"
     command = _replay_command(
         output_root=tmp_path / "replay",
@@ -193,7 +203,18 @@ def test_replay_screening_snapshots_combines_explicit_target_cycle_snapshot(
         assembly_run_card=assembly_run_card,
         snapshot_id="combined-replay",
     )
-    command.extend(("--source-snapshot", str(current_snapshot)))
+    command.extend(
+        (
+            "--source-snapshot",
+            str(first_supplemental),
+            "--expected-source-snapshot-cycle-hash",
+            str(verify_snapshot(first_supplemental)["cycle_hash"]),
+            "--source-snapshot",
+            str(second_supplemental),
+            "--expected-source-snapshot-cycle-hash",
+            str(verify_snapshot(second_supplemental)["cycle_hash"]),
+        )
+    )
 
     assert main(command) == 0
 
@@ -204,7 +225,133 @@ def test_replay_screening_snapshots_combines_explicit_target_cycle_snapshot(
     )
     stage_commitments = cast(dict[str, Any], manifest["stage_commitments"])
     replay_commitment = cast(dict[str, Any], stage_commitments["source_bound_replay"])
-    assert replay_commitment["source_snapshot_count"] == 2
+    assert replay_commitment["source_snapshot_count"] == 3
+    assert {
+        source["cycle_hash"] for source in replay_commitment["source_snapshots"]
+    } == {
+        str(verify_snapshot(old_snapshot)["cycle_hash"]),
+        str(verify_snapshot(first_supplemental)["cycle_hash"]),
+        str(verify_snapshot(second_supplemental)["cycle_hash"]),
+    }
+
+
+@pytest.mark.parametrize("hash_count", (0, 2))
+def test_replay_screening_snapshots_requires_one_cycle_hash_per_supplement(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    hash_count: int,
+) -> None:
+    old_policy = _cycle_policy(extra={"fixture_generation": "old"})
+    old_snapshot = _source_snapshot(
+        tmp_path,
+        store_path=tmp_path / "old.sqlite3",
+        policy=old_policy,
+        batch_id="old-source",
+        successes=("171",),
+    )
+    assembly_root = tmp_path / "source-assembly"
+    assert (
+        main(
+            [
+                "acquisition",
+                "assemble-cycle-acquisition",
+                "--output-root",
+                str(assembly_root),
+                "--expected-cycle-hash",
+                str(verify_snapshot(old_snapshot)["cycle_hash"]),
+                "--batch-root",
+                str(old_snapshot),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    supplemental = _source_snapshot(
+        tmp_path,
+        store_path=tmp_path / "supplemental.sqlite3",
+        policy=_cycle_policy(extra={"fixture_generation": "supplemental"}),
+        batch_id="supplemental",
+        successes=("172",),
+    )
+    target_store = tmp_path / "target.sqlite3"
+    with CycleAcquisitionStore(target_store) as store:
+        target_cycle_hash = store.ensure_cycle(_cycle_policy())
+    command = _replay_command(
+        output_root=tmp_path / "replay",
+        target_store=target_store,
+        target_cycle_hash=target_cycle_hash,
+        source_cycle_hash=str(verify_snapshot(old_snapshot)["cycle_hash"]),
+        assembly_run_card=assembly_root / "run-cards/assemble-cycle-acquisition.json",
+        snapshot_id="rejected-replay",
+    )
+    command.extend(("--source-snapshot", str(supplemental)))
+    for _ in range(hash_count):
+        command.extend(
+            (
+                "--expected-source-snapshot-cycle-hash",
+                str(verify_snapshot(supplemental)["cycle_hash"]),
+            )
+        )
+
+    assert main(command) == 2
+    assert (
+        "exactly one --expected-source-snapshot-cycle-hash" in capsys.readouterr().err
+    )
+    assert not (tmp_path / "replay/snapshots/rejected-replay").exists()
+
+
+def test_replay_screening_snapshots_rejects_conflicting_hashes_for_duplicate_source(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = _source_snapshot(
+        tmp_path,
+        store_path=tmp_path / "source.sqlite3",
+        policy=_cycle_policy(extra={"fixture_generation": "old"}),
+        batch_id="source",
+        successes=("181",),
+    )
+    source_cycle_hash = str(verify_snapshot(source)["cycle_hash"])
+    assembly_root = tmp_path / "source-assembly"
+    assert (
+        main(
+            [
+                "acquisition",
+                "assemble-cycle-acquisition",
+                "--output-root",
+                str(assembly_root),
+                "--expected-cycle-hash",
+                source_cycle_hash,
+                "--batch-root",
+                str(source),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    target_store = tmp_path / "target.sqlite3"
+    with CycleAcquisitionStore(target_store) as store:
+        target_cycle_hash = store.ensure_cycle(_cycle_policy())
+    command = _replay_command(
+        output_root=tmp_path / "replay",
+        target_store=target_store,
+        target_cycle_hash=target_cycle_hash,
+        source_cycle_hash=source_cycle_hash,
+        assembly_run_card=assembly_root / "run-cards/assemble-cycle-acquisition.json",
+        snapshot_id="rejected-replay",
+    )
+    command.extend(
+        (
+            "--source-snapshot",
+            str(source),
+            "--expected-source-snapshot-cycle-hash",
+            "0" * 64,
+        )
+    )
+
+    assert main(command) == 2
+    assert "conflicting expected cycle hashes" in capsys.readouterr().err
+    assert not (tmp_path / "replay/snapshots/rejected-replay").exists()
 
 
 @pytest.mark.parametrize(
@@ -567,6 +714,7 @@ def test_replay_screening_snapshots_help_states_no_provider_semantics(
     assert "--expected-source-assembly-sha256" in output
     assert "--expected-target-cycle-hash" in output
     assert "--source-snapshot" in output
+    assert "--expected-source-snapshot-cycle-hash" in output
 
 
 def _source_snapshot(
