@@ -313,6 +313,7 @@ def test_recap_fetch_live_purchase_wires_signed_broker_without_pacer_credentials
     output_root = tmp_path / "acquisition"
     plan_path, selection_path = _write_recap_fetch_inputs(tmp_path, output_root)
     policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+    request_ledger = tmp_path / "courtlistener-requests.sqlite3"
     broker_transport = _BrokerTransport(
         recap_broker.BrokerRawResponse(
             201,
@@ -350,7 +351,7 @@ def test_recap_fetch_live_purchase_wires_signed_broker_without_pacer_credentials
         return courtlistener_transport
 
     monkeypatch.setattr(
-        recap_fetch,
+        cli,
         "UrlLibRecapFetchTransport",
         courtlistener_transport_factory,
     )
@@ -375,6 +376,8 @@ def test_recap_fetch_live_purchase_wires_signed_broker_without_pacer_credentials
                 str(cohort_path),
                 "--purchase-ledger",
                 str(ledger_path),
+                "--request-ledger",
+                str(request_ledger),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -407,6 +410,10 @@ def test_recap_fetch_live_purchase_wires_signed_broker_without_pacer_credentials
     )
     assert run_card["paid_activity_requested"] is True
     assert run_card["paid_activity_executed"] is True
+    assert run_card["courtlistener_physical_requests"] == 3
+    assert run_card["courtlistener_reservations_this_phase"] == 3
+    assert run_card["courtlistener_reservations_total"] == 3
+    assert run_card["courtlistener_request_ledger"] == str(request_ledger.resolve())
 
 
 def test_recap_fetch_live_purchase_missing_config_fails_before_journal_or_http(
@@ -417,6 +424,7 @@ def test_recap_fetch_live_purchase_missing_config_fails_before_journal_or_http(
     output_root = tmp_path / "acquisition"
     plan_path, selection_path = _write_recap_fetch_inputs(tmp_path, output_root)
     policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+    request_ledger = tmp_path / "courtlistener-requests.sqlite3"
     for name in _recap_fetch_broker_env():
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("COURTLISTENER_API_TOKEN", "fixture-token")
@@ -436,6 +444,8 @@ def test_recap_fetch_live_purchase_missing_config_fails_before_journal_or_http(
                 str(cohort_path),
                 "--purchase-ledger",
                 str(ledger_path),
+                "--request-ledger",
+                str(request_ledger),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -451,6 +461,12 @@ def test_recap_fetch_live_purchase_missing_config_fails_before_journal_or_http(
     assert "RECAP_FETCH_BROKER_PRIVATE_KEY_JWK" in error
     assert not ledger_path.exists()
     assert not (output_root / "courtlistener-recap-fetch-purchases.json").exists()
+    run_card = _read_json(
+        output_root / "run-cards" / "purchase-missing-recap-fetch.json"
+    )
+    assert run_card["status"] == "failed"
+    assert run_card["paid_activity_executed"] is False
+    assert run_card["courtlistener_physical_requests"] == 0
 
 
 def test_recap_fetch_live_rejects_offline_fixtures_before_ledger(
@@ -460,6 +476,7 @@ def test_recap_fetch_live_rejects_offline_fixtures_before_ledger(
     output_root = tmp_path / "acquisition"
     plan_path, selection_path = _write_recap_fetch_inputs(tmp_path, output_root)
     policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+    request_ledger = tmp_path / "courtlistener-requests.sqlite3"
     courtlistener_fixture = tmp_path / "courtlistener.jsonl"
     broker_fixture = tmp_path / "broker.json"
     _write_jsonl(courtlistener_fixture, [])
@@ -480,6 +497,8 @@ def test_recap_fetch_live_rejects_offline_fixtures_before_ledger(
                 str(cohort_path),
                 "--purchase-ledger",
                 str(ledger_path),
+                "--request-ledger",
+                str(request_ledger),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -496,6 +515,172 @@ def test_recap_fetch_live_rejects_offline_fixtures_before_ledger(
 
     assert "cannot be combined with offline fixtures" in capsys.readouterr().err
     assert not ledger_path.exists()
+    run_card = _read_json(
+        output_root / "run-cards" / "purchase-missing-recap-fetch.json"
+    )
+    assert run_card["status"] == "failed"
+    assert run_card["paid_activity_executed"] is False
+    assert run_card["courtlistener_physical_requests"] == 0
+
+
+def test_recap_fetch_live_requires_request_ledger_before_transport_or_journal(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    output_root = tmp_path / "acquisition"
+    plan_path, selection_path = _write_recap_fetch_inputs(tmp_path, output_root)
+    policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+    for name, value in _recap_fetch_broker_env().items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("COURTLISTENER_API_TOKEN", "fixture-token")
+    monkeypatch.setattr(
+        cli,
+        "UrlLibRecapFetchTransport",
+        lambda _base_url: pytest.fail("CourtListener transport constructed"),
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "purchase-missing-recap-fetch",
+                "--budget-plan",
+                str(plan_path),
+                "--selection",
+                str(selection_path),
+                "--purchase-policy",
+                str(policy_path),
+                "--cohort-policy",
+                str(cohort_path),
+                "--purchase-ledger",
+                str(ledger_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--live-purchase",
+                "--acknowledge-pacer-fees",
+            ]
+        )
+        == 2
+    )
+
+    assert "--request-ledger is required" in capsys.readouterr().err
+    assert not ledger_path.exists()
+    run_card = _read_json(
+        output_root / "run-cards" / "purchase-missing-recap-fetch.json"
+    )
+    assert run_card["status"] == "failed"
+    assert run_card["paid_activity_executed"] is False
+    assert run_card["courtlistener_physical_requests"] == 0
+
+
+def test_recap_fetch_invalid_courtlistener_base_fails_before_journal(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    output_root = tmp_path / "acquisition"
+    plan_path, selection_path = _write_recap_fetch_inputs(tmp_path, output_root)
+    policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+    request_ledger = tmp_path / "courtlistener-requests.sqlite3"
+    for name, value in _recap_fetch_broker_env().items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("COURTLISTENER_API_TOKEN", "fixture-token")
+    monkeypatch.setenv("COURTLISTENER_BASE_URL", "https://example.com/api/rest/v4")
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "purchase-missing-recap-fetch",
+                "--budget-plan",
+                str(plan_path),
+                "--selection",
+                str(selection_path),
+                "--purchase-policy",
+                str(policy_path),
+                "--cohort-policy",
+                str(cohort_path),
+                "--purchase-ledger",
+                str(ledger_path),
+                "--request-ledger",
+                str(request_ledger),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--live-purchase",
+                "--acknowledge-pacer-fees",
+            ]
+        )
+        == 2
+    )
+
+    error = capsys.readouterr().err
+    assert "CourtListener base URL must be HTTPS on www.courtlistener.com" in error
+    assert "Traceback" not in error
+    assert not ledger_path.exists()
+    run_card = _read_json(
+        output_root / "run-cards" / "purchase-missing-recap-fetch.json"
+    )
+    assert run_card["status"] == "failed"
+    assert run_card["paid_activity_executed"] is False
+    assert run_card["courtlistener_physical_requests"] == 0
+
+
+def test_recap_fetch_journal_open_failure_emits_nonpaid_failure_run_card(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    output_root = tmp_path / "acquisition"
+    plan_path, selection_path = _write_recap_fetch_inputs(tmp_path, output_root)
+    policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+    request_ledger = tmp_path / "courtlistener-requests.sqlite3"
+    ledger_path.mkdir()
+    for name, value in _recap_fetch_broker_env().items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("COURTLISTENER_API_TOKEN", "fixture-token")
+    monkeypatch.setattr(
+        cli,
+        "UrlLibRecapFetchTransport",
+        lambda _base_url: recap_fetch.FixtureRecapFetchTransport([]),
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "purchase-missing-recap-fetch",
+                "--budget-plan",
+                str(plan_path),
+                "--selection",
+                str(selection_path),
+                "--purchase-policy",
+                str(policy_path),
+                "--cohort-policy",
+                str(cohort_path),
+                "--purchase-ledger",
+                str(ledger_path),
+                "--request-ledger",
+                str(request_ledger),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--live-purchase",
+                "--acknowledge-pacer-fees",
+            ]
+        )
+        == 2
+    )
+
+    assert "Traceback" not in capsys.readouterr().err
+    run_card = _read_json(
+        output_root / "run-cards" / "purchase-missing-recap-fetch.json"
+    )
+    assert run_card["status"] == "failed"
+    assert run_card["paid_activity_executed"] is False
+    assert run_card["courtlistener_physical_requests"] == 0
 
 
 def test_recap_fetch_offline_failure_never_records_paid_activity(
@@ -575,6 +760,7 @@ def test_recap_fetch_live_receipt_rejection_is_clean_nonpaid_failure(
     output_root = tmp_path / "acquisition"
     plan_path, selection_path = _write_recap_fetch_inputs(tmp_path, output_root)
     policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+    request_ledger = tmp_path / "courtlistener-requests.sqlite3"
     policy = cli.verify_case_dev_purchase_policy(_read_json(policy_path))
     plan = cli._missing_core_budget_plan(_read_json(plan_path))
     with CaseDevPurchaseJournal(ledger_path, policy=policy) as journal:
@@ -614,6 +800,8 @@ def test_recap_fetch_live_receipt_rejection_is_clean_nonpaid_failure(
                 str(cohort_path),
                 "--purchase-ledger",
                 str(ledger_path),
+                "--request-ledger",
+                str(request_ledger),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -634,6 +822,7 @@ def test_recap_fetch_live_receipt_rejection_is_clean_nonpaid_failure(
     )
     assert run_card["paid_activity_requested"] is True
     assert run_card["paid_activity_executed"] is False
+    assert run_card["courtlistener_physical_requests"] == 0
     with CaseDevPurchaseJournal(ledger_path, policy=policy) as journal:
         assert journal.statuses() == {"123": "unknown"}
 

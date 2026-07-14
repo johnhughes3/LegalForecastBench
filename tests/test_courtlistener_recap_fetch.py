@@ -24,6 +24,9 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     RecapFetchHTTPResponse,
     RecordedRecapFetchResponse,
 )
+from legalforecast.ingestion.courtlistener_request_budget import (
+    CourtListenerRequestBudget,
+)
 from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
     MissingCoreBudgetPlan,
@@ -378,16 +381,19 @@ def test_noncharging_poll_retries_transient_transport_failure(
     ledger = (tmp_path / "purchases.sqlite3").resolve()
     policy = verify_case_dev_purchase_policy(_policy(ledger))
     transport = _TransientPollTransport()
+    request_budget = CourtListenerRequestBudget(tmp_path / "requests.sqlite3")
     with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
-        result = CourtListenerRecapFetchClient(
+        client = CourtListenerRecapFetchClient(
             _config(),
             journal=journal,
             transport=transport,
             purchase_broker=FixtureRecapFetchPurchaseBroker(
                 [{"id": "77", "reservation_id": "reservation-1"}]
             ),
+            before_request=request_budget.before_request,
             poll_attempts=1,
-        ).execute_purchase_plan(
+        )
+        result = client.execute_purchase_plan(
             _plan(),
             public_documents=_public_documents(),
             live=True,
@@ -395,6 +401,9 @@ def test_noncharging_poll_retries_transient_transport_failure(
         )
     assert transport.failed is True
     assert result.attempts[0].reason == "recap_fetch_queued_status_1"
+    assert client.courtlistener_request_count == 3
+    assert request_budget.local_reservations == 3
+    assert request_budget.total_reservations() == 3
 
 
 def test_cli_help_exposes_brokered_command(capsys: pytest.CaptureFixture[str]) -> None:
@@ -404,6 +413,9 @@ def test_cli_help_exposes_brokered_command(capsys: pytest.CaptureFixture[str]) -
     output = capsys.readouterr().out
     assert "--purchase-broker-fixture" in output
     assert "--live-purchase" in output
+    assert "--request-ledger" in output
+    assert "--courtlistener-rate-profile" in output
+    assert "--request-budget-max-wait-seconds" in output
 
 
 @pytest.mark.parametrize(

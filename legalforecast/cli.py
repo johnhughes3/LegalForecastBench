@@ -10,6 +10,7 @@ import os
 import random
 import re
 import shutil
+import sqlite3
 import sys
 import tempfile
 import time
@@ -183,6 +184,7 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     CourtListenerRecapFetchError,
     FixtureRecapFetchPurchaseBroker,
     FixtureRecapFetchTransport,
+    UrlLibRecapFetchTransport,
     public_documents_from_selection,
 )
 from legalforecast.ingestion.courtlistener_request_budget import (
@@ -2792,6 +2794,32 @@ def _add_acquisition_purchase_missing_recap_fetch_arguments(
         help=(
             "Offline JSON array of budget-broker receipts; never contains "
             "PACER credentials."
+        ),
+    )
+    parser.add_argument(
+        "--request-ledger",
+        type=Path,
+        help=(
+            "Crash-durable SQLite ledger for every physical CourtListener "
+            "verification or polling attempt. Required with --live-purchase."
+        ),
+    )
+    parser.add_argument(
+        "--courtlistener-rate-profile",
+        choices=tuple(_COURTLISTENER_RATE_PROFILES),
+        default="base",
+        help=(
+            "Provider ceiling profile with headroom. Use temporary-doubled only "
+            "while CourtListener has explicitly doubled this account's limits."
+        ),
+    )
+    parser.add_argument(
+        "--request-budget-max-wait-seconds",
+        type=float,
+        default=120.0,
+        help=(
+            "Maximum cumulative wait for one CourtListener request reservation "
+            "before failing closed; default 120."
         ),
     )
     parser.add_argument(
@@ -6587,6 +6615,49 @@ def _courtlistener_bridge_rate_evidence(
     }
 
 
+def _recap_fetch_rate_evidence(
+    args: argparse.Namespace,
+    *,
+    client: CourtListenerRecapFetchClient | None,
+    budget: CourtListenerRequestBudget | None,
+    live: bool,
+) -> JsonRecord:
+    """Return request-ledger evidence for RECAP verification and polling GETs."""
+
+    evidence: JsonRecord = {
+        "courtlistener_live": live,
+        "courtlistener_physical_requests": (
+            0 if client is None else client.courtlistener_request_count
+        ),
+    }
+    if not live:
+        return evidence
+    evidence.update(
+        {
+            "courtlistener_rate_profile": cast(str, args.courtlistener_rate_profile),
+            "courtlistener_request_budget_max_wait_seconds": cast(
+                float, args.request_budget_max_wait_seconds
+            ),
+        }
+    )
+    request_ledger = cast(Path | None, args.request_ledger)
+    if request_ledger is not None:
+        evidence["courtlistener_request_ledger"] = str(request_ledger.resolve())
+    if budget is not None:
+        evidence.update(
+            {
+                "courtlistener_reservations_this_phase": budget.local_reservations,
+                "courtlistener_reservations_total": budget.total_reservations(),
+                "courtlistener_limits": {
+                    "per_minute": budget.limits.per_minute,
+                    "per_hour": budget.limits.per_hour,
+                    "per_day": budget.limits.per_day,
+                },
+            }
+        )
+    return evidence
+
+
 def _batch_002_rate_evidence(
     args: argparse.Namespace,
     client: CourtListenerClient,
@@ -10002,8 +10073,16 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
         "purchase_output",
         output_root / "courtlistener-recap-fetch-purchases.json",
     )
-    plan = _missing_core_budget_plan(_read_json_object(plan_path))
+    dry_run = _acquisition_dry_run(args)
+    live_purchase = cast(bool, args.live_purchase)
+    acknowledge_fees = cast(bool, args.acknowledge_pacer_fees)
+    courtlistener_fixture = cast(Path | None, args.courtlistener_fixture)
+    broker_fixture = cast(Path | None, args.purchase_broker_fixture)
+    input_paths = (plan_path, selection_path, policy_path, cohort_policy_path)
+    client: CourtListenerRecapFetchClient | None = None
+    request_budget: CourtListenerRequestBudget | None = None
     try:
+        plan = _missing_core_budget_plan(_read_json_object(plan_path))
         purchase_policy = verify_case_dev_purchase_policy(
             _read_json_object(policy_path)
         )
@@ -10013,129 +10092,179 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
         public_documents = public_documents_from_selection(
             _read_records(selection_path)
         )
-    except (
-        CaseDevPurchasePolicyError,
-        CourtListenerRecapFetchError,
-        OSError,
-        UnicodeError,
-        ValueError,
-    ) as exc:
-        raise CommandError(str(exc)) from exc
-    if ledger_path != purchase_policy.canonical_ledger_path:
-        raise CommandError(
-            "--purchase-ledger conflicts with the canonical policy locator"
-        )
-    dry_run = _acquisition_dry_run(args)
-    live_purchase = cast(bool, args.live_purchase)
-    acknowledge_fees = cast(bool, args.acknowledge_pacer_fees)
-    courtlistener_fixture = cast(Path | None, args.courtlistener_fixture)
-    broker_fixture = cast(Path | None, args.purchase_broker_fixture)
-    if dry_run:
-        attempts = tuple(
-            CaseDevPacerPurchaseAttempt(
-                candidate_id=case_plan.candidate_id,
-                source_document_id=document_id,
-                status=CaseDevPacerPurchaseStatus.PLANNED_DRY_RUN,
-                reason="dry_run_no_paid_request",
-                source_provider="courtlistener.recap-fetch+pacer",
-            )
-            for case_plan in plan.case_plans
-            for document_id in case_plan.purchase_document_ids
-        )
-        result = CaseDevPacerPurchaseResult(
-            live=False,
-            acknowledge_pacer_fees=acknowledge_fees,
-            capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
-            dry_run=True,
-            projected_cost_usd=plan.total_estimated_cost_usd,
-            max_projected_budget_usd=plan.max_projected_budget_usd,
-            attempts=attempts,
-        )
-        paid_executed = False
-    else:
-        if plan.dry_run:
+        if ledger_path != purchase_policy.canonical_ledger_path:
             raise CommandError(
-                "purchase-missing-recap-fetch requires a non-dry-run budget plan"
+                "--purchase-ledger conflicts with the canonical policy locator"
             )
-        if not acknowledge_fees:
-            raise CommandError(
-                "purchase-missing-recap-fetch --execute requires "
-                "--acknowledge-pacer-fees"
-            )
-        if live_purchase:
-            if courtlistener_fixture is not None or broker_fixture is not None:
-                raise CommandError(
-                    "--live-purchase cannot be combined with offline fixtures"
+        if dry_run:
+            attempts = tuple(
+                CaseDevPacerPurchaseAttempt(
+                    candidate_id=case_plan.candidate_id,
+                    source_document_id=document_id,
+                    status=CaseDevPacerPurchaseStatus.PLANNED_DRY_RUN,
+                    reason="dry_run_no_paid_request",
+                    source_provider="courtlistener.recap-fetch+pacer",
                 )
-            try:
+                for case_plan in plan.case_plans
+                for document_id in case_plan.purchase_document_ids
+            )
+            result = CaseDevPacerPurchaseResult(
+                live=False,
+                acknowledge_pacer_fees=acknowledge_fees,
+                capability=CaseDevPacerCapability.DOCUMENT_LEVEL_PURCHASE,
+                dry_run=True,
+                projected_cost_usd=plan.total_estimated_cost_usd,
+                max_projected_budget_usd=plan.max_projected_budget_usd,
+                attempts=attempts,
+            )
+        else:
+            if plan.dry_run:
+                raise CommandError(
+                    "purchase-missing-recap-fetch requires a non-dry-run budget plan"
+                )
+            if not acknowledge_fees:
+                raise CommandError(
+                    "purchase-missing-recap-fetch --execute requires "
+                    "--acknowledge-pacer-fees"
+                )
+            if live_purchase:
+                if courtlistener_fixture is not None or broker_fixture is not None:
+                    raise CommandError(
+                        "--live-purchase cannot be combined with offline fixtures"
+                    )
+                request_ledger = cast(Path | None, args.request_ledger)
+                if request_ledger is None:
+                    raise CommandError(
+                        "--request-ledger is required with --live-purchase"
+                    )
+                max_wait = cast(float, args.request_budget_max_wait_seconds)
+                if max_wait < 0:
+                    raise CommandError(
+                        "--request-budget-max-wait-seconds cannot be negative"
+                    )
                 courtlistener_config = CourtListenerRecapFetchConfig.from_env()
+                # Validate the allowlisted, redirect-refusing transport before the
+                # purchase journal is opened or any paid operation can be reserved.
+                courtlistener_transport = UrlLibRecapFetchTransport(
+                    courtlistener_config.base_url
+                )
                 purchase_broker = SignedRecapFetchPurchaseBroker(
                     RecapFetchBrokerConfig.from_env()
                 )
-            except (CourtListenerRecapFetchError, ValueError) as exc:
-                _write_acquisition_failure(
-                    args,
-                    stage="purchase-missing-recap-fetch",
-                    input_paths=(plan_path, selection_path, policy_path),
-                    output_paths=(output_path, ledger_path),
-                    reason=str(exc),
-                    paid_activity_requested=True,
-                    paid_activity_executed=False,
+                profile = cast(str, args.courtlistener_rate_profile)
+                request_budget = CourtListenerRequestBudget(
+                    request_ledger,
+                    limits=_COURTLISTENER_RATE_PROFILES[profile],
+                    max_wait_seconds=max_wait,
                 )
-                raise CommandError(str(exc)) from exc
-            client = CourtListenerRecapFetchClient(
-                courtlistener_config,
-                journal=CaseDevPurchaseJournal(ledger_path, policy=purchase_policy),
-                purchase_broker=purchase_broker,
-            )
-        else:
-            if courtlistener_fixture is None or broker_fixture is None:
-                raise CommandError(
-                    "offline execution requires --courtlistener-fixture and "
-                    "--purchase-broker-fixture"
+                with CaseDevPurchaseJournal(
+                    ledger_path, policy=purchase_policy
+                ) as journal:
+                    client = CourtListenerRecapFetchClient(
+                        courtlistener_config,
+                        journal=journal,
+                        transport=courtlistener_transport,
+                        purchase_broker=purchase_broker,
+                        before_request=request_budget.before_request,
+                    )
+                    result = client.execute_purchase_plan(
+                        plan,
+                        public_documents=public_documents,
+                        live=True,
+                        acknowledge_pacer_fees=True,
+                    )
+            else:
+                if courtlistener_fixture is None or broker_fixture is None:
+                    raise CommandError(
+                        "offline execution requires --courtlistener-fixture and "
+                        "--purchase-broker-fixture"
+                    )
+                raw_broker_responses = _loads_json(
+                    broker_fixture.read_text(encoding="utf-8")
                 )
-            raw_broker_responses = _loads_json(
-                broker_fixture.read_text(encoding="utf-8")
-            )
-            if isinstance(raw_broker_responses, str) or not isinstance(
-                raw_broker_responses, Sequence
-            ):
-                raise CommandError("purchase broker fixture must be a JSON array")
-            broker_responses = tuple(
-                _mapping(item, "purchase broker fixture response")
-                for item in cast(Sequence[object], raw_broker_responses)
-            )
-            client = CourtListenerRecapFetchClient(
-                CourtListenerRecapFetchConfig(api_token="offline-fixture"),
-                journal=CaseDevPurchaseJournal(ledger_path, policy=purchase_policy),
-                transport=FixtureRecapFetchTransport.from_jsonl(courtlistener_fixture),
-                purchase_broker=FixtureRecapFetchPurchaseBroker(broker_responses),
-            )
-        try:
-            with client.journal:
-                result = client.execute_purchase_plan(
-                    plan,
-                    public_documents=public_documents,
-                    live=True,
-                    acknowledge_pacer_fees=True,
+                if isinstance(raw_broker_responses, str) or not isinstance(
+                    raw_broker_responses, Sequence
+                ):
+                    raise CommandError("purchase broker fixture must be a JSON array")
+                broker_responses = tuple(
+                    _mapping(item, "purchase broker fixture response")
+                    for item in cast(Sequence[object], raw_broker_responses)
                 )
-        except (
-            CaseDevPurchaseLedgerError,
-            CourtListenerRecapFetchError,
-        ) as exc:
+                courtlistener_transport = FixtureRecapFetchTransport.from_jsonl(
+                    courtlistener_fixture
+                )
+                purchase_broker = FixtureRecapFetchPurchaseBroker(broker_responses)
+                with CaseDevPurchaseJournal(
+                    ledger_path, policy=purchase_policy
+                ) as journal:
+                    client = CourtListenerRecapFetchClient(
+                        CourtListenerRecapFetchConfig(api_token="offline-fixture"),
+                        journal=journal,
+                        transport=courtlistener_transport,
+                        purchase_broker=purchase_broker,
+                    )
+                    result = client.execute_purchase_plan(
+                        plan,
+                        public_documents=public_documents,
+                        live=True,
+                        acknowledge_pacer_fees=True,
+                    )
+    except (
+        CommandError,
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
+        CourtListenerRecapFetchError,
+        CourtListenerRequestBudgetError,
+        OSError,
+        sqlite3.Error,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        if live_purchase:
             _write_acquisition_failure(
                 args,
                 stage="purchase-missing-recap-fetch",
-                input_paths=(plan_path, selection_path, policy_path),
+                input_paths=input_paths,
                 output_paths=(output_path, ledger_path),
                 reason=str(exc),
-                paid_activity_requested=live_purchase,
+                paid_activity_requested=True,
                 paid_activity_executed=(
-                    live_purchase and client.paid_request_count > 0
+                    client is not None and client.paid_request_count > 0
+                ),
+                extra=_recap_fetch_rate_evidence(
+                    args,
+                    client=client,
+                    budget=request_budget,
+                    live=True,
                 ),
             )
-            raise CommandError(str(exc)) from exc
-        paid_executed = live_purchase and client.paid_request_count > 0
+        elif not dry_run:
+            _write_acquisition_failure(
+                args,
+                stage="purchase-missing-recap-fetch",
+                input_paths=input_paths,
+                output_paths=(output_path, ledger_path),
+                reason=str(exc),
+                paid_activity_requested=False,
+                paid_activity_executed=False,
+                extra=_recap_fetch_rate_evidence(
+                    args,
+                    client=client,
+                    budget=None,
+                    live=False,
+                ),
+            )
+        raise CommandError(str(exc)) from exc
+
+    paid_executed = (
+        live_purchase and client is not None and client.paid_request_count > 0
+    )
+    rate_evidence = _recap_fetch_rate_evidence(
+        args,
+        client=client,
+        budget=request_budget,
+        live=live_purchase,
+    )
     _write_json(output_path, result.to_record())
     _write_acquisition_completion(
         args,
@@ -10146,7 +10275,10 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
         dry_run=dry_run,
         paid_activity_requested=live_purchase,
         paid_activity_executed=paid_executed,
-        extra={"executed_purchase_count": result.executed_purchase_count},
+        extra={
+            "executed_purchase_count": result.executed_purchase_count,
+            **rate_evidence,
+        },
     )
     return 0 if result.executed_purchase_count == result.intended_purchase_count else 2
 

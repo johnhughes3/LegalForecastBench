@@ -8,7 +8,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from http.client import HTTPMessage
 from typing import IO, Any, Protocol, cast
@@ -283,6 +283,7 @@ class CourtListenerRecapFetchClient:
         journal: CaseDevPurchaseJournal,
         transport: RecapFetchTransport | None = None,
         purchase_broker: RecapFetchPurchaseBroker | None = None,
+        before_request: Callable[[str, str], None] | None = None,
         poll_attempts: int = 3,
         poll_backoff_seconds: float = 0.0,
     ) -> None:
@@ -290,8 +291,10 @@ class CourtListenerRecapFetchClient:
         self.journal = journal
         self.transport = transport or UrlLibRecapFetchTransport(config.base_url)
         self.purchase_broker = purchase_broker
+        self.before_request = before_request
         self.poll_attempts = poll_attempts
         self.poll_backoff_seconds = poll_backoff_seconds
+        self.courtlistener_request_count = 0
 
     @property
     def paid_request_count(self) -> int:
@@ -687,6 +690,9 @@ class CourtListenerRecapFetchClient:
         maximum = 3 if retry and not paid else 1
         for attempt in range(maximum):
             try:
+                if self.before_request is not None:
+                    self.before_request(method, path)
+                self.courtlistener_request_count += 1
                 response = self.transport.request(
                     method=method,
                     path=path,
