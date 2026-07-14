@@ -5698,26 +5698,30 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
                 }
                 fatal_error: CaseDevClientError | ValueError | None = None
                 while futures:
-                    future = next(as_completed(futures))
-                    futures.remove(future)
-                    try:
-                        progress, one_request_count = future.result()
-                    except (CaseDevClientError, ValueError) as exc:
-                        if fatal_error is None:
-                            fatal_error = exc
-                        continue
-                    request_count += one_request_count
-                    progress = _bound_case_dev_transient_progress(
-                        progress,
-                        transient_attempts_by_index=transient_attempts_by_index,
-                    )
-                    _append_jsonl(progress_path, (progress,))
-                    progress_by_index[cast(int, progress["input_index"])] = progress
-                    if (
-                        fatal_error is None
-                        and (replacement := submit_one()) is not None
-                    ):
-                        futures.add(replacement)
+                    first_completed = next(as_completed(futures))
+                    completed = {first_completed}
+                    completed.update(future for future in futures if future.done())
+                    futures.difference_update(completed)
+                    available_slots = 0
+                    for future in completed:
+                        try:
+                            progress, one_request_count = future.result()
+                        except (CaseDevClientError, ValueError) as exc:
+                            if fatal_error is None:
+                                fatal_error = exc
+                            continue
+                        request_count += one_request_count
+                        progress = _bound_case_dev_transient_progress(
+                            progress,
+                            transient_attempts_by_index=transient_attempts_by_index,
+                        )
+                        _append_jsonl(progress_path, (progress,))
+                        progress_by_index[cast(int, progress["input_index"])] = progress
+                        available_slots += 1
+                    if fatal_error is None:
+                        for _ in range(available_slots):
+                            if (replacement := submit_one()) is not None:
+                                futures.add(replacement)
                 if fatal_error is not None:
                     raise fatal_error
     except (CaseDevClientError, ValueError) as exc:

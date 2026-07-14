@@ -339,6 +339,100 @@ def test_parallel_enrichment_checkpoints_completed_sibling_before_rate_limit_abo
     assert set(started_indices) == {0, 1}
 
 
+def test_parallel_enrichment_checks_completed_fatal_before_replacement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dockets = tmp_path / "dockets.jsonl"
+    dockets.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "candidate_id": f"courtlistener-docket-{docket_id}",
+                    "docket_id": docket_id,
+                    "docket_url": (
+                        f"https://www.courtlistener.com/docket/{docket_id}/example/"
+                    ),
+                    "entry_keys": [f"entry-{docket_id}"],
+                    "matched_terms": ["motion to dismiss"],
+                    "eligibility_status": "potential_unverified",
+                }
+            )
+            + "\n"
+            for docket_id in ("101", "102", "103")
+        ),
+        encoding="utf-8",
+    )
+    initial_workers_finished = (threading.Event(), threading.Event())
+    started_indices: list[int] = []
+
+    def fake_enrich(*, input_index: int, **_kwargs: Any) -> tuple[dict[str, Any], int]:
+        started_indices.append(input_index)
+        if input_index == 0:
+            initial_workers_finished[0].set()
+            raise CaseDevRateLimitError("organization rate limit")
+        if input_index == 1:
+            initial_workers_finished[1].set()
+        return (
+            {
+                "input_index": input_index,
+                "outcome": "success",
+                "payload": {"completed": True},
+            },
+            1,
+        )
+
+    real_as_completed = cli_module.as_completed
+    completion_pass = 0
+
+    def initial_success_first(futures: set[Any]) -> Any:
+        nonlocal completion_pass
+        completion_pass += 1
+        if completion_pass == 1:
+            assert all(event.wait(timeout=5) for event in initial_workers_finished)
+            completed = list(real_as_completed(futures))
+
+            def succeeded(future: Any) -> bool:
+                try:
+                    future.result()
+                except CaseDevRateLimitError:
+                    return False
+                return True
+
+            yield from sorted(completed, key=succeeded, reverse=True)
+            return
+        yield from real_as_completed(futures)
+
+    monkeypatch.setattr(
+        cli_module,
+        "_enrich_case_dev_progress_record",
+        fake_enrich,
+    )
+    monkeypatch.setattr(cli_module, "as_completed", initial_success_first)
+    monkeypatch.setenv("CASE_DEV_API_KEY", "offline-test-key")
+    monkeypatch.setenv("CASE_DEV_RATE_LIMIT_PER_MINUTE", "5")
+    output_root = tmp_path / "output"
+
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(output_root),
+                "--dockets",
+                str(dockets),
+                "--live-case-dev",
+                "--workers",
+                "2",
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert set(started_indices) == {0, 1}
+
+
 def _case_dev_response(docket_id: str) -> dict[str, object]:
     return {
         "method": "POST",
