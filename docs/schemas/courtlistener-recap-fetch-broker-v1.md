@@ -46,7 +46,7 @@ The submission endpoint is `POST /v1/recap-fetch` with `Content-Type: applicatio
 
 The body is a JSON object containing exactly these six string fields and no others:
 
-- `request_type`: exactly `2`, CourtListener's individual-document RECAP Fetch request type.
+- `request_type`: exactly the string `"2"`, CourtListener's individual-document RECAP Fetch request type.
 - `recap_document`: the base-10 positive-integer CourtListener RECAP document ID with no sign, whitespace, or leading zeroes.
 - `cycle_id`: the immutable purchase-policy cycle ID registered in the active broker policy.
 - `purchase_policy_sha256`: exactly 64 lowercase hexadecimal characters and equal to the active policy digest.
@@ -106,9 +106,9 @@ For cap calculations, committed spend is the policy's opening committed spend pl
 
 `operation_key` is the idempotency key and primary operation identity. The broker stores the originating authenticated `machine_id` and a SHA-256 digest of the canonical six-field request. A replay from a different machine identity, or a replay from the owning identity with a different request digest, returns `409 operation_key_conflict` and never calls CourtListener. A byte-equivalent replay from the owning identity never calls CourtListener and behaves as follows:
 
-- If a queue ID is known, return the original exact two-field success receipt with HTTP `200`.
-- If the operation is still `submitted` or `unknown` and no queue ID is known, return `409 operation_outcome_pending` and direct the caller to the receipt endpoint.
-- If protected reconciliation established a definite pre-queue failure with no charge and no queue ID, return `409 operation_failed`.
+- If a queue ID is known, return the original exact two-field success receipt with HTTP `200`, regardless of the operation's current state.
+- If no queue ID is known and the operation is `failed`, return `409 operation_failed`. This covers both a definite failure before provider fetch invocation and a protected reconciled no-charge failure.
+- If no queue ID is known and the operation is `submitted`, `unknown`, or `confirmed`, return `409 operation_outcome_pending` and direct the caller to the receipt endpoint. A valid `queued` or `delivered_but_unreconciled` operation always has a queue ID.
 
 The local journal must never automatically resubmit an operation after an ambiguous response, regardless of the HTTP status it observed.
 
@@ -187,7 +187,7 @@ The broker uses these status and code mappings:
 | `409` | `operation_key_conflict` | The operation key already exists with a different request digest. |
 | `409` | `operation_outcome_pending` | An identical replay has no known queue ID and must be inspected through receipts. |
 | `404` | `receipt_not_found` | The authenticated receipt lookup does not identify an operation. |
-| `409` | `operation_failed` | Protected reconciliation established a no-queue terminal failure. |
+| `409` | `operation_failed` | An identical replay identifies a `failed` operation with no queue ID, whether from a definite pre-provider failure or protected no-charge reconciliation. |
 | `500` | `client_code_collision` | The deterministic client code conflicts with a different operation. |
 | `502` | `provider_outcome_unknown` | The provider returned an unusable or non-success response after submission began. |
 | `504` | `provider_outcome_unknown` | A provider timeout or transport failure left the paid outcome ambiguous. |
@@ -226,11 +226,11 @@ An existing operation returns HTTP `200` with exactly these fields; nullable fie
 }
 ```
 
-`id` is the canonical positive-decimal CourtListener queue ID and is null until known, including when billing evidence arrives before queue recovery. `held_usd` is the amount currently counted against the caps. `authoritative_fee_usd` is null until protected billing reconciliation, a positive canonical amount for a reconciled charge, and exactly `0.00` for a reconciled no-charge failure. A charged `confirmed` receipt has `held_usd` exactly equal to `authoritative_fee_usd`; zero hold is valid only for an authoritative no-charge `failed` receipt. `delivered_at` and `reconciled_at` are independently nullable, and `confirmed` does not imply that the queue ID or delivery timestamp is already known.
+`id` is the canonical positive-decimal CourtListener queue ID. It is null until known for `submitted` and `unknown` operations and may remain null for `failed` or `confirmed` operations when billing evidence arrives before queue recovery. It is always nonnull for valid `queued` and `delivered_but_unreconciled` operations. `held_usd` is the amount currently counted against the caps. `authoritative_fee_usd` is null until protected billing reconciliation, a positive canonical amount for a reconciled charge, and exactly `0.00` for a reconciled no-charge failure. A charged `confirmed` receipt has `held_usd` exactly equal to `authoritative_fee_usd`; zero hold is valid only for an authoritative no-charge `failed` receipt. `delivered_at` and `reconciled_at` are independently nullable, and `confirmed` does not imply that the queue ID or delivery timestamp is already known.
 
 The receipt also contains nullable `provider_response_body_sha256` immediately before `provider_response_sha256`. The raw-body and redacted commitments follow the all-outcomes rules above. Both fields are exactly 64 lowercase hexadecimal characters when present, and either both are present for an HTTP response or both are null when no HTTP response was received.
 
-The receipt operation is machine-owned. A different authenticated machine receives `404 receipt_not_found`, even when the operation key exists, to prevent cross-identity enumeration. When the owning identity requests a receipt for `submitted`, `unknown`, or `failed` with no queue ID, the broker may perform at most one recovery traversal beginning at the fixed noncharging URL `https://www.courtlistener.com/api/rest/v4/recap-fetch/?client_code=<percent-encoded persisted client code>`. Each page must be a JSON object with a `results` array and an explicit DRF `next` field. Recovery follows at most 100 pages, permits continuation URLs only on the same HTTPS origin and exact `/api/rest/v4/recap-fetch/` path, rejects a repeated continuation URL, and treats only `next: null` as proven exhaustion. Exactly one result across the exhausted result set must have the exact persisted client code; zero or multiple matches leave the operation unchanged. A unique match with a valid queue ID may durably repair the queue ID and receipt commitments. A missing or malformed `next`, a nonnull `next` on page 100, an off-origin or wrong-path continuation, absence, ambiguity, or any lookup failure leaves the full hold and current state unchanged. This recovery path never repeats the paid POST.
+The receipt operation is machine-owned. A different authenticated machine receives `404 receipt_not_found`, even when the operation key exists, to prevent cross-identity enumeration. When the owning identity requests a receipt with no queue ID for a `submitted`, `unknown`, or `confirmed` operation, or for a protected reconciled no-charge `failed` operation, the broker may perform at most one recovery traversal beginning at the fixed noncharging URL `https://www.courtlistener.com/api/rest/v4/recap-fetch/?client_code=<percent-encoded persisted client code>`. Each page must be a JSON object with a `results` array and an explicit DRF `next` field. Recovery follows at most 100 pages, permits continuation URLs only on the same HTTPS origin and exact `/api/rest/v4/recap-fetch/` path, rejects a repeated continuation URL, and treats only `next: null` as proven exhaustion. Exactly one result across the exhausted result set must have the exact persisted client code; zero or multiple matches leave the operation unchanged. A unique match with a valid queue ID may durably repair the queue ID and receipt commitments without changing an authoritative `confirmed` or `failed` billing result. A missing or malformed `next`, a nonnull `next` on page 100, an off-origin or wrong-path continuation, absence, ambiguity, or any lookup failure leaves the hold and current state unchanged. This recovery path never repeats the paid POST.
 
 After reconciliation, `billing_evidence` is exactly:
 
