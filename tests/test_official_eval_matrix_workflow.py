@@ -308,9 +308,23 @@ def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() ->
         "MODEL_REGISTRY_URI MODEL_KEY EXPECTED_PACKET_OBJECT_KEY "
         "EXPECTED_PACKET_SHA256)" in RUN_CASE_JOB
     )
-    assert "OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}" in WORKFLOW
-    assert "ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}" in WORKFLOW
-    assert "GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}" in WORKFLOW
+    assert (
+        "OPENAI_API_KEY: ${{ startsWith(matrix.model_key, 'openai:') "
+        "&& secrets.OPENAI_API_KEY || '' }}" in WORKFLOW
+    )
+    assert (
+        "ANTHROPIC_API_KEY: ${{ startsWith(matrix.model_key, 'anthropic:') "
+        '&& !contains(fromJSON(\'["bedrock","aws-bedrock","aws_bedrock"]\'), '
+        "vars.LFB_ANTHROPIC_RUNTIME) && secrets.ANTHROPIC_API_KEY || '' }}" in WORKFLOW
+    )
+    assert (
+        "GEMINI_API_KEY: ${{ (startsWith(matrix.model_key, 'google:') || "
+        "startsWith(matrix.model_key, 'gemini:')) && secrets.GEMINI_API_KEY || '' }}"
+        in WORKFLOW
+    )
+    assert "OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}" not in RUN_CASE_JOB
+    assert "ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}" not in RUN_CASE_JOB
+    assert "GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}" not in RUN_CASE_JOB
     assert "LFB_ANTHROPIC_RUNTIME: ${{ vars.LFB_ANTHROPIC_RUNTIME }}" in WORKFLOW
     assert (
         "LFB_ANTHROPIC_BEDROCK_MODEL_ID: "
