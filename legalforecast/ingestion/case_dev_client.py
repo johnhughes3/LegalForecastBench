@@ -13,6 +13,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from http.client import HTTPMessage
 from pathlib import Path
+from threading import Lock
 from typing import Any, Protocol, TypeVar, cast
 
 from legalforecast.ingestion.case_dev_config import (
@@ -78,6 +79,44 @@ class CaseDevTransport(Protocol):
         headers: Mapping[str, str],
         timeout_seconds: float,
     ) -> CaseDevHTTPResponse: ...
+
+
+class CaseDevRateLimiter:
+    """Serialize request starts under one aggregate per-process worker cap.
+
+    A concurrent command creates one instance and injects it into every worker
+    client. The lock remains held while waiting so separate clients cannot each
+    consume the full organization-wide ``rate_limit_per_minute`` allowance.
+    """
+
+    def __init__(
+        self,
+        *,
+        rate_limit_per_minute: int,
+        monotonic: Callable[[], float] | None = None,
+        sleep: Callable[[float], None] | None = None,
+    ) -> None:
+        if type(rate_limit_per_minute) is not int or rate_limit_per_minute <= 0:
+            raise ValueError("rate_limit_per_minute must be a positive integer")
+        self.rate_limit_per_minute = rate_limit_per_minute
+        self._interval_seconds = 60.0 / rate_limit_per_minute
+        self._monotonic = time.monotonic if monotonic is None else monotonic
+        self._sleep = time.sleep if sleep is None else sleep
+        self._lock = Lock()
+        self._last_request_monotonic: float | None = None
+
+    def acquire(self) -> None:
+        """Wait until the next aggregate request-start slot is available."""
+
+        with self._lock:
+            now = self._monotonic()
+            if self._last_request_monotonic is not None:
+                elapsed = now - self._last_request_monotonic
+                remaining = self._interval_seconds - elapsed
+                if remaining > 0:
+                    self._sleep(remaining)
+                    now = self._monotonic()
+            self._last_request_monotonic = now
 
 
 @dataclass(frozen=True, slots=True)
@@ -434,6 +473,7 @@ class CaseDevClient:
         transport: CaseDevTransport | None = None,
         max_retries: int = 2,
         retry_backoff_seconds: float = 0.0,
+        rate_limiter: CaseDevRateLimiter | None = None,
     ) -> None:
         self.config = CaseDevConfig.from_env() if config is None else config
         self.transport = (
@@ -444,7 +484,23 @@ class CaseDevClient:
         self.max_retries = max_retries
         self.retry_backoff_seconds = retry_backoff_seconds
         self.request_count = 0
-        self._last_request_monotonic: float | None = None
+        configured_limit = self.config.rate_limit_per_minute
+        if (
+            rate_limiter is not None
+            and rate_limiter.rate_limit_per_minute != configured_limit
+        ):
+            raise ValueError(
+                "shared Case.dev rate limiter must match configured aggregate limit"
+            )
+        self._rate_limiter = (
+            rate_limiter
+            if rate_limiter is not None
+            else (
+                None
+                if configured_limit is None
+                else CaseDevRateLimiter(rate_limit_per_minute=configured_limit)
+            )
+        )
 
     @classmethod
     def live_from_env(cls) -> CaseDevClient:
@@ -632,18 +688,8 @@ class CaseDevClient:
         raise error
 
     def _throttle_if_needed(self) -> None:
-        limit = self.config.rate_limit_per_minute
-        if limit is None:
-            return
-        interval_seconds = 60.0 / limit
-        now = time.monotonic()
-        if self._last_request_monotonic is not None:
-            elapsed = now - self._last_request_monotonic
-            remaining = interval_seconds - elapsed
-            if remaining > 0:
-                time.sleep(remaining)
-                now = time.monotonic()
-        self._last_request_monotonic = now
+        if self._rate_limiter is not None:
+            self._rate_limiter.acquire()
 
     def _headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}

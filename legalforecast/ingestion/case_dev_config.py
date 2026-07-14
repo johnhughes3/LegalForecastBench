@@ -37,7 +37,11 @@ class CaseDevUsageEstimate:
 
 @dataclass(frozen=True, slots=True)
 class CaseDevConfig:
-    """case.dev runtime settings loaded from environment variables."""
+    """case.dev runtime settings loaded from environment variables.
+
+    ``rate_limit_per_minute`` is an aggregate process allowance. Concurrent
+    workers share one limiter rather than each receiving this many requests.
+    """
 
     api_key: str | None
     base_url: str = DEFAULT_CASE_DEV_BASE_URL
