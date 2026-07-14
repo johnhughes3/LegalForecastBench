@@ -28,10 +28,10 @@ Each case's cumulative cap accounting begins with its frozen `opening_case_commi
 Generate the secure-gate activation artifact only after the final executable purchase plan and final selection are frozen:
 
 ```console
-uv run legalforecast acquisition generate-recap-fetch-broker-policy --purchase-policy PURCHASE_POLICY.json --budget-plan MISSING_CORE_BUDGET_PLAN.json --selection FINAL_SELECTION.jsonl --output BROKER_POLICY.json
+uv run legalforecast acquisition generate-recap-fetch-broker-policy --purchase-policy PURCHASE_POLICY.json --cohort-policy COHORT_POLICY.json --budget-plan MISSING_CORE_BUDGET_PLAN.json --selection FINAL_SELECTION.jsonl --output BROKER_POLICY.json
 ```
 
-The producer copies the verified policy digest, caps, reservation, and opening commitments, and derives the document allowlist exclusively from `case_plans[].purchase_document_ids` whose matching selection metadata either proves the document public or records the bridge's explicit PACER-only restriction screening.
+The producer first re-verifies that the purchase-policy hash and caps consume the supplied frozen cohort policy, then copies the verified policy digest, caps, reservation, and opening commitments, and derives the document allowlist exclusively from `case_plans[].purchase_document_ids` whose matching selection metadata either proves the document public or records the bridge's explicit PACER-only restriction screening.
 Any sealed, private, restricted, or metadata-missing document is rejected; PACER-only documents remain restriction-unknown until noncharging provider verification and post-recovery disclosure clearance, so allowlisting never makes them packet-eligible.
 It prints secure-gate's canonical broker-policy SHA-256, writes deterministic JSON atomically, and refuses to overwrite an existing different-byte artifact.
 

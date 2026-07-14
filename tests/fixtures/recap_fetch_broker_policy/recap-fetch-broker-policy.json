@@ -16,7 +16,7 @@
   },
   "opening_committed_spend_usd": "2.00",
   "per_case_cap_usd": "10.00",
-  "purchase_policy_sha256": "48b04e616a8ca2288e9cac8530db06e03652b918512d684f76aa6d4508ac085b",
+  "purchase_policy_sha256": "07da40385f8fd27b45df13b7cb10bc0dd34b78c5e80ab6872c5e60bd807b9896",
   "reservation_usd": "3.05",
   "version": "courtlistener-recap-fetch-policy-v1"
 }

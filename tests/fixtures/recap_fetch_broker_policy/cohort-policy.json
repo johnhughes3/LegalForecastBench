@@ -1,0 +1,109 @@
+{
+  "policy": {
+    "cycle_acquisition_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "cycle_id": "cycle-1",
+    "disclosure_clearance": {
+      "all_documents_require_clearance": true,
+      "replacement_rule": "next_cheapest_eligible_under_same_cap",
+      "unknown_or_unscannable": "quarantine"
+    },
+    "eligibility_anchor": "2026-05-14",
+    "packet_completeness": {
+      "motion_or_combined_memorandum_required": true,
+      "opposition_required_if_docketed": true,
+      "reply_required": false
+    },
+    "purchase_policy": {
+      "cycle_budget_usd": "100.00",
+      "max_per_case_usd": "10.00",
+      "reservation_headroom_required": true,
+      "rule": "buy_cheapest_complete"
+    },
+    "reduced_n": {
+      "below_minimum_action": "pilot_only_no_official_cycle",
+      "claim_tiers": [
+        {
+          "claim_class": "target",
+          "insufficient_units_action": null,
+          "maximum_clean_cases": 1,
+          "minimum_clean_cases": 1,
+          "minimum_prediction_units": null
+        }
+      ],
+      "target_clean_cases": 1
+    },
+    "refresh_policy": {
+      "accepted_reason_codes": [
+        "required_documents_complete",
+        "strict_clean_screen_passed"
+      ],
+      "evidence_precedence": {
+        "accepted": 20,
+        "excluded_immutable": 100,
+        "excluded_refreshable": 10,
+        "newly_free": 30,
+        "transient": 0
+      },
+      "immutable_reason_codes": [
+        "administrative_case",
+        "appellate_case",
+        "bankruptcy_case",
+        "bankruptcy_court",
+        "criminal_case",
+        "criminal_style_caption",
+        "decision_before_release_anchor",
+        "invalid_civil_case_metadata",
+        "missing_civil_case_metadata",
+        "missing_docket_number",
+        "non_civil_case",
+        "non_civil_metadata",
+        "not_civil_cv_docket",
+        "not_federal_district_court",
+        "placeholder_or_sealed_docket_number"
+      ],
+      "newly_free_reason_codes": [
+        "newly_free",
+        "required_documents_newly_free"
+      ],
+      "refreshable_reason_codes": [
+        "bankruptcy_posture",
+        "criminal_posture",
+        "habeas_or_immigration_detention_posture",
+        "strict_clean_screen_failed"
+      ],
+      "transient_reason_codes": [
+        "case_dev_provider_blocker",
+        "courtlistener_docket_html_unavailable",
+        "courtlistener_docket_unavailable",
+        "fetch_error",
+        "firecrawl_provider_blocker",
+        "parse_failure",
+        "temporarily_unavailable"
+      ],
+      "transition_semantics": {
+        "higher_rank_supersedes_lower_rank": true,
+        "immutable_reconsideration": "never",
+        "latest_wins_equal_rank": true,
+        "transient_supersedes_evidenced": false
+      }
+    },
+    "stop_rule": {
+      "mode": "target_or_deadline",
+      "search_window_end": "2026-05-18",
+      "stop_on_budget_headroom_exhaustion": true,
+      "stop_on_frontier_exhaustion": true,
+      "target_clean_cases": 1
+    },
+    "target_motion": {
+      "exactly_one_per_candidate": true,
+      "selector": "earliest_eligible_mtd_then_lowest_entry_number"
+    },
+    "window_policy": {
+      "backfill_late_indexed": true,
+      "overlap_days": 1,
+      "refresh_before_purchase": true
+    }
+  },
+  "policy_sha256": "6522a360141e8e719dfba60eeba369668cd899f4ed2a119c5b885874fa97bb10",
+  "schema_version": "legalforecast.cohort_policy.v1"
+}

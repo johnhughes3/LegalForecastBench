@@ -1,7 +1,7 @@
 {
   "policy": {
     "canonical_ledger_path": "/tmp/cycle-1-purchases.sqlite3",
-    "cohort_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "cohort_policy_sha256": "6522a360141e8e719dfba60eeba369668cd899f4ed2a119c5b885874fa97bb10",
     "cycle_id": "cycle-1",
     "fee_schedule": {
       "includes_pacer_fees": true,
@@ -18,6 +18,6 @@
     "opening_committed_spend_usd": "2.00",
     "per_document_reservation_usd": "3.05"
   },
-  "policy_sha256": "48b04e616a8ca2288e9cac8530db06e03652b918512d684f76aa6d4508ac085b",
+  "policy_sha256": "07da40385f8fd27b45df13b7cb10bc0dd34b78c5e80ab6872c5e60bd807b9896",
   "schema_version": "legalforecast.case_dev_purchase_policy.v1"
 }

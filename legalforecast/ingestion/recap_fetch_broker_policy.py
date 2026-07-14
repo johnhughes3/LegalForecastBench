@@ -16,6 +16,7 @@ from typing import Any, cast
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchasePolicyError,
     verify_case_dev_purchase_policy,
+    verify_case_dev_purchase_policy_cohort_binding,
 )
 from legalforecast.ingestion.missing_core_budget import MissingCoreBudgetPlan
 
@@ -38,6 +39,7 @@ class RecapFetchBrokerPolicyError(ValueError):
 def generate_recap_fetch_broker_policy(
     *,
     purchase_policy_artifact: Mapping[str, object],
+    cohort_policy_artifact: Mapping[str, Any],
     budget_plan: MissingCoreBudgetPlan,
     budget_plan_artifact: Mapping[str, object],
     selection_records: Sequence[Mapping[str, Any]],
@@ -51,6 +53,10 @@ def generate_recap_fetch_broker_policy(
 
     try:
         purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        verify_case_dev_purchase_policy_cohort_binding(
+            purchase_policy,
+            cohort_policy_artifact,
+        )
     except CaseDevPurchasePolicyError as exc:
         raise RecapFetchBrokerPolicyError(str(exc)) from exc
 
@@ -314,7 +320,7 @@ def _canonical_document_id(value: object) -> str:
         or _CANONICAL_RECAP_DOCUMENT_ID.fullmatch(value) is None
     ):
         raise RecapFetchBrokerPolicyError(
-            "planned RECAP document IDs must be canonical positive decimals"
+            "planned RECAP document IDs must be canonical positive integers"
         )
     return value
 

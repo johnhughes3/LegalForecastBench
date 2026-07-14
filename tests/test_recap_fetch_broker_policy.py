@@ -29,6 +29,7 @@ _GOLDEN_ROOT = Path("tests/fixtures/recap_fetch_broker_policy")
 def test_golden_policy_is_hash_bound_and_excludes_unplanned_selection_docs() -> None:
     policy = generate_recap_fetch_broker_policy(
         purchase_policy_artifact=_purchase_policy(),
+        cohort_policy_artifact=_cohort_policy(),
         budget_plan=_budget_plan(),
         budget_plan_artifact=_budget_plan().to_record(),
         selection_records=_selection(),
@@ -49,7 +50,7 @@ def test_golden_policy_is_hash_bound_and_excludes_unplanned_selection_docs() -> 
         ],
     }
     assert broker_policy_sha256(policy) == (
-        "d269d5f8e67650a1e8c8e0818cbd6bd53362915988b3f2c16e977ea976c84968"
+        "03cd37b2e0e562f101d130ddf0b8277458831a5bfeef22fcd643b1687f4733a2"
     )
 
 
@@ -57,6 +58,7 @@ def test_reordering_inputs_produces_identical_bytes(tmp_path: Path) -> None:
     purchase_policy = _purchase_policy()
     first = generate_recap_fetch_broker_policy(
         purchase_policy_artifact=purchase_policy,
+        cohort_policy_artifact=_cohort_policy(),
         budget_plan=_budget_plan(),
         budget_plan_artifact=_budget_plan().to_record(),
         selection_records=_selection(),
@@ -65,6 +67,7 @@ def test_reordering_inputs_produces_identical_bytes(tmp_path: Path) -> None:
         purchase_policy_artifact={
             key: purchase_policy[key] for key in reversed(purchase_policy)
         },
+        cohort_policy_artifact=_cohort_policy(),
         budget_plan=_budget_plan(reverse=True),
         budget_plan_artifact=_budget_plan(reverse=True).to_record(),
         selection_records=list(reversed(_selection())),
@@ -141,6 +144,7 @@ def test_invalid_inputs_fail_closed(mutate: Any, message: str) -> None:
         frozen_plan = _freeze_plan(plan)
         generate_recap_fetch_broker_policy(
             purchase_policy_artifact=purchase_policy,
+            cohort_policy_artifact=_cohort_policy(),
             budget_plan=frozen_plan,
             budget_plan_artifact=frozen_plan.to_record(),
             selection_records=selection,
@@ -153,6 +157,7 @@ def test_opening_commitment_case_must_be_in_derived_allowlist() -> None:
     with pytest.raises(RecapFetchBrokerPolicyError, match="opening commitment"):
         generate_recap_fetch_broker_policy(
             purchase_policy_artifact=purchase_policy,
+            cohort_policy_artifact=_cohort_policy(),
             budget_plan=_budget_plan(),
             budget_plan_artifact=_budget_plan().to_record(),
             selection_records=_selection(),
@@ -167,6 +172,7 @@ def test_empty_allowlist_and_different_byte_overwrite_fail_closed(
             purchase_policy_artifact=_purchase_policy(
                 opening_spend="0.00", opening_cases={}
             ),
+            cohort_policy_artifact=_cohort_policy(),
             budget_plan=_budget_plan(empty=True),
             budget_plan_artifact=_budget_plan(empty=True).to_record(),
             selection_records=_selection(),
@@ -175,6 +181,7 @@ def test_empty_allowlist_and_different_byte_overwrite_fail_closed(
     output = tmp_path / "policy.json"
     first = generate_recap_fetch_broker_policy(
         purchase_policy_artifact=_purchase_policy(),
+        cohort_policy_artifact=_cohort_policy(),
         budget_plan=_budget_plan(),
         budget_plan_artifact=_budget_plan().to_record(),
         selection_records=_selection(),
@@ -206,6 +213,7 @@ def test_tampered_budget_plan_artifact_fails_closed(
     with pytest.raises(RecapFetchBrokerPolicyError, match=message):
         generate_recap_fetch_broker_policy(
             purchase_policy_artifact=_purchase_policy(),
+            cohort_policy_artifact=_cohort_policy(),
             budget_plan=plan,
             budget_plan_artifact=artifact,
             selection_records=_selection(),
@@ -217,6 +225,7 @@ def test_symlink_output_and_downstream_incompatible_identity_fail_closed(
 ) -> None:
     policy = generate_recap_fetch_broker_policy(
         purchase_policy_artifact=_purchase_policy(),
+        cohort_policy_artifact=_cohort_policy(),
         budget_plan=_budget_plan(),
         budget_plan_artifact=_budget_plan().to_record(),
         selection_records=_selection(),
@@ -234,6 +243,7 @@ def test_symlink_output_and_downstream_incompatible_identity_fail_closed(
     with pytest.raises(RecapFetchBrokerPolicyError, match="128-character"):
         generate_recap_fetch_broker_policy(
             purchase_policy_artifact=long_identity,
+            cohort_policy_artifact=_cohort_policy(),
             budget_plan=_budget_plan(),
             budget_plan_artifact=_budget_plan().to_record(),
             selection_records=_selection(),
@@ -248,7 +258,13 @@ def test_cli_help_names_every_authoritative_input(
 
     assert exc.value.code == 0
     help_text = capsys.readouterr().out
-    for flag in ("--purchase-policy", "--budget-plan", "--selection", "--output"):
+    for flag in (
+        "--purchase-policy",
+        "--cohort-policy",
+        "--budget-plan",
+        "--selection",
+        "--output",
+    ):
         assert flag in help_text
     assert "non-dry-run" in help_text
     for restriction in ("sealed", "private", "restricted"):
@@ -261,7 +277,6 @@ def test_cli_writes_policy_and_reports_canonical_hash(
     capsys: CaptureFixture[str],
 ) -> None:
     output_path = tmp_path / "recap-fetch-broker-policy.json"
-
     assert (
         main(
             [
@@ -269,6 +284,8 @@ def test_cli_writes_policy_and_reports_canonical_hash(
                 "generate-recap-fetch-broker-policy",
                 "--purchase-policy",
                 str(_GOLDEN_ROOT / "purchase-policy.json"),
+                "--cohort-policy",
+                str(_GOLDEN_ROOT / "cohort-policy.json"),
                 "--budget-plan",
                 str(_GOLDEN_ROOT / "missing-core-budget-plan.json"),
                 "--selection",
@@ -292,15 +309,52 @@ def test_cli_writes_policy_and_reports_canonical_hash(
     }
 
 
+def test_cli_rejects_purchase_policy_bound_to_another_cohort(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    cohort_path = tmp_path / "cohort-policy.json"
+    cohort_path.write_text(json.dumps(_cohort_policy()), encoding="utf-8")
+    purchase_path = tmp_path / "purchase-policy.json"
+    purchase_path.write_text(
+        json.dumps(_purchase_policy(cohort_policy_sha256="b" * 64)),
+        encoding="utf-8",
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "generate-recap-fetch-broker-policy",
+                "--purchase-policy",
+                str(purchase_path),
+                "--cohort-policy",
+                str(cohort_path),
+                "--budget-plan",
+                str(_GOLDEN_ROOT / "missing-core-budget-plan.json"),
+                "--selection",
+                str(_GOLDEN_ROOT / "final-selection.jsonl"),
+                "--output",
+                str(tmp_path / "broker-policy.json"),
+            ]
+        )
+        == 2
+    )
+    assert "different cohort policy hash" in capsys.readouterr().err
+
+
 def _purchase_policy(
     *,
     opening_spend: str = "2.00",
     opening_cases: dict[str, str] | None = None,
+    cohort_policy_sha256: str | None = None,
 ) -> dict[str, object]:
     return generate_case_dev_purchase_policy(
         {
             "cycle_id": "cycle-1",
-            "cohort_policy_sha256": "a" * 64,
+            "cohort_policy_sha256": (
+                cohort_policy_sha256 or cast(str, _cohort_policy()["policy_sha256"])
+            ),
             "canonical_ledger_path": "/tmp/cycle-1-purchases.sqlite3",
             "hard_cap_usd": "100.00",
             "opening_committed_spend_usd": opening_spend,
@@ -317,6 +371,13 @@ def _purchase_policy(
                 "includes_rounding": True,
             },
         }
+    )
+
+
+def _cohort_policy() -> dict[str, object]:
+    return cast(
+        dict[str, object],
+        json.loads((_GOLDEN_ROOT / "cohort-policy.json").read_text(encoding="utf-8")),
     )
 
 

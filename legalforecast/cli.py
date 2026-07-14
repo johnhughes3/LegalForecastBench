@@ -1883,6 +1883,15 @@ def _add_generate_recap_fetch_broker_policy_arguments(
         ),
     )
     parser.add_argument(
+        "--cohort-policy",
+        type=Path,
+        required=True,
+        help=(
+            "Frozen cohort policy whose hash and purchase caps the verified "
+            "purchase policy must consume."
+        ),
+    )
+    parser.add_argument(
         "--budget-plan",
         type=Path,
         required=True,
@@ -6178,6 +6187,7 @@ def _cmd_generate_recap_fetch_broker_policy(args: argparse.Namespace) -> int:
             purchase_policy_artifact=_read_json_object(
                 cast(Path, args.purchase_policy)
             ),
+            cohort_policy_artifact=_read_json_object(cast(Path, args.cohort_policy)),
             budget_plan=_missing_core_budget_plan(budget_plan_artifact),
             budget_plan_artifact=budget_plan_artifact,
             selection_records=_read_records(cast(Path, args.selection)),
