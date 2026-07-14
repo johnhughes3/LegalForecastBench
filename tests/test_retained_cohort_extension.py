@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-from copy import deepcopy
+from pathlib import Path
 from typing import Any
 
 import pytest
-
+from legalforecast.cli import main
 from legalforecast.ingestion.cohort_policy import generate_cohort_policy
+from legalforecast.ingestion.cycle_acquisition_store import (
+    cohort_reason_policy_taxonomy,
+)
 from legalforecast.ingestion.retained_cohort_extension import (
     RetainedCohortExtensionError,
     extend_target_cohort,
@@ -80,6 +83,25 @@ def test_extension_fails_when_eligible_omitted_frontier_is_insufficient() -> Non
         extend_target_cohort(**inputs)
 
 
+def test_extension_skips_quarantine_and_reconciles_it_as_an_exclusion() -> None:
+    inputs = _inputs()
+    full = dict(inputs["full_pool_artifacts"])
+    records = _jsonl(full["disclosure-clearance.jsonl"])
+    for record in records:
+        if record["candidate_id"] == _candidate_id(100):
+            record["status"] = "quarantined"
+    full["disclosure-clearance.jsonl"] = _jsonl_bytes(records)
+    inputs["full_pool_artifacts"] = full
+
+    extension = extend_target_cohort(**inputs)
+
+    assert _candidate_id(100) not in extension.incremental_candidate_ids
+    assert _candidate_id(150) in extension.incremental_candidate_ids
+    [exclusion] = _jsonl(extension.combined_artifacts["target-cohort-exclusions.jsonl"])
+    assert exclusion["candidate_id"] == _candidate_id(100)
+    assert exclusion["reason"] == "disclosure_clearance_quarantined"
+
+
 def test_extension_fails_on_changed_base_input_or_prefix() -> None:
     inputs = _inputs()
     base = dict(inputs["base_projection_artifacts"])
@@ -89,6 +111,14 @@ def test_extension_fails_on_changed_base_input_or_prefix() -> None:
     inputs["base_projection_artifacts"] = base
 
     with pytest.raises(RetainedCohortExtensionError, match="output commitment"):
+        extend_target_cohort(**inputs)
+
+
+def test_extension_rejects_changed_snapshot_lineage() -> None:
+    inputs = _inputs()
+    inputs["snapshot_batch_digest"] = "e" * 64
+
+    with pytest.raises(RetainedCohortExtensionError, match="snapshot lineage"):
         extend_target_cohort(**inputs)
 
 
@@ -115,8 +145,7 @@ def test_extension_rejects_duplicate_docket_and_motion_identities() -> None:
 
 
 def test_extension_accounts_for_exact_cap_and_disjoint_obligations() -> None:
-    inputs = _inputs(paid_after=100)
-    inputs["max_projected_budget_usd"] = "153.50"
+    inputs = _inputs(paid_after=100, max_projected_budget_usd="153.50")
     inputs["reserved_obligation_usd"] = "0.50"
 
     exact = extend_target_cohort(**inputs)
@@ -125,16 +154,16 @@ def test_extension_accounts_for_exact_cap_and_disjoint_obligations() -> None:
     assert exact.combined_budget["incremental_projected_usd"] == "152.50"
     assert exact.combined_budget["reserved_obligation_usd"] == "0.50"
     assert exact.combined_budget["cumulative_obligation_usd"] == "153.00"
-    inputs["max_projected_budget_usd"] = "152.99"
+    inputs = _inputs(paid_after=100, max_projected_budget_usd="152.99")
+    inputs["reserved_obligation_usd"] = "0.50"
     with pytest.raises(RetainedCohortExtensionError, match="cannot meet"):
         extend_target_cohort(**inputs)
 
 
 def test_extension_counts_unknown_and_writeoff_and_enforces_per_case_cap() -> None:
-    inputs = _inputs(paid_after=100)
+    inputs = _inputs(paid_after=100, max_projected_budget_usd="160.00")
     inputs.update(
         {
-            "max_projected_budget_usd": "160.00",
             "unknown_obligation_usd": "3.05",
             "write_off_obligation_usd": "3.05",
         }
@@ -144,13 +173,106 @@ def test_extension_counts_unknown_and_writeoff_and_enforces_per_case_cap() -> No
     assert extension.combined_budget["write_off_obligation_usd"] == "3.05"
     assert extension.combined_budget["cumulative_obligation_usd"] == "158.60"
 
-    inputs["max_missing_core_documents_per_case"] = 0
-    with pytest.raises(RetainedCohortExtensionError, match="positive"):
+    inputs = _inputs(max_missing_core_documents_per_case=25)
+    with pytest.raises(RetainedCohortExtensionError, match="per-case cap"):
         extend_target_cohort(**inputs)
 
 
-def _inputs(*, paid_after: int | None = None) -> dict[str, Any]:
-    candidate_ids = tuple(_candidate_id(index) for index in range(151))
+def test_extend_target_cohort_cli_is_noncharging_and_resume_safe(
+    tmp_path: Path,
+) -> None:
+    inputs = _inputs()
+    base_root = tmp_path / "base"
+    full_root = tmp_path / "full"
+    output_root = tmp_path / "extension"
+    base_root.mkdir()
+    full_root.mkdir()
+    for name, payload in inputs["base_projection_artifacts"].items():
+        (base_root / name).write_bytes(payload)
+    full_paths: dict[str, Path] = {}
+    for name, payload in inputs["full_pool_artifacts"].items():
+        path = full_root / name
+        path.write_bytes(payload)
+        full_paths[name] = path
+    cohort_policy = tmp_path / "cohort-policy.json"
+    cohort_policy.write_text(
+        json.dumps(inputs["cohort_policy_artifact"], sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    snapshot = tmp_path / "snapshot-manifest.json"
+    snapshot.write_text(
+        json.dumps(
+            {
+                "cycle_hash": inputs["snapshot_cycle_hash"],
+                "batch_digest": inputs["snapshot_batch_digest"],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    base_summary_path = base_root / "target-cohort-projection.json"
+    base_summary = json.loads(base_summary_path.read_text())
+    base_summary["snapshot_manifest_sha256"] = _sha(snapshot.read_bytes())
+    base_summary_path.write_text(
+        json.dumps(base_summary, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    argv = [
+        "acquisition",
+        "extend-target-cohort",
+        "--output-root",
+        str(output_root),
+        "--execute",
+        "--base-cohort-root",
+        str(base_root),
+        "--selection",
+        str(full_paths["selection.jsonl"]),
+        "--case-relevance",
+        str(full_paths["case-relevance.jsonl"]),
+        "--download-manifest",
+        str(full_paths["document-downloads-merged.jsonl"]),
+        "--disclosure-clearance",
+        str(full_paths["disclosure-clearance.jsonl"]),
+        "--cohort-policy",
+        str(cohort_policy),
+        "--snapshot-manifest",
+        str(snapshot),
+        "--cost-per-document-usd",
+        "3.05",
+        "--max-projected-budget-usd",
+        "2250.00",
+        "--max-missing-core-documents-per-case",
+        "24",
+    ]
+
+    assert main(argv) == 0
+    before = {
+        str(path.relative_to(output_root)): path.read_bytes()
+        for path in output_root.rglob("*")
+        if path.is_file()
+    }
+    assert main(argv) == 0
+    after = {
+        str(path.relative_to(output_root)): path.read_bytes()
+        for path in output_root.rglob("*")
+        if path.is_file()
+    }
+
+    assert before == after
+    record = json.loads((output_root / "retained-cohort-extension.json").read_text())
+    assert record["combined_case_count"] == 150
+    assert record["paid_activity_requested"] is False
+    assert record["paid_activity_executed"] is False
+    assert (output_root / "incremental/target-cohort-selection.jsonl").is_file()
+
+
+def _inputs(
+    *,
+    paid_after: int | None = None,
+    max_projected_budget_usd: str = "2250.00",
+    max_missing_core_documents_per_case: int = 24,
+) -> dict[str, Any]:
     selections = [_selection(index) for index in range(151)]
     relevance = [
         _relevance(index, paid=paid_after is not None and index >= paid_after)
@@ -165,8 +287,8 @@ def _inputs(*, paid_after: int | None = None) -> dict[str, Any]:
         clearance_records=clearance,
         target_case_count=100,
         cost_per_document_usd="3.05",
-        max_projected_budget_usd="2250.00",
-        max_missing_core_documents_per_case=24,
+        max_projected_budget_usd=max_projected_budget_usd,
+        max_missing_core_documents_per_case=max_missing_core_documents_per_case,
     )
     base_artifacts = _base_artifacts(base_projection)
     return {
@@ -182,8 +304,8 @@ def _inputs(*, paid_after: int | None = None) -> dict[str, Any]:
         "snapshot_cycle_hash": "c" * 64,
         "snapshot_batch_digest": "d" * 64,
         "cost_per_document_usd": "3.05",
-        "max_projected_budget_usd": "2250.00",
-        "max_missing_core_documents_per_case": 24,
+        "max_projected_budget_usd": max_projected_budget_usd,
+        "max_missing_core_documents_per_case": (max_missing_core_documents_per_case),
         "reserved_obligation_usd": "0.00",
         "unknown_obligation_usd": "0.00",
         "write_off_obligation_usd": "0.00",
@@ -194,13 +316,9 @@ def _base_artifacts(projection: Any) -> dict[str, bytes]:
     records: dict[str, bytes] = {
         "target-cohort-selection.jsonl": _jsonl_bytes(projection.selections),
         "case-relevance.jsonl": _jsonl_bytes(projection.case_relevance),
-        "document-downloads-merged.jsonl": _jsonl_bytes(
-            projection.download_manifest
-        ),
+        "document-downloads-merged.jsonl": _jsonl_bytes(projection.download_manifest),
         "disclosure-clearance.jsonl": _jsonl_bytes(projection.clearance_records),
-        "restriction-evidence.jsonl": _jsonl_bytes(
-            projection.restriction_evidence
-        ),
+        "restriction-evidence.jsonl": _jsonl_bytes(projection.restriction_evidence),
         "core-filter-results.jsonl": _jsonl_bytes(
             row.to_record() for row in projection.core_filter_results
         ),
@@ -209,6 +327,13 @@ def _base_artifacts(projection: Any) -> dict[str, bytes]:
         ),
     }
     summary = dict(projection.summary)
+    summary.update(
+        {
+            "snapshot_manifest_sha256": "sha256:" + "b" * 64,
+            "snapshot_cycle_hash": "c" * 64,
+            "snapshot_batch_digest": "d" * 64,
+        }
+    )
     summary["output_commitments"] = {
         name: _sha(payload) for name, payload in sorted(records.items())
     }
@@ -217,6 +342,7 @@ def _base_artifacts(projection: Any) -> dict[str, bytes]:
 
 
 def _cohort_policy() -> dict[str, Any]:
+    taxonomy = cohort_reason_policy_taxonomy()
     return generate_cohort_policy(
         {
             "cycle_id": "cycle-1",
@@ -248,11 +374,7 @@ def _cohort_policy() -> dict[str, Any]:
                     "transient_supersedes_evidenced": False,
                     "immutable_reconsideration": "never",
                 },
-                "transient_reason_codes": ["fetch_error"],
-                "refreshable_reason_codes": ["oversized_docket_soft_skip"],
-                "newly_free_reason_codes": ["newly_free"],
-                "accepted_reason_codes": ["strict_clean_screen_passed"],
-                "immutable_reason_codes": ["decision_before_release_anchor"],
+                **{key: list(value) for key, value in taxonomy.items()},
             },
             "packet_completeness": {
                 "motion_or_combined_memorandum_required": True,

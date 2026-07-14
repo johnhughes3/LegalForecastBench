@@ -361,6 +361,11 @@ from legalforecast.ingestion.recap_partial_checkpoint import (
     RecapPartialProjectionError,
     project_partial_recap_checkpoint,
 )
+from legalforecast.ingestion.retained_cohort_extension import (
+    BASE_PROJECTION_ARTIFACT_NAMES,
+    RetainedCohortExtensionError,
+    extend_target_cohort,
+)
 from legalforecast.ingestion.snapshot_quarantine import (
     SnapshotQuarantineError,
     quarantine_orphan_snapshot,
@@ -1112,6 +1117,18 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_project_target_cohort_arguments(acquisition_project_target_cohort)
+    acquisition_extend_target_cohort = acquisition_subparsers.add_parser(
+        "extend-target-cohort",
+        help="Retain an exact 100-case prefix and add 50 omitted candidates.",
+        description=(
+            "Verify a frozen target-100 projection against the full resolved "
+            "post-clearance pool, preserve every base artifact byte as a prefix, "
+            "rank only the eligible omitted frontier, and emit an exact combined "
+            "150-case budget. This command never calls a provider, purchases a "
+            "document, or acknowledges fees."
+        ),
+    )
+    _add_acquisition_extend_target_cohort_arguments(acquisition_extend_target_cohort)
     acquisition_public_downloads = acquisition_subparsers.add_parser(
         "plan-public-downloads",
         help="Plan free public CourtListener/RECAP packet-document downloads.",
@@ -1729,6 +1746,73 @@ def _add_acquisition_project_target_cohort_arguments(
     parser.add_argument("--max-projected-budget-usd", default="2250.00")
     parser.add_argument("--max-missing-core-documents-per-case", type=int, default=24)
     parser.set_defaults(handler=_cmd_acquisition_project_target_cohort)
+
+
+def _add_acquisition_extend_target_cohort_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--base-cohort-root",
+        type=Path,
+        required=True,
+        help="Executed exact target-100 project-target-cohort output root.",
+    )
+    parser.add_argument(
+        "--selection",
+        type=Path,
+        required=True,
+        help="Full resolved-pool public-packet selection JSONL.",
+    )
+    parser.add_argument(
+        "--case-relevance",
+        type=Path,
+        required=True,
+        help="Full resolved-pool case relevance JSONL.",
+    )
+    parser.add_argument(
+        "--download-manifest",
+        type=Path,
+        required=True,
+        help="Full acquired-document manifest after public refresh.",
+    )
+    parser.add_argument(
+        "--disclosure-clearance",
+        type=Path,
+        required=True,
+        help="Authenticated clearance rows for the full acquired manifest.",
+    )
+    parser.add_argument(
+        "--cohort-policy",
+        type=Path,
+        required=True,
+        help="Frozen target-150 cohort policy with immutable purchase caps.",
+    )
+    parser.add_argument(
+        "--snapshot-manifest",
+        type=Path,
+        required=True,
+        help="Frozen full-pool snapshot manifest supplying cycle lineage.",
+    )
+    parser.add_argument("--cost-per-document-usd", default="3.05")
+    parser.add_argument("--max-projected-budget-usd", default="2250.00")
+    parser.add_argument("--max-missing-core-documents-per-case", type=int, default=24)
+    parser.add_argument(
+        "--reserved-obligation-usd",
+        default="0.00",
+        help="Disjoint already-reserved obligation retained under the same cap.",
+    )
+    parser.add_argument(
+        "--unknown-obligation-usd",
+        default="0.00",
+        help="Disjoint unknown-outcome reservation retained under the same cap.",
+    )
+    parser.add_argument(
+        "--write-off-obligation-usd",
+        default="0.00",
+        help="Disjoint reconciled write-off retained under the same cap.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_extend_target_cohort)
 
 
 def _add_acquisition_filter_core_documents_arguments(
@@ -6538,6 +6622,191 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
+    """Retain target 100 and emit a provider-free exact target-150 extension."""
+
+    output_root = _acquisition_output_root(args)
+    base_root = cast(Path, args.base_cohort_root)
+    base_paths = {name: base_root / name for name in BASE_PROJECTION_ARTIFACT_NAMES}
+    full_paths = {
+        "selection.jsonl": cast(Path, args.selection),
+        "case-relevance.jsonl": cast(Path, args.case_relevance),
+        "document-downloads-merged.jsonl": cast(Path, args.download_manifest),
+        "disclosure-clearance.jsonl": cast(Path, args.disclosure_clearance),
+    }
+    cohort_policy_path = cast(Path, args.cohort_policy)
+    snapshot_path = cast(Path, args.snapshot_manifest)
+    input_paths = (
+        *base_paths.values(),
+        *full_paths.values(),
+        cohort_policy_path,
+        snapshot_path,
+    )
+    _validate_retained_extension_output_scope(output_root, input_paths=input_paths)
+    try:
+        base_artifacts = {
+            name: _read_retained_extension_artifact(path)
+            for name, path in base_paths.items()
+        }
+        full_artifacts = {
+            name: _read_retained_extension_artifact(path)
+            for name, path in full_paths.items()
+        }
+        cohort_policy_bytes = _read_retained_extension_artifact(cohort_policy_path)
+        snapshot_bytes = _read_retained_extension_artifact(snapshot_path)
+    except OSError as exc:
+        raise CommandError(str(exc)) from exc
+    cohort_policy = _projection_json_object(
+        cohort_policy_bytes, source=cohort_policy_path
+    )
+    snapshot = _projection_json_object(snapshot_bytes, source=snapshot_path)
+    cycle_hash = snapshot.get("cycle_hash")
+    batch_digest = snapshot.get("batch_digest")
+    if not isinstance(cycle_hash, str) or not cycle_hash:
+        raise CommandError("snapshot manifest lacks cycle_hash")
+    if not isinstance(batch_digest, str) or not batch_digest:
+        raise CommandError("snapshot manifest lacks batch_digest")
+    try:
+        extension = extend_target_cohort(
+            base_projection_artifacts=base_artifacts,
+            full_pool_artifacts=full_artifacts,
+            cohort_policy_artifact=cohort_policy,
+            snapshot_manifest_sha256=_bytes_sha256(snapshot_bytes),
+            snapshot_cycle_hash=cycle_hash,
+            snapshot_batch_digest=batch_digest,
+            cost_per_document_usd=cast(str, args.cost_per_document_usd),
+            max_projected_budget_usd=cast(str, args.max_projected_budget_usd),
+            max_missing_core_documents_per_case=cast(
+                int, args.max_missing_core_documents_per_case
+            ),
+            reserved_obligation_usd=cast(str, args.reserved_obligation_usd),
+            unknown_obligation_usd=cast(str, args.unknown_obligation_usd),
+            write_off_obligation_usd=cast(str, args.write_off_obligation_usd),
+        )
+    except RetainedCohortExtensionError as exc:
+        raise CommandError(str(exc)) from exc
+
+    output_records = {
+        **{
+            output_root / name: payload
+            for name, payload in extension.combined_artifacts.items()
+        },
+        **{
+            output_root / "incremental" / name: payload
+            for name, payload in extension.incremental_artifacts.items()
+        },
+    }
+    dry_run = _acquisition_dry_run(args)
+    if not dry_run:
+        for path, payload in output_records.items():
+            _ensure_projection_artifact(
+                path,
+                payload,
+                resume=cast(bool, args.resume),
+                stage="extend-target-cohort",
+            )
+        success_run_card = output_root / "run-cards/extend-target-cohort.json"
+        if cast(bool, args.resume) and success_run_card.exists():
+            _validate_retained_extension_successful_resume(
+                success_run_card,
+                input_paths=input_paths,
+                output_paths=tuple(output_records),
+                extension_sha256=cast(
+                    str, extension.extension_record["extension_sha256"]
+                ),
+                cumulative_obligation_usd=cast(
+                    str, extension.combined_budget["cumulative_obligation_usd"]
+                ),
+                remaining_headroom_usd=cast(
+                    str, extension.combined_budget["remaining_headroom_usd"]
+                ),
+            )
+            return 0
+    _write_acquisition_completion(
+        args,
+        stage="extend-target-cohort",
+        input_paths=input_paths,
+        output_paths=tuple(output_records),
+        record_count=len(extension.combined_candidate_ids),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "base_case_count": len(extension.base_candidate_ids),
+            "incremental_case_count": len(extension.incremental_candidate_ids),
+            "combined_case_count": len(extension.combined_candidate_ids),
+            "extension_sha256": extension.extension_record["extension_sha256"],
+            "cumulative_obligation_usd": extension.combined_budget[
+                "cumulative_obligation_usd"
+            ],
+            "remaining_headroom_usd": extension.combined_budget[
+                "remaining_headroom_usd"
+            ],
+        },
+    )
+    return 0
+
+
+def _validate_retained_extension_successful_resume(
+    run_card_path: Path,
+    *,
+    input_paths: Sequence[Path],
+    output_paths: Sequence[Path],
+    extension_sha256: str,
+    cumulative_obligation_usd: str,
+    remaining_headroom_usd: str,
+) -> None:
+    run_card = _read_json_object(run_card_path)
+    expected = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": "extend-target-cohort",
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "record_count": 150,
+        "input_paths": [str(path) for path in input_paths],
+        "output_paths": [str(path) for path in output_paths],
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "base_case_count": 100,
+        "incremental_case_count": 50,
+        "combined_case_count": 150,
+        "extension_sha256": extension_sha256,
+        "cumulative_obligation_usd": cumulative_obligation_usd,
+        "remaining_headroom_usd": remaining_headroom_usd,
+    }
+    for field, value in expected.items():
+        if run_card.get(field) != value:
+            raise CommandError(
+                f"extend-target-cohort resume run-card mismatch: {field}"
+            )
+
+
+def _read_retained_extension_artifact(path: Path) -> bytes:
+    if path.is_symlink() or not path.is_file():
+        raise CommandError(
+            f"extend-target-cohort input must be a regular non-symlink file: {path}"
+        )
+    return path.read_bytes()
+
+
+def _validate_retained_extension_output_scope(
+    output_root: Path, *, input_paths: Sequence[Path]
+) -> None:
+    output = output_root.resolve()
+    for path in input_paths:
+        source = path.resolve()
+        if (
+            output == source
+            or output.is_relative_to(source)
+            or source.is_relative_to(output)
+        ):
+            raise CommandError(
+                "extend-target-cohort output overlaps immutable input: "
+                f"{output} vs {source}"
+            )
+
+
 def _validate_projection_output_scope(
     output_root: Path,
     *,
@@ -6872,14 +7141,18 @@ def _projection_json_bytes(payload: Mapping[str, Any]) -> bytes:
     ).encode("utf-8")
 
 
-def _ensure_projection_artifact(path: Path, payload: bytes, *, resume: bool) -> None:
+def _ensure_projection_artifact(
+    path: Path,
+    payload: bytes,
+    *,
+    resume: bool,
+    stage: str = "project-target-cohort",
+) -> None:
     if path.exists():
         if not resume:
-            raise CommandError(f"project-target-cohort output already exists: {path}")
+            raise CommandError(f"{stage} output already exists: {path}")
         if path.is_symlink() or not path.is_file() or path.read_bytes() != payload:
-            raise CommandError(
-                f"project-target-cohort resume artifact mismatch: {path}"
-            )
+            raise CommandError(f"{stage} resume artifact mismatch: {path}")
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path: Path | None = None
