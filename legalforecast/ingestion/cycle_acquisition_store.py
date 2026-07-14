@@ -1615,6 +1615,87 @@ class CycleAcquisitionStore:
             )
         return tuple(_raw_artifact_from_row(row) for row in rows)
 
+    def rehome_raw_artifact(
+        self,
+        candidate_id: str,
+        destination: str | Path,
+        content: bytes,
+        *,
+        validator: Callable[[bytes], None] | None = None,
+    ) -> RawArtifact:
+        """Copy a committed artifact to durable owned storage and repoint it.
+
+        Existing immutable snapshots retain their already-exported source path.
+        Future snapshots use the owned destination, so deleting an ephemeral
+        source tree cannot invalidate the new snapshot.
+        """
+
+        candidate_id = _require_text(candidate_id, "candidate_id")
+        destination_path = Path(destination).resolve()
+        digest = hashlib.sha256(content).hexdigest()
+        if validator is not None:
+            validator(content)
+        canonical = self._connection.execute(
+            "SELECT * FROM raw_artifacts WHERE candidate_id = ? AND sha256 = ?",
+            (candidate_id, digest),
+        ).fetchone()
+        if canonical is None:
+            raise KeyError(
+                f"raw artifact is not committed for candidate {candidate_id}: {digest}"
+            )
+        if Path(str(canonical["path"])) == destination_path:
+            try:
+                valid_destination = (
+                    not destination_path.is_symlink()
+                    and destination_path.is_file()
+                    and destination_path.read_bytes() == content
+                )
+            except OSError as error:
+                raise ImmutableArtifactError(
+                    f"owned raw artifact is unreadable: {destination_path}"
+                ) from error
+            if not valid_destination:
+                raise ImmutableArtifactError(
+                    f"owned raw artifact content changed: {destination_path}"
+                )
+            return _raw_artifact_from_row(canonical)
+        if destination_path.is_symlink():
+            raise ImmutableArtifactError(
+                f"owned raw artifact destination is a symlink: {destination_path}"
+            )
+        if destination_path.exists():
+            if (
+                not destination_path.is_file()
+                or destination_path.read_bytes() != content
+            ):
+                raise ImmutableArtifactError(
+                    f"owned raw artifact destination conflicts: {destination_path}"
+                )
+        else:
+            _atomic_write_bytes(destination_path, content)
+        conflict = self._connection.execute(
+            "SELECT * FROM raw_artifacts WHERE path = ?",
+            (str(destination_path),),
+        ).fetchone()
+        if conflict is not None and int(conflict["artifact_id"]) != int(
+            canonical["artifact_id"]
+        ):
+            raise ImmutableArtifactError(
+                "owned raw artifact path belongs to another artifact: "
+                f"{destination_path}"
+            )
+        with self._transaction():
+            self._connection.execute(
+                "UPDATE raw_artifacts SET path = ? WHERE artifact_id = ?",
+                (str(destination_path), int(canonical["artifact_id"])),
+            )
+        row = self._connection.execute(
+            "SELECT * FROM raw_artifacts WHERE artifact_id = ?",
+            (int(canonical["artifact_id"]),),
+        ).fetchone()
+        assert row is not None
+        return _raw_artifact_from_row(row)
+
     def published_snapshots(self) -> tuple[PublishedSnapshot, ...]:
         """Return complete published snapshots in immutable creation order."""
 

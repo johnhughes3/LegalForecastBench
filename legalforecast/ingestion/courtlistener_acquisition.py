@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import urllib.error
 import urllib.parse
@@ -139,6 +141,7 @@ class CourtListenerDiscoveryResult:
 
     screened_cases: tuple[Mapping[str, Any], ...]
     exclusions: tuple[ExclusionLedgerEntry, ...]
+    search_pages: tuple[Mapping[str, Any], ...]
     summary: Mapping[str, Any]
 
 
@@ -178,6 +181,7 @@ def discover_courtlistener_mtd_candidates(
     processed_count = 0
     queries: list[str] = []
     per_term: dict[str, dict[str, Any]] = {}
+    search_pages: list[Mapping[str, Any]] = []
 
     for term in query_terms:
         query = _windowed_query(term, search_window_start, search_window_end)
@@ -187,6 +191,7 @@ def discover_courtlistener_mtd_candidates(
         terminal_status = "exhausted"
         cursor: str | None = None
         while True:
+            request_cursor = cursor
             page = client.search_recap_documents(
                 query,
                 cursor=cursor,
@@ -219,13 +224,41 @@ def discover_courtlistener_mtd_candidates(
                 if len(screened_cases) >= target_clean_cases:
                     terminal_status = "limit_bound:target_clean_cases"
                     break
-            if processed_count >= max_candidates:
+            if terminal_status == "limit_bound:target_clean_cases":
+                pass
+            elif processed_count >= max_candidates:
                 terminal_status = "limit_bound:max_candidates"
-            if (
-                len(screened_cases) >= target_clean_cases
-                or processed_count >= max_candidates
-                or page.next_cursor is None
-            ):
+            elif len(screened_cases) >= target_clean_cases:
+                terminal_status = "limit_bound:target_clean_cases"
+            elif page.next_cursor is None:
+                terminal_status = "exhausted"
+            else:
+                terminal_status = ""
+            search_pages.append(
+                {
+                    "schema_version": (
+                        "legalforecast.courtlistener_search_page_transcript.v1"
+                    ),
+                    "term": term,
+                    "request_cursor": request_cursor,
+                    "next_cursor": page.next_cursor,
+                    "terminal_status": terminal_status or None,
+                    "hits": [
+                        {
+                            "provider_hit_id": courtlistener_search_hit_id(
+                                hit.raw,
+                                term=term,
+                                request_cursor=request_cursor,
+                                index=index,
+                            ),
+                            "candidate_id": hit.docket_id,
+                            "payload": dict(hit.raw),
+                        }
+                        for index, hit in enumerate(page.items)
+                    ],
+                }
+            )
+            if terminal_status:
                 break
             cursor = page.next_cursor
         per_term[term] = {
@@ -263,7 +296,39 @@ def discover_courtlistener_mtd_candidates(
     return CourtListenerDiscoveryResult(
         screened_cases=tuple(screened_cases),
         exclusions=tuple(exclusions),
+        search_pages=tuple(search_pages),
         summary=summary,
+    )
+
+
+def courtlistener_search_hit_id(
+    record: Mapping[str, Any],
+    *,
+    term: str,
+    request_cursor: str | None,
+    index: int,
+) -> str:
+    """Return a replay-stable identity for one ordered search result."""
+
+    entry_id = record.get("docket_entry_id", record.get("docketEntryId"))
+    if isinstance(entry_id, str | int) and not isinstance(entry_id, bool):
+        normalized = str(entry_id).strip()
+        if normalized:
+            return f"docket-entry:{normalized}"
+    canonical = json.dumps(
+        record,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    context = json.dumps(
+        {"term": term, "request_cursor": request_cursor, "index": index},
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return (
+        f"raw:{hashlib.sha256(canonical).hexdigest()}:"
+        f"{hashlib.sha256(context).hexdigest()}"
     )
 
 

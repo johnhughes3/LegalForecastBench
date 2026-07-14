@@ -204,6 +204,11 @@ from legalforecast.ingestion.courtlistener_request_budget import (
     CourtListenerRequestBudgetError,
     CourtListenerRequestLimits,
 )
+from legalforecast.ingestion.courtlistener_snapshot_materialization import (
+    CourtListenerSnapshotMaterializationError,
+    VerifiedCourtListenerDiscovery,
+    verify_courtlistener_discovery,
+)
 from legalforecast.ingestion.cycle_acquisition_assembler import (
     COMPONENT_PROVENANCE_FILENAME,
     COMPONENT_STAGE_ORDER,
@@ -372,6 +377,10 @@ from legalforecast.ingestion.retained_cohort_extension import (
     RetainedCohortExtensionError,
     extend_target_cohort,
     purchase_obligation_snapshot,
+)
+from legalforecast.ingestion.screening_snapshot_union import (
+    ScreeningSnapshotUnionError,
+    load_screening_snapshot_union,
 )
 from legalforecast.ingestion.snapshot_quarantine import (
     SnapshotQuarantineError,
@@ -911,6 +920,30 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_discover_courtlistener_arguments(
         acquisition_discover_courtlistener
+    )
+    acquisition_materialize_courtlistener_snapshot = acquisition_subparsers.add_parser(
+        "materialize-courtlistener-snapshot",
+        help=(
+            "Verify a completed direct CourtListener discovery transcript and "
+            "publish a complete saturated cycle snapshot without provider access."
+        ),
+        description=(
+            "Provider-free materialization of hash-bound discover-courtlistener "
+            "outputs. Limit-bound or unreconciled discovery fails closed."
+        ),
+    )
+    _add_acquisition_materialize_courtlistener_snapshot_arguments(
+        acquisition_materialize_courtlistener_snapshot
+    )
+    acquisition_union_screening_snapshots = acquisition_subparsers.add_parser(
+        "union-screening-snapshots",
+        help=(
+            "Publish one provider-free saturated union of two or more "
+            "same-cycle screening snapshots."
+        ),
+    )
+    _add_acquisition_union_screening_snapshots_arguments(
+        acquisition_union_screening_snapshots
     )
     acquisition_funnel_report = acquisition_subparsers.add_parser(
         "funnel-report",
@@ -2164,8 +2197,73 @@ def _add_acquisition_discover_courtlistener_arguments(
     parser.add_argument("--screened-cases-output", type=Path)
     parser.add_argument("--exclusions-output", type=Path)
     parser.add_argument("--raw-html-dir", type=Path)
+    parser.add_argument(
+        "--search-pages-output",
+        type=Path,
+        help="Canonical per-page CourtListener discovery transcript JSONL.",
+    )
+    parser.add_argument(
+        "--raw-artifacts-output",
+        type=Path,
+        help="Hash manifest for every persisted raw docket HTML artifact.",
+    )
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_discover_courtlistener)
+
+
+def _add_acquisition_materialize_courtlistener_snapshot_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--cycle-store", type=Path, required=True)
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument(
+        "--discovery-run-card",
+        type=Path,
+        required=True,
+        help="Completed discover-courtlistener run card with committed outputs.",
+    )
+    parser.add_argument(
+        "--expected-discovery-run-card-sha256",
+        required=True,
+        help="Externally pinned lowercase SHA-256 of --discovery-run-card.",
+    )
+    parser.add_argument(
+        "--snapshot-root",
+        type=Path,
+        required=True,
+        help="Immutable snapshot parent directory.",
+    )
+    parser.add_argument("--snapshot-id", required=True)
+    parser.set_defaults(handler=_cmd_acquisition_materialize_courtlistener_snapshot)
+
+
+def _add_acquisition_union_screening_snapshots_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--cycle-store", type=Path, required=True)
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument("--expected-cycle-hash", required=True)
+    parser.add_argument(
+        "--source-snapshot",
+        type=Path,
+        action="append",
+        required=True,
+        help="Complete saturated same-cycle snapshot; repeat at least twice.",
+    )
+    parser.add_argument(
+        "--expected-source-snapshot-manifest-sha256",
+        action="append",
+        required=True,
+        help=(
+            "Pinned lowercase SHA-256 for the corresponding --source-snapshot; "
+            "repeat in the same order."
+        ),
+    )
+    parser.add_argument("--snapshot-root", type=Path, required=True)
+    parser.add_argument("--snapshot-id", required=True)
+    parser.set_defaults(handler=_cmd_acquisition_union_screening_snapshots)
 
 
 def _add_acquisition_funnel_report_arguments(parser: argparse.ArgumentParser) -> None:
@@ -11734,22 +11832,32 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
         args,
         "screened_cases_output",
         output_root / "courtlistener-screened-cases.jsonl",
-    )
+    ).resolve()
     exclusions_path = _acquisition_path(
         args,
         "exclusions_output",
         output_root / "courtlistener-discovery-exclusions.jsonl",
-    )
+    ).resolve()
     raw_html_dir = _acquisition_path(
         args,
         "raw_html_dir",
         output_root / "raw-courtlistener-html",
-    )
+    ).resolve()
+    search_pages_path = _acquisition_path(
+        args,
+        "search_pages_output",
+        output_root / "courtlistener-search-pages.jsonl",
+    ).resolve()
+    raw_artifacts_path = _acquisition_path(
+        args,
+        "raw_artifacts_output",
+        output_root / "courtlistener-raw-artifacts.jsonl",
+    ).resolve()
     summary_path = _acquisition_path(
         args,
         "summary_output",
         output_root / "courtlistener-discovery-summary.json",
-    )
+    ).resolve()
     anchor = _iso_date_argument(
         cast(str, args.eligibility_anchor), "--eligibility-anchor"
     )
@@ -11785,6 +11893,8 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
         exclusions_path,
         raw_html_dir,
         summary_path,
+        search_pages_path,
+        raw_artifacts_path,
     )
 
     if dry_run:
@@ -11850,11 +11960,15 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
         )
         raise CommandError(str(exc)) from exc
 
+    cycle_hash: str | None = None
+    batch_digest: str | None = None
     if cycle_store_path is not None and batch_id is not None:
         try:
             with CycleAcquisitionStore(cycle_store_path) as store:
-                store.ensure_cycle(_cycle_acquisition_policy(anchor=anchor))
-                store.ensure_batch(
+                cycle_hash = store.ensure_cycle(
+                    _cycle_acquisition_policy(anchor=anchor)
+                )
+                batch_digest = store.ensure_batch(
                     batch_id,
                     {
                         "provider": "courtlistener",
@@ -11916,7 +12030,21 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
         exclusions_path,
         [exclusion.to_record() for exclusion in result.exclusions],
     )
+    _write_jsonl(search_pages_path, list(result.search_pages))
+    raw_artifacts = _courtlistener_raw_artifact_records(
+        raw_html_dir=raw_html_dir,
+        screened_cases=result.screened_cases,
+        exclusions=tuple(exclusion.to_record() for exclusion in result.exclusions),
+    )
+    _write_jsonl(raw_artifacts_path, raw_artifacts)
     _write_json(summary_path, {**result.summary, "dry_run": False, "live": live})
+    output_commitments = {
+        "screened_cases": _file_commitment(screened_cases_path),
+        "exclusions": _file_commitment(exclusions_path),
+        "summary": _file_commitment(summary_path),
+        "search_pages": _file_commitment(search_pages_path),
+        "raw_artifacts": _file_commitment(raw_artifacts_path),
+    }
     _write_acquisition_completion(
         args,
         stage="discover-courtlistener",
@@ -11931,9 +12059,547 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             "target_clean_cases": target_clean_cases,
             "accepted_case_count": len(result.screened_cases),
             "excluded_case_count": len(result.exclusions),
+            "cycle_hash": cycle_hash,
+            "batch_digest": batch_digest,
+            "output_commitments": output_commitments,
         },
     )
     return 0
+
+
+def _cmd_acquisition_materialize_courtlistener_snapshot(
+    args: argparse.Namespace,
+) -> int:
+    output_root = _acquisition_output_root(args)
+    cycle_store_path = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    run_card_path = cast(Path, args.discovery_run_card)
+    expected_run_card_sha256 = cast(str, args.expected_discovery_run_card_sha256)
+    snapshot_root = cast(Path, args.snapshot_root)
+    snapshot_id = cast(str, args.snapshot_id)
+    snapshot_path = snapshot_root / snapshot_id
+    summary_path = output_root / "courtlistener-snapshot-materialization-summary.json"
+    input_paths = (cycle_store_path, run_card_path)
+    output_paths = (snapshot_path, summary_path)
+    if _acquisition_dry_run(args):
+        summary: JsonRecord = {
+            "schema_version": (
+                "legalforecast.courtlistener_snapshot_materialization_summary.v1"
+            ),
+            "dry_run": True,
+            "batch_id": batch_id,
+            "snapshot_id": snapshot_id,
+            "provider_access_requested": False,
+            "paid_activity_requested": False,
+        }
+        _write_json(summary_path, summary)
+        _write_acquisition_completion(
+            args,
+            stage="materialize-courtlistener-snapshot",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=0,
+            dry_run=True,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+        return 0
+
+    try:
+        with CycleAcquisitionStore(cycle_store_path) as store:
+            cycle_hash = store.cycle_hash
+            batch_digest = store.batch_digest(batch_id)
+            verified = verify_courtlistener_discovery(
+                run_card_path=run_card_path,
+                expected_run_card_sha256=expected_run_card_sha256,
+                expected_cycle_hash=cycle_hash,
+                expected_batch_digest=batch_digest,
+                cycle_policy=store.cycle_policy,
+                batch_config=store.batch_config(batch_id),
+            )
+            _validate_frozen_screening_policy(
+                policy=store.cycle_policy,
+                anchor=verified.eligibility_anchor,
+            )
+            existing = store.existing_complete_snapshot(
+                snapshot_root,
+                snapshot_id=snapshot_id,
+                batch_id=batch_id,
+            )
+            if existing is not None:
+                if not cast(bool, args.resume):
+                    raise CycleAcquisitionStoreError(
+                        "complete snapshot already exists and --no-resume forbids reuse"
+                    )
+                committed = existing[1].get("stage_commitments")
+                expected_commitment = {
+                    "courtlistener_discovery_inputs": dict(verified.stage_commitment)
+                }
+                if committed != expected_commitment:
+                    raise CycleAcquisitionStoreError(
+                        "existing snapshot discovery commitment does not match inputs"
+                    )
+                snapshot_path = existing[0]
+                snapshot_manifest = verify_snapshot(
+                    snapshot_path,
+                    expected_cycle_hash=cycle_hash,
+                    expected_batch_digest=batch_digest,
+                    require_complete=True,
+                    require_saturated=True,
+                )
+                resumed = True
+            else:
+                _record_courtlistener_discovery_snapshot(
+                    store=store,
+                    batch_id=batch_id,
+                    verified=verified,
+                )
+                if not store.snapshot_is_saturated(batch_id):
+                    raise CycleAcquisitionStoreError(
+                        "verified CourtListener discovery did not saturate the store"
+                    )
+                snapshot_path = store.export_snapshot(
+                    snapshot_root,
+                    snapshot_id=snapshot_id,
+                    batch_id=batch_id,
+                    complete=True,
+                    stage_commitments={
+                        "courtlistener_discovery_inputs": dict(
+                            verified.stage_commitment
+                        )
+                    },
+                )
+                snapshot_manifest = verify_snapshot(
+                    snapshot_path,
+                    expected_cycle_hash=cycle_hash,
+                    expected_batch_digest=batch_digest,
+                    require_complete=True,
+                    require_saturated=True,
+                )
+                resumed = False
+        snapshot_summary = _read_json_object(snapshot_path / "summary.json")
+        summary = {
+            "schema_version": (
+                "legalforecast.courtlistener_snapshot_materialization_summary.v1"
+            ),
+            "dry_run": False,
+            "batch_id": batch_id,
+            "snapshot_id": snapshot_id,
+            "snapshot_path": str(snapshot_path),
+            "cycle_hash": snapshot_manifest["cycle_hash"],
+            "batch_digest": snapshot_manifest["batch_digest"],
+            "snapshot_complete": snapshot_manifest["complete"],
+            "snapshot_saturated": snapshot_manifest["saturated"],
+            "reconciled": snapshot_summary.get("reconciliation_complete") is True,
+            "accepted_case_count": snapshot_summary["accepted_count"],
+            "excluded_case_count": snapshot_summary["excluded_count"],
+            "resumed_existing_snapshot": resumed,
+            "provider_access_requested": False,
+            "paid_activity_requested": False,
+        }
+        _write_json(summary_path, summary)
+        _write_acquisition_completion(
+            args,
+            stage="materialize-courtlistener-snapshot",
+            input_paths=input_paths,
+            output_paths=(snapshot_path, summary_path),
+            record_count=cast(int, snapshot_summary["accepted_count"]),
+            dry_run=False,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+    except (
+        CourtListenerSnapshotMaterializationError,
+        CycleAcquisitionStoreError,
+        SnapshotVerificationError,
+        FileExistsError,
+        KeyError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="materialize-courtlistener-snapshot",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _record_courtlistener_discovery_snapshot(
+    *,
+    store: CycleAcquisitionStore,
+    batch_id: str,
+    verified: VerifiedCourtListenerDiscovery,
+) -> None:
+    store.ensure_terms(batch_id, verified.query_terms)
+    for page in verified.search_pages:
+        term = _required_str(page, "term")
+        request_cursor_value = page.get("request_cursor")
+        next_cursor_value = page.get("next_cursor")
+        terminal_value = page.get("terminal_status")
+        request_cursor = (
+            request_cursor_value if isinstance(request_cursor_value, str) else None
+        )
+        next_cursor = next_cursor_value if isinstance(next_cursor_value, str) else None
+        terminal = terminal_value if isinstance(terminal_value, str) else None
+        hits_value = page.get("hits")
+        assert isinstance(hits_value, list)
+        hits: list[DiscoveryHit] = []
+        for hit_value in cast(list[object], hits_value):
+            assert isinstance(hit_value, Mapping)
+            hit = cast(Mapping[str, Any], hit_value)
+            payload = hit["payload"]
+            assert isinstance(payload, Mapping)
+            hits.append(
+                DiscoveryHit(
+                    provider_hit_id=_required_str(hit, "provider_hit_id"),
+                    candidate_id=_required_str(hit, "candidate_id"),
+                    payload=cast(Mapping[str, Any], payload),
+                )
+            )
+        store.commit_search_page(
+            batch_id,
+            term,
+            request_cursor,
+            tuple(hits),
+            next_cursor=next_cursor,
+            terminal_status=terminal,
+        )
+    for artifact in verified.raw_artifacts:
+        store.write_raw_artifact(
+            artifact.candidate_id,
+            artifact.path,
+            artifact.content,
+            retrieved_at=artifact.retrieved_at,
+            validator=_validate_raw_docket_bytes,
+        )
+    for screened in verified.screened_cases:
+        candidate_id = _courtlistener_candidate_id(screened)
+        evidence = dict(screened)
+        evidence["candidate_id"] = candidate_id
+        _record_identical_or_new_observation(
+            store=store,
+            batch_id=batch_id,
+            candidate_id=candidate_id,
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence=evidence,
+        )
+    for exclusion in verified.exclusions:
+        candidate_id = _required_str(exclusion, "candidate_id")
+        evidence = dict(exclusion)
+        evidence["candidate_id"] = candidate_id
+        _record_identical_or_new_observation(
+            store=store,
+            batch_id=batch_id,
+            candidate_id=candidate_id,
+            state="excluded",
+            reason_code=_canonical_screen_exclusion_reason(
+                _required_str(exclusion, "reason")
+            ),
+            evidence=evidence,
+        )
+
+
+def _record_identical_or_new_observation(
+    *,
+    store: CycleAcquisitionStore,
+    batch_id: str,
+    candidate_id: str,
+    state: str,
+    reason_code: str,
+    evidence: Mapping[str, object],
+) -> None:
+    current = store.current_observation(candidate_id)
+    if current is not None:
+        if (
+            current.state == state
+            and current.reason_code == reason_code
+            and dict(current.evidence) == dict(evidence)
+        ):
+            return
+        raise CycleAcquisitionStoreError(
+            f"candidate {candidate_id} already has conflicting terminal evidence"
+        )
+    store.record_observation(
+        candidate_id,
+        batch_id=batch_id,
+        state=state,
+        reason_code=reason_code,
+        evidence=evidence,
+        observed_at=verified_observation_timestamp(evidence),
+    )
+
+
+def verified_observation_timestamp(evidence: Mapping[str, object]) -> str:
+    """Return a stable source timestamp for direct-discovery observations."""
+
+    disposition = evidence.get("first_written_mtd_disposition_date")
+    if isinstance(disposition, str):
+        return f"{disposition}T00:00:00Z"
+    decision_date = evidence.get("decision_date")
+    if isinstance(decision_date, str):
+        return f"{decision_date}T00:00:00Z"
+    return "1970-01-01T00:00:00Z"
+
+
+def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
+    output_root = _acquisition_output_root(args)
+    cycle_store_path = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    expected_cycle_hash = cast(str, args.expected_cycle_hash)
+    source_snapshots = tuple(cast(Sequence[Path], args.source_snapshot))
+    expected_source_hashes = tuple(
+        cast(Sequence[str], args.expected_source_snapshot_manifest_sha256)
+    )
+    snapshot_root = cast(Path, args.snapshot_root)
+    snapshot_id = cast(str, args.snapshot_id)
+    snapshot_path = snapshot_root / snapshot_id
+    owned_raw_dir = output_root / "union-raw-artifacts"
+    owned_raw_manifest_path = output_root / "union-raw-artifacts.jsonl"
+    summary_path = output_root / "screening-snapshot-union-summary.json"
+    input_paths = (cycle_store_path, *source_snapshots)
+    output_paths = (
+        snapshot_path,
+        owned_raw_dir,
+        owned_raw_manifest_path,
+        summary_path,
+    )
+    if _acquisition_dry_run(args):
+        summary: JsonRecord = {
+            "schema_version": "legalforecast.screening_snapshot_union_summary.v1",
+            "dry_run": True,
+            "source_count": len(source_snapshots),
+            "provider_access_requested": False,
+            "paid_activity_requested": False,
+        }
+        _write_json(summary_path, summary)
+        _write_acquisition_completion(
+            args,
+            stage="union-screening-snapshots",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=0,
+            dry_run=True,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+        return 0
+    try:
+        union = load_screening_snapshot_union(
+            source_snapshots,
+            expected_manifest_sha256=expected_source_hashes,
+            expected_cycle_hash=expected_cycle_hash,
+        )
+        batch_config = {
+            "stage": "provider-free-screening-snapshot-union",
+            "source_commitment": dict(union.stage_commitment),
+        }
+        with CycleAcquisitionStore(cycle_store_path) as store:
+            if store.cycle_hash != expected_cycle_hash:
+                raise CycleAcquisitionStoreError("snapshot union cycle hash mismatch")
+            batch_digest = store.ensure_batch(batch_id, batch_config)
+            existing = store.existing_complete_snapshot(
+                snapshot_root,
+                snapshot_id=snapshot_id,
+                batch_id=batch_id,
+            )
+            if existing is not None:
+                if not cast(bool, args.resume):
+                    raise CycleAcquisitionStoreError(
+                        "complete union snapshot exists and --no-resume forbids reuse"
+                    )
+                owned_raw_records = _owned_raw_records_from_snapshot(existing[0])
+                _write_jsonl(owned_raw_manifest_path, owned_raw_records)
+                owned_raw_commitment = _file_commitment(owned_raw_manifest_path)
+                expected_commitments = {
+                    "screening_snapshot_union_inputs": dict(union.stage_commitment),
+                    "owned_raw_artifacts": owned_raw_commitment,
+                }
+                if existing[1].get("stage_commitments") != expected_commitments:
+                    raise CycleAcquisitionStoreError(
+                        "existing union snapshot commitment does not match inputs"
+                    )
+                snapshot_path = existing[0]
+                manifest = verify_snapshot(
+                    snapshot_path,
+                    expected_cycle_hash=expected_cycle_hash,
+                    expected_batch_digest=batch_digest,
+                    require_complete=True,
+                    require_saturated=True,
+                )
+                resumed = True
+            else:
+                term = "provider-free-screening-snapshot-union"
+                store.ensure_terms(batch_id, (term,))
+                store.commit_search_page(
+                    batch_id,
+                    term,
+                    None,
+                    (
+                        DiscoveryHit(
+                            provider_hit_id=f"snapshot-union:{candidate.candidate_id}",
+                            candidate_id=candidate.candidate_id,
+                            payload=dict(candidate.evidence),
+                        )
+                        for candidate in union.candidates
+                    ),
+                    next_cursor=None,
+                    terminal_status=TermTerminalStatus.EXHAUSTED,
+                )
+                owned_raw_records: list[JsonRecord] = []
+                for artifact in union.raw_artifacts:
+                    destination = (
+                        owned_raw_dir
+                        / safe_path_component(
+                            artifact.candidate_id,
+                            field_name="union raw-artifact candidate_id",
+                        )
+                        / f"{artifact.sha256}.html"
+                    )
+                    committed = store.write_raw_artifact(
+                        artifact.candidate_id,
+                        destination,
+                        artifact.content,
+                        retrieved_at=artifact.retrieved_at,
+                        validator=_validate_raw_docket_bytes,
+                    )
+                    if committed.path.resolve() != destination.resolve():
+                        committed = store.rehome_raw_artifact(
+                            artifact.candidate_id,
+                            destination,
+                            artifact.content,
+                            validator=_validate_raw_docket_bytes,
+                        )
+                    owned_raw_records.append(
+                        {
+                            "candidate_id": committed.candidate_id,
+                            "path": str(committed.path),
+                            "sha256": committed.sha256,
+                            "byte_count": committed.byte_count,
+                            "retrieved_at": committed.retrieved_at,
+                        }
+                    )
+                _write_jsonl(owned_raw_manifest_path, owned_raw_records)
+                owned_raw_commitment = _file_commitment(owned_raw_manifest_path)
+                expected_commitments = {
+                    "screening_snapshot_union_inputs": dict(union.stage_commitment),
+                    "owned_raw_artifacts": owned_raw_commitment,
+                }
+                for candidate in union.candidates:
+                    _record_identical_or_new_observation(
+                        store=store,
+                        batch_id=batch_id,
+                        candidate_id=candidate.candidate_id,
+                        state=candidate.state,
+                        reason_code=candidate.reason_code,
+                        evidence=candidate.evidence,
+                    )
+                if not store.snapshot_is_saturated(batch_id):
+                    raise CycleAcquisitionStoreError(
+                        "provider-free snapshot union did not saturate the store"
+                    )
+                snapshot_path = store.export_snapshot(
+                    snapshot_root,
+                    snapshot_id=snapshot_id,
+                    batch_id=batch_id,
+                    complete=True,
+                    stage_commitments=expected_commitments,
+                )
+                manifest = verify_snapshot(
+                    snapshot_path,
+                    expected_cycle_hash=expected_cycle_hash,
+                    expected_batch_digest=batch_digest,
+                    require_complete=True,
+                    require_saturated=True,
+                )
+                resumed = False
+        snapshot_summary = _read_json_object(snapshot_path / "summary.json")
+        summary = {
+            "schema_version": "legalforecast.screening_snapshot_union_summary.v1",
+            "dry_run": False,
+            "source_count": len(source_snapshots),
+            "candidate_count": len(union.candidates),
+            "accepted_case_count": snapshot_summary["accepted_count"],
+            "excluded_case_count": snapshot_summary["excluded_count"],
+            "snapshot_path": str(snapshot_path),
+            "snapshot_complete": manifest["complete"],
+            "snapshot_saturated": manifest["saturated"],
+            "reconciled": snapshot_summary.get("reconciliation_complete") is True,
+            "resumed_existing_snapshot": resumed,
+            "provider_access_requested": False,
+            "paid_activity_requested": False,
+            "output_commitments": {
+                "owned_raw_artifacts": _file_commitment(owned_raw_manifest_path)
+            },
+        }
+        _write_json(summary_path, summary)
+        _write_acquisition_completion(
+            args,
+            stage="union-screening-snapshots",
+            input_paths=input_paths,
+            output_paths=(
+                snapshot_path,
+                owned_raw_dir,
+                owned_raw_manifest_path,
+                summary_path,
+            ),
+            record_count=cast(int, snapshot_summary["accepted_count"]),
+            dry_run=False,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+    except (
+        ScreeningSnapshotUnionError,
+        CycleAcquisitionStoreError,
+        SnapshotVerificationError,
+        FileExistsError,
+        KeyError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="union-screening-snapshots",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+        )
+        raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _owned_raw_records_from_snapshot(snapshot_path: Path) -> list[JsonRecord]:
+    """Regenerate the auxiliary owned-raw manifest from immutable snapshot rows."""
+
+    records: list[JsonRecord] = []
+    for record in _read_records(snapshot_path / "raw-artifacts.jsonl"):
+        byte_count = record.get("byte_count")
+        if not isinstance(byte_count, int) or isinstance(byte_count, bool):
+            raise CycleAcquisitionStoreError(
+                "snapshot owned raw artifact has an invalid byte count"
+            )
+        records.append(
+            {
+                "candidate_id": _required_str(record, "candidate_id"),
+                "path": _required_str(record, "path"),
+                "sha256": _required_str(record, "sha256"),
+                "byte_count": byte_count,
+                "retrieved_at": _required_str(record, "retrieved_at"),
+            }
+        )
+    return records
 
 
 def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
@@ -17140,6 +17806,75 @@ def _current_screening_source_sha256() -> dict[str, str]:
     return {name: sha256_file(path) for name, path in sorted(screening_sources.items())}
 
 
+def _file_commitment(path: Path) -> JsonRecord:
+    payload = path.read_bytes()
+    return {
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "byte_count": len(payload),
+        "row_count": payload.count(b"\n"),
+    }
+
+
+def _courtlistener_candidate_id(record: Mapping[str, Any]) -> str:
+    candidate_value = record.get("candidate")
+    if not isinstance(candidate_value, Mapping):
+        raise ValueError("screened CourtListener case is missing candidate metadata")
+    candidate = cast(Mapping[str, object], candidate_value)
+    docket_id = candidate.get("docket_id")
+    if not isinstance(docket_id, str) or not docket_id.strip():
+        raise ValueError("screened CourtListener case is missing its docket ID")
+    return docket_id.strip()
+
+
+def _courtlistener_raw_artifact_records(
+    *,
+    raw_html_dir: Path,
+    screened_cases: Sequence[Mapping[str, Any]],
+    exclusions: Sequence[Mapping[str, Any]],
+) -> list[JsonRecord]:
+    candidate_ids = {
+        *(_courtlistener_candidate_id(record) for record in screened_cases),
+        *(_required_str(record, "candidate_id") for record in exclusions),
+    }
+    records: list[JsonRecord] = []
+    if not raw_html_dir.is_dir():
+        if screened_cases:
+            raise ValueError(
+                f"raw CourtListener HTML directory is missing: {raw_html_dir}"
+            )
+        return records
+    for path in sorted(raw_html_dir.iterdir(), key=lambda item: item.name):
+        if path.is_symlink() or not path.is_file() or path.suffix != ".html":
+            raise ValueError(f"unexpected raw CourtListener artifact: {path}")
+        candidate_id = path.stem
+        if candidate_id not in candidate_ids:
+            raise ValueError(
+                f"raw CourtListener artifact has no reconciled outcome: {path}"
+            )
+        payload = path.read_bytes()
+        _validate_raw_docket_bytes(payload)
+        records.append(
+            {
+                "candidate_id": candidate_id,
+                "relative_path": path.name,
+                "sha256": hashlib.sha256(payload).hexdigest(),
+                "byte_count": len(payload),
+            }
+        )
+    raw_candidate_ids = {_required_str(record, "candidate_id") for record in records}
+    missing_accepted = sorted(
+        _courtlistener_candidate_id(record)
+        for record in screened_cases
+        if _courtlistener_candidate_id(record) not in raw_candidate_ids
+    )
+    if missing_accepted:
+        raise ValueError(
+            "accepted CourtListener cases are missing raw HTML: "
+            + ", ".join(missing_accepted)
+        )
+    return records
+
+
 def _validate_frozen_screening_policy(
     *,
     policy: Mapping[str, object],
@@ -17760,14 +18495,26 @@ def _verified_snapshot_raw_html_sources(
                 "canonical linkage, leakage, and embedded entries"
             )
     artifact_records = _read_records(snapshot_path / "raw-artifacts.jsonl")
-    artifact_paths: list[Path] = []
+    artifact_paths: list[tuple[str, Path]] = []
     for record in artifact_records:
+        candidate_id = record.get("candidate_id")
         raw_path = record.get("path")
-        if not isinstance(raw_path, str) or not raw_path.strip():
+        if (
+            not isinstance(candidate_id, str)
+            or not candidate_id.strip()
+            or not isinstance(raw_path, str)
+            or not raw_path.strip()
+        ):
             raise CommandError(
                 "verified snapshot contains an invalid raw artifact path"
             )
-        artifact_paths.append(Path(raw_path).resolve())
+        resolved_path = Path(raw_path).resolve()
+        artifact_paths.append(
+            (
+                _raw_html_lookup_id(candidate_id.strip(), resolved_path),
+                resolved_path,
+            )
+        )
     if not artifact_paths:
         if requested is not None:
             raise CommandError(
@@ -17781,7 +18528,7 @@ def _verified_snapshot_raw_html_sources(
                 "authorized fixture path"
             )
         return None, None
-    parents = {path.parent for path in artifact_paths}
+    parents = {path.parent for _candidate_id, path in artifact_paths}
     requested_directory: Path | None = None
     if requested is not None:
         requested_directory = requested.resolve()
@@ -17790,16 +18537,18 @@ def _verified_snapshot_raw_html_sources(
                 "--raw-html-dir must exactly match a committed verified snapshot "
                 "artifact directory"
             )
-    if len(parents) == 1:
+    if len(parents) == 1 and all(
+        path.stem == candidate_id for candidate_id, path in artifact_paths
+    ):
         return next(iter(parents)), None
 
     paths_by_candidate: dict[str, list[Path]] = defaultdict(list)
-    for path in artifact_paths:
+    for candidate_id, path in artifact_paths:
         if path.suffix.casefold() != ".html" or not path.is_file():
             raise CommandError(
                 "verified snapshot contains an invalid raw HTML artifact path"
             )
-        paths_by_candidate[path.stem].append(path)
+        paths_by_candidate[candidate_id].append(path)
 
     by_candidate: dict[str, Path] = {}
     for candidate_id, candidate_paths in paths_by_candidate.items():
@@ -17817,6 +18566,17 @@ def _verified_snapshot_raw_html_sources(
             )
         by_candidate[candidate_id] = requested_paths[0]
     return None, by_candidate
+
+
+def _raw_html_lookup_id(candidate_id: str, path: Path) -> str:
+    """Preserve the planner's docket-ID lookup while trusting snapshot identity."""
+
+    if path.stem.isdigit():
+        return path.stem
+    prefix = "courtlistener-docket-"
+    if candidate_id.startswith(prefix) and candidate_id[len(prefix) :].isdigit():
+        return candidate_id[len(prefix) :]
+    return candidate_id
 
 
 def _firecrawl_credit_summary_if_available(
