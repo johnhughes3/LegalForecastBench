@@ -97,6 +97,21 @@ def test_extension_is_byte_identical_on_resume() -> None:
     assert first.extension_record == second.extension_record
 
 
+def test_extension_rejects_new_frontier_rank_that_interleaves_retained_cohort() -> None:
+    inputs = _inputs(paid_after=99)
+    full = dict(inputs["full_pool_artifacts"])
+    relevance = _jsonl(full["case-relevance.jsonl"])
+    relevance[100] = _relevance(100, paid=False)
+    full["case-relevance.jsonl"] = _jsonl_bytes(relevance)
+    inputs["full_pool_artifacts"] = full
+
+    with pytest.raises(
+        RetainedCohortExtensionError,
+        match="base projection artifacts do not reproduce",
+    ):
+        extend_target_cohort(**inputs)
+
+
 def test_extension_fails_when_eligible_omitted_frontier_is_insufficient() -> None:
     inputs = _inputs()
     full = dict(inputs["full_pool_artifacts"])
@@ -374,6 +389,17 @@ def test_cli_rejects_metadata_aliases_and_dry_run_overwrite(tmp_path: Path) -> N
     policy_before = cohort_policy.read_bytes()
     assert main(alias_argv) == 2
     assert cohort_policy.read_bytes() == policy_before
+
+
+def test_cli_initializes_missing_zero_obligation_purchase_ledger(
+    tmp_path: Path,
+) -> None:
+    argv, _, _, _ = _cli_fixture(tmp_path)
+    ledger = Path(argv[argv.index("--purchase-ledger") + 1])
+    ledger.unlink()
+
+    assert main(argv) == 0
+    assert ledger.is_file()
 
 
 def test_cli_rejects_self_consistent_substituted_frontier(tmp_path: Path) -> None:

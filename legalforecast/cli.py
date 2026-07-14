@@ -6713,7 +6713,6 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
         cohort_policy_bytes = _read_retained_extension_artifact(cohort_policy_path)
         snapshot_bytes = _read_retained_extension_artifact(snapshot_path)
         purchase_policy_bytes = _read_retained_extension_artifact(purchase_policy_path)
-        _read_retained_extension_artifact(purchase_ledger_path)
         lineage_bytes = {
             "preparation_summary": _read_retained_extension_artifact(
                 preparation_summary_path

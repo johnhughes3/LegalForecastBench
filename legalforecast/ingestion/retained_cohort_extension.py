@@ -397,7 +397,6 @@ def extend_target_cohort(
         [full_selection[candidate_id] for candidate_id in combined_ids]
     )
 
-    base_plans = cast(tuple[CaseMissingCorePurchasePlan, ...], base["case_plans"])
     combined_filter_results = filter_core_documents(
         [full_relevance[candidate_id] for candidate_id in combined_ids]
     )
@@ -411,7 +410,7 @@ def extend_target_cohort(
         target_case_count=TARGET_CASE_COUNT,
     )
     combined_plan = MissingCoreBudgetPlan(
-        case_plans=(*base_plans, *incremental.budget_plan.case_plans),
+        case_plans=recomputed_combined.case_plans,
         cost_per_document=money,
         max_projected_budget=cap,
         max_missing_core_documents_per_case=max_missing_core_documents_per_case,
