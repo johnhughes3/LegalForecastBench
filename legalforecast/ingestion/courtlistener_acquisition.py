@@ -224,7 +224,9 @@ def discover_courtlistener_mtd_candidates(
                 if len(screened_cases) >= target_clean_cases:
                     terminal_status = "limit_bound:target_clean_cases"
                     break
-            if processed_count >= max_candidates:
+            if terminal_status == "limit_bound:target_clean_cases":
+                pass
+            elif processed_count >= max_candidates:
                 terminal_status = "limit_bound:max_candidates"
             elif len(screened_cases) >= target_clean_cases:
                 terminal_status = "limit_bound:target_clean_cases"

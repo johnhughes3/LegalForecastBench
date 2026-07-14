@@ -9,7 +9,6 @@ from email.message import Message
 from pathlib import Path
 from typing import Any, cast
 
-import legalforecast.cli as cli
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.courtlistener_acquisition import (
@@ -223,7 +222,10 @@ def test_old_and_direct_snapshots_union_provider_free_then_prepare(
     def unexpected_provider(*args: object, **kwargs: object) -> object:
         raise AssertionError("snapshot union must not construct a provider client")
 
-    monkeypatch.setattr(cli, "CourtListenerClient", unexpected_provider)
+    monkeypatch.setattr(
+        "legalforecast.cli.CourtListenerClient",
+        unexpected_provider,
+    )
     union_root = tmp_path / "union-snapshots"
     union_command = [
         "acquisition",
@@ -448,6 +450,23 @@ def test_limit_bound_transcript_preserves_provider_next_cursor(tmp_path: Path) -
     [page] = _read_jsonl(discovery_root / "courtlistener-search-pages.jsonl")
     assert page["terminal_status"] == "limit_bound:target_clean_cases"
     assert page["next_cursor"] == "provider-cursor-2"
+
+
+def test_target_stop_reason_wins_when_target_and_max_are_simultaneous(
+    tmp_path: Path,
+) -> None:
+    discovery_root, _cycle_store = _run_saturated_discovery(
+        tmp_path,
+        target_clean_cases=1,
+        max_candidates=1,
+    )
+
+    [page] = _read_jsonl(discovery_root / "courtlistener-search-pages.jsonl")
+    assert page["terminal_status"] == "limit_bound:target_clean_cases"
+    summary = _read_json(discovery_root / "courtlistener-discovery-summary.json")
+    assert summary["per_term"]["order on motion to dismiss"]["terminal_status"] == (
+        "limit_bound:target_clean_cases"
+    )
 
 
 def test_discovery_raw_manifest_is_stable_across_resume(tmp_path: Path) -> None:
@@ -1214,6 +1233,7 @@ def _run_saturated_discovery(
     tmp_path: Path,
     *,
     target_clean_cases: int = 2,
+    max_candidates: int = 5,
     next_cursor: str | None = None,
     reuse_fixtures: bool = False,
 ) -> tuple[Path, Path]:
@@ -1287,7 +1307,7 @@ def _run_saturated_discovery(
                 "--target-clean-cases",
                 str(target_clean_cases),
                 "--max-candidates",
-                "5",
+                str(max_candidates),
                 "--courtlistener-fixture",
                 str(fixture_path),
                 "--docket-html-fixture-dir",
