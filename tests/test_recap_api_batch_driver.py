@@ -107,6 +107,16 @@ def _entries_response(
     )
 
 
+def _motion_entry(docket_id: int, *, entry_id: int = 7001) -> dict[str, Any]:
+    return {
+        "id": entry_id,
+        "docket": docket_id,
+        "entry_number": 20,
+        "description": "Motion to dismiss the complaint",
+        "date_filed": "2026-06-20",
+    }
+
+
 def _anonymous_client(
     responses: list[RecordedCourtListenerResponse],
 ) -> CourtListenerClient:
@@ -316,6 +326,7 @@ def test_run_observe_accepts_and_is_resumable(tmp_path: Path) -> None:
                 _entries_response(
                     docket_id=555,
                     results=[
+                        _motion_entry(555),
                         {
                             "id": 7002,
                             "docket": 555,
@@ -325,7 +336,7 @@ def test_run_observe_accepts_and_is_resumable(tmp_path: Path) -> None:
                                 "complaint"
                             ),
                             "date_filed": "2026-07-05",
-                        }
+                        },
                     ],
                 ),
             ]
@@ -354,6 +365,290 @@ def test_run_observe_accepts_and_is_resumable(tmp_path: Path) -> None:
         assert resume.observed == 0
         assert resume.skipped_already_observed == 1
         assert resume.considered == 1
+    finally:
+        store.close()
+
+
+def test_run_observe_explicitly_refreshes_only_selected_refreshable_reason(
+    tmp_path: Path,
+) -> None:
+    store = _fresh_store(tmp_path)
+    try:
+        _seed_one_candidate(store, 555)
+        stale = store.record_observation(
+            "courtlistener-docket-555",
+            batch_id="batch-002",
+            state="excluded",
+            reason_code="strict_clean_screen_failed",
+            evidence={"reason": "no_target_motion"},
+            observed_at="2026-07-01T00:00:00+00:00",
+        )
+        skipped = run_observe(
+            store,
+            batch_id="batch-002",
+            client=_token_client([]),
+            eligibility_anchor=date(2026, 6, 30),
+        )
+        assert skipped.observed == 0
+        assert skipped.skipped_already_observed == 1
+
+        refreshed = run_observe(
+            store,
+            batch_id="batch-002",
+            client=_token_client(
+                [
+                    _docket_response(555),
+                    _entries_response(
+                        docket_id=555,
+                        results=[
+                            _motion_entry(555),
+                            {
+                                "id": 7002,
+                                "docket": 555,
+                                "entry_number": 40,
+                                "description": (
+                                    "ORDER granting defendant's motion to dismiss "
+                                    "the complaint"
+                                ),
+                                "date_filed": "2026-07-05",
+                            },
+                        ],
+                    ),
+                ]
+            ),
+            eligibility_anchor=date(2026, 6, 30),
+            refresh_reason_codes=("strict_clean_screen_failed",),
+            refresh_campaign_cutoff="2026-07-10T00:00:00+00:00",
+        )
+        assert refreshed.observed == 1
+        current = store.current_observation("courtlistener-docket-555")
+        assert current is not None and current.state == "accepted"
+        assert current.supersedes_observation_id == stale.observation_id
+    finally:
+        store.close()
+
+
+def test_run_observe_revalidates_named_accepted_candidate(tmp_path: Path) -> None:
+    store = _fresh_store(tmp_path)
+    try:
+        _seed_one_candidate(store, 555)
+        stale = store.record_observation(
+            "courtlistener-docket-555",
+            batch_id="batch-002",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"screening_kernel": "before-correction"},
+            observed_at="2026-07-01T00:00:00+00:00",
+        )
+        tally = run_observe(
+            store,
+            batch_id="batch-002",
+            client=_token_client(
+                [
+                    _docket_response(555),
+                    _entries_response(
+                        docket_id=555,
+                        results=[
+                            _motion_entry(555),
+                            {
+                                "id": 7002,
+                                "docket": 555,
+                                "entry_number": 40,
+                                "description": (
+                                    "ORDER granting defendant's motion to dismiss "
+                                    "the complaint"
+                                ),
+                                "date_filed": "2026-07-05",
+                            },
+                        ],
+                    ),
+                ]
+            ),
+            eligibility_anchor=date(2026, 6, 30),
+            revalidate_candidate_ids=("courtlistener-docket-555",),
+            refresh_campaign_cutoff="2026-07-10T00:00:00+00:00",
+            limit=1,
+        )
+
+        assert tally.observed == 1
+        current = store.current_observation("courtlistener-docket-555")
+        assert current is not None and current.state == "accepted"
+        assert current.observation_id != stale.observation_id
+        assert current.supersedes_observation_id == stale.observation_id
+    finally:
+        store.close()
+
+
+def test_limited_refresh_campaign_advances_past_already_refreshed_candidate(
+    tmp_path: Path,
+) -> None:
+    store = _fresh_store(tmp_path)
+    responses = _empty_search_responses()
+    responses[0] = _search_response(
+        term=_TERMS[0],
+        results=[
+            {
+                "id": 9001 + docket_id,
+                "docket_id": docket_id,
+                "entry_number": "20",
+                "description": "ORDER granting motion to dismiss",
+                "entry_date_filed": "2026-07-05",
+                "court_id": "nysd",
+                "docketNumber": f"1:26-cv-{docket_id:05d}",
+                "caseName": "Acme Corp v. Roe",
+            }
+            for docket_id in (555, 556)
+        ],
+    )
+    run_discover(
+        store,
+        batch_id="batch-002",
+        client=_anonymous_client(responses),
+        decision_window_start=date(2026, 6, 30),
+        decision_window_end=date(2026, 7, 12),
+    )
+    try:
+        for docket_id in (555, 556):
+            store.record_observation(
+                f"courtlistener-docket-{docket_id}",
+                batch_id="batch-002",
+                state="excluded",
+                reason_code="strict_clean_screen_failed",
+                evidence={"reason": "old-kernel"},
+                observed_at="2026-07-01T00:00:00+00:00",
+            )
+        cutoff = "2026-07-10T00:00:00+00:00"
+        observed_ids: list[int] = []
+        for docket_id in (556, 555):
+            client = _token_client(
+                [
+                    _docket_response(docket_id),
+                    _entries_response(
+                        docket_id=docket_id,
+                        results=[
+                            _motion_entry(docket_id),
+                            {
+                                "id": 8000 + docket_id,
+                                "docket": docket_id,
+                                "entry_number": 40,
+                                "description": (
+                                    "ORDER granting defendant's motion to dismiss "
+                                    "the complaint"
+                                ),
+                                "date_filed": "2026-07-05",
+                            },
+                        ],
+                    ),
+                ]
+            )
+            tally = run_observe(
+                store,
+                batch_id="batch-002",
+                client=client,
+                eligibility_anchor=date(2026, 6, 30),
+                limit=1,
+                refresh_reason_codes=("strict_clean_screen_failed",),
+                refresh_campaign_cutoff=cutoff,
+            )
+            assert tally.observed == 1
+            assert client.request_count == 2
+            observed_ids.append(docket_id)
+
+        final = run_observe(
+            store,
+            batch_id="batch-002",
+            client=_token_client([]),
+            eligibility_anchor=date(2026, 6, 30),
+            limit=1,
+            refresh_reason_codes=("strict_clean_screen_failed",),
+            refresh_campaign_cutoff=cutoff,
+        )
+        assert final.observed == 0
+        assert final.skipped_already_observed == 2
+        assert observed_ids == [556, 555]
+    finally:
+        store.close()
+
+
+def test_run_observe_prioritizes_cheaper_recent_candidates_deterministically(
+    tmp_path: Path,
+) -> None:
+    store = _fresh_store(tmp_path)
+    responses = _empty_search_responses()
+    responses[0] = _search_response(
+        term=_TERMS[0],
+        results=[
+            {
+                "id": 9001,
+                "docket_id": 999,
+                "entry_number": "650",
+                "description": "ORDER granting motion to dismiss",
+                "entry_date_filed": "2026-07-06",
+                "court_id": "nysd",
+                "docketNumber": "1:20-cv-00001",
+                "caseName": "Old Corp v. Roe",
+            },
+            {
+                "id": 9002,
+                "docket_id": 555,
+                "entry_number": "20",
+                "description": "ORDER granting motion to dismiss",
+                "entry_date_filed": "2026-07-05",
+                "court_id": "nysd",
+                "docketNumber": "1:26-cv-00002",
+                "caseName": "Small Corp v. Roe",
+            },
+            {
+                "id": 9003,
+                "docket_id": 777,
+                "entry_number": "20",
+                "description": "ORDER granting motion to dismiss",
+                "entry_date_filed": "2026-07-06",
+                "court_id": "nysd",
+                "docketNumber": "1:26-cv-00003",
+                "caseName": "Recent Corp v. Roe",
+            },
+        ],
+    )
+    run_discover(
+        store,
+        batch_id="batch-002",
+        client=_anonymous_client(responses),
+        decision_window_start=date(2026, 6, 30),
+        decision_window_end=date(2026, 7, 12),
+    )
+    try:
+        tally = run_observe(
+            store,
+            batch_id="batch-002",
+            client=_token_client(
+                [
+                    _docket_response(777),
+                    _entries_response(
+                        docket_id=777,
+                        results=[
+                            _motion_entry(777),
+                            {
+                                "id": 7002,
+                                "docket": 777,
+                                "entry_number": 40,
+                                "description": (
+                                    "ORDER granting defendant's motion to dismiss "
+                                    "the complaint"
+                                ),
+                                "date_filed": "2026-07-06",
+                            },
+                        ],
+                    ),
+                ]
+            ),
+            eligibility_anchor=date(2026, 6, 30),
+            limit=1,
+        )
+        assert tally.observed == 1
+        assert store.current_observation("courtlistener-docket-777") is not None
+        assert store.current_observation("courtlistener-docket-555") is None
+        assert store.current_observation("courtlistener-docket-999") is None
     finally:
         store.close()
 
@@ -465,13 +760,14 @@ def test_run_observe_prefers_api_discovery_payload_over_seed_payload(
                     _entries_response(
                         docket_id=555,
                         results=[
+                            _motion_entry(555),
                             {
                                 "id": 7002,
                                 "docket": 555,
                                 "entry_number": 40,
                                 "description": "ORDER granting motion to dismiss",
                                 "date_filed": "2026-07-05",
-                            }
+                            },
                         ],
                     ),
                 ]
@@ -631,6 +927,7 @@ def test_seed_batch_001_leads_is_idempotent_and_observable(tmp_path: Path) -> No
                 _entries_response(
                     docket_id=200,
                     results=[
+                        _motion_entry(200, entry_id=8000),
                         {
                             "id": 8001,
                             "docket": 200,
@@ -639,7 +936,7 @@ def test_seed_batch_001_leads_is_idempotent_and_observable(tmp_path: Path) -> No
                                 "ORDER granting defendant's motion to dismiss"
                             ),
                             "date_filed": "2026-07-06",
-                        }
+                        },
                     ],
                 ),
             ]

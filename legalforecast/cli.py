@@ -178,6 +178,11 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     FixtureRecapFetchTransport,
     public_documents_from_selection,
 )
+from legalforecast.ingestion.courtlistener_request_budget import (
+    CourtListenerRequestBudget,
+    CourtListenerRequestBudgetError,
+    CourtListenerRequestLimits,
+)
 from legalforecast.ingestion.cycle_acquisition_assembler import (
     COMPONENT_PROVENANCE_FILENAME,
     COMPONENT_STAGE_ORDER,
@@ -317,7 +322,6 @@ from legalforecast.ingestion.recap_api_batch_driver import (
 from legalforecast.ingestion.recap_api_discovery import (
     RecapApiDiscoveryError,
     RequestPacer,
-    pacer_for_client,
 )
 from legalforecast.ingestion.recap_fetch_broker_policy import (
     RecapFetchBrokerPolicyError,
@@ -710,7 +714,7 @@ def build_parser() -> argparse.ArgumentParser:
         "batch-002",
         help=(
             "Cycle 1 batch-002 decision-first RECAP REST v4 acquisition driver "
-            "(discover / observe / seed-batch-001-leads)."
+            "(discover / observe / seed-batch-001-leads / snapshot)."
         ),
     )
     batch_002_subparsers = batch_002.add_subparsers(
@@ -741,6 +745,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_batch_002_seed_arguments(batch_002_seed)
+    batch_002_snapshot = batch_002_subparsers.add_parser(
+        "snapshot",
+        help=(
+            "Publish and verify one immutable, saturated REST acquisition "
+            "snapshot after every candidate is terminal."
+        ),
+    )
+    _add_batch_002_snapshot_arguments(batch_002_snapshot)
 
     acquisition = subparsers.add_parser(
         "acquisition",
@@ -1743,7 +1755,15 @@ def _add_acquisition_funnel_report_arguments(parser: argparse.ArgumentParser) ->
 _BATCH_002_DEFAULT_BATCH_ID = "batch-002"
 _BATCH_002_DEFAULT_ANCHOR = "2026-06-30"
 _BATCH_002_DEFAULT_WINDOW_START = "2026-06-30"
-_BATCH_002_DEFAULT_WINDOW_END = "2026-07-12"
+_BATCH_002_DEFAULT_WINDOW_END = "2026-07-14"
+_COURTLISTENER_RATE_PROFILES = {
+    "base": CourtListenerRequestLimits(
+        per_minute=24,
+        per_hour=290,
+        per_day=1_350,
+    ),
+    "temporary-doubled": CourtListenerRequestLimits(),
+}
 
 
 def _add_batch_002_source_arguments(parser: argparse.ArgumentParser) -> None:
@@ -1763,6 +1783,32 @@ def _add_batch_002_source_arguments(parser: argparse.ArgumentParser) -> None:
         "--courtlistener-fixture",
         type=Path,
         help="Replay recorded CourtListener API JSONL responses without network use.",
+    )
+    parser.add_argument(
+        "--request-ledger",
+        type=Path,
+        help=(
+            "Crash-durable SQLite ledger for every physical CourtListener HTTP "
+            "attempt. Required with --live; omitted for fixtures."
+        ),
+    )
+    parser.add_argument(
+        "--courtlistener-rate-profile",
+        choices=tuple(_COURTLISTENER_RATE_PROFILES),
+        default="base",
+        help=(
+            "Provider ceiling profile with headroom. Use temporary-doubled only "
+            "while CourtListener has explicitly doubled this account's limits."
+        ),
+    )
+    parser.add_argument(
+        "--request-budget-max-wait-seconds",
+        type=float,
+        default=120.0,
+        help=(
+            "Maximum cumulative wait for one HTTP-attempt reservation before "
+            "failing closed; default 120."
+        ),
     )
 
 
@@ -1808,8 +1854,10 @@ def _add_batch_002_discover_arguments(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=None,
         help=(
-            "Override request spacing. Default: anonymous 3s / authenticated 0s "
-            "(the client's auth-aware pacing)."
+            "Minimum spacing between logical search-page requests. The live "
+            "default is derived from the selected profile's hourly ceiling "
+            "(12.5s base; 6.25s temporary-doubled); fixtures are unpaced. The "
+            "durable attempt ledger independently enforces all windows."
         ),
     )
     _add_batch_002_source_arguments(parser)
@@ -1834,8 +1882,12 @@ def _add_batch_002_observe_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--min-interval-seconds",
         type=float,
-        default=1.0,
-        help="Minimum wall-clock spacing between metered requests; default 1.0.",
+        default=None,
+        help=(
+            "Minimum spacing between logical requests. The live default is "
+            "derived from the selected profile's hourly ceiling (12.5s base; "
+            "6.25s temporary-doubled); fixtures are unpaced."
+        ),
     )
     parser.add_argument(
         "--jitter-seconds",
@@ -1855,6 +1907,36 @@ def _add_batch_002_observe_arguments(parser: argparse.ArgumentParser) -> None:
         type=int,
         default=None,
         help="Observe at most N candidates this pass (smoke runs); default all.",
+    )
+    parser.add_argument(
+        "--refresh-reason-code",
+        action="append",
+        choices=cohort_reason_policy_taxonomy()["refreshable_reason_codes"],
+        default=[],
+        help=(
+            "Re-observe current terminal candidates carrying this refreshable "
+            "reason code after a documented screening correction. Repeat for "
+            "multiple codes; immutable exclusions cannot be refreshed."
+        ),
+    )
+    parser.add_argument(
+        "--revalidate-candidate-id",
+        action="append",
+        default=[],
+        help=(
+            "Re-observe this exact currently accepted batch candidate after a "
+            "documented false-positive screening correction. Repeat for multiple "
+            "candidate ids."
+        ),
+    )
+    parser.add_argument(
+        "--refresh-campaign-cutoff",
+        help=(
+            "Frozen timezone-aware ISO-8601 cutoff for a refresh/revalidation "
+            "campaign. Required with --refresh-reason-code or "
+            "--revalidate-candidate-id; reuse the exact value on every limited "
+            "resume so already refreshed observations are not selected again."
+        ),
     )
     _add_batch_002_source_arguments(parser)
     parser.add_argument("--summary-output", type=Path)
@@ -1885,6 +1967,29 @@ def _add_batch_002_seed_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_batch_002_seed)
+
+
+def _add_batch_002_snapshot_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Acquisition store sqlite path holding the completed REST batch.",
+    )
+    parser.add_argument("--batch-id", default=_BATCH_002_DEFAULT_BATCH_ID)
+    parser.add_argument(
+        "--snapshot-id",
+        required=True,
+        help="Immutable snapshot identifier; safe filename characters only.",
+    )
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        required=True,
+        help="Directory in which the immutable snapshot directory is created.",
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_snapshot)
 
 
 def _add_generate_cohort_policy_arguments(parser: argparse.ArgumentParser) -> None:
@@ -6305,7 +6410,7 @@ def _batch_002_client(
     args: argparse.Namespace,
     *,
     require_token: bool,
-) -> CourtListenerClient:
+) -> tuple[CourtListenerClient, CourtListenerRequestBudget | None]:
     """Build a live or fixture CourtListener client for a batch-002 phase."""
 
     live = cast(bool, args.live)
@@ -6313,25 +6418,100 @@ def _batch_002_client(
     config = CourtListenerConfig.from_env()
     max_retries = cast(int, getattr(args, "max_retries", 2))
     retry_backoff = cast(float, getattr(args, "retry_backoff_seconds", 0.0))
+    if require_token and config.api_token is None:
+        raise CommandError(f"{COURTLISTENER_API_TOKEN_ENV} is required")
     if live:
-        raise CommandError(
-            "batch-002 live CourtListener REST type=rd is disabled; use "
-            "acquisition discover-firecrawl-recap-decisions"
+        ledger_path = cast(Path | None, args.request_ledger)
+        if ledger_path is None:
+            raise CommandError("--request-ledger is required with --live")
+        max_wait = cast(float, args.request_budget_max_wait_seconds)
+        if max_wait < 0:
+            raise CommandError("--request-budget-max-wait-seconds cannot be negative")
+        profile = cast(str, args.courtlistener_rate_profile)
+        if profile == "temporary-doubled" and config.api_token is None:
+            raise CommandError(
+                "--courtlistener-rate-profile temporary-doubled requires "
+                f"{COURTLISTENER_API_TOKEN_ENV}"
+            )
+        try:
+            budget = CourtListenerRequestBudget(
+                ledger_path,
+                limits=_COURTLISTENER_RATE_PROFILES[profile],
+                max_wait_seconds=max_wait,
+            )
+        except (CourtListenerRequestBudgetError, OSError) as exc:
+            raise CommandError(str(exc)) from exc
+        return (
+            CourtListenerClient(
+                config=config,
+                max_retries=max_retries,
+                retry_backoff_seconds=retry_backoff,
+                before_request=budget.before_request,
+            ),
+            budget,
         )
     assert fixture is not None
-    return CourtListenerClient(
-        config=config,
-        transport=CourtListenerFixtureTransport.from_jsonl(fixture),
-        max_retries=max_retries,
-        retry_backoff_seconds=retry_backoff,
+    return (
+        CourtListenerClient(
+            config=config,
+            transport=CourtListenerFixtureTransport.from_jsonl(fixture),
+            max_retries=max_retries,
+            retry_backoff_seconds=retry_backoff,
+        ),
+        None,
     )
 
 
-def _batch_002_observe_pacer(args: argparse.Namespace) -> RequestPacer | None:
-    """Build a jittered ~1 req/sec pacer, or None when pacing is disabled."""
+def _batch_002_rate_evidence(
+    args: argparse.Namespace,
+    client: CourtListenerClient,
+    budget: CourtListenerRequestBudget | None,
+) -> dict[str, object]:
+    """Return auditable request-budget evidence for a phase summary."""
 
-    min_interval = cast(float, args.min_interval_seconds)
+    if budget is None:
+        return {
+            "courtlistener_live": False,
+            "courtlistener_physical_requests": client.request_count,
+        }
+    total = budget.total_reservations()
+    return {
+        "courtlistener_live": True,
+        "courtlistener_rate_profile": cast(str, args.courtlistener_rate_profile),
+        "courtlistener_request_ledger": str(budget.path.resolve()),
+        "courtlistener_physical_requests": client.request_count,
+        "courtlistener_reservations_this_phase": budget.local_reservations,
+        "courtlistener_reservations_total": total,
+        "courtlistener_limits": {
+            "per_minute": budget.limits.per_minute,
+            "per_hour": budget.limits.per_hour,
+            "per_day": budget.limits.per_day,
+        },
+    }
+
+
+def _batch_002_default_live_interval(args: argparse.Namespace) -> float:
+    """Return quarter-second-rounded spacing that honors the hourly profile."""
+
+    profile = cast(str, args.courtlistener_rate_profile)
+    per_hour = _COURTLISTENER_RATE_PROFILES[profile].per_hour
+    return math.ceil((3_600.0 / per_hour) * 4.0) / 4.0
+
+
+def _batch_002_observe_pacer(args: argparse.Namespace) -> RequestPacer | None:
+    """Build a conservatively spaced pacer, or None when pacing is disabled."""
+
+    configured = cast(float | None, args.min_interval_seconds)
     jitter = cast(float, args.jitter_seconds)
+    if configured is not None and configured < 0:
+        raise CommandError("--min-interval-seconds cannot be negative")
+    if jitter < 0:
+        raise CommandError("--jitter-seconds cannot be negative")
+    if configured is None and not cast(bool, args.live):
+        return None
+    min_interval = (
+        _batch_002_default_live_interval(args) if configured is None else configured
+    )
     if min_interval <= 0 and jitter <= 0:
         return None
     if jitter <= 0:
@@ -6367,12 +6547,15 @@ def _cmd_batch_002_discover(args: argparse.Namespace) -> int:
     override = cast(float | None, args.min_interval_seconds)
     if override is not None and override < 0:
         raise CommandError("--min-interval-seconds cannot be negative")
-    client = _batch_002_client(args, require_token=False)
-    pacer = (
-        RequestPacer(min_interval_seconds=override)
-        if override is not None
-        else pacer_for_client(client)
-    )
+    client, budget = _batch_002_client(args, require_token=False)
+    if override is not None:
+        pacer: RequestPacer | None = RequestPacer(min_interval_seconds=override)
+    elif cast(bool, args.live):
+        pacer = RequestPacer(
+            min_interval_seconds=_batch_002_default_live_interval(args)
+        )
+    else:
+        pacer = None
     try:
         with CycleAcquisitionStore(cycle_store) as store:
             store.ensure_cycle(_cycle_acquisition_policy(anchor=anchor))
@@ -6388,11 +6571,15 @@ def _cmd_batch_002_discover(args: argparse.Namespace) -> int:
             )
     except (
         CycleAcquisitionStoreError,
+        CourtListenerRequestBudgetError,
         RecapApiBatchDriverError,
         ValueError,
     ) as exc:
         raise CommandError(str(exc)) from exc
-    record = funnel.to_record()
+    record = {
+        **funnel.to_record(),
+        **_batch_002_rate_evidence(args, client, budget),
+    }
     summary_output = cast(Path | None, args.summary_output)
     if summary_output is not None:
         _write_json(summary_output, record)
@@ -6407,9 +6594,18 @@ def _cmd_batch_002_observe(args: argparse.Namespace) -> int:
         cast(str, args.eligibility_anchor), "--eligibility-anchor"
     )
     limit = cast(int | None, args.limit)
+    refresh_reason_codes = tuple(cast(list[str], args.refresh_reason_code))
+    revalidate_candidate_ids = tuple(cast(list[str], args.revalidate_candidate_id))
+    refresh_campaign_cutoff = cast(str | None, args.refresh_campaign_cutoff)
     if limit is not None and limit <= 0:
         raise CommandError("--limit must be a positive integer")
-    client = _batch_002_client(args, require_token=True)
+    if (
+        refresh_reason_codes or revalidate_candidate_ids
+    ) and refresh_campaign_cutoff is None:
+        raise CommandError(
+            "--refresh-campaign-cutoff is required with refresh/revalidation"
+        )
+    client, budget = _batch_002_client(args, require_token=True)
     pacer = _batch_002_observe_pacer(args)
     try:
         with CycleAcquisitionStore(cycle_store) as store:
@@ -6420,16 +6616,26 @@ def _cmd_batch_002_observe(args: argparse.Namespace) -> int:
                 eligibility_anchor=anchor,
                 pacer=pacer,
                 limit=limit,
+                refresh_reason_codes=refresh_reason_codes,
+                revalidate_candidate_ids=revalidate_candidate_ids,
+                refresh_campaign_cutoff=refresh_campaign_cutoff,
             )
     except (
         CycleAcquisitionStoreError,
+        CourtListenerRequestBudgetError,
         RecapApiBatchDriverError,
         RecapApiDiscoveryError,
         KeyError,
         ValueError,
     ) as exc:
         raise CommandError(str(exc)) from exc
-    record = tally.to_record()
+    record = {
+        **tally.to_record(),
+        "refresh_reason_codes": list(refresh_reason_codes),
+        "revalidate_candidate_ids": list(revalidate_candidate_ids),
+        "refresh_campaign_cutoff": refresh_campaign_cutoff,
+        **_batch_002_rate_evidence(args, client, budget),
+    }
     summary_output = cast(Path | None, args.summary_output)
     if summary_output is not None:
         _write_json(summary_output, record)
@@ -6456,6 +6662,59 @@ def _cmd_batch_002_seed(args: argparse.Namespace) -> int:
     ) as exc:
         raise CommandError(str(exc)) from exc
     record = result.to_record()
+    summary_output = cast(Path | None, args.summary_output)
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cmd_batch_002_snapshot(args: argparse.Namespace) -> int:
+    cycle_store = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    snapshot_id = cast(str, args.snapshot_id)
+    output_root = cast(Path, args.output_root)
+    try:
+        with CycleAcquisitionStore(cycle_store) as store:
+            cycle_hash = store.cycle_hash
+            batch_digest = store.batch_digest(batch_id)
+            if not store.snapshot_is_saturated(batch_id):
+                raise SnapshotVerificationError(
+                    "batch-002 snapshot requires every discovery term to be "
+                    "exhausted before publication"
+                )
+            snapshot_path = store.export_snapshot(
+                output_root,
+                snapshot_id=snapshot_id,
+                batch_id=batch_id,
+                complete=True,
+            )
+        manifest = verify_snapshot(
+            snapshot_path,
+            expected_cycle_hash=cycle_hash,
+            expected_batch_digest=batch_digest,
+            require_complete=True,
+            require_saturated=True,
+        )
+    except (
+        CycleAcquisitionStoreError,
+        FileExistsError,
+        KeyError,
+        OSError,
+        SnapshotVerificationError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    record = {
+        "schema_version": "legalforecast.batch_002_snapshot_result.v1",
+        "batch_id": batch_id,
+        "snapshot_id": snapshot_id,
+        "snapshot_path": str(snapshot_path.resolve()),
+        "cycle_hash": cycle_hash,
+        "batch_digest": batch_digest,
+        "verified": True,
+        "saturated": manifest.get("saturated") is True,
+    }
     summary_output = cast(Path | None, args.summary_output)
     if summary_output is not None:
         _write_json(summary_output, record)
@@ -12044,6 +12303,25 @@ def _verified_snapshot_raw_html_sources(
     requested: Path | None,
     use_embedded_entries: bool,
 ) -> tuple[Path | None, Mapping[str, Path] | None]:
+    screened_path = snapshot_path / "screened-cases.jsonl"
+    screened_records = _read_records(screened_path) if screened_path.is_file() else []
+    for record in screened_records:
+        selected_entries = record.get("selected_entries")
+        selected_entry_records = (
+            cast(list[object], selected_entries)
+            if isinstance(selected_entries, list)
+            else []
+        )
+        if record.get("provider") == "courtlistener-recap-rest-v4" and (
+            record.get("canonical_rest_screen_complete") is not True
+            or not isinstance(selected_entries, list)
+            or not selected_entry_records
+            or not all(isinstance(entry, dict) for entry in selected_entry_records)
+        ):
+            raise CommandError(
+                "verified snapshot contains preliminary REST evidence without "
+                "canonical linkage, leakage, and embedded entries"
+            )
     artifact_records = _read_records(snapshot_path / "raw-artifacts.jsonl")
     artifact_paths: list[Path] = []
     for record in artifact_records:
@@ -12062,7 +12340,8 @@ def _verified_snapshot_raw_html_sources(
         if not use_embedded_entries:
             raise CommandError(
                 "verified snapshot has no raw docket artifacts; use embedded entries "
-                "only for an explicitly authorized fixture path"
+                "only for canonical authenticated REST evidence or an explicitly "
+                "authorized fixture path"
             )
         return None, None
     parents = {path.parent for path in artifact_paths}

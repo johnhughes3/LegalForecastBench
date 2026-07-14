@@ -177,6 +177,27 @@ class CourtListenerDocketEntry:
         return bool(self.recap_document_ids)
 
 
+class _RejectCourtListenerRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Reject redirects so each reservation maps to one physical request."""
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        """Fail before urllib can copy Authorization or send a second request."""
+
+        del req, fp, code, msg, headers, newurl
+        raise CourtListenerClientError(
+            "CourtListener redirects are disabled so every physical request "
+            "has its own durable reservation"
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class CourtListenerRecapSearchHit:
     """Minimal RECAP search hit used to discover candidate dockets."""
@@ -247,6 +268,9 @@ class UrlLibCourtListenerTransport:
             allowed_hosts=COURTLISTENER_ALLOWED_BASE_HOSTS,
             error_type=CourtListenerClientError,
         )
+        self._opener = urllib.request.build_opener(
+            _RejectCourtListenerRedirectHandler()
+        )
 
     def request(
         self,
@@ -267,8 +291,9 @@ class UrlLibCourtListenerTransport:
             headers=dict(headers),
         )
         try:
-            # Base URL is validated as HTTPS and host-allowlisted in __init__.
-            with urllib.request.urlopen(  # nosec B310
+            # Redirects are rejected before urllib may copy Authorization or
+            # send an unreserved second physical request.
+            with self._opener.open(  # nosec B310
                 request,
                 timeout=timeout_seconds,
             ) as response:
@@ -283,9 +308,10 @@ class UrlLibCourtListenerTransport:
                 payload=_json_payload(exc.read()),
                 headers=dict(exc.headers.items()) if exc.headers else {},
             )
-        except urllib.error.URLError as exc:
-            raise CourtListenerClientError(
-                f"CourtListener request failed: {exc.reason}"
+        except (TimeoutError, urllib.error.URLError) as exc:
+            reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
+            raise CourtListenerServerError(
+                f"CourtListener request failed: {reason}"
             ) from exc
 
 
@@ -386,6 +412,7 @@ class CourtListenerClient:
         transport: CourtListenerTransport | None = None,
         max_retries: int = 2,
         retry_backoff_seconds: float = 0.0,
+        before_request: Callable[[str, str], None] | None = None,
     ) -> None:
         self.config = CourtListenerConfig.from_env() if config is None else config
         self.transport = (
@@ -395,6 +422,7 @@ class CourtListenerClient:
         )
         self.max_retries = max_retries
         self.retry_backoff_seconds = retry_backoff_seconds
+        self.before_request = before_request
         self.request_count = 0
 
     def get_docket(self, docket_id: str) -> CourtListenerDocket:
@@ -497,14 +525,29 @@ class CourtListenerClient:
         headers = self._headers()
         attempt = 0
         while True:
-            response = self.transport.request(
-                method=method,
-                path=path,
-                params=params,
-                headers=headers,
-                timeout_seconds=self.config.timeout_seconds,
-            )
+            if self.before_request is not None:
+                # Reserve provider capacity before every physical attempt,
+                # including retries, so a crash cannot erase metered activity.
+                self.before_request(method, path)
+            # This is physical-attempt evidence, not successful-response evidence.
+            # Increment only after any durable reservation succeeds, immediately
+            # before handing control to the transport.
             self.request_count += 1
+            try:
+                response = self.transport.request(
+                    method=method,
+                    path=path,
+                    params=params,
+                    headers=headers,
+                    timeout_seconds=self.config.timeout_seconds,
+                )
+            except CourtListenerServerError:
+                if attempt < self.max_retries:
+                    attempt += 1
+                    if self.retry_backoff_seconds:
+                        time.sleep(self.retry_backoff_seconds)
+                    continue
+                raise
             self._log_request(path, response.status_code)
             if 200 <= response.status_code < 300:
                 return response.payload

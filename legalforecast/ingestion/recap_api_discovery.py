@@ -28,10 +28,11 @@ from __future__ import annotations
 
 import re
 import time
+import urllib.parse
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Any
+from typing import Any, cast
 
 from legalforecast.ingestion.courtlistener_client import (
     COURTLISTENER_API_TOKEN_ENV,
@@ -44,21 +45,26 @@ from legalforecast.ingestion.courtlistener_client import (
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketEntry,
     CourtListenerWebDocketPage,
+    CourtListenerWebDocument,
 )
 from legalforecast.ingestion.cycle_acquisition_store import (
     CandidateObservation,
     CycleAcquisitionStore,
+    cohort_reason_policy_taxonomy,
 )
 from legalforecast.ingestion.decision_first_terms import (
     DECISION_FIRST_RECAP_SEARCH_TERMS,
 )
 from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, DiscoveryPage
 from legalforecast.ingestion.mtd_acquisition_screen import (
+    CaseDevDocketMetadata,
     MtdDocketDecisionScreen,
     MtdDocketScreenStatus,
     courtlistener_case_name_slug,
+    screen_case_dev_docket_metadata,
     screen_courtlistener_docket_for_mtd_decision,
 )
+from legalforecast.ingestion.restricted_material import restricted_material_markers
 
 # ---------------------------------------------------------------------------
 # Frozen decision-first vocabulary (ordered; this order is a versioned input).
@@ -66,6 +72,8 @@ from legalforecast.ingestion.mtd_acquisition_screen import (
 
 RECAP_API_PROVIDER = "courtlistener-recap-rest-v4"
 RECAP_API_POLICY_SCHEMA = "legalforecast.recap_api_discovery_batch.v1"
+REST_DOCKET_ENTRY_SOFT_CAP = 500
+REST_DOCKET_PAGE_HARD_CAP = 6
 
 # The ``description`` field of a ``type=rd`` search carries the docket-entry text.
 # These queries target the *decision* itself (order granting/denying, memorandum
@@ -107,6 +115,14 @@ class RecapApiResponseError(RecapApiDiscoveryError):
 
 class RecapDocketReconstructionError(RecapApiDiscoveryError):
     """Raised when a docket cannot be proven completely reconstructed."""
+
+
+class RecapDocketContradictionError(RecapDocketReconstructionError):
+    """Raised when provider rows contradict one another within one docket."""
+
+
+class RecapDocketTooLargeError(RecapDocketReconstructionError):
+    """Raised when a docket exceeds the approved REST reconstruction page cap."""
 
 
 class RecapReconstructionAuthError(RecapApiDiscoveryError):
@@ -261,7 +277,24 @@ def prescreen_recap_candidate(
     """
 
     if court_id is not None and court_id.strip().lower().endswith("b"):
-        return PRESCREEN_BANKRUPTCY_REASON
+        # Bankruptcy adversary proceedings are eligible Rule 12 analogues.
+        # A bare bankruptcy court id cannot distinguish an adversary from the
+        # main estate case, so incomplete search metadata must proceed to the
+        # authoritative docket record rather than being dropped cheaply.
+        metadata = CaseDevDocketMetadata(
+            case_id="courtlistener-prescreen",
+            query=None,
+            court_id=court_id,
+            court=None,
+            docket_number=docket_number,
+            case_name=case_name,
+            nature_of_suit=None,
+            cause=None,
+        )
+        if metadata.case_type_stratum == "bankruptcy_adversary":
+            return None
+        if docket_number is not None or case_name is not None:
+            return PRESCREEN_BANKRUPTCY_REASON
     if docket_number is not None and _CRIMINAL_DOCKET_TOKEN.search(docket_number):
         return PRESCREEN_CRIMINAL_REASON
     if case_name is not None and case_name.strip():
@@ -475,6 +508,8 @@ def reconstruct_docket_page(
     *,
     pacer: RequestPacer | None = None,
     page_size: int = _DEFAULT_PAGE_SIZE,
+    docket: CourtListenerDocket | None = None,
+    max_pages: int = REST_DOCKET_PAGE_HARD_CAP,
 ) -> ReconstructedDocket:
     """Rebuild the strict-screen docket page from the REST v4 API, fail-closed.
 
@@ -494,13 +529,21 @@ def reconstruct_docket_page(
     docket_id = docket_id.strip()
     if not docket_id:
         raise ValueError("docket_id is required")
+    if max_pages <= 0:
+        raise ValueError("max_pages must be positive")
     require_reconstruction_auth(client)
-    if pacer is not None:
-        pacer.wait()
-    docket = client.get_docket(docket_id)
+    if docket is None:
+        if pacer is not None:
+            pacer.wait()
+        docket = client.get_docket(docket_id)
+    elif docket.docket_id != docket_id:
+        raise RecapDocketReconstructionError(
+            f"requested docket {docket_id} but supplied record {docket.docket_id}"
+        )
 
     entries: list[CourtListenerDocketEntry] = []
     seen_entry_ids: set[str] = set()
+    entry_id_by_number: dict[str, str] = {}
     duplicate_entry_ids: list[str] = []
     seen_cursors: set[str] = set()
     cursor: str | None = None
@@ -521,10 +564,30 @@ def reconstruct_docket_page(
                 duplicate_entry_ids.append(entry.docket_entry_id)
             else:
                 seen_entry_ids.add(entry.docket_entry_id)
+            raw_entry_number = _optional_string(
+                entry.raw, "entry_number", "entryNumber"
+            )
+            if raw_entry_number is not None:
+                prior_entry_id = entry_id_by_number.get(raw_entry_number)
+                if (
+                    prior_entry_id is not None
+                    and prior_entry_id != entry.docket_entry_id
+                ):
+                    raise RecapDocketContradictionError(
+                        f"docket {docket_id} returned contradictory entry number "
+                        f"{raw_entry_number} for entry ids {prior_entry_id} and "
+                        f"{entry.docket_entry_id}"
+                    )
+                entry_id_by_number[raw_entry_number] = entry.docket_entry_id
             entries.append(entry)
         next_cursor = result.next_cursor
         if next_cursor is None:
             break
+        if pages_fetched >= max_pages:
+            raise RecapDocketTooLargeError(
+                f"docket {docket_id} exceeds the {max_pages}-page REST "
+                "reconstruction cap; pagination exhaustion is unproven"
+            )
         if next_cursor in seen_cursors or next_cursor == cursor:
             raise RecapDocketReconstructionError(
                 f"docket {docket_id} pagination cursor did not advance"
@@ -572,6 +635,10 @@ def reconstruct_docket_page(
 def _web_entry_from_api(
     entry: CourtListenerDocketEntry,
 ) -> CourtListenerWebDocketEntry:
+    restriction_markers = restricted_material_markers(
+        records=(entry.raw,),
+        text_fields=(entry.entry_text,),
+    )
     return CourtListenerWebDocketEntry(
         row_id=(
             f"entry-{entry.entry_number}"
@@ -585,8 +652,105 @@ def _web_entry_from_api(
         # fails the screen's date-window test, which is the safe direction.
         filed_at=_long_us_date(entry.filed_at),
         text=entry.entry_text,
-        documents=(),
+        documents=_web_documents_from_api(entry),
+        restriction_markers=restriction_markers,
     )
+
+
+def _web_documents_from_api(
+    entry: CourtListenerDocketEntry,
+) -> tuple[CourtListenerWebDocument, ...]:
+    """Preserve provider-proven public RECAP availability.
+
+    CourtListener embeds RECAP document objects on docket-entry responses.  A
+    document is free only when v4 explicitly reports ``is_available=true`` and
+    ``is_sealed=false``, no affirmative private/restricted marker exists, and
+    ``filepath_local`` or ``download_url`` normalizes to an allowlisted HTTPS
+    CourtListener URL. Real v4 rows do not carry the synthetic
+    ``redaction_or_seal_status``/``is_private=false`` pair used by older test
+    fixtures; public RECAP availability plus the storage path and explicit
+    nonsealed flag are the provider's authoritative free-download proof. All
+    other documents remain PACER gaps, and restriction metadata still flows to
+    the downstream fail-closed packet clearance gates.
+    """
+
+    raw_documents = entry.raw.get("recap_documents")
+    if not isinstance(raw_documents, list):
+        return ()
+    documents: list[CourtListenerWebDocument] = []
+    for value in cast(list[object], raw_documents):
+        if not isinstance(value, Mapping):
+            continue
+        record = cast(Mapping[str, object], value)
+        description = _optional_document_string(record, "description") or ""
+        restriction_markers = restricted_material_markers(
+            records=(record,),
+            text_fields=(description,),
+        )
+        if record.get("is_sealed") is True and "sealed" not in restriction_markers:
+            restriction_markers = (*restriction_markers, "sealed")
+        href: str | None = None
+        provider_proves_public_download = (
+            record.get("is_available") is True
+            and record.get("is_sealed") is False
+            and record.get("is_private") is not True
+            and not restriction_markers
+        )
+        if provider_proves_public_download:
+            candidate_href = _optional_document_string(
+                record,
+                "filepath_local",
+                "download_url",
+            )
+            if candidate_href is not None:
+                href = _public_recap_download_url(candidate_href)
+        attachment = record.get("attachment_number")
+        kind = (
+            "main"
+            if attachment is None or attachment == "" or attachment == 0
+            else "attachment"
+        )
+        documents.append(
+            CourtListenerWebDocument(
+                kind=kind,
+                description=description,
+                href=href,
+                action_label="Download PDF" if href is not None else "Buy on PACER",
+                pacer_only=href is None,
+                restriction_markers=tuple(sorted(set(restriction_markers))),
+            )
+        )
+    return tuple(documents)
+
+
+def _optional_document_string(
+    record: Mapping[str, object], *field_names: str
+) -> str | None:
+    for field_name in field_names:
+        value = record.get(field_name)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _public_recap_download_url(value: str) -> str | None:
+    """Normalize one v4 storage path and enforce the HTTPS download allowlist."""
+
+    url = urllib.parse.urljoin("https://www.courtlistener.com/", value)
+    parsed = urllib.parse.urlparse(url)
+    try:
+        port = parsed.port
+    except ValueError:
+        return None
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname not in {"storage.courtlistener.com", "www.courtlistener.com"}
+        or parsed.username is not None
+        or parsed.password is not None
+        or port not in {None, 443}
+    ):
+        return None
+    return url
 
 
 def _entry_number_int(entry: CourtListenerDocketEntry) -> int | None:
@@ -784,8 +948,37 @@ def observe_recap_api_candidate(
             evidence={**base_evidence, "prescreen_exclusion_reason": prescreen},
         )
 
+    decision_evidence = payload.get("decision_entry_evidence")
+    if isinstance(decision_evidence, Mapping):
+        raw_entry_number = cast(Mapping[str, object], decision_evidence).get(
+            "entry_number"
+        )
+        try:
+            entry_number_lower_bound = int(str(raw_entry_number))
+        except (TypeError, ValueError):
+            entry_number_lower_bound = None
+        if (
+            entry_number_lower_bound is not None
+            and entry_number_lower_bound > REST_DOCKET_ENTRY_SOFT_CAP
+        ):
+            return store.record_observation(
+                candidate_id,
+                batch_id=batch_id,
+                state="excluded",
+                reason_code="oversized_docket_soft_skip",
+                evidence={
+                    **base_evidence,
+                    "entry_number_lower_bound": entry_number_lower_bound,
+                    "rest_docket_entry_soft_cap": REST_DOCKET_ENTRY_SOFT_CAP,
+                    "sampling_exclusion": True,
+                },
+            )
+
+    require_reconstruction_auth(client)
     try:
-        reconstructed = reconstruct_docket_page(client, docket_id, pacer=pacer)
+        if pacer is not None:
+            pacer.wait()
+        docket = client.get_docket(docket_id)
     except CourtListenerUnavailableError as error:
         return store.record_observation(
             candidate_id,
@@ -804,9 +997,9 @@ def observe_recap_api_candidate(
         )
 
     authoritative_metadata = {
-        "court_id": reconstructed.docket.court_id,
-        "docket_number": reconstructed.docket.docket_number,
-        "case_name": reconstructed.docket.case_name,
+        "court_id": docket.court_id,
+        "docket_number": docket.docket_number,
+        "case_name": docket.case_name,
     }
     authoritative_prescreen = prescreen_recap_candidate(**authoritative_metadata)
     if authoritative_prescreen is not None:
@@ -819,8 +1012,62 @@ def observe_recap_api_candidate(
                 **base_evidence,
                 "prescreen_exclusion_reason": authoritative_prescreen,
                 "authoritative_docket_metadata": authoritative_metadata,
-                "reconstruction_proof": reconstructed.proof.to_record(),
+                "entry_reconstruction_skipped": True,
             },
+        )
+
+    try:
+        reconstructed = reconstruct_docket_page(
+            client,
+            docket_id,
+            pacer=pacer,
+            docket=docket,
+        )
+    except RecapDocketTooLargeError as error:
+        return store.record_observation(
+            candidate_id,
+            batch_id=batch_id,
+            state="excluded",
+            reason_code="oversized_docket_soft_skip",
+            evidence={
+                **base_evidence,
+                "rest_docket_page_hard_cap": REST_DOCKET_PAGE_HARD_CAP,
+                "sampling_exclusion": True,
+                "error": str(error),
+            },
+        )
+    except RecapDocketContradictionError as error:
+        return store.record_observation(
+            candidate_id,
+            batch_id=batch_id,
+            state="excluded",
+            reason_code="invalid_civil_case_metadata",
+            evidence={
+                **base_evidence,
+                "provider_contradiction": True,
+                "exclusion_detail": "contradictory_docket_entry_metadata",
+                "error": str(error),
+            },
+        )
+    except CourtListenerUnavailableError as error:
+        return store.record_observation(
+            candidate_id,
+            batch_id=batch_id,
+            state="transient_failure",
+            reason_code="courtlistener_docket_unavailable",
+            evidence={
+                **base_evidence,
+                "entry_reconstruction_started": True,
+                "error": str(error),
+            },
+        )
+    except (CourtListenerResponseError, RecapDocketReconstructionError) as error:
+        return store.record_observation(
+            candidate_id,
+            batch_id=batch_id,
+            state="transient_failure",
+            reason_code="parse_failure",
+            evidence={**base_evidence, "error": str(error)},
         )
 
     anchored = screen_courtlistener_docket_for_mtd_decision(
@@ -866,6 +1113,62 @@ def observe_recap_api_candidate(
         earliest_decision_date=earliest,
         eligibility_anchor=eligibility_anchor,
     )
+    if state == "accepted":
+        # Local import avoids the package initialization cycle:
+        # courtlistener_acquisition imports motion_linkage, whose package exports
+        # this REST module through legalforecast.ingestion.__init__.
+        from legalforecast.ingestion.courtlistener_acquisition import (
+            screen_courtlistener_docket_page,
+        )
+
+        query = payload.get("query_term")
+        metadata_screen = screen_case_dev_docket_metadata(
+            {
+                "id": docket.docket_id,
+                "court_id": docket.court_id,
+                "docket_number": docket.docket_number,
+                "case_name": docket.case_name,
+            },
+            query=query if isinstance(query, str) else None,
+        )
+        canonical, canonical_exclusion = screen_courtlistener_docket_page(
+            docket=docket,
+            metadata_screen=metadata_screen,
+            page=reconstructed.page,
+            decision_filed_on_or_after=eligibility_anchor,
+            decision_filed_on_or_before=decision_window_end,
+        )
+        if canonical is None:
+            state = "excluded"
+            if canonical_exclusion is None:
+                raise RecapApiResponseError(
+                    "canonical REST screen returned neither a case nor exclusion"
+                )
+            taxonomy = cohort_reason_policy_taxonomy()
+            registered_reasons = {
+                reason for reasons in taxonomy.values() for reason in reasons
+            }
+            reason_code = (
+                canonical_exclusion.reason
+                if canonical_exclusion.reason in registered_reasons
+                else "strict_clean_screen_failed"
+            )
+            evidence = {
+                **evidence,
+                "canonical_screen_exclusion": canonical_exclusion.to_record(),
+            }
+        else:
+            canonical_evidence = dict(canonical)
+            canonical_screen = canonical_evidence.get("mtd_decision_screen")
+            evidence = {
+                **canonical_evidence,
+                **evidence,
+                "screen": canonical_screen,
+                "candidate_id": candidate_id,
+                "docket_id": docket_id,
+                "provider": RECAP_API_PROVIDER,
+                "canonical_rest_screen_complete": True,
+            }
     return store.record_observation(
         candidate_id,
         batch_id=batch_id,
@@ -894,7 +1197,11 @@ def _map_screen_outcome(
         for reason in anchored.exclusion_reasons:
             if reason in _POSTURE_REASON_CODES:
                 return "excluded", reason
+            if reason == "procedural_or_standing_order":
+                return "excluded", reason
         return "excluded", "strict_clean_screen_failed"
+    if "procedural_or_standing_order" in anchored.exclusion_reasons:
+        return "excluded", "procedural_or_standing_order"
     return "excluded", "strict_clean_screen_failed"
 
 

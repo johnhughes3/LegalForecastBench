@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import urllib.request
 from pathlib import Path
 
 import pytest
 from legalforecast.ingestion import (
     CourtListenerAuthError,
     CourtListenerClient,
+    CourtListenerClientError,
     CourtListenerConfig,
     CourtListenerFixtureTransport,
     CourtListenerRateLimitError,
@@ -18,6 +20,9 @@ from legalforecast.ingestion import (
 from legalforecast.ingestion.courtlistener_client import (
     COURTLISTENER_BASE_URL_ENV,
     CourtListenerDocketEntry,
+    CourtListenerHTTPResponse,
+    UrlLibCourtListenerTransport,
+    _RejectCourtListenerRedirectHandler,
 )
 
 
@@ -270,6 +275,7 @@ def test_courtlistener_unavailable_auth_rate_and_server_errors() -> None:
 
 
 def test_courtlistener_rate_limit_retries_before_success() -> None:
+    reservations: list[tuple[str, str]] = []
     client = CourtListenerClient(
         config=CourtListenerConfig(),
         transport=CourtListenerFixtureTransport(
@@ -286,12 +292,131 @@ def test_courtlistener_rate_limit_retries_before_success() -> None:
             )
         ),
         max_retries=1,
+        before_request=lambda method, path: reservations.append((method, path)),
     )
 
     docket = client.get_docket("123")
 
     assert docket.case_name == "Retried v. Fixture"
     assert client.request_count == 2
+    assert reservations == [("GET", "/dockets/123/"), ("GET", "/dockets/123/")]
+
+
+def test_courtlistener_transport_timeout_retries_before_success() -> None:
+    class TimeoutThenSuccess:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def request(self, **_: object) -> CourtListenerHTTPResponse:
+            self.calls += 1
+            if self.calls == 1:
+                raise CourtListenerServerError("CourtListener request timed out")
+            return CourtListenerHTTPResponse(
+                status_code=200,
+                payload={"id": 123, "case_name": "Retried v. Fixture"},
+            )
+
+    transport = TimeoutThenSuccess()
+    reservations: list[tuple[str, str]] = []
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=transport,
+        max_retries=1,
+        before_request=lambda method, path: reservations.append((method, path)),
+    )
+
+    docket = client.get_docket("123")
+
+    assert docket.case_name == "Retried v. Fixture"
+    assert transport.calls == 2
+    assert client.request_count == 2
+    assert reservations == [("GET", "/dockets/123/"), ("GET", "/dockets/123/")]
+
+
+def test_urllib_transport_maps_bare_read_timeout_to_retryable_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def time_out(*_: object, **__: object) -> object:
+        raise TimeoutError("read operation timed out")
+
+    transport = UrlLibCourtListenerTransport(
+        "https://www.courtlistener.com/api/rest/v4"
+    )
+    monkeypatch.setattr(transport._opener, "open", time_out)
+
+    with pytest.raises(CourtListenerServerError, match="read operation timed out"):
+        transport.request(
+            method="GET",
+            path="/dockets/123/",
+            params={},
+            headers={},
+            timeout_seconds=1,
+        )
+
+
+def test_authenticated_redirect_rejects_cross_host_before_forwarding_header() -> None:
+    handler = _RejectCourtListenerRedirectHandler()
+    original = urllib.request.Request(
+        "https://www.courtlistener.com/api/rest/v4/dockets/123/",
+        headers={"Authorization": "Token sentinel-secret"},
+    )
+    received_authorization: list[str | None] = []
+
+    def record_if_forwarded(target: str) -> None:
+        redirected = handler.redirect_request(
+            original,
+            None,
+            302,
+            "Found",
+            {},
+            target,
+        )
+        assert redirected is not None
+        received_authorization.append(redirected.get_header("Authorization"))
+
+    with pytest.raises(CourtListenerClientError, match="redirects are disabled"):
+        record_if_forwarded("https://evil.example/collect")
+
+    assert received_authorization == []
+
+
+@pytest.mark.parametrize(
+    "target",
+    (
+        "http://www.courtlistener.com/api/rest/v4/dockets/123/",
+        "https://storage.courtlistener.com/api/rest/v4/dockets/123/",
+        "https://www.courtlistener.com:444/api/rest/v4/dockets/123/",
+        "https://user:password@www.courtlistener.com/api/rest/v4/dockets/123/",
+    ),
+    ids=("https-downgrade", "cross-host", "port-change", "credentials"),
+)
+def test_authenticated_redirect_policy_rejects_unsafe_target(target: str) -> None:
+    handler = _RejectCourtListenerRedirectHandler()
+    original = urllib.request.Request(
+        "https://www.courtlistener.com/api/rest/v4/dockets/123/",
+        headers={"Authorization": "Token sentinel-secret"},
+    )
+
+    with pytest.raises(CourtListenerClientError, match="redirects are disabled"):
+        handler.redirect_request(original, None, 302, "Found", {}, target)
+
+
+def test_authenticated_redirect_rejects_same_host_to_preserve_accounting() -> None:
+    handler = _RejectCourtListenerRedirectHandler()
+    original = urllib.request.Request(
+        "https://www.courtlistener.com/api/rest/v4/dockets/123/",
+        headers={"Authorization": "Token sentinel-secret"},
+    )
+
+    with pytest.raises(CourtListenerClientError, match="durable reservation"):
+        handler.redirect_request(
+            original,
+            None,
+            302,
+            "Found",
+            {},
+            "/api/rest/v4/dockets/123/?page=2",
+        )
 
 
 def test_courtlistener_page_extracts_cursor_from_next_url() -> None:

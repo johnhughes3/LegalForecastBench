@@ -24,6 +24,7 @@ from legalforecast.ingestion.courtlistener_dates import (
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerEntryRole,
     CourtListenerWebDocketEntry,
+    CourtListenerWebDocketPage,
     CourtListenerWebParseError,
     parse_courtlistener_docket_html,
     starts_with_dispositive_motion,
@@ -369,6 +370,40 @@ def screen_courtlistener_docket_html(
             notes=f"CourtListener docket HTML could not be parsed: {exc}",
         )
 
+    return screen_courtlistener_docket_page(
+        docket=docket,
+        metadata_screen=metadata_screen,
+        page=parsed,
+        decision_filed_on_or_after=decision_filed_on_or_after,
+    )
+
+
+def screen_courtlistener_docket_page(
+    *,
+    docket: CourtListenerDocket,
+    metadata_screen: CaseDevMetadataScreen,
+    page: CourtListenerWebDocketPage,
+    decision_filed_on_or_after: date,
+    decision_filed_on_or_before: date | None = None,
+) -> tuple[Mapping[str, Any] | None, ExclusionLedgerEntry | None]:
+    """Apply canonical linkage and leakage gates to one reconstructed docket.
+
+    HTML and authenticated REST adapters both terminate here.  Keeping one
+    provider-independent kernel prevents a structured REST reconstruction from
+    being called clean before deterministic motion linkage, first-disposition
+    eligibility, and outcome-leakage screening have all passed.
+    """
+
+    docket_id = docket.docket_id
+    case_id = metadata_screen.metadata.case_id
+    if not metadata_screen.accepted_for_scrape:
+        return None, _metadata_exclusion(
+            docket=docket,
+            metadata_screen=metadata_screen,
+        )
+    source_url = _public_docket_url(docket)
+    parsed = page
+
     unanchored = screen_courtlistener_docket_for_mtd_decision(
         parsed,
         candidate_text=_candidate_text(docket),
@@ -377,6 +412,7 @@ def screen_courtlistener_docket_html(
         parsed,
         candidate_text=_candidate_text(docket),
         decision_filed_on_or_after=decision_filed_on_or_after,
+        decision_filed_on_or_before=decision_filed_on_or_before,
     )
     unparseable_decision_entries = tuple(
         entry
@@ -851,6 +887,12 @@ def _looks_like_generic_mtd_document(text: str) -> bool:
     """
 
     normalized = " ".join(text.replace("\xad", "").lower().split())
+    # REST v4 returns PACER's event label as the entire docket-entry text,
+    # without the HTML page's ``Main Document ... Buy on PACER`` wrapper.  This
+    # remains safe only because the caller also requires an actual disposition
+    # to reference this exact entry number.
+    if _is_safe_generic_mtd_label(normalized):
+        return True
     labels = re.findall(
         r"(?=\bmain\s+doc\s*ument\s+(?P<label>.*?)\s+"
         r"(?:download\s+pdf|buy\s+on\s+pacer)\b)",
