@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 from typing import Any
 
 import legalforecast.cli as cli_module
 import pytest
-from legalforecast.cli import main
 from legalforecast.ingestion.case_dev_client import CaseDevRateLimitError
 
 
@@ -78,7 +78,7 @@ def test_enrich_recap_case_dev_ranks_free_lookups_without_fee_flags(
     output_root = tmp_path / "output"
 
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "enrich-recap-case-dev",
@@ -144,7 +144,7 @@ def test_enrich_recap_case_dev_resumes_after_transient_provider_abort(
     output_root = tmp_path / "output"
 
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "enrich-recap-case-dev",
@@ -171,7 +171,7 @@ def test_enrich_recap_case_dev_resumes_after_transient_provider_abort(
     second_fixture = tmp_path / "second.jsonl"
     second_fixture.write_text(json.dumps(_case_dev_response("102")) + "\n")
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "enrich-recap-case-dev",
@@ -218,7 +218,7 @@ def test_enrich_recap_case_dev_bounds_resumable_server_failures(
         fixture.write_text(
             "\n".join(json.dumps(_timeout_response("101")) for _ in range(3)) + "\n"
         )
-        exit_code = main(
+        exit_code = cli_module.main(
             [
                 "acquisition",
                 "enrich-recap-case-dev",
@@ -260,14 +260,24 @@ def test_parallel_enrichment_checkpoints_completed_sibling_before_rate_limit_abo
                 }
             )
             + "\n"
-            for docket_id in ("101", "102")
+            for docket_id in ("101", "102", "103")
         ),
         encoding="utf-8",
     )
 
+    sibling_started = threading.Event()
+    release_sibling = threading.Event()
+    started_indices: list[int] = []
+
     def fake_enrich(*, input_index: int, **_kwargs: Any) -> tuple[dict[str, Any], int]:
+        started_indices.append(input_index)
         if input_index == 0:
+            assert sibling_started.wait(timeout=5)
             raise CaseDevRateLimitError("organization rate limit")
+        if input_index == 2:
+            raise AssertionError("fatal provider error must prevent replacement work")
+        sibling_started.set()
+        assert release_sibling.wait(timeout=5)
         return (
             {
                 "input_index": input_index,
@@ -277,21 +287,31 @@ def test_parallel_enrichment_checkpoints_completed_sibling_before_rate_limit_abo
             1,
         )
 
-    def exceptions_first(futures: set[Any]) -> Any:
-        return iter(sorted(futures, key=lambda future: future.exception() is None))
+    real_as_completed = cli_module.as_completed
+    completion_pass = 0
+
+    def fatal_then_active_sibling(futures: set[Any]) -> Any:
+        nonlocal completion_pass
+        completion_pass += 1
+        if completion_pass == 1:
+            assert sibling_started.wait(timeout=5)
+            yield next(real_as_completed(futures))
+            return
+        release_sibling.set()
+        yield from real_as_completed(futures)
 
     monkeypatch.setattr(
         cli_module,
         "_enrich_case_dev_progress_record",
         fake_enrich,
     )
-    monkeypatch.setattr(cli_module, "as_completed", exceptions_first)
+    monkeypatch.setattr(cli_module, "as_completed", fatal_then_active_sibling)
     monkeypatch.setenv("CASE_DEV_API_KEY", "offline-test-key")
     monkeypatch.setenv("CASE_DEV_RATE_LIMIT_PER_MINUTE", "5")
     output_root = tmp_path / "output"
 
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "enrich-recap-case-dev",
@@ -316,6 +336,7 @@ def test_parallel_enrichment_checkpoints_completed_sibling_before_rate_limit_abo
             "payload": {"completed": True},
         }
     ]
+    assert set(started_indices) == {0, 1}
 
 
 def _case_dev_response(docket_id: str) -> dict[str, object]:

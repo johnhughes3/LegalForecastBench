@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from http.client import HTTPMessage
 from io import BytesIO
 from types import TracebackType
-from typing import Self
+from typing import Any, Self, cast
 
 import legalforecast.ingestion.case_dev_client as case_dev_client_module
 import pytest
@@ -535,6 +535,14 @@ def test_shared_rate_limiter_applies_one_aggregate_cap_across_clients() -> None:
         assert {future.result() for future in futures} == {"case-1", "case-2"}
 
     assert sleep_calls == pytest.approx([1.0])
+
+
+@pytest.mark.parametrize("invalid_limit", [True, 1.0, float("nan")])
+def test_rate_limiter_rejects_non_concrete_integer_limits(
+    invalid_limit: object,
+) -> None:
+    with pytest.raises(ValueError, match="positive integer"):
+        CaseDevRateLimiter(rate_limit_per_minute=cast(Any, invalid_limit))
 
 
 def test_rate_limit_without_retry_raises() -> None:

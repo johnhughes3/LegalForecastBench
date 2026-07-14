@@ -96,7 +96,7 @@ class CaseDevRateLimiter:
         monotonic: Callable[[], float] | None = None,
         sleep: Callable[[float], None] | None = None,
     ) -> None:
-        if isinstance(rate_limit_per_minute, bool) or rate_limit_per_minute <= 0:
+        if type(rate_limit_per_minute) is not int or rate_limit_per_minute <= 0:
             raise ValueError("rate_limit_per_minute must be a positive integer")
         self.rate_limit_per_minute = rate_limit_per_minute
         self._interval_seconds = 60.0 / rate_limit_per_minute
