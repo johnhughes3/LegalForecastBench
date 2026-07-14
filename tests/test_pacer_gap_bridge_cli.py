@@ -465,7 +465,7 @@ def test_bridge_checkpoint_payload_is_bound_to_candidate(outcome: str) -> None:
     else:
         payload = {"exclusion_record": {"candidate_id": "other"}}
     checkpoint = {
-        "schema_version": "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1",
+        "schema_version": "legalforecast.pacer_gap_bridge_candidate_checkpoint.v2",
         "input_index": 0,
         "candidate_id": "cl-123",
         "candidate_input_sha256": "sha256:input",
@@ -473,6 +473,44 @@ def test_bridge_checkpoint_payload_is_bound_to_candidate(outcome: str) -> None:
         "resumable_attempt_count": 1,
         "cumulative_case_dev_request_count": 0,
         "payload": payload,
+    }
+
+    with pytest.raises(cli.CommandError, match="invalid for cl-123"):
+        cli._validate_bridge_checkpoint(
+            checkpoint,
+            input_index=0,
+            candidate_id="cl-123",
+            candidate_input_sha256="sha256:input",
+        )
+
+
+def test_bridge_resume_rejects_legacy_v1_terminal_success_checkpoint() -> None:
+    checkpoint = {
+        "schema_version": "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1",
+        "input_index": 0,
+        "candidate_id": "cl-123",
+        "candidate_input_sha256": "sha256:input",
+        "outcome": "success",
+        "resumable_attempt_count": 1,
+        "cumulative_case_dev_request_count": 2,
+        "payload": {
+            "selection_record": {
+                "candidate_id": "cl-123",
+                "selected": True,
+                "paid_recovery_required": False,
+                "planning_status": "selected_after_paid_recovery",
+            },
+            "case_relevance_record": {
+                "candidate_id": "cl-123",
+                "documents": [
+                    {
+                        "source_document_id": "case-dev-mtd",
+                        "availability_status": "unavailable",
+                        "requires_paid_recovery": True,
+                    }
+                ],
+            },
+        },
     }
 
     with pytest.raises(cli.CommandError, match="invalid for cl-123"):

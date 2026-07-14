@@ -74,6 +74,41 @@ def test_bridge_uses_authoritative_case_dev_ids_and_keeps_free_first() -> None:
     assert core_filter.purchase_document_ids == ("case-dev-mtd",)
 
 
+def test_legacy_bridge_does_not_treat_available_urls_as_ready_bytes() -> None:
+    screened = _screened_case()
+    entries = screened["selected_entries"]
+    assert isinstance(entries, list)
+    motion = entries[1]
+    assert isinstance(motion, dict)
+    documents = motion["documents"]
+    assert isinstance(documents, list)
+    motion_document = documents[0]
+    assert isinstance(motion_document, dict)
+    motion_document.update(
+        href="https://storage.courtlistener.com/mtd.pdf",
+        action_label="Download PDF",
+        pacer_only=False,
+    )
+
+    result = bridge_courtlistener_case_dev_documents(
+        (screened,),
+        client=_client(
+            _search_response(_case_dev_docket()),
+            _lookup_response(),
+        ),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+
+    assert result.paid_document_count == 0
+    assert all(
+        document["availability_status"] == "available"
+        for document in result.case_relevance_records[0]["documents"]
+    )
+    assert result.document_bytes_ready_case_count == 0
+    assert result.summary_record()["document_bytes_ready_case_count"] == 0
+
+
 def test_bridge_does_not_replace_pre_target_complaint_with_later_order() -> None:
     screened = copy.deepcopy(_screened_case())
     entries = screened["selected_entries"]

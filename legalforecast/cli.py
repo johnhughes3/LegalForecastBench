@@ -7842,6 +7842,8 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
 
 
 _PACER_GAP_MAX_RESUMABLE_ATTEMPTS = 3
+_PACER_GAP_CHECKPOINT_SCHEMA = "legalforecast.pacer_gap_bridge_candidate_checkpoint.v2"
+_PACER_GAP_PROGRESS_CONFIG_SCHEMA = "legalforecast.pacer_gap_bridge_progress_config.v2"
 
 
 def _canonical_json_sha256(value: object) -> str:
@@ -7973,8 +7975,7 @@ def _validate_bridge_checkpoint(
     outcome = checkpoint.get("outcome")
     attempt_count = checkpoint.get("resumable_attempt_count")
     if (
-        checkpoint.get("schema_version")
-        != "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
+        checkpoint.get("schema_version") != _PACER_GAP_CHECKPOINT_SCHEMA
         or checkpoint.get("input_index") != input_index
         or checkpoint.get("candidate_id") != candidate_id
         or checkpoint.get("candidate_input_sha256") != candidate_input_sha256
@@ -8054,7 +8055,7 @@ def _public_first_bridge_with_checkpoints(
         use_embedded_entries=cast(bool, args.use_embedded_entries),
     )
     config: JsonRecord = {
-        "schema_version": "legalforecast.pacer_gap_bridge_progress_config.v1",
+        "schema_version": _PACER_GAP_PROGRESS_CONFIG_SCHEMA,
         "mode": "public_first",
         "screened_cases_sha256": "sha256:"
         + hashlib.sha256(cast(Path, args.screened_cases).read_bytes()).hexdigest(),
@@ -8147,9 +8148,7 @@ def _public_first_bridge_with_checkpoints(
                 validate_free_downloads=False,
             )
             checkpoint: JsonRecord = {
-                "schema_version": (
-                    "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
-                ),
+                "schema_version": _PACER_GAP_CHECKPOINT_SCHEMA,
                 "input_index": input_index,
                 "candidate_id": candidate_id,
                 "candidate_input_sha256": candidate_input_sha256,
@@ -8172,9 +8171,7 @@ def _public_first_bridge_with_checkpoints(
         except CourtListenerCaseDevBridgeError as exc:
             reason, _, detail = str(exc).partition(":")
             checkpoint = {
-                "schema_version": (
-                    "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
-                ),
+                "schema_version": _PACER_GAP_CHECKPOINT_SCHEMA,
                 "input_index": input_index,
                 "candidate_id": candidate_id,
                 "candidate_input_sha256": candidate_input_sha256,
@@ -8220,9 +8217,7 @@ def _public_first_bridge_with_checkpoints(
             else:
                 payload = {"reason": reason, "detail": str(exc)}
             checkpoint = {
-                "schema_version": (
-                    "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
-                ),
+                "schema_version": _PACER_GAP_CHECKPOINT_SCHEMA,
                 "input_index": input_index,
                 "candidate_id": candidate_id,
                 "candidate_input_sha256": candidate_input_sha256,

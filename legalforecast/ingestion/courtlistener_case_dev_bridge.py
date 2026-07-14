@@ -217,6 +217,12 @@ class CourtListenerCaseDevBridgeResult:
 
     @property
     def document_bytes_ready_case_count(self) -> int:
+        # The legacy bridge runs before download-free and only proves that a
+        # public URL exists. The public-first route validates its completed
+        # free-download manifest before constructing this result.
+        if not self.public_first_reconciled:
+            return 0
+
         def bytes_ready(record: Mapping[str, Any]) -> bool:
             documents = _mapping_sequence(record.get("documents"), "documents")
             return bool(documents) and all(
