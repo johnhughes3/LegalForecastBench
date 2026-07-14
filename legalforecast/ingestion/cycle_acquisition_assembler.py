@@ -14,7 +14,22 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
+from legalforecast.ingestion.cycle_acquisition_store import (
+    SnapshotVerificationError,
+    verify_snapshot,
+)
+
 ASSEMBLY_SCHEMA = "legalforecast.cycle_acquisition_assembly.v1"
+COMPONENT_PROVENANCE_SCHEMA = "legalforecast.acquisition_component_provenance.v1"
+COMPONENT_PROVENANCE_FILENAME = "acquisition-component-provenance.json"
+COMPONENT_STAGE_ORDER = {
+    "plan": 10,
+    "download": 20,
+    "bridge": 30,
+    "filter": 40,
+    "combined": 50,
+}
+_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 _IMMUTABLE_EXCLUSION_REASONS = frozenset(
     {
@@ -113,11 +128,14 @@ class CycleAssembly:
 def assemble_cycle_acquisition(
     batch_roots: Sequence[Path],
     *,
+    expected_cycle_hash: str,
     output_root: Path,
     copy_documents: bool,
 ) -> CycleAssembly:
     """Validate, reconcile, and optionally publish immutable acquisition batches."""
 
+    if _SHA256.fullmatch(expected_cycle_hash) is None:
+        raise CycleAssemblyError("expected cycle hash must be a lowercase SHA-256")
     roots = _validated_batch_roots(batch_roots, output_root=output_root)
     output = output_root.absolute()
     current: dict[str, tuple[str, Mapping[str, Any]]] = {}
@@ -131,8 +149,16 @@ def assemble_cycle_acquisition(
     active_screening_snapshot_ordinal: int | None = None
     active_screening_snapshot_root: str | None = None
     downstream_component_ordinal: int | None = None
+    active_snapshot_cycle_hash: str | None = None
+    active_snapshot_batch_digest: str | None = None
+    active_snapshot_manifest_sha256: str | None = None
+    predecessor_provenance_sha256: str | None = None
+    active_component_stage_rank = 0
+    seen_snapshot_batch_digests: set[str] = set()
+    seen_snapshot_manifest_sha256s: set[str] = set()
 
     for ordinal, root in enumerate(roots, start=1):
+        input_fingerprint = _root_input_fingerprint(root)
         screened_records = _read_first_jsonl(root, _SCREENED_ARTIFACTS)
         screening_exclusion_records = _read_jsonl_union(
             root,
@@ -162,7 +188,17 @@ def assemble_cycle_acquisition(
                 batch_manifest,
             )
         )
+        snapshot_manifest = _verified_snapshot_manifest(
+            root,
+            expected_cycle_hash=expected_cycle_hash,
+        )
         summary = _read_optional_json(root / "summary.json")
+        if snapshot_manifest is None and (
+            screened_records or screening_exclusion_records or summary is not None
+        ):
+            raise CycleAssemblyError(
+                f"screening root is missing a verified snapshot manifest: {root}"
+            )
         has_empty_downstream_component = (
             summary is None
             and not screening_exclusion_records
@@ -171,8 +207,11 @@ def assemble_cycle_acquisition(
                 for filename in _DOWNSTREAM_COMPONENT_ARTIFACTS
             )
         )
-        is_downstream_only = not screened_records and (
-            bool(downstream_record_count) or has_empty_downstream_component
+        provenance_path = root / COMPONENT_PROVENANCE_FILENAME
+        is_downstream_only = snapshot_manifest is None and (
+            bool(downstream_record_count)
+            or has_empty_downstream_component
+            or provenance_path.is_file()
         )
         if is_downstream_only and active_screening_snapshot_ordinal is None:
             raise CycleAssemblyError(
@@ -180,10 +219,32 @@ def assemble_cycle_acquisition(
                 "screening snapshot root or an ordered downstream component tied "
                 f"to that snapshot: {root}"
             )
-        if screened_records:
+        if snapshot_manifest is not None:
+            snapshot_cycle_hash = _required_sha256_field(
+                snapshot_manifest, "cycle_hash", artifact="snapshot manifest"
+            )
+            snapshot_batch_digest = _required_sha256_field(
+                snapshot_manifest, "batch_digest", artifact="snapshot manifest"
+            )
+            snapshot_manifest_sha256 = _hash_file(root / "manifest.json")[0]
+            if snapshot_batch_digest in seen_snapshot_batch_digests:
+                raise CycleAssemblyError(
+                    f"duplicate snapshot batch digest: {snapshot_batch_digest}"
+                )
+            if snapshot_manifest_sha256 in seen_snapshot_manifest_sha256s:
+                raise CycleAssemblyError(
+                    f"duplicate snapshot manifest: {snapshot_manifest_sha256}"
+                )
+            seen_snapshot_batch_digests.add(snapshot_batch_digest)
+            seen_snapshot_manifest_sha256s.add(snapshot_manifest_sha256)
+            active_snapshot_cycle_hash = snapshot_cycle_hash
+            active_snapshot_batch_digest = snapshot_batch_digest
+            active_snapshot_manifest_sha256 = snapshot_manifest_sha256
+            predecessor_provenance_sha256 = snapshot_manifest_sha256
             active_screening_snapshot_ordinal = ordinal
             active_screening_snapshot_root = root.name
             downstream_component_ordinal = 0
+            active_component_stage_rank = 0
         elif is_downstream_only:
             if downstream_component_ordinal is None:  # pragma: no cover - invariant
                 raise CycleAssemblyError("missing downstream component ordinal")
@@ -192,6 +253,53 @@ def assemble_cycle_acquisition(
             active_screening_snapshot_ordinal = None
             active_screening_snapshot_root = None
             downstream_component_ordinal = None
+            active_snapshot_cycle_hash = None
+            active_snapshot_batch_digest = None
+            active_snapshot_manifest_sha256 = None
+            predecessor_provenance_sha256 = None
+            active_component_stage_rank = 0
+
+        has_downstream_component = (
+            bool(downstream_record_count)
+            or (
+                snapshot_manifest is not None
+                and any(
+                    (root / filename).is_file()
+                    for filename in _DOWNSTREAM_COMPONENT_ARTIFACTS
+                )
+            )
+            or has_empty_downstream_component
+            or provenance_path.is_file()
+        )
+        component_provenance_sha256: str | None = None
+        if has_downstream_component:
+            if snapshot_manifest is not None:
+                downstream_component_ordinal = 1
+            if (
+                active_snapshot_cycle_hash is None
+                or active_snapshot_batch_digest is None
+                or active_snapshot_manifest_sha256 is None
+                or predecessor_provenance_sha256 is None
+                or downstream_component_ordinal is None
+            ):
+                raise CycleAssemblyError(
+                    f"downstream component has no verified snapshot binding: {root}"
+                )
+            (
+                component_provenance_sha256,
+                active_component_stage_rank,
+            ) = _verify_component_provenance(
+                root,
+                expected_cycle_hash=active_snapshot_cycle_hash,
+                expected_batch_digest=active_snapshot_batch_digest,
+                expected_snapshot_manifest_sha256=(active_snapshot_manifest_sha256),
+                expected_component_ordinal=downstream_component_ordinal,
+                expected_predecessor_sha256=predecessor_provenance_sha256,
+                previous_stage_rank=active_component_stage_rank,
+            )
+            predecessor_provenance_sha256 = component_provenance_sha256
+        if _root_input_fingerprint(root) != input_fingerprint:
+            raise CycleAssemblyError(f"batch root changed during assembly: {root}")
         _validate_discovery_counts(
             root,
             summary=summary,
@@ -235,6 +343,10 @@ def assemble_cycle_acquisition(
                 "screening_snapshot_batch_ordinal": (active_screening_snapshot_ordinal),
                 "screening_snapshot_root": active_screening_snapshot_root,
                 "downstream_component_ordinal": downstream_component_ordinal,
+                "cycle_hash": active_snapshot_cycle_hash,
+                "batch_digest": active_snapshot_batch_digest,
+                "snapshot_manifest_sha256": active_snapshot_manifest_sha256,
+                "component_provenance_sha256": component_provenance_sha256,
                 "screened_case_count": len(screened_records),
                 "discovery_exclusion_count": len(screening_exclusion_records),
                 "downstream_exclusion_count": len(downstream_exclusion_records),
@@ -293,6 +405,7 @@ def assemble_cycle_acquisition(
         documents=documents,
         summary={
             "schema": ASSEMBLY_SCHEMA,
+            "cycle_hash": expected_cycle_hash,
             "batch_count": len(roots),
             "batches": batch_provenance,
             "record_counts": {
@@ -309,6 +422,188 @@ def assemble_cycle_acquisition(
     if copy_documents:
         _publish_documents(assembled.documents)
     return assembled
+
+
+def write_component_provenance(
+    root: Path,
+    *,
+    source_snapshot_manifest: Path,
+    component_ordinal: int,
+    predecessor_sha256: str,
+    component_stage: str,
+) -> Path:
+    """Commit one downstream root to a verified snapshot and predecessor chain."""
+
+    if component_ordinal < 1:
+        raise CycleAssemblyError("component ordinal must be positive")
+    if _SHA256.fullmatch(predecessor_sha256) is None:
+        raise CycleAssemblyError("predecessor SHA-256 is invalid")
+    if component_stage not in COMPONENT_STAGE_ORDER:
+        raise CycleAssemblyError(f"invalid component stage: {component_stage}")
+    try:
+        parsed = cast(object, json.loads(source_snapshot_manifest.read_text()))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CycleAssemblyError(f"invalid source snapshot manifest: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise CycleAssemblyError("source snapshot manifest must be a JSON object")
+    manifest = cast(dict[str, object], parsed)
+    cycle_hash = _required_sha256_field(
+        manifest, "cycle_hash", artifact="snapshot manifest"
+    )
+    batch_digest = _required_sha256_field(
+        manifest, "batch_digest", artifact="snapshot manifest"
+    )
+    snapshot_manifest_sha256 = _hash_file(source_snapshot_manifest)[0]
+    files = _component_file_commitments(root)
+    record = {
+        "schema_version": COMPONENT_PROVENANCE_SCHEMA,
+        "source_snapshot_cycle_hash": cycle_hash,
+        "source_snapshot_batch_digest": batch_digest,
+        "source_snapshot_manifest_sha256": snapshot_manifest_sha256,
+        "component_ordinal": component_ordinal,
+        "component_stage": component_stage,
+        "predecessor_sha256": predecessor_sha256,
+        "files": files,
+    }
+    path = root / COMPONENT_PROVENANCE_FILENAME
+    payload = (
+        json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode()
+    try:
+        with path.open("xb") as stream:
+            stream.write(payload)
+    except FileExistsError as exc:
+        _require_contained_regular_file(path, root=root)
+        if path.read_bytes() != payload:
+            raise CycleAssemblyError(
+                f"component provenance already exists with different content: {path}"
+            ) from exc
+    return path
+
+
+def _verified_snapshot_manifest(
+    root: Path, *, expected_cycle_hash: str
+) -> Mapping[str, Any] | None:
+    manifest_path = root / "manifest.json"
+    if not manifest_path.is_file():
+        return None
+    try:
+        return verify_snapshot(
+            root,
+            expected_cycle_hash=expected_cycle_hash,
+            require_complete=True,
+            require_saturated=True,
+        )
+    except SnapshotVerificationError as exc:
+        raise CycleAssemblyError(f"invalid screening snapshot {root}: {exc}") from exc
+
+
+def _verify_component_provenance(
+    root: Path,
+    *,
+    expected_cycle_hash: str,
+    expected_batch_digest: str,
+    expected_snapshot_manifest_sha256: str,
+    expected_component_ordinal: int,
+    expected_predecessor_sha256: str,
+    previous_stage_rank: int,
+) -> tuple[str, int]:
+    path = root / COMPONENT_PROVENANCE_FILENAME
+    if path.exists():
+        _require_contained_regular_file(path, root=root)
+    try:
+        parsed = cast(object, json.loads(path.read_text(encoding="utf-8")))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CycleAssemblyError(
+            f"missing or invalid downstream component provenance for {root}: {exc}"
+        ) from exc
+    if not isinstance(parsed, dict):
+        raise CycleAssemblyError(f"component provenance must be an object: {root}")
+    record = cast(dict[str, object], parsed)
+    expected_fields = {
+        "schema_version",
+        "source_snapshot_cycle_hash",
+        "source_snapshot_batch_digest",
+        "source_snapshot_manifest_sha256",
+        "component_ordinal",
+        "component_stage",
+        "predecessor_sha256",
+        "files",
+    }
+    if set(record) != expected_fields:
+        raise CycleAssemblyError(f"component provenance fields are incomplete: {root}")
+    if record.get("schema_version") != COMPONENT_PROVENANCE_SCHEMA:
+        raise CycleAssemblyError(f"component provenance schema mismatch: {root}")
+    component_stage = record.get("component_stage")
+    if not isinstance(component_stage, str) or (
+        component_stage not in COMPONENT_STAGE_ORDER
+    ):
+        raise CycleAssemblyError(f"component provenance stage is invalid: {root}")
+    stage_rank = COMPONENT_STAGE_ORDER[component_stage]
+    if stage_rank <= previous_stage_rank:
+        raise CycleAssemblyError(
+            f"component stage order is invalid for {root}: {component_stage}"
+        )
+    commitments = {
+        "source_snapshot_cycle_hash": expected_cycle_hash,
+        "source_snapshot_batch_digest": expected_batch_digest,
+        "source_snapshot_manifest_sha256": expected_snapshot_manifest_sha256,
+        "component_ordinal": expected_component_ordinal,
+        "predecessor_sha256": expected_predecessor_sha256,
+    }
+    for field, expected in commitments.items():
+        if record.get(field) != expected:
+            raise CycleAssemblyError(
+                f"component provenance {field} mismatch for {root}: "
+                f"expected {expected}, got {record.get(field)}"
+            )
+    actual_files = _component_file_commitments(root)
+    if record.get("files") != actual_files:
+        raise CycleAssemblyError(f"component artifact commitment mismatch: {root}")
+    return _hash_file(path)[0], stage_rank
+
+
+def _component_file_commitments(root: Path) -> dict[str, dict[str, int | str]]:
+    commitments: dict[str, dict[str, int | str]] = {}
+    for filename in sorted(set(_DOWNSTREAM_COMPONENT_ARTIFACTS)):
+        path = root / filename
+        if not path.is_file():
+            continue
+        _require_contained_regular_file(path, root=root)
+        sha256, byte_count = _hash_file(path)
+        commitments[filename] = {
+            "sha256": sha256,
+            "byte_count": byte_count,
+        }
+    return commitments
+
+
+def _required_sha256_field(
+    record: Mapping[str, Any], field: str, *, artifact: str
+) -> str:
+    value = record.get(field)
+    if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
+        raise CycleAssemblyError(f"{artifact} {field} must be a lowercase SHA-256")
+    return value
+
+
+def _root_input_fingerprint(root: Path) -> tuple[tuple[str, str, int], ...]:
+    filenames = {
+        *_SCREENED_ARTIFACTS,
+        *_SCREENING_EXCLUSION_ARTIFACTS,
+        *_DOWNSTREAM_COMPONENT_ARTIFACTS,
+        "summary.json",
+        "manifest.json",
+        COMPONENT_PROVENANCE_FILENAME,
+    }
+    fingerprint: list[tuple[str, str, int]] = []
+    for filename in sorted(filenames):
+        path = root / filename
+        if not path.is_file():
+            continue
+        sha256, byte_count = _hash_file(path)
+        fingerprint.append((filename, sha256, byte_count))
+    return tuple(fingerprint)
 
 
 def _validated_batch_roots(

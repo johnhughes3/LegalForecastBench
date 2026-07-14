@@ -172,8 +172,11 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     public_documents_from_selection,
 )
 from legalforecast.ingestion.cycle_acquisition_assembler import (
+    COMPONENT_PROVENANCE_FILENAME,
+    COMPONENT_STAGE_ORDER,
     CycleAssembly,
     assemble_cycle_acquisition,
+    write_component_provenance,
 )
 from legalforecast.ingestion.cycle_acquisition_store import (
     ConfigMismatchError,
@@ -963,6 +966,14 @@ def build_parser() -> argparse.ArgumentParser:
         help=("Merge free and purchased document manifests for parser planning."),
     )
     _add_acquisition_merge_download_manifests_arguments(acquisition_merge_downloads)
+    acquisition_bind_component = acquisition_subparsers.add_parser(
+        "bind-acquisition-component",
+        help=(
+            "Bind one immutable downstream artifact root into a snapshot-derived "
+            "component provenance chain."
+        ),
+    )
+    _add_acquisition_bind_component_arguments(acquisition_bind_component)
     acquisition_assemble_cycle = acquisition_subparsers.add_parser(
         "assemble-cycle-acquisition",
         help=(
@@ -2657,6 +2668,14 @@ def _add_acquisition_merge_download_manifests_arguments(
 def _add_acquisition_assemble_cycle_arguments(parser: argparse.ArgumentParser) -> None:
     _add_acquisition_common_arguments(parser)
     parser.add_argument(
+        "--expected-cycle-hash",
+        required=True,
+        help=(
+            "Frozen cycle-policy SHA-256. Every screening snapshot and downstream "
+            "component must be cryptographically bound to this cycle."
+        ),
+    )
+    parser.add_argument(
         "--batch-root",
         type=Path,
         action="append",
@@ -2671,6 +2690,42 @@ def _add_acquisition_assemble_cycle_arguments(parser: argparse.ArgumentParser) -
         ),
     )
     parser.set_defaults(handler=_cmd_acquisition_assemble_cycle)
+
+
+def _add_acquisition_bind_component_arguments(parser: argparse.ArgumentParser) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--snapshot",
+        type=Path,
+        required=True,
+        help="Complete, saturated screening snapshot that owns this component.",
+    )
+    parser.add_argument(
+        "--expected-cycle-hash",
+        required=True,
+        help="Frozen cycle-policy SHA-256 committed by the snapshot.",
+    )
+    parser.add_argument(
+        "--component-stage",
+        choices=tuple(COMPONENT_STAGE_ORDER),
+        required=True,
+        help="Canonical semantic stage represented by --output-root.",
+    )
+    parser.add_argument(
+        "--component-ordinal",
+        type=int,
+        required=True,
+        help="One-based position of this component after its screening snapshot.",
+    )
+    parser.add_argument(
+        "--predecessor-provenance",
+        type=Path,
+        help=(
+            "Prior component provenance JSON. Forbidden for ordinal 1 and required "
+            "for later components. Each stage must use a separate immutable root."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_bind_component)
 
 
 def _add_acquisition_disclosure_clearance_arguments(
@@ -7484,6 +7539,7 @@ def _cmd_acquisition_assemble_cycle(args: argparse.Namespace) -> int:
     dry_run = _acquisition_dry_run(args)
     assembly = assemble_cycle_acquisition(
         batch_roots,
+        expected_cycle_hash=cast(str, args.expected_cycle_hash),
         output_root=output_root,
         copy_documents=not dry_run,
     )
@@ -7502,6 +7558,69 @@ def _cmd_acquisition_assemble_cycle(args: argparse.Namespace) -> int:
         paid_activity_requested=False,
         paid_activity_executed=False,
         extra={"record_counts": assembly.summary["record_counts"]},
+    )
+    return 0
+
+
+def _cmd_acquisition_bind_component(args: argparse.Namespace) -> int:
+    component_root = _acquisition_output_root(args)
+    snapshot = cast(Path, args.snapshot)
+    expected_cycle_hash = cast(str, args.expected_cycle_hash)
+    component_ordinal = cast(int, args.component_ordinal)
+    predecessor_path = cast(Path | None, args.predecessor_provenance)
+    try:
+        snapshot_manifest = verify_snapshot(
+            snapshot,
+            expected_cycle_hash=expected_cycle_hash,
+            require_complete=True,
+            require_saturated=True,
+        )
+    except SnapshotVerificationError as exc:
+        raise CommandError(str(exc)) from exc
+    if component_ordinal == 1:
+        if predecessor_path is not None:
+            raise CommandError(
+                "--predecessor-provenance is forbidden for component ordinal 1"
+            )
+        predecessor_sha256 = hashlib.sha256(
+            (snapshot / "manifest.json").read_bytes()
+        ).hexdigest()
+        input_paths = (snapshot, component_root)
+    elif component_ordinal > 1:
+        if predecessor_path is None:
+            raise CommandError(
+                "--predecessor-provenance is required after component ordinal 1"
+            )
+        predecessor_sha256 = hashlib.sha256(predecessor_path.read_bytes()).hexdigest()
+        input_paths = (snapshot, predecessor_path, component_root)
+    else:
+        raise CommandError("--component-ordinal must be positive")
+    output_path = component_root / COMPONENT_PROVENANCE_FILENAME
+    dry_run = _acquisition_dry_run(args)
+    if not dry_run:
+        write_component_provenance(
+            component_root,
+            source_snapshot_manifest=snapshot / "manifest.json",
+            component_ordinal=component_ordinal,
+            predecessor_sha256=predecessor_sha256,
+            component_stage=cast(str, args.component_stage),
+        )
+    _write_acquisition_completion(
+        args,
+        stage="bind-acquisition-component",
+        input_paths=input_paths,
+        output_paths=(output_path,),
+        record_count=1,
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "cycle_hash": snapshot_manifest["cycle_hash"],
+            "batch_digest": snapshot_manifest["batch_digest"],
+            "component_stage": cast(str, args.component_stage),
+            "component_ordinal": component_ordinal,
+            "predecessor_sha256": predecessor_sha256,
+        },
     )
     return 0
 
