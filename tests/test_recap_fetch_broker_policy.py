@@ -90,20 +90,40 @@ def test_explicit_public_evidence_is_allowlisted() -> None:
         selection_records=selection,
     )
 
-    assert len(policy["allowed_documents"]) == 2
+    assert policy["allowed_documents"] == [
+        {"recap_document": "123", "case_id": "case-1"},
+        {"recap_document": "456", "case_id": "case-2"},
+    ]
 
 
-def test_legacy_case_dev_paid_unknown_evidence_is_not_purchase_authority() -> None:
+@pytest.mark.parametrize(
+    "restriction_evidence",
+    (
+        [
+            "courtlistener_docket_entry_checked",
+            "case_dev_entry_and_document_checked",
+        ],
+        [
+            "case_dev_entry_and_document_checked",
+            "courtlistener_docket_entry_checked",
+        ],
+        (
+            "courtlistener_docket_entry_checked",
+            "case_dev_entry_and_document_checked",
+        ),
+    ),
+    ids=("canonical-order", "reordered", "tuple"),
+)
+def test_legacy_case_dev_paid_unknown_evidence_is_not_purchase_authority(
+    restriction_evidence: object,
+) -> None:
     selection = deepcopy(_selection())
     for case in selection:
         for document in case["documents"]:
             document.update(
                 {
                     "redaction_or_seal_status": "unknown",
-                    "restriction_evidence": [
-                        "courtlistener_docket_entry_checked",
-                        "case_dev_entry_and_document_checked",
-                    ],
+                    "restriction_evidence": restriction_evidence,
                     "is_sealed": None,
                     "is_private": None,
                 }
@@ -225,6 +245,19 @@ def test_reordering_inputs_produces_identical_bytes(tmp_path: Path) -> None:
         (
             lambda plan, selection, purchase: selection[0]["documents"][0].update(
                 {"restriction_evidence": ["totally-unrecognized"]}
+            ),
+            "sealed/private/restricted",
+        ),
+        (
+            lambda plan, selection, purchase: selection[0]["documents"][0].update(
+                {
+                    "redaction_or_seal_status": "unknown",
+                    "is_sealed": None,
+                    "restriction_evidence": [
+                        "courtlistener_docket_entry_checked",
+                        123,
+                    ],
+                }
             ),
             "sealed/private/restricted",
         ),
