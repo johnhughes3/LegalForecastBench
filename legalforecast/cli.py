@@ -4576,26 +4576,47 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
         {"stage": command.stage, "argv": list(command.argv)} for command in commands
     ]
     config_path = output_root / "target-100-config.json"
+    success_run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards/prepare-target-100.json",
+    )
+    success_log_path = _acquisition_path(
+        args,
+        "log_output",
+        output_root / "logs/prepare-target-100.jsonl",
+    )
     try:
         config_record = _target_100_config_record(
             config,
             snapshot_manifest=snapshot_manifest,
             stage_commands=command_records,
             driver_execute=not _acquisition_dry_run(args),
+            wrapper_artifact_paths={
+                "summary": summary_path,
+                "run_card": success_run_card_path,
+                "log": success_log_path,
+            },
         )
         _ensure_target_100_config(
             config_path,
             config_record,
             resume=cast(bool, args.resume),
         )
-        if cast(bool, args.resume) and summary_path.exists():
-            _validate_target_100_successful_resume(
-                summary_path=summary_path,
-                output_root=output_root,
-                config=config,
-                config_sha256=cast(str, config_record["config_sha256"]),
-            )
-            return 0
+        if cast(bool, args.resume):
+            if summary_path.exists():
+                _validate_target_100_successful_resume(
+                    summary_path=summary_path,
+                    output_root=output_root,
+                    config=config,
+                    config_sha256=cast(str, config_record["config_sha256"]),
+                )
+                return 0
+            if _target_100_completed_run_card_exists(success_run_card_path):
+                raise CommandError(
+                    "target-100 committed success summary is missing; refusing "
+                    "child-stage resume"
+                )
     except (CommandError, OSError, UnicodeError, ValueError) as exc:
         _write_target_100_attempt_failure(
             args,
@@ -4781,6 +4802,7 @@ def _validate_target_100_paths(
     del snapshot, raw_html_dir, fixture_documents, courtlistener_fixture, request_ledger
     writable_scopes: list[tuple[str, Path, bool]] = [
         ("--output-root", output_root, True),
+        ("target-100 attempt tree", output_root / "attempts", True),
         ("--summary-output", summary_path, False),
         (
             "--run-card-output",
@@ -4842,7 +4864,7 @@ def _validate_target_100_paths(
                     f"{writable} vs {protected}"
                 )
 
-    file_writes = writable_scopes[1:]
+    file_writes = [scope for scope in writable_scopes if not scope[2]]
     for index, (label, path, _) in enumerate(file_writes):
         resolved = path.resolve()
         for other_label, other_path, _ in file_writes[index + 1 :]:
@@ -4915,17 +4937,24 @@ def _write_target_100_attempt_failure(
 
     output_root = cast(Path, args.output_root).resolve()
     candidates = (
-        output_root / "attempts",
-        Path(tempfile.gettempdir()).resolve() / "legalforecast-attempts",
-        Path.cwd().resolve() / ".legalforecast-attempts",
-        Path.home().resolve() / ".cache/legalforecast/attempts",
+        (output_root / "attempts").resolve(),
+        (Path(tempfile.gettempdir()) / "legalforecast-attempts").resolve(),
+        (Path.cwd() / ".legalforecast-attempts").resolve(),
+        (Path.home() / ".cache/legalforecast/attempts").resolve(),
     )
     protected = tuple(path.resolve() for path in protected_paths)
+    output_tree_safe = all(
+        output_root != path
+        and not output_root.is_relative_to(path)
+        and not path.is_relative_to(output_root)
+        for path in protected
+    )
     attempt_parent = next(
         (
             candidate
             for candidate in candidates
-            if all(
+            if (candidate != candidates[0] or output_tree_safe)
+            and all(
                 candidate != path
                 and not candidate.is_relative_to(path)
                 and not path.is_relative_to(candidate)
@@ -5005,12 +5034,23 @@ def _validate_target_100_successful_resume(
         raise CommandError("target-100 resume cost-frontier commitment mismatch")
 
 
+def _target_100_completed_run_card_exists(path: Path) -> bool:
+    if not path.exists():
+        return False
+    record = _read_json_object(path)
+    return (
+        record.get("stage") == "prepare-target-100"
+        and record.get("status") == "completed"
+    )
+
+
 def _target_100_config_record(
     config: Target100PreparationConfig,
     *,
     snapshot_manifest: Mapping[str, Any],
     stage_commands: Sequence[Mapping[str, Any]],
     driver_execute: bool,
+    wrapper_artifact_paths: Mapping[str, Path],
 ) -> JsonRecord:
     snapshot_manifest_path = config.snapshot / "manifest.json"
     record: JsonRecord = {
@@ -5058,6 +5098,10 @@ def _target_100_config_record(
         "courtlistener_rate_profile": config.courtlistener_rate_profile,
         "request_budget_max_wait_seconds": config.request_budget_max_wait_seconds,
         "driver_execute": driver_execute,
+        "wrapper_artifact_paths": {
+            name: str(path.resolve())
+            for name, path in sorted(wrapper_artifact_paths.items())
+        },
         "stage_commands": _semantic_target_100_stage_commands(stage_commands),
     }
     record["config_sha256"] = _canonical_json_sha256(record)

@@ -361,6 +361,7 @@ def test_target_100_underfilled_snapshot_writes_durable_failure_only(
         "summary_manifest_hardlink",
         "run_card_fixture",
         "log_request_ledger",
+        "request_ledger_under_output",
     ),
 )
 def test_target_100_preflight_rejects_protected_output_overlap_before_writes(
@@ -400,18 +401,20 @@ def test_target_100_preflight_rejects_protected_output_overlap_before_writes(
         command.extend(("--summary-output", str(summary_alias)))
     elif collision == "run_card_fixture":
         command.extend(("--run-card-output", str(courtlistener_fixture)))
-    elif collision == "log_request_ledger":
+    elif collision in {"log_request_ledger", "request_ledger_under_output"}:
         fixture_index = command.index("--courtlistener-fixture")
         del command[fixture_index : fixture_index + 2]
+        if collision == "request_ledger_under_output":
+            request_ledger = output_root / "requests.sqlite3"
         command.extend(
             (
                 "--live-courtlistener",
                 "--request-ledger",
                 str(request_ledger),
-                "--log-output",
-                str(request_ledger),
             )
         )
+        if collision == "log_request_ledger":
+            command.extend(("--log-output", str(request_ledger)))
 
     assert main(command) == 2
     stderr = capsys.readouterr().err
@@ -427,6 +430,8 @@ def test_target_100_preflight_rejects_protected_output_overlap_before_writes(
     assert attempt_card["paid_activity_executed"] is False
     assert manifest.read_bytes() == manifest_before
     assert not (snapshot / "target-100-config.json").exists()
+    if collision == "request_ledger_under_output":
+        assert not output_root.exists()
 
 
 def test_target_100_resume_rejects_mutated_and_injected_stage_artifacts(
@@ -555,6 +560,102 @@ def test_target_100_snapshot_failure_is_attempt_scoped_and_nonpaid(
     assert record["paid_activity_executed"] is False
     assert not (output_root / "run-cards/prepare-target-100.json").exists()
     assert not (output_root / "target-100-config.json").exists()
+
+
+def test_target_100_custom_summary_path_is_frozen_and_required_after_success(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=100)
+    )
+    output_root = tmp_path / "run"
+    custom_summary = tmp_path / "committed-summary.json"
+    base = [
+        "acquisition",
+        "prepare-target-100",
+        "--output-root",
+        str(output_root),
+        "--snapshot",
+        str(snapshot),
+        "--expected-cycle-hash",
+        cycle_hash,
+        "--fixture-documents",
+        str(fixture_documents),
+        "--courtlistener-fixture",
+        str(courtlistener_fixture),
+        "--use-embedded-entries",
+        "--execute",
+    ]
+    command = [*base, "--summary-output", str(custom_summary)]
+    assert main(command) == 0
+    success_card = output_root / "run-cards/prepare-target-100.json"
+    success_before = success_card.read_bytes()
+
+    def unexpected_bridge(*args: object, **kwargs: object) -> object:
+        raise AssertionError("summary commitment must fail before child reuse")
+
+    monkeypatch.setattr(cli, "_courtlistener_bridge_client", unexpected_bridge)
+    assert main([*base, "--summary-output", str(tmp_path / "changed.json")]) == 2
+    assert "changed-config resume" in capsys.readouterr().err
+    assert main(base) == 2
+    assert "changed-config resume" in capsys.readouterr().err
+
+    custom_summary.unlink()
+    assert main(command) == 2
+    assert "committed success summary is missing" in capsys.readouterr().err
+    assert success_card.read_bytes() == success_before
+    assert (
+        len(list(output_root.glob("attempts/prepare-target-100/*/run-card.json"))) == 3
+    )
+
+
+def test_target_100_attempt_symlink_cannot_redirect_failure_into_snapshot(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=100)
+    )
+    output_root = tmp_path / "run"
+    output_root.mkdir()
+    (output_root / "attempts").symlink_to(snapshot, target_is_directory=True)
+    manifest = snapshot / "manifest.json"
+    manifest_before = manifest.read_bytes()
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-100",
+                "--output-root",
+                str(output_root),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--use-embedded-entries",
+            ]
+        )
+        == 2
+    )
+    stderr = capsys.readouterr().err
+    assert "attempt tree" in stderr
+    [event] = [
+        json.loads(line)
+        for line in stderr.splitlines()
+        if line.startswith("{") and '"event": "attempt_failed"' in line
+    ]
+    attempt_path = Path(event["artifact_path"]).resolve()
+    assert not attempt_path.is_relative_to(snapshot.resolve())
+    assert json.loads(attempt_path.read_text())["paid_activity_executed"] is False
+    assert manifest.read_bytes() == manifest_before
+    assert not list(snapshot.glob("prepare-target-100/*/run-card.json"))
 
 
 def _target_100_fixture(
