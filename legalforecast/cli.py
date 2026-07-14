@@ -159,6 +159,7 @@ from legalforecast.ingestion.courtlistener_case_dev_bridge import (
     CourtListenerCaseDevBridgeError,
     CourtListenerCaseDevBridgeResult,
     bridge_courtlistener_case_dev_documents,
+    bridge_free_download_requests_from_selection,
     bridge_public_plan_paid_gap_candidate,
     bridge_public_plan_paid_gap_candidate_via_courtlistener,
     bridge_public_plan_paid_gaps,
@@ -10084,25 +10085,103 @@ def _normalize_bridge_checkpoint(checkpoint: JsonRecord) -> JsonRecord:
             and document.get("availability_status") == "unavailable"
         }
 
+    def recovered_free_ids(documents: Sequence[Mapping[str, Any]]) -> set[str]:
+        return {
+            _required_str(document, "source_document_id")
+            for document in documents
+            if document.get("resolved_from_paid_gap") is True
+            and document.get("requires_paid_recovery") is False
+            and document.get("availability_status") == "available"
+        }
+
     selection_pending = pending_ids(selection_documents)
     relevance_pending = pending_ids(relevance_documents)
+    selection_free = recovered_free_ids(selection_documents)
+    relevance_free = recovered_free_ids(relevance_documents)
+    request_records = _optional_record_sequence(payload, "free_download_requests")
+    try:
+        derived_request_records = tuple(
+            request.to_record()
+            for request in bridge_free_download_requests_from_selection(selection)
+        )
+    except CourtListenerCaseDevBridgeError as exc:
+        raise CommandError(
+            f"PACER-gap free recovery checkpoint is invalid for {candidate_id}: {exc}"
+        ) from exc
+    if tuple(dict(record) for record in request_records) != derived_request_records:
+        raise CommandError(
+            f"PACER-gap free recovery request drifted for {candidate_id}"
+        )
+    request_ids = {
+        _required_str(record, "source_document_id") for record in request_records
+    }
+    selection_free_by_id = {
+        _required_str(document, "source_document_id"): document
+        for document in selection_documents
+        if _required_str(document, "source_document_id") in selection_free
+    }
+    relevance_free_by_id = {
+        _required_str(document, "source_document_id"): document
+        for document in relevance_documents
+        if _required_str(document, "source_document_id") in relevance_free
+    }
+    shared_free_fields = (
+        "candidate_id",
+        "source_document_id",
+        "document_role",
+        "docket_entry_number",
+        "availability_status",
+        "requires_paid_recovery",
+        "redaction_or_seal_status",
+        "restriction_evidence",
+        "is_private",
+        "is_sealed",
+        "contains_target_outcome",
+        "model_visible",
+        "resolved_from_paid_gap",
+        "source_url_or_reference",
+    )
+    free_bindings_match = all(
+        all(
+            selection_free_by_id[source_document_id].get(field_name)
+            == relevance_free_by_id[source_document_id].get(field_name)
+            for field_name in shared_free_fields
+        )
+        for source_document_id in selection_free & relevance_free
+    )
     resolved_reasons = selection.get("resolved_paid_gap_reasons")
     shared_evidence_is_valid = (
         selection.get("selected") is True
         and isinstance(selection.get("identity_resolution"), Mapping)
         and selection.get("paid_gap_reasons") == []
         and _is_nonempty_string_list(resolved_reasons)
-        and bool(selection_pending)
+        and bool(selection_pending or selection_free)
         and selection_pending == relevance_pending
+        and selection_free == relevance_free
+        and selection_free == request_ids
+        and free_bindings_match
     )
     if schema == _PACER_GAP_CHECKPOINT_SCHEMA:
+        paid_status_valid = bool(selection_pending) and (
+            selection.get("paid_recovery_required") is True
+            and selection.get("planning_status")
+            == "identity_resolved_paid_recovery_required"
+            and selection.get("document_recovery_status") == "paid_recovery_required"
+        )
+        free_status_valid = (
+            not selection_pending
+            and bool(selection_free)
+            and (
+                selection.get("paid_recovery_required") is False
+                and selection.get("planning_status") == "free_recovery_required"
+                and selection.get("document_recovery_status")
+                == "free_recovery_required"
+            )
+        )
         if (
             not shared_evidence_is_valid
-            or selection.get("paid_recovery_required") is not True
-            or selection.get("planning_status")
-            != "identity_resolved_paid_recovery_required"
             or selection.get("identity_resolution_status") != "resolved"
-            or selection.get("document_recovery_status") != "paid_recovery_required"
+            or not (paid_status_valid or free_status_valid)
         ):
             raise CommandError(
                 f"PACER-gap v2 success checkpoint is ambiguous for {candidate_id}"
@@ -10191,7 +10270,40 @@ def _bridge_checkpoint_payload_matches_candidate(
             or cast(Mapping[str, object], record).get("candidate_id") != candidate_id
         ):
             return False
+    free_requests = payload_record.get("free_download_requests", [])
+    if not isinstance(free_requests, list):
+        return False
+    for request in cast(list[object], free_requests):
+        if (
+            not isinstance(request, Mapping)
+            or cast(Mapping[str, object], request).get("candidate_id") != candidate_id
+        ):
+            return False
     return True
+
+
+def _bridge_checkpoint_requires_semantic_replay(
+    checkpoint: Mapping[str, Any], *, bridge_provider: str
+) -> bool:
+    """Replay exclusions made terminal by superseded bridge semantics."""
+
+    if (
+        bridge_provider != "courtlistener_rest"
+        or checkpoint.get("outcome") != "exclusion"
+    ):
+        return False
+    payload = checkpoint.get("payload")
+    if not isinstance(payload, Mapping):
+        return False
+    payload_record = cast(Mapping[str, object], payload)
+    exclusion = payload_record.get("exclusion_record")
+    if not isinstance(exclusion, Mapping):
+        return False
+    exclusion_record = cast(Mapping[str, object], exclusion)
+    reasons = exclusion_record.get("exclusion_reasons")
+    return (
+        isinstance(reasons, list) and "courtlistener_recap_already_available" in reasons
+    )
 
 
 def _public_first_bridge_with_checkpoints(
@@ -10305,6 +10417,7 @@ def _public_first_bridge_with_checkpoints(
 
     checkpoints: list[JsonRecord] = []
     resumed_terminal_count = 0
+    semantic_replay_count = 0
     request_count_before = client.request_count
     for input_index, gap in enumerate(paid_gaps):
         candidate_id = _required_str(gap, "candidate_id")
@@ -10318,6 +10431,7 @@ def _public_first_bridge_with_checkpoints(
             candidate_id=candidate_id,
         )
         prior: JsonRecord | None = None
+        semantic_replay = False
         if checkpoint_path.exists():
             prior = _read_json_object(checkpoint_path)
             _validate_bridge_checkpoint(
@@ -10328,11 +10442,21 @@ def _public_first_bridge_with_checkpoints(
             )
             prior = _normalize_bridge_checkpoint(prior)
             if prior["outcome"] in {"success", "exclusion"}:
-                resumed_terminal_count += 1
-                checkpoints.append(prior)
-                continue
+                if _bridge_checkpoint_requires_semantic_replay(
+                    prior, bridge_provider=bridge_provider
+                ):
+                    semantic_replay = True
+                    semantic_replay_count += 1
+                else:
+                    resumed_terminal_count += 1
+                    checkpoints.append(prior)
+                    continue
         attempt_count = (
-            cast(int, prior["resumable_attempt_count"]) + 1 if prior is not None else 1
+            1
+            if semantic_replay
+            else cast(int, prior["resumable_attempt_count"]) + 1
+            if prior is not None
+            else 1
         )
         one_request_count_before = client.request_count
         request_count_field = (
@@ -10367,6 +10491,7 @@ def _public_first_bridge_with_checkpoints(
                     use_embedded_entries=cast(bool, args.use_embedded_entries),
                     validate_free_downloads=False,
                 )
+            free_requests = bridge_free_download_requests_from_selection(selection)
             checkpoint: JsonRecord = {
                 "schema_version": _PACER_GAP_CHECKPOINT_SCHEMA,
                 "input_index": input_index,
@@ -10382,6 +10507,9 @@ def _public_first_bridge_with_checkpoints(
                 "payload": {
                     "selection_record": selection,
                     "case_relevance_record": relevance,
+                    "free_download_requests": [
+                        request.to_record() for request in free_requests
+                    ],
                 },
             }
         except CourtListenerCaseDevBridgeError as exc:
@@ -10518,6 +10646,7 @@ def _public_first_bridge_with_checkpoints(
         "max_resumable_candidate_attempts": _PACER_GAP_MAX_RESUMABLE_ATTEMPTS,
         "checkpoint_terminal_candidate_count": terminal_count,
         "resumed_terminal_candidate_count": resumed_terminal_count,
+        "semantic_replay_candidate_count": semantic_replay_count,
         "retryable_candidate_count": retryable_count,
         "free_lookup_only": True,
         "pacer_fee_acknowledgment_allowed": False,
@@ -10559,6 +10688,7 @@ def _public_first_bridge_with_checkpoints(
         )
     selections = list(public_result.selection_records)
     relevance = list(public_result.case_relevance_records)
+    free_requests = list(public_result.free_download_requests)
     exclusions: list[Mapping[str, Any]] = []
     for checkpoint in sorted(
         checkpoints, key=lambda item: cast(int, item["input_index"])
@@ -10572,6 +10702,12 @@ def _public_first_bridge_with_checkpoints(
                 _mapping(
                     checkpoint_payload.get("case_relevance_record"),
                     "case_relevance_record",
+                )
+            )
+            free_requests.extend(
+                _free_document_download_request(record)
+                for record in _optional_record_sequence(
+                    checkpoint_payload, "free_download_requests"
                 )
             )
         else:
@@ -10593,7 +10729,7 @@ def _public_first_bridge_with_checkpoints(
     result = CourtListenerCaseDevBridgeResult(
         selection_records=tuple(selections),
         case_relevance_records=tuple(relevance),
-        free_download_requests=(),
+        free_download_requests=tuple(free_requests),
         exclusions=tuple(exclusions),
         screened_case_count=len(routed_ids),
         public_first_reconciled=True,
@@ -10978,9 +11114,21 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         _write_jsonl(selection_path, result.selection_records)
         _write_jsonl(case_relevance_path, result.case_relevance_records)
         _write_jsonl(exclusions_path, result.exclusions)
+        next_stage = (
+            "download-free"
+            if result.free_download_requests
+            else "filter-core-documents"
+            if public_first
+            else "download-free"
+        )
         _write_json(
             summary_path,
-            {**result.summary_record(), "dry_run": False, **bridge_evidence},
+            {
+                **result.summary_record(),
+                "dry_run": False,
+                "next_stage": next_stage,
+                **bridge_evidence,
+            },
         )
         selected_count = result.selected_case_count
         paid_document_count = result.paid_document_count
@@ -11013,7 +11161,11 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
             "document_bytes_ready_case_count": document_bytes_ready_case_count,
             "free_first_required": True,
             "next_stage": (
-                "filter-core-documents" if public_first else "download-free"
+                "download-free"
+                if free_request_count
+                else "filter-core-documents"
+                if public_first
+                else "download-free"
             ),
             **bridge_evidence,
         },

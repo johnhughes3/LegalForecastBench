@@ -17,6 +17,7 @@ from legalforecast.ingestion.courtlistener_client import (
     CourtListenerClient,
     CourtListenerConfig,
     CourtListenerFixtureTransport,
+    CourtListenerResponseError,
     RecordedCourtListenerResponse,
 )
 from legalforecast.ingestion.public_packet_planner import plan_public_packet_downloads
@@ -462,6 +463,159 @@ def test_bridge_pacer_gaps_cli_runs_noncharging_courtlistener_rest_mode(
     assert summary["paid_activity_executed"] is False
 
 
+def test_bridge_pacer_gaps_cli_checkpoints_newly_free_request(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    screened_path = tmp_path / "screened.jsonl"
+    public_path = tmp_path / "public.jsonl"
+    gaps_path = tmp_path / "gaps.jsonl"
+    downloads_path = tmp_path / "downloads.jsonl"
+    fixture_path = tmp_path / "courtlistener.jsonl"
+    output_root = tmp_path / "output"
+    _write_jsonl(screened_path, [screened])
+    _write_jsonl(public_path, [])
+    _write_jsonl(gaps_path, [gap])
+    _write_jsonl(downloads_path, list(downloads))
+    responses = list(_clean_responses())
+    recap_payload = dict(responses[2].payload)
+    recap_payload.update(
+        {
+            "is_available": True,
+            "filepath_local": "recap/newly-free-motion.pdf",
+        }
+    )
+    responses[2] = _response(path="/recap-documents/9005/", payload=recap_payload)
+    _write_jsonl(
+        fixture_path,
+        [_recorded_response_record(response) for response in responses],
+    )
+    command = [
+        "acquisition",
+        "bridge-pacer-gaps",
+        "--screened-cases",
+        str(screened_path),
+        "--use-embedded-entries",
+        "--courtlistener-fixture",
+        str(fixture_path),
+        "--public-selection",
+        str(public_path),
+        "--paid-gaps",
+        str(gaps_path),
+        "--free-download-manifest",
+        str(downloads_path),
+        "--output-root",
+        str(output_root),
+        "--execute",
+    ]
+
+    assert main(command) == 0
+    requests_path = output_root / "pacer-gap-free-document-requests.jsonl"
+    [request] = _read_jsonl(requests_path)
+    assert request["source_document_id"] == "9005"
+    assert request["source_url"] == (
+        "https://www.courtlistener.com/recap/newly-free-motion.pdf"
+    )
+    [selection] = _read_jsonl(output_root / "public-packet-selection-reconciled.jsonl")
+    assert selection["planning_status"] == "free_recovery_required"
+    bridge_summary = _read_json(output_root / "pacer-gap-bridge-summary.json")
+    assert bridge_summary["free_download_request_count"] == 1
+    assert bridge_summary["paid_document_count"] == 0
+    assert bridge_summary["document_bytes_ready_case_count"] == 0
+    assert bridge_summary["next_stage"] == "download-free"
+
+    _write_jsonl(fixture_path, [])
+    assert main(command) == 0
+    assert _read_jsonl(requests_path) == [request]
+    resumed = _read_json(output_root / "pacer-gap-bridge-summary.json")
+    assert resumed["resumed_terminal_candidate_count"] == 1
+    assert resumed["courtlistener_request_count"] == 0
+
+    [checkpoint_path] = sorted(
+        (output_root / "checkpoints" / "pacer-gap-bridge").glob("*.json")
+    )
+    checkpoint = _read_json(checkpoint_path)
+    checkpoint["payload"]["free_download_requests"][0]["source_url"] = (
+        "https://example.com/tampered.pdf"
+    )
+    checkpoint_path.write_text(
+        json.dumps(checkpoint, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    assert main(command) == 2
+    assert "free recovery request drifted" in capsys.readouterr().err
+
+
+def test_bridge_replays_legacy_already_available_exclusion(
+    tmp_path: Path,
+) -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    screened_path = tmp_path / "screened.jsonl"
+    public_path = tmp_path / "public.jsonl"
+    gaps_path = tmp_path / "gaps.jsonl"
+    downloads_path = tmp_path / "downloads.jsonl"
+    fixture_path = tmp_path / "courtlistener.jsonl"
+    output_root = tmp_path / "output"
+    _write_jsonl(screened_path, [screened])
+    _write_jsonl(public_path, [])
+    _write_jsonl(gaps_path, [gap])
+    _write_jsonl(downloads_path, list(downloads))
+    responses = list(_clean_responses())
+    recap_payload = dict(responses[2].payload)
+    recap_payload["is_available"] = True
+    responses[2] = _response(path="/recap-documents/9005/", payload=recap_payload)
+    _write_jsonl(
+        fixture_path,
+        [_recorded_response_record(response) for response in responses],
+    )
+    command = [
+        "acquisition",
+        "bridge-pacer-gaps",
+        "--screened-cases",
+        str(screened_path),
+        "--use-embedded-entries",
+        "--courtlistener-fixture",
+        str(fixture_path),
+        "--public-selection",
+        str(public_path),
+        "--paid-gaps",
+        str(gaps_path),
+        "--free-download-manifest",
+        str(downloads_path),
+        "--output-root",
+        str(output_root),
+        "--execute",
+    ]
+
+    assert main(command) == 0
+    [checkpoint_path] = sorted(
+        (output_root / "checkpoints" / "pacer-gap-bridge").glob("*.json")
+    )
+    checkpoint = _read_json(checkpoint_path)
+    assert checkpoint["outcome"] == "exclusion"
+    checkpoint["payload"]["exclusion_record"]["exclusion_reasons"] = [
+        "courtlistener_recap_already_available"
+    ]
+    checkpoint_path.write_text(
+        json.dumps(checkpoint, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    recap_payload["filepath_local"] = "recap/newly-free-motion.pdf"
+    responses[2] = _response(path="/recap-documents/9005/", payload=recap_payload)
+    _write_jsonl(
+        fixture_path,
+        [_recorded_response_record(response) for response in responses],
+    )
+
+    assert main(command) == 0
+    [request] = _read_jsonl(output_root / "pacer-gap-free-document-requests.jsonl")
+    assert request["source_document_id"] == "9005"
+    summary = _read_json(output_root / "pacer-gap-bridge-summary.json")
+    assert summary["semantic_replay_candidate_count"] == 1
+    assert summary["resumed_terminal_candidate_count"] == 0
+    assert summary["courtlistener_request_count"] == 3
+
+
 def test_courtlistener_rest_bridge_checkpoints_and_resumes_without_refetch(
     tmp_path: Path,
 ) -> None:
@@ -691,7 +845,7 @@ def test_courtlistener_rest_bridge_rejects_entry_mismatch(
         ({"is_sealed": None}, "courtlistener_recap_privacy_unproven"),
         ({"is_sealed": True}, "restricted_core_document"),
         ({"is_private": True}, "restricted_core_document"),
-        ({"is_available": True}, "courtlistener_recap_already_available"),
+        ({"is_available": True}, "courtlistener_recap_public_url_unproven"),
         ({"attachment_number": 1}, "courtlistener_recap_document_match_not_found"),
     ),
 )
@@ -706,6 +860,149 @@ def test_courtlistener_rest_bridge_rejects_unproven_or_restricted_document(
     responses[2] = _response(path="/recap-documents/9005/", payload=payload)
 
     with pytest.raises(CourtListenerCaseDevBridgeError, match=reason):
+        bridge_public_plan_paid_gap_candidate_via_courtlistener(
+            screened,
+            paid_gap_record=gap,
+            free_download_records=downloads,
+            client=_client(*responses),
+            use_embedded_entries=True,
+        )
+
+
+def test_courtlistener_rest_bridge_recovers_gap_that_became_public() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    responses = list(_clean_responses())
+    payload = dict(responses[2].payload)
+    payload.update(
+        {
+            "is_available": True,
+            "filepath_local": "recap/newly-free-motion.pdf",
+        }
+    )
+    responses[2] = _response(path="/recap-documents/9005/", payload=payload)
+
+    result = bridge_public_plan_paid_gaps_via_courtlistener(
+        (screened,),
+        public_selection_records=(),
+        paid_gap_records=(gap,),
+        free_download_records=downloads,
+        client=_client(*responses),
+        use_embedded_entries=True,
+    )
+
+    [selection] = result.selection_records
+    recovered = [
+        document
+        for document in selection["documents"]
+        if document.get("resolved_from_paid_gap") is True
+    ]
+    assert recovered == [
+        {
+            "availability_status": "available",
+            "candidate_id": "123",
+            "contains_target_outcome": False,
+            "courtlistener_docket_entry_id": "7005",
+            "description": "Motion to Dismiss",
+            "docket_entry_number": 5,
+            "document_role": "motion_to_dismiss_memorandum",
+            "file_extension": "pdf",
+            "is_predecision_material": True,
+            "is_private": None,
+            "is_sealed": False,
+            "model_visible": True,
+            "redaction_or_seal_status": "public",
+            "requires_paid_recovery": False,
+            "resolved_from_paid_gap": True,
+            "restriction_evidence": [
+                "courtlistener_rest_docket_exact_match",
+                "courtlistener_rest_docket_entry_exact_match",
+                "courtlistener_rest_recap_document_exact_match",
+                "courtlistener_rest_recap_document_is_available_true",
+                "courtlistener_rest_recap_document_is_sealed_false",
+                "courtlistener_rest_public_download_url_allowlisted",
+            ],
+            "source_document_id": "9005",
+            "source_provider": "courtlistener",
+            "source_url": ("https://www.courtlistener.com/recap/newly-free-motion.pdf"),
+            "source_url_or_reference": (
+                "https://www.courtlistener.com/recap/newly-free-motion.pdf"
+            ),
+        }
+    ]
+    assert selection["paid_recovery_required"] is False
+    assert selection["planning_status"] == "free_recovery_required"
+    assert selection["document_recovery_status"] == "free_recovery_required"
+    assert result.paid_document_count == 0
+    assert result.document_bytes_ready_case_count == 0
+    assert [request.to_record() for request in result.free_download_requests] == [
+        {
+            "candidate_id": "123",
+            "document_role": "motion_to_dismiss_memorandum",
+            "docket_entry_number": 5,
+            "file_extension": "pdf",
+            "source_document_id": "9005",
+            "source_provider": "courtlistener",
+            "source_url": ("https://www.courtlistener.com/recap/newly-free-motion.pdf"),
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "public_path",
+    (
+        None,
+        "https://example.com/newly-free-motion.pdf",
+        "http://www.courtlistener.com/recap/newly-free-motion.pdf",
+        "https://www.courtlistener.com/",
+        "https://www.courtlistener.com/api/rest/v4/recap-documents/9005/",
+        "https://www.courtlistener.com/recap/newly free motion.pdf",
+        "https://www.courtlistener.com/recap/newly-free-motion.pdf#fragment",
+        "https://www.courtlistener.com/recap/newly-free-motion.pdf?download=1",
+        "https://www.courtlistener.com/recap/newly-free-motion.pdf;download",
+        "https://www.courtlistener.com/recap/../secret.pdf",
+        "https://www.courtlistener.com/recap/%2e%2e/secret.pdf",
+        "https://www.courtlistener.com/recap/%2525252e%2525252e/secret.pdf",
+        "https://www.courtlistener.com/recap/foo\\..\\secret.pdf",
+        "https://[::1/recap/newly-free-motion.pdf",
+        "https://www.courtlistener.com\uff0fevil/recap/newly-free-motion.pdf",
+        "https://storage.courtlistener.com/not-a-pdf",
+    ),
+)
+def test_courtlistener_rest_bridge_rejects_unproven_public_download_url(
+    public_path: str | None,
+) -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    responses = list(_clean_responses())
+    payload = dict(responses[2].payload)
+    payload["is_available"] = True
+    if public_path is not None:
+        payload["filepath_local"] = public_path
+    responses[2] = _response(path="/recap-documents/9005/", payload=payload)
+
+    with pytest.raises(
+        CourtListenerCaseDevBridgeError,
+        match="courtlistener_recap_public_url_unproven",
+    ):
+        bridge_public_plan_paid_gap_candidate_via_courtlistener(
+            screened,
+            paid_gap_record=gap,
+            free_download_records=downloads,
+            client=_client(*responses),
+            use_embedded_entries=True,
+        )
+
+
+def test_courtlistener_rest_bridge_rejects_malformed_private_flag() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    responses = list(_clean_responses())
+    payload = dict(responses[2].payload)
+    payload["is_private"] = "true"
+    responses[2] = _response(path="/recap-documents/9005/", payload=payload)
+
+    with pytest.raises(
+        CourtListenerResponseError,
+        match="is_private must be boolean or null",
+    ):
         bridge_public_plan_paid_gap_candidate_via_courtlistener(
             screened,
             paid_gap_record=gap,
