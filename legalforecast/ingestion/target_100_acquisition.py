@@ -1,4 +1,4 @@
-"""Canonical noncharging preparation commands for a target-100 tranche.
+"""Canonical noncharging preparation commands for a target cohort.
 
 Discovery and strict screening remain provider-specific, durable phases.  This
 module begins at their common, immutable boundary: a complete saturated
@@ -13,8 +13,39 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-class Target100PreparationError(ValueError):
+class TargetCohortPreparationError(ValueError):
+    """Raised when a target-cohort preparation cannot proceed safely."""
+
+
+class Target100PreparationError(TargetCohortPreparationError):
     """Raised when a target-100 preparation cannot proceed safely."""
+
+
+@dataclass(frozen=True, slots=True)
+class TargetCohortPreparationConfig:
+    """Inputs for a resumable, noncharging, explicitly sized preparation."""
+
+    output_root: Path
+    snapshot: Path
+    expected_cycle_hash: str
+    candidate_pool_size: int
+    target_case_count: int
+    cost_per_document_usd: str = "3.05"
+    max_projected_budget_usd: str = "2250.00"
+    max_missing_core_documents_per_case: int = 24
+    raw_html_dir: Path | None = None
+    use_embedded_entries: bool = False
+    live_public_download: bool = False
+    fixture_documents: Path | None = None
+    live_courtlistener: bool = False
+    courtlistener_fixture: Path | None = None
+    request_ledger: Path | None = None
+    courtlistener_rate_profile: str = "base"
+    request_budget_max_wait_seconds: float = 120.0
+    resume: bool = True
+
+    def validate(self) -> None:
+        _validate_preparation_config(self, TargetCohortPreparationError)
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,26 +74,7 @@ class Target100PreparationConfig:
     def validate(self) -> None:
         if self.target_case_count != 100:
             raise Target100PreparationError("target case count must be exactly 100")
-        if self.candidate_pool_size < 1:
-            raise Target100PreparationError("candidate pool size must be positive")
-        if self.live_public_download == (self.fixture_documents is not None):
-            raise Target100PreparationError(
-                "choose exactly one public download source: live CourtListener/RECAP "
-                "or --fixture-documents"
-            )
-        if self.live_courtlistener == (self.courtlistener_fixture is not None):
-            raise Target100PreparationError(
-                "choose exactly one authoritative paid-gap source: live "
-                "CourtListener REST or --courtlistener-fixture"
-            )
-        if self.live_courtlistener and self.request_ledger is None:
-            raise Target100PreparationError(
-                "--request-ledger is required with live CourtListener REST"
-            )
-        if not self.live_courtlistener and self.request_ledger is not None:
-            raise Target100PreparationError(
-                "--request-ledger is only valid with live CourtListener REST"
-            )
+        _validate_preparation_config(self, Target100PreparationError)
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,12 +85,29 @@ class Target100StageCommand:
     argv: tuple[str, ...]
 
 
+def build_target_cohort_stage_commands(
+    config: TargetCohortPreparationConfig,
+) -> tuple[Target100StageCommand, ...]:
+    """Compose generic target-cohort stages without a paid operation."""
+
+    config.validate()
+    return _build_target_stage_commands(config)
+
+
 def build_target_100_stage_commands(
     config: Target100PreparationConfig,
 ) -> tuple[Target100StageCommand, ...]:
     """Compose the existing CLI stages without any paid-operation flags."""
 
     config.validate()
+    return _build_target_stage_commands(config)
+
+
+def _build_target_stage_commands(
+    config: TargetCohortPreparationConfig | Target100PreparationConfig,
+) -> tuple[Target100StageCommand, ...]:
+    """Compose the shared public-first preparation stages."""
+
     root = config.output_root
     public_plan_root = root / "01-public-plan"
     free_download_root = root / "02-free-download"
@@ -241,3 +270,27 @@ def build_target_100_stage_commands(
         Target100StageCommand("filter-core-documents", filter_core),
         Target100StageCommand("plan", budget),
     )
+
+
+def _validate_preparation_config(
+    config: TargetCohortPreparationConfig | Target100PreparationConfig,
+    error_type: type[TargetCohortPreparationError],
+) -> None:
+    if config.target_case_count < 1:
+        raise error_type("target case count must be positive")
+    if config.candidate_pool_size < 1:
+        raise error_type("candidate pool size must be positive")
+    if config.live_public_download == (config.fixture_documents is not None):
+        raise error_type(
+            "choose exactly one public download source: live CourtListener/RECAP "
+            "or --fixture-documents"
+        )
+    if config.live_courtlistener == (config.courtlistener_fixture is not None):
+        raise error_type(
+            "choose exactly one authoritative paid-gap source: live "
+            "CourtListener REST or --courtlistener-fixture"
+        )
+    if config.live_courtlistener and config.request_ledger is None:
+        raise error_type("--request-ledger is required with live CourtListener REST")
+    if not config.live_courtlistener and config.request_ledger is not None:
+        raise error_type("--request-ledger is only valid with live CourtListener REST")

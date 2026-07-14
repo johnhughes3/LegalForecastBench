@@ -198,6 +198,50 @@ def test_frontier_and_unresolved_purchase_fail_closed(tmp_path: Path) -> None:
             )
 
 
+def test_full_frontier_accepts_only_truthful_per_case_cap_exclusions(
+    tmp_path: Path,
+) -> None:
+    cohort = _cohort_policy(hard_cap="20.00")
+    policy_artifact = _purchase_policy(tmp_path, cohort, hard_cap="20.00")
+    over_cap = {
+        "candidate_id": "400",
+        "purchase_document_ids": ["401", "402", "403", "404"],
+        "missing_core_document_count": 4,
+        "estimated_purchase_count": 4,
+        "missing_core_roles": ["motion"],
+        "estimated_cost_usd": "12.20",
+        "exclusion_reasons": ["missing_core_document_cap_exceeded"],
+        "court": "Court D",
+        "nos_macro_category": "nos-d",
+        "related_family_id": None,
+        "mdl_family_id": None,
+    }
+
+    artifact = build_replacement_frontier(
+        cohort_policy_artifact=cohort,
+        purchase_policy_artifact=policy_artifact,
+        projection_sha256="sha256:" + "a" * 64,
+        initial_selected_candidate_ids=("100", "200"),
+        candidate_rows=(*_frontier_rows(), over_cap),
+        case_mix_max_per_bucket=None,
+        source_commitments={"pool": "sha256:" + "b" * 64},
+    )
+    assert artifact["policy"]["candidate_count"] == 4
+
+    false_exclusion = dict(_frontier_rows()[2])
+    false_exclusion["exclusion_reasons"] = ["missing_core_document_cap_exceeded"]
+    with pytest.raises(ClearanceReplacementError, match="false per-case cap"):
+        build_replacement_frontier(
+            cohort_policy_artifact=cohort,
+            purchase_policy_artifact=policy_artifact,
+            projection_sha256="sha256:" + "a" * 64,
+            initial_selected_candidate_ids=("100", "200"),
+            candidate_rows=(*_frontier_rows()[:2], false_exclusion),
+            case_mix_max_per_bucket=None,
+            source_commitments={"pool": "sha256:" + "b" * 64},
+        )
+
+
 def test_unrelated_counted_writeoff_reduces_replacement_headroom(
     tmp_path: Path,
 ) -> None:

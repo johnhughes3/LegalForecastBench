@@ -13,7 +13,9 @@ from legalforecast.ingestion.case_dev_purchase import (
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.target_100_acquisition import (
     Target100PreparationConfig,
+    TargetCohortPreparationConfig,
     build_target_100_stage_commands,
+    build_target_cohort_stage_commands,
 )
 from pytest import CaptureFixture
 
@@ -55,6 +57,639 @@ def test_target_100_commands_are_resumable_noncharging_and_exactly_capped(
     assert "--live-courtlistener" in commands[2].argv
     assert "--request-ledger" in commands[2].argv
     assert "--live-public-download" in commands[1].argv
+
+
+def test_target_cohort_commands_are_noncharging_and_bind_explicit_target(
+    tmp_path: Path,
+) -> None:
+    config = TargetCohortPreparationConfig(
+        output_root=tmp_path / "run",
+        snapshot=tmp_path / "snapshot",
+        expected_cycle_hash="a" * 64,
+        candidate_pool_size=220,
+        target_case_count=150,
+        live_public_download=True,
+        live_courtlistener=True,
+        request_ledger=tmp_path / "courtlistener-requests.sqlite3",
+        use_embedded_entries=True,
+        resume=True,
+    )
+
+    commands = build_target_cohort_stage_commands(config)
+
+    flattened = [argument for command in commands for argument in command.argv]
+    assert commands[-1].argv[-2:] == ("--target-case-count", "150")
+    assert "purchase-missing" not in flattened
+    assert "purchase-missing-recap-fetch" not in flattened
+    assert "--acknowledge-pacer-fees" not in flattened
+    assert "--live-purchase" not in flattened
+    assert "--live-courtlistener" in commands[2].argv
+    assert "firecrawl" not in " ".join(flattened).lower()
+    assert "case.dev" not in " ".join(flattened).lower()
+
+
+def test_target_cohort_cli_help_requires_target_and_explains_sources(
+    capsys: CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit, match="0"):
+        main(["acquisition", "prepare-target-cohort", "--help"])
+    output = capsys.readouterr().out
+    assert "--target-case-count" in output
+    assert "required" in output
+    assert "CourtListener" in output
+    assert "Case.dev" in output
+    assert "decision-search" in output
+    assert "never purchases" in output
+
+
+def test_target_cohort_execute_retains_full_frontier_and_replays_byte_identically(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=3)
+    )
+    output_root = tmp_path / "run"
+    command = [
+        "acquisition",
+        "prepare-target-cohort",
+        "--output-root",
+        str(output_root),
+        "--snapshot",
+        str(snapshot),
+        "--expected-cycle-hash",
+        cycle_hash,
+        "--target-case-count",
+        "2",
+        "--fixture-documents",
+        str(fixture_documents),
+        "--courtlistener-fixture",
+        str(courtlistener_fixture),
+        "--use-embedded-entries",
+        "--execute",
+    ]
+
+    assert main(command) == 0
+    summary_path = output_root / "target-cohort-preparation-summary.json"
+    config_path = output_root / "target-cohort-config.json"
+    frontier_path = output_root / "05-budget/full-candidate-frontier.json"
+    budget_path = output_root / "05-budget/missing-core-budget-plan.json"
+    summary = json.loads(summary_path.read_text())
+    config = json.loads(config_path.read_text())
+    frontier_artifact = json.loads(frontier_path.read_text())
+    frontier = frontier_artifact["policy"]["candidates"]
+    budget = json.loads(budget_path.read_text())
+
+    assert summary["schema_version"] == ("legalforecast.target_cohort_preparation.v1")
+    assert config["schema_version"] == "legalforecast.target_cohort_config.v1"
+    assert summary["target_case_count"] == config["target_case_count"] == 2
+    assert summary["selected_case_count"] == 2
+    assert len(budget["case_plans"]) == 2
+    assert len(frontier) == summary["full_candidate_frontier_count"] == 3
+    assert frontier_artifact["policy"]["frontier_truncated"] is False
+    assert set(frontier_artifact["policy"]["source_commitments"]) == {
+        "snapshot_manifest_sha256",
+        "preparation_config_sha256",
+        "reconciled_selection_sha256",
+        "case_relevance_sha256",
+        "download_manifest_sha256",
+        "core_filter_results_sha256",
+        "provisional_budget_plan_sha256",
+        "restriction_evidence_sha256",
+        "disclosure_review_requests_sha256",
+    }
+    clearance_contract = frontier_artifact["policy"]["clearance_contract"]
+    assert clearance_contract["stage"] == "clear-disclosures"
+    assert clearance_contract["required_source_commitments"] == [
+        "download_manifest",
+        "restriction_evidence",
+        "reviews",
+        "review_receipt",
+    ]
+    assert clearance_contract["required_output_commitments"] == ["disclosure_clearance"]
+    assert clearance_contract["orphan_clearance_rows_allowed"] is False
+    assert [row["rank"] for row in frontier] == [1, 2, 3]
+    assert [row["selection_status"] for row in frontier] == [
+        "selected",
+        "selected",
+        "eligible_omitted",
+    ]
+    assert {row["court"] for row in frontier} == {"nysd"}
+    assert {row["nos_macro_category"] for row in frontier} == {"civil_rights"}
+    assert all(row["related_family_id"] is None for row in frontier)
+    assert all(row["mdl_family_id"] is None for row in frontier)
+    assert summary["full_candidate_frontier_sha256"] == (
+        "sha256:" + hashlib.sha256(frontier_path.read_bytes()).hexdigest()
+    )
+    assert config["config_sha256"].startswith("sha256:")
+    normalized_frontier = cli._replacement_frontier_rows(frontier_path)
+    assert len(normalized_frontier) == 3
+    assert all("selection_status" not in row for row in normalized_frontier)
+    missing_lineage = json.loads(json.dumps(frontier_artifact))
+    missing_lineage["policy"]["source_commitments"].pop("snapshot_manifest_sha256")
+    missing_lineage["policy_sha256"] = cli._canonical_json_sha256(
+        missing_lineage["policy"]
+    )
+    with pytest.raises(ValueError, match="source commitments differ"):
+        cli._verified_target_cohort_frontier_rows(missing_lineage)
+    extra_lineage = json.loads(json.dumps(frontier_artifact))
+    extra_lineage["policy"]["source_commitments"]["untrusted_sha256"] = (
+        "sha256:" + "a" * 64
+    )
+    extra_lineage["policy_sha256"] = cli._canonical_json_sha256(extra_lineage["policy"])
+    with pytest.raises(ValueError, match="source commitments differ"):
+        cli._verified_target_cohort_frontier_rows(extra_lineage)
+    partial_posthoc_lineage = json.loads(json.dumps(frontier_artifact))
+    partial_posthoc_lineage["policy"]["source_commitments"][
+        "preparation_summary_sha256"
+    ] = "sha256:" + "b" * 64
+    partial_posthoc_lineage["policy_sha256"] = cli._canonical_json_sha256(
+        partial_posthoc_lineage["policy"]
+    )
+    with pytest.raises(ValueError, match="source commitments differ"):
+        cli._verified_target_cohort_frontier_rows(partial_posthoc_lineage)
+    null_contract_hash = json.loads(json.dumps(frontier_artifact))
+    null_contract_hash["policy"]["clearance_contract"]["download_manifest_sha256"] = (
+        None
+    )
+    null_contract_hash["policy_sha256"] = cli._canonical_json_sha256(
+        null_contract_hash["policy"]
+    )
+    with pytest.raises(ValueError, match="clearance contract differs"):
+        cli._verified_target_cohort_frontier_rows(null_contract_hash)
+    tampered_frontier = tmp_path / "tampered-frontier.json"
+    frontier_artifact["policy"]["candidate_count"] = 2
+    tampered_frontier.write_text(json.dumps(frontier_artifact, sort_keys=True) + "\n")
+    with pytest.raises(ValueError, match="policy hash mismatch"):
+        cli._replacement_frontier_rows(tampered_frontier)
+
+    committed = {
+        path: path.read_bytes()
+        for path in (summary_path, config_path, frontier_path, budget_path)
+    }
+    assert main(command) == 0
+    assert {path: path.read_bytes() for path in committed} == committed
+
+    def unexpected_resume_provider(*args: object, **kwargs: object) -> object:
+        raise AssertionError("completed-summary guard must run before a provider")
+
+    monkeypatch.setattr(cli, "_courtlistener_bridge_client", unexpected_resume_provider)
+    for field, value in (
+        ("full_candidate_frontier_sha256", "sha256:" + "0" * 64),
+        ("full_candidate_frontier_count", 2),
+    ):
+        tampered_summary = json.loads(committed[summary_path])
+        tampered_summary[field] = value
+        summary_path.write_text(json.dumps(tampered_summary, sort_keys=True) + "\n")
+        assert main(command) == 2
+        assert "full frontier summary mismatch" in capsys.readouterr().err
+        summary_path.write_bytes(committed[summary_path])
+    frontier_path.unlink()
+    assert main(command) == 2
+    assert "stage output commitment mismatch" in capsys.readouterr().err
+    assert not frontier_path.exists()
+    frontier_path.write_bytes(committed[frontier_path])
+
+    def unexpected_bridge(*args: object, **kwargs: object) -> object:
+        raise AssertionError("changed target must fail before a provider client")
+
+    monkeypatch.setattr(cli, "_courtlistener_bridge_client", unexpected_bridge)
+    changed = list(command)
+    changed[changed.index("2")] = "3"
+    assert main(changed) == 2
+    assert "changed-config resume" in capsys.readouterr().err
+    assert {path: path.read_bytes() for path in committed} == committed
+
+
+@pytest.mark.parametrize(
+    ("profile", "config_count", "summary_count", "expected"),
+    [
+        (cli._TARGET_100_PREPARATION, 100, 100, 100),
+        (cli._TARGET_COHORT_PREPARATION, 150, 150, 150),
+    ],
+)
+def test_materializer_resolves_only_unambiguous_target_counts(
+    profile: cli._TargetPreparationProfile,
+    config_count: int | None,
+    summary_count: int,
+    expected: int,
+) -> None:
+    config = {} if config_count is None else {"target_case_count": config_count}
+    summary = {"target_case_count": summary_count}
+
+    assert (
+        cli._target_case_count_for_materialized_frontier(
+            profile=profile,
+            config=config,
+            summary=summary,
+        )
+        == expected
+    )
+
+
+@pytest.mark.parametrize(
+    ("profile", "config_count", "summary_count"),
+    [
+        (cli._TARGET_100_PREPARATION, None, None),
+        (cli._TARGET_100_PREPARATION, None, 100),
+        (cli._TARGET_100_PREPARATION, None, 99),
+        (cli._TARGET_100_PREPARATION, 99, 99),
+        (cli._TARGET_100_PREPARATION, 100, 99),
+        (cli._TARGET_COHORT_PREPARATION, None, 150),
+        (cli._TARGET_COHORT_PREPARATION, 150, 149),
+    ],
+)
+def test_materializer_rejects_ambiguous_or_mismatched_target_counts(
+    profile: cli._TargetPreparationProfile,
+    config_count: int | None,
+    summary_count: int | None,
+) -> None:
+    config = {} if config_count is None else {"target_case_count": config_count}
+    summary = {} if summary_count is None else {"target_case_count": summary_count}
+
+    with pytest.raises(cli.CommandError, match="target case count"):
+        cli._target_case_count_for_materialized_frontier(
+            profile=profile,
+            config=config,
+            summary=summary,
+        )
+
+
+def test_target_cohort_rejects_nonpositive_and_underfilled_targets_without_stages(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=3)
+    )
+
+    def command(target: int, output_root: Path) -> list[str]:
+        return [
+            "acquisition",
+            "prepare-target-cohort",
+            "--output-root",
+            str(output_root),
+            "--snapshot",
+            str(snapshot),
+            "--expected-cycle-hash",
+            cycle_hash,
+            "--target-case-count",
+            str(target),
+            "--fixture-documents",
+            str(fixture_documents),
+            "--courtlistener-fixture",
+            str(courtlistener_fixture),
+            "--use-embedded-entries",
+            "--execute",
+        ]
+
+    invalid_root = tmp_path / "invalid"
+    assert main(command(0, invalid_root)) == 2
+    assert "target case count must be positive" in capsys.readouterr().err
+    [invalid_attempt] = invalid_root.glob(
+        "attempts/prepare-target-cohort/*/run-card.json"
+    )
+    assert json.loads(invalid_attempt.read_text())["paid_activity_executed"] is False
+    assert not (invalid_root / "01-public-plan").exists()
+
+    underfilled_root = tmp_path / "underfilled"
+    assert main(command(4, underfilled_root)) == 2
+    assert "only 3 viable cases; 4 are required" in capsys.readouterr().err
+    [underfilled_attempt] = underfilled_root.glob(
+        "attempts/prepare-target-cohort/*/run-card.json"
+    )
+    attempt = json.loads(underfilled_attempt.read_text())
+    assert attempt["stage"] == "prepare-target-cohort"
+    assert attempt["paid_activity_requested"] is False
+    assert attempt["paid_activity_executed"] is False
+    assert not (underfilled_root / "01-public-plan").exists()
+
+
+def test_target_cohort_resume_rejects_mutated_full_frontier_before_provider(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=3)
+    )
+    output_root = tmp_path / "run"
+    command = [
+        "acquisition",
+        "prepare-target-cohort",
+        "--output-root",
+        str(output_root),
+        "--snapshot",
+        str(snapshot),
+        "--expected-cycle-hash",
+        cycle_hash,
+        "--target-case-count",
+        "2",
+        "--fixture-documents",
+        str(fixture_documents),
+        "--courtlistener-fixture",
+        str(courtlistener_fixture),
+        "--use-embedded-entries",
+        "--execute",
+    ]
+    assert main(command) == 0
+    summary_path = output_root / "target-cohort-preparation-summary.json"
+    success_card = output_root / "run-cards/prepare-target-cohort.json"
+    summary_before = summary_path.read_bytes()
+    card_before = success_card.read_bytes()
+    frontier_path = output_root / "05-budget/full-candidate-frontier.json"
+    frontier = json.loads(frontier_path.read_text())
+    frontier["policy"]["candidates"][0]["estimated_cost_usd"] = "0.00"
+    frontier_path.write_text(json.dumps(frontier, sort_keys=True) + "\n")
+
+    def unexpected_bridge(*args: object, **kwargs: object) -> object:
+        raise AssertionError("resume verification must precede provider setup")
+
+    monkeypatch.setattr(cli, "_courtlistener_bridge_client", unexpected_bridge)
+    assert main(command) == 2
+    assert "stage output commitment mismatch" in capsys.readouterr().err
+    assert summary_path.read_bytes() == summary_before
+    assert success_card.read_bytes() == card_before
+
+
+def test_target_cohort_resume_requires_resolved_success_run_card(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=2)
+    )
+    output_root = tmp_path / "run"
+    custom_run_card = tmp_path / "committed-run-card.json"
+    command = [
+        "acquisition",
+        "prepare-target-cohort",
+        "--output-root",
+        str(output_root),
+        "--snapshot",
+        str(snapshot),
+        "--expected-cycle-hash",
+        cycle_hash,
+        "--target-case-count",
+        "2",
+        "--fixture-documents",
+        str(fixture_documents),
+        "--courtlistener-fixture",
+        str(courtlistener_fixture),
+        "--use-embedded-entries",
+        "--run-card-output",
+        str(custom_run_card),
+        "--execute",
+    ]
+    assert main(command) == 0
+    summary = output_root / "target-cohort-preparation-summary.json"
+    summary_before = summary.read_bytes()
+    custom_run_card.unlink()
+
+    def unexpected_bridge(*args: object, **kwargs: object) -> object:
+        raise AssertionError("run-card verification must precede provider setup")
+
+    monkeypatch.setattr(cli, "_courtlistener_bridge_client", unexpected_bridge)
+    assert main(command) == 2
+    assert "committed success run card is missing" in capsys.readouterr().err
+    assert summary.read_bytes() == summary_before
+
+
+def test_target_cohort_frontier_rejects_orphan_manifest_rows(
+    tmp_path: Path,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=2)
+    )
+    output_root = tmp_path / "run"
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-cohort",
+                "--output-root",
+                str(output_root),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--target-case-count",
+                "2",
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--use-embedded-entries",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    manifest_path = output_root / "03c-merged-downloads/document-downloads-merged.jsonl"
+    manifest = _read_jsonl(manifest_path)
+    orphan = dict(manifest[0])
+    orphan["candidate_id"] = "orphan-candidate"
+    _write_jsonl(manifest_path, [*manifest, orphan])
+    budget_plan = cli._missing_core_budget_plan(
+        json.loads(
+            (output_root / "05-budget/missing-core-budget-plan.json").read_text()
+        )
+    )
+    config = TargetCohortPreparationConfig(
+        output_root=output_root,
+        snapshot=snapshot,
+        expected_cycle_hash=cycle_hash,
+        candidate_pool_size=2,
+        target_case_count=2,
+        fixture_documents=fixture_documents,
+        courtlistener_fixture=courtlistener_fixture,
+        use_embedded_entries=True,
+    )
+
+    with pytest.raises(cli.CommandError, match="orphan download-manifest"):
+        cli._prepare_full_candidate_frontier(
+            output_root,
+            budget_plan=budget_plan,
+            target_case_count=config.target_case_count,
+            cost_per_document_usd=config.cost_per_document_usd,
+            max_missing_core_documents_per_case=(
+                config.max_missing_core_documents_per_case
+            ),
+            snapshot_manifest_path=snapshot / "manifest.json",
+            preparation_config_path=output_root / "target-cohort-config.json",
+            frontier_path=output_root / "05-budget/full-candidate-frontier.json",
+            resume=True,
+        )
+
+
+def test_target_cohort_custom_common_outputs_cannot_alias_inputs(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=2)
+    )
+    fixture_before = courtlistener_fixture.read_bytes()
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-cohort",
+                "--output-root",
+                str(tmp_path / "run"),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--target-case-count",
+                "2",
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--use-embedded-entries",
+                "--run-card-output",
+                str(courtlistener_fixture),
+            ]
+        )
+        == 2
+    )
+    assert "overlap" in capsys.readouterr().err
+    assert courtlistener_fixture.read_bytes() == fixture_before
+
+
+def test_generic_preparation_is_accepted_by_post_clearance_projection(
+    tmp_path: Path,
+) -> None:
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path, case_count=3)
+    )
+    prepared = tmp_path / "prepared"
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-cohort",
+                "--output-root",
+                str(prepared),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--target-case-count",
+                "2",
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--use-embedded-entries",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    review_requests = _read_jsonl(
+        prepared / "06-clearance-inputs/disclosure-review-requests.jsonl"
+    )
+    reviews = tmp_path / "reviews.jsonl"
+    _write_jsonl(
+        reviews,
+        [
+            {
+                "candidate_id": row["candidate_id"],
+                "source_document_id": row["source_document_id"],
+                "sha256": row["sha256"],
+                "status": "cleared",
+                "reviewer_id": "reviewer:fixture",
+                "controlled_store_provenance": "private-store://fixture/generic",
+                "reviewed_at": "2026-07-14T18:00:00Z",
+            }
+            for row in review_requests
+        ],
+    )
+    receipt = tmp_path / "receipt.json"
+    receipt.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.disclosure_review_receipt.v1",
+                "review_artifact_sha256": hashlib.sha256(
+                    reviews.read_bytes()
+                ).hexdigest(),
+                "authenticated_reviewer_id": "reviewer:fixture",
+                "controlled_store_uri": "private-store://fixture/generic",
+                "authentication_method": "cloudflare_access_oidc",
+                "authenticated_at": "2026-07-14T18:00:00Z",
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    clearance_root = tmp_path / "clearance"
+    restriction_path = prepared / "06-clearance-inputs/restriction-evidence.jsonl"
+    download_manifest = (
+        prepared / "03c-merged-downloads/document-downloads-merged.jsonl"
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "clear-disclosures",
+                "--download-manifest",
+                str(download_manifest),
+                "--document-root",
+                str(prepared / "documents/free"),
+                "--reviews",
+                str(reviews),
+                "--review-receipt",
+                str(receipt),
+                "--restriction-evidence",
+                str(restriction_path),
+                "--output-root",
+                str(clearance_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    projected = tmp_path / "projected"
+    assert (
+        main(
+            [
+                "acquisition",
+                "project-target-cohort",
+                "--output-root",
+                str(projected),
+                "--selection",
+                str(
+                    prepared / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+                ),
+                "--case-relevance",
+                str(prepared / "03-gap-bridge/case-relevance.jsonl"),
+                "--download-manifest",
+                str(download_manifest),
+                "--disclosure-clearance",
+                str(clearance_root / "disclosure-clearance.jsonl"),
+                "--clearance-run-card",
+                str(clearance_root / "run-cards/clear-disclosures.json"),
+                "--restriction-evidence",
+                str(restriction_path),
+                "--preparation-summary",
+                str(prepared / "target-cohort-preparation-summary.json"),
+                "--preparation-config",
+                str(prepared / "target-cohort-config.json"),
+                "--snapshot-manifest",
+                str(snapshot / "manifest.json"),
+                "--target-case-count",
+                "2",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    projection = json.loads((projected / "target-cohort-projection.json").read_text())
+    assert projection["selected_case_count"] == 2
 
 
 def test_target_100_cli_help_explains_provider_boundary(
@@ -126,6 +761,7 @@ def test_target_100_dry_run_writes_a_nonpurchase_stage_plan(tmp_path: Path) -> N
 
 def test_target_100_real_five_stage_courtlistener_fixture_e2e(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     output_root = tmp_path / "run"
     snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
@@ -166,6 +802,7 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
     assert summary["config_sha256"].startswith("sha256:")
     assert summary["selected_candidate_ids_sha256"].startswith("sha256:")
     assert summary["frontier_sha256"].startswith("sha256:")
+    assert not (output_root / "05-budget/full-candidate-frontier.json").exists()
     assert set(summary["stage_commitments"]) == {
         "01-public-plan",
         "02-free-download",
@@ -182,6 +819,226 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
     )
     assert bridge_card["bridge_provider"] == "courtlistener_rest"
     assert bridge_card["paid_activity_executed"] is False
+
+    config_path = output_root / "target-100-config.json"
+    budget_path = output_root / "05-budget/missing-core-budget-plan.json"
+    success_card_path = output_root / "run-cards/prepare-target-100.json"
+
+    missing_output_root = output_root / "forbidden-materializer-output"
+    overlapping_command = [
+        "acquisition",
+        "materialize-target-cohort-frontier",
+        "--output-root",
+        str(missing_output_root),
+        "--preparation-root",
+        str(output_root),
+        "--preparation-summary",
+        str(output_root / "target-100-preparation-summary.json"),
+        "--preparation-config",
+        str(config_path),
+        "--snapshot-manifest",
+        str(snapshot / "manifest.json"),
+        "--execute",
+    ]
+    assert main(overlapping_command) == 2
+    assert not missing_output_root.exists()
+
+    summary_path = output_root / "target-100-preparation-summary.json"
+    summary_before = summary_path.read_bytes()
+    incomplete_summary = json.loads(summary_before)
+    incomplete_summary["stage_input_commitments"].pop("01-public-plan")
+    summary_path.write_text(
+        json.dumps(incomplete_summary, indent=2, sort_keys=True) + "\n"
+    )
+    rejected_root = tmp_path / "rejected-incomplete-commitments"
+    rejected_command = [
+        "acquisition",
+        "materialize-target-cohort-frontier",
+        "--output-root",
+        str(rejected_root),
+        "--preparation-root",
+        str(output_root),
+        "--preparation-summary",
+        str(summary_path),
+        "--preparation-config",
+        str(config_path),
+        "--snapshot-manifest",
+        str(snapshot / "manifest.json"),
+        "--execute",
+    ]
+    assert main(rejected_command) == 2
+    assert not rejected_root.exists()
+    summary_path.write_bytes(summary_before)
+
+    budget_before = budget_path.read_bytes()
+    for missing_fields in (
+        ("target_case_count",),
+        ("target_case_count_met",),
+        ("target_case_count", "target_case_count_met"),
+    ):
+        incomplete_budget = json.loads(budget_before)
+        for missing_field in missing_fields:
+            incomplete_budget.pop(missing_field)
+        budget_path.write_text(
+            json.dumps(incomplete_budget, indent=2, sort_keys=True) + "\n"
+        )
+        budget_tamper_summary = json.loads(summary_before)
+        budget_tamper_summary["stage_commitments"] = cli._target_100_stage_commitments(
+            output_root
+        )
+        summary_path.write_text(
+            json.dumps(budget_tamper_summary, indent=2, sort_keys=True) + "\n"
+        )
+        rejected_budget_root = tmp_path / (
+            "rejected-budget-" + "-".join(missing_fields)
+        )
+        assert (
+            main(
+                [
+                    *rejected_command[:3],
+                    str(rejected_budget_root),
+                    *rejected_command[4:],
+                ]
+            )
+            == 2
+        )
+        assert not rejected_budget_root.exists()
+        budget_path.write_bytes(budget_before)
+        summary_path.write_bytes(summary_before)
+
+    fixture_documents_before = fixture_documents.read_bytes()
+    fixture_documents.write_bytes(fixture_documents_before + b"\n")
+    rejected_fixture_root = tmp_path / "rejected-mutated-fixture"
+    assert (
+        main(
+            [
+                *rejected_command[:3],
+                str(rejected_fixture_root),
+                *rejected_command[4:],
+            ]
+        )
+        == 2
+    )
+    assert not rejected_fixture_root.exists()
+    fixture_documents.write_bytes(fixture_documents_before)
+
+    success_card_before = success_card_path.read_bytes()
+    external_alias_root = tmp_path / "rejected-success-card-alias"
+    assert (
+        main(
+            [
+                *rejected_command[:3],
+                str(external_alias_root),
+                *rejected_command[4:],
+                "--run-card-output",
+                str(success_card_path),
+            ]
+        )
+        == 2
+    )
+    assert success_card_path.read_bytes() == success_card_before
+    assert not external_alias_root.exists()
+    success_log_path = output_root / "logs/prepare-target-100.jsonl"
+    success_log_before = success_log_path.read_bytes()
+    external_log_alias_root = tmp_path / "rejected-success-log-alias"
+    assert (
+        main(
+            [
+                *rejected_command[:3],
+                str(external_log_alias_root),
+                *rejected_command[4:],
+                "--log-output",
+                str(success_log_path),
+            ]
+        )
+        == 2
+    )
+    assert success_log_path.read_bytes() == success_log_before
+    assert not external_log_alias_root.exists()
+    hardlinked_log = tmp_path / "hardlinked-success-log.jsonl"
+    hardlinked_log.hardlink_to(success_log_path)
+    hardlink_output_root = tmp_path / "rejected-success-log-hardlink"
+    assert (
+        main(
+            [
+                *rejected_command[:3],
+                str(hardlink_output_root),
+                *rejected_command[4:],
+                "--log-output",
+                str(hardlinked_log),
+            ]
+        )
+        == 2
+    )
+    assert success_log_path.read_bytes() == success_log_before
+    assert not hardlink_output_root.exists()
+    hardlinked_log.unlink()
+
+    legacy_before = {
+        path.relative_to(output_root): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in output_root.rglob("*")
+        if path.is_file()
+    }
+
+    def unexpected_provider(*args: object, **kwargs: object) -> object:
+        raise AssertionError("post-hoc frontier must not construct a provider")
+
+    monkeypatch.setattr(cli, "_courtlistener_bridge_client", unexpected_provider)
+    materialized_root = tmp_path / "materialized-frontier"
+    materialize_command = [
+        "acquisition",
+        "materialize-target-cohort-frontier",
+        "--output-root",
+        str(materialized_root),
+        "--preparation-root",
+        str(output_root),
+        "--preparation-summary",
+        str(output_root / "target-100-preparation-summary.json"),
+        "--preparation-config",
+        str(output_root / "target-100-config.json"),
+        "--snapshot-manifest",
+        str(snapshot / "manifest.json"),
+        "--execute",
+    ]
+    assert main(materialize_command) == 0
+    frontier_path = materialized_root / "full-candidate-frontier.json"
+    materializer_card = (
+        materialized_root / "run-cards/materialize-target-cohort-frontier.json"
+    )
+    frontier = json.loads(frontier_path.read_text())
+    completed_materializer = json.loads(materializer_card.read_text())
+    commitments = frontier["policy"]["source_commitments"]
+    assert frontier["policy"]["candidate_count"] == 101
+    assert frontier["policy"]["selected_candidate_count"] == 100
+    assert completed_materializer["record_count"] == 101
+    assert completed_materializer["target_case_count"] == 100
+    assert commitments["preparation_summary_sha256"] == (
+        "sha256:"
+        + hashlib.sha256(
+            (output_root / "target-100-preparation-summary.json").read_bytes()
+        ).hexdigest()
+    )
+    assert commitments["preparation_success_run_card_sha256"] == (
+        "sha256:"
+        + hashlib.sha256(
+            (output_root / "run-cards/prepare-target-100.json").read_bytes()
+        ).hexdigest()
+    )
+    frontier_before = frontier_path.read_bytes()
+    card_before = materializer_card.read_bytes()
+    assert main(materialize_command) == 0
+    assert frontier_path.read_bytes() == frontier_before
+    assert materializer_card.read_bytes() == card_before
+    frontier_path.unlink()
+    assert main(materialize_command) == 2
+    assert not frontier_path.exists()
+    frontier_path.write_bytes(frontier_before)
+    legacy_after = {
+        path.relative_to(output_root): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in output_root.rglob("*")
+        if path.is_file()
+    }
+    assert legacy_after == legacy_before
 
     free_manifest = _read_jsonl(
         output_root / "03c-merged-downloads/document-downloads-merged.jsonl"
@@ -607,8 +1464,15 @@ def test_target_100_resume_rejects_mutated_and_injected_stage_artifacts(
     assert "unexpected stage artifact" in capsys.readouterr().err
     assert summary_path.read_bytes() == summary_before
     assert success_card_path.read_bytes() == success_card_before
+    config_path = output_root / "target-100-config.json"
+    config_path.unlink()
+    assert main(command) == 2
+    assert "committed config is missing" in capsys.readouterr().err
+    assert not config_path.exists()
+    assert summary_path.read_bytes() == summary_before
+    assert success_card_path.read_bytes() == success_card_before
     assert (
-        len(list(output_root.glob("attempts/prepare-target-100/*/run-card.json"))) == 2
+        len(list(output_root.glob("attempts/prepare-target-100/*/run-card.json"))) == 3
     )
 
 
@@ -721,9 +1585,9 @@ def test_target_100_custom_summary_path_is_frozen_and_required_after_success(
 
     monkeypatch.setattr(cli, "_courtlistener_bridge_client", unexpected_bridge)
     assert main([*base, "--summary-output", str(tmp_path / "changed.json")]) == 2
-    assert "changed-config resume" in capsys.readouterr().err
+    assert "committed success summary is missing" in capsys.readouterr().err
     assert main(base) == 2
-    assert "changed-config resume" in capsys.readouterr().err
+    assert "committed success summary is missing" in capsys.readouterr().err
 
     custom_summary.unlink()
     assert main(command) == 2

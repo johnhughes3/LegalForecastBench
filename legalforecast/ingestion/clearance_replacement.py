@@ -1003,9 +1003,16 @@ def _verify_candidate_costs(
                 f"candidate {candidate['candidate_id']} estimated cost does not "
                 "equal the frozen per-document reservation"
             )
-        if count > max_documents:
+        exclusions = cast(Sequence[str], candidate["exclusion_reasons"])
+        cap_excluded = "missing_core_document_cap_exceeded" in exclusions
+        if count > max_documents and not cap_excluded:
             raise ClearanceReplacementError(
                 f"candidate {candidate['candidate_id']} exceeds the frozen per-case cap"
+            )
+        if count <= max_documents and cap_excluded:
+            raise ClearanceReplacementError(
+                f"candidate {candidate['candidate_id']} has a false per-case cap "
+                "exclusion"
             )
 
 
