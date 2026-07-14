@@ -117,6 +117,13 @@ def test_policy_rejects_reason_taxonomy_drift(mutation: str) -> None:
         generate_cohort_policy(decisions)
 
 
+def test_policy_taxonomy_classifies_new_exclusion_reasons() -> None:
+    taxonomy = cohort_reason_policy_taxonomy()
+
+    assert "procedural_or_standing_order" in taxonomy["immutable_reason_codes"]
+    assert "oversized_docket_soft_skip" in taxonomy["refreshable_reason_codes"]
+
+
 def test_policy_file_is_immutable(tmp_path: Path) -> None:
     path = tmp_path / "cohort-policy.json"
     artifact = generate_cohort_policy(_decisions("a" * 64))

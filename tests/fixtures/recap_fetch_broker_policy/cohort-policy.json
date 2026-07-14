@@ -59,7 +59,8 @@
         "non_civil_metadata",
         "not_civil_cv_docket",
         "not_federal_district_court",
-        "placeholder_or_sealed_docket_number"
+        "placeholder_or_sealed_docket_number",
+        "procedural_or_standing_order"
       ],
       "newly_free_reason_codes": [
         "newly_free",
@@ -69,6 +70,7 @@
         "bankruptcy_posture",
         "criminal_posture",
         "habeas_or_immigration_detention_posture",
+        "oversized_docket_soft_skip",
         "strict_clean_screen_failed"
       ],
       "transient_reason_codes": [
@@ -104,6 +106,6 @@
       "refresh_before_purchase": true
     }
   },
-  "policy_sha256": "6522a360141e8e719dfba60eeba369668cd899f4ed2a119c5b885874fa97bb10",
+  "policy_sha256": "53b6f2eac09c9b386fc79fe8e642ff46deb30c08e00cae4046eca095ebfc5fe9",
   "schema_version": "legalforecast.cohort_policy.v1"
 }

@@ -49,6 +49,7 @@ _IMMUTABLE_REASON_CODES = frozenset(
         "appellate_case",
         "missing_civil_case_metadata",
         "invalid_civil_case_metadata",
+        "procedural_or_standing_order",
     }
 )
 _EVIDENCED_STATES = frozenset({"accepted", "newly_free", "excluded"})
@@ -76,6 +77,11 @@ _REASON_POLICIES: dict[str, tuple[frozenset[str], str, int]] = {
     "bankruptcy_posture": (frozenset({"excluded"}), "refreshable", 10),
     "criminal_posture": (frozenset({"excluded"}), "refreshable", 10),
     "habeas_or_immigration_detention_posture": (
+        frozenset({"excluded"}),
+        "refreshable",
+        10,
+    ),
+    "oversized_docket_soft_skip": (
         frozenset({"excluded"}),
         "refreshable",
         10,
