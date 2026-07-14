@@ -18484,7 +18484,13 @@ def _verified_snapshot_raw_html_sources(
             raise CommandError(
                 "verified snapshot contains an invalid raw artifact path"
             )
-        artifact_paths.append((candidate_id.strip(), Path(raw_path).resolve()))
+        resolved_path = Path(raw_path).resolve()
+        artifact_paths.append(
+            (
+                _raw_html_lookup_id(candidate_id.strip(), resolved_path),
+                resolved_path,
+            )
+        )
     if not artifact_paths:
         if requested is not None:
             raise CommandError(
@@ -18536,6 +18542,17 @@ def _verified_snapshot_raw_html_sources(
             )
         by_candidate[candidate_id] = requested_paths[0]
     return None, by_candidate
+
+
+def _raw_html_lookup_id(candidate_id: str, path: Path) -> str:
+    """Preserve the planner's docket-ID lookup while trusting snapshot identity."""
+
+    if path.stem.isdigit():
+        return path.stem
+    prefix = "courtlistener-docket-"
+    if candidate_id.startswith(prefix) and candidate_id[len(prefix) :].isdigit():
+        return candidate_id[len(prefix) :]
+    return candidate_id
 
 
 def _firecrawl_credit_summary_if_available(
