@@ -8554,7 +8554,7 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         _write_json(
             summary_path,
             {
-                "schema_version": ("legalforecast.courtlistener_case_dev_bridge.v1"),
+                "schema_version": ("legalforecast.courtlistener_case_dev_bridge.v2"),
                 "dry_run": True,
                 "screened_case_count": len(records),
                 "free_first_required": True,
@@ -8562,6 +8562,9 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         )
         selected_count = 0
         paid_document_count = 0
+        paid_recovery_required_case_count = 0
+        identity_resolved_paid_gap_case_count = 0
+        document_bytes_ready_case_count = 0
         free_request_count = 0
         excluded_count = 0
     else:
@@ -8619,6 +8622,11 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         _write_json(summary_path, {**result.summary_record(), "dry_run": False})
         selected_count = result.selected_case_count
         paid_document_count = result.paid_document_count
+        paid_recovery_required_case_count = result.paid_recovery_required_case_count
+        identity_resolved_paid_gap_case_count = (
+            result.identity_resolved_paid_gap_case_count
+        )
+        document_bytes_ready_case_count = result.document_bytes_ready_case_count
         free_request_count = len(result.free_download_requests)
         excluded_count = len(result.exclusions)
     _write_acquisition_completion(
@@ -8635,6 +8643,12 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
             "excluded_case_count": excluded_count,
             "free_download_request_count": free_request_count,
             "paid_document_count": paid_document_count,
+            "paid_recovery_required_document_count": paid_document_count,
+            "paid_recovery_required_case_count": paid_recovery_required_case_count,
+            "identity_resolved_paid_gap_case_count": (
+                identity_resolved_paid_gap_case_count
+            ),
+            "document_bytes_ready_case_count": document_bytes_ready_case_count,
             "free_first_required": True,
             "next_stage": (
                 "filter-core-documents" if public_first else "download-free"

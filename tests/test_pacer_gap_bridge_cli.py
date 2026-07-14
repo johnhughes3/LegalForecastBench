@@ -726,6 +726,20 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
     reconciled_selection = output_root / "public-packet-selection-reconciled.jsonl"
     selections = _read_jsonl(reconciled_selection)
     assert {record["candidate_id"] for record in selections} == {"cl-free", "cl-123"}
+    paid_selection = next(
+        record for record in selections if record["candidate_id"] == "cl-123"
+    )
+    assert paid_selection["paid_recovery_required"] is True
+    assert (
+        paid_selection["planning_status"] == "identity_resolved_paid_recovery_required"
+    )
+    bridge_summary = _read_json(output_root / "pacer-gap-bridge-summary.json")
+    assert bridge_summary["schema_version"] == (
+        "legalforecast.courtlistener_case_dev_bridge.v2"
+    )
+    assert bridge_summary["identity_resolved_paid_gap_case_count"] == 1
+    assert bridge_summary["paid_recovery_required_case_count"] == 1
+    assert bridge_summary["document_bytes_ready_case_count"] == 1
     assert _read_jsonl(output_root / "pacer-gap-bridge-exclusions.jsonl") == []
     assert not (
         {record["candidate_id"] for record in selections}

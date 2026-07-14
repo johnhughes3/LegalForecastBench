@@ -12,6 +12,7 @@ from legalforecast.ingestion.case_dev_client import (
 from legalforecast.ingestion.core_document_filter import filter_core_documents
 from legalforecast.ingestion.courtlistener_case_dev_bridge import (
     CourtListenerCaseDevBridgeError,
+    CourtListenerCaseDevBridgeResult,
     bridge_courtlistener_case_dev_documents,
     bridge_public_plan_paid_gaps,
     merge_download_manifest_records,
@@ -324,7 +325,11 @@ def test_public_first_bridge_routes_only_paid_gap_and_retains_free_ids() -> None
     assert result.exclusions == ()
     assert result.free_download_requests == ()
     [selection] = result.selection_records
-    assert selection["planning_status"] == "selected_after_paid_recovery"
+    assert selection["selected"] is True
+    assert selection["paid_recovery_required"] is True
+    assert selection["planning_status"] == "identity_resolved_paid_recovery_required"
+    assert selection["identity_resolution_status"] == "resolved"
+    assert selection["document_recovery_status"] == "paid_recovery_required"
     assert [document["source_document_id"] for document in selection["documents"]] == [
         "entry-1-complaint",
         "entry-16-decision",
@@ -334,6 +339,68 @@ def test_public_first_bridge_routes_only_paid_gap_and_retains_free_ids() -> None
     [core_filter] = filter_core_documents((relevance,))
     assert core_filter.purchase_document_ids == ("case-dev-mtd",)
     assert core_filter.exclusion_reasons == ()
+
+
+def test_bridge_summary_distinguishes_three_identity_resolutions_from_recovery() -> (
+    None
+):
+    """Regress the historical three-case shape that was misreported as free."""
+
+    selections = tuple(
+        {
+            "candidate_id": f"candidate-{index}",
+            "identity_resolution_status": "resolved",
+            "document_recovery_status": "paid_recovery_required",
+            "documents": [
+                {
+                    "source_document_id": f"paid-document-{index}",
+                    "availability_status": "unavailable",
+                    "requires_paid_recovery": True,
+                }
+            ],
+        }
+        for index in range(3)
+    )
+    relevance = tuple(
+        {
+            "candidate_id": f"candidate-{index}",
+            "documents": [
+                {
+                    "source_document_id": f"paid-document-{index}",
+                    "availability_status": "unavailable",
+                    "requires_paid_recovery": True,
+                }
+            ],
+        }
+        for index in range(3)
+    )
+    result = CourtListenerCaseDevBridgeResult(
+        selection_records=selections,
+        case_relevance_records=relevance,
+        free_download_requests=(),
+        exclusions=(),
+        screened_case_count=3,
+        public_first_reconciled=True,
+    )
+
+    assert result.summary_record() == {
+        "schema_version": "legalforecast.courtlistener_case_dev_bridge.v2",
+        "screened_case_count": 3,
+        "selected_case_count": 3,
+        "excluded_case_count": 0,
+        "free_download_request_count": 0,
+        "paid_document_count": 3,
+        "paid_recovery_required_document_count": 3,
+        "paid_recovery_required_case_count": 3,
+        "identity_resolved_paid_gap_case_count": 3,
+        "document_bytes_ready_case_count": 0,
+        "identity_policy": (
+            "fully-free CourtListener IDs retained; paid-gap case.dev IDs use "
+            "exact court+docket match with caption corroboration"
+        ),
+        "free_first_required": True,
+        "public_first_reconciled": True,
+    }
 
 
 def test_public_first_bridge_ledgers_exhausted_case_dev_server_failure() -> None:
@@ -599,7 +666,7 @@ def test_public_first_bridge_accepts_numbered_paid_gap_reason() -> None:
 
     assert result.exclusions == ()
     [selection] = result.selection_records
-    assert selection["planning_status"] == "selected_after_paid_recovery"
+    assert selection["planning_status"] == "identity_resolved_paid_recovery_required"
     assert selection["paid_gap_reasons"] == []
     assert selection["resolved_paid_gap_reasons"] == ["no_free_opposition:19"]
     assert selection["identity_resolution"]["matched_by"] == (
