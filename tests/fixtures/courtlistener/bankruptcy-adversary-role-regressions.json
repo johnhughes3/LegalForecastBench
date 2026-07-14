@@ -1,0 +1,79 @@
+{
+  "provenance": {
+    "source_artifact": "/tmp/lfb-bankruptcy-adversary-v3-2026-07-14-013cc3102b89/output/screening/checkpoints/bankruptcy-adversary-proceeding-v3-screened-cases.jsonl",
+    "source_commit": "013cc3102b896dc56c7bc878ed354271b0527bad",
+    "captured_at": "2026-07-14"
+  },
+  "cases": [
+    {
+      "name": "corbin",
+      "docket_id": "69533541",
+      "title": "Corbin v. Hilco Merchant Resources LLC - 25-50003",
+      "court_id": "deb",
+      "docket_number": "25-50003",
+      "case_name": "Corbin v. Hilco Merchant Resources LLC",
+      "entries": [
+        {
+          "entry_number": 70,
+          "filed_at": "May 1, 2025, 5:01 p.m.",
+          "text": "Amended Complaint to Filed by Christopher Corbin, Rich Seronick. Main Document Amended Complaint Download PDF"
+        },
+        {
+          "entry_number": 77,
+          "filed_at": "June 13, 2025, 3:18 p.m.",
+          "text": "Motion to Dismiss Adversary Proceeding Filed by Hilco Merchant Resources LLC (related document(s)70, 71). Main Document Dismiss Adversary Proceeding - Motion Download PDF"
+        },
+        {
+          "entry_number": 78,
+          "filed_at": "June 13, 2025, 3:21 p.m.",
+          "text": "Memorandum of Law in Support of Defendant Hilco Merchant Resources, LLC's Motion to Dismiss Plaintiffs' Amended Complaint (related document(s)70, 71, 77). Main Document Memorandum of Law Download PDF"
+        },
+        {
+          "entry_number": 84,
+          "filed_at": "July 18, 2025, 4:55 p.m.",
+          "text": "Objection to Defendant Hilco Merchant Resources, LLC's Motion to Dismiss Plaintiffs Amended Complaint (related document(s)77). Main Document Objection Download PDF"
+        },
+        {
+          "entry_number": 85,
+          "filed_at": "Aug. 8, 2025, 3:54 p.m.",
+          "text": "Reply in Support of Defendant Hilco Merchant Resources, LLC's Motion to Dismiss Plaintiffs' Amended Complaint (related document(s)70, 71, 77, 78, 84). Main Document Reply Download PDF"
+        },
+        {
+          "entry_number": 115,
+          "filed_at": "July 1, 2026, 3:23 p.m.",
+          "text": "Order Granting In Part and Denying In Part Hilco Merchant Resources, LLC's Motion to Dismiss Christopher Corbin and Rich Seronick's First Amended Class Action Complaint (related document(s)77, 78, 84, 85, 87, 114) Order Signed on 7/1/2026. Main Document Order Download PDF"
+        }
+      ]
+    },
+    {
+      "name": "collins",
+      "docket_id": "70479283",
+      "title": "Collins Asset Group, LLC - Adversary Proceeding - 25-05047",
+      "court_id": "txwb",
+      "docket_number": "25-05047",
+      "case_name": "Collins Asset Group, LLC - Adversary Proceeding",
+      "entries": [
+        {
+          "entry_number": 188,
+          "filed_at": "May 25, 2026, 5:19 p.m.",
+          "text": "Motion to Dismiss Count Nine of the SECOND AMENDED COMPLAINT And Motion To Abstain filed by L. Bradley Hancock for Defendant Metropolitan Partners Group Administration LLC. (related document(s): 102 Receiver's Second Amended Complaint filed by Royal B. Lea III for Plaintiff John Patrick Lowe) Main Document Dismiss Document Buy on PACER"
+        },
+        {
+          "entry_number": 231,
+          "filed_at": "July 7, 2026, 7:06 a.m.",
+          "text": "Order Denying (related document(s): 188 Motion to Dismiss Count Nine of the SECOND AMENDED COMPLAINT And Motion To Abstain filed by L. Bradley Hancock for Defendant Metropolitan Partners Group Administration LLC. (related document(s): 102 Receiver's Second Amended Complaint filed by Royal B. Lea III for Plaintiff John Patrick Lowe)) (Order entered on 7/7/2026) Main Document AP-Regarding Matter (PDF) Buy on PACER"
+        },
+        {
+          "entry_number": 232,
+          "filed_at": "July 7, 2026, 10:43 a.m.",
+          "text": "Amended Complaint (Amending to Add Party) filed by Alicia Bendana for Plaintiff Ron Satija. Main Document Amended Complaint Download PDF"
+        },
+        {
+          "entry_number": 243,
+          "filed_at": "July 9, 2026, 11:28 p.m.",
+          "text": "BNC Certificate of Mailing (Related Document(s): 231 Order Denying (related document(s): 188 Motion to Dismiss Count Nine of the SECOND AMENDED COMPLAINT And Motion To Abstain filed by L. Bradley Hancock for Defendant Metropolitan Partners Group Administration LLC. (related document(s): 102 Receiver's Second Amended Complaint filed by Royal B. Lea III for Plaintiff John Patrick Lowe)) (Order entered on 7/7/2026)) Notice Date 07/09/2026. Main Document BNC Certificate of Mailing Buy on PACER"
+        }
+      ]
+    }
+  ]
+}
