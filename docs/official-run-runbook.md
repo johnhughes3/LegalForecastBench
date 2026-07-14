@@ -222,68 +222,99 @@ A recovery is complete only when every expected matrix cell is present exactly o
 
 ## Cycle 1 Batch-002 CourtListener-First Acquisition
 
-The canonical hierarchy is `batch-002 discover` → `batch-002 observe` → `batch-002 snapshot` → `acquisition prepare-target-100`. CourtListener REST v4 is the primary discovery and reconstruction source and the final authority for unresolved paid gaps. Case.dev is permitted only as an optional free equivalent upstream or bulk source; Firecrawl is a compatibility fallback only when a required search is unavailable through a supported CourtListener API. Run the batch commands against the official acquisition store, never a batch-001 store, and do not skip directly from mutable observations to preparation.
+The supported hierarchy is `acquisition discover-firecrawl-recap-decisions` → `acquisition enrich-recap-case-dev` → `acquisition acquire-ranked-firecrawl-dockets` → `acquisition screen-firecrawl-dockets` → `acquisition prepare-target-100`. CourtListener remains the source for decision results, public docket pages, free RECAP documents, authoritative paid-gap metadata, and every RECAP Fetch purchase. Firecrawl is used only for the demonstrated CourtListener search and docket-HTML surface gap; it does not become a legal-data or purchase authority. Case.dev is used only for equivalent free lookup and prioritization; no Case.dev live PACER fetch or purchase is permitted. Run every stage against the official acquisition store, never a batch-001 store, and do not pass mutable checkpoints directly to preparation.
 
-### Token Prerequisite
+### Credential Prerequisites
 
-Reconstruction reads the token-required `dockets`/`docket-entries` endpoints, so `observe` and any live reconstruction require an API token:
+The search and docket-HTML stages require Firecrawl, the optional-equivalent enrichment stage requires Case.dev, and the later CourtListener REST paid-gap bridge requires the CourtListener token:
 
 ```bash
-export COURTLISTENER_API_TOKEN=…   # Authorization: Token <token>
+export FIRECRAWL_API_KEY=…
+export CASE_DEV_API_KEY=…
+export COURTLISTENER_API_TOKEN=…
 ```
 
-The `discover` search index answers anonymously (it is paced at ~3s/request without a token, 0s with one), but `observe` fails closed before any network call when the token is absent. The moment the token is set, the three commands below are runnable end to end.
+Each command fails closed when its stage-specific key is absent. Firecrawl consumes only the preauthorized cycle credit allowance. Case.dev enrichment is free lookup only. None of Steps 1–5 acknowledges PACER fees or purchases a document.
 
-### Step 1: Discover
+### Step 1: Search CourtListener Decisions Through Firecrawl
 
-Attach batch-002 and materialize each frozen decision-first term before attempting any observation:
+CourtListener does not expose the required decision-first `type=r` search through the supported API route. Materialize the frozen CourtListener search pages through Firecrawl, with the eligibility anchor separate from the bounded search window:
 
 ```bash
-uv run legalforecast batch-002 discover \
+uv run legalforecast acquisition discover-firecrawl-recap-decisions \
+  --output-root artifacts/cycle-1/official-acquisition/decision-search \
   --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
-  --live
+  --batch-id batch-002-decision-search \
+  --run-id batch-002-decision-search-primary \
+  --eligibility-anchor 2026-06-30 \
+  --search-window-start 2026-06-30 \
+  --search-window-end 2026-07-14 \
+  --credit-cap 45000 \
+  --live-firecrawl \
+  --dockets-output artifacts/cycle-1/official-acquisition/decision-search/decision-dockets.jsonl \
+  --execute --resume
 ```
 
-### First-Run Observation Smoke Step (required)
+The command completes every frozen query term and page before publishing the potential-docket file. A partial checkpoint is not a saturated discovery result and must not proceed downstream.
 
-After discovery has attached the batch and materialized candidates, validate the live foreign-key and ordering assumptions with a **single** reconstruction before observing the full backlog:
+### Step 2: Enrich And Rank With Free Case.dev Lookup
+
+Use Case.dev only for noncharging docket lookup and `includeEntries` enrichment. This stage ranks which CourtListener dockets to acquire first; it never sends `live: true`, acknowledges PACER fees, or supplies purchase authority:
 
 ```bash
-uv run legalforecast batch-002 observe \
-  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
-  --live --limit 1
+uv run legalforecast acquisition enrich-recap-case-dev \
+  --output-root artifacts/cycle-1/official-acquisition/case-dev-enrichment \
+  --dockets artifacts/cycle-1/official-acquisition/decision-search/decision-dockets.jsonl \
+  --workers 2 \
+  --live-case-dev \
+  --ranked-output artifacts/cycle-1/official-acquisition/case-dev-enrichment/ranked-dockets.jsonl \
+  --failures-output artifacts/cycle-1/official-acquisition/case-dev-enrichment/enrichment-failures.jsonl \
+  --execute --resume
 ```
 
-If that one reconstruction succeeds (the tally shows `observed: 1`), the docket foreign-key shape and entry ordering are sound and the full sweep is safe. If it fails closed, stop and inspect before spending the backlog.
+Pagination exhaustion must be proven for each successful docket. Provider failures and unproven pagination remain ledgered failures rather than cheap candidates.
 
-### Step 2: Seed Optional Leads, Then Observe
+### Step 3: Acquire And Screen Complete CourtListener Dockets
+
+Fetch the ranked public CourtListener docket pages through Firecrawl, including every docket page needed to prove pagination completeness. The ten workers parallelize Firecrawl requests; SQLite authorization and artifact commits remain serialized:
 
 ```bash
-# 2. (Optional) Seed batch-001 Case.dev enrichment failures as re-observation leads.
-uv run legalforecast batch-002 seed-batch-001-leads \
-  --source-store artifacts/cycle-1/batch-001-zero-paid/cycle-acquisition.sqlite3 \
-  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3
-
-# Observe: reconstruct + strict-screen every unresolved candidate.
-uv run legalforecast batch-002 observe \
+uv run legalforecast acquisition acquire-ranked-firecrawl-dockets \
+  --output-root artifacts/cycle-1/official-acquisition/docket-acquisition \
   --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
-  --live
+  --parent-batch-id batch-002-decision-search \
+  --selected-batch-id batch-002-ranked-dockets \
+  --run-id batch-002-ranked-dockets-primary \
+  --ranked artifacts/cycle-1/official-acquisition/case-dev-enrichment/ranked-dockets.jsonl \
+  --max-candidates 3000 \
+  --max-pages-per-docket 100 \
+  --workers 10 \
+  --decision-filed-on-or-after 2026-06-30 \
+  --credit-cap 45000 \
+  --live-firecrawl \
+  --raw-html-dir artifacts/cycle-1/official-acquisition/docket-acquisition/raw-docket-html \
+  --successes-output artifacts/cycle-1/official-acquisition/docket-acquisition/docket-successes.jsonl \
+  --exclusions-output artifacts/cycle-1/official-acquisition/docket-acquisition/docket-fetch-exclusions.jsonl \
+  --execute --resume
 ```
 
-`discover` and `observe` are both resumable: re-running `discover` continues from durable per-term cursors, and re-running `observe` skips candidates that already carry a current observation (candidates whose only prior result was a transient failure are retried). `seed-batch-001-leads` is idempotent — a second run finds the re-observation term already terminal and seeds nothing new.
-
-### Step 3: Freeze The Complete Saturated Snapshot
-
-Do not choose or rank the cheapest cases from a partial candidate set. After observation is complete, require the discovery summary to report `complete: true` and `saturated: true`, then freeze the full viable screened cohort:
+Strict-screen the committed CourtListener docket bytes and publish the immutable complete snapshot:
 
 ```bash
-uv run legalforecast batch-002 snapshot \
+uv run legalforecast acquisition screen-firecrawl-dockets \
+  --output-root artifacts/cycle-1/official-acquisition/docket-screening \
   --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
-  --snapshot-id <immutable-snapshot-id> \
-  --output-root artifacts/cycle-1/official-acquisition/snapshots
+  --batch-id batch-002-ranked-dockets \
+  --successes artifacts/cycle-1/official-acquisition/docket-acquisition/docket-successes.jsonl \
+  --fetch-exclusions artifacts/cycle-1/official-acquisition/docket-acquisition/docket-fetch-exclusions.jsonl \
+  --raw-html-dir artifacts/cycle-1/official-acquisition/docket-acquisition/raw-docket-html \
+  --decision-filed-on-or-after 2026-06-30 \
+  --snapshot-root artifacts/cycle-1/official-acquisition/snapshots \
+  --snapshot-id batch-002-ranked-dockets-complete \
+  --execute --resume
 ```
 
-Record the snapshot manifest's exact `cycle_hash`. `prepare-target-100` rejects a partial, unsaturated, changed, or wrong-cycle snapshot and carries every viable snapshot row through authoritative public-document and paid-gap resolution. Its budget is provisional until disclosure clearance removes unsafe documents and `project-target-cohort` recomputes the frontier.
+Do not rank or prepare from partial outputs. Require the screening summary and snapshot manifest to report complete reconciliation, `complete: true`, and `saturated: true`, then record the manifest's exact `cycle_hash`. `prepare-target-100` rejects a partial, changed, or wrong-cycle snapshot and carries every viable row through authoritative CourtListener public-document and paid-gap resolution.
 
 ### Step 4: Prepare The Resolved Pool And Provisional Budget
 
@@ -292,15 +323,19 @@ Run the public-first preparation chain from that immutable snapshot. This comman
 ```bash
 uv run legalforecast acquisition prepare-target-100 \
   --output-root artifacts/cycle-1/official-acquisition/target-100 \
-  --snapshot artifacts/cycle-1/official-acquisition/snapshots/<immutable-snapshot-id> \
+  --snapshot artifacts/cycle-1/official-acquisition/snapshots/batch-002-ranked-dockets-complete \
   --expected-cycle-hash <snapshot-cycle-hash> \
+  --use-embedded-entries \
   --live-public-download \
   --live-courtlistener \
   --request-ledger artifacts/cycle-1/official-acquisition/courtlistener-requests.sqlite3 \
+  --cost-per-document-usd 3.05 \
+  --max-projected-budget-usd 567.30 \
+  --max-missing-core-documents-per-case 24 \
   --execute --resume
 ```
 
-The successful preparation summary commits the snapshot, immutable semantic configuration, stage inputs and outputs, provisional selected candidate IDs, and cost frontier. The `06-clearance-inputs/` directory contains one restriction-evidence row and one disclosure-review request for every downloaded free document. The summary deliberately names `clear-disclosures`, not purchase, as the next stage.
+The successful preparation summary commits the snapshot, immutable semantic configuration, stage inputs and outputs, provisional selected candidate IDs, and cost frontier. Cycle 1 freezes the target-100 provisional cap at `$567.30`; every later projection must repeat that exact value rather than falling back to the CLI default. The `06-clearance-inputs/` directory contains one restriction-evidence row and one disclosure-review request for every downloaded free document. The summary deliberately names `clear-disclosures`, not purchase, as the next stage.
 
 ### Step 5: Clear Every Free Document And Freeze The Exact Cohort
 
@@ -330,8 +365,11 @@ uv run legalforecast acquisition project-target-cohort \
   --restriction-evidence artifacts/cycle-1/official-acquisition/target-100/06-clearance-inputs/restriction-evidence.jsonl \
   --preparation-summary artifacts/cycle-1/official-acquisition/target-100/target-100-preparation-summary.json \
   --preparation-config artifacts/cycle-1/official-acquisition/target-100/target-100-config.json \
-  --snapshot-manifest artifacts/cycle-1/official-acquisition/snapshots/<immutable-snapshot-id>/manifest.json \
+  --snapshot-manifest artifacts/cycle-1/official-acquisition/snapshots/batch-002-ranked-dockets-complete/manifest.json \
   --target-case-count 100 \
+  --cost-per-document-usd 3.05 \
+  --max-projected-budget-usd 567.30 \
+  --max-missing-core-documents-per-case 24 \
   --execute --resume
 ```
 
@@ -372,7 +410,7 @@ Never substitute a Case.dev live purchase, a Case.dev fee-bearing docket refresh
 
 ### Expected Volumes
 
-The June 30 – July 12 decision-window backlog is roughly ~830 dockets. `seed-batch-001-leads` additionally carries the batch-001 candidates that never reached a terminal observation (the ~608 Case.dev enrichment failures, identified as `current_observation_id IS NULL` in the batch-001 store) into batch-002 for re-observation through the API route.
+Do not use an estimated docket count as completion evidence. The decision-search summary must prove every frozen term and page terminal; the docket-acquisition summary must reconcile every ranked candidate; and the screening snapshot must be complete and saturated. Record the actual discovered, enriched, fetched, screened, excluded, and Firecrawl-credit counts from those artifacts.
 
 ### Reading The Tallies
 
