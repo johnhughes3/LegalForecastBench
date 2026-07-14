@@ -113,7 +113,7 @@ def _complaint_entry_kind(
     filing_match = re.search(
         r"\b(?:(?P<amended>(?:(?:first|second|third)\s+)?amended)\s+)?"
         r"(?:pro\s+se\s+)?(?:transferred\s*)?complaint\s*"
-        r"(?:against|filed|by|with)\b",
+        r"(?:against|filed|by|with|to\s+filed)\b",
         text,
     )
     if filing_match is not None:
@@ -126,6 +126,8 @@ def _complaint_entry_kind(
         )
     if re.search(r"\bcivil case - complaint, amended\s+filed\b", text):
         return OperativeComplaintKind.AMENDED_COMPLAINT
+    if re.fullmatch(r"(?:\d+\s+)?(?:adversary\s+)?complaint\s*\(fee\)", text):
+        return OperativeComplaintKind.COMPLAINT
     described_main = tuple(
         kind
         for document in entry.documents
@@ -154,6 +156,8 @@ def _complaint_document_kind(description: str) -> OperativeComplaintKind | None:
         return OperativeComplaintKind.AMENDED_COMPLAINT
     if re.fullmatch(
         r"(?:civil case - )?complaint"
+        r"|(?:adversary\s+)?complaint\s*\(fee\)"
+        r"|adversary complaint"
         r"|pro se complaint"
         r"|complaint - pro se"
         r"|complaint \(removal/transfer\) - court use only",

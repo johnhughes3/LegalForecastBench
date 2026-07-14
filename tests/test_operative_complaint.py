@@ -38,6 +38,12 @@ from legalforecast.ingestion.operative_complaint import (
             "Civil Case - Complaint, Amended",
             "amended_complaint",
         ),
+        (
+            "1 Adversary COMPLAINT filed by Trustee.",
+            "Adversary Complaint",
+            "complaint",
+        ),
+        ("1 Complaint (fee)", "Complaint (fee)", "complaint"),
     ),
 )
 def test_select_operative_complaint_entry_accepts_strict_pleading_variants(

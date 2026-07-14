@@ -425,6 +425,8 @@ def screen_courtlistener_entry_for_mtd_decision(
     exclusion_reasons: list[str] = []
     if not _references_mtd_or_pleadings_motion(text):
         exclusion_reasons.append("no_mtd_or_rule_12_reference")
+    if _looks_like_service_or_mailing_entry(entry):
+        exclusion_reasons.append("procedural_or_standing_order")
     if _looks_like_notice_of_removal_or_state_record(text):
         exclusion_reasons.append("notice_of_removal_or_state_record")
     if _looks_like_proposed_order_attachment(text):
@@ -461,6 +463,27 @@ def screen_courtlistener_entry_for_mtd_decision(
         actual_mtd_decision=actual,
         exclusion_reasons=decision_reasons,
     )
+
+
+def _looks_like_service_or_mailing_entry(
+    entry: CourtListenerWebDocketEntry,
+) -> bool:
+    """Reject service artifacts that merely quote a linked court order."""
+
+    narrative = _entry_narrative_before_documents(entry)
+    certificate = re.search(
+        r"\b(?:bnc\s+)?certificate\s+of\s+(?:mailing|service)\b",
+        narrative,
+        re.IGNORECASE,
+    )
+    if certificate is None:
+        return False
+    court_output = re.search(
+        r"\b(?:order|opinion|decision|report\s+and\s+recommendation|judgment)\b",
+        narrative,
+        re.IGNORECASE,
+    )
+    return court_output is None or certificate.start() < court_output.start()
 
 
 def is_rule_7012_claim_merits_motion(text: str) -> bool:

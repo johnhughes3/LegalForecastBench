@@ -37,6 +37,9 @@ from legalforecast.ingestion.mtd_acquisition_screen import (
     screen_case_dev_docket_metadata,
     screen_courtlistener_docket_for_mtd_decision,
 )
+from legalforecast.ingestion.operative_complaint import (
+    select_operative_complaint_entry,
+)
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.selection.contamination_filters import (
     LeakageSource,
@@ -482,6 +485,33 @@ def screen_courtlistener_docket_html(
             decision_date=first_decision_date,
             notes="Linked MTD or disposition entries lack numeric docket numbers.",
         )
+    if anchored.case_type_stratum == "bankruptcy_adversary":
+        first_target_motion = min(int(number) for number in motion_numbers)
+        if (
+            select_operative_complaint_entry(
+                parsed.entries,
+                before_entry=first_target_motion,
+            )
+            is None
+        ):
+            target_row_ids = tuple(
+                row_id
+                for row_id, entry_number in entry_number_by_id.items()
+                if entry_number in motion_numbers
+            )
+            return None, _exclusion(
+                docket_id=docket_id,
+                case_id=case_id,
+                docket=docket,
+                stage=ExclusionStage.MOTION_LINKAGE,
+                reason="bankruptcy_adversary_initiating_pleading_unproven",
+                source_entry_ids=target_row_ids,
+                decision_date=first_decision_date,
+                notes=(
+                    "No affirmative operative complaint entry precedes the "
+                    "linked adversary motion in the available docket history."
+                ),
+            )
 
     leakage = detect_outcome_leakage(
         _predecision_docket_leakage_sources(
@@ -733,6 +763,13 @@ def _linkage_entries(
         elif (
             entry_number is not None
             and entry_number in explicitly_referenced_numbers
+            and entry.role
+            not in {
+                CourtListenerEntryRole.OPPOSITION,
+                CourtListenerEntryRole.REPLY,
+                CourtListenerEntryRole.EXHIBIT,
+            }
+            and not _looks_like_mtd_briefing_response(entry.text)
             and (
                 _looks_like_target_mtd_filing(entry.text)
                 or _looks_like_generic_mtd_document(entry.text)
@@ -766,6 +803,8 @@ def _linkage_entries(
 def _looks_like_target_mtd_filing(text: str) -> bool:
     if starts_with_dispositive_motion(text):
         return True
+    if _looks_like_mtd_briefing_response(text):
+        return False
     if re.search(
         r"\b(?:report and recommendation|r&r|tentative ruling|minute order|"
         r"oral ruling|hearing transcript|opinion|order)\b",
@@ -785,6 +824,22 @@ def _looks_like_target_mtd_filing(text: str) -> bool:
         or re.search(r"\bjudgment\s+on\s+the\s+pleadings\b", text, re.IGNORECASE)
         or re.search(r"\brule\s+12\b", text, re.IGNORECASE)
     )
+
+
+def _looks_like_mtd_briefing_response(text: str) -> bool:
+    briefing = re.search(
+        r"\b(?:reply|opposition|objection|response|surreply)\b",
+        text,
+        re.IGNORECASE,
+    )
+    if briefing is None:
+        return False
+    substantive_filing = re.search(
+        r"\b(?:motion|order|opinion|decision|report|memorandum|judgment)\b",
+        text,
+        re.IGNORECASE,
+    )
+    return substantive_filing is None or briefing.start() < substantive_filing.start()
 
 
 def _looks_like_generic_mtd_document(text: str) -> bool:
