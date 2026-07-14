@@ -1813,6 +1813,67 @@ def test_screen_resume_rejects_output_root_inside_snapshot_before_creation(
     assert not unsafe_root.exists()
 
 
+def test_screen_resume_rejects_output_root_inside_snapshot_with_redirected_outputs(
+    tmp_path: Path,
+    cycle_state: _CycleState,
+) -> None:
+    raw_html_dir = tmp_path / "html"
+    raw_html_dir.mkdir()
+    raw_html = _docket_html(decision_dates=("June 30, 2026",))
+    (raw_html_dir / "123.html").write_text(raw_html, encoding="utf-8")
+    successes = tmp_path / "successes.jsonl"
+    _write_jsonl(successes, [_success_record(raw_html)])
+    base_command = [
+        "acquisition",
+        "screen-firecrawl-dockets",
+        *cycle_state.cli_args,
+        "--successes",
+        str(successes),
+        "--raw-html-dir",
+        str(raw_html_dir),
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--execute",
+    ]
+    assert main([*base_command, "--output-root", str(tmp_path / "first")]) == 0
+    snapshot_before = {
+        path.relative_to(cycle_state.snapshot): path.read_bytes()
+        for path in cycle_state.snapshot.rglob("*")
+        if path.is_file()
+    }
+    unsafe_root = cycle_state.snapshot / "redirected-output-root"
+    redirected_root = tmp_path / "redirected"
+
+    assert (
+        main(
+            [
+                *base_command,
+                "--output-root",
+                str(unsafe_root),
+                "--screened-cases-output",
+                str(redirected_root / "screened.jsonl"),
+                "--exclusions-output",
+                str(redirected_root / "exclusions.jsonl"),
+                "--summary-output",
+                str(redirected_root / "summary.json"),
+                "--run-card-output",
+                str(redirected_root / "run-card.json"),
+                "--log-output",
+                str(redirected_root / "log.jsonl"),
+            ]
+        )
+        == 2
+    )
+
+    assert not unsafe_root.exists()
+    assert not redirected_root.exists()
+    assert {
+        path.relative_to(cycle_state.snapshot): path.read_bytes()
+        for path in cycle_state.snapshot.rglob("*")
+        if path.is_file()
+    } == snapshot_before
+
+
 def test_screen_resume_uses_snapshot_level_commitment_when_observation_is_immutable(
     tmp_path: Path,
     cycle_state: _CycleState,

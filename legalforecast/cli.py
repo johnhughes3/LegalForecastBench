@@ -6888,8 +6888,6 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
             fetch_exclusion_records=fetch_exclusion_records,
         )
         with CycleAcquisitionStore(cycle_store_path) as store:
-            batch_digest = store.batch_digest(batch_id)
-            cycle_hash = store.cycle_hash
             _validate_frozen_screening_policy(
                 policy=store.cycle_policy,
                 anchor=anchor,
@@ -10063,6 +10061,7 @@ def _validate_screen_resume_output_paths(
 ) -> None:
     snapshot_root = snapshot_path.resolve()
     writable_paths = {
+        "--output-root": output_root,
         "--screened-cases-output": screened_cases_path,
         "--exclusions-output": exclusions_path,
         "--summary-output": summary_path,

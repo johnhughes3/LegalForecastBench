@@ -8,7 +8,6 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-import legalforecast.ingestion.snapshot_quarantine as snapshot_quarantine_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.cycle_acquisition_store import (
@@ -97,7 +96,9 @@ def test_quarantine_requires_manual_reconciliation_after_rename_crash(
         hash_called = True
         raise AssertionError(f"manual reconciliation must precede hashing {path}")
 
-    monkeypatch.setattr(snapshot_quarantine_module, "_sha256_file", forbidden_hash)
+    monkeypatch.setitem(
+        quarantine_orphan_snapshot.__globals__, "_sha256_file", forbidden_hash
+    )
 
     with pytest.raises(SnapshotQuarantineError, match="manual reconciliation"):
         _quarantine(fixture, execute=True)
