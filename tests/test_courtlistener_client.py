@@ -124,7 +124,7 @@ def test_courtlistener_blank_description_falls_back_to_entry_text_alias() -> Non
     assert entry.entry_text == "ORDER granting motion to dismiss"
 
 
-def test_courtlistener_missing_docket_entry_description_normalizes_to_blank() -> None:
+def test_courtlistener_missing_all_docket_entry_text_fields_fails_closed() -> None:
     client = CourtListenerClient(
         config=CourtListenerConfig(),
         transport=CourtListenerFixtureTransport(
@@ -138,9 +138,11 @@ def test_courtlistener_missing_docket_entry_description_normalizes_to_blank() ->
         ),
     )
 
-    page = client.list_docket_entries("123")
-
-    assert page.items[0].entry_text == ""
+    with pytest.raises(
+        CourtListenerResponseError,
+        match="one of description, entry_text, docket_text, or text is required",
+    ):
+        client.list_docket_entries("123")
 
 
 @pytest.mark.parametrize(

@@ -466,6 +466,7 @@ def test_reconstruct_retains_blank_description_entry_without_hiding_decision() -
                         "id": 7001,
                         "docket": 555,
                         "entry_number": 39,
+                        "description": "",
                         "date_filed": "2026-07-04",
                     },
                     {
