@@ -365,6 +365,11 @@ from legalforecast.ingestion.target_100_acquisition import (
     Target100PreparationError,
     build_target_100_stage_commands,
 )
+from legalforecast.ingestion.target_cohort_projection import (
+    TargetCohortProjectionError,
+    project_target_cohort,
+    restriction_evidence_from_case_relevance,
+)
 from legalforecast.labeling.cycle_label_audit import (
     CycleLabelAuditError,
     evaluate_cycle_label_audit,
@@ -987,20 +992,33 @@ def build_parser() -> argparse.ArgumentParser:
     acquisition_prepare_target_100 = acquisition_subparsers.add_parser(
         "prepare-target-100",
         help=(
-            "Prepare the exact cheapest 100-case frontier through noncharging "
-            "public acquisition and budget planning."
+            "Prepare the full resolved pool and a provisional pre-clearance "
+            "100-case budget."
         ),
         description=(
             "Starting from the complete saturated screened snapshot produced by "
             "batch-002 discover, observe, and snapshot, run the resumable public-"
-            "first acquisition chain and emit the exact cheapest 100-case budget "
-            "plan. CourtListener REST is the canonical paid-gap authority. Case.dev "
-            "may be used upstream only where its free API is equivalent, and "
-            "Firecrawl remains a compatibility fallback. This command performs no "
-            "discovery and never purchases documents."
+            "first acquisition chain, resolve every paid gap through CourtListener "
+            "REST, and emit disclosure-review inputs plus a provisional 100-case "
+            "budget. The exact downstream cohort is frozen only by "
+            "project-target-cohort after authenticated clearance. Case.dev may be "
+            "used upstream only where its free API is equivalent, and Firecrawl "
+            "remains a compatibility fallback. This command performs no discovery "
+            "and never purchases documents."
         ),
     )
     _add_acquisition_prepare_target_100_arguments(acquisition_prepare_target_100)
+    acquisition_project_target_cohort = acquisition_subparsers.add_parser(
+        "project-target-cohort",
+        help=("Freeze an exact post-clearance cheapest cohort for downstream stages."),
+        description=(
+            "Consume the full CourtListener-resolved pool plus authenticated "
+            "disclosure clearance, remove quarantined cases, recompute the "
+            "cheapest complete frontier, and emit exact hash-bound downstream "
+            "artifacts. This command never calls a provider or purchases documents."
+        ),
+    )
+    _add_acquisition_project_target_cohort_arguments(acquisition_project_target_cohort)
     acquisition_public_downloads = acquisition_subparsers.add_parser(
         "plan-public-downloads",
         help="Plan free public CourtListener/RECAP packet-document downloads.",
@@ -1497,6 +1515,53 @@ def _add_acquisition_prepare_target_100_arguments(
     parser.add_argument("--request-budget-max-wait-seconds", type=float, default=120.0)
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_prepare_target_100)
+
+
+def _add_acquisition_project_target_cohort_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--selection",
+        type=Path,
+        required=True,
+        help="Full CourtListener-resolved public-packet selection JSONL.",
+    )
+    parser.add_argument(
+        "--case-relevance",
+        type=Path,
+        required=True,
+        help="Full resolved-pool case relevance JSONL.",
+    )
+    parser.add_argument(
+        "--download-manifest",
+        type=Path,
+        required=True,
+        help="Acquired-document manifest whose bytes passed disclosure review.",
+    )
+    parser.add_argument(
+        "--disclosure-clearance",
+        type=Path,
+        required=True,
+        help="Authenticated hash-bound clearance rows for every manifest document.",
+    )
+    parser.add_argument(
+        "--preparation-summary",
+        type=Path,
+        required=True,
+        help="Completed noncharging prepare-target-100 summary for the full pool.",
+    )
+    parser.add_argument(
+        "--snapshot-manifest",
+        type=Path,
+        required=True,
+        help="Immutable screened snapshot manifest committed by preparation.",
+    )
+    parser.add_argument("--target-case-count", type=int, default=100)
+    parser.add_argument("--cost-per-document-usd", default="3.05")
+    parser.add_argument("--max-projected-budget-usd", default="2250.00")
+    parser.add_argument("--max-missing-core-documents-per-case", type=int, default=24)
+    parser.set_defaults(handler=_cmd_acquisition_project_target_cohort)
 
 
 def _add_acquisition_filter_core_documents_arguments(
@@ -4497,7 +4562,7 @@ def _cmd_acquisition_plan(args: argparse.Namespace) -> int:
 
 
 def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
-    """Run the noncharging public-first chain and emit an exact 100-case plan."""
+    """Run the noncharging public-first chain and emit clearance inputs."""
 
     output_root = cast(Path, args.output_root)
     summary_path = _acquisition_path(
@@ -4681,6 +4746,22 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
             )
             raise CommandError(reason)
 
+    try:
+        _prepare_target_100_clearance_inputs(
+            output_root,
+            resume=cast(bool, args.resume),
+        )
+    except (CommandError, TargetCohortProjectionError) as exc:
+        _write_target_100_attempt_failure(
+            args,
+            reason=str(exc),
+            extra={"config_sha256": config_record["config_sha256"]},
+            protected_paths=_target_100_protected_paths(args),
+        )
+        if isinstance(exc, CommandError):
+            raise
+        raise CommandError(str(exc)) from exc
+
     budget_plan_path = output_root / "05-budget" / "missing-core-budget-plan.json"
     budget_plan = _missing_core_budget_plan(_read_json_object(budget_plan_path))
     if budget_plan.dry_run:
@@ -4727,11 +4808,12 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
             "stage_commands": command_records,
             "paid_activity_requested": False,
             "paid_activity_executed": False,
-            "next_stage": "purchase-missing-recap-fetch",
+            "budget_status": "provisional_pre_clearance",
+            "next_stage": "clear-disclosures",
             "next_stage_blocked_until": (
-                "dedicated CourtListener RECAP Fetch broker deployment, signed "
-                "adapter proof, frozen purchase/cohort policies, and explicit fee "
-                "acknowledgment"
+                "authenticated human review receipts exist for every free "
+                "document; then project-target-cohort must recompute the exact "
+                "post-clearance frontier before any purchase"
             ),
         },
     )
@@ -4753,6 +4835,318 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
         },
     )
     return 0
+
+
+def _prepare_target_100_clearance_inputs(
+    output_root: Path,
+    *,
+    resume: bool,
+) -> None:
+    relevance = _read_records(output_root / "03-gap-bridge/case-relevance.jsonl")
+    manifest = _read_records(
+        output_root / "03c-merged-downloads/document-downloads-merged.jsonl"
+    )
+    restrictions = restriction_evidence_from_case_relevance(relevance)
+    restriction_index = {
+        (
+            cast(str, row["candidate_id"]),
+            cast(str, row["source_document_id"]),
+        ): row
+        for row in restrictions
+    }
+    manifest_keys = {
+        (
+            cast(str, row.get("candidate_id")),
+            cast(str, row.get("source_document_id")),
+        )
+        for row in manifest
+    }
+    if any(
+        not candidate_id or not document_id
+        for candidate_id, document_id in manifest_keys
+    ):
+        raise CommandError("free document manifest contains an invalid document key")
+    missing = sorted(manifest_keys - set(restriction_index))
+    if missing:
+        raise CommandError(
+            "free document lacks case-relevance restriction evidence: "
+            + ", ".join(f"{candidate}/{document}" for candidate, document in missing)
+        )
+    exact_restrictions = tuple(restriction_index[key] for key in sorted(manifest_keys))
+    manifest_index = {
+        (cast(str, row["candidate_id"]), cast(str, row["source_document_id"])): row
+        for row in manifest
+    }
+    review_requests = tuple(
+        {
+            "schema_version": "legalforecast.disclosure_review_request.v1",
+            "candidate_id": candidate_id,
+            "source_document_id": document_id,
+            "sha256": manifest_index[(candidate_id, document_id)].get("sha256"),
+            "byte_count": manifest_index[(candidate_id, document_id)].get("byte_count"),
+            "free_or_purchased": manifest_index[(candidate_id, document_id)].get(
+                "free_or_purchased"
+            ),
+            "restriction_status": restriction_index[(candidate_id, document_id)][
+                "restriction_status"
+            ],
+            "restriction_evidence": restriction_index[(candidate_id, document_id)][
+                "restriction_evidence"
+            ],
+            "required_human_decision": "cleared_or_quarantined",
+        }
+        for candidate_id, document_id in sorted(manifest_keys)
+    )
+    clearance_root = output_root / "06-clearance-inputs"
+    _ensure_projection_artifact(
+        clearance_root / "restriction-evidence.jsonl",
+        _projection_jsonl_bytes(exact_restrictions),
+        resume=resume,
+    )
+    _ensure_projection_artifact(
+        clearance_root / "disclosure-review-requests.jsonl",
+        _projection_jsonl_bytes(review_requests),
+        resume=resume,
+    )
+
+
+def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
+    """Freeze exact post-clearance artifacts from the resolved candidate pool."""
+
+    output_root = _acquisition_output_root(args)
+    input_paths = (
+        cast(Path, args.selection),
+        cast(Path, args.case_relevance),
+        cast(Path, args.download_manifest),
+        cast(Path, args.disclosure_clearance),
+        cast(Path, args.preparation_summary),
+        cast(Path, args.snapshot_manifest),
+    )
+    _validate_projection_output_scope(output_root, input_paths=input_paths)
+    preparation_summary = _read_json_object(cast(Path, args.preparation_summary))
+    snapshot_manifest = _read_json_object(cast(Path, args.snapshot_manifest))
+    _validate_projection_source_commitments(
+        preparation_summary=preparation_summary,
+        snapshot_manifest=snapshot_manifest,
+        snapshot_manifest_path=cast(Path, args.snapshot_manifest),
+    )
+    try:
+        projection = project_target_cohort(
+            selections=_read_records(cast(Path, args.selection)),
+            case_relevance=_read_records(cast(Path, args.case_relevance)),
+            download_manifest=_read_records(cast(Path, args.download_manifest)),
+            clearance_records=_read_records(cast(Path, args.disclosure_clearance)),
+            target_case_count=cast(int, args.target_case_count),
+            cost_per_document_usd=cast(str, args.cost_per_document_usd),
+            max_projected_budget_usd=cast(str, args.max_projected_budget_usd),
+            max_missing_core_documents_per_case=cast(
+                int,
+                args.max_missing_core_documents_per_case,
+            ),
+        )
+    except TargetCohortProjectionError as exc:
+        raise CommandError(str(exc)) from exc
+
+    manifest_records = projection.download_manifest
+    free_manifest = tuple(
+        record
+        for record in manifest_records
+        if record.get("free_or_purchased") == "free"
+    )
+    purchased_manifest = tuple(
+        record
+        for record in manifest_records
+        if record.get("free_or_purchased") == "purchased"
+    )
+    if len(free_manifest) + len(purchased_manifest) != len(manifest_records):
+        raise CommandError(
+            "projected manifest contains an invalid free_or_purchased value"
+        )
+
+    output_records: dict[Path, bytes] = {
+        output_root / "target-cohort-selection.jsonl": _projection_jsonl_bytes(
+            projection.selections
+        ),
+        output_root / "case-relevance.jsonl": _projection_jsonl_bytes(
+            projection.case_relevance
+        ),
+        output_root / "free-document-downloads.jsonl": _projection_jsonl_bytes(
+            free_manifest
+        ),
+        output_root / "purchased-document-downloads.jsonl": (
+            _projection_jsonl_bytes(purchased_manifest)
+        ),
+        output_root / "document-downloads-merged.jsonl": _projection_jsonl_bytes(
+            manifest_records
+        ),
+        output_root / "disclosure-clearance.jsonl": _projection_jsonl_bytes(
+            projection.clearance_records
+        ),
+        output_root / "restriction-evidence.jsonl": _projection_jsonl_bytes(
+            projection.restriction_evidence
+        ),
+        output_root / "core-filter-results.jsonl": _projection_jsonl_bytes(
+            tuple(row.to_record() for row in projection.core_filter_results)
+        ),
+        output_root / "target-cohort-exclusions.jsonl": _projection_jsonl_bytes(
+            projection.exclusions
+        ),
+        output_root / "missing-core-budget-plan.json": _projection_json_bytes(
+            projection.budget_plan.to_record()
+        ),
+    }
+    summary = dict(projection.summary)
+    summary.update(
+        {
+            "snapshot_cycle_hash": snapshot_manifest["cycle_hash"],
+            "snapshot_batch_digest": snapshot_manifest["batch_digest"],
+            "preparation_summary_sha256": _path_sha256(
+                cast(Path, args.preparation_summary)
+            ),
+            "snapshot_manifest_sha256": _path_sha256(
+                cast(Path, args.snapshot_manifest)
+            ),
+            "input_commitments": {
+                str(path.resolve()): _path_sha256(path) for path in input_paths
+            },
+            "output_commitments": {
+                str(path.relative_to(output_root)): "sha256:"
+                + hashlib.sha256(payload).hexdigest()
+                for path, payload in sorted(
+                    output_records.items(),
+                    key=lambda item: str(item[0]),
+                )
+            },
+            "next_stage": "generate-recap-fetch-broker-policy",
+            "next_stage_blocked_until": (
+                "explicit human approval of this post-clearance budget and the "
+                "bounded signed RECAP Fetch broker deployment"
+            ),
+        }
+    )
+    summary_path = output_root / "target-cohort-projection.json"
+    output_records[summary_path] = _projection_json_bytes(summary)
+
+    dry_run = _acquisition_dry_run(args)
+    if not dry_run:
+        for path, payload in output_records.items():
+            _ensure_projection_artifact(
+                path,
+                payload,
+                resume=cast(bool, args.resume),
+            )
+    _write_acquisition_completion(
+        args,
+        stage="project-target-cohort",
+        input_paths=input_paths,
+        output_paths=tuple(output_records),
+        record_count=len(projection.selected_candidate_ids),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "selected_case_count": len(projection.selected_candidate_ids),
+            "excluded_case_count": len(projection.exclusions),
+            "projection_sha256": projection.summary["projection_sha256"],
+            "total_estimated_cost_usd": (
+                projection.budget_plan.total_estimated_cost_usd
+            ),
+        },
+    )
+    return 0
+
+
+def _validate_projection_output_scope(
+    output_root: Path,
+    *,
+    input_paths: Sequence[Path],
+) -> None:
+    output = output_root.resolve()
+    for path in input_paths:
+        source = path.resolve()
+        if (
+            output == source
+            or output.is_relative_to(source)
+            or source.is_relative_to(output)
+        ):
+            raise CommandError(
+                "project-target-cohort output overlaps immutable input: "
+                f"{output} vs {source}"
+            )
+
+
+def _validate_projection_source_commitments(
+    *,
+    preparation_summary: Mapping[str, Any],
+    snapshot_manifest: Mapping[str, Any],
+    snapshot_manifest_path: Path,
+) -> None:
+    if preparation_summary.get("schema_version") != (
+        "legalforecast.target_100_preparation.v1"
+    ):
+        raise CommandError("unsupported prepare-target-100 summary schema")
+    if preparation_summary.get("dry_run") is not False:
+        raise CommandError("projection requires an executed preparation summary")
+    if preparation_summary.get("paid_activity_executed") is not False:
+        raise CommandError("preparation summary unexpectedly claims paid activity")
+    expected_snapshot_hash = preparation_summary.get("snapshot_manifest_sha256")
+    if expected_snapshot_hash != _path_sha256(snapshot_manifest_path):
+        raise CommandError("preparation summary snapshot commitment mismatch")
+    cycle_hash = snapshot_manifest.get("cycle_hash")
+    batch_digest = snapshot_manifest.get("batch_digest")
+    if not isinstance(cycle_hash, str) or not cycle_hash:
+        raise CommandError("snapshot manifest lacks cycle_hash")
+    if not isinstance(batch_digest, str) or not batch_digest:
+        raise CommandError("snapshot manifest lacks batch_digest")
+    if preparation_summary.get("snapshot_batch_digest") != batch_digest:
+        raise CommandError("preparation summary batch digest mismatch")
+
+
+def _projection_jsonl_bytes(records: Iterable[Mapping[str, Any]]) -> bytes:
+    return "".join(
+        f"{json.dumps(dict(record), sort_keys=True, allow_nan=False)}\n"
+        for record in records
+    ).encode("utf-8")
+
+
+def _projection_json_bytes(payload: Mapping[str, Any]) -> bytes:
+    return (
+        json.dumps(dict(payload), indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode("utf-8")
+
+
+def _ensure_projection_artifact(path: Path, payload: bytes, *, resume: bool) -> None:
+    if path.exists():
+        if not resume:
+            raise CommandError(f"project-target-cohort output already exists: {path}")
+        if path.is_symlink() or not path.is_file() or path.read_bytes() != payload:
+            raise CommandError(
+                f"project-target-cohort resume artifact mismatch: {path}"
+            )
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if temporary_path is not None and temporary_path.exists():
+            temporary_path.unlink()
 
 
 def _target_100_protected_scopes(
@@ -5156,8 +5550,12 @@ def _target_100_stage_commitments(output_root: Path) -> JsonRecord:
         "01-public-plan",
         "02-free-download",
         "03-gap-bridge",
+        "03b-bridge-free-download",
+        "03c-merged-downloads",
         "04-core-filter",
         "05-budget",
+        "06-clearance-inputs",
+        "documents",
     ):
         stage_root = output_root / stage_name
         commitments[stage_name] = {
@@ -5190,7 +5588,18 @@ def _target_100_stage_input_commitments(
             output_root / "02-free-download/free-document-downloads.jsonl",
         ),
         "04-core-filter": (output_root / "03-gap-bridge/case-relevance.jsonl",),
+        "03b-bridge-free-download": (
+            output_root / "03-gap-bridge/pacer-gap-free-document-requests.jsonl",
+        ),
+        "03c-merged-downloads": (
+            output_root / "02-free-download/free-document-downloads.jsonl",
+            output_root / "03b-bridge-free-download/free-document-downloads.jsonl",
+        ),
         "05-budget": (output_root / "04-core-filter/core-filter-results.jsonl",),
+        "06-clearance-inputs": (
+            output_root / "03-gap-bridge/case-relevance.jsonl",
+            output_root / "03c-merged-downloads/document-downloads-merged.jsonl",
+        ),
     }
     if config.courtlistener_fixture is not None:
         paths["03-gap-bridge"] += (config.courtlistener_fixture,)

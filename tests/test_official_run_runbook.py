@@ -62,8 +62,9 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
         "### First-Run Observation Smoke Step (required)",
         "### Step 2: Seed Optional Leads, Then Observe",
         "### Step 3: Freeze The Complete Saturated Snapshot",
-        "### Step 4: Prepare The Exact Target-100 Budget Plan",
-        "### Step 5: Generate The Broker Allowlist, Then Purchase Explicitly",
+        "### Step 4: Prepare The Resolved Pool And Provisional Budget",
+        "### Step 5: Clear Every Free Document And Freeze The Exact Cohort",
+        "### Step 6: Generate The Broker Allowlist, Then Purchase Explicitly",
     )
     assert [
         batch_002_section.index(step) for step in ordered_acquisition_steps

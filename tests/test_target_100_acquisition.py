@@ -39,6 +39,8 @@ def test_target_100_commands_are_resumable_noncharging_and_exactly_capped(
         "plan-public-downloads",
         "download-free",
         "bridge-pacer-gaps",
+        "download-bridge-free",
+        "merge-free-downloads",
         "filter-core-documents",
         "plan",
     ]
@@ -155,7 +157,8 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
     )
     assert summary["selected_case_count"] == 100
     assert summary["candidate_pool_size"] == 101
-    assert summary["next_stage"] == "purchase-missing-recap-fetch"
+    assert summary["next_stage"] == "clear-disclosures"
+    assert summary["budget_status"] == "provisional_pre_clearance"
     assert summary["paid_activity_executed"] is False
     assert summary["total_missing_core_documents"] == 100
     assert summary["total_estimated_cost_usd"] == "305.00"
@@ -166,8 +169,12 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
         "01-public-plan",
         "02-free-download",
         "03-gap-bridge",
+        "03b-bridge-free-download",
+        "03c-merged-downloads",
         "04-core-filter",
         "05-budget",
+        "06-clearance-inputs",
+        "documents",
     }
     bridge_card = json.loads(
         (output_root / "03-gap-bridge/run-cards/bridge-pacer-gaps.json").read_text()
@@ -175,8 +182,75 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
     assert bridge_card["bridge_provider"] == "courtlistener_rest"
     assert bridge_card["paid_activity_executed"] is False
 
-    budget_plan = output_root / "05-budget/missing-core-budget-plan.json"
-    selection = output_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+    free_manifest = _read_jsonl(
+        output_root / "03c-merged-downloads/document-downloads-merged.jsonl"
+    )
+    assert (
+        _read_jsonl(
+            output_root / "03b-bridge-free-download/free-document-downloads.jsonl"
+        )
+        == []
+    )
+    assert len(
+        _read_jsonl(
+            output_root / "06-clearance-inputs/disclosure-review-requests.jsonl"
+        )
+    ) == len(free_manifest)
+    clearance = tmp_path / "free-clearance.jsonl"
+    _write_jsonl(
+        clearance,
+        [
+            {
+                "schema_version": "legalforecast.disclosure_clearance.v1",
+                "candidate_id": row["candidate_id"],
+                "source_document_id": row["source_document_id"],
+                "sha256": row["sha256"],
+                "byte_count": row["byte_count"],
+                "status": "cleared",
+                "restriction_status": "public",
+                "restriction_evidence": [
+                    "courtlistener_public_download_record_checked"
+                ],
+                "reviewer_id": "reviewer:fixture",
+                "controlled_store_provenance": ("private-store://fixture/target-100"),
+                "reviewed_at": "2026-07-14T14:00:00Z",
+                "free_or_purchased": row["free_or_purchased"],
+            }
+            for row in free_manifest
+        ],
+    )
+    projected = tmp_path / "projected"
+    assert (
+        main(
+            [
+                "acquisition",
+                "project-target-cohort",
+                "--output-root",
+                str(projected),
+                "--selection",
+                str(
+                    output_root
+                    / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+                ),
+                "--case-relevance",
+                str(output_root / "03-gap-bridge/case-relevance.jsonl"),
+                "--download-manifest",
+                str(
+                    output_root / "03c-merged-downloads/document-downloads-merged.jsonl"
+                ),
+                "--disclosure-clearance",
+                str(clearance),
+                "--preparation-summary",
+                str(output_root / "target-100-preparation-summary.json"),
+                "--snapshot-manifest",
+                str(snapshot / "manifest.json"),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    budget_plan = projected / "missing-core-budget-plan.json"
+    selection = projected / "target-cohort-selection.jsonl"
     purchase_policy, cohort_policy, purchase_ledger = _purchase_policies(tmp_path)
     broker_policy = tmp_path / "recap-fetch-broker-policy.json"
     assert (
@@ -945,3 +1019,14 @@ def _entry(
             }
         ],
     }
+
+
+def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
+    path.write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+
+
+def _read_jsonl(path: Path) -> list[dict[str, object]]:
+    return [json.loads(line) for line in path.read_text().splitlines() if line]
