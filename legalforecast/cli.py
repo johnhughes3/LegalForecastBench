@@ -7842,7 +7842,13 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
 
 
 _PACER_GAP_MAX_RESUMABLE_ATTEMPTS = 3
+_PACER_GAP_LEGACY_CHECKPOINT_SCHEMA = (
+    "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
+)
 _PACER_GAP_CHECKPOINT_SCHEMA = "legalforecast.pacer_gap_bridge_candidate_checkpoint.v2"
+_PACER_GAP_LEGACY_PROGRESS_CONFIG_SCHEMA = (
+    "legalforecast.pacer_gap_bridge_progress_config.v1"
+)
 _PACER_GAP_PROGRESS_CONFIG_SCHEMA = "legalforecast.pacer_gap_bridge_progress_config.v2"
 
 
@@ -7975,7 +7981,8 @@ def _validate_bridge_checkpoint(
     outcome = checkpoint.get("outcome")
     attempt_count = checkpoint.get("resumable_attempt_count")
     if (
-        checkpoint.get("schema_version") != _PACER_GAP_CHECKPOINT_SCHEMA
+        checkpoint.get("schema_version")
+        not in {_PACER_GAP_LEGACY_CHECKPOINT_SCHEMA, _PACER_GAP_CHECKPOINT_SCHEMA}
         or checkpoint.get("input_index") != input_index
         or checkpoint.get("candidate_id") != candidate_id
         or checkpoint.get("candidate_input_sha256") != candidate_input_sha256
@@ -7994,6 +8001,105 @@ def _validate_bridge_checkpoint(
         raise CommandError(
             f"PACER-gap bridge retryable checkpoint is exhausted for {candidate_id}"
         )
+
+
+def _normalize_bridge_checkpoint(checkpoint: JsonRecord) -> JsonRecord:
+    """Upgrade a verified v1 checkpoint without repeating provider requests."""
+
+    if checkpoint.get("schema_version") == _PACER_GAP_CHECKPOINT_SCHEMA:
+        return checkpoint
+    candidate_id = _required_str(checkpoint, "candidate_id")
+    normalized: JsonRecord = {
+        **checkpoint,
+        "schema_version": _PACER_GAP_CHECKPOINT_SCHEMA,
+    }
+    if checkpoint.get("outcome") != "success":
+        return normalized
+
+    payload = _mapping(checkpoint.get("payload"), "payload")
+    selection = _mapping(payload.get("selection_record"), "selection_record")
+    relevance = _mapping(payload.get("case_relevance_record"), "case_relevance_record")
+    selection_documents = _mapping_sequence_for_bridge_normalization(
+        selection.get("documents"), candidate_id=candidate_id, source="selection"
+    )
+    relevance_documents = _mapping_sequence_for_bridge_normalization(
+        relevance.get("documents"), candidate_id=candidate_id, source="case_relevance"
+    )
+
+    def pending_ids(documents: Sequence[Mapping[str, Any]]) -> set[str]:
+        return {
+            _required_str(document, "source_document_id")
+            for document in documents
+            if document.get("requires_paid_recovery") is True
+            and document.get("availability_status") == "unavailable"
+        }
+
+    selection_pending = pending_ids(selection_documents)
+    relevance_pending = pending_ids(relevance_documents)
+    resolved_reasons = selection.get("resolved_paid_gap_reasons")
+    if (
+        selection.get("selected") is not True
+        or selection.get("paid_recovery_required") is not False
+        or selection.get("planning_status") != "selected_after_paid_recovery"
+        or not isinstance(selection.get("identity_resolution"), Mapping)
+        or selection.get("paid_gap_reasons") != []
+        or not _is_nonempty_string_list(resolved_reasons)
+        or not selection_pending
+        or selection_pending != relevance_pending
+    ):
+        raise CommandError(
+            f"legacy PACER-gap success checkpoint is ambiguous for {candidate_id}"
+        )
+    normalized_selection = {
+        **selection,
+        "paid_recovery_required": True,
+        "planning_status": "identity_resolved_paid_recovery_required",
+        "identity_resolution_status": "resolved",
+        "document_recovery_status": "paid_recovery_required",
+    }
+    normalized["payload"] = {
+        **payload,
+        "selection_record": normalized_selection,
+        "case_relevance_record": relevance,
+    }
+    return normalized
+
+
+def _mapping_sequence_for_bridge_normalization(
+    value: object,
+    *,
+    candidate_id: str,
+    source: str,
+) -> tuple[Mapping[str, Any], ...]:
+    if not isinstance(value, list):
+        raise CommandError(
+            f"legacy PACER-gap success checkpoint has malformed {source} documents "
+            f"for {candidate_id}"
+        )
+    items = cast(list[object], value)
+    if not items or not all(isinstance(item, Mapping) for item in items):
+        raise CommandError(
+            f"legacy PACER-gap success checkpoint has malformed {source} documents "
+            f"for {candidate_id}"
+        )
+    return tuple(cast(Mapping[str, Any], item) for item in items)
+
+
+def _is_nonempty_string_list(value: object) -> bool:
+    if not isinstance(value, list):
+        return False
+    values = cast(list[object], value)
+    return bool(values) and all(isinstance(item, str) and bool(item) for item in values)
+
+
+def _bridge_progress_config_matches(existing: JsonRecord, current: JsonRecord) -> bool:
+    schema = existing.get("schema_version")
+    if schema not in {
+        _PACER_GAP_LEGACY_PROGRESS_CONFIG_SCHEMA,
+        _PACER_GAP_PROGRESS_CONFIG_SCHEMA,
+    }:
+        return False
+    return {**existing, "schema_version": _PACER_GAP_PROGRESS_CONFIG_SCHEMA} == current
 
 
 def _bridge_checkpoint_payload_matches_candidate(
@@ -8097,7 +8203,9 @@ def _public_first_bridge_with_checkpoints(
             raise CommandError(
                 "PACER-gap bridge progress exists; use --resume or remove it"
             )
-        if _read_json_object(checkpoint_config_path) != config:
+        if not _bridge_progress_config_matches(
+            _read_json_object(checkpoint_config_path), config
+        ):
             raise CommandError(
                 "PACER-gap bridge progress does not match the current input/config"
             )
@@ -8129,6 +8237,7 @@ def _public_first_bridge_with_checkpoints(
                 candidate_id=candidate_id,
                 candidate_input_sha256=candidate_input_sha256,
             )
+            prior = _normalize_bridge_checkpoint(prior)
             if prior["outcome"] in {"success", "exclusion"}:
                 resumed_terminal_count += 1
                 checkpoints.append(prior)
