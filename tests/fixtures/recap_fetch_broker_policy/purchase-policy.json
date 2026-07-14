@@ -1,0 +1,23 @@
+{
+  "policy": {
+    "canonical_ledger_path": "/tmp/cycle-1-purchases.sqlite3",
+    "cohort_policy_sha256": "6522a360141e8e719dfba60eeba369668cd899f4ed2a119c5b885874fa97bb10",
+    "cycle_id": "cycle-1",
+    "fee_schedule": {
+      "includes_pacer_fees": true,
+      "includes_rounding": true,
+      "includes_service_fees": true,
+      "source_citation": "https://example.test/fees",
+      "verified_at_utc": "2026-07-13T00:00:00Z"
+    },
+    "hard_cap_usd": "100.00",
+    "max_per_case_usd": "10.00",
+    "opening_case_committed_spend_usd": {
+      "case-1": "2.00"
+    },
+    "opening_committed_spend_usd": "2.00",
+    "per_document_reservation_usd": "3.05"
+  },
+  "policy_sha256": "07da40385f8fd27b45df13b7cb10bc0dd34b78c5e80ab6872c5e60bd807b9896",
+  "schema_version": "legalforecast.case_dev_purchase_policy.v1"
+}
