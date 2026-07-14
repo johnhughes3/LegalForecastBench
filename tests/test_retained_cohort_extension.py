@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import inspect
 import json
+import os
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -108,6 +109,21 @@ def test_extension_rejects_new_frontier_rank_that_interleaves_retained_cohort() 
     with pytest.raises(
         RetainedCohortExtensionError,
         match="base projection artifacts do not reproduce",
+    ):
+        extend_target_cohort(**inputs)
+
+
+def test_extension_rejects_cross_candidate_purchase_document_identity() -> None:
+    inputs = _inputs(paid_after=0)
+    full = dict(inputs["full_pool_artifacts"])
+    relevance = _jsonl(full["case-relevance.jsonl"])
+    relevance[100]["documents"][1]["source_document_id"] = "case-000-mtd"
+    full["case-relevance.jsonl"] = _jsonl_bytes(relevance)
+    inputs["full_pool_artifacts"] = full
+
+    with pytest.raises(
+        RetainedCohortExtensionError,
+        match="source_document_id is reused across candidates",
     ):
         extend_target_cohort(**inputs)
 
@@ -262,6 +278,34 @@ def test_extension_counts_unknown_and_writeoff_and_enforces_per_case_cap() -> No
         extend_target_cohort(**inputs)
 
 
+def test_extension_separates_frozen_base_cap_from_combined_cap() -> None:
+    inputs = _inputs(
+        paid_after=0,
+        max_projected_budget_usd="567.30",
+        combined_max_projected_budget_usd="700.00",
+    )
+
+    extension = extend_target_cohort(**inputs)
+
+    assert extension.combined_budget["base_max_projected_budget_usd"] == "567.30"
+    assert extension.combined_budget["combined_max_projected_budget_usd"] == "700.00"
+    assert extension.combined_budget["base_projected_usd"] == "305.00"
+
+
+def test_extension_rejects_combined_cap_below_base_cost_or_policy_ceiling() -> None:
+    inputs = _inputs(
+        paid_after=0,
+        max_projected_budget_usd="567.30",
+        combined_max_projected_budget_usd="304.99",
+    )
+    with pytest.raises(RetainedCohortExtensionError, match="base and existing"):
+        extend_target_cohort(**inputs)
+
+    inputs["combined_max_projected_budget_usd"] = "2250.01"
+    with pytest.raises(RetainedCohortExtensionError, match="cohort-policy cycle cap"):
+        extend_target_cohort(**inputs)
+
+
 def test_purchase_obligations_are_derived_from_every_committed_journal_state(
     tmp_path: Path,
 ) -> None:
@@ -367,6 +411,52 @@ def test_extend_target_cohort_cli_is_noncharging_and_resume_safe(
     assert committed_output.read_bytes() == b"tampered\n"
 
 
+def test_cli_derives_base_cap_and_accepts_explicit_larger_combined_cap(
+    tmp_path: Path,
+) -> None:
+    argv, _, _, _ = _cli_fixture(
+        tmp_path,
+        base_max_projected_budget_usd="567.30",
+        combined_max_projected_budget_usd="700.00",
+    )
+
+    assert main(argv) == 0
+    budget = json.loads(
+        (tmp_path / "extension/retained-cohort-budget.json").read_text()
+    )
+    assert budget["base_max_projected_budget_usd"] == "567.30"
+    assert budget["combined_max_projected_budget_usd"] == "700.00"
+
+
+def test_cli_completed_resume_ignores_advanced_journal_and_unavailable_sources(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    argv, _, run_card, log = _cli_fixture(tmp_path)
+    assert main(argv) == 0
+    run_card_before = run_card.read_bytes()
+    log_before = log.read_bytes()
+    ledger = Path(argv[argv.index("--purchase-ledger") + 1])
+    policy_path = Path(argv[argv.index("--purchase-policy") + 1])
+    policy = verify_case_dev_purchase_policy(json.loads(policy_path.read_text()))
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        journal.plan(_journal_plan(("post-extension-document",)))
+    preparation_summary = Path(argv[argv.index("--preparation-summary") + 1])
+    preparation_summary.unlink()
+
+    def journal_construction_forbidden(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise AssertionError("completed resume must not open the purchase journal")
+
+    monkeypatch.setattr(
+        "legalforecast.cli.CaseDevPurchaseJournal", journal_construction_forbidden
+    )
+
+    assert main(argv) == 0
+    assert run_card.read_bytes() == run_card_before
+    assert log.read_bytes() == log_before
+
+
 def test_cli_rejects_metadata_aliases_and_dry_run_overwrite(tmp_path: Path) -> None:
     argv, cohort_policy, run_card, log = _cli_fixture(tmp_path)
 
@@ -391,15 +481,35 @@ def test_cli_rejects_metadata_aliases_and_dry_run_overwrite(tmp_path: Path) -> N
     assert cohort_policy.read_bytes() == policy_before
 
 
-def test_cli_initializes_missing_zero_obligation_purchase_ledger(
+def test_cli_rejects_hardlinked_writable_outputs(tmp_path: Path) -> None:
+    argv, _, _, log = _cli_fixture(tmp_path)
+    selection = tmp_path / "extension/target-cohort-selection.jsonl"
+    selection.parent.mkdir(parents=True)
+    selection.write_bytes(b"do-not-overwrite\n")
+    log.parent.mkdir(parents=True)
+    os.link(selection, log)
+
+    assert main(argv) == 2
+    assert selection.read_bytes() == b"do-not-overwrite\n"
+    assert log.read_bytes() == b"do-not-overwrite\n"
+
+
+@pytest.mark.parametrize("replacement", (None, b"", b"not-a-sqlite-ledger"))
+def test_cli_rejects_missing_empty_or_truncated_purchase_ledger(
     tmp_path: Path,
+    replacement: bytes | None,
 ) -> None:
     argv, _, _, _ = _cli_fixture(tmp_path)
     ledger = Path(argv[argv.index("--purchase-ledger") + 1])
     ledger.unlink()
+    if replacement is not None:
+        ledger.write_bytes(replacement)
 
-    assert main(argv) == 0
-    assert ledger.is_file()
+    assert main(argv) == 2
+    if replacement is None:
+        assert not ledger.exists()
+    else:
+        assert ledger.read_bytes() == replacement
 
 
 def test_cli_rejects_self_consistent_substituted_frontier(tmp_path: Path) -> None:
@@ -429,8 +539,16 @@ def test_cli_rejects_changed_authenticated_review_receipt(tmp_path: Path) -> Non
     assert main(argv) == 2
 
 
-def _cli_fixture(tmp_path: Path) -> tuple[list[str], Path, Path, Path]:
-    inputs = _inputs()
+def _cli_fixture(
+    tmp_path: Path,
+    *,
+    base_max_projected_budget_usd: str = "2250.00",
+    combined_max_projected_budget_usd: str = "2250.00",
+) -> tuple[list[str], Path, Path, Path]:
+    inputs = _inputs(
+        max_projected_budget_usd=base_max_projected_budget_usd,
+        combined_max_projected_budget_usd=combined_max_projected_budget_usd,
+    )
     base_root = tmp_path / "base"
     full_root = tmp_path / "preparation"
     output_root = tmp_path / "extension"
@@ -551,7 +669,7 @@ def _cli_fixture(tmp_path: Path) -> tuple[list[str], Path, Path, Path]:
         "driver_execute": True,
         "target_case_count": 100,
         "cost_per_document_usd": "3.05",
-        "max_projected_budget_usd": "2250.00",
+        "max_projected_budget_usd": base_max_projected_budget_usd,
         "max_missing_core_documents_per_case": 24,
         "snapshot_manifest_sha256": _sha(snapshot.read_bytes()),
         "snapshot_cycle_hash": inputs["snapshot_cycle_hash"],
@@ -573,7 +691,7 @@ def _cli_fixture(tmp_path: Path) -> tuple[list[str], Path, Path, Path]:
         "config_sha256": config_record["config_sha256"],
         "target_case_count": 100,
         "cost_per_document_usd": "3.05",
-        "max_projected_budget_usd": "2250.00",
+        "max_projected_budget_usd": base_max_projected_budget_usd,
         "max_missing_core_documents_per_case": 24,
         "snapshot_manifest_sha256": _sha(snapshot.read_bytes()),
         "snapshot_batch_digest": inputs["snapshot_batch_digest"],
@@ -766,8 +884,8 @@ def _cli_fixture(tmp_path: Path) -> tuple[list[str], Path, Path, Path]:
         str(purchase_ledger),
         "--cost-per-document-usd",
         "3.05",
-        "--max-projected-budget-usd",
-        "2250.00",
+        "--combined-max-projected-budget-usd",
+        combined_max_projected_budget_usd,
         "--max-missing-core-documents-per-case",
         "24",
     ]
@@ -778,6 +896,7 @@ def _inputs(
     *,
     paid_after: int | None = None,
     max_projected_budget_usd: str = "2250.00",
+    combined_max_projected_budget_usd: str | None = None,
     max_missing_core_documents_per_case: int = 24,
 ) -> dict[str, Any]:
     selections = [_selection(index) for index in range(151)]
@@ -811,7 +930,9 @@ def _inputs(
         "snapshot_cycle_hash": "c" * 64,
         "snapshot_batch_digest": "d" * 64,
         "cost_per_document_usd": "3.05",
-        "max_projected_budget_usd": max_projected_budget_usd,
+        "combined_max_projected_budget_usd": (
+            combined_max_projected_budget_usd or max_projected_budget_usd
+        ),
         "max_missing_core_documents_per_case": (max_missing_core_documents_per_case),
         "purchase_obligations": _obligations(),
         "authenticated_lineage": _lineage(),
@@ -1032,6 +1153,9 @@ def _journal_plan(document_ids: tuple[str, ...]) -> MissingCoreBudgetPlan:
 
 def _rebuild_base(inputs: dict[str, Any]) -> None:
     full = inputs["full_pool_artifacts"]
+    base_budget = json.loads(
+        inputs["base_projection_artifacts"]["missing-core-budget-plan.json"]
+    )
     projection = project_target_cohort(
         selections=_jsonl(full["selection.jsonl"]),
         case_relevance=_jsonl(full["case-relevance.jsonl"]),
@@ -1039,7 +1163,7 @@ def _rebuild_base(inputs: dict[str, Any]) -> None:
         clearance_records=_jsonl(full["disclosure-clearance.jsonl"]),
         target_case_count=100,
         cost_per_document_usd=inputs["cost_per_document_usd"],
-        max_projected_budget_usd=inputs["max_projected_budget_usd"],
+        max_projected_budget_usd=base_budget["max_projected_budget_usd"],
         max_missing_core_documents_per_case=inputs[
             "max_missing_core_documents_per_case"
         ],

@@ -249,7 +249,7 @@ def extend_target_cohort(
     snapshot_cycle_hash: str,
     snapshot_batch_digest: str,
     cost_per_document_usd: str,
-    max_projected_budget_usd: str,
+    combined_max_projected_budget_usd: str,
     max_missing_core_documents_per_case: int,
     purchase_obligations: PurchaseObligationSnapshot,
     authenticated_lineage: AuthenticatedPoolLineage,
@@ -267,7 +267,7 @@ def extend_target_cohort(
     policy_sha256, _ = _verified_policy(
         cohort_policy_artifact,
         snapshot_cycle_hash=snapshot_cycle_hash,
-        max_projected_budget_usd=max_projected_budget_usd,
+        combined_max_projected_budget_usd=combined_max_projected_budget_usd,
         max_missing_core_documents_per_case=max_missing_core_documents_per_case,
         cost_per_document_usd=cost_per_document_usd,
     )
@@ -275,7 +275,11 @@ def extend_target_cohort(
     cycle_hash = _bare_sha(snapshot_cycle_hash, "snapshot_cycle_hash")
     batch_digest = _bare_sha(snapshot_batch_digest, "snapshot_batch_digest")
     money = _money(cost_per_document_usd, "cost_per_document_usd", positive=True)
-    cap = _money(max_projected_budget_usd, "max_projected_budget_usd", positive=True)
+    cap = _money(
+        combined_max_projected_budget_usd,
+        "combined_max_projected_budget_usd",
+        positive=True,
+    )
     obligations = purchase_obligations.budget_record()
     obligation_values = {
         name: _money(value, name) for name, value in obligations.items()
@@ -284,7 +288,6 @@ def extend_target_cohort(
     base = _verify_base_projection(
         base_projection_artifacts,
         cost_per_document_usd=money,
-        max_projected_budget_usd=cap,
         max_missing_core_documents_per_case=max_missing_core_documents_per_case,
     )
     base_summary = cast(Mapping[str, Any], base["summary"])
@@ -420,6 +423,7 @@ def extend_target_cohort(
         excluded_case_plans=recomputed_combined.excluded_case_plans,
         target_case_count=TARGET_CASE_COUNT,
     )
+    _verify_global_purchase_document_ids(combined_plan.case_plans)
     incremental_cost = incremental.budget_plan.total_estimated_cost
     base_cost = cast(Decimal, base["cost"])
     cumulative = base_cost + incremental_cost + purchase_obligations.total
@@ -433,7 +437,10 @@ def extend_target_cohort(
         "base_case_count": BASE_CASE_COUNT,
         "incremental_case_count": TARGET_CASE_COUNT - BASE_CASE_COUNT,
         "cost_per_document_usd": _format_money(money),
-        "max_projected_budget_usd": _format_money(cap),
+        "base_max_projected_budget_usd": _format_money(
+            cast(Decimal, base["max_projected_budget"])
+        ),
+        "combined_max_projected_budget_usd": _format_money(cap),
         "max_missing_core_documents_per_case": (max_missing_core_documents_per_case),
         "base_projected_usd": _format_money(base_cost),
         "incremental_projected_usd": _format_money(incremental_cost),
@@ -542,7 +549,7 @@ def _verified_policy(
     artifact: Mapping[str, Any],
     *,
     snapshot_cycle_hash: str,
-    max_projected_budget_usd: str,
+    combined_max_projected_budget_usd: str,
     max_missing_core_documents_per_case: int,
     cost_per_document_usd: str,
 ) -> tuple[str, Mapping[str, Any]]:
@@ -567,7 +574,9 @@ def _verified_policy(
         str(purchase.get("cycle_budget_usd")), "policy cycle_budget_usd", positive=True
     )
     requested_cap = _money(
-        max_projected_budget_usd, "max_projected_budget_usd", positive=True
+        combined_max_projected_budget_usd,
+        "combined_max_projected_budget_usd",
+        positive=True,
     )
     if requested_cap > cycle_cap:
         raise RetainedCohortExtensionError(
@@ -596,7 +605,6 @@ def _verify_base_projection(
     artifacts: Mapping[str, bytes],
     *,
     cost_per_document_usd: Decimal,
-    max_projected_budget_usd: Decimal,
     max_missing_core_documents_per_case: int,
 ) -> dict[str, Any]:
     summary = _json_object(
@@ -649,14 +657,18 @@ def _verify_base_projection(
     budget = _json_object(
         artifacts["missing-core-budget-plan.json"], source="base budget"
     )
+    base_cap = _money(
+        str(budget.get("max_projected_budget_usd")),
+        "base max_projected_budget_usd",
+        positive=True,
+    )
     if (
         budget.get("target_case_count") != BASE_CASE_COUNT
         or budget.get("target_case_count_met") is not True
         or budget.get("dry_run") is not False
         or _money(str(budget.get("cost_per_document_usd")), "base cost")
         != cost_per_document_usd
-        or _money(str(budget.get("max_projected_budget_usd")), "base cap")
-        != max_projected_budget_usd
+        or summary.get("max_projected_budget_usd") != _format_money(base_cap)
         or budget.get("max_missing_core_documents_per_case")
         != max_missing_core_documents_per_case
     ):
@@ -697,7 +709,7 @@ def _verify_base_projection(
         "case_plans": plans,
         "cost": base_cost,
         "cost_per_document": cost_per_document_usd,
-        "max_projected_budget": max_projected_budget_usd,
+        "max_projected_budget": base_cap,
         "max_missing_core_documents_per_case": (max_missing_core_documents_per_case),
     }
 
@@ -871,6 +883,20 @@ def _verify_combined_identities(selections: Sequence[Mapping[str, Any]]) -> None
                 f"duplicate motion identity in combined cohort: {motion}"
             )
         motion_seen.add(motion)
+
+
+def _verify_global_purchase_document_ids(
+    plans: Sequence[CaseMissingCorePurchasePlan],
+) -> None:
+    owners: dict[str, str] = {}
+    for plan in plans:
+        for source_document_id in plan.purchase_document_ids:
+            prior = owners.setdefault(source_document_id, plan.candidate_id)
+            if prior != plan.candidate_id:
+                raise RetainedCohortExtensionError(
+                    "purchase source_document_id is reused across candidates: "
+                    f"{source_document_id} ({prior}, {plan.candidate_id})"
+                )
 
 
 def _projection_payloads(projection: Any) -> dict[str, bytes]:
