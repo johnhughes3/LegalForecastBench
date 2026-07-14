@@ -363,6 +363,7 @@ from legalforecast.ingestion.recap_partial_checkpoint import (
 )
 from legalforecast.ingestion.retained_cohort_extension import (
     BASE_PROJECTION_ARTIFACT_NAMES,
+    RetainedCohortExtension,
     RetainedCohortExtensionError,
     extend_target_cohort,
     purchase_obligation_snapshot,
@@ -1123,7 +1124,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Retain an exact 100-case prefix and add 50 omitted candidates.",
         description=(
             "Verify a frozen target-100 projection against the full resolved "
-            "post-clearance pool, preserve every base artifact byte as a prefix, "
+            "post-clearance pool, preserve every selected-candidate base JSONL "
+            "byte as a prefix, "
             "rank only the eligible omitted frontier, and emit an exact combined "
             "150-case budget. This command never calls a provider, purchases a "
             "document, or acknowledges fees."
@@ -6697,22 +6699,46 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
                 journal=purchase_journal,
                 cohort_policy_artifact=cohort_policy,
             )
-        extension = extend_target_cohort(
-            base_projection_artifacts=base_artifacts,
-            full_pool_artifacts=full_artifacts,
-            cohort_policy_artifact=cohort_policy,
-            snapshot_manifest_sha256=_bytes_sha256(snapshot_bytes),
-            snapshot_cycle_hash=cycle_hash,
-            snapshot_batch_digest=batch_digest,
-            cost_per_document_usd=cast(str, args.cost_per_document_usd),
-            max_projected_budget_usd=cast(str, args.max_projected_budget_usd),
-            max_missing_core_documents_per_case=cast(
-                int, args.max_missing_core_documents_per_case
-            ),
-            purchase_obligations=obligations,
-        )
-    except (RetainedCohortExtensionError, CaseDevPurchasePolicyError) as exc:
+            extension = extend_target_cohort(
+                base_projection_artifacts=base_artifacts,
+                full_pool_artifacts=full_artifacts,
+                cohort_policy_artifact=cohort_policy,
+                snapshot_manifest_sha256=_bytes_sha256(snapshot_bytes),
+                snapshot_cycle_hash=cycle_hash,
+                snapshot_batch_digest=batch_digest,
+                cost_per_document_usd=cast(str, args.cost_per_document_usd),
+                max_projected_budget_usd=cast(str, args.max_projected_budget_usd),
+                max_missing_core_documents_per_case=cast(
+                    int, args.max_missing_core_documents_per_case
+                ),
+                purchase_obligations=obligations,
+            )
+            return _publish_retained_cohort_extension(
+                args=args,
+                extension=extension,
+                output_root=output_root,
+                input_paths=input_paths,
+                run_card_path=run_card_path,
+                log_path=log_path,
+            )
+    except (
+        RetainedCohortExtensionError,
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
+    ) as exc:
         raise CommandError(str(exc)) from exc
+
+
+def _publish_retained_cohort_extension(
+    *,
+    args: argparse.Namespace,
+    extension: RetainedCohortExtension,
+    output_root: Path,
+    input_paths: Sequence[Path],
+    run_card_path: Path,
+    log_path: Path,
+) -> int:
+    """Publish or validate extension outputs while the journal lock is held."""
 
     output_records = {
         **{

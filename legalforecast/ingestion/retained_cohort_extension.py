@@ -277,6 +277,7 @@ def extend_target_cohort(
     _verify_base_is_exact_full_pool_subset(base, full)
     base_ids = cast(tuple[str, ...], base["candidate_ids"])
     omitted_ids = tuple(sorted(set(full_selection) - set(base_ids)))
+    omitted_set = set(omitted_ids)
     if len(omitted_ids) < TARGET_CASE_COUNT - BASE_CASE_COUNT:
         raise RetainedCohortExtensionError(
             "full eligible omitted frontier is smaller than the required extension"
@@ -293,12 +294,12 @@ def extend_target_cohort(
             download_manifest=[
                 record
                 for record in full_manifest
-                if _required_str(record, "candidate_id") in set(omitted_ids)
+                if _required_str(record, "candidate_id") in omitted_set
             ],
             clearance_records=[
                 record
                 for record in full_clearance
-                if _required_str(record, "candidate_id") in set(omitted_ids)
+                if _required_str(record, "candidate_id") in omitted_set
             ],
             target_case_count=TARGET_CASE_COUNT - BASE_CASE_COUNT,
             cost_per_document_usd=_format_money(money),
