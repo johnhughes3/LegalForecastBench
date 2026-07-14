@@ -1177,9 +1177,11 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
     parser_requests = _read_jsonl(output_root / "parse-document-requests.jsonl")
     assert {record["source_document_id"] for record in parser_requests} == {
         "case-dev-mtd",
-        "entry-1-complaint",
-        "entry-5-motion-to-dismiss-memorandum",
-        "entry-16-decision",
+        "cl-free-entry-1-complaint",
+        "cl-free-entry-5-motion-to-dismiss-memorandum",
+        "cl-free-entry-16-decision",
+        "cl-123-entry-1-complaint",
+        "cl-123-entry-16-decision",
     }
 
 

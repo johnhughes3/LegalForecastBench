@@ -203,6 +203,167 @@ def test_acquisition_plan_can_emit_budget_capped_frontier(tmp_path: Path) -> Non
     assert reloaded["frontier_truncated"] is True
 
 
+def test_acquisition_plan_can_cap_the_cheapest_complete_case_count(
+    tmp_path: Path,
+) -> None:
+    core_results = tmp_path / "core-filter-results.jsonl"
+    output_root = tmp_path / "acquisition"
+    cheapest = {**_core_filter_result(), "candidate_id": "candidate-free"}
+    cheapest["core_missing_documents"] = []
+    cheapest["purchase_document_ids"] = []
+    one_gap = {**_core_filter_result(), "candidate_id": "candidate-one-gap"}
+    two_gaps = {**_core_filter_result(), "candidate_id": "candidate-two-gaps"}
+    two_gaps["core_missing_documents"] = ["document-b1", "document-b2"]
+    two_gaps["purchase_document_ids"] = ["document-b1", "document-b2"]
+    _write_jsonl(core_results, [two_gaps, one_gap, cheapest])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan",
+                "--core-filter-results",
+                str(core_results),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--target-case-count",
+                "2",
+            ]
+        )
+        == 0
+    )
+
+    plan = _read_json(output_root / "missing-core-budget-plan.json")
+    assert [row["candidate_id"] for row in plan["case_plans"]] == [
+        "candidate-free",
+        "candidate-one-gap",
+    ]
+    assert plan["target_case_count"] == 2
+    assert plan["target_case_count_met"] is True
+    assert plan["omitted_candidate_ids"] == ["candidate-two-gaps"]
+    assert plan["total_estimated_cost_usd"] == "3.05"
+
+
+def test_acquisition_plan_records_target_case_shortfall(tmp_path: Path) -> None:
+    core_results = tmp_path / "core-filter-results.jsonl"
+    output_root = tmp_path / "acquisition"
+    _write_jsonl(core_results, [_core_filter_result()])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan",
+                "--core-filter-results",
+                str(core_results),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--target-case-count",
+                "100",
+            ]
+        )
+        == 0
+    )
+
+    plan = _read_json(output_root / "missing-core-budget-plan.json")
+    assert plan["target_case_count"] == 100
+    assert plan["target_case_count_met"] is False
+    assert len(plan["case_plans"]) == 1
+
+
+def test_acquisition_plan_ranks_full_pool_deterministically_before_cheapest_100(
+    tmp_path: Path,
+) -> None:
+    records: list[JsonRecord] = []
+    for index in range(200):
+        missing_count = index % 4
+        record = {**_core_filter_result(), "candidate_id": f"candidate-{index:03d}"}
+        document_ids = [f"document-{index}-{gap}" for gap in range(missing_count)]
+        record["core_missing_documents"] = document_ids
+        record["purchase_document_ids"] = document_ids
+        records.append(record)
+
+    selected: list[list[str]] = []
+    for name, ordering in (("forward", records), ("reverse", reversed(records))):
+        input_path = tmp_path / f"{name}.jsonl"
+        output_root = tmp_path / name
+        _write_jsonl(input_path, ordering)
+        assert (
+            main(
+                [
+                    "acquisition",
+                    "plan",
+                    "--core-filter-results",
+                    str(input_path),
+                    "--output-root",
+                    str(output_root),
+                    "--execute",
+                    "--target-case-count",
+                    "100",
+                ]
+            )
+            == 0
+        )
+        plan = _read_json(output_root / "missing-core-budget-plan.json")
+        selected.append([row["candidate_id"] for row in plan["case_plans"]])
+
+    assert selected[0] == selected[1]
+    assert len(selected[0]) == 100
+    assert selected[0][:3] == ["candidate-000", "candidate-004", "candidate-008"]
+    assert selected[0][-1] == "candidate-197"
+
+
+def test_acquisition_plan_excludes_cap_outlier_and_fills_from_reserve(
+    tmp_path: Path,
+) -> None:
+    records: list[JsonRecord] = []
+    for index in range(100):
+        record = {**_core_filter_result(), "candidate_id": f"candidate-{index:03d}"}
+        document_ids = [f"document-{index}"]
+        record["core_missing_documents"] = document_ids
+        record["purchase_document_ids"] = document_ids
+        records.append(record)
+    outlier = {**_core_filter_result(), "candidate_id": "candidate-cap-outlier"}
+    outlier_ids = [f"outlier-document-{index}" for index in range(25)]
+    outlier["core_missing_documents"] = outlier_ids
+    outlier["purchase_document_ids"] = outlier_ids
+    records.insert(0, outlier)
+    input_path = tmp_path / "core-results.jsonl"
+    output_root = tmp_path / "output"
+    _write_jsonl(input_path, records)
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan",
+                "--core-filter-results",
+                str(input_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--target-case-count",
+                "100",
+            ]
+        )
+        == 0
+    )
+
+    plan = _read_json(output_root / "missing-core-budget-plan.json")
+    assert plan["target_case_count_met"] is True
+    assert len(plan["case_plans"]) == 100
+    assert [row["candidate_id"] for row in plan["excluded_case_plans"]] == [
+        "candidate-cap-outlier"
+    ]
+    [exclusion] = _read_jsonl(output_root / "missing-core-budget-exclusions.jsonl")
+    assert exclusion["candidate_id"] == "candidate-cap-outlier"
+    assert exclusion["reason"] == "missing_core_document_cap_exceeded"
+    assert exclusion["stage"] == "extraction"
+    assert exclusion["source_document_ids"] == outlier_ids
+
+
 def test_purchase_missing_requires_non_dry_run_plan_and_paid_activity_flags(
     tmp_path: Path,
     capsys: CaptureFixture[str],
@@ -239,6 +400,48 @@ def test_purchase_missing_requires_non_dry_run_plan_and_paid_activity_flags(
     assert failure["failure_reason"] == (
         "live_purchase_and_fee_acknowledgment_required"
     )
+
+
+def test_purchase_missing_refuses_legacy_live_case_dev_before_provider_activity(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+    monkeypatch: MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    plan_path = _write_execute_budget_plan(tmp_path, output_root)
+    policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+
+    def unexpected_provider(*args: object, **kwargs: object) -> object:
+        raise AssertionError("legacy live Case.dev provider must not be constructed")
+
+    monkeypatch.setattr(cli, "_case_dev_client", unexpected_provider)
+    assert (
+        main(
+            [
+                "acquisition",
+                "purchase-missing",
+                "--budget-plan",
+                str(plan_path),
+                "--purchase-policy",
+                str(policy_path),
+                "--cohort-policy",
+                str(cohort_path),
+                "--purchase-ledger",
+                str(ledger_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--live-purchase",
+                "--acknowledge-pacer-fees",
+            ]
+        )
+        == 2
+    )
+    assert (
+        "legacy Case.dev live document purchase is disabled" in capsys.readouterr().err
+    )
+    assert not ledger_path.exists()
+    assert not (output_root / "case-dev-pacer-purchases.json").exists()
     assert not (output_root / "case-dev-pacer-purchases.json").exists()
 
 

@@ -1191,7 +1191,9 @@ def _document_plan(
         raise ValueError(f"entry has no free document for role: {role.value}")
     entry_number = _entry_number(entry)
     source_document_id = (
-        f"entry-{entry.entry_number or 'unknown'}-{role.value}".replace("_", "-")
+        f"{candidate_id}-entry-{entry.entry_number or 'unknown'}-{role.value}".replace(
+            "_", "-"
+        )
     )
     return PublicPacketDocumentPlan(
         candidate_id=candidate_id,

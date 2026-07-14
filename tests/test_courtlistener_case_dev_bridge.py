@@ -366,8 +366,8 @@ def test_public_first_bridge_routes_only_paid_gap_and_retains_free_ids() -> None
     assert selection["identity_resolution_status"] == "resolved"
     assert selection["document_recovery_status"] == "paid_recovery_required"
     assert [document["source_document_id"] for document in selection["documents"]] == [
-        "entry-1-complaint",
-        "entry-16-decision",
+        "cl-123-entry-1-complaint",
+        "cl-123-entry-16-decision",
         "case-dev-mtd",
     ]
     [relevance] = result.case_relevance_records

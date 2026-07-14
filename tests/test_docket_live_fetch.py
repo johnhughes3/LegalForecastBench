@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import legalforecast.cli as cli
 import pytest
-from legalforecast.cli import build_parser
+from legalforecast.cli import build_parser, main
 from legalforecast.ingestion.case_dev_client import (
     CaseDevClient,
     CaseDevFixtureTransport,
@@ -353,6 +355,57 @@ def test_cli_exposes_separate_no_provider_plan_and_guarded_execute_commands() ->
     assert executed.execute is False
     assert executed.live_case_dev is False
     assert executed.acknowledge_pacer_fees is False
+
+
+def test_cli_refuses_legacy_live_docket_fetch_before_provider_or_journal(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    html = tmp_path / "100.html"
+    html.write_text(_html("11", "Jul 8, 2026", "ORDER granting Motion to Dismiss."))
+    journal = tmp_path / "journal.sqlite3"
+    plan = plan_docket_live_fetches(
+        screening_records=[_exclusion("100", "entry-11", "2026-07-08")],
+        fetch_success_records=[_fetch("100", html)],
+        ranking_records=[],
+        cohort_policy=_policy(),
+        cycle_committed_spend_usd="0.00",
+        daily_committed_spend_usd="0.00",
+        spend_date_utc=_today(),
+        docket_fetch_reservation_usd="3.05",
+        canonical_journal_path=str(journal.resolve()),
+    )
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(plan.to_record()))
+
+    def unexpected_provider(*args: object, **kwargs: object) -> object:
+        raise AssertionError("legacy live Case.dev provider must not be constructed")
+
+    monkeypatch.setattr(cli, "_case_dev_client", unexpected_provider)
+    assert (
+        main(
+            [
+                "acquisition",
+                "execute-docket-live-fetches",
+                "--output-root",
+                str(tmp_path / "output"),
+                "--docket-live-fetch-plan",
+                str(plan_path),
+                "--journal",
+                str(journal),
+                "--execute",
+                "--live-case-dev",
+                "--acknowledge-pacer-fees",
+            ]
+        )
+        == 2
+    )
+    assert (
+        "legacy fee-bearing Case.dev docket fetch is disabled"
+        in capsys.readouterr().err
+    )
+    assert not journal.exists()
 
 
 def test_loaded_plan_rejects_nonpositive_reservation_with_domain_error(

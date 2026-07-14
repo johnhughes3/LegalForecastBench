@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 from legalforecast.ingestion import CoreDocumentFilterResult
 from legalforecast.ingestion.missing_core_budget import (
-    CaseDocumentCapExceededError,
     PurchaseBudgetExceededError,
     plan_missing_core_document_budget,
 )
@@ -22,14 +21,15 @@ def test_budget_planner_allows_exactly_at_case_cap() -> None:
     assert plan.to_record()["case_plans"][0]["audit_only_document_count"] == 50
 
 
-def test_budget_planner_rejects_over_case_cap() -> None:
+def test_budget_planner_ledger_excludes_over_case_cap() -> None:
     result = _filter_result("too-many-docs", core_missing_count=25)
 
-    with pytest.raises(
-        CaseDocumentCapExceededError,
-        match="too-many-docs has 25 missing core documents; cap is 24",
-    ):
-        plan_missing_core_document_budget([result])
+    plan = plan_missing_core_document_budget([result])
+
+    assert plan.case_plans == ()
+    [excluded] = plan.excluded_case_plans
+    assert excluded.candidate_id == "too-many-docs"
+    assert excluded.exclusion_reasons == ("missing_core_document_cap_exceeded",)
 
 
 def test_budget_planner_allows_exactly_at_budget() -> None:
