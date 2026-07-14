@@ -6,6 +6,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
+import legalforecast.cli as cli_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.cycle_acquisition_store import (
@@ -489,6 +490,70 @@ def test_replay_screening_snapshots_rejects_side_outputs_inside_snapshot(
 
     assert "must be outside the committed snapshot tree" in capsys.readouterr().err
     assert not snapshot.exists()
+
+
+def test_replay_screening_snapshots_audits_kernel_runtime_error(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _source_snapshot(
+        tmp_path,
+        store_path=tmp_path / "source.sqlite3",
+        policy=_cycle_policy(extra={"fixture_generation": "old"}),
+        batch_id="source",
+        successes=("475",),
+    )
+    source_cycle_hash = str(verify_snapshot(source)["cycle_hash"])
+    assembly_root = tmp_path / "source-assembly"
+    assert (
+        main(
+            [
+                "acquisition",
+                "assemble-cycle-acquisition",
+                "--output-root",
+                str(assembly_root),
+                "--expected-cycle-hash",
+                source_cycle_hash,
+                "--batch-root",
+                str(source),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    target_store = tmp_path / "target.sqlite3"
+    with CycleAcquisitionStore(target_store) as store:
+        target_cycle_hash = store.ensure_cycle(_cycle_policy())
+
+    def invariant_failure(**_: object) -> None:
+        raise RuntimeError("fixture screening reconciliation invariant")
+
+    monkeypatch.setattr(
+        cli_module,
+        "screen_case_dev_firecrawl_successes",
+        invariant_failure,
+    )
+    output_root = tmp_path / "replay"
+    assert (
+        main(
+            _replay_command(
+                output_root=output_root,
+                target_store=target_store,
+                target_cycle_hash=target_cycle_hash,
+                source_cycle_hash=source_cycle_hash,
+                assembly_run_card=(
+                    assembly_root / "run-cards/assemble-cycle-acquisition.json"
+                ),
+                snapshot_id="runtime-error-replay",
+            )
+        )
+        == 2
+    )
+    assert "fixture screening reconciliation invariant" in capsys.readouterr().err
+    run_card = _read_json(output_root / "run-cards/replay-screening-snapshots.json")
+    assert run_card["status"] == "failed"
+    assert run_card["failure_reason"] == ("fixture screening reconciliation invariant")
 
 
 def test_replay_screening_snapshots_help_states_no_provider_semantics(
