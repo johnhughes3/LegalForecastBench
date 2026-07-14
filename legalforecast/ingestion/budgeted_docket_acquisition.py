@@ -14,7 +14,10 @@ from legalforecast.ingestion.budgeted_firecrawl import (
     BudgetedFirecrawlScheduler,
     FirecrawlTargetSpec,
 )
-from legalforecast.ingestion.courtlistener_web import parse_courtlistener_docket_html
+from legalforecast.ingestion.courtlistener_web import (
+    CourtListenerWebParseError,
+    parse_courtlistener_docket_html,
+)
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
     DiscoveryHit,
@@ -255,15 +258,25 @@ def acquire_ranked_dockets(
                 del active[docket_id]
                 continue
             pages[docket_id][page.source_url] = page.raw_html
-            parsed = parse_courtlistener_docket_html(
-                page.raw_html, source_url=page.source_url, docket_id=docket_id
-            )
-            observed = [
-                parse_courtlistener_docket_html(
-                    html, source_url=url, docket_id=docket_id
+            try:
+                parsed = parse_courtlistener_docket_html(
+                    page.raw_html, source_url=page.source_url, docket_id=docket_id
                 )
-                for url, html in pages[docket_id].items()
-            ]
+                observed = [
+                    parse_courtlistener_docket_html(
+                        html, source_url=url, docket_id=docket_id
+                    )
+                    for url, html in pages[docket_id].items()
+                ]
+            except CourtListenerWebParseError as exc:
+                failures_by_docket[docket_id] = _failure(
+                    target=_target,
+                    reason="docket_reconstruction_failed",
+                    stage="complete_docket_reconstruction",
+                    detail=f"invalid_docket_page_artifact:{exc}",
+                )
+                del active[docket_id]
+                continue
             if not parsed.has_next_page or may_stop_at_anchor_boundary(
                 observed, anchor=decision_anchor
             ):
@@ -302,6 +315,14 @@ def acquire_ranked_dockets(
                 reason="docket_reconstruction_failed",
                 stage="complete_docket_reconstruction",
                 detail=str(exc),
+            )
+            continue
+        except CourtListenerWebParseError as exc:
+            failures_by_docket[target.docket_id] = _failure(
+                target=target,
+                reason="docket_reconstruction_failed",
+                stage="complete_docket_reconstruction",
+                detail=f"invalid_docket_page_artifact:{exc}",
             )
             continue
         if not bundle.complete_for_anchor_window:

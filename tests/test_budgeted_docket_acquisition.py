@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
 from dataclasses import replace
 from datetime import date
@@ -166,6 +167,95 @@ def test_reconstruction_failure_is_isolated_without_discarding_other_dockets() -
             "failure_reason": "pagination_title_mismatch",
         }
     ]
+
+
+def test_resumed_malformed_success_is_excluded_without_provider_refetch(
+    tmp_path: Path,
+) -> None:
+    records = [_record("20", 0), _record("10", 1)]
+    pages = {
+        "20": _page("20", 1, has_next=False),
+        "10": "<html><body>successful scrape without a docket table</body></html>",
+    }
+
+    class _NoCallSource:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def scrape_url(self, *, source_url: str) -> FirecrawlScrapeResult:
+            self.calls.append(source_url)
+            raise AssertionError("durable successful artifacts must not be refetched")
+
+    source = _NoCallSource()
+    with CycleAcquisitionStore(tmp_path / "cycle.sqlite3") as store:
+        store.ensure_cycle({"anchor": "2026-06-30T00:00:00Z"})
+        store.ensure_batch("batch-001", {"terms": ["motion to dismiss"]})
+        store.ensure_firecrawl_run(
+            "run-001",
+            batch_id="batch-001",
+            config={"proxy": "auto", "max_attempts": 3},
+            credit_cap=100,
+            reserved_credits_per_attempt=5,
+        )
+        for ordinal, docket_id in enumerate(("20", "10")):
+            source_url = (
+                f"https://www.courtlistener.com/docket/{docket_id}/fixture-case/"
+                "?order_by=desc&page=1"
+            )
+            target_id = (
+                "docket-" + hashlib.sha256(f"{docket_id}:1".encode()).hexdigest()[:24]
+            )
+            store.ensure_firecrawl_target(
+                "run-001",
+                target_id=target_id,
+                target_kind="docket",
+                source_url=source_url,
+                ordinal=ordinal,
+            )
+            attempt = store.authorize_firecrawl_attempt(
+                "run-001",
+                target_id=target_id,
+                page_number=1,
+                request_url=source_url,
+            )
+            store.commit_firecrawl_artifact(
+                attempt.attempt_id,
+                tmp_path / f"{docket_id}.html",
+                pages[docket_id].encode(),
+                reported_credits=1,
+                proxy_used="enhanced",
+                target_http_status=200,
+            )
+
+        result = acquire_ranked_dockets(
+            records=records,
+            scheduler=BudgetedFirecrawlScheduler(
+                store=store,
+                source=source,
+                run_id="run-001",
+                artifact_dir=tmp_path / "raw",
+            ),
+            limit=2,
+            max_pages_per_docket=2,
+            decision_anchor=date(2026, 6, 30),
+        )
+
+    assert source.calls == []
+    assert [bundle.docket_id for bundle in result.bundles] == ["20"]
+    assert [failure.as_record() for failure in result.failures] == [
+        {
+            "case_id": "courtlistener-docket-10",
+            "candidate_id": "courtlistener-docket-10",
+            "docket_id": "10",
+            "reason": "docket_reconstruction_failed",
+            "failure_stage": "complete_docket_reconstruction",
+            "failure_reason": (
+                "invalid_docket_page_artifact:"
+                "CourtListener docket-entry table not found"
+            ),
+        }
+    ]
+    assert len(result.bundles) + len(result.failures) == len(records)
 
 
 def test_complete_renderer_preserves_restriction_evidence() -> None:
