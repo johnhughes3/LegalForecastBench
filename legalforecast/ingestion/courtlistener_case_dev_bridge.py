@@ -25,7 +25,9 @@ from legalforecast.ingestion.case_dev_client import (
 from legalforecast.ingestion.courtlistener_client import (
     CourtListenerClient,
     CourtListenerDocketEntry,
+    CourtListenerRateLimitError,
     CourtListenerRecapDocument,
+    CourtListenerServerError,
 )
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerEntryRole,
@@ -561,6 +563,14 @@ def bridge_public_plan_paid_gaps_via_courtlistener(
             exclusions.append(
                 _exclusion(record, reason, detail=detail.strip() or str(exc))
             )
+            continue
+        except (CourtListenerRateLimitError, CourtListenerServerError) as exc:
+            reason = (
+                "courtlistener_rest_rate_limit_retries_exhausted"
+                if isinstance(exc, CourtListenerRateLimitError)
+                else "courtlistener_rest_server_error_retries_exhausted"
+            )
+            exclusions.append(_exclusion(record, reason, detail=str(exc)))
             continue
         selections.append(selection)
         relevance.append(candidate_relevance)

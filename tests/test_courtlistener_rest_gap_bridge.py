@@ -11,6 +11,7 @@ from legalforecast.ingestion.core_document_filter import filter_core_documents
 from legalforecast.ingestion.courtlistener_case_dev_bridge import (
     CourtListenerCaseDevBridgeError,
     bridge_public_plan_paid_gap_candidate_via_courtlistener,
+    bridge_public_plan_paid_gaps_via_courtlistener,
 )
 from legalforecast.ingestion.courtlistener_client import (
     CourtListenerClient,
@@ -204,6 +205,60 @@ def test_actual_v4_discovery_shape_flows_to_paid_gap_bridge() -> None:
     ] == [("9005", None)]
     [filtered] = filter_core_documents((relevance,))
     assert filtered.purchase_document_ids == ("9005",)
+
+
+def test_batch_bridge_excludes_exhausted_transient_and_continues() -> None:
+    first = _screened_case()
+    second = _screened_case_variant(
+        candidate_id="456",
+        docket_number="1:26-cv-00002",
+        case_name="Second v. Example",
+    )
+    plan = plan_public_packet_downloads(
+        (first, second), use_embedded_entries=True, target_clean_cases=2
+    )
+    downloads = tuple(
+        {
+            **request.to_record(),
+            "local_path": f"{request.candidate_id}/{request.source_document_id}.pdf",
+            "sha256": "a" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in plan.download_requests
+    )
+    rate_limit = _response(
+        path="/dockets/123/",
+        status_code=429,
+        payload={"detail": "daily quota reached"},
+    )
+    client = _authenticated_client(
+        rate_limit,
+        rate_limit,
+        rate_limit,
+        *_clean_responses_for(
+            candidate_id="456",
+            docket_number="1:26-cv-00002",
+            case_name="Second v. Example",
+            docket_entry_id="7105",
+            recap_document_id="9105",
+        ),
+    )
+
+    result = bridge_public_plan_paid_gaps_via_courtlistener(
+        (first, second),
+        public_selection_records=(),
+        paid_gap_records=(gap.to_record() for gap in plan.paid_gap_cases),
+        free_download_records=downloads,
+        client=client,
+        use_embedded_entries=True,
+    )
+
+    assert [record["candidate_id"] for record in result.selection_records] == ["456"]
+    [exclusion] = result.exclusions
+    assert exclusion["candidate_id"] == "123"
+    assert exclusion["exclusion_reasons"] == [
+        "courtlistener_rest_rate_limit_retries_exhausted"
+    ]
 
 
 def test_bridge_pacer_gaps_cli_runs_noncharging_courtlistener_rest_mode(
@@ -652,12 +707,13 @@ def _response(
     path: str,
     payload: dict[str, object],
     params: dict[str, object] | None = None,
+    status_code: int = 200,
 ) -> RecordedCourtListenerResponse:
     return RecordedCourtListenerResponse(
         method="GET",
         path=path,
         params={} if params is None else params,
-        status_code=200,
+        status_code=status_code,
         payload=payload,
     )
 
