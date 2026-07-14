@@ -114,6 +114,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerPurchaseStatus,
     CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerError,
+    CaseDevPurchasePolicy,
     CaseDevPurchasePolicyError,
     generate_case_dev_purchase_policy,
     verify_case_dev_purchase_policy,
@@ -360,6 +361,15 @@ from legalforecast.ingestion.recap_fetch_broker_policy import (
 from legalforecast.ingestion.recap_partial_checkpoint import (
     RecapPartialProjectionError,
     project_partial_recap_checkpoint,
+)
+from legalforecast.ingestion.retained_cohort_extension import (
+    BASE_CASE_COUNT,
+    BASE_PROJECTION_ARTIFACT_NAMES,
+    AuthenticatedPoolLineage,
+    RetainedCohortExtension,
+    RetainedCohortExtensionError,
+    extend_target_cohort,
+    purchase_obligation_snapshot,
 )
 from legalforecast.ingestion.snapshot_quarantine import (
     SnapshotQuarantineError,
@@ -1112,6 +1122,19 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_project_target_cohort_arguments(acquisition_project_target_cohort)
+    acquisition_extend_target_cohort = acquisition_subparsers.add_parser(
+        "extend-target-cohort",
+        help="Retain an exact 100-case prefix and add 50 omitted candidates.",
+        description=(
+            "Verify a frozen target-100 projection against the full resolved "
+            "post-clearance pool, preserve every selected-candidate base JSONL "
+            "byte as a prefix, "
+            "rank only the eligible omitted frontier, and emit an exact combined "
+            "150-case budget. This command never calls a provider, purchases a "
+            "document, or acknowledges fees."
+        ),
+    )
+    _add_acquisition_extend_target_cohort_arguments(acquisition_extend_target_cohort)
     acquisition_public_downloads = acquisition_subparsers.add_parser(
         "plan-public-downloads",
         help="Plan free public CourtListener/RECAP packet-document downloads.",
@@ -1729,6 +1752,75 @@ def _add_acquisition_project_target_cohort_arguments(
     parser.add_argument("--max-projected-budget-usd", default="2250.00")
     parser.add_argument("--max-missing-core-documents-per-case", type=int, default=24)
     parser.set_defaults(handler=_cmd_acquisition_project_target_cohort)
+
+
+def _add_acquisition_extend_target_cohort_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--base-cohort-root",
+        type=Path,
+        required=True,
+        help="Executed exact target-100 project-target-cohort output root.",
+    )
+    parser.add_argument(
+        "--preparation-root",
+        type=Path,
+        required=True,
+        help="Completed immutable preparation root supplying the full pool.",
+    )
+    parser.add_argument("--preparation-summary", type=Path, required=True)
+    parser.add_argument("--preparation-config", type=Path, required=True)
+    parser.add_argument(
+        "--full-candidate-frontier",
+        type=Path,
+        required=True,
+        help="Provider-free self-hashed untruncated frontier artifact.",
+    )
+    parser.add_argument(
+        "--frontier-run-card",
+        type=Path,
+        required=True,
+        help="Completed materialize-target-cohort-frontier run card.",
+    )
+    parser.add_argument("--clearance-run-card", type=Path, required=True)
+    parser.add_argument("--reviews", type=Path, required=True)
+    parser.add_argument("--review-receipt", type=Path, required=True)
+    parser.add_argument(
+        "--cohort-policy",
+        type=Path,
+        required=True,
+        help="Frozen target-150 cohort policy with immutable purchase caps.",
+    )
+    parser.add_argument(
+        "--snapshot-manifest",
+        type=Path,
+        required=True,
+        help="Frozen full-pool snapshot manifest supplying cycle lineage.",
+    )
+    parser.add_argument(
+        "--purchase-policy",
+        type=Path,
+        required=True,
+        help="Verified canonical cycle purchase-policy artifact.",
+    )
+    parser.add_argument(
+        "--purchase-ledger",
+        type=Path,
+        required=True,
+        help="Canonical SQLite purchase journal named by --purchase-policy.",
+    )
+    parser.add_argument(
+        "--combined-max-projected-budget-usd",
+        required=True,
+        help=(
+            "Explicit combined target-150 projection cap. The frozen base cap is "
+            "derived from authenticated target-100 artifacts; this cap may be "
+            "larger but cannot exceed the cohort-policy cycle ceiling."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_extend_target_cohort)
 
 
 def _add_acquisition_filter_core_documents_arguments(
@@ -6538,6 +6630,961 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
+    """Retain target 100 and emit a provider-free exact target-150 extension."""
+
+    output_root = _acquisition_output_root(args)
+    base_root = cast(Path, args.base_cohort_root)
+    base_paths = {name: base_root / name for name in BASE_PROJECTION_ARTIFACT_NAMES}
+    preparation_root = cast(Path, args.preparation_root)
+    preparation_summary_path = cast(Path, args.preparation_summary)
+    preparation_config_path = cast(Path, args.preparation_config)
+    frontier_path = cast(Path, args.full_candidate_frontier)
+    frontier_run_card_path = cast(Path, args.frontier_run_card)
+    clearance_run_card_path = cast(Path, args.clearance_run_card)
+    reviews_path = cast(Path, args.reviews)
+    review_receipt_path = cast(Path, args.review_receipt)
+    restriction_evidence_path = (
+        preparation_root / "06-clearance-inputs/restriction-evidence.jsonl"
+    )
+    full_paths = {
+        "selection.jsonl": preparation_root
+        / "03-gap-bridge/public-packet-selection-reconciled.jsonl",
+        "case-relevance.jsonl": preparation_root / "03-gap-bridge/case-relevance.jsonl",
+        "document-downloads-merged.jsonl": preparation_root
+        / "03c-merged-downloads/document-downloads-merged.jsonl",
+    }
+    cohort_policy_path = cast(Path, args.cohort_policy)
+    snapshot_path = cast(Path, args.snapshot_manifest)
+    purchase_policy_path = cast(Path, args.purchase_policy)
+    purchase_ledger_path = cast(Path, args.purchase_ledger)
+    run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards/extend-target-cohort.json",
+    )
+    log_path = _acquisition_path(
+        args,
+        "log_output",
+        output_root / "logs/extend-target-cohort.jsonl",
+    )
+    input_paths = (
+        *base_paths.values(),
+        *full_paths.values(),
+        restriction_evidence_path,
+        preparation_root,
+        preparation_summary_path,
+        preparation_config_path,
+        frontier_path,
+        frontier_run_card_path,
+        clearance_run_card_path,
+        reviews_path,
+        review_receipt_path,
+        cohort_policy_path,
+        snapshot_path,
+        purchase_policy_path,
+        purchase_ledger_path,
+    )
+    expected_output_paths = _retained_extension_output_paths(output_root)
+    _validate_retained_extension_output_scope(
+        output_root,
+        input_paths=input_paths,
+        additional_output_paths=(
+            run_card_path,
+            log_path,
+            *expected_output_paths,
+        ),
+    )
+    if run_card_path.exists():
+        if not cast(bool, args.resume):
+            raise CommandError(
+                "extend-target-cohort run card already exists and --no-resume was set"
+            )
+        _validate_retained_extension_completed_resume(
+            run_card_path,
+            output_root=output_root,
+            input_path_prefix=input_paths,
+            expected_output_paths=expected_output_paths,
+            dry_run=_acquisition_dry_run(args),
+            combined_max_projected_budget_usd=cast(
+                str, args.combined_max_projected_budget_usd
+            ),
+        )
+        return 0
+    try:
+        clearance_run_card_bytes = _read_retained_extension_artifact(
+            clearance_run_card_path
+        )
+        clearance_run_card = _projection_json_object(
+            clearance_run_card_bytes, source=clearance_run_card_path
+        )
+        disclosure_clearance_path = _named_committed_path(
+            clearance_run_card,
+            commitment_group="output_commitments",
+            name="disclosure_clearance",
+        )
+        full_paths["disclosure-clearance.jsonl"] = disclosure_clearance_path
+        input_paths = (*input_paths, disclosure_clearance_path)
+        _validate_retained_extension_output_scope(
+            output_root,
+            input_paths=input_paths,
+            additional_output_paths=(run_card_path, log_path),
+        )
+        base_artifacts = {
+            name: _read_retained_extension_artifact(path)
+            for name, path in base_paths.items()
+        }
+        full_artifacts = {
+            name: _read_retained_extension_artifact(path)
+            for name, path in full_paths.items()
+        }
+        cohort_policy_bytes = _read_retained_extension_artifact(cohort_policy_path)
+        snapshot_bytes = _read_retained_extension_artifact(snapshot_path)
+        purchase_policy_bytes = _read_retained_extension_artifact(purchase_policy_path)
+        lineage_bytes = {
+            "preparation_summary": _read_retained_extension_artifact(
+                preparation_summary_path
+            ),
+            "preparation_config": _read_retained_extension_artifact(
+                preparation_config_path
+            ),
+            "frontier": _read_retained_extension_artifact(frontier_path),
+            "frontier_run_card": _read_retained_extension_artifact(
+                frontier_run_card_path
+            ),
+            "clearance_run_card": clearance_run_card_bytes,
+            "reviews": _read_retained_extension_artifact(reviews_path),
+            "review_receipt": _read_retained_extension_artifact(review_receipt_path),
+            "restriction_evidence": _read_retained_extension_artifact(
+                restriction_evidence_path
+            ),
+        }
+    except OSError as exc:
+        raise CommandError(str(exc)) from exc
+    cohort_policy = _projection_json_object(
+        cohort_policy_bytes, source=cohort_policy_path
+    )
+    snapshot = _projection_json_object(snapshot_bytes, source=snapshot_path)
+    purchase_policy_artifact = _projection_json_object(
+        purchase_policy_bytes, source=purchase_policy_path
+    )
+    cycle_hash = snapshot.get("cycle_hash")
+    batch_digest = snapshot.get("batch_digest")
+    if not isinstance(cycle_hash, str) or not cycle_hash:
+        raise CommandError("snapshot manifest lacks cycle_hash")
+    if not isinstance(batch_digest, str) or not batch_digest:
+        raise CommandError("snapshot manifest lacks batch_digest")
+    authenticated_lineage = _authenticated_extension_lineage(
+        preparation_root=preparation_root,
+        preparation_summary_path=preparation_summary_path,
+        preparation_config_path=preparation_config_path,
+        snapshot_path=snapshot_path,
+        frontier_path=frontier_path,
+        frontier_run_card_path=frontier_run_card_path,
+        clearance_run_card_path=clearance_run_card_path,
+        reviews_path=reviews_path,
+        review_receipt_path=review_receipt_path,
+        restriction_evidence_path=restriction_evidence_path,
+        disclosure_clearance_path=disclosure_clearance_path,
+        full_paths=full_paths,
+        full_artifacts=full_artifacts,
+        lineage_bytes=lineage_bytes,
+        snapshot_bytes=snapshot_bytes,
+        preparation_target_case_count=BASE_CASE_COUNT,
+    )
+    try:
+        purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        _validate_existing_purchase_ledger(purchase_ledger_path, purchase_policy)
+        with CaseDevPurchaseJournal(
+            purchase_ledger_path, policy=purchase_policy
+        ) as purchase_journal:
+            obligations = purchase_obligation_snapshot(
+                policy=purchase_policy,
+                journal=purchase_journal,
+                cohort_policy_artifact=cohort_policy,
+            )
+            extension = extend_target_cohort(
+                base_projection_artifacts=base_artifacts,
+                full_pool_artifacts=full_artifacts,
+                cohort_policy_artifact=cohort_policy,
+                snapshot_manifest_sha256=_bytes_sha256(snapshot_bytes),
+                snapshot_cycle_hash=cycle_hash,
+                snapshot_batch_digest=batch_digest,
+                combined_max_projected_budget_usd=cast(
+                    str, args.combined_max_projected_budget_usd
+                ),
+                purchase_obligations=obligations,
+                authenticated_lineage=authenticated_lineage,
+            )
+            return _publish_retained_cohort_extension(
+                args=args,
+                extension=extension,
+                output_root=output_root,
+                input_paths=input_paths,
+                run_card_path=run_card_path,
+                log_path=log_path,
+            )
+    except (
+        RetainedCohortExtensionError,
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+
+
+def _named_committed_path(
+    run_card: Mapping[str, Any], *, commitment_group: str, name: str
+) -> Path:
+    raw_group = run_card.get(commitment_group)
+    if not isinstance(raw_group, Mapping):
+        raise CommandError(f"run card lacks {commitment_group}")
+    raw_commitment = cast(Mapping[str, object], raw_group).get(name)
+    if not isinstance(raw_commitment, Mapping):
+        raise CommandError(f"run card lacks {commitment_group}.{name}")
+    raw_path = cast(Mapping[str, object], raw_commitment).get("path")
+    if not isinstance(raw_path, str) or not raw_path:
+        raise CommandError(f"run card has invalid {commitment_group}.{name} path")
+    return Path(raw_path)
+
+
+def _authenticated_extension_lineage(
+    *,
+    preparation_root: Path,
+    preparation_summary_path: Path,
+    preparation_config_path: Path,
+    snapshot_path: Path,
+    frontier_path: Path,
+    frontier_run_card_path: Path,
+    clearance_run_card_path: Path,
+    reviews_path: Path,
+    review_receipt_path: Path,
+    restriction_evidence_path: Path,
+    disclosure_clearance_path: Path,
+    full_paths: Mapping[str, Path],
+    full_artifacts: Mapping[str, bytes],
+    lineage_bytes: Mapping[str, bytes],
+    snapshot_bytes: bytes,
+    preparation_target_case_count: int,
+) -> AuthenticatedPoolLineage:
+    """Verify the provider-free preparation/frontier/clearance chain."""
+
+    preparation_summary = _projection_json_object(
+        lineage_bytes["preparation_summary"], source=preparation_summary_path
+    )
+    preparation_config = _projection_json_object(
+        lineage_bytes["preparation_config"], source=preparation_config_path
+    )
+    snapshot = _projection_json_object(snapshot_bytes, source=snapshot_path)
+    clearance_run_card = _projection_json_object(
+        lineage_bytes["clearance_run_card"], source=clearance_run_card_path
+    )
+    frontier = _projection_json_object(lineage_bytes["frontier"], source=frontier_path)
+    frontier_run_card = _projection_json_object(
+        lineage_bytes["frontier_run_card"], source=frontier_run_card_path
+    )
+    preparation_cost_per_document_usd = _required_str(
+        preparation_config, "cost_per_document_usd"
+    )
+    preparation_max_projected_budget_usd = _required_str(
+        preparation_config, "max_projected_budget_usd"
+    )
+    preparation_max_missing_core_documents_per_case = preparation_config.get(
+        "max_missing_core_documents_per_case"
+    )
+    if (
+        isinstance(preparation_max_missing_core_documents_per_case, bool)
+        or not isinstance(preparation_max_missing_core_documents_per_case, int)
+        or preparation_max_missing_core_documents_per_case < 1
+    ):
+        raise CommandError(
+            "preparation config has invalid max_missing_core_documents_per_case"
+        )
+    source_paths = {
+        "selection": full_paths["selection.jsonl"],
+        "case_relevance": full_paths["case-relevance.jsonl"],
+        "download_manifest": full_paths["document-downloads-merged.jsonl"],
+        "disclosure_clearance": disclosure_clearance_path,
+        "clearance_run_card": clearance_run_card_path,
+        "restriction_evidence": restriction_evidence_path,
+        "preparation_summary": preparation_summary_path,
+        "preparation_config": preparation_config_path,
+        "snapshot_manifest": snapshot_path,
+    }
+    source_payloads = {
+        "selection": full_artifacts["selection.jsonl"],
+        "case_relevance": full_artifacts["case-relevance.jsonl"],
+        "download_manifest": full_artifacts["document-downloads-merged.jsonl"],
+        "disclosure_clearance": full_artifacts["disclosure-clearance.jsonl"],
+        "clearance_run_card": lineage_bytes["clearance_run_card"],
+        "restriction_evidence": lineage_bytes["restriction_evidence"],
+        "preparation_summary": lineage_bytes["preparation_summary"],
+        "preparation_config": lineage_bytes["preparation_config"],
+        "snapshot_manifest": snapshot_bytes,
+    }
+    source_sha256 = {
+        name: _bytes_sha256(payload) for name, payload in source_payloads.items()
+    }
+    _validate_projection_source_commitments(
+        preparation_summary=preparation_summary,
+        preparation_config=preparation_config,
+        snapshot_manifest=snapshot,
+        clearance_run_card=clearance_run_card,
+        source_paths=source_paths,
+        source_sha256=source_sha256,
+        target_case_count=preparation_target_case_count,
+        cost_per_document_usd=preparation_cost_per_document_usd,
+        max_projected_budget_usd=preparation_max_projected_budget_usd,
+        max_missing_core_documents_per_case=(
+            preparation_max_missing_core_documents_per_case
+        ),
+    )
+    if clearance_run_card.get("paid_activity_requested") is not False:
+        raise CommandError("clear-disclosures run card requested paid activity")
+    clearance_sources = clearance_run_card.get("source_commitments")
+    if not isinstance(clearance_sources, Mapping):
+        raise CommandError("clear-disclosures run card lacks source commitments")
+    for name, path, digest in (
+        ("reviews", reviews_path, _bytes_sha256(lineage_bytes["reviews"])),
+        (
+            "review_receipt",
+            review_receipt_path,
+            _bytes_sha256(lineage_bytes["review_receipt"]),
+        ),
+    ):
+        _validate_named_path_commitment(
+            cast(Mapping[str, object], clearance_sources),
+            name=name,
+            expected_path=path,
+            expected_sha256=digest,
+        )
+    try:
+        review_authority = validate_review_receipt(
+            lineage_bytes["reviews"],
+            _projection_json_object(
+                lineage_bytes["review_receipt"], source=review_receipt_path
+            ),
+        )
+        frontier_rows = _verified_target_cohort_frontier_rows(frontier)
+    except (DisclosureClearanceError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+    authority = clearance_run_card.get("review_authority")
+    expected_authority = {
+        "reviewer_id": review_authority.reviewer_id,
+        "controlled_store_uri": review_authority.controlled_store_uri,
+        "authentication_method": review_authority.authentication_method,
+        "authenticated_at": review_authority.authenticated_at,
+        "review_artifact_sha256": ("sha256:" + review_authority.review_artifact_sha256),
+    }
+    if (
+        not isinstance(authority, Mapping)
+        or dict(cast(Mapping[str, object], authority)) != expected_authority
+    ):
+        raise CommandError("clear-disclosures review authority differs from receipt")
+
+    policy = cast(Mapping[str, Any], frontier["policy"])
+    commitments = cast(Mapping[str, object], policy["source_commitments"])
+    expected_frontier_commitments = {
+        "snapshot_manifest_sha256": _bytes_sha256(snapshot_bytes),
+        "preparation_config_sha256": _bytes_sha256(lineage_bytes["preparation_config"]),
+        "preparation_summary_sha256": _bytes_sha256(
+            lineage_bytes["preparation_summary"]
+        ),
+        "reconciled_selection_sha256": _bytes_sha256(full_artifacts["selection.jsonl"]),
+        "case_relevance_sha256": _bytes_sha256(full_artifacts["case-relevance.jsonl"]),
+        "download_manifest_sha256": _bytes_sha256(
+            full_artifacts["document-downloads-merged.jsonl"]
+        ),
+        "restriction_evidence_sha256": _bytes_sha256(
+            lineage_bytes["restriction_evidence"]
+        ),
+    }
+    for name, expected in expected_frontier_commitments.items():
+        if commitments.get(name) != expected:
+            raise CommandError(f"full candidate frontier {name} mismatch")
+    selection_rows = _projection_jsonl_records(
+        full_artifacts["selection.jsonl"], source=full_paths["selection.jsonl"]
+    )
+    selection_ids = {_required_str(row, "candidate_id") for row in selection_rows}
+    frontier_id_order = tuple(
+        _required_str(row, "candidate_id") for row in frontier_rows
+    )
+    frontier_ids = set(frontier_id_order)
+    if frontier_ids != selection_ids or len(frontier_rows) != len(selection_ids):
+        raise CommandError("full candidate frontier differs from resolved selection")
+    relevance_rows = _projection_jsonl_records(
+        full_artifacts["case-relevance.jsonl"],
+        source=full_paths["case-relevance.jsonl"],
+    )
+    filter_results = filter_core_documents(relevance_rows)
+    ranked_ids = tuple(
+        plan.candidate_id
+        for plan in rank_missing_core_document_plans(
+            filter_results,
+            dry_run=False,
+            max_missing_core_documents_per_case=(
+                preparation_max_missing_core_documents_per_case
+            ),
+            cost_per_document_usd=preparation_cost_per_document_usd,
+        )
+    )
+    if frontier_id_order != ranked_ids:
+        raise CommandError(
+            "full candidate frontier order does not derive from case relevance"
+        )
+    raw_frontier_candidates = cast(
+        Sequence[object], cast(Mapping[str, Any], frontier["policy"])["candidates"]
+    )
+    selected_frontier_ids = tuple(
+        _required_str(cast(Mapping[str, Any], row), "candidate_id")
+        for row in raw_frontier_candidates
+        if isinstance(row, Mapping)
+        and cast(Mapping[str, object], row).get("selection_status") == "selected"
+    )
+    canonical_preparation_plan = plan_missing_core_document_budget(
+        filter_results,
+        dry_run=False,
+        max_missing_core_documents_per_case=(
+            preparation_max_missing_core_documents_per_case
+        ),
+        cost_per_document_usd=preparation_cost_per_document_usd,
+        max_projected_budget_usd=preparation_max_projected_budget_usd,
+        truncate_to_budget=True,
+        target_case_count=preparation_target_case_count,
+    )
+    if selected_frontier_ids != tuple(
+        plan.candidate_id for plan in canonical_preparation_plan.case_plans
+    ):
+        raise CommandError("full candidate frontier selected boundary is not canonical")
+
+    success_run_card_path = _validate_frontier_materialization_run_card(
+        frontier_run_card,
+        preparation_root=preparation_root,
+        preparation_summary_path=preparation_summary_path,
+        preparation_config_path=preparation_config_path,
+        snapshot_path=snapshot_path,
+        frontier_path=frontier_path,
+        frontier_sha256=_bytes_sha256(lineage_bytes["frontier"]),
+    )
+    success_run_card_sha256 = _path_sha256(success_run_card_path)
+    if commitments.get("preparation_success_run_card_sha256") != (
+        success_run_card_sha256
+    ):
+        raise CommandError("frontier preparation success run-card mismatch")
+    return AuthenticatedPoolLineage(
+        preparation_summary_sha256=expected_frontier_commitments[
+            "preparation_summary_sha256"
+        ],
+        preparation_config_sha256=expected_frontier_commitments[
+            "preparation_config_sha256"
+        ],
+        snapshot_manifest_sha256=expected_frontier_commitments[
+            "snapshot_manifest_sha256"
+        ],
+        full_candidate_frontier_sha256=_bytes_sha256(lineage_bytes["frontier"]),
+        frontier_policy_sha256=cast(str, frontier["policy_sha256"]),
+        frontier_run_card_sha256=_bytes_sha256(lineage_bytes["frontier_run_card"]),
+        clearance_run_card_sha256=_bytes_sha256(lineage_bytes["clearance_run_card"]),
+        clearance_reviews_sha256=_bytes_sha256(lineage_bytes["reviews"]),
+        clearance_review_receipt_sha256=_bytes_sha256(lineage_bytes["review_receipt"]),
+        restriction_evidence_sha256=_bytes_sha256(
+            lineage_bytes["restriction_evidence"]
+        ),
+        preparation_cost_per_document_usd=preparation_cost_per_document_usd,
+        preparation_max_projected_budget_usd=(preparation_max_projected_budget_usd),
+        preparation_max_missing_core_documents_per_case=(
+            preparation_max_missing_core_documents_per_case
+        ),
+    )
+
+
+def _validate_frontier_materialization_run_card(
+    run_card: Mapping[str, Any],
+    *,
+    preparation_root: Path,
+    preparation_summary_path: Path,
+    preparation_config_path: Path,
+    snapshot_path: Path,
+    frontier_path: Path,
+    frontier_sha256: str,
+) -> Path:
+    if (
+        run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or run_card.get("stage") != "materialize-target-cohort-frontier"
+        or run_card.get("status") != "completed"
+        or run_card.get("dry_run") is not False
+        or run_card.get("execute") is not True
+        or run_card.get("paid_activity_requested") is not False
+        or run_card.get("paid_activity_executed") is not False
+        or run_card.get("zero_provider_activity_evidence") is not True
+        or run_card.get("frontier_sha256") != frontier_sha256
+        or run_card.get("output_paths") != [str(frontier_path)]
+    ):
+        raise CommandError("invalid completed frontier-materialization run card")
+    raw_inputs = run_card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise CommandError("frontier-materialization run card lacks inputs")
+    input_values = tuple(cast(Sequence[object], raw_inputs))
+    if not all(isinstance(path, str) for path in input_values):
+        raise CommandError("frontier-materialization run card has invalid input path")
+    input_paths = tuple(Path(cast(str, path)) for path in input_values)
+    required = {
+        preparation_root.resolve(),
+        preparation_summary_path.resolve(),
+        preparation_config_path.resolve(),
+        snapshot_path.resolve(),
+    }
+    resolved = {path.resolve() for path in input_paths}
+    remaining = resolved - required
+    if not required.issubset(resolved) or len(remaining) != 1 or len(resolved) != 5:
+        raise CommandError("frontier-materialization source lineage differs")
+    success_run_card_path = next(iter(remaining))
+    if success_run_card_path.is_symlink() or not success_run_card_path.is_file():
+        raise CommandError("preparation success run card is missing")
+    return success_run_card_path
+
+
+def _publish_retained_cohort_extension(
+    *,
+    args: argparse.Namespace,
+    extension: RetainedCohortExtension,
+    output_root: Path,
+    input_paths: Sequence[Path],
+    run_card_path: Path,
+    log_path: Path,
+) -> int:
+    """Publish or validate extension outputs while the journal lock is held."""
+
+    output_records = {
+        **{
+            output_root / name: payload
+            for name, payload in extension.combined_artifacts.items()
+        },
+        **{
+            output_root / "incremental" / name: payload
+            for name, payload in extension.incremental_artifacts.items()
+        },
+    }
+    _validate_retained_extension_output_scope(
+        output_root,
+        input_paths=input_paths,
+        additional_output_paths=(run_card_path, log_path, *output_records),
+    )
+    metadata_outputs = {run_card_path.resolve(), log_path.resolve()}
+    artifact_outputs = {path.resolve() for path in output_records}
+    collision = metadata_outputs & artifact_outputs
+    if collision:
+        raise CommandError(
+            "extend-target-cohort metadata output aliases cohort artifact: "
+            f"{sorted(str(path) for path in collision)}"
+        )
+    dry_run = _acquisition_dry_run(args)
+    if run_card_path.exists():
+        if not cast(bool, args.resume):
+            raise CommandError(
+                "extend-target-cohort run card already exists and --no-resume was set"
+            )
+        _validate_retained_extension_successful_resume(
+            run_card_path,
+            input_paths=input_paths,
+            expected_outputs=output_records,
+            dry_run=dry_run,
+            extension_sha256=cast(str, extension.extension_record["extension_sha256"]),
+            cumulative_obligation_usd=cast(
+                str, extension.combined_budget["cumulative_obligation_usd"]
+            ),
+            remaining_headroom_usd=cast(
+                str, extension.combined_budget["remaining_headroom_usd"]
+            ),
+        )
+        return 0
+    if not dry_run:
+        for path, payload in output_records.items():
+            _ensure_projection_artifact(
+                path,
+                payload,
+                resume=cast(bool, args.resume),
+                stage="extend-target-cohort",
+            )
+    _write_acquisition_completion(
+        args,
+        stage="extend-target-cohort",
+        input_paths=input_paths,
+        output_paths=tuple(output_records),
+        record_count=len(extension.combined_candidate_ids),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "base_case_count": len(extension.base_candidate_ids),
+            "incremental_case_count": len(extension.incremental_candidate_ids),
+            "combined_case_count": len(extension.combined_candidate_ids),
+            "extension_sha256": extension.extension_record["extension_sha256"],
+            "cumulative_obligation_usd": extension.combined_budget[
+                "cumulative_obligation_usd"
+            ],
+            "remaining_headroom_usd": extension.combined_budget[
+                "remaining_headroom_usd"
+            ],
+            "output_commitments": {
+                str(path): _bytes_sha256(payload)
+                for path, payload in output_records.items()
+            },
+        },
+    )
+    return 0
+
+
+def _validate_retained_extension_successful_resume(
+    run_card_path: Path,
+    *,
+    input_paths: Sequence[Path],
+    expected_outputs: Mapping[Path, bytes],
+    dry_run: bool,
+    extension_sha256: str,
+    cumulative_obligation_usd: str,
+    remaining_headroom_usd: str,
+) -> None:
+    run_card = _read_json_object(run_card_path)
+    expected = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": "extend-target-cohort",
+        "status": "completed",
+        "dry_run": dry_run,
+        "execute": not dry_run,
+        "record_count": 150,
+        "input_paths": [str(path) for path in input_paths],
+        "output_paths": [str(path) for path in expected_outputs],
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "base_case_count": 100,
+        "incremental_case_count": 50,
+        "combined_case_count": 150,
+        "extension_sha256": extension_sha256,
+        "cumulative_obligation_usd": cumulative_obligation_usd,
+        "remaining_headroom_usd": remaining_headroom_usd,
+    }
+    for field, value in expected.items():
+        if run_card.get(field) != value:
+            raise CommandError(
+                f"extend-target-cohort resume run-card mismatch: {field}"
+            )
+    commitments = run_card.get("output_commitments")
+    if not isinstance(commitments, Mapping):
+        raise CommandError(
+            "extend-target-cohort resume run card lacks output commitments"
+        )
+    expected_commitments = {
+        str(path): _bytes_sha256(payload) for path, payload in expected_outputs.items()
+    }
+    typed_commitments = cast(Mapping[str, object], commitments)
+    if dict(typed_commitments) != expected_commitments:
+        raise CommandError("extend-target-cohort resume output commitments differ")
+    if not dry_run:
+        for path, payload in expected_outputs.items():
+            if path.is_symlink() or not path.is_file() or path.read_bytes() != payload:
+                raise CommandError(
+                    f"extend-target-cohort committed output changed: {path}"
+                )
+
+
+def _retained_extension_output_paths(output_root: Path) -> tuple[Path, ...]:
+    combined_names = (
+        "target-cohort-selection.jsonl",
+        "case-relevance.jsonl",
+        "document-downloads-merged.jsonl",
+        "disclosure-clearance.jsonl",
+        "restriction-evidence.jsonl",
+        "core-filter-results.jsonl",
+        "free-document-downloads.jsonl",
+        "purchased-document-downloads.jsonl",
+        "target-cohort-exclusions.jsonl",
+        "missing-core-budget-plan.json",
+        "retained-cohort-budget.json",
+        "retained-cohort-extension.json",
+    )
+    incremental_names = (
+        "target-cohort-selection.jsonl",
+        "case-relevance.jsonl",
+        "document-downloads-merged.jsonl",
+        "free-document-downloads.jsonl",
+        "purchased-document-downloads.jsonl",
+        "disclosure-clearance.jsonl",
+        "restriction-evidence.jsonl",
+        "core-filter-results.jsonl",
+        "target-cohort-exclusions.jsonl",
+        "missing-core-budget-plan.json",
+        "target-cohort-projection.json",
+    )
+    return (
+        *(output_root / name for name in combined_names),
+        *(output_root / "incremental" / name for name in incremental_names),
+    )
+
+
+def _validate_retained_extension_completed_resume(
+    run_card_path: Path,
+    *,
+    output_root: Path,
+    input_path_prefix: Sequence[Path],
+    expected_output_paths: Sequence[Path],
+    dry_run: bool,
+    combined_max_projected_budget_usd: str,
+) -> None:
+    """Validate committed outputs before touching mutable acquisition inputs."""
+
+    try:
+        combined_cap = Decimal(combined_max_projected_budget_usd)
+    except InvalidOperation as exc:
+        raise CommandError(
+            "combined_max_projected_budget_usd is not valid USD"
+        ) from exc
+    if (
+        not combined_cap.is_finite()
+        or combined_cap <= 0
+        or combined_cap != combined_cap.quantize(Decimal("0.01"))
+    ):
+        raise CommandError(
+            "combined_max_projected_budget_usd must be positive USD cents"
+        )
+    normalized_combined_cap = f"{combined_cap:.2f}"
+    run_card = _read_json_object(run_card_path)
+    expected_fields = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": "extend-target-cohort",
+        "status": "completed",
+        "dry_run": dry_run,
+        "execute": not dry_run,
+        "record_count": 150,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "base_case_count": 100,
+        "incremental_case_count": 50,
+        "combined_case_count": 150,
+    }
+    for field, expected in expected_fields.items():
+        if run_card.get(field) != expected:
+            raise CommandError(
+                f"extend-target-cohort resume run-card mismatch: {field}"
+            )
+    raw_inputs = run_card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise CommandError("extend-target-cohort resume run card lacks input paths")
+    committed_inputs = tuple(cast(Sequence[object], raw_inputs))
+    expected_prefix = tuple(str(path) for path in input_path_prefix)
+    if (
+        len(committed_inputs) != len(expected_prefix) + 1
+        or committed_inputs[: len(expected_prefix)] != expected_prefix
+        or not isinstance(committed_inputs[-1], str)
+    ):
+        raise CommandError("extend-target-cohort resume input paths differ")
+    raw_outputs = run_card.get("output_paths")
+    expected_output_strings = tuple(str(path) for path in expected_output_paths)
+    if (
+        not isinstance(raw_outputs, Sequence)
+        or isinstance(raw_outputs, (str, bytes))
+        or set(cast(Sequence[object], raw_outputs)) != set(expected_output_strings)
+        or len(cast(Sequence[object], raw_outputs)) != len(expected_output_strings)
+    ):
+        raise CommandError("extend-target-cohort resume output paths differ")
+    if dry_run:
+        return
+    commitments = run_card.get("output_commitments")
+    if not isinstance(commitments, Mapping):
+        raise CommandError(
+            "extend-target-cohort resume run card lacks exact output commitments"
+        )
+    typed_commitments = cast(Mapping[object, object], commitments)
+    if set(typed_commitments) != set(expected_output_strings):
+        raise CommandError(
+            "extend-target-cohort resume run card lacks exact output commitments"
+        )
+    output_payloads: dict[Path, bytes] = {}
+    for path in expected_output_paths:
+        payload = _read_retained_extension_artifact(path)
+        if typed_commitments.get(str(path)) != _bytes_sha256(payload):
+            raise CommandError(f"extend-target-cohort committed output changed: {path}")
+        output_payloads[path] = payload
+    extension_path = output_root / "retained-cohort-extension.json"
+    budget_path = output_root / "retained-cohort-budget.json"
+    expected_set = set(expected_output_paths)
+    if extension_path not in expected_set or budget_path not in expected_set:
+        raise CommandError("extend-target-cohort resume metadata paths differ")
+    extension = _projection_json_object(
+        output_payloads[extension_path], source=extension_path
+    )
+    extension_sha256 = extension.get("extension_sha256")
+    unsigned_extension = dict(extension)
+    unsigned_extension.pop("extension_sha256", None)
+    if (
+        not isinstance(extension_sha256, str)
+        or extension_sha256 != _canonical_json_sha256(unsigned_extension)
+        or run_card.get("extension_sha256") != extension_sha256
+    ):
+        raise CommandError("extend-target-cohort resume extension hash mismatch")
+    budget = _projection_json_object(output_payloads[budget_path], source=budget_path)
+    budget_sha256 = budget.get("budget_sha256")
+    unsigned_budget = dict(budget)
+    unsigned_budget.pop("budget_sha256", None)
+    if (
+        not isinstance(budget_sha256, str)
+        or budget_sha256 != _canonical_json_sha256(unsigned_budget)
+        or budget.get("combined_max_projected_budget_usd") != normalized_combined_cap
+        or run_card.get("cumulative_obligation_usd")
+        != budget.get("cumulative_obligation_usd")
+        or run_card.get("remaining_headroom_usd")
+        != budget.get("remaining_headroom_usd")
+    ):
+        raise CommandError("extend-target-cohort resume budget mismatch")
+    output_commitments = extension.get("output_commitments")
+    if not isinstance(output_commitments, Mapping):
+        raise CommandError("retained extension lacks output commitments")
+    for name, digest in cast(Mapping[str, object], output_commitments).items():
+        path = output_root / name
+        if path not in output_payloads or digest != _bytes_sha256(
+            output_payloads[path]
+        ):
+            raise CommandError(f"retained extension output commitment mismatch: {name}")
+
+
+def _read_retained_extension_artifact(path: Path) -> bytes:
+    if path.is_symlink() or not path.is_file():
+        raise CommandError(
+            f"extend-target-cohort input must be a regular non-symlink file: {path}"
+        )
+    return path.read_bytes()
+
+
+def _validate_existing_purchase_ledger(
+    path: Path, policy: CaseDevPurchasePolicy
+) -> None:
+    """Authenticate the canonical journal read-only before its lock is opened."""
+
+    if path.is_symlink() or not path.is_file() or path.stat().st_size == 0:
+        raise CommandError(
+            "extend-target-cohort requires a preexisting nonempty canonical "
+            f"purchase ledger: {path}"
+        )
+    expected = (
+        policy.cycle_id,
+        policy.cohort_policy_sha256,
+        policy.policy_sha256,
+        str(policy.canonical_ledger_path),
+        f"{policy.hard_cap_usd:.2f}",
+        f"{policy.opening_committed_spend_usd:.2f}",
+        f"{policy.max_per_case_usd:.2f}",
+        f"{policy.per_document_reservation_usd:.2f}",
+    )
+    try:
+        with sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True) as ledger:
+            ledger.row_factory = sqlite3.Row
+            quick_check = ledger.execute("PRAGMA quick_check").fetchone()
+            if quick_check is None or str(quick_check[0]) != "ok":
+                raise CommandError("purchase ledger failed SQLite quick_check")
+            tables = {
+                str(row[0])
+                for row in ledger.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            required_tables = {
+                "purchase_ledger",
+                "purchase_operations",
+                "replacement_events",
+            }
+            if not required_tables.issubset(tables):
+                raise CommandError("purchase ledger schema is incomplete")
+            operation_schema = ledger.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' "
+                "AND name='purchase_operations'"
+            ).fetchone()
+            if operation_schema is None or "'queued'" not in str(operation_schema[0]):
+                raise CommandError("purchase ledger schema is not current")
+            row = ledger.execute(
+                "SELECT * FROM purchase_ledger WHERE singleton=1"
+            ).fetchone()
+            if row is None:
+                raise CommandError("purchase ledger lacks immutable policy identity")
+            actual = tuple(
+                str(row[field])
+                for field in (
+                    "cycle_id",
+                    "cohort_policy_sha256",
+                    "purchase_policy_sha256",
+                    "canonical_ledger_path",
+                    "hard_cap_usd",
+                    "opening_committed_spend_usd",
+                    "max_per_case_usd",
+                    "per_document_reservation_usd",
+                )
+            )
+            if actual != expected:
+                raise CommandError(
+                    "purchase ledger identity conflicts with immutable policy"
+                )
+    except sqlite3.Error as exc:
+        raise CommandError(f"invalid canonical purchase ledger: {exc}") from exc
+
+
+def _validate_retained_extension_output_scope(
+    output_root: Path,
+    *,
+    input_paths: Sequence[Path],
+    additional_output_paths: Sequence[Path] = (),
+) -> None:
+    outputs = (
+        output_root.resolve(),
+        *(path.resolve() for path in additional_output_paths),
+    )
+    for output in outputs[1:]:
+        try:
+            metadata = output.stat()
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            raise CommandError(
+                f"cannot inspect extend-target-cohort writable output: {output}: {exc}"
+            ) from exc
+        if output.is_file() and metadata.st_nlink > 1:
+            raise CommandError(
+                f"extend-target-cohort writable output has hard-link aliases: {output}"
+            )
+    for output in outputs:
+        for path in input_paths:
+            source = path.resolve()
+            if (
+                output == source
+                or output.is_relative_to(source)
+                or source.is_relative_to(output)
+            ):
+                raise CommandError(
+                    "extend-target-cohort output overlaps immutable input: "
+                    f"{output} vs {source}"
+                )
+            if output.exists() and path.exists() and output.samefile(path):
+                raise CommandError(
+                    "extend-target-cohort output hard-links immutable input: "
+                    f"{output} vs {source}"
+                )
+    for index, output in enumerate(outputs):
+        for other in outputs[index + 1 :]:
+            if (
+                output == other
+                or output.is_relative_to(other)
+                or other.is_relative_to(output)
+            ):
+                # The default run card and log are expected children of output_root.
+                if output == output_root.resolve() or other == output_root.resolve():
+                    continue
+                raise CommandError(
+                    f"extend-target-cohort writable outputs alias: {output} vs {other}"
+                )
+            if output.exists() and other.exists() and output.samefile(other):
+                raise CommandError(
+                    "extend-target-cohort writable outputs share an inode: "
+                    f"{output} vs {other}"
+                )
+
+
 def _validate_projection_output_scope(
     output_root: Path,
     *,
@@ -6872,14 +7919,18 @@ def _projection_json_bytes(payload: Mapping[str, Any]) -> bytes:
     ).encode("utf-8")
 
 
-def _ensure_projection_artifact(path: Path, payload: bytes, *, resume: bool) -> None:
+def _ensure_projection_artifact(
+    path: Path,
+    payload: bytes,
+    *,
+    resume: bool,
+    stage: str = "project-target-cohort",
+) -> None:
     if path.exists():
         if not resume:
-            raise CommandError(f"project-target-cohort output already exists: {path}")
+            raise CommandError(f"{stage} output already exists: {path}")
         if path.is_symlink() or not path.is_file() or path.read_bytes() != payload:
-            raise CommandError(
-                f"project-target-cohort resume artifact mismatch: {path}"
-            )
+            raise CommandError(f"{stage} resume artifact mismatch: {path}")
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path: Path | None = None
