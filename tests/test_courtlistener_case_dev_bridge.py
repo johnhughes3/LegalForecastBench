@@ -137,6 +137,33 @@ def test_free_download_request_role_tampering_fails_as_bridge_error() -> None:
         bridge_free_download_requests_from_selection(selection)
 
 
+def test_free_download_request_candidate_tampering_fails_as_bridge_error() -> None:
+    result = bridge_courtlistener_case_dev_documents(
+        (_screened_case(),),
+        client=_client(
+            _search_response(_case_dev_docket()),
+            _lookup_response(),
+        ),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+    selection = copy.deepcopy(result.selection_records[0])
+    documents = selection["documents"]
+    assert isinstance(documents, list)
+    free_document = next(
+        document
+        for document in documents
+        if document.get("requires_paid_recovery") is False
+    )
+    free_document["candidate_id"] = "other-candidate"
+
+    with pytest.raises(
+        CourtListenerCaseDevBridgeError,
+        match="bridge_free_document_candidate_mismatch",
+    ):
+        bridge_free_download_requests_from_selection(selection)
+
+
 def test_bridge_does_not_replace_pre_target_complaint_with_later_order() -> None:
     screened = copy.deepcopy(_screened_case())
     entries = screened["selected_entries"]

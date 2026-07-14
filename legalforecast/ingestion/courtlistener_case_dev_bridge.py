@@ -832,6 +832,12 @@ def bridge_free_download_requests_from_selection(
     for document in _mapping_sequence(selection_record.get("documents"), "documents"):
         if document.get("resolved_from_paid_gap") is not True:
             continue
+        document_candidate_id = _required_str(document, "candidate_id")
+        if document_candidate_id != candidate_id:
+            raise CourtListenerCaseDevBridgeError(
+                "bridge_free_document_candidate_mismatch: "
+                f"{candidate_id}/{document_candidate_id}"
+            )
         if (
             document.get("availability_status") == "unavailable"
             and document.get("requires_paid_recovery") is True
