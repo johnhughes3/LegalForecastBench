@@ -326,6 +326,13 @@ from legalforecast.ingestion.snapshot_quarantine import (
     SnapshotQuarantineError,
     quarantine_orphan_snapshot,
 )
+from legalforecast.ingestion.snapshot_replay import (
+    SnapshotReplayError,
+    collect_snapshot_replay_bundle,
+    firecrawl_screen_input_commitments,
+    read_verified_replay_raw,
+    source_replay_commitment,
+)
 from legalforecast.labeling.cycle_label_audit import (
     CycleLabelAuditError,
     evaluate_cycle_label_audit,
@@ -889,6 +896,20 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_screen_firecrawl_arguments(acquisition_screen_firecrawl)
+    acquisition_replay_screening = acquisition_subparsers.add_parser(
+        "replay-screening-snapshots",
+        help=(
+            "Re-screen verified historical snapshots into one target-cycle "
+            "snapshot without contacting any provider."
+        ),
+        description=(
+            "Verify a source assembly and optional target-cycle snapshots, copy "
+            "their committed raw docket HTML into a synthetic target batch, and "
+            "run the current strict screen. This command never contacts a provider "
+            "and never performs paid activity."
+        ),
+    )
+    _add_acquisition_replay_screening_arguments(acquisition_replay_screening)
     acquisition_quarantine_snapshot = acquisition_subparsers.add_parser(
         "quarantine-orphan-snapshot",
         help=(
@@ -2248,6 +2269,71 @@ def _add_acquisition_screen_firecrawl_arguments(
         help="Immutable complete snapshot directory name.",
     )
     parser.set_defaults(handler=_cmd_acquisition_screen_firecrawl)
+
+
+def _add_acquisition_replay_screening_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--cycle-store", type=Path, required=True)
+    parser.add_argument(
+        "--batch-id",
+        required=True,
+        help="Synthetic target-cycle batch receiving every replayed candidate.",
+    )
+    parser.add_argument(
+        "--source-assembly-run-card",
+        type=Path,
+        required=True,
+        help=(
+            "Prior assemble-cycle-acquisition run card recursively expanded into "
+            "verified screening snapshots; downstream-only roots are ignored."
+        ),
+    )
+    parser.add_argument(
+        "--expected-source-assembly-sha256",
+        required=True,
+        help="Exact lowercase SHA-256 of --source-assembly-run-card.",
+    )
+    parser.add_argument(
+        "--expected-source-cycle-hash",
+        required=True,
+        help="Required cycle hash for every snapshot expanded from the assembly.",
+    )
+    parser.add_argument(
+        "--source-snapshot",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "Additional complete snapshot from the target cycle, such as a JOP "
+            "batch. Repeatable."
+        ),
+    )
+    parser.add_argument(
+        "--expected-target-cycle-hash",
+        required=True,
+        help=(
+            "Required target-store cycle hash and cycle hash for every explicit "
+            "--source-snapshot."
+        ),
+    )
+    parser.add_argument(
+        "--decision-filed-on-or-after",
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="Fail-closed first-written-disposition eligibility anchor.",
+    )
+    parser.add_argument(
+        "--snapshot-root",
+        type=Path,
+        help="Immutable snapshot parent; defaults under --output-root.",
+    )
+    parser.add_argument("--snapshot-id", required=True)
+    parser.add_argument("--screened-cases-output", type=Path)
+    parser.add_argument("--exclusions-output", type=Path)
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_replay_screening_snapshots)
 
 
 def _add_acquisition_quarantine_snapshot_arguments(
@@ -7073,7 +7159,7 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
 
     try:
         _validate_firecrawl_success_commitments(success_records)
-        input_commitments = _firecrawl_screen_input_commitments(
+        input_commitments = firecrawl_screen_input_commitments(
             success_records=success_records,
             fetch_exclusion_records=fetch_exclusion_records,
         )
@@ -7330,6 +7416,282 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
         extra=summary,
     )
     return 0
+
+
+def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int:
+    """Re-screen cryptographically bound snapshots without provider activity."""
+
+    output_root = cast(Path, args.output_root)
+    cycle_store_path = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    source_assembly_run_card = cast(Path, args.source_assembly_run_card)
+    additional_source_snapshots = tuple(cast(Sequence[Path], args.source_snapshot))
+    snapshot_root = _acquisition_path(
+        args,
+        "snapshot_root",
+        output_root / "snapshots",
+    )
+    snapshot_id = cast(str, args.snapshot_id)
+    snapshot_path = snapshot_root / snapshot_id
+    raw_html_dir = output_root / "raw-docket-html" / snapshot_id
+    screened_cases_path = _acquisition_path(
+        args,
+        "screened_cases_output",
+        output_root / "replay-screened-cases.jsonl",
+    )
+    exclusions_path = _acquisition_path(
+        args,
+        "exclusions_output",
+        output_root / "replay-screening-exclusions.jsonl",
+    )
+    summary_path = _acquisition_path(
+        args,
+        "summary_output",
+        output_root / "replay-screening-summary.json",
+    )
+    anchor = _iso_date_argument(
+        cast(str, args.decision_filed_on_or_after),
+        "--decision-filed-on-or-after",
+    )
+    expected_source_assembly_sha256 = cast(str, args.expected_source_assembly_sha256)
+    expected_source_cycle_hash = cast(str, args.expected_source_cycle_hash)
+    expected_target_cycle_hash = cast(str, args.expected_target_cycle_hash)
+    input_paths = (
+        cycle_store_path,
+        source_assembly_run_card,
+        *additional_source_snapshots,
+    )
+    output_paths = (
+        screened_cases_path,
+        exclusions_path,
+        summary_path,
+        raw_html_dir,
+        snapshot_path,
+    )
+    _validate_replay_output_paths(
+        args=args,
+        snapshot_path=snapshot_path,
+        screened_cases_path=screened_cases_path,
+        exclusions_path=exclusions_path,
+        summary_path=summary_path,
+        raw_html_dir=raw_html_dir,
+    )
+    provider_flags: JsonRecord = {
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+    }
+
+    try:
+        bundle = collect_snapshot_replay_bundle(
+            source_assembly_run_card=source_assembly_run_card,
+            expected_source_assembly_sha256=expected_source_assembly_sha256,
+            expected_source_cycle_hash=expected_source_cycle_hash,
+            additional_source_snapshots=additional_source_snapshots,
+            expected_additional_cycle_hash=expected_target_cycle_hash,
+        )
+        success_records = [dict(success.record) for success in bundle.successes]
+        fetch_exclusion_records = [
+            dict(exclusion.record) for exclusion in bundle.exclusions
+        ]
+        _validate_firecrawl_success_commitments(success_records)
+        with CycleAcquisitionStore(cycle_store_path) as store:
+            if store.cycle_hash != expected_target_cycle_hash:
+                raise CycleAcquisitionStoreError(
+                    "target cycle hash mismatch: "
+                    f"expected {expected_target_cycle_hash}, got {store.cycle_hash}"
+                )
+            _validate_frozen_screening_policy(
+                policy=store.cycle_policy,
+                anchor=anchor,
+            )
+
+        if _acquisition_dry_run(args):
+            summary: JsonRecord = {
+                "schema_version": "legalforecast.snapshot_replay_summary.v1",
+                "dry_run": True,
+                "anchor_date": anchor.isoformat(),
+                "source_snapshot_count": len(bundle.sources),
+                "source_candidate_count": bundle.candidate_count,
+                "source_success_count": len(bundle.successes),
+                "source_fetch_exclusion_count": len(bundle.exclusions),
+                "accepted_case_count": 0,
+                "excluded_case_count": 0,
+                "reconciled": False,
+                **provider_flags,
+            }
+            _write_json(summary_path, summary)
+            _write_acquisition_completion(
+                args,
+                stage="replay-screening-snapshots",
+                input_paths=input_paths,
+                output_paths=output_paths,
+                record_count=0,
+                dry_run=True,
+                paid_activity_requested=False,
+                paid_activity_executed=False,
+                extra=summary,
+            )
+            return 0
+
+        if snapshot_path.exists():
+            raise FileExistsError(
+                "target replay snapshot already exists; immutable replay outputs "
+                f"cannot be overwritten: {snapshot_path}"
+            )
+        commitment = source_replay_commitment(bundle)
+        with CycleAcquisitionStore(cycle_store_path) as store:
+            batch_digest = store.ensure_batch(
+                batch_id,
+                {
+                    "stage": "provider-free-source-bound-snapshot-replay",
+                    "anchor_date": anchor.isoformat(),
+                    "source_bound_replay": commitment,
+                },
+            )
+            cycle_hash = store.cycle_hash
+            store.ensure_terms(batch_id, ("source-bound-snapshot-replay",))
+            store.commit_search_page(
+                batch_id,
+                "source-bound-snapshot-replay",
+                None,
+                (
+                    DiscoveryHit(
+                        provider_hit_id=f"source-replay:{candidate_id}",
+                        candidate_id=candidate_id,
+                        payload=dict(record),
+                    )
+                    for candidate_id, record in (
+                        *(
+                            (success.candidate_id, success.record)
+                            for success in bundle.successes
+                        ),
+                        *(
+                            (exclusion.candidate_id, exclusion.record)
+                            for exclusion in bundle.exclusions
+                        ),
+                    )
+                ),
+                next_cursor=None,
+                terminal_status=TermTerminalStatus.EXHAUSTED,
+            )
+            for success in bundle.successes:
+                destination = raw_html_dir / f"{success.docket_id}.html"
+                store.write_raw_artifact(
+                    success.candidate_id,
+                    destination,
+                    read_verified_replay_raw(success),
+                    retrieved_at=_required_str(success.record, "retrieved_at"),
+                    validator=_validate_raw_docket_bytes,
+                )
+            result = screen_case_dev_firecrawl_successes(
+                successes=success_records,
+                raw_html_directory=raw_html_dir,
+                decision_filed_on_or_after=anchor,
+            )
+            rescreen_metadata_by_candidate = _rescreen_metadata_by_candidate(
+                success_records
+            )
+            for screened in result.screened_cases:
+                candidate_id = _screened_case_dev_id(screened)
+                evidence = dict(screened)
+                evidence["candidate_id"] = candidate_id
+                store.record_observation(
+                    candidate_id,
+                    batch_id=batch_id,
+                    state="accepted",
+                    reason_code="strict_clean_screen_passed",
+                    evidence=evidence,
+                    metadata_repair_evidence=rescreen_metadata_by_candidate[
+                        candidate_id
+                    ],
+                )
+            for exclusion in result.exclusions:
+                evidence = exclusion.to_record()
+                candidate_id = exclusion.case_id
+                evidence["candidate_id"] = candidate_id
+                store.record_observation(
+                    candidate_id,
+                    batch_id=batch_id,
+                    state="excluded",
+                    reason_code=_canonical_screen_exclusion_reason(exclusion.reason),
+                    evidence=evidence,
+                    metadata_repair_evidence=rescreen_metadata_by_candidate[
+                        candidate_id
+                    ],
+                )
+            for exclusion in fetch_exclusion_records:
+                _record_fetch_exclusion(store, batch_id=batch_id, record=exclusion)
+            snapshot_path = store.export_snapshot(
+                snapshot_root,
+                snapshot_id=snapshot_id,
+                batch_id=batch_id,
+                complete=True,
+                stage_commitments={"source_bound_replay": commitment},
+            )
+            snapshot_manifest = verify_snapshot(
+                snapshot_path,
+                expected_cycle_hash=cycle_hash,
+                expected_batch_digest=batch_digest,
+                require_complete=True,
+                require_saturated=True,
+            )
+        screened_cases = _read_records(snapshot_path / "screened-cases.jsonl")
+        all_exclusions = _read_records(snapshot_path / "exclusions.jsonl")
+        snapshot_summary = _read_json_object(snapshot_path / "summary.json")
+        _write_jsonl(screened_cases_path, screened_cases)
+        _write_jsonl(exclusions_path, all_exclusions)
+        summary = {
+            "schema_version": "legalforecast.snapshot_replay_summary.v1",
+            "dry_run": False,
+            "anchor_date": anchor.isoformat(),
+            "source_snapshot_count": len(bundle.sources),
+            "source_candidate_count": bundle.candidate_count,
+            "source_success_count": len(bundle.successes),
+            "source_fetch_exclusion_count": len(bundle.exclusions),
+            "accepted_case_count": len(screened_cases),
+            "excluded_case_count": len(all_exclusions),
+            "reconciled": snapshot_summary.get("reconciliation_complete") is True,
+            "snapshot_path": str(snapshot_path),
+            "cycle_hash": snapshot_manifest["cycle_hash"],
+            "batch_digest": snapshot_manifest["batch_digest"],
+            "snapshot_complete": snapshot_manifest["complete"],
+            "snapshot_saturated": snapshot_manifest["saturated"],
+            **provider_flags,
+        }
+        _write_json(summary_path, summary)
+        _write_acquisition_completion(
+            args,
+            stage="replay-screening-snapshots",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=len(screened_cases),
+            dry_run=False,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+        return 0
+    except (
+        CycleAcquisitionStoreError,
+        SnapshotReplayError,
+        SnapshotVerificationError,
+        KeyError,
+        OSError,
+        UnicodeError,
+        ValueError,
+        RuntimeError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="replay-screening-snapshots",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=provider_flags,
+        )
+        raise CommandError(str(exc)) from exc
 
 
 def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
@@ -10343,54 +10705,39 @@ def _validate_screen_resume_output_paths(
             )
 
 
-_FIRECRAWL_SCREEN_INPUT_COMMITMENT_SCHEMA = (
-    "legalforecast.firecrawl_screen_input_commitment.v1"
-)
-
-
-def _firecrawl_screen_input_commitments(
+def _validate_replay_output_paths(
     *,
-    success_records: Sequence[Mapping[str, Any]],
-    fetch_exclusion_records: Sequence[Mapping[str, Any]],
-) -> dict[str, object]:
-    per_record_commitments: list[dict[str, object]] = []
-    input_ordinal = 0
-    for outcome_class, records in (
-        ("success", success_records),
-        ("fetch_exclusion", fetch_exclusion_records),
-    ):
-        for record in records:
-            input_ordinal += 1
-            candidate_id = _required_str(record, "case_id")
-            normalized_record = json.dumps(
-                dict(record),
-                sort_keys=True,
-                separators=(",", ":"),
-                allow_nan=False,
-            )
-            per_record_commitments.append(
-                {
-                    "candidate_id": candidate_id,
-                    "input_ordinal": input_ordinal,
-                    "outcome_class": outcome_class,
-                    "normalized_record_sha256": hashlib.sha256(
-                        normalized_record.encode()
-                    ).hexdigest(),
-                }
-            )
-    normalized_commitments = json.dumps(
-        per_record_commitments,
-        sort_keys=True,
-        separators=(",", ":"),
-        allow_nan=False,
-    )
-    return {
-        "schema_version": _FIRECRAWL_SCREEN_INPUT_COMMITMENT_SCHEMA,
-        "input_record_count": len(per_record_commitments),
-        "per_candidate_outcome_record_sha256": hashlib.sha256(
-            normalized_commitments.encode()
-        ).hexdigest(),
+    args: argparse.Namespace,
+    snapshot_path: Path,
+    screened_cases_path: Path,
+    exclusions_path: Path,
+    summary_path: Path,
+    raw_html_dir: Path,
+) -> None:
+    snapshot_tree = snapshot_path.resolve()
+    output_root = cast(Path, args.output_root)
+    writable_paths = {
+        "--screened-cases-output": screened_cases_path,
+        "--exclusions-output": exclusions_path,
+        "--summary-output": summary_path,
+        "replayed raw HTML directory": raw_html_dir,
+        "--run-card-output": _acquisition_path(
+            args,
+            "run_card_output",
+            output_root / "run-cards" / "replay-screening-snapshots.json",
+        ),
+        "--log-output": _acquisition_path(
+            args,
+            "log_output",
+            output_root / "logs" / "replay-screening-snapshots.jsonl",
+        ),
     }
+    for flag, path in writable_paths.items():
+        resolved = path.resolve()
+        if resolved == snapshot_tree or resolved.is_relative_to(snapshot_tree):
+            raise CommandError(
+                f"{flag} must be outside the committed snapshot tree: {snapshot_tree}"
+            )
 
 
 _IMMUTABLE_ACQUISITION_EXCLUSIONS = frozenset(
