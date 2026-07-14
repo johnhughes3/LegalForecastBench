@@ -306,6 +306,21 @@ def test_extension_rejects_combined_cap_below_base_cost_or_policy_ceiling() -> N
         extend_target_cohort(**inputs)
 
 
+def test_extension_binds_base_pricing_to_authenticated_preparation() -> None:
+    inputs = _inputs(max_projected_budget_usd="600.00")
+    inputs["authenticated_lineage"] = _lineage(max_projected_budget_usd="567.30")
+    with pytest.raises(RetainedCohortExtensionError, match="base budget semantics"):
+        extend_target_cohort(**inputs)
+
+    inputs = _inputs()
+    inputs["purchase_obligations"] = _obligations(per_document_reservation="1.00")
+    with pytest.raises(
+        RetainedCohortExtensionError,
+        match="reservation price differs from authenticated preparation",
+    ):
+        extend_target_cohort(**inputs)
+
+
 def test_purchase_obligations_are_derived_from_every_committed_journal_state(
     tmp_path: Path,
 ) -> None:
@@ -455,6 +470,21 @@ def test_cli_completed_resume_ignores_advanced_journal_and_unavailable_sources(
     assert main(argv) == 0
     assert run_card.read_bytes() == run_card_before
     assert log.read_bytes() == log_before
+
+
+def test_cli_does_not_expose_operator_pricing_overrides_on_resume(
+    tmp_path: Path,
+) -> None:
+    argv, _, _, _ = _cli_fixture(tmp_path)
+    assert main(argv) == 0
+
+    for override in (
+        ("--cost-per-document-usd", "1.00"),
+        ("--max-missing-core-documents-per-case", "12"),
+    ):
+        with pytest.raises(SystemExit) as exc_info:
+            main([*argv, *override])
+        assert exc_info.value.code == 2
 
 
 def test_cli_rejects_metadata_aliases_and_dry_run_overwrite(tmp_path: Path) -> None:
@@ -882,12 +912,8 @@ def _cli_fixture(
         str(purchase_policy),
         "--purchase-ledger",
         str(purchase_ledger),
-        "--cost-per-document-usd",
-        "3.05",
         "--combined-max-projected-budget-usd",
         combined_max_projected_budget_usd,
-        "--max-missing-core-documents-per-case",
-        "24",
     ]
     return argv, cohort_policy, custom_run_card, custom_log
 
@@ -929,13 +955,14 @@ def _inputs(
         "snapshot_manifest_sha256": "sha256:" + "b" * 64,
         "snapshot_cycle_hash": "c" * 64,
         "snapshot_batch_digest": "d" * 64,
-        "cost_per_document_usd": "3.05",
         "combined_max_projected_budget_usd": (
             combined_max_projected_budget_usd or max_projected_budget_usd
         ),
-        "max_missing_core_documents_per_case": (max_missing_core_documents_per_case),
         "purchase_obligations": _obligations(),
-        "authenticated_lineage": _lineage(),
+        "authenticated_lineage": _lineage(
+            max_projected_budget_usd=max_projected_budget_usd,
+            max_missing_core_documents_per_case=(max_missing_core_documents_per_case),
+        ),
     }
 
 
@@ -1074,11 +1101,13 @@ def _obligations(
     reserved: str = "0.00",
     unknown: str = "0.00",
     write_off: str = "0.00",
+    per_document_reservation: str = "3.05",
 ) -> PurchaseObligationSnapshot:
     return PurchaseObligationSnapshot(
         purchase_policy_sha256="sha256:" + "1" * 64,
         purchase_journal_state_sha256="sha256:" + "2" * 64,
         canonical_ledger_path="/tmp/test-purchase-ledger.sqlite3",
+        per_document_reservation=Decimal(per_document_reservation),
         opening_obligation=Decimal(opening),
         confirmed_obligation=Decimal(confirmed),
         reserved_obligation=Decimal(reserved),
@@ -1087,7 +1116,12 @@ def _obligations(
     )
 
 
-def _lineage() -> AuthenticatedPoolLineage:
+def _lineage(
+    *,
+    cost_per_document_usd: str = "3.05",
+    max_projected_budget_usd: str = "2250.00",
+    max_missing_core_documents_per_case: int = 24,
+) -> AuthenticatedPoolLineage:
     return AuthenticatedPoolLineage(
         preparation_summary_sha256="sha256:" + "3" * 64,
         preparation_config_sha256="sha256:" + "4" * 64,
@@ -1099,6 +1133,11 @@ def _lineage() -> AuthenticatedPoolLineage:
         clearance_reviews_sha256="sha256:" + "9" * 64,
         clearance_review_receipt_sha256="sha256:" + "a" * 64,
         restriction_evidence_sha256="sha256:" + "e" * 64,
+        preparation_cost_per_document_usd=cost_per_document_usd,
+        preparation_max_projected_budget_usd=max_projected_budget_usd,
+        preparation_max_missing_core_documents_per_case=(
+            max_missing_core_documents_per_case
+        ),
     )
 
 
@@ -1162,9 +1201,9 @@ def _rebuild_base(inputs: dict[str, Any]) -> None:
         download_manifest=_jsonl(full["document-downloads-merged.jsonl"]),
         clearance_records=_jsonl(full["disclosure-clearance.jsonl"]),
         target_case_count=100,
-        cost_per_document_usd=inputs["cost_per_document_usd"],
+        cost_per_document_usd=base_budget["cost_per_document_usd"],
         max_projected_budget_usd=base_budget["max_projected_budget_usd"],
-        max_missing_core_documents_per_case=inputs[
+        max_missing_core_documents_per_case=base_budget[
             "max_missing_core_documents_per_case"
         ],
     )

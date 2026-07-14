@@ -7,6 +7,7 @@ It resolves selection, case relevance, merged downloads, restriction evidence, a
 It rejects symlink inputs, overlapping or hard-linked writable outputs, changed base output commitments, changed snapshot or preparation lineage, a substituted or truncated frontier, a changed review receipt, duplicate candidate/docket/motion identities, cross-candidate reuse of a purchase-document identity, incomplete clearance coverage, restricted material, insufficient omitted frontiers, and any cumulative obligation above the explicit combined cap.
 
 The target-100 projection cap is historical immutable lineage and is derived from the authenticated base budget and preparation config; the operator does not restate or replace it.
+The document price and maximum missing-core-document threshold are likewise derived from the authenticated preparation contract, and the document price must equal the verified purchase policy's reservation amount; the extension CLI exposes no overrides for either value.
 The required `--combined-max-projected-budget-usd` is a separate explicit target-150 ceiling: it may exceed the base cap, but it cannot be below retained cost plus existing obligations or above the frozen cohort-policy cycle cap.
 Passing the flag records a projection request only and does not authorize or execute a purchase.
 

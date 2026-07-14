@@ -1811,7 +1811,6 @@ def _add_acquisition_extend_target_cohort_arguments(
         required=True,
         help="Canonical SQLite purchase journal named by --purchase-policy.",
     )
-    parser.add_argument("--cost-per-document-usd", default="3.05")
     parser.add_argument(
         "--combined-max-projected-budget-usd",
         required=True,
@@ -1821,7 +1820,6 @@ def _add_acquisition_extend_target_cohort_arguments(
             "larger but cannot exceed the cohort-policy cycle ceiling."
         ),
     )
-    parser.add_argument("--max-missing-core-documents-per-case", type=int, default=24)
     parser.set_defaults(handler=_cmd_acquisition_extend_target_cohort)
 
 
@@ -6812,12 +6810,8 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
                 snapshot_manifest_sha256=_bytes_sha256(snapshot_bytes),
                 snapshot_cycle_hash=cycle_hash,
                 snapshot_batch_digest=batch_digest,
-                cost_per_document_usd=cast(str, args.cost_per_document_usd),
                 combined_max_projected_budget_usd=cast(
                     str, args.combined_max_projected_budget_usd
-                ),
-                max_missing_core_documents_per_case=cast(
-                    int, args.max_missing_core_documents_per_case
                 ),
                 purchase_obligations=obligations,
                 authenticated_lineage=authenticated_lineage,
@@ -7094,6 +7088,11 @@ def _authenticated_extension_lineage(
         clearance_review_receipt_sha256=_bytes_sha256(lineage_bytes["review_receipt"]),
         restriction_evidence_sha256=_bytes_sha256(
             lineage_bytes["restriction_evidence"]
+        ),
+        preparation_cost_per_document_usd=preparation_cost_per_document_usd,
+        preparation_max_projected_budget_usd=(preparation_max_projected_budget_usd),
+        preparation_max_missing_core_documents_per_case=(
+            preparation_max_missing_core_documents_per_case
         ),
     )
 

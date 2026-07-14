@@ -90,6 +90,7 @@ class PurchaseObligationSnapshot:
     purchase_policy_sha256: str
     purchase_journal_state_sha256: str
     canonical_ledger_path: str
+    per_document_reservation: Decimal
     opening_obligation: Decimal
     confirmed_obligation: Decimal
     reserved_obligation: Decimal
@@ -133,9 +134,12 @@ class AuthenticatedPoolLineage:
     clearance_reviews_sha256: str
     clearance_review_receipt_sha256: str
     restriction_evidence_sha256: str
+    preparation_cost_per_document_usd: str
+    preparation_max_projected_budget_usd: str
+    preparation_max_missing_core_documents_per_case: int
 
     def source_record(self) -> JsonRecord:
-        record = {
+        hashes = {
             "preparation_summary_sha256": self.preparation_summary_sha256,
             "preparation_config_sha256": self.preparation_config_sha256,
             "snapshot_manifest_sha256": self.snapshot_manifest_sha256,
@@ -147,9 +151,37 @@ class AuthenticatedPoolLineage:
             "clearance_review_receipt_sha256": (self.clearance_review_receipt_sha256),
             "restriction_evidence_sha256": self.restriction_evidence_sha256,
         }
-        for name, digest in record.items():
+        for name, digest in hashes.items():
             _sha(digest, name)
-        return record
+        _money(
+            self.preparation_cost_per_document_usd,
+            "preparation_cost_per_document_usd",
+            positive=True,
+        )
+        _money(
+            self.preparation_max_projected_budget_usd,
+            "preparation_max_projected_budget_usd",
+            positive=True,
+        )
+        if (
+            isinstance(self.preparation_max_missing_core_documents_per_case, bool)
+            or self.preparation_max_missing_core_documents_per_case < 1
+        ):
+            raise RetainedCohortExtensionError(
+                "preparation_max_missing_core_documents_per_case must be positive"
+            )
+        return {
+            **hashes,
+            "preparation_cost_per_document_usd": (
+                self.preparation_cost_per_document_usd
+            ),
+            "preparation_max_projected_budget_usd": (
+                self.preparation_max_projected_budget_usd
+            ),
+            "preparation_max_missing_core_documents_per_case": (
+                self.preparation_max_missing_core_documents_per_case
+            ),
+        }
 
 
 def purchase_obligation_snapshot(
@@ -214,6 +246,7 @@ def purchase_obligation_snapshot(
         purchase_policy_sha256="sha256:" + policy.policy_sha256,
         purchase_journal_state_sha256="sha256:" + journal.purchase_state_sha256(),
         canonical_ledger_path=str(policy.canonical_ledger_path),
+        per_document_reservation=policy.per_document_reservation_usd,
         opening_obligation=policy.opening_committed_spend_usd,
         confirmed_obligation=categories["confirmed"],
         reserved_obligation=categories["reserved"],
@@ -248,9 +281,7 @@ def extend_target_cohort(
     snapshot_manifest_sha256: str,
     snapshot_cycle_hash: str,
     snapshot_batch_digest: str,
-    cost_per_document_usd: str,
     combined_max_projected_budget_usd: str,
-    max_missing_core_documents_per_case: int,
     purchase_obligations: PurchaseObligationSnapshot,
     authenticated_lineage: AuthenticatedPoolLineage,
 ) -> RetainedCohortExtension:
@@ -264,6 +295,14 @@ def extend_target_cohort(
         base_projection_artifacts, _BASE_REQUIRED_NAMES, "base projection"
     )
     _require_exact_names(full_pool_artifacts, _FULL_REQUIRED_NAMES, "full pool")
+    authenticated_sources = authenticated_lineage.source_record()
+    cost_per_document_usd = authenticated_lineage.preparation_cost_per_document_usd
+    max_missing_core_documents_per_case = (
+        authenticated_lineage.preparation_max_missing_core_documents_per_case
+    )
+    base_max_projected_budget_usd = (
+        authenticated_lineage.preparation_max_projected_budget_usd
+    )
     policy_sha256, _ = _verified_policy(
         cohort_policy_artifact,
         snapshot_cycle_hash=snapshot_cycle_hash,
@@ -275,6 +314,10 @@ def extend_target_cohort(
     cycle_hash = _bare_sha(snapshot_cycle_hash, "snapshot_cycle_hash")
     batch_digest = _bare_sha(snapshot_batch_digest, "snapshot_batch_digest")
     money = _money(cost_per_document_usd, "cost_per_document_usd", positive=True)
+    if purchase_obligations.per_document_reservation != money:
+        raise RetainedCohortExtensionError(
+            "purchase-policy reservation price differs from authenticated preparation"
+        )
     cap = _money(
         combined_max_projected_budget_usd,
         "combined_max_projected_budget_usd",
@@ -288,6 +331,11 @@ def extend_target_cohort(
     base = _verify_base_projection(
         base_projection_artifacts,
         cost_per_document_usd=money,
+        max_projected_budget_usd=_money(
+            base_max_projected_budget_usd,
+            "authenticated base max_projected_budget_usd",
+            positive=True,
+        ),
         max_missing_core_documents_per_case=max_missing_core_documents_per_case,
     )
     base_summary = cast(Mapping[str, Any], base["summary"])
@@ -299,7 +347,6 @@ def extend_target_cohort(
         raise RetainedCohortExtensionError(
             "base projection snapshot lineage differs from the extension inputs"
         )
-    authenticated_sources = authenticated_lineage.source_record()
     for summary_field, lineage_field in (
         ("preparation_summary_sha256", "preparation_summary_sha256"),
         ("preparation_config_sha256", "preparation_config_sha256"),
@@ -605,6 +652,7 @@ def _verify_base_projection(
     artifacts: Mapping[str, bytes],
     *,
     cost_per_document_usd: Decimal,
+    max_projected_budget_usd: Decimal,
     max_missing_core_documents_per_case: int,
 ) -> dict[str, Any]:
     summary = _json_object(
@@ -668,6 +716,7 @@ def _verify_base_projection(
         or budget.get("dry_run") is not False
         or _money(str(budget.get("cost_per_document_usd")), "base cost")
         != cost_per_document_usd
+        or base_cap != max_projected_budget_usd
         or summary.get("max_projected_budget_usd") != _format_money(base_cap)
         or budget.get("max_missing_core_documents_per_case")
         != max_missing_core_documents_per_case
