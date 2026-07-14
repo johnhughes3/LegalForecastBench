@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
@@ -78,6 +79,7 @@ from legalforecast.unitization.construct_units import (
     construct_stage_a_units,
 )
 from legalforecast.unitization.review import (
+    canonical_records_sha256,
     canonical_sha256,
     require_finalized_envelopes,
 )
@@ -394,9 +396,10 @@ def llm_review_stage_a_units(
             if _required_str(record, "candidate_id") == candidate_id
         )
         raw_sha = canonical_sha256(raw_record)
+        candidate_flag_records: list[JsonRecord] = []
         for flag in flags:
             flag_hash = canonical_sha256(flag)
-            records.append(
+            candidate_flag_records.append(
                 {
                     "schema_version": "legalforecast.stage_a_structural_flag.v1",
                     "candidate_id": candidate_id,
@@ -408,6 +411,8 @@ def llm_review_stage_a_units(
                     **flag,
                 }
             )
+        records.extend(candidate_flag_records)
+        response_metadata = dict(response.metadata or {})
         audits.append(
             {
                 "stage": "llm-review-stage-a",
@@ -416,6 +421,12 @@ def llm_review_stage_a_units(
                 "case_id": _required_str(selection, "case_id"),
                 "model_key": registry_entry.registry_key,
                 "model_registry_sha256": model_registry_sha256 or "unrecorded",
+                "served_model_version": response_metadata.get("served_model_version"),
+                "raw_prediction_units_sha256": raw_sha,
+                "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+                "structural_flags_sha256": canonical_records_sha256(
+                    candidate_flag_records
+                ),
                 "flag_count": len(flags),
                 **_response_audit_fields(response),
             }
@@ -685,6 +696,7 @@ def llm_label_cases(
                         "finding_count": finding_count,
                         "missing_unit_flag_count": missing_flag_count,
                         "metadata": dict(response.metadata or {}),
+                        "labels": [label.to_record() for label in labels],
                     }
                 )
                 votes.extend(
@@ -765,6 +777,17 @@ def llm_label_cases(
                         "sample_unit_ids": [],
                     },
                     "consensus_policy": consensus_policy.value,
+                    "consensus_policy_sha256": canonical_sha256(
+                        {
+                            "consensus_policy": consensus_policy.value,
+                            "model_keys": [
+                                entry.registry_key for entry in registry_entries
+                            ],
+                            "model_registry_sha256": (
+                                model_registry_sha256 or "unrecorded"
+                            ),
+                        }
+                    ),
                     "label_count": len(selected_labels),
                     "unit_count": len(frozen_units),
                     "model_outputs": model_outputs,

@@ -12,6 +12,7 @@ from legalforecast.ingestion.packet_input_planner import (
     _docket_screen_with_first_disposition_anchor,
     plan_packet_build_inputs,
 )
+from legalforecast.unitization.review import canonical_records_sha256
 
 
 def test_packet_time_leakage_screen_excludes_adversarial_docket_entries() -> None:
@@ -514,6 +515,7 @@ def _prediction_unit_record(candidate_id: str) -> dict[str, object]:
         "candidate_id": candidate_id,
         "case_id": f"case-{candidate_id}",
         "raw_prediction_units_sha256": "a" * 64,
+        "unitization_review_queue_sha256": canonical_records_sha256([]),
         "prediction_units": [
             {
                 "unit_id": f"{candidate_id}-unit",

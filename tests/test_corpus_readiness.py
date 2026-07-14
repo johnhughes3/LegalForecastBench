@@ -11,6 +11,7 @@ from legalforecast.ingestion.corpus_readiness import (
     build_clean_corpus_readiness,
     require_clean_corpus_ready,
 )
+from legalforecast.unitization.review import canonical_records_sha256
 
 
 def _selection(candidate_id: str, case_id: str) -> dict[str, object]:
@@ -49,6 +50,7 @@ def _unit(candidate_id: str, unit_id: str) -> dict[str, object]:
         "candidate_id": candidate_id,
         "case_id": f"case-{candidate_id}",
         "raw_prediction_units_sha256": "2" * 64,
+        "unitization_review_queue_sha256": canonical_records_sha256([]),
         "prediction_units": [
             {
                 "unit_id": unit_id,

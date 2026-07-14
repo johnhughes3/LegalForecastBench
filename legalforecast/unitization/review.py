@@ -36,6 +36,18 @@ def canonical_sha256(record: Mapping[str, Any]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def canonical_records_sha256(records: Iterable[Mapping[str, Any]]) -> str:
+    """Hash an ordered JSON-record sequence using canonical compact encoding."""
+
+    payload = json.dumps(
+        [dict(record) for record in records],
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def apply_unitization_reviews(
     *,
     prediction_unit_records: Iterable[Mapping[str, Any]],
@@ -53,6 +65,7 @@ def apply_unitization_reviews(
         adjudications, "adjudication_id", "adjudication"
     )
     expected_review_ids = set(reviews_by_id)
+    review_queue_sha256 = canonical_records_sha256(reviews)
     resolved_review_ids: set[str] = set()
     output: list[JsonRecord] = []
 
@@ -193,6 +206,7 @@ def apply_unitization_reviews(
                 "candidate_id": candidate_id,
                 "case_id": case_id,
                 "raw_prediction_units_sha256": canonical_sha256(raw_record),
+                "unitization_review_queue_sha256": review_queue_sha256,
                 "prediction_units": finalized,
                 "exclusion": exclusion,
             }
@@ -229,7 +243,12 @@ def apply_unitization_reviews(
         )
     if resolved_review_ids != expected_review_ids:
         raise UnitizationReviewError("unitization review queue was not fully drained")
-    verify_finalized_prediction_units(output, raw_by_candidate.values(), adjudications)
+    verify_finalized_prediction_units(
+        output,
+        raw_by_candidate.values(),
+        adjudications,
+        reviews,
+    )
     return tuple(output)
 
 
@@ -237,6 +256,7 @@ def verify_finalized_prediction_units(
     finalized_records: Iterable[Mapping[str, Any]],
     raw_records: Iterable[Mapping[str, Any]],
     adjudication_records: Iterable[Mapping[str, Any]],
+    review_records: Iterable[Mapping[str, Any]],
 ) -> None:
     """Fail closed unless finalized records reproduce their complete hash chain."""
 
@@ -245,6 +265,7 @@ def verify_finalized_prediction_units(
         adjudication_records, "adjudication_id", "adjudication"
     )
     finalized_by_candidate = _unique_by_candidate(finalized_records, "finalized units")
+    expected_review_queue_sha256 = canonical_records_sha256(review_records)
     if set(finalized_by_candidate) != set(raw_by_candidate):
         raise UnitizationReviewError("finalized candidates do not match raw candidates")
     for candidate_id, record in finalized_by_candidate.items():
@@ -253,6 +274,13 @@ def verify_finalized_prediction_units(
         raw = raw_by_candidate[candidate_id]
         if record.get("raw_prediction_units_sha256") != canonical_sha256(raw):
             raise UnitizationReviewError(f"broken raw-unit hash link: {candidate_id}")
+        if (
+            record.get("unitization_review_queue_sha256")
+            != expected_review_queue_sha256
+        ):
+            raise UnitizationReviewError(
+                f"broken unitization-review-queue hash link: {candidate_id}"
+            )
         raw_hashes = {
             canonical_sha256(unit)
             for unit in _record_sequence(
@@ -260,6 +288,7 @@ def verify_finalized_prediction_units(
             )
         }
         status = record.get("status")
+        _required_str(record, "unitization_review_queue_sha256")
         units = _record_sequence(record.get("prediction_units"), "prediction_units")
         if status == "candidate_excluded":
             if units:
@@ -319,6 +348,7 @@ def require_finalized_envelopes(
     for record in materialized:
         if record.get("schema_version") != FINALIZED_SCHEMA_VERSION:
             raise UnitizationReviewError("raw or unsupported prediction-units artifact")
+        _required_str(record, "unitization_review_queue_sha256")
         status = record.get("status")
         units = _record_sequence(record.get("prediction_units"), "prediction_units")
         if status == "candidate_excluded":

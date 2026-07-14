@@ -323,6 +323,11 @@ from legalforecast.ingestion.purchased_document_recovery import (
     purchased_document_recovery_requests_from_records,
     recover_purchased_documents,
 )
+from legalforecast.ingestion.readiness_provenance import (
+    ReadinessProvenanceError,
+    verify_stage_a_readiness_provenance,
+    verify_stage_b_readiness_provenance,
+)
 from legalforecast.ingestion.recap_api_batch_driver import (
     RecapApiBatchDriverError,
     read_batch_001_enrichment_failure_leads,
@@ -467,7 +472,6 @@ from legalforecast.unitization.construct_units import (
 from legalforecast.unitization.review import (
     UnitizationReviewError,
     apply_unitization_reviews,
-    verify_finalized_prediction_units,
 )
 from legalforecast.unitization.schemas import (
     ChallengeScope,
@@ -3837,6 +3841,16 @@ def _add_acquisition_finalize_corpus_arguments(
         help="Finalized prediction units emitted by apply-unitization-review.",
     )
     parser.add_argument("--llm-unitization-audit", type=Path, required=True)
+    parser.add_argument(
+        "--original-unitization-review-queue",
+        type=Path,
+        required=True,
+        help="Immutable queue emitted by llm-unitize before structural review.",
+    )
+    parser.add_argument("--stage-a-structural-flags", type=Path, required=True)
+    parser.add_argument("--stage-a-structural-review-audit", type=Path, required=True)
+    parser.add_argument("--stage-a-review-model-registry", type=Path, required=True)
+    parser.add_argument("--stage-a-review-model-key", required=True)
     parser.add_argument("--unitization-review-queue", type=Path, required=True)
     parser.add_argument(
         "--unitization-review-adjudications",
@@ -3849,6 +3863,8 @@ def _add_acquisition_finalize_corpus_arguments(
     )
     parser.add_argument("--labels", type=Path, required=True)
     parser.add_argument("--llm-label-audit", type=Path, required=True)
+    parser.add_argument("--stage-b-judge-registry", type=Path, required=True)
+    parser.add_argument("--labeling-policy", type=Path, required=True)
     parser.add_argument("--lawyer-review-queue", type=Path, required=True)
     parser.add_argument(
         "--lawyer-review-audit",
@@ -13430,6 +13446,13 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     raw_prediction_units_path = cast(Path, args.raw_prediction_units)
     prediction_units_path = cast(Path, args.prediction_units)
     unitization_audit_path = cast(Path, args.llm_unitization_audit)
+    original_unitization_review_path = cast(
+        Path, args.original_unitization_review_queue
+    )
+    structural_flags_path = cast(Path, args.stage_a_structural_flags)
+    structural_review_audit_path = cast(Path, args.stage_a_structural_review_audit)
+    structural_review_registry_path = cast(Path, args.stage_a_review_model_registry)
+    structural_review_model_key = cast(str, args.stage_a_review_model_key)
     unitization_review_path = cast(Path, args.unitization_review_queue)
     unitization_adjudications_path = cast(
         Path,
@@ -13437,6 +13460,8 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     )
     labels_path = cast(Path, args.labels)
     label_audit_path = cast(Path, args.llm_label_audit)
+    stage_b_judge_registry_path = cast(Path, args.stage_b_judge_registry)
+    labeling_policy_path = cast(Path, args.labeling_policy)
     lawyer_review_path = cast(Path, args.lawyer_review_queue)
     lawyer_review_audit_path = cast(Path, args.lawyer_review_audit)
     packet_build_input_path = cast(Path, args.packet_build_input)
@@ -13464,10 +13489,16 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         raw_prediction_units_path,
         prediction_units_path,
         unitization_audit_path,
+        original_unitization_review_path,
+        structural_flags_path,
+        structural_review_audit_path,
+        structural_review_registry_path,
         unitization_review_path,
         unitization_adjudications_path,
         labels_path,
         label_audit_path,
+        stage_b_judge_registry_path,
+        labeling_policy_path,
         lawyer_review_path,
         lawyer_review_audit_path,
         packet_build_input_path,
@@ -13504,15 +13535,31 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         prediction_unit_records = _read_records(prediction_units_path)
         raw_prediction_unit_records = _read_records(raw_prediction_units_path)
         unitization_audit_records = _read_records(unitization_audit_path)
+        original_unitization_review_records = _read_records(
+            original_unitization_review_path
+        )
+        structural_flag_records = _read_records(structural_flags_path)
+        structural_review_audit_records = _read_records(structural_review_audit_path)
         unitization_review_records = _read_records(unitization_review_path)
         unitization_adjudication_records = _read_records(unitization_adjudications_path)
         try:
-            verify_finalized_prediction_units(
-                prediction_unit_records,
-                raw_prediction_unit_records,
-                unitization_adjudication_records,
+            structural_review_registry = load_model_registry(
+                structural_review_registry_path
             )
-        except UnitizationReviewError as exc:
+            verify_stage_a_readiness_provenance(
+                selection_records=selection_records,
+                raw_prediction_unit_records=raw_prediction_unit_records,
+                original_review_records=original_unitization_review_records,
+                structural_flag_records=structural_flag_records,
+                structural_review_audit_records=structural_review_audit_records,
+                merged_review_records=unitization_review_records,
+                finalized_prediction_unit_records=prediction_unit_records,
+                adjudication_records=unitization_adjudication_records,
+                reviewer_registry_entries=structural_review_registry.entries,
+                reviewer_registry_sha256=sha256_file(structural_review_registry_path),
+                reviewer_model_key=structural_review_model_key,
+            )
+        except (ReadinessProvenanceError, UnitizationReviewError) as exc:
             raise CommandError(str(exc)) from exc
         label_records = _read_records(labels_path)
         label_audit_records = _read_records(label_audit_path)
@@ -13561,6 +13608,21 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             label_records=label_records,
             markdown_root=markdown_root,
         )
+        try:
+            stage_b_judge_registry = load_model_registry(stage_b_judge_registry_path)
+            verify_labeling_policy(
+                _read_json_object(labeling_policy_path),
+                judge_registry_path=stage_b_judge_registry_path,
+            )
+            verify_stage_b_readiness_provenance(
+                finalized_prediction_unit_records=prediction_unit_records,
+                label_audit_records=label_audit_records,
+                judge_registry_entries=stage_b_judge_registry.entries,
+                judge_registry_sha256=sha256_file(stage_b_judge_registry_path),
+                decision_text_by_candidate_and_document=decision_texts,
+            )
+        except (ReadinessProvenanceError, ValueError) as exc:
+            raise CommandError(str(exc)) from exc
         report = build_clean_corpus_readiness(
             selection_records=selection_records,
             parser_records=parser_records,
