@@ -16,6 +16,12 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
+from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseJournal,
+    CaseDevPurchasePolicy,
+    CaseDevPurchasePolicyError,
+    verify_case_dev_purchase_policy_cohort_binding,
+)
 from legalforecast.ingestion.cohort_policy import (
     CohortPolicyError,
     verify_cohort_policy,
@@ -44,6 +50,9 @@ BASE_PROJECTION_ARTIFACT_NAMES = (
     "disclosure-clearance.jsonl",
     "restriction-evidence.jsonl",
     "core-filter-results.jsonl",
+    "target-cohort-exclusions.jsonl",
+    "free-document-downloads.jsonl",
+    "purchased-document-downloads.jsonl",
     "missing-core-budget-plan.json",
     "target-cohort-projection.json",
 )
@@ -55,6 +64,8 @@ _BASE_JSONL_NAMES = (
     "disclosure-clearance.jsonl",
     "restriction-evidence.jsonl",
     "core-filter-results.jsonl",
+    "free-document-downloads.jsonl",
+    "purchased-document-downloads.jsonl",
 )
 _BASE_REQUIRED_NAMES = frozenset(BASE_PROJECTION_ARTIFACT_NAMES)
 _FULL_REQUIRED_NAMES = frozenset(
@@ -70,6 +81,117 @@ _SHA256 = re.compile(r"sha256:[0-9a-f]{64}")
 
 class RetainedCohortExtensionError(ValueError):
     """Raised when retained-cohort lineage or budget safety cannot be proven."""
+
+
+@dataclass(frozen=True, slots=True)
+class PurchaseObligationSnapshot:
+    """Fail-closed accounting derived from one verified canonical journal."""
+
+    purchase_policy_sha256: str
+    purchase_journal_state_sha256: str
+    canonical_ledger_path: str
+    opening_obligation: Decimal
+    confirmed_obligation: Decimal
+    reserved_obligation: Decimal
+    unknown_obligation: Decimal
+    write_off_obligation: Decimal
+
+    @property
+    def total(self) -> Decimal:
+        return sum(
+            (
+                self.opening_obligation,
+                self.confirmed_obligation,
+                self.reserved_obligation,
+                self.unknown_obligation,
+                self.write_off_obligation,
+            ),
+            Decimal("0.00"),
+        )
+
+    def budget_record(self) -> JsonRecord:
+        return {
+            "opening_obligation_usd": _format_money(self.opening_obligation),
+            "confirmed_obligation_usd": _format_money(self.confirmed_obligation),
+            "reserved_obligation_usd": _format_money(self.reserved_obligation),
+            "unknown_obligation_usd": _format_money(self.unknown_obligation),
+            "write_off_obligation_usd": _format_money(self.write_off_obligation),
+        }
+
+
+def purchase_obligation_snapshot(
+    *,
+    policy: CaseDevPurchasePolicy,
+    journal: CaseDevPurchaseJournal,
+    cohort_policy_artifact: Mapping[str, Any],
+) -> PurchaseObligationSnapshot:
+    """Derive every committed category from canonical policy and journal state."""
+
+    try:
+        verify_case_dev_purchase_policy_cohort_binding(policy, cohort_policy_artifact)
+    except (CaseDevPurchasePolicyError, ValueError) as exc:
+        raise RetainedCohortExtensionError(str(exc)) from exc
+    if journal.policy.policy_sha256 != policy.policy_sha256:
+        raise RetainedCohortExtensionError(
+            "purchase journal is bound to a different purchase policy"
+        )
+    categories = {
+        "confirmed": Decimal("0.00"),
+        "reserved": Decimal("0.00"),
+        "unknown": Decimal("0.00"),
+        "write_off": Decimal("0.00"),
+    }
+    for row in journal.operation_records():
+        status = row.get("status")
+        reservation = _money(str(row.get("reservation_usd")), "reservation_usd")
+        actual_raw = row.get("actual_usd")
+        actual = (
+            Decimal("0.00")
+            if actual_raw is None
+            else _money(str(actual_raw), "actual_usd")
+        )
+        committed = max(reservation, actual)
+        reconciliation = row.get("reconciliation")
+        typed_reconciliation = (
+            cast(Mapping[str, object], reconciliation)
+            if isinstance(reconciliation, Mapping)
+            else None
+        )
+        disposition = (
+            typed_reconciliation.get("disposition")
+            if typed_reconciliation is not None
+            else None
+        )
+        if disposition == "write_off":
+            categories["write_off"] += committed
+        elif status == "confirmed":
+            categories["confirmed"] += actual if actual_raw is not None else reservation
+        elif status in {"submitted", "queued"}:
+            categories["reserved"] += committed
+        elif status == "unknown":
+            categories["unknown"] += committed
+        elif status == "failed":
+            if row.get("response") is not None and reconciliation is None:
+                categories["reserved"] += committed
+        elif status != "planned":
+            raise RetainedCohortExtensionError(
+                f"purchase journal contains unsupported status: {status!r}"
+            )
+    snapshot = PurchaseObligationSnapshot(
+        purchase_policy_sha256="sha256:" + policy.policy_sha256,
+        purchase_journal_state_sha256="sha256:" + journal.purchase_state_sha256(),
+        canonical_ledger_path=str(policy.canonical_ledger_path),
+        opening_obligation=policy.opening_committed_spend_usd,
+        confirmed_obligation=categories["confirmed"],
+        reserved_obligation=categories["reserved"],
+        unknown_obligation=categories["unknown"],
+        write_off_obligation=categories["write_off"],
+    )
+    if _format_money(snapshot.total) != journal.committed_amount_usd:
+        raise RetainedCohortExtensionError(
+            "purchase journal obligation categories do not reconcile to committed state"
+        )
+    return snapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,14 +218,12 @@ def extend_target_cohort(
     cost_per_document_usd: str,
     max_projected_budget_usd: str,
     max_missing_core_documents_per_case: int,
-    reserved_obligation_usd: str,
-    unknown_obligation_usd: str,
-    write_off_obligation_usd: str,
+    purchase_obligations: PurchaseObligationSnapshot,
 ) -> RetainedCohortExtension:
     """Retain an exact target-100 prefix and select 50 omitted candidates.
 
-    The three existing-obligation inputs must be disjoint accounting categories.
-    They are all additive and are never released by this offline projection.
+    Existing obligations must be derived from the verified canonical purchase
+    policy and journal. They are additive and never released by this projection.
     """
 
     _require_exact_names(
@@ -122,16 +242,9 @@ def extend_target_cohort(
     batch_digest = _bare_sha(snapshot_batch_digest, "snapshot_batch_digest")
     money = _money(cost_per_document_usd, "cost_per_document_usd", positive=True)
     cap = _money(max_projected_budget_usd, "max_projected_budget_usd", positive=True)
-    obligations = {
-        "reserved_obligation_usd": _money(
-            reserved_obligation_usd, "reserved_obligation_usd"
-        ),
-        "unknown_obligation_usd": _money(
-            unknown_obligation_usd, "unknown_obligation_usd"
-        ),
-        "write_off_obligation_usd": _money(
-            write_off_obligation_usd, "write_off_obligation_usd"
-        ),
+    obligations = purchase_obligations.budget_record()
+    obligation_values = {
+        name: _money(value, name) for name, value in obligations.items()
     }
 
     base = _verify_base_projection(
@@ -193,7 +306,7 @@ def extend_target_cohort(
                 _remaining_incremental_cap(
                     cap=cap,
                     base_cost=cast(Decimal, base["cost"]),
-                    obligations=obligations,
+                    obligations=obligation_values,
                 )
             ),
             max_missing_core_documents_per_case=(max_missing_core_documents_per_case),
@@ -222,22 +335,32 @@ def extend_target_cohort(
     )
 
     base_plans = cast(tuple[CaseMissingCorePurchasePlan, ...], base["case_plans"])
+    combined_filter_results = filter_core_documents(
+        [full_relevance[candidate_id] for candidate_id in combined_ids]
+    )
+    recomputed_combined = plan_missing_core_document_budget(
+        combined_filter_results,
+        dry_run=False,
+        max_missing_core_documents_per_case=max_missing_core_documents_per_case,
+        cost_per_document_usd=money,
+        max_projected_budget_usd=cap - purchase_obligations.total,
+        truncate_to_budget=True,
+        target_case_count=TARGET_CASE_COUNT,
+    )
     combined_plan = MissingCoreBudgetPlan(
         case_plans=(*base_plans, *incremental.budget_plan.case_plans),
         cost_per_document=money,
         max_projected_budget=cap,
         max_missing_core_documents_per_case=max_missing_core_documents_per_case,
         dry_run=False,
-        frontier_rows=incremental.budget_plan.frontier_rows,
-        omitted_candidate_ids=incremental.budget_plan.omitted_candidate_ids,
-        excluded_case_plans=incremental.budget_plan.excluded_case_plans,
+        frontier_rows=recomputed_combined.frontier_rows,
+        omitted_candidate_ids=recomputed_combined.omitted_candidate_ids,
+        excluded_case_plans=recomputed_combined.excluded_case_plans,
         target_case_count=TARGET_CASE_COUNT,
     )
     incremental_cost = incremental.budget_plan.total_estimated_cost
     base_cost = cast(Decimal, base["cost"])
-    cumulative = (
-        base_cost + incremental_cost + sum(obligations.values(), Decimal("0.00"))
-    )
+    cumulative = base_cost + incremental_cost + purchase_obligations.total
     if cumulative > cap:
         raise RetainedCohortExtensionError(
             "combined cumulative obligation exceeds the immutable budget cap"
@@ -252,7 +375,7 @@ def extend_target_cohort(
         "max_missing_core_documents_per_case": (max_missing_core_documents_per_case),
         "base_projected_usd": _format_money(base_cost),
         "incremental_projected_usd": _format_money(incremental_cost),
-        **{name: _format_money(value) for name, value in obligations.items()},
+        **obligations,
         "cumulative_obligation_usd": _format_money(cumulative),
         "remaining_headroom_usd": _format_money(cap - cumulative),
         "base_budget_plan_sha256": _bytes_sha256(
@@ -270,25 +393,11 @@ def extend_target_cohort(
         name: base_projection_artifacts[name] + incremental_payloads[name]
         for name in _BASE_JSONL_NAMES
     }
+    # Exclusions are intentionally rederived for the new 150-case boundary;
+    # target-100 omissions may become selected and therefore cannot be prefixes.
     combined_payloads["target-cohort-exclusions.jsonl"] = incremental_payloads[
         "target-cohort-exclusions.jsonl"
     ]
-    combined_payloads["free-document-downloads.jsonl"] = _jsonl_bytes(
-        record
-        for record in _jsonl_records(
-            combined_payloads["document-downloads-merged.jsonl"],
-            source="combined manifest",
-        )
-        if record.get("free_or_purchased") == "free"
-    )
-    combined_payloads["purchased-document-downloads.jsonl"] = _jsonl_bytes(
-        record
-        for record in _jsonl_records(
-            combined_payloads["document-downloads-merged.jsonl"],
-            source="combined manifest",
-        )
-        if record.get("free_or_purchased") == "purchased"
-    )
     combined_payloads["missing-core-budget-plan.json"] = _json_bytes(
         combined_plan.to_record()
     )
@@ -318,6 +427,11 @@ def extend_target_cohort(
         "snapshot_manifest_sha256": snapshot_hash,
         "snapshot_cycle_hash": cycle_hash,
         "snapshot_batch_digest": batch_digest,
+        "purchase_policy_sha256": purchase_obligations.purchase_policy_sha256,
+        "purchase_journal_state_sha256": (
+            purchase_obligations.purchase_journal_state_sha256
+        ),
+        "canonical_purchase_ledger_path": (purchase_obligations.canonical_ledger_path),
     }
     extension_record: JsonRecord = {
         "schema_version": SCHEMA_VERSION,
@@ -501,6 +615,9 @@ def _verify_base_projection(
         name: _jsonl_records(artifacts[name], source=f"base {name}")
         for name in _BASE_JSONL_NAMES
     }
+    parsed["target-cohort-exclusions.jsonl"] = _jsonl_records(
+        artifacts["target-cohort-exclusions.jsonl"], source="base exclusions"
+    )
     for name in (
         "case-relevance.jsonl",
         "core-filter-results.jsonl",
@@ -525,6 +642,7 @@ def _verify_base_projection(
 def _verify_base_is_exact_full_pool_subset(
     base: Mapping[str, Any], full: Mapping[str, list[JsonRecord]]
 ) -> None:
+    summary = cast(Mapping[str, Any], base["summary"])
     base_ids = cast(tuple[str, ...], base["candidate_ids"])
     parsed = cast(Mapping[str, list[JsonRecord]], base["parsed"])
     full_selection = _candidate_index(full["selection.jsonl"], "full selection")
@@ -542,6 +660,23 @@ def _verify_base_is_exact_full_pool_subset(
         ):
             raise RetainedCohortExtensionError(
                 f"base {name} is not an exact subset of the full pool"
+            )
+    merged_index = _document_index(
+        parsed["document-downloads-merged.jsonl"], "base merged manifest"
+    )
+    for name, expected_kind in (
+        ("free-document-downloads.jsonl", "free"),
+        ("purchased-document-downloads.jsonl", "purchased"),
+    ):
+        category_index = _document_index(parsed[name], f"base {name}")
+        expected_index = {
+            key: record
+            for key, record in merged_index.items()
+            if record.get("free_or_purchased") == expected_kind
+        }
+        if category_index != expected_index:
+            raise RetainedCohortExtensionError(
+                f"base {name} does not exactly partition the merged manifest"
             )
     for base_name, full_name in (
         ("document-downloads-merged.jsonl", "document-downloads-merged.jsonl"),
@@ -595,10 +730,10 @@ def _verify_base_is_exact_full_pool_subset(
         )
     try:
         validated = project_target_cohort(
-            selections=parsed["target-cohort-selection.jsonl"],
-            case_relevance=parsed["case-relevance.jsonl"],
-            download_manifest=parsed["document-downloads-merged.jsonl"],
-            clearance_records=parsed["disclosure-clearance.jsonl"],
+            selections=full["selection.jsonl"],
+            case_relevance=full["case-relevance.jsonl"],
+            download_manifest=full["document-downloads-merged.jsonl"],
+            clearance_records=full["disclosure-clearance.jsonl"],
             target_case_count=BASE_CASE_COUNT,
             cost_per_document_usd=_format_money(
                 cast(Decimal, base["cost_per_document"])
@@ -620,9 +755,20 @@ def _verify_base_is_exact_full_pool_subset(
         or list(validated.restriction_evidence) != parsed["restriction-evidence.jsonl"]
         or [row.to_record() for row in validated.core_filter_results]
         != parsed["core-filter-results.jsonl"]
+        or list(validated.exclusions) != parsed["target-cohort-exclusions.jsonl"]
     ):
         raise RetainedCohortExtensionError(
             "base projection artifacts do not reproduce from the frozen inputs"
+        )
+    if summary.get("budget_plan_sha256") != _canonical_sha256(
+        validated.budget_plan.to_record()
+    ):
+        raise RetainedCohortExtensionError(
+            "base budget-plan digest does not match reproduced content"
+        )
+    if summary.get("projection_sha256") != validated.summary.get("projection_sha256"):
+        raise RetainedCohortExtensionError(
+            "base projection digest does not match reproduced content"
         )
 
 
@@ -665,10 +811,19 @@ def _verify_combined_identities(selections: Sequence[Mapping[str, Any]]) -> None
 
 
 def _projection_payloads(projection: Any) -> dict[str, bytes]:
+    merged = tuple(projection.download_manifest)
     return {
         "target-cohort-selection.jsonl": _jsonl_bytes(projection.selections),
         "case-relevance.jsonl": _jsonl_bytes(projection.case_relevance),
         "document-downloads-merged.jsonl": _jsonl_bytes(projection.download_manifest),
+        "free-document-downloads.jsonl": _jsonl_bytes(
+            record for record in merged if record.get("free_or_purchased") == "free"
+        ),
+        "purchased-document-downloads.jsonl": _jsonl_bytes(
+            record
+            for record in merged
+            if record.get("free_or_purchased") == "purchased"
+        ),
         "disclosure-clearance.jsonl": _jsonl_bytes(projection.clearance_records),
         "restriction-evidence.jsonl": _jsonl_bytes(projection.restriction_evidence),
         "core-filter-results.jsonl": _jsonl_bytes(

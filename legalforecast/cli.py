@@ -365,6 +365,7 @@ from legalforecast.ingestion.retained_cohort_extension import (
     BASE_PROJECTION_ARTIFACT_NAMES,
     RetainedCohortExtensionError,
     extend_target_cohort,
+    purchase_obligation_snapshot,
 )
 from legalforecast.ingestion.snapshot_quarantine import (
     SnapshotQuarantineError,
@@ -1794,24 +1795,21 @@ def _add_acquisition_extend_target_cohort_arguments(
         required=True,
         help="Frozen full-pool snapshot manifest supplying cycle lineage.",
     )
+    parser.add_argument(
+        "--purchase-policy",
+        type=Path,
+        required=True,
+        help="Verified canonical cycle purchase-policy artifact.",
+    )
+    parser.add_argument(
+        "--purchase-ledger",
+        type=Path,
+        required=True,
+        help="Canonical SQLite purchase journal named by --purchase-policy.",
+    )
     parser.add_argument("--cost-per-document-usd", default="3.05")
     parser.add_argument("--max-projected-budget-usd", default="2250.00")
     parser.add_argument("--max-missing-core-documents-per-case", type=int, default=24)
-    parser.add_argument(
-        "--reserved-obligation-usd",
-        default="0.00",
-        help="Disjoint already-reserved obligation retained under the same cap.",
-    )
-    parser.add_argument(
-        "--unknown-obligation-usd",
-        default="0.00",
-        help="Disjoint unknown-outcome reservation retained under the same cap.",
-    )
-    parser.add_argument(
-        "--write-off-obligation-usd",
-        default="0.00",
-        help="Disjoint reconciled write-off retained under the same cap.",
-    )
     parser.set_defaults(handler=_cmd_acquisition_extend_target_cohort)
 
 
@@ -6636,13 +6634,31 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
     }
     cohort_policy_path = cast(Path, args.cohort_policy)
     snapshot_path = cast(Path, args.snapshot_manifest)
+    purchase_policy_path = cast(Path, args.purchase_policy)
+    purchase_ledger_path = cast(Path, args.purchase_ledger)
+    run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards/extend-target-cohort.json",
+    )
+    log_path = _acquisition_path(
+        args,
+        "log_output",
+        output_root / "logs/extend-target-cohort.jsonl",
+    )
     input_paths = (
         *base_paths.values(),
         *full_paths.values(),
         cohort_policy_path,
         snapshot_path,
+        purchase_policy_path,
+        purchase_ledger_path,
     )
-    _validate_retained_extension_output_scope(output_root, input_paths=input_paths)
+    _validate_retained_extension_output_scope(
+        output_root,
+        input_paths=input_paths,
+        additional_output_paths=(run_card_path, log_path),
+    )
     try:
         base_artifacts = {
             name: _read_retained_extension_artifact(path)
@@ -6654,12 +6670,17 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
         }
         cohort_policy_bytes = _read_retained_extension_artifact(cohort_policy_path)
         snapshot_bytes = _read_retained_extension_artifact(snapshot_path)
+        purchase_policy_bytes = _read_retained_extension_artifact(purchase_policy_path)
+        _read_retained_extension_artifact(purchase_ledger_path)
     except OSError as exc:
         raise CommandError(str(exc)) from exc
     cohort_policy = _projection_json_object(
         cohort_policy_bytes, source=cohort_policy_path
     )
     snapshot = _projection_json_object(snapshot_bytes, source=snapshot_path)
+    purchase_policy_artifact = _projection_json_object(
+        purchase_policy_bytes, source=purchase_policy_path
+    )
     cycle_hash = snapshot.get("cycle_hash")
     batch_digest = snapshot.get("batch_digest")
     if not isinstance(cycle_hash, str) or not cycle_hash:
@@ -6667,6 +6688,15 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
     if not isinstance(batch_digest, str) or not batch_digest:
         raise CommandError("snapshot manifest lacks batch_digest")
     try:
+        purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        with CaseDevPurchaseJournal(
+            purchase_ledger_path, policy=purchase_policy
+        ) as purchase_journal:
+            obligations = purchase_obligation_snapshot(
+                policy=purchase_policy,
+                journal=purchase_journal,
+                cohort_policy_artifact=cohort_policy,
+            )
         extension = extend_target_cohort(
             base_projection_artifacts=base_artifacts,
             full_pool_artifacts=full_artifacts,
@@ -6679,11 +6709,9 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
             max_missing_core_documents_per_case=cast(
                 int, args.max_missing_core_documents_per_case
             ),
-            reserved_obligation_usd=cast(str, args.reserved_obligation_usd),
-            unknown_obligation_usd=cast(str, args.unknown_obligation_usd),
-            write_off_obligation_usd=cast(str, args.write_off_obligation_usd),
+            purchase_obligations=obligations,
         )
-    except RetainedCohortExtensionError as exc:
+    except (RetainedCohortExtensionError, CaseDevPurchasePolicyError) as exc:
         raise CommandError(str(exc)) from exc
 
     output_records = {
@@ -6696,7 +6724,39 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
             for name, payload in extension.incremental_artifacts.items()
         },
     }
+    _validate_retained_extension_output_scope(
+        output_root,
+        input_paths=input_paths,
+        additional_output_paths=(run_card_path, log_path, *output_records),
+    )
+    metadata_outputs = {run_card_path.resolve(), log_path.resolve()}
+    artifact_outputs = {path.resolve() for path in output_records}
+    collision = metadata_outputs & artifact_outputs
+    if collision:
+        raise CommandError(
+            "extend-target-cohort metadata output aliases cohort artifact: "
+            f"{sorted(str(path) for path in collision)}"
+        )
     dry_run = _acquisition_dry_run(args)
+    if run_card_path.exists():
+        if not cast(bool, args.resume):
+            raise CommandError(
+                "extend-target-cohort run card already exists and --no-resume was set"
+            )
+        _validate_retained_extension_successful_resume(
+            run_card_path,
+            input_paths=input_paths,
+            expected_outputs=output_records,
+            dry_run=dry_run,
+            extension_sha256=cast(str, extension.extension_record["extension_sha256"]),
+            cumulative_obligation_usd=cast(
+                str, extension.combined_budget["cumulative_obligation_usd"]
+            ),
+            remaining_headroom_usd=cast(
+                str, extension.combined_budget["remaining_headroom_usd"]
+            ),
+        )
+        return 0
     if not dry_run:
         for path, payload in output_records.items():
             _ensure_projection_artifact(
@@ -6705,23 +6765,6 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
                 resume=cast(bool, args.resume),
                 stage="extend-target-cohort",
             )
-        success_run_card = output_root / "run-cards/extend-target-cohort.json"
-        if cast(bool, args.resume) and success_run_card.exists():
-            _validate_retained_extension_successful_resume(
-                success_run_card,
-                input_paths=input_paths,
-                output_paths=tuple(output_records),
-                extension_sha256=cast(
-                    str, extension.extension_record["extension_sha256"]
-                ),
-                cumulative_obligation_usd=cast(
-                    str, extension.combined_budget["cumulative_obligation_usd"]
-                ),
-                remaining_headroom_usd=cast(
-                    str, extension.combined_budget["remaining_headroom_usd"]
-                ),
-            )
-            return 0
     _write_acquisition_completion(
         args,
         stage="extend-target-cohort",
@@ -6742,6 +6785,10 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
             "remaining_headroom_usd": extension.combined_budget[
                 "remaining_headroom_usd"
             ],
+            "output_commitments": {
+                str(path): _bytes_sha256(payload)
+                for path, payload in output_records.items()
+            },
         },
     )
     return 0
@@ -6751,7 +6798,8 @@ def _validate_retained_extension_successful_resume(
     run_card_path: Path,
     *,
     input_paths: Sequence[Path],
-    output_paths: Sequence[Path],
+    expected_outputs: Mapping[Path, bytes],
+    dry_run: bool,
     extension_sha256: str,
     cumulative_obligation_usd: str,
     remaining_headroom_usd: str,
@@ -6761,11 +6809,11 @@ def _validate_retained_extension_successful_resume(
         "schema_version": "legalforecast.acquisition_run_card.v1",
         "stage": "extend-target-cohort",
         "status": "completed",
-        "dry_run": False,
-        "execute": True,
+        "dry_run": dry_run,
+        "execute": not dry_run,
         "record_count": 150,
         "input_paths": [str(path) for path in input_paths],
-        "output_paths": [str(path) for path in output_paths],
+        "output_paths": [str(path) for path in expected_outputs],
         "paid_activity_requested": False,
         "paid_activity_executed": False,
         "base_case_count": 100,
@@ -6780,6 +6828,23 @@ def _validate_retained_extension_successful_resume(
             raise CommandError(
                 f"extend-target-cohort resume run-card mismatch: {field}"
             )
+    commitments = run_card.get("output_commitments")
+    if not isinstance(commitments, Mapping):
+        raise CommandError(
+            "extend-target-cohort resume run card lacks output commitments"
+        )
+    expected_commitments = {
+        str(path): _bytes_sha256(payload) for path, payload in expected_outputs.items()
+    }
+    typed_commitments = cast(Mapping[str, object], commitments)
+    if dict(typed_commitments) != expected_commitments:
+        raise CommandError("extend-target-cohort resume output commitments differ")
+    if not dry_run:
+        for path, payload in expected_outputs.items():
+            if path.is_symlink() or not path.is_file() or path.read_bytes() != payload:
+                raise CommandError(
+                    f"extend-target-cohort committed output changed: {path}"
+                )
 
 
 def _read_retained_extension_artifact(path: Path) -> bytes:
@@ -6791,20 +6856,45 @@ def _read_retained_extension_artifact(path: Path) -> bytes:
 
 
 def _validate_retained_extension_output_scope(
-    output_root: Path, *, input_paths: Sequence[Path]
+    output_root: Path,
+    *,
+    input_paths: Sequence[Path],
+    additional_output_paths: Sequence[Path] = (),
 ) -> None:
-    output = output_root.resolve()
-    for path in input_paths:
-        source = path.resolve()
-        if (
-            output == source
-            or output.is_relative_to(source)
-            or source.is_relative_to(output)
-        ):
-            raise CommandError(
-                "extend-target-cohort output overlaps immutable input: "
-                f"{output} vs {source}"
-            )
+    outputs = (
+        output_root.resolve(),
+        *(path.resolve() for path in additional_output_paths),
+    )
+    for output in outputs:
+        for path in input_paths:
+            source = path.resolve()
+            if (
+                output == source
+                or output.is_relative_to(source)
+                or source.is_relative_to(output)
+            ):
+                raise CommandError(
+                    "extend-target-cohort output overlaps immutable input: "
+                    f"{output} vs {source}"
+                )
+            if output.exists() and path.exists() and output.samefile(path):
+                raise CommandError(
+                    "extend-target-cohort output hard-links immutable input: "
+                    f"{output} vs {source}"
+                )
+    for index, output in enumerate(outputs):
+        for other in outputs[index + 1 :]:
+            if (
+                output == other
+                or output.is_relative_to(other)
+                or other.is_relative_to(output)
+            ):
+                # The default run card and log are expected children of output_root.
+                if output == output_root.resolve() or other == output_root.resolve():
+                    continue
+                raise CommandError(
+                    f"extend-target-cohort writable outputs alias: {output} vs {other}"
+                )
 
 
 def _validate_projection_output_scope(

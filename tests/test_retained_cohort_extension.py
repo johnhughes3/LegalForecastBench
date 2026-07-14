@@ -1,19 +1,32 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import pytest
 from legalforecast.cli import main
+from legalforecast.ingestion.case_dev_purchase import (
+    CaseDevPurchaseJournal,
+    generate_case_dev_purchase_policy,
+    verify_case_dev_purchase_policy,
+)
 from legalforecast.ingestion.cohort_policy import generate_cohort_policy
 from legalforecast.ingestion.cycle_acquisition_store import (
     cohort_reason_policy_taxonomy,
 )
+from legalforecast.ingestion.missing_core_budget import (
+    CaseMissingCorePurchasePlan,
+    MissingCoreBudgetPlan,
+)
 from legalforecast.ingestion.retained_cohort_extension import (
+    PurchaseObligationSnapshot,
     RetainedCohortExtensionError,
     extend_target_cohort,
+    purchase_obligation_snapshot,
 )
 from legalforecast.ingestion.target_cohort_projection import project_target_cohort
 
@@ -41,6 +54,8 @@ def test_extension_preserves_base_prefix_and_selects_only_omitted_frontier() -> 
             "disclosure-clearance.jsonl",
             "restriction-evidence.jsonl",
             "core-filter-results.jsonl",
+            "free-document-downloads.jsonl",
+            "purchased-document-downloads.jsonl",
         }:
             assert extension.combined_artifacts[name].startswith(base_payload)
     exclusions = {
@@ -54,6 +69,20 @@ def test_extension_preserves_base_prefix_and_selects_only_omitted_frontier() -> 
     assert extension.extension_record["full_pool_case_count"] == 151
     assert extension.extension_record["paid_activity_requested"] is False
     assert extension.extension_record["paid_activity_executed"] is False
+    combined_plan = json.loads(
+        extension.combined_artifacts["missing-core-budget-plan.json"]
+    )
+    assert combined_plan["frontier_rows"] == [
+        {
+            "complete_case_count": 150,
+            "estimated_spend_usd": "0.00",
+            "incremental_case_count": 150,
+            "max_missing_core_documents_per_case": 0,
+            "purchase_document_count": 0,
+        }
+    ]
+    assert combined_plan["omitted_candidate_ids"] == []
+    assert combined_plan["excluded_case_plans"] == []
 
 
 def test_extension_is_byte_identical_on_resume() -> None:
@@ -78,6 +107,7 @@ def test_extension_fails_when_eligible_omitted_frontier_is_insufficient() -> Non
             record["status"] = "quarantined"
     full["disclosure-clearance.jsonl"] = _jsonl_bytes(records)
     inputs["full_pool_artifacts"] = full
+    _rebuild_base(inputs)
 
     with pytest.raises(RetainedCohortExtensionError, match="post-clearance"):
         extend_target_cohort(**inputs)
@@ -92,6 +122,7 @@ def test_extension_skips_quarantine_and_reconciles_it_as_an_exclusion() -> None:
             record["status"] = "quarantined"
     full["disclosure-clearance.jsonl"] = _jsonl_bytes(records)
     inputs["full_pool_artifacts"] = full
+    _rebuild_base(inputs)
 
     extension = extend_target_cohort(**inputs)
 
@@ -122,6 +153,25 @@ def test_extension_rejects_changed_snapshot_lineage() -> None:
         extend_target_cohort(**inputs)
 
 
+@pytest.mark.parametrize(
+    ("field", "message"),
+    (
+        ("projection_sha256", "projection digest"),
+        ("budget_plan_sha256", "budget-plan digest"),
+    ),
+)
+def test_extension_rejects_valid_hash_tampering(field: str, message: str) -> None:
+    inputs = _inputs()
+    base = dict(inputs["base_projection_artifacts"])
+    summary = json.loads(base["target-cohort-projection.json"])
+    summary[field] = "sha256:" + "f" * 64
+    base["target-cohort-projection.json"] = _json_bytes(summary)
+    inputs["base_projection_artifacts"] = base
+
+    with pytest.raises(RetainedCohortExtensionError, match=message):
+        extend_target_cohort(**inputs)
+
+
 def test_extension_rejects_duplicate_docket_and_motion_identities() -> None:
     for mutation, message in (
         ("docket", "duplicate docket identity"),
@@ -140,13 +190,35 @@ def test_extension_rejects_duplicate_docket_and_motion_identities() -> None:
             selections[149]["case_id"] = selections[148]["case_id"]
         full["selection.jsonl"] = _jsonl_bytes(selections)
         inputs["full_pool_artifacts"] = full
+        _rebuild_base(inputs)
         with pytest.raises(RetainedCohortExtensionError, match=message):
             extend_target_cohort(**inputs)
 
 
+@pytest.mark.parametrize(
+    "artifact_name",
+    ("document-downloads-merged.jsonl", "disclosure-clearance.jsonl"),
+)
+def test_extension_rejects_orphan_full_pool_document_rows(
+    artifact_name: str,
+) -> None:
+    inputs = _inputs()
+    full = dict(inputs["full_pool_artifacts"])
+    rows = _jsonl(full[artifact_name])
+    orphan = dict(rows[0])
+    orphan["candidate_id"] = "orphan-candidate"
+    orphan["source_document_id"] = "orphan-document"
+    rows.append(orphan)
+    full[artifact_name] = _jsonl_bytes(rows)
+    inputs["full_pool_artifacts"] = full
+
+    with pytest.raises(RetainedCohortExtensionError, match="outside resolved pool"):
+        extend_target_cohort(**inputs)
+
+
 def test_extension_accounts_for_exact_cap_and_disjoint_obligations() -> None:
-    inputs = _inputs(paid_after=100, max_projected_budget_usd="153.50")
-    inputs["reserved_obligation_usd"] = "0.50"
+    inputs = _inputs(paid_after=100, max_projected_budget_usd="153.00")
+    inputs["purchase_obligations"] = _obligations(reserved="0.50")
 
     exact = extend_target_cohort(**inputs)
 
@@ -154,20 +226,16 @@ def test_extension_accounts_for_exact_cap_and_disjoint_obligations() -> None:
     assert exact.combined_budget["incremental_projected_usd"] == "152.50"
     assert exact.combined_budget["reserved_obligation_usd"] == "0.50"
     assert exact.combined_budget["cumulative_obligation_usd"] == "153.00"
+    assert exact.combined_budget["remaining_headroom_usd"] == "0.00"
     inputs = _inputs(paid_after=100, max_projected_budget_usd="152.99")
-    inputs["reserved_obligation_usd"] = "0.50"
+    inputs["purchase_obligations"] = _obligations(reserved="0.50")
     with pytest.raises(RetainedCohortExtensionError, match="cannot meet"):
         extend_target_cohort(**inputs)
 
 
 def test_extension_counts_unknown_and_writeoff_and_enforces_per_case_cap() -> None:
     inputs = _inputs(paid_after=100, max_projected_budget_usd="160.00")
-    inputs.update(
-        {
-            "unknown_obligation_usd": "3.05",
-            "write_off_obligation_usd": "3.05",
-        }
-    )
+    inputs["purchase_obligations"] = _obligations(unknown="3.05", write_off="3.05")
     extension = extend_target_cohort(**inputs)
     assert extension.combined_budget["unknown_obligation_usd"] == "3.05"
     assert extension.combined_budget["write_off_obligation_usd"] == "3.05"
@@ -178,9 +246,123 @@ def test_extension_counts_unknown_and_writeoff_and_enforces_per_case_cap() -> No
         extend_target_cohort(**inputs)
 
 
+def test_purchase_obligations_are_derived_from_every_committed_journal_state(
+    tmp_path: Path,
+) -> None:
+    cohort = _cohort_policy()
+    ledger = (tmp_path / "purchase.sqlite3").resolve()
+    artifact = _purchase_policy_artifact(ledger, cohort, opening="2.00")
+    policy = verify_case_dev_purchase_policy(artifact)
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        journal.plan(_journal_plan(("reserved", "unknown", "writeoff", "confirmed")))
+        journal.submit("reserved")
+        journal.submit("unknown")
+        journal.mark_unknown("unknown", "timeout after dispatch")
+        journal.submit("writeoff")
+        journal.mark_unknown("writeoff", "provider outcome unavailable")
+        journal.reconcile(
+            {
+                "source_document_id": "writeoff",
+                "disposition": "write_off",
+                "source_type": "support_confirmation",
+                "source_reference": "support://ticket-1",
+                "pacer_fees": None,
+                "download_url": None,
+            }
+        )
+        journal.submit("confirmed")
+        journal.confirm(
+            "confirmed",
+            response={"document": "confirmed"},
+            fees={"total_usd": "1.00"},
+        )
+
+        snapshot = purchase_obligation_snapshot(
+            policy=policy,
+            journal=journal,
+            cohort_policy_artifact=cohort,
+        )
+
+    assert snapshot.budget_record() == {
+        "opening_obligation_usd": "2.00",
+        "confirmed_obligation_usd": "1.00",
+        "reserved_obligation_usd": "3.05",
+        "unknown_obligation_usd": "3.05",
+        "write_off_obligation_usd": "3.05",
+    }
+    assert snapshot.total == Decimal("12.15")
+    assert snapshot.purchase_policy_sha256 == "sha256:" + policy.policy_sha256
+    assert snapshot.purchase_journal_state_sha256.startswith("sha256:")
+
+
+def test_extension_api_has_no_operator_obligation_defaults() -> None:
+    parameters = inspect.signature(extend_target_cohort).parameters
+
+    assert "reserved_obligation_usd" not in parameters
+    assert "unknown_obligation_usd" not in parameters
+    assert "write_off_obligation_usd" not in parameters
+    assert parameters["purchase_obligations"].default is inspect.Parameter.empty
+
+
 def test_extend_target_cohort_cli_is_noncharging_and_resume_safe(
     tmp_path: Path,
 ) -> None:
+    argv, _, custom_run_card, custom_log = _cli_fixture(tmp_path)
+    output_root = tmp_path / "extension"
+
+    assert main(argv) == 0
+    before = {
+        str(path.relative_to(output_root)): path.read_bytes()
+        for path in output_root.rglob("*")
+        if path.is_file()
+    }
+    assert main(argv) == 0
+    after = {
+        str(path.relative_to(output_root)): path.read_bytes()
+        for path in output_root.rglob("*")
+        if path.is_file()
+    }
+
+    assert before == after
+    assert custom_run_card.is_file()
+    assert custom_log.is_file()
+    record = json.loads((output_root / "retained-cohort-extension.json").read_text())
+    assert record["combined_case_count"] == 150
+    assert record["paid_activity_requested"] is False
+    assert record["paid_activity_executed"] is False
+    assert (output_root / "incremental/target-cohort-selection.jsonl").is_file()
+
+    committed_output = output_root / "target-cohort-selection.jsonl"
+    committed_output.write_bytes(b"tampered\n")
+    assert main(argv) == 2
+    assert committed_output.read_bytes() == b"tampered\n"
+
+
+def test_cli_rejects_metadata_aliases_and_dry_run_overwrite(tmp_path: Path) -> None:
+    argv, cohort_policy, run_card, log = _cli_fixture(tmp_path)
+
+    assert main(argv) == 0
+    run_card_before = run_card.read_bytes()
+    log_before = log.read_bytes()
+
+    dry_argv = [value for value in argv if value != "--execute"]
+    assert main(dry_argv) == 2
+    assert run_card.read_bytes() == run_card_before
+    assert log.read_bytes() == log_before
+
+    assert main([*argv, "--no-resume"]) == 2
+    assert run_card.read_bytes() == run_card_before
+    assert log.read_bytes() == log_before
+
+    alias_argv = list(argv)
+    run_card_index = alias_argv.index("--run-card-output") + 1
+    alias_argv[run_card_index] = str(cohort_policy)
+    policy_before = cohort_policy.read_bytes()
+    assert main(alias_argv) == 2
+    assert cohort_policy.read_bytes() == policy_before
+
+
+def _cli_fixture(tmp_path: Path) -> tuple[list[str], Path, Path, Path]:
     inputs = _inputs()
     base_root = tmp_path / "base"
     full_root = tmp_path / "full"
@@ -211,6 +393,20 @@ def test_extend_target_cohort_cli_is_noncharging_and_resume_safe(
         + "\n",
         encoding="utf-8",
     )
+    purchase_ledger = (tmp_path / "purchase.sqlite3").resolve()
+    purchase_policy_artifact = _purchase_policy_artifact(
+        purchase_ledger, inputs["cohort_policy_artifact"]
+    )
+    purchase_policy = tmp_path / "purchase-policy.json"
+    purchase_policy.write_text(
+        json.dumps(purchase_policy_artifact, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    with CaseDevPurchaseJournal(
+        purchase_ledger,
+        policy=verify_case_dev_purchase_policy(purchase_policy_artifact),
+    ):
+        pass
     base_summary_path = base_root / "target-cohort-projection.json"
     base_summary = json.loads(base_summary_path.read_text())
     base_summary["snapshot_manifest_sha256"] = _sha(snapshot.read_bytes())
@@ -218,12 +414,18 @@ def test_extend_target_cohort_cli_is_noncharging_and_resume_safe(
         json.dumps(base_summary, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    custom_run_card = tmp_path / "metadata/extension-run-card.json"
+    custom_log = tmp_path / "metadata/extension-log.jsonl"
     argv = [
         "acquisition",
         "extend-target-cohort",
         "--output-root",
         str(output_root),
         "--execute",
+        "--run-card-output",
+        str(custom_run_card),
+        "--log-output",
+        str(custom_log),
         "--base-cohort-root",
         str(base_root),
         "--selection",
@@ -238,6 +440,10 @@ def test_extend_target_cohort_cli_is_noncharging_and_resume_safe(
         str(cohort_policy),
         "--snapshot-manifest",
         str(snapshot),
+        "--purchase-policy",
+        str(purchase_policy),
+        "--purchase-ledger",
+        str(purchase_ledger),
         "--cost-per-document-usd",
         "3.05",
         "--max-projected-budget-usd",
@@ -245,26 +451,7 @@ def test_extend_target_cohort_cli_is_noncharging_and_resume_safe(
         "--max-missing-core-documents-per-case",
         "24",
     ]
-
-    assert main(argv) == 0
-    before = {
-        str(path.relative_to(output_root)): path.read_bytes()
-        for path in output_root.rglob("*")
-        if path.is_file()
-    }
-    assert main(argv) == 0
-    after = {
-        str(path.relative_to(output_root)): path.read_bytes()
-        for path in output_root.rglob("*")
-        if path.is_file()
-    }
-
-    assert before == after
-    record = json.loads((output_root / "retained-cohort-extension.json").read_text())
-    assert record["combined_case_count"] == 150
-    assert record["paid_activity_requested"] is False
-    assert record["paid_activity_executed"] is False
-    assert (output_root / "incremental/target-cohort-selection.jsonl").is_file()
+    return argv, cohort_policy, custom_run_card, custom_log
 
 
 def _inputs(
@@ -306,9 +493,7 @@ def _inputs(
         "cost_per_document_usd": "3.05",
         "max_projected_budget_usd": max_projected_budget_usd,
         "max_missing_core_documents_per_case": (max_missing_core_documents_per_case),
-        "reserved_obligation_usd": "0.00",
-        "unknown_obligation_usd": "0.00",
-        "write_off_obligation_usd": "0.00",
+        "purchase_obligations": _obligations(),
     }
 
 
@@ -321,6 +506,17 @@ def _base_artifacts(projection: Any) -> dict[str, bytes]:
         "restriction-evidence.jsonl": _jsonl_bytes(projection.restriction_evidence),
         "core-filter-results.jsonl": _jsonl_bytes(
             row.to_record() for row in projection.core_filter_results
+        ),
+        "target-cohort-exclusions.jsonl": _jsonl_bytes(projection.exclusions),
+        "free-document-downloads.jsonl": _jsonl_bytes(
+            record
+            for record in projection.download_manifest
+            if record.get("free_or_purchased") == "free"
+        ),
+        "purchased-document-downloads.jsonl": _jsonl_bytes(
+            record
+            for record in projection.download_manifest
+            if record.get("free_or_purchased") == "purchased"
         ),
         "missing-core-budget-plan.json": _json_bytes(
             projection.budget_plan.to_record()
@@ -411,6 +607,92 @@ def _cohort_policy() -> dict[str, Any]:
             },
         }
     )
+
+
+def _obligations(
+    *,
+    opening: str = "0.00",
+    confirmed: str = "0.00",
+    reserved: str = "0.00",
+    unknown: str = "0.00",
+    write_off: str = "0.00",
+) -> PurchaseObligationSnapshot:
+    return PurchaseObligationSnapshot(
+        purchase_policy_sha256="sha256:" + "1" * 64,
+        purchase_journal_state_sha256="sha256:" + "2" * 64,
+        canonical_ledger_path="/tmp/test-purchase-ledger.sqlite3",
+        opening_obligation=Decimal(opening),
+        confirmed_obligation=Decimal(confirmed),
+        reserved_obligation=Decimal(reserved),
+        unknown_obligation=Decimal(unknown),
+        write_off_obligation=Decimal(write_off),
+    )
+
+
+def _purchase_policy_artifact(
+    ledger: Path,
+    cohort: dict[str, Any],
+    *,
+    opening: str = "0.00",
+) -> dict[str, object]:
+    return generate_case_dev_purchase_policy(
+        {
+            "cycle_id": "cycle-1",
+            "cohort_policy_sha256": cohort["policy_sha256"],
+            "canonical_ledger_path": str(ledger),
+            "hard_cap_usd": "2250.00",
+            "opening_committed_spend_usd": opening,
+            "opening_case_committed_spend_usd": (
+                {} if opening == "0.00" else {"journal-case": opening}
+            ),
+            "max_per_case_usd": "73.20",
+            "per_document_reservation_usd": "3.05",
+            "fee_schedule": {
+                "source_citation": "fixture",
+                "verified_at_utc": "2026-07-14T00:00:00Z",
+                "includes_pacer_fees": True,
+                "includes_service_fees": True,
+                "includes_rounding": True,
+            },
+        }
+    )
+
+
+def _journal_plan(document_ids: tuple[str, ...]) -> MissingCoreBudgetPlan:
+    count = len(document_ids)
+    return MissingCoreBudgetPlan(
+        case_plans=(
+            CaseMissingCorePurchasePlan(
+                candidate_id="journal-case",
+                purchase_document_ids=document_ids,
+                missing_core_document_count=count,
+                estimated_cost=Decimal("3.05") * count,
+                audit_only_document_count=0,
+                dry_run=False,
+            ),
+        ),
+        cost_per_document=Decimal("3.05"),
+        max_projected_budget=Decimal("2250.00"),
+        max_missing_core_documents_per_case=24,
+        dry_run=False,
+    )
+
+
+def _rebuild_base(inputs: dict[str, Any]) -> None:
+    full = inputs["full_pool_artifacts"]
+    projection = project_target_cohort(
+        selections=_jsonl(full["selection.jsonl"]),
+        case_relevance=_jsonl(full["case-relevance.jsonl"]),
+        download_manifest=_jsonl(full["document-downloads-merged.jsonl"]),
+        clearance_records=_jsonl(full["disclosure-clearance.jsonl"]),
+        target_case_count=100,
+        cost_per_document_usd=inputs["cost_per_document_usd"],
+        max_projected_budget_usd=inputs["max_projected_budget_usd"],
+        max_missing_core_documents_per_case=inputs[
+            "max_missing_core_documents_per_case"
+        ],
+    )
+    inputs["base_projection_artifacts"] = _base_artifacts(projection)
 
 
 def _candidate_id(index: int) -> str:
