@@ -97,7 +97,10 @@ class RecapFetchPurchaseBroker(Protocol):
     """Budget-enforcing custody boundary for the PACER credentialed POST."""
 
     @property
-    def paid_dispatch_count(self) -> int: ...
+    def paid_dispatch_count(self) -> int:
+        """Return charge-bearing submissions that reached the transport boundary."""
+
+        raise NotImplementedError
 
     def submit(self, request: Mapping[str, str]) -> Mapping[str, Any]: ...
 
