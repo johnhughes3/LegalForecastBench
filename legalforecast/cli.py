@@ -128,6 +128,13 @@ from legalforecast.ingestion.case_dev_smoke import (
     render_case_dev_smoke_markdown,
     run_case_dev_smoke,
 )
+from legalforecast.ingestion.clearance_replacement import (
+    ClearanceReplacementError,
+    build_broad_broker_allowlist_plan,
+    build_replacement_frontier,
+    plan_clearance_replacements,
+    write_replacement_frontier,
+)
 from legalforecast.ingestion.cohort_policy import (
     CohortPolicyError,
     export_observation_manifest,
@@ -929,6 +936,26 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_generate_purchase_policy_arguments(acquisition_generate_purchase_policy)
+    acquisition_build_clearance_replacement_frontier = (
+        acquisition_subparsers.add_parser(
+            "build-clearance-replacement-frontier",
+            help=(
+                "Freeze the complete post-clearance replacement frontier, "
+                "source hashes, case-mix caps, and initial selected cohort."
+            ),
+        )
+    )
+    _add_build_clearance_replacement_frontier_arguments(
+        acquisition_build_clearance_replacement_frontier
+    )
+    acquisition_plan_clearance_replacements = acquisition_subparsers.add_parser(
+        "plan-clearance-replacements",
+        help=(
+            "Append replay-safe quarantine replacement decisions and emit a "
+            "narrow next-iteration plan without any provider request or purchase."
+        ),
+    )
+    _add_plan_clearance_replacements_arguments(acquisition_plan_clearance_replacements)
     acquisition_generate_recap_fetch_broker_policy = acquisition_subparsers.add_parser(
         "generate-recap-fetch-broker-policy",
         help=(
@@ -2263,6 +2290,148 @@ def _add_generate_purchase_policy_arguments(parser: argparse.ArgumentParser) -> 
     parser.set_defaults(handler=_cmd_generate_purchase_policy)
 
 
+def _add_build_clearance_replacement_frontier_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--cohort-policy",
+        type=Path,
+        required=True,
+        help="Frozen legalforecast.cohort_policy.v1 artifact.",
+    )
+    parser.add_argument(
+        "--purchase-policy",
+        type=Path,
+        required=True,
+        help="Frozen Cycle-wide purchase policy with the canonical journal path.",
+    )
+    parser.add_argument(
+        "--projection",
+        type=Path,
+        required=True,
+        help=(
+            "Frozen target-cohort projection artifact. Its exact file bytes are "
+            "committed as projection_sha256; the command does not infer or alter rank."
+        ),
+    )
+    parser.add_argument(
+        "--initial-selection",
+        type=Path,
+        required=True,
+        help=(
+            "JSON/JSONL initial cohort. Supply selected_candidate_ids or one "
+            "candidate_id object per selected case."
+        ),
+    )
+    parser.add_argument(
+        "--candidate-frontier",
+        type=Path,
+        required=True,
+        help=(
+            "Complete canonical ranked JSON/JSONL frontier. A JSON budget object "
+            "may place the rows under case_plans. Rows must include frozen case-mix "
+            "metadata; this command preserves their order and refuses truncation."
+        ),
+    )
+    parser.add_argument(
+        "--source",
+        action="append",
+        default=[],
+        metavar="NAME=PATH",
+        help=(
+            "Additional frozen source artifact to hash-bind. Repeat for snapshot, "
+            "selection, relevance, or other frontier authorities."
+        ),
+    )
+    parser.add_argument(
+        "--case-mix-max-per-bucket",
+        type=int,
+        help=(
+            "Frozen maximum selected cases in each non-null court, NOS macro, "
+            "related-family, and MDL-family bucket. Omit for an explicit null cap."
+        ),
+    )
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--broker-allowlist-plan-output",
+        type=Path,
+        required=True,
+        help=(
+            "Broad dry-run full-frontier plan to activate at the broker before "
+            "the first purchase. It is never a narrow executable iteration."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_build_clearance_replacement_frontier)
+
+
+def _add_plan_clearance_replacements_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument("--purchase-policy", type=Path, required=True)
+    parser.add_argument(
+        "--frontier",
+        type=Path,
+        required=True,
+        help="Verified full replacement frontier from the builder command.",
+    )
+    parser.add_argument(
+        "--purchase-ledger",
+        type=Path,
+        required=True,
+        help=(
+            "Canonical Cycle purchase SQLite journal. It remains the single writer "
+            "for purchase and hash-chained replacement state."
+        ),
+    )
+    parser.add_argument(
+        "--purchased-clearance",
+        type=Path,
+        required=True,
+        help=(
+            "Complete purchased-document clearance JSON/JSONL. Coverage must exactly "
+            "match confirmed journal rows; free-document clearance is not accepted."
+        ),
+    )
+    parser.add_argument(
+        "--clearance-run-card",
+        type=Path,
+        required=True,
+        help="Authenticated disclosure-clearance run card whose bytes are hash-bound.",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="Hash-bound replacement-loop summary JSON.",
+    )
+    parser.add_argument(
+        "--replacement-budget-plan-output",
+        type=Path,
+        required=True,
+        help=(
+            "Narrow executable budget plan for only the replacement candidates "
+            "selected by the durable iteration ledger."
+        ),
+    )
+    parser.add_argument(
+        "--broker-allowlist-plan-output",
+        type=Path,
+        required=True,
+        help=(
+            "Broad dry-run allowlist plan for every eligible frozen frontier "
+            "document. It is not an executable purchase plan."
+        ),
+    )
+    parser.add_argument(
+        "--exclusions-output",
+        type=Path,
+        required=True,
+        help="Derived JSONL exclusions for every frontier candidate skipped in replay.",
+    )
+    parser.set_defaults(handler=_cmd_plan_clearance_replacements)
+
+
 def _add_generate_recap_fetch_broker_policy_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
@@ -2289,8 +2458,19 @@ def _add_generate_recap_fetch_broker_policy_arguments(
         type=Path,
         required=True,
         help=(
-            "Final executable non-dry-run missing-core budget plan; only "
+            "Narrow executable non-dry-run plan by default, or an explicitly "
+            "dry-run full-frontier scope with --broad-frontier-allowlist; only "
             "case_plans.purchase_document_ids may enter the broker allowlist."
+        ),
+    )
+    parser.add_argument(
+        "--broad-frontier-allowlist",
+        action="store_true",
+        help=(
+            "Treat --budget-plan as an explicitly dry-run, full-frontier broker "
+            "allowlist rather than a narrow executable iteration. Aggregate "
+            "hypothetical cost may exceed the Cycle cap, but the signed broker "
+            "still enforces the unchanged cap and per-case limits on every request."
         ),
     )
     parser.add_argument(
@@ -5946,6 +6126,55 @@ def _path_sha256(path: Path) -> str:
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _replacement_source_commitments(
+    values: Sequence[str], *, fixed: Mapping[str, Path]
+) -> dict[str, str]:
+    commitments = {name: _path_sha256(path) for name, path in fixed.items()}
+    for value in values:
+        name, separator, raw_path = value.partition("=")
+        if (
+            not separator
+            or not name
+            or name.strip() != name
+            or not raw_path
+            or name in commitments
+        ):
+            raise ValueError("--source must be a unique canonical NAME=PATH commitment")
+        path = Path(raw_path)
+        commitments[name] = _path_sha256(path)
+    return commitments
+
+
+def _replacement_initial_candidate_ids(path: Path) -> tuple[str, ...]:
+    loaded = _loads_json(path.read_text(encoding="utf-8"))
+    if isinstance(loaded, Mapping):
+        mapping = cast(Mapping[object, object], loaded)
+        raw_ids = mapping.get("selected_candidate_ids")
+        if isinstance(raw_ids, Sequence) and not isinstance(raw_ids, (str, bytes)):
+            ids = tuple(cast(Sequence[object], raw_ids))
+            if all(isinstance(item, str) for item in ids):
+                return cast(tuple[str, ...], ids)
+    return tuple(
+        _required_str(record, "candidate_id") for record in _read_records(path)
+    )
+
+
+def _replacement_frontier_rows(path: Path) -> tuple[JsonRecord, ...]:
+    if path.suffix != ".jsonl":
+        loaded = _loads_json(path.read_text(encoding="utf-8"))
+        if isinstance(loaded, Mapping):
+            mapping = cast(Mapping[object, object], loaded)
+            raw_rows = mapping.get("case_plans")
+            if isinstance(raw_rows, Sequence) and not isinstance(
+                raw_rows, (str, bytes)
+            ):
+                return tuple(
+                    _mapping(item, "candidate frontier case_plan")
+                    for item in cast(Sequence[object], raw_rows)
+                )
+    return tuple(_read_records(path))
+
+
 def _semantic_target_100_stage_commands(
     stage_commands: Sequence[Mapping[str, Any]],
 ) -> list[JsonRecord]:
@@ -8651,6 +8880,123 @@ def _cmd_generate_purchase_policy(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_build_clearance_replacement_frontier(args: argparse.Namespace) -> int:
+    projection_path = cast(Path, args.projection)
+    initial_selection_path = cast(Path, args.initial_selection)
+    candidate_frontier_path = cast(Path, args.candidate_frontier)
+    try:
+        commitments = _replacement_source_commitments(
+            cast(Sequence[str], args.source),
+            fixed={
+                "projection_artifact": projection_path,
+                "initial_selection": initial_selection_path,
+                "candidate_frontier": candidate_frontier_path,
+            },
+        )
+        artifact = build_replacement_frontier(
+            cohort_policy_artifact=_read_json_object(cast(Path, args.cohort_policy)),
+            purchase_policy_artifact=_read_json_object(
+                cast(Path, args.purchase_policy)
+            ),
+            projection_sha256=_path_sha256(projection_path),
+            initial_selected_candidate_ids=_replacement_initial_candidate_ids(
+                initial_selection_path
+            ),
+            candidate_rows=_replacement_frontier_rows(candidate_frontier_path),
+            case_mix_max_per_bucket=cast(int | None, args.case_mix_max_per_bucket),
+            source_commitments=commitments,
+        )
+        write_replacement_frontier(cast(Path, args.output), artifact)
+        broad_allowlist = build_broad_broker_allowlist_plan(
+            cohort_policy_artifact=_read_json_object(cast(Path, args.cohort_policy)),
+            purchase_policy_artifact=_read_json_object(
+                cast(Path, args.purchase_policy)
+            ),
+            frontier_artifact=artifact,
+        )
+        _atomic_write_json(
+            cast(Path, args.broker_allowlist_plan_output),
+            broad_allowlist.to_record(),
+        )
+    except (
+        ClearanceReplacementError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "output": str(cast(Path, args.output)),
+                "frontier_sha256": artifact["policy_sha256"],
+                "candidate_count": artifact["policy"]["candidate_count"],
+                "frontier_truncated": artifact["policy"]["frontier_truncated"],
+                "broad_allowlist_candidate_count": len(broad_allowlist.case_plans),
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _cmd_plan_clearance_replacements(args: argparse.Namespace) -> int:
+    output = cast(Path, args.output)
+    replacement_output = cast(Path, args.replacement_budget_plan_output)
+    allowlist_output = cast(Path, args.broker_allowlist_plan_output)
+    exclusions_output = cast(Path, args.exclusions_output)
+    try:
+        purchase_artifact = _read_json_object(cast(Path, args.purchase_policy))
+        purchase_policy = verify_case_dev_purchase_policy(purchase_artifact)
+        with CaseDevPurchaseJournal(
+            cast(Path, args.purchase_ledger).resolve(), policy=purchase_policy
+        ) as journal:
+            result = plan_clearance_replacements(
+                cohort_policy_artifact=_read_json_object(
+                    cast(Path, args.cohort_policy)
+                ),
+                purchase_policy_artifact=purchase_artifact,
+                frontier_artifact=_read_json_object(cast(Path, args.frontier)),
+                purchase_journal=journal,
+                purchased_clearance_records=_read_records(
+                    cast(Path, args.purchased_clearance)
+                ),
+                clearance_run_card_sha256=_path_sha256(
+                    cast(Path, args.clearance_run_card)
+                ),
+            )
+        _atomic_write_json(output, result.to_record())
+        _atomic_write_json(replacement_output, result.replacement_plan.to_record())
+        _atomic_write_json(allowlist_output, result.broker_allowlist_plan.to_record())
+        _write_jsonl(exclusions_output, result.derived_exclusions)
+    except (
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
+        ClearanceReplacementError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "output": str(output),
+                "active_candidate_count": len(result.active_candidate_ids),
+                "replacement_candidate_count": len(result.replacement_plan.case_plans),
+                "broad_allowlist_candidate_count": len(
+                    result.broker_allowlist_plan.case_plans
+                ),
+                "stop_reason": result.stop_reason,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
 def _cmd_generate_recap_fetch_broker_policy(args: argparse.Namespace) -> int:
     output = cast(Path, args.output)
     try:
@@ -8663,6 +9009,7 @@ def _cmd_generate_recap_fetch_broker_policy(args: argparse.Namespace) -> int:
             budget_plan=_missing_core_budget_plan(budget_plan_artifact),
             budget_plan_artifact=budget_plan_artifact,
             selection_records=_read_records(cast(Path, args.selection)),
+            broad_frontier_allowlist=cast(bool, args.broad_frontier_allowlist),
         )
         write_recap_fetch_broker_policy(output, policy)
     except (

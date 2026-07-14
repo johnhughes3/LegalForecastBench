@@ -37,6 +37,23 @@ Case.dev may still provide noncharging search or docket enrichment, but it is ne
 Allowlisting never makes a recovered document packet-eligible without the separate post-recovery disclosure clearance.
 It prints secure-gate's canonical broker-policy SHA-256, writes deterministic JSON atomically, and refuses to overwrite an existing different-byte artifact.
 
+When the frozen cohort uses post-clearance replacement, activate one broader broker allowlist before the first purchase instead of changing broker policy after observing a quarantine:
+
+```console
+uv run legalforecast acquisition generate-recap-fetch-broker-policy \
+  --purchase-policy PURCHASE_POLICY.json \
+  --cohort-policy COHORT_POLICY.json \
+  --budget-plan BROAD_FRONTIER_ALLOWLIST.json \
+  --selection FULL_FRONTIER_SELECTION.jsonl \
+  --broad-frontier-allowlist \
+  --output BROKER_POLICY.json
+```
+
+Broad-frontier mode requires an explicitly dry-run scope artifact and may allowlist more hypothetical aggregate cost than the Cycle cap.
+It does not authorize that spend: secure-gate still enforces the unchanged signed Cycle cap, per-case cap, reservation, and journal state for every request.
+The separate non-dry-run replacement plan remains the narrow executable authority for each iteration.
+See `docs/schemas/clearance-replacement-v1.md` for the full hash-chain and replay contract.
+
 An unresolved `submitted` or `unknown` row blocks every subsequent purchase and cannot be retried.
 Resolve it with `legalforecast acquisition reconcile-purchase --purchase-policy <policy.json> --cohort-policy <cohort-policy.json> --purchase-ledger <ledger.sqlite3> --evidence <evidence.json>`.
 Evidence must name a provider-side billing receipt, statement export, or support confirmation; document availability alone is not payment evidence.

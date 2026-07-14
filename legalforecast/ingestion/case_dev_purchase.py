@@ -765,6 +765,248 @@ class CaseDevPurchaseJournal:
         ).fetchall()
         return {str(row["source_document_id"]): str(row["status"]) for row in rows}
 
+    def operation_records(self) -> tuple[Mapping[str, Any], ...]:
+        """Return canonical purchase rows for offline audit and replacement logic."""
+
+        rows = self._connection.execute(
+            """SELECT source_document_id, candidate_id, reservation_usd, status,
+            operation_key, actual_usd, response_json, error, reconciliation_json
+            FROM purchase_operations ORDER BY source_document_id"""
+        ).fetchall()
+        return tuple(
+            MappingProxyType(
+                {
+                    "source_document_id": str(row["source_document_id"]),
+                    "candidate_id": str(row["candidate_id"]),
+                    "reservation_usd": str(row["reservation_usd"]),
+                    "status": str(row["status"]),
+                    "operation_key": (
+                        None
+                        if row["operation_key"] is None
+                        else str(row["operation_key"])
+                    ),
+                    "actual_usd": (
+                        None if row["actual_usd"] is None else str(row["actual_usd"])
+                    ),
+                    "response": (
+                        None
+                        if row["response_json"] is None
+                        else json.loads(str(row["response_json"]))
+                    ),
+                    "error": None if row["error"] is None else str(row["error"]),
+                    "reconciliation": (
+                        None
+                        if row["reconciliation_json"] is None
+                        else json.loads(str(row["reconciliation_json"]))
+                    ),
+                }
+            )
+            for row in rows
+        )
+
+    def candidate_committed_amount_usd(self, candidate_id: str) -> str:
+        """Return journal-derived committed spend for one candidate.
+
+        Planned rows are intentionally excluded. Confirmed charges, live holds,
+        ambiguous outcomes, and counted write-offs remain committed exactly as
+        they do at the Cycle cap. This is the disclosure write-off authority;
+        replacement planning must not mutate provider reconciliation state.
+        """
+
+        amount = self.policy.opening_case_committed_spend_usd.get(
+            candidate_id, Decimal("0")
+        )
+        rows = self._connection.execute(
+            """SELECT status, reservation_usd, actual_usd, response_json,
+            reconciliation_json FROM purchase_operations WHERE candidate_id=?""",
+            (candidate_id,),
+        ).fetchall()
+        for row in rows:
+            status = str(row["status"])
+            reservation = Decimal(str(row["reservation_usd"]))
+            actual = (
+                Decimal(str(row["actual_usd"]))
+                if row["actual_usd"] is not None
+                else Decimal("0")
+            )
+            if status == "confirmed":
+                amount += actual if row["actual_usd"] is not None else reservation
+            elif status in {"submitted", "queued", "unknown"} or (
+                status == "failed"
+                and row["response_json"] is not None
+                and row["reconciliation_json"] is None
+            ):
+                amount += max(reservation, actual)
+        return _money(amount)
+
+    def purchase_state_sha256(self) -> str:
+        """Commit the immutable policy identity and current purchase operations."""
+
+        return hashlib.sha256(
+            _canonical(
+                {
+                    "cycle_id": self.policy.cycle_id,
+                    "cohort_policy_sha256": self.policy.cohort_policy_sha256,
+                    "purchase_policy_sha256": self.policy.policy_sha256,
+                    "committed_amount_usd": self.committed_amount_usd,
+                    "operations": [dict(row) for row in self.operation_records()],
+                }
+            ).encode()
+        ).hexdigest()
+
+    def replacement_events(self) -> tuple[Mapping[str, Any], ...]:
+        """Read and verify the append-only clearance-replacement hash chain."""
+
+        rows = self._connection.execute(
+            """SELECT sequence, event_key, record_json FROM replacement_events
+            ORDER BY sequence"""
+        ).fetchall()
+        records: list[Mapping[str, Any]] = []
+        previous: str | None = None
+        for expected_sequence, row in enumerate(rows):
+            record_value = json.loads(str(row["record_json"]))
+            if not isinstance(record_value, dict):
+                raise CaseDevPurchaseLedgerError(
+                    "replacement event record must be an object"
+                )
+            record = cast(dict[str, Any], record_value)
+            if (
+                row["sequence"] != expected_sequence
+                or record.get("sequence") != expected_sequence
+                or record.get("event_key") != row["event_key"]
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "replacement event sequence or identity is invalid"
+                )
+            if record.get("previous_record_sha256") != previous:
+                raise CaseDevPurchaseLedgerError(
+                    "replacement event hash chain is broken"
+                )
+            committed = record.get("record_sha256")
+            if (
+                not isinstance(committed, str)
+                or not committed.startswith("sha256:")
+                or _SHA256.fullmatch(committed.removeprefix("sha256:")) is None
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "replacement event record hash is invalid"
+                )
+            payload = {
+                key: value for key, value in record.items() if key != "record_sha256"
+            }
+            actual = (
+                "sha256:" + hashlib.sha256(_canonical(payload).encode()).hexdigest()
+            )
+            if actual != committed:
+                raise CaseDevPurchaseLedgerError(
+                    "replacement event hash does not match its content"
+                )
+            records.append(MappingProxyType(record))
+            previous = committed
+        return tuple(records)
+
+    def append_replacement_event(
+        self, event_key: str, payload: Mapping[str, Any]
+    ) -> Mapping[str, Any]:
+        """Append one idempotent, hash-chained replacement decision."""
+
+        if not event_key or event_key.strip() != event_key:
+            raise CaseDevPurchaseLedgerError(
+                "replacement event_key must be a canonical non-empty string"
+            )
+        if any(
+            field in payload
+            for field in (
+                "event_key",
+                "sequence",
+                "previous_record_sha256",
+                "record_sha256",
+            )
+        ):
+            raise CaseDevPurchaseLedgerError(
+                "replacement event payload contains journal-owned fields"
+            )
+        # Refuse to extend even a self-consistently encoded tail when any prior
+        # sequence, link, or content hash has been corrupted.
+        self.replacement_events()
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            existing = self._connection.execute(
+                "SELECT record_json FROM replacement_events WHERE event_key=?",
+                (event_key,),
+            ).fetchone()
+            if existing is not None:
+                record_value = json.loads(str(existing["record_json"]))
+                if not isinstance(record_value, dict):
+                    raise CaseDevPurchaseLedgerError(
+                        "replacement event record must be an object"
+                    )
+                record = cast(dict[str, Any], record_value)
+                prior_payload = {
+                    key: value
+                    for key, value in record.items()
+                    if key
+                    not in {
+                        "event_key",
+                        "sequence",
+                        "previous_record_sha256",
+                        "record_sha256",
+                    }
+                }
+                if _canonical(prior_payload) != _canonical(payload):
+                    raise CaseDevPurchaseLedgerError(
+                        "replacement event replay conflicts with durable content"
+                    )
+                self._connection.commit()
+                self.replacement_events()
+                return MappingProxyType(record)
+
+            tail = self._connection.execute(
+                """SELECT sequence, record_json FROM replacement_events
+                ORDER BY sequence DESC LIMIT 1"""
+            ).fetchone()
+            sequence = 0 if tail is None else int(tail["sequence"]) + 1
+            previous: str | None = None
+            if tail is not None:
+                tail_value: object = json.loads(str(tail["record_json"]))
+                if not isinstance(tail_value, dict):
+                    raise CaseDevPurchaseLedgerError(
+                        "replacement event record must be an object"
+                    )
+                tail_record = cast(dict[str, Any], tail_value)
+                previous_value = tail_record.get("record_sha256")
+                if not isinstance(previous_value, str):
+                    raise CaseDevPurchaseLedgerError(
+                        "replacement event tail hash is invalid"
+                    )
+                previous = previous_value
+            record: dict[str, Any] = {
+                **dict(payload),
+                "event_key": event_key,
+                "sequence": sequence,
+                "previous_record_sha256": previous,
+            }
+            record["record_sha256"] = (
+                "sha256:" + hashlib.sha256(_canonical(record).encode()).hexdigest()
+            )
+            self._connection.execute(
+                """INSERT INTO replacement_events(
+                sequence, event_key, record_json, record_sha256)
+                VALUES (?, ?, ?, ?)""",
+                (
+                    sequence,
+                    event_key,
+                    _canonical(record),
+                    record["record_sha256"],
+                ),
+            )
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+        self.replacement_events()
+        return MappingProxyType(record)
+
     def replay_attempt(
         self,
         candidate_id: str,
@@ -904,6 +1146,12 @@ class CaseDevPurchaseJournal:
                 response_json TEXT,
                 error TEXT,
                 reconciliation_json TEXT
+            );
+            CREATE TABLE IF NOT EXISTS replacement_events (
+                sequence INTEGER PRIMARY KEY CHECK(sequence >= 0),
+                event_key TEXT NOT NULL UNIQUE,
+                record_json TEXT NOT NULL,
+                record_sha256 TEXT NOT NULL UNIQUE
             );
             """
         )
