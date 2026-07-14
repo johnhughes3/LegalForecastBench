@@ -89,6 +89,129 @@ def test_stops_after_proven_descending_anchor_boundary() -> None:
         bundle.as_docket_page()
 
 
+def test_anchor_boundary_continues_until_meghji_decision_references_resolve() -> None:
+    responses = {
+        f"{BASE_URL}?order_by=desc&page=1": _page_html(
+            entries=(
+                (
+                    "entry-295",
+                    "295",
+                    "July 6, 2026",
+                    "Memorandum Opinion and Order Granting Motion to Dismiss "
+                    "Third-Party Complaint. (related document(s)106, 63)",
+                ),
+                ("entry-128", "128", "June 29, 2026", "Scheduling notice."),
+            ),
+            has_next=True,
+        ),
+        f"{BASE_URL}?order_by=desc&page=2": _page_html(
+            entries=(
+                ("entry-106", "106", "May 15, 2026", "Motion to Dismiss."),
+                ("entry-63", "63", "April 13, 2026", "Third-Party Complaint."),
+            ),
+            has_next=True,
+        ),
+    }
+    fetched_urls: list[str] = []
+
+    def fetch(source_url: str) -> str:
+        fetched_urls.append(source_url)
+        return responses[source_url]
+
+    bundle = paginate_courtlistener_docket(
+        BASE_URL,
+        fetch=fetch,
+        max_pages=6,
+        decision_anchor=date(2026, 6, 30),
+    )
+
+    assert fetched_urls == [
+        f"{BASE_URL}?order_by=desc&page=1",
+        f"{BASE_URL}?order_by=desc&page=2",
+    ]
+    assert [entry.entry_number for entry in bundle.entries] == [
+        "295",
+        "128",
+        "106",
+        "63",
+    ]
+    assert bundle.is_exhaustive is False
+    assert bundle.stopped_at_anchor_boundary is True
+
+
+def test_unresolved_anchored_decision_reference_fails_at_page_cap() -> None:
+    page_one = _page_html(
+        entries=(
+            (
+                "entry-295",
+                "295",
+                "July 6, 2026",
+                "Memorandum Opinion and Order Granting Motion to Dismiss "
+                "Third-Party Complaint. (related document(s)106, 63)",
+            ),
+            ("entry-128", "128", "June 29, 2026", "Scheduling notice."),
+        ),
+        has_next=True,
+    )
+
+    with pytest.raises(CourtListenerDocketPaginationError, match="page_limit"):
+        paginate_courtlistener_docket(
+            BASE_URL,
+            fetch=lambda _source_url: page_one,
+            max_pages=1,
+            decision_anchor=date(2026, 6, 30),
+        )
+
+
+@pytest.mark.parametrize(
+    ("decision_date", "decision_text"),
+    (
+        (
+            "June 29, 2026",
+            "Order Granting Motion to Dismiss. (related document(s)63)",
+        ),
+        (
+            "July 6, 2026",
+            "Brief citing related document(s)63 and attachment 295.",
+        ),
+        (
+            "July 6, 2026",
+            "Order Granting Motion to Dismiss attachment 63 dated 2026-07-06.",
+        ),
+        (
+            "July 6, 2026",
+            "Order setting a briefing schedule on the Motion to Dismiss. "
+            "(related document(s)63)",
+        ),
+        (
+            "July 6, 2026",
+            "Order Granting Motion to Dismiss. (related document(s)200)",
+        ),
+        (
+            "July 6, 2026",
+            "Order Granting Motion to Dismiss. (related document(s)128)",
+        ),
+    ),
+)
+def test_anchor_boundary_does_not_extend_for_unqualified_numbers(
+    decision_date: str,
+    decision_text: str,
+) -> None:
+    page = parse_courtlistener_docket_html(
+        _page_html(
+            entries=(
+                ("entry-295", "295", decision_date, decision_text),
+                ("entry-128", "128", "June 28, 2026", "Scheduling notice."),
+            ),
+            has_next=True,
+        ),
+        source_url=f"{BASE_URL}?order_by=desc&page=1",
+        docket_id="73320440",
+    )
+
+    assert may_stop_at_anchor_boundary((page,), anchor=date(2026, 6, 30)) is True
+
+
 def test_anchor_helper_requires_every_observed_date_and_global_order() -> None:
     missing_date = parse_courtlistener_docket_html(
         _page_html(

@@ -434,6 +434,8 @@ def referenced_entry_numbers(text: str) -> set[int]:
     numbers: set[int] = set()
     for match in _DOCKET_REFERENCE_RE.finditer(text):
         numbers.update(_numbers_in_text(match.group("numbers")))
+    for match in _RELATED_DOCUMENT_REFERENCE_RE.finditer(text):
+        numbers.update(_numbers_in_text(match.group("numbers")))
     for match in _BRACKET_REFERENCE_RE.finditer(text):
         numbers.add(int(match.group("number")))
     for pattern in _NUMBERED_MTD_REFERENCE_RES:
@@ -491,6 +493,12 @@ def _require_non_empty_tuple(values: tuple[str, ...], field_name: str) -> None:
 _DOCKET_REFERENCE_RE = re.compile(
     r"(?:\b(?:ecf|dkt\.?|docket|doc(?:ument)?\.?|entry)\s*"
     r"(?:(?:no|nos)\.?\s*|#\s*)?|#\s*)"
+    r"(?P<numbers>[0-9][0-9,\sand-]*)",
+    re.IGNORECASE,
+)
+_RELATED_DOCUMENT_REFERENCE_RE = re.compile(
+    r"\brelated\s+documents?(?:\s*\(\s*s\s*\))?\s*"
+    r"(?:(?:no|nos)\.?\s*|#\s*|:\s*)?"
     r"(?P<numbers>[0-9][0-9,\sand-]*)",
     re.IGNORECASE,
 )

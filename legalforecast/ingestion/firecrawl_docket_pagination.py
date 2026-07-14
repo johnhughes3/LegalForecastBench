@@ -18,9 +18,18 @@ from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketPage,
     parse_courtlistener_docket_html,
 )
+from legalforecast.ingestion.mtd_acquisition_screen import (
+    screen_courtlistener_entry_for_mtd_decision,
+)
 
 _COURTLISTENER_HOST = "www.courtlistener.com"
 _DOCKET_PATH = re.compile(r"^/docket/(?P<docket_id>[1-9][0-9]*)/(?P<slug>[^/]+)/?$")
+_RELATED_ENTRY_REFERENCE = re.compile(
+    r"\brelated\s+documents?(?:\s*\(\s*s\s*\))?\s*"
+    r"(?:(?:no|nos)\.?\s*|#\s*|:\s*)?"
+    r"(?P<numbers>[1-9][0-9]*(?:\s*(?:,|and)\s*[1-9][0-9]*)*)",
+    re.IGNORECASE,
+)
 
 
 class CourtListenerDocketPaginationError(ValueError):
@@ -127,8 +136,9 @@ def may_stop_at_anchor_boundary(
     row must be strictly before the anchor. Any uncertainty requires exhaustion.
     """
 
+    observed_pages = tuple(pages)
     filed_dates: list[date] = []
-    for page in pages:
+    for page in observed_pages:
         if not page.entries:
             return False
         for entry in page.entries:
@@ -140,7 +150,62 @@ def may_stop_at_anchor_boundary(
         return False
     if any(newer < older for newer, older in pairwise(filed_dates)):
         return False
-    return filed_dates[-1] < anchor
+    if filed_dates[-1] >= anchor:
+        return False
+    return not _unresolved_anchored_decision_references(
+        observed_pages,
+        anchor=anchor,
+    )
+
+
+def _unresolved_anchored_decision_references(
+    pages: tuple[CourtListenerWebDocketPage, ...],
+    *,
+    anchor: date,
+) -> set[int]:
+    """Return exact older row references that require bounded pagination."""
+
+    observed_numbers = {
+        number
+        for page in pages
+        for entry in page.entries
+        if (number := _positive_entry_number(entry.entry_number)) is not None
+    }
+    if not observed_numbers:
+        return set()
+    observed_floor = min(observed_numbers)
+    referenced_numbers: set[int] = set()
+    for page in pages:
+        for entry in page.entries:
+            filed_date = _parse_filed_date(entry.filed_at)
+            if (
+                filed_date is not None
+                and filed_date >= anchor
+                and screen_courtlistener_entry_for_mtd_decision(
+                    entry
+                ).actual_mtd_decision
+            ):
+                referenced_numbers.update(_related_entry_numbers(entry.text))
+    return {
+        number
+        for number in referenced_numbers - observed_numbers
+        if number < observed_floor
+    }
+
+
+def _positive_entry_number(value: str | None) -> int | None:
+    if value is None or re.fullmatch(r"[1-9][0-9]*", value.strip()) is None:
+        return None
+    return int(value)
+
+
+def _related_entry_numbers(text: str) -> set[int]:
+    numbers: set[int] = set()
+    for match in _RELATED_ENTRY_REFERENCE.finditer(text):
+        numbers.update(
+            int(value) for value in re.findall(r"[1-9][0-9]*", match.group("numbers"))
+        )
+    return numbers
 
 
 def paginate_courtlistener_docket(

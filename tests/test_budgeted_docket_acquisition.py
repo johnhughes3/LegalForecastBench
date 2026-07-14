@@ -59,6 +59,34 @@ def test_ranked_dockets_are_paginated_in_budgeted_page_waves() -> None:
     assert reparsed.entries[0].documents[0].pacer_only is True
 
 
+def test_ranked_docket_wave_recovers_anchored_decision_related_older_rows() -> None:
+    scheduler = _Scheduler(
+        {
+            ("20", 1): _meghji_page(1, has_next=True),
+            ("20", 2): _meghji_page(2, has_next=True),
+        }
+    )
+
+    result = acquire_ranked_dockets(
+        records=[_record("20", 0)],
+        scheduler=scheduler,  # type: ignore[arg-type]
+        limit=1,
+        max_pages_per_docket=6,
+        decision_anchor=date(2026, 6, 30),
+    )
+
+    assert scheduler.waves == [[("20", 1)], [("20", 2)]]
+    assert result.failed_docket_ids == ()
+    assert len(result.bundles[0].pages) == 2
+    assert [entry.entry_number for entry in result.bundles[0].entries] == [
+        "295",
+        "128",
+        "106",
+        "63",
+    ]
+    assert result.bundles[0].stopped_at_anchor_boundary is True
+
+
 def test_ranked_docket_continuation_pages_have_run_unique_ordinals(
     tmp_path: Path,
 ) -> None:
@@ -386,6 +414,47 @@ def _page(docket_id: str, page_number: int, *, has_next: bool) -> str:
           </div>
         </div>
       </div>
+      {next_link}
+    </body></html>
+    """
+
+
+def _meghji_page(page_number: int, *, has_next: bool) -> str:
+    next_link = (
+        f'<a rel="next" href="?order_by=desc&amp;page={page_number + 1}">Next</a>'
+        if has_next
+        else ""
+    )
+    entries = (
+        (
+            (
+                "295",
+                "July 6, 2026",
+                "Memorandum Opinion and Order Granting "
+                "Motion to Dismiss Third-Party Complaint. "
+                "(related document(s)106, 63)",
+            ),
+            ("128", "June 29, 2026", "Scheduling notice."),
+        )
+        if page_number == 1
+        else (
+            ("106", "May 15, 2026", "Motion to Dismiss Third-Party Complaint."),
+            ("63", "April 13, 2026", "Third-Party Complaint."),
+        )
+    )
+    rows = "".join(
+        f"""
+        <div id="entry-{number}" class="row">
+          <div class="col-xs-1">{number}</div>
+          <div class="col-xs-3"><span title="{filed_at}">{filed_at}</span></div>
+          <div class="col-xs-8">{text}</div>
+        </div>
+        """
+        for number, filed_at, text in entries
+    )
+    return f"""
+    <html><head><title>Fixture 20</title></head><body>
+      <div id="docket-entry-table">{rows}</div>
       {next_link}
     </body></html>
     """

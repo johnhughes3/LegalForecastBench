@@ -50,6 +50,7 @@ from legalforecast.selection.exclusion_ledger import (
 )
 from legalforecast.selection.motion_linkage import (
     link_mtd_dispositions,
+    referenced_entry_numbers,
     referenced_mtd_entry_numbers,
 )
 
@@ -686,18 +687,44 @@ def _linkage_entries(
 ) -> tuple[NormalizedDocketEntry, ...]:
     entry_by_row_id = {entry.row_id: entry for entry in entries}
     explicitly_referenced_numbers: set[int] = set()
+    sole_adversary_reference_numbers: set[int] = set()
+    qualifying_adversary_disposition_references: set[int] = set()
     for row_id in actual_decision_row_ids:
         disposition = entry_by_row_id.get(row_id)
         if disposition is not None:
             explicitly_referenced_numbers.update(
                 referenced_mtd_entry_numbers(disposition.text)
             )
+            if case_type_stratum == "bankruptcy_adversary":
+                related_numbers = referenced_entry_numbers(disposition.text)
+                if len(related_numbers) == 1:
+                    sole_adversary_reference_numbers.update(related_numbers)
+                    explicitly_referenced_numbers.update(related_numbers)
+                    if _has_unambiguous_qualifying_adversary_motion(disposition.text):
+                        qualifying_adversary_disposition_references.update(
+                            related_numbers
+                        )
 
     normalized: list[NormalizedDocketEntry] = []
     for entry in entries:
+        entry_number = (
+            int(entry.entry_number)
+            if entry.entry_number is not None and entry.entry_number.isdigit()
+            else None
+        )
+        exact_adversary_reference = (
+            case_type_stratum == "bankruptcy_adversary"
+            and entry_number in sole_adversary_reference_numbers
+        )
+        entry_proves_adversary_motion = is_rule_7012_claim_merits_motion(entry.text)
         adversary_motion_qualifies = (
             case_type_stratum != "bankruptcy_adversary"
-            or is_rule_7012_claim_merits_motion(entry.text)
+            or entry_proves_adversary_motion
+            or (
+                exact_adversary_reference
+                and entry_number in qualifying_adversary_disposition_references
+                and _looks_like_exact_referenced_generic_motion(entry.text)
+            )
         )
         if entry.row_id in actual_decision_row_ids:
             role = DocumentRole.DECISION
@@ -714,12 +741,18 @@ def _linkage_entries(
         ):
             role = DocumentRole.MTD_MEMORANDUM
         elif (
-            entry.entry_number is not None
-            and entry.entry_number.isdigit()
-            and int(entry.entry_number) in explicitly_referenced_numbers
+            entry_number is not None
+            and entry_number in explicitly_referenced_numbers
             and (
                 _looks_like_target_mtd_filing(entry.text)
                 or _looks_like_generic_mtd_document(entry.text)
+                or (
+                    exact_adversary_reference
+                    and (
+                        entry_proves_adversary_motion
+                        or _looks_like_exact_referenced_generic_motion(entry.text)
+                    )
+                )
             )
             and adversary_motion_qualifies
         ):
@@ -744,6 +777,40 @@ def _linkage_entries(
             )
         )
     return tuple(normalized)
+
+
+def _looks_like_exact_referenced_generic_motion(text: str) -> bool:
+    """Recognize a generic motion row only through a sole disposition reference."""
+
+    normalized = text.replace("\xad", "")
+    return bool(
+        re.search(
+            r"\bmain\s+doc\s*ument\s+miscellaneous\s+motion\b",
+            normalized,
+            re.I,
+        )
+    )
+
+
+def _has_unambiguous_qualifying_adversary_motion(text: str) -> bool:
+    """Require a sole Rule 12(c) motion before propagating its generic row."""
+
+    judgment_motion = re.compile(
+        r"\bmotions?\s+for\s+judgment\s+on\s+the\s+pleadings\b",
+        re.IGNORECASE,
+    )
+    if judgment_motion.search(text) is None:
+        return False
+    without_judgment_motion = judgment_motion.sub("", text)
+    without_judgment_motion = re.sub(
+        r"\bmain\s+doc\s*ument\s+miscellaneous\s+motion\b",
+        "",
+        without_judgment_motion.replace("\xad", ""),
+        flags=re.IGNORECASE,
+    )
+    return re.search(
+        r"\bmotions?\b", without_judgment_motion, re.IGNORECASE
+    ) is None and is_rule_7012_claim_merits_motion(text)
 
 
 def _looks_like_target_mtd_filing(text: str) -> bool:

@@ -7,6 +7,7 @@ from legalforecast.ingestion.docket_sync import (
 from legalforecast.selection.motion_linkage import (
     MotionLinkageExclusionReason,
     link_mtd_dispositions,
+    referenced_entry_numbers,
     referenced_mtd_entry_numbers,
 )
 
@@ -197,3 +198,11 @@ def test_case_number_does_not_link_support_memorandum_to_notice() -> None:
     assert result.exclusion_entries[0].reason == (
         MotionLinkageExclusionReason.AMBIGUOUS_MOTION_TO_ORDER_LINKAGE.value
     )
+
+
+def test_referenced_entry_numbers_parses_courtlistener_related_document_form() -> None:
+    assert referenced_entry_numbers(
+        "Memorandum Opinion and Order Granting the Motion to Dismiss. "
+        "(related document(s)2)"
+    ) == {2}
+    assert referenced_entry_numbers("Order (related document(s): 103)") == {103}

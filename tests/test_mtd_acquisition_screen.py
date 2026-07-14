@@ -1529,6 +1529,151 @@ def test_adversary_linkage_promotes_explicit_adversary_dismissal_motion() -> Non
     ]
 
 
+def test_adversary_linkage_recovers_higgins_comma_form_from_exact_reference() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Higgins v. Celsius Network LLC - 26-01028",
+            entries=(
+                (1, "April 13, 2026", "Complaint (fee)"),
+                (2, "May 15, 2026", "Motion, Dismiss Adversary Proceeding"),
+                (
+                    12,
+                    "July 6, 2026",
+                    "Memorandum Opinion and Order Granting the Motion to Dismiss. "
+                    "(related document(s)2)",
+                ),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/73183894/higgins-v-celsius/",
+    )
+
+    normalized = _linkage_entries(
+        page.entries,
+        actual_decision_row_ids={"entry-12"},
+        docket_id="73183894",
+        source_url=page.source_url or "",
+        case_type_stratum="bankruptcy_adversary",
+    )
+
+    assert [entry.entry_number for entry in normalized] == ["2", "12"]
+    assert [entry.document_role for entry in normalized] == [
+        DocumentRole.MTD_NOTICE,
+        DocumentRole.DECISION,
+    ]
+
+
+def test_adversary_jop_links_osborne_sole_exact_generic_motion_reference() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Osborne v. Moeinifar - 25-01237",
+            entries=(
+                (1, "June 27, 2025", "Complaint"),
+                (
+                    103,
+                    "March 24, 2026",
+                    "Main Doc \xadument Miscellaneous Motion Buy on PACER",
+                ),
+                (
+                    170,
+                    "July 6, 2026",
+                    "Order Denying Motion for Judgment on the Pleadings and "
+                    "Granting Dismissal of Counts IX through XV without "
+                    "Prejudice. (Re: # 103)",
+                ),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/70652482/osborne-v-moeinifar/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(
+        page,
+        candidate_text="flsb 25-01237 Osborne v. Moeinifar",
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+    normalized = _linkage_entries(
+        page.entries,
+        actual_decision_row_ids={entry.row_id for entry in screen.decision_entries},
+        docket_id="70652482",
+        source_url=page.source_url or "",
+        case_type_stratum=screen.case_type_stratum,
+    )
+
+    assert screen.strict_clean is True
+    assert screen.case_type_stratum == "bankruptcy_adversary"
+    assert [entry.entry_number for entry in normalized] == ["103", "170"]
+    assert [entry.document_role for entry in normalized] == [
+        DocumentRole.MTD_NOTICE,
+        DocumentRole.DECISION,
+    ]
+
+
+def test_adversary_jop_does_not_promote_ambiguous_generic_motion_references() -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Trustee v. Defendant - 2:26-ap-00123",
+            entries=(
+                (1, "July 1, 2026", "Adversary Complaint"),
+                (103, "July 2, 2026", "Miscellaneous Motion"),
+                (104, "July 2, 2026", "Miscellaneous Motion"),
+                (
+                    170,
+                    "July 6, 2026",
+                    "Order Denying Motion for Judgment on the Pleadings as to "
+                    "Count I. (Re: # 103 and # 104)",
+                ),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000123/trustee-v-defendant/",
+    )
+
+    normalized = _linkage_entries(
+        page.entries,
+        actual_decision_row_ids={"entry-170"},
+        docket_id="74000123",
+        source_url=page.source_url or "",
+        case_type_stratum="bankruptcy_adversary",
+    )
+
+    assert [entry.entry_number for entry in normalized] == ["170"]
+    assert [entry.document_role for entry in normalized] == [DocumentRole.DECISION]
+
+
+def test_adversary_jop_does_not_assign_generic_reference_in_multi_motion_order() -> (
+    None
+):
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Trustee v. Defendant - 2:26-ap-00123",
+            entries=(
+                (1, "July 1, 2026", "Adversary Complaint"),
+                (
+                    103,
+                    "July 2, 2026",
+                    "Main Doc \xadument Miscellaneous Motion Buy on PACER",
+                ),
+                (
+                    170,
+                    "July 6, 2026",
+                    "Order Granting Motion for Judgment on the Pleadings as to "
+                    "Count I and Denying Motion to Seal. (Re: # 103)",
+                ),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000123/trustee-v-defendant/",
+    )
+
+    normalized = _linkage_entries(
+        page.entries,
+        actual_decision_row_ids={"entry-170"},
+        docket_id="74000123",
+        source_url=page.source_url or "",
+        case_type_stratum="bankruptcy_adversary",
+    )
+
+    assert [entry.entry_number for entry in normalized] == ["170"]
+    assert [entry.document_role for entry in normalized] == [DocumentRole.DECISION]
+
+
 def test_target_yield_estimate_extrapolates_needed_screening_depth() -> None:
     estimate = TargetYieldEstimate(
         screened_count=320,
