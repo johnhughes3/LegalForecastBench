@@ -326,7 +326,10 @@ uv run legalforecast acquisition project-target-cohort \
   --case-relevance artifacts/cycle-1/official-acquisition/target-100/03-gap-bridge/case-relevance.jsonl \
   --download-manifest artifacts/cycle-1/official-acquisition/target-100/03c-merged-downloads/document-downloads-merged.jsonl \
   --disclosure-clearance artifacts/cycle-1/official-acquisition/target-100/free-clearance/disclosure-clearance.jsonl \
+  --clearance-run-card artifacts/cycle-1/official-acquisition/target-100/free-clearance/run-cards/clear-disclosures.json \
+  --restriction-evidence artifacts/cycle-1/official-acquisition/target-100/06-clearance-inputs/restriction-evidence.jsonl \
   --preparation-summary artifacts/cycle-1/official-acquisition/target-100/target-100-preparation-summary.json \
+  --preparation-config artifacts/cycle-1/official-acquisition/target-100/target-100-config.json \
   --snapshot-manifest artifacts/cycle-1/official-acquisition/snapshots/<immutable-snapshot-id>/manifest.json \
   --target-case-count 100 \
   --execute --resume

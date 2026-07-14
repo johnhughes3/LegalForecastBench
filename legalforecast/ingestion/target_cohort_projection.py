@@ -97,11 +97,15 @@ def project_target_cohort(
     manifest_by_candidate: dict[str, list[tuple[str, str]]] = {
         candidate_id: [] for candidate_id in selection_index
     }
+    relevance_documents_by_candidate = {
+        candidate_id: _relevance_document_index(record)
+        for candidate_id, record in relevance_index.items()
+    }
     quarantined: dict[str, list[str]] = {}
     for key, manifest in manifest_index.items():
         candidate_id, source_document_id = key
         manifest_by_candidate[candidate_id].append(key)
-        relevance_documents = _relevance_document_index(relevance_index[candidate_id])
+        relevance_documents = relevance_documents_by_candidate[candidate_id]
         if source_document_id not in relevance_documents:
             raise TargetCohortProjectionError(
                 "manifest document is absent from case relevance: "
@@ -113,7 +117,14 @@ def project_target_cohort(
             quarantined.setdefault(candidate_id, []).append(source_document_id)
 
     empty_candidates = sorted(
-        candidate_id for candidate_id, keys in manifest_by_candidate.items() if not keys
+        candidate_id
+        for candidate_id, keys in manifest_by_candidate.items()
+        if not keys
+        and any(
+            document.get("availability_status") == "available"
+            and document.get("requires_paid_recovery") is not True
+            for document in relevance_documents_by_candidate[candidate_id].values()
+        )
     )
     if empty_candidates:
         raise TargetCohortProjectionError(
@@ -296,6 +307,23 @@ def _validate_clearance_binding(
     *,
     key: tuple[str, str],
 ) -> None:
+    if clearance.get("schema_version") != "legalforecast.disclosure_clearance.v1":
+        raise TargetCohortProjectionError(f"unsupported clearance schema: {key}")
+    for source, record in (("manifest", manifest), ("clearance", clearance)):
+        digest = record.get("sha256")
+        if not isinstance(digest, str) or not _valid_sha256(digest):
+            raise TargetCohortProjectionError(f"invalid {source} sha256: {key}")
+        byte_count = record.get("byte_count")
+        if (
+            not isinstance(byte_count, int)
+            or isinstance(byte_count, bool)
+            or byte_count < 0
+        ):
+            raise TargetCohortProjectionError(f"invalid {source} byte_count: {key}")
+        if record.get("free_or_purchased") not in {"free", "purchased"}:
+            raise TargetCohortProjectionError(
+                f"invalid {source} free_or_purchased: {key}"
+            )
     for field in ("sha256", "byte_count", "free_or_purchased"):
         if clearance.get(field) != manifest.get(field):
             raise TargetCohortProjectionError(
@@ -321,6 +349,10 @@ def _validate_clearance_binding(
         not isinstance(evidence, Sequence)
         or isinstance(evidence, (str, bytes))
         or not evidence
+        or not all(
+            isinstance(item, str) and bool(item.strip())
+            for item in cast(Sequence[object], evidence)
+        )
     ):
         raise TargetCohortProjectionError(
             f"cleared document lacks restriction evidence: {key}"
@@ -346,7 +378,8 @@ def restriction_evidence_from_case_relevance(
                     f"{candidate_id}/{source_document_id}"
                 )
             if (
-                status in _RESTRICTED_STATUSES
+                status not in _PUBLIC_RESTRICTION_STATUSES
+                or status in _RESTRICTED_STATUSES
                 or document.get("is_sealed") is True
                 or document.get("is_private") is True
             ):
@@ -380,6 +413,13 @@ def restriction_evidence_from_case_relevance(
                 }
             )
     return tuple(output)
+
+
+def _valid_sha256(value: str) -> bool:
+    digest = value.removeprefix("sha256:")
+    return len(digest) == 64 and all(
+        character in "0123456789abcdef" for character in digest
+    )
 
 
 def _projection_exclusions(

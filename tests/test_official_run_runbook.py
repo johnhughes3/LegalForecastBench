@@ -74,6 +74,8 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
         "legalforecast batch-002 observe",
         "legalforecast batch-002 snapshot",
         "legalforecast acquisition prepare-target-100",
+        "legalforecast acquisition clear-disclosures",
+        "legalforecast acquisition project-target-cohort",
         "legalforecast acquisition generate-recap-fetch-broker-policy",
         "legalforecast acquisition purchase-missing-recap-fetch",
     ):
