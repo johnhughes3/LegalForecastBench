@@ -2306,17 +2306,24 @@ def _add_acquisition_replay_screening_arguments(
         action="append",
         default=[],
         help=(
-            "Additional complete snapshot from the target cycle, such as a JOP "
-            "batch. Repeatable."
+            "Additional complete historical snapshot, such as a JOP or adversary "
+            "batch. Repeatable; each occurrence requires a corresponding "
+            "--expected-source-snapshot-cycle-hash in the same order."
+        ),
+    )
+    parser.add_argument(
+        "--expected-source-snapshot-cycle-hash",
+        action="append",
+        default=[],
+        help=(
+            "Exact cycle hash for the corresponding --source-snapshot. "
+            "Repeat once per supplemental snapshot, in the same order."
         ),
     )
     parser.add_argument(
         "--expected-target-cycle-hash",
         required=True,
-        help=(
-            "Required target-store cycle hash and cycle hash for every explicit "
-            "--source-snapshot."
-        ),
+        help="Required target-store cycle hash.",
     )
     parser.add_argument(
         "--decision-filed-on-or-after",
@@ -7426,6 +7433,9 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
     batch_id = cast(str, args.batch_id)
     source_assembly_run_card = cast(Path, args.source_assembly_run_card)
     additional_source_snapshots = tuple(cast(Sequence[Path], args.source_snapshot))
+    additional_source_cycle_hashes = tuple(
+        cast(Sequence[str], args.expected_source_snapshot_cycle_hash)
+    )
     snapshot_root = _acquisition_path(
         args,
         "snapshot_root",
@@ -7482,12 +7492,22 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
     }
 
     try:
+        if len(additional_source_snapshots) != len(additional_source_cycle_hashes):
+            raise SnapshotReplayError(
+                "exactly one --expected-source-snapshot-cycle-hash is required "
+                "for each --source-snapshot"
+            )
         bundle = collect_snapshot_replay_bundle(
             source_assembly_run_card=source_assembly_run_card,
             expected_source_assembly_sha256=expected_source_assembly_sha256,
             expected_source_cycle_hash=expected_source_cycle_hash,
-            additional_source_snapshots=additional_source_snapshots,
-            expected_additional_cycle_hash=expected_target_cycle_hash,
+            additional_source_snapshots=tuple(
+                zip(
+                    additional_source_snapshots,
+                    additional_source_cycle_hashes,
+                    strict=True,
+                )
+            ),
         )
         success_records = [dict(success.record) for success in bundle.successes]
         fetch_exclusion_records = [
