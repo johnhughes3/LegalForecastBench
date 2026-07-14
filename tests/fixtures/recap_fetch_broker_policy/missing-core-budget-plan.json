@@ -1,0 +1,40 @@
+{
+  "case_plans": [
+    {
+      "audit_only_document_count": 0,
+      "candidate_id": "case-1",
+      "dry_run": false,
+      "estimated_cost_usd": "3.05",
+      "estimated_purchase_count": 1,
+      "exclusion_reasons": [],
+      "missing_core_document_count": 1,
+      "missing_core_roles": [],
+      "purchase_document_ids": [
+        "123"
+      ]
+    },
+    {
+      "audit_only_document_count": 0,
+      "candidate_id": "case-2",
+      "dry_run": false,
+      "estimated_cost_usd": "3.05",
+      "estimated_purchase_count": 1,
+      "exclusion_reasons": [],
+      "missing_core_document_count": 1,
+      "missing_core_roles": [],
+      "purchase_document_ids": [
+        "456"
+      ]
+    }
+  ],
+  "cost_per_document_usd": "3.05",
+  "dry_run": false,
+  "excluded_case_plans": [],
+  "frontier_rows": [],
+  "frontier_truncated": false,
+  "max_missing_core_documents_per_case": 24,
+  "max_projected_budget_usd": "100.00",
+  "omitted_candidate_ids": [],
+  "total_estimated_cost_usd": "6.10",
+  "total_missing_core_documents": 2
+}

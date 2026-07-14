@@ -308,6 +308,12 @@ from legalforecast.ingestion.recap_api_discovery import (
     RequestPacer,
     pacer_for_client,
 )
+from legalforecast.ingestion.recap_fetch_broker_policy import (
+    RecapFetchBrokerPolicyError,
+    broker_policy_sha256,
+    generate_recap_fetch_broker_policy,
+    write_recap_fetch_broker_policy,
+)
 from legalforecast.ingestion.recap_partial_checkpoint import (
     RecapPartialProjectionError,
     project_partial_recap_checkpoint,
@@ -831,6 +837,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_generate_purchase_policy_arguments(acquisition_generate_purchase_policy)
+    acquisition_generate_recap_fetch_broker_policy = acquisition_subparsers.add_parser(
+        "generate-recap-fetch-broker-policy",
+        help=(
+            "Derive an immutable secure-gate RECAP Fetch allowlist from a "
+            "verified purchase policy and executable purchase plan."
+        ),
+    )
+    _add_generate_recap_fetch_broker_policy_arguments(
+        acquisition_generate_recap_fetch_broker_policy
+    )
     acquisition_reconcile_purchase = acquisition_subparsers.add_parser(
         "reconcile-purchase",
         help=(
@@ -1852,6 +1868,49 @@ def _add_generate_purchase_policy_arguments(parser: argparse.ArgumentParser) -> 
         help="Frozen cohort policy whose purchase caps this artifact must consume.",
     )
     parser.set_defaults(handler=_cmd_generate_purchase_policy)
+
+
+def _add_generate_recap_fetch_broker_policy_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--purchase-policy",
+        type=Path,
+        required=True,
+        help=(
+            "Verified immutable legalforecast.case_dev_purchase_policy.v1 "
+            "artifact; its digest and every cap/opening field are copied exactly."
+        ),
+    )
+    parser.add_argument(
+        "--budget-plan",
+        type=Path,
+        required=True,
+        help=(
+            "Final executable non-dry-run missing-core budget plan; only "
+            "case_plans.purchase_document_ids may enter the broker allowlist."
+        ),
+    )
+    parser.add_argument(
+        "--selection",
+        type=Path,
+        required=True,
+        help=(
+            "Final selection JSON/JSONL containing candidate_id, documents, and "
+            "explicit bridge restriction-screening metadata for every planned "
+            "ID; sealed, private, or restricted documents are rejected."
+        ),
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help=(
+            "Immutable courtlistener-recap-fetch-policy-v1 JSON output; an "
+            "existing different-byte file is never overwritten."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_generate_recap_fetch_broker_policy)
 
 
 def _add_reconcile_purchase_arguments(parser: argparse.ArgumentParser) -> None:
@@ -6108,6 +6167,38 @@ def _cmd_generate_purchase_policy(args: argparse.Namespace) -> int:
         write_case_dev_purchase_policy(cast(Path, args.output), artifact)
     except (CaseDevPurchasePolicyError, OSError, UnicodeError, ValueError) as exc:
         raise CommandError(str(exc)) from exc
+    return 0
+
+
+def _cmd_generate_recap_fetch_broker_policy(args: argparse.Namespace) -> int:
+    output = cast(Path, args.output)
+    try:
+        budget_plan_artifact = _read_json_object(cast(Path, args.budget_plan))
+        policy = generate_recap_fetch_broker_policy(
+            purchase_policy_artifact=_read_json_object(
+                cast(Path, args.purchase_policy)
+            ),
+            budget_plan=_missing_core_budget_plan(budget_plan_artifact),
+            budget_plan_artifact=budget_plan_artifact,
+            selection_records=_read_records(cast(Path, args.selection)),
+        )
+        write_recap_fetch_broker_policy(output, policy)
+    except (
+        RecapFetchBrokerPolicyError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "output": str(output),
+                "broker_policy_sha256": broker_policy_sha256(policy),
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 

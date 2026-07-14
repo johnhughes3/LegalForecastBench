@@ -1,0 +1,22 @@
+{
+  "allowed_documents": [
+    {
+      "case_id": "case-1",
+      "recap_document": "123"
+    },
+    {
+      "case_id": "case-2",
+      "recap_document": "456"
+    }
+  ],
+  "cycle_cap_usd": "100.00",
+  "cycle_id": "cycle-1",
+  "opening_case_committed_spend_usd": {
+    "case-1": "2.00"
+  },
+  "opening_committed_spend_usd": "2.00",
+  "per_case_cap_usd": "10.00",
+  "purchase_policy_sha256": "48b04e616a8ca2288e9cac8530db06e03652b918512d684f76aa6d4508ac085b",
+  "reservation_usd": "3.05",
+  "version": "courtlistener-recap-fetch-policy-v1"
+}
