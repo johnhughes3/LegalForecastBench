@@ -8,7 +8,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from http.client import HTTPMessage
 from typing import IO, Any, Protocol, cast
@@ -96,6 +96,12 @@ class RecapFetchTransport(Protocol):
 class RecapFetchPurchaseBroker(Protocol):
     """Budget-enforcing custody boundary for the PACER credentialed POST."""
 
+    @property
+    def paid_dispatch_count(self) -> int:
+        """Return charge-bearing submissions that reached the transport boundary."""
+
+        raise NotImplementedError
+
     def submit(self, request: Mapping[str, str]) -> Mapping[str, Any]: ...
 
     def receipt(self, operation_key: str) -> Mapping[str, Any]: ...
@@ -181,6 +187,12 @@ class FixtureRecapFetchPurchaseBroker:
     def __init__(self, responses: Sequence[Mapping[str, Any]]) -> None:
         self._responses = list(responses)
         self.requests: list[dict[str, str]] = []
+
+    @property
+    def paid_dispatch_count(self) -> int:
+        """Offline fixtures never cross a charge-bearing transport boundary."""
+
+        return 0
 
     def submit(self, request: Mapping[str, str]) -> Mapping[str, Any]:
         self.requests.append(dict(request))
@@ -271,6 +283,7 @@ class CourtListenerRecapFetchClient:
         journal: CaseDevPurchaseJournal,
         transport: RecapFetchTransport | None = None,
         purchase_broker: RecapFetchPurchaseBroker | None = None,
+        before_request: Callable[[str, str], None] | None = None,
         poll_attempts: int = 3,
         poll_backoff_seconds: float = 0.0,
     ) -> None:
@@ -278,9 +291,18 @@ class CourtListenerRecapFetchClient:
         self.journal = journal
         self.transport = transport or UrlLibRecapFetchTransport(config.base_url)
         self.purchase_broker = purchase_broker
+        self.before_request = before_request
         self.poll_attempts = poll_attempts
         self.poll_backoff_seconds = poll_backoff_seconds
-        self.paid_request_count = 0
+        self.courtlistener_request_count = 0
+
+    @property
+    def paid_request_count(self) -> int:
+        """Return only broker-confirmed charge-bearing transport dispatches."""
+
+        if self.purchase_broker is None:
+            return 0
+        return self.purchase_broker.paid_dispatch_count
 
     def execute_purchase_plan(
         self,
@@ -396,7 +418,6 @@ class CourtListenerRecapFetchClient:
             "reservation_usd": str(evidence["reservation_usd"]),
         }
         try:
-            self.paid_request_count += 1
             response = self.purchase_broker.submit(broker_request)
         except ValueError as exc:
             self.journal.fail_before_dispatch(document_id, exc)
@@ -489,6 +510,10 @@ class CourtListenerRecapFetchClient:
                 )
             try:
                 receipt = self.purchase_broker.receipt(operation_key)
+            except BrokerDefiniteRejection as exc:
+                raise CourtListenerRecapFetchError(
+                    f"purchase broker rejected receipt recovery: {exc.code}"
+                ) from exc
             except (BrokerOutcomeUnknown, CourtListenerRecapFetchOutcomeUnknown):
                 continue
             self.apply_broker_receipt(document_id, receipt)
@@ -665,6 +690,9 @@ class CourtListenerRecapFetchClient:
         maximum = 3 if retry and not paid else 1
         for attempt in range(maximum):
             try:
+                if self.before_request is not None:
+                    self.before_request(method, path)
+                self.courtlistener_request_count += 1
                 response = self.transport.request(
                     method=method,
                     path=path,
