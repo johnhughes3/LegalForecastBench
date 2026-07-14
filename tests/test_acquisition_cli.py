@@ -1,17 +1,23 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
 import legalforecast.cli as cli
+import legalforecast.ingestion.courtlistener_recap_fetch as recap_fetch
+import legalforecast.ingestion.recap_fetch_broker as recap_broker
 import pytest
+from cryptography.hazmat.primitives.asymmetric import ec
 from legalforecast.cli import main
 from legalforecast.ingestion.case_dev_purchase import (
     generate_case_dev_purchase_policy,
 )
 from legalforecast.ingestion.free_document_downloader import FreeDocumentFetch
+from legalforecast.ingestion.recap_fetch_broker import BrokerRawResponse
 from legalforecast.unitization.review import apply_unitization_reviews
 from pytest import CaptureFixture, MonkeyPatch
 
@@ -298,6 +304,153 @@ def test_purchase_missing_uses_fixture_only_after_explicit_fee_flags(
     run_card = _read_json(output_root / "run-cards" / "purchase-missing.json")
     assert run_card["paid_activity_requested"] is True
     assert run_card["paid_activity_executed"] is True
+
+
+def test_recap_fetch_live_purchase_wires_signed_broker_without_pacer_credentials(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    plan_path, selection_path = _write_recap_fetch_inputs(tmp_path, output_root)
+    policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+    broker_transport = _BrokerTransport(
+        BrokerRawResponse(
+            201,
+            b'{"reservation_id":"reservation-1","id":"77"}',
+            {"content-type": "application/json"},
+        )
+    )
+    courtlistener_transport = recap_fetch.FixtureRecapFetchTransport(
+        [
+            recap_fetch.RecordedRecapFetchResponse(
+                "GET", "/recap-documents/123/", {}, 200, {"id": 123}
+            ),
+            recap_fetch.RecordedRecapFetchResponse(
+                "GET", "/recap-fetch/77/", {}, 200, {"status": 2}
+            ),
+            recap_fetch.RecordedRecapFetchResponse(
+                "GET",
+                "/recap-documents/123/",
+                {},
+                200,
+                {
+                    "id": 123,
+                    "is_available": True,
+                    "filepath_local": "https://storage.courtlistener.com/123.pdf",
+                },
+            ),
+        ]
+    )
+    monkeypatch.setattr(recap_broker, "UrlLibBrokerTransport", lambda: broker_transport)
+
+    def courtlistener_transport_factory(
+        base_url: str,
+    ) -> recap_fetch.FixtureRecapFetchTransport:
+        del base_url
+        return courtlistener_transport
+
+    monkeypatch.setattr(
+        recap_fetch,
+        "UrlLibRecapFetchTransport",
+        courtlistener_transport_factory,
+    )
+    for name, value in _recap_fetch_broker_env().items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("COURTLISTENER_API_TOKEN", "fixture-token")
+    monkeypatch.delenv("PACER_USERNAME", raising=False)
+    monkeypatch.delenv("PACER_PASSWORD", raising=False)
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "purchase-missing-recap-fetch",
+                "--budget-plan",
+                str(plan_path),
+                "--selection",
+                str(selection_path),
+                "--purchase-policy",
+                str(policy_path),
+                "--cohort-policy",
+                str(cohort_path),
+                "--purchase-ledger",
+                str(ledger_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--live-purchase",
+                "--acknowledge-pacer-fees",
+            ]
+        )
+        == 0
+    )
+
+    assert len(broker_transport.requests) == 1
+    method, url, body, _ = broker_transport.requests[0]
+    assert method == "POST"
+    assert url.endswith("/v1/recap-fetch")
+    submission = json.loads(body)
+    assert submission["recap_document"] == "123"
+    assert (
+        submission["purchase_policy_sha256"] == _read_json(policy_path)["policy_sha256"]
+    )
+    assert submission["reservation_usd"] == "3.05"
+    assert courtlistener_transport.requests == [
+        ("GET", "/recap-documents/123/", {}),
+        ("GET", "/recap-fetch/77/", {}),
+        ("GET", "/recap-documents/123/", {}),
+    ]
+    result = _read_json(output_root / "courtlistener-recap-fetch-purchases.json")
+    assert result["executed_purchase_count"] == 1
+    run_card = _read_json(
+        output_root / "run-cards" / "purchase-missing-recap-fetch.json"
+    )
+    assert run_card["paid_activity_requested"] is True
+    assert run_card["paid_activity_executed"] is True
+
+
+def test_recap_fetch_live_purchase_missing_config_fails_before_journal_or_http(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    output_root = tmp_path / "acquisition"
+    plan_path, selection_path = _write_recap_fetch_inputs(tmp_path, output_root)
+    policy_path, ledger_path, cohort_path = _write_purchase_policy(tmp_path)
+    for name in _recap_fetch_broker_env():
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("COURTLISTENER_API_TOKEN", "fixture-token")
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "purchase-missing-recap-fetch",
+                "--budget-plan",
+                str(plan_path),
+                "--selection",
+                str(selection_path),
+                "--purchase-policy",
+                str(policy_path),
+                "--cohort-policy",
+                str(cohort_path),
+                "--purchase-ledger",
+                str(ledger_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+                "--live-purchase",
+                "--acknowledge-pacer-fees",
+            ]
+        )
+        == 2
+    )
+
+    error = capsys.readouterr().err
+    assert "missing required broker configuration" in error
+    assert "RECAP_FETCH_BROKER_PRIVATE_KEY_JWK" in error
+    assert not ledger_path.exists()
+    assert not (output_root / "courtlistener-recap-fetch-purchases.json").exists()
 
 
 def test_core_filter_purchase_and_recovery_flow_builds_parser_requests(
@@ -1436,6 +1589,49 @@ def _write_execute_budget_plan(tmp_path: Path, output_root: Path) -> Path:
     return output_root / "missing-core-budget-plan.json"
 
 
+def _write_recap_fetch_inputs(tmp_path: Path, output_root: Path) -> tuple[Path, Path]:
+    core_results = tmp_path / "recap-core-filter-results.jsonl"
+    result = _core_filter_result()
+    result["purchase_document_ids"] = ["123"]
+    result["core_mtd_documents"] = ["123"]
+    result["model_visible_document_ids"] = ["complaint", "123"]
+    result["core_missing_documents"] = ["123"]
+    _write_jsonl(core_results, [result])
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan",
+                "--core-filter-results",
+                str(core_results),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    selection_path = tmp_path / "recap-selection.jsonl"
+    selection = _packet_selection_record()
+    selection["documents"] = [
+        {
+            "candidate_id": "cand-1",
+            "source_document_id": "123",
+            "docket_entry_number": 34,
+            "document_role": "motion_to_dismiss_memorandum",
+            "source_url": None,
+            "description": "Memorandum",
+            "model_visible": True,
+            "contains_target_outcome": False,
+            "redaction_or_seal_status": "public",
+            "is_sealed": False,
+            "is_private": False,
+        }
+    ]
+    _write_jsonl(selection_path, [selection])
+    return output_root / "missing-core-budget-plan.json", selection_path
+
+
 def _write_purchase_policy(tmp_path: Path) -> tuple[Path, Path, Path]:
     ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
     policy_path = tmp_path / "purchase-policy.json"
@@ -1472,6 +1668,75 @@ def _write_purchase_policy(tmp_path: Path) -> tuple[Path, Path, Path]:
         ),
     )
     return policy_path, ledger, cohort_path
+
+
+class _BrokerTransport:
+    def __init__(self, *responses: BrokerRawResponse) -> None:
+        self.responses = list(responses)
+        self.requests: list[tuple[str, str, bytes, dict[str, str]]] = []
+
+    def request(
+        self,
+        *,
+        method: str,
+        url: str,
+        body: bytes,
+        headers: Mapping[str, str],
+        timeout_seconds: float,
+    ) -> BrokerRawResponse:
+        del timeout_seconds
+        self.requests.append((method, url, body, dict(headers)))
+        return self.responses.pop(0)
+
+
+def _recap_fetch_broker_env() -> dict[str, str]:
+    key = ec.derive_private_key(7, ec.SECP256R1())
+    numbers = key.private_numbers()
+    public = numbers.public_numbers
+
+    def encode(value: bytes) -> str:
+        return base64.urlsafe_b64encode(value).rstrip(b"=").decode()
+
+    private_jwk = json.dumps(
+        {
+            "kty": "EC",
+            "crv": "P-256",
+            "x": encode(public.x.to_bytes(32, "big")),
+            "y": encode(public.y.to_bytes(32, "big")),
+            "d": encode(numbers.private_value.to_bytes(32, "big")),
+        },
+        separators=(",", ":"),
+    )
+    public_jwk = json.dumps(
+        {
+            "crv": "P-256",
+            "kty": "EC",
+            "x": encode(public.x.to_bytes(32, "big")),
+            "y": encode(public.y.to_bytes(32, "big")),
+        },
+        separators=(",", ":"),
+    )
+    identity_policy = json.dumps(
+        {
+            "version": "recap-fetch-identity-policy-v1",
+            "machine_id": "fixture-machine",
+            "public_key_sha256": hashlib.sha256(public_jwk.encode()).hexdigest(),
+            "tailscale_node_id": "fixture-node",
+            "allowed_source_ips": ["192.0.2.1"],
+            "activated_at": "2026-07-14T12:00:00.000Z",
+            "expires_at": "2026-07-15T12:00:00.000Z",
+        },
+        separators=(",", ":"),
+    )
+    return {
+        "RECAP_FETCH_BROKER_URL": ("https://secure-gate-recap-fetch.johnjhughes.com"),
+        "RECAP_FETCH_BROKER_MACHINE_ID": "fixture-machine",
+        "RECAP_FETCH_BROKER_PRIVATE_KEY_JWK": private_jwk,
+        "RECAP_FETCH_BROKER_IDENTITY_POLICY_JSON": identity_policy,
+        "RECAP_FETCH_BROKER_IDENTITY_POLICY_SHA256": hashlib.sha256(
+            identity_policy.encode()
+        ).hexdigest(),
+    }
 
 
 def _write_merge_root(root: Path, *, case_id: str, unit_id: str) -> None:

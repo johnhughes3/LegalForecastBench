@@ -330,6 +330,10 @@ from legalforecast.ingestion.recap_api_discovery import (
     RecapApiDiscoveryError,
     RequestPacer,
 )
+from legalforecast.ingestion.recap_fetch_broker import (
+    RecapFetchBrokerConfig,
+    SignedRecapFetchPurchaseBroker,
+)
 from legalforecast.ingestion.recap_fetch_broker_policy import (
     RecapFetchBrokerPolicyError,
     broker_policy_sha256,
@@ -2794,8 +2798,8 @@ def _add_acquisition_purchase_missing_recap_fetch_arguments(
         "--live-purchase",
         action="store_true",
         help=(
-            "Request the production budget broker. Currently fails closed until "
-            "the bounded broker is deployed."
+            "Request the production signed budget broker using only the "
+            "stage-scoped RECAP_FETCH_BROKER_* identity configuration."
         ),
     )
     parser.add_argument(
@@ -10059,30 +10063,54 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                 "--acknowledge-pacer-fees"
             )
         if live_purchase:
-            raise CommandError(
-                "live RECAP Fetch is disabled until a budget-enforcing PACER "
-                "credential broker is deployed"
+            if courtlistener_fixture is not None or broker_fixture is not None:
+                raise CommandError(
+                    "--live-purchase cannot be combined with offline fixtures"
+                )
+            try:
+                courtlistener_config = CourtListenerRecapFetchConfig.from_env()
+                purchase_broker = SignedRecapFetchPurchaseBroker(
+                    RecapFetchBrokerConfig.from_env()
+                )
+            except (CourtListenerRecapFetchError, ValueError) as exc:
+                _write_acquisition_failure(
+                    args,
+                    stage="purchase-missing-recap-fetch",
+                    input_paths=(plan_path, selection_path, policy_path),
+                    output_paths=(output_path, ledger_path),
+                    reason=str(exc),
+                    paid_activity_requested=True,
+                    paid_activity_executed=False,
+                )
+                raise CommandError(str(exc)) from exc
+            client = CourtListenerRecapFetchClient(
+                courtlistener_config,
+                journal=CaseDevPurchaseJournal(ledger_path, policy=purchase_policy),
+                purchase_broker=purchase_broker,
             )
-        if courtlistener_fixture is None or broker_fixture is None:
-            raise CommandError(
-                "offline execution requires --courtlistener-fixture and "
-                "--purchase-broker-fixture"
+        else:
+            if courtlistener_fixture is None or broker_fixture is None:
+                raise CommandError(
+                    "offline execution requires --courtlistener-fixture and "
+                    "--purchase-broker-fixture"
+                )
+            raw_broker_responses = _loads_json(
+                broker_fixture.read_text(encoding="utf-8")
             )
-        raw_broker_responses = _loads_json(broker_fixture.read_text(encoding="utf-8"))
-        if isinstance(raw_broker_responses, str) or not isinstance(
-            raw_broker_responses, Sequence
-        ):
-            raise CommandError("purchase broker fixture must be a JSON array")
-        broker_responses = tuple(
-            _mapping(item, "purchase broker fixture response")
-            for item in cast(Sequence[object], raw_broker_responses)
-        )
-        client = CourtListenerRecapFetchClient(
-            CourtListenerRecapFetchConfig(api_token="offline-fixture"),
-            journal=CaseDevPurchaseJournal(ledger_path, policy=purchase_policy),
-            transport=FixtureRecapFetchTransport.from_jsonl(courtlistener_fixture),
-            purchase_broker=FixtureRecapFetchPurchaseBroker(broker_responses),
-        )
+            if isinstance(raw_broker_responses, str) or not isinstance(
+                raw_broker_responses, Sequence
+            ):
+                raise CommandError("purchase broker fixture must be a JSON array")
+            broker_responses = tuple(
+                _mapping(item, "purchase broker fixture response")
+                for item in cast(Sequence[object], raw_broker_responses)
+            )
+            client = CourtListenerRecapFetchClient(
+                CourtListenerRecapFetchConfig(api_token="offline-fixture"),
+                journal=CaseDevPurchaseJournal(ledger_path, policy=purchase_policy),
+                transport=FixtureRecapFetchTransport.from_jsonl(courtlistener_fixture),
+                purchase_broker=FixtureRecapFetchPurchaseBroker(broker_responses),
+            )
         try:
             with client.journal:
                 result = client.execute_purchase_plan(
@@ -10101,11 +10129,11 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
                 input_paths=(plan_path, selection_path, policy_path),
                 output_paths=(output_path, ledger_path),
                 reason=str(exc),
-                paid_activity_requested=False,
-                paid_activity_executed=False,
+                paid_activity_requested=live_purchase,
+                paid_activity_executed=client.paid_request_count > 0,
             )
             raise CommandError(str(exc)) from exc
-        paid_executed = False
+        paid_executed = live_purchase and client.paid_request_count > 0
     _write_json(output_path, result.to_record())
     _write_acquisition_completion(
         args,
