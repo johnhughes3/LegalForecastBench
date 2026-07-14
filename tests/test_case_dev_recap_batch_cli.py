@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
+import legalforecast.cli as cli_module
+import pytest
 from legalforecast.cli import main
+from legalforecast.ingestion.case_dev_client import CaseDevRateLimitError
 
 
 def test_enrich_recap_case_dev_ranks_free_lookups_without_fee_flags(
@@ -234,6 +238,84 @@ def test_enrich_recap_case_dev_bounds_resumable_server_failures(
         output_root / "checkpoints" / "case-dev-recap-failures.jsonl"
     )
     assert failure["reason"] == "case_dev_server_error_retries_exhausted"
+
+
+def test_parallel_enrichment_checkpoints_completed_sibling_before_rate_limit_abort(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dockets = tmp_path / "dockets.jsonl"
+    dockets.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "candidate_id": f"courtlistener-docket-{docket_id}",
+                    "docket_id": docket_id,
+                    "docket_url": (
+                        f"https://www.courtlistener.com/docket/{docket_id}/example/"
+                    ),
+                    "entry_keys": [f"entry-{docket_id}"],
+                    "matched_terms": ["motion to dismiss"],
+                    "eligibility_status": "potential_unverified",
+                }
+            )
+            + "\n"
+            for docket_id in ("101", "102")
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_enrich(*, input_index: int, **_kwargs: Any) -> tuple[dict[str, Any], int]:
+        if input_index == 0:
+            raise CaseDevRateLimitError("organization rate limit")
+        return (
+            {
+                "input_index": input_index,
+                "outcome": "success",
+                "payload": {"completed": True},
+            },
+            1,
+        )
+
+    def exceptions_first(futures: set[Any]) -> Any:
+        return iter(sorted(futures, key=lambda future: future.exception() is None))
+
+    monkeypatch.setattr(
+        cli_module,
+        "_enrich_case_dev_progress_record",
+        fake_enrich,
+    )
+    monkeypatch.setattr(cli_module, "as_completed", exceptions_first)
+    monkeypatch.setenv("CASE_DEV_API_KEY", "offline-test-key")
+    monkeypatch.setenv("CASE_DEV_RATE_LIMIT_PER_MINUTE", "5")
+    output_root = tmp_path / "output"
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(output_root),
+                "--dockets",
+                str(dockets),
+                "--live-case-dev",
+                "--workers",
+                "2",
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert _read_jsonl(
+        output_root / "checkpoints" / "case-dev-recap-progress.jsonl"
+    ) == [
+        {
+            "input_index": 1,
+            "outcome": "success",
+            "payload": {"completed": True},
+        }
+    ]
 
 
 def _case_dev_response(docket_id: str) -> dict[str, object]:

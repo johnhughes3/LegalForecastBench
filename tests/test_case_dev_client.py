@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import threading
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from http.client import HTTPMessage
 from io import BytesIO
 from types import TracebackType
@@ -18,6 +20,7 @@ from legalforecast.ingestion import (
     CaseDevResponseError,
 )
 from legalforecast.ingestion.case_dev_client import (
+    CaseDevRateLimiter,
     RecordedCaseDevResponse,
     UrlLibCaseDevTransport,
 )
@@ -478,6 +481,60 @@ def test_configured_rate_limit_spaces_request_starts(
     assert client.get_case("case-2").case_id == "case-2"
 
     assert sleep_calls == pytest.approx([0.75])
+
+
+def test_shared_rate_limiter_applies_one_aggregate_cap_across_clients() -> None:
+    now = 100.0
+    sleep_calls: list[float] = []
+
+    def monotonic() -> float:
+        return now
+
+    def sleep(seconds: float) -> None:
+        nonlocal now
+        sleep_calls.append(seconds)
+        now += seconds
+
+    config = CaseDevConfig(
+        api_key=None,
+        base_url="https://api.case.dev",
+        rate_limit_per_minute=60,
+    )
+    limiter = CaseDevRateLimiter(
+        rate_limit_per_minute=60,
+        monotonic=monotonic,
+        sleep=sleep,
+    )
+    clients = tuple(
+        CaseDevClient(
+            config=config,
+            transport=CaseDevFixtureTransport(
+                [
+                    _recorded_response(
+                        params={"type": "lookup", "docketId": case_id},
+                        payload={"id": case_id, "caption": f"{case_id} v. Fixture"},
+                    )
+                ]
+            ),
+            rate_limiter=limiter,
+        )
+        for case_id in ("case-1", "case-2")
+    )
+    barrier = threading.Barrier(3)
+
+    def get_case(client: CaseDevClient, case_id: str) -> str:
+        barrier.wait()
+        return client.get_case(case_id).case_id
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = tuple(
+            executor.submit(get_case, client, f"case-{index}")
+            for index, client in enumerate(clients, start=1)
+        )
+        barrier.wait()
+        assert {future.result() for future in futures} == {"case-1", "case-2"}
+
+    assert sleep_calls == pytest.approx([1.0])
 
 
 def test_rate_limit_without_retry_raises() -> None:

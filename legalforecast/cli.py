@@ -88,6 +88,7 @@ from legalforecast.ingestion.case_dev_client import (
     CaseDevClient,
     CaseDevClientError,
     CaseDevFixtureTransport,
+    CaseDevRateLimiter,
     CaseDevServerError,
     RecordedCaseDevResponse,
 )
@@ -1991,7 +1992,9 @@ def _add_acquisition_enrich_recap_case_dev_arguments(
         default=1,
         help=(
             "Concurrent live Case.dev docket lookups; 1-2, default 1. "
-            "Checkpoint writes remain serialized. Fixtures require 1."
+            "CASE_DEV_RATE_LIMIT_PER_MINUTE is one aggregate process-wide "
+            "allowance shared across all workers. Checkpoint writes remain "
+            "serialized. Fixtures require 1."
         ),
     )
     parser.add_argument("--case-dev-fixture", type=Path)
@@ -5438,9 +5441,13 @@ def _enrich_case_dev_progress_record(
     page_size: int,
     max_pages: int,
     client: CaseDevClient | None = None,
+    rate_limiter: CaseDevRateLimiter | None = None,
 ) -> tuple[JsonRecord, int]:
     active_client = client or _case_dev_client(
-        command="enrich-recap-case-dev", fixture_path=fixture_path, live=live
+        command="enrich-recap-case-dev",
+        fixture_path=fixture_path,
+        live=live,
+        rate_limiter=rate_limiter,
     )
     request_count_before = active_client.request_count
     try:
@@ -5657,6 +5664,14 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
                 _append_jsonl(progress_path, (progress,))
                 progress_by_index[cast(int, progress["input_index"])] = progress
         else:
+            live_config = CaseDevConfig.from_env(require_api_key=True)
+            aggregate_rate_limiter = (
+                None
+                if live_config.rate_limit_per_minute is None
+                else CaseDevRateLimiter(
+                    rate_limit_per_minute=live_config.rate_limit_per_minute
+                )
+            )
             with ThreadPoolExecutor(max_workers=workers) as executor:
                 pending_iter = iter(pending)
 
@@ -5673,6 +5688,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
                         live=live,
                         page_size=page_size,
                         max_pages=max_pages,
+                        rate_limiter=aggregate_rate_limiter,
                     )
 
                 futures = {
@@ -5680,10 +5696,16 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
                     for _ in range(workers)
                     if (future := submit_one()) is not None
                 }
+                fatal_error: CaseDevClientError | ValueError | None = None
                 while futures:
                     future = next(as_completed(futures))
                     futures.remove(future)
-                    progress, one_request_count = future.result()
+                    try:
+                        progress, one_request_count = future.result()
+                    except (CaseDevClientError, ValueError) as exc:
+                        if fatal_error is None:
+                            fatal_error = exc
+                        continue
                     request_count += one_request_count
                     progress = _bound_case_dev_transient_progress(
                         progress,
@@ -5691,8 +5713,13 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
                     )
                     _append_jsonl(progress_path, (progress,))
                     progress_by_index[cast(int, progress["input_index"])] = progress
-                    if (replacement := submit_one()) is not None:
+                    if (
+                        fatal_error is None
+                        and (replacement := submit_one()) is not None
+                    ):
                         futures.add(replacement)
+                if fatal_error is not None:
+                    raise fatal_error
     except (CaseDevClientError, ValueError) as exc:
         _write_acquisition_failure(
             args,
@@ -9876,6 +9903,7 @@ def _case_dev_client(
     command: str,
     fixture_path: Path | None,
     live: bool,
+    rate_limiter: CaseDevRateLimiter | None = None,
 ) -> CaseDevClient:
     if fixture_path is not None:
         return CaseDevClient(
@@ -9887,7 +9915,10 @@ def _case_dev_client(
             f"{command} requires --case-dev-fixture for offline runs or --live "
             "with CASE_DEV_API_KEY configured"
         )
-    return CaseDevClient.live_from_env()
+    return CaseDevClient(
+        config=CaseDevConfig.from_env(require_api_key=True),
+        rate_limiter=rate_limiter,
+    )
 
 
 def _dry_run_case_dev_client() -> CaseDevClient:
