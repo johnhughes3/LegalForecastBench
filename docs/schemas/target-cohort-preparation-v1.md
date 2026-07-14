@@ -36,7 +36,7 @@ Case relevance must cover the resolved selection exactly.
 
 Download-manifest candidates must belong to that selection, and restriction-evidence and disclosure-review-request document keys must each equal the complete manifest key set.
 
-The frontier's `clearance_contract` freezes the required executed `clear-disclosures` run-card schema and state, the expected manifest and restriction hashes, authenticated `reviews` and `review_receipt` source commitments, the `disclosure_clearance` output commitment, review-authority fields, and a rule forbidding orphan clearance rows.
+The frontier's `clearance_contract` freezes the required `clear-disclosures` run-card schema and executed state, the expected manifest and restriction hashes, authenticated `reviews` and `review_receipt` source commitments, the `disclosure_clearance` output commitment, review-authority fields, and a rule forbidding orphan clearance rows.
 
 Because clearance occurs after preparation, the frontier cannot contain the future review or clearance hashes.
 
