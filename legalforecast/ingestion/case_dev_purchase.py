@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sqlite3
+import stat
 import tempfile
 import uuid
 from collections.abc import Mapping
@@ -18,6 +19,7 @@ from enum import StrEnum
 from pathlib import Path
 from types import MappingProxyType, TracebackType
 from typing import Any, cast
+from urllib.parse import quote
 
 from legalforecast.ingestion.case_dev_client import (
     CaseDevClient,
@@ -34,8 +36,43 @@ from legalforecast.ingestion.missing_core_budget import (
 )
 
 CASE_DEV_PURCHASE_POLICY_SCHEMA_VERSION = "legalforecast.case_dev_purchase_policy.v1"
+PURCHASE_LEDGER_INITIALIZATION_SCHEMA_VERSION = (
+    "legalforecast.purchase_ledger_initialization.v1"
+)
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _CANONICAL_USD = re.compile(r"(?:0|[1-9][0-9]*)\.[0-9]{2}")
+
+_PURCHASE_LEDGER_SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS purchase_ledger (
+    singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+    cycle_id TEXT NOT NULL,
+    cohort_policy_sha256 TEXT NOT NULL,
+    purchase_policy_sha256 TEXT NOT NULL,
+    canonical_ledger_path TEXT NOT NULL,
+    hard_cap_usd TEXT NOT NULL,
+    opening_committed_spend_usd TEXT NOT NULL,
+    max_per_case_usd TEXT NOT NULL,
+    per_document_reservation_usd TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS purchase_operations (
+    source_document_id TEXT PRIMARY KEY,
+    candidate_id TEXT NOT NULL,
+    reservation_usd TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN
+        ('planned','submitted','queued','confirmed','failed','unknown')),
+    operation_key TEXT UNIQUE,
+    actual_usd TEXT,
+    response_json TEXT,
+    error TEXT,
+    reconciliation_json TEXT
+);
+CREATE TABLE IF NOT EXISTS replacement_events (
+    sequence INTEGER PRIMARY KEY CHECK(sequence >= 0),
+    event_key TEXT NOT NULL UNIQUE,
+    record_json TEXT NOT NULL,
+    record_sha256 TEXT NOT NULL UNIQUE
+);
+"""
 
 
 class CaseDevPurchasePolicyError(ValueError):
@@ -68,6 +105,28 @@ class CaseDevPurchasePolicy:
     per_document_reservation_usd: Decimal
     policy_sha256: str
     fee_schedule: Mapping[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class PurchaseLedgerInitialization:
+    """Authenticated identity of one pristine, policy-bound purchase ledger."""
+
+    canonical_ledger_path: Path
+    ledger_file_sha256: str
+    purchase_state_sha256: str
+    ledger_byte_count: int
+
+    def to_record(self, *, policy: CaseDevPurchasePolicy) -> dict[str, object]:
+        return {
+            "schema_version": PURCHASE_LEDGER_INITIALIZATION_SCHEMA_VERSION,
+            "cycle_id": policy.cycle_id,
+            "cohort_policy_sha256": policy.cohort_policy_sha256,
+            "purchase_policy_sha256": policy.policy_sha256,
+            "canonical_ledger_path": str(self.canonical_ledger_path),
+            "ledger_file_sha256": self.ledger_file_sha256,
+            "purchase_state_sha256": self.purchase_state_sha256,
+            "ledger_byte_count": self.ledger_byte_count,
+        }
 
 
 def generate_case_dev_purchase_policy(
@@ -208,10 +267,715 @@ def verify_case_dev_purchase_policy_cohort_binding(
         )
 
 
+def initialize_case_dev_purchase_journal(
+    path: str | Path,
+    *,
+    policy: CaseDevPurchasePolicy,
+    receipt_path: str | Path,
+    purchase_policy_file_sha256: str,
+    cohort_policy_file_sha256: str,
+    initialized_at: str,
+) -> dict[str, object]:
+    """Exclusively create one pristine ledger under its canonical lock.
+
+    Any failure after the exclusive file creation deliberately leaves the file in
+    place. A later invocation therefore refuses to guess whether initialization
+    completed; an operator must preserve and investigate the partial artifact.
+    """
+
+    ledger_path = _canonical_requested_ledger_path(path, policy=policy)
+    receipt = Path(receipt_path).resolve(strict=False)
+    _validate_purchase_ledger_receipt_namespace(ledger_path, receipt)
+    _prepare_canonical_ledger_parent(ledger_path)
+    lock_fd = _acquire_purchase_ledger_lock(ledger_path)
+    try:
+        _refuse_existing_purchase_ledger(ledger_path)
+        _refuse_existing_sqlite_sidecars(ledger_path)
+        flags = os.O_RDWR | os.O_CREAT | os.O_EXCL
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        ledger_fd = os.open(ledger_path, flags, 0o600)
+        try:
+            ledger_stat = os.fstat(ledger_fd)
+            if not stat.S_ISREG(ledger_stat.st_mode) or ledger_stat.st_nlink != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "new purchase ledger must be a singly linked regular file"
+                )
+            os.fsync(ledger_fd)
+        finally:
+            os.close(ledger_fd)
+
+        connection: sqlite3.Connection | None = None
+        try:
+            connection = sqlite3.connect(ledger_path, isolation_level=None)
+            connection.row_factory = sqlite3.Row
+            # Keep the pristine initialization artifact self-contained. The
+            # runtime journal enables WAL on its first operational open.
+            connection.execute("PRAGMA journal_mode=DELETE")
+            connection.execute("PRAGMA synchronous=FULL")
+            _create_purchase_ledger_schema(connection)
+            _bind_purchase_ledger_policy(connection, policy, insert=True)
+            _require_pristine_purchase_ledger(connection)
+            integrity = connection.execute("PRAGMA integrity_check").fetchone()
+            if integrity is None or str(integrity[0]) != "ok":
+                raise CaseDevPurchaseLedgerError(
+                    "new purchase ledger failed SQLite integrity verification"
+                )
+        finally:
+            if connection is not None:
+                connection.close()
+
+        _fsync_directory(ledger_path.parent)
+        initialization = _purchase_ledger_initialization_identity(
+            ledger_path,
+            policy=policy,
+            require_pristine=True,
+        )
+        record = _purchase_ledger_initialization_receipt(
+            initialization,
+            policy=policy,
+            purchase_policy_file_sha256=purchase_policy_file_sha256,
+            cohort_policy_file_sha256=cohort_policy_file_sha256,
+            initialized_at=initialized_at,
+        )
+        _write_immutable_purchase_ledger_receipt(receipt, record)
+        published_record = _read_purchase_ledger_initialization_receipt(receipt)
+        if published_record != record:
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger initialization receipt changed during publication"
+            )
+        final_identity = _purchase_ledger_initialization_identity(
+            ledger_path,
+            policy=policy,
+            require_pristine=True,
+        )
+        if final_identity != initialization:
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger changed while publishing initialization receipt"
+            )
+        final_record = _read_purchase_ledger_initialization_receipt(receipt)
+        if final_record != record:
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger initialization receipt changed during publication"
+            )
+        return record
+    except FileExistsError as exc:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger already exists; refusing initialization or repair"
+        ) from exc
+    finally:
+        _release_purchase_ledger_lock(lock_fd)
+
+
+def verify_case_dev_purchase_journal_initialization(
+    path: str | Path,
+    *,
+    policy: CaseDevPurchasePolicy,
+    receipt_path: str | Path,
+    purchase_policy_file_sha256: str,
+    cohort_policy_file_sha256: str,
+) -> dict[str, object]:
+    """Read-only verify a previously initialized, still-pristine ledger."""
+
+    ledger_path = _canonical_requested_ledger_path(path, policy=policy)
+    receipt = Path(receipt_path).resolve(strict=False)
+    _validate_purchase_ledger_receipt_namespace(ledger_path, receipt)
+    if ledger_path.parent.resolve() != ledger_path.parent:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger parent path must not traverse a symlink"
+        )
+    lock_fd = _acquire_purchase_ledger_lock(ledger_path)
+    try:
+        initialization = _purchase_ledger_initialization_identity(
+            ledger_path,
+            policy=policy,
+            require_pristine=True,
+        )
+        record = _read_purchase_ledger_initialization_receipt(receipt)
+        _verify_purchase_ledger_initialization_receipt(
+            record,
+            initialization=initialization,
+            policy=policy,
+            purchase_policy_file_sha256=purchase_policy_file_sha256,
+            cohort_policy_file_sha256=cohort_policy_file_sha256,
+        )
+        final_identity = _purchase_ledger_initialization_identity(
+            ledger_path,
+            policy=policy,
+            require_pristine=True,
+        )
+        if final_identity != initialization:
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger changed while verifying initialization receipt"
+            )
+        final_record = _read_purchase_ledger_initialization_receipt(receipt)
+        if final_record != record:
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger initialization receipt changed during verification"
+            )
+        return record
+    finally:
+        _release_purchase_ledger_lock(lock_fd)
+
+
+def _canonical_requested_ledger_path(
+    path: str | Path,
+    *,
+    policy: CaseDevPurchasePolicy,
+) -> Path:
+    requested = Path(path)
+    if not requested.is_absolute() or requested != policy.canonical_ledger_path:
+        raise CaseDevPurchasePolicyError(
+            "purchase ledger path conflicts with canonical policy locator"
+        )
+    return requested
+
+
+def _purchase_ledger_reserved_paths(path: Path) -> tuple[Path, ...]:
+    return (
+        path,
+        Path(f"{path}.lock"),
+        Path(f"{path}-wal"),
+        Path(f"{path}-shm"),
+        Path(f"{path}-journal"),
+    )
+
+
+def _validate_purchase_ledger_receipt_namespace(
+    ledger_path: Path,
+    receipt_path: Path,
+) -> None:
+    ledger = ledger_path.resolve(strict=False)
+    receipt = receipt_path.resolve(strict=False)
+    if receipt_path.is_symlink():
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt must not be a symlink"
+        )
+    for reserved_path in _purchase_ledger_reserved_paths(ledger):
+        reserved = reserved_path.resolve(strict=False)
+        if (
+            receipt == reserved
+            or receipt in reserved.parents
+            or reserved in receipt.parents
+        ):
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger initialization receipt conflicts with a reserved "
+                f"ledger path: {reserved_path}"
+            )
+
+
+def _refuse_existing_sqlite_sidecars(path: Path) -> None:
+    for sidecar in (Path(f"{path}-wal"), Path(f"{path}-shm"), Path(f"{path}-journal")):
+        try:
+            sidecar.lstat()
+        except FileNotFoundError:
+            continue
+        raise CaseDevPurchaseLedgerError(
+            f"purchase ledger SQLite sidecar already exists: {sidecar}"
+        )
+
+
+def _prepare_canonical_ledger_parent(path: Path) -> None:
+    current = Path(path.anchor)
+    for component in path.parent.parts[1:]:
+        current /= component
+        try:
+            metadata = current.lstat()
+        except FileNotFoundError:
+            try:
+                current.mkdir(mode=0o700)
+            except FileExistsError:
+                metadata = current.lstat()
+            else:
+                metadata = current.lstat()
+        if stat.S_ISLNK(metadata.st_mode):
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger parent path must not traverse a symlink"
+            )
+        if not stat.S_ISDIR(metadata.st_mode):
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger parent must be a directory"
+            )
+
+
+def _acquire_purchase_ledger_lock(path: Path) -> int:
+    lock_path = Path(f"{path}.lock")
+    flags = os.O_RDWR | os.O_CREAT
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        lock_fd = os.open(lock_path, flags, 0o600)
+    except OSError as exc:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger lock must be a regular non-symlink file"
+        ) from exc
+    lock_stat = os.fstat(lock_fd)
+    if not stat.S_ISREG(lock_stat.st_mode) or lock_stat.st_nlink != 1:
+        os.close(lock_fd)
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger lock must be a singly linked regular file"
+        )
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as exc:
+        os.close(lock_fd)
+        raise CaseDevPurchaseLedgerBusyError(
+            f"cycle purchase journal is already locked: {path}"
+        ) from exc
+    try:
+        locked_stat = os.fstat(lock_fd)
+        path_stat = lock_path.lstat()
+    except OSError as exc:
+        _release_purchase_ledger_lock(lock_fd)
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger lock path changed while acquiring the lock"
+        ) from exc
+    if (
+        not stat.S_ISREG(locked_stat.st_mode)
+        or locked_stat.st_nlink != 1
+        or not stat.S_ISREG(path_stat.st_mode)
+        or path_stat.st_nlink != 1
+        or (locked_stat.st_dev, locked_stat.st_ino)
+        != (path_stat.st_dev, path_stat.st_ino)
+    ):
+        _release_purchase_ledger_lock(lock_fd)
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger lock path changed while acquiring the lock"
+        )
+    return lock_fd
+
+
+def _release_purchase_ledger_lock(lock_fd: int) -> None:
+    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+    os.close(lock_fd)
+
+
+def _refuse_existing_purchase_ledger(path: Path) -> None:
+    try:
+        existing = path.lstat()
+    except FileNotFoundError:
+        return
+    if stat.S_ISLNK(existing.st_mode):
+        detail = "symlink"
+    elif existing.st_nlink != 1:
+        detail = "hard-linked path"
+    elif existing.st_size == 0:
+        detail = "empty path"
+    else:
+        detail = "existing path"
+    raise CaseDevPurchaseLedgerError(
+        f"purchase ledger {detail} already exists; refusing initialization or repair"
+    )
+
+
+def _purchase_ledger_initialization_identity(
+    path: Path,
+    *,
+    policy: CaseDevPurchasePolicy,
+    require_pristine: bool,
+) -> PurchaseLedgerInitialization:
+    ledger_stat = path.lstat()
+    if not stat.S_ISREG(ledger_stat.st_mode) or ledger_stat.st_nlink != 1:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger must be a singly linked regular file"
+        )
+    for sidecar in (
+        Path(f"{path}-wal"),
+        Path(f"{path}-shm"),
+        Path(f"{path}-journal"),
+    ):
+        try:
+            sidecar.lstat()
+        except FileNotFoundError:
+            continue
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger has an unexpected SQLite sidecar during "
+            "initialization verification"
+        )
+    uri = f"file:{quote(path.as_posix(), safe='/')}?mode=ro"
+    connection = sqlite3.connect(uri, uri=True, isolation_level=None)
+    connection.row_factory = sqlite3.Row
+    try:
+        integrity = connection.execute("PRAGMA integrity_check").fetchone()
+        if integrity is None or str(integrity[0]) != "ok":
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger failed SQLite integrity verification"
+            )
+        _bind_purchase_ledger_policy(connection, policy, insert=False)
+        if require_pristine:
+            _require_pristine_purchase_ledger(connection)
+    except sqlite3.Error as exc:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger is missing a complete authenticated schema"
+        ) from exc
+    finally:
+        connection.close()
+    file_sha256, byte_count = _hash_regular_single_link_file(path)
+    return PurchaseLedgerInitialization(
+        canonical_ledger_path=path,
+        ledger_file_sha256=file_sha256,
+        purchase_state_sha256=_initial_purchase_state_sha256(policy),
+        ledger_byte_count=byte_count,
+    )
+
+
+def _purchase_ledger_initialization_receipt(
+    initialization: PurchaseLedgerInitialization,
+    *,
+    policy: CaseDevPurchasePolicy,
+    purchase_policy_file_sha256: str,
+    cohort_policy_file_sha256: str,
+    initialized_at: str,
+) -> dict[str, object]:
+    _required_sha256_commitment(
+        purchase_policy_file_sha256, "purchase_policy_file_sha256"
+    )
+    _required_sha256_commitment(cohort_policy_file_sha256, "cohort_policy_file_sha256")
+    if not initialized_at:
+        raise CaseDevPurchaseLedgerError("initialized_at must be nonempty")
+    return {
+        **initialization.to_record(policy=policy),
+        "purchase_policy_file_sha256": purchase_policy_file_sha256,
+        "cohort_policy_file_sha256": cohort_policy_file_sha256,
+        "initialized_at": initialized_at,
+        "dry_run": False,
+        "initialized_or_verified": True,
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "pacer_paid_activity_requested": False,
+        "pacer_paid_activity_executed": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+    }
+
+
+def _required_sha256_commitment(value: str, label: str) -> None:
+    if not value.startswith("sha256:") or _SHA256.fullmatch(value[7:]) is None:
+        raise CaseDevPurchaseLedgerError(f"{label} must be a sha256: commitment")
+
+
+def _write_immutable_purchase_ledger_receipt(
+    path: Path,
+    record: Mapping[str, object],
+) -> None:
+    _prepare_canonical_ledger_parent(path)
+    payload = f"{json.dumps(dict(record), indent=2, sort_keys=True)}\n".encode()
+    temporary_path: Path | None = None
+    try:
+        fd, temporary_name = tempfile.mkstemp(
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+        )
+        temporary_path = Path(temporary_name)
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.link(temporary_path, path)
+        _fsync_directory(path.parent)
+    except FileExistsError as exc:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt already exists"
+        ) from exc
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
+def _read_purchase_ledger_initialization_receipt(
+    path: Path,
+) -> dict[str, object]:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        fd = os.open(path, flags)
+    except FileNotFoundError as exc:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt is missing"
+        ) from exc
+    except OSError as exc:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt must be a regular non-symlink file"
+        ) from exc
+    try:
+        metadata = os.fstat(fd)
+        path_metadata = path.lstat()
+    except OSError as exc:
+        os.close(fd)
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt path changed while opening"
+        ) from exc
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_nlink != 1
+        or not stat.S_ISREG(path_metadata.st_mode)
+        or path_metadata.st_nlink != 1
+        or (metadata.st_dev, metadata.st_ino)
+        != (path_metadata.st_dev, path_metadata.st_ino)
+    ):
+        os.close(fd)
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt must be a singly linked "
+            "regular file"
+        )
+    try:
+        with os.fdopen(fd, "r", encoding="utf-8") as handle:
+            loaded = json.load(handle)
+    except (json.JSONDecodeError, OSError, UnicodeError) as exc:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt is not valid JSON"
+        ) from exc
+    try:
+        final_metadata = path.lstat()
+    except OSError as exc:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt path changed while reading"
+        ) from exc
+    if (
+        not stat.S_ISREG(final_metadata.st_mode)
+        or final_metadata.st_nlink != 1
+        or (metadata.st_dev, metadata.st_ino)
+        != (final_metadata.st_dev, final_metadata.st_ino)
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt path changed while reading"
+        )
+    if not isinstance(loaded, dict):
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt must be an object"
+        )
+    return cast(dict[str, object], loaded)
+
+
+def _verify_purchase_ledger_initialization_receipt(
+    receipt: Mapping[str, object],
+    *,
+    initialization: PurchaseLedgerInitialization,
+    policy: CaseDevPurchasePolicy,
+    purchase_policy_file_sha256: str,
+    cohort_policy_file_sha256: str,
+) -> None:
+    initialized_at = receipt.get("initialized_at")
+    if not isinstance(initialized_at, str) or not initialized_at:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt is missing initialized_at"
+        )
+    expected = _purchase_ledger_initialization_receipt(
+        initialization,
+        policy=policy,
+        purchase_policy_file_sha256=purchase_policy_file_sha256,
+        cohort_policy_file_sha256=cohort_policy_file_sha256,
+        initialized_at=initialized_at,
+    )
+    if dict(receipt) != expected:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt does not match ledger state"
+        )
+
+
+def _require_pristine_purchase_ledger(connection: sqlite3.Connection) -> None:
+    operations = connection.execute(
+        "SELECT COUNT(*) FROM purchase_operations"
+    ).fetchone()
+    replacements = connection.execute(
+        "SELECT COUNT(*) FROM replacement_events"
+    ).fetchone()
+    if (
+        operations is None
+        or replacements is None
+        or int(operations[0]) != 0
+        or int(replacements[0]) != 0
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger is no longer in its pristine initialized state"
+        )
+
+
+def _initial_purchase_state_sha256(policy: CaseDevPurchasePolicy) -> str:
+    return hashlib.sha256(
+        _canonical(
+            {
+                "cycle_id": policy.cycle_id,
+                "cohort_policy_sha256": policy.cohort_policy_sha256,
+                "purchase_policy_sha256": policy.policy_sha256,
+                "committed_amount_usd": _money(policy.opening_committed_spend_usd),
+                "operations": [],
+            }
+        ).encode()
+    ).hexdigest()
+
+
+def _hash_regular_single_link_file(path: Path) -> tuple[str, int]:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    fd = os.open(path, flags)
+    digest = hashlib.sha256()
+    byte_count = 0
+    try:
+        opened = os.fstat(fd)
+        current = path.lstat()
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or opened.st_nlink != 1
+            or (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino)
+        ):
+            raise CaseDevPurchaseLedgerError(
+                "purchase ledger identity changed during verification"
+            )
+        while True:
+            chunk = os.read(fd, 1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+            byte_count += len(chunk)
+    finally:
+        os.close(fd)
+    return digest.hexdigest(), byte_count
+
+
+def _fsync_directory(path: Path) -> None:
+    directory_fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+
+
+def _require_existing_purchase_ledger_file(path: Path) -> None:
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError as exc:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger is missing; run init-purchase-ledger first"
+        ) from exc
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_nlink != 1
+        or metadata.st_size == 0
+    ):
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger must be a nonempty singly linked regular file "
+            "created by init-purchase-ledger"
+        )
+
+
+def _verify_existing_purchase_ledger_under_lock(
+    path: Path,
+    *,
+    policy: CaseDevPurchasePolicy,
+) -> None:
+    _require_existing_purchase_ledger_file(path)
+    uri = f"file:{quote(path.as_posix(), safe='/')}?mode=ro"
+    try:
+        connection = sqlite3.connect(uri, uri=True, isolation_level=None)
+        connection.row_factory = sqlite3.Row
+        try:
+            integrity = connection.execute("PRAGMA quick_check").fetchone()
+            if integrity is None or str(integrity[0]) != "ok":
+                raise CaseDevPurchaseLedgerError(
+                    "purchase ledger failed SQLite quick_check"
+                )
+            _bind_purchase_ledger_policy(connection, policy, insert=False)
+            required_tables = {
+                "purchase_ledger",
+                "purchase_operations",
+                "replacement_events",
+            }
+            rows = connection.execute(
+                "SELECT name, sql FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+            tables = {str(row["name"]): str(row["sql"]) for row in rows}
+            if not required_tables.issubset(tables):
+                raise CaseDevPurchaseLedgerError(
+                    "purchase ledger is missing the authenticated runtime schema"
+                )
+            if "'queued'" not in tables["purchase_operations"]:
+                raise CaseDevPurchaseLedgerError(
+                    "purchase ledger schema predates the required queued state"
+                )
+        finally:
+            connection.close()
+    except sqlite3.Error as exc:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger is not a complete authenticated SQLite journal"
+        ) from exc
+
+
+def _create_purchase_ledger_schema(connection: sqlite3.Connection) -> None:
+    connection.executescript(_PURCHASE_LEDGER_SCHEMA_SQL)
+
+
+def _purchase_ledger_policy_identity(
+    policy: CaseDevPurchasePolicy,
+) -> tuple[str, ...]:
+    return (
+        policy.cycle_id,
+        policy.cohort_policy_sha256,
+        policy.policy_sha256,
+        str(policy.canonical_ledger_path),
+        _money(policy.hard_cap_usd),
+        _money(policy.opening_committed_spend_usd),
+        _money(policy.max_per_case_usd),
+        _money(policy.per_document_reservation_usd),
+    )
+
+
+def _bind_purchase_ledger_policy(
+    connection: sqlite3.Connection,
+    policy: CaseDevPurchasePolicy,
+    *,
+    insert: bool,
+) -> None:
+    expected = _purchase_ledger_policy_identity(policy)
+    if insert:
+        with connection:
+            connection.execute(
+                """INSERT OR IGNORE INTO purchase_ledger(
+                singleton, cycle_id, cohort_policy_sha256, purchase_policy_sha256,
+                canonical_ledger_path, hard_cap_usd, opening_committed_spend_usd,
+                max_per_case_usd, per_document_reservation_usd)
+                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                expected,
+            )
+    row = connection.execute(
+        "SELECT * FROM purchase_ledger WHERE singleton=1"
+    ).fetchone()
+    if row is None:
+        raise CaseDevPurchaseLedgerError(
+            "purchase journal is missing its immutable policy identity"
+        )
+    actual = tuple(
+        str(row[field])
+        for field in (
+            "cycle_id",
+            "cohort_policy_sha256",
+            "purchase_policy_sha256",
+            "canonical_ledger_path",
+            "hard_cap_usd",
+            "opening_committed_spend_usd",
+            "max_per_case_usd",
+            "per_document_reservation_usd",
+        )
+    )
+    if actual != expected:
+        raise CaseDevPurchasePolicyError(
+            "purchase journal identity conflicts with immutable cycle policy"
+        )
+
+
 class CaseDevPurchaseJournal:
     """Single-writer durable state machine for non-idempotent paid POSTs."""
 
-    def __init__(self, path: str | Path, *, policy: CaseDevPurchasePolicy) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        policy: CaseDevPurchasePolicy,
+        allow_create: bool = False,
+    ) -> None:
         self.path = Path(path).resolve()
         if self.path != policy.canonical_ledger_path:
             raise CaseDevPurchasePolicyError(
@@ -219,20 +983,25 @@ class CaseDevPurchaseJournal:
             )
         self.policy = policy
         self._closed = False
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if allow_create:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            _require_existing_purchase_ledger_file(self.path)
         self._lock_path = Path(f"{self.path}.lock")
-        self._lock_fd = os.open(self._lock_path, os.O_RDWR | os.O_CREAT, 0o600)
-        try:
-            fcntl.flock(self._lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as exc:
-            os.close(self._lock_fd)
-            raise CaseDevPurchaseLedgerBusyError(
-                f"cycle purchase journal is already locked: {self.path}"
-            ) from exc
+        self._lock_fd = _acquire_purchase_ledger_lock(self.path)
         try:
             if not self.path.exists():
+                if not allow_create:
+                    raise CaseDevPurchaseLedgerError(
+                        "purchase ledger is missing; run init-purchase-ledger first"
+                    )
                 fd = os.open(self.path, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o600)
                 os.close(fd)
+            elif not allow_create:
+                _verify_existing_purchase_ledger_under_lock(
+                    self.path,
+                    policy=policy,
+                )
             self._connection: sqlite3.Connection = sqlite3.connect(
                 self.path, isolation_level=None
             )
@@ -245,8 +1014,7 @@ class CaseDevPurchaseJournal:
             connection = getattr(self, "_connection", None)
             if connection is not None:
                 connection.close()
-            fcntl.flock(self._lock_fd, fcntl.LOCK_UN)
-            os.close(self._lock_fd)
+            _release_purchase_ledger_lock(self._lock_fd)
             raise
 
     def __enter__(self) -> CaseDevPurchaseJournal:
@@ -264,8 +1032,7 @@ class CaseDevPurchaseJournal:
         if self._closed:
             return
         self._connection.close()
-        fcntl.flock(self._lock_fd, fcntl.LOCK_UN)
-        os.close(self._lock_fd)
+        _release_purchase_ledger_lock(self._lock_fd)
         self._closed = True
 
     def plan(self, plan: MissingCoreBudgetPlan) -> None:
@@ -1127,39 +1894,7 @@ class CaseDevPurchaseJournal:
         return amount
 
     def _create_schema(self) -> None:
-        self._connection.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS purchase_ledger (
-                singleton INTEGER PRIMARY KEY CHECK(singleton=1),
-                cycle_id TEXT NOT NULL,
-                cohort_policy_sha256 TEXT NOT NULL,
-                purchase_policy_sha256 TEXT NOT NULL,
-                canonical_ledger_path TEXT NOT NULL,
-                hard_cap_usd TEXT NOT NULL,
-                opening_committed_spend_usd TEXT NOT NULL,
-                max_per_case_usd TEXT NOT NULL,
-                per_document_reservation_usd TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS purchase_operations (
-                source_document_id TEXT PRIMARY KEY,
-                candidate_id TEXT NOT NULL,
-                reservation_usd TEXT NOT NULL,
-                status TEXT NOT NULL CHECK(status IN
-                    ('planned','submitted','queued','confirmed','failed','unknown')),
-                operation_key TEXT UNIQUE,
-                actual_usd TEXT,
-                response_json TEXT,
-                error TEXT,
-                reconciliation_json TEXT
-            );
-            CREATE TABLE IF NOT EXISTS replacement_events (
-                sequence INTEGER PRIMARY KEY CHECK(sequence >= 0),
-                event_key TEXT NOT NULL UNIQUE,
-                record_json TEXT NOT NULL,
-                record_sha256 TEXT NOT NULL UNIQUE
-            );
-            """
-        )
+        _create_purchase_ledger_schema(self._connection)
         schema_row = self._connection.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' "
             "AND name='purchase_operations'"
@@ -1193,46 +1928,7 @@ class CaseDevPurchaseJournal:
         )
 
     def _bind_policy(self) -> None:
-        expected = (
-            self.policy.cycle_id,
-            self.policy.cohort_policy_sha256,
-            self.policy.policy_sha256,
-            str(self.policy.canonical_ledger_path),
-            _money(self.policy.hard_cap_usd),
-            _money(self.policy.opening_committed_spend_usd),
-            _money(self.policy.max_per_case_usd),
-            _money(self.policy.per_document_reservation_usd),
-        )
-        with self._connection:
-            self._connection.execute(
-                """INSERT OR IGNORE INTO purchase_ledger(
-                singleton, cycle_id, cohort_policy_sha256, purchase_policy_sha256,
-                canonical_ledger_path, hard_cap_usd, opening_committed_spend_usd,
-                max_per_case_usd, per_document_reservation_usd)
-                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                expected,
-            )
-        row = self._connection.execute(
-            "SELECT * FROM purchase_ledger WHERE singleton=1"
-        ).fetchone()
-        assert row is not None
-        actual = tuple(
-            str(row[field])
-            for field in (
-                "cycle_id",
-                "cohort_policy_sha256",
-                "purchase_policy_sha256",
-                "canonical_ledger_path",
-                "hard_cap_usd",
-                "opening_committed_spend_usd",
-                "max_per_case_usd",
-                "per_document_reservation_usd",
-            )
-        )
-        if actual != expected:
-            raise CaseDevPurchasePolicyError(
-                "purchase journal identity conflicts with immutable cycle policy"
-            )
+        _bind_purchase_ledger_policy(self._connection, self.policy, insert=True)
 
 
 class CaseDevPacerCapability(StrEnum):

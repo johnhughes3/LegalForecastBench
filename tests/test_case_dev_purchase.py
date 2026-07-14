@@ -287,4 +287,5 @@ def _journal(tmp_path: Path) -> CaseDevPurchaseJournal:
     return CaseDevPurchaseJournal(
         ledger,
         policy=verify_case_dev_purchase_policy(artifact),
+        allow_create=True,
     )
