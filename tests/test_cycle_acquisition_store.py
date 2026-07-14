@@ -17,6 +17,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     PageReplayMismatchError,
     SnapshotVerificationError,
     StoreLockedError,
+    cohort_reason_policy_taxonomy,
     verify_snapshot,
 )
 
@@ -656,6 +657,72 @@ def test_candidate_evidence_precedence_and_immutable_skip_audit(
         assert skipped.supersedes_observation_id == immutable.observation_id
         assert store.current_observation("candidate-2") == immutable
         assert len(store.observations("candidate-2")) == 2
+
+
+def test_procedural_or_standing_order_is_immutable(tmp_path: Path) -> None:
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        immutable = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="procedural_or_standing_order",
+            evidence={"document_type": "standing_order"},
+        )
+        skipped = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"document_type": "order"},
+        )
+
+        assert skipped.state == "skipped_immutable"
+        assert store.current_observation("candidate-1") == immutable
+
+
+def test_oversized_docket_soft_skip_is_refreshable_at_rank_ten(
+    tmp_path: Path,
+) -> None:
+    taxonomy = cohort_reason_policy_taxonomy()
+    assert "oversized_docket_soft_skip" in taxonomy["refreshable_reason_codes"]
+
+    with _store(tmp_path) as store:
+        _discover_candidates(store, "candidate-1")
+        soft_skip = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="oversized_docket_soft_skip",
+            evidence={"entry_count": 1000},
+        )
+        other_rank_ten = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="strict_clean_screen_failed",
+            evidence={"entry_count": 900},
+        )
+        latest_soft_skip = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="excluded",
+            reason_code="oversized_docket_soft_skip",
+            evidence={"entry_count": 800},
+        )
+        assert store.current_observation("candidate-1") == latest_soft_skip
+
+        accepted = store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"entry_count": 100},
+        )
+
+        assert soft_skip.observation_id < other_rank_ten.observation_id
+        assert latest_soft_skip.observation_id < accepted.observation_id
+        assert store.current_observation("candidate-1") == accepted
 
 
 def test_non_civil_metadata_exclusion_is_immutable(tmp_path: Path) -> None:
