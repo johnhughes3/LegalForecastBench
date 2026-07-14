@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from legalforecast.cli import main
@@ -119,6 +120,116 @@ def test_bridge_pacer_gaps_cli_runs_noncharging_courtlistener_rest_mode(
     assert summary["paid_activity_executed"] is False
 
 
+def test_courtlistener_rest_bridge_checkpoints_and_resumes_without_refetch(
+    tmp_path: Path,
+) -> None:
+    first = _screened_case()
+    second = _screened_case_variant(
+        candidate_id="456",
+        docket_number="1:26-cv-00002",
+        case_name="Second v. Example",
+    )
+    plan = plan_public_packet_downloads(
+        (first, second), use_embedded_entries=True, target_clean_cases=2
+    )
+    screened_path = tmp_path / "screened.jsonl"
+    public_path = tmp_path / "public.jsonl"
+    gaps_path = tmp_path / "gaps.jsonl"
+    downloads_path = tmp_path / "downloads.jsonl"
+    fixture_path = tmp_path / "courtlistener.jsonl"
+    output_root = tmp_path / "output"
+    _write_jsonl(screened_path, [first, second])
+    _write_jsonl(public_path, [])
+    _write_jsonl(gaps_path, [gap.to_record() for gap in plan.paid_gap_cases])
+    _write_jsonl(
+        downloads_path,
+        [
+            {
+                **request.to_record(),
+                "local_path": (
+                    f"{request.candidate_id}/{request.source_document_id}.pdf"
+                ),
+                "sha256": "a" * 64,
+                "free_or_purchased": "free",
+            }
+            for request in plan.download_requests
+        ],
+    )
+    rate_limit = {
+        "method": "GET",
+        "path": "/dockets/456/",
+        "params": {},
+        "status_code": 429,
+        "payload": {"detail": "daily quota reached"},
+    }
+    _write_jsonl(
+        fixture_path,
+        [
+            *(_recorded_response_record(response) for response in _clean_responses()),
+            rate_limit,
+            rate_limit,
+            rate_limit,
+        ],
+    )
+    command = [
+        "acquisition",
+        "bridge-pacer-gaps",
+        "--screened-cases",
+        str(screened_path),
+        "--use-embedded-entries",
+        "--courtlistener-fixture",
+        str(fixture_path),
+        "--public-selection",
+        str(public_path),
+        "--paid-gaps",
+        str(gaps_path),
+        "--free-download-manifest",
+        str(downloads_path),
+        "--output-root",
+        str(output_root),
+        "--execute",
+    ]
+
+    assert main(command) == 2
+    checkpoints = [
+        _read_json(path)
+        for path in sorted(
+            (output_root / "checkpoints" / "pacer-gap-bridge").glob("*.json")
+        )
+    ]
+    assert [checkpoint["outcome"] for checkpoint in checkpoints] == [
+        "success",
+        "retryable",
+    ]
+    first_run = _read_json(output_root / "run-cards" / "bridge-pacer-gaps.json")
+    assert first_run["courtlistener_request_count"] == 6
+    assert first_run["checkpoint_terminal_candidate_count"] == 1
+    assert first_run["retryable_candidate_count"] == 1
+
+    _write_jsonl(
+        fixture_path,
+        [
+            _recorded_response_record(response)
+            for response in _clean_responses_for(
+                candidate_id="456",
+                docket_number="1:26-cv-00002",
+                case_name="Second v. Example",
+                docket_entry_id="7456",
+                recap_document_id="9456",
+            )
+        ],
+    )
+
+    assert main(command) == 0
+    selections = _read_jsonl(output_root / "public-packet-selection-reconciled.jsonl")
+    assert {selection["candidate_id"] for selection in selections} == {"123", "456"}
+    resumed = _read_json(output_root / "run-cards" / "bridge-pacer-gaps.json")
+    assert resumed["courtlistener_request_count"] == 3
+    assert resumed["resumed_terminal_candidate_count"] == 1
+    assert resumed["checkpoint_terminal_candidate_count"] == 2
+    assert resumed["retryable_candidate_count"] == 0
+
+
 @pytest.mark.parametrize(
     ("docket_patch", "reason"),
     (
@@ -163,10 +274,10 @@ def test_courtlistener_rest_bridge_rejects_entry_mismatch(
 ) -> None:
     screened, gap, downloads = _paid_gap_inputs()
     responses = list(_clean_responses())
-    payload = copy.deepcopy(responses[1].payload)
+    payload = cast(dict[str, object], copy.deepcopy(dict(responses[1].payload)))
     results = payload["results"]
     assert isinstance(results, list)
-    entry = results[0]
+    entry = cast(object, results[0])
     assert isinstance(entry, dict)
     entry.update(entry_patch)
     responses[1] = _response(
@@ -238,38 +349,55 @@ def _paid_gap_inputs() -> tuple[
 
 
 def _clean_responses() -> tuple[RecordedCourtListenerResponse, ...]:
+    return _clean_responses_for(
+        candidate_id="123",
+        docket_number="1:26-cv-00001",
+        case_name="Fixture v. Example",
+        docket_entry_id="7005",
+        recap_document_id="9005",
+    )
+
+
+def _clean_responses_for(
+    *,
+    candidate_id: str,
+    docket_number: str,
+    case_name: str,
+    docket_entry_id: str,
+    recap_document_id: str,
+) -> tuple[RecordedCourtListenerResponse, ...]:
     return (
         _response(
-            path="/dockets/123/",
+            path=f"/dockets/{candidate_id}/",
             payload={
-                "id": 123,
+                "id": int(candidate_id),
                 "court": "nysd",
-                "docket_number": "1:26-cv-00001",
-                "case_name": "Fixture v. Example",
+                "docket_number": docket_number,
+                "case_name": case_name,
             },
         ),
         _response(
             path="/docket-entries/",
-            params={"docket": "123", "page_size": 100},
+            params={"docket": candidate_id, "page_size": 100},
             payload={
                 "results": [
                     {
-                        "id": 7005,
-                        "docket": 123,
+                        "id": int(docket_entry_id),
+                        "docket": int(candidate_id),
                         "entry_number": 5,
                         "description": "MOTION to Dismiss filed by Defendant.",
                         "date_filed": "2026-01-01",
-                        "recap_documents": [{"id": 9005}],
+                        "recap_documents": [{"id": int(recap_document_id)}],
                     }
                 ],
                 "next": None,
             },
         ),
         _response(
-            path="/recap-documents/9005/",
+            path=f"/recap-documents/{recap_document_id}/",
             payload={
-                "id": 9005,
-                "docket_entry": 7005,
+                "id": int(recap_document_id),
+                "docket_entry": int(docket_entry_id),
                 "document_number": "5",
                 "attachment_number": None,
                 "description": "Motion to Dismiss",
@@ -350,6 +478,23 @@ def _screened_case() -> dict[str, object]:
     }
 
 
+def _screened_case_variant(
+    *, candidate_id: str, docket_number: str, case_name: str
+) -> dict[str, object]:
+    screened = copy.deepcopy(_screened_case())
+    candidate = cast(object, screened["candidate"])
+    assert isinstance(candidate, dict)
+    candidate["docket_id"] = candidate_id
+    candidate["candidate_key"] = candidate_id
+    candidate["url"] = f"https://www.courtlistener.com/docket/{candidate_id}/example/"
+    metadata = cast(object, candidate["metadata"])
+    assert isinstance(metadata, dict)
+    metadata["case_id"] = candidate_id
+    metadata["docket_number"] = docket_number
+    metadata["case_name"] = case_name
+    return screened
+
+
 def _write_jsonl(path: Path, records: list[object]) -> None:
     path.write_text(
         "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),
@@ -357,8 +502,30 @@ def _write_jsonl(path: Path, records: list[object]) -> None:
     )
 
 
-def _read_jsonl(path: Path) -> list[dict[str, object]]:
-    return [json.loads(line) for line in path.read_text().splitlines() if line]
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    return [
+        cast(dict[str, Any], json.loads(line))
+        for line in path.read_text().splitlines()
+        if line
+    ]
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    value = json.loads(path.read_text())
+    assert isinstance(value, dict)
+    return cast(dict[str, Any], value)
+
+
+def _recorded_response_record(
+    response: RecordedCourtListenerResponse,
+) -> dict[str, object]:
+    return {
+        "method": response.method,
+        "path": response.path,
+        "params": dict(response.params),
+        "status_code": response.status_code,
+        "payload": dict(response.payload),
+    }
 
 
 def _entry(
