@@ -858,7 +858,8 @@ class CaseDevPurchaseJournal:
         """Read and verify the append-only clearance-replacement hash chain."""
 
         rows = self._connection.execute(
-            """SELECT sequence, event_key, record_json FROM replacement_events
+            """SELECT sequence, event_key, record_json, record_sha256
+            FROM replacement_events
             ORDER BY sequence"""
         ).fetchall()
         records: list[Mapping[str, Any]] = []
@@ -900,6 +901,10 @@ class CaseDevPurchaseJournal:
             if actual != committed:
                 raise CaseDevPurchaseLedgerError(
                     "replacement event hash does not match its content"
+                )
+            if row["record_sha256"] != committed:
+                raise CaseDevPurchaseLedgerError(
+                    "replacement event stored hash column does not match its record"
                 )
             records.append(MappingProxyType(record))
             previous = committed
