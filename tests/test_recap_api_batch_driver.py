@@ -426,6 +426,55 @@ def test_run_observe_explicitly_refreshes_only_selected_refreshable_reason(
         store.close()
 
 
+def test_run_observe_revalidates_named_accepted_candidate(tmp_path: Path) -> None:
+    store = _fresh_store(tmp_path)
+    try:
+        _seed_one_candidate(store, 555)
+        stale = store.record_observation(
+            "courtlistener-docket-555",
+            batch_id="batch-002",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"screening_kernel": "before-correction"},
+        )
+        tally = run_observe(
+            store,
+            batch_id="batch-002",
+            client=_token_client(
+                [
+                    _docket_response(555),
+                    _entries_response(
+                        docket_id=555,
+                        results=[
+                            _motion_entry(555),
+                            {
+                                "id": 7002,
+                                "docket": 555,
+                                "entry_number": 40,
+                                "description": (
+                                    "ORDER granting defendant's motion to dismiss "
+                                    "the complaint"
+                                ),
+                                "date_filed": "2026-07-05",
+                            },
+                        ],
+                    ),
+                ]
+            ),
+            eligibility_anchor=date(2026, 6, 30),
+            revalidate_candidate_ids=("courtlistener-docket-555",),
+            limit=1,
+        )
+
+        assert tally.observed == 1
+        current = store.current_observation("courtlistener-docket-555")
+        assert current is not None and current.state == "accepted"
+        assert current.observation_id != stale.observation_id
+        assert current.supersedes_observation_id == stale.observation_id
+    finally:
+        store.close()
+
+
 def test_run_observe_prioritizes_cheaper_recent_candidates_deterministically(
     tmp_path: Path,
 ) -> None:

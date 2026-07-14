@@ -48,6 +48,7 @@ _IMMUTABLE_REASON_CODES = frozenset(
         "appellate_case",
         "missing_civil_case_metadata",
         "invalid_civil_case_metadata",
+        "procedural_or_standing_order",
     }
 )
 _EVIDENCED_STATES = frozenset({"accepted", "newly_free", "excluded"})

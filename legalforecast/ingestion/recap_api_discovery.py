@@ -1129,7 +1129,11 @@ def _map_screen_outcome(
         for reason in anchored.exclusion_reasons:
             if reason in _POSTURE_REASON_CODES:
                 return "excluded", reason
+            if reason == "procedural_or_standing_order":
+                return "excluded", reason
         return "excluded", "strict_clean_screen_failed"
+    if "procedural_or_standing_order" in anchored.exclusion_reasons:
+        return "excluded", "procedural_or_standing_order"
     return "excluded", "strict_clean_screen_failed"
 
 

@@ -1876,6 +1876,16 @@ def _add_batch_002_observe_arguments(parser: argparse.ArgumentParser) -> None:
             "multiple codes; immutable exclusions cannot be refreshed."
         ),
     )
+    parser.add_argument(
+        "--revalidate-candidate-id",
+        action="append",
+        default=[],
+        help=(
+            "Re-observe this exact currently accepted batch candidate after a "
+            "documented false-positive screening correction. Repeat for multiple "
+            "candidate ids."
+        ),
+    )
     _add_batch_002_source_arguments(parser)
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_batch_002_observe)
@@ -6341,6 +6351,7 @@ def _cmd_batch_002_observe(args: argparse.Namespace) -> int:
     )
     limit = cast(int | None, args.limit)
     refresh_reason_codes = tuple(cast(list[str], args.refresh_reason_code))
+    revalidate_candidate_ids = tuple(cast(list[str], args.revalidate_candidate_id))
     if limit is not None and limit <= 0:
         raise CommandError("--limit must be a positive integer")
     client, budget = _batch_002_client(args, require_token=True)
@@ -6356,6 +6367,7 @@ def _cmd_batch_002_observe(args: argparse.Namespace) -> int:
                 pacer=pacer,
                 limit=limit,
                 refresh_reason_codes=refresh_reason_codes,
+                revalidate_candidate_ids=revalidate_candidate_ids,
             )
     except (
         CycleAcquisitionStoreError,
@@ -6369,6 +6381,7 @@ def _cmd_batch_002_observe(args: argparse.Namespace) -> int:
     record = {
         **tally.to_record(),
         "refresh_reason_codes": list(refresh_reason_codes),
+        "revalidate_candidate_ids": list(revalidate_candidate_ids),
         **_batch_002_rate_evidence(args, client, budget, reservations_before),
     }
     summary_output = cast(Path | None, args.summary_output)

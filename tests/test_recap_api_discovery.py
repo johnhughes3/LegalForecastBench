@@ -989,6 +989,69 @@ def test_observe_links_explicitly_referenced_terse_rest_mtd_label(
         }
 
 
+def test_observe_rejects_procedural_order_that_leaves_mtd_pending(
+    tmp_path: Path,
+) -> None:
+    decision_text = (
+        "ORDER granting Defendants' Motion to Exceed Page Limit for Defendants' "
+        "Motion to Dismiss (Doc. 9). Defendants' Motion to Dismiss (Doc. 8) is "
+        "considered within the page limit. IT IS FURTHER ORDERED granting the "
+        "parties' Stipulation of Time to File Response to Motion to Dismiss "
+        "(Doc. 13). Plaintiff's Response to Defendants' Motion to Dismiss "
+        "(Doc. 8) shall be filed no later than July 17, 2026."
+    )
+    store, payload = _seeded_store(
+        tmp_path,
+        {
+            "id": 9001,
+            "docket_id": 555,
+            "description": decision_text,
+            "entry_date_filed": "2026-07-13",
+            "court_id": "azd",
+            "docketNumber": "2:26-cv-01234",
+            "caseName": "Lageman v. Phoenix",
+        },
+    )
+    with store:
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=_client(
+                (
+                    _docket_response(555),
+                    _entries_response(
+                        cursor=None,
+                        results=[
+                            {
+                                "id": 7001,
+                                "docket": 555,
+                                "entry_number": 8,
+                                "description": "First Motion to Dismiss Case",
+                                "date_filed": "2026-06-26",
+                            },
+                            {
+                                "id": 7002,
+                                "docket": 555,
+                                "entry_number": 14,
+                                "description": decision_text,
+                                "date_filed": "2026-07-13",
+                            },
+                        ],
+                        next_cursor=None,
+                    ),
+                )
+            ),
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.state == "excluded"
+        assert observation.reason_code == "procedural_or_standing_order"
+        screen = observation.evidence["screen"]
+        assert isinstance(screen, dict)
+        assert "procedural_or_standing_order" in screen["exclusion_reasons"]
+
+
 def test_reconstruction_does_not_infer_public_access_from_availability() -> None:
     client = _client(
         (

@@ -390,6 +390,7 @@ def run_observe(
     pacer: RequestPacer | None = None,
     limit: int | None = None,
     refresh_reason_codes: Sequence[str] = (),
+    revalidate_candidate_ids: Sequence[str] = (),
     progress_callback: Callable[[ObserveTally], None] | None = None,
 ) -> ObserveTally:
     """Reconstruct, screen, and durably observe every unresolved candidate.
@@ -402,6 +403,8 @@ def run_observe(
     never become the current observation). ``refresh_reason_codes`` is an
     explicit, auditable escape hatch for re-running current observations whose
     policy class is refreshable after a screening implementation correction.
+    ``revalidate_candidate_ids`` narrowly re-runs named accepted candidates
+    after a documented false-positive correction.
     """
 
     store.batch_digest(batch_id)
@@ -433,6 +436,14 @@ def run_observe(
     transient: dict[str, int] = {}
 
     candidate_ids = store.candidate_ids(batch_id)
+    candidate_id_set = frozenset(candidate_ids)
+    revalidate_ids = frozenset(revalidate_candidate_ids)
+    unknown_revalidation_ids = revalidate_ids - candidate_id_set
+    if unknown_revalidation_ids:
+        unknown = sorted(unknown_revalidation_ids)[0]
+        raise RecapApiBatchDriverError(
+            f"revalidation candidate {unknown!r} is not in batch {batch_id}"
+        )
     missing_payloads = tuple(
         candidate_id for candidate_id in candidate_ids if candidate_id not in payloads
     )
@@ -444,11 +455,20 @@ def run_observe(
         candidate_id: store.current_observation(candidate_id)
         for candidate_id in candidate_ids
     }
+    for candidate_id in sorted(revalidate_ids):
+        current = current_observations[candidate_id]
+        if current is None or current.state not in {"accepted", "newly_free"}:
+            raise RecapApiBatchDriverError(
+                f"revalidation candidate {candidate_id!r} is not currently accepted"
+            )
 
     def refresh_rank(candidate_id: str) -> int:
         current = current_observations[candidate_id]
         return (
-            0 if current is not None and current.reason_code in refresh_reasons else 1
+            0
+            if candidate_id in revalidate_ids
+            or (current is not None and current.reason_code in refresh_reasons)
+            else 1
         )
 
     ordered_candidate_ids = sorted(
@@ -464,7 +484,11 @@ def run_observe(
             break
         considered += 1
         current = current_observations[candidate_id]
-        if current is not None and current.reason_code not in refresh_reasons:
+        if (
+            current is not None
+            and current.reason_code not in refresh_reasons
+            and candidate_id not in revalidate_ids
+        ):
             skipped += 1
             continue
         payload = payloads[candidate_id]

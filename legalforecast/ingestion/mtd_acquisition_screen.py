@@ -854,7 +854,8 @@ def _has_direct_mtd_disposition(text: str) -> bool:
         r"motions?\s+for\s+judgment\s+on\s+the\s+pleadings)"
     )
     procedural_word = (
-        r"(?:motion|extension|extend|respond|reply|stay|page|briefing|expedit\w*)"
+        r"(?:motion|extension|extend|respond|responses?|reply|oppos\w*|"
+        r"stipulat\w*|stay|page|briefing|expedit\w*)"
     )
     before_target = rf"(?:(?!\b{procedural_word}\b)[^.;]){{0,120}}"
     after_target = rf"(?:(?!\b{procedural_word}\b)[^.;]){{0,120}}"
