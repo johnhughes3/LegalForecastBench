@@ -283,9 +283,10 @@ class UrlLibCourtListenerTransport:
                 payload=_json_payload(exc.read()),
                 headers=dict(exc.headers.items()) if exc.headers else {},
             )
-        except urllib.error.URLError as exc:
-            raise CourtListenerClientError(
-                f"CourtListener request failed: {exc.reason}"
+        except (TimeoutError, urllib.error.URLError) as exc:
+            reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
+            raise CourtListenerServerError(
+                f"CourtListener request failed: {reason}"
             ) from exc
 
 
@@ -503,13 +504,21 @@ class CourtListenerClient:
                 # Reserve provider capacity before every physical attempt,
                 # including retries, so a crash cannot erase metered activity.
                 self.before_request(method, path)
-            response = self.transport.request(
-                method=method,
-                path=path,
-                params=params,
-                headers=headers,
-                timeout_seconds=self.config.timeout_seconds,
-            )
+            try:
+                response = self.transport.request(
+                    method=method,
+                    path=path,
+                    params=params,
+                    headers=headers,
+                    timeout_seconds=self.config.timeout_seconds,
+                )
+            except CourtListenerServerError:
+                if attempt < self.max_retries:
+                    attempt += 1
+                    if self.retry_backoff_seconds:
+                        time.sleep(self.retry_backoff_seconds)
+                    continue
+                raise
             self.request_count += 1
             self._log_request(path, response.status_code)
             if 200 <= response.status_code < 300:

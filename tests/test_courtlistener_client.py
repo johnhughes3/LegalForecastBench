@@ -15,6 +15,8 @@ from legalforecast.ingestion import (
 from legalforecast.ingestion.courtlistener_client import (
     COURTLISTENER_BASE_URL_ENV,
     CourtListenerDocketEntry,
+    CourtListenerHTTPResponse,
+    UrlLibCourtListenerTransport,
 )
 
 
@@ -244,6 +246,58 @@ def test_courtlistener_rate_limit_retries_before_success() -> None:
     assert docket.case_name == "Retried v. Fixture"
     assert client.request_count == 2
     assert reservations == [("GET", "/dockets/123/"), ("GET", "/dockets/123/")]
+
+
+def test_courtlistener_transport_timeout_retries_before_success() -> None:
+    class TimeoutThenSuccess:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def request(self, **_: object) -> CourtListenerHTTPResponse:
+            self.calls += 1
+            if self.calls == 1:
+                raise CourtListenerServerError("CourtListener request timed out")
+            return CourtListenerHTTPResponse(
+                status_code=200,
+                payload={"id": 123, "case_name": "Retried v. Fixture"},
+            )
+
+    transport = TimeoutThenSuccess()
+    reservations: list[tuple[str, str]] = []
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=transport,
+        max_retries=1,
+        before_request=lambda method, path: reservations.append((method, path)),
+    )
+
+    docket = client.get_docket("123")
+
+    assert docket.case_name == "Retried v. Fixture"
+    assert transport.calls == 2
+    assert client.request_count == 1
+    assert reservations == [("GET", "/dockets/123/"), ("GET", "/dockets/123/")]
+
+
+def test_urllib_transport_maps_bare_read_timeout_to_retryable_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def time_out(*_: object, **__: object) -> object:
+        raise TimeoutError("read operation timed out")
+
+    monkeypatch.setattr("urllib.request.urlopen", time_out)
+    transport = UrlLibCourtListenerTransport(
+        "https://www.courtlistener.com/api/rest/v4"
+    )
+
+    with pytest.raises(CourtListenerServerError, match="read operation timed out"):
+        transport.request(
+            method="GET",
+            path="/dockets/123/",
+            params={},
+            headers={},
+            timeout_seconds=1,
+        )
 
 
 def test_courtlistener_page_extracts_cursor_from_next_url() -> None:
