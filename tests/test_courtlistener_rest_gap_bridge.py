@@ -19,6 +19,7 @@ from legalforecast.ingestion.courtlistener_client import (
     RecordedCourtListenerResponse,
 )
 from legalforecast.ingestion.public_packet_planner import plan_public_packet_downloads
+from legalforecast.ingestion.recap_api_discovery import reconstruct_docket_page
 
 
 def test_courtlistener_rest_bridge_emits_real_public_recap_id_for_plan() -> None:
@@ -59,6 +60,150 @@ def test_courtlistener_rest_bridge_emits_real_public_recap_id_for_plan() -> None
     [result] = filter_core_documents((relevance,))
     assert result.purchase_document_ids == ("9005",)
     assert client.request_count == 3
+
+
+def test_actual_v4_discovery_shape_flows_to_paid_gap_bridge() -> None:
+    docket_response = _response(
+        path="/dockets/123/",
+        payload={
+            "id": 123,
+            "court": "nysd",
+            "docket_number": "1:26-cv-00001",
+            "case_name": "Fixture v. Example",
+            "absolute_url": "/docket/123/example/",
+        },
+    )
+    live_shape_entries = _response(
+        path="/docket-entries/",
+        params={"docket": "123", "page_size": 100},
+        payload={
+            "results": [
+                {
+                    "id": 7001,
+                    "docket": 123,
+                    "entry_number": 1,
+                    "description": "COMPLAINT filed by Plaintiff.",
+                    "date_filed": "2026-01-01",
+                    "recap_documents": [
+                        {
+                            "id": 9001,
+                            "description": "Complaint",
+                            "filepath_local": "recap/complaint.pdf",
+                            "is_available": True,
+                            "is_sealed": False,
+                        }
+                    ],
+                },
+                {
+                    "id": 7005,
+                    "docket": 123,
+                    "entry_number": 5,
+                    "description": "MOTION to Dismiss filed by Defendant.",
+                    "date_filed": "2026-02-01",
+                    "recap_documents": [
+                        {
+                            "id": 9005,
+                            "description": "Motion to Dismiss",
+                            "is_available": False,
+                            "is_sealed": False,
+                        }
+                    ],
+                },
+                {
+                    "id": 7016,
+                    "docket": 123,
+                    "entry_number": 16,
+                    "description": "ORDER on Motion to Dismiss.",
+                    "date_filed": "2026-06-30",
+                    "recap_documents": [
+                        {
+                            "id": 9016,
+                            "description": "Order on Motion to Dismiss",
+                            "filepath_local": "recap/decision.pdf",
+                            "is_available": True,
+                            "is_sealed": False,
+                        }
+                    ],
+                },
+            ],
+            "next": None,
+        },
+    )
+    reconstructed = reconstruct_docket_page(
+        _authenticated_client(docket_response, live_shape_entries), "123"
+    )
+    assert [
+        document.freely_available
+        for entry in reconstructed.page.entries
+        for document in entry.documents
+    ] == [True, False, True]
+
+    screened = _screened_case()
+    screened["selected_entries"] = [
+        {
+            "row_id": entry.row_id,
+            "entry_number": entry.entry_number,
+            "filed_at": entry.filed_at,
+            "text": entry.text,
+            "documents": [
+                {
+                    "kind": document.kind,
+                    "description": document.description,
+                    "href": document.href,
+                    "action_label": document.action_label,
+                    "pacer_only": document.pacer_only,
+                }
+                for document in entry.documents
+            ],
+        }
+        for entry in reconstructed.page.entries
+    ]
+    plan = plan_public_packet_downloads(
+        (screened,), use_embedded_entries=True, target_clean_cases=1
+    )
+    [gap] = plan.paid_gap_cases
+    downloads = tuple(
+        {
+            **request.to_record(),
+            "local_path": f"123/{request.source_document_id}.pdf",
+            "sha256": "a" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in plan.download_requests
+    )
+    recap_document_response = _response(
+        path="/recap-documents/9005/",
+        payload={
+            "id": 9005,
+            "docket_entry": 7005,
+            "document_number": "5",
+            "attachment_number": None,
+            "description": "Motion to Dismiss",
+            "is_available": False,
+            "is_sealed": False,
+        },
+    )
+
+    selection, relevance = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap.to_record(),
+        free_download_records=downloads,
+        client=_authenticated_client(
+            docket_response, live_shape_entries, recap_document_response
+        ),
+        use_embedded_entries=True,
+    )
+
+    paid = [
+        document
+        for document in selection["documents"]
+        if document.get("requires_paid_recovery") is True
+    ]
+    assert [
+        (document["source_document_id"], document["is_private"]) for document in paid
+    ] == [("9005", None)]
+    [filtered] = filter_core_documents((relevance,))
+    assert filtered.purchase_document_ids == ("9005",)
 
 
 def test_bridge_pacer_gaps_cli_runs_noncharging_courtlistener_rest_mode(
@@ -489,6 +634,15 @@ def _clean_responses_for(
 def _client(*responses: RecordedCourtListenerResponse) -> CourtListenerClient:
     return CourtListenerClient(
         config=CourtListenerConfig(),
+        transport=CourtListenerFixtureTransport(responses),
+    )
+
+
+def _authenticated_client(
+    *responses: RecordedCourtListenerResponse,
+) -> CourtListenerClient:
+    return CourtListenerClient(
+        config=CourtListenerConfig(api_token="fixture-token"),
         transport=CourtListenerFixtureTransport(responses),
     )
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -1439,7 +1440,7 @@ def _bridge_courtlistener_rest_gap_documents(
         if (
             hit.filed_at is not None
             and web_entry.filed_at is not None
-            and hit.filed_at[:10] != web_entry.filed_at[:10]
+            and not _same_filed_date(hit.filed_at, web_entry.filed_at)
         ):
             raise CourtListenerCaseDevBridgeError(
                 f"courtlistener_entry_date_conflict: {number}"
@@ -1478,6 +1479,29 @@ def _bridge_courtlistener_rest_gap_documents(
             )
         )
     return tuple(bridged)
+
+
+def _same_filed_date(first: str, second: str) -> bool:
+    """Compare REST ISO dates with either scraped or reconstructed web dates."""
+
+    first_date = _normalized_filed_date(first)
+    second_date = _normalized_filed_date(second)
+    if first_date is None or second_date is None:
+        return first.strip() == second.strip()
+    return first_date == second_date
+
+
+def _normalized_filed_date(value: str) -> date | None:
+    try:
+        return date.fromisoformat(value.strip()[:10])
+    except ValueError:
+        pass
+    for date_format in ("%B %d, %Y", "%b %d, %Y"):
+        try:
+            return datetime.strptime(value.strip(), date_format).date()
+        except ValueError:
+            continue
+    return None
 
 
 def _select_courtlistener_recap_document(
