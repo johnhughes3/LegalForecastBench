@@ -8006,8 +8006,7 @@ def _validate_bridge_checkpoint(
 def _normalize_bridge_checkpoint(checkpoint: JsonRecord) -> JsonRecord:
     """Upgrade a verified v1 checkpoint without repeating provider requests."""
 
-    if checkpoint.get("schema_version") == _PACER_GAP_CHECKPOINT_SCHEMA:
-        return checkpoint
+    schema = checkpoint.get("schema_version")
     candidate_id = _required_str(checkpoint, "candidate_id")
     normalized: JsonRecord = {
         **checkpoint,
@@ -8037,15 +8036,31 @@ def _normalize_bridge_checkpoint(checkpoint: JsonRecord) -> JsonRecord:
     selection_pending = pending_ids(selection_documents)
     relevance_pending = pending_ids(relevance_documents)
     resolved_reasons = selection.get("resolved_paid_gap_reasons")
+    shared_evidence_is_valid = (
+        selection.get("selected") is True
+        and isinstance(selection.get("identity_resolution"), Mapping)
+        and selection.get("paid_gap_reasons") == []
+        and _is_nonempty_string_list(resolved_reasons)
+        and bool(selection_pending)
+        and selection_pending == relevance_pending
+    )
+    if schema == _PACER_GAP_CHECKPOINT_SCHEMA:
+        if (
+            not shared_evidence_is_valid
+            or selection.get("paid_recovery_required") is not True
+            or selection.get("planning_status")
+            != "identity_resolved_paid_recovery_required"
+            or selection.get("identity_resolution_status") != "resolved"
+            or selection.get("document_recovery_status") != "paid_recovery_required"
+        ):
+            raise CommandError(
+                f"PACER-gap v2 success checkpoint is ambiguous for {candidate_id}"
+            )
+        return checkpoint
     if (
-        selection.get("selected") is not True
+        not shared_evidence_is_valid
         or selection.get("paid_recovery_required") is not False
         or selection.get("planning_status") != "selected_after_paid_recovery"
-        or not isinstance(selection.get("identity_resolution"), Mapping)
-        or selection.get("paid_gap_reasons") != []
-        or not _is_nonempty_string_list(resolved_reasons)
-        or not selection_pending
-        or selection_pending != relevance_pending
     ):
         raise CommandError(
             f"legacy PACER-gap success checkpoint is ambiguous for {candidate_id}"

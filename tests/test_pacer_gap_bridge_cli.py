@@ -574,6 +574,18 @@ def test_bridge_resume_normalizes_legacy_v1_terminal_success_checkpoint() -> Non
     assert selection["document_recovery_status"] == "paid_recovery_required"
 
 
+def test_bridge_resume_rejects_v2_success_with_stale_recovery_status() -> None:
+    normalized = cli._normalize_bridge_checkpoint(
+        _legacy_v1_terminal_success_checkpoint()
+    )
+    payload = cast(dict[str, object], normalized["payload"])
+    selection = cast(dict[str, object], payload["selection_record"])
+    selection["paid_recovery_required"] = False
+
+    with pytest.raises(cli.CommandError, match="v2 success checkpoint is ambiguous"):
+        cli._normalize_bridge_checkpoint(normalized)
+
+
 @pytest.mark.parametrize(
     ("mutation", "match"),
     [
