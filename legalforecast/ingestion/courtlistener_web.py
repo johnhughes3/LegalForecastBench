@@ -71,6 +71,7 @@ class CourtListenerWebDocketEntry:
     text: str
     documents: tuple[CourtListenerWebDocument, ...] = ()
     restriction_markers: tuple[str, ...] = ()
+    narrative_text: str | None = None
 
     @property
     def restricted(self) -> bool:
@@ -412,7 +413,26 @@ def _parse_entry_row(row: _Node) -> CourtListenerWebDocketEntry:
             _parse_recap_document(document) for document in _documents(row)
         ),
         restriction_markers=restricted_material_markers(text_fields=(row_text,)),
+        narrative_text=_entry_narrative_text(row),
     )
+
+
+def _entry_narrative_text(row: _Node) -> str:
+    """Return row text while structurally excluding RECAP document cards."""
+
+    def text_without_documents(node: _Node) -> str:
+        if node.tag == "div" and _has_class(node, "recap-documents"):
+            return ""
+        return _normalized_text(
+            " ".join(
+                (
+                    *node.text_parts,
+                    *(text_without_documents(child) for child in node.children),
+                )
+            )
+        )
+
+    return text_without_documents(row)
 
 
 def _parse_recap_document(document: _Node) -> CourtListenerWebDocument:

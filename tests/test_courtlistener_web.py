@@ -80,6 +80,10 @@ def test_parse_public_docket_html_extracts_entries_documents_and_availability() 
 
     motion = page.entries[0]
     assert motion.role is CourtListenerEntryRole.MTD_NOTICE
+    assert motion.narrative_text is not None
+    assert "MOTION TO DISMISS" in motion.narrative_text
+    assert "Main Document" not in motion.narrative_text
+    assert "Buy on PACER" not in motion.narrative_text
     assert motion.documents[0].pacer_only is True
     assert motion.documents[0].freely_available is False
 
