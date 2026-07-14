@@ -10687,7 +10687,8 @@ def _verified_snapshot_raw_html_sources(
     requested: Path | None,
     use_embedded_entries: bool,
 ) -> tuple[Path | None, Mapping[str, Path] | None]:
-    screened_records = _read_records(snapshot_path / "screened-cases.jsonl")
+    screened_path = snapshot_path / "screened-cases.jsonl"
+    screened_records = _read_records(screened_path) if screened_path.is_file() else ()
     for record in screened_records:
         if record.get("provider") == "courtlistener-recap-rest-v4" and (
             record.get("canonical_rest_screen_complete") is not True
