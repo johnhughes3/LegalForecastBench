@@ -116,6 +116,10 @@ class RecapDocketReconstructionError(RecapApiDiscoveryError):
     """Raised when a docket cannot be proven completely reconstructed."""
 
 
+class RecapDocketTooLargeError(RecapDocketReconstructionError):
+    """Raised when a docket exceeds the approved REST reconstruction page cap."""
+
+
 class RecapReconstructionAuthError(RecapApiDiscoveryError):
     """Raised when docket reconstruction is attempted without an API token.
 
@@ -559,7 +563,7 @@ def reconstruct_docket_page(
         if next_cursor is None:
             break
         if pages_fetched >= max_pages:
-            raise RecapDocketReconstructionError(
+            raise RecapDocketTooLargeError(
                 f"docket {docket_id} exceeds the {max_pages}-page REST "
                 "reconstruction cap; pagination exhaustion is unproven"
             )
@@ -983,6 +987,19 @@ def observe_recap_api_candidate(
             docket_id,
             pacer=pacer,
             docket=docket,
+        )
+    except RecapDocketTooLargeError as error:
+        return store.record_observation(
+            candidate_id,
+            batch_id=batch_id,
+            state="excluded",
+            reason_code="oversized_docket_soft_skip",
+            evidence={
+                **base_evidence,
+                "rest_docket_page_hard_cap": REST_DOCKET_PAGE_HARD_CAP,
+                "sampling_exclusion": True,
+                "error": str(error),
+            },
         )
     except (CourtListenerResponseError, RecapDocketReconstructionError) as error:
         return store.record_observation(

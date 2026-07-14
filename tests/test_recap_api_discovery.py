@@ -33,6 +33,7 @@ from legalforecast.ingestion.recap_api_discovery import (
     RecapApiResponseError,
     RecapDecisionHit,
     RecapDocketReconstructionError,
+    RecapDocketTooLargeError,
     RecapReconstructionAuthError,
     RequestPacer,
     build_recap_api_batch_config,
@@ -1030,10 +1031,59 @@ def test_reconstruction_fails_closed_at_page_cap(tmp_path: Path) -> None:
         )
     )
 
-    with pytest.raises(RecapDocketReconstructionError, match="1-page"):
+    with pytest.raises(RecapDocketTooLargeError, match="1-page"):
         reconstruct_docket_page(client, "555", max_pages=1)
 
     assert client.request_count == 2
+
+
+def test_observe_soft_skips_after_rest_page_cap(tmp_path: Path) -> None:
+    store, payload = _seeded_store(
+        tmp_path,
+        {
+            "id": 9001,
+            "docket_id": 555,
+            "description": "ORDER granting motion to dismiss",
+            "entry_date_filed": "2026-07-05",
+            "court_id": "nysd",
+            "docketNumber": "1:26-cv-00001",
+            "caseName": "Acme Corp v. Roe",
+        },
+    )
+    responses = [_docket_response(555)]
+    for page_index in range(25):
+        cursor = None if page_index == 0 else f"cursor-{page_index}"
+        responses.append(
+            _entries_response(
+                cursor=cursor,
+                results=[
+                    {
+                        "id": 7000 + page_index,
+                        "docket": 555,
+                        "entry_number": page_index + 1,
+                        "description": "Docket entry",
+                        "date_filed": "2026-06-20",
+                    }
+                ],
+                next_cursor=f"cursor-{page_index + 1}",
+            )
+        )
+
+    with store:
+        client = _client(tuple(responses))
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.state == "excluded"
+        assert observation.reason_code == "oversized_docket_soft_skip"
+        assert observation.evidence["rest_docket_page_hard_cap"] == 25
+        assert observation.evidence["sampling_exclusion"] is True
+        assert client.request_count == 26
 
 
 def test_observe_excludes_first_disposition_before_anchor(tmp_path: Path) -> None:
