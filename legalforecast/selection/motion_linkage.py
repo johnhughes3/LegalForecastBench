@@ -443,6 +443,21 @@ def referenced_entry_numbers(text: str) -> set[int]:
     return numbers
 
 
+def courtlistener_relationship_entry_numbers(text: str) -> set[int]:
+    """Return only entry numbers in CourtListener relationship annotations.
+
+    These narrow forms are safe for fetching or promoting an otherwise generic
+    row. Broader docket and bracket citations remain useful for linking already
+    classified motions, but do not prove that a generic row is the target.
+    """
+
+    numbers: set[int] = set()
+    for pattern in _COURTLISTENER_RELATIONSHIP_REFERENCE_RES:
+        for match in pattern.finditer(text):
+            numbers.update(_numbers_in_text(match.group("numbers")))
+    return numbers
+
+
 def referenced_mtd_entry_numbers(text: str) -> set[int]:
     """Return only numbers syntactically coupled to an MTD reference."""
 
@@ -503,6 +518,20 @@ _RELATED_DOCUMENT_REFERENCE_RE = re.compile(
     re.IGNORECASE,
 )
 _BRACKET_REFERENCE_RE = re.compile(r"\[(?P<number>\d+)\]")
+_COURTLISTENER_RELATIONSHIP_REFERENCE_RES = (
+    re.compile(
+        r"\brelated\s+document(?:\(s\)|s)\s*:?[ \t]*"
+        r"(?P<numbers>[1-9][0-9]*(?:[ \t]*(?:,|and)[ \t]*#?[ \t]*"
+        r"[1-9][0-9]*)*)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bre[ \t]*:[ \t]*#[ \t]*"
+        r"(?P<numbers>[1-9][0-9]*(?:[ \t]*(?:,|and)[ \t]*#?[ \t]*"
+        r"[1-9][0-9]*)*)",
+        re.IGNORECASE,
+    ),
+)
 _NUMBERED_MTD_REFERENCE_RES = (
     re.compile(
         r"\b(?P<number>\d+)\s+motions?\s+to\s+dismiss\b",

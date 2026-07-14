@@ -139,6 +139,54 @@ def test_anchor_boundary_continues_until_meghji_decision_references_resolve() ->
     assert bundle.stopped_at_anchor_boundary is True
 
 
+def test_anchor_boundary_continues_for_osborne_re_relationship_reference() -> None:
+    responses = {
+        f"{BASE_URL}?order_by=desc&page=1": _page_html(
+            entries=(
+                (
+                    "entry-170",
+                    "170",
+                    "July 6, 2026",
+                    "Order Denying Motion for Judgment on the Pleadings and "
+                    "Granting Dismissal of Counts IX through XV. (Re: # 103)",
+                ),
+                ("entry-128", "128", "June 29, 2026", "Scheduling notice."),
+            ),
+            has_next=True,
+        ),
+        f"{BASE_URL}?order_by=desc&page=2": _page_html(
+            entries=(
+                (
+                    "entry-103",
+                    "103",
+                    "March 24, 2026",
+                    "Main Document Miscellaneous Motion",
+                ),
+            ),
+            has_next=True,
+        ),
+    }
+    fetched_urls: list[str] = []
+
+    def fetch(source_url: str) -> str:
+        fetched_urls.append(source_url)
+        return responses[source_url]
+
+    bundle = paginate_courtlistener_docket(
+        BASE_URL,
+        fetch=fetch,
+        max_pages=6,
+        decision_anchor=date(2026, 6, 30),
+    )
+
+    assert fetched_urls == [
+        f"{BASE_URL}?order_by=desc&page=1",
+        f"{BASE_URL}?order_by=desc&page=2",
+    ]
+    assert [entry.entry_number for entry in bundle.entries] == ["170", "128", "103"]
+    assert bundle.stopped_at_anchor_boundary is True
+
+
 def test_unresolved_anchored_decision_reference_fails_at_page_cap() -> None:
     page_one = _page_html(
         entries=(
@@ -177,6 +225,14 @@ def test_unresolved_anchored_decision_reference_fails_at_page_cap() -> None:
         (
             "July 6, 2026",
             "Order Granting Motion to Dismiss attachment 63 dated 2026-07-06.",
+        ),
+        (
+            "July 6, 2026",
+            "Order Granting Motion to Dismiss. Attachment [103].",
+        ),
+        (
+            "July 6, 2026",
+            "Order Granting Motion to Dismiss. Exhibit [103].",
         ),
         (
             "July 6, 2026",

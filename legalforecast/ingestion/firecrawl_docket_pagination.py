@@ -21,15 +21,12 @@ from legalforecast.ingestion.courtlistener_web import (
 from legalforecast.ingestion.mtd_acquisition_screen import (
     screen_courtlistener_entry_for_mtd_decision,
 )
+from legalforecast.selection.motion_linkage import (
+    courtlistener_relationship_entry_numbers,
+)
 
 _COURTLISTENER_HOST = "www.courtlistener.com"
 _DOCKET_PATH = re.compile(r"^/docket/(?P<docket_id>[1-9][0-9]*)/(?P<slug>[^/]+)/?$")
-_RELATED_ENTRY_REFERENCE = re.compile(
-    r"\brelated\s+documents?(?:\s*\(\s*s\s*\))?\s*"
-    r"(?:(?:no|nos)\.?\s*|#\s*|:\s*)?"
-    r"(?P<numbers>[1-9][0-9]*(?:\s*(?:,|and)\s*[1-9][0-9]*)*)",
-    re.IGNORECASE,
-)
 
 
 class CourtListenerDocketPaginationError(ValueError):
@@ -185,7 +182,9 @@ def _unresolved_anchored_decision_references(
                     entry
                 ).actual_mtd_decision
             ):
-                referenced_numbers.update(_related_entry_numbers(entry.text))
+                referenced_numbers.update(
+                    courtlistener_relationship_entry_numbers(entry.text)
+                )
     return {
         number
         for number in referenced_numbers - observed_numbers
@@ -197,15 +196,6 @@ def _positive_entry_number(value: str | None) -> int | None:
     if value is None or re.fullmatch(r"[1-9][0-9]*", value.strip()) is None:
         return None
     return int(value)
-
-
-def _related_entry_numbers(text: str) -> set[int]:
-    numbers: set[int] = set()
-    for match in _RELATED_ENTRY_REFERENCE.finditer(text):
-        numbers.update(
-            int(value) for value in re.findall(r"[1-9][0-9]*", match.group("numbers"))
-        )
-    return numbers
 
 
 def paginate_courtlistener_docket(

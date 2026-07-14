@@ -49,8 +49,8 @@ from legalforecast.selection.exclusion_ledger import (
     ExclusionStage,
 )
 from legalforecast.selection.motion_linkage import (
+    courtlistener_relationship_entry_numbers,
     link_mtd_dispositions,
-    referenced_entry_numbers,
     referenced_mtd_entry_numbers,
 )
 
@@ -696,7 +696,9 @@ def _linkage_entries(
                 referenced_mtd_entry_numbers(disposition.text)
             )
             if case_type_stratum == "bankruptcy_adversary":
-                related_numbers = referenced_entry_numbers(disposition.text)
+                related_numbers = courtlistener_relationship_entry_numbers(
+                    disposition.text
+                )
                 if len(related_numbers) == 1:
                     sole_adversary_reference_numbers.update(related_numbers)
                     explicitly_referenced_numbers.update(related_numbers)
@@ -809,7 +811,10 @@ def _has_unambiguous_qualifying_adversary_motion(text: str) -> bool:
         flags=re.IGNORECASE,
     )
     return re.search(
-        r"\bmotions?\b", without_judgment_motion, re.IGNORECASE
+        r"\b(?:motions?|applications?|requests?|objections?|petitions?|"
+        r"cross[ -]?motions?|appeals?)\b",
+        without_judgment_motion,
+        re.IGNORECASE,
     ) is None and is_rule_7012_claim_merits_motion(text)
 
 

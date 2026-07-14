@@ -6,6 +6,7 @@ from legalforecast.ingestion.docket_sync import (
 )
 from legalforecast.selection.motion_linkage import (
     MotionLinkageExclusionReason,
+    courtlistener_relationship_entry_numbers,
     link_mtd_dispositions,
     referenced_entry_numbers,
     referenced_mtd_entry_numbers,
@@ -206,3 +207,19 @@ def test_referenced_entry_numbers_parses_courtlistener_related_document_form() -
         "(related document(s)2)"
     ) == {2}
     assert referenced_entry_numbers("Order (related document(s): 103)") == {103}
+
+
+def test_courtlistener_relationship_parser_is_narrow_and_syntactically_coupled() -> (
+    None
+):
+    assert courtlistener_relationship_entry_numbers(
+        "Order (related document(s)106, 63)"
+    ) == {63, 106}
+    assert courtlistener_relationship_entry_numbers("Order (Re: # 103)") == {103}
+    assert courtlistener_relationship_entry_numbers("Order (Re: #103 and # 104)") == {
+        103,
+        104,
+    }
+    assert courtlistener_relationship_entry_numbers("Attachment [103]") == set()
+    assert courtlistener_relationship_entry_numbers("Exhibit [103]") == set()
+    assert courtlistener_relationship_entry_numbers("Docket 103") == set()

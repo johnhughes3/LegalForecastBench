@@ -1674,6 +1674,87 @@ def test_adversary_jop_does_not_assign_generic_reference_in_multi_motion_order()
     assert [entry.document_role for entry in normalized] == [DocumentRole.DECISION]
 
 
+@pytest.mark.parametrize(
+    "secondary_relief",
+    (
+        "Granting Application to Seal",
+        "Denying Request for Sanctions",
+        "Overruling Objection to Claim",
+        "Denying Petition for Compensation",
+    ),
+)
+def test_adversary_jop_does_not_assign_generic_reference_for_secondary_relief(
+    secondary_relief: str,
+) -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Trustee v. Defendant - 2:26-ap-00123",
+            entries=(
+                (1, "July 1, 2026", "Adversary Complaint"),
+                (
+                    103,
+                    "July 2, 2026",
+                    "Main Doc \xadument Miscellaneous Motion Buy on PACER",
+                ),
+                (
+                    170,
+                    "July 6, 2026",
+                    "Order Denying Motion for Judgment on the Pleadings and "
+                    f"{secondary_relief}. (Re: # 103)",
+                ),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000123/trustee-v-defendant/",
+    )
+
+    normalized = _linkage_entries(
+        page.entries,
+        actual_decision_row_ids={"entry-170"},
+        docket_id="74000123",
+        source_url=page.source_url or "",
+        case_type_stratum="bankruptcy_adversary",
+    )
+
+    assert [entry.entry_number for entry in normalized] == ["170"]
+    assert [entry.document_role for entry in normalized] == [DocumentRole.DECISION]
+
+
+@pytest.mark.parametrize("uncoupled_reference", ("Attachment [103]", "Exhibit [103]"))
+def test_adversary_jop_does_not_promote_uncoupled_bracket_number(
+    uncoupled_reference: str,
+) -> None:
+    page = parse_courtlistener_docket_html(
+        _multi_entry_docket_html(
+            title="Trustee v. Defendant - 2:26-ap-00123",
+            entries=(
+                (1, "July 1, 2026", "Adversary Complaint"),
+                (
+                    103,
+                    "July 2, 2026",
+                    "Main Doc \xadument Miscellaneous Motion Buy on PACER",
+                ),
+                (
+                    170,
+                    "July 6, 2026",
+                    "Order Denying Motion for Judgment on the Pleadings. "
+                    f"{uncoupled_reference}",
+                ),
+            ),
+        ),
+        source_url="https://www.courtlistener.com/docket/74000123/trustee-v-defendant/",
+    )
+
+    normalized = _linkage_entries(
+        page.entries,
+        actual_decision_row_ids={"entry-170"},
+        docket_id="74000123",
+        source_url=page.source_url or "",
+        case_type_stratum="bankruptcy_adversary",
+    )
+
+    assert [entry.entry_number for entry in normalized] == ["170"]
+
+
 def test_target_yield_estimate_extrapolates_needed_screening_depth() -> None:
     estimate = TargetYieldEstimate(
         screened_count=320,
