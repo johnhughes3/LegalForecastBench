@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import re
+import stat
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -53,6 +57,144 @@ class PacketInputPlanningError(ValueError):
 
 
 @dataclass(frozen=True, slots=True)
+class VerifiedRawArtifact:
+    """One manifest-bound raw docket artifact verified before parsing."""
+
+    path: Path
+    text: str
+    sha256: str
+    byte_count: int
+
+
+def load_verified_raw_artifacts(
+    records: Iterable[Mapping[str, Any]],
+    *,
+    raw_html_dir: str | Path,
+) -> Mapping[str, VerifiedRawArtifact]:
+    """Verify and bind canonical raw-artifact rows by namespaced candidate ID."""
+
+    lexical_root = Path(os.path.abspath(os.fspath(Path(raw_html_dir).expanduser())))
+    try:
+        if lexical_root.is_symlink():
+            raise PacketInputPlanningError(
+                f"raw docket HTML root must not be a symlink: {lexical_root}"
+            )
+        resolved_root = lexical_root.resolve(strict=True)
+    except OSError as exc:
+        raise PacketInputPlanningError(
+            f"raw docket HTML root is unavailable: {lexical_root}"
+        ) from exc
+    if not resolved_root.is_dir():
+        raise PacketInputPlanningError(
+            f"raw docket HTML root is not a directory: {lexical_root}"
+        )
+
+    artifacts: dict[str, VerifiedRawArtifact] = {}
+    paths: dict[Path, str] = {}
+    for line_number, record in enumerate(records, start=1):
+        candidate_id = _required_str(record, "candidate_id")
+        if candidate_id in artifacts:
+            raise PacketInputPlanningError(
+                f"duplicate raw-artifact candidate binding: {candidate_id}"
+            )
+        raw_path = _required_str(record, "path")
+        supplied_path = Path(raw_path).expanduser()
+        lexical_path = Path(
+            os.path.abspath(
+                os.fspath(
+                    supplied_path
+                    if supplied_path.is_absolute()
+                    else lexical_root / supplied_path
+                )
+            )
+        )
+        try:
+            relative_path = lexical_path.relative_to(lexical_root)
+        except ValueError as exc:
+            raise PacketInputPlanningError(
+                "raw-artifact path escapes --raw-html-dir on line "
+                f"{line_number}: {lexical_path}"
+            ) from exc
+        if lexical_path in paths:
+            raise PacketInputPlanningError(
+                "duplicate raw-artifact path binding for candidates "
+                f"{paths[lexical_path]} and {candidate_id}: {lexical_path}"
+            )
+
+        current = lexical_root
+        try:
+            for component in relative_path.parts:
+                current /= component
+                mode = current.lstat().st_mode
+                if stat.S_ISLNK(mode):
+                    raise PacketInputPlanningError(
+                        f"raw-artifact path contains a symlink: {lexical_path}"
+                    )
+            if not stat.S_ISREG(lexical_path.lstat().st_mode):
+                raise PacketInputPlanningError(
+                    f"raw-artifact path is not a regular file: {lexical_path}"
+                )
+            resolved_path = lexical_path.resolve(strict=True)
+        except PacketInputPlanningError:
+            raise
+        except OSError as exc:
+            raise PacketInputPlanningError(
+                f"raw-artifact path is unavailable: {lexical_path}"
+            ) from exc
+        if not resolved_path.is_relative_to(resolved_root):
+            raise PacketInputPlanningError(
+                f"raw-artifact resolved path escapes --raw-html-dir: {lexical_path}"
+            )
+
+        expected_byte_count = record.get("byte_count")
+        if (
+            not isinstance(expected_byte_count, int)
+            or isinstance(expected_byte_count, bool)
+            or expected_byte_count < 0
+        ):
+            raise PacketInputPlanningError(
+                f"raw-artifact byte_count is invalid on line {line_number}"
+            )
+        expected_sha256 = record.get("sha256")
+        if (
+            not isinstance(expected_sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", expected_sha256) is None
+        ):
+            raise PacketInputPlanningError(
+                f"raw-artifact sha256 is invalid on line {line_number}"
+            )
+        try:
+            payload = lexical_path.read_bytes()
+        except OSError as exc:
+            raise PacketInputPlanningError(
+                f"raw-artifact path is unreadable: {lexical_path}"
+            ) from exc
+        if len(payload) != expected_byte_count:
+            raise PacketInputPlanningError(
+                f"raw-artifact byte_count mismatch: {lexical_path}"
+            )
+        actual_sha256 = hashlib.sha256(payload).hexdigest()
+        if actual_sha256 != expected_sha256:
+            raise PacketInputPlanningError(
+                f"raw-artifact sha256 mismatch: {lexical_path}"
+            )
+        try:
+            text = payload.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise PacketInputPlanningError(
+                f"raw-artifact is not UTF-8: {lexical_path}"
+            ) from exc
+        artifacts[candidate_id] = VerifiedRawArtifact(
+            path=lexical_path,
+            text=text,
+            sha256=actual_sha256,
+            byte_count=len(payload),
+        )
+        paths[lexical_path] = candidate_id
+    return artifacts
+
+
+@dataclass(frozen=True, slots=True)
 class PacketInputPlan:
     """Artifacts needed by build-packets and private-store export."""
 
@@ -74,6 +216,7 @@ def plan_packet_build_inputs(
     parser_records: Iterable[Mapping[str, Any]],
     prediction_unit_records: Iterable[Mapping[str, Any]],
     raw_html_dir: str | Path,
+    raw_artifact_records: Iterable[Mapping[str, Any]] | None = None,
     document_root: str | Path,
     markdown_root: str | Path,
     source_dir: str | Path,
@@ -89,6 +232,14 @@ def plan_packet_build_inputs(
         raise PacketInputPlanningError("generated_at must be timezone-aware")
 
     raw_html_root = Path(raw_html_dir)
+    verified_raw_artifacts = (
+        load_verified_raw_artifacts(
+            raw_artifact_records,
+            raw_html_dir=raw_html_root,
+        )
+        if raw_artifact_records is not None
+        else None
+    )
     source_root = Path(source_dir).resolve()
     document_root_path = Path(document_root).resolve()
     markdown_root_path = Path(markdown_root).resolve()
@@ -122,6 +273,7 @@ def plan_packet_build_inputs(
             parser_records=parser_by_key,
             prediction_units=prediction_units,
             raw_html_root=raw_html_root,
+            verified_raw_artifacts=verified_raw_artifacts,
             document_root=document_root_path,
             markdown_root=markdown_root_path,
             source_root=source_root,
@@ -168,6 +320,7 @@ def _plan_candidate(
     parser_records: Mapping[tuple[str, str], Mapping[str, Any]],
     prediction_units: Mapping[str, tuple[dict[str, Any], ...]],
     raw_html_root: Path,
+    verified_raw_artifacts: Mapping[str, VerifiedRawArtifact] | None,
     document_root: Path,
     markdown_root: Path,
     source_root: Path,
@@ -182,11 +335,21 @@ def _plan_candidate(
         raise PacketInputPlanningError(
             f"prediction units missing for candidate: {candidate_id}"
         )
-    html_path = raw_html_root / f"{candidate_id}.html"
-    if not html_path.is_file():
-        raise PacketInputPlanningError(f"raw docket HTML missing: {html_path}")
+    if verified_raw_artifacts is None:
+        html_path = raw_html_root / f"{candidate_id}.html"
+        if not html_path.is_file():
+            raise PacketInputPlanningError(f"raw docket HTML missing: {html_path}")
+        html_text = html_path.read_text(encoding="utf-8")
+    else:
+        try:
+            artifact = verified_raw_artifacts[candidate_id]
+        except KeyError as exc:
+            raise PacketInputPlanningError(
+                f"raw-artifacts manifest missing candidate binding: {candidate_id}"
+            ) from exc
+        html_text = artifact.text
     page = parse_courtlistener_docket_html(
-        html_path.read_text(encoding="utf-8"),
+        html_text,
         source_url=_optional_str(selection, "source_url"),
         docket_id=candidate_id,
     )

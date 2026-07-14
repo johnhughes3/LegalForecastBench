@@ -242,6 +242,8 @@ from legalforecast.ingestion.mtd_acquisition_screen import (
 from legalforecast.ingestion.packet_input_planner import (
     PacketInputPlan,
     PacketInputPlanningError,
+    VerifiedRawArtifact,
+    load_verified_raw_artifacts,
     plan_packet_build_inputs,
 )
 from legalforecast.ingestion.provenance import (
@@ -487,6 +489,7 @@ __all__ = [
     "TermProgress",
     "TermTerminalStatus",
     "UrlLibFreeDocumentSource",
+    "VerifiedRawArtifact",
     "acquire_case_dev_firecrawl_html",
     "assemble_model_packet",
     "bridge_courtlistener_case_dev_documents",
@@ -511,6 +514,7 @@ __all__ = [
     "generate_case_dev_purchase_policy",
     "iter_setup_runner_document_records",
     "load_docket_live_fetch_plan",
+    "load_verified_raw_artifacts",
     "materialize_independent_term_sets",
     "merge_download_manifest_records",
     "normalize_setup_runner_label",

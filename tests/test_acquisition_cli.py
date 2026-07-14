@@ -1650,9 +1650,20 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     output_root = tmp_path / "acquisition"
     raw_html_dir = tmp_path / "raw_html"
     raw_html_dir.mkdir()
-    (raw_html_dir / "cand-1.html").write_text(
-        _packet_input_docket_html(),
-        encoding="utf-8",
+    raw_html = _packet_input_docket_html().encode()
+    raw_html_path = raw_html_dir / "70649963.html"
+    raw_html_path.write_bytes(raw_html)
+    raw_artifacts_path = tmp_path / "raw-artifacts.jsonl"
+    _write_jsonl(
+        raw_artifacts_path,
+        [
+            {
+                "candidate_id": "cand-1",
+                "path": str(raw_html_path),
+                "byte_count": len(raw_html),
+                "sha256": hashlib.sha256(raw_html).hexdigest(),
+            }
+        ],
     )
     selection_path = tmp_path / "selection.jsonl"
     downloads_path = tmp_path / "downloads.jsonl"
@@ -1716,6 +1727,8 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
                 str(registry_path),
                 "--raw-html-dir",
                 str(raw_html_dir),
+                "--raw-artifacts-manifest",
+                str(raw_artifacts_path),
                 "--output-root",
                 str(output_root),
                 "--generated-at",
@@ -1746,6 +1759,19 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     assert candidate_manifest["nos_macro_category"] == "civil_rights"
     assert candidate_manifest["related_family_id"] == "related-fixture"
     assert candidate_manifest["mdl_family_id"] == "mdl-fixture"
+    run_card = _read_json(output_root / "run-cards" / "plan-packet-inputs.json")
+    assert run_card["raw_artifacts_manifest_path"] == str(raw_artifacts_path.resolve())
+    assert (
+        run_card["raw_artifacts_manifest_sha256"]
+        == hashlib.sha256(raw_artifacts_path.read_bytes()).hexdigest()
+    )
+    assert run_card["model_registry_path"] == str(registry_path.resolve())
+    assert (
+        run_card["model_registry_sha256"]
+        == hashlib.sha256(registry_path.read_bytes()).hexdigest()
+    )
+    assert str(raw_artifacts_path) in run_card["input_paths"]
+    assert str(registry_path) in run_card["input_paths"]
 
     assert (
         main(
@@ -1770,6 +1796,38 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     assert packet["mdl_family_id"] == "mdl-fixture"
     assert "cand-1-decision" in packet["excluded_document_ids"]
     assert packet["prediction_units"][0]["unit_id"] == "count-i-issuer"
+
+    mismatched_raw_artifact = _read_jsonl(raw_artifacts_path)[0]
+    mismatched_raw_artifact["candidate_id"] = "different-candidate"
+    _write_jsonl(raw_artifacts_path, [mismatched_raw_artifact])
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-packet-inputs",
+                "--selection",
+                str(selection_path),
+                "--download-manifest",
+                str(downloads_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--prediction-units",
+                str(units_path),
+                "--model-registry",
+                str(registry_path),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--raw-artifacts-manifest",
+                str(raw_artifacts_path),
+                "--output-root",
+                str(output_root),
+                "--generated-at",
+                _GENERATED_AT,
+                "--execute",
+            ]
+        )
+        == 2
+    )
 
 
 def test_plan_packet_inputs_requires_model_registry(
