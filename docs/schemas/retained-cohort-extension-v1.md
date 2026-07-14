@@ -2,8 +2,9 @@
 
 `acquisition extend-target-cohort` is the noncharging bridge from an executed exact 100-case `project-target-cohort` root to an exact combined 150-case cohort.
 
-The command requires the complete base projection root, the full resolved selection and case-relevance records, the full acquired-document manifest and authenticated clearance rows, the frozen target-150 cohort policy, the exact snapshot manifest, and the canonical purchase-policy artifact plus its bound SQLite journal.
-It rejects symlink inputs, overlapping input/output roots, changed base output commitments, changed snapshot lineage, duplicate candidate/docket/motion identities, incomplete clearance coverage, restricted material, truncated or insufficient omitted frontiers, and any cumulative obligation above the immutable cap.
+The command requires the complete base projection root; an immutable completed preparation root; its self-hashed config and summary; the provider-free `materialize-target-cohort-frontier` artifact and completed run card; the completed disclosure-clearance run card, exact reviews, and controlled-store receipt; the frozen target-150 cohort policy and exact snapshot manifest; and the canonical purchase-policy artifact plus its bound SQLite journal.
+It resolves selection, case relevance, merged downloads, restriction evidence, and clearance output only through those authenticated roots and run-card commitments; the CLI no longer accepts four loose pool-file overrides.
+It rejects symlink inputs, overlapping input/output roots, changed base output commitments, changed snapshot or preparation lineage, a substituted or truncated frontier, a changed review receipt, duplicate candidate/docket/motion identities, incomplete clearance coverage, restricted material, insufficient omitted frontiers, and any cumulative obligation above the immutable cap.
 
 The base selection is retained in its original order.
 For each selected-candidate JSONL artifact, including the original free and purchased manifest partitions, the combined artifact begins with the exact original base bytes and appends only the selected incremental rows.
@@ -16,8 +17,9 @@ These categories are derived from the verified canonical journal rather than sup
 The artifact binds both the purchase-policy identity and the journal state hash.
 The standard combined `missing-core-budget-plan.json` preserves the first 100 case plans and appends the 50 incremental plans while recomputing frontier, omission, and intrinsic-exclusion metadata over the combined 150.
 
-`retained-cohort-extension.json` binds every base and full-pool input hash, cohort-policy hash, snapshot lineage value, selected-ID sequence, budget hash, output hash, and base-prefix byte count/hash.
+`retained-cohort-extension.json` binds every base and full-pool input hash; preparation config/summary and snapshot hashes; full-frontier bytes and policy identity; frontier-materialization, clearance, review, and receipt hashes; cohort-policy and purchase-journal state; selected-ID sequence; budget and output hashes; and each preserved base-prefix byte count/hash.
 An identical `--resume` invocation validates the completed run card first, verifies all committed output bytes, and then returns without reconstructing or rewriting artifacts or appending another completion event.
 Custom run-card and log paths are part of output-scope validation and cannot alias any input, cohort artifact, or each other.
 
 The command has no provider client, purchase flag, fee-acknowledgment flag, or live mode.
+The legacy target-100 preparation root is upgraded by the separate provider-free materializer without rerunning CourtListener, Case.dev, or Firecrawl; extension tests fail if any provider client is constructed.

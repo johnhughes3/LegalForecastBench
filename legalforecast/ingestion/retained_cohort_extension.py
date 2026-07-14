@@ -119,6 +119,39 @@ class PurchaseObligationSnapshot:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class AuthenticatedPoolLineage:
+    """Verified preparation, frontier, and clearance identities for the pool."""
+
+    preparation_summary_sha256: str
+    preparation_config_sha256: str
+    snapshot_manifest_sha256: str
+    full_candidate_frontier_sha256: str
+    frontier_policy_sha256: str
+    frontier_run_card_sha256: str
+    clearance_run_card_sha256: str
+    clearance_reviews_sha256: str
+    clearance_review_receipt_sha256: str
+    restriction_evidence_sha256: str
+
+    def source_record(self) -> JsonRecord:
+        record = {
+            "preparation_summary_sha256": self.preparation_summary_sha256,
+            "preparation_config_sha256": self.preparation_config_sha256,
+            "snapshot_manifest_sha256": self.snapshot_manifest_sha256,
+            "full_candidate_frontier_sha256": self.full_candidate_frontier_sha256,
+            "frontier_policy_sha256": self.frontier_policy_sha256,
+            "frontier_run_card_sha256": self.frontier_run_card_sha256,
+            "clearance_run_card_sha256": self.clearance_run_card_sha256,
+            "clearance_reviews_sha256": self.clearance_reviews_sha256,
+            "clearance_review_receipt_sha256": (self.clearance_review_receipt_sha256),
+            "restriction_evidence_sha256": self.restriction_evidence_sha256,
+        }
+        for name, digest in record.items():
+            _sha(digest, name)
+        return record
+
+
 def purchase_obligation_snapshot(
     *,
     policy: CaseDevPurchasePolicy,
@@ -219,6 +252,7 @@ def extend_target_cohort(
     max_projected_budget_usd: str,
     max_missing_core_documents_per_case: int,
     purchase_obligations: PurchaseObligationSnapshot,
+    authenticated_lineage: AuthenticatedPoolLineage,
 ) -> RetainedCohortExtension:
     """Retain an exact target-100 prefix and select 50 omitted candidates.
 
@@ -261,6 +295,34 @@ def extend_target_cohort(
     ):
         raise RetainedCohortExtensionError(
             "base projection snapshot lineage differs from the extension inputs"
+        )
+    authenticated_sources = authenticated_lineage.source_record()
+    for summary_field, lineage_field in (
+        ("preparation_summary_sha256", "preparation_summary_sha256"),
+        ("preparation_config_sha256", "preparation_config_sha256"),
+        ("snapshot_manifest_sha256", "snapshot_manifest_sha256"),
+        ("clearance_run_card_sha256", "clearance_run_card_sha256"),
+    ):
+        if base_summary.get(summary_field) != authenticated_sources[lineage_field]:
+            raise RetainedCohortExtensionError(
+                f"base projection {summary_field} differs from authenticated lineage"
+            )
+    raw_base_inputs = base_summary.get("input_commitments")
+    if not isinstance(raw_base_inputs, Mapping):
+        raise RetainedCohortExtensionError(
+            "base projection lacks authenticated input commitments"
+        )
+    base_input_hashes = set(cast(Mapping[object, object], raw_base_inputs).values())
+    required_base_hashes = {
+        authenticated_sources["preparation_summary_sha256"],
+        authenticated_sources["preparation_config_sha256"],
+        authenticated_sources["snapshot_manifest_sha256"],
+        authenticated_sources["clearance_run_card_sha256"],
+        authenticated_sources["restriction_evidence_sha256"],
+    }
+    if not required_base_hashes.issubset(base_input_hashes):
+        raise RetainedCohortExtensionError(
+            "base projection input commitments differ from authenticated lineage"
         )
     full = {
         name: _jsonl_records(payload, source=f"full pool {name}")
@@ -433,6 +495,7 @@ def extend_target_cohort(
             purchase_obligations.purchase_journal_state_sha256
         ),
         "canonical_purchase_ledger_path": (purchase_obligations.canonical_ledger_path),
+        "authenticated_pool_lineage": authenticated_lineage.source_record(),
     }
     extension_record: JsonRecord = {
         "schema_version": SCHEMA_VERSION,

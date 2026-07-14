@@ -23,6 +23,7 @@ from legalforecast.ingestion.missing_core_budget import (
     MissingCoreBudgetPlan,
 )
 from legalforecast.ingestion.retained_cohort_extension import (
+    AuthenticatedPoolLineage,
     PurchaseObligationSnapshot,
     RetainedCohortExtensionError,
     extend_target_cohort,
@@ -306,7 +307,20 @@ def test_extension_api_has_no_operator_obligation_defaults() -> None:
 
 def test_extend_target_cohort_cli_is_noncharging_and_resume_safe(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    def provider_construction_forbidden(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise AssertionError("extension must not construct a provider client")
+
+    for name in (
+        "CaseDevClient",
+        "CourtListenerClient",
+        "FirecrawlCourtListenerHTMLSource",
+    ):
+        monkeypatch.setattr(
+            f"legalforecast.cli.{name}", provider_construction_forbidden
+        )
     argv, _, custom_run_card, custom_log = _cli_fixture(tmp_path)
     output_root = tmp_path / "extension"
 
@@ -362,18 +376,56 @@ def test_cli_rejects_metadata_aliases_and_dry_run_overwrite(tmp_path: Path) -> N
     assert cohort_policy.read_bytes() == policy_before
 
 
+def test_cli_rejects_self_consistent_substituted_frontier(tmp_path: Path) -> None:
+    argv, _, _, _ = _cli_fixture(tmp_path)
+    frontier = Path(argv[argv.index("--full-candidate-frontier") + 1])
+    frontier_card = Path(argv[argv.index("--frontier-run-card") + 1])
+    artifact = json.loads(frontier.read_text())
+    artifact["policy"]["source_commitments"]["case_relevance_sha256"] = (
+        "sha256:" + "f" * 64
+    )
+    artifact["policy_sha256"] = _canonical_sha(artifact["policy"])
+    frontier.write_text(json.dumps(artifact, sort_keys=True) + "\n", encoding="utf-8")
+    card = json.loads(frontier_card.read_text())
+    card["frontier_sha256"] = _sha(frontier.read_bytes())
+    frontier_card.write_text(json.dumps(card, sort_keys=True) + "\n", encoding="utf-8")
+
+    assert main(argv) == 2
+
+
+def test_cli_rejects_changed_authenticated_review_receipt(tmp_path: Path) -> None:
+    argv, _, _, _ = _cli_fixture(tmp_path)
+    receipt = Path(argv[argv.index("--review-receipt") + 1])
+    record = json.loads(receipt.read_text())
+    record["authenticated_reviewer_id"] = "reviewer:substitute"
+    receipt.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    assert main(argv) == 2
+
+
 def _cli_fixture(tmp_path: Path) -> tuple[list[str], Path, Path, Path]:
     inputs = _inputs()
     base_root = tmp_path / "base"
-    full_root = tmp_path / "full"
+    full_root = tmp_path / "preparation"
     output_root = tmp_path / "extension"
     base_root.mkdir()
     full_root.mkdir()
     for name, payload in inputs["base_projection_artifacts"].items():
         (base_root / name).write_bytes(payload)
     full_paths: dict[str, Path] = {}
+    canonical_full_paths = {
+        "selection.jsonl": (
+            full_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+        ),
+        "case-relevance.jsonl": full_root / "03-gap-bridge/case-relevance.jsonl",
+        "document-downloads-merged.jsonl": (
+            full_root / "03c-merged-downloads/document-downloads-merged.jsonl"
+        ),
+        "disclosure-clearance.jsonl": tmp_path / "clearance/disclosure-clearance.jsonl",
+    }
     for name, payload in inputs["full_pool_artifacts"].items():
-        path = full_root / name
+        path = canonical_full_paths[name]
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(payload)
         full_paths[name] = path
     cohort_policy = tmp_path / "cohort-policy.json"
@@ -407,9 +459,243 @@ def _cli_fixture(tmp_path: Path) -> tuple[list[str], Path, Path, Path]:
         policy=verify_case_dev_purchase_policy(purchase_policy_artifact),
     ):
         pass
+    restriction_path = full_root / "06-clearance-inputs/restriction-evidence.jsonl"
+    restriction_path.parent.mkdir(parents=True, exist_ok=True)
+    restriction_path.write_bytes(
+        _jsonl_bytes(
+            {
+                "candidate_id": row["candidate_id"],
+                "source_document_id": f"{row['candidate_id']}-complaint",
+                "restriction_status": "public",
+                "restriction_evidence": [
+                    "courtlistener_public_download_record_checked"
+                ],
+            }
+            for row in _jsonl(inputs["full_pool_artifacts"]["selection.jsonl"])
+        )
+    )
+    reviews = tmp_path / "clearance/reviews.jsonl"
+    reviews.write_bytes(b'{"review":"all-clear"}\n')
+    receipt_record = {
+        "schema_version": "legalforecast.disclosure_review_receipt.v1",
+        "review_artifact_sha256": hashlib.sha256(reviews.read_bytes()).hexdigest(),
+        "authenticated_reviewer_id": "reviewer:john",
+        "controlled_store_uri": "private-store://cycle-1/reviews",
+        "authentication_method": "cloudflare_access_oidc",
+        "authenticated_at": "2026-07-14T14:00:00Z",
+    }
+    review_receipt = tmp_path / "clearance/review-receipt.json"
+    review_receipt.write_text(json.dumps(receipt_record) + "\n", encoding="utf-8")
+    clearance_run_card = tmp_path / "clearance/run-card.json"
+    clearance_card_record = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": "clear-disclosures",
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "source_commitments": {
+            "download_manifest": _path_commitment(
+                full_paths["document-downloads-merged.jsonl"]
+            ),
+            "restriction_evidence": _path_commitment(restriction_path),
+            "reviews": _path_commitment(reviews),
+            "review_receipt": _path_commitment(review_receipt),
+        },
+        "output_commitments": {
+            "disclosure_clearance": _path_commitment(
+                full_paths["disclosure-clearance.jsonl"]
+            )
+        },
+        "review_authority": {
+            "reviewer_id": "reviewer:john",
+            "controlled_store_uri": "private-store://cycle-1/reviews",
+            "authentication_method": "cloudflare_access_oidc",
+            "authenticated_at": "2026-07-14T14:00:00Z",
+            "review_artifact_sha256": _sha(reviews.read_bytes()),
+        },
+    }
+    clearance_run_card.write_text(
+        json.dumps(clearance_card_record, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    preparation_config = full_root / "target-100-config.json"
+    config_record: dict[str, Any] = {
+        "schema_version": "legalforecast.target_100_config.v1",
+        "driver_execute": True,
+        "target_case_count": 100,
+        "cost_per_document_usd": "3.05",
+        "max_projected_budget_usd": "2250.00",
+        "max_missing_core_documents_per_case": 24,
+        "snapshot_manifest_sha256": _sha(snapshot.read_bytes()),
+        "snapshot_cycle_hash": inputs["snapshot_cycle_hash"],
+        "snapshot_batch_digest": inputs["snapshot_batch_digest"],
+    }
+    config_record["config_sha256"] = _canonical_sha(
+        {key: value for key, value in config_record.items() if key != "config_sha256"}
+    )
+    preparation_config.write_text(
+        json.dumps(config_record, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    preparation_summary = full_root / "target-100-preparation-summary.json"
+    summary_record = {
+        "schema_version": "legalforecast.target_100_preparation.v1",
+        "dry_run": False,
+        "paid_activity_executed": False,
+        "budget_status": "provisional_pre_clearance",
+        "next_stage": "clear-disclosures",
+        "config_sha256": config_record["config_sha256"],
+        "target_case_count": 100,
+        "cost_per_document_usd": "3.05",
+        "max_projected_budget_usd": "2250.00",
+        "max_missing_core_documents_per_case": 24,
+        "snapshot_manifest_sha256": _sha(snapshot.read_bytes()),
+        "snapshot_batch_digest": inputs["snapshot_batch_digest"],
+        "stage_commitments": {
+            "03-gap-bridge": {
+                "public-packet-selection-reconciled.jsonl": _sha(
+                    full_paths["selection.jsonl"].read_bytes()
+                ),
+                "case-relevance.jsonl": _sha(
+                    full_paths["case-relevance.jsonl"].read_bytes()
+                ),
+            },
+            "03c-merged-downloads": {
+                "document-downloads-merged.jsonl": _sha(
+                    full_paths["document-downloads-merged.jsonl"].read_bytes()
+                )
+            },
+            "06-clearance-inputs": {
+                "restriction-evidence.jsonl": _sha(restriction_path.read_bytes())
+            },
+        },
+    }
+    preparation_summary.write_text(
+        json.dumps(summary_record, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    preparation_success_card = full_root / "run-cards/prepare-target-100.json"
+    preparation_success_card.parent.mkdir(parents=True, exist_ok=True)
+    preparation_success_card.write_text(
+        json.dumps({"stage": "prepare-target-100", "status": "completed"}) + "\n",
+        encoding="utf-8",
+    )
+    frontier = tmp_path / "frontier/full-candidate-frontier.json"
+    frontier.parent.mkdir(parents=True, exist_ok=True)
+    frontier_commitments = {
+        "snapshot_manifest_sha256": _sha(snapshot.read_bytes()),
+        "preparation_config_sha256": _sha(preparation_config.read_bytes()),
+        "preparation_summary_sha256": _sha(preparation_summary.read_bytes()),
+        "preparation_success_run_card_sha256": _sha(
+            preparation_success_card.read_bytes()
+        ),
+        "reconciled_selection_sha256": _sha(full_paths["selection.jsonl"].read_bytes()),
+        "case_relevance_sha256": _sha(full_paths["case-relevance.jsonl"].read_bytes()),
+        "download_manifest_sha256": _sha(
+            full_paths["document-downloads-merged.jsonl"].read_bytes()
+        ),
+        "core_filter_results_sha256": "sha256:" + "1" * 64,
+        "provisional_budget_plan_sha256": "sha256:" + "2" * 64,
+        "restriction_evidence_sha256": _sha(restriction_path.read_bytes()),
+        "disclosure_review_requests_sha256": "sha256:" + "3" * 64,
+    }
+    candidates: list[dict[str, Any]] = [
+        {
+            "candidate_id": _candidate_id(index),
+            "rank": index + 1,
+            "selection_status": "selected" if index < 100 else "eligible_omitted",
+            "exclusion_reasons": [],
+        }
+        for index in range(151)
+    ]
+    frontier_policy: dict[str, Any] = {
+        "target_case_count": 100,
+        "candidate_count": 151,
+        "selected_candidate_count": 100,
+        "frontier_truncated": False,
+        "source_commitments": frontier_commitments,
+        "clearance_contract": {
+            "run_card_schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "clear-disclosures",
+            "required_status": "completed",
+            "required_dry_run": False,
+            "required_execute": True,
+            "required_paid_activity_executed": False,
+            "download_manifest_sha256": frontier_commitments[
+                "download_manifest_sha256"
+            ],
+            "restriction_evidence_sha256": frontier_commitments[
+                "restriction_evidence_sha256"
+            ],
+            "required_source_commitments": [
+                "download_manifest",
+                "restriction_evidence",
+                "reviews",
+                "review_receipt",
+            ],
+            "required_output_commitments": ["disclosure_clearance"],
+            "required_review_authority_fields": [
+                "reviewer_id",
+                "controlled_store_uri",
+                "authentication_method",
+                "authenticated_at",
+                "review_artifact_sha256",
+            ],
+            "orphan_clearance_rows_allowed": False,
+        },
+        "candidates": candidates,
+    }
+    frontier.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.target_cohort_candidate_frontier.v1",
+                "policy": frontier_policy,
+                "policy_sha256": _canonical_sha(frontier_policy),
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    frontier_run_card = tmp_path / "frontier/run-card.json"
+    frontier_run_card.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.acquisition_run_card.v1",
+                "stage": "materialize-target-cohort-frontier",
+                "status": "completed",
+                "dry_run": False,
+                "execute": True,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+                "zero_provider_activity_evidence": True,
+                "frontier_sha256": _sha(frontier.read_bytes()),
+                "input_paths": [
+                    str(full_root),
+                    str(preparation_summary),
+                    str(preparation_config),
+                    str(snapshot),
+                    str(preparation_success_card),
+                ],
+                "output_paths": [str(frontier)],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     base_summary_path = base_root / "target-cohort-projection.json"
     base_summary = json.loads(base_summary_path.read_text())
     base_summary["snapshot_manifest_sha256"] = _sha(snapshot.read_bytes())
+    base_summary["preparation_summary_sha256"] = _sha(preparation_summary.read_bytes())
+    base_summary["preparation_config_sha256"] = _sha(preparation_config.read_bytes())
+    base_summary["clearance_run_card_sha256"] = _sha(clearance_run_card.read_bytes())
+    base_summary["input_commitments"] = {
+        str(preparation_summary.resolve()): _sha(preparation_summary.read_bytes()),
+        str(preparation_config.resolve()): _sha(preparation_config.read_bytes()),
+        str(snapshot.resolve()): _sha(snapshot.read_bytes()),
+        str(clearance_run_card.resolve()): _sha(clearance_run_card.read_bytes()),
+        str(restriction_path.resolve()): _sha(restriction_path.read_bytes()),
+    }
     base_summary_path.write_text(
         json.dumps(base_summary, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -428,14 +714,22 @@ def _cli_fixture(tmp_path: Path) -> tuple[list[str], Path, Path, Path]:
         str(custom_log),
         "--base-cohort-root",
         str(base_root),
-        "--selection",
-        str(full_paths["selection.jsonl"]),
-        "--case-relevance",
-        str(full_paths["case-relevance.jsonl"]),
-        "--download-manifest",
-        str(full_paths["document-downloads-merged.jsonl"]),
-        "--disclosure-clearance",
-        str(full_paths["disclosure-clearance.jsonl"]),
+        "--preparation-root",
+        str(full_root),
+        "--preparation-summary",
+        str(preparation_summary),
+        "--preparation-config",
+        str(preparation_config),
+        "--full-candidate-frontier",
+        str(frontier),
+        "--frontier-run-card",
+        str(frontier_run_card),
+        "--clearance-run-card",
+        str(clearance_run_card),
+        "--reviews",
+        str(reviews),
+        "--review-receipt",
+        str(review_receipt),
         "--cohort-policy",
         str(cohort_policy),
         "--snapshot-manifest",
@@ -494,6 +788,7 @@ def _inputs(
         "max_projected_budget_usd": max_projected_budget_usd,
         "max_missing_core_documents_per_case": (max_missing_core_documents_per_case),
         "purchase_obligations": _obligations(),
+        "authenticated_lineage": _lineage(),
     }
 
 
@@ -528,6 +823,22 @@ def _base_artifacts(projection: Any) -> dict[str, bytes]:
             "snapshot_manifest_sha256": "sha256:" + "b" * 64,
             "snapshot_cycle_hash": "c" * 64,
             "snapshot_batch_digest": "d" * 64,
+            "preparation_summary_sha256": _lineage().preparation_summary_sha256,
+            "preparation_config_sha256": _lineage().preparation_config_sha256,
+            "clearance_run_card_sha256": _lineage().clearance_run_card_sha256,
+            "input_commitments": {
+                "/fixture/preparation-summary.json": (
+                    _lineage().preparation_summary_sha256
+                ),
+                "/fixture/preparation-config.json": (
+                    _lineage().preparation_config_sha256
+                ),
+                "/fixture/snapshot.json": _lineage().snapshot_manifest_sha256,
+                "/fixture/clearance-run-card.json": (
+                    _lineage().clearance_run_card_sha256
+                ),
+                "/fixture/restrictions.jsonl": (_lineage().restriction_evidence_sha256),
+            },
         }
     )
     summary["output_commitments"] = {
@@ -626,6 +937,21 @@ def _obligations(
         reserved_obligation=Decimal(reserved),
         unknown_obligation=Decimal(unknown),
         write_off_obligation=Decimal(write_off),
+    )
+
+
+def _lineage() -> AuthenticatedPoolLineage:
+    return AuthenticatedPoolLineage(
+        preparation_summary_sha256="sha256:" + "3" * 64,
+        preparation_config_sha256="sha256:" + "4" * 64,
+        snapshot_manifest_sha256="sha256:" + "b" * 64,
+        full_candidate_frontier_sha256="sha256:" + "5" * 64,
+        frontier_policy_sha256="sha256:" + "6" * 64,
+        frontier_run_card_sha256="sha256:" + "7" * 64,
+        clearance_run_card_sha256="sha256:" + "8" * 64,
+        clearance_reviews_sha256="sha256:" + "9" * 64,
+        clearance_review_receipt_sha256="sha256:" + "a" * 64,
+        restriction_evidence_sha256="sha256:" + "e" * 64,
     )
 
 
@@ -799,3 +1125,14 @@ def _json_bytes(record: dict[str, Any]) -> bytes:
 
 def _sha(payload: bytes) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _canonical_sha(value: Any) -> str:
+    payload = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode()
+    return _sha(payload)
+
+
+def _path_commitment(path: Path) -> dict[str, str]:
+    return {"path": str(path.resolve()), "sha256": _sha(path.read_bytes())}
