@@ -3708,7 +3708,19 @@ def _add_acquisition_plan_packet_inputs_arguments(
         "--raw-html-dir",
         type=Path,
         required=True,
-        help="Directory containing saved CourtListener docket HTML by candidate ID.",
+        help=(
+            "Containment root for saved CourtListener docket HTML. Without "
+            "--raw-artifacts-manifest, files must use <candidate_id>.html."
+        ),
+    )
+    parser.add_argument(
+        "--raw-artifacts-manifest",
+        type=Path,
+        help=(
+            "Canonical raw-artifacts.jsonl binding namespaced candidate IDs to "
+            "verified docket HTML paths. When omitted, the legacy "
+            "<candidate_id>.html fixture layout is used."
+        ),
     )
     parser.add_argument(
         "--document-root",
@@ -13189,7 +13201,9 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
     download_manifest_path = cast(Path, args.download_manifest)
     parser_manifest_path = cast(Path, args.parser_manifest)
     prediction_units_path = cast(Path, args.prediction_units)
+    model_registry_path = cast(Path, args.model_registry)
     raw_html_dir = cast(Path, args.raw_html_dir)
+    raw_artifacts_manifest_path = cast(Path | None, args.raw_artifacts_manifest)
     document_root = cast(Path | None, args.document_root) or (
         output_root / "documents" / "free"
     )
@@ -13238,7 +13252,6 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             if cast(str | None, args.generated_at)
             else datetime.now(UTC)
         )
-        model_registry_path = cast(Path, args.model_registry)
         registry = load_model_registry(model_registry_path)
         official_entries = require_official_registry_entries(registry.entries)
         decision_filed_on_or_after = earliest_eligible_decision_date(official_entries)
@@ -13248,6 +13261,11 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             parser_records=_read_records(parser_manifest_path),
             prediction_unit_records=_read_records(prediction_units_path),
             raw_html_dir=raw_html_dir,
+            raw_artifact_records=(
+                _read_records(raw_artifacts_manifest_path)
+                if raw_artifacts_manifest_path is not None
+                else None
+            ),
             document_root=document_root,
             markdown_root=markdown_root,
             source_dir=output_root,
@@ -13269,6 +13287,12 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             download_manifest_path,
             parser_manifest_path,
             prediction_units_path,
+            model_registry_path,
+            *(
+                (raw_artifacts_manifest_path,)
+                if raw_artifacts_manifest_path is not None
+                else ()
+            ),
             raw_html_dir,
         ),
         output_paths=(
@@ -13282,6 +13306,22 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
+        extra={
+            "model_registry_path": str(model_registry_path.resolve()),
+            "model_registry_sha256": sha256_file(model_registry_path),
+            **(
+                {
+                    "raw_artifacts_manifest_path": str(
+                        raw_artifacts_manifest_path.resolve()
+                    ),
+                    "raw_artifacts_manifest_sha256": sha256_file(
+                        raw_artifacts_manifest_path
+                    ),
+                }
+                if raw_artifacts_manifest_path is not None
+                else {}
+            ),
+        },
     )
     return 0
 
