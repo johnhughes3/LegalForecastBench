@@ -520,15 +520,15 @@ _RELATED_DOCUMENT_REFERENCE_RE = re.compile(
 _BRACKET_REFERENCE_RE = re.compile(r"\[(?P<number>\d+)\]")
 _COURTLISTENER_RELATIONSHIP_REFERENCE_RES = (
     re.compile(
-        r"\brelated\s+document(?:\(s\)|s)\s*:?[ \t]*"
+        r"\([ \t]*related\s+document(?:\(s\)|s)\s*:?[ \t]*"
         r"(?P<numbers>[1-9][0-9]*(?:[ \t]*(?:,|and)[ \t]*#?[ \t]*"
-        r"[1-9][0-9]*)*)(?=[ \t]*\))",
+        r"[1-9][0-9]*)*)[ \t]*\)",
         re.IGNORECASE,
     ),
     re.compile(
-        r"\bre[ \t]*:[ \t]*#[ \t]*"
+        r"\([ \t]*re[ \t]*:[ \t]*#[ \t]*"
         r"(?P<numbers>[1-9][0-9]*(?:[ \t]*(?:,|and)[ \t]*#?[ \t]*"
-        r"[1-9][0-9]*)*)(?=[ \t]*\))",
+        r"[1-9][0-9]*)*)[ \t]*\)",
         re.IGNORECASE,
     ),
 )

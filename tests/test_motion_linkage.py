@@ -223,6 +223,11 @@ def test_courtlistener_relationship_parser_is_narrow_and_syntactically_coupled()
     assert courtlistener_relationship_entry_numbers("Attachment [103]") == set()
     assert courtlistener_relationship_entry_numbers("Exhibit [103]") == set()
     assert courtlistener_relationship_entry_numbers("Docket 103") == set()
+    assert courtlistener_relationship_entry_numbers("Order Re: #103") == set()
+    assert (
+        courtlistener_relationship_entry_numbers("Order related document(s)103")
+        == set()
+    )
     assert courtlistener_relationship_entry_numbers("Order (Re: #103-104)") == set()
     assert courtlistener_relationship_entry_numbers("Order (Re: #103/104)") == set()
     assert (

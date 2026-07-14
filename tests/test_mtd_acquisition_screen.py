@@ -1562,7 +1562,7 @@ def test_adversary_linkage_recovers_higgins_comma_form_from_exact_reference() ->
     ]
 
 
-def test_adversary_jop_links_osborne_sole_exact_generic_motion_reference() -> None:
+def test_adversary_jop_does_not_promote_osborne_generic_motion_reference() -> None:
     page = parse_courtlistener_docket_html(
         _multi_entry_docket_html(
             title="Osborne v. Moeinifar - 25-01237",
@@ -1600,11 +1600,8 @@ def test_adversary_jop_links_osborne_sole_exact_generic_motion_reference() -> No
 
     assert screen.strict_clean is True
     assert screen.case_type_stratum == "bankruptcy_adversary"
-    assert [entry.entry_number for entry in normalized] == ["103", "170"]
-    assert [entry.document_role for entry in normalized] == [
-        DocumentRole.MTD_NOTICE,
-        DocumentRole.DECISION,
-    ]
+    assert [entry.entry_number for entry in normalized] == ["170"]
+    assert [entry.document_role for entry in normalized] == [DocumentRole.DECISION]
 
 
 def test_adversary_jop_does_not_promote_ambiguous_generic_motion_references() -> None:

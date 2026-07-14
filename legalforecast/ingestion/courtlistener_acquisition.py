@@ -687,8 +687,7 @@ def _linkage_entries(
 ) -> tuple[NormalizedDocketEntry, ...]:
     entry_by_row_id = {entry.row_id: entry for entry in entries}
     explicitly_referenced_numbers: set[int] = set()
-    sole_adversary_reference_numbers: set[int] = set()
-    qualifying_adversary_disposition_references: set[int] = set()
+    adversary_relationship_reference_numbers: set[int] = set()
     for row_id in actual_decision_row_ids:
         disposition = entry_by_row_id.get(row_id)
         if disposition is not None:
@@ -699,13 +698,8 @@ def _linkage_entries(
                 related_numbers = courtlistener_relationship_entry_numbers(
                     disposition.text
                 )
-                if len(related_numbers) == 1:
-                    sole_adversary_reference_numbers.update(related_numbers)
-                    explicitly_referenced_numbers.update(related_numbers)
-                    if _has_unambiguous_qualifying_adversary_motion(disposition.text):
-                        qualifying_adversary_disposition_references.update(
-                            related_numbers
-                        )
+                adversary_relationship_reference_numbers.update(related_numbers)
+                explicitly_referenced_numbers.update(related_numbers)
 
     normalized: list[NormalizedDocketEntry] = []
     for entry in entries:
@@ -716,17 +710,11 @@ def _linkage_entries(
         )
         exact_adversary_reference = (
             case_type_stratum == "bankruptcy_adversary"
-            and entry_number in sole_adversary_reference_numbers
+            and entry_number in adversary_relationship_reference_numbers
         )
         entry_proves_adversary_motion = is_rule_7012_claim_merits_motion(entry.text)
         adversary_motion_qualifies = (
-            case_type_stratum != "bankruptcy_adversary"
-            or entry_proves_adversary_motion
-            or (
-                exact_adversary_reference
-                and entry_number in qualifying_adversary_disposition_references
-                and _looks_like_exact_referenced_generic_motion(entry.text)
-            )
+            case_type_stratum != "bankruptcy_adversary" or entry_proves_adversary_motion
         )
         if entry.row_id in actual_decision_row_ids:
             role = DocumentRole.DECISION
@@ -748,13 +736,7 @@ def _linkage_entries(
             and (
                 _looks_like_target_mtd_filing(entry.text)
                 or _looks_like_generic_mtd_document(entry.text)
-                or (
-                    exact_adversary_reference
-                    and (
-                        entry_proves_adversary_motion
-                        or _looks_like_exact_referenced_generic_motion(entry.text)
-                    )
-                )
+                or (exact_adversary_reference and entry_proves_adversary_motion)
             )
             and adversary_motion_qualifies
         ):
@@ -779,117 +761,6 @@ def _linkage_entries(
             )
         )
     return tuple(normalized)
-
-
-def _looks_like_exact_referenced_generic_motion(text: str) -> bool:
-    """Recognize a generic motion row only through a sole disposition reference."""
-
-    normalized = text.replace("\xad", "")
-    return bool(
-        re.search(
-            r"\bmain\s+doc\s*ument\s+miscellaneous\s+motion\b",
-            normalized,
-            re.I,
-        )
-    )
-
-
-_COUNT_OR_CLAIM_SCOPE_PATTERN = (
-    r"(?:counts?|claims?)\s+(?:[ivxlcdm]+|[0-9]+|[a-z])"
-    r"(?:\s*(?:,|through|to|and|-)\s*(?:[ivxlcdm]+|[0-9]+|[a-z]))*"
-    r"(?:\s+(?:with|without)\s+prejudice)?"
-)
-_ALLOWED_JOP_MERITS_DISPOSITION_RE = re.compile(
-    r"(?:memorandum\s+opinion\s+and\s+order|opinion\s+and\s+order|order)\s+"
-    r"(?:granting|granted|denying|denied)\s+(?:the\s+)?"
-    r"motions?\s+for\s+judgment\s+on\s+the\s+pleadings"
-    rf"(?:\s+(?:as\s+to|on)\s+{_COUNT_OR_CLAIM_SCOPE_PATTERN})?"
-    r"(?:\s*,?\s+and\s+(?:"
-    r"(?:granting|granted|denying|denied)\s+(?:the\s+)?dismissal\s+of\s+"
-    rf"{_COUNT_OR_CLAIM_SCOPE_PATTERN}"
-    rf"|(?:dismissing|dismissed)\s+{_COUNT_OR_CLAIM_SCOPE_PATTERN}"
-    r"))?\s*[.;]?",
-    re.IGNORECASE,
-)
-_DECISION_RELIEF_INTRO_RE = re.compile(
-    r"\b(?:memorandum\s+opinion\s+and\s+order|opinion\s+and\s+order|order)\b",
-    re.IGNORECASE,
-)
-_COURTLISTENER_PARENTHETICAL_RE = re.compile(r"\([^()]*\)")
-_HARMLESS_COURTLISTENER_PREFIX_WORD_RE = re.compile(
-    r"(?<!\w)(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|"
-    r"jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|"
-    r"nov(?:ember)?|dec(?:ember)?|a\.?m\.?|p\.?m\.?|filed|entered|no\.?)"
-    r"(?!\w)",
-    re.IGNORECASE,
-)
-_HARMLESS_COURTLISTENER_SUFFIX_PARENTHETICAL_RE = re.compile(
-    r"\((?:[a-z .'-]+,\s*[a-z .'-]+|\$[0-9]+(?:\.[0-9]+)?)\)",
-    re.IGNORECASE,
-)
-_HARMLESS_COURTLISTENER_SUFFIX_PHRASE_RE = re.compile(
-    r"\b(?:toggle\s+dropdown|from\s+internet\s+archive|from\s+courtlistener|"
-    r"from\s+pacer|buy\s+on\s+pacer|main\s+doc\s*ument|miscellaneous\s+motion|"
-    r"download\s+pdf|order)\b",
-    re.IGNORECASE,
-)
-
-
-def _has_unambiguous_qualifying_adversary_motion(text: str) -> bool:
-    """Require only whitelisted Rule 12(c) merits relief for a generic row."""
-
-    normalized = text.replace("\xad", "")
-    relationship_numbers = courtlistener_relationship_entry_numbers(normalized)
-    if len(relationship_numbers) != 1:
-        return False
-    relationship = next(
-        (
-            match
-            for match in _COURTLISTENER_PARENTHETICAL_RE.finditer(normalized)
-            if courtlistener_relationship_entry_numbers(match.group())
-            == relationship_numbers
-        ),
-        None,
-    )
-    if relationship is None:
-        return False
-    before_relationship = normalized[: relationship.start()].strip()
-    intro = _DECISION_RELIEF_INTRO_RE.search(before_relationship)
-    if intro is None or not _is_harmless_courtlistener_decision_prefix(
-        before_relationship[: intro.start()]
-    ):
-        return False
-    relief_segment = before_relationship[intro.start() :].strip()
-    return (
-        bool(_ALLOWED_JOP_MERITS_DISPOSITION_RE.fullmatch(relief_segment))
-        and _is_harmless_courtlistener_decision_suffix(
-            normalized[relationship.end() :],
-            relief_segment=relief_segment,
-            relationship_annotation=relationship.group(),
-        )
-        and is_rule_7012_claim_merits_motion(text)
-    )
-
-
-def _is_harmless_courtlistener_decision_prefix(text: str) -> bool:
-    residue = _HARMLESS_COURTLISTENER_PREFIX_WORD_RE.sub("", text)
-    return re.fullmatch(r"[\s\d,.:/()\-]*", residue) is not None
-
-
-def _is_harmless_courtlistener_decision_suffix(
-    text: str,
-    *,
-    relief_segment: str,
-    relationship_annotation: str,
-) -> bool:
-    duplicate = re.compile(
-        re.escape(relief_segment) + r"\s*" + re.escape(relationship_annotation),
-        re.IGNORECASE,
-    )
-    residue = duplicate.sub("", text)
-    residue = _HARMLESS_COURTLISTENER_SUFFIX_PARENTHETICAL_RE.sub("", residue)
-    residue = _HARMLESS_COURTLISTENER_SUFFIX_PHRASE_RE.sub("", residue)
-    return re.fullmatch(r"[\s\d$.,:()/\-]*", residue) is not None
 
 
 def _looks_like_target_mtd_filing(text: str) -> bool:
