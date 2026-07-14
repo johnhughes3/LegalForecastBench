@@ -1204,6 +1204,12 @@ def test_complete_snapshot_is_atomic_and_verifiable(tmp_path: Path) -> None:
             snapshot_id="snapshot-1",
             batch_id="batch-001",
             complete=True,
+            stage_commitments={
+                "firecrawl_screen_inputs": {
+                    "schema_version": "test.input-commitment.v1",
+                    "ordered_input_sha256": "sha256:abc123",
+                }
+            },
         )
         verified = verify_snapshot(
             published,
@@ -1211,6 +1217,12 @@ def test_complete_snapshot_is_atomic_and_verifiable(tmp_path: Path) -> None:
             expected_batch_digest=store.batch_digest("batch-001"),
         )
         assert verified["complete"] is True
+        assert verified["stage_commitments"] == {
+            "firecrawl_screen_inputs": {
+                "ordered_input_sha256": "sha256:abc123",
+                "schema_version": "test.input-commitment.v1",
+            }
+        }
         records = [
             json.loads(line)
             for line in (published / "candidates.jsonl").read_text().splitlines()
@@ -1233,6 +1245,84 @@ def test_complete_snapshot_is_atomic_and_verifiable(tmp_path: Path) -> None:
             handle.write(b"tampered\n")
         with pytest.raises(SnapshotVerificationError, match="commitment"):
             verify_snapshot(published)
+
+
+def test_export_snapshot_rejects_committed_id_before_creating_destination(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        store.ensure_terms("batch-001", ["alpha"])
+        store.commit_search_page(
+            "batch-001",
+            "alpha",
+            None,
+            [_hit("a-1", "candidate-1")],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        store.record_observation(
+            "candidate-1",
+            batch_id="batch-001",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={},
+        )
+        published = store.export_snapshot(
+            tmp_path / "first-export",
+            snapshot_id="snapshot-1",
+            batch_id="batch-001",
+            complete=True,
+        )
+        for child in published.iterdir():
+            child.unlink()
+        published.rmdir()
+
+        second_root = tmp_path / "must-not-be-created"
+        with pytest.raises(FileExistsError, match="snapshot ID already committed"):
+            store.export_snapshot(
+                second_root,
+                snapshot_id="snapshot-1",
+                batch_id="batch-001",
+                complete=True,
+            )
+
+        assert not second_root.exists()
+
+
+def test_export_snapshot_rejects_committed_path_before_touching_existing_files(
+    tmp_path: Path,
+) -> None:
+    with _store(tmp_path) as store:
+        target = (tmp_path / "exports" / "snapshot-2").resolve()
+        store._connection.execute(
+            """
+            INSERT INTO snapshots(
+                snapshot_id, batch_id, complete, path, manifest_json, created_at
+            ) VALUES(?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "different-id",
+                "batch-001",
+                1,
+                str(target),
+                "{}",
+                "2026-07-13T12:00:00Z",
+            ),
+        )
+        target.mkdir(parents=True)
+        marker = target / "immutable"
+        marker.write_text("unchanged", encoding="utf-8")
+
+        with pytest.raises(FileExistsError, match="snapshot path already committed"):
+            store.export_snapshot(
+                tmp_path / "exports",
+                snapshot_id="snapshot-2",
+                batch_id="batch-001",
+                complete=True,
+            )
+
+        assert marker.read_text(encoding="utf-8") == "unchanged"
+        assert sorted(path.name for path in target.iterdir()) == ["immutable"]
 
 
 @pytest.mark.parametrize(
