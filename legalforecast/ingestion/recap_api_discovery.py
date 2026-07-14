@@ -689,11 +689,16 @@ def _web_documents_from_api(
         )
         if record.get("is_sealed") is True and "sealed" not in restriction_markers:
             restriction_markers = (*restriction_markers, "sealed")
+        private_status = record.get("is_private")
+        private_status_is_valid = private_status is None or isinstance(
+            private_status, bool
+        )
         href: str | None = None
         provider_proves_public_download = (
             record.get("is_available") is True
             and record.get("is_sealed") is False
-            and record.get("is_private") is not True
+            and private_status_is_valid
+            and private_status is not True
             and not restriction_markers
         )
         if provider_proves_public_download:
@@ -736,17 +741,20 @@ def _optional_document_string(
 def public_recap_download_url(value: str) -> str | None:
     """Normalize one v4 storage path and enforce the HTTPS download allowlist."""
 
-    if any(character.isspace() or ord(character) < 32 for character in value):
+    if "\\" in value or any(
+        character.isspace() or ord(character) < 32 for character in value
+    ):
         return None
-    url = urllib.parse.urljoin("https://www.courtlistener.com/", value)
-    parsed = urllib.parse.urlparse(url)
     try:
+        url = urllib.parse.urljoin("https://www.courtlistener.com/", value)
+        parsed = urllib.parse.urlparse(url)
+        hostname = parsed.hostname
         port = parsed.port
-    except ValueError:
+    except (UnicodeError, ValueError):
         return None
     if (
         parsed.scheme != "https"
-        or parsed.hostname not in {"storage.courtlistener.com", "www.courtlistener.com"}
+        or hostname not in {"storage.courtlistener.com", "www.courtlistener.com"}
         or parsed.username is not None
         or parsed.password is not None
         or port not in {None, 443}
@@ -756,11 +764,24 @@ def public_recap_download_url(value: str) -> str | None:
     ):
         return None
     path = parsed.path
+    for _ in range(len(path) + 1):
+        decoded_path = urllib.parse.unquote(path)
+        if decoded_path == path:
+            break
+        path = decoded_path
+    else:
+        return None
+    if "\\" in path or any(
+        character.isspace() or ord(character) < 32 for character in path
+    ):
+        return None
+    if any(segment in {".", ".."} for segment in path.split("/")):
+        return None
     if not path.lower().endswith(".pdf"):
         return None
-    if parsed.hostname == "www.courtlistener.com" and not path.startswith("/recap/"):
+    if hostname == "www.courtlistener.com" and not path.startswith("/recap/"):
         return None
-    if parsed.hostname == "storage.courtlistener.com" and path == "/":
+    if hostname == "storage.courtlistener.com" and path == "/":
         return None
     return url
 

@@ -1384,9 +1384,17 @@ def test_reconstruction_accepts_actual_v4_free_recap_document_shape() -> None:
     (
         {"is_sealed": True},
         {"is_private": True},
+        {"is_private": "true"},
+        {"is_private": 1},
         {"filepath_local": "https://evil.example/recap/motion.pdf"},
     ),
-    ids=("sealed", "private", "unallowlisted-url"),
+    ids=(
+        "sealed",
+        "private",
+        "malformed-private-string",
+        "malformed-private-integer",
+        "unallowlisted-url",
+    ),
 )
 def test_reconstruction_rejects_restricted_or_unallowlisted_free_document(
     document_overrides: dict[str, object],

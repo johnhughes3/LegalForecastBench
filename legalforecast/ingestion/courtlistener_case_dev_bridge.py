@@ -2204,9 +2204,8 @@ def _record_is_restricted(record: Mapping[str, Any]) -> bool:
         return True
     for key, value in record.items():
         normalized_key = _identifier(str(key))
-        if (
-            normalized_key in {"issealed", "isprivate", "isrestricted"}
-            and value is True
+        if normalized_key in {"issealed", "isprivate", "isrestricted"} and (
+            value is True or (value is not None and not isinstance(value, bool))
         ):
             return True
         if normalized_key in {

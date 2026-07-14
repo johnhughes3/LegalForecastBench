@@ -10282,6 +10282,30 @@ def _bridge_checkpoint_payload_matches_candidate(
     return True
 
 
+def _bridge_checkpoint_requires_semantic_replay(
+    checkpoint: Mapping[str, Any], *, bridge_provider: str
+) -> bool:
+    """Replay exclusions made terminal by superseded bridge semantics."""
+
+    if (
+        bridge_provider != "courtlistener_rest"
+        or checkpoint.get("outcome") != "exclusion"
+    ):
+        return False
+    payload = checkpoint.get("payload")
+    if not isinstance(payload, Mapping):
+        return False
+    payload_record = cast(Mapping[str, object], payload)
+    exclusion = payload_record.get("exclusion_record")
+    if not isinstance(exclusion, Mapping):
+        return False
+    exclusion_record = cast(Mapping[str, object], exclusion)
+    reasons = exclusion_record.get("exclusion_reasons")
+    return (
+        isinstance(reasons, list) and "courtlistener_recap_already_available" in reasons
+    )
+
+
 def _public_first_bridge_with_checkpoints(
     *,
     args: argparse.Namespace,
@@ -10393,6 +10417,7 @@ def _public_first_bridge_with_checkpoints(
 
     checkpoints: list[JsonRecord] = []
     resumed_terminal_count = 0
+    semantic_replay_count = 0
     request_count_before = client.request_count
     for input_index, gap in enumerate(paid_gaps):
         candidate_id = _required_str(gap, "candidate_id")
@@ -10406,6 +10431,7 @@ def _public_first_bridge_with_checkpoints(
             candidate_id=candidate_id,
         )
         prior: JsonRecord | None = None
+        semantic_replay = False
         if checkpoint_path.exists():
             prior = _read_json_object(checkpoint_path)
             _validate_bridge_checkpoint(
@@ -10416,11 +10442,21 @@ def _public_first_bridge_with_checkpoints(
             )
             prior = _normalize_bridge_checkpoint(prior)
             if prior["outcome"] in {"success", "exclusion"}:
-                resumed_terminal_count += 1
-                checkpoints.append(prior)
-                continue
+                if _bridge_checkpoint_requires_semantic_replay(
+                    prior, bridge_provider=bridge_provider
+                ):
+                    semantic_replay = True
+                    semantic_replay_count += 1
+                else:
+                    resumed_terminal_count += 1
+                    checkpoints.append(prior)
+                    continue
         attempt_count = (
-            cast(int, prior["resumable_attempt_count"]) + 1 if prior is not None else 1
+            1
+            if semantic_replay
+            else cast(int, prior["resumable_attempt_count"]) + 1
+            if prior is not None
+            else 1
         )
         one_request_count_before = client.request_count
         request_count_field = (
@@ -10610,6 +10646,7 @@ def _public_first_bridge_with_checkpoints(
         "max_resumable_candidate_attempts": _PACER_GAP_MAX_RESUMABLE_ATTEMPTS,
         "checkpoint_terminal_candidate_count": terminal_count,
         "resumed_terminal_candidate_count": resumed_terminal_count,
+        "semantic_replay_candidate_count": semantic_replay_count,
         "retryable_candidate_count": retryable_count,
         "free_lookup_only": True,
         "pacer_fee_acknowledgment_allowed": False,
