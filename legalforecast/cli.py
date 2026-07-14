@@ -11,6 +11,7 @@ import random
 import re
 import shutil
 import sys
+import tempfile
 import time
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -89,6 +90,7 @@ from legalforecast.ingestion.case_dev_client import (
     CaseDevClientError,
     CaseDevFixtureTransport,
     CaseDevRateLimiter,
+    CaseDevRateLimitError,
     CaseDevServerError,
     RecordedCaseDevResponse,
 )
@@ -152,9 +154,14 @@ from legalforecast.ingestion.courtlistener_acquisition import (
     validate_courtlistener_discovery_limits,
 )
 from legalforecast.ingestion.courtlistener_case_dev_bridge import (
+    CourtListenerCaseDevBridgeError,
+    CourtListenerCaseDevBridgeResult,
     bridge_courtlistener_case_dev_documents,
+    bridge_public_plan_paid_gap_candidate,
     bridge_public_plan_paid_gaps,
+    case_dev_bridge_exclusion_record,
     merge_download_manifest_records,
+    validate_public_plan_bridge_inputs,
 )
 from legalforecast.ingestion.courtlistener_client import (
     COURTLISTENER_API_TOKEN_ENV,
@@ -2502,6 +2509,22 @@ def _add_acquisition_bridge_pacer_gaps_arguments(
         help=(
             "download-free manifest proving planned public documents were "
             "acquired before paid-gap routing."
+        ),
+    )
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=Path,
+        help=(
+            "Atomic per-candidate public-gap checkpoints. Defaults under "
+            "--output-root/checkpoints; resume skips terminal candidates."
+        ),
+    )
+    parser.add_argument(
+        "--checkpoint-config-output",
+        type=Path,
+        help=(
+            "Input/source commitment for public-gap checkpoint resume. Defaults "
+            "under --output-root/checkpoints."
         ),
     )
     parser.add_argument(
@@ -7818,6 +7841,598 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
         raise CommandError(str(exc)) from exc
 
 
+_PACER_GAP_MAX_RESUMABLE_ATTEMPTS = 3
+
+
+def _canonical_json_sha256(value: object) -> str:
+    payload = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _bridge_candidate_id(record: Mapping[str, Any]) -> str:
+    candidate = _mapping(record.get("candidate"), "candidate")
+    for field_name in ("docket_id", "candidate_key"):
+        candidate_id = _optional_str(candidate, field_name)
+        if candidate_id is not None:
+            return candidate_id
+    raise CommandError("candidate docket_id or candidate_key is required")
+
+
+def _bridge_source_commitments(
+    *,
+    screened_records: Sequence[Mapping[str, Any]],
+    routed_candidate_ids: Sequence[str],
+    raw_html_dir: Path | None,
+    use_embedded_entries: bool,
+) -> list[JsonRecord]:
+    screened_by_id = {
+        _bridge_candidate_id(record): record for record in screened_records
+    }
+    if len(screened_by_id) != len(screened_records):
+        raise CommandError("screened cases repeat a candidate identity")
+    commitments: list[JsonRecord] = []
+    for candidate_id in routed_candidate_ids:
+        record = screened_by_id.get(candidate_id)
+        if record is None:
+            raise CommandError(
+                f"public plan candidate is missing from screened cases: {candidate_id}"
+            )
+        raw_path = (
+            None if raw_html_dir is None else raw_html_dir / f"{candidate_id}.html"
+        )
+        if raw_path is not None and raw_path.is_file():
+            commitments.append(
+                {
+                    "candidate_id": candidate_id,
+                    "source": "raw_html",
+                    "sha256": "sha256:"
+                    + hashlib.sha256(raw_path.read_bytes()).hexdigest(),
+                }
+            )
+            continue
+        if not use_embedded_entries:
+            raise CommandError(
+                f"raw CourtListener HTML is missing for candidate {candidate_id}"
+            )
+        selected_entries = record.get("selected_entries")
+        if (
+            isinstance(selected_entries, (str, bytes))
+            or not isinstance(selected_entries, Sequence)
+            or not selected_entries
+        ):
+            raise CommandError(
+                "selected_entries must be a non-empty list of records for "
+                f"candidate {candidate_id}"
+            )
+        selected_entry_records = cast(Sequence[object], selected_entries)
+        if any(not isinstance(entry, Mapping) for entry in selected_entry_records):
+            raise CommandError(
+                "selected_entries must be a non-empty list of records for "
+                f"candidate {candidate_id}"
+            )
+        commitments.append(
+            {
+                "candidate_id": candidate_id,
+                "source": "embedded_entries",
+                "sha256": _canonical_json_sha256(selected_entry_records),
+            }
+        )
+    return commitments
+
+
+def _atomic_write_json(path: Path, payload: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
+            json.dump(dict(payload), handle, indent=2, sort_keys=True, allow_nan=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if temporary_path is not None and temporary_path.exists():
+            temporary_path.unlink()
+
+
+def _bridge_checkpoint_path(
+    checkpoint_dir: Path,
+    *,
+    input_index: int,
+    candidate_id: str,
+) -> Path:
+    identity = hashlib.sha256(candidate_id.encode("utf-8")).hexdigest()[:16]
+    return checkpoint_dir / f"{input_index:06d}-{identity}.json"
+
+
+def _validate_bridge_checkpoint(
+    checkpoint: JsonRecord,
+    *,
+    input_index: int,
+    candidate_id: str,
+    candidate_input_sha256: str,
+) -> None:
+    outcome = checkpoint.get("outcome")
+    attempt_count = checkpoint.get("resumable_attempt_count")
+    if (
+        checkpoint.get("schema_version")
+        != "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
+        or checkpoint.get("input_index") != input_index
+        or checkpoint.get("candidate_id") != candidate_id
+        or checkpoint.get("candidate_input_sha256") != candidate_input_sha256
+        or outcome not in {"success", "exclusion", "retryable"}
+        or type(attempt_count) is not int
+        or attempt_count < 1
+        or attempt_count > _PACER_GAP_MAX_RESUMABLE_ATTEMPTS
+        or not _bridge_checkpoint_payload_matches_candidate(
+            checkpoint.get("payload"),
+            outcome=outcome,
+            candidate_id=candidate_id,
+        )
+    ):
+        raise CommandError(f"PACER-gap bridge checkpoint is invalid for {candidate_id}")
+    if outcome == "retryable" and attempt_count >= _PACER_GAP_MAX_RESUMABLE_ATTEMPTS:
+        raise CommandError(
+            f"PACER-gap bridge retryable checkpoint is exhausted for {candidate_id}"
+        )
+
+
+def _bridge_checkpoint_payload_matches_candidate(
+    payload: object,
+    *,
+    outcome: object,
+    candidate_id: str,
+) -> bool:
+    if not isinstance(payload, Mapping):
+        return False
+    payload_record = cast(Mapping[str, object], payload)
+    if outcome == "retryable":
+        return True
+    field_names = (
+        ("selection_record", "case_relevance_record")
+        if outcome == "success"
+        else ("exclusion_record",)
+    )
+    for field_name in field_names:
+        record = payload_record.get(field_name)
+        if (
+            not isinstance(record, Mapping)
+            or cast(Mapping[str, object], record).get("candidate_id") != candidate_id
+        ):
+            return False
+    return True
+
+
+def _public_first_bridge_with_checkpoints(
+    *,
+    args: argparse.Namespace,
+    records: Sequence[Mapping[str, Any]],
+    client: CaseDevClient,
+    raw_html_dir: Path | None,
+    public_selection_path: Path,
+    paid_gaps_path: Path,
+    free_download_manifest_path: Path,
+    fixture_path: Path | None,
+    checkpoint_dir: Path,
+    checkpoint_config_path: Path,
+) -> tuple[CourtListenerCaseDevBridgeResult | None, JsonRecord]:
+    public_selections = _read_records(public_selection_path)
+    paid_gaps = _read_records(paid_gaps_path)
+    free_downloads = _read_records(free_download_manifest_path)
+    validate_public_plan_bridge_inputs(
+        public_selection_records=public_selections,
+        paid_gap_records=paid_gaps,
+        free_download_records=free_downloads,
+    )
+    public_ids = [_required_str(record, "candidate_id") for record in public_selections]
+    gap_ids = [_required_str(record, "candidate_id") for record in paid_gaps]
+    routed_ids = [*public_ids, *gap_ids]
+    if len(set(routed_ids)) != len(routed_ids):
+        raise CommandError("public selection and paid gaps repeat a candidate route")
+    source_commitments = _bridge_source_commitments(
+        screened_records=records,
+        routed_candidate_ids=routed_ids,
+        raw_html_dir=raw_html_dir,
+        use_embedded_entries=cast(bool, args.use_embedded_entries),
+    )
+    config: JsonRecord = {
+        "schema_version": "legalforecast.pacer_gap_bridge_progress_config.v1",
+        "mode": "public_first",
+        "screened_cases_sha256": "sha256:"
+        + hashlib.sha256(cast(Path, args.screened_cases).read_bytes()).hexdigest(),
+        "public_selection_sha256": "sha256:"
+        + hashlib.sha256(public_selection_path.read_bytes()).hexdigest(),
+        "paid_gaps_sha256": "sha256:"
+        + hashlib.sha256(paid_gaps_path.read_bytes()).hexdigest(),
+        "free_download_manifest_sha256": "sha256:"
+        + hashlib.sha256(free_download_manifest_path.read_bytes()).hexdigest(),
+        "screened_case_count": len(records),
+        "public_selection_count": len(public_selections),
+        "paid_gap_count": len(paid_gaps),
+        "use_embedded_entries": cast(bool, args.use_embedded_entries),
+        "transport_mode": "fixture" if fixture_path is not None else "live",
+        "source_commitments": source_commitments,
+        "free_lookup_only": True,
+        "pacer_fee_acknowledgment_allowed": False,
+    }
+    resume = cast(bool, args.resume)
+    existing_checkpoint_paths = {
+        path.resolve()
+        for path in checkpoint_dir.glob("*.json")
+        if path.resolve() != checkpoint_config_path.resolve()
+    }
+    screened_by_id = {_bridge_candidate_id(record): record for record in records}
+    expected_paths = {
+        _bridge_checkpoint_path(
+            checkpoint_dir,
+            input_index=input_index,
+            candidate_id=_required_str(gap, "candidate_id"),
+        ).resolve()
+        for input_index, gap in enumerate(paid_gaps)
+    }
+    unexpected_paths = existing_checkpoint_paths - expected_paths
+    if unexpected_paths:
+        raise CommandError("PACER-gap bridge checkpoint directory has unexpected files")
+    if checkpoint_config_path.exists():
+        if not resume:
+            raise CommandError(
+                "PACER-gap bridge progress exists; use --resume or remove it"
+            )
+        if _read_json_object(checkpoint_config_path) != config:
+            raise CommandError(
+                "PACER-gap bridge progress does not match the current input/config"
+            )
+    else:
+        if existing_checkpoint_paths:
+            raise CommandError("PACER-gap bridge checkpoints are missing their config")
+        _atomic_write_json(checkpoint_config_path, config)
+
+    checkpoints: list[JsonRecord] = []
+    resumed_terminal_count = 0
+    request_count_before = client.request_count
+    for input_index, gap in enumerate(paid_gaps):
+        candidate_id = _required_str(gap, "candidate_id")
+        record = screened_by_id[candidate_id]
+        candidate_input_sha256 = _canonical_json_sha256(
+            {"screened_case": record, "paid_gap": gap}
+        )
+        checkpoint_path = _bridge_checkpoint_path(
+            checkpoint_dir,
+            input_index=input_index,
+            candidate_id=candidate_id,
+        )
+        prior: JsonRecord | None = None
+        if checkpoint_path.exists():
+            prior = _read_json_object(checkpoint_path)
+            _validate_bridge_checkpoint(
+                prior,
+                input_index=input_index,
+                candidate_id=candidate_id,
+                candidate_input_sha256=candidate_input_sha256,
+            )
+            if prior["outcome"] in {"success", "exclusion"}:
+                resumed_terminal_count += 1
+                checkpoints.append(prior)
+                continue
+        attempt_count = (
+            cast(int, prior["resumable_attempt_count"]) + 1 if prior is not None else 1
+        )
+        one_request_count_before = client.request_count
+        try:
+            selection, relevance = bridge_public_plan_paid_gap_candidate(
+                record,
+                paid_gap_record=gap,
+                free_download_records=free_downloads,
+                client=client,
+                raw_html_dir=raw_html_dir,
+                use_embedded_entries=cast(bool, args.use_embedded_entries),
+                validate_free_downloads=False,
+            )
+            checkpoint: JsonRecord = {
+                "schema_version": (
+                    "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
+                ),
+                "input_index": input_index,
+                "candidate_id": candidate_id,
+                "candidate_input_sha256": candidate_input_sha256,
+                "outcome": "success",
+                "resumable_attempt_count": attempt_count,
+                "cumulative_case_dev_request_count": (
+                    (
+                        cast(int, prior.get("cumulative_case_dev_request_count", 0))
+                        if prior
+                        else 0
+                    )
+                    + client.request_count
+                    - one_request_count_before
+                ),
+                "payload": {
+                    "selection_record": selection,
+                    "case_relevance_record": relevance,
+                },
+            }
+        except CourtListenerCaseDevBridgeError as exc:
+            reason, _, detail = str(exc).partition(":")
+            checkpoint = {
+                "schema_version": (
+                    "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
+                ),
+                "input_index": input_index,
+                "candidate_id": candidate_id,
+                "candidate_input_sha256": candidate_input_sha256,
+                "outcome": "exclusion",
+                "resumable_attempt_count": attempt_count,
+                "cumulative_case_dev_request_count": (
+                    (
+                        cast(int, prior.get("cumulative_case_dev_request_count", 0))
+                        if prior
+                        else 0
+                    )
+                    + client.request_count
+                    - one_request_count_before
+                ),
+                "payload": {
+                    "exclusion_record": case_dev_bridge_exclusion_record(
+                        record,
+                        reason=reason,
+                        detail=detail.strip() or str(exc),
+                    )
+                },
+            }
+        except (CaseDevRateLimitError, CaseDevServerError) as exc:
+            rate_limited = isinstance(exc, CaseDevRateLimitError)
+            reason = (
+                "case_dev_rate_limit_retries_exhausted"
+                if rate_limited
+                else "case_dev_server_error_retries_exhausted"
+            )
+            exhausted = attempt_count >= _PACER_GAP_MAX_RESUMABLE_ATTEMPTS
+            payload: JsonRecord
+            if exhausted:
+                payload = {
+                    "exclusion_record": case_dev_bridge_exclusion_record(
+                        record,
+                        reason=reason,
+                        detail=(
+                            f"{exc}; exhausted {attempt_count} resumable candidate "
+                            "attempts"
+                        ),
+                    )
+                }
+            else:
+                payload = {"reason": reason, "detail": str(exc)}
+            checkpoint = {
+                "schema_version": (
+                    "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
+                ),
+                "input_index": input_index,
+                "candidate_id": candidate_id,
+                "candidate_input_sha256": candidate_input_sha256,
+                "outcome": "exclusion" if exhausted else "retryable",
+                "resumable_attempt_count": attempt_count,
+                "cumulative_case_dev_request_count": (
+                    (
+                        cast(int, prior.get("cumulative_case_dev_request_count", 0))
+                        if prior
+                        else 0
+                    )
+                    + client.request_count
+                    - one_request_count_before
+                ),
+                "payload": payload,
+            }
+        _atomic_write_json(checkpoint_path, checkpoint)
+        checkpoints.append(checkpoint)
+
+    terminal_count = sum(
+        record["outcome"] in {"success", "exclusion"} for record in checkpoints
+    )
+    retryable_count = sum(record["outcome"] == "retryable" for record in checkpoints)
+    cumulative_requests = sum(
+        cast(int, record.get("cumulative_case_dev_request_count", 0))
+        for record in checkpoints
+    )
+    evidence: JsonRecord = {
+        "input_route_count": len(routed_ids),
+        "case_dev_request_count": client.request_count - request_count_before,
+        "cumulative_case_dev_request_count": cumulative_requests,
+        "case_dev_rate_limit_per_minute": client.config.rate_limit_per_minute,
+        "case_dev_rate_limit_enforced": client.config.rate_limit_per_minute is not None,
+        "case_dev_max_http_attempts_per_request": client.max_retries + 1,
+        "max_resumable_candidate_attempts": _PACER_GAP_MAX_RESUMABLE_ATTEMPTS,
+        "checkpoint_terminal_candidate_count": terminal_count,
+        "resumed_terminal_candidate_count": resumed_terminal_count,
+        "retryable_candidate_count": retryable_count,
+        "free_lookup_only": True,
+        "pacer_fee_acknowledgment_allowed": False,
+        "pacer_spend_usd": "0.00",
+        "reconciled": False,
+    }
+    if retryable_count:
+        return None, evidence
+
+    public_result = bridge_public_plan_paid_gaps(
+        records,
+        public_selection_records=public_selections,
+        paid_gap_records=(),
+        free_download_records=free_downloads,
+        client=client,
+        raw_html_dir=raw_html_dir,
+        use_embedded_entries=cast(bool, args.use_embedded_entries),
+        validate_free_downloads=False,
+    )
+    selections = list(public_result.selection_records)
+    relevance = list(public_result.case_relevance_records)
+    exclusions: list[Mapping[str, Any]] = []
+    for checkpoint in sorted(
+        checkpoints, key=lambda item: cast(int, item["input_index"])
+    ):
+        checkpoint_payload = cast(Mapping[str, Any], checkpoint["payload"])
+        if checkpoint["outcome"] == "success":
+            selections.append(
+                _mapping(checkpoint_payload.get("selection_record"), "selection_record")
+            )
+            relevance.append(
+                _mapping(
+                    checkpoint_payload.get("case_relevance_record"),
+                    "case_relevance_record",
+                )
+            )
+        else:
+            exclusions.append(
+                _mapping(checkpoint_payload.get("exclusion_record"), "exclusion_record")
+            )
+    selected_ids = [_required_str(record, "candidate_id") for record in selections]
+    excluded_ids = [_required_str(record, "candidate_id") for record in exclusions]
+    relevance_ids = [_required_str(record, "candidate_id") for record in relevance]
+    if (
+        len(set(selected_ids)) != len(selected_ids)
+        or len(set(excluded_ids)) != len(excluded_ids)
+        or set(selected_ids) & set(excluded_ids)
+        or set(selected_ids) | set(excluded_ids) != set(routed_ids)
+        or set(relevance_ids) != set(selected_ids)
+        or len(relevance_ids) != len(selected_ids)
+    ):
+        raise CommandError("PACER-gap bridge checkpoints did not exactly reconcile")
+    result = CourtListenerCaseDevBridgeResult(
+        selection_records=tuple(selections),
+        case_relevance_records=tuple(relevance),
+        free_download_requests=(),
+        exclusions=tuple(exclusions),
+        screened_case_count=len(routed_ids),
+        public_first_reconciled=True,
+    )
+    evidence["reconciled"] = True
+    return result, evidence
+
+
+def _validate_pacer_gap_bridge_paths(
+    *,
+    args: argparse.Namespace,
+    output_root: Path,
+    screened_cases_path: Path,
+    raw_html_dir: Path | None,
+    fixture_path: Path | None,
+    public_selection_path: Path | None,
+    paid_gaps_path: Path | None,
+    free_download_manifest_path: Path | None,
+    requests_path: Path,
+    selection_path: Path,
+    case_relevance_path: Path,
+    exclusions_path: Path,
+    summary_path: Path,
+    checkpoint_dir: Path,
+    checkpoint_config_path: Path,
+    public_first: bool,
+) -> None:
+    """Reject bridge path aliases before any writable or provider activity."""
+
+    protected_scopes: list[tuple[str, Path, bool]] = [
+        ("--screened-cases", screened_cases_path, False)
+    ]
+    protected_scopes.extend(
+        (label, path, is_tree)
+        for label, path, is_tree in (
+            ("--raw-html-dir", raw_html_dir, True),
+            ("--case-dev-fixture", fixture_path, False),
+            ("--public-selection", public_selection_path, False),
+            ("--paid-gaps", paid_gaps_path, False),
+            ("--free-download-manifest", free_download_manifest_path, False),
+        )
+        if path is not None
+    )
+    writable_scopes: list[tuple[str, Path, bool]] = [
+        ("--requests-output", requests_path, False),
+        ("--selection-output", selection_path, False),
+        ("--case-relevance-output", case_relevance_path, False),
+        ("--exclusions-output", exclusions_path, False),
+        ("--summary-output", summary_path, False),
+        (
+            "--run-card-output",
+            _acquisition_path(
+                args,
+                "run_card_output",
+                output_root / "run-cards" / "bridge-pacer-gaps.json",
+            ),
+            False,
+        ),
+        (
+            "--log-output",
+            _acquisition_path(
+                args,
+                "log_output",
+                output_root / "logs" / "bridge-pacer-gaps.jsonl",
+            ),
+            False,
+        ),
+    ]
+    if public_first:
+        writable_scopes.extend(
+            (
+                ("--checkpoint-dir", checkpoint_dir, True),
+                ("--checkpoint-config-output", checkpoint_config_path, False),
+            )
+        )
+
+    for writable_label, writable_path, writable_tree in writable_scopes:
+        writable = writable_path.resolve()
+        if not writable_tree:
+            _reject_hardlinked_writable_replay_scope(
+                label=writable_label,
+                path=writable,
+                is_tree=False,
+            )
+        for protected_label, protected_path, protected_tree in protected_scopes:
+            protected = protected_path.resolve()
+            if _replay_scopes_overlap(
+                left_label=writable_label,
+                left=writable,
+                left_tree=writable_tree,
+                right_label=protected_label,
+                right=protected,
+                right_tree=protected_tree,
+            ):
+                raise CommandError(
+                    f"bridge output overlaps input: {writable_label} vs "
+                    f"{protected_label}: {writable} vs {protected}"
+                )
+
+    for index, (label, path, is_tree) in enumerate(writable_scopes):
+        resolved = path.resolve()
+        for other_label, other_path, other_is_tree in writable_scopes[index + 1 :]:
+            other = other_path.resolve()
+            if _replay_scopes_overlap(
+                left_label=label,
+                left=resolved,
+                left_tree=is_tree,
+                right_label=other_label,
+                right=other,
+                right_tree=other_is_tree,
+            ):
+                raise CommandError(
+                    f"bridge writable outputs overlap: {label} vs {other_label}: "
+                    f"{resolved} vs {other}"
+                )
+
+
 def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     screened_cases_path = cast(Path, args.screened_cases)
@@ -7872,6 +8487,34 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         "summary_output",
         output_root / "pacer-gap-bridge-summary.json",
     )
+    checkpoint_dir = _acquisition_path(
+        args,
+        "checkpoint_dir",
+        output_root / "checkpoints" / "pacer-gap-bridge",
+    )
+    checkpoint_config_path = _acquisition_path(
+        args,
+        "checkpoint_config_output",
+        output_root / "checkpoints" / "pacer-gap-bridge-progress-config.json",
+    )
+    _validate_pacer_gap_bridge_paths(
+        args=args,
+        output_root=output_root,
+        screened_cases_path=screened_cases_path,
+        raw_html_dir=raw_html_dir,
+        fixture_path=fixture_path,
+        public_selection_path=public_selection_path,
+        paid_gaps_path=paid_gaps_path,
+        free_download_manifest_path=free_download_manifest_path,
+        requests_path=requests_path,
+        selection_path=selection_path,
+        case_relevance_path=case_relevance_path,
+        exclusions_path=exclusions_path,
+        summary_path=summary_path,
+        checkpoint_dir=checkpoint_dir,
+        checkpoint_config_path=checkpoint_config_path,
+        public_first=public_first,
+    )
     records = _read_records(screened_cases_path)
     dry_run = _acquisition_dry_run(args)
     live = cast(bool, args.live_case_dev)
@@ -7887,6 +8530,15 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         )
         if path is not None
     )
+    output_paths = (
+        requests_path,
+        selection_path,
+        case_relevance_path,
+        exclusions_path,
+        summary_path,
+        *((checkpoint_dir, checkpoint_config_path) if public_first else ()),
+    )
+    bridge_evidence: JsonRecord = {}
     if dry_run:
         _write_jsonl(
             requests_path,
@@ -7922,15 +8574,33 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
             assert public_selection_path is not None
             assert paid_gaps_path is not None
             assert free_download_manifest_path is not None
-            result = bridge_public_plan_paid_gaps(
-                records,
-                public_selection_records=_read_records(public_selection_path),
-                paid_gap_records=_read_records(paid_gaps_path),
-                free_download_records=_read_records(free_download_manifest_path),
+            result, bridge_evidence = _public_first_bridge_with_checkpoints(
+                args=args,
+                records=records,
                 client=client,
                 raw_html_dir=raw_html_dir,
-                use_embedded_entries=cast(bool, args.use_embedded_entries),
+                public_selection_path=public_selection_path,
+                paid_gaps_path=paid_gaps_path,
+                free_download_manifest_path=free_download_manifest_path,
+                fixture_path=fixture_path,
+                checkpoint_dir=checkpoint_dir,
+                checkpoint_config_path=checkpoint_config_path,
             )
+            if result is None:
+                reason = (
+                    "PACER-gap bridge retained retryable Case.dev candidates; "
+                    "rerun with --resume"
+                )
+                _write_acquisition_failure(
+                    args,
+                    stage="bridge-pacer-gaps",
+                    input_paths=input_paths,
+                    output_paths=output_paths,
+                    reason=reason,
+                    paid_activity_requested=False,
+                    extra=bridge_evidence,
+                )
+                raise CommandError(reason)
         else:
             result = bridge_courtlistener_case_dev_documents(
                 records,
@@ -7955,13 +8625,7 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         args,
         stage="bridge-pacer-gaps",
         input_paths=input_paths,
-        output_paths=(
-            requests_path,
-            selection_path,
-            case_relevance_path,
-            exclusions_path,
-            summary_path,
-        ),
+        output_paths=output_paths,
         record_count=selected_count,
         dry_run=dry_run,
         paid_activity_requested=False,
@@ -7975,6 +8639,7 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
             "next_stage": (
                 "filter-core-documents" if public_first else "download-free"
             ),
+            **bridge_evidence,
         },
     )
     return 0

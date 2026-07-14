@@ -18,6 +18,7 @@ from typing import Any, cast
 from legalforecast.ingestion.case_dev_client import (
     CaseDevClient,
     CaseDevDocketHit,
+    CaseDevRateLimitError,
     CaseDevServerError,
 )
 from legalforecast.ingestion.courtlistener_web import (
@@ -256,11 +257,16 @@ def bridge_courtlistener_case_dev_documents(
             reason, _, detail = str(exc).partition(":")
             exclusions.append(_exclusion(record, reason, detail=detail.strip() or None))
             continue
-        except CaseDevServerError as exc:
+        except (CaseDevRateLimitError, CaseDevServerError) as exc:
+            reason = (
+                "case_dev_rate_limit_retries_exhausted"
+                if isinstance(exc, CaseDevRateLimitError)
+                else "case_dev_server_error_retries_exhausted"
+            )
             exclusions.append(
                 _exclusion(
                     record,
-                    "case_dev_server_error_retries_exhausted",
+                    reason,
                     detail=str(exc),
                 )
             )
@@ -287,6 +293,7 @@ def bridge_public_plan_paid_gaps(
     client: CaseDevClient,
     raw_html_dir: str | Path | None = None,
     use_embedded_entries: bool = False,
+    validate_free_downloads: bool = True,
 ) -> CourtListenerCaseDevBridgeResult:
     """Recover only public-planner paid gaps after free downloads complete.
 
@@ -303,10 +310,11 @@ def bridge_public_plan_paid_gaps(
     public_selections = tuple(public_selection_records)
     paid_gaps = tuple(paid_gap_records)
     _validate_public_plan_routes(public_selections, paid_gaps)
-    _validate_free_download_completion(
-        (*public_selections, *paid_gaps),
-        tuple(free_download_records),
-    )
+    if validate_free_downloads:
+        _validate_free_download_completion(
+            (*public_selections, *paid_gaps),
+            tuple(free_download_records),
+        )
     html_root = None if raw_html_dir is None else Path(raw_html_dir)
     selections: list[Mapping[str, Any]] = list(public_selections)
     relevance: list[Mapping[str, Any]] = [
@@ -321,27 +329,29 @@ def bridge_public_plan_paid_gaps(
                 f"paid_gap_screened_candidate_missing: {candidate_id}"
             )
         try:
-            bridged_selection, bridged_relevance, _ = _bridge_candidate(
+            selection, case_relevance = bridge_public_plan_paid_gap_candidate(
                 record,
+                paid_gap_record=gap,
+                free_download_records=(),
                 client=client,
                 raw_html_dir=html_root,
                 use_embedded_entries=use_embedded_entries,
-                paid_gap_reasons=_string_sequence(gap.get("paid_gap_reasons")),
-            )
-            selection, case_relevance = _reconcile_paid_gap(
-                gap,
-                bridged_selection=bridged_selection,
-                bridged_relevance=bridged_relevance,
+                validate_free_downloads=False,
             )
         except CourtListenerCaseDevBridgeError as exc:
             reason, _, detail = str(exc).partition(":")
             exclusions.append(_exclusion(record, reason, detail=detail.strip() or None))
             continue
-        except CaseDevServerError as exc:
+        except (CaseDevRateLimitError, CaseDevServerError) as exc:
+            reason = (
+                "case_dev_rate_limit_retries_exhausted"
+                if isinstance(exc, CaseDevRateLimitError)
+                else "case_dev_server_error_retries_exhausted"
+            )
             exclusions.append(
                 _exclusion(
                     record,
-                    "case_dev_server_error_retries_exhausted",
+                    reason,
                     detail=str(exc),
                 )
             )
@@ -362,6 +372,85 @@ def bridge_public_plan_paid_gaps(
         exclusions=tuple(exclusions),
         screened_case_count=len(public_selections) + len(paid_gaps),
         public_first_reconciled=True,
+    )
+
+
+def bridge_public_plan_paid_gap_candidate(
+    screened_case_record: Mapping[str, Any],
+    *,
+    paid_gap_record: Mapping[str, Any],
+    free_download_records: Iterable[Mapping[str, Any]],
+    client: CaseDevClient,
+    raw_html_dir: str | Path | None = None,
+    use_embedded_entries: bool = False,
+    validate_free_downloads: bool = True,
+) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+    """Bridge exactly one public-plan paid gap without swallowing transients.
+
+    The CLI uses this candidate-granular operation so an exhausted 429/5xx can
+    be checkpointed and resumed without repeating other candidates. It remains
+    free lookup only and never invokes a purchase endpoint.
+    """
+
+    _validate_public_plan_routes((), (paid_gap_record,))
+    if validate_free_downloads:
+        _validate_free_download_completion(
+            (paid_gap_record,),
+            tuple(free_download_records),
+        )
+    candidate_id = _required_str(paid_gap_record, "candidate_id")
+    nested_candidate = screened_case_record.get("candidate")
+    if (
+        not isinstance(nested_candidate, Mapping)
+        or _required_str_any(
+            cast(Mapping[str, Any], nested_candidate),
+            "docket_id",
+            "candidate_key",
+        )
+        != candidate_id
+    ):
+        raise CourtListenerCaseDevBridgeError(
+            f"paid_gap_screened_candidate_mismatch: {candidate_id}"
+        )
+    bridged_selection, bridged_relevance, _ = _bridge_candidate(
+        screened_case_record,
+        client=client,
+        raw_html_dir=None if raw_html_dir is None else Path(raw_html_dir),
+        use_embedded_entries=use_embedded_entries,
+        paid_gap_reasons=_string_sequence(paid_gap_record.get("paid_gap_reasons")),
+    )
+    return _reconcile_paid_gap(
+        paid_gap_record,
+        bridged_selection=bridged_selection,
+        bridged_relevance=bridged_relevance,
+    )
+
+
+def case_dev_bridge_exclusion_record(
+    screened_case_record: Mapping[str, Any],
+    *,
+    reason: str,
+    detail: str,
+) -> Mapping[str, Any]:
+    """Build the canonical fail-closed bridge exclusion ledger record."""
+
+    return _exclusion(screened_case_record, reason, detail=detail)
+
+
+def validate_public_plan_bridge_inputs(
+    *,
+    public_selection_records: Iterable[Mapping[str, Any]],
+    paid_gap_records: Iterable[Mapping[str, Any]],
+    free_download_records: Iterable[Mapping[str, Any]],
+) -> None:
+    """Fail closed on corruption shared by all public-first bridge routes."""
+
+    public_selections = tuple(public_selection_records)
+    paid_gaps = tuple(paid_gap_records)
+    _validate_public_plan_routes(public_selections, paid_gaps)
+    _validate_free_download_completion(
+        (*public_selections, *paid_gaps),
+        tuple(free_download_records),
     )
 
 
