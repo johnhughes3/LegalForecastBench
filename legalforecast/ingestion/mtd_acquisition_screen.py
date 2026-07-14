@@ -1035,6 +1035,18 @@ def _looks_like_proposed_order_attachment(text: str) -> bool:
 
 def _looks_like_procedural_or_standing_order(text: str) -> bool:
     standing_order = bool(re.search(r"\bstanding\s+order\b", text, re.I))
+    future_show_cause_on_mtd = bool(
+        re.search(
+            r"\b(?:order(?:ed|ing)?|direct(?:ed|ing|s)?)\b[^\n]{0,160}"
+            r"\bto\s+show\s+cause\b[^\n]{0,320}\bwhy\b[^\n]{0,240}"
+            r"\bmotion\s+to\s+dismiss\b[^\n]{0,120}"
+            r"\bshould\s+not\s+be\s+granted\b",
+            text,
+            re.IGNORECASE,
+        )
+    )
+    if future_show_cause_on_mtd:
+        return True
     conditional_amendment_order = bool(
         re.search(r"\bshall\s+file\b[^.;]{0,120}\bamended\s+complaint\b", text, re.I)
         and re.search(r"\bif\b[^.;]{0,120}\bamend(?:ed|ment|s)?\b", text, re.I)

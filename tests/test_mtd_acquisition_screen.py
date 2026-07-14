@@ -413,6 +413,24 @@ def test_actual_mtd_decision_entry_rejects_extension_order() -> None:
     assert "procedural_or_standing_order" in screen.exclusion_reasons
 
 
+def test_actual_mtd_decision_entry_rejects_show_cause_before_future_mtd_ruling() -> (
+    None
+):
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "ORDER by the Court DIRECTING Plaintiff TO SHOW CAUSE why Dkt. No. 9 "
+            "Defendants' motion to dismiss should not be granted for failure to "
+            "file a response. Plaintiff shall file a statement by July 20, 2026."
+        ),
+        source_url="https://www.courtlistener.com/docket/1/doe-v-abc/",
+    )
+
+    screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
+
+    assert screen.actual_mtd_decision is False
+    assert "procedural_or_standing_order" in screen.exclusion_reasons
+
+
 def test_actual_mtd_decision_entry_rejects_conditional_amend_or_brief_order() -> None:
     page = parse_courtlistener_docket_html(
         _docket_html(
