@@ -917,6 +917,78 @@ def test_observe_accepts_clean_in_window_decision(tmp_path: Path) -> None:
         assert current is not None and current.state == "accepted"
 
 
+def test_observe_links_explicitly_referenced_terse_rest_mtd_label(
+    tmp_path: Path,
+) -> None:
+    store, payload = _seeded_store(
+        tmp_path,
+        {
+            "id": 9001,
+            "docket_id": 555,
+            "description": "ORDER granting motion to dismiss",
+            "entry_date_filed": "2026-07-02",
+            "court_id": "azd",
+            "docketNumber": "3:26-cv-08039",
+            "caseName": "Kearns v. Schuster",
+        },
+    )
+    with store:
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=_client(
+                (
+                    _docket_response(555),
+                    _entries_response(
+                        cursor=None,
+                        results=[
+                            {
+                                "id": 7001,
+                                "docket": 555,
+                                "entry_number": 6,
+                                "description": "Dismiss for Failure to State a Claim",
+                                "date_filed": "2026-05-27",
+                                "recap_documents": [
+                                    {
+                                        "id": 8001,
+                                        "document_number": "6",
+                                        "attachment_number": None,
+                                        "description": (
+                                            "Dismiss for Failure to State a Claim"
+                                        ),
+                                        "is_available": False,
+                                        "is_sealed": None,
+                                        "pacer_doc_id": "025030920190",
+                                    }
+                                ],
+                            },
+                            {
+                                "id": 7002,
+                                "docket": 555,
+                                "entry_number": 8,
+                                "description": (
+                                    "ORDER summarily granting Defendant's motion to "
+                                    "dismiss (Doc. 6)"
+                                ),
+                                "date_filed": "2026-07-02",
+                            },
+                        ],
+                        next_cursor=None,
+                    ),
+                )
+            ),
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.state == "accepted"
+        assert observation.reason_code == "strict_clean_screen_passed"
+        assert observation.evidence["ai"] == {
+            "target_motion_entry_numbers": ["6"],
+            "decision_entry_numbers": ["8"],
+        }
+
+
 def test_reconstruction_does_not_infer_public_access_from_availability() -> None:
     client = _client(
         (

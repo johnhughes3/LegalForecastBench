@@ -44,6 +44,7 @@ from legalforecast.ingestion.courtlistener_client import CourtListenerClient
 from legalforecast.ingestion.cycle_acquisition_store import (
     CandidateObservation,
     CycleAcquisitionStore,
+    cohort_reason_policy_taxonomy,
 )
 from legalforecast.ingestion.discovery_scheduler import (
     DiscoveryHit,
@@ -388,6 +389,7 @@ def run_observe(
     eligibility_anchor: date,
     pacer: RequestPacer | None = None,
     limit: int | None = None,
+    refresh_reason_codes: Sequence[str] = (),
     progress_callback: Callable[[ObserveTally], None] | None = None,
 ) -> ObserveTally:
     """Reconstruct, screen, and durably observe every unresolved candidate.
@@ -397,13 +399,23 @@ def run_observe(
     already carries a current (terminal) observation is skipped, so re-running is
     safe and resumes exactly where a prior pass stopped; a candidate whose only
     prior observation was a transient failure is retried (transient failures
-    never become the current observation).
+    never become the current observation). ``refresh_reason_codes`` is an
+    explicit, auditable escape hatch for re-running current observations whose
+    policy class is refreshable after a screening implementation correction.
     """
 
     store.batch_digest(batch_id)
     _validate_frozen_eligibility_anchor(store, eligibility_anchor)
     require_reconstruction_auth(client)
     decision_window_end = _config_window_end(store, batch_id)
+    refresh_reasons = frozenset(refresh_reason_codes)
+    allowed_refresh_reasons = frozenset(
+        cohort_reason_policy_taxonomy()["refreshable_reason_codes"]
+    )
+    invalid_refresh_reasons = refresh_reasons - allowed_refresh_reasons
+    if invalid_refresh_reasons:
+        invalid = sorted(invalid_refresh_reasons)[0]
+        raise RecapApiBatchDriverError(f"reason code {invalid!r} is not refreshable")
 
     payloads = {
         hit.candidate_id: hit.payload
@@ -428,10 +440,22 @@ def run_observe(
         raise RecapApiBatchDriverError(
             f"candidate {missing_payloads[0]} has no discovery hit payload to observe"
         )
+    current_observations = {
+        candidate_id: store.current_observation(candidate_id)
+        for candidate_id in candidate_ids
+    }
+
+    def refresh_rank(candidate_id: str) -> int:
+        current = current_observations[candidate_id]
+        return (
+            0 if current is not None and current.reason_code in refresh_reasons else 1
+        )
+
     ordered_candidate_ids = sorted(
         candidate_ids,
-        key=lambda candidate_id: _observation_priority(
-            candidate_id, payloads[candidate_id]
+        key=lambda candidate_id: (
+            refresh_rank(candidate_id),
+            _observation_priority(candidate_id, payloads[candidate_id]),
         ),
     )
 
@@ -439,7 +463,8 @@ def run_observe(
         if limit is not None and observed >= limit:
             break
         considered += 1
-        if store.current_observation(candidate_id) is not None:
+        current = current_observations[candidate_id]
+        if current is not None and current.reason_code not in refresh_reasons:
             skipped += 1
             continue
         payload = payloads[candidate_id]

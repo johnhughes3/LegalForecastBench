@@ -832,6 +832,12 @@ def _looks_like_generic_mtd_document(text: str) -> bool:
     """
 
     normalized = " ".join(text.replace("\xad", "").lower().split())
+    # REST v4 returns PACER's event label as the entire docket-entry text,
+    # without the HTML page's ``Main Document ... Buy on PACER`` wrapper.  This
+    # remains safe only because the caller also requires an actual disposition
+    # to reference this exact entry number.
+    if _is_safe_generic_mtd_label(normalized):
+        return True
     labels = re.findall(
         r"(?=\bmain\s+doc\s*ument\s+(?P<label>.*?)\s+"
         r"(?:download\s+pdf|buy\s+on\s+pacer)\b)",

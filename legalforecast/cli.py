@@ -1865,6 +1865,17 @@ def _add_batch_002_observe_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Observe at most N candidates this pass (smoke runs); default all.",
     )
+    parser.add_argument(
+        "--refresh-reason-code",
+        action="append",
+        choices=cohort_reason_policy_taxonomy()["refreshable_reason_codes"],
+        default=[],
+        help=(
+            "Re-observe current terminal candidates carrying this refreshable "
+            "reason code after a documented screening correction. Repeat for "
+            "multiple codes; immutable exclusions cannot be refreshed."
+        ),
+    )
     _add_batch_002_source_arguments(parser)
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_batch_002_observe)
@@ -6329,6 +6340,7 @@ def _cmd_batch_002_observe(args: argparse.Namespace) -> int:
         cast(str, args.eligibility_anchor), "--eligibility-anchor"
     )
     limit = cast(int | None, args.limit)
+    refresh_reason_codes = tuple(cast(list[str], args.refresh_reason_code))
     if limit is not None and limit <= 0:
         raise CommandError("--limit must be a positive integer")
     client, budget = _batch_002_client(args, require_token=True)
@@ -6343,6 +6355,7 @@ def _cmd_batch_002_observe(args: argparse.Namespace) -> int:
                 eligibility_anchor=anchor,
                 pacer=pacer,
                 limit=limit,
+                refresh_reason_codes=refresh_reason_codes,
             )
     except (
         CycleAcquisitionStoreError,
@@ -6355,6 +6368,7 @@ def _cmd_batch_002_observe(args: argparse.Namespace) -> int:
         raise CommandError(str(exc)) from exc
     record = {
         **tally.to_record(),
+        "refresh_reason_codes": list(refresh_reason_codes),
         **_batch_002_rate_evidence(args, client, budget, reservations_before),
     }
     summary_output = cast(Path | None, args.summary_output)

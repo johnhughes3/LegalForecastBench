@@ -369,6 +369,63 @@ def test_run_observe_accepts_and_is_resumable(tmp_path: Path) -> None:
         store.close()
 
 
+def test_run_observe_explicitly_refreshes_only_selected_refreshable_reason(
+    tmp_path: Path,
+) -> None:
+    store = _fresh_store(tmp_path)
+    try:
+        _seed_one_candidate(store, 555)
+        stale = store.record_observation(
+            "courtlistener-docket-555",
+            batch_id="batch-002",
+            state="excluded",
+            reason_code="strict_clean_screen_failed",
+            evidence={"reason": "no_target_motion"},
+        )
+        skipped = run_observe(
+            store,
+            batch_id="batch-002",
+            client=_token_client([]),
+            eligibility_anchor=date(2026, 6, 30),
+        )
+        assert skipped.observed == 0
+        assert skipped.skipped_already_observed == 1
+
+        refreshed = run_observe(
+            store,
+            batch_id="batch-002",
+            client=_token_client(
+                [
+                    _docket_response(555),
+                    _entries_response(
+                        docket_id=555,
+                        results=[
+                            _motion_entry(555),
+                            {
+                                "id": 7002,
+                                "docket": 555,
+                                "entry_number": 40,
+                                "description": (
+                                    "ORDER granting defendant's motion to dismiss "
+                                    "the complaint"
+                                ),
+                                "date_filed": "2026-07-05",
+                            },
+                        ],
+                    ),
+                ]
+            ),
+            eligibility_anchor=date(2026, 6, 30),
+            refresh_reason_codes=("strict_clean_screen_failed",),
+        )
+        assert refreshed.observed == 1
+        current = store.current_observation("courtlistener-docket-555")
+        assert current is not None and current.state == "accepted"
+        assert current.supersedes_observation_id == stale.observation_id
+    finally:
+        store.close()
+
+
 def test_run_observe_prioritizes_cheaper_recent_candidates_deterministically(
     tmp_path: Path,
 ) -> None:
