@@ -7679,6 +7679,7 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
         OSError,
         UnicodeError,
         ValueError,
+        RuntimeError,
     ) as exc:
         _write_acquisition_failure(
             args,
