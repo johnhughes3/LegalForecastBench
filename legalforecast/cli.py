@@ -5105,35 +5105,44 @@ def _cmd_acquisition_prepare_target(
                 "log": success_log_path,
             },
         )
+        if cast(bool, args.resume):
+            completed_evidence_exists = (
+                summary_path.exists() or success_run_card_path.exists()
+            )
+            if completed_evidence_exists:
+                if not config_path.is_file():
+                    raise CommandError(
+                        f"{profile.label} committed config is missing; refusing "
+                        "completed-run reconstruction"
+                    )
+                if not summary_path.is_file():
+                    raise CommandError(
+                        f"{profile.label} committed success summary is missing; "
+                        "refusing child-stage resume"
+                    )
+                if not success_run_card_path.is_file():
+                    raise CommandError(
+                        f"{profile.label} committed success run card is missing"
+                    )
+                _ensure_target_100_config(
+                    config_path,
+                    config_record,
+                    profile=profile,
+                    resume=True,
+                )
+                _verify_completed_preparation_for_frontier(
+                    preparation_root=output_root,
+                    preparation_summary_path=summary_path,
+                    preparation_config_path=config_path,
+                    snapshot_manifest_path=snapshot / "manifest.json",
+                )
+                return 0
         _ensure_target_100_config(
             config_path,
             config_record,
             profile=profile,
             resume=cast(bool, args.resume),
         )
-        if cast(bool, args.resume):
-            if summary_path.exists():
-                _validate_target_100_successful_resume(
-                    summary_path=summary_path,
-                    output_root=output_root,
-                    config=config,
-                    profile=profile,
-                    config_sha256=cast(str, config_record["config_sha256"]),
-                )
-                if not _target_100_completed_run_card_exists(
-                    success_run_card_path, profile=profile
-                ):
-                    raise CommandError(
-                        f"{profile.label} committed success run card is missing"
-                    )
-                return 0
-            if _target_100_completed_run_card_exists(
-                success_run_card_path, profile=profile
-            ):
-                raise CommandError(
-                    f"{profile.label} committed success summary is missing; refusing "
-                    "child-stage resume"
-                )
     except (CommandError, OSError, UnicodeError, ValueError) as exc:
         _write_target_100_attempt_failure(
             args,
@@ -5345,6 +5354,7 @@ class _VerifiedPreparationForFrontier:
     max_missing_core_documents_per_case: int
     budget_plan: MissingCoreBudgetPlan
     success_run_card_path: Path
+    protected_paths: tuple[Path, ...]
 
 
 def _cmd_acquisition_materialize_target_frontier(
@@ -5352,23 +5362,17 @@ def _cmd_acquisition_materialize_target_frontier(
 ) -> int:
     """Materialize a full frontier without mutating or rerunning preparation."""
 
-    output_root = _acquisition_output_root(args)
+    output_root = cast(Path, args.output_root)
     preparation_root = cast(Path, args.preparation_root)
     preparation_summary_path = cast(Path, args.preparation_summary)
     preparation_config_path = cast(Path, args.preparation_config)
     snapshot_manifest_path = cast(Path, args.snapshot_manifest)
     frontier_path = output_root / "full-candidate-frontier.json"
-    input_paths = (
+    base_input_paths = (
         preparation_root,
         preparation_summary_path,
         preparation_config_path,
         snapshot_manifest_path,
-    )
-    _validate_materializer_output_paths(
-        args,
-        output_root=output_root,
-        frontier_path=frontier_path,
-        input_paths=input_paths,
     )
     verified = _verify_completed_preparation_for_frontier(
         preparation_root=preparation_root,
@@ -5376,8 +5380,57 @@ def _cmd_acquisition_materialize_target_frontier(
         preparation_config_path=preparation_config_path,
         snapshot_manifest_path=snapshot_manifest_path,
     )
+    input_paths = (*base_input_paths, verified.success_run_card_path)
+    _validate_materializer_output_paths(
+        args,
+        output_root=output_root,
+        frontier_path=frontier_path,
+        input_paths=verified.protected_paths,
+    )
     dry_run = _acquisition_dry_run(args)
-    _prepare_full_candidate_frontier(
+    run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards/materialize-target-cohort-frontier.json",
+    )
+    if not dry_run and cast(bool, args.resume) and run_card_path.exists():
+        _, expected_frontier_count, expected_frontier_sha256 = (
+            _prepare_full_candidate_frontier(
+                preparation_root,
+                budget_plan=verified.budget_plan,
+                target_case_count=verified.target_case_count,
+                cost_per_document_usd=verified.cost_per_document_usd,
+                max_missing_core_documents_per_case=(
+                    verified.max_missing_core_documents_per_case
+                ),
+                snapshot_manifest_path=snapshot_manifest_path,
+                preparation_config_path=preparation_config_path,
+                frontier_path=frontier_path,
+                resume=True,
+                additional_source_commitments={
+                    "preparation_summary_sha256": preparation_summary_path,
+                    "preparation_success_run_card_sha256": (
+                        verified.success_run_card_path
+                    ),
+                },
+                write=False,
+            )
+        )
+        _verify_completed_materializer_run_card(
+            run_card_path=run_card_path,
+            frontier_path=frontier_path,
+            input_paths=input_paths,
+            target_case_count=verified.target_case_count,
+            preparation_summary_path=preparation_summary_path,
+            preparation_config_path=preparation_config_path,
+            snapshot_manifest_path=snapshot_manifest_path,
+            preparation_success_run_card_path=verified.success_run_card_path,
+            expected_frontier_sha256=expected_frontier_sha256,
+            expected_frontier_count=expected_frontier_count,
+        )
+        return 0
+    output_root.mkdir(parents=True, exist_ok=True)
+    _, frontier_count, _ = _prepare_full_candidate_frontier(
         preparation_root,
         budget_plan=verified.budget_plan,
         target_case_count=verified.target_case_count,
@@ -5395,26 +5448,12 @@ def _cmd_acquisition_materialize_target_frontier(
         },
         write=not dry_run,
     )
-    run_card_path = _acquisition_path(
-        args,
-        "run_card_output",
-        output_root / "run-cards/materialize-target-cohort-frontier.json",
-    )
-    if (
-        not dry_run
-        and cast(bool, args.resume)
-        and frontier_path.exists()
-        and _completed_stage_run_card_exists(
-            run_card_path, stage="materialize-target-cohort-frontier"
-        )
-    ):
-        return 0
     _write_acquisition_completion(
         args,
         stage="materialize-target-cohort-frontier",
-        input_paths=(*input_paths, verified.success_run_card_path),
+        input_paths=input_paths,
         output_paths=(frontier_path,),
-        record_count=verified.budget_plan.target_case_count or 0,
+        record_count=frontier_count,
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
@@ -5482,9 +5521,11 @@ def _verify_completed_preparation_for_frontier(
         raise CommandError(
             "frontier materialization requires executed nonpaid preparation"
         )
-    target_case_count = _required_int(config, "target_case_count")
-    if target_case_count < 1 or summary.get("target_case_count") != target_case_count:
-        raise CommandError("preparation target case count commitment mismatch")
+    target_case_count = _target_case_count_for_materialized_frontier(
+        profile=profile,
+        config=config,
+        summary=summary,
+    )
     expected_config_path = preparation_root / profile.config_filename
     if preparation_config_path.resolve() != expected_config_path.resolve():
         raise CommandError("preparation config is outside its canonical root path")
@@ -5517,13 +5558,58 @@ def _verify_completed_preparation_for_frontier(
         committed_outputs, Mapping
     ):
         raise CommandError("preparation summary lacks exhaustive stage commitments")
-    _verify_preparation_input_commitments(cast(Mapping[str, object], committed_inputs))
+    expected_inputs, independent_inputs = _expected_preparation_input_commitments(
+        preparation_root=preparation_root,
+        config=config,
+    )
+    if dict(cast(Mapping[str, Any], committed_inputs)) != expected_inputs:
+        raise CommandError(
+            "preparation stage input commitment mismatch or non-exhaustive mapping"
+        )
     actual_outputs = _target_100_stage_commitments(preparation_root)
     if dict(cast(Mapping[str, Any], committed_outputs)) != actual_outputs:
-        raise CommandError("preparation stage output commitment mismatch")
+        raise CommandError(
+            "preparation stage output commitment mismatch; mutated or unexpected "
+            "stage artifact"
+        )
     budget_path = preparation_root / "05-budget/missing-core-budget-plan.json"
-    budget_plan = _missing_core_budget_plan(_read_json_object(budget_path))
+    budget_record = _read_json_object(budget_path)
+    budget_plan = _missing_core_budget_plan(budget_record)
+    recomputed_budget = plan_missing_core_document_budget(
+        (
+            _core_document_filter_result(record)
+            for record in _read_records(
+                preparation_root / "04-core-filter/core-filter-results.jsonl"
+            )
+        ),
+        dry_run=False,
+        max_missing_core_documents_per_case=_required_int(
+            config, "max_missing_core_documents_per_case"
+        ),
+        cost_per_document_usd=_required_str(config, "cost_per_document_usd"),
+        max_projected_budget_usd=_required_str(config, "max_projected_budget_usd"),
+        truncate_to_budget=True,
+        target_case_count=target_case_count,
+    )
+    normalized_budget_record = dict(budget_record)
+    if "target_case_count" not in normalized_budget_record:
+        if "target_case_count_met" in normalized_budget_record:
+            raise CommandError("legacy budget target case count is ambiguous")
+        normalized_budget_record["target_case_count"] = target_case_count
+        normalized_budget_record["target_case_count_met"] = True
+    if normalized_budget_record != recomputed_budget.to_record():
+        raise CommandError("preparation budget differs from canonical core-filter plan")
+    budget_plan = recomputed_budget
     selected_ids = [plan.candidate_id for plan in budget_plan.case_plans]
+    candidate_pool_size = len(
+        _read_records(Path(configured_snapshot) / "screened-cases.jsonl")
+    )
+    raw_summary_budget_path = summary.get("budget_plan")
+    if (
+        not isinstance(raw_summary_budget_path, str)
+        or Path(raw_summary_budget_path).resolve() != budget_path.resolve()
+    ):
+        raise CommandError("preparation summary budget path differs")
     if (
         len(selected_ids) != target_case_count
         or summary.get("selected_candidate_ids_sha256")
@@ -5535,6 +5621,35 @@ def _verify_completed_preparation_for_frontier(
     ):
         raise CommandError(
             "preparation budget or selected frontier commitment mismatch"
+        )
+    if (
+        summary.get("stage_commands") is None
+        or _semantic_preparation_stage_commands(summary.get("stage_commands"))
+        != config.get("stage_commands")
+        or summary.get("paid_activity_requested") is not False
+        or summary.get("budget_status") != "provisional_pre_clearance"
+        or summary.get("next_stage") != "clear-disclosures"
+        or summary.get("selected_case_count") != target_case_count
+        or summary.get("candidate_pool_size") != candidate_pool_size
+        or config.get("candidate_pool_size") != candidate_pool_size
+        or summary.get("total_missing_core_documents")
+        != budget_plan.total_missing_core_documents
+        or summary.get("total_estimated_cost_usd")
+        != budget_plan.total_estimated_cost_usd
+        or summary.get("cost_per_document_usd") != budget_plan.cost_per_document_usd
+        or summary.get("max_projected_budget_usd")
+        != budget_plan.max_projected_budget_usd
+        or summary.get("max_missing_core_documents_per_case")
+        != budget_plan.max_missing_core_documents_per_case
+    ):
+        raise CommandError("preparation summary differs from frozen canonical plan")
+    if profile.emit_full_candidate_frontier:
+        _verify_generic_preparation_frontier(
+            preparation_root=preparation_root,
+            preparation_summary=summary,
+            preparation_config_path=preparation_config_path,
+            snapshot_manifest_path=snapshot_manifest_path,
+            candidate_pool_size=candidate_pool_size,
         )
     raw_run_card_path = typed_wrapper_paths.get("run_card")
     if not isinstance(raw_run_card_path, str):
@@ -5551,6 +5666,12 @@ def _verify_completed_preparation_for_frontier(
         or success_card.get("paid_activity_requested") is not False
         or success_card.get("paid_activity_executed") is not False
         or success_card.get("record_count") != target_case_count
+        or success_card.get("config_sha256") != committed_config_sha256
+        or success_card.get("selected_case_count") != target_case_count
+        or success_card.get("total_estimated_cost_usd")
+        != budget_plan.total_estimated_cost_usd
+        or success_card.get("completed_stages") != list(actual_outputs)
+        or success_card.get("zero_paid_activity_evidence") is not True
     ):
         raise CommandError("completed preparation success run card is inconsistent")
     committed_output_paths = success_card.get("output_paths")
@@ -5561,16 +5682,44 @@ def _verify_completed_preparation_for_frontier(
     raw_output_paths = cast(Sequence[object], committed_output_paths)
     if any(not isinstance(path, str) for path in raw_output_paths):
         raise CommandError("preparation success run-card output paths are malformed")
-    actual_output_paths = {
+    actual_output_paths = [
         Path(path).resolve() for path in cast(Sequence[str], raw_output_paths)
-    }
-    required_output_paths = {
+    ]
+    required_output_paths = [
         preparation_config_path.resolve(),
         preparation_summary_path.resolve(),
         budget_path.resolve(),
-    }
-    if not required_output_paths.issubset(actual_output_paths):
-        raise CommandError("preparation success run card omits required outputs")
+    ]
+    if actual_output_paths != required_output_paths:
+        raise CommandError("preparation success run card output paths differ")
+    raw_input_paths = success_card.get("input_paths")
+    if not isinstance(raw_input_paths, Sequence) or isinstance(
+        raw_input_paths, (str, bytes)
+    ):
+        raise CommandError("preparation success run card lacks input paths")
+    expected_success_inputs = [Path(configured_snapshot).resolve()]
+    if [
+        Path(str(path)).resolve() for path in cast(Sequence[object], raw_input_paths)
+    ] != expected_success_inputs:
+        raise CommandError("preparation success run card input paths differ")
+    wrapper_protected_paths = tuple(
+        Path(value) for value in typed_wrapper_paths.values() if isinstance(value, str)
+    )
+    protected_paths = (
+        preparation_root,
+        preparation_summary_path,
+        preparation_config_path,
+        snapshot_manifest_path,
+        Path(configured_snapshot),
+        success_run_card_path,
+        *wrapper_protected_paths,
+        *(
+            Path(path)
+            for stage_paths in expected_inputs.values()
+            for path in stage_paths
+        ),
+        *independent_inputs,
+    )
     return _VerifiedPreparationForFrontier(
         target_case_count=target_case_count,
         cost_per_document_usd=_required_str(config, "cost_per_document_usd"),
@@ -5579,23 +5728,258 @@ def _verify_completed_preparation_for_frontier(
         ),
         budget_plan=budget_plan,
         success_run_card_path=success_run_card_path,
+        protected_paths=tuple(dict.fromkeys(protected_paths)),
     )
 
 
-def _verify_preparation_input_commitments(
-    commitments: Mapping[str, object],
+def _verify_completed_materializer_run_card(
+    *,
+    run_card_path: Path,
+    frontier_path: Path,
+    input_paths: Sequence[Path],
+    target_case_count: int,
+    preparation_summary_path: Path,
+    preparation_config_path: Path,
+    snapshot_manifest_path: Path,
+    preparation_success_run_card_path: Path,
+    expected_frontier_sha256: str,
+    expected_frontier_count: int,
 ) -> None:
-    for stage, raw_paths in commitments.items():
-        if not isinstance(raw_paths, Mapping):
-            raise CommandError("preparation stage input commitments are malformed")
-        for raw_path, digest in cast(Mapping[object, object], raw_paths).items():
-            if not isinstance(raw_path, str) or not isinstance(digest, str):
-                raise CommandError("preparation stage input commitment is malformed")
-            path = Path(raw_path)
-            if path.is_symlink() or not path.is_file() or _path_sha256(path) != digest:
-                raise CommandError(
-                    f"preparation stage input commitment mismatch: {stage}/{raw_path}"
-                )
+    if run_card_path.is_symlink() or not run_card_path.is_file():
+        raise CommandError("completed materializer run card is not a regular file")
+    card = _read_json_object(run_card_path)
+    expected_inputs = [str(path) for path in input_paths]
+    expected_outputs = [str(frontier_path)]
+    expected_sources = {
+        "preparation_summary": _path_sha256(preparation_summary_path),
+        "preparation_config": _path_sha256(preparation_config_path),
+        "snapshot_manifest": _path_sha256(snapshot_manifest_path),
+        "preparation_success_run_card": _path_sha256(preparation_success_run_card_path),
+    }
+    if (
+        card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or card.get("stage") != "materialize-target-cohort-frontier"
+        or card.get("status") != "completed"
+        or card.get("dry_run") is not False
+        or card.get("execute") is not True
+        or card.get("paid_activity_requested") is not False
+        or card.get("paid_activity_executed") is not False
+        or card.get("record_count") != expected_frontier_count
+        or card.get("target_case_count") != target_case_count
+        or card.get("input_paths") != expected_inputs
+        or card.get("output_paths") != expected_outputs
+        or card.get("source_commitments") != expected_sources
+        or card.get("zero_provider_activity_evidence") is not True
+    ):
+        raise CommandError("completed materializer run card contract mismatch")
+    if frontier_path.is_symlink() or not frontier_path.is_file():
+        raise CommandError("completed materializer frontier output is missing")
+    frontier_sha256 = _path_sha256(frontier_path)
+    if (
+        frontier_sha256 != expected_frontier_sha256
+        or card.get("frontier_sha256") != frontier_sha256
+        or card.get("output_commitments")
+        != {"full_candidate_frontier": frontier_sha256}
+    ):
+        raise CommandError("completed materializer frontier commitment mismatch")
+
+
+def _verify_generic_preparation_frontier(
+    *,
+    preparation_root: Path,
+    preparation_summary: Mapping[str, Any],
+    preparation_config_path: Path,
+    snapshot_manifest_path: Path,
+    candidate_pool_size: int,
+) -> None:
+    frontier_path = preparation_root / "05-budget/full-candidate-frontier.json"
+    if frontier_path.is_symlink() or not frontier_path.is_file():
+        raise CommandError("generic preparation full frontier is missing")
+    frontier_sha256 = _path_sha256(frontier_path)
+    raw_frontier_path = preparation_summary.get("full_candidate_frontier")
+    if (
+        not isinstance(raw_frontier_path, str)
+        or Path(raw_frontier_path).resolve() != frontier_path.resolve()
+        or preparation_summary.get("full_candidate_frontier_sha256") != frontier_sha256
+        or preparation_summary.get("full_candidate_frontier_count")
+        != candidate_pool_size
+    ):
+        raise CommandError("generic preparation full frontier summary mismatch")
+    artifact = _read_json_object(frontier_path)
+    candidates = _verified_target_cohort_frontier_rows(artifact)
+    if len(candidates) != candidate_pool_size:
+        raise CommandError("generic preparation full frontier count mismatch")
+    policy = cast(Mapping[str, Any], artifact["policy"])
+    expected_commitments = {
+        "snapshot_manifest_sha256": _path_sha256(snapshot_manifest_path),
+        "preparation_config_sha256": _path_sha256(preparation_config_path),
+        "reconciled_selection_sha256": _path_sha256(
+            preparation_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+        ),
+        "case_relevance_sha256": _path_sha256(
+            preparation_root / "03-gap-bridge/case-relevance.jsonl"
+        ),
+        "download_manifest_sha256": _path_sha256(
+            preparation_root / "03c-merged-downloads/document-downloads-merged.jsonl"
+        ),
+        "core_filter_results_sha256": _path_sha256(
+            preparation_root / "04-core-filter/core-filter-results.jsonl"
+        ),
+        "provisional_budget_plan_sha256": _path_sha256(
+            preparation_root / "05-budget/missing-core-budget-plan.json"
+        ),
+        "restriction_evidence_sha256": _path_sha256(
+            preparation_root / "06-clearance-inputs/restriction-evidence.jsonl"
+        ),
+        "disclosure_review_requests_sha256": _path_sha256(
+            preparation_root / "06-clearance-inputs/disclosure-review-requests.jsonl"
+        ),
+    }
+    if policy.get("source_commitments") != expected_commitments:
+        raise CommandError("generic preparation full frontier lineage mismatch")
+
+
+def _target_case_count_for_materialized_frontier(
+    *,
+    profile: _TargetPreparationProfile,
+    config: Mapping[str, Any],
+    summary: Mapping[str, Any],
+) -> int:
+    config_count = config.get("target_case_count")
+    summary_count = summary.get("target_case_count")
+    if (
+        not isinstance(summary_count, int)
+        or isinstance(summary_count, bool)
+        or summary_count < 1
+    ):
+        raise CommandError("preparation target case count is missing or invalid")
+    if profile.exact_target_case_count is not None:
+        exact_count = profile.exact_target_case_count
+        if summary_count != exact_count or config_count != exact_count:
+            raise CommandError("preparation target case count commitment mismatch")
+        return exact_count
+    if (
+        not isinstance(config_count, int)
+        or isinstance(config_count, bool)
+        or config_count < 1
+        or config_count != summary_count
+    ):
+        raise CommandError("preparation target case count commitment mismatch")
+    return config_count
+
+
+def _semantic_preparation_stage_commands(raw_commands: object) -> list[JsonRecord]:
+    if not isinstance(raw_commands, Sequence) or isinstance(raw_commands, (str, bytes)):
+        raise CommandError("preparation stage commands are malformed")
+    commands: list[Mapping[str, Any]] = []
+    for raw_command in cast(Sequence[object], raw_commands):
+        if not isinstance(raw_command, Mapping):
+            raise CommandError("preparation stage command is malformed")
+        command = cast(Mapping[str, Any], raw_command)
+        argv = command.get("argv")
+        if (
+            not isinstance(command.get("stage"), str)
+            or not isinstance(argv, Sequence)
+            or isinstance(argv, (str, bytes))
+            or any(not isinstance(value, str) for value in cast(Sequence[object], argv))
+        ):
+            raise CommandError("preparation stage command is malformed")
+        commands.append(command)
+    return _semantic_target_100_stage_commands(commands)
+
+
+def _frozen_preparation_flag_path(
+    config: Mapping[str, Any], *, flag: str
+) -> Path | None:
+    commands = _semantic_preparation_stage_commands(config.get("stage_commands"))
+    values: list[str] = []
+    for command in commands:
+        argv = cast(Sequence[str], command["argv"])
+        for index, argument in enumerate(argv):
+            if argument == flag:
+                if index + 1 >= len(argv):
+                    raise CommandError(f"frozen preparation flag lacks value: {flag}")
+                values.append(argv[index + 1])
+    if not values:
+        return None
+    unique_values = set(values)
+    if len(unique_values) != 1:
+        raise CommandError(f"frozen preparation flag is ambiguous: {flag}")
+    return Path(unique_values.pop())
+
+
+def _expected_preparation_input_commitments(
+    *,
+    preparation_root: Path,
+    config: Mapping[str, Any],
+) -> tuple[JsonRecord, tuple[Path, ...]]:
+    snapshot_value = config.get("snapshot")
+    if not isinstance(snapshot_value, str):
+        raise CommandError("preparation config lacks snapshot path")
+    snapshot = Path(snapshot_value)
+    paths: dict[str, tuple[Path, ...]] = {
+        "01-public-plan": (
+            snapshot / "manifest.json",
+            snapshot / "screened-cases.jsonl",
+        ),
+        "02-free-download": (
+            preparation_root / "01-public-plan/free-document-requests.jsonl",
+        ),
+        "03-gap-bridge": (
+            snapshot / "screened-cases.jsonl",
+            preparation_root / "01-public-plan/public-packet-selection.jsonl",
+            preparation_root / "01-public-plan/public-packet-paid-gaps.jsonl",
+            preparation_root / "02-free-download/free-document-downloads.jsonl",
+        ),
+        "04-core-filter": (preparation_root / "03-gap-bridge/case-relevance.jsonl",),
+        "03b-bridge-free-download": (
+            preparation_root / "03-gap-bridge/pacer-gap-free-document-requests.jsonl",
+        ),
+        "03c-merged-downloads": (
+            preparation_root / "02-free-download/free-document-downloads.jsonl",
+            preparation_root / "03b-bridge-free-download/free-document-downloads.jsonl",
+        ),
+        "05-budget": (preparation_root / "04-core-filter/core-filter-results.jsonl",),
+        "06-clearance-inputs": (
+            preparation_root / "03-gap-bridge/case-relevance.jsonl",
+            preparation_root / "03c-merged-downloads/document-downloads-merged.jsonl",
+        ),
+    }
+    independent_inputs: list[Path] = []
+    courtlistener_fixture = _frozen_preparation_flag_path(
+        config, flag="--courtlistener-fixture"
+    )
+    expected_courtlistener_sha256 = config.get("courtlistener_fixture_sha256")
+    if courtlistener_fixture is not None:
+        if _path_sha256(courtlistener_fixture) != expected_courtlistener_sha256:
+            raise CommandError("frozen CourtListener fixture commitment mismatch")
+        paths["03-gap-bridge"] += (courtlistener_fixture,)
+        independent_inputs.append(courtlistener_fixture)
+    elif expected_courtlistener_sha256 is not None:
+        raise CommandError("frozen CourtListener fixture path is missing")
+    fixture_documents = _frozen_preparation_flag_path(
+        config, flag="--fixture-documents"
+    )
+    expected_fixture_sha256 = config.get("fixture_documents_sha256")
+    if fixture_documents is not None:
+        if _path_sha256(fixture_documents) != expected_fixture_sha256:
+            raise CommandError("frozen fixture-document commitment mismatch")
+        independent_inputs.append(fixture_documents)
+    elif expected_fixture_sha256 is not None:
+        raise CommandError("frozen fixture-document path is missing")
+    for key in ("request_ledger", "raw_html_dir"):
+        value = config.get(key)
+        if isinstance(value, str):
+            independent_inputs.append(Path(value))
+    expected = {
+        stage: {str(path.resolve()): _path_sha256(path) for path in stage_paths}
+        for stage, stage_paths in paths.items()
+    }
+    if config.get("snapshot_screened_cases_sha256") != _path_sha256(
+        snapshot / "screened-cases.jsonl"
+    ):
+        raise CommandError("preparation screened-case commitment mismatch")
+    return expected, tuple(independent_inputs)
 
 
 def _completed_stage_run_card_exists(path: Path, *, stage: str) -> bool:
@@ -5638,17 +6022,27 @@ def _validate_materializer_output_paths(
             path=resolved,
             is_tree=False,
         )
-        if any(
-            resolved == source
-            or resolved.is_relative_to(source)
-            or source.is_relative_to(resolved)
-            for source in resolved_inputs
-        ):
-            raise CommandError(
-                "materialize-target-cohort-frontier output overlaps immutable input"
-            )
+        for source in resolved_inputs:
+            if _replay_scopes_overlap(
+                left_label="materialize-target-cohort-frontier output",
+                left=resolved,
+                left_tree=False,
+                right_label="immutable preparation input",
+                right=source,
+                right_tree=source.is_dir(),
+            ):
+                raise CommandError(
+                    "materialize-target-cohort-frontier output overlaps immutable input"
+                )
         for other in writable_paths[index + 1 :]:
-            if resolved == other.resolve():
+            if _replay_scopes_overlap(
+                left_label="materialize-target-cohort-frontier output",
+                left=resolved,
+                left_tree=False,
+                right_label="materialize-target-cohort-frontier output",
+                right=other.resolve(),
+                right_tree=False,
+            ):
                 raise CommandError("materialize-target-cohort-frontier outputs alias")
 
 
@@ -6285,8 +6679,12 @@ def _validate_projection_semantic_config(
     max_projected_budget_usd: str,
     max_missing_core_documents_per_case: int,
 ) -> None:
+    if (
+        preparation_summary.get("target_case_count") != target_case_count
+        or preparation_config.get("target_case_count") != target_case_count
+    ):
+        raise CommandError("projection target_case_count differs from prepared config")
     exact_values = {
-        "target_case_count": target_case_count,
         "max_missing_core_documents_per_case": max_missing_core_documents_per_case,
     }
     for field, actual in exact_values.items():
@@ -6750,87 +7148,6 @@ def _write_target_100_attempt_failure(
     return run_card_path
 
 
-def _validate_target_100_successful_resume(
-    *,
-    summary_path: Path,
-    output_root: Path,
-    config: TargetCohortPreparationConfig | Target100PreparationConfig,
-    profile: _TargetPreparationProfile,
-    config_sha256: str,
-) -> None:
-    summary = _read_json_object(summary_path)
-    if summary.get("dry_run") is not False:
-        raise CommandError(
-            f"{profile.label} successful resume requires an executed success summary"
-        )
-    if summary.get("paid_activity_executed") is not False:
-        raise CommandError(f"{profile.label} success summary claims paid activity")
-    if summary.get("config_sha256") != config_sha256:
-        raise CommandError(f"{profile.label} resume config commitment mismatch")
-    committed_inputs = summary.get("stage_input_commitments")
-    committed_outputs = summary.get("stage_commitments")
-    if not isinstance(committed_inputs, Mapping) or not isinstance(
-        committed_outputs, Mapping
-    ):
-        raise CommandError(f"{profile.label} success summary lacks stage commitments")
-    actual_inputs = _target_100_stage_input_commitments(output_root, config=config)
-    actual_outputs = _target_100_stage_commitments(output_root)
-    if dict(cast(Mapping[str, Any], committed_inputs)) != actual_inputs:
-        raise CommandError(f"{profile.label} resume stage input commitment mismatch")
-    if dict(cast(Mapping[str, Any], committed_outputs)) != actual_outputs:
-        raise CommandError(
-            f"{profile.label} resume stage output commitment mismatch; mutated or "
-            "unexpected stage artifact"
-        )
-    budget_plan = _missing_core_budget_plan(
-        _read_json_object(output_root / "05-budget/missing-core-budget-plan.json")
-    )
-    selected_ids = [plan.candidate_id for plan in budget_plan.case_plans]
-    if summary.get("selected_candidate_ids_sha256") != _canonical_json_sha256(
-        selected_ids
-    ):
-        raise CommandError(f"{profile.label} resume selected-case commitment mismatch")
-    if summary.get("frontier_sha256") != _canonical_json_sha256(
-        [row.to_record() for row in budget_plan.frontier_rows]
-    ):
-        raise CommandError(f"{profile.label} resume cost-frontier commitment mismatch")
-
-    if profile.emit_full_candidate_frontier:
-        frontier_path = output_root / "05-budget/full-candidate-frontier.json"
-        if summary.get("full_candidate_frontier_sha256") != _path_sha256(frontier_path):
-            raise CommandError(
-                f"{profile.label} resume full candidate frontier mismatch"
-            )
-        frontier_artifact = _read_json_object(frontier_path)
-        frontier_policy = frontier_artifact.get("policy")
-        frontier_candidates = (
-            cast(Mapping[str, Any], frontier_policy).get("candidates")
-            if isinstance(frontier_policy, Mapping)
-            else None
-        )
-        if not isinstance(frontier_candidates, Sequence) or isinstance(
-            frontier_candidates, (str, bytes)
-        ):
-            raise CommandError(
-                f"{profile.label} resume full candidate frontier count mismatch"
-            )
-        if summary.get("full_candidate_frontier_count") != len(
-            cast(Sequence[object], frontier_candidates)
-        ):
-            raise CommandError(
-                f"{profile.label} resume full candidate frontier count mismatch"
-            )
-
-
-def _target_100_completed_run_card_exists(
-    path: Path, *, profile: _TargetPreparationProfile
-) -> bool:
-    if not path.exists():
-        return False
-    record = _read_json_object(path)
-    return record.get("stage") == profile.stage and record.get("status") == "completed"
-
-
 def _target_100_config_record(
     config: TargetCohortPreparationConfig | Target100PreparationConfig,
     *,
@@ -7002,9 +7319,31 @@ def _verified_target_cohort_frontier_rows(
     if typed_policy.get("frontier_truncated") is not False:
         raise ValueError("target-cohort candidate frontier must be untruncated")
     commitments = typed_policy.get("source_commitments")
-    if not isinstance(commitments, Mapping) or not commitments:
+    if not isinstance(commitments, Mapping):
         raise ValueError("target-cohort candidate frontier lacks source commitments")
-    for digest in cast(Mapping[object, object], commitments).values():
+    typed_commitments = cast(Mapping[str, object], commitments)
+    required_commitments = {
+        "snapshot_manifest_sha256",
+        "preparation_config_sha256",
+        "reconciled_selection_sha256",
+        "case_relevance_sha256",
+        "download_manifest_sha256",
+        "core_filter_results_sha256",
+        "provisional_budget_plan_sha256",
+        "restriction_evidence_sha256",
+        "disclosure_review_requests_sha256",
+    }
+    posthoc_commitments = {
+        "preparation_summary_sha256",
+        "preparation_success_run_card_sha256",
+    }
+    commitment_keys = frozenset(typed_commitments)
+    if commitment_keys not in {
+        frozenset(required_commitments),
+        frozenset(required_commitments | posthoc_commitments),
+    }:
+        raise ValueError("target-cohort frontier source commitments differ")
+    for digest in typed_commitments.values():
         if (
             not isinstance(digest, str)
             or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None
@@ -7023,12 +7362,8 @@ def _verified_target_cohort_frontier_rows(
         "required_dry_run": False,
         "required_execute": True,
         "required_paid_activity_executed": False,
-        "download_manifest_sha256": cast(Mapping[str, Any], commitments).get(
-            "download_manifest_sha256"
-        ),
-        "restriction_evidence_sha256": cast(Mapping[str, Any], commitments).get(
-            "restriction_evidence_sha256"
-        ),
+        "download_manifest_sha256": typed_commitments["download_manifest_sha256"],
+        "restriction_evidence_sha256": typed_commitments["restriction_evidence_sha256"],
         "required_source_commitments": [
             "download_manifest",
             "restriction_evidence",

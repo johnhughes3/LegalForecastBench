@@ -186,6 +186,38 @@ def test_target_cohort_execute_retains_full_frontier_and_replays_byte_identicall
     normalized_frontier = cli._replacement_frontier_rows(frontier_path)
     assert len(normalized_frontier) == 3
     assert all("selection_status" not in row for row in normalized_frontier)
+    missing_lineage = json.loads(json.dumps(frontier_artifact))
+    missing_lineage["policy"]["source_commitments"].pop("snapshot_manifest_sha256")
+    missing_lineage["policy_sha256"] = cli._canonical_json_sha256(
+        missing_lineage["policy"]
+    )
+    with pytest.raises(ValueError, match="source commitments differ"):
+        cli._verified_target_cohort_frontier_rows(missing_lineage)
+    extra_lineage = json.loads(json.dumps(frontier_artifact))
+    extra_lineage["policy"]["source_commitments"]["untrusted_sha256"] = (
+        "sha256:" + "a" * 64
+    )
+    extra_lineage["policy_sha256"] = cli._canonical_json_sha256(extra_lineage["policy"])
+    with pytest.raises(ValueError, match="source commitments differ"):
+        cli._verified_target_cohort_frontier_rows(extra_lineage)
+    partial_posthoc_lineage = json.loads(json.dumps(frontier_artifact))
+    partial_posthoc_lineage["policy"]["source_commitments"][
+        "preparation_summary_sha256"
+    ] = "sha256:" + "b" * 64
+    partial_posthoc_lineage["policy_sha256"] = cli._canonical_json_sha256(
+        partial_posthoc_lineage["policy"]
+    )
+    with pytest.raises(ValueError, match="source commitments differ"):
+        cli._verified_target_cohort_frontier_rows(partial_posthoc_lineage)
+    null_contract_hash = json.loads(json.dumps(frontier_artifact))
+    null_contract_hash["policy"]["clearance_contract"]["download_manifest_sha256"] = (
+        None
+    )
+    null_contract_hash["policy_sha256"] = cli._canonical_json_sha256(
+        null_contract_hash["policy"]
+    )
+    with pytest.raises(ValueError, match="clearance contract differs"):
+        cli._verified_target_cohort_frontier_rows(null_contract_hash)
     tampered_frontier = tmp_path / "tampered-frontier.json"
     frontier_artifact["policy"]["candidate_count"] = 2
     tampered_frontier.write_text(json.dumps(frontier_artifact, sort_keys=True) + "\n")
@@ -199,6 +231,26 @@ def test_target_cohort_execute_retains_full_frontier_and_replays_byte_identicall
     assert main(command) == 0
     assert {path: path.read_bytes() for path in committed} == committed
 
+    def unexpected_resume_provider(*args: object, **kwargs: object) -> object:
+        raise AssertionError("completed-summary guard must run before a provider")
+
+    monkeypatch.setattr(cli, "_courtlistener_bridge_client", unexpected_resume_provider)
+    for field, value in (
+        ("full_candidate_frontier_sha256", "sha256:" + "0" * 64),
+        ("full_candidate_frontier_count", 2),
+    ):
+        tampered_summary = json.loads(committed[summary_path])
+        tampered_summary[field] = value
+        summary_path.write_text(json.dumps(tampered_summary, sort_keys=True) + "\n")
+        assert main(command) == 2
+        assert "full frontier summary mismatch" in capsys.readouterr().err
+        summary_path.write_bytes(committed[summary_path])
+    frontier_path.unlink()
+    assert main(command) == 2
+    assert "stage output commitment mismatch" in capsys.readouterr().err
+    assert not frontier_path.exists()
+    frontier_path.write_bytes(committed[frontier_path])
+
     def unexpected_bridge(*args: object, **kwargs: object) -> object:
         raise AssertionError("changed target must fail before a provider client")
 
@@ -208,6 +260,60 @@ def test_target_cohort_execute_retains_full_frontier_and_replays_byte_identicall
     assert main(changed) == 2
     assert "changed-config resume" in capsys.readouterr().err
     assert {path: path.read_bytes() for path in committed} == committed
+
+
+@pytest.mark.parametrize(
+    ("profile", "config_count", "summary_count", "expected"),
+    [
+        (cli._TARGET_100_PREPARATION, 100, 100, 100),
+        (cli._TARGET_COHORT_PREPARATION, 150, 150, 150),
+    ],
+)
+def test_materializer_resolves_only_unambiguous_target_counts(
+    profile: cli._TargetPreparationProfile,
+    config_count: int | None,
+    summary_count: int,
+    expected: int,
+) -> None:
+    config = {} if config_count is None else {"target_case_count": config_count}
+    summary = {"target_case_count": summary_count}
+
+    assert (
+        cli._target_case_count_for_materialized_frontier(
+            profile=profile,
+            config=config,
+            summary=summary,
+        )
+        == expected
+    )
+
+
+@pytest.mark.parametrize(
+    ("profile", "config_count", "summary_count"),
+    [
+        (cli._TARGET_100_PREPARATION, None, None),
+        (cli._TARGET_100_PREPARATION, None, 100),
+        (cli._TARGET_100_PREPARATION, None, 99),
+        (cli._TARGET_100_PREPARATION, 99, 99),
+        (cli._TARGET_100_PREPARATION, 100, 99),
+        (cli._TARGET_COHORT_PREPARATION, None, 150),
+        (cli._TARGET_COHORT_PREPARATION, 150, 149),
+    ],
+)
+def test_materializer_rejects_ambiguous_or_mismatched_target_counts(
+    profile: cli._TargetPreparationProfile,
+    config_count: int | None,
+    summary_count: int | None,
+) -> None:
+    config = {} if config_count is None else {"target_case_count": config_count}
+    summary = {} if summary_count is None else {"target_case_count": summary_count}
+
+    with pytest.raises(cli.CommandError, match="target case count"):
+        cli._target_case_count_for_materialized_frontier(
+            profile=profile,
+            config=config,
+            summary=summary,
+        )
 
 
 def test_target_cohort_rejects_nonpositive_and_underfilled_targets_without_stages(
@@ -714,6 +820,135 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
     assert bridge_card["bridge_provider"] == "courtlistener_rest"
     assert bridge_card["paid_activity_executed"] is False
 
+    # Reproduce the legacy provisional-budget shape where target cardinality
+    # was not repeated in the budget artifact. The frozen config and executed
+    # summary still agree exactly on target-100.
+    config_path = output_root / "target-100-config.json"
+    budget_path = output_root / "05-budget/missing-core-budget-plan.json"
+    legacy_budget = json.loads(budget_path.read_text())
+    legacy_budget.pop("target_case_count")
+    legacy_budget.pop("target_case_count_met")
+    budget_path.write_text(json.dumps(legacy_budget, indent=2, sort_keys=True) + "\n")
+    summary["stage_commitments"] = cli._target_100_stage_commitments(output_root)
+    (output_root / "target-100-preparation-summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n"
+    )
+    success_card_path = output_root / "run-cards/prepare-target-100.json"
+
+    missing_output_root = output_root / "forbidden-materializer-output"
+    overlapping_command = [
+        "acquisition",
+        "materialize-target-cohort-frontier",
+        "--output-root",
+        str(missing_output_root),
+        "--preparation-root",
+        str(output_root),
+        "--preparation-summary",
+        str(output_root / "target-100-preparation-summary.json"),
+        "--preparation-config",
+        str(config_path),
+        "--snapshot-manifest",
+        str(snapshot / "manifest.json"),
+        "--execute",
+    ]
+    assert main(overlapping_command) == 2
+    assert not missing_output_root.exists()
+
+    summary_path = output_root / "target-100-preparation-summary.json"
+    summary_before = summary_path.read_bytes()
+    incomplete_summary = json.loads(summary_before)
+    incomplete_summary["stage_input_commitments"].pop("01-public-plan")
+    summary_path.write_text(
+        json.dumps(incomplete_summary, indent=2, sort_keys=True) + "\n"
+    )
+    rejected_root = tmp_path / "rejected-incomplete-commitments"
+    rejected_command = [
+        "acquisition",
+        "materialize-target-cohort-frontier",
+        "--output-root",
+        str(rejected_root),
+        "--preparation-root",
+        str(output_root),
+        "--preparation-summary",
+        str(summary_path),
+        "--preparation-config",
+        str(config_path),
+        "--snapshot-manifest",
+        str(snapshot / "manifest.json"),
+        "--execute",
+    ]
+    assert main(rejected_command) == 2
+    assert not rejected_root.exists()
+    summary_path.write_bytes(summary_before)
+
+    fixture_documents_before = fixture_documents.read_bytes()
+    fixture_documents.write_bytes(fixture_documents_before + b"\n")
+    rejected_fixture_root = tmp_path / "rejected-mutated-fixture"
+    assert (
+        main(
+            [
+                *rejected_command[:3],
+                str(rejected_fixture_root),
+                *rejected_command[4:],
+            ]
+        )
+        == 2
+    )
+    assert not rejected_fixture_root.exists()
+    fixture_documents.write_bytes(fixture_documents_before)
+
+    success_card_before = success_card_path.read_bytes()
+    external_alias_root = tmp_path / "rejected-success-card-alias"
+    assert (
+        main(
+            [
+                *rejected_command[:3],
+                str(external_alias_root),
+                *rejected_command[4:],
+                "--run-card-output",
+                str(success_card_path),
+            ]
+        )
+        == 2
+    )
+    assert success_card_path.read_bytes() == success_card_before
+    assert not external_alias_root.exists()
+    success_log_path = output_root / "logs/prepare-target-100.jsonl"
+    success_log_before = success_log_path.read_bytes()
+    external_log_alias_root = tmp_path / "rejected-success-log-alias"
+    assert (
+        main(
+            [
+                *rejected_command[:3],
+                str(external_log_alias_root),
+                *rejected_command[4:],
+                "--log-output",
+                str(success_log_path),
+            ]
+        )
+        == 2
+    )
+    assert success_log_path.read_bytes() == success_log_before
+    assert not external_log_alias_root.exists()
+    hardlinked_log = tmp_path / "hardlinked-success-log.jsonl"
+    hardlinked_log.hardlink_to(success_log_path)
+    hardlink_output_root = tmp_path / "rejected-success-log-hardlink"
+    assert (
+        main(
+            [
+                *rejected_command[:3],
+                str(hardlink_output_root),
+                *rejected_command[4:],
+                "--log-output",
+                str(hardlinked_log),
+            ]
+        )
+        == 2
+    )
+    assert success_log_path.read_bytes() == success_log_before
+    assert not hardlink_output_root.exists()
+    hardlinked_log.unlink()
+
     legacy_before = {
         path.relative_to(output_root): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in output_root.rglob("*")
@@ -746,9 +981,12 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
         materialized_root / "run-cards/materialize-target-cohort-frontier.json"
     )
     frontier = json.loads(frontier_path.read_text())
+    completed_materializer = json.loads(materializer_card.read_text())
     commitments = frontier["policy"]["source_commitments"]
     assert frontier["policy"]["candidate_count"] == 101
     assert frontier["policy"]["selected_candidate_count"] == 100
+    assert completed_materializer["record_count"] == 101
+    assert completed_materializer["target_case_count"] == 100
     assert commitments["preparation_summary_sha256"] == (
         "sha256:"
         + hashlib.sha256(
@@ -766,6 +1004,10 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
     assert main(materialize_command) == 0
     assert frontier_path.read_bytes() == frontier_before
     assert materializer_card.read_bytes() == card_before
+    frontier_path.unlink()
+    assert main(materialize_command) == 2
+    assert not frontier_path.exists()
+    frontier_path.write_bytes(frontier_before)
     legacy_after = {
         path.relative_to(output_root): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in output_root.rglob("*")
@@ -1197,8 +1439,15 @@ def test_target_100_resume_rejects_mutated_and_injected_stage_artifacts(
     assert "unexpected stage artifact" in capsys.readouterr().err
     assert summary_path.read_bytes() == summary_before
     assert success_card_path.read_bytes() == success_card_before
+    config_path = output_root / "target-100-config.json"
+    config_path.unlink()
+    assert main(command) == 2
+    assert "committed config is missing" in capsys.readouterr().err
+    assert not config_path.exists()
+    assert summary_path.read_bytes() == summary_before
+    assert success_card_path.read_bytes() == success_card_before
     assert (
-        len(list(output_root.glob("attempts/prepare-target-100/*/run-card.json"))) == 2
+        len(list(output_root.glob("attempts/prepare-target-100/*/run-card.json"))) == 3
     )
 
 
@@ -1311,9 +1560,9 @@ def test_target_100_custom_summary_path_is_frozen_and_required_after_success(
 
     monkeypatch.setattr(cli, "_courtlistener_bridge_client", unexpected_bridge)
     assert main([*base, "--summary-output", str(tmp_path / "changed.json")]) == 2
-    assert "changed-config resume" in capsys.readouterr().err
+    assert "committed success summary is missing" in capsys.readouterr().err
     assert main(base) == 2
-    assert "changed-config resume" in capsys.readouterr().err
+    assert "committed success summary is missing" in capsys.readouterr().err
 
     custom_summary.unlink()
     assert main(command) == 2
