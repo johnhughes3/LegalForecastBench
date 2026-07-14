@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, parse_qsl, urlsplit
 
 import pytest
 from legalforecast.ingestion.firecrawl_recap_discovery import (
+    COURTLISTENER_QUERY_PLAN_VERSION,
     FROZEN_MTD_SEARCH_TERMS,
     RecapSearchCompletenessError,
     RecapSearchMarkupError,
@@ -18,6 +19,28 @@ from legalforecast.ingestion.firecrawl_recap_discovery import (
 
 ANCHOR = date(2026, 6, 30)
 WINDOW_END = date(2026, 7, 12)
+
+ADVERSARY_PROCEEDING_DECISION_QUERIES = {
+    "order granting motion to dismiss adversary proceeding": (
+        '"motion to dismiss" AND "adversary proceeding" AND order AND granting'
+    ),
+    "order denying motion to dismiss adversary proceeding": (
+        '"motion to dismiss" AND "adversary proceeding" AND order AND denying'
+    ),
+    "order on motion to dismiss adversary proceeding": (
+        '"motion to dismiss" AND "adversary proceeding" AND order'
+    ),
+    "memorandum decision motion to dismiss adversary proceeding": (
+        '"motion to dismiss" AND "adversary proceeding" AND "memorandum decision"'
+    ),
+    "report and recommendation motion to dismiss adversary proceeding": (
+        '"motion to dismiss" AND "adversary proceeding" AND "report and recommendation"'
+    ),
+    "order adopting report and recommendation motion to dismiss adversary proceeding": (
+        '"motion to dismiss" AND "adversary proceeding" AND '
+        '"report and recommendation" AND order AND adopting'
+    ),
+}
 
 
 class FixtureTransport:
@@ -101,10 +124,14 @@ def test_frozen_vocabulary_includes_mtd_rule_12c_and_adversary_terms() -> None:
     assert "order dismissing adversary complaint" in FROZEN_MTD_SEARCH_TERMS
     assert "order rule 7012" in FROZEN_MTD_SEARCH_TERMS
     assert "memorandum opinion rule 7012" in FROZEN_MTD_SEARCH_TERMS
+    assert FROZEN_MTD_SEARCH_TERMS[-len(ADVERSARY_PROCEEDING_DECISION_QUERIES) :] == (
+        *ADVERSARY_PROCEEDING_DECISION_QUERIES,
+    )
     assert len(FROZEN_MTD_SEARCH_TERMS) == len(set(FROZEN_MTD_SEARCH_TERMS))
 
 
 def test_frozen_terms_compile_to_phrase_precise_courtlistener_queries() -> None:
+    assert COURTLISTENER_QUERY_PLAN_VERSION == "phrase-precise-v3"
     assert courtlistener_query_expression("motion to dismiss") == '"motion to dismiss"'
     assert courtlistener_query_expression("motion to dismiss granted") == (
         '"motion to dismiss" AND granted'
@@ -143,6 +170,8 @@ def test_frozen_terms_compile_to_phrase_precise_courtlistener_queries() -> None:
         )
         == '"rule 7012" AND "report and recommendation" AND adopting'
     )
+    for term, expected_expression in ADVERSARY_PROCEEDING_DECISION_QUERIES.items():
+        assert courtlistener_query_expression(term) == expected_expression
     urls = [
         build_recap_search_url(
             term=term,

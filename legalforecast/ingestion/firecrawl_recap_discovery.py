@@ -59,12 +59,18 @@ FROZEN_MTD_SEARCH_TERMS: tuple[str, ...] = (
     "order rule 7012",
     "memorandum opinion rule 7012",
     "order adopting report and recommendation rule 7012",
+    "order granting motion to dismiss adversary proceeding",
+    "order denying motion to dismiss adversary proceeding",
+    "order on motion to dismiss adversary proceeding",
+    "memorandum decision motion to dismiss adversary proceeding",
+    "report and recommendation motion to dismiss adversary proceeding",
+    "order adopting report and recommendation motion to dismiss adversary proceeding",
 )
 
 # CourtListener does not treat an unquoted multiword query as one legal phrase.
 # The vocabulary above remains the stable logical identity in provenance; this
 # versioned compiler controls only the provider query expression.
-COURTLISTENER_QUERY_PLAN_VERSION = "phrase-precise-v2"
+COURTLISTENER_QUERY_PLAN_VERSION = "phrase-precise-v3"
 _COURTLISTENER_QUERY_EXPRESSIONS: dict[str, str] = {
     "motion to dismiss": '"motion to dismiss"',
     "motions to dismiss": '"motions to dismiss"',
@@ -109,6 +115,25 @@ _COURTLISTENER_QUERY_EXPRESSIONS: dict[str, str] = {
     "memorandum opinion rule 7012": '"rule 7012" AND "memorandum opinion"',
     "order adopting report and recommendation rule 7012": (
         '"rule 7012" AND "report and recommendation" AND adopting'
+    ),
+    "order granting motion to dismiss adversary proceeding": (
+        '"motion to dismiss" AND "adversary proceeding" AND order AND granting'
+    ),
+    "order denying motion to dismiss adversary proceeding": (
+        '"motion to dismiss" AND "adversary proceeding" AND order AND denying'
+    ),
+    "order on motion to dismiss adversary proceeding": (
+        '"motion to dismiss" AND "adversary proceeding" AND order'
+    ),
+    "memorandum decision motion to dismiss adversary proceeding": (
+        '"motion to dismiss" AND "adversary proceeding" AND "memorandum decision"'
+    ),
+    "report and recommendation motion to dismiss adversary proceeding": (
+        '"motion to dismiss" AND "adversary proceeding" AND "report and recommendation"'
+    ),
+    "order adopting report and recommendation motion to dismiss adversary proceeding": (
+        '"motion to dismiss" AND "adversary proceeding" AND '
+        '"report and recommendation" AND order AND adopting'
     ),
 }
 if tuple(_COURTLISTENER_QUERY_EXPRESSIONS) != FROZEN_MTD_SEARCH_TERMS:
