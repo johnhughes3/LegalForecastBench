@@ -49,6 +49,7 @@ from legalforecast.selection.exclusion_ledger import (
     ExclusionStage,
 )
 from legalforecast.selection.motion_linkage import (
+    courtlistener_relationship_entry_numbers,
     link_mtd_dispositions,
     referenced_mtd_entry_numbers,
 )
@@ -686,18 +687,34 @@ def _linkage_entries(
 ) -> tuple[NormalizedDocketEntry, ...]:
     entry_by_row_id = {entry.row_id: entry for entry in entries}
     explicitly_referenced_numbers: set[int] = set()
+    adversary_relationship_reference_numbers: set[int] = set()
     for row_id in actual_decision_row_ids:
         disposition = entry_by_row_id.get(row_id)
         if disposition is not None:
             explicitly_referenced_numbers.update(
                 referenced_mtd_entry_numbers(disposition.text)
             )
+            if case_type_stratum == "bankruptcy_adversary":
+                related_numbers = courtlistener_relationship_entry_numbers(
+                    disposition.text
+                )
+                adversary_relationship_reference_numbers.update(related_numbers)
+                explicitly_referenced_numbers.update(related_numbers)
 
     normalized: list[NormalizedDocketEntry] = []
     for entry in entries:
+        entry_number = (
+            int(entry.entry_number)
+            if entry.entry_number is not None and entry.entry_number.isdigit()
+            else None
+        )
+        exact_adversary_reference = (
+            case_type_stratum == "bankruptcy_adversary"
+            and entry_number in adversary_relationship_reference_numbers
+        )
+        entry_proves_adversary_motion = is_rule_7012_claim_merits_motion(entry.text)
         adversary_motion_qualifies = (
-            case_type_stratum != "bankruptcy_adversary"
-            or is_rule_7012_claim_merits_motion(entry.text)
+            case_type_stratum != "bankruptcy_adversary" or entry_proves_adversary_motion
         )
         if entry.row_id in actual_decision_row_ids:
             role = DocumentRole.DECISION
@@ -714,12 +731,12 @@ def _linkage_entries(
         ):
             role = DocumentRole.MTD_MEMORANDUM
         elif (
-            entry.entry_number is not None
-            and entry.entry_number.isdigit()
-            and int(entry.entry_number) in explicitly_referenced_numbers
+            entry_number is not None
+            and entry_number in explicitly_referenced_numbers
             and (
                 _looks_like_target_mtd_filing(entry.text)
                 or _looks_like_generic_mtd_document(entry.text)
+                or (exact_adversary_reference and entry_proves_adversary_motion)
             )
             and adversary_motion_qualifies
         ):

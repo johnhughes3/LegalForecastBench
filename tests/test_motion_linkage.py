@@ -6,7 +6,9 @@ from legalforecast.ingestion.docket_sync import (
 )
 from legalforecast.selection.motion_linkage import (
     MotionLinkageExclusionReason,
+    courtlistener_relationship_entry_numbers,
     link_mtd_dispositions,
+    referenced_entry_numbers,
     referenced_mtd_entry_numbers,
 )
 
@@ -197,3 +199,78 @@ def test_case_number_does_not_link_support_memorandum_to_notice() -> None:
     assert result.exclusion_entries[0].reason == (
         MotionLinkageExclusionReason.AMBIGUOUS_MOTION_TO_ORDER_LINKAGE.value
     )
+
+
+def test_referenced_entry_numbers_parses_courtlistener_related_document_form() -> None:
+    assert referenced_entry_numbers(
+        "Memorandum Opinion and Order Granting the Motion to Dismiss. "
+        "(related document(s)2)"
+    ) == {2}
+    assert referenced_entry_numbers("Order (related document(s): 103)") == {103}
+
+
+def test_courtlistener_relationship_parser_is_narrow_and_syntactically_coupled() -> (
+    None
+):
+    assert courtlistener_relationship_entry_numbers(
+        "Order (related document(s)106, 63)"
+    ) == {63, 106}
+    assert courtlistener_relationship_entry_numbers(
+        "ORDER (RELATED DOCUMENTS: 103 AND #104)"
+    ) == {103, 104}
+    assert courtlistener_relationship_entry_numbers("Order (Re: # 103)") == {103}
+    assert courtlistener_relationship_entry_numbers("Order (Re: #103 and # 104)") == {
+        103,
+        104,
+    }
+    assert courtlistener_relationship_entry_numbers("Attachment [103]") == set()
+    assert courtlistener_relationship_entry_numbers("Exhibit [103]") == set()
+    assert courtlistener_relationship_entry_numbers("Docket 103") == set()
+    assert courtlistener_relationship_entry_numbers("Order Re: #103") == set()
+    assert (
+        courtlistener_relationship_entry_numbers("Order related document(s)103")
+        == set()
+    )
+    assert courtlistener_relationship_entry_numbers("Order (Re: #103-104)") == set()
+    assert courtlistener_relationship_entry_numbers("Order (Re: #103/104)") == set()
+    assert (
+        courtlistener_relationship_entry_numbers("Order (related document(s)103-104)")
+        == set()
+    )
+    assert (
+        courtlistener_relationship_entry_numbers("Order (related document(s)103/104)")
+        == set()
+    )
+    for malformed in (
+        "Order (Re: #103 to 104)",
+        "Order (Re: #103 through 104)",
+        "Order (Re: #103a)",
+        "Order (Re: #103.5)",
+        "Order (Re: #103\u2013104)",
+        "Order (Re: #103 & #104)",
+    ):
+        assert courtlistener_relationship_entry_numbers(malformed) == set()
+
+
+def test_courtlistener_relationship_parser_fails_closed_on_long_malformed_input() -> (
+    None
+):
+    long_tabs = "\t" * 50_000
+    long_digits = "1" * 50_000
+    long_list = ", #1" * 20_000
+
+    assert (
+        courtlistener_relationship_entry_numbers(
+            f"Order (Re:{long_tabs}#{long_tabs}{long_digits}x)"
+        )
+        == set()
+    )
+    assert (
+        courtlistener_relationship_entry_numbers(
+            f"Order (related document(s){long_tabs}1{long_list}x)"
+        )
+        == set()
+    )
+    assert courtlistener_relationship_entry_numbers(
+        ("unrelated (parenthetical) " * 10_000) + "Order (Re: #103)"
+    ) == {103}

@@ -434,11 +434,127 @@ def referenced_entry_numbers(text: str) -> set[int]:
     numbers: set[int] = set()
     for match in _DOCKET_REFERENCE_RE.finditer(text):
         numbers.update(_numbers_in_text(match.group("numbers")))
+    for match in _RELATED_DOCUMENT_REFERENCE_RE.finditer(text):
+        numbers.update(_numbers_in_text(match.group("numbers")))
     for match in _BRACKET_REFERENCE_RE.finditer(text):
         numbers.add(int(match.group("number")))
     for pattern in _NUMBERED_MTD_REFERENCE_RES:
         numbers.update(int(match.group("number")) for match in pattern.finditer(text))
     return numbers
+
+
+def courtlistener_relationship_entry_numbers(text: str) -> set[int]:
+    """Return only entry numbers in CourtListener relationship annotations.
+
+    These narrow forms support bounded fetching and coupling only. They never
+    promote a generic row to a motion role. Broader docket and bracket citations
+    remain useful for linking already classified motions, but likewise do not
+    prove that a generic row is the target.
+    """
+
+    numbers: set[int] = set()
+    index = 0
+    parenthesis_depth = 0
+    while index < len(text):
+        character = text[index]
+        if character == "(":
+            if parenthesis_depth == 0:
+                parsed = _parse_courtlistener_relationship_annotation(text, index)
+                if parsed is not None:
+                    parsed_numbers, index = parsed
+                    numbers.update(parsed_numbers)
+                    continue
+            parenthesis_depth += 1
+        elif character == ")" and parenthesis_depth > 0:
+            parenthesis_depth -= 1
+        index += 1
+    return numbers
+
+
+_MAX_COURTLISTENER_ENTRY_NUMBER_DIGITS = 18
+
+
+def _parse_courtlistener_relationship_annotation(
+    text: str,
+    start: int,
+) -> tuple[set[int], int] | None:
+    """Parse one exact top-level annotation without regex backtracking."""
+
+    index = _skip_horizontal_whitespace(text, start + 1)
+    if _ascii_startswith(text, index, "related"):
+        index += len("related")
+        whitespace_end = _skip_horizontal_whitespace(text, index)
+        if whitespace_end == index:
+            return None
+        index = whitespace_end
+        if not _ascii_startswith(text, index, "document"):
+            return None
+        index += len("document")
+        if _ascii_startswith(text, index, "(s)"):
+            index += len("(s)")
+        elif _ascii_startswith(text, index, "s"):
+            index += 1
+        else:
+            return None
+        index = _skip_horizontal_whitespace(text, index)
+        if index < len(text) and text[index] == ":":
+            index = _skip_horizontal_whitespace(text, index + 1)
+    elif _ascii_startswith(text, index, "re"):
+        index = _skip_horizontal_whitespace(text, index + 2)
+        if index >= len(text) or text[index] != ":":
+            return None
+        index = _skip_horizontal_whitespace(text, index + 1)
+        if index >= len(text) or text[index] != "#":
+            return None
+        index = _skip_horizontal_whitespace(text, index + 1)
+    else:
+        return None
+
+    first = _parse_canonical_entry_number(text, index)
+    if first is None:
+        return None
+    number, index = first
+    numbers = {number}
+    while True:
+        index = _skip_horizontal_whitespace(text, index)
+        if index < len(text) and text[index] == ")":
+            return numbers, index + 1
+        if index < len(text) and text[index] == ",":
+            index += 1
+        elif _ascii_startswith(text, index, "and"):
+            index += len("and")
+        else:
+            return None
+        index = _skip_horizontal_whitespace(text, index)
+        if index < len(text) and text[index] == "#":
+            index = _skip_horizontal_whitespace(text, index + 1)
+        parsed = _parse_canonical_entry_number(text, index)
+        if parsed is None:
+            return None
+        number, index = parsed
+        numbers.add(number)
+
+
+def _parse_canonical_entry_number(text: str, start: int) -> tuple[int, int] | None:
+    if start >= len(text) or text[start] not in "123456789":
+        return None
+    end = start + 1
+    while end < len(text) and text[end].isascii() and text[end].isdigit():
+        end += 1
+    if end - start > _MAX_COURTLISTENER_ENTRY_NUMBER_DIGITS:
+        return None
+    return int(text[start:end]), end
+
+
+def _skip_horizontal_whitespace(text: str, start: int) -> int:
+    while start < len(text) and text[start] in " \t":
+        start += 1
+    return start
+
+
+def _ascii_startswith(text: str, start: int, expected: str) -> bool:
+    end = start + len(expected)
+    return text[start:end].lower() == expected
 
 
 def referenced_mtd_entry_numbers(text: str) -> set[int]:
@@ -491,6 +607,12 @@ def _require_non_empty_tuple(values: tuple[str, ...], field_name: str) -> None:
 _DOCKET_REFERENCE_RE = re.compile(
     r"(?:\b(?:ecf|dkt\.?|docket|doc(?:ument)?\.?|entry)\s*"
     r"(?:(?:no|nos)\.?\s*|#\s*)?|#\s*)"
+    r"(?P<numbers>[0-9][0-9,\sand-]*)",
+    re.IGNORECASE,
+)
+_RELATED_DOCUMENT_REFERENCE_RE = re.compile(
+    r"\brelated\s+documents?(?:\s*\(\s*s\s*\))?\s*"
+    r"(?:(?:no|nos)\.?\s*|#\s*|:\s*)?"
     r"(?P<numbers>[0-9][0-9,\sand-]*)",
     re.IGNORECASE,
 )

@@ -1409,6 +1409,7 @@ def _looks_like_rule_7012_claim_merits_motion(text: str) -> bool:
         _references_rule_7012(text)
         or re.search(r"\b12\s*\(\s*b\s*\)\s*\(\s*[1-7]\s*\)", text, re.I)
         or re.search(r"\b12\s*\(\s*c\s*\)", text, re.I)
+        or re.search(r"\bjudgment\s+on\s+the\s+pleadings\b", text, re.I)
         or re.search(
             r"\brule\s+12\s*\(\s*b\s*\)\s*[-\u2013]\s*\(\s*i\s*\)",
             text,
@@ -1421,6 +1422,7 @@ def _looks_like_rule_7012_claim_merits_motion(text: str) -> bool:
             text,
             re.I,
         )
+        or re.search(r"\bjudgment\s+on\s+the\s+pleadings\b", text, re.I)
     )
     # Bankruptcy docket event codes often say only ``Motion, Dismiss Adversary
     # Proceeding``.  That directly identifies the Rule-12-equivalent target even
