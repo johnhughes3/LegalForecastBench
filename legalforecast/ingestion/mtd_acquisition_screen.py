@@ -447,9 +447,7 @@ def screen_courtlistener_entry_for_mtd_decision(
             exclusion_reasons=tuple(exclusion_reasons),
         )
 
-    actual = _has_exact_court_mtd_disposition_event(entry) or (
-        _looks_like_actual_mtd_decision(text)
-    )
+    actual = _looks_like_actual_mtd_decision(text)
     if actual:
         decision_reasons: tuple[str, ...] = ()
     elif _has_decision_form(text):
@@ -530,22 +528,6 @@ def screen_courtlistener_docket_for_mtd_decision(
             decision_filed_on_or_before=decision_filed_on_or_before,
         )
     )
-    if not decision_entries:
-        exclusion_reasons = (
-            ("mtd_decision_outside_date_window",)
-            if actual_decision_entries
-            else _dominant_exclusion_reasons(entry_screens)
-        )
-        return MtdDocketDecisionScreen(
-            docket_id=page.docket_id,
-            source_url=page.source_url,
-            title=page.title,
-            status=MtdDocketScreenStatus.EXCLUDED,
-            exclusion_reasons=exclusion_reasons,
-            decision_entries=(),
-            completeness=completeness,
-        )
-
     combined_text = " ".join(
         item
         for item in (
@@ -555,6 +537,36 @@ def screen_courtlistener_docket_for_mtd_decision(
         )
         if item is not None
     )
+    if not decision_entries:
+        decision_exclusion_reasons = (
+            ("mtd_decision_outside_date_window",)
+            if actual_decision_entries
+            else _dominant_exclusion_reasons(entry_screens)
+        )
+        social_security_exclusions = (
+            ("social_security_merits_review_posture",)
+            if _looks_like_commissioner_social_security_context(combined_text)
+            and re.search(
+                r"\b(?:partial\s+)?judgment\s+on\s+(?:the\s+)?pleadings\b",
+                combined_text,
+                re.I,
+            )
+            else ()
+        )
+        return MtdDocketDecisionScreen(
+            docket_id=page.docket_id,
+            source_url=page.source_url,
+            title=page.title,
+            status=MtdDocketScreenStatus.EXCLUDED,
+            exclusion_reasons=tuple(
+                dict.fromkeys(
+                    (*decision_exclusion_reasons, *social_security_exclusions)
+                )
+            ),
+            decision_entries=(),
+            completeness=completeness,
+        )
+
     bankruptcy_context = _looks_like_bankruptcy_context(combined_text)
     decision_row_ids = {entry.row_id for entry in decision_entries}
     social_security_exclusions = (
@@ -783,53 +795,16 @@ def _references_mtd_or_pleadings_motion(text: str) -> bool:
         or re.search(r"\brule\s+12\b", text, re.I)
         or re.search(r"\b12\s*\(\s*b\s*\)\s*\(\s*[126]\s*\)", text, re.I)
         or re.search(r"\b12\s*\(\s*c\s*\)", text, re.I)
-        or re.search(r"\bjudgment\s+on\s+the\s+pleadings\b", text, re.I)
+        or re.search(
+            r"\b(?:partial\s+)?judgment\s+on\s+(?:the\s+)?pleadings\b",
+            text,
+            re.I,
+        )
     )
 
 
 def _looks_like_actual_mtd_decision(text: str) -> bool:
     return _has_decision_form(text) and _has_direct_mtd_disposition(text)
-
-
-def _has_exact_court_mtd_disposition_event(
-    entry: CourtListenerWebDocketEntry,
-) -> bool:
-    """Recognize court-coded MTD order events without inferring their outcome.
-
-    CourtListener preserves PACER event descriptions even when the docket text
-    omits ``granted`` or ``denied``.  These exact order forms prove that a
-    written disposition exists; Stage B reads the document to resolve its
-    outcome.  Match complete event labels, not arbitrary text containing an MTD,
-    so motion filings and scheduling or briefing orders remain fail-closed.
-    """
-
-    narrative = _entry_narrative_before_documents(entry)
-    if re.search(
-        r"(?:\bmotions?\s+to\s+dismiss\b[^.;]{0,120}\bfiled\s+by\b|"
-        r"\b(?:defendant|plaintiff|petitioner|respondent|movant|party)\b"
-        r"[^.;]{0,100}\bfiled\b[^.;]{0,80}\bmotions?\s+to\s+dismiss\b)",
-        narrative,
-        re.IGNORECASE,
-    ):
-        return False
-
-    order_event = re.compile(
-        r"order\s+on\s+motion\s+(?:"
-        r"to\s+dismiss(?:\s*(?:/|for\s+)\s*"
-        r"(?:failure\s+to\s+state\s+a\s+claim|lack\s+of\s+jurisdiction|general))?"
-        r"|for\s+judgment\s+on\s+the\s+pleadings)\Z",
-        re.IGNORECASE,
-    )
-    labels = (
-        label
-        for document in entry.documents
-        for label in (document.kind, document.description)
-    )
-    return any(
-        order_event.fullmatch(_normalized_text(component)) is not None
-        for label in labels
-        for component in re.split(r"\s+AND\s+", label, flags=re.IGNORECASE)
-    )
 
 
 def _entry_narrative_before_documents(entry: CourtListenerWebDocketEntry) -> str:
@@ -853,10 +828,17 @@ def _has_direct_mtd_disposition(text: str) -> bool:
     Docket rows frequently combine a procedural ruling with a reference to a
     still-pending MTD.  Keep the verb and its target in the same clause so an
     order granting a stay or extension cannot borrow ``Motion to Dismiss`` from
-    a later sentence.  Generic event labels such as ``Order on Motion to
-    Dismiss`` are handled separately as exact court-generated event forms.
+    a later sentence. Generic event labels such as ``Order on Motion to
+    Dismiss`` deliberately fail closed because they do not reveal what relief
+    the court granted or denied.
     """
 
+    text = re.sub(
+        r"\b(?:ECF|Docket)\s+No\.",
+        lambda match: match.group(0).removesuffix("."),
+        text,
+        flags=re.IGNORECASE,
+    )
     action = (
         r"(?:grant(?:ed|ing|s)?|den(?:y|ied|ying|ies)|"
         r"terminat(?:ed|ing|es?)|dismiss(?:ed|es|ing)|"
@@ -870,29 +852,81 @@ def _has_direct_mtd_disposition(text: str) -> bool:
         r"motions?\s+(?:under|pursuant\s+to)\s+(?:rule\s+)?12"
         r"(?:\s*\(\s*[bc]\s*\)(?:\s*\(\s*[126]\s*\))?)?)"
     )
-    target_motion = (
+    before_target_procedural_word = (
+        r"(?:motion|extension|extend|respond|reply|stay|page|briefing|expedit\w*|"
+        r"leave|file|filing|late|deadline|due)"
+    )
+    by_party_to_dismiss = (
+        rf"motions?\s+by\b(?:(?!\b{before_target_procedural_word}\b)[^.;])"
+        r"{0,100}?\bto\s+dismiss"
+    )
+    direct_object_target_motion = (
         r"(?:motions?\s+to\s+dismiss|"
-        r"motions?\s+by\b[^.;]{0,100}?\bto\s+dismiss|mtd|"
+        r"mtd|"
         rf"{rule_12_motion}|"
-        r"motions?\s+for\s+judgment\s+on\s+the\s+pleadings)"
+        r"motions?\s+for\s+(?:partial\s+)?judgment\s+on\s+"
+        r"(?:the\s+)?pleadings)"
     )
-    procedural_word = (
-        r"(?:motion|extension|extend|respond|reply|stay|page|briefing|expedit\w*)"
+    target_motion = (
+        rf"(?:{direct_object_target_motion}|"
+        rf"{by_party_to_dismiss})"
     )
-    before_target = rf"(?:(?!\b{procedural_word}\b)[^.;]){{0,120}}"
-    after_target = rf"(?:(?!\b{procedural_word}\b)[^.;]){{0,120}}"
-    if re.search(rf"\b{action}\b{before_target}\b{target_motion}\b", text, re.I):
-        return True
+    after_target_procedural_word = (
+        r"(?:extension|extend|respond|reply|stay|page|briefing|expedit\w*|"
+        r"leave|file|filing|late|deadline|due)"
+    )
+    before_target = rf"(?:(?!\b{before_target_procedural_word}\b)[^.;]){{0,120}}"
+    after_target = rf"(?:(?!\b{after_target_procedural_word}\b)[^.;]){{0,240}}"
+    clean_clause_prefix = (
+        rf"(?:^|[.;])(?:(?!\b{before_target_procedural_word}\b)[^.;]){{0,240}}?"
+    )
+    disposition_qualifier = (
+        r"(?:(?:in\s+part(?:\s+and\s+"
+        r"(?:grant(?:ed|ing)?|den(?:ied|ying)?)\s+in\s+part)?|as\s+moot|"
+        r"with(?:out)?\s+prejudice)\s+)?"
+    )
+    party_role = (
+        r"(?:plaintiffs?|defendants?|petitioners?|respondents?|movants?|"
+        r"parties?|appellants?|appellees?)"
+    )
+    possessive = r"(?:['\u2019]s|s['\u2019])"
+    owner_word = r"[A-Za-z][\w.-]*,?"
+    entity_suffix = (
+        r"(?:llc|inc|corp|corporation|ltd|lp|llp|pllc|government|county|city|"
+        r"state|department|agency)"
+    )
+    possessive_party = (
+        rf"(?:{party_role}\s+(?:{owner_word}\s+){{0,4}}"
+        rf"{owner_word}{possessive}\s+|"
+        rf"(?:{owner_word}\s+){{1,6}}{entity_suffix}{possessive}\s+|"
+        rf"{owner_word}\s+{owner_word}{possessive}\s+|"
+        rf"{owner_word}{possessive}\s+)"
+    )
+    numbered_or_owned_target = (
+        rf"(?:(?:\d+\s+)(?:{possessive_party})?|"
+        rf"{possessive_party}(?:\d+\s+)?)?"
+    )
+    related_document_lead = r"(?:\(\s*related\s+documents?(?:\s*\(\s*s\s*\))?\s*:\s*)?"
+    direct_target_lead = (
+        rf"{disposition_qualifier}(?:the\s+)?{related_document_lead}"
+        rf"{numbered_or_owned_target}"
+    )
     if re.search(
-        rf"\b{action}\b[^.;]{{0,80}}\bmotions?\s+to\s+"
-        rf"(?:stay|extend|expedite)\b[^.;]{{0,80}}\band\s+"
-        rf"(?:the\s+)?{target_motion}\b",
+        rf"\b{action}\b\s+{direct_target_lead}\b{direct_object_target_motion}\b",
         text,
         re.I,
     ):
         return True
     if re.search(
-        rf"\b{target_motion}\b{after_target}"
+        rf"\b{action}\b[^.;]{{0,80}}\bmotions?\s+to\s+"
+        rf"(?:stay|extend|expedite)\b[^.;]{{0,80}}\band\s+"
+        rf"(?:the\s+)?{direct_object_target_motion}\b",
+        text,
+        re.I,
+    ):
+        return True
+    if re.search(
+        rf"{clean_clause_prefix}\b{target_motion}\b{after_target}"
         rf"\b(?:is|are|was|were|be|been|should\s+be)\s+"
         rf"(?:hereby\s+)?{action}\b",
         text,
@@ -900,14 +934,14 @@ def _has_direct_mtd_disposition(text: str) -> bool:
     ):
         return True
     if re.search(
-        rf"\b{target_motion}\b"
+        rf"{clean_clause_prefix}\b{target_motion}\b"
         rf"(?:\s*(?:\[[^\]]+\]|\([^)]{{0,80}}\)|,|:))*\s+{action}\b",
         text,
         re.I,
     ):
         return True
     if re.search(
-        rf"\b{target_motion}\b{after_target}"
+        rf"{clean_clause_prefix}\b{target_motion}\b{after_target}"
         r"\b(?:is|are|was|were|be|been|deemed|found)\s+moot\b",
         text,
         re.I,
@@ -954,7 +988,7 @@ def _has_direct_mtd_disposition(text: str) -> bool:
     same_clause = r"[^.;]{0,120}"
     challenged_pleading = r"(?:complaint|amended\s+complaint|claims?|counts?|action)"
     if re.search(
-        rf"\b(?:dismiss(?:ed|es|ing)|terminat(?:ed|ing|es?))\b"
+        rf"\b(?<!to\s)(?:dismiss(?:ed|es|ing)|terminat(?:ed|ing|es?))\b"
         rf"{same_clause}\b{challenged_pleading}\b",
         text,
         re.I,
@@ -1257,14 +1291,16 @@ def _looks_like_social_security_merits_jop(
 ) -> bool:
     """Reject administrative merits review mislabeled as a Rule 12(c) case."""
 
-    named_social_security_review = bool(
-        re.search(
-            r"\b(?:acting\s+)?commissioner(?:\s+of)?\s*,?\s*(?:the\s+)?"
-            r"(?:social\s+security(?:\s+administration)?|ssa)\b",
+    commissioner_social_security_review = (
+        _looks_like_commissioner_social_security_context(context_text)
+    )
+    named_social_security_agency = bool(
+        commissioner_social_security_review
+        or re.search(
+            r"\bsocial\s+security\s+administration\b",
             context_text,
             re.I,
         )
-        or re.search(r"\bsocial\s+security\s+administration\b", context_text, re.I)
     )
     alj_reference = bool(
         re.search(r"\badministrative\s+law\s+judge\b", decision_text, re.I)
@@ -1302,10 +1338,14 @@ def _looks_like_social_security_merits_jop(
         administrative_disposition or administrative_remand
     )
     social_security_review = (
-        named_social_security_review or strong_administrative_review
+        named_social_security_agency or strong_administrative_review
     )
     administrative_merits = bool(
-        alj_reference
+        # An explicit Commissioner-of-Social-Security caption identifies the
+        # statutory merits-review posture even when the terse docket row says
+        # only that a cross-motion for judgment on the pleadings was resolved.
+        commissioner_social_security_review
+        or alj_reference
         or re.search(
             r"\bdecision\s+of\s+the\s+(?:commissioner|agency)\b",
             decision_text,
@@ -1320,7 +1360,11 @@ def _looks_like_social_security_merits_jop(
         or administrative_remand
     )
     judgment_on_pleadings = bool(
-        re.search(r"\bjudgment\s+on\s+the\s+pleadings\b", decision_text, re.I)
+        re.search(
+            r"\b(?:partial\s+)?judgment\s+on\s+(?:the\s+)?pleadings\b",
+            decision_text,
+            re.I,
+        )
     )
     independent_rule_12_basis = _has_disposition_linked_rule_12_basis(decision_text)
     return (
@@ -1331,12 +1375,27 @@ def _looks_like_social_security_merits_jop(
     )
 
 
+def _looks_like_commissioner_social_security_context(text: str) -> bool:
+    """Return whether a caption names the disability-review Commissioner."""
+
+    return bool(
+        re.search(
+            r"\b(?:acting\s+)?commissioner(?:\s+of)?\s*,?\s*(?:the\s+)?"
+            r"(?:social\s+security(?:\s+administration)?|ssa)\b",
+            text,
+            re.I,
+        )
+    )
+
+
 def _has_disposition_linked_rule_12_basis(decision_text: str) -> bool:
     """Require Rule 12 evidence to modify the disposition being screened."""
 
     for clause in re.split(r"(?<=[.;])\s+", decision_text):
         judgment_on_pleadings = re.search(
-            r"\bjudgment\s+on\s+the\s+pleadings\b", clause, re.I
+            r"\b(?:partial\s+)?judgment\s+on\s+(?:the\s+)?pleadings\b",
+            clause,
+            re.I,
         )
         explicit_jop_rule = bool(
             judgment_on_pleadings

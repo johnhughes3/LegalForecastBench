@@ -568,7 +568,7 @@ def test_actual_mtd_decision_entry_rejects_relief_about_pending_mtd(
         "Order on Motion for Judgment on the Pleadings",
     ),
 )
-def test_actual_mtd_decision_entry_accepts_exact_court_event_form(
+def test_exact_court_event_form_without_disposition_is_unproven(
     event_form: str,
 ) -> None:
     page = parse_courtlistener_docket_html(
@@ -581,11 +581,11 @@ def test_actual_mtd_decision_entry_accepts_exact_court_event_form(
 
     screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
 
-    assert screen.actual_mtd_decision is True
-    assert screen.exclusion_reasons == ()
+    assert screen.actual_mtd_decision is False
+    assert screen.exclusion_reasons == ("mtd_disposition_unproven",)
 
 
-def test_exact_order_event_is_not_confused_with_court_filing_language() -> None:
+def test_exact_order_event_does_not_replace_dispositive_docket_text() -> None:
     page = parse_courtlistener_docket_html(
         _docket_html(
             "ORDER filed by the Court re Motion to Dismiss.",
@@ -596,8 +596,8 @@ def test_exact_order_event_is_not_confused_with_court_filing_language() -> None:
 
     screen = screen_courtlistener_entry_for_mtd_decision(page.entries[0])
 
-    assert screen.actual_mtd_decision is True
-    assert screen.exclusion_reasons == ()
+    assert screen.actual_mtd_decision is False
+    assert screen.exclusion_reasons == ("mtd_disposition_unproven",)
 
 
 @pytest.mark.parametrize(
@@ -820,6 +820,77 @@ def test_docket_screen_excludes_social_security_merits_jop() -> None:
     assert screen.has_actual_mtd_decision is True
     assert screen.strict_clean is False
     assert "social_security_merits_review_posture" in screen.exclusion_reasons
+
+
+@pytest.mark.parametrize(
+    ("title", "entry_text", "document_description", "has_actual_disposition"),
+    (
+        (
+            "GARCIA v. COMMISSIONER OF SOCIAL SECURITY, 2:24-cv-09276",
+            "OPINION and ORDER denying 7 Motion for Judgment on the Pleadings.",
+            "Order on Motion for Judgment on the Pleadings",
+            True,
+        ),
+        (
+            "GARCIA v. COMMISSIONER OF SOCIAL SECURITY, 2:24-cv-09276",
+            "OPINION and ORDER denying 7 Motion for Judgment on Pleadings.",
+            "Order on Motion for Judgment on Pleadings",
+            True,
+        ),
+        (
+            "Terranova v. Commissioner of Social Security, 2:24-cv-07794",
+            "ORDER withdrawing 16 Motion for Judgment on the Pleadings without "
+            "prejudice to refiling after the appearance of counsel.",
+            "Order on Motion for Judgment on the Pleadings",
+            False,
+        ),
+        (
+            "Charles v. Commissioner of Social Security, 5:25-cv-00248",
+            "Order (PUBLIC) AND Order on Motion for Judgment on the Pleadings "
+            "AND Order on Report and Recommendations",
+            "Order on Motion for Judgment on the Pleadings",
+            False,
+        ),
+    ),
+)
+def test_named_social_security_caption_excludes_bare_jop_disposition(
+    title: str,
+    entry_text: str,
+    document_description: str,
+    has_actual_disposition: bool,
+) -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            entry_text,
+            title=title,
+            document_description=document_description,
+        ),
+        source_url="https://www.courtlistener.com/docket/2/ssa-merits-review/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(page)
+
+    assert screen.has_actual_mtd_decision is has_actual_disposition
+    assert screen.strict_clean is False
+    assert "social_security_merits_review_posture" in screen.exclusion_reasons
+
+
+def test_social_security_agency_employment_jop_is_not_disability_review() -> None:
+    page = parse_courtlistener_docket_html(
+        _docket_html(
+            "ORDER granting Defendant's Motion for Judgment on the Pleadings "
+            "on Plaintiff's Title VII employment discrimination claims.",
+            title="DOE v. SOCIAL SECURITY ADMINISTRATION",
+            document_description="Order on Motion for Judgment on the Pleadings",
+        ),
+        source_url="https://www.courtlistener.com/docket/2/ssa-employment/",
+    )
+
+    screen = screen_courtlistener_docket_for_mtd_decision(page)
+
+    assert screen.has_actual_mtd_decision is True
+    assert screen.strict_clean is True
+    assert "social_security_merits_review_posture" not in screen.exclusion_reasons
 
 
 def test_unrelated_rule_12_row_does_not_clear_social_security_merits_jop() -> None:
