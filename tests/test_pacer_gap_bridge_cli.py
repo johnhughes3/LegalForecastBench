@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 from typing import Any, cast
@@ -13,6 +14,7 @@ from legalforecast.ingestion.discovery_scheduler import (
     DiscoveryHit,
     TermTerminalStatus,
 )
+from legalforecast.ingestion.public_packet_planner import plan_public_packet_downloads
 
 
 def test_bridge_pacer_gaps_help_documents_identity_and_free_first_flags(
@@ -31,6 +33,331 @@ def test_bridge_pacer_gaps_help_documents_identity_and_free_first_flags(
     assert "--paid-gaps" in output
     assert "--free-download-manifest" in output
     assert "Run download-free" in output
+    assert "--checkpoint-dir" in output
+    assert "--checkpoint-config-output" in output
+    assert "resume skips terminal candidates" in normalized
+
+
+def test_public_first_bridge_checkpoints_429_and_resumes_without_repeat_lookups(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "bridge"
+    screened_path = tmp_path / "screened.jsonl"
+    public_selection_path = tmp_path / "public-selection.jsonl"
+    paid_gaps_path = tmp_path / "paid-gaps.jsonl"
+    free_downloads_path = tmp_path / "free-downloads.jsonl"
+    fixture_path = tmp_path / "case-dev.jsonl"
+    first = _screened_case()
+    second = _screened_case_variant(
+        candidate_id="cl-456",
+        docket_number="1:26-cv-00002",
+        case_name="Second v. Example",
+    )
+    plan = plan_public_packet_downloads(
+        (first, second),
+        use_embedded_entries=True,
+        target_clean_cases=2,
+    )
+    assert len(plan.paid_gap_cases) == 2
+    _write_jsonl(screened_path, [first, second])
+    _write_jsonl(public_selection_path, [])
+    _write_jsonl(paid_gaps_path, [gap.to_record() for gap in plan.paid_gap_cases])
+    _write_jsonl(
+        free_downloads_path,
+        [
+            {
+                **request.to_record(),
+                "local_path": (
+                    f"{request.candidate_id}/courtlistener/"
+                    f"{request.source_document_id}.pdf"
+                ),
+                "sha256": "a" * 64,
+                "free_or_purchased": "free",
+            }
+            for request in plan.download_requests
+        ],
+    )
+    rate_limit = {
+        "method": "POST",
+        "path": "/legal/v1/docket",
+        "params": {"type": "search", "query": "1:26-cv-00001", "limit": 20},
+        "status_code": 429,
+        "payload": {"error": "slow down"},
+    }
+    second_docket = {
+        **_case_dev_docket(),
+        "id": "case-dev-888",
+        "docketNumber": "1:26-cv-00002",
+        "caseName": "Second v. Example",
+    }
+    _write_jsonl(
+        fixture_path,
+        [
+            rate_limit,
+            rate_limit,
+            rate_limit,
+            _response(
+                params={
+                    "type": "search",
+                    "query": "1:26-cv-00002",
+                    "limit": 20,
+                },
+                payload={"dockets": [second_docket]},
+            ),
+            _response(
+                params={
+                    "type": "lookup",
+                    "docketId": "case-dev-888",
+                    "includeEntries": True,
+                    "limit": 100,
+                },
+                payload={
+                    "docket": {
+                        **second_docket,
+                        "entries": [
+                            _case_dev_entry(5, "Motion to Dismiss", "second-mtd")
+                        ],
+                    }
+                },
+            ),
+        ],
+    )
+    monkeypatch.setenv("CASE_DEV_RATE_LIMIT_PER_MINUTE", "20")
+    monkeypatch.setattr(
+        "legalforecast.ingestion.case_dev_client.CaseDevClient._throttle_if_needed",
+        lambda self: None,
+    )
+    command = [
+        "acquisition",
+        "bridge-pacer-gaps",
+        "--screened-cases",
+        str(screened_path),
+        "--use-embedded-entries",
+        "--case-dev-fixture",
+        str(fixture_path),
+        "--public-selection",
+        str(public_selection_path),
+        "--paid-gaps",
+        str(paid_gaps_path),
+        "--free-download-manifest",
+        str(free_downloads_path),
+        "--output-root",
+        str(output_root),
+        "--execute",
+    ]
+
+    assert main(command) == 2
+
+    assert not (output_root / "public-packet-selection-reconciled.jsonl").exists()
+    assert not (output_root / "pacer-gap-bridge-exclusions.jsonl").exists()
+    checkpoint_records = sorted(
+        (
+            _read_json(path)
+            for path in (output_root / "checkpoints" / "pacer-gap-bridge").glob(
+                "*.json"
+            )
+        ),
+        key=lambda record: cast(int, record["input_index"]),
+    )
+    assert [record["outcome"] for record in checkpoint_records] == [
+        "retryable",
+        "success",
+    ]
+    first_run_card = _read_json(output_root / "run-cards" / "bridge-pacer-gaps.json")
+    assert first_run_card["status"] == "failed"
+    assert first_run_card["case_dev_request_count"] == 5
+    assert first_run_card["case_dev_rate_limit_per_minute"] == 20
+    assert first_run_card["case_dev_max_http_attempts_per_request"] == 3
+    assert first_run_card["checkpoint_terminal_candidate_count"] == 1
+    assert first_run_card["resumed_terminal_candidate_count"] == 0
+    assert first_run_card["retryable_candidate_count"] == 1
+    assert first_run_card["input_route_count"] == 2
+    assert first_run_card["reconciled"] is False
+
+    _write_jsonl(
+        fixture_path,
+        [
+            _response(
+                params={
+                    "type": "search",
+                    "query": "1:26-cv-00001",
+                    "limit": 20,
+                },
+                payload={"dockets": [_case_dev_docket()]},
+            ),
+            _response(
+                params={
+                    "type": "lookup",
+                    "docketId": "case-dev-777",
+                    "includeEntries": True,
+                    "limit": 100,
+                },
+                payload={
+                    "docket": {
+                        **_case_dev_docket(),
+                        "entries": [
+                            _case_dev_entry(5, "Motion to Dismiss", "first-mtd")
+                        ],
+                    }
+                },
+            ),
+        ],
+    )
+
+    assert main(command) == 0
+
+    assert {
+        record["candidate_id"]
+        for record in _read_jsonl(
+            output_root / "public-packet-selection-reconciled.jsonl"
+        )
+    } == {"cl-123", "cl-456"}
+    assert _read_jsonl(output_root / "pacer-gap-bridge-exclusions.jsonl") == []
+    resumed_run_card = _read_json(output_root / "run-cards" / "bridge-pacer-gaps.json")
+    assert resumed_run_card["case_dev_request_count"] == 2
+    assert resumed_run_card["resumed_terminal_candidate_count"] == 1
+    assert resumed_run_card["checkpoint_terminal_candidate_count"] == 2
+    assert resumed_run_card["retryable_candidate_count"] == 0
+    assert resumed_run_card["reconciled"] is True
+
+
+def test_public_first_bridge_bounds_resumable_5xx_as_terminal_exclusion(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "bridge"
+    screened_path = tmp_path / "screened.jsonl"
+    public_selection_path = tmp_path / "public-selection.jsonl"
+    paid_gaps_path = tmp_path / "paid-gaps.jsonl"
+    free_downloads_path = tmp_path / "free-downloads.jsonl"
+    fixture_path = tmp_path / "case-dev.jsonl"
+    screened = _screened_case()
+    plan = plan_public_packet_downloads(
+        (screened,),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+    [gap] = plan.paid_gap_cases
+    _write_jsonl(screened_path, [screened])
+    _write_jsonl(public_selection_path, [])
+    _write_jsonl(paid_gaps_path, [gap.to_record()])
+    _write_jsonl(
+        free_downloads_path,
+        [
+            {
+                **request.to_record(),
+                "local_path": f"cl-123/{request.source_document_id}.pdf",
+                "sha256": "a" * 64,
+                "free_or_purchased": "free",
+            }
+            for request in plan.download_requests
+        ],
+    )
+    failure = {
+        "method": "POST",
+        "path": "/legal/v1/docket",
+        "params": {"type": "search", "query": "1:26-cv-00001", "limit": 20},
+        "status_code": 503,
+        "payload": {"error": "temporary upstream failure"},
+    }
+    command = [
+        "acquisition",
+        "bridge-pacer-gaps",
+        "--screened-cases",
+        str(screened_path),
+        "--use-embedded-entries",
+        "--case-dev-fixture",
+        str(fixture_path),
+        "--public-selection",
+        str(public_selection_path),
+        "--paid-gaps",
+        str(paid_gaps_path),
+        "--free-download-manifest",
+        str(free_downloads_path),
+        "--output-root",
+        str(output_root),
+        "--execute",
+    ]
+
+    for expected_exit in (2, 2, 0):
+        _write_jsonl(fixture_path, [failure, failure, failure])
+        assert main(command) == expected_exit
+
+    [checkpoint_path] = list(
+        (output_root / "checkpoints" / "pacer-gap-bridge").glob("*.json")
+    )
+    checkpoint = _read_json(checkpoint_path)
+    assert checkpoint["outcome"] == "exclusion"
+    assert checkpoint["resumable_attempt_count"] == 3
+    assert checkpoint["cumulative_case_dev_request_count"] == 9
+    [exclusion] = _read_jsonl(output_root / "pacer-gap-bridge-exclusions.jsonl")
+    assert exclusion["candidate_id"] == "cl-123"
+    assert exclusion["exclusion_reasons"] == ["case_dev_server_error_retries_exhausted"]
+    run_card = _read_json(output_root / "run-cards" / "bridge-pacer-gaps.json")
+    assert run_card["status"] == "completed"
+    assert run_card["cumulative_case_dev_request_count"] == 9
+    assert run_card["retryable_candidate_count"] == 0
+    assert run_card["reconciled"] is True
+
+
+def test_public_first_bridge_rejects_shared_manifest_corruption_before_checkpoint(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "bridge"
+    screened_path = tmp_path / "screened.jsonl"
+    public_selection_path = tmp_path / "public-selection.jsonl"
+    paid_gaps_path = tmp_path / "paid-gaps.jsonl"
+    free_downloads_path = tmp_path / "free-downloads.jsonl"
+    fixture_path = tmp_path / "case-dev.jsonl"
+    screened = _screened_case()
+    plan = plan_public_packet_downloads(
+        (screened,),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+    [gap] = plan.paid_gap_cases
+    downloads = [
+        {
+            **request.to_record(),
+            "local_path": f"cl-123/{request.source_document_id}.pdf",
+            "sha256": "a" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in plan.download_requests
+    ]
+    _write_jsonl(screened_path, [screened])
+    _write_jsonl(public_selection_path, [])
+    _write_jsonl(paid_gaps_path, [gap.to_record()])
+    _write_jsonl(free_downloads_path, [*downloads, downloads[0]])
+    _write_jsonl(fixture_path, [])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "bridge-pacer-gaps",
+                "--screened-cases",
+                str(screened_path),
+                "--use-embedded-entries",
+                "--case-dev-fixture",
+                str(fixture_path),
+                "--public-selection",
+                str(public_selection_path),
+                "--paid-gaps",
+                str(paid_gaps_path),
+                "--free-download-manifest",
+                str(free_downloads_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert not (
+        output_root / "checkpoints" / "pacer-gap-bridge-progress-config.json"
+    ).exists()
+    assert not (output_root / "checkpoints" / "pacer-gap-bridge").exists()
 
 
 def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -> None:
@@ -423,6 +750,24 @@ def _screened_case() -> dict[str, object]:
             ),
         ],
     }
+
+
+def _screened_case_variant(
+    *,
+    candidate_id: str,
+    docket_number: str,
+    case_name: str,
+) -> dict[str, object]:
+    record = copy.deepcopy(_screened_case())
+    candidate = cast(dict[str, object], record["candidate"])
+    candidate["docket_id"] = candidate_id
+    candidate["candidate_key"] = candidate_id
+    candidate["url"] = f"https://www.courtlistener.com/docket/456/{candidate_id}/"
+    metadata = cast(dict[str, object], candidate["metadata"])
+    metadata["case_id"] = candidate_id
+    metadata["docket_number"] = docket_number
+    metadata["case_name"] = case_name
+    return record
 
 
 def _fully_free_case() -> dict[str, object]:
