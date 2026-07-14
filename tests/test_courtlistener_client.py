@@ -74,12 +74,12 @@ def test_courtlistener_reconstructs_public_docket_entries() -> None:
     assert client.request_count == 2
 
 
-def test_courtlistener_live_v4_entry_without_description_normalizes_to_blank() -> None:
+def test_courtlistener_live_v4_entry_with_blank_description_normalizes_to_blank() -> None:
     fixture_path = (
         Path(__file__).parent
         / "fixtures"
         / "courtlistener"
-        / "docket-entry-without-description-v4.json"
+        / "docket-entry-with-blank-description-v4.json"
     )
     record = json.loads(fixture_path.read_text(encoding="utf-8"))
 
