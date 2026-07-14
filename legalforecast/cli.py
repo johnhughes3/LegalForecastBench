@@ -8540,6 +8540,14 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
     )
     bridge_evidence: JsonRecord = {}
     if dry_run:
+        dry_run_summary = CourtListenerCaseDevBridgeResult(
+            selection_records=(),
+            case_relevance_records=(),
+            free_download_requests=(),
+            exclusions=(),
+            screened_case_count=len(records),
+            public_first_reconciled=public_first,
+        ).summary_record()
         _write_jsonl(
             requests_path,
             [
@@ -8554,10 +8562,8 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         _write_json(
             summary_path,
             {
-                "schema_version": ("legalforecast.courtlistener_case_dev_bridge.v2"),
+                **dry_run_summary,
                 "dry_run": True,
-                "screened_case_count": len(records),
-                "free_first_required": True,
             },
         )
         selected_count = 0

@@ -39,6 +39,47 @@ def test_bridge_pacer_gaps_help_documents_identity_and_free_first_flags(
     assert "resume skips terminal candidates" in normalized
 
 
+def test_bridge_pacer_gaps_dry_run_emits_complete_v2_summary(tmp_path: Path) -> None:
+    output_root = tmp_path / "bridge"
+    screened_path = tmp_path / "screened.jsonl"
+    _write_jsonl(screened_path, [])
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "bridge-pacer-gaps",
+                "--screened-cases",
+                str(screened_path),
+                "--use-embedded-entries",
+                "--output-root",
+                str(output_root),
+            ]
+        )
+        == 0
+    )
+
+    assert _read_json(output_root / "pacer-gap-bridge-summary.json") == {
+        "schema_version": "legalforecast.courtlistener_case_dev_bridge.v2",
+        "dry_run": True,
+        "screened_case_count": 0,
+        "selected_case_count": 0,
+        "excluded_case_count": 0,
+        "free_download_request_count": 0,
+        "paid_document_count": 0,
+        "paid_recovery_required_document_count": 0,
+        "paid_recovery_required_case_count": 0,
+        "identity_resolved_paid_gap_case_count": 0,
+        "document_bytes_ready_case_count": 0,
+        "identity_policy": (
+            "exact court+docket match with caption corroboration; "
+            "case.dev document IDs only"
+        ),
+        "free_first_required": True,
+        "public_first_reconciled": False,
+    }
+
+
 def test_public_first_bridge_checkpoints_429_and_resumes_without_repeat_lookups(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
