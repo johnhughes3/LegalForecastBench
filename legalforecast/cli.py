@@ -910,7 +910,9 @@ def build_parser() -> argparse.ArgumentParser:
         "generate-recap-fetch-broker-policy",
         help=(
             "Derive an immutable secure-gate RECAP Fetch allowlist from a "
-            "verified purchase policy and executable purchase plan."
+            "verified purchase policy and executable purchase plan. CourtListener "
+            "REST is the paid-gap authority; Case.dev remains noncharging "
+            "search/enrichment only and is never purchase authority."
         ),
     )
     _add_generate_recap_fetch_broker_policy_arguments(
@@ -2254,8 +2256,9 @@ def _add_generate_recap_fetch_broker_policy_arguments(
         required=True,
         help=(
             "Final selection JSON/JSONL containing candidate_id, documents, and "
-            "explicit bridge restriction-screening metadata for every planned "
-            "ID; sealed, private, or restricted documents are rejected."
+            "explicit-public or exact CourtListener REST restriction evidence for "
+            "every planned ID; sealed, private, and restricted documents are "
+            "rejected. Case.dev is never purchase authority."
         ),
     )
     parser.add_argument(

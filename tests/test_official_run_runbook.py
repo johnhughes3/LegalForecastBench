@@ -86,6 +86,7 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
         "Firecrawl is a compatibility fallback only",
         "It never purchases a document",
         "only fee-bearing happy path",
+        "legacy paid-unknown evidence is never purchase authority",
     ):
         assert hierarchy_contract in batch_002_section
 
