@@ -820,19 +820,8 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
     assert bridge_card["bridge_provider"] == "courtlistener_rest"
     assert bridge_card["paid_activity_executed"] is False
 
-    # Reproduce the legacy provisional-budget shape where target cardinality
-    # was not repeated in the budget artifact. The frozen config and executed
-    # summary still agree exactly on target-100.
     config_path = output_root / "target-100-config.json"
     budget_path = output_root / "05-budget/missing-core-budget-plan.json"
-    legacy_budget = json.loads(budget_path.read_text())
-    legacy_budget.pop("target_case_count")
-    legacy_budget.pop("target_case_count_met")
-    budget_path.write_text(json.dumps(legacy_budget, indent=2, sort_keys=True) + "\n")
-    summary["stage_commitments"] = cli._target_100_stage_commitments(output_root)
-    (output_root / "target-100-preparation-summary.json").write_text(
-        json.dumps(summary, indent=2, sort_keys=True) + "\n"
-    )
     success_card_path = output_root / "run-cards/prepare-target-100.json"
 
     missing_output_root = output_root / "forbidden-materializer-output"
@@ -880,6 +869,42 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
     assert main(rejected_command) == 2
     assert not rejected_root.exists()
     summary_path.write_bytes(summary_before)
+
+    budget_before = budget_path.read_bytes()
+    for missing_fields in (
+        ("target_case_count",),
+        ("target_case_count_met",),
+        ("target_case_count", "target_case_count_met"),
+    ):
+        incomplete_budget = json.loads(budget_before)
+        for missing_field in missing_fields:
+            incomplete_budget.pop(missing_field)
+        budget_path.write_text(
+            json.dumps(incomplete_budget, indent=2, sort_keys=True) + "\n"
+        )
+        budget_tamper_summary = json.loads(summary_before)
+        budget_tamper_summary["stage_commitments"] = cli._target_100_stage_commitments(
+            output_root
+        )
+        summary_path.write_text(
+            json.dumps(budget_tamper_summary, indent=2, sort_keys=True) + "\n"
+        )
+        rejected_budget_root = tmp_path / (
+            "rejected-budget-" + "-".join(missing_fields)
+        )
+        assert (
+            main(
+                [
+                    *rejected_command[:3],
+                    str(rejected_budget_root),
+                    *rejected_command[4:],
+                ]
+            )
+            == 2
+        )
+        assert not rejected_budget_root.exists()
+        budget_path.write_bytes(budget_before)
+        summary_path.write_bytes(summary_before)
 
     fixture_documents_before = fixture_documents.read_bytes()
     fixture_documents.write_bytes(fixture_documents_before + b"\n")

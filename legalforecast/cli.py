@@ -5591,13 +5591,7 @@ def _verify_completed_preparation_for_frontier(
         truncate_to_budget=True,
         target_case_count=target_case_count,
     )
-    normalized_budget_record = dict(budget_record)
-    if "target_case_count" not in normalized_budget_record:
-        if "target_case_count_met" in normalized_budget_record:
-            raise CommandError("legacy budget target case count is ambiguous")
-        normalized_budget_record["target_case_count"] = target_case_count
-        normalized_budget_record["target_case_count_met"] = True
-    if normalized_budget_record != recomputed_budget.to_record():
+    if budget_record != recomputed_budget.to_record():
         raise CommandError("preparation budget differs from canonical core-filter plan")
     budget_plan = recomputed_budget
     selected_ids = [plan.candidate_id for plan in budget_plan.case_plans]
