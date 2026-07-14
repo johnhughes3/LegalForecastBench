@@ -1013,6 +1013,13 @@ def test_observe_rejects_procedural_order_that_leaves_mtd_pending(
         },
     )
     with store:
+        stale_acceptance = store.record_observation(
+            "courtlistener-docket-555",
+            batch_id="batch-002",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence={"screening_kernel": "before-procedural-order-correction"},
+        )
         observation = observe_recap_api_candidate(
             store,
             "batch-002",
@@ -1023,6 +1030,34 @@ def test_observe_rejects_procedural_order_that_leaves_mtd_pending(
                     _entries_response(
                         cursor=None,
                         results=[
+                            {
+                                "id": 6997,
+                                "docket": 555,
+                                "entry_number": 1,
+                                "description": "Notice of Removal",
+                                "date_filed": "2026-04-22",
+                            },
+                            {
+                                "id": 6998,
+                                "docket": 555,
+                                "entry_number": 2,
+                                "description": "Proposed Order",
+                                "date_filed": "2026-04-24",
+                            },
+                            {
+                                "id": 6999,
+                                "docket": 555,
+                                "entry_number": 3,
+                                "description": "Summons Issued",
+                                "date_filed": "2026-05-01",
+                            },
+                            {
+                                "id": 7000,
+                                "docket": 555,
+                                "entry_number": 4,
+                                "description": "Service Executed",
+                                "date_filed": "2026-05-12",
+                            },
                             {
                                 "id": 7001,
                                 "docket": 555,
@@ -1050,6 +1085,10 @@ def test_observe_rejects_procedural_order_that_leaves_mtd_pending(
         screen = observation.evidence["screen"]
         assert isinstance(screen, dict)
         assert "procedural_or_standing_order" in screen["exclusion_reasons"]
+        current = store.current_observation("courtlistener-docket-555")
+        assert current is not None
+        assert current.observation_id == observation.observation_id
+        assert current.supersedes_observation_id == stale_acceptance.observation_id
 
 
 def test_reconstruction_does_not_infer_public_access_from_availability() -> None:

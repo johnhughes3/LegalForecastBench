@@ -1457,6 +1457,17 @@ def _dominant_exclusion_reasons(
         return ("no_docket_entries",)
     if counter.get("no_mtd_or_rule_12_reference") == sum(counter.values()):
         return ("no_actual_mtd_decision",)
+    # Unrelated docket rows can numerically swamp the one MTD-referencing row
+    # that proves the discovery hit was only a procedural order.  Preserve that
+    # decisive reason ahead of generic per-row noise so the candidate-level
+    # exclusion remains specific and auditable.
+    if counter.get("procedural_or_standing_order"):
+        remaining = (
+            reason
+            for reason, _count in counter.most_common()
+            if reason != "procedural_or_standing_order"
+        )
+        return ("procedural_or_standing_order", *tuple(remaining)[:2])
     return tuple(reason for reason, _count in counter.most_common(3))
 
 
