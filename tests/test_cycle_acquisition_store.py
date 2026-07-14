@@ -264,6 +264,8 @@ def test_firecrawl_run_freezes_config_and_permanently_reserves_budget(
         assert summary["credit_cap"] == 10
         assert summary["reserved_credits"] == 10
         assert summary["reported_credits"] == 5
+        assert summary["run_reserved_credits"] == 10
+        assert summary["run_reported_credits"] == 5
         assert summary["remaining_authorization"] == 0
         assert summary["attempt_status_counts"] == {
             "provider_error": 1,

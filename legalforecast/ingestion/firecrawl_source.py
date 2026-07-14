@@ -444,10 +444,10 @@ def validate_courtlistener_docket_url(
 def validate_courtlistener_recap_search_url(source_url: str) -> None:
     """Fail closed unless *source_url* is a bounded public RECAP search URL.
 
-    The accepted form is CourtListener's root search with ``type=r``, one
-    nonempty query, explicit U.S.-formatted filing-date bounds, newest-document
-    ordering, and an optional positive page number. Duplicate or unknown query
-    parameters are rejected.
+    The accepted form is CourtListener's root RECAP entry (``type=r``) search,
+    including decision-first presets, with one nonempty query,
+    explicit U.S.-formatted filing-date bounds, newest-document ordering, and an
+    optional positive page number. Duplicate or unknown parameters are rejected.
     """
 
     parsed = urlparse(source_url)
@@ -713,6 +713,11 @@ def _raise_for_status(status_code: int) -> None:
     if status_code == 429:
         raise FirecrawlRateLimitError(
             "Firecrawl rate limit reached (HTTP 429)",
+            provider_http_status=status_code,
+        )
+    if status_code == 408:
+        raise FirecrawlServerError(
+            "Firecrawl request timed out (HTTP 408)",
             provider_http_status=status_code,
         )
     if status_code >= 500:

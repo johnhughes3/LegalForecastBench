@@ -16,6 +16,7 @@ from legalforecast.ingestion.budgeted_firecrawl import FirecrawlPageRecord
 from legalforecast.ingestion.firecrawl_recap_discovery import (
     RecapSearchError,
     RecapSearchHit,
+    RecapSearchPage,
     RecapSearchProvenance,
     parse_recap_search_html,
 )
@@ -141,10 +142,15 @@ class _VerifiedPage:
 
 def project_partial_recap_checkpoint(
     records: Sequence[FirecrawlPageRecord],
+    *,
+    parse_search_html: Callable[..., RecapSearchPage] = parse_recap_search_html,
 ) -> RecapPartialCheckpointProjection:
     """Project verified scheduler pages without claiming a complete search."""
 
-    verified = tuple(_verify_page_record(record) for record in records)
+    verified = tuple(
+        _verify_page_record(record, parse_search_html=parse_search_html)
+        for record in records
+    )
     ordered_pages = tuple(sorted(verified, key=lambda item: item.record.ordinal))
     _validate_unique_page_provenance(ordered_pages)
 
@@ -201,7 +207,11 @@ def project_partial_recap_checkpoint(
     )
 
 
-def _verify_page_record(record: FirecrawlPageRecord) -> _VerifiedPage:
+def _verify_page_record(
+    record: FirecrawlPageRecord,
+    *,
+    parse_search_html: Callable[..., RecapSearchPage],
+) -> _VerifiedPage:
     if record.target_kind != "search":
         raise RecapPartialProjectionError(
             "partial RECAP projection requires search pages"
@@ -227,7 +237,7 @@ def _verify_page_record(record: FirecrawlPageRecord) -> _VerifiedPage:
     if record.reported_credits < 0:
         raise RecapPartialProjectionError("reported credits cannot be negative")
     try:
-        parsed = parse_recap_search_html(record.raw_html, source_url=record.source_url)
+        parsed = parse_search_html(record.raw_html, source_url=record.source_url)
     except (RecapSearchError, ValueError) as exc:
         raise RecapPartialProjectionError(
             "durable artifact is not a valid RECAP search page"

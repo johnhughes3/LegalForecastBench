@@ -10,6 +10,11 @@ from legalforecast.ingestion.case_dev_recap_batch import (
     recap_discovered_docket_from_record,
 )
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+from legalforecast.ingestion.firecrawl_recap_decision_discovery import (
+    DECISION_FIRST_RECAP_QUERY_PLAN_VERSION,
+    DECISION_FIRST_RECAP_SEARCH_TERMS,
+    build_decision_recap_search_url,
+)
 from legalforecast.ingestion.firecrawl_recap_discovery import build_recap_search_url
 
 ANCHOR = date(2026, 6, 30)
@@ -88,6 +93,59 @@ def _seed_partial_run(store_path: Path, artifact_path: Path) -> None:
         attempt = store.authorize_firecrawl_attempt(
             "run-001",
             target_id="search-page-001",
+            page_number=1,
+            request_url=source_url,
+        )
+        store.commit_firecrawl_artifact(
+            attempt.attempt_id,
+            artifact_path,
+            raw_html.encode("utf-8"),
+            reported_credits=5,
+            proxy_used="stealth",
+            target_http_status=200,
+        )
+
+
+def _seed_decision_partial_run(store_path: Path, artifact_path: Path) -> None:
+    term = DECISION_FIRST_RECAP_SEARCH_TERMS[0]
+    source_url = build_decision_recap_search_url(
+        term=term,
+        entry_date_filed_after=ANCHOR,
+        entry_date_filed_before=WINDOW_END,
+    )
+    raw_html = _partial_search_html(next_url=None).replace("Page 1 of 2", "Page 1 of 1")
+    with CycleAcquisitionStore(store_path) as store:
+        store.ensure_cycle({"eligibility_anchor": "2026-06-30"})
+        store.ensure_batch(
+            "batch-decisions",
+            {
+                "query_terms": [term],
+                "search_window_start": "2026-06-30",
+                "search_window_end": "2026-07-12",
+                "courtlistener_query_plan_version": (
+                    DECISION_FIRST_RECAP_QUERY_PLAN_VERSION
+                ),
+                "courtlistener_search_type": "r",
+            },
+        )
+        store.ensure_terms("batch-decisions", [term])
+        store.ensure_firecrawl_run(
+            "run-decisions",
+            batch_id="batch-decisions",
+            config={"proxy": "auto"},
+            credit_cap=45_000,
+            reserved_credits_per_attempt=5,
+        )
+        store.ensure_firecrawl_target(
+            "run-decisions",
+            target_id="decision-page-001",
+            target_kind="search",
+            source_url=source_url,
+            ordinal=0,
+        )
+        attempt = store.authorize_firecrawl_attempt(
+            "run-decisions",
+            target_id="decision-page-001",
             page_number=1,
             request_url=source_url,
         )
@@ -276,6 +334,39 @@ def test_projects_durable_run_into_case_dev_compatible_partial_checkpoint(
         path: path.read_bytes()
         for path in (pages_path, entries_path, dockets_path, summary_path)
     } == first_artifacts
+
+
+def test_projects_frozen_decision_first_run_with_its_canonical_urls(
+    tmp_path: Path,
+) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    output_root = tmp_path / "output"
+    _seed_decision_partial_run(store_path, tmp_path / "raw" / "page-001.html")
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "project-firecrawl-recap-checkpoint",
+                "--output-root",
+                str(output_root),
+                "--cycle-store",
+                str(store_path),
+                "--run-id",
+                "run-decisions",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    checkpoint_root = output_root / "checkpoints"
+    entries = _read_jsonl(checkpoint_root / "run-decisions-partial-recap-entries.jsonl")
+    summary = json.loads(
+        (checkpoint_root / "run-decisions-partial-recap-summary.json").read_text()
+    )
+    assert [entry["docket_id"] for entry in entries] == ["70649963"]
+    assert summary["terms"] == [DECISION_FIRST_RECAP_SEARCH_TERMS[0]]
 
 
 def test_repeated_cross_page_hit_commits_once_and_replays_exactly(

@@ -524,6 +524,7 @@ def test_config_requires_firecrawl_api_key() -> None:
         (401, FirecrawlAuthError),
         (403, FirecrawlAuthError),
         (402, FirecrawlPaymentRequiredError),
+        (408, FirecrawlServerError),
         (429, FirecrawlRateLimitError),
         (500, FirecrawlServerError),
     ],
@@ -542,6 +543,22 @@ def test_http_failures_have_explicit_error_types(
         source.fetch(docket_id="70649963", source_url=_URL)
 
     assert len(transport.requests) == 1
+
+
+def test_provider_http_timeout_is_transient() -> None:
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key"),
+        transport=FirecrawlFixtureTransport(
+            [FirecrawlHTTPResponse(status_code=408, payload={"success": False})]
+        ),
+    )
+
+    with pytest.raises(FirecrawlServerError) as raised:
+        source.fetch(docket_id="70649963", source_url=_URL)
+
+    assert raised.value.transient is True
+    assert raised.value.provider_http_status == 408
+    assert raised.value.failure_code == "provider_server_error"
 
 
 def test_http_failure_does_not_expose_provider_response_body() -> None:

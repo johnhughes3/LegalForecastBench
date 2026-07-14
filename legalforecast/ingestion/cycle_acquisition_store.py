@@ -1081,6 +1081,14 @@ class CycleAcquisitionStore:
             FROM firecrawl_attempts
             """
         ).fetchone()
+        run_totals = self._connection.execute(
+            """
+            SELECT COALESCE(SUM(reserved_credits), 0) AS reserved,
+                   COALESCE(SUM(reported_credits), 0) AS reported
+            FROM firecrawl_attempts WHERE run_id = ?
+            """,
+            (run_id,),
+        ).fetchone()
         statuses = self._connection.execute(
             """
             SELECT status, COUNT(*) AS count
@@ -1109,6 +1117,8 @@ class CycleAcquisitionStore:
             "reserved_credits_per_attempt": int(budget["reserved_credits_per_attempt"]),
             "reserved_credits": reserved,
             "reported_credits": int(totals["reported"]),
+            "run_reserved_credits": int(run_totals["reserved"]),
+            "run_reported_credits": int(run_totals["reported"]),
             "remaining_authorization": cap - reserved,
             "attempt_status_counts": {
                 str(row["status"]): int(row["count"]) for row in statuses

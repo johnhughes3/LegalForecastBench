@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,6 +42,27 @@ class FirecrawlCircuitOpenError(RuntimeError):
 
 class FirecrawlArtifactError(RuntimeError):
     """Raised when a persisted successful artifact cannot be verified."""
+
+
+class FirecrawlArtifactValidationError(FirecrawlError):
+    """Raised when target-specific response semantics cannot be validated."""
+
+    default_failure_code = "invalid_target_artifact"
+    transient = False
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        reported_credits: int,
+        proxy_used: str | None,
+        target_http_status: int,
+        response_sha256: str,
+    ) -> None:
+        super().__init__(message, response_sha256=response_sha256)
+        self.reported_credits = reported_credits
+        self.proxy_used = proxy_used
+        self.target_http_status = target_http_status
 
 
 class FirecrawlPageSource(Protocol):
@@ -115,6 +136,8 @@ class BudgetedFirecrawlScheduler:
         max_attempts: int = 3,
         provider_5xx_circuit_threshold: int = 5,
         max_workers: int = 1,
+        artifact_validator: Callable[[str, str], None] | None = None,
+        semantic_failure_quarantine_dir: str | Path | None = None,
     ) -> None:
         if not run_id.strip():
             raise ValueError("run_id must be nonempty")
@@ -133,6 +156,12 @@ class BudgetedFirecrawlScheduler:
         self.max_attempts = max_attempts
         self.provider_5xx_circuit_threshold = provider_5xx_circuit_threshold
         self.max_workers = max_workers
+        self.artifact_validator = artifact_validator
+        self.semantic_failure_quarantine_dir = (
+            Path(semantic_failure_quarantine_dir).resolve()
+            if semantic_failure_quarantine_dir is not None
+            else None
+        )
 
     def run(self, targets: Sequence[FirecrawlTargetSpec]) -> BudgetedFirecrawlRunResult:
         """Run targets widest-first and return every verified successful page.
@@ -259,6 +288,7 @@ class BudgetedFirecrawlScheduler:
                             self.store.finalize_firecrawl_attempt(
                                 attempt.attempt_id,
                                 status="transport_error",
+                                provider_http_status=provider_status,
                                 **_failure_evidence(error),
                             )
                             if fatal_error is None:
@@ -268,6 +298,21 @@ class BudgetedFirecrawlScheduler:
                             attempt.attempt_id,
                             status="target_error",
                             provider_http_status=error.provider_http_status,
+                            **_failure_evidence(error),
+                        )
+                        terminal_failures.add(target.target_id)
+                        self.store.set_firecrawl_target_status(
+                            self.run_id, target.target_id, "terminal_error"
+                        )
+                        if fatal_error is None:
+                            consecutive_5xx = 0
+                    except FirecrawlArtifactValidationError as error:
+                        self.store.finalize_firecrawl_attempt(
+                            attempt.attempt_id,
+                            status="target_error",
+                            reported_credits=error.reported_credits,
+                            proxy_used=error.proxy_used,
+                            target_http_status=error.target_http_status,
                             **_failure_evidence(error),
                         )
                         terminal_failures.add(target.target_id)
@@ -374,6 +419,25 @@ class BudgetedFirecrawlScheduler:
                 "Firecrawl result source URL does not match its authorized target"
             )
         reported_credits = _integral_credits(result.credits_used)
+        if self.artifact_validator is not None:
+            try:
+                self.artifact_validator(result.raw_html, target.source_url)
+            except Exception as error:
+                response_sha256 = hashlib.sha256(
+                    result.raw_html.encode("utf-8")
+                ).hexdigest()
+                self._quarantine_semantic_failure(
+                    attempt=attempt,
+                    raw_html=result.raw_html,
+                    response_sha256=response_sha256,
+                )
+                raise FirecrawlArtifactValidationError(
+                    f"Firecrawl target artifact failed semantic validation: {error}",
+                    reported_credits=reported_credits,
+                    proxy_used=result.proxy_used,
+                    target_http_status=result.target_status_code,
+                    response_sha256=response_sha256,
+                ) from error
         raw = result.raw_html.encode("utf-8")
         artifact_path = self._artifact_path(target)
         finalized = self.store.commit_firecrawl_artifact(
@@ -385,6 +449,33 @@ class BudgetedFirecrawlScheduler:
             target_http_status=result.target_status_code,
         )
         return _page_record(target, finalized, raw_html=result.raw_html)
+
+    def _quarantine_semantic_failure(
+        self,
+        *,
+        attempt: FirecrawlAttempt,
+        raw_html: str,
+        response_sha256: str,
+    ) -> None:
+        """Hash-bind invalid bytes without making them a successful artifact."""
+
+        if self.semantic_failure_quarantine_dir is None:
+            return
+        directory = self.semantic_failure_quarantine_dir
+        directory.mkdir(parents=True, exist_ok=True)
+        destination = directory / (
+            f"attempt-{attempt.attempt_id}-{response_sha256}.semantic-invalid.html"
+        )
+        content = raw_html.encode("utf-8")
+        if destination.exists():
+            if destination.read_bytes() != content:
+                raise FirecrawlArtifactError(
+                    "semantic-failure quarantine hash collision"
+                )
+            return
+        temporary = destination.with_suffix(destination.suffix + ".tmp")
+        temporary.write_bytes(content)
+        temporary.replace(destination)
 
     def _artifact_path(self, target: FirecrawlTargetSpec) -> Path:
         identity = f"{target.target_id}\0{target.source_url}".encode()
