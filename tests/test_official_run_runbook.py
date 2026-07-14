@@ -58,10 +58,9 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
         "## Cycle 1 Batch-002 CourtListener-First Acquisition", maxsplit=1
     )[1]
     ordered_acquisition_steps = (
-        "### Step 1: Discover",
-        "### First-Run Observation Smoke Step (required)",
-        "### Step 2: Seed Optional Leads, Then Observe",
-        "### Step 3: Freeze The Complete Saturated Snapshot",
+        "### Step 1: Search CourtListener Decisions Through Firecrawl",
+        "### Step 2: Enrich And Rank With Free Case.dev Lookup",
+        "### Step 3: Acquire And Screen Complete CourtListener Dockets",
         "### Step 4: Prepare The Resolved Pool And Provisional Budget",
         "### Step 5: Clear Every Free Document And Freeze The Exact Cohort",
         "### Step 6: Generate The Broker Allowlist, Then Purchase Explicitly",
@@ -70,9 +69,10 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
         batch_002_section.index(step) for step in ordered_acquisition_steps
     ] == sorted(batch_002_section.index(step) for step in ordered_acquisition_steps)
     for command in (
-        "legalforecast batch-002 discover",
-        "legalforecast batch-002 observe",
-        "legalforecast batch-002 snapshot",
+        "legalforecast acquisition discover-firecrawl-recap-decisions",
+        "legalforecast acquisition enrich-recap-case-dev",
+        "legalforecast acquisition acquire-ranked-firecrawl-dockets",
+        "legalforecast acquisition screen-firecrawl-dockets",
         "legalforecast acquisition prepare-target-100",
         "legalforecast acquisition clear-disclosures",
         "legalforecast acquisition project-target-cohort",
@@ -80,10 +80,19 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
         "legalforecast acquisition purchase-missing-recap-fetch",
     ):
         assert command in batch_002_section
+    for disabled_command in (
+        "legalforecast batch-002 discover \\",
+        "legalforecast batch-002 observe \\",
+    ):
+        assert disabled_command not in batch_002_section
+    assert "--max-projected-budget-usd 567.30" in batch_002_section
     for hierarchy_contract in (
-        "CourtListener REST v4 is the primary",
-        "Case.dev is permitted only as an optional free equivalent",
-        "Firecrawl is a compatibility fallback only",
+        "CourtListener remains the source",
+        "Case.dev is used only for equivalent free lookup and prioritization",
+        (
+            "Firecrawl is used only for the demonstrated CourtListener search and "
+            "docket-HTML surface gap"
+        ),
         "It never purchases a document",
         "only fee-bearing happy path",
         "legacy paid-unknown evidence is never purchase authority",
