@@ -26,9 +26,15 @@ _CANONICAL_RECAP_DOCUMENT_ID = re.compile(r"[1-9][0-9]*")
 _CANONICAL_USD = re.compile(r"(0|[1-9][0-9]*)\.[0-9]{2}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _JAVASCRIPT_MAX_SAFE_CENTS = 9_007_199_254_740_991
-_BRIDGE_PAID_RESTRICTION_EVIDENCE = [
+CASE_DEV_PAID_RESTRICTION_EVIDENCE = [
     "courtlistener_docket_entry_checked",
     "case_dev_entry_and_document_checked",
+]
+COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE = [
+    "courtlistener_rest_docket_exact_match",
+    "courtlistener_rest_docket_entry_exact_match",
+    "courtlistener_rest_recap_document_exact_match",
+    "courtlistener_rest_recap_document_is_sealed_false",
 ]
 
 
@@ -305,9 +311,18 @@ def _require_not_restricted(metadata: Mapping[str, Any], document_id: str) -> No
         and is_private is None
         and metadata.get("requires_paid_recovery") is True
         and metadata.get("availability_status") == "unavailable"
-        and metadata.get("restriction_evidence") == _BRIDGE_PAID_RESTRICTION_EVIDENCE
+        and metadata.get("restriction_evidence") == CASE_DEV_PAID_RESTRICTION_EVIDENCE
     )
-    if not public and not screened_paid_unknown:
+    courtlistener_rest_public = (
+        status == "public"
+        and is_sealed is False
+        and is_private is None
+        and metadata.get("requires_paid_recovery") is True
+        and metadata.get("availability_status") == "unavailable"
+        and metadata.get("restriction_evidence")
+        == COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE
+    )
+    if not public and not screened_paid_unknown and not courtlistener_rest_public:
         raise RecapFetchBrokerPolicyError(
             f"document {document_id} is sealed/private/restricted or lacks "
             "the bridge's explicit restriction-screening metadata"

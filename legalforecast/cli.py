@@ -158,17 +158,24 @@ from legalforecast.ingestion.courtlistener_case_dev_bridge import (
     CourtListenerCaseDevBridgeResult,
     bridge_courtlistener_case_dev_documents,
     bridge_public_plan_paid_gap_candidate,
+    bridge_public_plan_paid_gap_candidate_via_courtlistener,
     bridge_public_plan_paid_gaps,
+    bridge_public_plan_paid_gaps_via_courtlistener,
     case_dev_bridge_exclusion_record,
     merge_download_manifest_records,
     validate_public_plan_bridge_inputs,
 )
 from legalforecast.ingestion.courtlistener_client import (
     COURTLISTENER_API_TOKEN_ENV,
+    CourtListenerAuthError,
     CourtListenerClient,
     CourtListenerClientError,
     CourtListenerConfig,
     CourtListenerFixtureTransport,
+    CourtListenerRateLimitError,
+    CourtListenerResponseError,
+    CourtListenerServerError,
+    CourtListenerUnavailableError,
 )
 from legalforecast.ingestion.courtlistener_recap_fetch import (
     CourtListenerRecapFetchClient,
@@ -942,8 +949,8 @@ def build_parser() -> argparse.ArgumentParser:
     acquisition_bridge_pacer_gaps = acquisition_subparsers.add_parser(
         "bridge-pacer-gaps",
         help=(
-            "Resolve CourtListener candidates to authoritative case.dev document "
-            "IDs and emit free-first recovery inputs."
+            "Resolve paid gaps to authoritative Case.dev or CourtListener RECAP "
+            "document IDs and emit free-first recovery inputs."
         ),
     )
     _add_acquisition_bridge_pacer_gaps_arguments(acquisition_bridge_pacer_gaps)
@@ -2595,6 +2602,48 @@ def _add_acquisition_bridge_pacer_gaps_arguments(
         help=(
             "Resolve identities using live case.dev search/lookup. Requires "
             "CASE_DEV_API_KEY and never invokes a PACER purchase endpoint."
+        ),
+    )
+    parser.add_argument(
+        "--courtlistener-fixture",
+        type=Path,
+        help=(
+            "Replay noncharging CourtListener REST docket, entry, and RECAP "
+            "document metadata for public-first paid gaps."
+        ),
+    )
+    parser.add_argument(
+        "--live-courtlistener",
+        action="store_true",
+        help=(
+            "Resolve public-first paid gaps with authenticated noncharging "
+            "CourtListener REST GETs. Never invokes RECAP Fetch or PACER."
+        ),
+    )
+    parser.add_argument(
+        "--request-ledger",
+        type=Path,
+        help=(
+            "Crash-durable SQLite ledger for every physical CourtListener HTTP "
+            "attempt. Required with --live-courtlistener; omitted for fixtures."
+        ),
+    )
+    parser.add_argument(
+        "--courtlistener-rate-profile",
+        choices=tuple(_COURTLISTENER_RATE_PROFILES),
+        default="base",
+        help=(
+            "Provider ceiling profile with headroom. Use temporary-doubled only "
+            "while CourtListener has explicitly doubled this account's limits."
+        ),
+    )
+    parser.add_argument(
+        "--request-budget-max-wait-seconds",
+        type=float,
+        default=120.0,
+        help=(
+            "Maximum cumulative wait for one HTTP-attempt reservation before "
+            "failing closed; default 120."
         ),
     )
     parser.add_argument("--target-clean-cases", type=int, default=150)
@@ -6462,6 +6511,78 @@ def _batch_002_client(
     )
 
 
+def _courtlistener_bridge_client(
+    args: argparse.Namespace,
+    *,
+    fixture_path: Path | None,
+    live: bool,
+) -> tuple[CourtListenerClient, CourtListenerRequestBudget | None]:
+    """Build the paid-gap metadata client with durable live request accounting."""
+
+    config = CourtListenerConfig.from_env()
+    if fixture_path is not None:
+        return (
+            CourtListenerClient(
+                config=config,
+                transport=CourtListenerFixtureTransport.from_jsonl(fixture_path),
+            ),
+            None,
+        )
+    if not live:
+        raise CommandError(
+            "CourtListener bridge requires --courtlistener-fixture or "
+            "--live-courtlistener"
+        )
+    if config.api_token is None:
+        raise CommandError(
+            f"{COURTLISTENER_API_TOKEN_ENV} is required with --live-courtlistener"
+        )
+    ledger_path = cast(Path | None, args.request_ledger)
+    if ledger_path is None:
+        raise CommandError("--request-ledger is required with --live-courtlistener")
+    max_wait = cast(float, args.request_budget_max_wait_seconds)
+    if max_wait < 0:
+        raise CommandError("--request-budget-max-wait-seconds cannot be negative")
+    profile = cast(str, args.courtlistener_rate_profile)
+    try:
+        budget = CourtListenerRequestBudget(
+            ledger_path,
+            limits=_COURTLISTENER_RATE_PROFILES[profile],
+            max_wait_seconds=max_wait,
+        )
+    except (CourtListenerRequestBudgetError, OSError) as exc:
+        raise CommandError(str(exc)) from exc
+    return (
+        CourtListenerClient(config=config, before_request=budget.before_request),
+        budget,
+    )
+
+
+def _courtlistener_bridge_rate_evidence(
+    args: argparse.Namespace,
+    client: CourtListenerClient,
+    budget: CourtListenerRequestBudget | None,
+) -> JsonRecord:
+    if budget is None:
+        return {
+            "courtlistener_live": False,
+            "courtlistener_physical_requests": client.request_count,
+        }
+    return {
+        "courtlistener_live": True,
+        "courtlistener_rate_profile": cast(str, args.courtlistener_rate_profile),
+        "courtlistener_request_ledger": str(budget.path.resolve()),
+        "courtlistener_physical_requests": client.request_count,
+        "courtlistener_reservations_this_phase": budget.local_reservations,
+        "courtlistener_reservations_total": budget.total_reservations(),
+        "courtlistener_limits": {
+            "per_minute": budget.limits.per_minute,
+            "per_hour": budget.limits.per_hour,
+            "per_day": budget.limits.per_day,
+        },
+    }
+
+
 def _batch_002_rate_evidence(
     args: argparse.Namespace,
     client: CourtListenerClient,
@@ -8406,7 +8527,8 @@ def _public_first_bridge_with_checkpoints(
     *,
     args: argparse.Namespace,
     records: Sequence[Mapping[str, Any]],
-    client: CaseDevClient,
+    client: CaseDevClient | CourtListenerClient,
+    bridge_provider: str,
     raw_html_dir: Path | None,
     public_selection_path: Path,
     paid_gaps_path: Path,
@@ -8434,6 +8556,8 @@ def _public_first_bridge_with_checkpoints(
         raw_html_dir=raw_html_dir,
         use_embedded_entries=cast(bool, args.use_embedded_entries),
     )
+    if bridge_provider not in {"case.dev", "courtlistener_rest"}:
+        raise CommandError("unsupported paid-gap bridge provider")
     config: JsonRecord = {
         "schema_version": _PACER_GAP_PROGRESS_CONFIG_SCHEMA,
         "mode": "public_first",
@@ -8454,6 +8578,26 @@ def _public_first_bridge_with_checkpoints(
         "free_lookup_only": True,
         "pacer_fee_acknowledgment_allowed": False,
     }
+    if bridge_provider == "courtlistener_rest":
+        config["bridge_provider"] = bridge_provider
+        if fixture_path is None:
+            request_ledger = cast(Path, args.request_ledger)
+            profile = cast(str, args.courtlistener_rate_profile)
+            limits = _COURTLISTENER_RATE_PROFILES[profile]
+            config.update(
+                {
+                    "courtlistener_request_ledger": str(request_ledger.resolve()),
+                    "courtlistener_rate_profile": profile,
+                    "courtlistener_limits": {
+                        "per_minute": limits.per_minute,
+                        "per_hour": limits.per_hour,
+                        "per_day": limits.per_day,
+                    },
+                    "request_budget_max_wait_seconds": cast(
+                        float, args.request_budget_max_wait_seconds
+                    ),
+                }
+            )
     resume = cast(bool, args.resume)
     existing_checkpoint_paths = {
         path.resolve()
@@ -8520,16 +8664,38 @@ def _public_first_bridge_with_checkpoints(
             cast(int, prior["resumable_attempt_count"]) + 1 if prior is not None else 1
         )
         one_request_count_before = client.request_count
+        request_count_field = (
+            "cumulative_courtlistener_request_count"
+            if bridge_provider == "courtlistener_rest"
+            else "cumulative_case_dev_request_count"
+        )
         try:
-            selection, relevance = bridge_public_plan_paid_gap_candidate(
-                record,
-                paid_gap_record=gap,
-                free_download_records=free_downloads,
-                client=client,
-                raw_html_dir=raw_html_dir,
-                use_embedded_entries=cast(bool, args.use_embedded_entries),
-                validate_free_downloads=False,
-            )
+            if bridge_provider == "courtlistener_rest":
+                if not isinstance(client, CourtListenerClient):
+                    raise CommandError("CourtListener bridge client type mismatch")
+                selection, relevance = (
+                    bridge_public_plan_paid_gap_candidate_via_courtlistener(
+                        record,
+                        paid_gap_record=gap,
+                        free_download_records=free_downloads,
+                        client=client,
+                        raw_html_dir=raw_html_dir,
+                        use_embedded_entries=cast(bool, args.use_embedded_entries),
+                        validate_free_downloads=False,
+                    )
+                )
+            else:
+                if not isinstance(client, CaseDevClient):
+                    raise CommandError("Case.dev bridge client type mismatch")
+                selection, relevance = bridge_public_plan_paid_gap_candidate(
+                    record,
+                    paid_gap_record=gap,
+                    free_download_records=free_downloads,
+                    client=client,
+                    raw_html_dir=raw_html_dir,
+                    use_embedded_entries=cast(bool, args.use_embedded_entries),
+                    validate_free_downloads=False,
+                )
             checkpoint: JsonRecord = {
                 "schema_version": _PACER_GAP_CHECKPOINT_SCHEMA,
                 "input_index": input_index,
@@ -8537,12 +8703,8 @@ def _public_first_bridge_with_checkpoints(
                 "candidate_input_sha256": candidate_input_sha256,
                 "outcome": "success",
                 "resumable_attempt_count": attempt_count,
-                "cumulative_case_dev_request_count": (
-                    (
-                        cast(int, prior.get("cumulative_case_dev_request_count", 0))
-                        if prior
-                        else 0
-                    )
+                request_count_field: (
+                    (cast(int, prior.get(request_count_field, 0)) if prior else 0)
                     + client.request_count
                     - one_request_count_before
                 ),
@@ -8560,12 +8722,8 @@ def _public_first_bridge_with_checkpoints(
                 "candidate_input_sha256": candidate_input_sha256,
                 "outcome": "exclusion",
                 "resumable_attempt_count": attempt_count,
-                "cumulative_case_dev_request_count": (
-                    (
-                        cast(int, prior.get("cumulative_case_dev_request_count", 0))
-                        if prior
-                        else 0
-                    )
+                request_count_field: (
+                    (cast(int, prior.get(request_count_field, 0)) if prior else 0)
                     + client.request_count
                     - one_request_count_before
                 ),
@@ -8577,13 +8735,57 @@ def _public_first_bridge_with_checkpoints(
                     )
                 },
             }
-        except (CaseDevRateLimitError, CaseDevServerError) as exc:
-            rate_limited = isinstance(exc, CaseDevRateLimitError)
+        except (CourtListenerResponseError, CourtListenerUnavailableError) as exc:
             reason = (
-                "case_dev_rate_limit_retries_exhausted"
-                if rate_limited
-                else "case_dev_server_error_retries_exhausted"
+                "courtlistener_rest_unavailable"
+                if isinstance(exc, CourtListenerUnavailableError)
+                else "courtlistener_rest_response_invalid"
             )
+            checkpoint = {
+                "schema_version": _PACER_GAP_CHECKPOINT_SCHEMA,
+                "input_index": input_index,
+                "candidate_id": candidate_id,
+                "candidate_input_sha256": candidate_input_sha256,
+                "outcome": "exclusion",
+                "resumable_attempt_count": attempt_count,
+                request_count_field: (
+                    (cast(int, prior.get(request_count_field, 0)) if prior else 0)
+                    + client.request_count
+                    - one_request_count_before
+                ),
+                "payload": {
+                    "exclusion_record": case_dev_bridge_exclusion_record(
+                        record,
+                        reason=reason,
+                        detail=str(exc),
+                    )
+                },
+            }
+        except CourtListenerAuthError:
+            raise
+        except (
+            CaseDevRateLimitError,
+            CaseDevServerError,
+            CourtListenerRateLimitError,
+            CourtListenerServerError,
+            CourtListenerClientError,
+        ) as exc:
+            rate_limited = isinstance(
+                exc, CaseDevRateLimitError | CourtListenerRateLimitError
+            )
+            is_courtlistener = isinstance(exc, CourtListenerClientError)
+            if rate_limited:
+                reason = (
+                    "courtlistener_rest_rate_limit_retries_exhausted"
+                    if is_courtlistener
+                    else "case_dev_rate_limit_retries_exhausted"
+                )
+            elif isinstance(exc, CaseDevServerError):
+                reason = "case_dev_server_error_retries_exhausted"
+            elif isinstance(exc, CourtListenerServerError):
+                reason = "courtlistener_rest_server_error_retries_exhausted"
+            else:
+                reason = "courtlistener_rest_client_error_retries_exhausted"
             exhausted = attempt_count >= _PACER_GAP_MAX_RESUMABLE_ATTEMPTS
             payload: JsonRecord
             if exhausted:
@@ -8606,12 +8808,8 @@ def _public_first_bridge_with_checkpoints(
                 "candidate_input_sha256": candidate_input_sha256,
                 "outcome": "exclusion" if exhausted else "retryable",
                 "resumable_attempt_count": attempt_count,
-                "cumulative_case_dev_request_count": (
-                    (
-                        cast(int, prior.get("cumulative_case_dev_request_count", 0))
-                        if prior
-                        else 0
-                    )
+                request_count_field: (
+                    (cast(int, prior.get(request_count_field, 0)) if prior else 0)
                     + client.request_count
                     - one_request_count_before
                 ),
@@ -8624,17 +8822,28 @@ def _public_first_bridge_with_checkpoints(
         record["outcome"] in {"success", "exclusion"} for record in checkpoints
     )
     retryable_count = sum(record["outcome"] == "retryable" for record in checkpoints)
+    request_count_field = (
+        "cumulative_courtlistener_request_count"
+        if bridge_provider == "courtlistener_rest"
+        else "cumulative_case_dev_request_count"
+    )
     cumulative_requests = sum(
-        cast(int, record.get("cumulative_case_dev_request_count", 0))
-        for record in checkpoints
+        cast(int, record.get(request_count_field, 0)) for record in checkpoints
     )
     evidence: JsonRecord = {
         "input_route_count": len(routed_ids),
-        "case_dev_request_count": client.request_count - request_count_before,
-        "cumulative_case_dev_request_count": cumulative_requests,
-        "case_dev_rate_limit_per_minute": client.config.rate_limit_per_minute,
-        "case_dev_rate_limit_enforced": client.config.rate_limit_per_minute is not None,
-        "case_dev_max_http_attempts_per_request": client.max_retries + 1,
+        "bridge_provider": bridge_provider,
+        (
+            "courtlistener_request_count"
+            if bridge_provider == "courtlistener_rest"
+            else "case_dev_request_count"
+        ): client.request_count - request_count_before,
+        request_count_field: cumulative_requests,
+        (
+            "courtlistener_max_http_attempts_per_request"
+            if bridge_provider == "courtlistener_rest"
+            else "case_dev_max_http_attempts_per_request"
+        ): client.max_retries + 1,
         "max_resumable_candidate_attempts": _PACER_GAP_MAX_RESUMABLE_ATTEMPTS,
         "checkpoint_terminal_candidate_count": terminal_count,
         "resumed_terminal_candidate_count": resumed_terminal_count,
@@ -8644,19 +8853,39 @@ def _public_first_bridge_with_checkpoints(
         "pacer_spend_usd": "0.00",
         "reconciled": False,
     }
+    if isinstance(client, CaseDevClient):
+        evidence["case_dev_rate_limit_per_minute"] = client.config.rate_limit_per_minute
+        evidence["case_dev_rate_limit_enforced"] = (
+            client.config.rate_limit_per_minute is not None
+        )
     if retryable_count:
         return None, evidence
 
-    public_result = bridge_public_plan_paid_gaps(
-        records,
-        public_selection_records=public_selections,
-        paid_gap_records=(),
-        free_download_records=free_downloads,
-        client=client,
-        raw_html_dir=raw_html_dir,
-        use_embedded_entries=cast(bool, args.use_embedded_entries),
-        validate_free_downloads=False,
-    )
+    if bridge_provider == "courtlistener_rest":
+        if not isinstance(client, CourtListenerClient):
+            raise CommandError("CourtListener bridge client type mismatch")
+        public_result = bridge_public_plan_paid_gaps_via_courtlistener(
+            records,
+            public_selection_records=public_selections,
+            paid_gap_records=(),
+            free_download_records=free_downloads,
+            client=client,
+            raw_html_dir=raw_html_dir,
+            use_embedded_entries=cast(bool, args.use_embedded_entries),
+        )
+    else:
+        if not isinstance(client, CaseDevClient):
+            raise CommandError("Case.dev bridge client type mismatch")
+        public_result = bridge_public_plan_paid_gaps(
+            records,
+            public_selection_records=public_selections,
+            paid_gap_records=(),
+            free_download_records=free_downloads,
+            client=client,
+            raw_html_dir=raw_html_dir,
+            use_embedded_entries=cast(bool, args.use_embedded_entries),
+            validate_free_downloads=False,
+        )
     selections = list(public_result.selection_records)
     relevance = list(public_result.case_relevance_records)
     exclusions: list[Mapping[str, Any]] = []
@@ -8697,6 +8926,7 @@ def _public_first_bridge_with_checkpoints(
         exclusions=tuple(exclusions),
         screened_case_count=len(routed_ids),
         public_first_reconciled=True,
+        bridge_provider=bridge_provider,
     )
     evidence["reconciled"] = True
     return result, evidence
@@ -8709,6 +8939,7 @@ def _validate_pacer_gap_bridge_paths(
     screened_cases_path: Path,
     raw_html_dir: Path | None,
     fixture_path: Path | None,
+    courtlistener_fixture_path: Path | None,
     public_selection_path: Path | None,
     paid_gaps_path: Path | None,
     free_download_manifest_path: Path | None,
@@ -8731,6 +8962,7 @@ def _validate_pacer_gap_bridge_paths(
         for label, path, is_tree in (
             ("--raw-html-dir", raw_html_dir, True),
             ("--case-dev-fixture", fixture_path, False),
+            ("--courtlistener-fixture", courtlistener_fixture_path, False),
             ("--public-selection", public_selection_path, False),
             ("--paid-gaps", paid_gaps_path, False),
             ("--free-download-manifest", free_download_manifest_path, False),
@@ -8816,6 +9048,7 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
     screened_cases_path = cast(Path, args.screened_cases)
     raw_html_dir = cast(Path | None, args.raw_html_dir)
     fixture_path = cast(Path | None, args.case_dev_fixture)
+    courtlistener_fixture_path = cast(Path | None, args.courtlistener_fixture)
     public_selection_path = cast(Path | None, args.public_selection)
     paid_gaps_path = cast(Path | None, args.paid_gaps)
     free_download_manifest_path = cast(Path | None, args.free_download_manifest)
@@ -8881,6 +9114,7 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         screened_cases_path=screened_cases_path,
         raw_html_dir=raw_html_dir,
         fixture_path=fixture_path,
+        courtlistener_fixture_path=courtlistener_fixture_path,
         public_selection_path=public_selection_path,
         paid_gaps_path=paid_gaps_path,
         free_download_manifest_path=free_download_manifest_path,
@@ -8896,12 +9130,33 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
     records = _read_records(screened_cases_path)
     dry_run = _acquisition_dry_run(args)
     live = cast(bool, args.live_case_dev)
+    live_courtlistener = cast(bool, args.live_courtlistener)
+    courtlistener_mode = courtlistener_fixture_path is not None or live_courtlistener
+    case_dev_mode = fixture_path is not None or live
+    if courtlistener_fixture_path is not None and live_courtlistener:
+        raise CommandError(
+            "choose --courtlistener-fixture or --live-courtlistener, not both"
+        )
+    if courtlistener_mode and case_dev_mode:
+        raise CommandError(
+            "choose a Case.dev bridge provider or CourtListener REST, not both"
+        )
+    if courtlistener_mode and not public_first:
+        raise CommandError(
+            "CourtListener REST bridge mode requires --public-selection, "
+            "--paid-gaps, and --free-download-manifest"
+        )
+    if not courtlistener_mode and not case_dev_mode and not dry_run:
+        raise CommandError(
+            "bridge-pacer-gaps requires a fixture or live flag for one provider"
+        )
     input_paths = tuple(
         path
         for path in (
             screened_cases_path,
             raw_html_dir,
             fixture_path,
+            courtlistener_fixture_path,
             public_selection_path,
             paid_gaps_path,
             free_download_manifest_path,
@@ -8952,30 +9207,39 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         free_request_count = 0
         excluded_count = 0
     else:
-        client = _case_dev_client(
-            command="acquisition bridge-pacer-gaps",
-            fixture_path=fixture_path,
-            live=live,
-        )
-        if public_first:
+        if courtlistener_mode:
+            courtlistener_client, request_budget = _courtlistener_bridge_client(
+                args,
+                fixture_path=courtlistener_fixture_path,
+                live=live_courtlistener,
+            )
             assert public_selection_path is not None
             assert paid_gaps_path is not None
             assert free_download_manifest_path is not None
-            result, bridge_evidence = _public_first_bridge_with_checkpoints(
-                args=args,
-                records=records,
-                client=client,
-                raw_html_dir=raw_html_dir,
-                public_selection_path=public_selection_path,
-                paid_gaps_path=paid_gaps_path,
-                free_download_manifest_path=free_download_manifest_path,
-                fixture_path=fixture_path,
-                checkpoint_dir=checkpoint_dir,
-                checkpoint_config_path=checkpoint_config_path,
+            try:
+                result_or_none, bridge_evidence = _public_first_bridge_with_checkpoints(
+                    args=args,
+                    records=records,
+                    client=courtlistener_client,
+                    bridge_provider="courtlistener_rest",
+                    raw_html_dir=raw_html_dir,
+                    public_selection_path=public_selection_path,
+                    paid_gaps_path=paid_gaps_path,
+                    free_download_manifest_path=free_download_manifest_path,
+                    fixture_path=courtlistener_fixture_path,
+                    checkpoint_dir=checkpoint_dir,
+                    checkpoint_config_path=checkpoint_config_path,
+                )
+            except CourtListenerRequestBudgetError as exc:
+                raise CommandError(str(exc)) from exc
+            bridge_evidence.update(
+                _courtlistener_bridge_rate_evidence(
+                    args, courtlistener_client, request_budget
+                )
             )
-            if result is None:
+            if result_or_none is None:
                 reason = (
-                    "PACER-gap bridge retained retryable Case.dev candidates; "
+                    "PACER-gap bridge retained retryable CourtListener candidates; "
                     "rerun with --resume"
                 )
                 _write_acquisition_failure(
@@ -8988,14 +9252,54 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
                     extra=bridge_evidence,
                 )
                 raise CommandError(reason)
+            result = result_or_none
         else:
-            result = bridge_courtlistener_case_dev_documents(
-                records,
-                client=client,
-                raw_html_dir=raw_html_dir,
-                use_embedded_entries=cast(bool, args.use_embedded_entries),
-                target_clean_cases=cast(int, args.target_clean_cases),
+            client = _case_dev_client(
+                command="acquisition bridge-pacer-gaps",
+                fixture_path=fixture_path,
+                live=live,
             )
+            if public_first:
+                assert public_selection_path is not None
+                assert paid_gaps_path is not None
+                assert free_download_manifest_path is not None
+                result_or_none, bridge_evidence = _public_first_bridge_with_checkpoints(
+                    args=args,
+                    records=records,
+                    client=client,
+                    bridge_provider="case.dev",
+                    raw_html_dir=raw_html_dir,
+                    public_selection_path=public_selection_path,
+                    paid_gaps_path=paid_gaps_path,
+                    free_download_manifest_path=free_download_manifest_path,
+                    fixture_path=fixture_path,
+                    checkpoint_dir=checkpoint_dir,
+                    checkpoint_config_path=checkpoint_config_path,
+                )
+                if result_or_none is None:
+                    reason = (
+                        "PACER-gap bridge retained retryable Case.dev candidates; "
+                        "rerun with --resume"
+                    )
+                    _write_acquisition_failure(
+                        args,
+                        stage="bridge-pacer-gaps",
+                        input_paths=input_paths,
+                        output_paths=output_paths,
+                        reason=reason,
+                        paid_activity_requested=False,
+                        extra=bridge_evidence,
+                    )
+                    raise CommandError(reason)
+                result = result_or_none
+            else:
+                result = bridge_courtlistener_case_dev_documents(
+                    records,
+                    client=client,
+                    raw_html_dir=raw_html_dir,
+                    use_embedded_entries=cast(bool, args.use_embedded_entries),
+                    target_clean_cases=cast(int, args.target_clean_cases),
+                )
         _write_jsonl(
             requests_path,
             [request.to_record() for request in result.free_download_requests],
@@ -9003,7 +9307,10 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         _write_jsonl(selection_path, result.selection_records)
         _write_jsonl(case_relevance_path, result.case_relevance_records)
         _write_jsonl(exclusions_path, result.exclusions)
-        _write_json(summary_path, {**result.summary_record(), "dry_run": False})
+        _write_json(
+            summary_path,
+            {**result.summary_record(), "dry_run": False, **bridge_evidence},
+        )
         selected_count = result.selected_case_count
         paid_document_count = result.paid_document_count
         paid_recovery_required_case_count = result.paid_recovery_required_case_count
