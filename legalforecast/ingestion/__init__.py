@@ -201,6 +201,7 @@ from legalforecast.ingestion.missing_core_budget import (
     PurchaseBudgetExceededError,
     PurchaseFrontierRow,
     plan_missing_core_document_budget,
+    rank_missing_core_document_plans,
     write_missing_core_budget_plan,
 )
 from legalforecast.ingestion.mistral_markdown_parser import (
@@ -530,6 +531,7 @@ __all__ = [
     "prescreen_recap_candidate",
     "public_documents_from_selection",
     "rank_cheapest_complete_candidates",
+    "rank_missing_core_document_plans",
     "read_case_relevance_jsonl",
     "reconstruct_docket_page",
     "recover_purchased_documents",

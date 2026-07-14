@@ -191,23 +191,11 @@ def plan_missing_core_document_budget(
         "max_projected_budget_usd",
     )
 
-    ranked_case_plans = tuple(
-        sorted(
-            (
-                _case_purchase_plan(
-                    result,
-                    dry_run=dry_run,
-                    cost_per_document=cost_per_document,
-                    max_missing_core_documents_per_case=max_missing_core_documents_per_case,
-                )
-                for result in filter_results
-            ),
-            key=lambda plan: (
-                plan.missing_core_document_count,
-                plan.estimated_cost,
-                plan.candidate_id,
-            ),
-        )
+    ranked_case_plans = rank_missing_core_document_plans(
+        filter_results,
+        dry_run=dry_run,
+        max_missing_core_documents_per_case=max_missing_core_documents_per_case,
+        cost_per_document_usd=cost_per_document,
     )
     completable_case_plans = tuple(
         plan for plan in ranked_case_plans if not plan.exclusion_reasons
@@ -240,6 +228,47 @@ def plan_missing_core_document_budget(
             f"${plan.max_projected_budget_usd}"
         )
     return plan
+
+
+def rank_missing_core_document_plans(
+    filter_results: Iterable[CoreDocumentFilterResult],
+    *,
+    dry_run: bool,
+    max_missing_core_documents_per_case: int = (
+        DEFAULT_MAX_MISSING_CORE_DOCUMENTS_PER_CASE
+    ),
+    cost_per_document_usd: Decimal | str = DEFAULT_PURCHASE_COST_USD,
+) -> tuple[CaseMissingCorePurchasePlan, ...]:
+    """Return every candidate in the canonical budget ranking, untruncated."""
+
+    _require_positive_int(
+        max_missing_core_documents_per_case,
+        "max_missing_core_documents_per_case",
+    )
+    cost_per_document = _decimal_money(
+        cost_per_document_usd,
+        "cost_per_document_usd",
+    )
+    return tuple(
+        sorted(
+            (
+                _case_purchase_plan(
+                    result,
+                    dry_run=dry_run,
+                    cost_per_document=cost_per_document,
+                    max_missing_core_documents_per_case=(
+                        max_missing_core_documents_per_case
+                    ),
+                )
+                for result in filter_results
+            ),
+            key=lambda plan: (
+                plan.missing_core_document_count,
+                plan.estimated_cost,
+                plan.candidate_id,
+            ),
+        )
+    )
 
 
 def write_missing_core_budget_plan(

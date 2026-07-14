@@ -18,7 +18,7 @@ import uuid
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -295,6 +295,7 @@ from legalforecast.ingestion.missing_core_budget import (
     MissingCoreBudgetPlan,
     PurchaseFrontierRow,
     plan_missing_core_document_budget,
+    rank_missing_core_document_plans,
     write_missing_core_budget_plan,
 )
 from legalforecast.ingestion.mistral_markdown_parser import (
@@ -376,7 +377,10 @@ from legalforecast.ingestion.snapshot_replay import (
 from legalforecast.ingestion.target_100_acquisition import (
     Target100PreparationConfig,
     Target100PreparationError,
+    TargetCohortPreparationConfig,
+    TargetCohortPreparationError,
     build_target_100_stage_commands,
+    build_target_cohort_stage_commands,
 )
 from legalforecast.ingestion.target_cohort_projection import (
     TargetCohortProjectionError,
@@ -1042,6 +1046,42 @@ def build_parser() -> argparse.ArgumentParser:
         help="Plan missing-core paid recovery from core-document filter results.",
     )
     _add_acquisition_plan_arguments(acquisition_plan)
+    acquisition_prepare_target_cohort = acquisition_subparsers.add_parser(
+        "prepare-target-cohort",
+        help=(
+            "Prepare the full resolved pool and a provisional pre-clearance "
+            "budget for an explicit target size."
+        ),
+        description=(
+            "Starting from a complete saturated screened snapshot, carry every "
+            "viable candidate through the noncharging public-first acquisition "
+            "chain, resolve document gaps through CourtListener REST, and retain "
+            "a full untruncated per-candidate frontier. --target-case-count is "
+            "required and hash-bound. Case.dev is permitted upstream only for an "
+            "equivalent free lookup; Firecrawl is permitted only for a documented "
+            "CourtListener decision-search surface gap. This command never "
+            "purchases documents or acknowledges fees."
+        ),
+    )
+    _add_acquisition_prepare_target_cohort_arguments(acquisition_prepare_target_cohort)
+    acquisition_materialize_target_frontier = acquisition_subparsers.add_parser(
+        "materialize-target-cohort-frontier",
+        help=(
+            "Build a verified full frontier from a completed preparation root "
+            "without rerunning providers."
+        ),
+        description=(
+            "Verify an immutable completed prepare-target-100 or prepare-target-"
+            "cohort root, including its summary, self-hashed config, exhaustive "
+            "stage commitments, resolved success run card, and snapshot lineage. "
+            "Then write the full self-hashed candidate frontier to a separate "
+            "output root. This command never constructs a provider client, "
+            "downloads a document, acknowledges fees, or purchases anything."
+        ),
+    )
+    _add_acquisition_materialize_target_frontier_arguments(
+        acquisition_materialize_target_frontier
+    )
     acquisition_prepare_target_100 = acquisition_subparsers.add_parser(
         "prepare-target-100",
         help=(
@@ -1522,6 +1562,26 @@ def _add_acquisition_plan_arguments(parser: argparse.ArgumentParser) -> None:
 def _add_acquisition_prepare_target_100_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
+    _add_acquisition_prepare_target_arguments(parser)
+    parser.set_defaults(handler=_cmd_acquisition_prepare_target_100)
+
+
+def _add_acquisition_prepare_target_cohort_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_prepare_target_arguments(parser)
+    parser.add_argument(
+        "--target-case-count",
+        type=int,
+        required=True,
+        help="Required positive target size, frozen into the preparation config.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_prepare_target_cohort)
+
+
+def _add_acquisition_prepare_target_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
     _add_acquisition_common_arguments(parser)
     parser.add_argument(
         "--snapshot",
@@ -1567,7 +1627,37 @@ def _add_acquisition_prepare_target_100_arguments(
     )
     parser.add_argument("--request-budget-max-wait-seconds", type=float, default=120.0)
     parser.add_argument("--summary-output", type=Path)
-    parser.set_defaults(handler=_cmd_acquisition_prepare_target_100)
+
+
+def _add_acquisition_materialize_target_frontier_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--preparation-root",
+        type=Path,
+        required=True,
+        help="Immutable completed target-100 or generic preparation root.",
+    )
+    parser.add_argument(
+        "--preparation-summary",
+        type=Path,
+        required=True,
+        help="Exact completed preparation summary committed by the success run card.",
+    )
+    parser.add_argument(
+        "--preparation-config",
+        type=Path,
+        required=True,
+        help="Exact self-hashed preparation config inside the immutable root.",
+    )
+    parser.add_argument(
+        "--snapshot-manifest",
+        type=Path,
+        required=True,
+        help="Exact snapshot manifest committed by the config and summary.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_materialize_target_frontier)
 
 
 def _add_acquisition_project_target_cohort_arguments(
@@ -1614,13 +1704,19 @@ def _add_acquisition_project_target_cohort_arguments(
         "--preparation-summary",
         type=Path,
         required=True,
-        help="Completed noncharging prepare-target-100 summary for the full pool.",
+        help=(
+            "Completed noncharging prepare-target-cohort summary, or the exact-100 "
+            "compatibility summary, for the full pool."
+        ),
     )
     parser.add_argument(
         "--preparation-config",
         type=Path,
         required=True,
-        help="Frozen target-100 config whose semantic caps projection must preserve.",
+        help=(
+            "Frozen generic or exact-100 preparation config whose target and caps "
+            "projection must preserve."
+        ),
     )
     parser.add_argument(
         "--snapshot-manifest",
@@ -2328,9 +2424,10 @@ def _add_build_clearance_replacement_frontier_arguments(
         type=Path,
         required=True,
         help=(
-            "Complete canonical ranked JSON/JSONL frontier. A JSON budget object "
-            "may place the rows under case_plans. Rows must include frozen case-mix "
-            "metadata; this command preserves their order and refuses truncation."
+            "Complete canonical ranked JSON/JSONL frontier. Prefer the verified "
+            "full-candidate artifact emitted by prepare-target-cohort. Rows must "
+            "include frozen case-mix metadata; this command preserves their order "
+            "and refuses truncation."
         ),
     )
     parser.add_argument(
@@ -4830,20 +4927,80 @@ def _cmd_acquisition_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+@dataclass(frozen=True, slots=True)
+class _TargetPreparationProfile:
+    stage: str
+    label: str
+    summary_filename: str
+    config_filename: str
+    summary_schema: str
+    config_schema: str
+    attempt_schema: str
+    exact_target_case_count: int | None
+    emit_full_candidate_frontier: bool
+
+    def target_case_count(self, args: argparse.Namespace) -> int:
+        if self.exact_target_case_count is not None:
+            return self.exact_target_case_count
+        return cast(int, args.target_case_count)
+
+
+_TARGET_100_PREPARATION = _TargetPreparationProfile(
+    stage="prepare-target-100",
+    label="target-100",
+    summary_filename="target-100-preparation-summary.json",
+    config_filename="target-100-config.json",
+    summary_schema="legalforecast.target_100_preparation.v1",
+    config_schema="legalforecast.target_100_config.v1",
+    attempt_schema="legalforecast.target_100_attempt.v1",
+    exact_target_case_count=100,
+    emit_full_candidate_frontier=False,
+)
+_TARGET_COHORT_PREPARATION = _TargetPreparationProfile(
+    stage="prepare-target-cohort",
+    label="target-cohort",
+    summary_filename="target-cohort-preparation-summary.json",
+    config_filename="target-cohort-config.json",
+    summary_schema="legalforecast.target_cohort_preparation.v1",
+    config_schema="legalforecast.target_cohort_config.v1",
+    attempt_schema="legalforecast.target_cohort_attempt.v1",
+    exact_target_case_count=None,
+    emit_full_candidate_frontier=True,
+)
+
+
 def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
-    """Run the noncharging public-first chain and emit clearance inputs."""
+    """Run the exact-100 compatibility preparation command."""
+
+    return _cmd_acquisition_prepare_target(args, profile=_TARGET_100_PREPARATION)
+
+
+def _cmd_acquisition_prepare_target_cohort(args: argparse.Namespace) -> int:
+    """Run generic noncharging preparation for an explicit target size."""
+
+    return _cmd_acquisition_prepare_target(args, profile=_TARGET_COHORT_PREPARATION)
+
+
+def _cmd_acquisition_prepare_target(
+    args: argparse.Namespace,
+    *,
+    profile: _TargetPreparationProfile,
+) -> int:
+    """Run the shared public-first chain and emit clearance inputs."""
 
     output_root = cast(Path, args.output_root)
+    target_case_count = profile.target_case_count(args)
     summary_path = _acquisition_path(
         args,
         "summary_output",
-        output_root / "target-100-preparation-summary.json",
+        output_root / profile.summary_filename,
     )
     snapshot = cast(Path, args.snapshot)
     expected_cycle_hash = cast(str, args.expected_cycle_hash)
     try:
         _validate_target_100_paths(
             args=args,
+            profile=profile,
             output_root=output_root,
             summary_path=summary_path,
             snapshot=snapshot,
@@ -4855,6 +5012,7 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
     except CommandError as exc:
         _write_target_100_attempt_failure(
             args,
+            profile=profile,
             reason=str(exc),
             protected_paths=_target_100_protected_paths(args),
         )
@@ -4869,16 +5027,23 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
     except SnapshotVerificationError as exc:
         _write_target_100_attempt_failure(
             args,
+            profile=profile,
             reason=str(exc),
             protected_paths=_target_100_protected_paths(args),
         )
         raise CommandError(str(exc)) from exc
     candidate_pool_size = len(_read_records(snapshot / "screened-cases.jsonl"))
-    config = Target100PreparationConfig(
+    config_type = (
+        Target100PreparationConfig
+        if profile.exact_target_case_count is not None
+        else TargetCohortPreparationConfig
+    )
+    config = config_type(
         output_root=output_root,
         snapshot=snapshot,
         expected_cycle_hash=expected_cycle_hash,
         candidate_pool_size=candidate_pool_size,
+        target_case_count=target_case_count,
         cost_per_document_usd=cast(str, args.cost_per_document_usd),
         max_projected_budget_usd=cast(str, args.max_projected_budget_usd),
         max_missing_core_documents_per_case=cast(
@@ -4898,10 +5063,17 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
         resume=cast(bool, args.resume),
     )
     try:
-        commands = build_target_100_stage_commands(config)
-    except Target100PreparationError as exc:
+        commands = (
+            build_target_100_stage_commands(cast(Target100PreparationConfig, config))
+            if profile.exact_target_case_count is not None
+            else build_target_cohort_stage_commands(
+                cast(TargetCohortPreparationConfig, config)
+            )
+        )
+    except (Target100PreparationError, TargetCohortPreparationError) as exc:
         _write_target_100_attempt_failure(
             args,
+            profile=profile,
             reason=str(exc),
             protected_paths=_target_100_protected_paths(args),
         )
@@ -4909,20 +5081,21 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
     command_records = [
         {"stage": command.stage, "argv": list(command.argv)} for command in commands
     ]
-    config_path = output_root / "target-100-config.json"
+    config_path = output_root / profile.config_filename
     success_run_card_path = _acquisition_path(
         args,
         "run_card_output",
-        output_root / "run-cards/prepare-target-100.json",
+        output_root / f"run-cards/{profile.stage}.json",
     )
     success_log_path = _acquisition_path(
         args,
         "log_output",
-        output_root / "logs/prepare-target-100.jsonl",
+        output_root / f"logs/{profile.stage}.jsonl",
     )
     try:
         config_record = _target_100_config_record(
             config,
+            profile=profile,
             snapshot_manifest=snapshot_manifest,
             stage_commands=command_records,
             driver_execute=not _acquisition_dry_run(args),
@@ -4935,6 +5108,7 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
         _ensure_target_100_config(
             config_path,
             config_record,
+            profile=profile,
             resume=cast(bool, args.resume),
         )
         if cast(bool, args.resume):
@@ -4943,17 +5117,27 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
                     summary_path=summary_path,
                     output_root=output_root,
                     config=config,
+                    profile=profile,
                     config_sha256=cast(str, config_record["config_sha256"]),
                 )
+                if not _target_100_completed_run_card_exists(
+                    success_run_card_path, profile=profile
+                ):
+                    raise CommandError(
+                        f"{profile.label} committed success run card is missing"
+                    )
                 return 0
-            if _target_100_completed_run_card_exists(success_run_card_path):
+            if _target_100_completed_run_card_exists(
+                success_run_card_path, profile=profile
+            ):
                 raise CommandError(
-                    "target-100 committed success summary is missing; refusing "
+                    f"{profile.label} committed success summary is missing; refusing "
                     "child-stage resume"
                 )
     except (CommandError, OSError, UnicodeError, ValueError) as exc:
         _write_target_100_attempt_failure(
             args,
+            profile=profile,
             reason=str(exc),
             protected_paths=_target_100_protected_paths(args),
         )
@@ -4965,9 +5149,9 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
         _write_json(
             summary_path,
             {
-                "schema_version": "legalforecast.target_100_preparation.v1",
+                "schema_version": profile.summary_schema,
                 "dry_run": True,
-                "target_case_count": 100,
+                "target_case_count": target_case_count,
                 "candidate_pool_size": config.candidate_pool_size,
                 "config_sha256": config_record["config_sha256"],
                 "stage_commands": command_records,
@@ -4977,7 +5161,7 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
         )
         _write_acquisition_completion(
             args,
-            stage="prepare-target-100",
+            stage=profile.stage,
             input_paths=(config.snapshot,),
             output_paths=(summary_path,),
             record_count=0,
@@ -4987,13 +5171,14 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
         )
         return 0
 
-    if candidate_pool_size < 100:
+    if candidate_pool_size < target_case_count:
         reason = (
             f"complete snapshot contains only {candidate_pool_size} viable cases; "
-            "100 are required"
+            f"{target_case_count} are required"
         )
         _write_target_100_attempt_failure(
             args,
+            profile=profile,
             reason=reason,
             extra={"config_sha256": config_record["config_sha256"]},
             protected_paths=_target_100_protected_paths(args),
@@ -5004,11 +5189,12 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
         result = main(command.argv)
         if result != 0:
             reason = (
-                f"target-100 preparation stopped at {command.stage}; "
+                f"{profile.label} preparation stopped at {command.stage}; "
                 "fix the recorded failure and rerun with --resume"
             )
             _write_target_100_attempt_failure(
                 args,
+                profile=profile,
                 reason=reason,
                 extra={"config_sha256": config_record["config_sha256"]},
                 protected_paths=_target_100_protected_paths(args),
@@ -5023,6 +5209,7 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
     except (CommandError, TargetCohortProjectionError) as exc:
         _write_target_100_attempt_failure(
             args,
+            profile=profile,
             reason=str(exc),
             extra={"config_sha256": config_record["config_sha256"]},
             protected_paths=_target_100_protected_paths(args),
@@ -5035,18 +5222,50 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
     budget_plan = _missing_core_budget_plan(_read_json_object(budget_plan_path))
     if budget_plan.dry_run:
         raise CommandError("target-100 budget plan must be executable, not dry-run")
-    if not budget_plan.target_case_count_met or len(budget_plan.case_plans) != 100:
+    if (
+        not budget_plan.target_case_count_met
+        or len(budget_plan.case_plans) != target_case_count
+    ):
         reason = (
-            "target-100 preparation did not produce exactly 100 complete cases; "
+            f"{profile.label} preparation did not produce exactly "
+            f"{target_case_count} complete cases; "
             "acquire additional screened candidates without relaxing any gate"
         )
         _write_target_100_attempt_failure(
             args,
+            profile=profile,
             reason=reason,
             extra={"config_sha256": config_record["config_sha256"]},
             protected_paths=_target_100_protected_paths(args),
         )
         raise CommandError(reason)
+    full_frontier: tuple[Path, int, str] | None = None
+    if profile.emit_full_candidate_frontier:
+        try:
+            full_frontier = _prepare_full_candidate_frontier(
+                output_root,
+                budget_plan=budget_plan,
+                target_case_count=config.target_case_count,
+                cost_per_document_usd=config.cost_per_document_usd,
+                max_missing_core_documents_per_case=(
+                    config.max_missing_core_documents_per_case
+                ),
+                snapshot_manifest_path=config.snapshot / "manifest.json",
+                preparation_config_path=config_path,
+                frontier_path=(output_root / "05-budget/full-candidate-frontier.json"),
+                resume=cast(bool, args.resume),
+            )
+        except (CommandError, OSError, UnicodeError, ValueError) as exc:
+            _write_target_100_attempt_failure(
+                args,
+                profile=profile,
+                reason=str(exc),
+                extra={"config_sha256": config_record["config_sha256"]},
+                protected_paths=_target_100_protected_paths(args),
+            )
+            if isinstance(exc, CommandError):
+                raise
+            raise CommandError(str(exc)) from exc
     stage_commitments = _target_100_stage_commitments(output_root)
     stage_input_commitments = _target_100_stage_input_commitments(
         output_root, config=config
@@ -5055,9 +5274,9 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
     _write_json(
         summary_path,
         {
-            "schema_version": "legalforecast.target_100_preparation.v1",
+            "schema_version": profile.summary_schema,
             "dry_run": False,
-            "target_case_count": 100,
+            "target_case_count": target_case_count,
             "candidate_pool_size": config.candidate_pool_size,
             "snapshot_manifest_sha256": "sha256:"
             + hashlib.sha256((snapshot / "manifest.json").read_bytes()).hexdigest(),
@@ -5077,6 +5296,15 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
             "max_missing_core_documents_per_case": (
                 budget_plan.max_missing_core_documents_per_case
             ),
+            **(
+                {
+                    "full_candidate_frontier": str(full_frontier[0]),
+                    "full_candidate_frontier_count": full_frontier[1],
+                    "full_candidate_frontier_sha256": full_frontier[2],
+                }
+                if full_frontier is not None
+                else {}
+            ),
             "budget_plan": str(budget_plan_path),
             "stage_commands": command_records,
             "paid_activity_requested": False,
@@ -5092,15 +5320,15 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
     )
     _write_acquisition_completion(
         args,
-        stage="prepare-target-100",
+        stage=profile.stage,
         input_paths=(config.snapshot,),
         output_paths=(config_path, summary_path, budget_plan_path),
-        record_count=100,
+        record_count=target_case_count,
         dry_run=False,
         paid_activity_requested=False,
         paid_activity_executed=False,
         extra={
-            "selected_case_count": 100,
+            "selected_case_count": target_case_count,
             "total_estimated_cost_usd": budget_plan.total_estimated_cost_usd,
             "config_sha256": config_record["config_sha256"],
             "completed_stages": list(stage_commitments),
@@ -5108,6 +5336,320 @@ def _cmd_acquisition_prepare_target_100(args: argparse.Namespace) -> int:
         },
     )
     return 0
+
+
+@dataclass(frozen=True, slots=True)
+class _VerifiedPreparationForFrontier:
+    target_case_count: int
+    cost_per_document_usd: str
+    max_missing_core_documents_per_case: int
+    budget_plan: MissingCoreBudgetPlan
+    success_run_card_path: Path
+
+
+def _cmd_acquisition_materialize_target_frontier(
+    args: argparse.Namespace,
+) -> int:
+    """Materialize a full frontier without mutating or rerunning preparation."""
+
+    output_root = _acquisition_output_root(args)
+    preparation_root = cast(Path, args.preparation_root)
+    preparation_summary_path = cast(Path, args.preparation_summary)
+    preparation_config_path = cast(Path, args.preparation_config)
+    snapshot_manifest_path = cast(Path, args.snapshot_manifest)
+    frontier_path = output_root / "full-candidate-frontier.json"
+    input_paths = (
+        preparation_root,
+        preparation_summary_path,
+        preparation_config_path,
+        snapshot_manifest_path,
+    )
+    _validate_materializer_output_paths(
+        args,
+        output_root=output_root,
+        frontier_path=frontier_path,
+        input_paths=input_paths,
+    )
+    verified = _verify_completed_preparation_for_frontier(
+        preparation_root=preparation_root,
+        preparation_summary_path=preparation_summary_path,
+        preparation_config_path=preparation_config_path,
+        snapshot_manifest_path=snapshot_manifest_path,
+    )
+    dry_run = _acquisition_dry_run(args)
+    _prepare_full_candidate_frontier(
+        preparation_root,
+        budget_plan=verified.budget_plan,
+        target_case_count=verified.target_case_count,
+        cost_per_document_usd=verified.cost_per_document_usd,
+        max_missing_core_documents_per_case=(
+            verified.max_missing_core_documents_per_case
+        ),
+        snapshot_manifest_path=snapshot_manifest_path,
+        preparation_config_path=preparation_config_path,
+        frontier_path=frontier_path,
+        resume=cast(bool, args.resume),
+        additional_source_commitments={
+            "preparation_summary_sha256": preparation_summary_path,
+            "preparation_success_run_card_sha256": verified.success_run_card_path,
+        },
+        write=not dry_run,
+    )
+    run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards/materialize-target-cohort-frontier.json",
+    )
+    if (
+        not dry_run
+        and cast(bool, args.resume)
+        and frontier_path.exists()
+        and _completed_stage_run_card_exists(
+            run_card_path, stage="materialize-target-cohort-frontier"
+        )
+    ):
+        return 0
+    _write_acquisition_completion(
+        args,
+        stage="materialize-target-cohort-frontier",
+        input_paths=(*input_paths, verified.success_run_card_path),
+        output_paths=(frontier_path,),
+        record_count=verified.budget_plan.target_case_count or 0,
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "target_case_count": verified.target_case_count,
+            "frontier_sha256": (_path_sha256(frontier_path) if not dry_run else None),
+            "source_commitments": {
+                "preparation_summary": _path_sha256(preparation_summary_path),
+                "preparation_config": _path_sha256(preparation_config_path),
+                "snapshot_manifest": _path_sha256(snapshot_manifest_path),
+                "preparation_success_run_card": _path_sha256(
+                    verified.success_run_card_path
+                ),
+            },
+            "output_commitments": {
+                "full_candidate_frontier": (
+                    _path_sha256(frontier_path) if not dry_run else None
+                )
+            },
+            "zero_provider_activity_evidence": True,
+        },
+    )
+    return 0
+
+
+def _verify_completed_preparation_for_frontier(
+    *,
+    preparation_root: Path,
+    preparation_summary_path: Path,
+    preparation_config_path: Path,
+    snapshot_manifest_path: Path,
+) -> _VerifiedPreparationForFrontier:
+    summary = _read_json_object(preparation_summary_path)
+    config = _read_json_object(preparation_config_path)
+    snapshot_manifest = _read_json_object(snapshot_manifest_path)
+    summary_schema = summary.get("schema_version")
+    config_schema = config.get("schema_version")
+    if not isinstance(summary_schema, str) or not isinstance(config_schema, str):
+        raise CommandError("preparation schema versions must be strings")
+    schema_pair = (summary_schema, config_schema)
+    profile_by_schema = {
+        (
+            "legalforecast.target_100_preparation.v1",
+            "legalforecast.target_100_config.v1",
+        ): _TARGET_100_PREPARATION,
+        (
+            "legalforecast.target_cohort_preparation.v1",
+            "legalforecast.target_cohort_config.v1",
+        ): _TARGET_COHORT_PREPARATION,
+    }
+    profile = profile_by_schema.get(schema_pair)
+    if profile is None:
+        raise CommandError("unsupported or mismatched preparation schema pair")
+    config_payload = dict(config)
+    committed_config_sha256 = config_payload.pop("config_sha256", None)
+    if committed_config_sha256 != _canonical_json_sha256(config_payload):
+        raise CommandError("preparation config self-hash mismatch")
+    if summary.get("config_sha256") != committed_config_sha256:
+        raise CommandError("preparation summary config commitment mismatch")
+    if (
+        summary.get("dry_run") is not False
+        or summary.get("paid_activity_executed") is not False
+        or config.get("driver_execute") is not True
+    ):
+        raise CommandError(
+            "frontier materialization requires executed nonpaid preparation"
+        )
+    target_case_count = _required_int(config, "target_case_count")
+    if target_case_count < 1 or summary.get("target_case_count") != target_case_count:
+        raise CommandError("preparation target case count commitment mismatch")
+    expected_config_path = preparation_root / profile.config_filename
+    if preparation_config_path.resolve() != expected_config_path.resolve():
+        raise CommandError("preparation config is outside its canonical root path")
+    wrapper_paths = config.get("wrapper_artifact_paths")
+    if not isinstance(wrapper_paths, Mapping):
+        raise CommandError("preparation config lacks wrapper artifact paths")
+    typed_wrapper_paths = cast(Mapping[str, object], wrapper_paths)
+    if typed_wrapper_paths.get("summary") != str(preparation_summary_path.resolve()):
+        raise CommandError("preparation summary path differs from frozen config")
+    configured_snapshot = config.get("snapshot")
+    if not isinstance(configured_snapshot, str):
+        raise CommandError("preparation config lacks snapshot path")
+    if (
+        snapshot_manifest_path.resolve()
+        != (Path(configured_snapshot) / "manifest.json").resolve()
+    ):
+        raise CommandError("snapshot manifest path differs from frozen config")
+    snapshot_sha256 = _path_sha256(snapshot_manifest_path)
+    if (
+        config.get("snapshot_manifest_sha256") != snapshot_sha256
+        or summary.get("snapshot_manifest_sha256") != snapshot_sha256
+        or config.get("snapshot_cycle_hash") != snapshot_manifest.get("cycle_hash")
+        or config.get("snapshot_batch_digest") != snapshot_manifest.get("batch_digest")
+        or summary.get("snapshot_batch_digest") != snapshot_manifest.get("batch_digest")
+    ):
+        raise CommandError("preparation snapshot lineage commitment mismatch")
+    committed_inputs = summary.get("stage_input_commitments")
+    committed_outputs = summary.get("stage_commitments")
+    if not isinstance(committed_inputs, Mapping) or not isinstance(
+        committed_outputs, Mapping
+    ):
+        raise CommandError("preparation summary lacks exhaustive stage commitments")
+    _verify_preparation_input_commitments(cast(Mapping[str, object], committed_inputs))
+    actual_outputs = _target_100_stage_commitments(preparation_root)
+    if dict(cast(Mapping[str, Any], committed_outputs)) != actual_outputs:
+        raise CommandError("preparation stage output commitment mismatch")
+    budget_path = preparation_root / "05-budget/missing-core-budget-plan.json"
+    budget_plan = _missing_core_budget_plan(_read_json_object(budget_path))
+    selected_ids = [plan.candidate_id for plan in budget_plan.case_plans]
+    if (
+        len(selected_ids) != target_case_count
+        or summary.get("selected_candidate_ids_sha256")
+        != _canonical_json_sha256(selected_ids)
+        or summary.get("frontier_sha256")
+        != _canonical_json_sha256(
+            [row.to_record() for row in budget_plan.frontier_rows]
+        )
+    ):
+        raise CommandError(
+            "preparation budget or selected frontier commitment mismatch"
+        )
+    raw_run_card_path = typed_wrapper_paths.get("run_card")
+    if not isinstance(raw_run_card_path, str):
+        raise CommandError("preparation config lacks success run-card path")
+    success_run_card_path = Path(raw_run_card_path)
+    if not _completed_stage_run_card_exists(success_run_card_path, stage=profile.stage):
+        raise CommandError(
+            "completed preparation success run card is missing or invalid"
+        )
+    success_card = _read_json_object(success_run_card_path)
+    if (
+        success_card.get("dry_run") is not False
+        or success_card.get("execute") is not True
+        or success_card.get("paid_activity_requested") is not False
+        or success_card.get("paid_activity_executed") is not False
+        or success_card.get("record_count") != target_case_count
+    ):
+        raise CommandError("completed preparation success run card is inconsistent")
+    committed_output_paths = success_card.get("output_paths")
+    if not isinstance(committed_output_paths, Sequence) or isinstance(
+        committed_output_paths, (str, bytes)
+    ):
+        raise CommandError("preparation success run card lacks output paths")
+    raw_output_paths = cast(Sequence[object], committed_output_paths)
+    if any(not isinstance(path, str) for path in raw_output_paths):
+        raise CommandError("preparation success run-card output paths are malformed")
+    actual_output_paths = {
+        Path(path).resolve() for path in cast(Sequence[str], raw_output_paths)
+    }
+    required_output_paths = {
+        preparation_config_path.resolve(),
+        preparation_summary_path.resolve(),
+        budget_path.resolve(),
+    }
+    if not required_output_paths.issubset(actual_output_paths):
+        raise CommandError("preparation success run card omits required outputs")
+    return _VerifiedPreparationForFrontier(
+        target_case_count=target_case_count,
+        cost_per_document_usd=_required_str(config, "cost_per_document_usd"),
+        max_missing_core_documents_per_case=_required_int(
+            config, "max_missing_core_documents_per_case"
+        ),
+        budget_plan=budget_plan,
+        success_run_card_path=success_run_card_path,
+    )
+
+
+def _verify_preparation_input_commitments(
+    commitments: Mapping[str, object],
+) -> None:
+    for stage, raw_paths in commitments.items():
+        if not isinstance(raw_paths, Mapping):
+            raise CommandError("preparation stage input commitments are malformed")
+        for raw_path, digest in cast(Mapping[object, object], raw_paths).items():
+            if not isinstance(raw_path, str) or not isinstance(digest, str):
+                raise CommandError("preparation stage input commitment is malformed")
+            path = Path(raw_path)
+            if path.is_symlink() or not path.is_file() or _path_sha256(path) != digest:
+                raise CommandError(
+                    f"preparation stage input commitment mismatch: {stage}/{raw_path}"
+                )
+
+
+def _completed_stage_run_card_exists(path: Path, *, stage: str) -> bool:
+    if path.is_symlink() or not path.is_file():
+        return False
+    card = _read_json_object(path)
+    return (
+        card.get("schema_version") == "legalforecast.acquisition_run_card.v1"
+        and card.get("stage") == stage
+        and card.get("status") == "completed"
+    )
+
+
+def _validate_materializer_output_paths(
+    args: argparse.Namespace,
+    *,
+    output_root: Path,
+    frontier_path: Path,
+    input_paths: Sequence[Path],
+) -> None:
+    _validate_projection_output_scope(output_root, input_paths=input_paths)
+    writable_paths = (
+        frontier_path,
+        _acquisition_path(
+            args,
+            "run_card_output",
+            output_root / "run-cards/materialize-target-cohort-frontier.json",
+        ),
+        _acquisition_path(
+            args,
+            "log_output",
+            output_root / "logs/materialize-target-cohort-frontier.jsonl",
+        ),
+    )
+    resolved_inputs = tuple(path.resolve() for path in input_paths)
+    for index, path in enumerate(writable_paths):
+        resolved = path.resolve()
+        _reject_hardlinked_writable_replay_scope(
+            label="materialize-target-cohort-frontier output",
+            path=resolved,
+            is_tree=False,
+        )
+        if any(
+            resolved == source
+            or resolved.is_relative_to(source)
+            or source.is_relative_to(resolved)
+            for source in resolved_inputs
+        ):
+            raise CommandError(
+                "materialize-target-cohort-frontier output overlaps immutable input"
+            )
+        for other in writable_paths[index + 1 :]:
+            if resolved == other.resolve():
+                raise CommandError("materialize-target-cohort-frontier outputs alias")
 
 
 def _prepare_target_100_clearance_inputs(
@@ -5199,6 +5741,219 @@ def _prepare_target_100_clearance_inputs(
         _projection_jsonl_bytes(review_requests),
         resume=resume,
     )
+
+
+def _prepare_full_candidate_frontier(
+    output_root: Path,
+    *,
+    budget_plan: MissingCoreBudgetPlan,
+    target_case_count: int,
+    cost_per_document_usd: str,
+    max_missing_core_documents_per_case: int,
+    snapshot_manifest_path: Path,
+    preparation_config_path: Path,
+    frontier_path: Path,
+    resume: bool,
+    additional_source_commitments: Mapping[str, Path] | None = None,
+    write: bool = True,
+) -> tuple[Path, int, str]:
+    """Freeze every ranked candidate without changing the provisional plan."""
+
+    selection_path = (
+        output_root / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+    )
+    case_relevance_path = output_root / "03-gap-bridge/case-relevance.jsonl"
+    download_manifest_path = (
+        output_root / "03c-merged-downloads/document-downloads-merged.jsonl"
+    )
+    filter_path = output_root / "04-core-filter/core-filter-results.jsonl"
+    budget_path = output_root / "05-budget/missing-core-budget-plan.json"
+    restriction_evidence_path = (
+        output_root / "06-clearance-inputs/restriction-evidence.jsonl"
+    )
+    disclosure_requests_path = (
+        output_root / "06-clearance-inputs/disclosure-review-requests.jsonl"
+    )
+    selections = _read_records(selection_path)
+    case_relevance_records = _read_records(case_relevance_path)
+    download_manifest_records = _read_records(download_manifest_path)
+    restriction_records = _read_records(restriction_evidence_path)
+    disclosure_request_records = _read_records(disclosure_requests_path)
+    filter_records = _read_records(filter_path)
+    selection_index: dict[str, JsonRecord] = {}
+    for record in selections:
+        candidate_id = _required_str(record, "candidate_id")
+        if candidate_id in selection_index:
+            raise CommandError(
+                f"full candidate frontier has duplicate selection: {candidate_id}"
+            )
+        selection_index[candidate_id] = record
+    ranked_plans = rank_missing_core_document_plans(
+        (_core_document_filter_result(record) for record in filter_records),
+        dry_run=False,
+        max_missing_core_documents_per_case=max_missing_core_documents_per_case,
+        cost_per_document_usd=cost_per_document_usd,
+    )
+    ranked_ids = [plan.candidate_id for plan in ranked_plans]
+    if len(ranked_ids) != len(set(ranked_ids)):
+        raise CommandError("full candidate frontier contains duplicate candidate IDs")
+    selection_ids = set(selection_index)
+    ranked_id_set = set(ranked_ids)
+    if selection_ids != ranked_id_set:
+        missing = sorted(selection_ids - ranked_id_set)
+        extra = sorted(ranked_id_set - selection_ids)
+        raise CommandError(
+            "full candidate frontier does not reconcile resolved selection; "
+            f"missing={missing}; extra={extra}"
+        )
+    relevance_ids = _unique_frontier_candidate_ids(
+        case_relevance_records, label="case relevance"
+    )
+    if relevance_ids != selection_ids:
+        raise CommandError(
+            "full candidate frontier case relevance does not reconcile resolved "
+            f"selection; missing={sorted(selection_ids - relevance_ids)}; "
+            f"extra={sorted(relevance_ids - selection_ids)}"
+        )
+    manifest_keys = _unique_frontier_document_keys(
+        download_manifest_records, label="download manifest"
+    )
+    orphan_manifest_candidates = sorted(
+        {candidate_id for candidate_id, _ in manifest_keys} - selection_ids
+    )
+    if orphan_manifest_candidates:
+        raise CommandError(
+            "full candidate frontier rejects orphan download-manifest candidates: "
+            + ", ".join(orphan_manifest_candidates)
+        )
+    restriction_keys = _unique_frontier_document_keys(
+        restriction_records, label="restriction evidence"
+    )
+    request_keys = _unique_frontier_document_keys(
+        disclosure_request_records, label="disclosure review requests"
+    )
+    if restriction_keys != manifest_keys or request_keys != manifest_keys:
+        raise CommandError(
+            "full candidate frontier clearance inputs do not exactly reconcile "
+            "the download manifest"
+        )
+    selected_ids = {plan.candidate_id for plan in budget_plan.case_plans}
+    candidates: list[JsonRecord] = []
+    for rank, plan in enumerate(ranked_plans, start=1):
+        selection = selection_index[plan.candidate_id]
+        if plan.exclusion_reasons:
+            selection_status = "excluded"
+        elif plan.candidate_id in selected_ids:
+            selection_status = "selected"
+        else:
+            selection_status = "eligible_omitted"
+        candidates.append(
+            {
+                "rank": rank,
+                "candidate_id": plan.candidate_id,
+                "purchase_document_ids": list(plan.purchase_document_ids),
+                "missing_core_document_count": plan.missing_core_document_count,
+                "estimated_purchase_count": plan.estimated_purchase_count,
+                "missing_core_roles": list(plan.missing_core_roles),
+                "estimated_cost_usd": plan.estimated_cost_usd,
+                "exclusion_reasons": list(plan.exclusion_reasons),
+                "court": _optional_str(selection, "court"),
+                "nos_macro_category": _optional_str(selection, "nos_macro_category"),
+                "related_family_id": _optional_str(selection, "related_family_id"),
+                "mdl_family_id": _optional_str(selection, "mdl_family_id"),
+                "selection_status": selection_status,
+            }
+        )
+    source_commitments = {
+        "snapshot_manifest_sha256": _path_sha256(snapshot_manifest_path),
+        "preparation_config_sha256": _path_sha256(preparation_config_path),
+        "reconciled_selection_sha256": _path_sha256(selection_path),
+        "case_relevance_sha256": _path_sha256(case_relevance_path),
+        "download_manifest_sha256": _path_sha256(download_manifest_path),
+        "core_filter_results_sha256": _path_sha256(filter_path),
+        "provisional_budget_plan_sha256": _path_sha256(budget_path),
+        "restriction_evidence_sha256": _path_sha256(restriction_evidence_path),
+        "disclosure_review_requests_sha256": _path_sha256(disclosure_requests_path),
+    }
+    if additional_source_commitments is not None:
+        for name, path in sorted(additional_source_commitments.items()):
+            if name in source_commitments:
+                raise CommandError(
+                    f"duplicate full-frontier source commitment name: {name}"
+                )
+            source_commitments[name] = _path_sha256(path)
+    policy: JsonRecord = {
+        "target_case_count": target_case_count,
+        "candidate_count": len(candidates),
+        "selected_candidate_count": len(selected_ids),
+        "frontier_truncated": False,
+        "source_commitments": source_commitments,
+        "clearance_contract": {
+            "run_card_schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "clear-disclosures",
+            "required_status": "completed",
+            "required_dry_run": False,
+            "required_execute": True,
+            "required_paid_activity_executed": False,
+            "download_manifest_sha256": _path_sha256(download_manifest_path),
+            "restriction_evidence_sha256": _path_sha256(restriction_evidence_path),
+            "required_source_commitments": [
+                "download_manifest",
+                "restriction_evidence",
+                "reviews",
+                "review_receipt",
+            ],
+            "required_output_commitments": ["disclosure_clearance"],
+            "required_review_authority_fields": [
+                "reviewer_id",
+                "controlled_store_uri",
+                "authentication_method",
+                "authenticated_at",
+                "review_artifact_sha256",
+            ],
+            "orphan_clearance_rows_allowed": False,
+        },
+        "candidates": candidates,
+    }
+    artifact: JsonRecord = {
+        "schema_version": "legalforecast.target_cohort_candidate_frontier.v1",
+        "policy": policy,
+        "policy_sha256": _canonical_json_sha256(policy),
+    }
+    payload = _projection_json_bytes(artifact)
+    if write:
+        _ensure_projection_artifact(
+            frontier_path,
+            payload,
+            resume=resume,
+        )
+    return frontier_path, len(candidates), _bytes_sha256(payload)
+
+
+def _unique_frontier_candidate_ids(
+    records: Sequence[Mapping[str, Any]], *, label: str
+) -> set[str]:
+    candidate_ids: list[str] = [
+        _required_str(record, "candidate_id") for record in records
+    ]
+    if len(candidate_ids) != len(set(candidate_ids)):
+        raise CommandError(f"full candidate frontier has duplicate {label} candidate")
+    return set(candidate_ids)
+
+
+def _unique_frontier_document_keys(
+    records: Sequence[Mapping[str, Any]], *, label: str
+) -> set[tuple[str, str]]:
+    keys = [
+        (
+            _required_str(record, "candidate_id"),
+            _required_str(record, "source_document_id"),
+        )
+        for record in records
+    ]
+    if len(keys) != len(set(keys)):
+        raise CommandError(f"full candidate frontier has duplicate {label} document")
+    return set(keys)
 
 
 def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
@@ -5427,10 +6182,22 @@ def _validate_projection_source_commitments(
     max_projected_budget_usd: str,
     max_missing_core_documents_per_case: int,
 ) -> None:
-    if preparation_summary.get("schema_version") != (
-        "legalforecast.target_100_preparation.v1"
-    ):
-        raise CommandError("unsupported prepare-target-100 summary schema")
+    schema_pair = (
+        preparation_summary.get("schema_version"),
+        preparation_config.get("schema_version"),
+    )
+    supported_schema_pairs = {
+        (
+            "legalforecast.target_100_preparation.v1",
+            "legalforecast.target_100_config.v1",
+        ),
+        (
+            "legalforecast.target_cohort_preparation.v1",
+            "legalforecast.target_cohort_config.v1",
+        ),
+    }
+    if schema_pair not in supported_schema_pairs:
+        raise CommandError("unsupported or mismatched preparation schema pair")
     if preparation_summary.get("dry_run") is not False:
         raise CommandError("projection requires an executed preparation summary")
     if preparation_summary.get("paid_activity_executed") is not False:
@@ -5440,8 +6207,6 @@ def _validate_projection_source_commitments(
         or preparation_summary.get("next_stage") != "clear-disclosures"
     ):
         raise CommandError("preparation summary is not at the clearance boundary")
-    if preparation_config.get("schema_version") != "legalforecast.target_100_config.v1":
-        raise CommandError("unsupported target-100 preparation config schema")
     committed_config_sha256 = preparation_config.get("config_sha256")
     config_payload = dict(preparation_config)
     config_payload.pop("config_sha256", None)
@@ -5783,6 +6548,7 @@ def _target_100_protected_paths(args: argparse.Namespace) -> tuple[Path, ...]:
 def _validate_target_100_paths(
     *,
     args: argparse.Namespace,
+    profile: _TargetPreparationProfile,
     output_root: Path,
     summary_path: Path,
     snapshot: Path,
@@ -5791,19 +6557,19 @@ def _validate_target_100_paths(
     courtlistener_fixture: Path | None,
     request_ledger: Path | None,
 ) -> None:
-    """Reject every target-100 writable/protected alias before writing."""
+    """Reject every preparation writable/protected alias before writing."""
 
     del snapshot, raw_html_dir, fixture_documents, courtlistener_fixture, request_ledger
     writable_scopes: list[tuple[str, Path, bool]] = [
         ("--output-root", output_root, True),
-        ("target-100 attempt tree", output_root / "attempts", True),
+        (f"{profile.label} attempt tree", output_root / "attempts", True),
         ("--summary-output", summary_path, False),
         (
             "--run-card-output",
             _acquisition_path(
                 args,
                 "run_card_output",
-                output_root / "run-cards/prepare-target-100.json",
+                output_root / f"run-cards/{profile.stage}.json",
             ),
             False,
         ),
@@ -5812,16 +6578,16 @@ def _validate_target_100_paths(
             _acquisition_path(
                 args,
                 "log_output",
-                output_root / "logs/prepare-target-100.jsonl",
+                output_root / f"logs/{profile.stage}.jsonl",
             ),
             False,
         ),
     ]
     protected_scopes = _target_100_protected_scopes(args)
     controlled_defaults = {
-        "summary_output": output_root / "target-100-preparation-summary.json",
-        "run_card_output": output_root / "run-cards/prepare-target-100.json",
-        "log_output": output_root / "logs/prepare-target-100.jsonl",
+        "summary_output": output_root / profile.summary_filename,
+        "run_card_output": output_root / f"run-cards/{profile.stage}.json",
+        "log_output": output_root / f"logs/{profile.stage}.jsonl",
     }
     for attribute, default in controlled_defaults.items():
         configured = cast(Path | None, getattr(args, attribute))
@@ -5832,7 +6598,7 @@ def _validate_target_100_paths(
         ):
             raise CommandError(
                 f"--{attribute.replace('_', '-')} custom path must be outside the "
-                "controlled target-100 output tree"
+                f"controlled {profile.label} output tree"
             )
     for writable_label, writable_path, writable_tree in writable_scopes:
         writable = writable_path.resolve()
@@ -5853,7 +6619,7 @@ def _validate_target_100_paths(
                 right_tree=protected_tree,
             ):
                 raise CommandError(
-                    "target-100 writable output overlaps protected input: "
+                    f"{profile.label} writable output overlaps protected input: "
                     f"{writable_label} vs {protected_label}: "
                     f"{writable} vs {protected}"
                 )
@@ -5872,7 +6638,7 @@ def _validate_target_100_paths(
                 right_tree=False,
             ):
                 raise CommandError(
-                    "target-100 writable outputs alias: "
+                    f"{profile.label} writable outputs alias: "
                     f"{label} vs {other_label}: {resolved} vs {other}"
                 )
 
@@ -5923,6 +6689,7 @@ def _reject_target_100_tree_hardlink_aliases(
 def _write_target_100_attempt_failure(
     args: argparse.Namespace,
     *,
+    profile: _TargetPreparationProfile,
     reason: str,
     protected_paths: Sequence[Path],
     extra: Mapping[str, Any] | None = None,
@@ -5959,15 +6726,15 @@ def _write_target_100_attempt_failure(
     )
     if attempt_parent is None:
         raise CommandError(
-            "target-100 failure could not select a safe attempt-card directory"
+            f"{profile.label} failure could not select a safe attempt-card directory"
         )
     attempt_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%S.%fZ')}-{uuid.uuid4().hex}"
-    attempt_root = attempt_parent / "prepare-target-100" / attempt_id
+    attempt_root = attempt_parent / profile.stage / attempt_id
     run_card_path = attempt_root / "run-card.json"
     record: JsonRecord = {
-        "schema_version": "legalforecast.target_100_attempt.v1",
+        "schema_version": profile.attempt_schema,
         "attempt_id": attempt_id,
-        "stage": "prepare-target-100",
+        "stage": profile.stage,
         "status": "failed",
         "failure_reason": reason,
         "dry_run": _acquisition_dry_run(args),
@@ -5979,7 +6746,7 @@ def _write_target_100_attempt_failure(
     if extra is not None:
         record.update(extra)
     _write_json(run_card_path, record)
-    _log_event("prepare-target-100", "attempt_failed", run_card_path, 0)
+    _log_event(profile.stage, "attempt_failed", run_card_path, 0)
     return run_card_path
 
 
@@ -5987,31 +6754,32 @@ def _validate_target_100_successful_resume(
     *,
     summary_path: Path,
     output_root: Path,
-    config: Target100PreparationConfig,
+    config: TargetCohortPreparationConfig | Target100PreparationConfig,
+    profile: _TargetPreparationProfile,
     config_sha256: str,
 ) -> None:
     summary = _read_json_object(summary_path)
     if summary.get("dry_run") is not False:
         raise CommandError(
-            "target-100 successful resume requires an executed success summary"
+            f"{profile.label} successful resume requires an executed success summary"
         )
     if summary.get("paid_activity_executed") is not False:
-        raise CommandError("target-100 success summary claims paid activity")
+        raise CommandError(f"{profile.label} success summary claims paid activity")
     if summary.get("config_sha256") != config_sha256:
-        raise CommandError("target-100 resume config commitment mismatch")
+        raise CommandError(f"{profile.label} resume config commitment mismatch")
     committed_inputs = summary.get("stage_input_commitments")
     committed_outputs = summary.get("stage_commitments")
     if not isinstance(committed_inputs, Mapping) or not isinstance(
         committed_outputs, Mapping
     ):
-        raise CommandError("target-100 success summary lacks stage commitments")
+        raise CommandError(f"{profile.label} success summary lacks stage commitments")
     actual_inputs = _target_100_stage_input_commitments(output_root, config=config)
     actual_outputs = _target_100_stage_commitments(output_root)
     if dict(cast(Mapping[str, Any], committed_inputs)) != actual_inputs:
-        raise CommandError("target-100 resume stage input commitment mismatch")
+        raise CommandError(f"{profile.label} resume stage input commitment mismatch")
     if dict(cast(Mapping[str, Any], committed_outputs)) != actual_outputs:
         raise CommandError(
-            "target-100 resume stage output commitment mismatch; mutated or "
+            f"{profile.label} resume stage output commitment mismatch; mutated or "
             "unexpected stage artifact"
         )
     budget_plan = _missing_core_budget_plan(
@@ -6021,26 +6789,52 @@ def _validate_target_100_successful_resume(
     if summary.get("selected_candidate_ids_sha256") != _canonical_json_sha256(
         selected_ids
     ):
-        raise CommandError("target-100 resume selected-case commitment mismatch")
+        raise CommandError(f"{profile.label} resume selected-case commitment mismatch")
     if summary.get("frontier_sha256") != _canonical_json_sha256(
         [row.to_record() for row in budget_plan.frontier_rows]
     ):
-        raise CommandError("target-100 resume cost-frontier commitment mismatch")
+        raise CommandError(f"{profile.label} resume cost-frontier commitment mismatch")
+
+    if profile.emit_full_candidate_frontier:
+        frontier_path = output_root / "05-budget/full-candidate-frontier.json"
+        if summary.get("full_candidate_frontier_sha256") != _path_sha256(frontier_path):
+            raise CommandError(
+                f"{profile.label} resume full candidate frontier mismatch"
+            )
+        frontier_artifact = _read_json_object(frontier_path)
+        frontier_policy = frontier_artifact.get("policy")
+        frontier_candidates = (
+            cast(Mapping[str, Any], frontier_policy).get("candidates")
+            if isinstance(frontier_policy, Mapping)
+            else None
+        )
+        if not isinstance(frontier_candidates, Sequence) or isinstance(
+            frontier_candidates, (str, bytes)
+        ):
+            raise CommandError(
+                f"{profile.label} resume full candidate frontier count mismatch"
+            )
+        if summary.get("full_candidate_frontier_count") != len(
+            cast(Sequence[object], frontier_candidates)
+        ):
+            raise CommandError(
+                f"{profile.label} resume full candidate frontier count mismatch"
+            )
 
 
-def _target_100_completed_run_card_exists(path: Path) -> bool:
+def _target_100_completed_run_card_exists(
+    path: Path, *, profile: _TargetPreparationProfile
+) -> bool:
     if not path.exists():
         return False
     record = _read_json_object(path)
-    return (
-        record.get("stage") == "prepare-target-100"
-        and record.get("status") == "completed"
-    )
+    return record.get("stage") == profile.stage and record.get("status") == "completed"
 
 
 def _target_100_config_record(
-    config: Target100PreparationConfig,
+    config: TargetCohortPreparationConfig | Target100PreparationConfig,
     *,
+    profile: _TargetPreparationProfile,
     snapshot_manifest: Mapping[str, Any],
     stage_commands: Sequence[Mapping[str, Any]],
     driver_execute: bool,
@@ -6048,7 +6842,7 @@ def _target_100_config_record(
 ) -> JsonRecord:
     snapshot_manifest_path = config.snapshot / "manifest.json"
     record: JsonRecord = {
-        "schema_version": "legalforecast.target_100_config.v1",
+        "schema_version": profile.config_schema,
         "snapshot": str(config.snapshot.resolve()),
         "snapshot_manifest_sha256": _path_sha256(snapshot_manifest_path),
         "snapshot_screened_cases_sha256": _path_sha256(
@@ -6106,17 +6900,19 @@ def _ensure_target_100_config(
     path: Path,
     record: Mapping[str, Any],
     *,
+    profile: _TargetPreparationProfile,
     resume: bool,
 ) -> None:
     if path.exists():
         if not resume:
             raise CommandError(
-                "target-100 config already exists; use --resume or a new output root"
+                f"{profile.label} config already exists; use --resume or a new "
+                "output root"
             )
         existing = _read_json_object(path)
         if existing != record:
             raise CommandError(
-                "target-100 config mismatch: refusing changed-config resume"
+                f"{profile.label} config mismatch: refusing changed-config resume"
             )
         return
     _atomic_write_json(path, record)
@@ -6164,6 +6960,12 @@ def _replacement_frontier_rows(path: Path) -> tuple[JsonRecord, ...]:
         loaded = _loads_json(path.read_text(encoding="utf-8"))
         if isinstance(loaded, Mapping):
             mapping = cast(Mapping[object, object], loaded)
+            if mapping.get("schema_version") == (
+                "legalforecast.target_cohort_candidate_frontier.v1"
+            ):
+                return _verified_target_cohort_frontier_rows(
+                    cast(Mapping[str, Any], loaded)
+                )
             raw_rows = mapping.get("case_plans")
             if isinstance(raw_rows, Sequence) and not isinstance(
                 raw_rows, (str, bytes)
@@ -6173,6 +6975,123 @@ def _replacement_frontier_rows(path: Path) -> tuple[JsonRecord, ...]:
                     for item in cast(Sequence[object], raw_rows)
                 )
     return tuple(_read_records(path))
+
+
+def _verified_target_cohort_frontier_rows(
+    artifact: Mapping[str, Any],
+) -> tuple[JsonRecord, ...]:
+    if set(artifact) != {"schema_version", "policy", "policy_sha256"}:
+        raise ValueError("target-cohort frontier artifact fields differ")
+    policy = artifact.get("policy")
+    if not isinstance(policy, Mapping):
+        raise ValueError("target-cohort frontier policy must be an object")
+    typed_policy = cast(Mapping[str, Any], policy)
+    expected_policy_fields = {
+        "target_case_count",
+        "candidate_count",
+        "selected_candidate_count",
+        "frontier_truncated",
+        "source_commitments",
+        "clearance_contract",
+        "candidates",
+    }
+    if set(typed_policy) != expected_policy_fields:
+        raise ValueError("target-cohort frontier policy fields differ")
+    if artifact.get("policy_sha256") != _canonical_json_sha256(typed_policy):
+        raise ValueError("target-cohort frontier policy hash mismatch")
+    if typed_policy.get("frontier_truncated") is not False:
+        raise ValueError("target-cohort candidate frontier must be untruncated")
+    commitments = typed_policy.get("source_commitments")
+    if not isinstance(commitments, Mapping) or not commitments:
+        raise ValueError("target-cohort candidate frontier lacks source commitments")
+    for digest in cast(Mapping[object, object], commitments).values():
+        if (
+            not isinstance(digest, str)
+            or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None
+        ):
+            raise ValueError(
+                "target-cohort candidate frontier has invalid source commitment"
+            )
+    clearance_contract = typed_policy.get("clearance_contract")
+    if not isinstance(clearance_contract, Mapping):
+        raise ValueError("target-cohort frontier lacks clearance contract")
+    typed_contract = cast(Mapping[str, Any], clearance_contract)
+    expected_contract = {
+        "run_card_schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": "clear-disclosures",
+        "required_status": "completed",
+        "required_dry_run": False,
+        "required_execute": True,
+        "required_paid_activity_executed": False,
+        "download_manifest_sha256": cast(Mapping[str, Any], commitments).get(
+            "download_manifest_sha256"
+        ),
+        "restriction_evidence_sha256": cast(Mapping[str, Any], commitments).get(
+            "restriction_evidence_sha256"
+        ),
+        "required_source_commitments": [
+            "download_manifest",
+            "restriction_evidence",
+            "reviews",
+            "review_receipt",
+        ],
+        "required_output_commitments": ["disclosure_clearance"],
+        "required_review_authority_fields": [
+            "reviewer_id",
+            "controlled_store_uri",
+            "authentication_method",
+            "authenticated_at",
+            "review_artifact_sha256",
+        ],
+        "orphan_clearance_rows_allowed": False,
+    }
+    if dict(typed_contract) != expected_contract:
+        raise ValueError("target-cohort frontier clearance contract differs")
+    raw_candidates = typed_policy.get("candidates")
+    if not isinstance(raw_candidates, Sequence) or isinstance(
+        raw_candidates, (str, bytes)
+    ):
+        raise ValueError("target-cohort frontier candidates must be a list")
+    candidates: list[JsonRecord] = []
+    selected_count = 0
+    for expected_rank, raw_candidate in enumerate(
+        cast(Sequence[object], raw_candidates), start=1
+    ):
+        if not isinstance(raw_candidate, Mapping):
+            raise ValueError("target-cohort frontier candidate must be an object")
+        candidate = dict(cast(Mapping[str, Any], raw_candidate))
+        status = candidate.pop("selection_status", None)
+        if status not in {
+            "selected",
+            "eligible_omitted",
+            "excluded",
+        }:
+            raise ValueError("target-cohort frontier selection_status is invalid")
+        if status == "selected":
+            selected_count += 1
+        exclusions = candidate.get("exclusion_reasons")
+        if not isinstance(exclusions, Sequence) or isinstance(exclusions, (str, bytes)):
+            raise ValueError("target-cohort frontier exclusions must be a list")
+        if (status == "excluded") != bool(cast(Sequence[object], exclusions)):
+            raise ValueError(
+                "target-cohort frontier exclusion status conflicts with reasons"
+            )
+        if candidate.get("rank") != expected_rank:
+            raise ValueError("target-cohort frontier rank sequence is not canonical")
+        candidates.append(candidate)
+    if typed_policy.get("candidate_count") != len(candidates):
+        raise ValueError("target-cohort frontier candidate_count mismatch")
+    if typed_policy.get("selected_candidate_count") != selected_count:
+        raise ValueError("target-cohort frontier selected count mismatch")
+    target_case_count = typed_policy.get("target_case_count")
+    if (
+        not isinstance(target_case_count, int)
+        or isinstance(target_case_count, bool)
+        or target_case_count < 1
+        or target_case_count != selected_count
+    ):
+        raise ValueError("target-cohort frontier target count mismatch")
+    return tuple(candidates)
 
 
 def _semantic_target_100_stage_commands(
@@ -6218,7 +7137,7 @@ def _target_100_stage_commitments(output_root: Path) -> JsonRecord:
 def _target_100_stage_input_commitments(
     output_root: Path,
     *,
-    config: Target100PreparationConfig,
+    config: TargetCohortPreparationConfig | Target100PreparationConfig,
 ) -> JsonRecord:
     """Hash the authoritative inputs consumed at each preparation boundary."""
 

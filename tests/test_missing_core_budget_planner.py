@@ -5,6 +5,7 @@ from legalforecast.ingestion import CoreDocumentFilterResult
 from legalforecast.ingestion.missing_core_budget import (
     PurchaseBudgetExceededError,
     plan_missing_core_document_budget,
+    rank_missing_core_document_plans,
 )
 
 
@@ -163,6 +164,39 @@ def test_budget_frontier_excludes_uncompletable_cases_from_counts_and_prefix() -
             "estimated_spend_usd": "3.05",
         },
     ]
+
+
+def test_untruncated_ranking_retains_selected_tail_and_excluded_candidates() -> None:
+    results = [
+        _filter_result("eligible-zero", core_missing_count=0),
+        _filter_result("eligible-tail", core_missing_count=2),
+        _filter_result(
+            "intrinsic-exclusion",
+            core_missing_count=1,
+            exclusion_reasons=("missing_operative_complaint",),
+        ),
+        _filter_result("cap-exclusion", core_missing_count=25),
+    ]
+
+    ranked = rank_missing_core_document_plans(results, dry_run=False)
+    truncated = plan_missing_core_document_budget(
+        results,
+        dry_run=False,
+        target_case_count=1,
+        truncate_to_budget=True,
+    )
+
+    assert [row.candidate_id for row in ranked] == [
+        "eligible-zero",
+        "intrinsic-exclusion",
+        "eligible-tail",
+        "cap-exclusion",
+    ]
+    assert ranked[1].exclusion_reasons == ("missing_operative_complaint",)
+    assert ranked[3].exclusion_reasons == ("missing_core_document_cap_exceeded",)
+    assert [row.candidate_id for row in truncated.case_plans] == ["eligible-zero"]
+    assert truncated.omitted_candidate_ids == ("eligible-tail",)
+    assert "full_candidate_frontier" not in truncated.to_record()
 
 
 def _filter_result(
