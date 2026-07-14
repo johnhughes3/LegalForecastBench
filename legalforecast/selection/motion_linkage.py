@@ -453,10 +453,108 @@ def courtlistener_relationship_entry_numbers(text: str) -> set[int]:
     """
 
     numbers: set[int] = set()
-    for pattern in _COURTLISTENER_RELATIONSHIP_REFERENCE_RES:
-        for match in pattern.finditer(text):
-            numbers.update(_numbers_in_text(match.group("numbers")))
+    index = 0
+    parenthesis_depth = 0
+    while index < len(text):
+        character = text[index]
+        if character == "(":
+            if parenthesis_depth == 0:
+                parsed = _parse_courtlistener_relationship_annotation(text, index)
+                if parsed is not None:
+                    parsed_numbers, index = parsed
+                    numbers.update(parsed_numbers)
+                    continue
+            parenthesis_depth += 1
+        elif character == ")" and parenthesis_depth > 0:
+            parenthesis_depth -= 1
+        index += 1
     return numbers
+
+
+_MAX_COURTLISTENER_ENTRY_NUMBER_DIGITS = 18
+
+
+def _parse_courtlistener_relationship_annotation(
+    text: str,
+    start: int,
+) -> tuple[set[int], int] | None:
+    """Parse one exact top-level annotation without regex backtracking."""
+
+    index = _skip_horizontal_whitespace(text, start + 1)
+    if _ascii_startswith(text, index, "related"):
+        index += len("related")
+        whitespace_end = _skip_horizontal_whitespace(text, index)
+        if whitespace_end == index:
+            return None
+        index = whitespace_end
+        if not _ascii_startswith(text, index, "document"):
+            return None
+        index += len("document")
+        if _ascii_startswith(text, index, "(s)"):
+            index += len("(s)")
+        elif _ascii_startswith(text, index, "s"):
+            index += 1
+        else:
+            return None
+        index = _skip_horizontal_whitespace(text, index)
+        if index < len(text) and text[index] == ":":
+            index = _skip_horizontal_whitespace(text, index + 1)
+    elif _ascii_startswith(text, index, "re"):
+        index = _skip_horizontal_whitespace(text, index + 2)
+        if index >= len(text) or text[index] != ":":
+            return None
+        index = _skip_horizontal_whitespace(text, index + 1)
+        if index >= len(text) or text[index] != "#":
+            return None
+        index = _skip_horizontal_whitespace(text, index + 1)
+    else:
+        return None
+
+    first = _parse_canonical_entry_number(text, index)
+    if first is None:
+        return None
+    number, index = first
+    numbers = {number}
+    while True:
+        index = _skip_horizontal_whitespace(text, index)
+        if index < len(text) and text[index] == ")":
+            return numbers, index + 1
+        if index < len(text) and text[index] == ",":
+            index += 1
+        elif _ascii_startswith(text, index, "and"):
+            index += len("and")
+        else:
+            return None
+        index = _skip_horizontal_whitespace(text, index)
+        if index < len(text) and text[index] == "#":
+            index = _skip_horizontal_whitespace(text, index + 1)
+        parsed = _parse_canonical_entry_number(text, index)
+        if parsed is None:
+            return None
+        number, index = parsed
+        numbers.add(number)
+
+
+def _parse_canonical_entry_number(text: str, start: int) -> tuple[int, int] | None:
+    if start >= len(text) or text[start] not in "123456789":
+        return None
+    end = start + 1
+    while end < len(text) and text[end].isascii() and text[end].isdigit():
+        end += 1
+    if end - start > _MAX_COURTLISTENER_ENTRY_NUMBER_DIGITS:
+        return None
+    return int(text[start:end]), end
+
+
+def _skip_horizontal_whitespace(text: str, start: int) -> int:
+    while start < len(text) and text[start] in " \t":
+        start += 1
+    return start
+
+
+def _ascii_startswith(text: str, start: int, expected: str) -> bool:
+    end = start + len(expected)
+    return text[start:end].lower() == expected
 
 
 def referenced_mtd_entry_numbers(text: str) -> set[int]:
@@ -519,20 +617,6 @@ _RELATED_DOCUMENT_REFERENCE_RE = re.compile(
     re.IGNORECASE,
 )
 _BRACKET_REFERENCE_RE = re.compile(r"\[(?P<number>\d+)\]")
-_COURTLISTENER_RELATIONSHIP_REFERENCE_RES = (
-    re.compile(
-        r"\([ \t]*related\s+document(?:\(s\)|s)\s*:?[ \t]*"
-        r"(?P<numbers>[1-9][0-9]*(?:[ \t]*(?:,|and)[ \t]*#?[ \t]*"
-        r"[1-9][0-9]*)*)[ \t]*\)",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"\([ \t]*re[ \t]*:[ \t]*#[ \t]*"
-        r"(?P<numbers>[1-9][0-9]*(?:[ \t]*(?:,|and)[ \t]*#?[ \t]*"
-        r"[1-9][0-9]*)*)[ \t]*\)",
-        re.IGNORECASE,
-    ),
-)
 _NUMBERED_MTD_REFERENCE_RES = (
     re.compile(
         r"\b(?P<number>\d+)\s+motions?\s+to\s+dismiss\b",
