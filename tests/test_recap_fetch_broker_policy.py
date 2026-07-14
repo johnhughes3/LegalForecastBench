@@ -55,20 +55,30 @@ def test_golden_policy_is_hash_bound_and_excludes_unplanned_selection_docs() -> 
 
 
 def test_courtlistener_rest_exact_nonsealed_evidence_is_allowlisted() -> None:
+    policy = generate_recap_fetch_broker_policy(
+        purchase_policy_artifact=_purchase_policy(),
+        cohort_policy_artifact=_cohort_policy(),
+        budget_plan=_budget_plan(),
+        budget_plan_artifact=_budget_plan().to_record(),
+        selection_records=_selection(),
+    )
+
+    assert policy["allowed_documents"] == [
+        {"recap_document": "123", "case_id": "case-1"},
+        {"recap_document": "456", "case_id": "case-2"},
+    ]
+
+
+def test_explicit_public_evidence_is_allowlisted() -> None:
     selection = deepcopy(_selection())
     for case in selection:
         for document in case["documents"]:
             document.update(
                 {
                     "redaction_or_seal_status": "public",
-                    "restriction_evidence": [
-                        "courtlistener_rest_docket_exact_match",
-                        "courtlistener_rest_docket_entry_exact_match",
-                        "courtlistener_rest_recap_document_exact_match",
-                        "courtlistener_rest_recap_document_is_sealed_false",
-                    ],
+                    "restriction_evidence": [],
                     "is_sealed": False,
-                    "is_private": None,
+                    "is_private": False,
                 }
             )
 
@@ -80,10 +90,35 @@ def test_courtlistener_rest_exact_nonsealed_evidence_is_allowlisted() -> None:
         selection_records=selection,
     )
 
-    assert policy["allowed_documents"] == [
-        {"recap_document": "123", "case_id": "case-1"},
-        {"recap_document": "456", "case_id": "case-2"},
-    ]
+    assert len(policy["allowed_documents"]) == 2
+
+
+def test_legacy_case_dev_paid_unknown_evidence_is_not_purchase_authority() -> None:
+    selection = deepcopy(_selection())
+    for case in selection:
+        for document in case["documents"]:
+            document.update(
+                {
+                    "redaction_or_seal_status": "unknown",
+                    "restriction_evidence": [
+                        "courtlistener_docket_entry_checked",
+                        "case_dev_entry_and_document_checked",
+                    ],
+                    "is_sealed": None,
+                    "is_private": None,
+                }
+            )
+    with pytest.raises(
+        RecapFetchBrokerPolicyError,
+        match=r"legacy Case\.dev restriction evidence is not purchase authority",
+    ):
+        generate_recap_fetch_broker_policy(
+            purchase_policy_artifact=_purchase_policy(),
+            cohort_policy_artifact=_cohort_policy(),
+            budget_plan=_budget_plan(),
+            budget_plan_artifact=_budget_plan().to_record(),
+            selection_records=selection,
+        )
 
 
 def test_courtlistener_rest_partial_evidence_fails_closed() -> None:
@@ -102,7 +137,10 @@ def test_courtlistener_rest_partial_evidence_fails_closed() -> None:
         }
     )
 
-    with pytest.raises(RecapFetchBrokerPolicyError, match="restriction-screening"):
+    with pytest.raises(
+        RecapFetchBrokerPolicyError,
+        match="CourtListener REST restriction evidence",
+    ):
         generate_recap_fetch_broker_policy(
             purchase_policy_artifact=_purchase_policy(),
             cohort_policy_artifact=_cohort_policy(),
@@ -175,6 +213,12 @@ def test_reordering_inputs_produces_identical_bytes(tmp_path: Path) -> None:
         (
             lambda plan, selection, purchase: selection[0]["documents"][0].update(
                 {"is_sealed": True}
+            ),
+            "sealed/private/restricted",
+        ),
+        (
+            lambda plan, selection, purchase: selection[0]["documents"][0].update(
+                {"is_private": True}
             ),
             "sealed/private/restricted",
         ),
@@ -325,6 +369,8 @@ def test_cli_help_names_every_authoritative_input(
     ):
         assert flag in help_text
     assert "non-dry-run" in help_text
+    assert "Case.dev" in help_text
+    assert "purchase authority" in help_text
     for restriction in ("sealed", "private", "restricted"):
         assert restriction in help_text
     assert "different-byte" in help_text
@@ -497,14 +543,16 @@ def _selection() -> list[dict[str, object]]:
 def _document(document_id: str) -> dict[str, object]:
     return {
         "source_document_id": document_id,
-        "redaction_or_seal_status": "unknown",
+        "redaction_or_seal_status": "public",
         "restriction_evidence": [
-            "courtlistener_docket_entry_checked",
-            "case_dev_entry_and_document_checked",
+            "courtlistener_rest_docket_exact_match",
+            "courtlistener_rest_docket_entry_exact_match",
+            "courtlistener_rest_recap_document_exact_match",
+            "courtlistener_rest_recap_document_is_sealed_false",
         ],
         "availability_status": "unavailable",
         "requires_paid_recovery": True,
-        "is_sealed": None,
+        "is_sealed": False,
         "is_private": None,
     }
 

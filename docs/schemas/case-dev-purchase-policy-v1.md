@@ -31,8 +31,10 @@ Generate the secure-gate activation artifact only after the final executable pur
 uv run legalforecast acquisition generate-recap-fetch-broker-policy --purchase-policy PURCHASE_POLICY.json --cohort-policy COHORT_POLICY.json --budget-plan MISSING_CORE_BUDGET_PLAN.json --selection FINAL_SELECTION.jsonl --output BROKER_POLICY.json
 ```
 
-The producer first re-verifies that the purchase-policy hash and caps consume the supplied frozen cohort policy, then copies the verified policy digest, caps, reservation, and opening commitments, and derives the document allowlist exclusively from `case_plans[].purchase_document_ids` whose matching selection metadata either proves the document public or records the bridge's explicit PACER-only restriction screening.
-Any sealed, private, restricted, or metadata-missing document is rejected; PACER-only documents remain restriction-unknown until noncharging provider verification and post-recovery disclosure clearance, so allowlisting never makes them packet-eligible.
+The producer first re-verifies that the purchase-policy hash and caps consume the supplied frozen cohort policy, then copies the verified policy digest, caps, reservation, and opening commitments, and derives the document allowlist exclusively from `case_plans[].purchase_document_ids` whose matching selection metadata either proves the document explicitly public or carries the exact current CourtListener REST paid-gap evidence contract.
+Any sealed, private, restricted, metadata-missing, or legacy Case.dev paid-unknown document is rejected.
+Case.dev may still provide noncharging search or docket enrichment, but it is never purchase authority; only CourtListener REST evidence can authorize a paid gap for CourtListener RECAP Fetch.
+Allowlisting never makes a recovered document packet-eligible without the separate post-recovery disclosure clearance.
 It prints secure-gate's canonical broker-policy SHA-256, writes deterministic JSON atomically, and refuses to overwrite an existing different-byte artifact.
 
 An unresolved `submitted` or `unknown` row blocks every subsequent purchase and cannot be retried.

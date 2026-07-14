@@ -26,7 +26,7 @@ _CANONICAL_RECAP_DOCUMENT_ID = re.compile(r"[1-9][0-9]*")
 _CANONICAL_USD = re.compile(r"(0|[1-9][0-9]*)\.[0-9]{2}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _JAVASCRIPT_MAX_SAFE_CENTS = 9_007_199_254_740_991
-CASE_DEV_PAID_RESTRICTION_EVIDENCE = [
+_LEGACY_CASE_DEV_PAID_RESTRICTION_EVIDENCE = [
     "courtlistener_docket_entry_checked",
     "case_dev_entry_and_document_checked",
 ]
@@ -304,15 +304,15 @@ def _require_not_restricted(metadata: Mapping[str, Any], document_id: str) -> No
     status = metadata.get("redaction_or_seal_status")
     is_sealed = metadata.get("is_sealed")
     is_private = metadata.get("is_private")
+    if (
+        metadata.get("restriction_evidence")
+        == _LEGACY_CASE_DEV_PAID_RESTRICTION_EVIDENCE
+    ):
+        raise RecapFetchBrokerPolicyError(
+            f"document {document_id} legacy Case.dev restriction evidence is not "
+            "purchase authority"
+        )
     public = status == "public" and is_sealed is False and is_private is False
-    screened_paid_unknown = (
-        status == "unknown"
-        and is_sealed is None
-        and is_private is None
-        and metadata.get("requires_paid_recovery") is True
-        and metadata.get("availability_status") == "unavailable"
-        and metadata.get("restriction_evidence") == CASE_DEV_PAID_RESTRICTION_EVIDENCE
-    )
     courtlistener_rest_public = (
         status == "public"
         and is_sealed is False
@@ -322,10 +322,10 @@ def _require_not_restricted(metadata: Mapping[str, Any], document_id: str) -> No
         and metadata.get("restriction_evidence")
         == COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE
     )
-    if not public and not screened_paid_unknown and not courtlistener_rest_public:
+    if not public and not courtlistener_rest_public:
         raise RecapFetchBrokerPolicyError(
             f"document {document_id} is sealed/private/restricted or lacks "
-            "the bridge's explicit restriction-screening metadata"
+            "explicit-public or CourtListener REST restriction evidence"
         )
 
 

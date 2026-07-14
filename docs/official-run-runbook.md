@@ -352,6 +352,9 @@ uv run legalforecast acquisition generate-recap-fetch-broker-policy \
 
 Inspect the projected total, allowlisted numeric RECAP document IDs, and remaining budget before invoking the only fee-bearing happy path:
 
+The allowlist accepts explicit-public proof or the exact current CourtListener REST paid-gap evidence contract.
+Case.dev may support noncharging search and docket enrichment, but its legacy paid-unknown evidence is never purchase authority.
+
 ```bash
 uv run legalforecast acquisition purchase-missing-recap-fetch \
   --output-root artifacts/cycle-1/official-acquisition/target-100 \
