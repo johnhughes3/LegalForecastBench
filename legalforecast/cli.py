@@ -6217,9 +6217,9 @@ def _batch_002_client(
                 max_retries=max_retries,
                 retry_backoff_seconds=retry_backoff,
                 before_request=budget.before_request,
-             ),
-             budget,
-         )
+            ),
+            budget,
+        )
     assert fixture is not None
     return (
         CourtListenerClient(
