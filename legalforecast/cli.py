@@ -10344,12 +10344,15 @@ def _verified_snapshot_raw_html_sources(
             )
         return None, None
     parents = {path.parent for path in artifact_paths}
-    if len(parents) != 1:
-        if requested is not None:
+    if requested is not None:
+        committed_directory = requested.resolve()
+        if committed_directory not in parents:
             raise CommandError(
-                "--raw-html-dir is not allowed when verified snapshot raw "
-                "artifacts span multiple directories"
+                "--raw-html-dir must exactly match a committed verified snapshot "
+                "artifact directory"
             )
+        return committed_directory, None
+    if len(parents) != 1:
         by_candidate: dict[str, Path] = {}
         for path in artifact_paths:
             if path.suffix.casefold() != ".html" or not path.is_file():
@@ -10366,10 +10369,6 @@ def _verified_snapshot_raw_html_sources(
             by_candidate[candidate_id] = path
         return None, by_candidate
     committed_directory = next(iter(parents))
-    if requested is not None and requested.resolve() != committed_directory:
-        raise CommandError(
-            "--raw-html-dir must exactly match the verified snapshot artifact directory"
-        )
     return committed_directory, None
 
 

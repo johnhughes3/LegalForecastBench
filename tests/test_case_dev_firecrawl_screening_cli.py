@@ -146,6 +146,56 @@ def test_verified_snapshot_raw_html_sources_rejects_duplicate_candidate_paths(
         )
 
 
+def test_verified_snapshot_raw_html_sources_selects_requested_refresh_directory(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    first = tmp_path / "first-refresh" / "123.html"
+    second = tmp_path / "second-refresh" / "123.html"
+    first.parent.mkdir()
+    second.parent.mkdir()
+    first.write_text("<html>first</html>", encoding="utf-8")
+    second.write_text("<html>second</html>", encoding="utf-8")
+    _write_jsonl(
+        snapshot / "raw-artifacts.jsonl",
+        [
+            {"candidate_id": "courtlistener-docket-123", "path": str(first)},
+            {"candidate_id": "courtlistener-docket-123", "path": str(second)},
+        ],
+    )
+
+    directory, paths = _verified_snapshot_raw_html_sources(
+        snapshot,
+        requested=second.parent,
+        use_embedded_entries=False,
+    )
+
+    assert directory == second.parent.resolve()
+    assert paths is None
+
+
+def test_verified_snapshot_raw_html_sources_rejects_uncommitted_requested_directory(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    committed = tmp_path / "committed" / "123.html"
+    committed.parent.mkdir()
+    committed.write_text("<html>committed</html>", encoding="utf-8")
+    _write_jsonl(
+        snapshot / "raw-artifacts.jsonl",
+        [{"candidate_id": "courtlistener-docket-123", "path": str(committed)}],
+    )
+
+    with pytest.raises(CommandError, match="exactly match a committed"):
+        _verified_snapshot_raw_html_sources(
+            snapshot,
+            requested=tmp_path / "uncommitted",
+            use_embedded_entries=False,
+        )
+
+
 def test_metadata_rich_firecrawl_rescreen_replaces_absent_metadata_snapshot_state(
     tmp_path: Path,
     cycle_state: _CycleState,
