@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import legalforecast.cli as cli
+import legalforecast.ingestion.courtlistener_case_dev_bridge as bridge_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.case_dev_purchase import generate_case_dev_purchase_policy
@@ -358,6 +359,238 @@ def test_public_first_bridge_rejects_shared_manifest_corruption_before_checkpoin
         output_root / "checkpoints" / "pacer-gap-bridge-progress-config.json"
     ).exists()
     assert not (output_root / "checkpoints" / "pacer-gap-bridge").exists()
+
+
+@pytest.mark.parametrize("selected_entries", [None, {}, [], "not-a-list"])
+def test_bridge_source_commitments_reject_invalid_embedded_entries(
+    selected_entries: object,
+) -> None:
+    screened = _screened_case()
+    if selected_entries is None:
+        screened.pop("selected_entries")
+    else:
+        screened["selected_entries"] = selected_entries
+
+    with pytest.raises(cli.CommandError, match="selected_entries"):
+        cli._bridge_source_commitments(
+            screened_records=[screened],
+            routed_candidate_ids=["cl-123"],
+            raw_html_dir=None,
+            use_embedded_entries=True,
+        )
+
+
+def test_candidate_bridge_accepts_candidate_key_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    screened = _screened_case()
+    plan = plan_public_packet_downloads(
+        (screened,),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+    [gap] = plan.paid_gap_cases
+    candidate = cast(dict[str, object], screened["candidate"])
+    candidate.pop("docket_id")
+    called = False
+
+    def bridge_candidate(*args: object, **kwargs: object) -> object:
+        nonlocal called
+        called = True
+        raise RuntimeError("identity matched")
+
+    monkeypatch.setattr(bridge_module, "_bridge_candidate", bridge_candidate)
+
+    with pytest.raises(RuntimeError, match="identity matched"):
+        bridge_module.bridge_public_plan_paid_gap_candidate(
+            screened,
+            paid_gap_record=gap.to_record(),
+            free_download_records=(),
+            client=cast(Any, None),
+            use_embedded_entries=True,
+            validate_free_downloads=False,
+        )
+    assert called is True
+
+
+@pytest.mark.parametrize("outcome", ["success", "exclusion"])
+def test_bridge_checkpoint_payload_is_bound_to_candidate(outcome: str) -> None:
+    payload: dict[str, object]
+    if outcome == "success":
+        payload = {
+            "selection_record": {"candidate_id": "other"},
+            "case_relevance_record": {"candidate_id": "cl-123"},
+        }
+    else:
+        payload = {"exclusion_record": {"candidate_id": "other"}}
+    checkpoint = {
+        "schema_version": "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1",
+        "input_index": 0,
+        "candidate_id": "cl-123",
+        "candidate_input_sha256": "sha256:input",
+        "outcome": outcome,
+        "resumable_attempt_count": 1,
+        "cumulative_case_dev_request_count": 0,
+        "payload": payload,
+    }
+
+    with pytest.raises(cli.CommandError, match="invalid for cl-123"):
+        cli._validate_bridge_checkpoint(
+            checkpoint,
+            input_index=0,
+            candidate_id="cl-123",
+            candidate_input_sha256="sha256:input",
+        )
+
+
+@pytest.mark.parametrize("alias_kind", ["direct", "symlink", "hardlink"])
+def test_public_first_bridge_rejects_checkpoint_config_input_alias_before_client(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    alias_kind: str,
+) -> None:
+    output_root = tmp_path / "bridge"
+    screened_path = tmp_path / "screened.jsonl"
+    public_selection_path = tmp_path / "public-selection.jsonl"
+    paid_gaps_path = tmp_path / "paid-gaps.jsonl"
+    free_downloads_path = tmp_path / "free-downloads.jsonl"
+    fixture_path = tmp_path / "case-dev.jsonl"
+    screened = _screened_case()
+    plan = plan_public_packet_downloads(
+        (screened,),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+    [gap] = plan.paid_gap_cases
+    _write_jsonl(screened_path, [screened])
+    _write_jsonl(public_selection_path, [])
+    _write_jsonl(paid_gaps_path, [gap.to_record()])
+    _write_jsonl(
+        free_downloads_path,
+        [
+            {
+                **request.to_record(),
+                "local_path": f"cl-123/{request.source_document_id}.pdf",
+                "sha256": "a" * 64,
+                "free_or_purchased": "free",
+            }
+            for request in plan.download_requests
+        ],
+    )
+    _write_jsonl(fixture_path, [])
+    checkpoint_config_path = screened_path
+    if alias_kind != "direct":
+        checkpoint_config_path = tmp_path / f"config-{alias_kind}.json"
+        if alias_kind == "symlink":
+            checkpoint_config_path.symlink_to(screened_path)
+        else:
+            checkpoint_config_path.hardlink_to(screened_path)
+    screened_before = screened_path.read_bytes()
+
+    def client_must_not_be_created(*args: object, **kwargs: object) -> object:
+        raise AssertionError("client must not be created")
+
+    monkeypatch.setattr(cli, "_case_dev_client", client_must_not_be_created)
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "bridge-pacer-gaps",
+                "--screened-cases",
+                str(screened_path),
+                "--use-embedded-entries",
+                "--case-dev-fixture",
+                str(fixture_path),
+                "--public-selection",
+                str(public_selection_path),
+                "--paid-gaps",
+                str(paid_gaps_path),
+                "--free-download-manifest",
+                str(free_downloads_path),
+                "--checkpoint-config-output",
+                str(checkpoint_config_path),
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert screened_path.read_bytes() == screened_before
+
+
+def test_public_first_bridge_rejects_orphan_checkpoint_before_candidate_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "bridge"
+    screened_path = tmp_path / "screened.jsonl"
+    public_selection_path = tmp_path / "public-selection.jsonl"
+    paid_gaps_path = tmp_path / "paid-gaps.jsonl"
+    free_downloads_path = tmp_path / "free-downloads.jsonl"
+    fixture_path = tmp_path / "case-dev.jsonl"
+    screened = _screened_case()
+    plan = plan_public_packet_downloads(
+        (screened,),
+        use_embedded_entries=True,
+        target_clean_cases=1,
+    )
+    [gap] = plan.paid_gap_cases
+    _write_jsonl(screened_path, [screened])
+    _write_jsonl(public_selection_path, [])
+    _write_jsonl(paid_gaps_path, [gap.to_record()])
+    _write_jsonl(
+        free_downloads_path,
+        [
+            {
+                **request.to_record(),
+                "local_path": f"cl-123/{request.source_document_id}.pdf",
+                "sha256": "a" * 64,
+                "free_or_purchased": "free",
+            }
+            for request in plan.download_requests
+        ],
+    )
+    rate_limit = {
+        "method": "POST",
+        "path": "/legal/v1/docket",
+        "params": {"type": "search", "query": "1:26-cv-00001", "limit": 20},
+        "status_code": 429,
+        "payload": {"error": "slow down"},
+    }
+    _write_jsonl(fixture_path, [rate_limit, rate_limit, rate_limit])
+    command = [
+        "acquisition",
+        "bridge-pacer-gaps",
+        "--screened-cases",
+        str(screened_path),
+        "--use-embedded-entries",
+        "--case-dev-fixture",
+        str(fixture_path),
+        "--public-selection",
+        str(public_selection_path),
+        "--paid-gaps",
+        str(paid_gaps_path),
+        "--free-download-manifest",
+        str(free_downloads_path),
+        "--output-root",
+        str(output_root),
+        "--execute",
+    ]
+    assert main(command) == 2
+    checkpoint_dir = output_root / "checkpoints" / "pacer-gap-bridge"
+    [checkpoint_path] = list(checkpoint_dir.glob("*.json"))
+    checkpoint_before = checkpoint_path.read_bytes()
+    _write_json(checkpoint_dir / "orphan.json", {"unexpected": True})
+
+    def candidate_attempt(*args: object, **kwargs: object) -> object:
+        raise AssertionError("candidate bridge must not run")
+
+    monkeypatch.setattr(cli, "bridge_public_plan_paid_gap_candidate", candidate_attempt)
+
+    assert main(command) == 2
+    assert checkpoint_path.read_bytes() == checkpoint_before
 
 
 def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -> None:

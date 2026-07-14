@@ -293,6 +293,7 @@ def bridge_public_plan_paid_gaps(
     client: CaseDevClient,
     raw_html_dir: str | Path | None = None,
     use_embedded_entries: bool = False,
+    validate_free_downloads: bool = True,
 ) -> CourtListenerCaseDevBridgeResult:
     """Recover only public-planner paid gaps after free downloads complete.
 
@@ -308,11 +309,12 @@ def bridge_public_plan_paid_gaps(
     )
     public_selections = tuple(public_selection_records)
     paid_gaps = tuple(paid_gap_records)
-    validate_public_plan_bridge_inputs(
-        public_selection_records=public_selections,
-        paid_gap_records=paid_gaps,
-        free_download_records=free_download_records,
-    )
+    _validate_public_plan_routes(public_selections, paid_gaps)
+    if validate_free_downloads:
+        _validate_free_download_completion(
+            (*public_selections, *paid_gaps),
+            tuple(free_download_records),
+        )
     html_root = None if raw_html_dir is None else Path(raw_html_dir)
     selections: list[Mapping[str, Any]] = list(public_selections)
     relevance: list[Mapping[str, Any]] = [
@@ -400,7 +402,11 @@ def bridge_public_plan_paid_gap_candidate(
     nested_candidate = screened_case_record.get("candidate")
     if (
         not isinstance(nested_candidate, Mapping)
-        or _required_str(cast(Mapping[str, Any], nested_candidate), "docket_id")
+        or _required_str_any(
+            cast(Mapping[str, Any], nested_candidate),
+            "docket_id",
+            "candidate_key",
+        )
         != candidate_id
     ):
         raise CourtListenerCaseDevBridgeError(

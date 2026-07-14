@@ -7856,7 +7856,11 @@ def _canonical_json_sha256(value: object) -> str:
 
 def _bridge_candidate_id(record: Mapping[str, Any]) -> str:
     candidate = _mapping(record.get("candidate"), "candidate")
-    return _required_str(candidate, "docket_id")
+    for field_name in ("docket_id", "candidate_key"):
+        candidate_id = _optional_str(candidate, field_name)
+        if candidate_id is not None:
+            return candidate_id
+    raise CommandError("candidate docket_id or candidate_key is required")
 
 
 def _bridge_source_commitments(
@@ -7895,11 +7899,27 @@ def _bridge_source_commitments(
             raise CommandError(
                 f"raw CourtListener HTML is missing for candidate {candidate_id}"
             )
+        selected_entries = record.get("selected_entries")
+        if (
+            isinstance(selected_entries, (str, bytes))
+            or not isinstance(selected_entries, Sequence)
+            or not selected_entries
+        ):
+            raise CommandError(
+                "selected_entries must be a non-empty list of records for "
+                f"candidate {candidate_id}"
+            )
+        selected_entry_records = cast(Sequence[object], selected_entries)
+        if any(not isinstance(entry, Mapping) for entry in selected_entry_records):
+            raise CommandError(
+                "selected_entries must be a non-empty list of records for "
+                f"candidate {candidate_id}"
+            )
         commitments.append(
             {
                 "candidate_id": candidate_id,
                 "source": "embedded_entries",
-                "sha256": _canonical_json_sha256(record.get("selected_entries")),
+                "sha256": _canonical_json_sha256(selected_entry_records),
             }
         )
     return commitments
@@ -7962,13 +7982,43 @@ def _validate_bridge_checkpoint(
         or type(attempt_count) is not int
         or attempt_count < 1
         or attempt_count > _PACER_GAP_MAX_RESUMABLE_ATTEMPTS
-        or not isinstance(checkpoint.get("payload"), Mapping)
+        or not _bridge_checkpoint_payload_matches_candidate(
+            checkpoint.get("payload"),
+            outcome=outcome,
+            candidate_id=candidate_id,
+        )
     ):
         raise CommandError(f"PACER-gap bridge checkpoint is invalid for {candidate_id}")
     if outcome == "retryable" and attempt_count >= _PACER_GAP_MAX_RESUMABLE_ATTEMPTS:
         raise CommandError(
             f"PACER-gap bridge retryable checkpoint is exhausted for {candidate_id}"
         )
+
+
+def _bridge_checkpoint_payload_matches_candidate(
+    payload: object,
+    *,
+    outcome: object,
+    candidate_id: str,
+) -> bool:
+    if not isinstance(payload, Mapping):
+        return False
+    payload_record = cast(Mapping[str, object], payload)
+    if outcome == "retryable":
+        return True
+    field_names = (
+        ("selection_record", "case_relevance_record")
+        if outcome == "success"
+        else ("exclusion_record",)
+    )
+    for field_name in field_names:
+        record = payload_record.get(field_name)
+        if (
+            not isinstance(record, Mapping)
+            or cast(Mapping[str, object], record).get("candidate_id") != candidate_id
+        ):
+            return False
+    return True
 
 
 def _public_first_bridge_with_checkpoints(
@@ -8029,6 +8079,18 @@ def _public_first_bridge_with_checkpoints(
         for path in checkpoint_dir.glob("*.json")
         if path.resolve() != checkpoint_config_path.resolve()
     }
+    screened_by_id = {_bridge_candidate_id(record): record for record in records}
+    expected_paths = {
+        _bridge_checkpoint_path(
+            checkpoint_dir,
+            input_index=input_index,
+            candidate_id=_required_str(gap, "candidate_id"),
+        ).resolve()
+        for input_index, gap in enumerate(paid_gaps)
+    }
+    unexpected_paths = existing_checkpoint_paths - expected_paths
+    if unexpected_paths:
+        raise CommandError("PACER-gap bridge checkpoint directory has unexpected files")
     if checkpoint_config_path.exists():
         if not resume:
             raise CommandError(
@@ -8043,9 +8105,7 @@ def _public_first_bridge_with_checkpoints(
             raise CommandError("PACER-gap bridge checkpoints are missing their config")
         _atomic_write_json(checkpoint_config_path, config)
 
-    screened_by_id = {_bridge_candidate_id(record): record for record in records}
     checkpoints: list[JsonRecord] = []
-    expected_paths: set[Path] = set()
     resumed_terminal_count = 0
     request_count_before = client.request_count
     for input_index, gap in enumerate(paid_gaps):
@@ -8059,7 +8119,6 @@ def _public_first_bridge_with_checkpoints(
             input_index=input_index,
             candidate_id=candidate_id,
         )
-        expected_paths.add(checkpoint_path.resolve())
         prior: JsonRecord | None = None
         if checkpoint_path.exists():
             prior = _read_json_object(checkpoint_path)
@@ -8085,6 +8144,7 @@ def _public_first_bridge_with_checkpoints(
                 client=client,
                 raw_html_dir=raw_html_dir,
                 use_embedded_entries=cast(bool, args.use_embedded_entries),
+                validate_free_downloads=False,
             )
             checkpoint: JsonRecord = {
                 "schema_version": (
@@ -8182,9 +8242,6 @@ def _public_first_bridge_with_checkpoints(
         _atomic_write_json(checkpoint_path, checkpoint)
         checkpoints.append(checkpoint)
 
-    unexpected_paths = existing_checkpoint_paths - expected_paths
-    if unexpected_paths:
-        raise CommandError("PACER-gap bridge checkpoint directory has unexpected files")
     terminal_count = sum(
         record["outcome"] in {"success", "exclusion"} for record in checkpoints
     )
@@ -8220,6 +8277,7 @@ def _public_first_bridge_with_checkpoints(
         client=client,
         raw_html_dir=raw_html_dir,
         use_embedded_entries=cast(bool, args.use_embedded_entries),
+        validate_free_downloads=False,
     )
     selections = list(public_result.selection_records)
     relevance = list(public_result.case_relevance_records)
@@ -8264,6 +8322,115 @@ def _public_first_bridge_with_checkpoints(
     )
     evidence["reconciled"] = True
     return result, evidence
+
+
+def _validate_pacer_gap_bridge_paths(
+    *,
+    args: argparse.Namespace,
+    output_root: Path,
+    screened_cases_path: Path,
+    raw_html_dir: Path | None,
+    fixture_path: Path | None,
+    public_selection_path: Path | None,
+    paid_gaps_path: Path | None,
+    free_download_manifest_path: Path | None,
+    requests_path: Path,
+    selection_path: Path,
+    case_relevance_path: Path,
+    exclusions_path: Path,
+    summary_path: Path,
+    checkpoint_dir: Path,
+    checkpoint_config_path: Path,
+    public_first: bool,
+) -> None:
+    """Reject bridge path aliases before any writable or provider activity."""
+
+    protected_scopes: list[tuple[str, Path, bool]] = [
+        ("--screened-cases", screened_cases_path, False)
+    ]
+    protected_scopes.extend(
+        (label, path, is_tree)
+        for label, path, is_tree in (
+            ("--raw-html-dir", raw_html_dir, True),
+            ("--case-dev-fixture", fixture_path, False),
+            ("--public-selection", public_selection_path, False),
+            ("--paid-gaps", paid_gaps_path, False),
+            ("--free-download-manifest", free_download_manifest_path, False),
+        )
+        if path is not None
+    )
+    writable_scopes: list[tuple[str, Path, bool]] = [
+        ("--requests-output", requests_path, False),
+        ("--selection-output", selection_path, False),
+        ("--case-relevance-output", case_relevance_path, False),
+        ("--exclusions-output", exclusions_path, False),
+        ("--summary-output", summary_path, False),
+        (
+            "--run-card-output",
+            _acquisition_path(
+                args,
+                "run_card_output",
+                output_root / "run-cards" / "bridge-pacer-gaps.json",
+            ),
+            False,
+        ),
+        (
+            "--log-output",
+            _acquisition_path(
+                args,
+                "log_output",
+                output_root / "logs" / "bridge-pacer-gaps.jsonl",
+            ),
+            False,
+        ),
+    ]
+    if public_first:
+        writable_scopes.extend(
+            (
+                ("--checkpoint-dir", checkpoint_dir, True),
+                ("--checkpoint-config-output", checkpoint_config_path, False),
+            )
+        )
+
+    for writable_label, writable_path, writable_tree in writable_scopes:
+        writable = writable_path.resolve()
+        if not writable_tree:
+            _reject_hardlinked_writable_replay_scope(
+                label=writable_label,
+                path=writable,
+                is_tree=False,
+            )
+        for protected_label, protected_path, protected_tree in protected_scopes:
+            protected = protected_path.resolve()
+            if _replay_scopes_overlap(
+                left_label=writable_label,
+                left=writable,
+                left_tree=writable_tree,
+                right_label=protected_label,
+                right=protected,
+                right_tree=protected_tree,
+            ):
+                raise CommandError(
+                    f"bridge output overlaps input: {writable_label} vs "
+                    f"{protected_label}: {writable} vs {protected}"
+                )
+
+    for index, (label, path, is_tree) in enumerate(writable_scopes):
+        resolved = path.resolve()
+        for other_label, other_path, other_is_tree in writable_scopes[index + 1 :]:
+            other = other_path.resolve()
+            if _replay_scopes_overlap(
+                left_label=label,
+                left=resolved,
+                left_tree=is_tree,
+                right_label=other_label,
+                right=other,
+                right_tree=other_is_tree,
+            ):
+                raise CommandError(
+                    f"bridge writable outputs overlap: {label} vs {other_label}: "
+                    f"{resolved} vs {other}"
+                )
 
 
 def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
@@ -8329,6 +8496,24 @@ def _cmd_acquisition_bridge_pacer_gaps(args: argparse.Namespace) -> int:
         args,
         "checkpoint_config_output",
         output_root / "checkpoints" / "pacer-gap-bridge-progress-config.json",
+    )
+    _validate_pacer_gap_bridge_paths(
+        args=args,
+        output_root=output_root,
+        screened_cases_path=screened_cases_path,
+        raw_html_dir=raw_html_dir,
+        fixture_path=fixture_path,
+        public_selection_path=public_selection_path,
+        paid_gaps_path=paid_gaps_path,
+        free_download_manifest_path=free_download_manifest_path,
+        requests_path=requests_path,
+        selection_path=selection_path,
+        case_relevance_path=case_relevance_path,
+        exclusions_path=exclusions_path,
+        summary_path=summary_path,
+        checkpoint_dir=checkpoint_dir,
+        checkpoint_config_path=checkpoint_config_path,
+        public_first=public_first,
     )
     records = _read_records(screened_cases_path)
     dry_run = _acquisition_dry_run(args)
