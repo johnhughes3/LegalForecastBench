@@ -8,7 +8,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from pathlib import Path
@@ -158,6 +158,7 @@ def discover_courtlistener_mtd_candidates(
     max_candidates: int = 3000,
     search_page_size: int = 50,
     resume: bool = True,
+    verify_existing_raw_html: Callable[[str, str, Path], str] | None = None,
 ) -> CourtListenerDiscoveryResult:
     """Search a bounded rolling window and screen against an immutable anchor."""
 
@@ -216,6 +217,7 @@ def discover_courtlistener_mtd_candidates(
                     anchor=decision_filed_on_or_after,
                     query=query,
                     resume=resume,
+                    verify_existing_raw_html=verify_existing_raw_html,
                 )
                 if screened is not None:
                     screened_cases.append(screened)
@@ -341,6 +343,7 @@ def _screen_candidate(
     anchor: date,
     query: str,
     resume: bool,
+    verify_existing_raw_html: Callable[[str, str, Path], str] | None,
 ) -> tuple[Mapping[str, Any] | None, ExclusionLedgerEntry | None]:
     try:
         docket = client.get_docket(docket_id)
@@ -376,10 +379,24 @@ def _screen_candidate(
                     f"raw docket HTML already exists and --no-resume was requested: "
                     f"{raw_html_path}"
                 )
-            raw_html = raw_html_path.read_text(encoding="utf-8")
+            raw_html = (
+                raw_html_path.read_text(encoding="utf-8")
+                if verify_existing_raw_html is None
+                else verify_existing_raw_html(
+                    docket_id,
+                    source_url,
+                    raw_html_path,
+                )
+            )
         else:
             raw_html = html_source.fetch(docket_id=docket_id, source_url=source_url)
-            raw_html_path.write_text(raw_html, encoding="utf-8")
+            if raw_html_path.exists():
+                if raw_html_path.read_text(encoding="utf-8") != raw_html:
+                    raise CourtListenerClientError(
+                        "docket HTML source committed conflicting raw bytes"
+                    )
+            else:
+                raw_html_path.write_text(raw_html, encoding="utf-8")
     except CourtListenerUnavailableError as exc:
         return None, _exclusion(
             docket_id=docket_id,

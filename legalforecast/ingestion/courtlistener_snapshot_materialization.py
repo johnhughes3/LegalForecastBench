@@ -246,8 +246,13 @@ def _validate_frozen_identity(
         "max_candidates": summary.get("max_candidates"),
         "search_page_size": summary.get("search_page_size"),
     }
-    if "docket_html_source" in summary:
-        expected_batch["docket_html_source"] = summary["docket_html_source"]
+    for optional_key in (
+        "docket_html_source",
+        "firecrawl_run_id",
+        "firecrawl_credit_cap",
+    ):
+        if optional_key in summary:
+            expected_batch[optional_key] = summary[optional_key]
     if dict(batch_config) != expected_batch:
         raise CourtListenerSnapshotMaterializationError(
             "discovery summary does not match the frozen batch configuration"

@@ -74,6 +74,9 @@ from legalforecast.evals.scorers import (
     score_cases,
 )
 from legalforecast.extraction.pdf_text import extract_pdf_text_with_ocr_fallback
+from legalforecast.ingestion.budgeted_courtlistener_html_source import (
+    DurableBudgetedCourtListenerHTMLSource,
+)
 from legalforecast.ingestion.budgeted_docket_acquisition import (
     acquire_ranked_dockets,
     materialize_selected_slice_batch,
@@ -2191,8 +2194,18 @@ def _add_acquisition_discover_courtlistener_arguments(
             "Keep authenticated CourtListener REST as the search authority but "
             "fetch each strictly allowlisted public docket HTML page through "
             "Firecrawl. Requires --live and FIRECRAWL_API_KEY. Basic proxy mode "
-            "is capped at one credit per newly fetched candidate; --resume reuses "
-            "persisted raw HTML."
+            "is capped at one reported credit per authorized candidate; live "
+            "attempts and source-bound resume artifacts are journaled in the "
+            "required cycle store."
+        ),
+    )
+    parser.add_argument(
+        "--firecrawl-credit-cap",
+        type=int,
+        default=45_000,
+        help=(
+            "Cycle-wide Firecrawl authorization cap for hybrid docket HTML, from "
+            "1 through 45000 credits. The store freezes the first value used."
         ),
     )
     parser.add_argument(
@@ -11837,6 +11850,40 @@ def _cmd_verify_cohort_observations(args: argparse.Namespace) -> int:
     return 0
 
 
+def _firecrawl_docket_html_audit(
+    *,
+    requested: bool,
+    credit_cap: int,
+    source: DurableBudgetedCourtListenerHTMLSource | None,
+    store: CycleAcquisitionStore | None,
+    run_id: str | None,
+) -> JsonRecord:
+    """Return conservative metered-activity evidence for hybrid discovery."""
+
+    durable_summary: JsonRecord = {}
+    if source is not None:
+        durable_summary.update(source.audit_summary())
+    elif store is not None and run_id is not None:
+        try:
+            durable_summary.update(store.firecrawl_run_summary(run_id))
+        except KeyError:
+            pass
+    executed = _firecrawl_metered_activity_executed(
+        live=requested,
+        summary=durable_summary,
+    )
+    return {
+        "docket_html_source": "firecrawl",
+        "firecrawl_metered_activity_requested": requested,
+        "firecrawl_metered_activity_executed": executed,
+        "firecrawl_max_credits_per_new_candidate": 1,
+        "firecrawl_cycle_credit_cap": credit_cap,
+        "pacer_paid_activity_requested": False,
+        "pacer_paid_activity_executed": False,
+        **durable_summary,
+    }
+
+
 def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     screened_cases_path = _acquisition_path(
@@ -11897,8 +11944,25 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
     html_fixture_dir = cast(Path | None, args.docket_html_fixture_dir)
     live = cast(bool, args.live)
     live_firecrawl_docket_html = cast(bool, args.live_firecrawl_docket_html)
+    firecrawl_credit_cap = cast(int, args.firecrawl_credit_cap)
     if live_firecrawl_docket_html and not live:
         raise CommandError("--live-firecrawl-docket-html requires --live")
+    if live_firecrawl_docket_html and not 1 <= firecrawl_credit_cap <= 45_000:
+        raise CommandError("--firecrawl-credit-cap must be between 1 and 45000")
+    if (
+        live_firecrawl_docket_html
+        and not dry_run
+        and (cycle_store_path is None or batch_id is None)
+    ):
+        raise CommandError(
+            "--live-firecrawl-docket-html execution requires --cycle-store and "
+            "--batch-id for durable credit authorization"
+        )
+    firecrawl_run_id = (
+        f"{batch_id}-courtlistener-docket-html-v1"
+        if live_firecrawl_docket_html and batch_id is not None
+        else None
+    )
     input_paths = tuple(
         path for path in (fixture_path, html_fixture_dir) if path is not None
     )
@@ -11912,6 +11976,17 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
     )
 
     if dry_run:
+        dry_run_firecrawl_audit = (
+            _firecrawl_docket_html_audit(
+                requested=False,
+                credit_cap=firecrawl_credit_cap,
+                source=None,
+                store=None,
+                run_id=firecrawl_run_id,
+            )
+            if live_firecrawl_docket_html
+            else None
+        )
         summary: JsonRecord = {
             "schema_version": "legalforecast.courtlistener_discovery_summary.v1",
             "dry_run": True,
@@ -11923,10 +11998,16 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             "max_candidates": max_candidates,
             "search_page_size": search_page_size,
             "live": live,
-            "docket_html_source": (
-                "firecrawl" if live_firecrawl_docket_html else "courtlistener"
-            ),
         }
+        if live_firecrawl_docket_html:
+            summary.update(
+                {
+                    "docket_html_source": "firecrawl",
+                    "firecrawl_run_id": firecrawl_run_id,
+                    "firecrawl_credit_cap": firecrawl_credit_cap,
+                    **cast(JsonRecord, dry_run_firecrawl_audit),
+                }
+            )
         _write_json(summary_path, summary)
         _write_acquisition_completion(
             args,
@@ -11940,6 +12021,7 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             extra={
                 "anchor_date": anchor.isoformat(),
                 "target_clean_cases": target_clean_cases,
+                **({} if dry_run_firecrawl_audit is None else dry_run_firecrawl_audit),
             },
         )
         return 0
@@ -11973,7 +12055,18 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             input_paths=input_paths,
             output_paths=output_paths,
             reason=str(exc),
-            paid_activity_requested=False,
+            paid_activity_requested=live_firecrawl_docket_html,
+            extra=(
+                _firecrawl_docket_html_audit(
+                    requested=live_firecrawl_docket_html,
+                    credit_cap=firecrawl_credit_cap,
+                    source=None,
+                    store=None,
+                    run_id=firecrawl_run_id,
+                )
+                if live_firecrawl_docket_html
+                else None
+            ),
         )
         raise CommandError(str(exc)) from exc
 
@@ -11985,44 +12078,91 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
                 cycle_hash = store.ensure_cycle(
                     _cycle_acquisition_policy(anchor=anchor)
                 )
+                frozen_batch_config: JsonRecord = {
+                    "provider": "courtlistener",
+                    "search_window_start": search_window_start.isoformat(),
+                    "search_window_end": search_window_end.isoformat(),
+                    "query_terms": list(query_terms),
+                    "target_clean_cases": target_clean_cases,
+                    "max_candidates": max_candidates,
+                    "search_page_size": search_page_size,
+                }
+                if live_firecrawl_docket_html:
+                    assert firecrawl_run_id is not None
+                    frozen_batch_config.update(
+                        {
+                            "docket_html_source": "firecrawl",
+                            "firecrawl_run_id": firecrawl_run_id,
+                            "firecrawl_credit_cap": firecrawl_credit_cap,
+                        }
+                    )
                 batch_digest = store.ensure_batch(
                     batch_id,
-                    {
-                        "provider": "courtlistener",
-                        "search_window_start": search_window_start.isoformat(),
-                        "search_window_end": search_window_end.isoformat(),
-                        "query_terms": list(query_terms),
-                        "target_clean_cases": target_clean_cases,
-                        "max_candidates": max_candidates,
-                        "search_page_size": search_page_size,
-                        "docket_html_source": (
-                            "firecrawl"
-                            if live_firecrawl_docket_html
-                            else "courtlistener"
-                        ),
-                    },
+                    frozen_batch_config,
                 )
         except CycleAcquisitionStoreError as exc:
             raise CommandError(str(exc)) from exc
 
     config = CourtListenerConfig.from_env()
+    durable_firecrawl_store: CycleAcquisitionStore | None = None
+    durable_firecrawl_source: DurableBudgetedCourtListenerHTMLSource | None = None
+    firecrawl_source_receipts: dict[str, Mapping[str, object]] = {}
     if live:
         if config.api_token is None:
             raise CommandError(f"{COURTLISTENER_API_TOKEN_ENV} is required with --live")
         client = CourtListenerClient(config=config)
         if live_firecrawl_docket_html:
+            assert cycle_store_path is not None
+            assert batch_id is not None
+            assert batch_digest is not None
+            assert firecrawl_run_id is not None
             try:
-                html_source = FirecrawlCourtListenerHTMLSource(
-                    FirecrawlConfig.from_env()
+                durable_firecrawl_store = CycleAcquisitionStore(cycle_store_path)
+                durable_firecrawl_store.ensure_firecrawl_run(
+                    firecrawl_run_id,
+                    batch_id=batch_id,
+                    config={
+                        "schema_version": (
+                            "legalforecast.firecrawl_docket_html_run.v1"
+                        ),
+                        "batch_digest": batch_digest,
+                        "docket_html_source": "firecrawl",
+                        "proxy": "basic",
+                        "max_attempts_per_target": 1,
+                        "raw_html_dir": str(raw_html_dir),
+                    },
+                    credit_cap=firecrawl_credit_cap,
+                    reserved_credits_per_attempt=1,
                 )
-            except FirecrawlError as exc:
+                durable_firecrawl_source = DurableBudgetedCourtListenerHTMLSource(
+                    store=durable_firecrawl_store,
+                    source=FirecrawlCourtListenerHTMLSource(FirecrawlConfig.from_env()),
+                    run_id=firecrawl_run_id,
+                    raw_html_dir=raw_html_dir,
+                )
+                html_source = durable_firecrawl_source
+            except (CycleAcquisitionStoreError, FirecrawlError, ValueError) as exc:
+                firecrawl_audit = _firecrawl_docket_html_audit(
+                    requested=True,
+                    credit_cap=firecrawl_credit_cap,
+                    source=None,
+                    store=durable_firecrawl_store,
+                    run_id=firecrawl_run_id,
+                )
+                if durable_firecrawl_store is not None:
+                    durable_firecrawl_store.close()
                 _write_acquisition_failure(
                     args,
                     stage="discover-courtlistener",
                     input_paths=input_paths,
                     output_paths=output_paths,
                     reason=str(exc),
-                    paid_activity_requested=False,
+                    paid_activity_requested=True,
+                    paid_activity_executed=cast(
+                        bool,
+                        firecrawl_audit["firecrawl_metered_activity_executed"],
+                    ),
+                    extra=firecrawl_audit,
                 )
                 raise CommandError(str(exc)) from exc
         else:
@@ -12051,17 +12191,65 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             max_candidates=max_candidates,
             search_page_size=search_page_size,
             resume=cast(bool, args.resume),
+            verify_existing_raw_html=(
+                None
+                if durable_firecrawl_source is None
+                else durable_firecrawl_source.verify_existing_raw_html
+            ),
         )
-    except (CourtListenerClientError, FirecrawlError, ValueError) as exc:
+        firecrawl_audit = (
+            _firecrawl_docket_html_audit(
+                requested=True,
+                credit_cap=firecrawl_credit_cap,
+                source=durable_firecrawl_source,
+                store=durable_firecrawl_store,
+                run_id=firecrawl_run_id,
+            )
+            if live_firecrawl_docket_html
+            else None
+        )
+        if durable_firecrawl_source is not None:
+            assert batch_digest is not None
+            firecrawl_source_receipts = dict(
+                durable_firecrawl_source.successful_artifact_receipts(
+                    batch_digest=batch_digest
+                )
+            )
+    except (
+        CourtListenerClientError,
+        FirecrawlArtifactError,
+        FirecrawlError,
+        ValueError,
+    ) as exc:
+        firecrawl_audit = (
+            _firecrawl_docket_html_audit(
+                requested=True,
+                credit_cap=firecrawl_credit_cap,
+                source=durable_firecrawl_source,
+                store=durable_firecrawl_store,
+                run_id=firecrawl_run_id,
+            )
+            if live_firecrawl_docket_html
+            else None
+        )
         _write_acquisition_failure(
             args,
             stage="discover-courtlistener",
             input_paths=input_paths,
             output_paths=output_paths,
             reason=str(exc),
-            paid_activity_requested=False,
+            paid_activity_requested=live_firecrawl_docket_html,
+            paid_activity_executed=(
+                False
+                if firecrawl_audit is None
+                else cast(bool, firecrawl_audit["firecrawl_metered_activity_executed"])
+            ),
+            extra=firecrawl_audit,
         )
         raise CommandError(str(exc)) from exc
+    finally:
+        if durable_firecrawl_store is not None:
+            durable_firecrawl_store.close()
 
     _write_jsonl(screened_cases_path, list(result.screened_cases))
     _write_jsonl(
@@ -12074,21 +12262,38 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
         screened_cases=result.screened_cases,
         exclusions=tuple(exclusion.to_record() for exclusion in result.exclusions),
     )
+    if live_firecrawl_docket_html:
+        raw_artifact_ids = {
+            _required_str(record, "candidate_id") for record in raw_artifacts
+        }
+        receipt_ids = set(firecrawl_source_receipts)
+        if raw_artifact_ids != receipt_ids:
+            missing_receipts = sorted(raw_artifact_ids - receipt_ids)
+            orphan_receipts = sorted(receipt_ids - raw_artifact_ids)
+            raise CommandError(
+                "Firecrawl raw artifact receipts do not reconcile: "
+                f"missing={missing_receipts!r}, orphan={orphan_receipts!r}"
+            )
+        for record in raw_artifacts:
+            candidate_id = _required_str(record, "candidate_id")
+            record["source_receipt"] = dict(firecrawl_source_receipts[candidate_id])
     _write_jsonl(raw_artifacts_path, raw_artifacts)
-    _write_json(
-        summary_path,
-        {
-            **result.summary,
-            "dry_run": False,
-            "live": live,
-            "docket_html_source": (
-                "firecrawl" if live_firecrawl_docket_html else "courtlistener"
-            ),
-            "firecrawl_max_credits_per_new_candidate": (
-                1 if live_firecrawl_docket_html else 0
-            ),
-        },
-    )
+    summary: JsonRecord = {
+        **result.summary,
+        "dry_run": False,
+        "live": live,
+    }
+    if firecrawl_audit is not None:
+        summary.update(
+            {
+                "docket_html_source": "firecrawl",
+                "firecrawl_run_id": firecrawl_run_id,
+                "firecrawl_credit_cap": firecrawl_credit_cap,
+                "firecrawl_source_receipt_count": len(firecrawl_source_receipts),
+                **firecrawl_audit,
+            }
+        )
+    _write_json(summary_path, summary)
     output_commitments = {
         "screened_cases": _file_commitment(screened_cases_path),
         "exclusions": _file_commitment(exclusions_path),
@@ -12103,8 +12308,12 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
         output_paths=output_paths,
         record_count=len(result.screened_cases),
         dry_run=False,
-        paid_activity_requested=False,
-        paid_activity_executed=False,
+        paid_activity_requested=live_firecrawl_docket_html,
+        paid_activity_executed=(
+            False
+            if firecrawl_audit is None
+            else cast(bool, firecrawl_audit["firecrawl_metered_activity_executed"])
+        ),
         extra={
             "anchor_date": anchor.isoformat(),
             "target_clean_cases": target_clean_cases,
@@ -12112,7 +12321,13 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             "excluded_case_count": len(result.exclusions),
             "cycle_hash": cycle_hash,
             "batch_digest": batch_digest,
+            **(
+                {"firecrawl_source_receipt_count": len(firecrawl_source_receipts)}
+                if live_firecrawl_docket_html
+                else {}
+            ),
             "output_commitments": output_commitments,
+            **({} if firecrawl_audit is None else firecrawl_audit),
         },
     )
     return 0

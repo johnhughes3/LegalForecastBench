@@ -17,7 +17,12 @@ from legalforecast.ingestion.courtlistener_acquisition import (
     courtlistener_search_hit_id,
     screen_courtlistener_docket_page,
 )
-from legalforecast.ingestion.courtlistener_client import CourtListenerDocket
+from legalforecast.ingestion.courtlistener_client import (
+    CourtListenerClient,
+    CourtListenerConfig,
+    CourtListenerDocket,
+    CourtListenerFixtureTransport,
+)
 from legalforecast.ingestion.courtlistener_snapshot_materialization import (
     CourtListenerSnapshotMaterializationError,
     _validate_frozen_identity,
@@ -30,6 +35,12 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 from legalforecast.ingestion.discovery_scheduler import (
     DiscoveryHit,
     TermTerminalStatus,
+)
+from legalforecast.ingestion.firecrawl_source import (
+    FirecrawlConfig,
+    FirecrawlCourtListenerHTMLSource,
+    FirecrawlFixtureTransport,
+    FirecrawlHTTPResponse,
 )
 from legalforecast.ingestion.mtd_acquisition_screen import (
     screen_case_dev_docket_metadata,
@@ -199,6 +210,20 @@ def test_materialize_courtlistener_snapshot_publishes_saturated_source_lineage(
 
     assert main(command) == 0
     assert (snapshot / "manifest.json").read_bytes() == first_manifest_bytes
+
+
+def test_direct_discovery_preserves_legacy_batch_and_summary_identity(
+    tmp_path: Path,
+) -> None:
+    discovery_root, cycle_store = _run_saturated_discovery(tmp_path)
+
+    summary = _read_json(discovery_root / "courtlistener-discovery-summary.json")
+    with CycleAcquisitionStore(cycle_store) as store:
+        batch_config = store.batch_config("batch-001")
+
+    assert "docket_html_source" not in summary
+    assert "firecrawl_max_credits_per_new_candidate" not in summary
+    assert "docket_html_source" not in batch_config
 
 
 def test_materialized_courtlistener_snapshot_is_prepare_target_cohort_input(
@@ -1226,6 +1251,10 @@ def test_discover_courtlistener_firecrawl_html_requires_key(
                 "2026-07-14",
                 "--output-root",
                 str(tmp_path / "output"),
+                "--cycle-store",
+                str(tmp_path / "cycle.sqlite3"),
+                "--batch-id",
+                "missing-key-hybrid",
                 "--live",
                 "--live-firecrawl-docket-html",
                 "--execute",
@@ -1234,6 +1263,270 @@ def test_discover_courtlistener_firecrawl_html_requires_key(
         == 2
     )
     assert "FIRECRAWL_API_KEY" in capsys.readouterr().err
+    run_card = _read_json(
+        tmp_path / "output" / "run-cards" / "discover-courtlistener.json"
+    )
+    assert run_card["paid_activity_requested"] is True
+    assert run_card["paid_activity_executed"] is False
+    assert run_card["firecrawl_metered_activity_requested"] is True
+    assert run_card["firecrawl_metered_activity_executed"] is False
+    assert run_card["run_reserved_credits"] == 0
+    assert run_card["run_reported_credits"] == 0
+    assert run_card["firecrawl_cycle_credit_cap"] == 45000
+
+
+def test_discover_courtlistener_firecrawl_html_requires_durable_cycle_store(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    assert (
+        main(
+            [
+                "acquisition",
+                "discover-courtlistener",
+                "--eligibility-anchor",
+                "2026-06-30",
+                "--search-window-start",
+                "2026-07-11",
+                "--search-window-end",
+                "2026-07-14",
+                "--output-root",
+                str(tmp_path / "output"),
+                "--live",
+                "--live-firecrawl-docket-html",
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert "requires --cycle-store and --batch-id" in capsys.readouterr().err
+
+
+def test_discover_courtlistener_firecrawl_dry_run_records_credit_ceiling(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "output"
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "discover-courtlistener",
+                "--eligibility-anchor",
+                "2026-06-30",
+                "--search-window-start",
+                "2026-07-11",
+                "--search-window-end",
+                "2026-07-14",
+                "--max-candidates",
+                "1500",
+                "--output-root",
+                str(output_root),
+                "--live",
+                "--live-firecrawl-docket-html",
+            ]
+        )
+        == 0
+    )
+
+    summary = _read_json(output_root / "courtlistener-discovery-summary.json")
+    assert summary["docket_html_source"] == "firecrawl"
+    assert summary["firecrawl_max_credits_per_new_candidate"] == 1
+    assert summary["firecrawl_cycle_credit_cap"] == 45000
+    assert summary["firecrawl_metered_activity_requested"] is False
+    assert summary["firecrawl_metered_activity_executed"] is False
+
+
+def test_discover_courtlistener_firecrawl_live_run_records_metered_activity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "output"
+    cycle_store = tmp_path / "cycle.sqlite3"
+    fixture_path = tmp_path / "courtlistener.jsonl"
+    _write_jsonl(
+        fixture_path,
+        [
+            _response(
+                path="/search/",
+                params={
+                    "q": (
+                        '"order on motion to dismiss" AND '
+                        "entry_date_filed:[2026-06-30 TO 2026-07-12]"
+                    ),
+                    "type": "r",
+                    "order_by": "score desc",
+                    "available_only": "on",
+                    "page_size": 50,
+                },
+                payload={
+                    "results": [
+                        {
+                            "docket_id": 122,
+                            "docket_entry_id": 15,
+                            "description": "Order on motion to dismiss",
+                            "entry_date_filed": "2026-06-30",
+                        },
+                        {
+                            "docket_id": 123,
+                            "docket_entry_id": 16,
+                            "description": "Order on motion to dismiss",
+                            "entry_date_filed": "2026-06-30",
+                        },
+                    ],
+                    "next": None,
+                },
+            ),
+            _response(
+                path="/dockets/122/",
+                payload={
+                    "id": 122,
+                    "court": "nysd",
+                    "docket_number": "1:26-cv-00000",
+                    "case_name": "Unavailable v. Example",
+                    "absolute_url": (
+                        "https://www.courtlistener.com/docket/122/"
+                        "unavailable-v-example/"
+                    ),
+                },
+            ),
+            _response(
+                path="/dockets/123/",
+                payload={
+                    "id": 123,
+                    "court": "nysd",
+                    "docket_number": "1:26-cv-00001",
+                    "case_name": "Fixture v. Example",
+                    "absolute_url": (
+                        "https://www.courtlistener.com/docket/123/fixture-v-example/"
+                    ),
+                },
+            ),
+        ],
+    )
+    fixture_client = CourtListenerClient(
+        config=CourtListenerConfig(api_token="fixture-token"),
+        transport=CourtListenerFixtureTransport.from_jsonl(fixture_path),
+    )
+    firecrawl_source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="fixture-key"),
+        transport=FirecrawlFixtureTransport(
+            [
+                FirecrawlHTTPResponse(
+                    status_code=200,
+                    payload={
+                        "success": True,
+                        "data": {
+                            "rawHtml": "<html><body>Not found</body></html>",
+                            "metadata": {
+                                "statusCode": 404,
+                                "proxyUsed": "basic",
+                                "cacheState": "miss",
+                                "creditsUsed": 1,
+                                "sourceURL": (
+                                    "https://www.courtlistener.com/docket/122/"
+                                ),
+                            },
+                        },
+                    },
+                ),
+                FirecrawlHTTPResponse(
+                    status_code=200,
+                    payload={
+                        "success": True,
+                        "data": {
+                            "rawHtml": _docket_html(decision_dates=("June 30, 2026",)),
+                            "metadata": {
+                                "statusCode": 200,
+                                "proxyUsed": "basic",
+                                "cacheState": "miss",
+                                "creditsUsed": 1,
+                                "sourceURL": (
+                                    "https://www.courtlistener.com/docket/123/"
+                                    "fixture-v-example/"
+                                ),
+                            },
+                        },
+                    },
+                ),
+            ]
+        ),
+    )
+    monkeypatch.setenv("COURTLISTENER_API_TOKEN", "fixture-token")
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fixture-key")
+    monkeypatch.setattr(
+        "legalforecast.cli.CourtListenerClient",
+        lambda **_kwargs: fixture_client,
+    )
+    monkeypatch.setattr(
+        "legalforecast.cli.FirecrawlCourtListenerHTMLSource",
+        lambda _config: firecrawl_source,
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "discover-courtlistener",
+                "--eligibility-anchor",
+                "2026-06-30",
+                "--search-window-start",
+                "2026-06-30",
+                "--search-window-end",
+                "2026-07-12",
+                "--cycle-store",
+                str(cycle_store),
+                "--batch-id",
+                "hybrid-batch",
+                "--query-term",
+                "order on motion to dismiss",
+                "--target-clean-cases",
+                "2",
+                "--max-candidates",
+                "5",
+                "--output-root",
+                str(output_root),
+                "--live",
+                "--live-firecrawl-docket-html",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    summary = _read_json(output_root / "courtlistener-discovery-summary.json")
+    run_card = _read_json(output_root / "run-cards" / "discover-courtlistener.json")
+    for artifact in (summary, run_card):
+        assert artifact["docket_html_source"] == "firecrawl"
+        assert artifact["firecrawl_metered_activity_requested"] is True
+        assert artifact["firecrawl_metered_activity_executed"] is True
+        assert artifact["run_reserved_credits"] == 2
+        assert artifact["run_reported_credits"] == 2
+        assert artifact["firecrawl_cycle_credit_cap"] == 45000
+        assert artifact["firecrawl_source_receipt_count"] == 1
+        assert artifact["unavailable_docket_count"] == 1
+    assert run_card["paid_activity_requested"] is True
+    assert run_card["paid_activity_executed"] is True
+    [exclusion] = _read_jsonl(output_root / "courtlistener-discovery-exclusions.jsonl")
+    assert exclusion["candidate_id"] == "122"
+    assert exclusion["reason"] == "courtlistener_docket_html_unavailable"
+    [raw_artifact] = _read_jsonl(output_root / "courtlistener-raw-artifacts.jsonl")
+    receipt = raw_artifact["source_receipt"]
+    assert receipt["schema_version"] == (
+        "legalforecast.firecrawl_docket_html_source_receipt.v1"
+    )
+    assert receipt["batch_digest"] == run_card["batch_digest"]
+    assert receipt["firecrawl_run_id"] == ("hybrid-batch-courtlistener-docket-html-v1")
+    assert receipt["firecrawl_target_id"] == "courtlistener-docket:123"
+    assert receipt["reported_credits"] == 1
+    assert receipt["artifact_sha256"] == raw_artifact["sha256"]
+    with CycleAcquisitionStore(cycle_store) as store:
+        batch_config = store.batch_config("hybrid-batch")
+    assert batch_config["docket_html_source"] == "firecrawl"
+    assert batch_config["firecrawl_credit_cap"] == 45000
+    assert batch_config["firecrawl_run_id"] == (
+        "hybrid-batch-courtlistener-docket-html-v1"
+    )
 
 
 def test_discover_courtlistener_records_local_validation_failure(
