@@ -963,7 +963,34 @@ def test_canonical_screen_excludes_preanchor_recommendation_later_adopted() -> N
     assert exclusion.reason == "decision_before_release_anchor"
 
 
-def test_canonical_screen_accepts_genuinely_first_postanchor_disposition() -> None:
+def test_canonical_screen_excludes_earlier_unreferenced_preanchor_recommendation() -> (
+    None
+):
+    screened, exclusion = _screen_custom_docket(
+        entries=(
+            (1, "January 2, 2026", "COMPLAINT filed by Plaintiff"),
+            (18, "January 5, 2026", "MOTION to Dismiss filed by Defendant"),
+            (25, "June 29, 2026", "Report & Recommendation"),
+            (31, "July 1, 2026", "Report & Recommendation"),
+            (
+                33,
+                "July 9, 2026",
+                "MEMORANDUM ORDER adopting 31 Report & Recommendation; "
+                "granting 18 Motion to Dismiss",
+            ),
+        )
+    )
+
+    assert screened is None
+    assert exclusion is not None
+    assert exclusion.reason == "decision_before_release_anchor"
+    assert exclusion.source_entry_ids == ("entry-25", "entry-31", "entry-33")
+
+
+@pytest.mark.parametrize("relation", ("re", "regarding"))
+def test_canonical_screen_accepts_genuinely_first_postanchor_disposition(
+    relation: str,
+) -> None:
     screened, exclusion = _screen_custom_docket(
         entries=(
             (1, "January 2, 2026", "COMPLAINT filed by Plaintiff"),
@@ -971,7 +998,7 @@ def test_canonical_screen_accepts_genuinely_first_postanchor_disposition() -> No
             (
                 16,
                 "June 20, 2026",
-                "Order re Rule 12(b) Motions AND ~Util - Set Deadlines",
+                f"Order {relation} Rule 12(b) Motions AND ~Util - Set Deadlines",
             ),
             (20, "July 1, 2026", "Order on Motion to Dismiss"),
             (21, "July 2, 2026", "ORDER granting 5 Motion to Dismiss"),

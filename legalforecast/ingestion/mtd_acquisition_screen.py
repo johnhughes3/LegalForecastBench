@@ -670,13 +670,13 @@ def _anchor_disposition_entries(
             for entry in recommendation_entries
             if _entry_precedes(entry, decision_entry)
         )
-        referenced_numbers = _recommendation_reference_numbers(decision_entry)
-        referenced_candidates = tuple(
-            entry for entry in candidates if _entry_number(entry) in referenced_numbers
-        )
-        anchor_row_ids.update(
-            entry.row_id for entry in (referenced_candidates or candidates)
-        )
+        # A later adoption proves that a preceding generic recommendation may
+        # contain the first written MTD disposition.  Even when the adoption
+        # names one recommendation, the docket metadata does not prove that an
+        # earlier generically labelled recommendation was unrelated.  Keep all
+        # preceding candidates in the anchor gate rather than selecting the
+        # referenced row and risking a pre-release disposition admission.
+        anchor_row_ids.update(entry.row_id for entry in candidates)
 
     return tuple(
         screen
@@ -701,7 +701,7 @@ def _has_generic_mtd_order_relation(entry: CourtListenerWebDocketEntry) -> bool:
     search_text = _entry_search_text(entry)
     if _looks_like_proposed_order_attachment(search_text):
         return False
-    if re.search(r"\border\s+re\b", search_text, re.I) and re.search(
+    if re.search(r"\border\s+re(?:garding)?\b", search_text, re.I) and re.search(
         r"\b(?:set|reset)\s+deadlines?\b|\bbriefing\s+schedule\b",
         search_text,
         re.I,
@@ -750,22 +750,6 @@ def _is_recommendation_adoption(entry: CourtListenerWebDocketEntry) -> bool:
             re.I,
         )
     )
-
-
-def _recommendation_reference_numbers(
-    entry: CourtListenerWebDocketEntry,
-) -> set[int]:
-    text = _entry_search_text(entry)
-    recommendation = re.compile(
-        r"(?:reports?|memorand(?:um|a)|findings)\s+(?:and|&)\s+recommendations?",
-        re.IGNORECASE,
-    )
-    numbers: set[int] = set()
-    for match in recommendation.finditer(text):
-        start = max(0, match.start() - 60)
-        end = min(len(text), match.end() + 60)
-        numbers.update(int(value) for value in re.findall(r"\b\d+\b", text[start:end]))
-    return numbers
 
 
 def _entry_number(entry: CourtListenerWebDocketEntry) -> int | None:
