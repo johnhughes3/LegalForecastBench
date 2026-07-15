@@ -35,6 +35,8 @@ from legalforecast.ingestion.recap_api_batch_driver import (
     seed_direct_search_leads,
 )
 
+_BULLOCK_QUERY = '"Bullock v. PHH Mortgage Services"'
+
 
 def _source_store(tmp_path: Path, *leads: dict[str, object]) -> Path:
     path = tmp_path / "cycle.sqlite3"
@@ -107,7 +109,7 @@ def _case_dev_response(*dockets: dict[str, object]) -> RecordedCaseDevResponse:
         path="/legal/v1/docket",
         params={
             "type": "search",
-            "query": "Bullock v. PHH Mortgage Services",
+            "query": _BULLOCK_QUERY,
             "limit": 100,
         },
         status_code=200,
@@ -208,6 +210,239 @@ def test_case_dev_exact_identity_resolves_without_courtlistener_quota(
         assert payload["candidate_id"] == "courtlistener-docket-71878956"
 
 
+def test_provider_query_quotes_valid_caption_syntax_as_one_exact_phrase(
+    tmp_path: Path,
+) -> None:
+    case_name = "In re: David A. Stewart and Terry P. Stewart"
+    source = _source_store(tmp_path, _lead(case_name=case_name))
+    response = RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params={
+            "type": "search",
+            "query": f'"{case_name}"',
+            "limit": 100,
+        },
+        status_code=200,
+        payload={"dockets": [_recap_docket(case_name=case_name)], "found": 1},
+    )
+
+    summary = resolve_opinion_recap_batch(
+        source_store_path=source,
+        source_batch_id="opinion-source",
+        journal_path=tmp_path / "resolver.sqlite3",
+        output_store_path=source,
+        output_batch_id="resolved-opinion-source",
+        case_dev_client=_case_dev(response),
+        courtlistener_client=_courtlistener(),
+    )
+
+    assert summary.resolved == 1
+    outcome = read_resolution_outcomes(tmp_path / "resolver.sqlite3")[0]
+    resolver = outcome["evidence"]["opinion_resolution_evidence"]["resolver"]
+    assert resolver["query"] == f'"{case_name}"'
+    assert resolver["provider"] == "case.dev"
+
+
+def test_case_dev_found_total_proves_cursorless_page_is_incomplete(
+    tmp_path: Path,
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    case_dev_response = RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params={"type": "search", "query": _BULLOCK_QUERY, "limit": 100},
+        status_code=200,
+        payload={"dockets": [_recap_docket()], "found": 2},
+    )
+    params: dict[str, Any] = {
+        "type": "r",
+        "q": _BULLOCK_QUERY,
+        "order_by": "score desc",
+        "page_size": 20,
+    }
+    courtlistener = _courtlistener(
+        RecordedCourtListenerResponse(
+            method="GET",
+            path="/search/",
+            params=params,
+            status_code=200,
+            payload={"results": [_courtlistener_recap_docket()], "next": None},
+        )
+    )
+
+    summary = resolve_opinion_recap_batch(
+        source_store_path=source,
+        source_batch_id="opinion-source",
+        journal_path=tmp_path / "resolver.sqlite3",
+        output_store_path=source,
+        output_batch_id="resolved-opinion-source",
+        case_dev_client=_case_dev(case_dev_response),
+        courtlistener_client=courtlistener,
+    )
+
+    assert summary.resolved == 1
+    assert courtlistener.request_count == 1
+    outcome = read_resolution_outcomes(tmp_path / "resolver.sqlite3")[0]
+    assert (
+        outcome["evidence"]["opinion_resolution_evidence"]["resolver"]["provider"]
+        == "courtlistener_rest"
+    )
+
+
+@pytest.mark.parametrize("found", (-1, True, "1", 0))
+def test_case_dev_malformed_or_contradictory_found_total_fails_closed(
+    tmp_path: Path,
+    found: object,
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    response = RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params={"type": "search", "query": _BULLOCK_QUERY, "limit": 100},
+        status_code=200,
+        payload={"dockets": [_recap_docket()], "found": found},
+    )
+
+    with pytest.raises(OpinionRecapResolutionError, match="found total"):
+        resolve_opinion_recap_batch(
+            source_store_path=source,
+            source_batch_id="opinion-source",
+            journal_path=tmp_path / "resolver.sqlite3",
+            output_store_path=source,
+            output_batch_id="resolved-opinion-source",
+            case_dev_client=_case_dev(response),
+            courtlistener_client=_courtlistener(),
+        )
+
+
+def test_case_dev_matching_found_total_proves_full_cursorless_page_complete(
+    tmp_path: Path,
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    dockets = [
+        _recap_docket(
+            str(70000000 + index),
+            docket_number=f"1:24-cv-{index:05d}",
+            case_name=f"Unrelated Case {index}",
+        )
+        for index in range(99)
+    ]
+    dockets.append(_recap_docket())
+    response = RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params={"type": "search", "query": _BULLOCK_QUERY, "limit": 100},
+        status_code=200,
+        payload={"dockets": dockets, "found": 100},
+    )
+    courtlistener = _courtlistener()
+
+    summary = resolve_opinion_recap_batch(
+        source_store_path=source,
+        source_batch_id="opinion-source",
+        journal_path=tmp_path / "resolver.sqlite3",
+        output_store_path=source,
+        output_batch_id="resolved-opinion-source",
+        case_dev_client=_case_dev(response),
+        courtlistener_client=courtlistener,
+    )
+
+    assert summary.resolved == 1
+    assert courtlistener.request_count == 0
+    outcome = read_resolution_outcomes(tmp_path / "resolver.sqlite3")[0]
+    assert (
+        outcome["evidence"]["opinion_resolution_evidence"]["resolver"]["provider"]
+        == "case.dev"
+    )
+
+
+def test_case_dev_duplicate_ids_across_pages_fail_closed(tmp_path: Path) -> None:
+    source = _source_store(tmp_path, _lead())
+    first = RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params={"type": "search", "query": _BULLOCK_QUERY, "limit": 100},
+        status_code=200,
+        payload={
+            "dockets": [_recap_docket()],
+            "found": 2,
+            "next_offset": 1,
+        },
+    )
+    second = RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params={
+            "type": "search",
+            "query": _BULLOCK_QUERY,
+            "offset": 1,
+            "limit": 100,
+        },
+        status_code=200,
+        payload={"dockets": [_recap_docket()], "found": 2},
+    )
+
+    with pytest.raises(OpinionRecapResolutionError, match="duplicate docket IDs"):
+        resolve_opinion_recap_batch(
+            source_store_path=source,
+            source_batch_id="opinion-source",
+            journal_path=tmp_path / "resolver.sqlite3",
+            output_store_path=source,
+            output_batch_id="resolved-opinion-source",
+            case_dev_client=_case_dev(first, second),
+            courtlistener_client=_courtlistener(),
+        )
+
+
+def test_case_dev_cursor_after_reported_total_fails_closed(tmp_path: Path) -> None:
+    source = _source_store(tmp_path, _lead())
+    response = RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params={"type": "search", "query": _BULLOCK_QUERY, "limit": 100},
+        status_code=200,
+        payload={
+            "dockets": [_recap_docket()],
+            "found": 1,
+            "next_offset": 1,
+        },
+    )
+
+    with pytest.raises(OpinionRecapResolutionError, match="continuation after"):
+        resolve_opinion_recap_batch(
+            source_store_path=source,
+            source_batch_id="opinion-source",
+            journal_path=tmp_path / "resolver.sqlite3",
+            output_store_path=source,
+            output_batch_id="resolved-opinion-source",
+            case_dev_client=_case_dev(response),
+            courtlistener_client=_courtlistener(),
+        )
+
+
+@pytest.mark.parametrize("control", ("\x7f", "\x9f", "\u200b"))
+def test_provider_query_rejects_unicode_control_and_format_characters(
+    tmp_path: Path,
+    control: str,
+) -> None:
+    source = _source_store(
+        tmp_path,
+        _lead(case_name=f"Alpha{control}Beta v. Gamma"),
+    )
+
+    with pytest.raises(OpinionRecapResolutionError, match="control characters"):
+        resolve_opinion_recap_batch(
+            source_store_path=source,
+            source_batch_id="opinion-source",
+            journal_path=tmp_path / "resolver.sqlite3",
+            output_store_path=source,
+            output_batch_id="resolved-opinion-source",
+            case_dev_client=_case_dev(),
+            courtlistener_client=_courtlistener(),
+        )
+
+
 def test_full_cursorless_case_dev_page_falls_back_to_proven_courtlistener_search(
     tmp_path: Path,
 ) -> None:
@@ -224,7 +459,7 @@ def test_full_cursorless_case_dev_page_falls_back_to_proven_courtlistener_search
     case_dev = _case_dev(_case_dev_response(*case_dev_dockets))
     params: dict[str, Any] = {
         "type": "r",
-        "q": "Bullock v. PHH Mortgage Services",
+        "q": _BULLOCK_QUERY,
         "order_by": "score desc",
         "page_size": 20,
     }
@@ -287,7 +522,7 @@ def test_courtlistener_fallback_rejects_generic_id_without_recap_docket_id(
     source = _source_store(tmp_path, _lead())
     params: dict[str, Any] = {
         "type": "r",
-        "q": "Bullock v. PHH Mortgage Services",
+        "q": _BULLOCK_QUERY,
         "order_by": "score desc",
         "page_size": 20,
     }
@@ -322,7 +557,7 @@ def test_courtlistener_fallback_omits_available_only_and_uses_similarity(
     source = _source_store(tmp_path, _lead(docket_number="UNKNOWN"))
     params: dict[str, Any] = {
         "type": "r",
-        "q": "Bullock v. PHH Mortgage Services",
+        "q": _BULLOCK_QUERY,
         "order_by": "score desc",
         "page_size": 20,
     }
@@ -364,7 +599,7 @@ def test_case_dev_server_error_is_journaled_then_falls_back_to_courtlistener(
         path="/legal/v1/docket",
         params={
             "type": "search",
-            "query": "Bullock v. PHH Mortgage Services",
+            "query": _BULLOCK_QUERY,
             "limit": 100,
         },
         status_code=502,
@@ -372,7 +607,7 @@ def test_case_dev_server_error_is_journaled_then_falls_back_to_courtlistener(
     )
     params: dict[str, Any] = {
         "type": "r",
-        "q": "Bullock v. PHH Mortgage Services",
+        "q": _BULLOCK_QUERY,
         "order_by": "score desc",
         "page_size": 20,
     }
@@ -554,7 +789,7 @@ def test_nonfallback_auth_failure_is_durable_and_resume_retries_unresolved_lead(
         path="/legal/v1/docket",
         params={
             "type": "search",
-            "query": "Bullock v. PHH Mortgage Services",
+            "query": _BULLOCK_QUERY,
             "limit": 100,
         },
         status_code=401,
