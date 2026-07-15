@@ -4277,7 +4277,7 @@ def _add_acquisition_purchase_missing_recap_fetch_arguments(
 ) -> None:
     _add_acquisition_common_arguments(parser)
     parser.add_argument("--budget-plan", type=Path, required=True)
-    parser.add_argument("--selection", type=Path)
+    parser.add_argument("--selection", type=Path, required=True)
     parser.add_argument("--purchase-output", type=Path)
     parser.add_argument("--purchase-policy", type=Path, required=True)
     parser.add_argument("--cohort-policy", type=Path, required=True)

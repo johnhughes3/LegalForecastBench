@@ -420,13 +420,18 @@ def require_resolved_post_recovery_parse_requests(
 ) -> None:
     """Bind parser requests to exact resolved records for unknown origins."""
 
+    requests = _index(request_records, "parse request")
     required = set(_unknown_selection(selection_records))
+    required.update(
+        key
+        for key, request in requests.items()
+        if request.get("recovery_origin") == UNKNOWN_RECOVERY_ORIGIN
+    )
     resolved = _index(resolved_records, "resolved post-recovery document")
     if set(resolved) != required:
         raise ResolvedPostRecoveryError(
             "resolved post-recovery parse coverage mismatch"
         )
-    requests = _index(request_records, "parse request")
     for key in required:
         record = resolved[key]
         request = requests.get(key)

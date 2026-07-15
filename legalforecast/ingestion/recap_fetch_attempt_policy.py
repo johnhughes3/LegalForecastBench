@@ -41,7 +41,6 @@ UNKNOWN_STATUS_EVIDENCE = [
 ]
 
 _DOCUMENT_ID = re.compile(r"[1-9][0-9]*")
-_SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
 class RecapFetchAttemptPolicyError(ValueError):

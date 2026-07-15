@@ -10,7 +10,6 @@ from typing import Any
 
 import legalforecast.cli as cli
 import pytest
-from legalforecast.cli import main
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
     generate_case_dev_purchase_policy,
@@ -249,11 +248,55 @@ def test_parse_request_must_bind_exact_resolved_record() -> None:
         )
 
 
+def test_parse_origin_requires_lineage_after_selection_normalizes() -> None:
+    inputs = _inputs()
+    records = build_resolved_post_recovery_documents(**inputs)
+    normalized_selection = deepcopy(inputs["selection_records"])
+    normalized_document = normalized_selection[0]["documents"][0]
+    normalized_document.update(
+        {
+            "redaction_or_seal_status": "public",
+            "is_sealed": False,
+            "is_private": False,
+        }
+    )
+    request = {
+        "candidate_id": "case-1",
+        "source_document_id": "123",
+        "recovery_origin": "unknown_status_attempt",
+        "expected_sha256": records[0]["content_sha256"],
+        "expected_byte_count": records[0]["byte_count"],
+        "resolved_post_recovery_sha256": records[0]["record_sha256"],
+    }
+
+    with pytest.raises(ResolvedPostRecoveryError, match="parse coverage mismatch"):
+        require_resolved_post_recovery_parse_requests(
+            selection_records=normalized_selection,
+            request_records=[request],
+            resolved_records=[],
+        )
+
+    require_resolved_post_recovery_parse_requests(
+        selection_records=normalized_selection,
+        request_records=[request],
+        resolved_records=records,
+    )
+
+    mismatched = deepcopy(request)
+    mismatched["resolved_post_recovery_sha256"] = "0" * 64
+    with pytest.raises(ResolvedPostRecoveryError, match="does not bind"):
+        require_resolved_post_recovery_parse_requests(
+            selection_records=normalized_selection,
+            request_records=[mismatched],
+            resolved_records=records,
+        )
+
+
 def test_resolve_post_recovery_cli_help_names_all_lineage_inputs(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     with pytest.raises(SystemExit) as exc:
-        main(["acquisition", "resolve-post-recovery-documents", "--help"])
+        cli.main(["acquisition", "resolve-post-recovery-documents", "--help"])
 
     assert exc.value.code == 0
     help_text = capsys.readouterr().out
@@ -279,7 +322,7 @@ def test_recap_fetch_quarantine_recovery_help_names_controlled_inputs(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     with pytest.raises(SystemExit) as exc:
-        main(["acquisition", "recover-recap-fetch-quarantine", "--help"])
+        cli.main(["acquisition", "recover-recap-fetch-quarantine", "--help"])
 
     assert exc.value.code == 0
     help_text = capsys.readouterr().out
@@ -434,7 +477,7 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         pass
     purchase_output_root = tmp_path / "purchase-output"
     assert (
-        main(
+        cli.main(
             [
                 "acquisition",
                 "purchase-missing-recap-fetch",
@@ -527,8 +570,8 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         str(tmp_path / "recovery-output"),
         "--execute",
     ]
-    assert main(recovery_command) == 0
-    assert main(recovery_command) == 0
+    assert cli.main(recovery_command) == 0
+    assert cli.main(recovery_command) == 0
     assert "courtlistener.com" not in paths["download_manifest"].read_text()
     assert "download_url" not in paths["download_manifest"].read_text()
     inputs["download_records"] = _read_records(paths["download_manifest"])
@@ -563,7 +606,7 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
     paths["review_receipt"].write_bytes(inputs["review_receipt_bytes"])
     clearance_root = tmp_path / "clearance-output"
     assert (
-        main(
+        cli.main(
             [
                 "acquisition",
                 "clear-disclosures",
@@ -589,7 +632,7 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
     assert _read_records(clearance_root / "disclosure-quarantine.jsonl") == []
     output_root = tmp_path / "output"
     assert (
-        main(
+        cli.main(
             [
                 "acquisition",
                 "plan-parse-documents",
@@ -615,7 +658,7 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
     _write_object(registry_path, {})
     raw_html_dir.mkdir()
     assert (
-        main(
+        cli.main(
             [
                 "acquisition",
                 "plan-packet-inputs",
@@ -654,8 +697,8 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         str(output_root),
         "--execute",
     ]
-    assert main(command) == 0
-    assert main(command) == 0
+    assert cli.main(command) == 0
+    assert cli.main(command) == 0
     resolved = _read_records(output_root / "resolved-post-recovery-documents.jsonl")
     assert len(resolved) == 1
     with CaseDevPurchaseJournal(ledger_path, policy=purchase_policy) as journal:
@@ -708,7 +751,16 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         str(downstream_root),
         "--execute",
     ]
-    assert main(plan_parse_command) == 0
+    assert cli.main(plan_parse_command) == 0
+    normalized_selection = _read_records(paths["selection"])
+    normalized_selection[0]["documents"][0].update(
+        {
+            "redaction_or_seal_status": "public",
+            "is_sealed": False,
+            "is_private": False,
+        }
+    )
+    _write_records(paths["selection"], normalized_selection)
     fixture_markdown = tmp_path / "fixture-markdown"
     fixture_markdown.mkdir()
     (fixture_markdown / "123.md").write_text("Public motion memorandum")
@@ -724,7 +776,7 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         str(downstream_root),
         "--execute",
     ]
-    assert main(parse_command) == 0
+    assert cli.main(parse_command) == 0
     parser_path = downstream_root / "mistral-markdown-conversions.jsonl"
     packet_command = [
         "acquisition",
@@ -745,7 +797,7 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         "--output-root",
         str(downstream_root),
     ]
-    assert main(packet_command) == 0
+    assert cli.main(packet_command) == 0
 
     with CaseDevPurchaseJournal(ledger_path, policy=purchase_policy) as journal:
         failed = deepcopy(receipt)
@@ -760,9 +812,9 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
             }
         )
         journal.record_broker_receipt("123", failed)
-    assert main(plan_parse_command) == 2
-    assert main(parse_command) == 2
-    assert main(packet_command) == 2
+    assert cli.main(plan_parse_command) == 2
+    assert cli.main(parse_command) == 2
+    assert cli.main(packet_command) == 2
 
 
 def _inputs() -> dict[str, Any]:

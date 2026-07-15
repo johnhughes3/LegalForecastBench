@@ -550,6 +550,34 @@ def test_cli_help_exposes_brokered_command(capsys: pytest.CaptureFixture[str]) -
     assert "--request-budget-max-wait-seconds" in output
 
 
+def test_brokered_purchase_cli_requires_selection_before_reading_inputs(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(
+            [
+                "acquisition",
+                "purchase-missing-recap-fetch",
+                "--output-root",
+                str(tmp_path),
+                "--budget-plan",
+                "missing-budget.json",
+                "--purchase-policy",
+                "missing-policy.json",
+                "--cohort-policy",
+                "missing-cohort.json",
+                "--purchase-ledger",
+                "missing-ledger.sqlite3",
+            ]
+        )
+
+    assert exc.value.code == 2
+    assert (
+        "the following arguments are required: --selection" in capsys.readouterr().err
+    )
+
+
 @pytest.mark.parametrize(
     ("queue_status", "expected_status", "expected_reason"),
     [
