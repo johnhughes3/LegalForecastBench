@@ -346,6 +346,7 @@ def _selection_document(
         "model_visible": model_visible,
         "contains_target_outcome": contains_target_outcome,
         "redaction_or_seal_status": "public",
+        "restriction_evidence": ["fixture-public-docket"],
     }
 
 

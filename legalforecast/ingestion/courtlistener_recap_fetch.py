@@ -775,7 +775,12 @@ def _verify_recap_document(payload: Mapping[str, Any], document_id: str) -> None
             f"RECAP document identity mismatch: expected {document_id}, got {actual}"
         )
     for field_name in ("is_sealed", "is_private"):
-        if payload.get(field_name) is True:
+        value = payload.get(field_name)
+        if value is not None and not isinstance(value, bool):
+            raise CourtListenerRecapFetchError(
+                f"provider reports malformed restriction field: {field_name}"
+            )
+        if value is True:
             raise CourtListenerRecapFetchError("provider reports restricted document")
 
 

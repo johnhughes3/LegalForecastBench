@@ -630,6 +630,8 @@ def test_recovery_never_mounts_post_decision_outcome_material(tmp_path) -> None:
     (
         {"redaction_or_seal_status": "sealed"},
         {"is_private": True},
+        {"is_sealed": "false"},
+        {"is_private": 0},
         {"availability_status": "restricted"},
     ),
 )

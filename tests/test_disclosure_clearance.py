@@ -113,6 +113,46 @@ def test_sealed_evidence_fails_closed_and_cleared_hash_is_recorded(
     assert cleared.sha256 == document["sha256"]
 
 
+@pytest.mark.parametrize("malformed_value", ("true", "false", 1, 0))
+def test_malformed_restriction_flags_cannot_be_cleared_as_public(
+    tmp_path: Path,
+    malformed_value: object,
+) -> None:
+    document = _document(tmp_path, _text_pdf(b"Public motion memorandum"))
+    public = _public_evidence()
+    public["is_sealed"] = malformed_value
+
+    [record] = build_clearance_records(
+        [document],
+        document_root=tmp_path,
+        reviews=[_review(document)],
+        review_authority=_authority(),
+        restriction_records=[public],
+    )
+
+    assert record.status == "quarantined"
+    assert "field_issealed_malformed" in record.automated_markers
+
+
+def test_null_restriction_flag_does_not_override_independent_public_evidence(
+    tmp_path: Path,
+) -> None:
+    document = _document(tmp_path, _text_pdf(b"Public motion memorandum"))
+    public = _public_evidence()
+    public["is_sealed"] = None
+
+    [record] = build_clearance_records(
+        [document],
+        document_root=tmp_path,
+        reviews=[_review(document)],
+        review_authority=_authority(),
+        restriction_records=[public],
+    )
+
+    assert record.status == "cleared"
+    assert "field_issealed" not in record.automated_markers
+
+
 def test_parse_gate_rejects_uncleared_and_tampered_documents(tmp_path: Path) -> None:
     document = _document(tmp_path, _text_pdf(b"Motion memorandum"))
     with pytest.raises(DisclosureClearanceError, match="coverage mismatch"):

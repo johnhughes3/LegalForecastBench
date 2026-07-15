@@ -2023,6 +2023,8 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
             "description": "Opposition",
             "model_visible": True,
             "contains_target_outcome": False,
+            "redaction_or_seal_status": "public",
+            "restriction_evidence": ["fixture_public_download_verified"],
         }
     )
     _write_jsonl(selection_path, [selection])
@@ -2500,6 +2502,8 @@ def _packet_selection_record() -> JsonRecord:
                 "description": "Complaint",
                 "model_visible": True,
                 "contains_target_outcome": False,
+                "redaction_or_seal_status": "public",
+                "restriction_evidence": ["fixture_public_download_verified"],
             },
             {
                 "candidate_id": "cand-1",
@@ -2510,6 +2514,8 @@ def _packet_selection_record() -> JsonRecord:
                 "description": "Memorandum",
                 "model_visible": True,
                 "contains_target_outcome": False,
+                "redaction_or_seal_status": "public",
+                "restriction_evidence": ["fixture_public_download_verified"],
             },
             {
                 "candidate_id": "cand-1",
@@ -2520,6 +2526,8 @@ def _packet_selection_record() -> JsonRecord:
                 "description": "Decision",
                 "model_visible": False,
                 "contains_target_outcome": True,
+                "redaction_or_seal_status": "public",
+                "restriction_evidence": ["fixture_public_download_verified"],
             },
         ],
     }
