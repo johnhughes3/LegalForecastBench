@@ -11867,6 +11867,7 @@ def _firecrawl_docket_html_audit(
         try:
             durable_summary.update(store.firecrawl_run_summary(run_id))
         except KeyError:
+            # Initialization can fail before the durable run row is created.
             pass
     executed = _firecrawl_metered_activity_executed(
         live=requested,
