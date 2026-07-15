@@ -131,6 +131,66 @@ def test_enrich_recap_case_dev_rejects_ambiguous_input_modes(tmp_path: Path) -> 
     )
 
 
+def test_enrich_recap_case_dev_rejects_fabricated_source_schema_from_dockets(
+    tmp_path: Path,
+) -> None:
+    dockets = tmp_path / "fabricated-source.jsonl"
+    fake_hash = "0" * 64
+    fake_hit = {
+        "provider_hit_id": "fake-opinion",
+        "query_term": '"motion to dismiss"',
+        "payload_sha256": fake_hash,
+    }
+    dockets.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.case_dev_recap_source_docket.v1",
+                "candidate_id": "courtlistener-docket-101",
+                "docket_id": "101",
+                "entry_keys": ["fake-opinion"],
+                "matched_terms": ['"motion to dismiss"'],
+                "eligibility_status": "potential_unverified",
+                "source_lineage": {
+                    "source_batch_id": "fabricated",
+                    "source_batch_digest": fake_hash,
+                    "source_cycle_hash": fake_hash,
+                    "source_search_type": "o",
+                    "source_candidate_set_sha256": fake_hash,
+                    "docket_id": "101",
+                    "lead_commitment": {
+                        "docket_id": "101",
+                        "source_hits": [fake_hit],
+                    },
+                    "source_hits": [fake_hit],
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    fixture = tmp_path / "case-dev.jsonl"
+    fixture.write_text(json.dumps(_case_dev_response("101")) + "\n")
+    output_root = tmp_path / "output"
+
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(output_root),
+                "--dockets",
+                str(dockets),
+                "--case-dev-fixture",
+                str(fixture),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert not (output_root / "checkpoints" / "case-dev-recap-progress.jsonl").exists()
+
+
 def test_enrich_recap_case_dev_ranks_free_lookups_without_fee_flags(
     tmp_path: Path,
 ) -> None:

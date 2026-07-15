@@ -16,6 +16,9 @@ from legalforecast.ingestion.case_dev_client import (
     CaseDevRateLimitError,
     CaseDevServerError,
 )
+from legalforecast.ingestion.case_dev_ranked_selection import (
+    CASE_DEV_SOURCE_DOCKET_SCHEMA,
+)
 from legalforecast.ingestion.case_dev_recap_enrichment import (
     CaseDevRecapEnrichment,
     CaseDevRecapEnrichmentError,
@@ -29,7 +32,6 @@ _DOCKET_ID = re.compile(r"[1-9][0-9]*")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _DOCKET_PATH = re.compile(r"^/docket/(?P<docket_id>[1-9][0-9]*)/[^/]+/$")
 _COURTLISTENER_HOST = "www.courtlistener.com"
-_SOURCE_DOCKET_SCHEMA = "legalforecast.case_dev_recap_source_docket.v1"
 
 
 class RecapDocketRecordError(ValueError):
@@ -157,11 +159,18 @@ def recap_discovered_docket_from_record(
 
 def case_dev_recap_lookup_target_from_record(
     record: Mapping[str, object],
+    *,
+    allow_source_bound: bool = False,
 ) -> RecapDiscoveredDocket | CaseDevRecapLookupTarget:
     """Convert legacy discovery or a source-bound exact-ID projection."""
 
-    if record.get("schema_version") != _SOURCE_DOCKET_SCHEMA:
+    if record.get("schema_version") != CASE_DEV_SOURCE_DOCKET_SCHEMA:
         return recap_discovered_docket_from_record(record)
+    if not allow_source_bound:
+        raise RecapDocketRecordError(
+            "source_schema_not_authorized",
+            "source-bound exact-ID records require a verified source projection",
+        )
     candidate_id = _required_string(record, "candidate_id", "candidate_id_invalid")
     docket_id = _required_string(record, "docket_id", "docket_id_invalid")
     if _DOCKET_ID.fullmatch(docket_id) is None:
@@ -300,6 +309,7 @@ def enrich_recap_discovery_batch(
     records: Iterable[Mapping[str, object]],
     page_size: int = 100,
     max_pages: int = 100,
+    allow_source_bound: bool = False,
 ) -> CaseDevRecapBatchResult:
     """Convert and enrich every record into exactly one terminal batch result."""
 
@@ -318,7 +328,10 @@ def enrich_recap_discovery_batch(
         candidate_id = _best_effort_string(record, "candidate_id")
         docket_id = _best_effort_string(record, "docket_id")
         try:
-            discovery = case_dev_recap_lookup_target_from_record(record)
+            discovery = case_dev_recap_lookup_target_from_record(
+                record,
+                allow_source_bound=allow_source_bound,
+            )
         except RecapDocketRecordError as error:
             failures.append(
                 CaseDevRecapBatchFailure(
