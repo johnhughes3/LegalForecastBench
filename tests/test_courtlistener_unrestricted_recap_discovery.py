@@ -48,7 +48,7 @@ def _params(term: str, *, cursor: str | None = None) -> dict[str, Any]:
         "q": (f"{term} AND entry_date_filed:[2026-06-30 TO 2026-07-15]"),
         "type": "r",
         "order_by": "score desc",
-        "page_size": 100,
+        "page_size": 20,
     }
     if cursor is not None:
         params["cursor"] = cursor
@@ -104,7 +104,8 @@ def test_terms_and_source_config_are_frozen_for_unavailable_recap_results() -> N
         "search_window_end": "2026-07-15",
         "order_by": "score desc",
         "available_only": "omitted",
-        "search_page_size": 100,
+        "search_page_size": 20,
+        "provider_page_size_is_fixed": True,
         "top_k_per_term": 5000,
         "auth_mode": "authenticated",
     }
@@ -131,7 +132,7 @@ def test_search_omits_available_only_and_preserves_exact_provider_result() -> No
         (_response(params=_params(term), payload={"results": [record], "next": None}),)
     )
 
-    page = source.fetch_page(term=term, cursor=None, page_size=100)
+    page = source.fetch_page(term=term, cursor=None, page_size=20)
 
     assert page.exhausted is True
     assert page.next_cursor is None
@@ -139,6 +140,26 @@ def test_search_omits_available_only_and_preserves_exact_provider_result() -> No
     assert page.hits[0].candidate_id == "71234567"
     assert page.hits[0].payload == record
     assert "available_only" not in _params(term)
+
+
+@pytest.mark.parametrize("page_size", [1, 19, 21, 100])
+def test_search_requires_observed_fixed_provider_page_size(page_size: int) -> None:
+    source = _source(())
+
+    with pytest.raises(ValueError, match="exactly 20"):
+        source.fetch_page(
+            term=UNRESTRICTED_RECAP_SEARCH_TERMS[0], cursor=None, page_size=page_size
+        )
+
+
+def test_config_requires_top_k_multiple_of_fixed_page_size() -> None:
+    with pytest.raises(ValueError, match="multiple"):
+        build_unrestricted_recap_batch_config(
+            search_window_start=date(2026, 6, 30),
+            search_window_end=date(2026, 7, 15),
+            auth_mode="authenticated",
+            top_k_per_term=21,
+        )
 
 
 def test_durable_run_resumes_after_committed_page_and_is_idempotent(
@@ -313,7 +334,7 @@ def test_pagination_fails_closed(payload: dict[str, Any], message: str) -> None:
     source = _source((_response(params=_params(term), payload=payload),))
 
     with pytest.raises(CourtListenerUnrestrictedRecapDiscoveryError, match=message):
-        source.fetch_page(term=term, cursor=None, page_size=100)
+        source.fetch_page(term=term, cursor=None, page_size=20)
 
 
 @pytest.mark.parametrize(
@@ -338,7 +359,7 @@ def test_malformed_docket_identity_fails_entire_page(record: dict[str, Any]) -> 
         CourtListenerUnrestrictedRecapDiscoveryError,
         match="positive ASCII integer docket_id",
     ):
-        source.fetch_page(term=term, cursor=None, page_size=100)
+        source.fetch_page(term=term, cursor=None, page_size=20)
 
 
 def test_config_rejects_inverted_window_and_datetime_bounds() -> None:

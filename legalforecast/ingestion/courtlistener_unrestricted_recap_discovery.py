@@ -37,7 +37,10 @@ UNRESTRICTED_RECAP_SEARCH_TERMS = (
 )
 UNRESTRICTED_RECAP_POLICY_SCHEMA = "legalforecast.courtlistener_unrestricted_recap.v1"
 UNRESTRICTED_RECAP_PROVIDER = "courtlistener"
-UNRESTRICTED_RECAP_PAGE_SIZE = 100
+# CourtListener's v4 legal-search endpoint enforces a fixed 20-result page for
+# ``type=r`` just as it does for ``type=o``.  Pin the observed provider contract
+# so durable progress and rate projections describe the physical request shape.
+UNRESTRICTED_RECAP_PAGE_SIZE = 20
 UNRESTRICTED_RECAP_TOP_K_PER_TERM = 5_000
 _SEARCH_ENDPOINT_PATH = "/api/rest/v4/search/"
 _SEARCH_ORIGIN_HOST = "www.courtlistener.com"
@@ -75,10 +78,18 @@ def build_unrestricted_recap_batch_config(
     terms = _validated_terms(query_terms)
     if auth_mode not in {"authenticated", "anonymous"}:
         raise ValueError("auth_mode must be 'authenticated' or 'anonymous'")
-    if page_size <= 0 or page_size > 100:
-        raise ValueError("page_size must be between 1 and 100")
+    if page_size != UNRESTRICTED_RECAP_PAGE_SIZE:
+        raise ValueError(
+            "page_size must match CourtListener's fixed unrestricted RECAP "
+            f"page size of {UNRESTRICTED_RECAP_PAGE_SIZE}"
+        )
     if top_k_per_term <= 0:
         raise ValueError("top_k_per_term must be positive")
+    if top_k_per_term % UNRESTRICTED_RECAP_PAGE_SIZE:
+        raise ValueError(
+            "top_k_per_term must be a multiple of CourtListener's fixed "
+            f"page size {UNRESTRICTED_RECAP_PAGE_SIZE}"
+        )
     return {
         "schema_version": UNRESTRICTED_RECAP_POLICY_SCHEMA,
         "provider": UNRESTRICTED_RECAP_PROVIDER,
@@ -92,6 +103,7 @@ def build_unrestricted_recap_batch_config(
         "order_by": "score desc",
         "available_only": "omitted",
         "search_page_size": page_size,
+        "provider_page_size_is_fixed": True,
         "top_k_per_term": top_k_per_term,
         "auth_mode": auth_mode,
     }
@@ -122,8 +134,11 @@ class CourtListenerUnrestrictedRecapDiscoverySource:
         normalized_term = term.strip()
         if not normalized_term:
             raise ValueError("term is required")
-        if page_size <= 0 or page_size > 100:
-            raise ValueError("page_size must be between 1 and 100")
+        if page_size != UNRESTRICTED_RECAP_PAGE_SIZE:
+            raise ValueError(
+                "CourtListener unrestricted RECAP search page_size must be "
+                f"exactly {UNRESTRICTED_RECAP_PAGE_SIZE}"
+            )
         if self.pacer is not None:
             self.pacer.wait()
         params: dict[str, Any] = {

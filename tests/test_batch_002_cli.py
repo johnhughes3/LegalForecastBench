@@ -83,7 +83,7 @@ def _unrestricted_recap_record(
             "q": (f"{term} AND entry_date_filed:[2026-06-30 TO 2026-07-15]"),
             "type": "r",
             "order_by": "score desc",
-            "page_size": 100,
+            "page_size": 20,
         },
         "status_code": 200,
         "payload": {"results": results, "next": None},
