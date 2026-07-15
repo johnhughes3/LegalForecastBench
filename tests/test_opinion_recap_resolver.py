@@ -422,7 +422,7 @@ def test_case_dev_cursor_after_reported_total_fails_closed(tmp_path: Path) -> No
 
 
 @pytest.mark.parametrize("control", ("\x7f", "\x9f", "\u200b"))
-def test_provider_query_rejects_unicode_control_and_format_characters(
+def test_provider_query_excludes_unicode_control_and_format_characters(
     tmp_path: Path,
     control: str,
 ) -> None:
@@ -431,16 +431,58 @@ def test_provider_query_rejects_unicode_control_and_format_characters(
         _lead(case_name=f"Alpha{control}Beta v. Gamma"),
     )
 
-    with pytest.raises(OpinionRecapResolutionError, match="control characters"):
-        resolve_opinion_recap_batch(
-            source_store_path=source,
-            source_batch_id="opinion-source",
-            journal_path=tmp_path / "resolver.sqlite3",
-            output_store_path=source,
-            output_batch_id="resolved-opinion-source",
-            case_dev_client=_case_dev(),
-            courtlistener_client=_courtlistener(),
-        )
+    summary = resolve_opinion_recap_batch(
+        source_store_path=source,
+        source_batch_id="opinion-source",
+        journal_path=tmp_path / "resolver.sqlite3",
+        output_store_path=source,
+        output_batch_id="resolved-opinion-source",
+        case_dev_client=_case_dev(),
+        courtlistener_client=_courtlistener(),
+    )
+
+    assert summary.excluded == 1
+    outcome = read_resolution_outcomes(tmp_path / "resolver.sqlite3")[0]
+    assert outcome["reason_code"] == "source_query_unrepresentable"
+    assert outcome["evidence"]["query_error"] == "control_or_format_character"
+
+
+def test_unrepresentable_caption_is_excluded_and_next_lead_resolves(
+    tmp_path: Path,
+) -> None:
+    source = _source_store(
+        tmp_path,
+        _lead(case_name="A" * 501),
+        _lead(opinion_docket_id="73614336", cluster_id="10927692"),
+    )
+    case_dev = _case_dev(_case_dev_response(_recap_docket()))
+    courtlistener = _courtlistener()
+
+    summary = resolve_opinion_recap_batch(
+        source_store_path=source,
+        source_batch_id="opinion-source",
+        journal_path=tmp_path / "resolver.sqlite3",
+        output_store_path=source,
+        output_batch_id="resolved-opinion-source",
+        case_dev_client=case_dev,
+        courtlistener_client=courtlistener,
+    )
+
+    assert summary.excluded == 1
+    assert summary.resolved == 1
+    assert case_dev.request_count == 1
+    assert courtlistener.request_count == 0
+    outcomes = read_resolution_outcomes(tmp_path / "resolver.sqlite3")
+    assert [outcome["reason_code"] for outcome in outcomes] == [
+        "source_query_unrepresentable",
+        "strict_recap_identity_resolved",
+    ]
+    assert outcomes[0]["evidence"] == {
+        "case_name_length": 501,
+        "court_id": "dcd",
+        "docket_number": "1:25-cv-03820",
+        "query_error": "query_length_out_of_range",
+    }
 
 
 def test_full_cursorless_case_dev_page_falls_back_to_proven_courtlistener_search(

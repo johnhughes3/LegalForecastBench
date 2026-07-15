@@ -62,6 +62,14 @@ class _CaseDevPaginationExhaustionUnproven(RuntimeError):
     """Signal that a full Case.dev page cannot support a uniqueness claim."""
 
 
+class _UnrepresentableSourceQuery(OpinionRecapResolutionError):
+    """Signal that a frozen source caption cannot safely be sent as a query."""
+
+    def __init__(self, message: str, *, evidence_code: str) -> None:
+        super().__init__(message)
+        self.evidence_code = evidence_code
+
+
 @dataclass(frozen=True, slots=True)
 class OpinionRecapResolutionSummary:
     source_batch_id: str
@@ -386,6 +394,7 @@ def resolve_opinion_recap_batch(
         "case_dev_search_live_pacer": False,
         "case_dev_server_error_fallback": "courtlistener_rest",
         "provider_query_contract": "quoted_exact_case_name_v1",
+        "unrepresentable_source_query_action": "terminal_exclusion_v1",
         "courtlistener_search_type": "r",
         "courtlistener_available_only": "omitted",
         "case_dev_page_size": _CASE_DEV_PAGE_SIZE,
@@ -491,7 +500,22 @@ def _resolve_one_lead(
             evidence={"court_id": lead.court_id, "case_name": lead.case_name},
         )
         return
-    query = _quoted_case_name_query(lead.case_name)
+    try:
+        query = _quoted_case_name_query(lead.case_name)
+    except _UnrepresentableSourceQuery as exc:
+        journal.commit_outcome(
+            source_candidate_id=lead.docket_id,
+            ordinal=ordinal,
+            state="excluded",
+            reason_code="source_query_unrepresentable",
+            evidence={
+                "court_id": lead.court_id,
+                "docket_number": lead.docket_number,
+                "case_name_length": len(lead.case_name),
+                "query_error": exc.evidence_code,
+            },
+        )
+        return
     if case_dev_client is not None:
         try:
             results = _case_dev_results(
@@ -1133,14 +1157,16 @@ def _normalize_identifier(value: str | None) -> str:
 
 def _quoted_case_name_query(case_name: str) -> str:
     if any(unicodedata.category(character).startswith("C") for character in case_name):
-        raise OpinionRecapResolutionError(
-            "opinion lead case name contains control characters"
+        raise _UnrepresentableSourceQuery(
+            "opinion lead case name contains control or format characters",
+            evidence_code="control_or_format_character",
         )
     phrase = " ".join(re.sub(r'["\\]+', " ", case_name).split())
     query = f'"{phrase}"'
     if len(phrase) < 2 or len(query) > 500:
-        raise OpinionRecapResolutionError(
-            "opinion lead case name cannot form a valid exact-phrase query"
+        raise _UnrepresentableSourceQuery(
+            "opinion lead case name cannot form a valid exact-phrase query",
+            evidence_code="query_length_out_of_range",
         )
     return query
 
