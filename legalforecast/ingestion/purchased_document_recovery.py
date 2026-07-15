@@ -1278,8 +1278,12 @@ def _require_public_recoverable_document(
         records.append(cast(Mapping[str, Any], provenance))
     restricted = False
     for record in records:
-        if record.get("is_sealed") is True or record.get("is_private") is True:
-            restricted = True
+        for field_name in ("is_sealed", "is_private", "is_restricted"):
+            value = record.get(field_name)
+            if value is not None and not isinstance(value, bool):
+                restricted = True
+            elif value is True:
+                restricted = True
         availability = _optional_str(record, "availability_status")
         if availability in {"restricted", "private", "sealed"}:
             restricted = True

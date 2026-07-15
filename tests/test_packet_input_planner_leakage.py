@@ -10,9 +10,89 @@ from legalforecast.ingestion.packet_input_planner import (
     PacketInputPlanningError,
     _docket_entries,
     _docket_screen_with_first_disposition_anchor,
+    _redaction_or_seal_status,
     plan_packet_build_inputs,
 )
 from legalforecast.unitization.review import canonical_records_sha256
+
+
+@pytest.mark.parametrize(
+    ("document", "download", "expected"),
+    (
+        (
+            {
+                "redaction_or_seal_status": "public",
+                "restriction_evidence": ["courtlistener_public_bytes_verified"],
+                "is_sealed": False,
+                "is_private": False,
+            },
+            {},
+            "public",
+        ),
+        (
+            {
+                "redaction_or_seal_status": "public",
+                "restriction_evidence": ["courtlistener_public_bytes_verified"],
+                "is_sealed": None,
+                "is_private": None,
+            },
+            {},
+            "public",
+        ),
+        (
+            {
+                "redaction_or_seal_status": "unknown",
+                "restriction_evidence": ["courtlistener_metadata_missing"],
+                "is_sealed": None,
+            },
+            {},
+            "unknown",
+        ),
+        ({"redaction_or_seal_status": "public"}, {}, "unknown"),
+        ({}, {}, "unknown"),
+        (
+            {
+                "redaction_or_seal_status": "public",
+                "restriction_evidence": ["courtlistener_public_bytes_verified"],
+                "is_sealed": "true",
+            },
+            {},
+            "restricted",
+        ),
+        (
+            {
+                "redaction_or_seal_status": "public",
+                "restriction_evidence": ["courtlistener_public_bytes_verified"],
+                "is_private": "false",
+            },
+            {},
+            "restricted",
+        ),
+        (
+            {
+                "redaction_or_seal_status": "public",
+                "restriction_evidence": ["courtlistener_public_bytes_verified"],
+                "is_sealed": 1,
+            },
+            {},
+            "restricted",
+        ),
+        (
+            {
+                "redaction_or_seal_status": "restricted",
+                "restriction_evidence": ["provider_restricted"],
+            },
+            {},
+            "restricted",
+        ),
+    ),
+)
+def test_packet_restriction_status_requires_public_evidence_and_typed_flags(
+    document: dict[str, object],
+    download: dict[str, object],
+    expected: str,
+) -> None:
+    assert _redaction_or_seal_status(document, download) == expected
 
 
 def test_packet_time_leakage_screen_excludes_adversarial_docket_entries() -> None:
@@ -467,6 +547,8 @@ def _selection_document(
         "description": source_document_id,
         "model_visible": model_visible,
         "contains_target_outcome": not model_visible,
+        "redaction_or_seal_status": "public",
+        "restriction_evidence": ["fixture_public_download_verified"],
     }
 
 

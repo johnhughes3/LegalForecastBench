@@ -50,8 +50,11 @@ def restricted_material_markers(
     for record in records:
         for key, value in record.items():
             normalized_key = _identifier(str(key))
-            if normalized_key in _BOOLEAN_RESTRICTION_FIELDS and value is True:
-                markers.add(f"field_{normalized_key}")
+            if normalized_key in _BOOLEAN_RESTRICTION_FIELDS:
+                if value is True:
+                    markers.add(f"field_{normalized_key}")
+                elif value is not None and value is not False:
+                    markers.add(f"field_{normalized_key}_malformed")
                 continue
             if normalized_key not in _STATUS_FIELDS or value is None:
                 continue

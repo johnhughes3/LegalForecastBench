@@ -677,10 +677,16 @@ def _redaction_or_seal_status(
 ) -> str:
     statuses: list[str] = []
     for record in (document, download):
-        if record.get("is_sealed") is True:
-            statuses.append("sealed")
-        if record.get("is_private") is True:
-            statuses.append("private")
+        for field_name, restricted_status in (
+            ("is_sealed", "sealed"),
+            ("is_private", "private"),
+            ("is_restricted", "restricted"),
+        ):
+            value = record.get(field_name)
+            if value is not None and not isinstance(value, bool):
+                return "restricted"
+            if value is True:
+                statuses.append(restricted_status)
         availability_status = _optional_str(record, "availability_status")
         if availability_status is not None and availability_status.strip().lower() in {
             "private",
@@ -699,7 +705,27 @@ def _redaction_or_seal_status(
     for status in statuses:
         if status not in {"public", "redacted"}:
             return status
+    if not _has_restriction_evidence(document, download):
+        return "unknown"
+    if not any(status in {"public", "redacted"} for status in statuses):
+        return "unknown"
     return "redacted" if "redacted" in statuses else "public"
+
+
+def _has_restriction_evidence(*records: Mapping[str, Any]) -> bool:
+    for record in records:
+        value = record.get("restriction_evidence")
+        if isinstance(value, str):
+            if value.strip():
+                return True
+            continue
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+            if any(
+                isinstance(item, str) and bool(item.strip())
+                for item in cast(Sequence[object], value)
+            ):
+                return True
+    return False
 
 
 def _packet_section(role: DocumentRole, contains_target_outcome: bool) -> str:

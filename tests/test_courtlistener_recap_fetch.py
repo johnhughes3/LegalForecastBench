@@ -23,6 +23,7 @@ from legalforecast.ingestion.courtlistener_recap_fetch import (
     FixtureRecapFetchTransport,
     RecapFetchHTTPResponse,
     RecordedRecapFetchResponse,
+    _verify_recap_document,
 )
 from legalforecast.ingestion.courtlistener_request_budget import (
     CourtListenerRequestBudget,
@@ -32,6 +33,33 @@ from legalforecast.ingestion.missing_core_budget import (
     MissingCoreBudgetPlan,
 )
 from legalforecast.ingestion.recap_fetch_broker import BrokerDefiniteRejection
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    (
+        ("is_sealed", "true"),
+        ("is_sealed", "false"),
+        ("is_private", 1),
+        ("is_private", 0),
+    ),
+)
+def test_purchased_recap_metadata_rejects_malformed_restriction_flags(
+    field_name: str,
+    value: object,
+) -> None:
+    with pytest.raises(CourtListenerRecapFetchError, match="malformed restriction"):
+        _verify_recap_document({"id": 123, field_name: value}, "123")
+
+
+@pytest.mark.parametrize("value", (None, False))
+def test_purchased_recap_metadata_accepts_null_or_false_restriction_flags(
+    value: bool | None,
+) -> None:
+    _verify_recap_document(
+        {"id": 123, "is_sealed": value, "is_private": value},
+        "123",
+    )
 
 
 def test_purchase_verifies_id_then_submits_exact_broker_contract_and_recovers(
