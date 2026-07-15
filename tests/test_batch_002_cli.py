@@ -676,3 +676,181 @@ def test_cli_seed_requires_attached_batch(tmp_path: Path) -> None:
         )
         == 2
     )
+
+
+# ---------------------------------------------------------------------------
+# seed-direct-search.
+# ---------------------------------------------------------------------------
+
+
+_DIRECT_SEARCH_SOURCE_BATCH_ID = "direct-search-source"
+_DIRECT_SEARCH_TARGET_BATCH_ID = "direct-search-rest-screen"
+
+
+def _build_direct_search_store(path: Path, *, exhausted: bool = True) -> None:
+    """Create the smallest realistic direct CourtListener search source."""
+
+    with CycleAcquisitionStore(path) as store:
+        store.ensure_cycle(
+            {
+                "schema_version": "legalforecast.cycle_acquisition_policy.v1",
+                "eligibility_anchor": "2026-06-30",
+            }
+        )
+        term = "motion to dismiss"
+        store.ensure_batch(
+            _DIRECT_SEARCH_SOURCE_BATCH_ID,
+            {
+                "provider": "courtlistener",
+                "query_terms": [term],
+                "search_window_start": "2026-06-30",
+                "search_window_end": "2026-07-15",
+            },
+        )
+        store.ensure_terms(_DIRECT_SEARCH_SOURCE_BATCH_ID, (term,))
+        store.commit_search_page(
+            _DIRECT_SEARCH_SOURCE_BATCH_ID,
+            term,
+            None,
+            [
+                {
+                    "provider_hit_id": "search-hit-555",
+                    "candidate_id": "555",
+                    "payload": {
+                        "docket_id": "555",
+                        "court_id": "nysd",
+                        "docket_number": "1:26-cv-00001",
+                        "case_name": "Acme Corp v. Roe",
+                        "recap_documents": [
+                            {
+                                "id": 9001,
+                                "docket_entry_id": 7001,
+                                "entry_number": 40,
+                                "document_number": "40",
+                                "description": "Order granting motion to dismiss",
+                                "entry_date_filed": "2026-07-05",
+                            }
+                        ],
+                    },
+                },
+                {
+                    "provider_hit_id": "search-hit-777",
+                    "candidate_id": "777",
+                    "payload": {
+                        "docket_id": "777",
+                        "court_id": "cand",
+                        "docket_number": "3:26-cv-00002",
+                        "case_name": "Example LLC v. Smith",
+                    },
+                },
+            ],
+            next_cursor=None,
+            terminal_status="exhausted" if exhausted else "limit_bound",
+        )
+
+
+def _direct_seed_args(store: Path) -> list[str]:
+    return [
+        "batch-002",
+        "seed-direct-search",
+        "--source-store",
+        str(store),
+        "--source-batch-id",
+        _DIRECT_SEARCH_SOURCE_BATCH_ID,
+        "--cycle-store",
+        str(store),
+        "--batch-id",
+        _DIRECT_SEARCH_TARGET_BATCH_ID,
+    ]
+
+
+@pytest.mark.parametrize(
+    "missing_flag",
+    ("--source-store", "--source-batch-id", "--cycle-store", "--batch-id"),
+)
+def test_cli_direct_seed_requires_source_and_target_identity_flags(
+    tmp_path: Path, missing_flag: str
+) -> None:
+    args = _direct_seed_args(tmp_path / "unused.sqlite3")
+    index = args.index(missing_flag)
+    del args[index : index + 2]
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(args)
+
+    assert exc_info.value.code == 2
+
+
+def test_cli_direct_seed_same_store_is_idempotent_and_writes_summary(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    summary_path = tmp_path / "direct-seed-summary.json"
+    _build_direct_search_store(store_path)
+    args = [*_direct_seed_args(store_path), "--summary-output", str(summary_path)]
+
+    assert main(args) == 0
+    first = json.loads(capsys.readouterr().out)
+    assert first["batch_id"] == _DIRECT_SEARCH_TARGET_BATCH_ID
+    assert first["source_batch_id"] == _DIRECT_SEARCH_SOURCE_BATCH_ID
+    assert first["leads_selected"] == 2
+    assert first["leads_seeded"] == 2
+    assert first["already_seeded"] is False
+    assert json.loads(summary_path.read_text(encoding="utf-8")) == first
+    with CycleAcquisitionStore(store_path) as store:
+        target_config = store.batch_config(_DIRECT_SEARCH_TARGET_BATCH_ID)
+        assert target_config["page_size"] == 100
+        assert (
+            store.term_progress(
+                _DIRECT_SEARCH_TARGET_BATCH_ID,
+                "courtlistener-direct-search-transfer-v1",
+            ).terminal_status
+            == "exhausted"
+        )
+        assert store.candidate_ids(_DIRECT_SEARCH_TARGET_BATCH_ID) == (
+            "courtlistener-docket-555",
+            "courtlistener-docket-777",
+        )
+
+    assert main(args) == 0
+    second = json.loads(capsys.readouterr().out)
+    assert second["leads_selected"] == 2
+    assert second["leads_seeded"] == 0
+    assert second["already_seeded"] is True
+    assert json.loads(summary_path.read_text(encoding="utf-8")) == second
+
+
+def test_cli_direct_seed_rejects_incomplete_source(tmp_path: Path) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    _build_direct_search_store(store_path, exhausted=False)
+
+    assert main(_direct_seed_args(store_path)) == 2
+
+
+def test_cli_direct_seed_rejects_same_source_and_target_batch(tmp_path: Path) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    _build_direct_search_store(store_path)
+    args = _direct_seed_args(store_path)
+    args[args.index("--batch-id") + 1] = _DIRECT_SEARCH_SOURCE_BATCH_ID
+
+    assert main(args) == 2
+
+
+def test_cli_batch_002_live_help_distinguishes_discover_and_observe(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as discover_exit:
+        main(["batch-002", "discover", "--help"])
+    assert discover_exit.value.code == 0
+    discover_help = capsys.readouterr().out
+    assert "Disabled for discovery" in discover_help
+    assert "seed-direct-search" in discover_help
+
+    with pytest.raises(SystemExit) as observe_exit:
+        main(["batch-002", "observe", "--help"])
+    assert observe_exit.value.code == 0
+    observe_help = capsys.readouterr().out
+    normalized_observe_help = " ".join(observe_help.split())
+    assert "authenticated CourtListener REST" in normalized_observe_help
+    assert "COURTLISTENER_API_TOKEN" in observe_help
+    assert "Disabled for discovery" not in observe_help
