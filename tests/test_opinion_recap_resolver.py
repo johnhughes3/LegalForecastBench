@@ -11,9 +11,9 @@ from typing import Any
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.case_dev_client import (
+    CaseDevAuthError,
     CaseDevClient,
     CaseDevFixtureTransport,
-    CaseDevServerError,
     RecordedCaseDevResponse,
 )
 from legalforecast.ingestion.case_dev_config import CaseDevConfig
@@ -355,6 +355,66 @@ def test_courtlistener_fallback_omits_available_only_and_uses_similarity(
     assert "available_only" not in params
 
 
+def test_case_dev_server_error_is_journaled_then_falls_back_to_courtlistener(
+    tmp_path: Path,
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    failed = RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params={
+            "type": "search",
+            "query": "Bullock v. PHH Mortgage Services",
+            "limit": 100,
+        },
+        status_code=502,
+        payload={"message": "Docket provider is unavailable"},
+    )
+    params: dict[str, Any] = {
+        "type": "r",
+        "q": "Bullock v. PHH Mortgage Services",
+        "order_by": "score desc",
+        "page_size": 20,
+    }
+    courtlistener = _courtlistener(
+        RecordedCourtListenerResponse(
+            method="GET",
+            path="/search/",
+            params=params,
+            status_code=200,
+            payload={"results": [_courtlistener_recap_docket()], "next": None},
+        )
+    )
+
+    summary = resolve_opinion_recap_batch(
+        source_store_path=source,
+        source_batch_id="opinion-source",
+        journal_path=tmp_path / "resolver.sqlite3",
+        output_store_path=source,
+        output_batch_id="resolved-opinion-source",
+        case_dev_client=_case_dev(failed),
+        courtlistener_client=courtlistener,
+    )
+
+    assert summary.resolved == 1
+    connection = sqlite3.connect(tmp_path / "resolver.sqlite3")
+    try:
+        assert connection.execute(
+            "SELECT provider, state, error_type FROM request_attempts "
+            "ORDER BY attempt_id"
+        ).fetchall() == [
+            ("case.dev", "failed", "CaseDevServerError"),
+            ("courtlistener_rest", "succeeded", None),
+        ]
+    finally:
+        connection.close()
+    outcome = read_resolution_outcomes(tmp_path / "resolver.sqlite3")[0]
+    assert (
+        outcome["evidence"]["opinion_resolution_evidence"]["resolver"]["provider"]
+        == "courtlistener_rest"
+    )
+
+
 def test_prior_candidate_is_deferred_after_free_mapping_and_not_emitted(
     tmp_path: Path,
 ) -> None:
@@ -485,7 +545,7 @@ def test_response_commitment_is_canonical_and_outcome_resume_is_zero_request(
     )
 
 
-def test_failed_request_is_durable_and_resume_retries_only_unresolved_lead(
+def test_nonfallback_auth_failure_is_durable_and_resume_retries_unresolved_lead(
     tmp_path: Path,
 ) -> None:
     source = _source_store(tmp_path, _lead())
@@ -497,8 +557,8 @@ def test_failed_request_is_durable_and_resume_retries_only_unresolved_lead(
             "query": "Bullock v. PHH Mortgage Services",
             "limit": 100,
         },
-        status_code=503,
-        payload={"error": "temporary provider failure"},
+        status_code=401,
+        payload={"error": "invalid API key"},
     )
     kwargs = {
         "source_store_path": source,
@@ -509,7 +569,7 @@ def test_failed_request_is_durable_and_resume_retries_only_unresolved_lead(
         "courtlistener_client": _courtlistener(),
     }
 
-    with pytest.raises(CaseDevServerError, match="temporary provider failure"):
+    with pytest.raises(CaseDevAuthError, match="invalid API key"):
         resolve_opinion_recap_batch(
             **kwargs,
             case_dev_client=_case_dev(failed),
@@ -519,7 +579,7 @@ def test_failed_request_is_durable_and_resume_retries_only_unresolved_lead(
     try:
         assert connection.execute(
             "SELECT state, error_type FROM request_attempts"
-        ).fetchone() == ("failed", "CaseDevServerError")
+        ).fetchone() == ("failed", "CaseDevAuthError")
     finally:
         connection.close()
 

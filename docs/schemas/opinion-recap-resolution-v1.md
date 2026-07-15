@@ -6,6 +6,8 @@ The resolver uses ordinary noncharging Case.dev docket search first when configu
 
 A full Case.dev page without an explicit continuation cursor does not prove exhaustion and is never used to certify a unique match; the resolver falls through to CourtListener's explicit pagination contract.
 
+A journaled Case.dev server/provider-availability failure also falls through to CourtListener. Authentication, configuration, malformed-response, and identity errors remain hard failures and never silently consume CourtListener quota.
+
 Every logical request is written to the resolver SQLite journal before dispatch, every terminal lead becomes exactly one `resolved`, `deferred`, or `excluded` journal outcome, and reruns skip terminal leads.
 
 CourtListener's separately metered physical attempts remain governed by the shared durable request-budget ledger.
