@@ -26,7 +26,11 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Literal, cast
 
-from legalforecast.ingestion.case_dev_client import CaseDevClient, CaseDevDocketHit
+from legalforecast.ingestion.case_dev_client import (
+    CaseDevClient,
+    CaseDevDocketHit,
+    CaseDevServerError,
+)
 from legalforecast.ingestion.courtlistener_client import CourtListenerClient
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, TermTerminalStatus
@@ -380,6 +384,7 @@ def resolve_opinion_recap_batch(
             else ["courtlistener_rest"]
         ),
         "case_dev_search_live_pacer": False,
+        "case_dev_server_error_fallback": "courtlistener_rest",
         "courtlistener_search_type": "r",
         "courtlistener_available_only": "omitted",
         "case_dev_page_size": _CASE_DEV_PAGE_SIZE,
@@ -494,10 +499,12 @@ def _resolve_one_lead(
                 client=case_dev_client,
                 max_pages=max_pages,
             )
-        except _CaseDevPaginationExhaustionUnproven:
+        except (_CaseDevPaginationExhaustionUnproven, CaseDevServerError):
             # Case.dev sometimes returns a full page without a continuation field.
             # That response is useful as a lead but cannot prove there was only one
-            # matching docket, so rely on CourtListener's explicit pagination.
+            # matching docket. Query-specific upstream 5xx failures are likewise
+            # not identity evidence. In either case, rely on CourtListener's
+            # explicit pagination rather than aborting the remaining frozen leads.
             pass
         else:
             match = _strict_match(
