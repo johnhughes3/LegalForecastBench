@@ -609,9 +609,12 @@ def _case_dev_results(
                 "Case.dev resolver found total is below returned row count"
             )
         if page.next_cursor is None:
-            if len(page.items) >= _CASE_DEV_PAGE_SIZE or (
-                reported_found is not None and reported_found > returned_count
-            ):
+            exhaustion_unproven = (
+                len(page.items) >= _CASE_DEV_PAGE_SIZE
+                if reported_found is None
+                else reported_found > returned_count
+            )
+            if exhaustion_unproven:
                 raise _CaseDevPaginationExhaustionUnproven(
                     "Case.dev resolver pagination exhaustion is unproven"
                 )

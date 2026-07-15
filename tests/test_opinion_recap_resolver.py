@@ -316,6 +316,47 @@ def test_case_dev_malformed_or_contradictory_found_total_fails_closed(
         )
 
 
+def test_case_dev_matching_found_total_proves_full_cursorless_page_complete(
+    tmp_path: Path,
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    dockets = [
+        _recap_docket(
+            str(70000000 + index),
+            docket_number=f"1:24-cv-{index:05d}",
+            case_name=f"Unrelated Case {index}",
+        )
+        for index in range(99)
+    ]
+    dockets.append(_recap_docket())
+    response = RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params={"type": "search", "query": _BULLOCK_QUERY, "limit": 100},
+        status_code=200,
+        payload={"dockets": dockets, "found": 100},
+    )
+    courtlistener = _courtlistener()
+
+    summary = resolve_opinion_recap_batch(
+        source_store_path=source,
+        source_batch_id="opinion-source",
+        journal_path=tmp_path / "resolver.sqlite3",
+        output_store_path=source,
+        output_batch_id="resolved-opinion-source",
+        case_dev_client=_case_dev(response),
+        courtlistener_client=courtlistener,
+    )
+
+    assert summary.resolved == 1
+    assert courtlistener.request_count == 0
+    outcome = read_resolution_outcomes(tmp_path / "resolver.sqlite3")[0]
+    assert (
+        outcome["evidence"]["opinion_resolution_evidence"]["resolver"]["provider"]
+        == "case.dev"
+    )
+
+
 def test_full_cursorless_case_dev_page_falls_back_to_proven_courtlistener_search(
     tmp_path: Path,
 ) -> None:
