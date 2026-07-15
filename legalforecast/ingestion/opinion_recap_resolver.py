@@ -385,6 +385,7 @@ def resolve_opinion_recap_batch(
         ),
         "case_dev_search_live_pacer": False,
         "case_dev_server_error_fallback": "courtlistener_rest",
+        "provider_query_contract": "quoted_exact_case_name_v1",
         "courtlistener_search_type": "r",
         "courtlistener_available_only": "omitted",
         "case_dev_page_size": _CASE_DEV_PAGE_SIZE,
@@ -490,12 +491,13 @@ def _resolve_one_lead(
             evidence={"court_id": lead.court_id, "case_name": lead.case_name},
         )
         return
+    query = _quoted_case_name_query(lead.case_name)
     if case_dev_client is not None:
         try:
             results = _case_dev_results(
                 journal,
                 source_candidate_id=lead.docket_id,
-                query=lead.case_name,
+                query=query,
                 client=case_dev_client,
                 max_pages=max_pages,
             )
@@ -530,7 +532,7 @@ def _resolve_one_lead(
     results = _courtlistener_results(
         journal,
         source_candidate_id=lead.docket_id,
-        query=lead.case_name,
+        query=query,
         client=courtlistener_client,
         max_pages=max_pages,
     )
@@ -565,6 +567,8 @@ def _case_dev_results(
     candidates: list[_ProviderCandidate] = []
     payloads: list[Mapping[str, Any]] = []
     cursor: str | None = None
+    returned_count = 0
+    reported_found: int | None = None
     for _page_index in range(max_pages):
         request: dict[str, object] = {
             "method": "POST",
@@ -592,10 +596,24 @@ def _case_dev_results(
         journal.finish_request(attempt, response_sha256=page_sha256)
         payloads.append(page.raw)
         candidates.extend(_candidate_from_case_dev(hit) for hit in page.items)
+        returned_count += len(page.items)
+        page_found = _case_dev_reported_found(page.raw)
+        if page_found is not None:
+            if reported_found is not None and page_found != reported_found:
+                raise OpinionRecapResolutionError(
+                    "Case.dev resolver found total changed across pages"
+                )
+            reported_found = page_found
+        if reported_found is not None and reported_found < returned_count:
+            raise OpinionRecapResolutionError(
+                "Case.dev resolver found total is below returned row count"
+            )
         if page.next_cursor is None:
-            if len(page.items) >= _CASE_DEV_PAGE_SIZE:
+            if len(page.items) >= _CASE_DEV_PAGE_SIZE or (
+                reported_found is not None and reported_found > returned_count
+            ):
                 raise _CaseDevPaginationExhaustionUnproven(
-                    "Case.dev returned a full cursorless resolver page"
+                    "Case.dev resolver pagination exhaustion is unproven"
                 )
             break
         cursor = page.next_cursor
@@ -1090,6 +1108,31 @@ def _normalize_identifier(value: str | None) -> str:
         for character in unicodedata.normalize("NFKC", value).casefold()
         if character.isalnum()
     )
+
+
+def _quoted_case_name_query(case_name: str) -> str:
+    if any(ord(character) < 32 for character in case_name):
+        raise OpinionRecapResolutionError(
+            "opinion lead case name contains control characters"
+        )
+    phrase = " ".join(re.sub(r'["\\]+', " ", case_name).split())
+    query = f'"{phrase}"'
+    if len(phrase) < 2 or len(query) > 500:
+        raise OpinionRecapResolutionError(
+            "opinion lead case name cannot form a valid exact-phrase query"
+        )
+    return query
+
+
+def _case_dev_reported_found(payload: Mapping[str, Any]) -> int | None:
+    if "found" not in payload:
+        return None
+    value = payload["found"]
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise OpinionRecapResolutionError(
+            "Case.dev resolver found total must be a non-negative integer"
+        )
+    return value
 
 
 def _normalize_docket(value: str | None) -> str:

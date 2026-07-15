@@ -4,7 +4,11 @@
 
 The resolver uses ordinary noncharging Case.dev docket search first when configured, then authenticated CourtListener `type=r` search with `available_only` omitted as the fallback.
 
+Each provider receives the source case name as one quoted exact phrase under the frozen `quoted_exact_case_name_v1` contract. Embedded quote and backslash syntax is neutralized before quoting; control characters and overlong queries fail closed.
+
 A full Case.dev page without an explicit continuation cursor does not prove exhaustion and is never used to certify a unique match; the resolver falls through to CourtListener's explicit pagination contract.
+
+When Case.dev supplies its `found` total, a cursorless response proves exhaustion only when cumulative returned rows reach that total. Missing continuations with unreturned hits fall through to CourtListener; malformed, changing, or contradictory totals fail closed.
 
 A journaled Case.dev server/provider-availability failure also falls through to CourtListener. Authentication, configuration, malformed-response, and identity errors remain hard failures and never silently consume CourtListener quota.
 
