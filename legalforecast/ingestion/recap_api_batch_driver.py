@@ -809,6 +809,7 @@ class DirectSearchLead:
     docket_number: str | None
     case_name: str | None
     decision_entry_evidence: Mapping[str, object] | None
+    opinion_resolution_evidence: Mapping[str, object] | None = None
 
     @property
     def candidate_id(self) -> str:
@@ -826,6 +827,11 @@ class DirectSearchLead:
                 None
                 if self.decision_entry_evidence is None
                 else dict(self.decision_entry_evidence)
+            ),
+            "opinion_resolution_evidence": (
+                None
+                if self.opinion_resolution_evidence is None
+                else dict(self.opinion_resolution_evidence)
             ),
             "source_hits": [hit.to_record() for hit in self.source_hits],
         }
@@ -1138,6 +1144,11 @@ def read_saturated_direct_search_leads(
                 case_name=_optional_str(primary.get("case_name"))
                 or _optional_str(primary.get("caseName")),
                 decision_entry_evidence=minimum_evidence,
+                opinion_resolution_evidence=(
+                    cast(Mapping[str, object], primary["opinion_resolution_evidence"])
+                    if isinstance(primary.get("opinion_resolution_evidence"), Mapping)
+                    else None
+                ),
             )
         )
     leads = tuple(sorted(leads_list, key=lambda lead: int(lead.docket_id)))
@@ -1754,6 +1765,8 @@ def _direct_search_lead_to_hit(
         payload["priority_dedupe_provenance"] = dict(selection_provenance)
     if lead.decision_entry_evidence is not None:
         payload["decision_entry_evidence"] = dict(lead.decision_entry_evidence)
+    if lead.opinion_resolution_evidence is not None:
+        payload["opinion_resolution_evidence"] = dict(lead.opinion_resolution_evidence)
     return DiscoveryHit(
         provider_hit_id=(
             f"{transfer_term}:{source.source_batch_digest}:{lead.docket_id}"
