@@ -143,12 +143,12 @@ def verify_stage_b_readiness_provenance(
 ) -> None:
     """Require unanimous frozen-panel evidence with per-voter verbatim excerpts."""
 
-    if len(judge_registry_entries) != 3:
+    if len(judge_registry_entries) != 2:
         raise ReadinessProvenanceError(
-            "Stage B readiness requires the frozen three-model judge panel"
+            "Stage B readiness requires the frozen two-model judge panel"
         )
     expected_keys = tuple(entry.registry_key for entry in judge_registry_entries)
-    if len(set(expected_keys)) != 3:
+    if len(set(expected_keys)) != 2:
         raise ReadinessProvenanceError("Stage B judge panel contains duplicate models")
     _sha(judge_registry_sha256, "judge_registry_sha256")
     entry_by_key = {entry.registry_key: entry for entry in judge_registry_entries}

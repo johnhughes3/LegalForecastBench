@@ -22,7 +22,6 @@ def test_cycle_1_labeling_registry_freezes_only_verified_snapshots() -> None:
     )
 
     assert {entry.registry_key for entry in entries} == {
-        "anthropic:claude-haiku-4-5-20251001",
         "anthropic:claude-sonnet-4-6",
         "google:gemini-3.5-flash",
         "openai:gpt-5.4-mini-2026-03-17",
@@ -40,7 +39,6 @@ def test_cycle_1_labeling_registry_records_roles_snapshots_and_prices() -> None:
     assert {
         key for key, entry in by_key.items() if "Stage B labeler" in entry.display_name
     } == {
-        "anthropic:claude-haiku-4-5-20251001",
         "google:gemini-3.5-flash",
         "openai:gpt-5.4-mini-2026-03-17",
     }
@@ -48,7 +46,6 @@ def test_cycle_1_labeling_registry_records_roles_snapshots_and_prices() -> None:
         key: (entry.input_token_price, entry.output_token_price)
         for key, entry in by_key.items()
     } == {
-        "anthropic:claude-haiku-4-5-20251001": (1.0, 5.0),
         "anthropic:claude-sonnet-4-6": (3.0, 15.0),
         "google:gemini-3.5-flash": (1.5, 9.0),
         "openai:gpt-5.4-mini-2026-03-17": (0.75, 4.5),
@@ -89,7 +86,6 @@ def test_cycle_1_stage_b_registry_contains_exactly_the_approved_judges() -> None
     )
 
     assert {entry.registry_key for entry in entries} == {
-        "anthropic:claude-haiku-4-5-20251001",
         "google:gemini-3.5-flash",
         "openai:gpt-5.4-mini-2026-03-17",
     }

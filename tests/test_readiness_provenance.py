@@ -112,6 +112,20 @@ def test_stage_b_readiness_rejects_policy_panel_and_voter_evidence_tampering(
         )
 
 
+@pytest.mark.parametrize("panel_delta", (-1, 1))
+def test_stage_b_readiness_requires_exactly_two_frozen_judges(
+    panel_delta: int,
+) -> None:
+    fixture = _stage_b_fixture()
+    entries = load_model_registry(JUDGE_REGISTRY).entries
+    fixture["judge_registry_entries"] = (
+        entries[:-1] if panel_delta < 0 else (*entries, entries[0])
+    )
+
+    with pytest.raises(ReadinessProvenanceError, match="two-model judge panel"):
+        verify_stage_b_readiness_provenance(**fixture)
+
+
 def _stage_a_fixture() -> dict[str, object]:
     raw = [
         {
