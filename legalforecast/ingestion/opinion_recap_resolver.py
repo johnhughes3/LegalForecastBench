@@ -54,6 +54,10 @@ class OpinionRecapResolutionError(RuntimeError):
     """Raised when source, matching, checkpoint, or output proof is invalid."""
 
 
+class _CaseDevPaginationExhaustionUnproven(RuntimeError):
+    """Signal that a full Case.dev page cannot support a uniqueness claim."""
+
+
 @dataclass(frozen=True, slots=True)
 class OpinionRecapResolutionSummary:
     source_batch_id: str
@@ -481,36 +485,41 @@ def _resolve_one_lead(
             evidence={"court_id": lead.court_id, "case_name": lead.case_name},
         )
         return
-    provider_results: list[_ProviderResults] = []
     if case_dev_client is not None:
-        results = _case_dev_results(
-            journal,
-            source_candidate_id=lead.docket_id,
-            query=lead.case_name,
-            client=case_dev_client,
-            max_pages=max_pages,
-        )
-        provider_results.append(results)
-        match = _strict_match(
-            lead,
-            results,
-            similarity_threshold=similarity_threshold,
-        )
-        if match.reason_code in {"exact_identity_ambiguous", "fallback_ambiguous"}:
-            _commit_failed_match(journal, ordinal=ordinal, lead=lead, match=match)
-            return
-        if match.candidate is not None:
-            _commit_resolved_match(
+        try:
+            results = _case_dev_results(
                 journal,
-                ordinal=ordinal,
-                lead=lead,
-                source_payload=source_payload,
-                source=source,
-                results=results,
-                match=match,
-                prior_candidate_ids=prior_candidate_ids,
+                source_candidate_id=lead.docket_id,
+                query=lead.case_name,
+                client=case_dev_client,
+                max_pages=max_pages,
             )
-            return
+        except _CaseDevPaginationExhaustionUnproven:
+            # Case.dev sometimes returns a full page without a continuation field.
+            # That response is useful as a lead but cannot prove there was only one
+            # matching docket, so rely on CourtListener's explicit pagination.
+            pass
+        else:
+            match = _strict_match(
+                lead,
+                results,
+                similarity_threshold=similarity_threshold,
+            )
+            if match.reason_code in {"exact_identity_ambiguous", "fallback_ambiguous"}:
+                _commit_failed_match(journal, ordinal=ordinal, lead=lead, match=match)
+                return
+            if match.candidate is not None:
+                _commit_resolved_match(
+                    journal,
+                    ordinal=ordinal,
+                    lead=lead,
+                    source_payload=source_payload,
+                    source=source,
+                    results=results,
+                    match=match,
+                    prior_candidate_ids=prior_candidate_ids,
+                )
+                return
     results = _courtlistener_results(
         journal,
         source_candidate_id=lead.docket_id,
@@ -518,7 +527,6 @@ def _resolve_one_lead(
         client=courtlistener_client,
         max_pages=max_pages,
     )
-    provider_results.append(results)
     match = _strict_match(
         lead,
         results,
@@ -578,6 +586,10 @@ def _case_dev_results(
         payloads.append(page.raw)
         candidates.extend(_candidate_from_case_dev(hit) for hit in page.items)
         if page.next_cursor is None:
+            if len(page.items) >= _CASE_DEV_PAGE_SIZE:
+                raise _CaseDevPaginationExhaustionUnproven(
+                    "Case.dev returned a full cursorless resolver page"
+                )
             break
         cursor = page.next_cursor
     else:

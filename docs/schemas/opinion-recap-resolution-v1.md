@@ -4,6 +4,8 @@
 
 The resolver uses ordinary noncharging Case.dev docket search first when configured, then authenticated CourtListener `type=r` search with `available_only` omitted as the fallback.
 
+A full Case.dev page without an explicit continuation cursor does not prove exhaustion and is never used to certify a unique match; the resolver falls through to CourtListener's explicit pagination contract.
+
 Every logical request is written to the resolver SQLite journal before dispatch, every terminal lead becomes exactly one `resolved`, `deferred`, or `excluded` journal outcome, and reruns skip terminal leads.
 
 CourtListener's separately metered physical attempts remain governed by the shared durable request-budget ledger.

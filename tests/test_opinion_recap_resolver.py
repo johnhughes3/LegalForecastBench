@@ -201,6 +201,54 @@ def test_case_dev_exact_identity_resolves_without_courtlistener_quota(
         assert payload["candidate_id"] == "courtlistener-docket-71878956"
 
 
+def test_full_cursorless_case_dev_page_falls_back_to_proven_courtlistener_search(
+    tmp_path: Path,
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    case_dev_dockets = [
+        _recap_docket(
+            str(70000000 + index),
+            docket_number=f"1:24-cv-{index:05d}",
+            case_name=f"Unrelated Case {index}",
+        )
+        for index in range(99)
+    ]
+    case_dev_dockets.append(_recap_docket())
+    case_dev = _case_dev(_case_dev_response(*case_dev_dockets))
+    params: dict[str, Any] = {
+        "type": "r",
+        "q": "Bullock v. PHH Mortgage Services",
+        "order_by": "score desc",
+        "page_size": 20,
+    }
+    courtlistener = _courtlistener(
+        RecordedCourtListenerResponse(
+            method="GET",
+            path="/search/",
+            params=params,
+            status_code=200,
+            payload={"results": [_recap_docket()], "next": None},
+        )
+    )
+
+    summary = resolve_opinion_recap_batch(
+        source_store_path=source,
+        source_batch_id="opinion-source",
+        journal_path=tmp_path / "resolver.sqlite3",
+        output_store_path=source,
+        output_batch_id="resolved-opinion-source",
+        case_dev_client=case_dev,
+        courtlistener_client=courtlistener,
+    )
+
+    assert summary.resolved == 1
+    assert case_dev.request_count == 1
+    assert courtlistener.request_count == 1
+    outcome = read_resolution_outcomes(tmp_path / "resolver.sqlite3")[0]
+    resolution = outcome["evidence"]["opinion_resolution_evidence"]
+    assert resolution["resolver"]["provider"] == "courtlistener_rest"
+
+
 def test_exact_identity_ambiguity_is_ledgered_and_fails_closed(tmp_path: Path) -> None:
     source = _source_store(tmp_path, _lead())
     case_dev = _case_dev(_case_dev_response(_recap_docket("1"), _recap_docket("2")))
