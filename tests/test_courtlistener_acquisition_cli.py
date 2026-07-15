@@ -1339,7 +1339,7 @@ def test_discover_courtlistener_firecrawl_dry_run_records_credit_ceiling(
     assert summary["firecrawl_metered_activity_executed"] is False
 
 
-@pytest.mark.parametrize("failure_mode", [None, "write", "receipt"])
+@pytest.mark.parametrize("failure_mode", [None, "write", "receipt", "cap"])
 def test_discover_courtlistener_firecrawl_live_run_records_metered_activity(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1485,33 +1485,34 @@ def test_discover_courtlistener_firecrawl_live_run_records_metered_activity(
             lambda _self, *, batch_digest: {},
         )
 
-    return_code = main(
-        [
-            "acquisition",
-            "discover-courtlistener",
-            "--eligibility-anchor",
-            "2026-06-30",
-            "--search-window-start",
-            "2026-06-30",
-            "--search-window-end",
-            "2026-07-12",
-            "--cycle-store",
-            str(cycle_store),
-            "--batch-id",
-            "hybrid-batch",
-            "--query-term",
-            "order on motion to dismiss",
-            "--target-clean-cases",
-            "2",
-            "--max-candidates",
-            "5",
-            "--output-root",
-            str(output_root),
-            "--live",
-            "--live-firecrawl-docket-html",
-            "--execute",
-        ]
-    )
+    command = [
+        "acquisition",
+        "discover-courtlistener",
+        "--eligibility-anchor",
+        "2026-06-30",
+        "--search-window-start",
+        "2026-06-30",
+        "--search-window-end",
+        "2026-07-12",
+        "--cycle-store",
+        str(cycle_store),
+        "--batch-id",
+        "hybrid-batch",
+        "--query-term",
+        "order on motion to dismiss",
+        "--target-clean-cases",
+        "2",
+        "--max-candidates",
+        "5",
+        "--output-root",
+        str(output_root),
+        "--live",
+        "--live-firecrawl-docket-html",
+    ]
+    if failure_mode == "cap":
+        command.extend(["--firecrawl-credit-cap", "1"])
+    command.append("--execute")
+    return_code = main(command)
     if failure_mode is not None:
         assert return_code == 2
         failed_run_card = _read_json(
@@ -1520,14 +1521,22 @@ def test_discover_courtlistener_firecrawl_live_run_records_metered_activity(
         assert failed_run_card["status"] == "failed"
         assert failed_run_card["paid_activity_requested"] is True
         assert failed_run_card["paid_activity_executed"] is True
-        assert failed_run_card["run_reserved_credits"] == 2
-        assert failed_run_card["run_reported_credits"] == 2
+        expected_credits = 1 if failure_mode == "cap" else 2
+        assert failed_run_card["run_reserved_credits"] == expected_credits
+        assert failed_run_card["run_reported_credits"] == expected_credits
         expected_reason = (
             "injected raw manifest write failure"
             if failure_mode == "write"
-            else "Firecrawl raw artifact receipts do not reconcile"
+            else (
+                "Firecrawl raw artifact receipts do not reconcile"
+                if failure_mode == "receipt"
+                else "credit cap would be exceeded"
+            )
         )
         assert expected_reason in failed_run_card["failure_reason"]
+        if failure_mode == "cap":
+            assert failed_run_card["pacer_paid_activity_requested"] is False
+            assert failed_run_card["pacer_paid_activity_executed"] is False
         return
     assert return_code == 0
 

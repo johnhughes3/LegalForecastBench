@@ -12231,8 +12231,11 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             )
     except (
         CourtListenerClientError,
+        CycleAcquisitionStoreError,
         FirecrawlArtifactError,
         FirecrawlError,
+        OSError,
+        UnicodeError,
         ValueError,
     ) as exc:
         firecrawl_audit = (
