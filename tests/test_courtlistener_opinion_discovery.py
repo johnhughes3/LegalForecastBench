@@ -14,6 +14,8 @@ from legalforecast.ingestion.courtlistener_client import (
     RecordedCourtListenerResponse,
 )
 from legalforecast.ingestion.courtlistener_opinion_discovery import (
+    FEDERAL_BANKRUPTCY_COURT_IDS,
+    FEDERAL_DISTRICT_COURT_IDS,
     FEDERAL_TRIAL_COURT_IDS,
     OPINION_MTD_SEARCH_TERMS,
     OPINION_STATUS_FILTERS,
@@ -137,6 +139,14 @@ def test_frozen_terms_cover_district_rule_12_and_bankruptcy_analogue() -> None:
     assert "nysd" in FEDERAL_TRIAL_COURT_IDS
     assert "nysb" in FEDERAL_TRIAL_COURT_IDS
     assert "nmid" in FEDERAL_TRIAL_COURT_IDS
+
+
+def test_frozen_court_ids_map_northern_mariana_bankruptcy_to_valid_district() -> None:
+    assert "mpb" in FEDERAL_BANKRUPTCY_COURT_IDS
+    assert "nmid" in FEDERAL_DISTRICT_COURT_IDS
+    assert "mpd" not in FEDERAL_DISTRICT_COURT_IDS
+    assert "mpd" not in FEDERAL_TRIAL_COURT_IDS
+    assert len(FEDERAL_TRIAL_COURT_IDS) == len(set(FEDERAL_TRIAL_COURT_IDS))
 
 
 def test_fetch_page_uses_strict_opinion_request_and_retains_metadata_only() -> None:

@@ -14,6 +14,7 @@ screening.  No PACER fetch or document purchase can occur in this module.
 from __future__ import annotations
 
 import urllib.parse
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -155,7 +156,11 @@ class CourtListenerUnrestrictedRecapDiscoverySource:
         # defining behavior and is frozen into the batch config above.
         page = self.client.search_raw(params, cursor=cursor)
         _validate_results_contract(page.raw, parsed_count=len(page.items))
-        next_cursor = _strict_next_cursor(page.raw, parsed_cursor=page.next_cursor)
+        next_cursor = _strict_next_cursor(
+            page.raw,
+            parsed_cursor=page.next_cursor,
+            expected_params=params,
+        )
         hits: list[DiscoveryHit] = []
         for index, record in enumerate(page.items):
             docket_id = _positive_ascii_docket_id(record)
@@ -264,7 +269,10 @@ def _validate_results_contract(
 
 
 def _strict_next_cursor(
-    payload: Mapping[str, Any], *, parsed_cursor: str | None
+    payload: Mapping[str, Any],
+    *,
+    parsed_cursor: str | None,
+    expected_params: Mapping[str, Any],
 ) -> str | None:
     if "next" not in payload:
         raise CourtListenerUnrestrictedRecapDiscoveryError(
@@ -303,18 +311,30 @@ def _strict_next_cursor(
         raise CourtListenerUnrestrictedRecapDiscoveryError(
             "CourtListener next URL must not include a fragment"
         )
-    cursor_values = [
-        value
-        for key, value in urllib.parse.parse_qsl(
+    try:
+        query_pairs = urllib.parse.parse_qsl(
             parsed.query,
             keep_blank_values=True,
-            strict_parsing=False,
+            strict_parsing=True,
         )
-        if key == "cursor"
-    ]
+    except ValueError as exc:
+        raise CourtListenerUnrestrictedRecapDiscoveryError(
+            "CourtListener next query is invalid"
+        ) from exc
+    cursor_values = [value for key, value in query_pairs if key == "cursor"]
     if len(cursor_values) != 1 or not cursor_values[0]:
         raise CourtListenerUnrestrictedRecapDiscoveryError(
             "CourtListener next must include exactly one non-empty cursor"
+        )
+    continuation_params = Counter(
+        (key, value) for key, value in query_pairs if key != "cursor"
+    )
+    frozen_params = Counter(
+        (str(key), str(value)) for key, value in expected_params.items()
+    )
+    if continuation_params != frozen_params:
+        raise CourtListenerUnrestrictedRecapDiscoveryError(
+            "CourtListener next query changed frozen parameters"
         )
     cursor = cursor_values[0]
     if parsed_cursor != cursor:

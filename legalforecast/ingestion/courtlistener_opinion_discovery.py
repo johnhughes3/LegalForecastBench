@@ -47,10 +47,9 @@ OPINION_STATUS_FILTERS: tuple[str, ...] = (
     "stat_Unknown",
 )
 
-# CourtListener federal-bankruptcy identifiers.  Each corresponding district
-# identifier is the same stem with ``d`` in place of the terminal ``b``.  The
-# Northern Mariana Islands has no corresponding identifier in this bankruptcy
-# list and is included explicitly below.
+# CourtListener federal-bankruptcy identifiers.  Most corresponding district
+# identifiers use the same stem with ``d`` in place of the terminal ``b``.
+# ``mpb`` is the exception: its district court is ``nmid``, not ``mpd``.
 FEDERAL_BANKRUPTCY_COURT_IDS: tuple[str, ...] = (
     "akb",
     "almb",
@@ -149,7 +148,12 @@ FEDERAL_BANKRUPTCY_COURT_IDS: tuple[str, ...] = (
 )
 FEDERAL_DISTRICT_COURT_IDS: tuple[str, ...] = tuple(
     sorted(
-        {f"{court_id[:-1]}d" for court_id in FEDERAL_BANKRUPTCY_COURT_IDS} | {"nmid"}
+        {
+            f"{court_id[:-1]}d"
+            for court_id in FEDERAL_BANKRUPTCY_COURT_IDS
+            if court_id != "mpb"
+        }
+        | {"nmid"}
     )
 )
 FEDERAL_TRIAL_COURT_IDS: tuple[str, ...] = tuple(

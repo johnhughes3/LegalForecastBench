@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import urllib.parse
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -53,6 +54,19 @@ def _params(term: str, *, cursor: str | None = None) -> dict[str, Any]:
     if cursor is not None:
         params["cursor"] = cursor
     return params
+
+
+def _next_url(
+    term: str,
+    *,
+    cursor: str = "cursor-2",
+    query_pairs: list[tuple[str, str]] | None = None,
+) -> str:
+    pairs = query_pairs or [(key, str(value)) for key, value in _params(term).items()]
+    return (
+        "https://www.courtlistener.com/api/rest/v4/search/?"
+        f"{urllib.parse.urlencode([*pairs, ('cursor', cursor)])}"
+    )
 
 
 def _client(
@@ -166,9 +180,7 @@ def test_durable_run_resumes_after_committed_page_and_is_idempotent(
     tmp_path: Path,
 ) -> None:
     term = UNRESTRICTED_RECAP_SEARCH_TERMS[0]
-    next_url = (
-        "https://www.courtlistener.com/api/rest/v4/search/?type=r&cursor=cursor-2"
-    )
+    next_url = _next_url(term)
     client = _client(
         (
             _response(
@@ -334,6 +346,86 @@ def test_pagination_fails_closed(payload: dict[str, Any], message: str) -> None:
     source = _source((_response(params=_params(term), payload=payload),))
 
     with pytest.raises(CourtListenerUnrestrictedRecapDiscoveryError, match=message):
+        source.fetch_page(term=term, cursor=None, page_size=20)
+
+
+def test_pagination_accepts_reordered_exact_frozen_parameter_multiset() -> None:
+    term = UNRESTRICTED_RECAP_SEARCH_TERMS[0]
+    frozen_pairs = [(key, str(value)) for key, value in reversed(_params(term).items())]
+    source = _source(
+        (
+            _response(
+                params=_params(term),
+                payload={
+                    "results": [],
+                    "next": _next_url(term, query_pairs=frozen_pairs),
+                },
+            ),
+        )
+    )
+
+    page = source.fetch_page(term=term, cursor=None, page_size=20)
+
+    assert page.next_cursor == "cursor-2"
+    assert page.exhausted is False
+
+
+@pytest.mark.parametrize(
+    "query_pairs",
+    [
+        [("type", "r"), ("order_by", "score desc"), ("page_size", "20")],
+        [
+            ("q", "changed query"),
+            ("type", "r"),
+            ("order_by", "score desc"),
+            ("page_size", "20"),
+        ],
+        [
+            *_params(UNRESTRICTED_RECAP_SEARCH_TERMS[0]).items(),
+            ("q", _params(UNRESTRICTED_RECAP_SEARCH_TERMS[0])["q"]),
+        ],
+        [
+            ("q", _params(UNRESTRICTED_RECAP_SEARCH_TERMS[0])["q"]),
+            ("type", "r"),
+            ("type", "r"),
+            ("order_by", "score desc"),
+            ("page_size", "20"),
+        ],
+        [
+            ("q", _params(UNRESTRICTED_RECAP_SEARCH_TERMS[0])["q"]),
+            ("type", "r"),
+            ("order_by", "score desc"),
+            ("page_size", "100"),
+        ],
+    ],
+    ids=(
+        "missing-q",
+        "changed-q",
+        "duplicate-q",
+        "duplicate-type",
+        "changed-page-size",
+    ),
+)
+def test_pagination_rejects_drift_or_duplicates_in_frozen_parameters(
+    query_pairs: list[tuple[str, str]],
+) -> None:
+    term = UNRESTRICTED_RECAP_SEARCH_TERMS[0]
+    source = _source(
+        (
+            _response(
+                params=_params(term),
+                payload={
+                    "results": [],
+                    "next": _next_url(term, query_pairs=query_pairs),
+                },
+            ),
+        )
+    )
+
+    with pytest.raises(
+        CourtListenerUnrestrictedRecapDiscoveryError,
+        match="changed frozen parameters",
+    ):
         source.fetch_page(term=term, cursor=None, page_size=20)
 
 
