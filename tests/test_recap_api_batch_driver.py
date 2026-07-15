@@ -7,6 +7,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
+import legalforecast.ingestion.recap_api_batch_driver as recap_api_batch_driver
 import pytest
 from legalforecast.ingestion.courtlistener_client import (
     CourtListenerClient,
@@ -1352,6 +1353,7 @@ def test_seed_direct_search_freezes_lineage_canonicalizes_and_prescreens(
         )
         assert repeated.leads_seeded == 0
         assert repeated.already_seeded is True
+
         assert store.search_page_transcript("rest-screen") == transcript
 
 
@@ -1532,6 +1534,25 @@ def test_seed_novel_direct_search_commits_full_partition_and_cross_cycle_semanti
         assert repeated.leads_seeded == 0
         assert repeated.already_seeded is True
 
+        store.record_observation(
+            "courtlistener-docket-400",
+            batch_id="novel-rest-screen",
+            state="excluded",
+            reason_code="decision_before_release_anchor",
+            evidence={
+                "candidate_id": "courtlistener-docket-400",
+                "decision_date": "2026-06-29",
+            },
+        )
+        after_same_target_observation = seed_novel_direct_search_leads(
+            store,
+            batch_id="novel-rest-screen",
+            source=source,
+            prior_snapshots=prior,
+        )
+        assert after_same_target_observation.leads_seeded == 0
+        assert after_same_target_observation.already_seeded is True
+
 
 def test_verified_priority_dedupe_snapshots_reject_tamper_and_partial(
     tmp_path: Path,
@@ -1556,6 +1577,37 @@ def test_verified_priority_dedupe_snapshots_reject_tamper_and_partial(
     with pytest.raises(RecapApiBatchDriverError, match="snapshot is not complete"):
         read_verified_priority_dedupe_snapshots(
             (partial,), expected_manifest_sha256=(partial_hash,)
+        )
+
+
+def test_verified_priority_dedupe_snapshot_rechecks_exact_parsed_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot, manifest_hash = _build_prior_screening_snapshot(
+        tmp_path,
+        name="toctou",
+        candidate_ids=("courtlistener-docket-200",),
+    )
+    original_verify = recap_api_batch_driver.verify_snapshot
+
+    def verify_then_mutate(*args: Any, **kwargs: Any) -> Any:
+        manifest = original_verify(*args, **kwargs)
+        (snapshot / "candidates.jsonl").write_text(
+            '{"candidate_id":"courtlistener-docket-999"}\n',
+            encoding="utf-8",
+        )
+        return manifest
+
+    monkeypatch.setattr(
+        recap_api_batch_driver,
+        "verify_snapshot",
+        verify_then_mutate,
+    )
+
+    with pytest.raises(RecapApiBatchDriverError, match="changed after verification"):
+        read_verified_priority_dedupe_snapshots(
+            (snapshot,), expected_manifest_sha256=(manifest_hash,)
         )
 
 
@@ -1617,3 +1669,62 @@ def test_seed_novel_direct_search_preserves_source_target_cycle_gate(
             )
         with pytest.raises(KeyError):
             target.batch_config("novel-rest-screen")
+
+
+def test_seed_novel_direct_search_rejects_preexisting_observation_before_write(
+    tmp_path: Path,
+) -> None:
+    source_path = _build_saturated_direct_search_store(tmp_path)
+    prior_path, prior_hash = _build_prior_screening_snapshot(
+        tmp_path,
+        name="prior-seen",
+        candidate_ids=(
+            "courtlistener-docket-200",
+            "courtlistener-docket-300",
+        ),
+    )
+    source = read_saturated_direct_search_leads(
+        source_path, source_batch_id="direct-search"
+    )
+    prior = read_verified_priority_dedupe_snapshots(
+        (prior_path,), expected_manifest_sha256=(prior_hash,)
+    )
+    with CycleAcquisitionStore(source_path) as store:
+        store.ensure_batch("older-screen", {"provider": "courtlistener"})
+        store.ensure_terms("older-screen", ("screen",))
+        store.commit_search_page(
+            "older-screen",
+            "screen",
+            None,
+            [
+                {
+                    "provider_hit_id": "older-400",
+                    "candidate_id": "courtlistener-docket-400",
+                    "payload": {"candidate_id": "courtlistener-docket-400"},
+                }
+            ],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        store.record_observation(
+            "courtlistener-docket-400",
+            batch_id="older-screen",
+            state="excluded",
+            reason_code="decision_before_release_anchor",
+            evidence={
+                "candidate_id": "courtlistener-docket-400",
+                "decision_date": "2026-06-29",
+            },
+        )
+
+        with pytest.raises(
+            RecapApiBatchDriverError, match="already have canonical observations"
+        ):
+            seed_novel_direct_search_leads(
+                store,
+                batch_id="novel-rest-screen",
+                source=source,
+                prior_snapshots=prior,
+            )
+        with pytest.raises(KeyError):
+            store.batch_config("novel-rest-screen")

@@ -1217,20 +1217,39 @@ def read_verified_priority_dedupe_snapshots(
             )
         seen_manifest_hashes.add(manifest_hash)
         try:
-            manifest = verify_snapshot(
+            parsed_expected_manifest = cast(object, json.loads(manifest_bytes))
+            if not isinstance(parsed_expected_manifest, dict):
+                raise RecapApiBatchDriverError(
+                    f"prior snapshot manifest is not an object: {path}"
+                )
+            expected_manifest = cast(dict[str, object], parsed_expected_manifest)
+            verified_manifest = verify_snapshot(
                 path,
                 require_complete=True,
                 require_saturated=True,
             )
-            candidate_ids = _priority_dedupe_candidate_ids(path / "candidates.jsonl")
+            if verified_manifest != expected_manifest:
+                raise RecapApiBatchDriverError(
+                    f"prior snapshot manifest changed during verification: {path}"
+                )
+            candidate_payload = _read_committed_snapshot_file(
+                path / "candidates.jsonl",
+                manifest=expected_manifest,
+                filename="candidates.jsonl",
+            )
+            candidate_ids = _priority_dedupe_candidate_ids(candidate_payload)
+        except json.JSONDecodeError as exc:
+            raise RecapApiBatchDriverError(
+                f"prior snapshot manifest is invalid JSON: {path}"
+            ) from exc
         except SnapshotVerificationError as exc:
             raise RecapApiBatchDriverError(
                 f"prior snapshot verification failed: {path}: {exc}"
             ) from exc
-        cycle_hash = _snapshot_sha256_field(manifest, "cycle_hash", path)
-        batch_digest = _snapshot_sha256_field(manifest, "batch_digest", path)
-        snapshot_id = _snapshot_text_field(manifest, "snapshot_id", path)
-        batch_id = _snapshot_text_field(manifest, "batch_id", path)
+        cycle_hash = _snapshot_sha256_field(expected_manifest, "cycle_hash", path)
+        batch_digest = _snapshot_sha256_field(expected_manifest, "batch_digest", path)
+        snapshot_id = _snapshot_text_field(expected_manifest, "snapshot_id", path)
+        batch_id = _snapshot_text_field(expected_manifest, "batch_id", path)
         snapshots.append(
             PriorScreeningSnapshot(
                 path=path,
@@ -1254,13 +1273,54 @@ def read_verified_priority_dedupe_snapshots(
     )
 
 
-def _priority_dedupe_candidate_ids(path: Path) -> tuple[str, ...]:
-    candidate_ids: set[str] = set()
+def _read_committed_snapshot_file(
+    path: Path,
+    *,
+    manifest: Mapping[str, object],
+    filename: str,
+) -> bytes:
+    files = manifest.get("files")
+    if not isinstance(files, Mapping):
+        raise RecapApiBatchDriverError("prior snapshot file manifest is invalid")
+    raw_commitment = cast(Mapping[str, object], files).get(filename)
+    if not isinstance(raw_commitment, Mapping):
+        raise RecapApiBatchDriverError(
+            f"prior snapshot lacks a commitment for {filename}"
+        )
+    commitment = cast(Mapping[str, object], raw_commitment)
+    expected_sha256 = commitment.get("sha256")
+    expected_byte_count = commitment.get("byte_count")
+    expected_row_count = commitment.get("row_count")
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except (OSError, UnicodeError) as exc:
+        payload = path.read_bytes()
+    except OSError as exc:
         raise RecapApiBatchDriverError(
             f"prior snapshot candidates are unreadable: {path}"
+        ) from exc
+    if (
+        not isinstance(expected_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", expected_sha256) is None
+        or not isinstance(expected_byte_count, int)
+        or isinstance(expected_byte_count, bool)
+        or not isinstance(expected_row_count, int)
+        or isinstance(expected_row_count, bool)
+        or hashlib.sha256(payload).hexdigest() != expected_sha256
+        or len(payload) != expected_byte_count
+        or payload.count(b"\n") != expected_row_count
+    ):
+        raise RecapApiBatchDriverError(
+            f"prior snapshot file changed after verification: {path}"
+        )
+    return payload
+
+
+def _priority_dedupe_candidate_ids(payload: bytes) -> tuple[str, ...]:
+    candidate_ids: set[str] = set()
+    try:
+        lines = payload.decode("utf-8").splitlines()
+    except UnicodeError as exc:
+        raise RecapApiBatchDriverError(
+            "prior snapshot candidates are not valid UTF-8"
         ) from exc
     for row_number, line in enumerate(lines, start=1):
         try:
@@ -1522,6 +1582,17 @@ def seed_novel_direct_search_leads(
         snapshot.cycle_hash != source.source_cycle_hash
         for snapshot in ordered_snapshots
     )
+    preexisting_observations: list[str] = []
+    for lead in selected:
+        observation = store.current_observation(lead.candidate_id)
+        if observation is not None and observation.batch_id != batch_id:
+            preexisting_observations.append(lead.candidate_id)
+    if preexisting_observations:
+        raise RecapApiBatchDriverError(
+            "novel transfer selected candidates already have canonical "
+            "observations and cannot be safely seeded: "
+            + ", ".join(preexisting_observations)
+        )
     config = build_recap_api_batch_config(
         decision_window_start=source.search_window_start,
         decision_window_end=source.search_window_end,
