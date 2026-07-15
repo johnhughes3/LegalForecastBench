@@ -22,6 +22,7 @@ from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 
 _COURTLISTENER_HOST = "www.courtlistener.com"
+_DOCKET_ID = re.compile(r"[1-9][0-9]*")
 _PUBLIC_DOCKET_PATH = re.compile(
     r"^/docket/(?P<docket_id>[1-9][0-9]*)/(?P<slug>[^/]+)/$"
 )
@@ -53,6 +54,21 @@ _REQUIRED_ENTRY_ROLES = frozenset(
 
 class CaseDevRecapEnrichmentError(RuntimeError):
     """Raised when free Case.dev evidence cannot be verified completely."""
+
+
+@dataclass(frozen=True, slots=True)
+class CaseDevRecapLookupTarget:
+    """Exact CourtListener docket identity for a free Case.dev lookup.
+
+    ``docket_url`` is absent when the source provider supplied only the
+    shared CourtListener docket primary key. In that mode Case.dev must return
+    and prove the canonical URL before the enrichment can succeed.
+    """
+
+    docket_id: str
+    docket_url: str | None
+    entry_keys: tuple[str, ...]
+    matched_terms: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -283,7 +299,7 @@ class CaseDevRecapEnrichment:
 def enrich_recap_docket_with_case_dev(
     *,
     client: CaseDevClient,
-    discovery: RecapDiscoveredDocket,
+    discovery: RecapDiscoveredDocket | CaseDevRecapLookupTarget,
     page_size: int = 100,
     max_pages: int = 100,
 ) -> CaseDevRecapEnrichment:
@@ -358,7 +374,7 @@ def enrich_recap_docket_with_case_dev(
     return CaseDevRecapEnrichment(
         identity=CaseDevRecapNamespaceMapping(
             courtlistener_docket_id=discovery.docket_id,
-            courtlistener_url=discovery.docket_url,
+            courtlistener_url=discovery.docket_url or case_dev_url,
             case_dev_id=case_dev_id,
             case_dev_url=case_dev_url,
         ),
@@ -371,7 +387,9 @@ def enrich_recap_docket_with_case_dev(
 
 
 def _screening_metadata(
-    docket: Mapping[str, Any], *, discovery: RecapDiscoveredDocket
+    docket: Mapping[str, Any],
+    *,
+    discovery: RecapDiscoveredDocket | CaseDevRecapLookupTarget,
 ) -> Mapping[str, object]:
     result: dict[str, object] = {
         "case_id": discovery.docket_id,
@@ -380,7 +398,8 @@ def _screening_metadata(
         "court_id": _optional_string(docket, "courtId", "court_id", "court"),
         "docket_number": _optional_string(docket, "docketNumber", "docket_number"),
         "date_filed": _optional_string(docket, "dateFiled", "date_filed"),
-        "source_url": discovery.docket_url,
+        "source_url": discovery.docket_url
+        or _required_string(docket, "url", "sourceUrl", "source_url"),
     }
     return result
 
@@ -402,7 +421,13 @@ def rank_case_dev_recap_enrichments(
     return tuple(sorted(by_docket.values(), key=lambda item: item.ranking_key))
 
 
-def _validate_discovery_identity(discovery: RecapDiscoveredDocket) -> None:
+def _validate_discovery_identity(
+    discovery: RecapDiscoveredDocket | CaseDevRecapLookupTarget,
+) -> None:
+    if discovery.docket_url is None:
+        if _DOCKET_ID.fullmatch(discovery.docket_id) is None:
+            raise CaseDevRecapEnrichmentError("courtlistener_docket_id_invalid")
+        return
     split = urlsplit(discovery.docket_url)
     if (
         split.scheme != "https"
@@ -419,7 +444,7 @@ def _validate_discovery_identity(discovery: RecapDiscoveredDocket) -> None:
 def _verified_page_identity(
     page: CaseDevPage[CaseDevDocketHit],
     *,
-    discovery: RecapDiscoveredDocket,
+    discovery: RecapDiscoveredDocket | CaseDevRecapLookupTarget,
 ) -> tuple[str, str]:
     docket = _mapping(page.raw.get("docket", page.raw), "case.dev docket")
     case_dev_id = _required_string(docket, "id", "docketId", "docket_id")

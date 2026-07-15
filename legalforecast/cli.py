@@ -370,6 +370,7 @@ from legalforecast.ingestion.readiness_provenance import (
     verify_stage_b_readiness_provenance,
 )
 from legalforecast.ingestion.recap_api_batch_driver import (
+    DirectSearchSeedSource,
     RecapApiBatchDriverError,
     read_batch_001_enrichment_failure_leads,
     read_saturated_direct_search_leads,
@@ -3378,8 +3379,34 @@ def _add_acquisition_enrich_recap_case_dev_arguments(
     parser.add_argument(
         "--dockets",
         type=Path,
-        required=True,
-        help="Potential-docket JSONL from discover-firecrawl-recap.",
+        help=(
+            "Legacy potential-docket JSONL from discover-firecrawl-recap. "
+            "Mutually exclusive with --source-store/--source-batch-id."
+        ),
+    )
+    parser.add_argument(
+        "--source-store",
+        type=Path,
+        help=(
+            "Cycle acquisition SQLite store containing a fully exhausted "
+            "CourtListener search_type=o opinion batch. Requires "
+            "--source-batch-id and replaces --dockets."
+        ),
+    )
+    parser.add_argument(
+        "--source-batch-id",
+        help=(
+            "Fully exhausted CourtListener opinion source batch to project "
+            "by exact shared docket ID. Requires --source-store."
+        ),
+    )
+    parser.add_argument(
+        "--source-projection-output",
+        type=Path,
+        help=(
+            "Deterministic source-bound Case.dev input checkpoint. Defaults "
+            "under --output-root/checkpoints/."
+        ),
     )
     parser.add_argument(
         "--page-size",
@@ -10915,10 +10942,14 @@ def _enrich_case_dev_progress_record(
             active_client.request_count - request_count_before,
         )
     if one.successes:
+        payload = one.successes[0].to_record()
+        source_lineage = record.get("source_lineage")
+        if isinstance(source_lineage, Mapping):
+            payload["source_lineage"] = dict(cast(Mapping[str, Any], source_lineage))
         progress: JsonRecord = {
             "input_index": input_index,
             "outcome": "success",
-            "payload": one.successes[0].to_record(),
+            "payload": payload,
         }
     else:
         failure = one.failures[0].to_record()
@@ -10931,9 +10962,100 @@ def _enrich_case_dev_progress_record(
     return progress, active_client.request_count - request_count_before
 
 
+_CASE_DEV_SOURCE_DOCKET_SCHEMA = "legalforecast.case_dev_recap_source_docket.v1"
+
+
+def _case_dev_opinion_source_projection(
+    source: DirectSearchSeedSource,
+) -> list[JsonRecord]:
+    """Project an authenticated opinion source into exact-ID lookup records."""
+
+    if source.source_search_type != "o":
+        raise CommandError(
+            "Case.dev source ranking requires a CourtListener search_type=o batch"
+        )
+    projected: list[JsonRecord] = []
+    for lead in source.leads:
+        source_hits = [hit.to_record() for hit in lead.source_hits]
+        entry_keys = sorted({hit.provider_hit_id for hit in lead.source_hits})
+        matched_terms = sorted({hit.query_term for hit in lead.source_hits})
+        if not entry_keys or not matched_terms:
+            raise CommandError(
+                f"opinion source lead lacks frozen hit provenance: {lead.docket_id}"
+            )
+        projected.append(
+            {
+                "schema_version": _CASE_DEV_SOURCE_DOCKET_SCHEMA,
+                "candidate_id": lead.candidate_id,
+                "docket_id": lead.docket_id,
+                "entry_keys": entry_keys,
+                "matched_terms": matched_terms,
+                "eligibility_status": "potential_unverified",
+                "source_lineage": {
+                    "source_batch_id": source.source_batch_id,
+                    "source_batch_digest": source.source_batch_digest,
+                    "source_cycle_hash": source.source_cycle_hash,
+                    "source_search_type": source.source_search_type,
+                    "source_candidate_set_sha256": (source.source_candidate_set_sha256),
+                    "docket_id": lead.docket_id,
+                    "lead_commitment": lead.commitment_record(),
+                    "source_hits": source_hits,
+                },
+            }
+        )
+    return projected
+
+
 def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
-    dockets_path = cast(Path, args.dockets)
+    dockets_arg = cast(Path | None, args.dockets)
+    source_store_path = cast(Path | None, args.source_store)
+    source_batch_id = cast(str | None, args.source_batch_id)
+    source_mode_requested = source_store_path is not None or source_batch_id is not None
+    if (dockets_arg is not None) == source_mode_requested:
+        raise CommandError(
+            "choose exactly one input mode: --dockets or "
+            "--source-store with --source-batch-id"
+        )
+    if source_mode_requested and (source_store_path is None or source_batch_id is None):
+        raise CommandError(
+            "--source-store and --source-batch-id must be supplied together"
+        )
+    projection_path = _acquisition_path(
+        args,
+        "source_projection_output",
+        output_root / "checkpoints" / "case-dev-recap-source-projection.jsonl",
+    )
+    source_commitments: JsonRecord = {}
+    if source_store_path is not None and source_batch_id is not None:
+        try:
+            source = read_saturated_direct_search_leads(
+                source_store_path,
+                source_batch_id=source_batch_id,
+            )
+        except RecapApiBatchDriverError as exc:
+            raise CommandError(str(exc)) from exc
+        records = _case_dev_opinion_source_projection(source)
+        _write_jsonl(projection_path, records)
+        projection_sha256 = hashlib.sha256(projection_path.read_bytes()).hexdigest()
+        source_commitments = {
+            "source_batch_id": source.source_batch_id,
+            "source_batch_digest": source.source_batch_digest,
+            "source_cycle_hash": source.source_cycle_hash,
+            "source_search_type": source.source_search_type,
+            "source_candidate_set_sha256": source.source_candidate_set_sha256,
+            "source_projection_sha256": projection_sha256,
+        }
+        dockets_path = projection_path
+        source_input_paths = (source_store_path,)
+        source_output_paths = (projection_path,)
+    else:
+        if dockets_arg is None:  # pragma: no cover - guarded above
+            raise CommandError("--dockets is required")
+        dockets_path = dockets_arg
+        records = _read_records(dockets_path)
+        source_input_paths = (dockets_path,)
+        source_output_paths = ()
     fixture_path = cast(Path | None, args.case_dev_fixture)
     live = cast(bool, args.live_case_dev)
     page_size = cast(int, args.page_size)
@@ -10970,11 +11092,13 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
     progress_config_path = (
         output_root / "checkpoints" / "case-dev-recap-progress-config.json"
     )
-    records = _read_records(dockets_path)
     input_paths = (
-        (dockets_path,) if fixture_path is None else (dockets_path, fixture_path)
+        source_input_paths
+        if fixture_path is None
+        else (*source_input_paths, fixture_path)
     )
     output_paths = (
+        *source_output_paths,
         ranked_path,
         failures_path,
         summary_path,
@@ -10991,6 +11115,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
             "max_pages_per_docket": max_pages,
             "free_lookup_only": True,
             "pacer_fee_acknowledgment_allowed": False,
+            **source_commitments,
         }
         _write_jsonl(ranked_path, [])
         _write_jsonl(failures_path, [])
@@ -11016,6 +11141,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         "page_size": page_size,
         "max_pages_per_docket": max_pages,
         "free_lookup_only": True,
+        **source_commitments,
     }
     resume = cast(bool, args.resume)
     if progress_config_path.exists():
@@ -11177,6 +11303,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
             output_paths=output_paths,
             reason=str(exc),
             paid_activity_requested=False,
+            extra=source_commitments,
         )
         raise CommandError(str(exc)) from exc
 
@@ -11197,7 +11324,10 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
             output_paths=output_paths,
             reason=reason,
             paid_activity_requested=False,
-            extra={"transient_docket_count": transient_count},
+            extra={
+                "transient_docket_count": transient_count,
+                **source_commitments,
+            },
         )
         raise CommandError(reason)
     ranked_records = sorted(
@@ -11258,6 +11388,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         ),
         "resumed_terminal_record_count": len(progress_records),
         "reconciled": True,
+        **source_commitments,
     }
     _write_jsonl(ranked_path, ranked_records)
     _write_jsonl(failures_path, failure_records)

@@ -19,14 +19,17 @@ from legalforecast.ingestion.case_dev_client import (
 from legalforecast.ingestion.case_dev_recap_enrichment import (
     CaseDevRecapEnrichment,
     CaseDevRecapEnrichmentError,
+    CaseDevRecapLookupTarget,
     enrich_recap_docket_with_case_dev,
     rank_case_dev_recap_enrichments,
 )
 from legalforecast.ingestion.firecrawl_recap_discovery import RecapDiscoveredDocket
 
 _DOCKET_ID = re.compile(r"[1-9][0-9]*")
+_SHA256 = re.compile(r"[0-9a-f]{64}")
 _DOCKET_PATH = re.compile(r"^/docket/(?P<docket_id>[1-9][0-9]*)/[^/]+/$")
 _COURTLISTENER_HOST = "www.courtlistener.com"
+_SOURCE_DOCKET_SCHEMA = "legalforecast.case_dev_recap_source_docket.v1"
 
 
 class RecapDocketRecordError(ValueError):
@@ -152,6 +155,145 @@ def recap_discovered_docket_from_record(
     )
 
 
+def case_dev_recap_lookup_target_from_record(
+    record: Mapping[str, object],
+) -> RecapDiscoveredDocket | CaseDevRecapLookupTarget:
+    """Convert legacy discovery or a source-bound exact-ID projection."""
+
+    if record.get("schema_version") != _SOURCE_DOCKET_SCHEMA:
+        return recap_discovered_docket_from_record(record)
+    candidate_id = _required_string(record, "candidate_id", "candidate_id_invalid")
+    docket_id = _required_string(record, "docket_id", "docket_id_invalid")
+    if _DOCKET_ID.fullmatch(docket_id) is None:
+        raise RecapDocketRecordError(
+            "docket_id_invalid",
+            "docket_id must be a canonical positive integer string",
+        )
+    if candidate_id != f"courtlistener-docket-{docket_id}":
+        raise RecapDocketRecordError(
+            "candidate_id_mismatch",
+            "candidate_id does not match the CourtListener docket identity",
+        )
+    if "docket_url" in record:
+        raise RecapDocketRecordError(
+            "source_docket_url_forbidden",
+            "source-bound exact-ID projections must not synthesize a docket URL",
+        )
+    entry_keys = _required_string_list(record, "entry_keys")
+    matched_terms = _required_string_list(record, "matched_terms")
+    eligibility_status = _required_string(
+        record,
+        "eligibility_status",
+        "eligibility_status_invalid",
+    )
+    if eligibility_status != "potential_unverified":
+        raise RecapDocketRecordError(
+            "eligibility_status_invalid",
+            "source docket must remain potential_unverified before enrichment",
+        )
+    lineage = record.get("source_lineage")
+    if not isinstance(lineage, Mapping):
+        raise RecapDocketRecordError(
+            "source_lineage_invalid",
+            "source-bound exact-ID projection requires source_lineage",
+        )
+    typed_lineage = cast(Mapping[str, object], lineage)
+    lineage_docket_id = typed_lineage.get("docket_id")
+    if lineage_docket_id != docket_id:
+        raise RecapDocketRecordError(
+            "source_lineage_docket_id_mismatch",
+            "source lineage docket ID does not match the projected docket",
+        )
+    for field_name in (
+        "source_batch_id",
+        "source_batch_digest",
+        "source_cycle_hash",
+        "source_candidate_set_sha256",
+    ):
+        _required_string(typed_lineage, field_name, "source_lineage_invalid")
+    if typed_lineage.get("source_search_type") != "o":
+        raise RecapDocketRecordError(
+            "source_lineage_invalid",
+            "source lineage must identify CourtListener opinion search_type=o",
+        )
+    for field_name in (
+        "source_batch_digest",
+        "source_cycle_hash",
+        "source_candidate_set_sha256",
+    ):
+        value = _required_string(
+            typed_lineage,
+            field_name,
+            "source_lineage_invalid",
+        )
+        if _SHA256.fullmatch(value) is None:
+            raise RecapDocketRecordError(
+                "source_lineage_invalid",
+                f"{field_name} must be a lowercase SHA-256 digest",
+            )
+    lead_commitment = typed_lineage.get("lead_commitment")
+    source_hits = typed_lineage.get("source_hits")
+    if not isinstance(lead_commitment, Mapping) or not isinstance(source_hits, list):
+        raise RecapDocketRecordError(
+            "source_lineage_invalid",
+            "source lineage requires lead_commitment and source_hits",
+        )
+    typed_lead = cast(Mapping[str, object], lead_commitment)
+    if (
+        typed_lead.get("docket_id") != docket_id
+        or typed_lead.get("source_hits") != source_hits
+    ):
+        raise RecapDocketRecordError(
+            "source_lineage_invalid",
+            "source lead commitment does not match the projected docket and hits",
+        )
+    projected_hit_keys: list[str] = []
+    projected_terms: list[str] = []
+    for source_hit in cast(list[object], source_hits):
+        if not isinstance(source_hit, Mapping):
+            raise RecapDocketRecordError(
+                "source_lineage_invalid",
+                "source lineage hit is not an object",
+            )
+        typed_hit = cast(Mapping[str, object], source_hit)
+        provider_hit_id = _required_string(
+            typed_hit,
+            "provider_hit_id",
+            "source_lineage_invalid",
+        )
+        query_term = _required_string(
+            typed_hit,
+            "query_term",
+            "source_lineage_invalid",
+        )
+        payload_sha256 = _required_string(
+            typed_hit,
+            "payload_sha256",
+            "source_lineage_invalid",
+        )
+        if _SHA256.fullmatch(payload_sha256) is None:
+            raise RecapDocketRecordError(
+                "source_lineage_invalid",
+                "source hit payload_sha256 is not a lowercase SHA-256 digest",
+            )
+        projected_hit_keys.append(provider_hit_id)
+        projected_terms.append(query_term)
+    if (
+        tuple(sorted(set(projected_hit_keys))) != entry_keys
+        or tuple(sorted(set(projected_terms))) != matched_terms
+    ):
+        raise RecapDocketRecordError(
+            "source_lineage_invalid",
+            "source hit provenance does not match entry_keys and matched_terms",
+        )
+    return CaseDevRecapLookupTarget(
+        docket_id=docket_id,
+        docket_url=None,
+        entry_keys=entry_keys,
+        matched_terms=matched_terms,
+    )
+
+
 def enrich_recap_discovery_batch(
     *,
     client: CaseDevClient,
@@ -176,7 +318,7 @@ def enrich_recap_discovery_batch(
         candidate_id = _best_effort_string(record, "candidate_id")
         docket_id = _best_effort_string(record, "docket_id")
         try:
-            discovery = recap_discovered_docket_from_record(record)
+            discovery = case_dev_recap_lookup_target_from_record(record)
         except RecapDocketRecordError as error:
             failures.append(
                 CaseDevRecapBatchFailure(
