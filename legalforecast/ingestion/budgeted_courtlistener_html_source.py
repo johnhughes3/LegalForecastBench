@@ -9,6 +9,7 @@ attempt for each immutable docket target.
 from __future__ import annotations
 
 import hashlib
+import re
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -32,6 +33,7 @@ from legalforecast.ingestion.firecrawl_source import (
 
 _TARGET_PREFIX = "courtlistener-docket:"
 _UNAVAILABLE_TARGET_STATUSES = frozenset({404, 410})
+_SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
 class DurableBudgetedCourtListenerHTMLSource:
@@ -70,12 +72,6 @@ class DurableBudgetedCourtListenerHTMLSource:
         )
         canonical_source_url = canonicalize_courtlistener_source_url(source_url)
         expected_path = self.raw_html_dir / f"{normalized_docket_id}.html"
-        if expected_path.exists():
-            return self.verify_existing_raw_html(
-                normalized_docket_id,
-                canonical_source_url,
-                expected_path,
-            )
         target = FirecrawlTargetSpec(
             target_id=self.target_id(normalized_docket_id),
             target_kind="docket",
@@ -83,6 +79,16 @@ class DurableBudgetedCourtListenerHTMLSource:
             page_number=1,
             ordinal=int(normalized_docket_id),
         )
+        existing_target = any(
+            stored.target_id == target.target_id
+            for stored in self.store.firecrawl_targets(self.run_id)
+        )
+        if expected_path.exists() and not existing_target:
+            return self.verify_existing_raw_html(
+                normalized_docket_id,
+                canonical_source_url,
+                expected_path,
+            )
         scheduler = BudgetedFirecrawlScheduler(
             store=self.store,
             source=self.source,
@@ -91,6 +97,7 @@ class DurableBudgetedCourtListenerHTMLSource:
             artifact_path_resolver=self._artifact_path,
             max_attempts=1,
             max_workers=1,
+            terminalize_abandoned_authorizations=True,
         )
         result = scheduler.run((target,))
         if len(result.pages) == 1:
@@ -109,6 +116,18 @@ class DurableBudgetedCourtListenerHTMLSource:
             raise CourtListenerUnavailableError(
                 f"CourtListener docket {normalized_docket_id} is unavailable"
             )
+        if len(attempts) == 1 and self._is_abandoned_attempt(attempts[0]):
+            if attempts[0].failure_code == "authorization_abandoned_with_orphan":
+                self._quarantine_abandoned_raw_html(
+                    normalized_docket_id,
+                    attempts[0],
+                    expected_path,
+                )
+            raise CourtListenerUnavailableError(
+                f"CourtListener docket {normalized_docket_id} acquisition was "
+                "interrupted after durable authorization; the original credit "
+                "reservation was retained"
+            )
         failure_code = attempts[0].failure_code if len(attempts) == 1 else None
         detail = f" ({failure_code})" if failure_code is not None else ""
         raise FirecrawlArtifactError(
@@ -122,11 +141,17 @@ class DurableBudgetedCourtListenerHTMLSource:
         summary = dict(self.store.firecrawl_run_summary(self.run_id))
         attempts = self.store.firecrawl_attempts(self.run_id)
         targets = self.store.firecrawl_targets(self.run_id)
-        unavailable_ids = {
+        provider_unavailable_ids = {
             attempt.target_id
             for attempt in attempts
             if self._is_unavailable_attempt(attempt)
         }
+        abandoned_ids = {
+            attempt.target_id
+            for attempt in attempts
+            if self._is_abandoned_attempt(attempt)
+        }
+        unavailable_ids = provider_unavailable_ids | abandoned_ids
         summary.update(
             {
                 "schema_version": (
@@ -139,6 +164,8 @@ class DurableBudgetedCourtListenerHTMLSource:
                     target.status == "succeeded" for target in targets
                 ),
                 "unavailable_docket_count": len(unavailable_ids),
+                "provider_unavailable_docket_count": len(provider_unavailable_ids),
+                "abandoned_docket_count": len(abandoned_ids),
                 "target_count": len(targets),
             }
         )
@@ -230,6 +257,63 @@ class DurableBudgetedCourtListenerHTMLSource:
                 f"raw docket HTML is not UTF-8 for {target_id!r}"
             ) from error
 
+    def successful_artifact_receipts(
+        self,
+        *,
+        batch_digest: str,
+    ) -> Mapping[str, Mapping[str, object]]:
+        """Return source-and-batch-bound receipts for every successful docket."""
+
+        if _SHA256.fullmatch(batch_digest) is None:
+            raise ValueError("batch_digest must be a lowercase SHA-256 digest")
+        targets = {
+            target.target_id: target
+            for target in self.store.firecrawl_targets(self.run_id)
+            if target.status == "succeeded"
+        }
+        attempts = self.store.firecrawl_attempts(self.run_id)
+        receipts: dict[str, Mapping[str, object]] = {}
+        for target_id, target in sorted(targets.items()):
+            if not target_id.startswith(_TARGET_PREFIX):
+                raise FirecrawlArtifactError(
+                    "successful Firecrawl run contains a non-docket target"
+                )
+            docket_id = target_id.removeprefix(_TARGET_PREFIX)
+            path = self.raw_html_dir / f"{docket_id}.html"
+            self.verify_existing_raw_html(docket_id, target.source_url, path)
+            matching = tuple(
+                attempt
+                for attempt in attempts
+                if attempt.target_id == target_id
+                and attempt.page_number == 1
+                and attempt.status == "succeeded"
+            )
+            if len(matching) != 1:
+                raise FirecrawlArtifactError(
+                    f"successful docket target {target_id!r} lacks one receipt"
+                )
+            attempt = matching[0]
+            receipts[docket_id] = {
+                "schema_version": (
+                    "legalforecast.firecrawl_docket_html_source_receipt.v1"
+                ),
+                "docket_html_source": "firecrawl",
+                "batch_digest": batch_digest,
+                "firecrawl_run_id": self.run_id,
+                "firecrawl_target_id": target_id,
+                "firecrawl_attempt_id": attempt.attempt_id,
+                "request_url": attempt.request_url,
+                "reserved_credits": attempt.reserved_credits,
+                "reported_credits": attempt.reported_credits,
+                "proxy_used": attempt.proxy_used,
+                "target_http_status": attempt.target_http_status,
+                "artifact_sha256": attempt.artifact_sha256,
+                "artifact_byte_count": attempt.artifact_byte_count,
+                "authorized_at": attempt.authorized_at,
+                "completed_at": attempt.completed_at,
+            }
+        return receipts
+
     @staticmethod
     def target_id(docket_id: str) -> str:
         """Return the immutable scheduler identity for one numeric docket."""
@@ -259,3 +343,61 @@ class DurableBudgetedCourtListenerHTMLSource:
             and attempt.failure_code == "target_http_status_invalid"
             and attempt.target_http_status in _UNAVAILABLE_TARGET_STATUSES
         )
+
+    @staticmethod
+    def _is_abandoned_attempt(attempt: FirecrawlAttempt) -> bool:
+        return (
+            attempt.status == "interrupted"
+            and attempt.failure_code
+            in {
+                "authorization_abandoned",
+                "authorization_abandoned_with_orphan",
+            }
+            and attempt.failure_transient is False
+        )
+
+    def _quarantine_abandoned_raw_html(
+        self,
+        docket_id: str,
+        attempt: FirecrawlAttempt,
+        path: Path,
+    ) -> None:
+        """Move an unreceipted crash orphan outside packet-bound raw artifacts."""
+
+        if not path.exists():
+            return
+        if path.is_symlink() or not path.is_file():
+            raise FirecrawlArtifactError(
+                f"abandoned raw docket artifact is not a regular file: {path}"
+            )
+        try:
+            content = path.read_bytes()
+        except OSError as error:
+            raise FirecrawlArtifactError(
+                f"cannot read abandoned raw docket artifact: {path}"
+            ) from error
+        digest = hashlib.sha256(content).hexdigest()
+        quarantine_dir = (
+            self.store.path.resolve().parent / "firecrawl-untrusted-orphans"
+        )
+        quarantine_dir.mkdir(parents=True, exist_ok=True)
+        destination = quarantine_dir / (
+            f"docket-{docket_id}-attempt-{attempt.attempt_id}-{digest}.html"
+        )
+        if destination.exists():
+            if destination.is_symlink() or not destination.is_file():
+                raise FirecrawlArtifactError(
+                    f"abandoned artifact quarantine path is unsafe: {destination}"
+                )
+            if destination.read_bytes() != content:
+                raise FirecrawlArtifactError(
+                    "abandoned artifact quarantine commitment mismatch"
+                )
+            path.unlink()
+            return
+        try:
+            path.replace(destination)
+        except OSError as error:
+            raise FirecrawlArtifactError(
+                f"cannot quarantine abandoned raw docket artifact: {path}"
+            ) from error

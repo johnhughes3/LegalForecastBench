@@ -135,6 +135,14 @@ def test_adapter_commits_exact_docket_artifact_and_cumulative_audit(
         assert summary["run_reported_credits"] == 1
         assert summary["successful_docket_count"] == 1
         assert summary["unavailable_docket_count"] == 0
+        receipts = source.successful_artifact_receipts(batch_digest="a" * 64)
+        assert set(receipts) == {_DOCKET_ID}
+        receipt = receipts[_DOCKET_ID]
+        assert receipt["batch_digest"] == "a" * 64
+        assert receipt["firecrawl_run_id"] == "courtlistener-docket-html-v1"
+        assert receipt["firecrawl_target_id"] == f"courtlistener-docket:{_DOCKET_ID}"
+        assert receipt["reported_credits"] == 1
+        assert receipt["artifact_sha256"] == attempt.artifact_sha256
 
 
 def test_successful_resume_verifies_committed_source_path_and_hash(
@@ -172,6 +180,130 @@ def test_successful_resume_verifies_committed_source_path_and_hash(
         )
         with pytest.raises(FirecrawlArtifactError, match=r"artifact .* mismatch"):
             resumed.fetch(docket_id=_DOCKET_ID, source_url=_SOURCE_URL)
+        assert resumed_transport.requests == []
+
+
+def test_resume_terminally_excludes_abandoned_authorization_without_new_charge(
+    tmp_path: Path,
+) -> None:
+    raw_html_dir = tmp_path / "raw"
+    with _store(tmp_path) as store:
+        target_id = f"courtlistener-docket:{_DOCKET_ID}"
+        store.ensure_firecrawl_target(
+            "courtlistener-docket-html-v1",
+            target_id=target_id,
+            target_kind="docket",
+            source_url=_CANONICAL_URL,
+            ordinal=int(_DOCKET_ID),
+        )
+        store.authorize_firecrawl_attempt(
+            "courtlistener-docket-html-v1",
+            target_id=target_id,
+            page_number=1,
+            request_url=_CANONICAL_URL,
+        )
+        transport = FirecrawlFixtureTransport([])
+        source = _adapter(
+            store=store,
+            raw_html_dir=raw_html_dir,
+            transport=transport,
+        )
+
+        with pytest.raises(
+            CourtListenerUnavailableError,
+            match="interrupted after durable authorization",
+        ):
+            source.fetch(docket_id=_DOCKET_ID, source_url=_SOURCE_URL)
+
+        [attempt] = store.firecrawl_attempts("courtlistener-docket-html-v1")
+        assert attempt.status == "interrupted"
+        assert attempt.failure_code == "authorization_abandoned"
+        assert attempt.failure_transient is False
+        assert attempt.reserved_credits == 1
+        assert attempt.reported_credits is None
+        assert store.firecrawl_targets("courtlistener-docket-html-v1")[0].status == (
+            "terminal_error"
+        )
+        assert source.audit_summary()["run_reserved_credits"] == 1
+        assert source.audit_summary()["run_reported_credits"] == 0
+        assert source.audit_summary()["abandoned_docket_count"] == 1
+        assert source.audit_summary()["unavailable_docket_count"] == 1
+        assert transport.requests == []
+
+        with pytest.raises(CourtListenerUnavailableError):
+            source.fetch(docket_id=_DOCKET_ID, source_url=_SOURCE_URL)
+        assert len(store.firecrawl_attempts("courtlistener-docket-html-v1")) == 1
+        assert transport.requests == []
+
+
+def test_resume_quarantines_exact_published_orphan_without_false_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw_html_dir = tmp_path / "raw"
+    with _store(tmp_path) as store:
+        first_transport = FirecrawlFixtureTransport([_response()])
+        first = _adapter(
+            store=store,
+            raw_html_dir=raw_html_dir,
+            transport=first_transport,
+        )
+        original_finalize = store.finalize_firecrawl_attempt
+
+        def crash_before_sqlite_finalization(
+            attempt_id: int,
+            **kwargs: object,
+        ) -> object:
+            if kwargs.get("status") == "succeeded":
+                raise SystemExit("simulated process crash")
+            return original_finalize(attempt_id, **kwargs)
+
+        monkeypatch.setattr(
+            store,
+            "finalize_firecrawl_attempt",
+            crash_before_sqlite_finalization,
+        )
+        with pytest.raises(SystemExit, match="simulated process crash"):
+            first.fetch(docket_id=_DOCKET_ID, source_url=_SOURCE_URL)
+        monkeypatch.setattr(store, "finalize_firecrawl_attempt", original_finalize)
+
+        raw_path = raw_html_dir / f"{_DOCKET_ID}.html"
+        assert raw_path.read_text(encoding="utf-8") == _HTML
+        [abandoned] = store.firecrawl_attempts("courtlistener-docket-html-v1")
+        assert abandoned.status == "authorized"
+        assert abandoned.reserved_credits == 1
+
+        resumed_transport = FirecrawlFixtureTransport([])
+        resumed = _adapter(
+            store=store,
+            raw_html_dir=raw_html_dir,
+            transport=resumed_transport,
+        )
+        with pytest.raises(
+            CourtListenerUnavailableError,
+            match="interrupted after durable authorization",
+        ):
+            resumed.fetch(docket_id=_DOCKET_ID, source_url=_SOURCE_URL)
+
+        [interrupted] = store.firecrawl_attempts("courtlistener-docket-html-v1")
+        assert interrupted.attempt_id == abandoned.attempt_id
+        assert interrupted.status == "interrupted"
+        assert interrupted.failure_code == "authorization_abandoned_with_orphan"
+        assert interrupted.failure_transient is False
+        assert interrupted.reserved_credits == 1
+        assert interrupted.reported_credits is None
+        assert resumed.audit_summary()["run_reserved_credits"] == 1
+        assert resumed.audit_summary()["run_reported_credits"] == 0
+        assert resumed.audit_summary()["abandoned_docket_count"] == 1
+        assert resumed.audit_summary()["unavailable_docket_count"] == 1
+        assert resumed_transport.requests == []
+        assert not raw_path.exists()
+        [quarantined] = (tmp_path / "firecrawl-untrusted-orphans").iterdir()
+        assert quarantined.read_text(encoding="utf-8") == _HTML
+
+        with pytest.raises(CourtListenerUnavailableError):
+            resumed.fetch(docket_id=_DOCKET_ID, source_url=_SOURCE_URL)
+        assert len(store.firecrawl_attempts("courtlistener-docket-html-v1")) == 1
         assert resumed_transport.requests == []
 
 

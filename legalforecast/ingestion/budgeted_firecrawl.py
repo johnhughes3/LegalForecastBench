@@ -141,6 +141,7 @@ class BudgetedFirecrawlScheduler:
         artifact_path_resolver: Callable[[FirecrawlTargetSpec], str | Path]
         | None = None,
         semantic_failure_quarantine_dir: str | Path | None = None,
+        terminalize_abandoned_authorizations: bool = False,
     ) -> None:
         if not run_id.strip():
             raise ValueError("run_id must be nonempty")
@@ -161,6 +162,7 @@ class BudgetedFirecrawlScheduler:
         self.max_workers = max_workers
         self.artifact_validator = artifact_validator
         self.artifact_path_resolver = artifact_path_resolver
+        self.terminalize_abandoned_authorizations = terminalize_abandoned_authorizations
         self.semantic_failure_quarantine_dir = (
             Path(semantic_failure_quarantine_dir).resolve()
             if semantic_failure_quarantine_dir is not None
@@ -540,11 +542,13 @@ class BudgetedFirecrawlScheduler:
             if not matches:
                 continue
             attempt = matches[0]
-            expected_path = self._artifact_path(target)
-            if attempt.artifact_path != expected_path:
-                raise FirecrawlArtifactError(
-                    f"committed artifact path mismatch for target {target.target_id!r}"
-                )
+            if self.artifact_path_resolver is not None:
+                expected_path = self._artifact_path(target)
+                if attempt.artifact_path != expected_path:
+                    raise FirecrawlArtifactError(
+                        "committed artifact path mismatch for target "
+                        f"{target.target_id!r}"
+                    )
             raw_html = _read_verified_artifact(attempt)
             successful[target.target_id] = _page_record(
                 target, attempt, raw_html=raw_html
@@ -552,12 +556,53 @@ class BudgetedFirecrawlScheduler:
         return successful
 
     def _finalize_abandoned_authorizations(self) -> None:
+        targets = {
+            target.target_id: target
+            for target in self.store.firecrawl_targets(self.run_id)
+        }
         for attempt in self.store.firecrawl_attempts(self.run_id):
             if attempt.status == "authorized":
-                self.store.finalize_firecrawl_attempt(
-                    attempt.attempt_id,
-                    status="interrupted",
-                )
+                if self.terminalize_abandoned_authorizations:
+                    stored_target = targets.get(attempt.target_id)
+                    if stored_target is None:
+                        raise FirecrawlArtifactError(
+                            "authorized attempt has no durable Firecrawl target"
+                        )
+                    target = FirecrawlTargetSpec(
+                        target_id=stored_target.target_id,
+                        target_kind=cast(
+                            FirecrawlTargetKind,
+                            stored_target.target_kind,
+                        ),
+                        source_url=stored_target.source_url,
+                        page_number=attempt.page_number,
+                        ordinal=stored_target.ordinal,
+                    )
+                    has_orphan = self._artifact_path(target).exists()
+                    self.store.finalize_firecrawl_attempt(
+                        attempt.attempt_id,
+                        status="interrupted",
+                        failure_code=(
+                            "authorization_abandoned_with_orphan"
+                            if has_orphan
+                            else "authorization_abandoned"
+                        ),
+                        failure_message=(
+                            "Provider outcome was not durably committed; original "
+                            "credit reservation retained"
+                        ),
+                        failure_transient=False,
+                    )
+                    self.store.set_firecrawl_target_status(
+                        self.run_id,
+                        attempt.target_id,
+                        "terminal_error",
+                    )
+                else:
+                    self.store.finalize_firecrawl_attempt(
+                        attempt.attempt_id,
+                        status="interrupted",
+                    )
 
     def _raise_open_circuit(self, consecutive_5xx: int) -> None:
         self.store.set_firecrawl_run_status(self.run_id, "circuit_open")
