@@ -30,6 +30,7 @@ from legalforecast.ingestion.firecrawl_source import (
     FirecrawlResponseError,
     FirecrawlScrapeResult,
     FirecrawlServerError,
+    FirecrawlTargetHTTPError,
 )
 
 FirecrawlTargetKind = Literal["search", "docket"]
@@ -137,6 +138,8 @@ class BudgetedFirecrawlScheduler:
         provider_5xx_circuit_threshold: int = 5,
         max_workers: int = 1,
         artifact_validator: Callable[[str, str], None] | None = None,
+        artifact_path_resolver: Callable[[FirecrawlTargetSpec], str | Path]
+        | None = None,
         semantic_failure_quarantine_dir: str | Path | None = None,
     ) -> None:
         if not run_id.strip():
@@ -157,6 +160,7 @@ class BudgetedFirecrawlScheduler:
         self.provider_5xx_circuit_threshold = provider_5xx_circuit_threshold
         self.max_workers = max_workers
         self.artifact_validator = artifact_validator
+        self.artifact_path_resolver = artifact_path_resolver
         self.semantic_failure_quarantine_dir = (
             Path(semantic_failure_quarantine_dir).resolve()
             if semantic_failure_quarantine_dir is not None
@@ -293,6 +297,22 @@ class BudgetedFirecrawlScheduler:
                             )
                             if fatal_error is None:
                                 consecutive_5xx = 0
+                    except FirecrawlTargetHTTPError as error:
+                        self.store.finalize_firecrawl_attempt(
+                            attempt.attempt_id,
+                            status="target_error",
+                            reported_credits=_integral_credits(error.reported_credits),
+                            proxy_used=error.proxy_used,
+                            provider_http_status=error.provider_http_status,
+                            target_http_status=error.target_status_code,
+                            **_failure_evidence(error),
+                        )
+                        terminal_failures.add(target.target_id)
+                        self.store.set_firecrawl_target_status(
+                            self.run_id, target.target_id, "terminal_error"
+                        )
+                        if fatal_error is None:
+                            consecutive_5xx = 0
                     except FirecrawlResponseError as error:
                         self.store.finalize_firecrawl_attempt(
                             attempt.attempt_id,
@@ -478,6 +498,15 @@ class BudgetedFirecrawlScheduler:
         temporary.replace(destination)
 
     def _artifact_path(self, target: FirecrawlTargetSpec) -> Path:
+        if self.artifact_path_resolver is not None:
+            resolved = Path(self.artifact_path_resolver(target)).resolve()
+            try:
+                resolved.relative_to(self.artifact_dir)
+            except ValueError as error:
+                raise FirecrawlArtifactError(
+                    "resolved Firecrawl artifact path escapes its artifact directory"
+                ) from error
+            return resolved
         identity = f"{target.target_id}\0{target.source_url}".encode()
         digest = hashlib.sha256(identity).hexdigest()[:24]
         return self.artifact_dir / (
@@ -511,6 +540,11 @@ class BudgetedFirecrawlScheduler:
             if not matches:
                 continue
             attempt = matches[0]
+            expected_path = self._artifact_path(target)
+            if attempt.artifact_path != expected_path:
+                raise FirecrawlArtifactError(
+                    f"committed artifact path mismatch for target {target.target_id!r}"
+                )
             raw_html = _read_verified_artifact(attempt)
             successful[target.target_id] = _page_record(
                 target, attempt, raw_html=raw_html

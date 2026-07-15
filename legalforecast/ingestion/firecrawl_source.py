@@ -129,6 +129,25 @@ class FirecrawlResponseError(FirecrawlError):
     default_failure_code = "invalid_provider_response"
 
 
+class FirecrawlTargetHTTPError(FirecrawlResponseError):
+    """Raised when the allowlisted target itself returns a non-200 status."""
+
+    def __init__(
+        self,
+        target_status_code: int,
+        *,
+        reported_credits: float,
+        proxy_used: str,
+    ) -> None:
+        self.target_status_code = target_status_code
+        self.reported_credits = reported_credits
+        self.proxy_used = proxy_used
+        super().__init__(
+            "CourtListener target returned a non-success status",
+            failure_code="target_http_status_invalid",
+        )
+
+
 class FirecrawlChallengeError(FirecrawlError):
     """Raised when a successful scrape contains confirmed challenge HTML."""
 
@@ -599,14 +618,13 @@ def _validated_result(
         )
     metadata = _mapping(data.get("metadata"), "data.metadata")
     status_code = metadata.get("statusCode")
-    if not isinstance(status_code, int) or isinstance(status_code, bool):
+    if (
+        not isinstance(status_code, int)
+        or isinstance(status_code, bool)
+        or not 100 <= status_code <= 599
+    ):
         raise FirecrawlResponseError(
             "Firecrawl target statusCode is missing or invalid"
-        )
-    if status_code != 200:
-        raise FirecrawlResponseError(
-            "CourtListener target returned a non-success status",
-            failure_code="target_http_status_invalid",
         )
     if _contains_challenge_html(raw_html):
         raise FirecrawlChallengeError(
@@ -677,6 +695,17 @@ def _validated_result(
         raise FirecrawlResponseError(
             f"Firecrawl scrape exceeded the {cap_name} cap",
             failure_code="credits_used_exceeded_reservation",
+        )
+    if not credits_used.is_integer():
+        raise FirecrawlResponseError(
+            "Firecrawl creditsUsed must be integral",
+            failure_code="credits_used_not_integral",
+        )
+    if status_code != 200:
+        raise FirecrawlTargetHTTPError(
+            status_code,
+            reported_credits=credits_used,
+            proxy_used=proxy_used,
         )
     return FirecrawlScrapeResult(
         source_url=source_url,
