@@ -62,10 +62,11 @@ def _next_url(
     cursor: str = "cursor-2",
     query_pairs: list[tuple[str, str]] | None = None,
 ) -> str:
-    pairs = query_pairs or [(key, str(value)) for key, value in _params(term).items()]
+    pairs = _params(term).items() if query_pairs is None else query_pairs
+    normalized_pairs = [(key, str(value)) for key, value in pairs]
     return (
         "https://www.courtlistener.com/api/rest/v4/search/?"
-        f"{urllib.parse.urlencode([*pairs, ('cursor', cursor)])}"
+        f"{urllib.parse.urlencode([*normalized_pairs, ('cursor', cursor)])}"
     )
 
 
@@ -373,6 +374,7 @@ def test_pagination_accepts_reordered_exact_frozen_parameter_multiset() -> None:
 @pytest.mark.parametrize(
     "query_pairs",
     [
+        [],
         [("type", "r"), ("order_by", "score desc"), ("page_size", "20")],
         [
             ("q", "changed query"),
@@ -399,6 +401,7 @@ def test_pagination_accepts_reordered_exact_frozen_parameter_multiset() -> None:
         ],
     ],
     ids=(
+        "missing-all-frozen-params",
         "missing-q",
         "changed-q",
         "duplicate-q",
