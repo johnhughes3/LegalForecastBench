@@ -33,6 +33,7 @@ CASE_DEV_RANKED_SELECTION_RUN_SCHEMA = (
 _DOCKET_ID = re.compile(r"[1-9][0-9]*")
 _API_DOCKET_PATH = re.compile(r"^/api/rest/v[1-9][0-9]*/dockets/([1-9][0-9]*)/$")
 _PUBLIC_DOCKET_PATH = re.compile(r"^/docket/([1-9][0-9]*)/[^/]+/$")
+_SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +94,28 @@ class VerifiedCaseDevRankedSelection:
 
 
 @dataclass(frozen=True, slots=True)
+class CaseDevRankedTargetPlan:
+    """Pure commitment for materializing one ranked REST-observation batch."""
+
+    batch_id: str
+    target_cycle_hash: str
+    target_batch_config: Mapping[str, object]
+    target_batch_digest: str
+    selection: VerifiedCaseDevRankedSelection
+
+    def run_card_record(self) -> dict[str, object]:
+        """Return the complete commitment required before target writes."""
+
+        return _ranked_selection_run_card_record(
+            batch_id=self.batch_id,
+            target_cycle_hash=self.target_cycle_hash,
+            target_batch_digest=self.target_batch_digest,
+            leads_selected=len(self.selection.selected),
+            selection=self.selection,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class CaseDevRankedSeedResult:
     """Deterministic result of materializing the selected REST batch."""
 
@@ -123,18 +146,13 @@ class CaseDevRankedSeedResult:
     def run_card_record(self) -> dict[str, object]:
         """Return a replay-stable commitment independent of resume state."""
 
-        return {
-            "schema_version": CASE_DEV_RANKED_SELECTION_RUN_SCHEMA,
-            "provider_activity_requested": False,
-            "provider_activity_executed": False,
-            "paid_activity_requested": False,
-            "paid_activity_executed": False,
-            "batch_id": self.batch_id,
-            "target_cycle_hash": self.target_cycle_hash,
-            "target_batch_digest": self.target_batch_digest,
-            "leads_selected": self.leads_selected,
-            **self.selection.commitment_record(),
-        }
+        return _ranked_selection_run_card_record(
+            batch_id=self.batch_id,
+            target_cycle_hash=self.target_cycle_hash,
+            target_batch_digest=self.target_batch_digest,
+            leads_selected=self.leads_selected,
+            selection=self.selection,
+        )
 
 
 def project_case_dev_opinion_source(
@@ -185,12 +203,25 @@ def verify_case_dev_ranked_selection(
     source_projection_path: Path,
     ranked_path: Path,
     enrichment_run_card_path: Path,
+    expected_enrichment_run_card_sha256: str,
     top_n: int,
 ) -> VerifiedCaseDevRankedSelection:
     """Verify the complete enrichment lineage and return its exact top-N prefix."""
 
     if top_n <= 0:
         raise RecapApiBatchDriverError("top_n must be a positive integer")
+    if _SHA256.fullmatch(expected_enrichment_run_card_sha256) is None:
+        raise RecapApiBatchDriverError(
+            "expected enrichment run-card SHA-256 must be 64 lowercase hex digits"
+        )
+    # Authenticate the exact bytes against the caller's out-of-band receipt before
+    # parsing the card or trusting any of its internally self-reported commitments.
+    run_card_sha256 = _file_sha256(enrichment_run_card_path)
+    if run_card_sha256 != expected_enrichment_run_card_sha256:
+        raise RecapApiBatchDriverError(
+            "enrichment run-card SHA-256 does not match the external commitment"
+        )
+    run_card = _read_json_object(enrichment_run_card_path)
     expected_projection = list(project_case_dev_opinion_source(source))
     projection_records = _read_jsonl(source_projection_path)
     if projection_records != expected_projection:
@@ -200,8 +231,6 @@ def verify_case_dev_ranked_selection(
     projection_sha256 = _file_sha256(source_projection_path)
     ranked_records = _read_jsonl(ranked_path)
     ranked_sha256 = _file_sha256(ranked_path)
-    run_card = _read_json_object(enrichment_run_card_path)
-    run_card_sha256 = _file_sha256(enrichment_run_card_path)
     expected_commitments = {
         "source_batch_id": source.source_batch_id,
         "source_batch_digest": source.source_batch_digest,
@@ -281,14 +310,14 @@ def verify_case_dev_ranked_selection(
     )
 
 
-def seed_case_dev_ranked_selection(
-    store: CycleAcquisitionStore,
+def build_case_dev_ranked_target_plan(
     *,
     batch_id: str,
+    target_cycle_hash: str,
     selection: VerifiedCaseDevRankedSelection,
     page_size: int = 100,
-) -> CaseDevRankedSeedResult:
-    """Materialize a source-bound top-N batch for the existing REST observer."""
+) -> CaseDevRankedTargetPlan:
+    """Build the exact target commitment without mutating its cycle store."""
 
     if not 1 <= page_size <= 100:
         raise RecapApiBatchDriverError("page_size must be from 1 through 100")
@@ -297,7 +326,10 @@ def seed_case_dev_ranked_selection(
         raise RecapApiBatchDriverError(
             "ranked selection target batch must differ from its source batch"
         )
-    target_cycle_hash = store.cycle_hash
+    if _SHA256.fullmatch(target_cycle_hash) is None:
+        raise RecapApiBatchDriverError(
+            "target cycle hash must be 64 lowercase hex digits"
+        )
     config = build_recap_api_batch_config(
         decision_window_start=source.search_window_start,
         decision_window_end=source.search_window_end,
@@ -321,14 +353,45 @@ def seed_case_dev_ranked_selection(
             "enrichment_run_card_sha256": selection.enrichment_run_card_sha256,
             "ranked_candidate_count": selection.ranked_candidate_count,
             "selected_candidate_count": len(selection.selected),
-            "selected_candidate_set_sha256": (selection.selected_candidate_set_sha256),
+            "selected_candidate_set_sha256": selection.selected_candidate_set_sha256,
             "provider_activity_requested": False,
             "provider_activity_executed": False,
             "paid_activity_requested": False,
             "paid_activity_executed": False,
         }
     )
-    target_batch_digest = store.ensure_batch(batch_id, config)
+    return CaseDevRankedTargetPlan(
+        batch_id=batch_id,
+        target_cycle_hash=target_cycle_hash,
+        target_batch_config=config,
+        target_batch_digest=_canonical_json_sha256(config),
+        selection=selection,
+    )
+
+
+def seed_case_dev_ranked_selection(
+    store: CycleAcquisitionStore,
+    *,
+    plan: CaseDevRankedTargetPlan,
+    page_size: int = 100,
+) -> CaseDevRankedSeedResult:
+    """Materialize a source-bound top-N batch for the existing REST observer."""
+
+    if not 1 <= page_size <= 100:
+        raise RecapApiBatchDriverError("page_size must be from 1 through 100")
+    batch_id = plan.batch_id
+    selection = plan.selection
+    source = selection.source
+    target_cycle_hash = store.cycle_hash
+    if target_cycle_hash != plan.target_cycle_hash:
+        raise RecapApiBatchDriverError(
+            "target cycle hash changed after ranked-selection planning"
+        )
+    target_batch_digest = store.ensure_batch(batch_id, plan.target_batch_config)
+    if target_batch_digest != plan.target_batch_digest:
+        raise RecapApiBatchDriverError(
+            "target batch digest differs from ranked-selection plan"
+        )
     store.ensure_terms(batch_id, (CASE_DEV_RANKED_TRANSFER_TERM,))
     progress = store.term_progress(batch_id, CASE_DEV_RANKED_TRANSFER_TERM)
     if progress.terminal_status is not None:
@@ -381,6 +444,28 @@ def seed_case_dev_ranked_selection(
         already_seeded=False,
         selection=selection,
     )
+
+
+def _ranked_selection_run_card_record(
+    *,
+    batch_id: str,
+    target_cycle_hash: str,
+    target_batch_digest: str,
+    leads_selected: int,
+    selection: VerifiedCaseDevRankedSelection,
+) -> dict[str, object]:
+    return {
+        "schema_version": CASE_DEV_RANKED_SELECTION_RUN_SCHEMA,
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "batch_id": batch_id,
+        "target_cycle_hash": target_cycle_hash,
+        "target_batch_digest": target_batch_digest,
+        "leads_selected": leads_selected,
+        **selection.commitment_record(),
+    }
 
 
 def _ranked_candidate_hit(
@@ -569,3 +654,21 @@ def _canonical_sha256(value: Mapping[str, object] | Sequence[object]) -> str:
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
+
+
+def _canonical_json_sha256(value: object) -> str:
+    """Match ``CycleAcquisitionStore.ensure_batch`` canonicalization exactly."""
+
+    try:
+        canonical = json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+    except (TypeError, ValueError) as exc:
+        raise RecapApiBatchDriverError(
+            f"target batch config is not canonical JSON: {exc}"
+        ) from exc
+    return hashlib.sha256(canonical.encode()).hexdigest()

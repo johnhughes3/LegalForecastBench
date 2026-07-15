@@ -127,8 +127,8 @@ from legalforecast.ingestion.case_dev_purchase import (
     write_case_dev_purchase_policy,
 )
 from legalforecast.ingestion.case_dev_ranked_selection import (
-    CASE_DEV_RANKED_SELECTION_RUN_SCHEMA,
     CASE_DEV_SOURCE_DOCKET_SCHEMA,
+    build_case_dev_ranked_target_plan,
     project_case_dev_opinion_source,
     seed_case_dev_ranked_selection,
     verify_case_dev_ranked_selection,
@@ -3088,6 +3088,14 @@ def _add_batch_002_ranked_selection_arguments(parser: argparse.ArgumentParser) -
         type=Path,
         required=True,
         help="Completed enrichment run card authenticating the projection and rank.",
+    )
+    parser.add_argument(
+        "--expected-enrichment-run-card-sha256",
+        required=True,
+        help=(
+            "External lowercase SHA-256 commitment for the raw enrichment run "
+            "card bytes; checked before the card is parsed."
+        ),
     )
     parser.add_argument(
         "--cycle-store",
@@ -12521,6 +12529,9 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
     source_projection = cast(Path, args.source_projection)
     ranked_path = cast(Path, args.ranked)
     enrichment_run_card = cast(Path, args.enrichment_run_card)
+    expected_enrichment_run_card_sha256 = cast(
+        str, args.expected_enrichment_run_card_sha256
+    )
     cycle_store = cast(Path, args.cycle_store)
     batch_id = cast(str, args.batch_id)
     anchor = _iso_date_argument(
@@ -12544,39 +12555,39 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
             source_projection_path=source_projection,
             ranked_path=ranked_path,
             enrichment_run_card_path=enrichment_run_card,
+            expected_enrichment_run_card_sha256=(expected_enrichment_run_card_sha256),
             top_n=top_n,
         )
-        if run_card_output.exists():
-            existing = _read_json_object(run_card_output)
-            required_existing = {
-                "schema_version": CASE_DEV_RANKED_SELECTION_RUN_SCHEMA,
-                "batch_id": batch_id,
-                **selection.commitment_record(),
-            }
-            if any(
-                existing.get(key) != value for key, value in required_existing.items()
-            ):
-                raise RecapApiBatchDriverError(
-                    "existing ranked-selection run card does not match this invocation"
-                )
         with CycleAcquisitionStore(cycle_store) as store:
             _validate_frozen_screening_policy(
                 policy=store.cycle_policy,
                 anchor=anchor,
             )
+            target_cycle_hash = store.cycle_hash
+        plan = build_case_dev_ranked_target_plan(
+            batch_id=batch_id,
+            target_cycle_hash=target_cycle_hash,
+            selection=selection,
+            page_size=page_size,
+        )
+        frozen_run_card = plan.run_card_record()
+        if run_card_output.exists():
+            existing = _read_json_object(run_card_output)
+            if existing != frozen_run_card:
+                raise RecapApiBatchDriverError(
+                    "existing ranked-selection run card does not match this invocation"
+                )
+        with CycleAcquisitionStore(cycle_store) as store:
             result = seed_case_dev_ranked_selection(
                 store,
-                batch_id=batch_id,
-                selection=selection,
+                plan=plan,
                 page_size=page_size,
             )
-        frozen_run_card = result.run_card_record()
-        if run_card_output.exists():
-            if _read_json_object(run_card_output) != frozen_run_card:
-                raise RecapApiBatchDriverError(
-                    "existing ranked-selection run card does not match target batch"
-                )
-        else:
+        if result.run_card_record() != frozen_run_card:
+            raise RecapApiBatchDriverError(
+                "materialized ranked selection differs from its frozen plan"
+            )
+        if not run_card_output.exists():
             _write_json(run_card_output, frozen_run_card)
     except (
         CycleAcquisitionStoreError,

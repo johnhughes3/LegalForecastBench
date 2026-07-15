@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import sqlite3
 from datetime import date
 from pathlib import Path
 
@@ -99,13 +101,95 @@ def test_select_case_dev_ranked_rejects_ranked_tamper_before_target_write(
         )
         == 2
     )
-    with CycleAcquisitionStore(target_store) as store:
-        try:
-            store.batch_digest("ranked-rest")
-        except KeyError:
-            pass
-        else:  # pragma: no cover - fail-closed assertion
-            raise AssertionError("tampered ranking created a target batch")
+    _assert_no_target_rows(target_store)
+
+
+def test_select_case_dev_ranked_rejects_forged_rank_and_recomputed_run_card(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
+    ranked_path = enrichment_root / "checkpoints" / "case-dev-recap-ranked.jsonl"
+    run_card_path = enrichment_root / "run-cards" / "enrich-recap-case-dev.json"
+    expected_run_card_sha256 = hashlib.sha256(run_card_path.read_bytes()).hexdigest()
+    ranked = _read_jsonl(ranked_path)
+    ranked.reverse()
+    ranked[0].update(
+        {
+            "structural_priority_tier": 0,
+            "decision_signal_priority_tier": 0,
+            "missing_required_document_count": 0,
+            "ranking_key": [0, 0, 0, 3, "101"],
+        }
+    )
+    ranked[1].update(
+        {
+            "structural_priority_tier": 2,
+            "decision_signal_priority_tier": 3,
+            "ranking_key": [2, 3, 0, 3, "102"],
+        }
+    )
+    _write_jsonl(ranked_path, ranked)
+    forged_run_card = json.loads(run_card_path.read_text())
+    forged_run_card["ranked_output_sha256"] = hashlib.sha256(
+        ranked_path.read_bytes()
+    ).hexdigest()
+    run_card_path.write_text(json.dumps(forged_run_card, sort_keys=True) + "\n")
+    target_store = _target_store(tmp_path)
+
+    assert (
+        main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=tmp_path / "selection-run-card.json",
+                summary=tmp_path / "selection-summary.json",
+                expected_enrichment_run_card_sha256=expected_run_card_sha256,
+            )
+        )
+        == 2
+    )
+    _assert_no_target_rows(target_store)
+
+
+def test_select_case_dev_ranked_rejects_existing_card_before_target_mutation(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
+    first_target = _target_store(tmp_path, name="first-target.sqlite3")
+    run_card = tmp_path / "selection-run-card.json"
+    assert (
+        main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=first_target,
+                run_card=run_card,
+                summary=tmp_path / "first-summary.json",
+            )
+        )
+        == 0
+    )
+    tampered = json.loads(run_card.read_text())
+    tampered["target_cycle_hash"] = "0" * 64
+    run_card.write_text(json.dumps(tampered, sort_keys=True) + "\n")
+    fresh_target = _target_store(tmp_path, name="fresh-target.sqlite3")
+
+    assert (
+        main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=fresh_target,
+                run_card=run_card,
+                summary=tmp_path / "second-summary.json",
+            )
+        )
+        == 2
+    )
+    _assert_no_target_rows(fresh_target)
 
 
 def _selection_args(
@@ -115,7 +199,13 @@ def _selection_args(
     target_store: Path,
     run_card: Path,
     summary: Path,
+    expected_enrichment_run_card_sha256: str | None = None,
 ) -> list[str]:
+    enrichment_run_card = enrichment_root / "run-cards" / "enrich-recap-case-dev.json"
+    expected_digest = (
+        expected_enrichment_run_card_sha256
+        or hashlib.sha256(enrichment_run_card.read_bytes()).hexdigest()
+    )
     return [
         "batch-002",
         "select-case-dev-ranked",
@@ -128,7 +218,9 @@ def _selection_args(
         "--ranked",
         str(enrichment_root / "checkpoints" / "case-dev-recap-ranked.jsonl"),
         "--enrichment-run-card",
-        str(enrichment_root / "run-cards" / "enrich-recap-case-dev.json"),
+        str(enrichment_run_card),
+        "--expected-enrichment-run-card-sha256",
+        expected_digest,
         "--cycle-store",
         str(target_store),
         "--batch-id",
@@ -215,8 +307,8 @@ def _opinion_source_store(tmp_path: Path) -> Path:
     return path
 
 
-def _target_store(tmp_path: Path) -> Path:
-    path = tmp_path / "target.sqlite3"
+def _target_store(tmp_path: Path, *, name: str = "target.sqlite3") -> Path:
+    path = tmp_path / name
     with CycleAcquisitionStore(path) as store:
         store.ensure_cycle(_cycle_acquisition_policy(anchor=_anchor()))
     return path
@@ -304,3 +396,14 @@ def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
         "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),
         encoding="utf-8",
     )
+
+
+def _assert_no_target_rows(path: Path) -> None:
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("SELECT count(*) FROM batches").fetchone() == (0,)
+        assert connection.execute("SELECT count(*) FROM term_progress").fetchone() == (
+            0,
+        )
+        assert connection.execute("SELECT count(*) FROM discovery_hits").fetchone() == (
+            0,
+        )
