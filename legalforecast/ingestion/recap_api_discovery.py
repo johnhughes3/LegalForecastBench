@@ -58,10 +58,12 @@ from legalforecast.ingestion.decision_first_terms import (
 from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, DiscoveryPage
 from legalforecast.ingestion.mtd_acquisition_screen import (
     CaseDevDocketMetadata,
+    CaseDevMetadataScreen,
     MtdDecisionEntryScreen,
     MtdDocketDecisionScreen,
     MtdDocketScreenStatus,
     courtlistener_case_name_slug,
+    parse_courtlistener_filed_date,
     screen_case_dev_docket_metadata,
     screen_courtlistener_docket_for_mtd_decision,
 )
@@ -95,6 +97,7 @@ _DEFAULT_PAGE_SIZE = 100
 _CANDIDATE_PREFIX = "courtlistener-docket-"
 _CRIMINAL_DOCKET_TOKEN = re.compile(r"-cr-", re.IGNORECASE)
 _CRIMINAL_SLUG_PREFIXES = ("usa-v-", "united-states-v-")
+_SHA256 = re.compile(r"[0-9a-f]{64}")
 
 _MONTHS = (
     "January",
@@ -942,6 +945,90 @@ _POSTURE_REASON_CODES = frozenset(
 )
 
 
+def _source_bound_adversary_defer_evidence(
+    store: CycleAcquisitionStore,
+    *,
+    batch_id: str,
+    payload: Mapping[str, Any],
+    docket: CourtListenerDocket,
+) -> Mapping[str, object] | None:
+    """Validate the narrow ranked-subset proof that permits entry reconstruction.
+
+    This does not admit a bankruptcy case. It only defers the cheap metadata
+    exclusion long enough for the authoritative entries and unchanged strict
+    Rule 7012/adversary screen to decide. Every commitment is source-bound to the
+    exact authenticated ranked record transferred by the subset selector.
+    """
+
+    config = store.batch_config(batch_id)
+    provenance = payload.get("case_dev_ranked_selection_provenance")
+    evidence = payload.get("bankruptcy_adversary_entry_evidence")
+    if (
+        config.get("discovery_mode")
+        != "legalforecast.case_dev_ranked_opinion_subset_transfer.v1"
+        or not isinstance(provenance, Mapping)
+        or not isinstance(evidence, Mapping)
+    ):
+        return None
+    typed_provenance = cast(Mapping[str, object], provenance)
+    typed_evidence = cast(Mapping[str, object], evidence)
+    ranked_record_sha256 = typed_provenance.get("ranked_record_sha256")
+    entry_text = typed_evidence.get("entry_text")
+    entry_number = typed_evidence.get("entry_number")
+    filed_at = typed_evidence.get("filed_at")
+    if (
+        typed_provenance.get("schema_version")
+        != "legalforecast.case_dev_ranked_opinion_subset_transfer.v1"
+        or typed_evidence.get("schema_version")
+        != "legalforecast.source_bound_bankruptcy_adversary_entry.v1"
+        or not isinstance(ranked_record_sha256, str)
+        or _SHA256.fullmatch(ranked_record_sha256) is None
+        or typed_evidence.get("ranked_record_sha256") != ranked_record_sha256
+        or typed_evidence.get("docket_id") != docket.docket_id
+        or typed_evidence.get("court_id") != docket.court_id
+        or not isinstance(docket.court_id, str)
+        or not docket.court_id.casefold().endswith("b")
+        or not isinstance(entry_number, str)
+        or not entry_number.isdecimal()
+        or not isinstance(filed_at, str)
+        or not isinstance(entry_text, str)
+        or re.search(r"\badversary\s+case\b", entry_text, re.IGNORECASE) is None
+        or re.search(r"\bcomplaint\b", entry_text, re.IGNORECASE) is None
+        or re.search(r"\bagainst\b", entry_text, re.IGNORECASE) is None
+    ):
+        return None
+    try:
+        date.fromisoformat(filed_at)
+    except ValueError:
+        return None
+    return typed_evidence
+
+
+def _matches_deferred_adversary_entry(
+    page: CourtListenerWebDocketPage,
+    evidence: Mapping[str, object],
+) -> bool:
+    """Require the source-bound initiating entry in authoritative reconstruction."""
+
+    expected_number = evidence.get("entry_number")
+    expected_text = evidence.get("entry_text")
+    expected_date = evidence.get("filed_at")
+    if not all(
+        isinstance(value, str)
+        for value in (expected_number, expected_text, expected_date)
+    ):
+        return False
+    return any(
+        entry.entry_number == expected_number
+        and entry.text == expected_text
+        and (
+            (parsed := parse_courtlistener_filed_date(entry.filed_at)) is not None
+            and parsed.isoformat() == expected_date
+        )
+        for entry in page.entries
+    )
+
+
 def observe_recap_api_candidate(
     store: CycleAcquisitionStore,
     batch_id: str,
@@ -1086,19 +1173,29 @@ def observe_recap_api_candidate(
         docket_number=docket.docket_number,
         case_name=docket.case_name,
     )
+    deferred_adversary_evidence = _source_bound_adversary_defer_evidence(
+        store,
+        batch_id=batch_id,
+        payload=payload,
+        docket=docket,
+    )
     if authoritative_prescreen is not None:
-        return store.record_observation(
-            candidate_id,
-            batch_id=batch_id,
-            state="excluded",
-            reason_code=authoritative_prescreen,
-            evidence={
-                **base_evidence,
-                "prescreen_exclusion_reason": authoritative_prescreen,
-                "authoritative_docket_metadata": authoritative_metadata,
-                "entry_reconstruction_skipped": True,
-            },
-        )
+        if (
+            authoritative_prescreen != PRESCREEN_BANKRUPTCY_REASON
+            or deferred_adversary_evidence is None
+        ):
+            return store.record_observation(
+                candidate_id,
+                batch_id=batch_id,
+                state="excluded",
+                reason_code=authoritative_prescreen,
+                evidence={
+                    **base_evidence,
+                    "prescreen_exclusion_reason": authoritative_prescreen,
+                    "authoritative_docket_metadata": authoritative_metadata,
+                    "entry_reconstruction_skipped": True,
+                },
+            )
 
     try:
         reconstructed = reconstruct_docket_page(
@@ -1155,6 +1252,25 @@ def observe_recap_api_candidate(
         )
 
     screening_page = reconstructed.page
+    if (
+        deferred_adversary_evidence is not None
+        and not _matches_deferred_adversary_entry(
+            reconstructed.page,
+            deferred_adversary_evidence,
+        )
+    ):
+        return store.record_observation(
+            candidate_id,
+            batch_id=batch_id,
+            state="excluded",
+            reason_code="invalid_civil_case_metadata",
+            evidence={
+                **base_evidence,
+                "provider_contradiction": True,
+                "exclusion_detail": "source_bound_adversary_entry_mismatch",
+                "reconstruction_proof": reconstructed.proof.to_record(),
+            },
+        )
     opinion_backed_evidence: Mapping[str, object] | None = None
     if raw_opinion_resolution is not None:
         assert isinstance(raw_opinion_resolution, Mapping)
@@ -1216,8 +1332,14 @@ def observe_recap_api_candidate(
         screening_page = opinion_backed.disposition.page
         opinion_backed_evidence = opinion_backed.evidence
 
+    adversary_candidate_text = (
+        cast(str, deferred_adversary_evidence["entry_text"])
+        if deferred_adversary_evidence is not None
+        else None
+    )
     anchored = screen_courtlistener_docket_for_mtd_decision(
         screening_page,
+        candidate_text=adversary_candidate_text,
         decision_filed_on_or_after=eligibility_anchor,
         decision_filed_on_or_before=decision_window_end,
     )
@@ -1225,7 +1347,10 @@ def observe_recap_api_candidate(
     # docket regardless of date, so the first-disposition anchor can catch a
     # docket whose in-window hit (for example "order adopting R&R") sits atop an
     # earlier MTD report/decision that predates the eligibility anchor.
-    unbounded = screen_courtlistener_docket_for_mtd_decision(screening_page)
+    unbounded = screen_courtlistener_docket_for_mtd_decision(
+        screening_page,
+        candidate_text=adversary_candidate_text,
+    )
     all_decisions = _decision_entry_records(unbounded.decision_entries)
     anchor_dispositions = _decision_entry_records(unbounded.anchor_disposition_entries)
     unparseable_decisions = [
@@ -1281,12 +1406,24 @@ def observe_recap_api_candidate(
             },
             query=query if isinstance(query, str) else None,
         )
+        if (
+            deferred_adversary_evidence is not None
+            and PRESCREEN_BANKRUPTCY_REASON in metadata_screen.exclusion_reasons
+            and set(metadata_screen.exclusion_reasons).issubset(
+                {PRESCREEN_BANKRUPTCY_REASON, "not_civil_cv_docket"}
+            )
+        ):
+            metadata_screen = CaseDevMetadataScreen(
+                metadata=metadata_screen.metadata,
+                exclusion_reasons=(),
+            )
         canonical, canonical_exclusion = screen_courtlistener_docket_page(
             docket=docket,
             metadata_screen=metadata_screen,
             page=screening_page,
             decision_filed_on_or_after=eligibility_anchor,
             decision_filed_on_or_before=decision_window_end,
+            candidate_text_override=adversary_candidate_text,
         )
         if canonical is None:
             state = "excluded"

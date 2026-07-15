@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -921,19 +922,22 @@ def test_candidate_helpers() -> None:
 
 
 def _seeded_store(
-    tmp_path: Path, hit: dict[str, Any]
+    tmp_path: Path,
+    hit: dict[str, Any],
+    *,
+    batch_config_update: dict[str, object] | None = None,
 ) -> tuple[CycleAcquisitionStore, dict[str, Any]]:
     store = CycleAcquisitionStore(tmp_path / "cycle.sqlite3")
     store.ensure_cycle({"schema_version": "test"})
     term = 'order AND granting AND "motion to dismiss"'
-    store.ensure_batch(
-        "batch-002",
-        build_recap_api_batch_config(
-            decision_window_start=date(2026, 6, 30),
-            decision_window_end=date(2026, 7, 12),
-            auth_mode="anonymous",
-        ),
+    config = build_recap_api_batch_config(
+        decision_window_start=date(2026, 6, 30),
+        decision_window_end=date(2026, 7, 12),
+        auth_mode="anonymous",
     )
+    if batch_config_update is not None:
+        config.update(batch_config_update)
+    store.ensure_batch("batch-002", config)
     source = _search_source(
         (
             _response(
@@ -1056,6 +1060,280 @@ def test_observe_accepts_clean_in_window_decision(tmp_path: Path) -> None:
         }
         current = store.current_observation("courtlistener-docket-555")
         assert current is not None and current.state == "accepted"
+
+
+def _source_bound_adversary_payload(
+    payload: dict[str, Any],
+    *,
+    initiating_text: str,
+) -> dict[str, Any]:
+    ranked_sha = "a" * 64
+    payload.update(
+        {
+            "prescreen_exclusion_reason": None,
+            "case_dev_ranked_selection_provenance": {
+                "schema_version": (
+                    "legalforecast.case_dev_ranked_opinion_subset_transfer.v1"
+                ),
+                "ranked_record_sha256": ranked_sha,
+            },
+            "bankruptcy_adversary_entry_evidence": {
+                "schema_version": (
+                    "legalforecast.source_bound_bankruptcy_adversary_entry.v1"
+                ),
+                "docket_id": "555",
+                "court_id": "ianb",
+                "entry_number": "1",
+                "filed_at": "2025-07-25",
+                "entry_text": initiating_text,
+                "ranked_record_sha256": ranked_sha,
+            },
+        }
+    )
+    return payload
+
+
+def _ianb_docket_response() -> RecordedCourtListenerResponse:
+    return _response(
+        path="/dockets/555/",
+        payload={
+            "id": 555,
+            "court": "ianb",
+            "docket_number": "25-09086",
+            "case_name": "In re: Mercy Hospital, Iowa City v. PeriGen, Inc.",
+            "date_filed": "2025-07-25",
+            "absolute_url": "https://www.courtlistener.com/docket/555/childers/",
+        },
+    )
+
+
+def _seeded_ranked_subset_bankruptcy_store(
+    tmp_path: Path,
+) -> tuple[CycleAcquisitionStore, dict[str, Any]]:
+    return _seeded_store(
+        tmp_path,
+        {
+            "id": 486056586,
+            "docket_id": 555,
+            "description": "Opinion and Order on Defendant's Motion to Dismiss",
+            "entry_date_filed": "2026-07-13",
+            "court_id": "ianb",
+            "docketNumber": "25-09086",
+            "caseName": "In re: Mercy Hospital, Iowa City v. PeriGen, Inc.",
+        },
+        batch_config_update={
+            "discovery_mode": (
+                "legalforecast.case_dev_ranked_opinion_subset_transfer.v1"
+            )
+        },
+    )
+
+
+def test_observe_defers_bankruptcy_prescreen_only_for_source_bound_adversary_entry(
+    tmp_path: Path,
+) -> None:
+    store, payload = _seeded_ranked_subset_bankruptcy_store(tmp_path)
+    initiating_text = (
+        "Adversary case 25-09086. Complaint by Dan R. Childers against PeriGen, Inc."
+    )
+    _source_bound_adversary_payload(payload, initiating_text=initiating_text)
+    with store:
+        recon_client = _client(
+            (
+                _ianb_docket_response(),
+                _entries_response(
+                    cursor=None,
+                    results=[
+                        {
+                            "id": 7001,
+                            "docket": 555,
+                            "entry_number": 1,
+                            "description": initiating_text,
+                            "date_filed": "2025-07-25",
+                        },
+                        {
+                            "id": 7014,
+                            "docket": 555,
+                            "entry_number": 14,
+                            "description": (
+                                "Motion to Dismiss Adversary Proceeding under "
+                                "Rule 7012 and Rule 12(b)(6)"
+                            ),
+                            "date_filed": "2026-01-05",
+                        },
+                        {
+                            "id": 7020,
+                            "docket": 555,
+                            "entry_number": 20,
+                            "description": (
+                                "Opinion and Order denying Defendant's Motion to "
+                                "Dismiss the adversary complaint (Related Doc # 14)"
+                            ),
+                            "date_filed": "2026-07-13",
+                        },
+                    ],
+                    next_cursor=None,
+                ),
+            )
+        )
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.state == "accepted", (
+            observation.reason_code,
+            observation.evidence.get("canonical_screen_exclusion"),
+        )
+        assert observation.reason_code == "strict_clean_screen_passed"
+        assert observation.evidence["screen"]["case_type_stratum"] == (
+            "bankruptcy_adversary"
+        )
+        assert recon_client.request_count == 2
+
+
+def test_observe_does_not_defer_bankruptcy_without_subset_provenance(
+    tmp_path: Path,
+) -> None:
+    store, payload = _seeded_store(
+        tmp_path,
+        {
+            "id": 486056586,
+            "docket_id": 555,
+            "description": "Opinion and Order on Defendant's Motion to Dismiss",
+            "entry_date_filed": "2026-07-13",
+            "court_id": "ianb",
+            "docketNumber": "25-09086",
+            "caseName": "In re: Mercy Hospital, Iowa City v. PeriGen, Inc.",
+        },
+    )
+    payload["prescreen_exclusion_reason"] = None
+    with store:
+        recon_client = _client((_ianb_docket_response(),))
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.reason_code == PRESCREEN_BANKRUPTCY_REASON
+        assert observation.evidence["entry_reconstruction_skipped"] is True
+        assert recon_client.request_count == 1
+
+
+@pytest.mark.parametrize(
+    ("section", "field", "tampered"),
+    [
+        ("case_dev_ranked_selection_provenance", "schema_version", "wrong"),
+        (
+            "bankruptcy_adversary_entry_evidence",
+            "entry_text",
+            "Complaint by Debtor against Bank",
+        ),
+        ("bankruptcy_adversary_entry_evidence", "filed_at", "not-a-date"),
+        ("bankruptcy_adversary_entry_evidence", "entry_number", "x"),
+        ("bankruptcy_adversary_entry_evidence", "docket_id", "999"),
+        ("bankruptcy_adversary_entry_evidence", "court_id", "nysb"),
+        ("bankruptcy_adversary_entry_evidence", "ranked_record_sha256", "b" * 64),
+    ],
+)
+def test_observe_rejects_tampered_source_bound_adversary_evidence_before_entries(
+    tmp_path: Path,
+    section: str,
+    field: str,
+    tampered: str,
+) -> None:
+    store, payload = _seeded_ranked_subset_bankruptcy_store(tmp_path)
+    initiating_text = (
+        "Adversary case 25-09086. Complaint by Dan R. Childers against PeriGen, Inc."
+    )
+    _source_bound_adversary_payload(payload, initiating_text=initiating_text)
+    tampered_payload = copy.deepcopy(payload)
+    tampered_section = tampered_payload[section]
+    assert isinstance(tampered_section, dict)
+    tampered_section[field] = tampered
+    with store:
+        recon_client = _client((_ianb_docket_response(),))
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            tampered_payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.reason_code == PRESCREEN_BANKRUPTCY_REASON
+        assert observation.evidence["entry_reconstruction_skipped"] is True
+        assert recon_client.request_count == 1
+
+
+def test_observe_main_bankruptcy_case_generic_complaint_does_not_defer(
+    tmp_path: Path,
+) -> None:
+    store, payload = _seeded_ranked_subset_bankruptcy_store(tmp_path)
+    _source_bound_adversary_payload(
+        payload,
+        initiating_text="Complaint by Debtor against Bank",
+    )
+    with store:
+        recon_client = _client((_ianb_docket_response(),))
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.reason_code == PRESCREEN_BANKRUPTCY_REASON
+        assert recon_client.request_count == 1
+
+
+def test_observe_excludes_deferred_adversary_when_authoritative_entry_mismatches(
+    tmp_path: Path,
+) -> None:
+    store, payload = _seeded_ranked_subset_bankruptcy_store(tmp_path)
+    initiating_text = (
+        "Adversary case 25-09086. Complaint by Dan R. Childers against PeriGen, Inc."
+    )
+    _source_bound_adversary_payload(payload, initiating_text=initiating_text)
+    with store:
+        recon_client = _client(
+            (
+                _ianb_docket_response(),
+                _entries_response(
+                    cursor=None,
+                    results=[
+                        {
+                            "id": 7001,
+                            "docket": 555,
+                            "entry_number": 1,
+                            "description": initiating_text + " Amended.",
+                            "date_filed": "2025-07-25",
+                        }
+                    ],
+                    next_cursor=None,
+                ),
+            )
+        )
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.reason_code == "invalid_civil_case_metadata"
+        assert observation.evidence["exclusion_detail"] == (
+            "source_bound_adversary_entry_mismatch"
+        )
+        assert recon_client.request_count == 2
 
 
 def test_observe_accepts_public_opinion_backed_terse_mtd_order(

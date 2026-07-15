@@ -860,6 +860,7 @@ def screen_courtlistener_docket_page(
     page: CourtListenerWebDocketPage,
     decision_filed_on_or_after: date,
     decision_filed_on_or_before: date | None = None,
+    candidate_text_override: str | None = None,
 ) -> tuple[Mapping[str, Any] | None, ExclusionLedgerEntry | None]:
     """Apply canonical linkage and leakage gates to one reconstructed docket.
 
@@ -878,14 +879,15 @@ def screen_courtlistener_docket_page(
         )
     source_url = _public_docket_url(docket)
     parsed = page
+    candidate_text = candidate_text_override or _candidate_text(docket)
 
     unanchored = screen_courtlistener_docket_for_mtd_decision(
         parsed,
-        candidate_text=_candidate_text(docket),
+        candidate_text=candidate_text,
     )
     anchored = screen_courtlistener_docket_for_mtd_decision(
         parsed,
-        candidate_text=_candidate_text(docket),
+        candidate_text=candidate_text,
         decision_filed_on_or_after=decision_filed_on_or_after,
         decision_filed_on_or_before=decision_filed_on_or_before,
     )
