@@ -548,8 +548,7 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
     )
     commitments = recovery_run_card["output_commitments"]
     assert commitments["quarantine_download_manifest"]["sha256"] == (
-        "sha256:"
-        + hashlib.sha256(paths["download_manifest"].read_bytes()).hexdigest()
+        "sha256:" + hashlib.sha256(paths["download_manifest"].read_bytes()).hexdigest()
     )
     assert commitments["fresh_restriction_evidence"]["sha256"] == (
         "sha256:"
