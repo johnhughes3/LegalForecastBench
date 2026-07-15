@@ -1158,8 +1158,8 @@ def _normalize_identifier(value: str | None) -> str:
 def _quoted_case_name_query(case_name: str) -> str:
     if any(unicodedata.category(character).startswith("C") for character in case_name):
         raise _UnrepresentableSourceQuery(
-            "opinion lead case name contains control or format characters",
-            evidence_code="control_or_format_character",
+            "opinion lead case name contains a disallowed Unicode category-C character",
+            evidence_code="unicode_category_c_character",
         )
     phrase = " ".join(re.sub(r'["\\]+', " ", case_name).split())
     query = f'"{phrase}"'

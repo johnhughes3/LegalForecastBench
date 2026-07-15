@@ -430,6 +430,8 @@ def test_provider_query_excludes_unicode_control_and_format_characters(
         tmp_path,
         _lead(case_name=f"Alpha{control}Beta v. Gamma"),
     )
+    case_dev = _case_dev()
+    courtlistener = _courtlistener()
 
     summary = resolve_opinion_recap_batch(
         source_store_path=source,
@@ -437,14 +439,16 @@ def test_provider_query_excludes_unicode_control_and_format_characters(
         journal_path=tmp_path / "resolver.sqlite3",
         output_store_path=source,
         output_batch_id="resolved-opinion-source",
-        case_dev_client=_case_dev(),
-        courtlistener_client=_courtlistener(),
+        case_dev_client=case_dev,
+        courtlistener_client=courtlistener,
     )
 
     assert summary.excluded == 1
+    assert case_dev.request_count == 0
+    assert courtlistener.request_count == 0
     outcome = read_resolution_outcomes(tmp_path / "resolver.sqlite3")[0]
     assert outcome["reason_code"] == "source_query_unrepresentable"
-    assert outcome["evidence"]["query_error"] == "control_or_format_character"
+    assert outcome["evidence"]["query_error"] == "unicode_category_c_character"
 
 
 def test_unrepresentable_caption_is_excluded_and_next_lead_resolves(
