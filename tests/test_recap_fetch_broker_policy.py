@@ -297,6 +297,12 @@ def test_reordering_inputs_produces_identical_bytes(tmp_path: Path) -> None:
         ),
         (
             lambda plan, selection, purchase: selection[0]["documents"][0].update(
+                {"is_sealed": None}
+            ),
+            "sealed/private/restricted",
+        ),
+        (
+            lambda plan, selection, purchase: selection[0]["documents"][0].update(
                 {"is_private": True}
             ),
             "sealed/private/restricted",

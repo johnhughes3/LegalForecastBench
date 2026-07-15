@@ -207,6 +207,7 @@ class _CourtListenerRestGapDocument:
     document_role: DocumentRole
     source_url_or_reference: str
     description: str
+    is_sealed: bool | None
     free: bool = False
 
     @property
@@ -242,7 +243,7 @@ class _CourtListenerRestGapDocument:
                 else COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE
             ),
             "is_private": None,
-            "is_sealed": False,
+            "is_sealed": self.is_sealed,
             "file_extension": "pdf",
             "resolved_from_paid_gap": True,
         }
@@ -268,7 +269,7 @@ class _CourtListenerRestGapDocument:
                 else COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE
             ),
             "is_private": None,
-            "is_sealed": False,
+            "is_sealed": self.is_sealed,
             "contains_target_outcome": self.contains_target_outcome,
             "model_visible": self.model_visible,
             "resolved_from_paid_gap": True,
@@ -1592,6 +1593,20 @@ def _bridge_courtlistener_rest_gap_documents(
             )
         hit = hits[0]
         web_document = _select_courtlistener_document(web_entry, role)
+        if (
+            web_entry.restricted
+            or web_document.restricted
+            or _record_is_restricted(hit.raw)
+        ):
+            raise CourtListenerCaseDevBridgeError(f"restricted_core_document: {number}")
+        if web_document.freely_available:
+            raise CourtListenerCaseDevBridgeError(
+                f"paid_gap_public_document_conflict: {number}"
+            )
+        if not web_document.pacer_only:
+            raise CourtListenerCaseDevBridgeError(
+                f"courtlistener_pacer_only_document_unproven: {number}"
+            )
         if hit.entry_text and not _courtlistener_entry_text_matches(
             hit.entry_text,
             web_entry=web_entry,
@@ -1607,10 +1622,6 @@ def _bridge_courtlistener_rest_gap_documents(
         ):
             raise CourtListenerCaseDevBridgeError(
                 f"courtlistener_entry_date_conflict: {number}"
-            )
-        if web_document.freely_available:
-            raise CourtListenerCaseDevBridgeError(
-                f"paid_gap_public_document_conflict: {number}"
             )
         recap_document, public_download_url = _select_courtlistener_recap_document(
             client,
@@ -1640,6 +1651,7 @@ def _bridge_courtlistener_rest_gap_documents(
                     f"{recap_document.document_id}/"
                 ),
                 description=description,
+                is_sealed=recap_document.is_sealed,
                 free=public_download_url is not None,
             )
         )
@@ -1673,14 +1685,17 @@ def _courtlistener_entry_text_matches(
     narrative = web_entry.narrative_text
     if narrative is None:
         narrative = web_entry.text
-        if web_document.kind and web_document.kind in narrative:
-            narrative = narrative.split(web_document.kind, maxsplit=1)[0]
     body = _strip_courtlistener_entry_prefix(
         narrative,
         entry_number=web_entry.entry_number,
     )
     rest_key = _text_key(rest_text)
     body_key = _text_key(body)
+    if web_entry.narrative_text is None:
+        body_key = _strip_embedded_document_cards(
+            body_key,
+            documents=web_entry.documents,
+        )
     if body_key:
         return _nonempty_token_sequence_matches(rest_key, body_key)
     return _nonempty_token_sequence_matches(
@@ -1697,6 +1712,71 @@ def _nonempty_token_sequence_matches(first: str, second: str) -> bool:
     return padded_first in padded_second or padded_second in padded_first
 
 
+def _strip_embedded_document_cards(
+    body_key: str,
+    *,
+    documents: tuple[CourtListenerWebDocument, ...],
+) -> str:
+    """Remove a proven trailing RECAP-card region from flattened entry text."""
+
+    tokens = tuple(body_key.split())
+    card_sequences = tuple(
+        dict.fromkeys(
+            card
+            for document in documents
+            if (
+                card := tuple(
+                    _text_key(
+                        " ".join(
+                            (
+                                document.kind,
+                                document.description,
+                                document.action_label or "",
+                            )
+                        )
+                    ).split()
+                )
+            )
+            if _text_key(document.kind)
+            and _text_key(document.description)
+            and _text_key(document.action_label or "")
+        )
+    )
+    for card_start in range(len(tokens)):
+        if _complete_document_cards_fill_suffix(
+            tokens[card_start:],
+            card_sequences=card_sequences,
+        ):
+            return " ".join(tokens[:card_start])
+    return body_key
+
+
+def _complete_document_cards_fill_suffix(
+    tokens: tuple[str, ...],
+    *,
+    card_sequences: tuple[tuple[str, ...], ...],
+) -> bool:
+    """Return true only when complete contiguous cards consume the whole suffix."""
+
+    pending = [0]
+    visited: set[int] = set()
+    while pending:
+        start = pending.pop()
+        if start in visited:
+            continue
+        visited.add(start)
+        for card in card_sequences:
+            end = start + len(card)
+            if tokens[start:end] != card:
+                continue
+            if end == len(tokens):
+                return True
+            pending.append(end)
+            if tokens[end].isdecimal() and end + 1 < len(tokens):
+                pending.append(end + 1)
+    return False
+
+
 def _strip_courtlistener_entry_prefix(
     value: str,
     *,
@@ -1706,17 +1786,18 @@ def _strip_courtlistener_entry_prefix(
 
     remaining = value.strip()
     for _ in range(2):
+        candidate = remaining
         if entry_number is not None:
             number_match = re.match(rf"^{re.escape(entry_number)}\b\s*", remaining)
             if number_match is not None:
-                remaining = remaining[number_match.end() :]
-        date_match = _LEADING_COURTLISTENER_DATE.match(remaining)
+                candidate = remaining[number_match.end() :]
+        date_match = _LEADING_COURTLISTENER_DATE.match(candidate)
         if date_match is None:
             break
         rendered_date = date_match.group("date")
         if parse_courtlistener_filed_date(rendered_date) is None:
             break
-        remaining = remaining[date_match.end() :].strip()
+        remaining = candidate[date_match.end() :].strip()
     return remaining
 
 
@@ -1738,14 +1819,18 @@ def _select_courtlistener_recap_document(
             raise CourtListenerCaseDevBridgeError(
                 f"courtlistener_recap_document_id_conflict: {entry_number}"
             )
-        if document.docket_entry_id != hit.docket_entry_id:
+        if (
+            document.docket_entry_id is not None
+            and document.docket_entry_id != hit.docket_entry_id
+        ):
             raise CourtListenerCaseDevBridgeError(
                 f"courtlistener_recap_entry_conflict: {entry_number}"
             )
-        if (
-            document.document_number is not None
-            and _positive_entry_number(document.document_number) != entry_number
-        ):
+        if document.document_number is None:
+            raise CourtListenerCaseDevBridgeError(
+                f"courtlistener_recap_document_number_unproven: {entry_number}"
+            )
+        if _positive_entry_number(document.document_number) != entry_number:
             raise CourtListenerCaseDevBridgeError(
                 f"courtlistener_recap_document_number_conflict: {entry_number}"
             )
@@ -1791,7 +1876,8 @@ def _recap_document_matches_web_document(
     web_document: CourtListenerWebDocument,
     recap_document: CourtListenerRecapDocument,
 ) -> bool:
-    if _text_key(web_document.description) != _text_key(
+    description_available = recap_document.description is not None
+    if description_available and _text_key(web_document.description) != _text_key(
         recap_document.description or ""
     ):
         return False
@@ -1799,7 +1885,7 @@ def _recap_document_matches_web_document(
     if "main" in kind:
         return recap_document.attachment_number is None
     if "attachment" not in kind:
-        return True
+        return description_available
     if recap_document.attachment_number is None:
         return False
     stated_numbers = tuple(re.findall(r"\d+", kind))
@@ -2199,6 +2285,7 @@ def _courtlistener_page(
 
 
 def _embedded_entry(record: Mapping[str, Any]) -> CourtListenerWebDocketEntry:
+    entry_markers = _string_sequence(record.get("restriction_markers"))
     return CourtListenerWebDocketEntry(
         row_id=_required_str(record, "row_id"),
         entry_number=_optional_str(record, "entry_number"),
@@ -2211,9 +2298,13 @@ def _embedded_entry(record: Mapping[str, Any]) -> CourtListenerWebDocketEntry:
                 href=_optional_str(document, "href"),
                 action_label=_optional_str(document, "action_label"),
                 pacer_only=_optional_bool(document, "pacer_only", default=False),
+                restriction_markers=_string_sequence(
+                    document.get("restriction_markers")
+                ),
             )
             for document in _mapping_sequence(record.get("documents"), "documents")
         ),
+        restriction_markers=entry_markers,
     )
 
 
