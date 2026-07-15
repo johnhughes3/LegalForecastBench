@@ -46,6 +46,26 @@ Opinion body text, snippets, and outcome text are never copied into discovery pa
 
 The transfer layer includes `opinion_resolution_evidence` in its own source candidate-set commitment and copies it unchanged into the `courtlistener-docket-{resolved_id}` observation lead.
 
+## Rebinding after screening-code changes
+
+An opinion-search or resolved-source batch remains valid discovery evidence when the strict screening implementation changes, but its frozen cycle hash must not be used to describe observations produced by the new code.
+
+`legalforecast batch-002 rebind-direct-search` is the provider-free bridge for that case. It opens the complete saturated source read-only, initializes or verifies the target store against the current screening-source hashes and the explicit eligibility anchor, and transfers the identical committed lead set into a new batch. The target batch and every lead commit the source batch digest, source candidate-set SHA-256, old source cycle hash, and new target cycle hash under `legalforecast.courtlistener_direct_search_cycle_rebind.v1`. The command rejects a same-cycle source, because ordinary same-cycle transfers belong on `seed-direct-search`.
+
+The command has no provider client, never contacts CourtListener, Case.dev, Firecrawl, PACER, or RECAP Fetch, and cannot acknowledge fees or purchase documents.
+
+```bash
+uv run legalforecast batch-002 rebind-direct-search \
+  --source-store <complete-resolved-source-store.sqlite3> \
+  --source-batch-id <complete-resolved-source-batch> \
+  --cycle-store <fresh-current-cycle-store.sqlite3> \
+  --batch-id <new-current-cycle-rest-screen-batch> \
+  --eligibility-anchor 2026-06-30 \
+  --summary-output <cycle-rebind-summary.json>
+```
+
+`batch-002 observe` re-verifies the target store's frozen screening-source hashes against the running code before constructing a provider client or reserving any request. A stale cycle therefore fails closed before network activity; initialize a current cycle and use the explicit rebind rather than observing in the historical store.
+
 ## Live command
 
 ```bash

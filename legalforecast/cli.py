@@ -365,6 +365,7 @@ from legalforecast.ingestion.recap_api_batch_driver import (
     read_batch_001_enrichment_failure_leads,
     read_saturated_direct_search_leads,
     read_verified_priority_dedupe_snapshots,
+    rebind_direct_search_leads,
     run_discover,
     run_observe,
     run_opinion_discover,
@@ -803,8 +804,8 @@ def build_parser() -> argparse.ArgumentParser:
         "batch-002",
         help=(
             "Cycle 1 batch-002 decision-first RECAP REST v4 acquisition driver "
-            "(discover / seed-direct-search / seed-novel-direct-search / observe / "
-            "seed-batch-001-leads / snapshot)."
+            "(discover / seed-direct-search / rebind-direct-search / "
+            "seed-novel-direct-search / observe / seed-batch-001-leads / snapshot)."
         ),
     )
     batch_002_subparsers = batch_002.add_subparsers(
@@ -874,6 +875,21 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_batch_002_direct_seed_arguments(batch_002_direct_seed)
+    batch_002_direct_rebind = batch_002_subparsers.add_parser(
+        "rebind-direct-search",
+        help=(
+            "Rebind a complete saturated direct-search source into a fresh "
+            "current-code screening cycle without provider access."
+        ),
+        description=(
+            "Verify a complete saturated CourtListener-authoritative source, "
+            "initialize or verify the target store against the current screening "
+            "sources, and transfer the identical committed lead set while committing "
+            "both old and current cycle hashes. This command performs no provider, "
+            "PACER, RECAP Fetch, purchase, or fee-acknowledgment activity."
+        ),
+    )
+    _add_batch_002_direct_rebind_arguments(batch_002_direct_rebind)
     batch_002_novel_direct_seed = batch_002_subparsers.add_parser(
         "seed-novel-direct-search",
         help=(
@@ -2904,6 +2920,51 @@ def _add_batch_002_direct_seed_arguments(parser: argparse.ArgumentParser) -> Non
     )
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_batch_002_direct_seed)
+
+
+def _add_batch_002_direct_rebind_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--source-store",
+        type=Path,
+        required=True,
+        help=(
+            "Read-only store containing the complete saturated "
+            "CourtListener-authoritative source batch."
+        ),
+    )
+    parser.add_argument(
+        "--source-batch-id",
+        required=True,
+        help="Exact complete saturated source batch identifier.",
+    )
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help=(
+            "Fresh target REST store, initialized or verified against the current "
+            "screening-source hashes without provider access."
+        ),
+    )
+    parser.add_argument(
+        "--batch-id",
+        required=True,
+        help="New current-cycle REST screening batch identifier.",
+    )
+    parser.add_argument(
+        "--eligibility-anchor",
+        default=_BATCH_002_DEFAULT_ANCHOR,
+        metavar="YYYY-MM-DD",
+        help="Immutable first-written-disposition eligibility anchor.",
+    )
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=100,
+        help="Durable provider-free transfer page size, from 1 through 100.",
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_direct_rebind)
 
 
 def _add_batch_002_novel_direct_seed_arguments(
@@ -11842,10 +11903,25 @@ def _cmd_batch_002_observe(args: argparse.Namespace) -> int:
         raise CommandError(
             "--refresh-campaign-cutoff is required with refresh/revalidation"
         )
+    try:
+        with CycleAcquisitionStore(cycle_store) as store:
+            _validate_frozen_screening_policy(
+                policy=store.cycle_policy,
+                anchor=anchor,
+            )
+            store.batch_digest(batch_id)
+    except (CycleAcquisitionStoreError, KeyError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
     client, budget = _batch_002_client(args, require_token=True)
     pacer = _batch_002_observe_pacer(args)
     try:
         with CycleAcquisitionStore(cycle_store) as store:
+            # Repeat after constructing the provider client so no future command
+            # refactor can introduce a time-of-check/time-of-use gap.
+            _validate_frozen_screening_policy(
+                policy=store.cycle_policy,
+                anchor=anchor,
+            )
             tally = run_observe(
                 store,
                 batch_id=batch_id,
@@ -11918,6 +11994,47 @@ def _cmd_batch_002_direct_seed(args: argparse.Namespace) -> int:
         )
         with CycleAcquisitionStore(cycle_store) as store:
             result = seed_direct_search_leads(
+                store,
+                batch_id=batch_id,
+                source=source,
+                page_size=cast(int, args.page_size),
+            )
+    except (
+        CycleAcquisitionStoreError,
+        RecapApiBatchDriverError,
+        KeyError,
+        OSError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    record = result.to_record()
+    summary_output = cast(Path | None, args.summary_output)
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cmd_batch_002_direct_rebind(args: argparse.Namespace) -> int:
+    source_store = cast(Path, args.source_store)
+    source_batch_id = cast(str, args.source_batch_id)
+    cycle_store = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    anchor = _iso_date_argument(
+        cast(str, args.eligibility_anchor), "--eligibility-anchor"
+    )
+    try:
+        source = read_saturated_direct_search_leads(
+            source_store,
+            source_batch_id=source_batch_id,
+        )
+        with CycleAcquisitionStore(cycle_store) as store:
+            store.ensure_cycle(_cycle_acquisition_policy(anchor=anchor))
+            _validate_frozen_screening_policy(
+                policy=store.cycle_policy,
+                anchor=anchor,
+            )
+            result = rebind_direct_search_leads(
                 store,
                 batch_id=batch_id,
                 source=source,

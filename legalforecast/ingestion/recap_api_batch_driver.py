@@ -8,7 +8,7 @@ operator drives through the CLI: it wires those primitives to the durable
 :class:`~legalforecast.ingestion.cycle_acquisition_store.CycleAcquisitionStore`
 and emits funnel-style summaries.
 
-Four phases, each resumable through the store and each fail-closed:
+The phases and transfer paths are resumable through the store and fail closed:
 
 ``discover``
     Attach the batch config, materialize each frozen decision-first term's own
@@ -31,6 +31,12 @@ Four phases, each resumable through the store and each fail-closed:
     docket union into a source-bound REST reconstruction batch, and preserve the
     cheapest safe prescreens and triggering-entry lower bounds. No provider
     request is made by this phase.
+
+``rebind-direct-search``
+    Verify the same complete source, transfer its exact lead set into a distinct
+    current-code cycle, and commit both cycle identities. This is the explicit
+    provider-free bridge after screening code changes; ordinary same-cycle
+    transfers remain on ``seed-direct-search``.
 
 ``seed-novel-direct-search``
     Verify one or more complete saturated prior screening snapshots, then seed
@@ -108,6 +114,10 @@ BATCH_001_ENRICHMENT_FAILURE_CLASS = "case_dev_enrichment_failure"
 DIRECT_SEARCH_TRANSFER_TERM = "courtlistener-direct-search-transfer-v1"
 DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA = (
     "legalforecast.courtlistener_direct_search_transfer.v1"
+)
+DIRECT_SEARCH_CYCLE_REBIND_TERM = "courtlistener-direct-search-cycle-rebind-v1"
+DIRECT_SEARCH_CYCLE_REBIND_PROVENANCE_SCHEMA = (
+    "legalforecast.courtlistener_direct_search_cycle_rebind.v1"
 )
 DIRECT_SEARCH_NOVEL_TRANSFER_TERM = "courtlistener-novel-direct-search-transfer-v1"
 DIRECT_SEARCH_NOVEL_TRANSFER_PROVENANCE_SCHEMA = (
@@ -878,6 +888,40 @@ class DirectSearchSeedResult:
 
 
 @dataclass(frozen=True, slots=True)
+class DirectSearchRebindResult:
+    """Outcome of an explicit provider-free cross-cycle source rebind."""
+
+    batch_id: str
+    source_batch_id: str
+    source_batch_digest: str
+    source_cycle_hash: str
+    target_cycle_hash: str
+    source_candidate_set_sha256: str
+    leads_selected: int
+    leads_seeded: int
+    already_seeded: bool
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "schema_version": "legalforecast.direct_search_cycle_rebind_result.v1",
+            "batch_id": self.batch_id,
+            "term": DIRECT_SEARCH_CYCLE_REBIND_TERM,
+            "source_batch_id": self.source_batch_id,
+            "source_batch_digest": self.source_batch_digest,
+            "source_cycle_hash": self.source_cycle_hash,
+            "target_cycle_hash": self.target_cycle_hash,
+            "source_candidate_set_sha256": self.source_candidate_set_sha256,
+            "leads_selected": self.leads_selected,
+            "leads_seeded": self.leads_seeded,
+            "already_seeded": self.already_seeded,
+            "provider_activity_requested": False,
+            "provider_activity_executed": False,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class PriorScreeningSnapshot:
     """One fully verified terminal snapshot used only for priority dedupe."""
 
@@ -1461,17 +1505,98 @@ def seed_direct_search_leads(
         raise RecapApiBatchDriverError(
             "direct-search source and target batch ids must differ"
         )
+    result = _seed_direct_search_leads(
+        store,
+        batch_id=batch_id,
+        source=source,
+        page_size=page_size,
+        transfer_term=DIRECT_SEARCH_TRANSFER_TERM,
+        provenance_schema=DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA,
+        cross_cycle_rebind=False,
+    )
+    return DirectSearchSeedResult(
+        batch_id=result.batch_id,
+        source_batch_id=result.source_batch_id,
+        source_batch_digest=result.source_batch_digest,
+        source_candidate_set_sha256=result.source_candidate_set_sha256,
+        leads_selected=result.leads_selected,
+        leads_seeded=result.leads_seeded,
+        already_seeded=result.already_seeded,
+    )
+
+
+def rebind_direct_search_leads(
+    store: CycleAcquisitionStore,
+    *,
+    batch_id: str,
+    source: DirectSearchSeedSource,
+    page_size: int = 100,
+) -> DirectSearchRebindResult:
+    """Rebind one complete source union into a distinct current screening cycle.
+
+    The source is already verified and read through a SQLite read-only
+    connection by :func:`read_saturated_direct_search_leads`. This phase merely
+    commits that exact lead set and its old/new cycle lineage into the target
+    store; it has no provider client and cannot perform paid activity.
+    """
+
+    if not 1 <= page_size <= 100:
+        raise ValueError("page_size must be from 1 through 100")
+    if store.cycle_hash == source.source_cycle_hash:
+        raise RecapApiBatchDriverError(
+            "direct-search source already matches target cycle; use "
+            "seed-direct-search instead"
+        )
+    if batch_id == source.source_batch_id:
+        raise RecapApiBatchDriverError(
+            "direct-search source and target batch ids must differ"
+        )
+    result = _seed_direct_search_leads(
+        store,
+        batch_id=batch_id,
+        source=source,
+        page_size=page_size,
+        transfer_term=DIRECT_SEARCH_CYCLE_REBIND_TERM,
+        provenance_schema=DIRECT_SEARCH_CYCLE_REBIND_PROVENANCE_SCHEMA,
+        cross_cycle_rebind=True,
+    )
+    return DirectSearchRebindResult(
+        batch_id=result.batch_id,
+        source_batch_id=result.source_batch_id,
+        source_batch_digest=result.source_batch_digest,
+        source_cycle_hash=source.source_cycle_hash,
+        target_cycle_hash=store.cycle_hash,
+        source_candidate_set_sha256=result.source_candidate_set_sha256,
+        leads_selected=result.leads_selected,
+        leads_seeded=result.leads_seeded,
+        already_seeded=result.already_seeded,
+    )
+
+
+def _seed_direct_search_leads(
+    store: CycleAcquisitionStore,
+    *,
+    batch_id: str,
+    source: DirectSearchSeedSource,
+    page_size: int,
+    transfer_term: str,
+    provenance_schema: str,
+    cross_cycle_rebind: bool,
+) -> DirectSearchSeedResult:
+    """Materialize one already-validated direct-search source lead set."""
+
+    target_cycle_hash = store.cycle_hash
     config = build_recap_api_batch_config(
         decision_window_start=source.search_window_start,
         decision_window_end=source.search_window_end,
         auth_mode="authenticated",
-        query_terms=(DIRECT_SEARCH_TRANSFER_TERM,),
+        query_terms=(transfer_term,),
         page_size=page_size,
         top_k_per_term=max(len(source.leads), 1),
     )
     config.update(
         {
-            "discovery_mode": DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA,
+            "discovery_mode": provenance_schema,
             "source_batch_id": source.source_batch_id,
             "source_batch_digest": source.source_batch_digest,
             "source_search_type": source.source_search_type,
@@ -1479,9 +1604,21 @@ def seed_direct_search_leads(
             "source_candidate_set_sha256": source.source_candidate_set_sha256,
         }
     )
+    if cross_cycle_rebind:
+        config.update(
+            {
+                "source_cycle_hash": source.source_cycle_hash,
+                "target_cycle_hash": target_cycle_hash,
+                "cross_cycle_rebind": True,
+                "provider_activity_requested": False,
+                "provider_activity_executed": False,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+            }
+        )
     store.ensure_batch(batch_id, config)
-    store.ensure_terms(batch_id, (DIRECT_SEARCH_TRANSFER_TERM,))
-    progress = store.term_progress(batch_id, DIRECT_SEARCH_TRANSFER_TERM)
+    store.ensure_terms(batch_id, (transfer_term,))
+    progress = store.term_progress(batch_id, transfer_term)
     if progress.terminal_status is not None:
         return DirectSearchSeedResult(
             batch_id=batch_id,
@@ -1503,12 +1640,20 @@ def seed_direct_search_leads(
         next_offset = offset + len(page)
         next_cursor = str(next_offset) if next_offset < len(source.leads) else None
         terminal = None if next_cursor is not None else TermTerminalStatus.EXHAUSTED
-        hits = tuple(_direct_search_lead_to_hit(lead, source) for lead in page)
         progress = store.commit_search_page(
             batch_id,
-            DIRECT_SEARCH_TRANSFER_TERM,
+            transfer_term,
             progress.cursor,
-            hits,
+            tuple(
+                _direct_search_lead_to_hit(
+                    lead,
+                    source,
+                    transfer_term=transfer_term,
+                    provenance_schema=provenance_schema,
+                    target_cycle_hash=target_cycle_hash,
+                )
+                for lead in page
+            ),
             next_cursor=next_cursor,
             terminal_status=terminal,
         )
@@ -1516,7 +1661,7 @@ def seed_direct_search_leads(
     if not source.leads:
         store.commit_search_page(
             batch_id,
-            DIRECT_SEARCH_TRANSFER_TERM,
+            transfer_term,
             progress.cursor,
             (),
             next_cursor=None,
@@ -1732,6 +1877,8 @@ def _direct_search_lead_to_hit(
     source: DirectSearchSeedSource,
     *,
     transfer_term: str = DIRECT_SEARCH_TRANSFER_TERM,
+    provenance_schema: str = DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA,
+    target_cycle_hash: str | None = None,
     selection_provenance: Mapping[str, object] | None = None,
 ) -> DiscoveryHit:
     prescreen_reason = prescreen_recap_candidate(
@@ -1751,7 +1898,7 @@ def _direct_search_lead_to_hit(
         "prescreen_exclusion_reason": prescreen_reason,
         "query_term": transfer_term,
         "direct_search_provenance": {
-            "schema_version": DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA,
+            "schema_version": provenance_schema,
             "source_batch_id": source.source_batch_id,
             "source_batch_digest": source.source_batch_digest,
             "source_candidate_set_sha256": source.source_candidate_set_sha256,
@@ -1761,6 +1908,10 @@ def _direct_search_lead_to_hit(
             "source_hits": [hit.to_record() for hit in lead.source_hits],
         },
     }
+    if target_cycle_hash is not None:
+        provenance = cast(dict[str, object], payload["direct_search_provenance"])
+        provenance["source_cycle_hash"] = source.source_cycle_hash
+        provenance["target_cycle_hash"] = target_cycle_hash
     if selection_provenance is not None:
         payload["priority_dedupe_provenance"] = dict(selection_provenance)
     if lead.decision_entry_evidence is not None:
