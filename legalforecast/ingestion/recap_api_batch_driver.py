@@ -32,6 +32,11 @@ Four phases, each resumable through the store and each fail-closed:
     cheapest safe prescreens and triggering-entry lower bounds. No provider
     request is made by this phase.
 
+``seed-novel-direct-search``
+    Verify one or more complete saturated prior screening snapshots, then seed
+    only provider-source dockets absent from their candidate-ID union. This is
+    priority dedupe only: prior outcomes never become current-cycle exclusions.
+
 Nothing here mutates the frozen screening files or the source batch-001 store.
 """
 
@@ -62,7 +67,9 @@ from legalforecast.ingestion.courtlistener_unrestricted_recap_discovery import (
 from legalforecast.ingestion.cycle_acquisition_store import (
     CandidateObservation,
     CycleAcquisitionStore,
+    SnapshotVerificationError,
     cohort_reason_policy_taxonomy,
+    verify_snapshot,
 )
 from legalforecast.ingestion.discovery_scheduler import (
     DiscoveryHit,
@@ -101,6 +108,22 @@ BATCH_001_ENRICHMENT_FAILURE_CLASS = "case_dev_enrichment_failure"
 DIRECT_SEARCH_TRANSFER_TERM = "courtlistener-direct-search-transfer-v1"
 DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA = (
     "legalforecast.courtlistener_direct_search_transfer.v1"
+)
+DIRECT_SEARCH_NOVEL_TRANSFER_TERM = "courtlistener-novel-direct-search-transfer-v1"
+DIRECT_SEARCH_NOVEL_TRANSFER_PROVENANCE_SCHEMA = (
+    "legalforecast.courtlistener_novel_direct_search_transfer.v1"
+)
+PRIOR_SNAPSHOT_PRIORITY_DEDUPE_SCHEMA = (
+    "legalforecast.prior_screening_snapshot_priority_dedupe.v1"
+)
+_SNAPSHOT_METADATA_FILES = (
+    "manifest.json",
+    "screened-cases.jsonl",
+    "exclusions.jsonl",
+    "summary.json",
+    "candidates.jsonl",
+    "observations.jsonl",
+    "raw-artifacts.jsonl",
 )
 
 
@@ -847,6 +870,75 @@ class DirectSearchSeedResult:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class PriorScreeningSnapshot:
+    """One fully verified terminal snapshot used only for priority dedupe."""
+
+    path: Path
+    manifest_sha256: str
+    cycle_hash: str
+    snapshot_id: str
+    batch_id: str
+    batch_digest: str
+    candidate_ids: tuple[str, ...]
+    candidate_set_sha256: str
+
+    def commitment_record(self, *, source_cycle_hash: str) -> dict[str, object]:
+        return {
+            "snapshot_path": str(self.path),
+            "snapshot_manifest_sha256": self.manifest_sha256,
+            "cycle_hash": self.cycle_hash,
+            "cycle_compatible_with_source": self.cycle_hash == source_cycle_hash,
+            "snapshot_id": self.snapshot_id,
+            "batch_id": self.batch_id,
+            "batch_digest": self.batch_digest,
+            "candidate_count": len(self.candidate_ids),
+            "candidate_set_sha256": self.candidate_set_sha256,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class NovelDirectSearchSeedResult:
+    """Outcome of a source-bound priority-dedupe transfer."""
+
+    batch_id: str
+    source_batch_id: str
+    source_batch_digest: str
+    source_cycle_hash: str
+    source_candidate_set_sha256: str
+    prior_snapshot_commitment_sha256: str
+    prior_snapshot_count: int
+    cross_cycle_snapshot_count: int
+    leads_selected: int
+    leads_excluded_from_target: int
+    selected_candidate_set_sha256: str
+    excluded_candidate_set_sha256: str
+    leads_seeded: int
+    already_seeded: bool
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "schema_version": "legalforecast.novel_direct_search_seed_result.v1",
+            "batch_id": self.batch_id,
+            "term": DIRECT_SEARCH_NOVEL_TRANSFER_TERM,
+            "selection_semantics": "priority_dedupe_only",
+            "prior_outcomes_authoritative": False,
+            "source_batch_id": self.source_batch_id,
+            "source_batch_digest": self.source_batch_digest,
+            "source_cycle_hash": self.source_cycle_hash,
+            "source_candidate_set_sha256": self.source_candidate_set_sha256,
+            "prior_snapshot_commitment_sha256": (self.prior_snapshot_commitment_sha256),
+            "prior_snapshot_count": self.prior_snapshot_count,
+            "cross_cycle_snapshot_count": self.cross_cycle_snapshot_count,
+            "leads_selected": self.leads_selected,
+            "leads_excluded_from_target": self.leads_excluded_from_target,
+            "selected_candidate_set_sha256": self.selected_candidate_set_sha256,
+            "excluded_candidate_set_sha256": self.excluded_candidate_set_sha256,
+            "leads_seeded": self.leads_seeded,
+            "already_seeded": self.already_seeded,
+        }
+
+
 def read_saturated_direct_search_leads(
     source_store_path: str | Path,
     *,
@@ -1057,6 +1149,179 @@ def read_saturated_direct_search_leads(
     )
 
 
+def read_verified_priority_dedupe_snapshots(
+    snapshot_paths: Sequence[str | Path],
+    *,
+    expected_manifest_sha256: Sequence[str],
+) -> tuple[PriorScreeningSnapshot, ...]:
+    """Verify terminal snapshots and return deterministic priority-dedupe inputs.
+
+    Snapshot outcomes are deliberately not imported. Only the exact candidate-ID
+    union is used to defer already-screened dockets from a priority batch. This
+    remains valid when a snapshot belongs to an older cycle, without laundering
+    that cycle's eligibility or exclusion decisions into the current cycle.
+    """
+
+    if not snapshot_paths:
+        raise RecapApiBatchDriverError(
+            "novel transfer requires at least one prior screening snapshot"
+        )
+    if len(snapshot_paths) != len(expected_manifest_sha256):
+        raise RecapApiBatchDriverError(
+            "each prior snapshot requires one ordered expected manifest SHA-256"
+        )
+    snapshots: list[PriorScreeningSnapshot] = []
+    seen_paths: set[Path] = set()
+    seen_manifest_hashes: set[str] = set()
+    for index, (raw_path, expected_hash) in enumerate(
+        zip(snapshot_paths, expected_manifest_sha256, strict=True), start=1
+    ):
+        if re.fullmatch(r"[0-9a-f]{64}", expected_hash) is None:
+            raise RecapApiBatchDriverError(
+                f"prior snapshot {index} expected manifest SHA-256 is invalid"
+            )
+        supplied_path = Path(raw_path)
+        if supplied_path.is_symlink() or not supplied_path.is_dir():
+            raise RecapApiBatchDriverError(
+                f"prior snapshot {index} is not a regular directory: {supplied_path}"
+            )
+        try:
+            path = supplied_path.resolve(strict=True)
+        except (OSError, RuntimeError) as exc:
+            raise RecapApiBatchDriverError(
+                f"prior snapshot {index} cannot be resolved: {supplied_path}"
+            ) from exc
+        if path in seen_paths:
+            raise RecapApiBatchDriverError("prior snapshot paths must be distinct")
+        seen_paths.add(path)
+        for filename in _SNAPSHOT_METADATA_FILES:
+            metadata_path = path / filename
+            if metadata_path.is_symlink() or not metadata_path.is_file():
+                raise RecapApiBatchDriverError(
+                    f"prior snapshot metadata is not a regular file: {metadata_path}"
+                )
+        try:
+            manifest_bytes = (path / "manifest.json").read_bytes()
+        except OSError as exc:
+            raise RecapApiBatchDriverError(
+                f"prior snapshot manifest is unreadable: {path}"
+            ) from exc
+        manifest_hash = hashlib.sha256(manifest_bytes).hexdigest()
+        if manifest_hash != expected_hash:
+            raise RecapApiBatchDriverError(
+                f"prior snapshot manifest SHA-256 mismatch: {path}"
+            )
+        if manifest_hash in seen_manifest_hashes:
+            raise RecapApiBatchDriverError(
+                "prior snapshots must have distinct manifest commitments"
+            )
+        seen_manifest_hashes.add(manifest_hash)
+        try:
+            manifest = verify_snapshot(
+                path,
+                require_complete=True,
+                require_saturated=True,
+            )
+            candidate_ids = _priority_dedupe_candidate_ids(path / "candidates.jsonl")
+        except SnapshotVerificationError as exc:
+            raise RecapApiBatchDriverError(
+                f"prior snapshot verification failed: {path}: {exc}"
+            ) from exc
+        cycle_hash = _snapshot_sha256_field(manifest, "cycle_hash", path)
+        batch_digest = _snapshot_sha256_field(manifest, "batch_digest", path)
+        snapshot_id = _snapshot_text_field(manifest, "snapshot_id", path)
+        batch_id = _snapshot_text_field(manifest, "batch_id", path)
+        snapshots.append(
+            PriorScreeningSnapshot(
+                path=path,
+                manifest_sha256=manifest_hash,
+                cycle_hash=cycle_hash,
+                snapshot_id=snapshot_id,
+                batch_id=batch_id,
+                batch_digest=batch_digest,
+                candidate_ids=candidate_ids,
+                candidate_set_sha256=_candidate_id_set_sha256(candidate_ids),
+            )
+        )
+    return tuple(
+        sorted(
+            snapshots,
+            key=lambda snapshot: (
+                snapshot.manifest_sha256,
+                str(snapshot.path),
+            ),
+        )
+    )
+
+
+def _priority_dedupe_candidate_ids(path: Path) -> tuple[str, ...]:
+    candidate_ids: set[str] = set()
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as exc:
+        raise RecapApiBatchDriverError(
+            f"prior snapshot candidates are unreadable: {path}"
+        ) from exc
+    for row_number, line in enumerate(lines, start=1):
+        try:
+            parsed = cast(object, json.loads(line))
+        except json.JSONDecodeError as exc:
+            raise RecapApiBatchDriverError(
+                f"prior snapshot candidate row {row_number} is invalid JSON"
+            ) from exc
+        if not isinstance(parsed, dict):
+            raise RecapApiBatchDriverError(
+                f"prior snapshot candidate row {row_number} is not an object"
+            )
+        candidate_id = cast(dict[str, object], parsed).get("candidate_id")
+        if not isinstance(candidate_id, str) or not candidate_id.strip():
+            raise RecapApiBatchDriverError(
+                f"prior snapshot candidate row {row_number} has invalid identity"
+            )
+        if candidate_id in candidate_ids:
+            raise RecapApiBatchDriverError(
+                f"prior snapshot contains duplicate candidate: {candidate_id}"
+            )
+        candidate_ids.add(candidate_id)
+    return tuple(sorted(candidate_ids))
+
+
+def _snapshot_sha256_field(
+    manifest: Mapping[str, object], field: str, path: Path
+) -> str:
+    value = manifest.get(field)
+    if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+        raise RecapApiBatchDriverError(f"prior snapshot has invalid {field}: {path}")
+    return value
+
+
+def _snapshot_text_field(manifest: Mapping[str, object], field: str, path: Path) -> str:
+    value = manifest.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise RecapApiBatchDriverError(f"prior snapshot has invalid {field}: {path}")
+    return value
+
+
+def _candidate_id_set_sha256(candidate_ids: Sequence[str]) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            list(candidate_ids),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+
+
+def _lead_set_sha256(leads: Sequence[DirectSearchLead]) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            [lead.commitment_record() for lead in leads],
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+
+
 def _minimum_direct_search_entry_evidence(
     payload: Mapping[str, object], docket_id: str
 ) -> tuple[int, int, str, dict[str, object]] | None:
@@ -1185,9 +1450,194 @@ def seed_direct_search_leads(
     )
 
 
+def seed_novel_direct_search_leads(
+    store: CycleAcquisitionStore,
+    *,
+    batch_id: str,
+    source: DirectSearchSeedSource,
+    prior_snapshots: Sequence[PriorScreeningSnapshot],
+    page_size: int = 100,
+) -> NovelDirectSearchSeedResult:
+    """Seed only source leads unseen in verified prior terminal snapshots.
+
+    This is a scheduling optimization, not an import of historical outcomes.
+    Candidates found in a prior snapshot are excluded only from this priority
+    target batch. They remain available from the committed complete source and
+    are never written to the current cycle's exclusion ledger by this transfer.
+    """
+
+    if not 1 <= page_size <= 100:
+        raise ValueError("page_size must be from 1 through 100")
+    if not prior_snapshots:
+        raise RecapApiBatchDriverError(
+            "novel transfer requires at least one verified prior snapshot"
+        )
+    if store.cycle_hash != source.source_cycle_hash:
+        raise RecapApiBatchDriverError(
+            "direct-search source and REST target cycle identities differ"
+        )
+    if batch_id == source.source_batch_id:
+        raise RecapApiBatchDriverError(
+            "direct-search source and target batch ids must differ"
+        )
+    manifest_hashes = [snapshot.manifest_sha256 for snapshot in prior_snapshots]
+    if len(set(manifest_hashes)) != len(manifest_hashes):
+        raise RecapApiBatchDriverError(
+            "novel transfer prior snapshot commitments must be distinct"
+        )
+    ordered_snapshots = tuple(
+        sorted(
+            prior_snapshots,
+            key=lambda snapshot: (
+                snapshot.manifest_sha256,
+                str(snapshot.path),
+            ),
+        )
+    )
+    prior_records = [
+        snapshot.commitment_record(source_cycle_hash=source.source_cycle_hash)
+        for snapshot in ordered_snapshots
+    ]
+    prior_snapshot_commitment_sha256 = hashlib.sha256(
+        json.dumps(prior_records, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    prior_candidate_ids = {
+        candidate_id
+        for snapshot in ordered_snapshots
+        for candidate_id in snapshot.candidate_ids
+    }
+    selected = tuple(
+        lead for lead in source.leads if lead.candidate_id not in prior_candidate_ids
+    )
+    excluded = tuple(
+        lead for lead in source.leads if lead.candidate_id in prior_candidate_ids
+    )
+    if len(selected) + len(excluded) != len(source.leads):
+        raise RecapApiBatchDriverError(
+            "novel transfer source partition does not reconcile"
+        )
+    selected_candidate_set_sha256 = _lead_set_sha256(selected)
+    excluded_candidate_set_sha256 = _lead_set_sha256(excluded)
+    cross_cycle_snapshot_count = sum(
+        snapshot.cycle_hash != source.source_cycle_hash
+        for snapshot in ordered_snapshots
+    )
+    config = build_recap_api_batch_config(
+        decision_window_start=source.search_window_start,
+        decision_window_end=source.search_window_end,
+        auth_mode="authenticated",
+        query_terms=(DIRECT_SEARCH_NOVEL_TRANSFER_TERM,),
+        page_size=page_size,
+        top_k_per_term=max(len(selected), 1),
+    )
+    config.update(
+        {
+            "discovery_mode": DIRECT_SEARCH_NOVEL_TRANSFER_PROVENANCE_SCHEMA,
+            "prior_snapshot_dedupe_schema": PRIOR_SNAPSHOT_PRIORITY_DEDUPE_SCHEMA,
+            "selection_semantics": "priority_dedupe_only",
+            "prior_outcomes_authoritative": False,
+            "seen_candidate_disposition": (
+                "deferred_from_priority_batch_not_merits_excluded"
+            ),
+            "source_batch_id": source.source_batch_id,
+            "source_batch_digest": source.source_batch_digest,
+            "source_cycle_hash": source.source_cycle_hash,
+            "source_candidate_count": len(source.leads),
+            "source_candidate_set_sha256": source.source_candidate_set_sha256,
+            "prior_snapshot_count": len(ordered_snapshots),
+            "cross_cycle_snapshot_count": cross_cycle_snapshot_count,
+            "prior_snapshot_commitment_sha256": (prior_snapshot_commitment_sha256),
+            "prior_snapshots": prior_records,
+            "selected_candidate_count": len(selected),
+            "selected_candidate_set_sha256": selected_candidate_set_sha256,
+            "excluded_from_target_candidate_count": len(excluded),
+            "excluded_from_target_candidate_set_sha256": (
+                excluded_candidate_set_sha256
+            ),
+        }
+    )
+    store.ensure_batch(batch_id, config)
+    store.ensure_terms(batch_id, (DIRECT_SEARCH_NOVEL_TRANSFER_TERM,))
+    progress = store.term_progress(batch_id, DIRECT_SEARCH_NOVEL_TRANSFER_TERM)
+
+    def result(*, seeded: int, already_seeded: bool) -> NovelDirectSearchSeedResult:
+        return NovelDirectSearchSeedResult(
+            batch_id=batch_id,
+            source_batch_id=source.source_batch_id,
+            source_batch_digest=source.source_batch_digest,
+            source_cycle_hash=source.source_cycle_hash,
+            source_candidate_set_sha256=source.source_candidate_set_sha256,
+            prior_snapshot_commitment_sha256=prior_snapshot_commitment_sha256,
+            prior_snapshot_count=len(ordered_snapshots),
+            cross_cycle_snapshot_count=cross_cycle_snapshot_count,
+            leads_selected=len(selected),
+            leads_excluded_from_target=len(excluded),
+            selected_candidate_set_sha256=selected_candidate_set_sha256,
+            excluded_candidate_set_sha256=excluded_candidate_set_sha256,
+            leads_seeded=seeded,
+            already_seeded=already_seeded,
+        )
+
+    if progress.terminal_status is not None:
+        return result(seeded=0, already_seeded=True)
+    offset = progress.hit_count
+    starting_offset = offset
+    if offset > len(selected):
+        raise RecapApiBatchDriverError(
+            "novel direct-search transfer progress exceeds frozen lead count"
+        )
+    selection_provenance = {
+        "schema_version": DIRECT_SEARCH_NOVEL_TRANSFER_PROVENANCE_SCHEMA,
+        "selection_semantics": "priority_dedupe_only",
+        "prior_outcomes_authoritative": False,
+        "prior_snapshot_commitment_sha256": prior_snapshot_commitment_sha256,
+        "selected_candidate_set_sha256": selected_candidate_set_sha256,
+        "excluded_from_target_candidate_set_sha256": excluded_candidate_set_sha256,
+    }
+    while offset < len(selected):
+        page = selected[offset : offset + page_size]
+        next_offset = offset + len(page)
+        next_cursor = str(next_offset) if next_offset < len(selected) else None
+        terminal = None if next_cursor is not None else TermTerminalStatus.EXHAUSTED
+        hits = tuple(
+            _direct_search_lead_to_hit(
+                lead,
+                source,
+                transfer_term=DIRECT_SEARCH_NOVEL_TRANSFER_TERM,
+                selection_provenance=selection_provenance,
+            )
+            for lead in page
+        )
+        progress = store.commit_search_page(
+            batch_id,
+            DIRECT_SEARCH_NOVEL_TRANSFER_TERM,
+            progress.cursor,
+            hits,
+            next_cursor=next_cursor,
+            terminal_status=terminal,
+        )
+        offset = next_offset
+    if not selected:
+        store.commit_search_page(
+            batch_id,
+            DIRECT_SEARCH_NOVEL_TRANSFER_TERM,
+            progress.cursor,
+            (),
+            next_cursor=None,
+            terminal_status=TermTerminalStatus.EXHAUSTED,
+        )
+    return result(
+        seeded=len(selected) - starting_offset,
+        already_seeded=False,
+    )
+
+
 def _direct_search_lead_to_hit(
     lead: DirectSearchLead,
     source: DirectSearchSeedSource,
+    *,
+    transfer_term: str = DIRECT_SEARCH_TRANSFER_TERM,
+    selection_provenance: Mapping[str, object] | None = None,
 ) -> DiscoveryHit:
     prescreen_reason = prescreen_recap_candidate(
         court_id=lead.court_id,
@@ -1203,7 +1653,7 @@ def _direct_search_lead_to_hit(
         "case_name": lead.case_name,
         "provider": RECAP_API_PROVIDER,
         "prescreen_exclusion_reason": prescreen_reason,
-        "query_term": DIRECT_SEARCH_TRANSFER_TERM,
+        "query_term": transfer_term,
         "direct_search_provenance": {
             "schema_version": DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA,
             "source_batch_id": source.source_batch_id,
@@ -1215,12 +1665,13 @@ def _direct_search_lead_to_hit(
             "source_hits": [hit.to_record() for hit in lead.source_hits],
         },
     }
+    if selection_provenance is not None:
+        payload["priority_dedupe_provenance"] = dict(selection_provenance)
     if lead.decision_entry_evidence is not None:
         payload["decision_entry_evidence"] = dict(lead.decision_entry_evidence)
     return DiscoveryHit(
         provider_hit_id=(
-            f"{DIRECT_SEARCH_TRANSFER_TERM}:{source.source_batch_digest}:"
-            f"{lead.docket_id}"
+            f"{transfer_term}:{source.source_batch_digest}:{lead.docket_id}"
         ),
         candidate_id=lead.candidate_id,
         payload=payload,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import date
 from pathlib import Path
 from typing import Any, cast
@@ -15,16 +16,19 @@ from legalforecast.ingestion.courtlistener_client import (
 )
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.recap_api_batch_driver import (
+    DIRECT_SEARCH_NOVEL_TRANSFER_TERM,
     DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA,
     DIRECT_SEARCH_TRANSFER_TERM,
     Batch001Lead,
     RecapApiBatchDriverError,
     read_batch_001_enrichment_failure_leads,
     read_saturated_direct_search_leads,
+    read_verified_priority_dedupe_snapshots,
     run_discover,
     run_observe,
     seed_batch_001_leads,
     seed_direct_search_leads,
+    seed_novel_direct_search_leads,
 )
 from legalforecast.ingestion.recap_api_discovery import (
     RecapReconstructionAuthError,
@@ -1194,6 +1198,64 @@ def _build_saturated_direct_search_store(
     return path
 
 
+def _build_prior_screening_snapshot(
+    tmp_path: Path,
+    *,
+    name: str,
+    candidate_ids: tuple[str, ...],
+    cross_cycle: bool = False,
+    complete: bool = True,
+) -> tuple[Path, str]:
+    store_path = tmp_path / f"{name}.sqlite3"
+    output_root = tmp_path / f"{name}-snapshots"
+    with CycleAcquisitionStore(store_path) as store:
+        policy: dict[str, object] = {
+            "schema_version": "test",
+            "eligibility_anchor": "2026-06-30",
+        }
+        if cross_cycle:
+            policy["historical_cycle_marker"] = name
+        store.ensure_cycle(policy)
+        store.ensure_batch(name, {"provider": "courtlistener", "name": name})
+        store.ensure_terms(name, ("screen",))
+        store.commit_search_page(
+            name,
+            "screen",
+            None,
+            [
+                {
+                    "provider_hit_id": f"{name}-{candidate_id}",
+                    "candidate_id": candidate_id,
+                    "payload": {"candidate_id": candidate_id},
+                }
+                for candidate_id in candidate_ids
+            ],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        for candidate_id in candidate_ids:
+            store.record_observation(
+                candidate_id,
+                batch_id=name,
+                state="excluded",
+                reason_code="decision_before_release_anchor",
+                evidence={
+                    "candidate_id": candidate_id,
+                    "decision_date": "2026-06-29",
+                },
+            )
+        snapshot = store.export_snapshot(
+            output_root,
+            snapshot_id=f"{name}-snapshot",
+            batch_id=name,
+            complete=complete,
+        )
+    manifest_hash = hashlib.sha256(
+        (snapshot / "manifest.json").read_bytes()
+    ).hexdigest()
+    return snapshot, manifest_hash
+
+
 def test_read_saturated_direct_search_aggregates_minimum_entry_evidence(
     tmp_path: Path,
 ) -> None:
@@ -1391,3 +1453,167 @@ def test_seed_direct_search_rejects_source_target_batch_collision(
                 batch_id="direct-search",
                 source=source,
             )
+
+
+def test_seed_novel_direct_search_commits_full_partition_and_cross_cycle_semantics(
+    tmp_path: Path,
+) -> None:
+    source_path = _build_saturated_direct_search_store(tmp_path)
+    same_cycle_path, same_cycle_hash = _build_prior_screening_snapshot(
+        tmp_path,
+        name="same-cycle",
+        candidate_ids=("courtlistener-docket-200", "unrelated-candidate"),
+    )
+    cross_cycle_path, cross_cycle_hash = _build_prior_screening_snapshot(
+        tmp_path,
+        name="cross-cycle",
+        candidate_ids=("courtlistener-docket-300",),
+        cross_cycle=True,
+    )
+    source = read_saturated_direct_search_leads(
+        source_path, source_batch_id="direct-search"
+    )
+    prior = read_verified_priority_dedupe_snapshots(
+        (same_cycle_path, cross_cycle_path),
+        expected_manifest_sha256=(same_cycle_hash, cross_cycle_hash),
+    )
+
+    with CycleAcquisitionStore(source_path) as store:
+        result = seed_novel_direct_search_leads(
+            store,
+            batch_id="novel-rest-screen",
+            source=source,
+            prior_snapshots=prior,
+        )
+        assert result.leads_selected == 1
+        assert result.leads_excluded_from_target == 2
+        assert result.cross_cycle_snapshot_count == 1
+        assert result.leads_seeded == 1
+        assert store.candidate_ids("novel-rest-screen") == ("courtlistener-docket-400",)
+        config = store.batch_config("novel-rest-screen")
+        assert config["source_candidate_count"] == 3
+        assert config["source_candidate_set_sha256"] == (
+            source.source_candidate_set_sha256
+        )
+        assert config["selection_semantics"] == "priority_dedupe_only"
+        assert config["prior_outcomes_authoritative"] is False
+        assert config["cross_cycle_snapshot_count"] == 1
+        assert config["selected_candidate_count"] == 1
+        assert config["excluded_from_target_candidate_count"] == 2
+        assert len(cast(list[object], config["prior_snapshots"])) == 2
+        assert all(
+            "snapshot_manifest_sha256" in cast(dict[str, object], record)
+            and "cycle_hash" in cast(dict[str, object], record)
+            and "batch_digest" in cast(dict[str, object], record)
+            for record in cast(list[object], config["prior_snapshots"])
+        )
+        hit = store.candidate_discovery_hits("novel-rest-screen")[0]
+        provenance = hit.payload["priority_dedupe_provenance"]
+        assert provenance["prior_outcomes_authoritative"] is False
+        assert provenance["selected_candidate_set_sha256"] == (
+            result.selected_candidate_set_sha256
+        )
+        assert (
+            store.term_progress(
+                "novel-rest-screen", DIRECT_SEARCH_NOVEL_TRANSFER_TERM
+            ).terminal_status
+            == "exhausted"
+        )
+
+        repeated = seed_novel_direct_search_leads(
+            store,
+            batch_id="novel-rest-screen",
+            source=source,
+            prior_snapshots=tuple(reversed(prior)),
+        )
+        assert repeated.prior_snapshot_commitment_sha256 == (
+            result.prior_snapshot_commitment_sha256
+        )
+        assert repeated.leads_seeded == 0
+        assert repeated.already_seeded is True
+
+
+def test_verified_priority_dedupe_snapshots_reject_tamper_and_partial(
+    tmp_path: Path,
+) -> None:
+    snapshot, manifest_hash = _build_prior_screening_snapshot(
+        tmp_path,
+        name="tamper",
+        candidate_ids=("courtlistener-docket-200",),
+    )
+    (snapshot / "candidates.jsonl").write_text("{}\n", encoding="utf-8")
+    with pytest.raises(RecapApiBatchDriverError, match="commitment mismatch"):
+        read_verified_priority_dedupe_snapshots(
+            (snapshot,), expected_manifest_sha256=(manifest_hash,)
+        )
+
+    partial, partial_hash = _build_prior_screening_snapshot(
+        tmp_path,
+        name="partial",
+        candidate_ids=("courtlistener-docket-300",),
+        complete=False,
+    )
+    with pytest.raises(RecapApiBatchDriverError, match="snapshot is not complete"):
+        read_verified_priority_dedupe_snapshots(
+            (partial,), expected_manifest_sha256=(partial_hash,)
+        )
+
+
+def test_verified_priority_dedupe_snapshots_require_exact_ordered_hashes(
+    tmp_path: Path,
+) -> None:
+    first, first_hash = _build_prior_screening_snapshot(
+        tmp_path,
+        name="first",
+        candidate_ids=("courtlistener-docket-200",),
+    )
+    second, second_hash = _build_prior_screening_snapshot(
+        tmp_path,
+        name="second",
+        candidate_ids=("courtlistener-docket-300",),
+    )
+    with pytest.raises(RecapApiBatchDriverError, match="SHA-256 mismatch"):
+        read_verified_priority_dedupe_snapshots(
+            (first, second),
+            expected_manifest_sha256=(second_hash, first_hash),
+        )
+    with pytest.raises(RecapApiBatchDriverError, match="each prior snapshot"):
+        read_verified_priority_dedupe_snapshots(
+            (first, second), expected_manifest_sha256=(first_hash,)
+        )
+
+
+def test_seed_novel_direct_search_preserves_source_target_cycle_gate(
+    tmp_path: Path,
+) -> None:
+    source_path = _build_saturated_direct_search_store(tmp_path)
+    prior_path, prior_hash = _build_prior_screening_snapshot(
+        tmp_path,
+        name="prior",
+        candidate_ids=("courtlistener-docket-200",),
+        cross_cycle=True,
+    )
+    source = read_saturated_direct_search_leads(
+        source_path, source_batch_id="direct-search"
+    )
+    prior = read_verified_priority_dedupe_snapshots(
+        (prior_path,), expected_manifest_sha256=(prior_hash,)
+    )
+    target_path = tmp_path / "different-target.sqlite3"
+    with CycleAcquisitionStore(target_path) as target:
+        target.ensure_cycle(
+            {
+                "schema_version": "test",
+                "eligibility_anchor": "2026-06-30",
+                "different_target": True,
+            }
+        )
+        with pytest.raises(RecapApiBatchDriverError, match="cycle identities differ"):
+            seed_novel_direct_search_leads(
+                target,
+                batch_id="novel-rest-screen",
+                source=source,
+                prior_snapshots=prior,
+            )
+        with pytest.raises(KeyError):
+            target.batch_config("novel-rest-screen")
