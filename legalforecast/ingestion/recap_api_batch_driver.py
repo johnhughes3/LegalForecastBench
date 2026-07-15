@@ -48,6 +48,17 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.ingestion.courtlistener_client import CourtListenerClient
+from legalforecast.ingestion.courtlistener_opinion_discovery import (
+    OPINION_API_PAGE_SIZE,
+    OPINION_MTD_SEARCH_TERMS,
+    OpinionApiDiscoverySource,
+    build_opinion_batch_config,
+)
+from legalforecast.ingestion.courtlistener_unrestricted_recap_discovery import (
+    UNRESTRICTED_RECAP_PAGE_SIZE,
+    UNRESTRICTED_RECAP_SEARCH_TERMS,
+    run_unrestricted_recap_discovery,
+)
 from legalforecast.ingestion.cycle_acquisition_store import (
     CandidateObservation,
     CycleAcquisitionStore,
@@ -223,6 +234,135 @@ def run_discover(
         total_hits=total_hits,
         distinct_candidates=len(summary.candidate_ids),
         prescreen_exclusions_by_reason=prescreen,
+        per_term=tuple(per_term),
+        complete=summary.complete,
+        saturated=summary.saturated,
+    )
+
+
+def run_opinion_discover(
+    store: CycleAcquisitionStore,
+    *,
+    batch_id: str,
+    client: CourtListenerClient,
+    decision_window_start: date,
+    decision_window_end: date,
+    query_terms: Sequence[str] = OPINION_MTD_SEARCH_TERMS,
+    top_k_per_term: int = 5_000,
+    pacer: RequestPacer | None = None,
+) -> DiscoverFunnel:
+    """Materialize a durable CourtListener opinion-cluster discovery union.
+
+    Opinion search supplies a high-precision written-decision lead: the cluster
+    is retained as the provider-hit identity while its explicit ``docket_id``
+    becomes the candidate identity consumed by ``seed-direct-search``.  The
+    downstream authenticated docket reconstruction remains authoritative for
+    motion linkage and first-disposition eligibility.
+    """
+
+    config = build_opinion_batch_config(
+        decision_window_start=decision_window_start,
+        decision_window_end=decision_window_end,
+        query_terms=query_terms,
+        top_k_per_term=top_k_per_term,
+    )
+    terms = tuple(cast(Sequence[str], config["query_terms"]))
+    store.ensure_batch(batch_id, config)
+    source = OpinionApiDiscoverySource(
+        client=client,
+        decision_window_start=decision_window_start,
+        decision_window_end=decision_window_end,
+        pacer=pacer,
+    )
+    summary = materialize_independent_term_sets(
+        source=source,
+        store=store,
+        batch_id=batch_id,
+        query_terms=terms,
+        top_k_per_term=top_k_per_term,
+        page_size=OPINION_API_PAGE_SIZE,
+    )
+
+    per_term: list[TermFunnelRow] = []
+    total_hits = 0
+    terms_terminal = 0
+    for term in terms:
+        progress = store.term_progress(batch_id, term)
+        total_hits += progress.hit_count
+        status = summary.terminal_status_by_term.get(term)
+        if status is not None:
+            terms_terminal += 1
+        per_term.append(
+            TermFunnelRow(
+                term=term,
+                hit_count=progress.hit_count,
+                terminal_status=status.value if status is not None else "incomplete",
+            )
+        )
+
+    return DiscoverFunnel(
+        batch_id=batch_id,
+        terms_total=len(terms),
+        terms_terminal=terms_terminal,
+        total_hits=total_hits,
+        distinct_candidates=len(summary.candidate_ids),
+        prescreen_exclusions_by_reason=_prescreen_exclusion_counts(store, batch_id),
+        per_term=tuple(per_term),
+        complete=summary.complete,
+        saturated=summary.saturated,
+    )
+
+
+def run_unrestricted_discover(
+    store: CycleAcquisitionStore,
+    *,
+    batch_id: str,
+    client: CourtListenerClient,
+    decision_window_start: date,
+    decision_window_end: date,
+    query_terms: Sequence[str] = UNRESTRICTED_RECAP_SEARCH_TERMS,
+    top_k_per_term: int = 5_000,
+    pacer: RequestPacer | None = None,
+) -> DiscoverFunnel:
+    """Materialize filing-level RECAP leads without an availability filter."""
+
+    summary = run_unrestricted_recap_discovery(
+        store=store,
+        batch_id=batch_id,
+        client=client,
+        search_window_start=decision_window_start,
+        search_window_end=decision_window_end,
+        auth_mode="authenticated",
+        query_terms=query_terms,
+        page_size=UNRESTRICTED_RECAP_PAGE_SIZE,
+        top_k_per_term=top_k_per_term,
+        pacer=pacer,
+    )
+    config = store.batch_config(batch_id)
+    terms = tuple(cast(Sequence[str], config["query_terms"]))
+    per_term: list[TermFunnelRow] = []
+    total_hits = 0
+    terms_terminal = 0
+    for term in terms:
+        progress = store.term_progress(batch_id, term)
+        total_hits += progress.hit_count
+        status = summary.terminal_status_by_term.get(term)
+        if status is not None:
+            terms_terminal += 1
+        per_term.append(
+            TermFunnelRow(
+                term=term,
+                hit_count=progress.hit_count,
+                terminal_status=status.value if status is not None else "incomplete",
+            )
+        )
+    return DiscoverFunnel(
+        batch_id=batch_id,
+        terms_total=len(terms),
+        terms_terminal=terms_terminal,
+        total_hits=total_hits,
+        distinct_candidates=len(summary.candidate_ids),
+        prescreen_exclusions_by_reason=_prescreen_exclusion_counts(store, batch_id),
         per_term=tuple(per_term),
         complete=summary.complete,
         saturated=summary.saturated,
