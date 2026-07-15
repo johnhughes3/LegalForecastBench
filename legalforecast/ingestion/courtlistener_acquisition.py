@@ -12,7 +12,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from legalforecast.ingestion.courtlistener_client import (
     CourtListenerClient,
@@ -30,6 +30,16 @@ from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebParseError,
     parse_courtlistener_docket_html,
     starts_with_dispositive_motion,
+)
+from legalforecast.ingestion.cycle_acquisition_store import (
+    CycleAcquisitionStore,
+    CycleAcquisitionStoreError,
+)
+from legalforecast.ingestion.discovery_scheduler import (
+    DiscoveryHit,
+    DiscoveryPage,
+    TermTerminalStatus,
+    materialize_independent_term_sets,
 )
 from legalforecast.ingestion.docket_sync import NormalizedDocketEntry
 from legalforecast.ingestion.mtd_acquisition_screen import (
@@ -159,6 +169,8 @@ def discover_courtlistener_mtd_candidates(
     search_page_size: int = 50,
     resume: bool = True,
     verify_existing_raw_html: Callable[[str, str, Path], str] | None = None,
+    progress_store: CycleAcquisitionStore | None = None,
+    batch_id: str | None = None,
 ) -> CourtListenerDiscoveryResult:
     """Search a bounded rolling window and screen against an immutable anchor."""
 
@@ -173,6 +185,26 @@ def discover_courtlistener_mtd_candidates(
         max_candidates=max_candidates,
         search_page_size=search_page_size,
     )
+    if (progress_store is None) != (batch_id is None):
+        raise ValueError("progress_store and batch_id must be supplied together")
+    if progress_store is not None:
+        assert batch_id is not None
+        return _discover_courtlistener_mtd_candidates_durable(
+            client=client,
+            html_source=html_source,
+            raw_html_dir=raw_html_dir,
+            decision_filed_on_or_after=decision_filed_on_or_after,
+            search_window_start=search_window_start,
+            search_window_end=search_window_end,
+            query_terms=query_terms,
+            target_clean_cases=target_clean_cases,
+            max_candidates=max_candidates,
+            search_page_size=search_page_size,
+            resume=resume,
+            verify_existing_raw_html=verify_existing_raw_html,
+            progress_store=progress_store,
+            batch_id=batch_id,
+        )
     raw_html_dir.mkdir(parents=True, exist_ok=True)
     screened_cases: list[Mapping[str, Any]] = []
     exclusions: list[ExclusionLedgerEntry] = []
@@ -300,6 +332,266 @@ def discover_courtlistener_mtd_candidates(
         exclusions=tuple(exclusions),
         search_pages=tuple(search_pages),
         summary=summary,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _DurableCourtListenerSearchSource:
+    client: CourtListenerClient
+    search_window_start: date
+    search_window_end: date
+
+    def fetch_page(
+        self,
+        *,
+        term: str,
+        cursor: str | None,
+        page_size: int,
+    ) -> DiscoveryPage:
+        query = _windowed_query(term, self.search_window_start, self.search_window_end)
+        page = self.client.search_recap_documents(
+            query,
+            cursor=cursor,
+            page_size=page_size,
+        )
+        return DiscoveryPage(
+            hits=tuple(
+                DiscoveryHit(
+                    provider_hit_id=courtlistener_search_hit_id(
+                        hit.raw,
+                        term=term,
+                        request_cursor=cursor,
+                        index=index,
+                    ),
+                    candidate_id=hit.docket_id,
+                    payload=dict(hit.raw),
+                )
+                for index, hit in enumerate(page.items)
+            ),
+            next_cursor=page.next_cursor,
+            exhausted=page.next_cursor is None,
+        )
+
+
+_DURABLE_IMMUTABLE_EXCLUSION_REASONS = frozenset(
+    {
+        "decision_before_release_anchor",
+        "bankruptcy_court",
+        "not_federal_district_court",
+        "missing_docket_number",
+        "placeholder_or_sealed_docket_number",
+        "not_civil_cv_docket",
+        "criminal_style_caption",
+        "non_civil_case",
+        "non_civil_metadata",
+        "criminal_case",
+        "bankruptcy_case",
+        "administrative_case",
+        "appellate_case",
+        "missing_civil_case_metadata",
+        "invalid_civil_case_metadata",
+    }
+)
+
+
+def _discover_courtlistener_mtd_candidates_durable(
+    *,
+    client: CourtListenerClient,
+    html_source: CourtListenerDocketHTMLSource,
+    raw_html_dir: Path,
+    decision_filed_on_or_after: date,
+    search_window_start: date,
+    search_window_end: date,
+    query_terms: Sequence[str],
+    target_clean_cases: int,
+    max_candidates: int,
+    search_page_size: int,
+    resume: bool,
+    verify_existing_raw_html: Callable[[str, str, Path], str] | None,
+    progress_store: CycleAcquisitionStore,
+    batch_id: str,
+) -> CourtListenerDiscoveryResult:
+    """Discover and screen with durable page and per-candidate checkpoints."""
+
+    raw_html_dir.mkdir(parents=True, exist_ok=True)
+    progress_store.ensure_terms(batch_id, query_terms)
+    if not resume and (
+        progress_store.candidate_ids(batch_id)
+        or any(
+            progress_store.term_progress(batch_id, term).terminal_status is not None
+            for term in query_terms
+        )
+    ):
+        raise CycleAcquisitionStoreError(
+            "durable CourtListener progress exists and --no-resume was set"
+        )
+
+    run = materialize_independent_term_sets(
+        source=_DurableCourtListenerSearchSource(
+            client=client,
+            search_window_start=search_window_start,
+            search_window_end=search_window_end,
+        ),
+        store=progress_store,
+        batch_id=batch_id,
+        query_terms=query_terms,
+        top_k_per_term=max(max_candidates, search_page_size),
+        page_size=search_page_size,
+    )
+    search_pages = progress_store.search_page_transcript(batch_id)
+    candidate_hits = progress_store.candidate_discovery_hits(batch_id)
+    candidate_limit_reached = len(candidate_hits) >= max_candidates
+    selected_hits = candidate_hits[:max_candidates]
+    screened_cases: list[Mapping[str, Any]] = []
+    exclusions: list[ExclusionLedgerEntry] = []
+
+    for hit in selected_hits:
+        prior = progress_store.batch_terminal_observation(batch_id, hit.candidate_id)
+        if prior is not None:
+            if prior.state == "accepted":
+                screened_cases.append(dict(prior.evidence))
+            elif prior.state == "excluded":
+                exclusions.append(_exclusion_from_durable_evidence(prior.evidence))
+            else:  # pragma: no cover - store query restricts terminal states
+                raise CycleAcquisitionStoreError(
+                    f"unsupported durable candidate state: {prior.state}"
+                )
+            continue
+
+        screened, exclusion = _screen_candidate(
+            client=client,
+            html_source=html_source,
+            raw_html_dir=raw_html_dir,
+            docket_id=hit.candidate_id,
+            anchor=decision_filed_on_or_after,
+            query=_windowed_query(
+                progress_store.candidate_discovery_term(batch_id, hit.candidate_id),
+                search_window_start,
+                search_window_end,
+            ),
+            resume=resume,
+            verify_existing_raw_html=verify_existing_raw_html,
+        )
+        if screened is not None:
+            evidence = dict(screened)
+            evidence["candidate_id"] = hit.candidate_id
+            progress_store.record_observation(
+                hit.candidate_id,
+                batch_id=batch_id,
+                state="accepted",
+                reason_code="strict_clean_screen_passed",
+                evidence=evidence,
+            )
+            screened_cases.append(evidence)
+            continue
+        if exclusion is None:
+            raise CycleAcquisitionStoreError(
+                f"candidate {hit.candidate_id} produced no terminal screen result"
+            )
+        evidence = exclusion.to_record()
+        reason_code = _durable_screen_reason_code(exclusion.reason)
+        progress_store.record_observation(
+            hit.candidate_id,
+            batch_id=batch_id,
+            state="excluded",
+            reason_code=reason_code,
+            evidence=evidence,
+        )
+        exclusions.append(exclusion)
+
+    per_term: dict[str, dict[str, Any]] = {}
+    for term in query_terms:
+        progress = progress_store.term_progress(batch_id, term)
+        status = progress.terminal_status
+        per_term[term] = {
+            "request_count": sum(
+                1 for page in search_pages if page.get("term") == term
+            ),
+            "candidate_count": progress.hit_count,
+            "terminal_status": None if status is None else status.value,
+            "limit_bound": status != TermTerminalStatus.EXHAUSTED,
+        }
+    search_hit_count = sum(
+        len(cast(Sequence[object], page["hits"])) for page in search_pages
+    )
+    target_met = len(screened_cases) >= target_clean_cases
+    summary: dict[str, Any] = {
+        "schema_version": "legalforecast.courtlistener_discovery_summary.v1",
+        "anchor_date": decision_filed_on_or_after.isoformat(),
+        "search_window_start": search_window_start.isoformat(),
+        "search_window_end": search_window_end.isoformat(),
+        "query_terms": list(query_terms),
+        "queries": [
+            _windowed_query(term, search_window_start, search_window_end)
+            for term in query_terms
+        ],
+        "target_clean_cases": target_clean_cases,
+        "max_candidates": max_candidates,
+        "search_page_size": search_page_size,
+        "search_hit_count": search_hit_count,
+        "duplicate_search_hit_count": search_hit_count - len(candidate_hits),
+        "unique_candidate_count": len(candidate_hits),
+        "processed_candidate_count": len(selected_hits),
+        "accepted_case_count": len(screened_cases),
+        "excluded_case_count": len(exclusions),
+        "target_met": target_met,
+        "candidate_limit_reached": candidate_limit_reached,
+        "per_term": per_term,
+        "durable_rest_checkpointing": True,
+        "discovery_saturated": run.saturated and not candidate_limit_reached,
+    }
+    return CourtListenerDiscoveryResult(
+        screened_cases=tuple(screened_cases),
+        exclusions=tuple(exclusions),
+        search_pages=search_pages,
+        summary=summary,
+    )
+
+
+def _durable_screen_reason_code(reason: str) -> str:
+    if reason in _DURABLE_IMMUTABLE_EXCLUSION_REASONS:
+        return reason
+    if reason in {
+        "bankruptcy_posture",
+        "criminal_posture",
+        "habeas_or_immigration_detention_posture",
+    }:
+        return reason
+    return "strict_clean_screen_failed"
+
+
+def _exclusion_from_durable_evidence(
+    evidence: Mapping[str, Any],
+) -> ExclusionLedgerEntry:
+    decision_value = evidence.get("decision_date")
+    decision_date = (
+        date.fromisoformat(decision_value)
+        if isinstance(decision_value, str) and decision_value
+        else None
+    )
+    return ExclusionLedgerEntry(
+        candidate_id=str(evidence["candidate_id"]),
+        case_id=str(evidence["case_id"]),
+        court=cast(str | None, evidence.get("court")),
+        decision_date=decision_date,
+        stage=ExclusionStage(str(evidence["stage"])),
+        reason=str(evidence["reason"]),
+        secondary_reasons=tuple(
+            str(value)
+            for value in cast(
+                Sequence[object], evidence.get("secondary_exclusion_reasons", ())
+            )
+        ),
+        source_entry_ids=tuple(
+            str(value)
+            for value in cast(Sequence[object], evidence.get("source_entry_ids", ()))
+        ),
+        source_document_ids=tuple(
+            str(value)
+            for value in cast(Sequence[object], evidence.get("source_document_ids", ()))
+        ),
+        related_family_id=cast(str | None, evidence.get("related_family_id")),
+        notes=str(evidence["notes"]),
     )
 
 

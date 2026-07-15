@@ -1377,6 +1377,129 @@ class CycleAcquisitionStore:
             )
         return tuple(hits)
 
+    def candidate_discovery_term(self, batch_id: str, candidate_id: str) -> str:
+        """Return the earliest frozen term that discovered one candidate."""
+
+        self.batch_digest(batch_id)
+        row = self._connection.execute(
+            """
+            SELECT h.term FROM discovery_hits h
+            JOIN term_progress t
+              ON t.batch_id = h.batch_id AND t.term = h.term
+            WHERE h.batch_id = ? AND h.candidate_id = ?
+            ORDER BY t.ordinal, h.provider_hit_id LIMIT 1
+            """,
+            (batch_id, candidate_id),
+        ).fetchone()
+        if row is None:
+            raise KeyError(
+                f"candidate {candidate_id!r} was not discovered in batch {batch_id!r}"
+            )
+        return str(row["term"])
+
+    def search_page_transcript(
+        self,
+        batch_id: str,
+    ) -> tuple[Mapping[str, object], ...]:
+        """Reconstruct committed search pages in cursor-chain order.
+
+        Search-page commits are the durable discovery checkpoint.  Rebuilding
+        the public transcript from those rows keeps a resumed run independent
+        of process-local buffers and refuses broken or cyclic cursor chains.
+        """
+
+        self.batch_digest(batch_id)
+        term_rows = self._connection.execute(
+            """
+            SELECT term FROM term_progress
+            WHERE batch_id = ? ORDER BY ordinal, term
+            """,
+            (batch_id,),
+        ).fetchall()
+        transcript: list[Mapping[str, object]] = []
+        for term_row in term_rows:
+            term = str(term_row["term"])
+            page_rows = self._connection.execute(
+                """
+                SELECT request_cursor_key, request_cursor, next_cursor,
+                       terminal_status
+                FROM search_pages
+                WHERE batch_id = ? AND term = ?
+                """,
+                (batch_id, term),
+            ).fetchall()
+            pages = {str(row["request_cursor_key"]): row for row in page_rows}
+            request_cursor: str | None = None
+            seen_keys: set[str] = set()
+            while True:
+                cursor_key = _cursor_key(request_cursor)
+                row = pages.get(cursor_key)
+                if row is None:
+                    break
+                if cursor_key in seen_keys:
+                    raise CycleAcquisitionStoreError(
+                        f"cyclic search-page cursor chain for {batch_id}/{term}"
+                    )
+                seen_keys.add(cursor_key)
+                hit_rows = self._connection.execute(
+                    """
+                    SELECT provider_hit_id, candidate_id, payload_json
+                    FROM discovery_hits
+                    WHERE batch_id = ? AND term = ? AND request_cursor_key = ?
+                    ORDER BY provider_hit_id
+                    """,
+                    (batch_id, term, cursor_key),
+                ).fetchall()
+                transcript.append(
+                    {
+                        "schema_version": (
+                            "legalforecast.courtlistener_search_page_transcript.v1"
+                        ),
+                        "term": term,
+                        "request_cursor": row["request_cursor"],
+                        "next_cursor": row["next_cursor"],
+                        "terminal_status": row["terminal_status"],
+                        "hits": [
+                            {
+                                "provider_hit_id": str(hit["provider_hit_id"]),
+                                "candidate_id": str(hit["candidate_id"]),
+                                "payload": cast(
+                                    object, json.loads(str(hit["payload_json"]))
+                                ),
+                            }
+                            for hit in hit_rows
+                        ],
+                    }
+                )
+                next_cursor = row["next_cursor"]
+                if next_cursor is None:
+                    break
+                request_cursor = str(next_cursor)
+            if len(seen_keys) != len(pages):
+                raise CycleAcquisitionStoreError(
+                    f"disconnected search-page cursor chain for {batch_id}/{term}"
+                )
+        return tuple(transcript)
+
+    def batch_terminal_observation(
+        self,
+        batch_id: str,
+        candidate_id: str,
+    ) -> CandidateObservation | None:
+        """Return this batch's latest accepted/excluded candidate checkpoint."""
+
+        self.batch_digest(batch_id)
+        row = self._connection.execute(
+            """
+            SELECT * FROM candidate_observations
+            WHERE batch_id = ? AND candidate_id = ?
+              AND state IN ('accepted', 'excluded')
+            ORDER BY observation_id DESC LIMIT 1
+            """,
+            (batch_id, candidate_id),
+        ).fetchone()
+        return None if row is None else _observation_from_row(row)
+
     def record_observation(
         self,
         candidate_id: str,

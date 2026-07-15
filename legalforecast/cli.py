@@ -2172,13 +2172,56 @@ def _add_acquisition_discover_courtlistener_arguments(
             "decision-oriented query set."
         ),
     )
-    parser.add_argument("--target-clean-cases", type=int, default=150)
-    parser.add_argument("--max-candidates", type=int, default=3000)
+    parser.add_argument(
+        "--target-clean-cases",
+        type=int,
+        default=150,
+        help=(
+            "Accepted-case stop/diagnostic bound. A materializable saturated run "
+            "must set this above the possible window yield; hitting it is "
+            "explicitly non-saturated."
+        ),
+    )
+    parser.add_argument(
+        "--max-candidates",
+        type=int,
+        default=3000,
+        help=(
+            "Hard candidate and durable per-term pagination bound. A materializable "
+            "run must exhaust below this value; hitting it fails closed."
+        ),
+    )
     parser.add_argument(
         "--search-page-size",
         type=int,
         default=50,
         help="CourtListener RECAP search page size, from 1 through 100.",
+    )
+    parser.add_argument(
+        "--request-ledger",
+        type=Path,
+        help=(
+            "Crash-durable SQLite ledger for every physical CourtListener REST "
+            "attempt. With --live, defaults under --output-root."
+        ),
+    )
+    parser.add_argument(
+        "--courtlistener-rate-profile",
+        choices=tuple(_COURTLISTENER_RATE_PROFILES),
+        default="base",
+        help=(
+            "Provider ceiling profile with headroom. Use temporary-doubled only "
+            "while CourtListener has explicitly doubled this account's limits."
+        ),
+    )
+    parser.add_argument(
+        "--request-budget-max-wait-seconds",
+        type=float,
+        default=120.0,
+        help=(
+            "Maximum cumulative wait for one CourtListener request reservation "
+            "before failing closed; default 120."
+        ),
     )
     parser.add_argument(
         "--live",
@@ -11898,6 +11941,34 @@ def _firecrawl_docket_html_audit(
     }
 
 
+def _courtlistener_discovery_rate_audit(
+    *,
+    client: CourtListenerClient | None,
+    budget: CourtListenerRequestBudget | None,
+) -> JsonRecord:
+    """Return durable REST-attempt evidence for discovery run artifacts."""
+
+    if client is None or budget is None:
+        return {
+            "courtlistener_request_budget_enabled": False,
+            "courtlistener_physical_requests": 0
+            if client is None
+            else client.request_count,
+        }
+    return {
+        "courtlistener_request_budget_enabled": True,
+        "courtlistener_request_ledger": str(budget.path.resolve()),
+        "courtlistener_physical_requests": client.request_count,
+        "courtlistener_reservations_this_run": budget.local_reservations,
+        "courtlistener_reservations_total": budget.total_reservations(),
+        "courtlistener_limits": {
+            "per_minute": budget.limits.per_minute,
+            "per_hour": budget.limits.per_hour,
+            "per_day": budget.limits.per_day,
+        },
+    }
+
+
 def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     screened_cases_path = _acquisition_path(
@@ -12118,13 +12189,32 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             raise CommandError(str(exc)) from exc
 
     config = CourtListenerConfig.from_env()
+    courtlistener_request_budget: CourtListenerRequestBudget | None = None
     durable_firecrawl_store: CycleAcquisitionStore | None = None
     durable_firecrawl_source: DurableBudgetedCourtListenerHTMLSource | None = None
     firecrawl_source_receipts: dict[str, Mapping[str, object]] = {}
     if live:
         if config.api_token is None:
             raise CommandError(f"{COURTLISTENER_API_TOKEN_ENV} is required with --live")
-        client = CourtListenerClient(config=config)
+        request_ledger = cast(Path | None, args.request_ledger) or (
+            output_root / "courtlistener-requests.sqlite3"
+        )
+        max_wait = cast(float, args.request_budget_max_wait_seconds)
+        if max_wait < 0:
+            raise CommandError("--request-budget-max-wait-seconds cannot be negative")
+        rate_profile = cast(str, args.courtlistener_rate_profile)
+        try:
+            courtlistener_request_budget = CourtListenerRequestBudget(
+                request_ledger,
+                limits=_COURTLISTENER_RATE_PROFILES[rate_profile],
+                max_wait_seconds=max_wait,
+            )
+        except (CourtListenerRequestBudgetError, OSError) as exc:
+            raise CommandError(str(exc)) from exc
+        client = CourtListenerClient(
+            config=config,
+            before_request=courtlistener_request_budget.before_request,
+        )
         if live_firecrawl_docket_html:
             assert cycle_store_path is not None
             assert batch_id is not None
@@ -12193,6 +12283,13 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
         html_source = FixtureCourtListenerDocketHTMLSource(html_fixture_dir)
 
     try:
+        if (
+            live
+            and durable_firecrawl_store is None
+            and cycle_store_path is not None
+            and batch_id is not None
+        ):
+            durable_firecrawl_store = CycleAcquisitionStore(cycle_store_path)
         result = discover_courtlistener_mtd_candidates(
             client=client,
             html_source=html_source,
@@ -12210,6 +12307,12 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
                 if durable_firecrawl_source is None
                 else durable_firecrawl_source.verify_existing_raw_html
             ),
+            progress_store=durable_firecrawl_store,
+            batch_id=batch_id if durable_firecrawl_store is not None else None,
+        )
+        courtlistener_rate_audit = _courtlistener_discovery_rate_audit(
+            client=client,
+            budget=courtlistener_request_budget,
         )
         firecrawl_audit = (
             _firecrawl_docket_html_audit(
@@ -12232,12 +12335,17 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
     except (
         CourtListenerClientError,
         CycleAcquisitionStoreError,
+        CourtListenerRequestBudgetError,
         FirecrawlArtifactError,
         FirecrawlError,
         OSError,
         UnicodeError,
         ValueError,
     ) as exc:
+        courtlistener_rate_audit = _courtlistener_discovery_rate_audit(
+            client=client,
+            budget=courtlistener_request_budget,
+        )
         firecrawl_audit = (
             _firecrawl_docket_html_audit(
                 requested=True,
@@ -12261,7 +12369,10 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
                 if firecrawl_audit is None
                 else cast(bool, firecrawl_audit["firecrawl_metered_activity_executed"])
             ),
-            extra=firecrawl_audit,
+            extra={
+                **courtlistener_rate_audit,
+                **({} if firecrawl_audit is None else firecrawl_audit),
+            },
         )
         raise CommandError(str(exc)) from exc
     finally:
@@ -12300,6 +12411,7 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             **result.summary,
             "dry_run": False,
             "live": live,
+            **courtlistener_rate_audit,
         }
         if firecrawl_audit is not None:
             summary.update(
@@ -12342,6 +12454,7 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
                 "excluded_case_count": len(result.exclusions),
                 "cycle_hash": cycle_hash,
                 "batch_digest": batch_digest,
+                **courtlistener_rate_audit,
                 **(
                     {"firecrawl_source_receipt_count": len(firecrawl_source_receipts)}
                     if live_firecrawl_docket_html
