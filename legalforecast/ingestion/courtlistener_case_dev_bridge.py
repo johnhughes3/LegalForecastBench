@@ -222,6 +222,7 @@ class _CourtListenerRestGapDocument:
     source_url_or_reference: str
     description: str
     is_sealed: bool | None
+    is_private: bool | None
     free: bool = False
 
     @property
@@ -272,7 +273,7 @@ class _CourtListenerRestGapDocument:
             "requires_paid_recovery": not self.free,
             "redaction_or_seal_status": self.restriction_status,
             "restriction_evidence": list(self.restriction_evidence),
-            "is_private": None,
+            "is_private": self.is_private,
             "is_sealed": self.is_sealed,
             "file_extension": "pdf",
             "resolved_from_paid_gap": True,
@@ -294,7 +295,7 @@ class _CourtListenerRestGapDocument:
             "requires_paid_recovery": not self.free,
             "redaction_or_seal_status": self.restriction_status,
             "restriction_evidence": list(self.restriction_evidence),
-            "is_private": None,
+            "is_private": self.is_private,
             "is_sealed": self.is_sealed,
             "contains_target_outcome": self.contains_target_outcome,
             "model_visible": self.model_visible,
@@ -1688,6 +1689,7 @@ def _bridge_courtlistener_rest_gap_documents(
                 ),
                 description=description,
                 is_sealed=recap_document.is_sealed,
+                is_private=recap_document.is_private,
                 free=public_download_url is not None,
             )
         )

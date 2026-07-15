@@ -129,7 +129,7 @@ def validate_authenticated_clearance_lineage(
     }
     for name, expected in expected_sources.items():
         commitment = _mapping(source.get(name), f"{name} commitment")
-        if commitment.get("sha256") != expected:
+        if _commitment_sha256(commitment.get("sha256"), name) != expected:
             raise ResolvedPostRecoveryError(
                 f"clear-disclosures {name} commitment mismatch"
             )
@@ -137,7 +137,10 @@ def validate_authenticated_clearance_lineage(
     clearance_commitment = _mapping(
         output.get("disclosure_clearance"), "disclosure clearance commitment"
     )
-    if clearance_commitment.get("sha256") != clearance_sha256:
+    if (
+        _commitment_sha256(clearance_commitment.get("sha256"), "disclosure clearance")
+        != clearance_sha256
+    ):
         raise ResolvedPostRecoveryError("clear-disclosures output commitment mismatch")
     try:
         authority = validate_review_receipt(
@@ -463,6 +466,11 @@ def require_resolved_post_recovery_operation_bindings(
         if state not in {"recovered_pending_clearance", "cleared_public"}:
             raise ResolvedPostRecoveryError(
                 f"canonical purchase material state is not resolvable: {key}"
+            )
+        terminal_receipt = _terminal_delivery_receipt(operation, key=key)
+        if _sha256(terminal_receipt) != record.get("broker_receipt_sha256"):
+            raise ResolvedPostRecoveryError(
+                f"resolved broker receipt is not the current terminal receipt: {key}"
             )
         material = _mapping(operation.get("material_evidence"), "material evidence")
         expected = {
@@ -931,6 +939,12 @@ def _required_sha(value: object, label: str) -> str:
     if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
         raise ResolvedPostRecoveryError(f"{label} must be lowercase SHA-256")
     return value
+
+
+def _commitment_sha256(value: object, label: str) -> str:
+    if not isinstance(value, str):
+        raise ResolvedPostRecoveryError(f"{label} commitment must be SHA-256")
+    return _required_sha(value.removeprefix("sha256:"), f"{label} commitment")
 
 
 def _uuid4(value: object) -> str:

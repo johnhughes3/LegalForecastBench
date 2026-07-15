@@ -417,6 +417,7 @@ from legalforecast.ingestion.recap_fetch_quarantine_recovery import (
     RecapFetchQuarantineRecoveryError,
     recover_recap_fetch_quarantine_documents,
     write_recap_fetch_quarantine_manifest,
+    write_recap_fetch_restriction_evidence,
 )
 from legalforecast.ingestion.recap_partial_checkpoint import (
     RecapPartialProjectionError,
@@ -4355,6 +4356,11 @@ def _add_acquisition_recover_recap_fetch_quarantine_arguments(
     parser.add_argument("--purchase-ledger", type=Path, required=True)
     parser.add_argument("--attempt-policy", type=Path, required=True)
     parser.add_argument("--manifest-output", type=Path)
+    parser.add_argument(
+        "--restriction-evidence-output",
+        type=Path,
+        help="Immutable URL-free fresh CourtListener public-status evidence JSONL.",
+    )
     parser.add_argument("--document-output-root", type=Path)
     parser.add_argument(
         "--courtlistener-fixture",
@@ -4679,6 +4685,19 @@ def _add_authenticated_clearance_lineage_arguments(
     parser.add_argument("--restriction-evidence", type=Path)
 
 
+def _add_current_purchase_lineage_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--purchase-policy",
+        type=Path,
+        help="Canonical purchase policy required for unknown-origin material.",
+    )
+    parser.add_argument(
+        "--purchase-ledger",
+        type=Path,
+        help="Current canonical purchase journal required for unknown-origin material.",
+    )
+
+
 def _add_acquisition_plan_parse_documents_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
@@ -4688,6 +4707,7 @@ def _add_acquisition_plan_parse_documents_arguments(
     parser.add_argument("--disclosure-clearance", type=Path, required=True)
     parser.add_argument("--resolved-post-recovery-documents", type=Path)
     _add_authenticated_clearance_lineage_arguments(parser)
+    _add_current_purchase_lineage_arguments(parser)
     parser.add_argument("--document-root", type=Path)
     parser.add_argument("--requests-output", type=Path)
     parser.add_argument(
@@ -4711,6 +4731,7 @@ def _add_acquisition_parse_documents_arguments(
     parser.add_argument("--disclosure-clearance", type=Path, required=True)
     parser.add_argument("--resolved-post-recovery-documents", type=Path)
     _add_authenticated_clearance_lineage_arguments(parser)
+    _add_current_purchase_lineage_arguments(parser)
     parser.add_argument("--manifest-output", type=Path)
     parser.add_argument("--parser-root", type=Path)
     parser.add_argument("--timeout-seconds", type=int, default=600)
@@ -5146,6 +5167,7 @@ def _add_acquisition_plan_packet_inputs_arguments(
     parser.add_argument("--disclosure-clearance", type=Path, required=True)
     parser.add_argument("--resolved-post-recovery-documents", type=Path)
     _add_authenticated_clearance_lineage_arguments(parser)
+    _add_current_purchase_lineage_arguments(parser)
     parser.add_argument(
         "--prediction-units",
         type=Path,
@@ -18033,6 +18055,11 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
         "manifest_output",
         output_root / "recap-fetch-quarantine-downloads.jsonl",
     )
+    restriction_path = _acquisition_path(
+        args,
+        "restriction_evidence_output",
+        output_root / "post-recovery-restriction-evidence.jsonl",
+    )
     document_root = _acquisition_path(
         args,
         "document_output_root",
@@ -18084,6 +18111,7 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                 },
             )
             _write_jsonl(manifest_path, records)
+            _write_jsonl(restriction_path, [])
         else:
             if live:
                 if courtlistener_fixture is not None or document_fixture is not None:
@@ -18122,7 +18150,7 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                 source = _fixture_free_document_source(document_fixture)
                 before_request = None
             with CaseDevPurchaseJournal(ledger_path, policy=policy) as journal:
-                records = recover_recap_fetch_quarantine_documents(
+                records, restriction_records = recover_recap_fetch_quarantine_documents(
                     journal=journal,
                     allowed_documents=allowed_documents,
                     attempt_policy_sha256=attempt_policy_sha256,
@@ -18133,6 +18161,9 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                     before_request=before_request,
                 )
                 write_recap_fetch_quarantine_manifest(manifest_path, records)
+                write_recap_fetch_restriction_evidence(
+                    restriction_path, restriction_records
+                )
     except (
         CaseDevPurchaseLedgerError,
         CaseDevPurchasePolicyError,
@@ -18150,7 +18181,7 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
             args,
             stage="recover-recap-fetch-quarantine",
             input_paths=input_paths,
-            output_paths=(manifest_path, ledger_path),
+            output_paths=(manifest_path, restriction_path, ledger_path),
             reason=str(exc),
             paid_activity_requested=False,
             paid_activity_executed=False,
@@ -18160,11 +18191,27 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
         args,
         stage="recover-recap-fetch-quarantine",
         input_paths=input_paths,
-        output_paths=(manifest_path, ledger_path),
+        output_paths=(manifest_path, restriction_path, ledger_path),
         record_count=len(records),
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
+        extra={
+            "output_commitments": (
+                {}
+                if dry_run
+                else {
+                    "quarantine_download_manifest": {
+                        "path": str(manifest_path.resolve()),
+                        "sha256": _path_sha256(manifest_path),
+                    },
+                    "fresh_restriction_evidence": {
+                        "path": str(restriction_path.resolve()),
+                        "sha256": _path_sha256(restriction_path),
+                    },
+                }
+            )
+        },
     )
     return 0
 
@@ -18626,6 +18673,47 @@ def _selection_requires_resolved_post_recovery(
     return False
 
 
+def _require_current_purchase_lineage(
+    args: argparse.Namespace,
+    *,
+    needs_resolved_lineage: bool,
+    resolved_records: Sequence[Mapping[str, Any]],
+) -> tuple[tuple[Path, ...], str | None]:
+    if not needs_resolved_lineage:
+        return (), None
+    policy_path = cast(Path | None, args.purchase_policy)
+    ledger_path = cast(Path | None, args.purchase_ledger)
+    if policy_path is None or ledger_path is None:
+        raise CommandError(
+            "unknown-origin material requires --purchase-policy and "
+            "--purchase-ledger for current receipt-state validation"
+        )
+    try:
+        policy = verify_case_dev_purchase_policy(_read_json_object(policy_path))
+        resolved_ledger = ledger_path.resolve()
+        if resolved_ledger != policy.canonical_ledger_path:
+            raise ResolvedPostRecoveryError(
+                "--purchase-ledger conflicts with the canonical policy locator"
+            )
+        with CaseDevPurchaseJournal(resolved_ledger, policy=policy) as journal:
+            require_resolved_post_recovery_operation_bindings(
+                purchase_operation_records=journal.operation_records(),
+                resolved_records=resolved_records,
+            )
+            state_sha256 = journal.purchase_state_sha256()
+    except (
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
+        ResolvedPostRecoveryError,
+        OSError,
+        sqlite3.Error,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    return (policy_path, resolved_ledger), state_sha256
+
+
 def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     selection_path = cast(Path, args.selection)
@@ -18786,8 +18874,8 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
     selection_records = (
         _read_records(selection_path) if selection_path is not None else []
     )
-    clearance_records = _read_records(clearance_path)
     resolved_records = _read_records(resolved_path) if resolved_path is not None else []
+    clearance_records = _read_records(clearance_path)
     needs_resolved_lineage = _selection_requires_resolved_post_recovery(
         selection_records
     ) or any(
@@ -18819,6 +18907,11 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
             )
     except (DisclosureClearanceError, ResolvedPostRecoveryError, OSError) as exc:
         raise CommandError(str(exc)) from exc
+    purchase_lineage_paths, purchase_state_sha256 = _require_current_purchase_lineage(
+        args,
+        needs_resolved_lineage=needs_resolved_lineage,
+        resolved_records=resolved_records,
+    )
     resolved_index = {
         (
             _required_str(record, "candidate_id"),
@@ -18879,6 +18972,7 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
             clearance_path,
             *clearance_lineage_paths,
             *((resolved_path,) if resolved_path is not None else ()),
+            *purchase_lineage_paths,
         ),
         output_paths=(requests_path,),
         record_count=len(request_records),
@@ -18898,6 +18992,7 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
                         clearance_path,
                         *clearance_lineage_paths,
                         *((resolved_path,) if resolved_path is not None else ()),
+                        *purchase_lineage_paths,
                     )
                 )
             },
@@ -18911,6 +19006,7 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
                     }
                 }
             ),
+            "purchase_state_sha256": purchase_state_sha256,
         },
     )
     return 0
@@ -18932,6 +19028,7 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
     selection_records = (
         _read_records(selection_path) if selection_path is not None else []
     )
+    resolved_records = _read_records(resolved_path) if resolved_path is not None else []
     needs_resolved_lineage = _selection_requires_resolved_post_recovery(
         selection_records
     ) or any(
@@ -18959,16 +19056,17 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
                 require_resolved_post_recovery_parse_requests(
                     selection_records=selection_records,
                     request_records=request_records,
-                    resolved_records=(
-                        _read_records(resolved_path)
-                        if resolved_path is not None
-                        else []
-                    ),
+                    resolved_records=resolved_records,
                 )
             for request_record in request_records:
                 verify_parse_request_bytes(request_record)
         except (DisclosureClearanceError, ResolvedPostRecoveryError) as exc:
             raise CommandError(str(exc)) from exc
+    purchase_lineage_paths, purchase_state_sha256 = _require_current_purchase_lineage(
+        args,
+        needs_resolved_lineage=needs_resolved_lineage,
+        resolved_records=resolved_records,
+    )
     requests = tuple(
         _mistral_markdown_request(record, output_root=output_root)
         for record in request_records
@@ -19054,6 +19152,13 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
             if resolved_path is not None
             else {}
         ),
+        **{
+            f"purchase_lineage_{index:02d}": {
+                "path": str(path.resolve()),
+                "sha256": _path_sha256(path),
+            }
+            for index, path in enumerate(purchase_lineage_paths)
+        },
     }
     output_commitments = (
         {}
@@ -19077,6 +19182,7 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
             clearance_path,
             *clearance_lineage_paths,
             *((resolved_path,) if resolved_path is not None else ()),
+            *purchase_lineage_paths,
         ),
         output_paths=(manifest_path,),
         record_count=len(requests),
@@ -19101,6 +19207,7 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
                 "parser_root": str(effective_parser_root.expanduser().resolve()),
                 "fixture_markdown": fixture_markdown_dir is not None,
             },
+            "purchase_state_sha256": purchase_state_sha256,
         },
     )
     return 0
@@ -19909,6 +20016,11 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         clearance_kwargs, clearance_lineage_paths = (
             _authenticated_clearance_lineage_inputs(args, clearance_path=clearance_path)
         )
+    purchase_lineage_paths, purchase_state_sha256 = _require_current_purchase_lineage(
+        args,
+        needs_resolved_lineage=needs_resolved_lineage,
+        resolved_records=resolved_records,
+    )
     dry_run = _acquisition_dry_run(args)
     if dry_run:
         _write_jsonl(
@@ -19976,6 +20088,7 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
             clearance_path,
             *clearance_lineage_paths,
             *((resolved_path,) if resolved_path is not None else ()),
+            *purchase_lineage_paths,
             prediction_units_path,
             model_registry_path,
             *(
@@ -20020,6 +20133,14 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
                 }
                 for index, path in enumerate(clearance_lineage_paths)
             },
+            "current_purchase_lineage": {
+                f"input_{index:02d}": {
+                    "path": str(path.resolve()),
+                    "sha256": sha256_file(path),
+                }
+                for index, path in enumerate(purchase_lineage_paths)
+            },
+            "purchase_state_sha256": purchase_state_sha256,
             **(
                 {
                     "resolved_post_recovery_documents_path": str(

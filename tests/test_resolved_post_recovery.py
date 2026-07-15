@@ -183,7 +183,6 @@ def test_later_failed_receipt_invalidates_prior_delivery() -> None:
     failed.update(
         {
             "state": "failed",
-            "id": None,
             "held_usd": "0.00",
             "provider_response_body_sha256": None,
             "provider_response_sha256": None,
@@ -295,6 +294,7 @@ def test_recap_fetch_quarantine_recovery_help_names_controlled_inputs(
         "--fixture-documents",
         "--live-courtlistener-recovery",
         "--manifest-output",
+        "--restriction-evidence-output",
         "--document-output-root",
     ):
         assert flag in help_text
@@ -491,7 +491,7 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
             }
         ],
     )
-    pdf_content = "%PDF-1.4\ncontrolled fixture\n%%EOF\n"
+    pdf_content = cli._fixture_pdf("Public motion memorandum").decode()
     document_fixture = tmp_path / "recovery-documents.json"
     _write_object(
         document_fixture,
@@ -519,6 +519,8 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         str(document_fixture),
         "--manifest-output",
         str(paths["download_manifest"]),
+        "--restriction-evidence-output",
+        str(paths["restriction_evidence"]),
         "--document-output-root",
         str(quarantine_root),
         "--output-root",
@@ -530,18 +532,62 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
     assert "courtlistener.com" not in paths["download_manifest"].read_text()
     assert "download_url" not in paths["download_manifest"].read_text()
     inputs["download_records"] = _read_records(paths["download_manifest"])
+    assert inputs["download_records"][0]["free_or_purchased"] == "purchased"
+    restrictions = _read_records(paths["restriction_evidence"])
+    assert restrictions[0]["schema_version"] == (
+        "legalforecast.post_recovery_restriction_evidence.v1"
+    )
+    assert "courtlistener.com" not in paths["restriction_evidence"].read_text()
+    recovery_run_card = json.loads(
+        (
+            tmp_path
+            / "recovery-output"
+            / "run-cards"
+            / "recover-recap-fetch-quarantine.json"
+        ).read_text()
+    )
+    commitments = recovery_run_card["output_commitments"]
+    assert commitments["quarantine_download_manifest"]["sha256"] == (
+        "sha256:"
+        + hashlib.sha256(paths["download_manifest"].read_bytes()).hexdigest()
+    )
+    assert commitments["fresh_restriction_evidence"]["sha256"] == (
+        "sha256:"
+        + hashlib.sha256(paths["restriction_evidence"].read_bytes()).hexdigest()
+    )
     content_bytes = pdf_content.encode()
-    _retarget_clearance_inputs(
+    _retarget_review_inputs(
         inputs,
         content_sha256=hashlib.sha256(content_bytes).hexdigest(),
-        byte_count=len(content_bytes),
-        detail_sha256=_hash(available_detail),
     )
-    paths["disclosure_clearance"].write_bytes(inputs["clearance_artifact_bytes"])
-    _write_object(paths["clearance_run_card"], inputs["clearance_run_card"])
     paths["reviews"].write_bytes(inputs["reviews_artifact_bytes"])
     paths["review_receipt"].write_bytes(inputs["review_receipt_bytes"])
-    paths["restriction_evidence"].write_bytes(inputs["restriction_artifact_bytes"])
+    clearance_root = tmp_path / "clearance-output"
+    assert (
+        main(
+            [
+                "acquisition",
+                "clear-disclosures",
+                "--download-manifest",
+                str(paths["download_manifest"]),
+                "--document-root",
+                str(quarantine_root),
+                "--reviews",
+                str(paths["reviews"]),
+                "--review-receipt",
+                str(paths["review_receipt"]),
+                "--restriction-evidence",
+                str(paths["restriction_evidence"]),
+                "--output-root",
+                str(clearance_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    paths["disclosure_clearance"] = clearance_root / "disclosure-clearance.jsonl"
+    paths["clearance_run_card"] = clearance_root / "run-cards/clear-disclosures.json"
+    assert _read_records(clearance_root / "disclosure-quarantine.jsonl") == []
     output_root = tmp_path / "output"
     assert (
         main(
@@ -629,6 +675,95 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
             (output_root / "resolved-post-recovery-documents.jsonl").read_bytes()
         ).hexdigest()
     )
+    resolved_path = output_root / "resolved-post-recovery-documents.jsonl"
+    lineage_arguments = [
+        "--selection",
+        str(paths["selection"]),
+        "--disclosure-clearance",
+        str(paths["disclosure_clearance"]),
+        "--resolved-post-recovery-documents",
+        str(resolved_path),
+        "--clearance-run-card",
+        str(paths["clearance_run_card"]),
+        "--reviews",
+        str(paths["reviews"]),
+        "--review-receipt",
+        str(paths["review_receipt"]),
+        "--restriction-evidence",
+        str(paths["restriction_evidence"]),
+        "--purchase-policy",
+        str(paths["purchase_policy"]),
+        "--purchase-ledger",
+        str(ledger_path),
+    ]
+    downstream_root = tmp_path / "downstream"
+    plan_parse_command = [
+        "acquisition",
+        "plan-parse-documents",
+        *lineage_arguments,
+        "--download-manifest",
+        str(paths["download_manifest"]),
+        "--document-root",
+        str(quarantine_root),
+        "--output-root",
+        str(downstream_root),
+        "--execute",
+    ]
+    assert main(plan_parse_command) == 0
+    fixture_markdown = tmp_path / "fixture-markdown"
+    fixture_markdown.mkdir()
+    (fixture_markdown / "123.md").write_text("Public motion memorandum")
+    parse_command = [
+        "acquisition",
+        "parse-documents",
+        *lineage_arguments,
+        "--requests",
+        str(downstream_root / "parse-document-requests.jsonl"),
+        "--fixture-markdown-dir",
+        str(fixture_markdown),
+        "--output-root",
+        str(downstream_root),
+        "--execute",
+    ]
+    assert main(parse_command) == 0
+    parser_path = downstream_root / "mistral-markdown-conversions.jsonl"
+    packet_command = [
+        "acquisition",
+        "plan-packet-inputs",
+        *lineage_arguments,
+        "--download-manifest",
+        str(paths["download_manifest"]),
+        "--parser-manifest",
+        str(parser_path),
+        "--prediction-units",
+        str(units_path),
+        "--model-registry",
+        str(registry_path),
+        "--raw-html-dir",
+        str(raw_html_dir),
+        "--document-root",
+        str(quarantine_root),
+        "--output-root",
+        str(downstream_root),
+    ]
+    assert main(packet_command) == 0
+
+    with CaseDevPurchaseJournal(ledger_path, policy=purchase_policy) as journal:
+        failed = deepcopy(receipt)
+        failed.update(
+            {
+                "state": "failed",
+                "held_usd": "0.00",
+                "provider_response_body_sha256": None,
+                "provider_response_sha256": None,
+                "updated_at": "2026-07-15T00:02:00.000Z",
+                "delivered_at": None,
+            }
+        )
+        journal.record_broker_receipt("123", failed)
+    assert main(plan_parse_command) == 2
+    assert main(parse_command) == 2
+    assert main(packet_command) == 2
 
 
 def _inputs() -> dict[str, Any]:
@@ -839,15 +974,11 @@ def _external_kwargs(inputs: dict[str, Any]) -> dict[str, Any]:
     return {name: inputs[name] for name in names}
 
 
-def _retarget_clearance_inputs(
+def _retarget_review_inputs(
     inputs: dict[str, Any],
     *,
     content_sha256: str,
-    byte_count: int,
-    detail_sha256: str,
 ) -> None:
-    clearance = inputs["clearance_records"][0]
-    clearance.update({"sha256": content_sha256, "byte_count": byte_count})
     reviews = [
         json.loads(line)
         for line in inputs["reviews_artifact_bytes"].decode().splitlines()
@@ -858,33 +989,10 @@ def _retarget_clearance_inputs(
     receipt = inputs["review_receipt_artifact"]
     receipt["review_artifact_sha256"] = hashlib.sha256(review_bytes).hexdigest()
     receipt_bytes = _object_bytes(receipt)
-    restrictions = inputs["restriction_records"]
-    restrictions[0]["fresh_recap_detail_sha256"] = detail_sha256
-    restriction_bytes = _jsonl_bytes(restrictions)
-    clearance_bytes = _jsonl_bytes([clearance])
-    run_card = inputs["clearance_run_card"]
-    run_card["source_commitments"]["reviews"]["sha256"] = hashlib.sha256(
-        review_bytes
-    ).hexdigest()
-    run_card["source_commitments"]["review_receipt"]["sha256"] = hashlib.sha256(
-        receipt_bytes
-    ).hexdigest()
-    run_card["source_commitments"]["restriction_evidence"]["sha256"] = hashlib.sha256(
-        restriction_bytes
-    ).hexdigest()
-    run_card["output_commitments"]["disclosure_clearance"]["sha256"] = hashlib.sha256(
-        clearance_bytes
-    ).hexdigest()
-    run_card["review_authority"]["review_artifact_sha256"] = (
-        "sha256:" + hashlib.sha256(review_bytes).hexdigest()
-    )
     inputs.update(
         {
-            "clearance_artifact_bytes": clearance_bytes,
-            "clearance_run_card_bytes": _object_bytes(run_card),
             "reviews_artifact_bytes": review_bytes,
             "review_receipt_bytes": receipt_bytes,
-            "restriction_artifact_bytes": restriction_bytes,
         }
     )
 

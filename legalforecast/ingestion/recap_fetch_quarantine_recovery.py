@@ -36,8 +36,15 @@ from legalforecast.ingestion.free_document_downloader import (
 from legalforecast.path_safety import safe_path_component
 
 SCHEMA_VERSION = "legalforecast.recap_fetch_quarantine_recovery.v1"
+RESTRICTION_SCHEMA_VERSION = "legalforecast.post_recovery_restriction_evidence.v1"
 UNKNOWN_RECOVERY_ORIGIN = "unknown_status_attempt"
 _RETRYABLE = frozenset({429, 500, 502, 503, 504})
+_FRESH_PUBLIC_EVIDENCE = (
+    "courtlistener_recap_fetch_fresh_detail_exact_match",
+    "courtlistener_recap_fetch_is_available_true",
+    "courtlistener_recap_fetch_is_sealed_false",
+    "courtlistener_recap_fetch_no_positive_private_marker",
+)
 
 
 class RecapFetchQuarantineRecoveryError(RuntimeError):
@@ -54,7 +61,7 @@ def recover_recap_fetch_quarantine_documents(
     config: CourtListenerRecapFetchConfig,
     transport: RecapFetchTransport,
     before_request: Callable[[str, str], None] | None = None,
-) -> tuple[Mapping[str, Any], ...]:
+) -> tuple[tuple[Mapping[str, Any], ...], tuple[Mapping[str, Any], ...]]:
     """Recover every authorized available document without clearing it.
 
     Existing canonical bytes are replayed only when their hash and size match
@@ -69,6 +76,7 @@ def recover_recap_fetch_quarantine_documents(
     output_root.mkdir(parents=True, exist_ok=True)
     output_root = output_root.resolve()
     records: list[Mapping[str, Any]] = []
+    restrictions: list[Mapping[str, Any]] = []
     for document_id, authority in sorted(allowed_documents.items()):
         candidate_id = authority.get("case_id")
         if not isinstance(candidate_id, str) or not candidate_id:
@@ -87,6 +95,32 @@ def recover_recap_fetch_quarantine_documents(
             attempt_policy_sha256=attempt_policy_sha256,
         )
         destination = _destination(output_root, candidate_id, document_id)
+        detail = _fresh_detail(
+            document_id,
+            config=config,
+            transport=transport,
+            before_request=before_request,
+        )
+        detail_digest = _sha256_json(detail)
+        download_url = _verified_download_url(detail, document_id)
+        url_digest = hashlib.sha256(download_url.encode("utf-8")).hexdigest()
+        evidence = _mapping(operation.get("material_evidence"), "material evidence")
+        if detail_digest != evidence.get(
+            "provider_detail_sha256"
+        ) or url_digest != evidence.get("download_url_sha256"):
+            raise RecapFetchQuarantineRecoveryError(
+                "fresh CourtListener material conflicts with delivery commitment: "
+                f"{document_id}"
+            )
+        _require_fresh_public_detail(detail, document_id)
+        restrictions.append(
+            _restriction_record(
+                candidate_id=candidate_id,
+                document_id=document_id,
+                detail=detail,
+                detail_sha256=detail_digest,
+            )
+        )
         state = operation["material_state"]
         if state in {
             PurchaseMaterialState.RECOVERED_PENDING_CLEARANCE,
@@ -113,24 +147,6 @@ def recover_recap_fetch_quarantine_documents(
                 )
             )
             continue
-
-        detail = _fresh_detail(
-            document_id,
-            config=config,
-            transport=transport,
-            before_request=before_request,
-        )
-        detail_digest = _sha256_json(detail)
-        download_url = _verified_download_url(detail, document_id)
-        url_digest = hashlib.sha256(download_url.encode("utf-8")).hexdigest()
-        evidence = _mapping(operation.get("material_evidence"), "material evidence")
-        if detail_digest != evidence.get(
-            "provider_detail_sha256"
-        ) or url_digest != evidence.get("download_url_sha256"):
-            raise RecapFetchQuarantineRecoveryError(
-                "fresh CourtListener material conflicts with delivery commitment: "
-                f"{document_id}"
-            )
         try:
             fetch = source.fetch(download_url)
         except (FreeDocumentDownloadError, RuntimeError) as exc:
@@ -157,7 +173,7 @@ def recover_recap_fetch_quarantine_documents(
                 byte_count=byte_count,
             )
         )
-    return tuple(records)
+    return tuple(records), tuple(restrictions)
 
 
 def write_recap_fetch_quarantine_manifest(
@@ -179,6 +195,14 @@ def write_recap_fetch_quarantine_manifest(
             )
         return
     _atomic_link_new(path, payload)
+
+
+def write_recap_fetch_restriction_evidence(
+    path: Path, records: Sequence[Mapping[str, Any]]
+) -> None:
+    """Publish immutable URL-free fresh-detail public restriction evidence."""
+
+    write_recap_fetch_quarantine_manifest(path, records)
 
 
 def _validate_operation(
@@ -255,6 +279,17 @@ def _verified_download_url(payload: Mapping[str, Any], document_id: str) -> str:
         return verified_recap_download_url(payload, document_id)
     except CourtListenerRecapFetchError as exc:
         raise RecapFetchQuarantineRecoveryError(str(exc)) from exc
+
+
+def _require_fresh_public_detail(detail: Mapping[str, Any], document_id: str) -> None:
+    if (
+        detail.get("is_available") is not True
+        or detail.get("is_sealed") is not False
+        or detail.get("is_private") not in {False, None}
+    ):
+        raise RecapFetchQuarantineRecoveryError(
+            f"fresh CourtListener detail is not explicitly public: {document_id}"
+        )
 
 
 def _destination(output_root: Path, candidate_id: str, document_id: str) -> Path:
@@ -346,8 +381,31 @@ def _record(
         "local_path": destination.relative_to(output_root).as_posix(),
         "sha256": digest,
         "byte_count": byte_count,
+        "free_or_purchased": "purchased",
         "parser_eligible": False,
         "packet_eligible": False,
+    }
+
+
+def _restriction_record(
+    *,
+    candidate_id: str,
+    document_id: str,
+    detail: Mapping[str, Any],
+    detail_sha256: str,
+) -> Mapping[str, Any]:
+    return {
+        "schema_version": RESTRICTION_SCHEMA_VERSION,
+        "candidate_id": candidate_id,
+        "source_document_id": document_id,
+        "source_provider": "courtlistener_recap_fetch_fresh_detail",
+        "fresh_recap_detail_sha256": detail_sha256,
+        "is_available": True,
+        "is_sealed": False,
+        "is_private": detail.get("is_private"),
+        "redaction_or_seal_status": "public",
+        "restriction_status": "public",
+        "restriction_evidence": list(_FRESH_PUBLIC_EVIDENCE),
     }
 
 

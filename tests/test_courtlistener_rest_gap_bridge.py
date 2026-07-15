@@ -75,6 +75,35 @@ def test_courtlistener_rest_bridge_emits_real_public_recap_id_for_plan() -> None
     assert client.request_count == 3
 
 
+def test_courtlistener_rest_bridge_preserves_explicit_private_false() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    responses = list(_clean_responses())
+    recap_payload = dict(responses[2].payload)
+    recap_payload["is_private"] = False
+    responses[2] = _response(path="/recap-documents/9005/", payload=recap_payload)
+
+    selection, relevance = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap,
+        free_download_records=downloads,
+        client=_client(*responses),
+        use_embedded_entries=True,
+    )
+
+    [selected] = [
+        document
+        for document in selection["documents"]
+        if document.get("requires_paid_recovery") is True
+    ]
+    [relevant] = [
+        document
+        for document in relevance["documents"]
+        if document.get("requires_paid_recovery") is True
+    ]
+    assert selected["is_private"] is False
+    assert relevant["is_private"] is False
+
+
 def test_actual_v4_discovery_shape_flows_to_paid_gap_bridge() -> None:
     docket_response = _response(
         path="/dockets/123/",
