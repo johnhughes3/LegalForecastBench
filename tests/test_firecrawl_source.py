@@ -17,6 +17,7 @@ from legalforecast.ingestion.firecrawl_source import (
     FirecrawlRateLimitError,
     FirecrawlResponseError,
     FirecrawlServerError,
+    FirecrawlTargetHTTPError,
     FirecrawlURLValidationError,
     UrlLibFirecrawlTransport,
     canonicalize_courtlistener_source_url,
@@ -54,7 +55,7 @@ def _success_response(
     status_code: int = 200,
     proxy_used: str = "basic",
     cache_state: str = "miss",
-    credits_used: int = 1,
+    credits_used: float = 1,
     source_url: str = _URL,
 ) -> FirecrawlHTTPResponse:
     return FirecrawlHTTPResponse(
@@ -625,3 +626,39 @@ def test_malformed_or_policy_violating_responses_fail_closed(
 
     with pytest.raises(FirecrawlResponseError):
         source.fetch(docket_id="70649963", source_url=_URL)
+
+
+def test_target_http_failure_preserves_target_status_for_caller_policy() -> None:
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key"),
+        transport=FirecrawlFixtureTransport([_success_response(status_code=410)]),
+    )
+
+    with pytest.raises(FirecrawlTargetHTTPError) as raised:
+        source.fetch(docket_id="70649963", source_url=_URL)
+
+    assert raised.value.target_status_code == 410
+    assert raised.value.reported_credits == 1
+    assert raised.value.proxy_used == "basic"
+    assert raised.value.failure_code == "target_http_status_invalid"
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        _success_response(status_code=700),
+        _success_response(status_code=404, credits_used=0.5),
+    ],
+)
+def test_target_http_failure_requires_fully_validated_billing_and_status(
+    response: FirecrawlHTTPResponse,
+) -> None:
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key"),
+        transport=FirecrawlFixtureTransport([response]),
+    )
+
+    with pytest.raises(FirecrawlResponseError) as raised:
+        source.fetch(docket_id="70649963", source_url=_URL)
+
+    assert not isinstance(raised.value, FirecrawlTargetHTTPError)
