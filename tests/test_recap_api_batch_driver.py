@@ -1416,6 +1416,8 @@ def test_seed_direct_search_freezes_lineage_canonicalizes_and_prescreens(
             provenance["source_candidate_set_sha256"]
             == source.source_candidate_set_sha256
         )
+        assert "source_cycle_hash" not in provenance
+        assert "target_cycle_hash" not in provenance
         assert hits["courtlistener-docket-300"]["prescreen_exclusion_reason"] == (
             "criminal_case"
         )

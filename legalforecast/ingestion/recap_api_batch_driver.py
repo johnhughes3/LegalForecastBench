@@ -1650,7 +1650,9 @@ def _seed_direct_search_leads(
                     source,
                     transfer_term=transfer_term,
                     provenance_schema=provenance_schema,
-                    target_cycle_hash=target_cycle_hash,
+                    target_cycle_hash=(
+                        target_cycle_hash if cross_cycle_rebind else None
+                    ),
                 )
                 for lead in page
             ),
