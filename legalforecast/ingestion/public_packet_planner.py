@@ -77,6 +77,10 @@ class PublicPacketDocumentPlan:
             "description": self.description,
             "model_visible": self.model_visible,
             "contains_target_outcome": self.contains_target_outcome,
+            "redaction_or_seal_status": "public",
+            "restriction_evidence": ["courtlistener_public_download_record_checked"],
+            "is_sealed": None,
+            "is_private": None,
         }
 
 
@@ -1112,6 +1116,7 @@ def _optional_brief_entries(
         if _entry_is_before(entry, before_entry)
         and _is_optional_brief_entry(entry)
         and _brief_targets_motion(entry, target_entries)
+        and _best_free_document(entry, DocumentRole.REPLY) is not None
     )
 
 
@@ -1430,6 +1435,8 @@ def _best_free_document(
     entry: CourtListenerWebDocketEntry,
     role: DocumentRole,
 ):
+    if entry.restricted:
+        return None
     if role in {DocumentRole.COMPLAINT, DocumentRole.AMENDED_COMPLAINT}:
         number = _entry_number(entry)
         selection = (

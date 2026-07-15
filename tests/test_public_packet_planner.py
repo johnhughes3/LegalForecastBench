@@ -12,6 +12,8 @@ from legalforecast.ingestion.public_packet_planner import (
     plan_public_packet_downloads,
 )
 
+_REPLY_URL = "https://www.courtlistener.com/docket/123/10/example/"
+
 
 def test_public_packet_planner_selects_free_core_packet_documents(
     tmp_path: Path,
@@ -40,6 +42,13 @@ def test_public_packet_planner_selects_free_core_packet_documents(
     ]
     assert selected.documents[-1].model_visible is False
     assert selected.documents[-1].contains_target_outcome is True
+    for document in cast(list[dict[str, object]], selected.to_record()["documents"]):
+        assert document["redaction_or_seal_status"] == "public"
+        assert document["restriction_evidence"] == [
+            "courtlistener_public_download_record_checked"
+        ]
+        assert document["is_sealed"] is None
+        assert document["is_private"] is None
     assert plan.download_requests[0].source_url == (
         "https://storage.courtlistener.com/recap/complaint.pdf"
     )
@@ -83,6 +92,65 @@ def test_opinion_backed_decision_is_free_and_never_model_visible(
         request.source_url.endswith("bullock_v._phh_mortgage_services.pdf")
         for request in plan.download_requests
     )
+
+
+def test_unrestricted_reply_with_null_metadata_remains_public_and_selected(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    entries = cast(list[dict[str, object]], record["selected_entries"])
+    entries.insert(2, _reply_entry())
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.selected_cases
+    [reply] = [
+        document
+        for document in candidate.to_record()["documents"]
+        if document["document_role"] == "reply"
+    ]
+    assert reply["redaction_or_seal_status"] == "public"
+    assert reply["restriction_evidence"] == [
+        "courtlistener_public_download_record_checked"
+    ]
+    assert reply["is_sealed"] is None
+    assert reply["is_private"] is None
+
+
+@pytest.mark.parametrize("restriction_location", ("entry", "document"))
+def test_restricted_optional_reply_is_omitted_without_excluding_case(
+    tmp_path: Path,
+    restriction_location: str,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    entries = cast(list[dict[str, object]], record["selected_entries"])
+    reply = _reply_entry()
+    if restriction_location == "entry":
+        reply["restriction_markers"] = ["field_issealed"]
+    else:
+        [document] = cast(list[dict[str, object]], reply["documents"])
+        document["restriction_markers"] = ["field_issealed"]
+    entries.insert(2, reply)
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.selected_cases
+    assert all(
+        document.document_role is not DocumentRole.REPLY
+        for document in candidate.documents
+    )
+    assert all(request.source_url != _REPLY_URL for request in plan.download_requests)
+    assert plan.final_exclusions == ()
 
 
 def test_public_packet_planner_reports_public_document_shortfall(
@@ -1546,6 +1614,29 @@ def _screened_case_with_embedded_entries() -> dict[str, object]:
         },
     ]
     return record
+
+
+def _reply_entry() -> dict[str, object]:
+    return {
+        "row_id": "entry-10",
+        "entry_number": "10",
+        "filed_at": "Mar 1, 2026",
+        "text": "REPLY in support of Motion to Dismiss at ECF No. 5.",
+        "is_sealed": None,
+        "is_private": None,
+        "documents": [
+            {
+                "kind": "Main Document",
+                "description": "Reply in Support of Motion to Dismiss",
+                "href": _REPLY_URL,
+                "action_label": "Download PDF",
+                "pacer_only": False,
+                "freely_available": True,
+                "is_sealed": None,
+                "is_private": None,
+            }
+        ],
+    }
 
 
 def _case_mix_cost_record(
