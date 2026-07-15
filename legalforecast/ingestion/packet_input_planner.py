@@ -56,14 +56,44 @@ class PacketInputPlanningError(ValueError):
     """Raised when acquisition artifacts cannot produce packet-build inputs."""
 
 
+_COURTLISTENER_DOCKET_CANDIDATE_PREFIX = "courtlistener-docket-"
+_COURTLISTENER_DOCKET_CANDIDATE_ID = re.compile(
+    rf"{re.escape(_COURTLISTENER_DOCKET_CANDIDATE_PREFIX)}(?P<docket_id>[0-9]+)\Z"
+)
+
+
 @dataclass(frozen=True, slots=True)
 class VerifiedRawArtifact:
     """One manifest-bound raw docket artifact verified before parsing."""
 
+    manifest_candidate_id: str
+    manifest_path: str
     path: Path
     text: str
     sha256: str
     byte_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedRawArtifactBinding:
+    """Unambiguous ownership of one verified raw artifact by one selection."""
+
+    selection_candidate_id: str
+    manifest_candidate_id: str
+    binding_kind: str
+    artifact: VerifiedRawArtifact
+
+    def to_provenance_record(self) -> dict[str, str | int]:
+        """Return the audit-only provenance preserved in planner outputs."""
+
+        return {
+            "selection_candidate_id": self.selection_candidate_id,
+            "manifest_candidate_id": self.manifest_candidate_id,
+            "binding_kind": self.binding_kind,
+            "manifest_path": self.artifact.manifest_path,
+            "sha256": self.artifact.sha256,
+            "byte_count": self.artifact.byte_count,
+        }
 
 
 def load_verified_raw_artifacts(
@@ -93,6 +123,17 @@ def load_verified_raw_artifacts(
     paths: dict[Path, str] = {}
     for line_number, record in enumerate(records, start=1):
         candidate_id = _required_str(record, "candidate_id")
+        namespaced_candidate = _COURTLISTENER_DOCKET_CANDIDATE_ID.fullmatch(
+            candidate_id
+        )
+        if (
+            candidate_id.startswith(_COURTLISTENER_DOCKET_CANDIDATE_PREFIX)
+            and namespaced_candidate is None
+        ):
+            raise PacketInputPlanningError(
+                "raw-artifact manifest contains a nonnumeric CourtListener docket "
+                f"candidate alias on line {line_number}: {candidate_id}"
+            )
         if candidate_id in artifacts:
             raise PacketInputPlanningError(
                 f"duplicate raw-artifact candidate binding: {candidate_id}"
@@ -119,6 +160,14 @@ def load_verified_raw_artifacts(
             raise PacketInputPlanningError(
                 "duplicate raw-artifact path binding for candidates "
                 f"{paths[lexical_path]} and {candidate_id}: {lexical_path}"
+            )
+        if (
+            namespaced_candidate is not None
+            and lexical_path.name != f"{namespaced_candidate.group('docket_id')}.html"
+        ):
+            raise PacketInputPlanningError(
+                "raw-artifact candidate/path ownership mismatch on line "
+                f"{line_number}: {candidate_id} cannot own {lexical_path.name}"
             )
 
         current = lexical_root
@@ -185,6 +234,8 @@ def load_verified_raw_artifacts(
                 f"raw-artifact is not UTF-8: {lexical_path}"
             ) from exc
         artifacts[candidate_id] = VerifiedRawArtifact(
+            manifest_candidate_id=candidate_id,
+            manifest_path=raw_path,
             path=lexical_path,
             text=text,
             sha256=actual_sha256,
@@ -192,6 +243,83 @@ def load_verified_raw_artifacts(
         )
         paths[lexical_path] = candidate_id
     return artifacts
+
+
+def bind_verified_raw_artifacts(
+    selection_candidate_ids: Iterable[str],
+    *,
+    artifacts: Mapping[str, VerifiedRawArtifact],
+) -> Mapping[str, VerifiedRawArtifactBinding]:
+    """Bind selections to exact or canonical CourtListener manifest identities.
+
+    Only the exact ``courtlistener-docket-<digits>`` namespace may be stripped.
+    The complete manifest is indexed first so exact/alias collisions fail even
+    when record ordering would otherwise make one match appear preferable.
+    """
+
+    artifacts_by_binding_id: dict[str, list[VerifiedRawArtifact]] = defaultdict(list)
+    for manifest_candidate_id, artifact in artifacts.items():
+        if artifact.manifest_candidate_id != manifest_candidate_id:
+            raise PacketInputPlanningError(
+                "raw-artifact manifest identity drift for binding key: "
+                f"{manifest_candidate_id}"
+            )
+        artifacts_by_binding_id[manifest_candidate_id].append(artifact)
+        match = _COURTLISTENER_DOCKET_CANDIDATE_ID.fullmatch(manifest_candidate_id)
+        if match is not None:
+            artifacts_by_binding_id[match.group("docket_id")].append(artifact)
+
+    for binding_id, matches in artifacts_by_binding_id.items():
+        unique_manifest_ids = {artifact.manifest_candidate_id for artifact in matches}
+        if len(unique_manifest_ids) > 1:
+            raise PacketInputPlanningError(
+                "raw-artifact candidate alias collision for "
+                f"{binding_id}: {', '.join(sorted(unique_manifest_ids))}"
+            )
+
+    bindings: dict[str, VerifiedRawArtifactBinding] = {}
+    owners_by_manifest_id: dict[str, str] = {}
+    for selection_candidate_id in selection_candidate_ids:
+        if not selection_candidate_id:
+            raise PacketInputPlanningError(
+                "selection candidate_id for raw-artifact ownership must be non-empty"
+            )
+        if selection_candidate_id in bindings:
+            raise PacketInputPlanningError(
+                "duplicate selection candidate_id in raw-artifact ownership: "
+                f"{selection_candidate_id}"
+            )
+        matches = artifacts_by_binding_id.get(selection_candidate_id, ())
+        if len(matches) != 1:
+            if not matches:
+                raise PacketInputPlanningError(
+                    "raw-artifacts manifest missing candidate binding: "
+                    f"{selection_candidate_id}"
+                )
+            raise PacketInputPlanningError(
+                "raw-artifacts manifest has multiple candidate matches: "
+                f"{selection_candidate_id}"
+            )
+        artifact = matches[0]
+        prior_owner = owners_by_manifest_id.get(artifact.manifest_candidate_id)
+        if prior_owner is not None:
+            raise PacketInputPlanningError(
+                "raw-artifact manifest binding has multiple candidate owners: "
+                f"{prior_owner} and {selection_candidate_id} own "
+                f"{artifact.manifest_candidate_id}"
+            )
+        owners_by_manifest_id[artifact.manifest_candidate_id] = selection_candidate_id
+        bindings[selection_candidate_id] = VerifiedRawArtifactBinding(
+            selection_candidate_id=selection_candidate_id,
+            manifest_candidate_id=artifact.manifest_candidate_id,
+            binding_kind=(
+                "exact_candidate_id"
+                if selection_candidate_id == artifact.manifest_candidate_id
+                else "courtlistener_docket_numeric_alias"
+            ),
+            artifact=artifact,
+        )
+    return bindings
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,6 +359,7 @@ def plan_packet_build_inputs(
     if timestamp.tzinfo is None or timestamp.utcoffset() is None:
         raise PacketInputPlanningError("generated_at must be timezone-aware")
 
+    selections = tuple(selection_records)
     raw_html_root = Path(raw_html_dir)
     verified_raw_artifacts = (
         load_verified_raw_artifacts(
@@ -257,6 +386,19 @@ def plan_packet_build_inputs(
         for record in finalized_records
         if record.get("status") == "candidate_excluded"
     }
+    active_selection_candidate_ids = tuple(
+        _required_str(selection, "candidate_id")
+        for selection in selections
+        if _required_str(selection, "candidate_id") not in excluded_candidate_ids
+    )
+    raw_artifact_bindings = (
+        bind_verified_raw_artifacts(
+            active_selection_candidate_ids,
+            artifacts=verified_raw_artifacts,
+        )
+        if verified_raw_artifacts is not None
+        else None
+    )
 
     packet_build: list[dict[str, Any]] = []
     document_manifest: list[dict[str, Any]] = []
@@ -264,8 +406,9 @@ def plan_packet_build_inputs(
     extracted_texts: list[dict[str, Any]] = []
     exclusion_ledger: list[dict[str, Any]] = []
 
-    for selection in selection_records:
-        if _required_str(selection, "candidate_id") in excluded_candidate_ids:
+    for selection in selections:
+        candidate_id = _required_str(selection, "candidate_id")
+        if candidate_id in excluded_candidate_ids:
             continue
         planned = _plan_candidate(
             selection,
@@ -273,7 +416,11 @@ def plan_packet_build_inputs(
             parser_records=parser_by_key,
             prediction_units=prediction_units,
             raw_html_root=raw_html_root,
-            verified_raw_artifacts=verified_raw_artifacts,
+            raw_artifact_binding=(
+                raw_artifact_bindings[candidate_id]
+                if raw_artifact_bindings is not None
+                else None
+            ),
             document_root=document_root_path,
             markdown_root=markdown_root_path,
             source_root=source_root,
@@ -320,7 +467,7 @@ def _plan_candidate(
     parser_records: Mapping[tuple[str, str], Mapping[str, Any]],
     prediction_units: Mapping[str, tuple[dict[str, Any], ...]],
     raw_html_root: Path,
-    verified_raw_artifacts: Mapping[str, VerifiedRawArtifact] | None,
+    raw_artifact_binding: VerifiedRawArtifactBinding | None,
     document_root: Path,
     markdown_root: Path,
     source_root: Path,
@@ -335,19 +482,21 @@ def _plan_candidate(
         raise PacketInputPlanningError(
             f"prediction units missing for candidate: {candidate_id}"
         )
-    if verified_raw_artifacts is None:
+    if raw_artifact_binding is None:
         html_path = raw_html_root / f"{candidate_id}.html"
         if not html_path.is_file():
             raise PacketInputPlanningError(f"raw docket HTML missing: {html_path}")
         html_text = html_path.read_text(encoding="utf-8")
+        raw_artifact_provenance: dict[str, str | int] | None = None
     else:
-        try:
-            artifact = verified_raw_artifacts[candidate_id]
-        except KeyError as exc:
+        if raw_artifact_binding.selection_candidate_id != candidate_id:
             raise PacketInputPlanningError(
-                f"raw-artifacts manifest missing candidate binding: {candidate_id}"
-            ) from exc
+                "raw-artifact ownership does not match planned candidate: "
+                f"{raw_artifact_binding.selection_candidate_id} != {candidate_id}"
+            )
+        artifact = raw_artifact_binding.artifact
         html_text = artifact.text
+        raw_artifact_provenance = raw_artifact_binding.to_provenance_record()
     page = parse_courtlistener_docket_html(
         html_text,
         source_url=_optional_str(selection, "source_url"),
@@ -380,6 +529,7 @@ def _plan_candidate(
                 documents=(),
                 mtd_decision_screen=docket_screen_record,
                 exclusion_ledger_entries=(exclusion_record,),
+                raw_artifact_provenance=raw_artifact_provenance,
             ),
             extracted_text_records=(),
             exclusion_ledger_records=(exclusion_record,),
@@ -491,6 +641,7 @@ def _plan_candidate(
                 documents=candidate_documents,
                 mtd_decision_screen=docket_screen_record,
                 exclusion_ledger_entries=(exclusion_record,),
+                raw_artifact_provenance=raw_artifact_provenance,
             ),
             extracted_text_records=tuple(extracted_texts),
             exclusion_ledger_records=(exclusion_record,),
@@ -533,6 +684,11 @@ def _plan_candidate(
             search_window=search_window,
             decision_filed_on_or_after=decision_filed_on_or_after,
         ),
+        **(
+            {"raw_artifact_provenance": raw_artifact_provenance}
+            if raw_artifact_provenance is not None
+            else {}
+        ),
     }
     return _PlannedCandidate(
         packet_build_record=packet_build_record,
@@ -542,6 +698,7 @@ def _plan_candidate(
             documents=candidate_documents,
             mtd_decision_screen=docket_screen_record,
             exclusion_ledger_entries=exclusion_ledger_records,
+            raw_artifact_provenance=raw_artifact_provenance,
         ),
         extracted_text_records=tuple(extracted_texts),
         exclusion_ledger_records=tuple(exclusion_ledger_records),
@@ -766,6 +923,7 @@ def _candidate_manifest_record(
     documents: Sequence[Mapping[str, Any]],
     mtd_decision_screen: Mapping[str, Any] | None = None,
     exclusion_ledger_entries: Sequence[Mapping[str, Any]] = (),
+    raw_artifact_provenance: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     record: dict[str, Any] = {
         "candidate_id": _required_str(selection, "candidate_id"),
@@ -784,6 +942,11 @@ def _candidate_manifest_record(
             dict(mtd_decision_screen) if mtd_decision_screen is not None else None
         ),
         "exclusion_ledger_entries": [dict(entry) for entry in exclusion_ledger_entries],
+        **(
+            {"raw_artifact_provenance": dict(raw_artifact_provenance)}
+            if raw_artifact_provenance is not None
+            else {}
+        ),
     }
     return {**record, "manifest_record_hash": _record_hash(record)}
 

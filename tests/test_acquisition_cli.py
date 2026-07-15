@@ -1669,6 +1669,7 @@ def test_parse_and_build_packet_acquisition_fixture_flow(tmp_path: Path) -> None
 def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     tmp_path: Path,
 ) -> None:
+    candidate_id = "70649963"
     output_root = tmp_path / "acquisition"
     raw_html_dir = tmp_path / "raw_html"
     raw_html_dir.mkdir()
@@ -1680,7 +1681,7 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
         raw_artifacts_path,
         [
             {
-                "candidate_id": "cand-1",
+                "candidate_id": f"courtlistener-docket-{candidate_id}",
                 "path": str(raw_html_path),
                 "byte_count": len(raw_html),
                 "sha256": hashlib.sha256(raw_html).hexdigest(),
@@ -1699,10 +1700,10 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
         "mtd-memo": "MTD markdown",
         "decision": "Decision markdown",
     }.items():
-        markdown_path = markdown_root / "cand-1" / f"{source_document_id}.md"
+        markdown_path = markdown_root / candidate_id / f"{source_document_id}.md"
         markdown_path.parent.mkdir(parents=True, exist_ok=True)
         markdown_path.write_text(markdown, encoding="utf-8")
-    selection_record = _packet_selection_record()
+    selection_record = _packet_selection_record(candidate_id)
     selection_record.update(
         {
             "nature_of_suit": "Civil Rights",
@@ -1715,23 +1716,28 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     _write_jsonl(
         downloads_path,
         [
-            _download_record("complaint", "complaint", 1),
-            _download_record("mtd-memo", "motion_to_dismiss_memorandum", 34),
-            _download_record("decision", "decision", 50),
+            _download_record("complaint", "complaint", 1, candidate_id=candidate_id),
+            _download_record(
+                "mtd-memo",
+                "motion_to_dismiss_memorandum",
+                34,
+                candidate_id=candidate_id,
+            ),
+            _download_record("decision", "decision", 50, candidate_id=candidate_id),
         ],
     )
     _write_jsonl(
         parser_path,
         [
-            _parser_record("complaint"),
-            _parser_record("mtd-memo"),
-            _parser_record("decision"),
+            _parser_record("complaint", candidate_id=candidate_id),
+            _parser_record("mtd-memo", candidate_id=candidate_id),
+            _parser_record("decision", candidate_id=candidate_id),
         ],
     )
     _write_clearance(downloads_path, clearance_path)
     _write_jsonl(
         units_path,
-        [_finalized_prediction_unit_record()],
+        [_finalized_prediction_unit_record(candidate_id)],
     )
 
     assert (
@@ -1774,10 +1780,22 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     assert packet_input["metadata"]["nos_macro_category"] == "civil_rights"
     assert packet_input["related_family_id"] == "related-fixture"
     assert packet_input["mdl_family_id"] == "mdl-fixture"
-    assert packet_input["documents"][0]["source_document_id"] == "cand-1-complaint"
+    assert (
+        packet_input["documents"][0]["source_document_id"]
+        == f"{candidate_id}-complaint"
+    )
     assert packet_input["prediction_units"][0]["source_citations"] == [
-        {"document_id": "cand-1-complaint", "page": 1}
+        {"document_id": f"{candidate_id}-complaint", "page": 1}
     ]
+    expected_raw_provenance = {
+        "selection_candidate_id": candidate_id,
+        "manifest_candidate_id": f"courtlistener-docket-{candidate_id}",
+        "binding_kind": "courtlistener_docket_numeric_alias",
+        "manifest_path": str(raw_html_path),
+        "sha256": hashlib.sha256(raw_html).hexdigest(),
+        "byte_count": len(raw_html),
+    }
+    assert packet_input["raw_artifact_provenance"] == expected_raw_provenance
     assert len(_read_jsonl(output_root / "document-manifest.jsonl")) == 3
     candidate_manifest = _read_jsonl(output_root / "candidate-manifest.jsonl")[0]
     assert candidate_manifest["manifest_record_hash"]
@@ -1785,6 +1803,7 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     assert candidate_manifest["nos_macro_category"] == "civil_rights"
     assert candidate_manifest["related_family_id"] == "related-fixture"
     assert candidate_manifest["mdl_family_id"] == "mdl-fixture"
+    assert candidate_manifest["raw_artifact_provenance"] == expected_raw_provenance
     run_card = _read_json(output_root / "run-cards" / "plan-packet-inputs.json")
     assert run_card["raw_artifacts_manifest_path"] == str(raw_artifacts_path.resolve())
     assert (
@@ -1820,8 +1839,9 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     assert packet["metadata"]["nos_macro_category"] == "civil_rights"
     assert packet["related_family_id"] == "related-fixture"
     assert packet["mdl_family_id"] == "mdl-fixture"
-    assert "cand-1-decision" in packet["excluded_document_ids"]
+    assert f"{candidate_id}-decision" in packet["excluded_document_ids"]
     assert packet["prediction_units"][0]["unit_id"] == "count-i-issuer"
+    assert "raw_artifact_provenance" not in packet
 
     mismatched_raw_artifact = _read_jsonl(raw_artifacts_path)[0]
     mismatched_raw_artifact["candidate_id"] = "different-candidate"
@@ -1887,16 +1907,54 @@ def test_plan_packet_inputs_requires_model_registry(
     assert "--model-registry" in capsys.readouterr().err
 
 
+def test_plan_packet_inputs_execute_requires_canonical_raw_artifacts_manifest(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-packet-inputs",
+                "--selection",
+                str(tmp_path / "selection.jsonl"),
+                "--download-manifest",
+                str(tmp_path / "downloads.jsonl"),
+                "--parser-manifest",
+                str(tmp_path / "parser.jsonl"),
+                "--disclosure-clearance",
+                str(tmp_path / "clearance.jsonl"),
+                "--prediction-units",
+                str(tmp_path / "units.jsonl"),
+                "--model-registry",
+                str(tmp_path / "registry.json"),
+                "--raw-html-dir",
+                str(tmp_path / "raw-html"),
+                "--output-root",
+                str(tmp_path / "out"),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert (
+        "--raw-artifacts-manifest is required for executed packet planning"
+        in capsys.readouterr().err
+    )
+
+
 def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
     tmp_path: Path,
 ) -> None:
     output_root = tmp_path / "acquisition"
     raw_html_dir = tmp_path / "raw_html"
     raw_html_dir.mkdir()
-    (raw_html_dir / "cand-1.html").write_text(
+    raw_html_path = raw_html_dir / "cand-1.html"
+    raw_html_path.write_text(
         _packet_input_docket_html(),
         encoding="utf-8",
     )
+    raw_artifacts_path = _write_raw_artifact_manifest(raw_html_path)
     selection = _packet_selection_record()
     selection["target_motion_entry_numbers"] = [33]
     selection_path = tmp_path / "selection.jsonl"
@@ -1956,6 +2014,8 @@ def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
                 str(registry_path),
                 "--raw-html-dir",
                 str(raw_html_dir),
+                "--raw-artifacts-manifest",
+                str(raw_artifacts_path),
                 "--output-root",
                 str(output_root),
                 "--generated-at",
@@ -1998,10 +2058,12 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
     output_root = tmp_path / "acquisition"
     raw_html_dir = tmp_path / "raw_html"
     raw_html_dir.mkdir()
-    (raw_html_dir / "cand-1.html").write_text(
+    raw_html_path = raw_html_dir / "cand-1.html"
+    raw_html_path.write_text(
         _adversarial_packet_input_docket_html(),
         encoding="utf-8",
     )
+    raw_artifacts_path = _write_raw_artifact_manifest(raw_html_path)
     selection_path = tmp_path / "selection.jsonl"
     downloads_path = tmp_path / "downloads.jsonl"
     clearance_path = tmp_path / "clearance.jsonl"
@@ -2082,6 +2144,8 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
                 str(registry_path),
                 "--raw-html-dir",
                 str(raw_html_dir),
+                "--raw-artifacts-manifest",
+                str(raw_artifacts_path),
                 "--output-root",
                 str(output_root),
                 "--generated-at",
@@ -2493,22 +2557,22 @@ def _core_filter_result() -> JsonRecord:
     }
 
 
-def _packet_selection_record() -> JsonRecord:
+def _packet_selection_record(candidate_id: str = "cand-1") -> JsonRecord:
     return {
-        "candidate_id": "cand-1",
+        "candidate_id": candidate_id,
         "case_id": "case-1",
         "case_name": "Example v. Defendant",
         "court": "S.D.N.Y.",
         "docket_number": "1:26-cv-1",
         "decision_date": "2026-05-18",
-        "source_url": "https://www.courtlistener.com/docket/cand-1/example/",
+        "source_url": f"https://www.courtlistener.com/docket/{candidate_id}/example/",
         "selected": True,
         "exclusion_reasons": [],
         "target_motion_entry_numbers": [34],
         "decision_entry_numbers": [50],
         "documents": [
             {
-                "candidate_id": "cand-1",
+                "candidate_id": candidate_id,
                 "source_document_id": "complaint",
                 "docket_entry_number": 1,
                 "document_role": "complaint",
@@ -2520,7 +2584,7 @@ def _packet_selection_record() -> JsonRecord:
                 "restriction_evidence": ["fixture_public_download_verified"],
             },
             {
-                "candidate_id": "cand-1",
+                "candidate_id": candidate_id,
                 "source_document_id": "mtd-memo",
                 "docket_entry_number": 34,
                 "document_role": "motion_to_dismiss_memorandum",
@@ -2532,7 +2596,7 @@ def _packet_selection_record() -> JsonRecord:
                 "restriction_evidence": ["fixture_public_download_verified"],
             },
             {
-                "candidate_id": "cand-1",
+                "candidate_id": candidate_id,
                 "source_document_id": "decision",
                 "docket_entry_number": 50,
                 "document_role": "decision",
@@ -2584,15 +2648,17 @@ def _download_record(
     source_document_id: str,
     role: str,
     docket_entry_number: int,
+    *,
+    candidate_id: str = "cand-1",
 ) -> JsonRecord:
     return {
-        "candidate_id": "cand-1",
+        "candidate_id": candidate_id,
         "source_provider": "courtlistener",
         "source_document_id": source_document_id,
         "docket_entry_number": docket_entry_number,
         "document_role": role,
         "source_url": f"https://storage.courtlistener.com/{source_document_id}.pdf",
-        "local_path": f"cand-1/courtlistener/{source_document_id}.pdf",
+        "local_path": f"{candidate_id}/courtlistener/{source_document_id}.pdf",
         "sha256": hashlib.sha256(source_document_id.encode()).hexdigest(),
         "byte_count": 10,
         "free_or_purchased": "free",
@@ -2602,8 +2668,12 @@ def _download_record(
     }
 
 
-def _parser_record(source_document_id: str) -> JsonRecord:
-    markdown_path = f"cand-1/{source_document_id}.md"
+def _parser_record(
+    source_document_id: str,
+    *,
+    candidate_id: str = "cand-1",
+) -> JsonRecord:
+    markdown_path = f"{candidate_id}/{source_document_id}.md"
     markdown = {
         "complaint": "Complaint markdown",
         "mtd-memo": "MTD markdown",
@@ -2613,7 +2683,7 @@ def _parser_record(source_document_id: str) -> JsonRecord:
         "decision": "Decision markdown",
     }[source_document_id]
     return {
-        "candidate_id": "cand-1",
+        "candidate_id": candidate_id,
         "source_document_id": source_document_id,
         "status": "succeeded",
         "input_path": f"/tmp/{source_document_id}.pdf",
@@ -2739,11 +2809,13 @@ def _prediction_unit() -> JsonRecord:
     }
 
 
-def _finalized_prediction_unit_record() -> JsonRecord:
+def _finalized_prediction_unit_record(
+    candidate_id: str = "cand-1",
+) -> JsonRecord:
     [record] = apply_unitization_reviews(
         prediction_unit_records=[
             {
-                "candidate_id": "cand-1",
+                "candidate_id": candidate_id,
                 "case_id": "case-1",
                 "prediction_units": [_prediction_unit()],
             }
@@ -2765,6 +2837,27 @@ def _write_jsonl(path: Path, records: list[JsonRecord]) -> None:
 def _write_json(path: Path, record: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(record, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _write_raw_artifact_manifest(
+    raw_html_path: Path,
+    *,
+    candidate_id: str = "cand-1",
+) -> Path:
+    payload = raw_html_path.read_bytes()
+    manifest_path = raw_html_path.parent / "raw-artifacts.jsonl"
+    _write_jsonl(
+        manifest_path,
+        [
+            {
+                "candidate_id": candidate_id,
+                "path": str(raw_html_path),
+                "byte_count": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }
+        ],
+    )
+    return manifest_path
 
 
 def _write_clearance(manifest_path: Path, output_path: Path) -> None:

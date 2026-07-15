@@ -136,6 +136,24 @@ uv run legalforecast acquisition finalize-corpus \
 
 Do not hand-author a compatibility summary or substitute a replay-stage summary. `finalize-corpus` requires the successful canonical `prepare-target-cohort` root, verifies its self-hashed configuration, completion evidence, and exhaustive stage commitments, and uses that authenticated lineage to pin the exact snapshot path, manifest hash, cycle hash, batch digest, and target size. It then verifies the snapshot's immutable cycle-store registration, manifest schema, complete and saturated state, member hashes, byte counts, row counts, canonical summary shape, and exact accepted-plus-excluded reconciliation before accepting any downstream readiness evidence. Include every later exclusion file separately with `--exclusion-source` so every screened-but-unselected or downstream-rejected candidate reaches the complete exclusion ledger.
 
+Plan official packet inputs only from the canonical discovery snapshot's committed raw-artifact manifest:
+
+```bash
+uv run legalforecast acquisition plan-packet-inputs \
+  --output-root <assembled-cycle-root> \
+  --selection <selection.jsonl> \
+  --download-manifest <download-manifest.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --disclosure-clearance <disclosure-clearance.jsonl> \
+  --prediction-units <finalized-prediction-units.jsonl> \
+  --model-registry model_registries/cycle-1-2026-06-30.json \
+  --raw-html-dir <canonical-snapshot>/raw-html \
+  --raw-artifacts-manifest <canonical-snapshot>/raw-artifacts.jsonl \
+  --execute --no-resume
+```
+
+The executed command refuses an omitted manifest. A numeric target-selection candidate ID may bind only to the exact canonical `courtlistener-docket-<same-digits>` manifest identity. The planner preserves both IDs, the original manifest path, byte count, and SHA-256 in audit provenance; it fails closed on nonnumeric reserved aliases, exact-versus-namespaced collisions, multiple candidate owners, missing ownership, duplicate paths, or content/hash drift. Never rename raw-artifact candidate IDs or hand-edit the manifest to make packet planning pass.
+
 ## Before Dispatch
 
 Run the release gate at the exact SHA you intend to dispatch:

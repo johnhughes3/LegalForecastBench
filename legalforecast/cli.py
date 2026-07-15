@@ -5222,8 +5222,8 @@ def _add_acquisition_plan_packet_inputs_arguments(
         type=Path,
         required=True,
         help=(
-            "Containment root for saved CourtListener docket HTML. Without "
-            "--raw-artifacts-manifest, files must use <candidate_id>.html."
+            "Containment root for saved CourtListener docket HTML committed by "
+            "--raw-artifacts-manifest."
         ),
     )
     parser.add_argument(
@@ -5231,8 +5231,9 @@ def _add_acquisition_plan_packet_inputs_arguments(
         type=Path,
         help=(
             "Canonical raw-artifacts.jsonl binding namespaced candidate IDs to "
-            "verified docket HTML paths. When omitted, the legacy "
-            "<candidate_id>.html fixture layout is used."
+            "verified docket HTML paths and hashes. Required with --execute; "
+            "exact courtlistener-docket-<numeric> identities may bind the same "
+            "numeric selection ID."
         ),
     )
     parser.add_argument(
@@ -20068,6 +20069,13 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
     model_registry_path = cast(Path, args.model_registry)
     raw_html_dir = cast(Path, args.raw_html_dir)
     raw_artifacts_manifest_path = cast(Path | None, args.raw_artifacts_manifest)
+    dry_run = _acquisition_dry_run(args)
+    if not dry_run and raw_artifacts_manifest_path is None:
+        raise CommandError(
+            "--raw-artifacts-manifest is required for executed packet planning; "
+            "the uncommitted <candidate_id>.html fixture layout is not an "
+            "official acquisition input"
+        )
     document_root = cast(Path | None, args.document_root) or (
         output_root / "documents" / "free"
     )
@@ -20117,7 +20125,6 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         needs_resolved_lineage=needs_resolved_lineage,
         resolved_records=resolved_records,
     )
-    dry_run = _acquisition_dry_run(args)
     if dry_run:
         _write_jsonl(
             packet_build_input_path,
