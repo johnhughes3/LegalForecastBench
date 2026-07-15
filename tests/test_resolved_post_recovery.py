@@ -498,38 +498,35 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         {"https://www.courtlistener.com/pdf/123.pdf": pdf_content},
     )
     quarantine_root = tmp_path / "quarantine"
-    assert (
-        main(
-            [
-                "acquisition",
-                "recover-recap-fetch-quarantine",
-                "--selection",
-                str(paths["selection"]),
-                "--purchase-policy",
-                str(paths["purchase_policy"]),
-                "--cohort-policy",
-                str(paths["cohort_policy"]),
-                "--budget-plan",
-                str(paths["budget_plan"]),
-                "--purchase-ledger",
-                str(ledger_path),
-                "--attempt-policy",
-                str(paths["attempt_policy"]),
-                "--courtlistener-fixture",
-                str(recovery_detail_fixture),
-                "--fixture-documents",
-                str(document_fixture),
-                "--manifest-output",
-                str(paths["download_manifest"]),
-                "--document-output-root",
-                str(quarantine_root),
-                "--output-root",
-                str(tmp_path / "recovery-output"),
-                "--execute",
-            ]
-        )
-        == 0
-    )
+    recovery_command = [
+        "acquisition",
+        "recover-recap-fetch-quarantine",
+        "--selection",
+        str(paths["selection"]),
+        "--purchase-policy",
+        str(paths["purchase_policy"]),
+        "--cohort-policy",
+        str(paths["cohort_policy"]),
+        "--budget-plan",
+        str(paths["budget_plan"]),
+        "--purchase-ledger",
+        str(ledger_path),
+        "--attempt-policy",
+        str(paths["attempt_policy"]),
+        "--courtlistener-fixture",
+        str(recovery_detail_fixture),
+        "--fixture-documents",
+        str(document_fixture),
+        "--manifest-output",
+        str(paths["download_manifest"]),
+        "--document-output-root",
+        str(quarantine_root),
+        "--output-root",
+        str(tmp_path / "recovery-output"),
+        "--execute",
+    ]
+    assert main(recovery_command) == 0
+    assert main(recovery_command) == 0
     assert "courtlistener.com" not in paths["download_manifest"].read_text()
     assert "download_url" not in paths["download_manifest"].read_text()
     inputs["download_records"] = _read_records(paths["download_manifest"])
