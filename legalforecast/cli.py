@@ -351,9 +351,11 @@ from legalforecast.ingestion.readiness_provenance import (
 from legalforecast.ingestion.recap_api_batch_driver import (
     RecapApiBatchDriverError,
     read_batch_001_enrichment_failure_leads,
+    read_saturated_direct_search_leads,
     run_discover,
     run_observe,
     seed_batch_001_leads,
+    seed_direct_search_leads,
 )
 from legalforecast.ingestion.recap_api_discovery import (
     RecapApiDiscoveryError,
@@ -785,7 +787,8 @@ def build_parser() -> argparse.ArgumentParser:
         "batch-002",
         help=(
             "Cycle 1 batch-002 decision-first RECAP REST v4 acquisition driver "
-            "(discover / observe / seed-batch-001-leads / snapshot)."
+            "(discover / seed-direct-search / observe / seed-batch-001-leads / "
+            "snapshot)."
         ),
     )
     batch_002_subparsers = batch_002.add_subparsers(
@@ -816,6 +819,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_batch_002_seed_arguments(batch_002_seed)
+    batch_002_direct_seed = batch_002_subparsers.add_parser(
+        "seed-direct-search",
+        help=(
+            "Transfer a saturated direct CourtListener search docket union into "
+            "a source-bound authenticated REST screening batch without network use."
+        ),
+    )
+    _add_batch_002_direct_seed_arguments(batch_002_direct_seed)
     batch_002_snapshot = batch_002_subparsers.add_parser(
         "snapshot",
         help=(
@@ -2397,18 +2408,16 @@ _COURTLISTENER_RATE_PROFILES = {
 }
 
 
-def _add_batch_002_source_arguments(parser: argparse.ArgumentParser) -> None:
+def _add_batch_002_source_arguments(
+    parser: argparse.ArgumentParser, *, live_help: str
+) -> None:
     """Add the mutually-exclusive live/fixture CourtListener source flags."""
 
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument(
         "--live",
         action="store_true",
-        help=(
-            "Disabled: CourtListener does not expose this REST-only type=rd plan "
-            "through the supported web route. Use `legalforecast acquisition "
-            "discover-firecrawl-recap-decisions`."
-        ),
+        help=live_help,
     )
     source.add_argument(
         "--courtlistener-fixture",
@@ -2491,7 +2500,14 @@ def _add_batch_002_discover_arguments(parser: argparse.ArgumentParser) -> None:
             "durable attempt ledger independently enforces all windows."
         ),
     )
-    _add_batch_002_source_arguments(parser)
+    _add_batch_002_source_arguments(
+        parser,
+        live_help=(
+            "Disabled for discovery: CourtListener does not expose this REST-only "
+            "type=rd plan through the supported web route. Use `legalforecast "
+            "acquisition discover-courtlistener` or seed-direct-search."
+        ),
+    )
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_batch_002_discover)
 
@@ -2569,7 +2585,13 @@ def _add_batch_002_observe_arguments(parser: argparse.ArgumentParser) -> None:
             "resume so already refreshed observations are not selected again."
         ),
     )
-    _add_batch_002_source_arguments(parser)
+    _add_batch_002_source_arguments(
+        parser,
+        live_help=(
+            "Reconstruct and screen through authenticated CourtListener REST. "
+            "Requires COURTLISTENER_API_TOKEN and --request-ledger."
+        ),
+    )
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_batch_002_observe)
 
@@ -2598,6 +2620,42 @@ def _add_batch_002_seed_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_batch_002_seed)
+
+
+def _add_batch_002_direct_seed_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--source-store",
+        type=Path,
+        required=True,
+        help="Store containing the saturated direct CourtListener search batch.",
+    )
+    parser.add_argument(
+        "--source-batch-id",
+        required=True,
+        help="Exact saturated source batch identifier.",
+    )
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help=(
+            "Target REST acquisition store. It may be the source store; the source "
+            "is opened read-only and closed before transfer."
+        ),
+    )
+    parser.add_argument(
+        "--batch-id",
+        required=True,
+        help="New REST screening batch identifier; must differ from the source batch.",
+    )
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=100,
+        help="Durable transfer page size, from 1 through 100; default 100.",
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_direct_seed)
 
 
 def _add_batch_002_snapshot_arguments(parser: argparse.ArgumentParser) -> None:
@@ -11295,6 +11353,39 @@ def _cmd_batch_002_seed(args: argparse.Namespace) -> int:
         CycleAcquisitionStoreError,
         RecapApiBatchDriverError,
         KeyError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    record = result.to_record()
+    summary_output = cast(Path | None, args.summary_output)
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cmd_batch_002_direct_seed(args: argparse.Namespace) -> int:
+    source_store = cast(Path, args.source_store)
+    source_batch_id = cast(str, args.source_batch_id)
+    cycle_store = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    try:
+        source = read_saturated_direct_search_leads(
+            source_store,
+            source_batch_id=source_batch_id,
+        )
+        with CycleAcquisitionStore(cycle_store) as store:
+            result = seed_direct_search_leads(
+                store,
+                batch_id=batch_id,
+                source=source,
+                page_size=cast(int, args.page_size),
+            )
+    except (
+        CycleAcquisitionStoreError,
+        RecapApiBatchDriverError,
+        KeyError,
+        OSError,
         ValueError,
     ) as exc:
         raise CommandError(str(exc)) from exc
