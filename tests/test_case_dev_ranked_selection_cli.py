@@ -11,6 +11,7 @@ import pytest
 from legalforecast.cli import _cycle_acquisition_policy, main
 from legalforecast.ingestion.case_dev_ranked_selection import (
     CASE_DEV_RANKED_SELECTION_RUN_SCHEMA,
+    CASE_DEV_RANKED_SUBSET_SELECTION_RUN_SCHEMA,
     CASE_DEV_RANKED_TRANSFER_SCHEMA,
     project_case_dev_opinion_source,
 )
@@ -85,6 +86,87 @@ def test_select_case_dev_ranked_materializes_exact_top_n_rest_batch(
     resumed = json.loads(summary.read_text())
     assert resumed["already_seeded"] is True
     assert resumed["leads_seeded"] == 0
+
+
+def test_select_case_dev_ranked_subset_materializes_exact_noncontiguous_dockets(
+    tmp_path: Path,
+) -> None:
+    docket_ids = ("101", "102", "103")
+    source_store = _opinion_source_store(tmp_path, docket_ids=docket_ids)
+    enrichment_root = _run_enrichment(
+        tmp_path,
+        source_store=source_store,
+        docket_ids=docket_ids,
+    )
+    target_store = _target_store(tmp_path)
+    run_card = tmp_path / "subset-run-card.json"
+    summary = tmp_path / "subset-summary.json"
+    args = _subset_selection_args(
+        source_store=source_store,
+        enrichment_root=enrichment_root,
+        target_store=target_store,
+        run_card=run_card,
+        summary=summary,
+        docket_ids=("103", "102"),
+    )
+
+    assert main(args) == 0
+
+    frozen = json.loads(run_card.read_text())
+    assert frozen["schema_version"] == CASE_DEV_RANKED_SUBSET_SELECTION_RUN_SCHEMA
+    assert "top_n" not in frozen
+    assert frozen["selection_semantics"] == "exact_case_dev_ranked_subset"
+    assert frozen["selected_docket_ids"] == ["102", "103"]
+    assert [row["docket_id"] for row in frozen["selected"]] == ["102", "103"]
+    assert [row["rank"] for row in frozen["selected"]] == [1, 3]
+
+    with CycleAcquisitionStore(target_store) as store:
+        assert store.candidate_ids("ranked-subset-rest") == (
+            "courtlistener-docket-102",
+            "courtlistener-docket-103",
+        )
+        config = store.batch_config("ranked-subset-rest")
+        assert config["selection_semantics"] == "exact_case_dev_ranked_subset"
+        assert config["selected_candidate_count"] == 2
+
+    assert main(args) == 0
+    assert json.loads(summary.read_text())["already_seeded"] is True
+
+
+@pytest.mark.parametrize(
+    "docket_ids",
+    [
+        ("102", "102"),
+        ("102", "999"),
+    ],
+)
+def test_select_case_dev_ranked_subset_rejects_invalid_exact_set_before_write(
+    tmp_path: Path,
+    docket_ids: tuple[str, ...],
+) -> None:
+    source_ids = ("101", "102", "103")
+    source_store = _opinion_source_store(tmp_path, docket_ids=source_ids)
+    enrichment_root = _run_enrichment(
+        tmp_path,
+        source_store=source_store,
+        docket_ids=source_ids,
+    )
+    target_store = _target_store(tmp_path)
+
+    assert (
+        main(
+            _subset_selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=tmp_path / "subset-run-card.json",
+                summary=tmp_path / "subset-summary.json",
+                docket_ids=docket_ids,
+            )
+        )
+        == 2
+    )
+    _assert_no_target_rows(target_store)
 
 
 def test_case_dev_enrichment_uses_frozen_anchor_for_narrower_source_window(
@@ -612,15 +694,57 @@ def _selection_args(
     ]
 
 
-def _run_enrichment(tmp_path: Path, *, source_store: Path) -> Path:
+def _subset_selection_args(
+    *,
+    source_store: Path,
+    enrichment_root: Path,
+    target_store: Path,
+    run_card: Path,
+    summary: Path,
+    docket_ids: tuple[str, ...],
+) -> list[str]:
+    enrichment_run_card = enrichment_root / "run-cards" / "enrich-recap-case-dev.json"
+    args = [
+        "batch-002",
+        "select-case-dev-ranked-subset",
+        "--source-store",
+        str(source_store),
+        "--source-batch-id",
+        "opinion-source",
+        "--source-projection",
+        str(enrichment_root / "checkpoints" / "case-dev-recap-source-projection.jsonl"),
+        "--ranked",
+        str(enrichment_root / "checkpoints" / "case-dev-recap-ranked.jsonl"),
+        "--enrichment-run-card",
+        str(enrichment_run_card),
+        "--expected-enrichment-run-card-sha256",
+        hashlib.sha256(enrichment_run_card.read_bytes()).hexdigest(),
+        "--cycle-store",
+        str(target_store),
+        "--batch-id",
+        "ranked-subset-rest",
+        "--run-card-output",
+        str(run_card),
+        "--summary-output",
+        str(summary),
+    ]
+    for docket_id in docket_ids:
+        args.extend(("--docket-id", docket_id))
+    return args
+
+
+def _run_enrichment(
+    tmp_path: Path,
+    *,
+    source_store: Path,
+    docket_ids: tuple[str, ...] = ("101", "102"),
+) -> Path:
     fixture = tmp_path / "case-dev.jsonl"
-    _write_jsonl(
-        fixture,
-        [
-            _case_dev_response("101", entries=[]),
-            _case_dev_response(
-                "102",
-                entries=[
+    responses = [
+        _case_dev_response(
+            docket_id,
+            entries=(
+                [
                     _entry("entry-1", 1, "Complaint", "doc-1"),
                     _entry("entry-5", 5, "Motion to Dismiss", "doc-5"),
                     _entry(
@@ -629,10 +753,14 @@ def _run_enrichment(tmp_path: Path, *, source_store: Path) -> Path:
                         "Order denying Motion to Dismiss",
                         "doc-10",
                     ),
-                ],
+                ]
+                if docket_id == "102"
+                else []
             ),
-        ],
-    )
+        )
+        for docket_id in docket_ids
+    ]
+    _write_jsonl(fixture, responses)
     output_root = tmp_path / "enrichment"
     assert (
         main(
@@ -659,6 +787,7 @@ def _opinion_source_store(
     tmp_path: Path,
     *,
     search_window_start: str = "2026-06-30",
+    docket_ids: tuple[str, ...] = ("101", "102"),
 ) -> Path:
     path = tmp_path / "source.sqlite3"
     with CycleAcquisitionStore(path) as store:
@@ -680,8 +809,8 @@ def _opinion_source_store(
             term,
             None,
             [
-                _opinion_hit("101", "501"),
-                _opinion_hit("102", "502"),
+                _opinion_hit(docket_id, str(400 + int(docket_id)))
+                for docket_id in docket_ids
             ],
             next_cursor=None,
             terminal_status="exhausted",
