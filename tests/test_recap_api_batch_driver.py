@@ -17,6 +17,8 @@ from legalforecast.ingestion.courtlistener_client import (
 )
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.recap_api_batch_driver import (
+    DIRECT_SEARCH_CYCLE_REBIND_PROVENANCE_SCHEMA,
+    DIRECT_SEARCH_CYCLE_REBIND_TERM,
     DIRECT_SEARCH_NOVEL_TRANSFER_TERM,
     DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA,
     DIRECT_SEARCH_TRANSFER_TERM,
@@ -25,6 +27,7 @@ from legalforecast.ingestion.recap_api_batch_driver import (
     read_batch_001_enrichment_failure_leads,
     read_saturated_direct_search_leads,
     read_verified_priority_dedupe_snapshots,
+    rebind_direct_search_leads,
     run_discover,
     run_observe,
     seed_batch_001_leads,
@@ -1108,6 +1111,11 @@ def _build_saturated_direct_search_store(
                     "court_id": "nysd",
                     "docket_number": "1:26-cv-00200",
                     "case_name": "Alpha LLC v. Beta Inc.",
+                    "opinion_resolution_evidence": {
+                        "schema_version": "legalforecast.opinion_recap_resolution.v1",
+                        "source_opinion": {"candidate_id": "900"},
+                        "resolved_recap": {"docket_id": candidate_id},
+                    },
                     "recap_documents": [
                         {
                             "id": 8200,
@@ -1408,6 +1416,8 @@ def test_seed_direct_search_freezes_lineage_canonicalizes_and_prescreens(
             provenance["source_candidate_set_sha256"]
             == source.source_candidate_set_sha256
         )
+        assert "source_cycle_hash" not in provenance
+        assert "target_cycle_hash" not in provenance
         assert hits["courtlistener-docket-300"]["prescreen_exclusion_reason"] == (
             "criminal_case"
         )
@@ -1428,6 +1438,86 @@ def test_seed_direct_search_freezes_lineage_canonicalizes_and_prescreens(
         assert repeated.already_seeded is True
 
         assert store.search_page_transcript("rest-screen") == transcript
+
+
+def test_rebind_direct_search_transfers_identical_leads_across_frozen_cycles(
+    tmp_path: Path,
+) -> None:
+    source_path = _build_saturated_direct_search_store(tmp_path)
+    source = read_saturated_direct_search_leads(
+        source_path, source_batch_id="direct-search"
+    )
+    target_path = tmp_path / "current-cycle.sqlite3"
+    with CycleAcquisitionStore(target_path) as target:
+        target.ensure_cycle(
+            {
+                "schema_version": "test-current",
+                "eligibility_anchor": "2026-06-30",
+            }
+        )
+        result = rebind_direct_search_leads(
+            target,
+            batch_id="current-rest-screen",
+            source=source,
+            page_size=2,
+        )
+        assert result.source_cycle_hash == source.source_cycle_hash
+        assert result.target_cycle_hash == target.cycle_hash
+        assert result.source_cycle_hash != result.target_cycle_hash
+        assert result.source_candidate_set_sha256 == (
+            source.source_candidate_set_sha256
+        )
+        assert result.leads_selected == 3
+        assert result.leads_seeded == 3
+
+        config = target.batch_config("current-rest-screen")
+        assert config["discovery_mode"] == (
+            DIRECT_SEARCH_CYCLE_REBIND_PROVENANCE_SCHEMA
+        )
+        assert config["source_cycle_hash"] == source.source_cycle_hash
+        assert config["target_cycle_hash"] == target.cycle_hash
+        assert config["source_candidate_set_sha256"] == (
+            source.source_candidate_set_sha256
+        )
+        assert config["provider_activity_requested"] is False
+        assert config["provider_activity_executed"] is False
+
+        hits = {
+            hit.candidate_id: hit.payload
+            for hit in target.candidate_discovery_hits("current-rest-screen")
+        }
+        provenance = hits["courtlistener-docket-200"]["direct_search_provenance"]
+        assert provenance["schema_version"] == (
+            DIRECT_SEARCH_CYCLE_REBIND_PROVENANCE_SCHEMA
+        )
+        assert provenance["source_cycle_hash"] == source.source_cycle_hash
+        assert provenance["target_cycle_hash"] == target.cycle_hash
+        assert hits["courtlistener-docket-200"]["decision_entry_evidence"] == (
+            source.leads[0].decision_entry_evidence
+        )
+        assert hits["courtlistener-docket-200"]["opinion_resolution_evidence"] == (
+            source.leads[0].opinion_resolution_evidence
+        )
+        assert all(
+            page["term"] == DIRECT_SEARCH_CYCLE_REBIND_TERM
+            for page in target.search_page_transcript("current-rest-screen")
+        )
+
+
+def test_rebind_direct_search_rejects_same_cycle_as_misleading(
+    tmp_path: Path,
+) -> None:
+    source_path = _build_saturated_direct_search_store(tmp_path)
+    source = read_saturated_direct_search_leads(
+        source_path, source_batch_id="direct-search"
+    )
+    with CycleAcquisitionStore(source_path) as store:
+        with pytest.raises(RecapApiBatchDriverError, match="already matches"):
+            rebind_direct_search_leads(
+                store,
+                batch_id="not-a-rebind",
+                source=source,
+            )
 
 
 def test_seed_direct_search_resumes_after_a_committed_page(

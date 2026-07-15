@@ -489,6 +489,76 @@ def test_cli_observe_fails_closed_without_token(
     )
 
 
+def test_cli_observe_rejects_stale_screening_sources_before_fixture_use(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(COURTLISTENER_API_TOKEN_ENV, raising=False)
+    store_path = tmp_path / "stale-cycle.sqlite3"
+    with CycleAcquisitionStore(store_path) as store:
+        store.ensure_cycle(
+            {
+                "schema_version": "legalforecast.cycle_acquisition_policy.v1",
+                "eligibility_anchor": "2026-06-30",
+                "screening_source_sha256": {"stale": "0" * 64},
+            }
+        )
+        store.ensure_batch(
+            "batch-002",
+            {
+                "provider": "courtlistener",
+                "decision_window_start": "2026-06-30",
+                "decision_window_end": "2026-07-15",
+            },
+        )
+        store.ensure_terms("batch-002", ("term",))
+        store.commit_search_page(
+            "batch-002",
+            "term",
+            None,
+            [
+                {
+                    "provider_hit_id": "hit-555",
+                    "candidate_id": "courtlistener-docket-555",
+                    "payload": {
+                        "candidate_id": "courtlistener-docket-555",
+                        "docket_id": "555",
+                    },
+                }
+            ],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+    unused_fixture = tmp_path / "must-not-be-read.jsonl"
+    unused_fixture.write_text("", encoding="utf-8")
+
+    def provider_client_must_not_be_constructed(
+        *_args: object, **_kwargs: object
+    ) -> None:
+        raise AssertionError("provider client constructed before provenance preflight")
+
+    monkeypatch.setattr(
+        "legalforecast.cli._batch_002_client",
+        provider_client_must_not_be_constructed,
+    )
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "observe",
+                "--cycle-store",
+                str(store_path),
+                "--courtlistener-fixture",
+                str(unused_fixture),
+            ]
+        )
+        == 2
+    )
+    with CycleAcquisitionStore(store_path) as store:
+        assert store.current_observation("courtlistener-docket-555") is None
+
+
 def test_cli_observe_accepts_with_token_fixture(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -1098,6 +1168,72 @@ def test_cli_direct_seed_same_store_is_idempotent_and_writes_summary(
     assert second["leads_seeded"] == 0
     assert second["already_seeded"] is True
     assert json.loads(summary_path.read_text(encoding="utf-8")) == second
+
+
+def test_cli_rebind_direct_search_initializes_current_cycle_without_network(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source_path = tmp_path / "old-cycle.sqlite3"
+    target_path = tmp_path / "current-cycle.sqlite3"
+    summary_path = tmp_path / "rebind-summary.json"
+    _build_direct_search_store(source_path)
+    with CycleAcquisitionStore(source_path) as source_store:
+        old_cycle_hash = source_store.cycle_hash
+
+    args = [
+        "batch-002",
+        "rebind-direct-search",
+        "--source-store",
+        str(source_path),
+        "--source-batch-id",
+        _DIRECT_SEARCH_SOURCE_BATCH_ID,
+        "--cycle-store",
+        str(target_path),
+        "--batch-id",
+        _DIRECT_SEARCH_TARGET_BATCH_ID,
+        "--eligibility-anchor",
+        "2026-06-30",
+        "--summary-output",
+        str(summary_path),
+    ]
+    assert main(args) == 0
+    first = json.loads(capsys.readouterr().out)
+    assert first["source_cycle_hash"] == old_cycle_hash
+    assert first["target_cycle_hash"] != old_cycle_hash
+    assert first["leads_selected"] == 2
+    assert first["leads_seeded"] == 2
+    assert first["provider_activity_requested"] is False
+    assert first["provider_activity_executed"] is False
+    assert json.loads(summary_path.read_text(encoding="utf-8")) == first
+
+    with CycleAcquisitionStore(target_path) as target_store:
+        assert target_store.cycle_hash == first["target_cycle_hash"]
+        assert target_store.cycle_policy["screening_source_sha256"]
+        assert target_store.candidate_ids(_DIRECT_SEARCH_TARGET_BATCH_ID) == (
+            "courtlistener-docket-555",
+            "courtlistener-docket-777",
+        )
+    with CycleAcquisitionStore(source_path) as source_store:
+        with pytest.raises(KeyError):
+            source_store.batch_config(_DIRECT_SEARCH_TARGET_BATCH_ID)
+
+    assert main(args) == 0
+    second = json.loads(capsys.readouterr().out)
+    assert second["leads_seeded"] == 0
+    assert second["already_seeded"] is True
+
+
+def test_cli_rebind_direct_search_help_freezes_provider_free_contract(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["batch-002", "rebind-direct-search", "--help"])
+    assert exc_info.value.code == 0
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "complete saturated" in help_text
+    assert "old and current cycle hashes" in help_text
+    assert "no provider" in help_text
 
 
 def test_cli_direct_seed_rejects_incomplete_source(tmp_path: Path) -> None:
