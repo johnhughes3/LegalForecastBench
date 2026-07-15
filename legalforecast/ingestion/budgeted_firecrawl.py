@@ -358,11 +358,20 @@ class BudgetedFirecrawlScheduler:
                         if fatal_error is None:
                             consecutive_5xx = 0
                     except Exception as error:
-                        self.store.finalize_firecrawl_attempt(
-                            attempt.attempt_id,
-                            status="interrupted",
-                        )
-                        fatal_error = fatal_error or error
+                        if self.terminalize_abandoned_authorizations:
+                            self._terminalize_abandoned_authorization(
+                                target=target,
+                                attempt=attempt,
+                            )
+                            terminal_failures.add(target.target_id)
+                            if fatal_error is None:
+                                consecutive_5xx = 0
+                        else:
+                            self.store.finalize_firecrawl_attempt(
+                                attempt.attempt_id,
+                                status="interrupted",
+                            )
+                            fatal_error = fatal_error or error
                     else:
                         succeeded[target.target_id] = page
                         self.store.set_firecrawl_target_status(
@@ -578,31 +587,44 @@ class BudgetedFirecrawlScheduler:
                         page_number=attempt.page_number,
                         ordinal=stored_target.ordinal,
                     )
-                    has_orphan = self._artifact_path(target).exists()
-                    self.store.finalize_firecrawl_attempt(
-                        attempt.attempt_id,
-                        status="interrupted",
-                        failure_code=(
-                            "authorization_abandoned_with_orphan"
-                            if has_orphan
-                            else "authorization_abandoned"
-                        ),
-                        failure_message=(
-                            "Provider outcome was not durably committed; original "
-                            "credit reservation retained"
-                        ),
-                        failure_transient=False,
-                    )
-                    self.store.set_firecrawl_target_status(
-                        self.run_id,
-                        attempt.target_id,
-                        "terminal_error",
+                    self._terminalize_abandoned_authorization(
+                        target=target,
+                        attempt=attempt,
                     )
                 else:
                     self.store.finalize_firecrawl_attempt(
                         attempt.attempt_id,
                         status="interrupted",
                     )
+
+    def _terminalize_abandoned_authorization(
+        self,
+        *,
+        target: FirecrawlTargetSpec,
+        attempt: FirecrawlAttempt,
+    ) -> None:
+        """Retain an uncertain reservation and make the target non-retryable."""
+
+        has_orphan = self._artifact_path(target).exists()
+        self.store.finalize_firecrawl_attempt(
+            attempt.attempt_id,
+            status="interrupted",
+            failure_code=(
+                "authorization_abandoned_with_orphan"
+                if has_orphan
+                else "authorization_abandoned"
+            ),
+            failure_message=(
+                "Provider outcome was not durably committed; original "
+                "credit reservation retained"
+            ),
+            failure_transient=False,
+        )
+        self.store.set_firecrawl_target_status(
+            self.run_id,
+            attempt.target_id,
+            "terminal_error",
+        )
 
     def _raise_open_circuit(self, consecutive_5xx: int) -> None:
         self.store.set_firecrawl_run_status(self.run_id, "circuit_open")
