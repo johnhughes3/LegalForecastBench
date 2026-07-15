@@ -478,7 +478,13 @@ def _validated_purchase_ledger_receipt_path(
 ) -> Path:
     """Return an absolute receipt path only after rejecting symlink traversal."""
 
-    receipt = Path(receipt_path).absolute()
+    requested_receipt = Path(receipt_path)
+    if ".." in requested_receipt.parts:
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt path must not contain "
+            "dot-dot components"
+        )
+    receipt = requested_receipt.absolute()
     if receipt.is_symlink():
         raise CaseDevPurchaseLedgerError(
             "purchase ledger initialization receipt must not be a symlink"
