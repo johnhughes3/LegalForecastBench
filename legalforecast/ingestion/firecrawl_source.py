@@ -102,18 +102,21 @@ class FirecrawlAuthError(FirecrawlError):
     """Raised when Firecrawl rejects the API credentials."""
 
     default_failure_code = "provider_auth_error"
+    transient = True
 
 
 class FirecrawlPaymentRequiredError(FirecrawlError):
     """Raised when the Firecrawl account has insufficient credits."""
 
     default_failure_code = "provider_payment_required"
+    transient = True
 
 
 class FirecrawlRateLimitError(FirecrawlError):
     """Raised when Firecrawl rate-limits the request."""
 
     default_failure_code = "provider_rate_limit"
+    transient = True
 
 
 class FirecrawlServerError(FirecrawlError):

@@ -1486,19 +1486,45 @@ class CycleAcquisitionStore:
         batch_id: str,
         candidate_id: str,
     ) -> CandidateObservation | None:
-        """Return this batch's latest accepted/excluded candidate checkpoint."""
+        """Return this batch's latest terminal candidate checkpoint."""
 
         self.batch_digest(batch_id)
         row = self._connection.execute(
             """
             SELECT * FROM candidate_observations
             WHERE batch_id = ? AND candidate_id = ?
-              AND state IN ('accepted', 'excluded')
+              AND state IN ('accepted', 'excluded', 'skipped_immutable')
             ORDER BY observation_id DESC LIMIT 1
             """,
             (batch_id, candidate_id),
         ).fetchone()
         return None if row is None else _observation_from_row(row)
+
+    def batch_terminal_observations(
+        self,
+        batch_id: str,
+    ) -> tuple[CandidateObservation, ...]:
+        """Return the latest terminal checkpoint for each batch candidate."""
+
+        self.batch_digest(batch_id)
+        rows = self._connection.execute(
+            """
+            WITH ranked AS (
+                SELECT o.*,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY candidate_id ORDER BY observation_id DESC
+                       ) AS candidate_rank
+                FROM candidate_observations o
+                WHERE batch_id = ?
+                  AND state IN ('accepted', 'excluded', 'skipped_immutable')
+            )
+            SELECT * FROM ranked
+            WHERE candidate_rank = 1
+            ORDER BY candidate_id
+            """,
+            (batch_id,),
+        ).fetchall()
+        return tuple(_observation_from_row(row) for row in rows)
 
     def record_observation(
         self,

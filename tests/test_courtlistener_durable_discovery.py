@@ -168,3 +168,83 @@ def test_durable_discovery_no_resume_refuses_existing_progress(
                 progress_store=store,
                 batch_id="durable-batch",
             )
+
+
+def test_durable_discovery_preserves_prior_immutable_exclusion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _store(tmp_path) as store:
+        store.ensure_batch("prior-batch", {"provider": "courtlistener-prior"})
+        store.ensure_terms("prior-batch", ("prior term",))
+        store.commit_search_page(
+            "prior-batch",
+            "prior term",
+            None,
+            (_page("101", next_cursor=None).hits[0],),
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        immutable_evidence = {
+            "candidate_id": "101",
+            "case_id": "101",
+            "court": None,
+            "decision_date": None,
+            "stage": "eligibility",
+            "primary_exclusion_reason": "decision_before_release_anchor",
+            "reason": "decision_before_release_anchor",
+            "secondary_exclusion_reasons": [],
+            "source_entry_ids": [],
+            "source_document_ids": [],
+            "related_family_id": None,
+            "notes": "Prior immutable anchor exclusion.",
+        }
+        store.record_observation(
+            "101",
+            batch_id="prior-batch",
+            state="excluded",
+            reason_code="decision_before_release_anchor",
+            evidence=immutable_evidence,
+        )
+        store.ensure_terms("durable-batch", ("motion to dismiss",))
+        store.commit_search_page(
+            "durable-batch",
+            "motion to dismiss",
+            None,
+            (_page("101", next_cursor=None).hits[0],),
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+
+        def must_not_screen(**_kwargs: Any) -> None:
+            raise AssertionError("immutable candidate must not be rescreened")
+
+        monkeypatch.setattr(
+            acquisition_module,
+            "_screen_candidate",
+            must_not_screen,
+        )
+        kwargs = {
+            "client": cast(CourtListenerClient, object()),
+            "html_source": cast(
+                acquisition_module.CourtListenerDocketHTMLSource, object()
+            ),
+            "raw_html_dir": tmp_path / "raw",
+            "decision_filed_on_or_after": date(2026, 6, 30),
+            "search_window_start": date(2026, 7, 11),
+            "search_window_end": date(2026, 7, 15),
+            "query_terms": ("motion to dismiss",),
+            "target_clean_cases": 100,
+            "max_candidates": 10,
+            "search_page_size": 2,
+            "progress_store": store,
+            "batch_id": "durable-batch",
+        }
+        first = discover_courtlistener_mtd_candidates(**kwargs)
+        resumed = discover_courtlistener_mtd_candidates(**kwargs)
+
+    assert not first.screened_cases
+    assert [row.reason for row in first.exclusions] == [
+        "decision_before_release_anchor"
+    ]
+    assert resumed.exclusions == first.exclusions

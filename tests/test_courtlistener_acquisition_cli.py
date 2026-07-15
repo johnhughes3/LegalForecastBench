@@ -1333,7 +1333,7 @@ def test_discover_courtlistener_firecrawl_dry_run_records_credit_ceiling(
 
     summary = _read_json(output_root / "courtlistener-discovery-summary.json")
     assert summary["docket_html_source"] == "firecrawl"
-    assert summary["firecrawl_max_credits_per_new_candidate"] == 1
+    assert summary["firecrawl_max_credits_per_new_candidate"] == 3
     assert summary["firecrawl_cycle_credit_cap"] == 45000
     assert summary["firecrawl_metered_activity_requested"] is False
     assert summary["firecrawl_metered_activity_executed"] is False

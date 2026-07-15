@@ -2238,9 +2238,9 @@ def _add_acquisition_discover_courtlistener_arguments(
             "Keep authenticated CourtListener REST as the search authority but "
             "fetch each strictly allowlisted public docket HTML page through "
             "Firecrawl. Requires --live and FIRECRAWL_API_KEY. Basic proxy mode "
-            "is capped at one reported credit per authorized candidate; live "
-            "attempts and source-bound resume artifacts are journaled in the "
-            "required cycle store."
+            "is capped at one reported credit per attempt and three bounded "
+            "attempts per candidate; live attempts and source-bound resume "
+            "artifacts are journaled in the required cycle store."
         ),
     )
     parser.add_argument(
@@ -11923,7 +11923,7 @@ def _firecrawl_docket_html_audit(
         "docket_html_source": "firecrawl",
         "firecrawl_metered_activity_requested": requested,
         "firecrawl_metered_activity_executed": executed,
-        "firecrawl_max_credits_per_new_candidate": 1,
+        "firecrawl_max_credits_per_new_candidate": 3,
         "firecrawl_cycle_credit_cap": credit_cap,
         "pacer_paid_activity_requested": False,
         "pacer_paid_activity_executed": False,
@@ -12232,7 +12232,7 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
                         "batch_digest": batch_digest,
                         "docket_html_source": "firecrawl",
                         "proxy": "basic",
-                        "max_attempts_per_target": 1,
+                        "max_attempts_per_target": 3,
                         "raw_html_dir": str(raw_html_dir),
                     },
                     credit_cap=firecrawl_credit_cap,
@@ -12570,6 +12570,9 @@ def _cmd_acquisition_materialize_courtlistener_snapshot(
                 batch_config=batch_config,
                 firecrawl_attempts=firecrawl_attempts,
                 firecrawl_run_summary=firecrawl_run_summary,
+                durable_candidate_observations=(
+                    store.batch_terminal_observations(batch_id)
+                ),
             )
             _validate_frozen_screening_policy(
                 policy=store.cycle_policy,

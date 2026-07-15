@@ -32,6 +32,7 @@ from legalforecast.ingestion.courtlistener_web import (
     starts_with_dispositive_motion,
 )
 from legalforecast.ingestion.cycle_acquisition_store import (
+    CandidateObservation,
     CycleAcquisitionStore,
     CycleAcquisitionStoreError,
 )
@@ -448,14 +449,33 @@ def _discover_courtlistener_mtd_candidates_durable(
     for hit in selected_hits:
         prior = progress_store.batch_terminal_observation(batch_id, hit.candidate_id)
         if prior is not None:
-            if prior.state == "accepted":
-                screened_cases.append(dict(prior.evidence))
-            elif prior.state == "excluded":
-                exclusions.append(_exclusion_from_durable_evidence(prior.evidence))
-            else:  # pragma: no cover - store query restricts terminal states
-                raise CycleAcquisitionStoreError(
-                    f"unsupported durable candidate state: {prior.state}"
-                )
+            _append_durable_observation_result(
+                observation=prior,
+                progress_store=progress_store,
+                screened_cases=screened_cases,
+                exclusions=exclusions,
+            )
+            continue
+
+        current = progress_store.current_observation(hit.candidate_id)
+        if (
+            current is not None
+            and current.state == "excluded"
+            and current.reason_code in _DURABLE_IMMUTABLE_EXCLUSION_REASONS
+        ):
+            skipped = progress_store.record_observation(
+                hit.candidate_id,
+                batch_id=batch_id,
+                state="excluded",
+                reason_code=current.reason_code,
+                evidence=current.evidence,
+            )
+            _append_durable_observation_result(
+                observation=skipped,
+                progress_store=progress_store,
+                screened_cases=screened_cases,
+                exclusions=exclusions,
+            )
             continue
 
         screened, exclusion = _screen_candidate(
@@ -475,14 +495,19 @@ def _discover_courtlistener_mtd_candidates_durable(
         if screened is not None:
             evidence = dict(screened)
             evidence["candidate_id"] = hit.candidate_id
-            progress_store.record_observation(
+            observation = progress_store.record_observation(
                 hit.candidate_id,
                 batch_id=batch_id,
                 state="accepted",
                 reason_code="strict_clean_screen_passed",
                 evidence=evidence,
             )
-            screened_cases.append(evidence)
+            _append_durable_observation_result(
+                observation=observation,
+                progress_store=progress_store,
+                screened_cases=screened_cases,
+                exclusions=exclusions,
+            )
             continue
         if exclusion is None:
             raise CycleAcquisitionStoreError(
@@ -490,14 +515,19 @@ def _discover_courtlistener_mtd_candidates_durable(
             )
         evidence = exclusion.to_record()
         reason_code = _durable_screen_reason_code(exclusion.reason)
-        progress_store.record_observation(
+        observation = progress_store.record_observation(
             hit.candidate_id,
             batch_id=batch_id,
             state="excluded",
             reason_code=reason_code,
             evidence=evidence,
         )
-        exclusions.append(exclusion)
+        _append_durable_observation_result(
+            observation=observation,
+            progress_store=progress_store,
+            screened_cases=screened_cases,
+            exclusions=exclusions,
+        )
 
     per_term: dict[str, dict[str, Any]] = {}
     for term in query_terms:
@@ -558,6 +588,31 @@ def _durable_screen_reason_code(reason: str) -> str:
     }:
         return reason
     return "strict_clean_screen_failed"
+
+
+def _append_durable_observation_result(
+    *,
+    observation: CandidateObservation,
+    progress_store: CycleAcquisitionStore,
+    screened_cases: list[Mapping[str, Any]],
+    exclusions: list[ExclusionLedgerEntry],
+) -> None:
+    resolved = observation
+    if observation.state == "skipped_immutable":
+        resolved = progress_store.current_observation(observation.candidate_id)
+        if resolved is None or resolved.state != "excluded":
+            raise CycleAcquisitionStoreError(
+                "immutable candidate skip lacks canonical exclusion evidence"
+            )
+    if resolved.state == "accepted":
+        screened_cases.append(dict(resolved.evidence))
+        return
+    if resolved.state == "excluded":
+        exclusions.append(_exclusion_from_durable_evidence(resolved.evidence))
+        return
+    raise CycleAcquisitionStoreError(
+        f"unsupported durable candidate state: {resolved.state}"
+    )
 
 
 def _exclusion_from_durable_evidence(

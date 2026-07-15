@@ -22,6 +22,7 @@ from legalforecast.ingestion.firecrawl_source import (
     FirecrawlCourtListenerHTMLSource,
     FirecrawlFixtureTransport,
     FirecrawlHTTPResponse,
+    FirecrawlServerError,
 )
 
 _DOCKET_ID = "123"
@@ -81,6 +82,37 @@ def test_hybrid_discovery_materializes_zero_credit_success_receipt(
     lineage = manifest["stage_commitments"]["courtlistener_discovery_inputs"]
     assert lineage["firecrawl_run_reserved_credits"] == 1
     assert lineage["firecrawl_run_reported_credits"] == 0
+
+
+def test_hybrid_transient_firecrawl_retry_materializes_exact_attempt_lineage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discovery_root, cycle_store = _run_hybrid_discovery(
+        tmp_path,
+        monkeypatch,
+        transient_failures=1,
+    )
+
+    with CycleAcquisitionStore(cycle_store) as store:
+        attempts = store.firecrawl_attempts("hybrid-batch-courtlistener-docket-html-v1")
+    assert [attempt.status for attempt in attempts] == [
+        "provider_error",
+        "succeeded",
+    ]
+    assert attempts[0].failure_code == "provider_server_error"
+    assert attempts[0].failure_transient is True
+    assert [attempt.attempt_number for attempt in attempts] == [1, 2]
+
+    snapshot = _materialize_hybrid(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    manifest = verify_snapshot(snapshot, require_complete=True, require_saturated=True)
+    lineage = manifest["stage_commitments"]["courtlistener_discovery_inputs"]
+    assert lineage["firecrawl_run_reserved_credits"] == 2
+    assert lineage["firecrawl_run_reported_credits"] == 1
 
 
 @pytest.mark.parametrize("failure_kind", ["target_404", "target_410", "abandoned"])
@@ -155,6 +187,35 @@ def test_hybrid_terminal_retrieval_exclusion_materializes_zero_credit_outcomes(
     assert lineage["firecrawl_run_reported_credits"] == 0
 
 
+def test_hybrid_rest_docket_unavailable_materializes_from_durable_checkpoint(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discovery_root, cycle_store = _run_hybrid_discovery_with_terminal_exclusion(
+        tmp_path,
+        monkeypatch,
+        failure_kind="rest_404",
+    )
+
+    [exclusion] = _read_jsonl(
+        discovery_root / "courtlistener-discovery-exclusions.jsonl"
+    )
+    assert exclusion["candidate_id"] == "122"
+    assert exclusion["stage"] == "retrieval"
+    assert exclusion["reason"] == "courtlistener_docket_unavailable"
+    snapshot = _materialize_hybrid(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    manifest = verify_snapshot(snapshot, require_complete=True, require_saturated=True)
+    lineage = manifest["stage_commitments"]["courtlistener_discovery_inputs"]
+    assert lineage["accepted_case_count"] == 1
+    assert lineage["excluded_case_count"] == 1
+    assert lineage["firecrawl_source_receipt_count"] == 1
+    assert lineage["firecrawl_run_reserved_credits"] == 1
+
+
 @pytest.mark.parametrize(
     ("field", "replacement"),
     [
@@ -191,7 +252,8 @@ def test_hybrid_materialization_rejects_unmatched_terminal_retrieval_exclusion(
         )
         == 2
     )
-    assert "Firecrawl" in capsys.readouterr().err
+    error = capsys.readouterr().err
+    assert "Firecrawl" in error or "durable candidate evidence" in error
 
 
 @pytest.mark.parametrize(
@@ -287,6 +349,7 @@ def _run_hybrid_discovery(
     monkeypatch: pytest.MonkeyPatch,
     *,
     reported_credits: int = 1,
+    transient_failures: int = 0,
 ) -> tuple[Path, Path]:
     output_root = tmp_path / "discovery"
     cycle_store = tmp_path / "cycle.sqlite3"
@@ -334,27 +397,31 @@ def _run_hybrid_discovery(
         config=CourtListenerConfig(api_token="fixture-token"),
         transport=CourtListenerFixtureTransport.from_jsonl(fixture_path),
     )
+    success_response = FirecrawlHTTPResponse(
+        status_code=200,
+        payload={
+            "success": True,
+            "data": {
+                "rawHtml": _docket_html(),
+                "metadata": {
+                    "statusCode": 200,
+                    "proxyUsed": "basic",
+                    "cacheState": "miss",
+                    "creditsUsed": reported_credits,
+                    "sourceURL": _DOCKET_URL,
+                },
+            },
+        },
+    )
     firecrawl_source = FirecrawlCourtListenerHTMLSource(
         FirecrawlConfig(api_key="fixture-key", proxy="basic"),
-        transport=FirecrawlFixtureTransport(
-            [
-                FirecrawlHTTPResponse(
-                    status_code=200,
-                    payload={
-                        "success": True,
-                        "data": {
-                            "rawHtml": _docket_html(),
-                            "metadata": {
-                                "statusCode": 200,
-                                "proxyUsed": "basic",
-                                "cacheState": "miss",
-                                "creditsUsed": reported_credits,
-                                "sourceURL": _DOCKET_URL,
-                            },
-                        },
-                    },
-                )
-            ]
+        transport=(
+            _TransientThenSuccessTransport(
+                success_response,
+                transient_failures=transient_failures,
+            )
+            if transient_failures
+            else FirecrawlFixtureTransport([success_response])
         ),
     )
     monkeypatch.setenv("COURTLISTENER_API_TOKEN", "fixture-token")
@@ -455,16 +522,21 @@ def _run_hybrid_discovery_with_terminal_exclusion(
             ),
             _fixture_response(
                 path="/dockets/122/",
-                payload={
-                    "id": 122,
-                    "court": "nysd",
-                    "docket_number": "1:26-cv-00000",
-                    "case_name": "Unavailable v. Example",
-                    "absolute_url": (
-                        "https://www.courtlistener.com/docket/122/"
-                        "unavailable-v-example/"
-                    ),
-                },
+                payload=(
+                    {"detail": "Not found."}
+                    if failure_kind == "rest_404"
+                    else {
+                        "id": 122,
+                        "court": "nysd",
+                        "docket_number": "1:26-cv-00000",
+                        "case_name": "Unavailable v. Example",
+                        "absolute_url": (
+                            "https://www.courtlistener.com/docket/122/"
+                            "unavailable-v-example/"
+                        ),
+                    }
+                ),
+                status_code=404 if failure_kind == "rest_404" else 200,
             ),
             _fixture_response(
                 path=f"/dockets/{_DOCKET_ID}/",
@@ -484,7 +556,9 @@ def _run_hybrid_discovery_with_terminal_exclusion(
     )
     success_response = _firecrawl_success_response(reported_credits)
     transport = (
-        FirecrawlFixtureTransport(
+        FirecrawlFixtureTransport([success_response])
+        if failure_kind == "rest_404"
+        else FirecrawlFixtureTransport(
             [
                 _firecrawl_unavailable_response(
                     int(failure_kind.removeprefix("target_")),
@@ -566,6 +640,34 @@ class _AbandonThenSuccessTransport:
         self._calls += 1
         if self._calls == 1:
             raise RuntimeError("injected provider transport interruption")
+        return self._success_response
+
+
+class _TransientThenSuccessTransport:
+    def __init__(
+        self,
+        success_response: FirecrawlHTTPResponse,
+        *,
+        transient_failures: int,
+    ) -> None:
+        self._success_response = success_response
+        self._remaining_failures = transient_failures
+
+    def scrape(
+        self,
+        *,
+        endpoint: str,
+        headers: Mapping[str, str],
+        payload: Mapping[str, Any],
+        timeout_seconds: float,
+    ) -> FirecrawlHTTPResponse:
+        del endpoint, headers, payload, timeout_seconds
+        if self._remaining_failures:
+            self._remaining_failures -= 1
+            raise FirecrawlServerError(
+                "injected transient provider failure",
+                provider_http_status=503,
+            )
         return self._success_response
 
 
@@ -678,12 +780,13 @@ def _fixture_response(
     path: str,
     payload: dict[str, object],
     params: dict[str, object] | None = None,
+    status_code: int = 200,
 ) -> dict[str, object]:
     return {
         "method": "GET",
         "path": path,
         "params": {} if params is None else params,
-        "status_code": 200,
+        "status_code": status_code,
         "payload": payload,
     }
 

@@ -11,7 +11,10 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from legalforecast.ingestion.cycle_acquisition_store import FirecrawlAttempt
+from legalforecast.ingestion.cycle_acquisition_store import (
+    CandidateObservation,
+    FirecrawlAttempt,
+)
 
 
 class CourtListenerSnapshotMaterializationError(ValueError):
@@ -128,6 +131,7 @@ def verify_courtlistener_discovery(
     batch_config: Mapping[str, object],
     firecrawl_attempts: Sequence[FirecrawlAttempt],
     firecrawl_run_summary: Mapping[str, object] | None,
+    durable_candidate_observations: Sequence[CandidateObservation] = (),
 ) -> VerifiedCourtListenerDiscovery:
     """Verify one completed, saturated, hash-bound direct discovery run."""
 
@@ -222,7 +226,11 @@ def verify_courtlistener_discovery(
         batch_config=batch_config,
     )
     accepted_ids = _accepted_ids(screened_cases, anchor=anchor)
-    excluded_ids = _excluded_ids(exclusions, firecrawl_evidence=firecrawl_evidence)
+    excluded_ids = _excluded_ids(
+        exclusions,
+        firecrawl_evidence=firecrawl_evidence,
+        durable_candidate_observations=durable_candidate_observations,
+    )
     if accepted_ids & excluded_ids:
         raise CourtListenerSnapshotMaterializationError(
             "a candidate appears in both screened cases and exclusions"
@@ -359,13 +367,13 @@ def _validate_discovery_activity(
     if (
         run_card.get("source") != "courtlistener-rest-firecrawl-html"
         or run_card.get("proxy") != "basic"
-        or run_card.get("max_attempts_per_target") != 1
-        or run_card.get("firecrawl_max_credits_per_new_candidate") != 1
+        or run_card.get("max_attempts_per_target") != 3
+        or run_card.get("firecrawl_max_credits_per_new_candidate") != 3
         or run_card.get("reserved_credits_per_attempt") != 1
         or run_card.get("firecrawl_metered_activity_requested") is not True
     ):
         raise CourtListenerSnapshotMaterializationError(
-            "Firecrawl discovery authority is not the one-credit basic-proxy profile"
+            "Firecrawl discovery authority is not the bounded basic-proxy profile"
         )
 
     run_id = _string(summary.get("firecrawl_run_id"), "Firecrawl run ID")
@@ -489,10 +497,11 @@ def _validate_discovery_activity(
             "Firecrawl metered-execution evidence does not match reserved credits"
         )
     if (
-        target_count != run_reserved
-        or successful_count != receipt_count
+        successful_count != receipt_count
         or unavailable_count != provider_unavailable_count + abandoned_count
         or target_count != successful_count + unavailable_count
+        or run_reserved < target_count
+        or run_reserved > target_count * 3
         or run_reported > run_reserved
         or cycle_reserved < run_reserved
         or cycle_reported < run_reported
@@ -506,12 +515,18 @@ def _validate_discovery_activity(
     attempt_counts = _count_mapping(
         run_card.get("attempt_status_counts"), "Firecrawl attempt status counts"
     )
-    if set(attempt_counts) - {"succeeded", "target_error", "interrupted"}:
+    if set(attempt_counts) - {
+        "succeeded",
+        "target_error",
+        "interrupted",
+        "provider_error",
+        "transport_error",
+    }:
         raise CourtListenerSnapshotMaterializationError(
             "Firecrawl discovery contains a nonterminal attempt status"
         )
     if (
-        sum(attempt_counts.values()) != target_count
+        sum(attempt_counts.values()) != run_reserved
         or attempt_counts.get("succeeded", 0) != successful_count
         or attempt_counts.get("target_error", 0) != provider_unavailable_count
         or attempt_counts.get("interrupted", 0) != abandoned_count
@@ -522,64 +537,86 @@ def _validate_discovery_activity(
     failure_counts = _count_mapping(
         run_card.get("failure_code_counts"), "Firecrawl failure code counts"
     )
-    if set(failure_counts) - {
-        "target_http_status_invalid",
-        "authorization_abandoned",
-        "authorization_abandoned_with_orphan",
-    }:
-        raise CourtListenerSnapshotMaterializationError(
-            "Firecrawl discovery contains an unapproved terminal failure"
-        )
-    if (
-        failure_counts.get("target_http_status_invalid", 0)
-        != provider_unavailable_count
-        or failure_counts.get("authorization_abandoned", 0)
-        + failure_counts.get("authorization_abandoned_with_orphan", 0)
-        != abandoned_count
-        or sum(failure_counts.values()) != unavailable_count
-    ):
-        raise CourtListenerSnapshotMaterializationError(
-            "Firecrawl failure codes do not reconcile with unavailable targets"
-        )
     if run_card.get("firecrawl_run_status") not in {"active", "completed"}:
         raise CourtListenerSnapshotMaterializationError(
             "Firecrawl discovery run status is not materializable"
         )
     attempts_by_id: dict[int, FirecrawlAttempt] = {}
-    attempts_by_target: dict[str, FirecrawlAttempt] = {}
+    attempts_by_target: dict[str, list[FirecrawlAttempt]] = {}
     for attempt in firecrawl_attempts:
-        if (
-            attempt.run_id != run_id
-            or attempt.attempt_id in attempts_by_id
-            or attempt.target_id in attempts_by_target
-        ):
+        if attempt.run_id != run_id or attempt.attempt_id in attempts_by_id:
             raise CourtListenerSnapshotMaterializationError(
                 "Firecrawl durable attempt lineage is invalid"
             )
         attempts_by_id[attempt.attempt_id] = attempt
-        attempts_by_target[attempt.target_id] = attempt
-    if len(attempts_by_id) != target_count:
+        attempts_by_target.setdefault(attempt.target_id, []).append(attempt)
+    if len(attempts_by_id) != run_reserved or len(attempts_by_target) != target_count:
         raise CourtListenerSnapshotMaterializationError(
-            "Firecrawl durable attempts do not reconcile with target count"
+            "Firecrawl durable attempts do not reconcile with credit and target counts"
         )
-    successful_attempts = {
-        attempt_id: attempt
-        for attempt_id, attempt in attempts_by_id.items()
-        if attempt.status == "succeeded"
-    }
+    durable_status_counts: dict[str, int] = {}
+    durable_failure_counts: dict[str, int] = {}
+    for attempt in attempts_by_id.values():
+        durable_status_counts[attempt.status] = (
+            durable_status_counts.get(attempt.status, 0) + 1
+        )
+        if attempt.failure_code is not None:
+            durable_failure_counts[attempt.failure_code] = (
+                durable_failure_counts.get(attempt.failure_code, 0) + 1
+            )
+    if (
+        durable_status_counts != attempt_counts
+        or durable_failure_counts != failure_counts
+    ):
+        raise CourtListenerSnapshotMaterializationError(
+            "Firecrawl durable attempt audit counts do not reconcile"
+        )
+
+    successful_attempts: dict[int, FirecrawlAttempt] = {}
+    terminal_unsuccessful_attempts: dict[str, FirecrawlAttempt] = {}
+    for target_id, target_attempts in attempts_by_target.items():
+        ordered_attempts = sorted(
+            target_attempts,
+            key=lambda attempt: attempt.attempt_number,
+        )
+        if (
+            not 1 <= len(ordered_attempts) <= 3
+            or [attempt.attempt_number for attempt in ordered_attempts]
+            != list(range(1, len(ordered_attempts) + 1))
+            or any(
+                attempt.target_id != target_id or attempt.page_number != 1
+                for attempt in ordered_attempts
+            )
+        ):
+            raise CourtListenerSnapshotMaterializationError(
+                "Firecrawl per-target retry lineage is invalid"
+            )
+        for prior_attempt in ordered_attempts[:-1]:
+            _validate_transient_firecrawl_attempt(
+                prior_attempt,
+                expected_run_id=run_id,
+            )
+        final_attempt = ordered_attempts[-1]
+        if final_attempt.status == "succeeded":
+            _validate_successful_firecrawl_attempt(
+                final_attempt,
+                expected_run_id=run_id,
+            )
+            successful_attempts[final_attempt.attempt_id] = final_attempt
+            continue
+        candidate_id = _validate_terminal_firecrawl_attempt(
+            final_attempt,
+            expected_run_id=run_id,
+        )
+        if candidate_id in terminal_unsuccessful_attempts:
+            raise CourtListenerSnapshotMaterializationError(
+                "duplicate terminal Firecrawl candidate lineage"
+            )
+        terminal_unsuccessful_attempts[candidate_id] = final_attempt
     if len(successful_attempts) != successful_count:
         raise CourtListenerSnapshotMaterializationError(
             "Firecrawl durable successful attempts do not reconcile"
         )
-    terminal_unsuccessful_attempts: dict[str, FirecrawlAttempt] = {}
-    for attempt in attempts_by_id.values():
-        if attempt.status == "succeeded":
-            continue
-        candidate_id = _validate_terminal_firecrawl_attempt(
-            attempt,
-            expected_run_id=run_id,
-        )
-        terminal_unsuccessful_attempts[candidate_id] = attempt
     if len(terminal_unsuccessful_attempts) != unavailable_count:
         raise CourtListenerSnapshotMaterializationError(
             "Firecrawl durable terminal attempts do not reconcile"
@@ -745,9 +782,17 @@ def _excluded_ids(
     records: tuple[Mapping[str, Any], ...],
     *,
     firecrawl_evidence: _HybridFirecrawlEvidence | None,
+    durable_candidate_observations: Sequence[CandidateObservation],
 ) -> set[str]:
     ids: set[str] = set()
     terminal_retrieval_ids: set[str] = set()
+    durable_by_candidate: dict[str, CandidateObservation] = {}
+    for observation in durable_candidate_observations:
+        if observation.candidate_id in durable_by_candidate:
+            raise CourtListenerSnapshotMaterializationError(
+                "duplicate durable candidate checkpoint evidence"
+            )
+        durable_by_candidate[observation.candidate_id] = observation
     for row_number, record in enumerate(records, start=1):
         candidate_id = _string(
             record.get("candidate_id"), f"exclusion row {row_number} candidate_id"
@@ -757,16 +802,30 @@ def _excluded_ids(
                 f"duplicate excluded candidate {candidate_id}"
             )
         if record.get("stage") == "retrieval":
-            if (
-                firecrawl_evidence is None
-                or record.get("reason") != "courtlistener_docket_html_unavailable"
+            reason = record.get("reason")
+            if reason == "courtlistener_docket_unavailable":
+                observation = durable_by_candidate.get(candidate_id)
+                if (
+                    observation is None
+                    or observation.state != "excluded"
+                    or observation.reason_code != "strict_clean_screen_failed"
+                    or _canonical_json(observation.evidence) != _canonical_json(record)
+                ):
+                    raise CourtListenerSnapshotMaterializationError(
+                        "CourtListener REST docket-unavailable outcome lacks exact "
+                        f"durable candidate evidence: {candidate_id}"
+                    )
+            elif (
+                reason != "courtlistener_docket_html_unavailable"
+                or firecrawl_evidence is None
                 or candidate_id not in firecrawl_evidence.terminal_unsuccessful_attempts
             ):
                 raise CourtListenerSnapshotMaterializationError(
                     "CourtListener retrieval outcome lacks exact terminal "
                     f"Firecrawl evidence: {candidate_id}"
                 )
-            terminal_retrieval_ids.add(candidate_id)
+            else:
+                terminal_retrieval_ids.add(candidate_id)
         ids.add(candidate_id)
     if firecrawl_evidence is not None and terminal_retrieval_ids != set(
         firecrawl_evidence.terminal_unsuccessful_attempts
@@ -794,7 +853,7 @@ def _validate_terminal_firecrawl_attempt(
         or not candidate_id.isdigit()
         or attempt.run_id != expected_run_id
         or attempt.page_number != 1
-        or attempt.attempt_number != 1
+        or not 1 <= attempt.attempt_number <= 3
         or attempt.request_url
         != f"https://www.courtlistener.com/docket/{candidate_id}/"
         or attempt.reserved_credits != 1
@@ -848,6 +907,114 @@ def _validate_terminal_firecrawl_attempt(
             f"Firecrawl terminal attempt is not an admitted outcome: {candidate_id}"
         )
     return candidate_id
+
+
+def _validate_transient_firecrawl_attempt(
+    attempt: FirecrawlAttempt,
+    *,
+    expected_run_id: str,
+) -> None:
+    prefix = "courtlistener-docket:"
+    candidate_id = attempt.target_id.removeprefix(prefix)
+    if (
+        not attempt.target_id.startswith(prefix)
+        or not candidate_id.isascii()
+        or not candidate_id.isdigit()
+        or attempt.run_id != expected_run_id
+        or attempt.page_number != 1
+        or not 1 <= attempt.attempt_number < 3
+        or attempt.request_url
+        != f"https://www.courtlistener.com/docket/{candidate_id}/"
+        or attempt.reserved_credits != 1
+        or attempt.status not in {"provider_error", "transport_error"}
+        or attempt.failure_transient is not True
+        or attempt.failure_code
+        not in {
+            "firecrawl_error",
+            "provider_auth_error",
+            "provider_payment_required",
+            "provider_rate_limit",
+            "provider_server_error",
+        }
+        or not isinstance(attempt.failure_message, str)
+        or not attempt.failure_message.strip()
+        or attempt.reported_credits is not None
+        or attempt.proxy_used is not None
+        or attempt.target_http_status is not None
+        or attempt.artifact_path is not None
+        or attempt.artifact_sha256 is not None
+        or attempt.artifact_byte_count is not None
+    ):
+        raise CourtListenerSnapshotMaterializationError(
+            f"Firecrawl transient attempt lineage is invalid for {candidate_id}"
+        )
+    if (
+        attempt.failure_response_sha256 is not None
+        and _SHA256.fullmatch(attempt.failure_response_sha256) is None
+    ):
+        raise CourtListenerSnapshotMaterializationError(
+            f"Firecrawl transient response hash is invalid for {candidate_id}"
+        )
+    authorized_at = _canonical_utc_datetime(
+        attempt.authorized_at,
+        f"Firecrawl transient authorization time for {candidate_id}",
+    )
+    completed_at = _canonical_utc_datetime(
+        attempt.completed_at,
+        f"Firecrawl transient completion time for {candidate_id}",
+    )
+    if completed_at < authorized_at:
+        raise CourtListenerSnapshotMaterializationError(
+            f"Firecrawl transient attempt timestamps are invalid for {candidate_id}"
+        )
+
+
+def _validate_successful_firecrawl_attempt(
+    attempt: FirecrawlAttempt,
+    *,
+    expected_run_id: str,
+) -> None:
+    prefix = "courtlistener-docket:"
+    candidate_id = attempt.target_id.removeprefix(prefix)
+    if (
+        not attempt.target_id.startswith(prefix)
+        or not candidate_id.isascii()
+        or not candidate_id.isdigit()
+        or attempt.run_id != expected_run_id
+        or attempt.page_number != 1
+        or not 1 <= attempt.attempt_number <= 3
+        or attempt.request_url
+        != f"https://www.courtlistener.com/docket/{candidate_id}/"
+        or attempt.reserved_credits != 1
+        or attempt.status != "succeeded"
+        or attempt.reported_credits not in {0, 1}
+        or attempt.proxy_used != "basic"
+        or attempt.target_http_status != 200
+        or attempt.failure_code is not None
+        or attempt.failure_message is not None
+        or attempt.failure_transient is not None
+        or attempt.failure_response_sha256 is not None
+        or attempt.artifact_path is None
+        or attempt.artifact_sha256 is None
+        or _SHA256.fullmatch(attempt.artifact_sha256) is None
+        or attempt.artifact_byte_count is None
+        or attempt.artifact_byte_count <= 0
+    ):
+        raise CourtListenerSnapshotMaterializationError(
+            f"Firecrawl successful attempt lineage is invalid for {candidate_id}"
+        )
+    authorized_at = _canonical_utc_datetime(
+        attempt.authorized_at,
+        f"Firecrawl successful authorization time for {candidate_id}",
+    )
+    completed_at = _canonical_utc_datetime(
+        attempt.completed_at,
+        f"Firecrawl successful completion time for {candidate_id}",
+    )
+    if completed_at < authorized_at:
+        raise CourtListenerSnapshotMaterializationError(
+            f"Firecrawl successful attempt timestamps are invalid for {candidate_id}"
+        )
 
 
 def _validate_transcript(
@@ -1219,7 +1386,7 @@ def _verify_firecrawl_source_receipt(
         attempt.run_id != expected_run_id
         or attempt.target_id != f"courtlistener-docket:{candidate_id}"
         or attempt.page_number != 1
-        or attempt.attempt_number != 1
+        or not 1 <= attempt.attempt_number <= 3
         or attempt.request_url != receipt.get("request_url")
         or attempt.status != "succeeded"
         or attempt.reserved_credits != receipt.get("reserved_credits")
