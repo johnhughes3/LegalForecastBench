@@ -74,6 +74,27 @@ CREATE TABLE IF NOT EXISTS replacement_events (
 );
 """
 
+_PURCHASE_MATERIAL_SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS purchase_material_state (
+    source_document_id TEXT PRIMARY KEY
+        REFERENCES purchase_operations(source_document_id) ON DELETE RESTRICT,
+    authority TEXT NOT NULL CHECK(authority IN
+        ('ordinary_public','unknown_status_attempt')),
+    status TEXT NOT NULL CHECK(status IN
+        ('not_recovered','available_pending_quarantine',
+         'recovered_pending_clearance','cleared_public')),
+    attempt_policy_sha256 TEXT,
+    attempt_document_sha256 TEXT,
+    provider_detail_sha256 TEXT,
+    queue_response_sha256 TEXT,
+    download_url_sha256 TEXT,
+    content_sha256 TEXT,
+    byte_count INTEGER,
+    clearance_record_sha256 TEXT,
+    resolved_record_sha256 TEXT
+);
+"""
+
 
 class CaseDevPurchasePolicyError(ValueError):
     """Raised when the immutable cycle purchase policy is invalid or conflicts."""
@@ -89,6 +110,15 @@ class CaseDevPurchaseLedgerBusyError(CaseDevPurchaseLedgerError):
 
 class CaseDevPurchaseReconciliationRequired(CaseDevPurchaseLedgerError):
     """Raised when an ambiguous paid request needs provider-side evidence."""
+
+
+class PurchaseMaterialState(StrEnum):
+    """Usability of purchased bytes, independent of their billing outcome."""
+
+    NOT_RECOVERED = "not_recovered"
+    AVAILABLE_PENDING_QUARANTINE = "available_pending_quarantine"
+    RECOVERED_PENDING_CLEARANCE = "recovered_pending_clearance"
+    CLEARED_PUBLIC = "cleared_public"
 
 
 @dataclass(frozen=True, slots=True)
@@ -961,10 +991,30 @@ def _verify_existing_purchase_ledger_under_lock(
                 raise CaseDevPurchaseLedgerError(
                     "purchase ledger is missing the authenticated runtime schema"
                 )
-            if "'queued'" not in tables["purchase_operations"]:
+            expected_operation_columns = {
+                "source_document_id",
+                "candidate_id",
+                "reservation_usd",
+                "status",
+                "operation_key",
+                "actual_usd",
+                "response_json",
+                "error",
+                "reconciliation_json",
+            }
+            actual_operation_columns = {
+                str(row["name"])
+                for row in connection.execute(
+                    "PRAGMA table_info(purchase_operations)"
+                ).fetchall()
+            }
+            if actual_operation_columns != expected_operation_columns:
                 raise CaseDevPurchaseLedgerError(
-                    "purchase ledger schema predates the required queued state"
+                    "purchase operations schema is not an exact supported version"
                 )
+            # A legacy initialized ledger may predate asynchronous `queued`.
+            # The caller still holds the canonical external lock and performs
+            # the only accepted in-place migration before any provider action.
         finally:
             connection.close()
     except sqlite3.Error as exc:
@@ -975,6 +1025,8 @@ def _verify_existing_purchase_ledger_under_lock(
 
 def _create_purchase_ledger_schema(connection: sqlite3.Connection) -> None:
     connection.executescript(_PURCHASE_LEDGER_SCHEMA_SQL)
+    connection.executescript(_PURCHASE_MATERIAL_SCHEMA_SQL)
+    connection.execute("PRAGMA user_version=2")
 
 
 def _purchase_ledger_policy_identity(
@@ -1075,6 +1127,7 @@ class CaseDevPurchaseJournal:
                 self.path, isolation_level=None
             )
             self._connection.row_factory = sqlite3.Row
+            self._connection.execute("PRAGMA foreign_keys=ON")
             self._connection.execute("PRAGMA journal_mode=WAL")
             self._connection.execute("PRAGMA synchronous=FULL")
             self._create_schema()
@@ -1134,6 +1187,12 @@ class CaseDevPurchaseJournal:
                         VALUES (?, ?, ?, 'planned')""",
                         (document_id, case_plan.candidate_id, _money(reservation)),
                     )
+                    self._connection.execute(
+                        """INSERT OR IGNORE INTO purchase_material_state(
+                        source_document_id, authority, status)
+                        VALUES (?, 'ordinary_public', 'not_recovered')""",
+                        (document_id,),
+                    )
                     row = self._operation(document_id)
                     assert row is not None
                     if str(row["candidate_id"]) != case_plan.candidate_id or str(
@@ -1142,6 +1201,88 @@ class CaseDevPurchaseJournal:
                         raise CaseDevPurchaseLedgerError(
                             f"purchase intent conflicts for document {document_id}"
                         )
+
+    def authorize_unknown_material_attempts(
+        self,
+        allowed_documents: Mapping[str, Mapping[str, str]],
+        *,
+        attempt_policy_sha256: str,
+    ) -> None:
+        """Bind exact unknown-status attempt authority before any paid submit.
+
+        This changes only the material-clearance track. Billing reservations and
+        operation keys remain owned by this journal's ordinary purchase state
+        machine and single-writer lock.
+        """
+
+        if _SHA256.fullmatch(attempt_policy_sha256) is None:
+            raise CaseDevPurchaseLedgerError(
+                "attempt policy SHA-256 must be lowercase hexadecimal"
+            )
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            for document_id, authority_record in sorted(allowed_documents.items()):
+                candidate_id = authority_record.get("case_id")
+                document_sha256 = authority_record.get("selection_document_sha256")
+                if (
+                    not isinstance(candidate_id, str)
+                    or _SHA256.fullmatch(str(document_sha256)) is None
+                ):
+                    raise CaseDevPurchaseLedgerError(
+                        "unknown-attempt document authority is invalid"
+                    )
+                row = self._operation(document_id)
+                if row is None:
+                    raise CaseDevPurchaseLedgerError(
+                        f"unknown-attempt document is not planned: {document_id}"
+                    )
+                if str(row["candidate_id"]) != candidate_id:
+                    raise CaseDevPurchaseLedgerError(
+                        f"unknown-attempt candidate identity conflicts: {document_id}"
+                    )
+                if str(row["status"]) != "planned":
+                    raise CaseDevPurchaseLedgerError(
+                        "unknown-attempt authority must be bound before submit"
+                    )
+                material = self._material(document_id)
+                if material is None:
+                    raise CaseDevPurchaseLedgerError(
+                        f"purchase material state is missing: {document_id}"
+                    )
+                authority = str(material["authority"])
+                prior_policy = material["attempt_policy_sha256"]
+                prior_document = material["attempt_document_sha256"]
+                if authority == "unknown_status_attempt":
+                    if (
+                        prior_policy != attempt_policy_sha256
+                        or prior_document != document_sha256
+                    ):
+                        raise CaseDevPurchaseLedgerError(
+                            "unknown-attempt authority is immutable"
+                        )
+                    continue
+                if authority != "ordinary_public" or prior_policy is not None:
+                    raise CaseDevPurchaseLedgerError(
+                        "purchase material authority is invalid"
+                    )
+                cursor = self._connection.execute(
+                    """UPDATE purchase_material_state
+                    SET authority='unknown_status_attempt',
+                        attempt_policy_sha256=?, attempt_document_sha256=?
+                    WHERE source_document_id=? AND status='not_recovered'
+                      AND authority='ordinary_public'
+                      AND attempt_policy_sha256 IS NULL
+                      AND attempt_document_sha256 IS NULL""",
+                    (attempt_policy_sha256, document_sha256, document_id),
+                )
+                if cursor.rowcount != 1:
+                    raise CaseDevPurchaseLedgerError(
+                        "unknown-attempt authority transition failed"
+                    )
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
 
     def require_reconciled(self) -> None:
         row = self._connection.execute(
@@ -1223,6 +1364,13 @@ class CaseDevPurchaseJournal:
         row = self._operation(document_id)
         if row is None:
             raise CaseDevPurchaseLedgerError("purchase operation is missing")
+        material = self._material(document_id)
+        if material is None:
+            raise CaseDevPurchaseLedgerError("purchase material state is missing")
+        if str(material["authority"]) == "unknown_status_attempt":
+            raise CaseDevPurchaseLedgerError(
+                "unknown-status billing must use URL-free broker reconciliation"
+            )
         if actual > Decimal(str(row["reservation_usd"])):
             with self._connection:
                 cursor = self._connection.execute(
@@ -1271,6 +1419,17 @@ class CaseDevPurchaseJournal:
     ) -> None:
         """Confirm delivery while retaining the worst-case reservation as spend."""
 
+        row = self._operation(document_id)
+        if row is None:
+            raise CaseDevPurchaseLedgerError("purchase operation is missing")
+        material = self._material(document_id)
+        if material is None:
+            raise CaseDevPurchaseLedgerError("purchase material state is missing")
+        if str(material["authority"]) == "unknown_status_attempt":
+            raise CaseDevPurchaseLedgerError(
+                "unknown-status recovery must remain quarantined"
+            )
+
         with self._connection:
             cursor = self._connection.execute(
                 """UPDATE purchase_operations SET status='confirmed',
@@ -1280,6 +1439,238 @@ class CaseDevPurchaseJournal:
             )
             if cursor.rowcount != 1:
                 raise CaseDevPurchaseLedgerError("cannot confirm unqueued purchase")
+
+    def mark_material_available_for_quarantine(
+        self,
+        document_id: str,
+        *,
+        provider_detail_sha256: str,
+        queue_response_sha256: str,
+        download_url_sha256: str,
+    ) -> None:
+        """Record available unknown material without changing billing state."""
+
+        for label, digest in (
+            ("provider detail", provider_detail_sha256),
+            ("queue response", queue_response_sha256),
+            ("download URL", download_url_sha256),
+        ):
+            if _SHA256.fullmatch(digest) is None:
+                raise CaseDevPurchaseLedgerError(
+                    f"{label} digest must be lowercase SHA-256"
+                )
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            operation = self._operation(document_id)
+            material = self._material(document_id)
+            if operation is None or material is None:
+                raise CaseDevPurchaseLedgerError("purchase operation is missing")
+            if operation["operation_key"] is None or str(operation["status"]) not in {
+                "submitted",
+                "queued",
+                "unknown",
+                "confirmed",
+            }:
+                raise CaseDevPurchaseLedgerError(
+                    "unknown material availability requires consumed submit authority"
+                )
+            if str(material["status"]) == (
+                PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE.value
+            ):
+                expected = (
+                    provider_detail_sha256,
+                    queue_response_sha256,
+                    download_url_sha256,
+                )
+                actual = (
+                    material["provider_detail_sha256"],
+                    material["queue_response_sha256"],
+                    material["download_url_sha256"],
+                )
+                if actual != expected:
+                    raise CaseDevPurchaseLedgerError(
+                        "unknown material availability replay conflicts"
+                    )
+                self._connection.commit()
+                return
+            cursor = self._connection.execute(
+                """UPDATE purchase_material_state
+                SET status=?, provider_detail_sha256=?, queue_response_sha256=?,
+                    download_url_sha256=?
+                WHERE source_document_id=?
+                  AND authority='unknown_status_attempt'
+                  AND status=?""",
+                (
+                    PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE.value,
+                    provider_detail_sha256,
+                    queue_response_sha256,
+                    download_url_sha256,
+                    document_id,
+                    PurchaseMaterialState.NOT_RECOVERED.value,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "cannot mark unavailable or already-recovered material available"
+                )
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+
+    def record_quarantined_material_bytes(
+        self,
+        document_id: str,
+        *,
+        content_sha256: str,
+        byte_count: int,
+    ) -> None:
+        """Commit quarantined bytes without making them parser-eligible."""
+
+        if (
+            _SHA256.fullmatch(content_sha256) is None
+            or isinstance(byte_count, bool)
+            or byte_count <= 0
+        ):
+            raise CaseDevPurchaseLedgerError(
+                "quarantined bytes require canonical SHA-256 and positive size"
+            )
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            operation = self._operation(document_id)
+            material = self._material(document_id)
+            if operation is None or material is None:
+                raise CaseDevPurchaseLedgerError("purchase operation is missing")
+            if operation["operation_key"] is None or str(operation["status"]) not in {
+                "submitted",
+                "queued",
+                "unknown",
+                "confirmed",
+            }:
+                raise CaseDevPurchaseLedgerError(
+                    "quarantined bytes require consumed submit authority"
+                )
+            if str(material["status"]) == (
+                PurchaseMaterialState.RECOVERED_PENDING_CLEARANCE.value
+            ):
+                if (
+                    material["content_sha256"] != content_sha256
+                    or material["byte_count"] != byte_count
+                ):
+                    raise CaseDevPurchaseLedgerError(
+                        "quarantined material replay conflicts"
+                    )
+                self._connection.commit()
+                return
+            cursor = self._connection.execute(
+                """UPDATE purchase_material_state
+                SET status=?, content_sha256=?, byte_count=?
+                WHERE source_document_id=?
+                  AND authority='unknown_status_attempt'
+                  AND status=?""",
+                (
+                    PurchaseMaterialState.RECOVERED_PENDING_CLEARANCE.value,
+                    content_sha256,
+                    byte_count,
+                    document_id,
+                    PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE.value,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "quarantined bytes require available unknown-status material"
+                )
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+
+    def clear_unknown_material(
+        self,
+        document_id: str,
+        *,
+        resolved_record: Mapping[str, Any],
+    ) -> None:
+        """Make exact cleared bytes usable without changing billing state."""
+
+        record_sha256 = resolved_record.get("record_sha256")
+        if (
+            not isinstance(record_sha256, str)
+            or _SHA256.fullmatch(record_sha256) is None
+        ):
+            raise CaseDevPurchaseLedgerError("resolved material record hash is invalid")
+        unhashed = {
+            key: value
+            for key, value in resolved_record.items()
+            if key != "record_sha256"
+        }
+        if hashlib.sha256(_canonical(unhashed).encode()).hexdigest() != record_sha256:
+            raise CaseDevPurchaseLedgerError("resolved material record hash changed")
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            operation = self._operation(document_id)
+            material = self._material(document_id)
+            if operation is None or material is None:
+                raise CaseDevPurchaseLedgerError("purchase operation is missing")
+            expected = {
+                "candidate_id": str(operation["candidate_id"]),
+                "source_document_id": document_id,
+                "recovery_origin": "unknown_status_attempt",
+                "attempt_policy_sha256": material["attempt_policy_sha256"],
+                "selection_document_sha256": material["attempt_document_sha256"],
+                "queue_response_sha256": material["queue_response_sha256"],
+                "fresh_recap_detail_sha256": material["provider_detail_sha256"],
+                "download_url_sha256": material["download_url_sha256"],
+                "content_sha256": material["content_sha256"],
+                "byte_count": material["byte_count"],
+                "parser_eligible": True,
+                "packet_eligible": True,
+            }
+            if any(
+                resolved_record.get(key) != value for key, value in expected.items()
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "resolved material does not bind canonical purchase lineage"
+                )
+            clearance_sha256 = resolved_record.get("clearance_record_sha256")
+            if (
+                not isinstance(clearance_sha256, str)
+                or _SHA256.fullmatch(clearance_sha256) is None
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "resolved material clearance hash is invalid"
+                )
+            if str(material["status"]) == PurchaseMaterialState.CLEARED_PUBLIC.value:
+                if (
+                    material["resolved_record_sha256"] != record_sha256
+                    or material["clearance_record_sha256"] != clearance_sha256
+                ):
+                    raise CaseDevPurchaseLedgerError(
+                        "resolved material replay conflicts"
+                    )
+                self._connection.commit()
+                return
+            cursor = self._connection.execute(
+                """UPDATE purchase_material_state SET status=?,
+                clearance_record_sha256=?, resolved_record_sha256=?
+                WHERE source_document_id=? AND authority='unknown_status_attempt'
+                  AND status=?""",
+                (
+                    PurchaseMaterialState.CLEARED_PUBLIC.value,
+                    clearance_sha256,
+                    record_sha256,
+                    document_id,
+                    PurchaseMaterialState.RECOVERED_PENDING_CLEARANCE.value,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "unknown material is not awaiting clearance"
+                )
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
 
     def queued_response(self, document_id: str) -> Mapping[str, Any] | None:
         """Return durable asynchronous provider state without mutating the ledger."""
@@ -1298,6 +1689,9 @@ class CaseDevPurchaseJournal:
         row = self._operation(document_id)
         if row is None:
             return None
+        material = self._material(document_id)
+        if material is None:
+            raise CaseDevPurchaseLedgerError("purchase material state is missing")
         response = (
             None
             if row["response_json"] is None
@@ -1322,6 +1716,37 @@ class CaseDevPurchaseJournal:
                 )
             ),
             "error": None if row["error"] is None else str(row["error"]),
+            "material_authority": str(material["authority"]),
+            "material_state": PurchaseMaterialState(str(material["status"])),
+            "attempt_policy_sha256": (
+                None
+                if material["attempt_policy_sha256"] is None
+                else str(material["attempt_policy_sha256"])
+            ),
+            "attempt_document_sha256": (
+                None
+                if material["attempt_document_sha256"] is None
+                else str(material["attempt_document_sha256"])
+            ),
+            "material_evidence": (
+                {
+                    key: material[key]
+                    for key in (
+                        "provider_detail_sha256",
+                        "queue_response_sha256",
+                        "download_url_sha256",
+                        "content_sha256",
+                        "byte_count",
+                        "clearance_record_sha256",
+                    )
+                    if material[key] is not None
+                }
+            ),
+            "resolved_document_sha256": (
+                None
+                if material["resolved_record_sha256"] is None
+                else str(material["resolved_record_sha256"])
+            ),
         }
 
     def record_broker_receipt(
@@ -1509,6 +1934,16 @@ class CaseDevPurchaseJournal:
             raise CaseDevPurchaseLedgerError(
                 "reconciliation requires a paid or reserved operation"
             )
+        material = self._material(document_id)
+        if material is None:
+            raise CaseDevPurchaseLedgerError("purchase material state is missing")
+        if (
+            str(material["authority"]) == "unknown_status_attempt"
+            and disposition == "confirmed"
+        ):
+            raise CaseDevPurchaseLedgerError(
+                "unknown-status billing must use URL-free broker reconciliation"
+            )
         reconciliation = _canonical(evidence)
         if disposition == "confirmed":
             fees = _pacer_fees(evidence.get("pacer_fees"))
@@ -1594,6 +2029,118 @@ class CaseDevPurchaseJournal:
             "reconciliation disposition must be confirmed, failed, or write_off"
         )
 
+    def reconcile_unknown_broker_billing(
+        self,
+        document_id: str,
+        *,
+        actual_usd: str,
+        evidence_sha256: str,
+        source_reference: str,
+    ) -> None:
+        """Settle unknown-origin billing without persisting a material locator."""
+
+        try:
+            actual = Decimal(actual_usd)
+        except InvalidOperation as exc:
+            raise CaseDevPurchaseLedgerError(
+                "broker billing amount is invalid"
+            ) from exc
+        if _money(actual) != actual_usd or actual <= 0:
+            raise CaseDevPurchaseLedgerError(
+                "broker billing amount must be canonical positive USD"
+            )
+        if _SHA256.fullmatch(evidence_sha256) is None or not source_reference:
+            raise CaseDevPurchaseLedgerError(
+                "broker billing evidence identity is invalid"
+            )
+        row = self._operation(document_id)
+        material = self._material(document_id)
+        if row is None or material is None:
+            raise CaseDevPurchaseLedgerError("purchase operation is missing")
+        if str(material["authority"]) != "unknown_status_attempt":
+            raise CaseDevPurchaseLedgerError(
+                "URL-free broker reconciliation requires unknown attempt authority"
+            )
+        if actual > Decimal(str(row["reservation_usd"])):
+            raise CaseDevPurchaseLedgerError(
+                "broker fee exceeds verified worst-case reservation"
+            )
+        expected_reference = (
+            f"recap-fetch-broker:{row['operation_key']}:{evidence_sha256}"
+        )
+        if source_reference != expected_reference:
+            raise CaseDevPurchaseLedgerError(
+                "broker billing source does not bind the operation key"
+            )
+        response: Mapping[str, Any] = (
+            cast(Mapping[str, Any], {})
+            if row["response_json"] is None
+            else cast(Mapping[str, Any], json.loads(str(row["response_json"])))
+        )
+        receipt_history_raw: object = response.get("broker_receipts")
+        receipt_matches = False
+        if isinstance(receipt_history_raw, list):
+            for item in cast(list[object], receipt_history_raw):
+                if not isinstance(item, Mapping):
+                    continue
+                item_record = cast(Mapping[str, object], item)
+                receipt_raw: object = item_record.get("receipt")
+                if not isinstance(receipt_raw, Mapping):
+                    continue
+                receipt = cast(Mapping[str, Any], receipt_raw)
+                billing_raw: object = receipt.get("billing_evidence")
+                billing = (
+                    cast(Mapping[str, Any], billing_raw)
+                    if isinstance(billing_raw, Mapping)
+                    else None
+                )
+                if (
+                    receipt.get("state") == "confirmed"
+                    and receipt.get("operation_key") == row["operation_key"]
+                    and receipt.get("authoritative_fee_usd") == actual_usd
+                    and billing is not None
+                    and billing.get("evidence_sha256") == evidence_sha256
+                ):
+                    receipt_matches = True
+                    break
+        if not receipt_matches:
+            raise CaseDevPurchaseLedgerError(
+                "broker billing lacks a matching persisted validated receipt"
+            )
+        evidence = {
+            "source_document_id": document_id,
+            "disposition": "confirmed",
+            "source_type": "statement_export",
+            "source_reference": source_reference,
+            "pacer_fees": {
+                "pacerFee": actual_usd,
+                "serviceFee": "0.00",
+                "total": actual_usd,
+            },
+            "download_url": None,
+            "billing_evidence_sha256": evidence_sha256,
+        }
+        if str(row["status"]) == "confirmed":
+            if row["actual_usd"] == actual_usd and row[
+                "reconciliation_json"
+            ] == _canonical(evidence):
+                return
+            raise CaseDevPurchaseLedgerError(
+                "broker billing reconciliation is immutable"
+            )
+        with self._connection:
+            cursor = self._connection.execute(
+                """UPDATE purchase_operations SET status='confirmed', actual_usd=?,
+                reconciliation_json=?, error=NULL
+                WHERE source_document_id=? AND status IN
+                    ('submitted','queued','confirmed','unknown')""",
+                (_money(actual), _canonical(evidence), document_id),
+            )
+            if cursor.rowcount != 1:
+                raise CaseDevPurchaseLedgerError(
+                    "broker billing reconciliation transition failed"
+                )
+
     def statuses(self) -> dict[str, str]:
         rows = self._connection.execute(
             """SELECT source_document_id, status FROM purchase_operations
@@ -1605,9 +2152,17 @@ class CaseDevPurchaseJournal:
         """Return canonical purchase rows for offline audit and replacement logic."""
 
         rows = self._connection.execute(
-            """SELECT source_document_id, candidate_id, reservation_usd, status,
-            operation_key, actual_usd, response_json, error, reconciliation_json
-            FROM purchase_operations ORDER BY source_document_id"""
+            """SELECT o.source_document_id, o.candidate_id, o.reservation_usd,
+            o.status, o.operation_key, o.actual_usd, o.response_json, o.error,
+            o.reconciliation_json, m.authority AS material_authority,
+            m.status AS material_status, m.attempt_policy_sha256,
+            m.attempt_document_sha256,
+            m.provider_detail_sha256, m.queue_response_sha256,
+            m.download_url_sha256, m.content_sha256, m.byte_count,
+            m.clearance_record_sha256, m.resolved_record_sha256
+            FROM purchase_operations AS o
+            JOIN purchase_material_state AS m USING(source_document_id)
+            ORDER BY o.source_document_id"""
         ).fetchall()
         return tuple(
             MappingProxyType(
@@ -1634,6 +2189,37 @@ class CaseDevPurchaseJournal:
                         None
                         if row["reconciliation_json"] is None
                         else json.loads(str(row["reconciliation_json"]))
+                    ),
+                    "material_authority": str(row["material_authority"]),
+                    "material_state": str(row["material_status"]),
+                    "attempt_policy_sha256": (
+                        None
+                        if row["attempt_policy_sha256"] is None
+                        else str(row["attempt_policy_sha256"])
+                    ),
+                    "attempt_document_sha256": (
+                        None
+                        if row["attempt_document_sha256"] is None
+                        else str(row["attempt_document_sha256"])
+                    ),
+                    "material_evidence": (
+                        {
+                            key: row[key]
+                            for key in (
+                                "provider_detail_sha256",
+                                "queue_response_sha256",
+                                "download_url_sha256",
+                                "content_sha256",
+                                "byte_count",
+                                "clearance_record_sha256",
+                            )
+                            if row[key] is not None
+                        }
+                    ),
+                    "resolved_document_sha256": (
+                        None
+                        if row["resolved_record_sha256"] is None
+                        else str(row["resolved_record_sha256"])
                     ),
                 }
             )
@@ -1860,6 +2446,21 @@ class CaseDevPurchaseJournal:
             return None
         status = str(row["status"])
         if status == "confirmed":
+            material = self._material(document_id)
+            if material is None:
+                raise CaseDevPurchaseLedgerError("purchase material state is missing")
+            if (
+                str(material["authority"]) == "unknown_status_attempt"
+                and str(material["status"])
+                != PurchaseMaterialState.CLEARED_PUBLIC.value
+            ):
+                return CaseDevPacerPurchaseAttempt(
+                    candidate_id=candidate_id,
+                    source_document_id=document_id,
+                    status=CaseDevPacerPurchaseStatus.QUARANTINED,
+                    reason="unknown_status_material_pending_clearance",
+                    source_provider="courtlistener.recap-fetch+pacer",
+                )
             response_json = row["response_json"]
             if response_json is not None:
                 response = cast(Mapping[str, Any], json.loads(str(response_json)))
@@ -1930,6 +2531,12 @@ class CaseDevPurchaseJournal:
             (document_id,),
         ).fetchone()
 
+    def _material(self, document_id: str) -> sqlite3.Row | None:
+        return self._connection.execute(
+            """SELECT * FROM purchase_material_state WHERE source_document_id=?""",
+            (document_id,),
+        ).fetchone()
+
     def _candidate_cap_amount(self, candidate_id: str) -> Decimal:
         rows = self._connection.execute(
             """SELECT status, reservation_usd, actual_usd, response_json,
@@ -1963,13 +2570,219 @@ class CaseDevPurchaseJournal:
         return amount
 
     def _create_schema(self) -> None:
-        _create_purchase_ledger_schema(self._connection)
+        self._connection.executescript(_PURCHASE_LEDGER_SCHEMA_SQL)
         schema_row = self._connection.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' "
             "AND name='purchase_operations'"
         ).fetchone()
         if schema_row is not None and "'queued'" not in str(schema_row["sql"]):
             self._migrate_purchase_operations_for_queued_state()
+        self._connection.executescript(_PURCHASE_MATERIAL_SCHEMA_SQL)
+        self._migrate_purchase_material_state()
+
+    def _migrate_purchase_material_state(self) -> None:
+        """Backfill the one-to-one material track under the canonical lock."""
+
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            self._connection.execute(
+                """INSERT INTO purchase_material_state(
+                source_document_id, authority, status)
+                SELECT source_document_id, 'ordinary_public', 'not_recovered'
+                FROM purchase_operations
+                WHERE source_document_id NOT IN (
+                    SELECT source_document_id FROM purchase_material_state
+                )"""
+            )
+            operation_count = int(
+                self._connection.execute(
+                    "SELECT COUNT(*) FROM purchase_operations"
+                ).fetchone()[0]
+            )
+            material_count = int(
+                self._connection.execute(
+                    "SELECT COUNT(*) FROM purchase_material_state"
+                ).fetchone()[0]
+            )
+            if operation_count != material_count:
+                raise CaseDevPurchaseLedgerError(
+                    "purchase material state does not exactly cover operations"
+                )
+            expected_columns = {
+                "source_document_id",
+                "authority",
+                "status",
+                "attempt_policy_sha256",
+                "attempt_document_sha256",
+                "provider_detail_sha256",
+                "queue_response_sha256",
+                "download_url_sha256",
+                "content_sha256",
+                "byte_count",
+                "clearance_record_sha256",
+                "resolved_record_sha256",
+            }
+            actual_columns = {
+                str(row["name"])
+                for row in self._connection.execute(
+                    "PRAGMA table_info(purchase_material_state)"
+                ).fetchall()
+            }
+            if actual_columns != expected_columns:
+                raise CaseDevPurchaseLedgerError(
+                    "purchase material state schema is invalid"
+                )
+            foreign_keys = self._connection.execute(
+                "PRAGMA foreign_key_list(purchase_material_state)"
+            ).fetchall()
+            if len(foreign_keys) != 1 or str(foreign_keys[0]["table"]) != (
+                "purchase_operations"
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "purchase material state foreign key is invalid"
+                )
+            if (
+                self._connection.execute("PRAGMA foreign_key_check").fetchone()
+                is not None
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    "purchase material state failed foreign-key validation"
+                )
+            self._validate_material_state_rows()
+            self._connection.execute("PRAGMA user_version=2")
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+        self._validate_material_state_rows()
+
+    def _validate_material_state_rows(self) -> None:
+        """Refuse malformed or contradictory material state after migration."""
+
+        rows = self._connection.execute(
+            """SELECT source_document_id, authority, status,
+            attempt_policy_sha256, attempt_document_sha256,
+            provider_detail_sha256,
+            queue_response_sha256, download_url_sha256, content_sha256,
+            byte_count, clearance_record_sha256, resolved_record_sha256
+            FROM purchase_material_state"""
+        ).fetchall()
+        allowed_states = {state.value for state in PurchaseMaterialState}
+        for row in rows:
+            document_id = str(row["source_document_id"])
+            authority = str(row["authority"])
+            material_status = str(row["status"])
+            attempt_policy = row["attempt_policy_sha256"]
+            attempt_document = row["attempt_document_sha256"]
+            resolved = row["resolved_record_sha256"]
+            if authority not in {"ordinary_public", "unknown_status_attempt"}:
+                raise CaseDevPurchaseLedgerError(
+                    f"purchase material authority is invalid: {document_id}"
+                )
+            if material_status not in allowed_states:
+                raise CaseDevPurchaseLedgerError(
+                    f"purchase material state is invalid: {document_id}"
+                )
+            if authority == "ordinary_public" and (
+                attempt_policy is not None or attempt_document is not None
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    f"ordinary-public material has attempt authority: {document_id}"
+                )
+            if authority == "unknown_status_attempt" and (
+                not isinstance(attempt_policy, str)
+                or _SHA256.fullmatch(attempt_policy) is None
+                or not isinstance(attempt_document, str)
+                or _SHA256.fullmatch(attempt_document) is None
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    f"unknown-status material lacks attempt authority: {document_id}"
+                )
+            for field in (
+                "provider_detail_sha256",
+                "queue_response_sha256",
+                "download_url_sha256",
+                "content_sha256",
+                "clearance_record_sha256",
+            ):
+                value = row[field]
+                if value is not None and (
+                    not isinstance(value, str) or _SHA256.fullmatch(value) is None
+                ):
+                    raise CaseDevPurchaseLedgerError(
+                        f"purchase material {field} is invalid: {document_id}"
+                    )
+            if resolved is not None and (
+                not isinstance(resolved, str) or _SHA256.fullmatch(resolved) is None
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    f"resolved material digest is invalid: {document_id}"
+                )
+            byte_count = row["byte_count"]
+            if byte_count is not None and (
+                isinstance(byte_count, bool)
+                or not isinstance(byte_count, int)
+                or byte_count <= 0
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    f"purchase material byte_count is invalid: {document_id}"
+                )
+            evidence_fields = (
+                "provider_detail_sha256",
+                "queue_response_sha256",
+                "download_url_sha256",
+            )
+            has_availability = all(row[field] is not None for field in evidence_fields)
+            has_any_availability = any(
+                row[field] is not None for field in evidence_fields
+            )
+            has_bytes = row["content_sha256"] is not None and byte_count is not None
+            has_clearance = (
+                row["clearance_record_sha256"] is not None and resolved is not None
+            )
+            if authority == "ordinary_public" and (
+                material_status != PurchaseMaterialState.NOT_RECOVERED.value
+                or any(row[field] is not None for field in evidence_fields)
+                or has_bytes
+                or has_clearance
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    f"ordinary-public material has quarantine state: {document_id}"
+                )
+            expected_presence = {
+                PurchaseMaterialState.NOT_RECOVERED.value: (False, False, False),
+                PurchaseMaterialState.AVAILABLE_PENDING_QUARANTINE.value: (
+                    True,
+                    False,
+                    False,
+                ),
+                PurchaseMaterialState.RECOVERED_PENDING_CLEARANCE.value: (
+                    True,
+                    True,
+                    False,
+                ),
+                PurchaseMaterialState.CLEARED_PUBLIC.value: (True, True, True),
+            }
+            expected = expected_presence.get(material_status)
+            if (
+                authority == "unknown_status_attempt"
+                and expected is not None
+                and (
+                    (has_availability, has_bytes, has_clearance) != expected
+                    or has_any_availability != has_availability
+                    or (row["content_sha256"] is None) != (byte_count is None)
+                    or (row["clearance_record_sha256"] is None) != (resolved is None)
+                )
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    f"purchase material state evidence is contradictory: {document_id}"
+                )
+            if material_status == PurchaseMaterialState.CLEARED_PUBLIC.value and (
+                resolved is None or row["clearance_record_sha256"] is None
+            ):
+                raise CaseDevPurchaseLedgerError(
+                    f"cleared material lacks confirmed immutable lineage: {document_id}"
+                )
 
     def _migrate_purchase_operations_for_queued_state(self) -> None:
         """Add the asynchronous state without losing an existing cycle ledger."""
@@ -2015,6 +2828,7 @@ class CaseDevPacerPurchaseStatus(StrEnum):
     GUARDRAIL_BLOCKED = "guardrail_blocked"
     CAPABILITY_BLOCKED = "capability_blocked"
     PURCHASED = "purchased"
+    QUARANTINED = "quarantined"
     UNKNOWN = "unknown"
     PROVIDER_ERROR = "provider_error"
     NOT_ATTEMPTED = "not_attempted"
@@ -2070,6 +2884,16 @@ class CaseDevPacerPurchaseResult:
             if attempt.status is CaseDevPacerPurchaseStatus.PURCHASED
         )
 
+    @property
+    def quarantined_material_count(self) -> int:
+        """Count paid recoveries intentionally withheld from downstream use."""
+
+        return sum(
+            1
+            for attempt in self.attempts
+            if attempt.status is CaseDevPacerPurchaseStatus.QUARANTINED
+        )
+
     def to_record(self) -> dict[str, Any]:
         return {
             "live": self.live,
@@ -2080,6 +2904,7 @@ class CaseDevPacerPurchaseResult:
             "max_projected_budget_usd": self.max_projected_budget_usd,
             "intended_purchase_count": self.intended_purchase_count,
             "executed_purchase_count": self.executed_purchase_count,
+            "quarantined_material_count": self.quarantined_material_count,
             "attempts": [attempt.to_record() for attempt in self.attempts],
         }
 

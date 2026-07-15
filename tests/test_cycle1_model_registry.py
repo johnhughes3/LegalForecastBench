@@ -90,6 +90,7 @@ def test_plan_packet_inputs_accepts_cycle_1_registry_and_anchor(
     )
     selection_path = tmp_path / "selection.jsonl"
     downloads_path = tmp_path / "downloads.jsonl"
+    clearance_path = tmp_path / "clearance.jsonl"
     parser_path = tmp_path / "parser.jsonl"
     units_path = tmp_path / "units.jsonl"
     markdown_root = output_root / "markdown" / "cand-1"
@@ -121,6 +122,7 @@ def test_plan_packet_inputs_accepts_cycle_1_registry_and_anchor(
             _parser_record("decision", "Decision markdown"),
         ],
     )
+    _write_clearance(downloads_path, clearance_path)
     _write_jsonl(
         units_path,
         list(
@@ -162,6 +164,8 @@ def test_plan_packet_inputs_accepts_cycle_1_registry_and_anchor(
                 str(downloads_path),
                 "--parser-manifest",
                 str(parser_path),
+                "--disclosure-clearance",
+                str(clearance_path),
                 "--prediction-units",
                 str(units_path),
                 "--model-registry",
@@ -263,6 +267,8 @@ def _parser_record(source_document_id: str, markdown: str) -> JsonRecord:
         "metadata_path": f"{markdown_path}.metadata.json",
         "parser_config": {"engine": "fixture"},
         "quality_flags": [],
+        "source_sha256": hashlib.sha256(source_document_id.encode()).hexdigest(),
+        "source_byte_count": 10,
         "extracted_text": {
             "source_document_id": source_document_id,
             "extracted_at": GENERATED_AT,
@@ -271,6 +277,28 @@ def _parser_record(source_document_id: str, markdown: str) -> JsonRecord:
             "quality_flags": [],
         },
     }
+
+
+def _write_clearance(manifest_path: Path, output_path: Path) -> None:
+    _write_jsonl(
+        output_path,
+        [
+            {
+                "schema_version": "legalforecast.disclosure_clearance.v1",
+                "candidate_id": row["candidate_id"],
+                "source_document_id": row["source_document_id"],
+                "sha256": row["sha256"],
+                "byte_count": row["byte_count"],
+                "status": "cleared",
+                "restriction_status": "public",
+                "restriction_evidence": ["fixture-public-docket"],
+                "reviewer_id": "reviewer:test",
+                "controlled_store_provenance": "private-store://fixture/reviews",
+                "reviewed_at": "2026-07-12T18:00:00Z",
+            }
+            for row in _read_jsonl(manifest_path)
+        ],
+    )
 
 
 def _post_anchor_docket_html() -> str:

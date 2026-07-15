@@ -15,6 +15,9 @@ from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
     MissingCoreBudgetPlan,
 )
+from legalforecast.ingestion.recap_fetch_attempt_policy import (
+    generate_recap_fetch_attempt_policy,
+)
 from legalforecast.ingestion.recap_fetch_broker_policy import (
     RecapFetchBrokerPolicyError,
     broker_policy_sha256,
@@ -256,6 +259,99 @@ def test_courtlistener_rest_unknown_seal_is_not_purchase_authority() -> None:
             budget_plan=_budget_plan(),
             budget_plan_artifact=_budget_plan().to_record(),
             selection_records=selection,
+        )
+
+
+def test_verified_attempt_policy_adds_all_incomplete_privacy_docs_to_union() -> None:
+    selection = deepcopy(_selection())
+    unknown = selection[0]["documents"][0]
+    unknown.update(
+        {
+            "redaction_or_seal_status": "unknown",
+            "restriction_evidence": [
+                "courtlistener_rest_docket_exact_match",
+                "courtlistener_rest_docket_entry_exact_match",
+                "courtlistener_rest_recap_document_exact_match",
+                "courtlistener_rest_recap_document_is_available_false",
+                "courtlistener_rest_recap_document_seal_status_unknown",
+                "courtlistener_rest_no_positive_restriction_marker",
+            ],
+            "is_sealed": None,
+            "is_private": None,
+            "is_available": False,
+            "availability_status": "unavailable",
+            "requires_paid_recovery": True,
+        }
+    )
+    plan = _budget_plan()
+    attempt_policy = generate_recap_fetch_attempt_policy(
+        purchase_policy_artifact=_purchase_policy(),
+        cohort_policy_artifact=_cohort_policy(),
+        budget_plan=plan,
+        budget_plan_artifact=plan.to_record(),
+        selection_records=selection,
+    )
+
+    policy = generate_recap_fetch_broker_policy(
+        purchase_policy_artifact=_purchase_policy(),
+        cohort_policy_artifact=_cohort_policy(),
+        budget_plan=plan,
+        budget_plan_artifact=plan.to_record(),
+        selection_records=selection,
+        attempt_policy_artifact=attempt_policy,
+    )
+
+    assert policy["allowed_documents"] == [
+        {"recap_document": "123", "case_id": "case-1"},
+        {"recap_document": "456", "case_id": "case-2"},
+    ]
+    assert [
+        (row["case_id"], row["recap_document"], row["evidence_class"])
+        for row in attempt_policy["policy"]["allowed_documents"]
+    ] == [
+        ("case-1", "123", "unknown_status_quarantine"),
+        ("case-2", "456", "unknown_status_quarantine"),
+    ]
+
+
+def test_attempt_policy_tamper_or_cross_candidate_reuse_fails_closed() -> None:
+    selection = deepcopy(_selection())
+    selection[0]["documents"][0].update(
+        {
+            "redaction_or_seal_status": "unknown",
+            "restriction_evidence": [
+                "courtlistener_rest_docket_exact_match",
+                "courtlistener_rest_docket_entry_exact_match",
+                "courtlistener_rest_recap_document_exact_match",
+                "courtlistener_rest_recap_document_is_available_false",
+                "courtlistener_rest_recap_document_seal_status_unknown",
+                "courtlistener_rest_no_positive_restriction_marker",
+            ],
+            "is_sealed": None,
+            "is_private": None,
+            "is_available": False,
+            "availability_status": "unavailable",
+            "requires_paid_recovery": True,
+        }
+    )
+    plan = _budget_plan()
+    attempt = generate_recap_fetch_attempt_policy(
+        purchase_policy_artifact=_purchase_policy(),
+        cohort_policy_artifact=_cohort_policy(),
+        budget_plan=plan,
+        budget_plan_artifact=plan.to_record(),
+        selection_records=selection,
+    )
+    attempt["policy"]["allowed_documents"][0]["case_id"] = "case-2"
+
+    with pytest.raises(RecapFetchBrokerPolicyError, match="attempt policy"):
+        generate_recap_fetch_broker_policy(
+            purchase_policy_artifact=_purchase_policy(),
+            cohort_policy_artifact=_cohort_policy(),
+            budget_plan=plan,
+            budget_plan_artifact=plan.to_record(),
+            selection_records=selection,
+            attempt_policy_artifact=attempt,
         )
 
 

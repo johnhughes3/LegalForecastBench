@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
@@ -22,6 +23,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseLedgerError,
 )
 from legalforecast.ingestion.missing_core_budget import MissingCoreBudgetPlan
+from legalforecast.ingestion.recap_fetch_attempt_policy import UNKNOWN_STATUS_EVIDENCE
 from legalforecast.ingestion.recap_fetch_broker import (
     BrokerDefiniteRejection,
     BrokerOutcomeUnknown,
@@ -309,6 +311,8 @@ class CourtListenerRecapFetchClient:
         plan: MissingCoreBudgetPlan,
         *,
         public_documents: Mapping[str, Mapping[str, Any]],
+        attempt_documents: Mapping[str, Mapping[str, str]] | None = None,
+        attempt_policy_sha256: str | None = None,
         live: bool,
         acknowledge_pacer_fees: bool,
     ) -> CaseDevPacerPurchaseResult:
@@ -317,19 +321,51 @@ class CourtListenerRecapFetchClient:
                 "RECAP Fetch requires an executable plan, live flag, and fee "
                 "acknowledgment"
             )
-        self.journal.plan(plan)
+        attempt_documents = {} if attempt_documents is None else attempt_documents
         intended = tuple(
             (case_plan.candidate_id, document_id)
             for case_plan in plan.case_plans
             for document_id in case_plan.purchase_document_ids
         )
+        intended_candidates = {
+            document_id: candidate_id for candidate_id, document_id in intended
+        }
+        if attempt_documents and attempt_policy_sha256 is None:
+            raise CourtListenerRecapFetchError(
+                "unknown attempt documents require a verified policy digest"
+            )
+        if not attempt_documents and attempt_policy_sha256 is not None:
+            raise CourtListenerRecapFetchError(
+                "attempt policy digest has no authorized documents"
+            )
+        extra_attempts = set(attempt_documents) - set(intended_candidates)
+        if extra_attempts:
+            raise CourtListenerRecapFetchError(
+                "attempt policy contains unplanned documents: "
+                + ", ".join(sorted(extra_attempts))
+            )
         for _, document_id in intended:
             metadata = public_documents.get(document_id)
             if metadata is None:
                 raise CourtListenerRecapFetchError(
                     f"missing public restriction evidence for {document_id}"
                 )
-            _require_explicitly_public(metadata, document_id)
+            attempt = attempt_documents.get(document_id)
+            if attempt is None:
+                _require_explicitly_public(metadata, document_id)
+            elif attempt.get("case_id") != intended_candidates[document_id]:
+                raise CourtListenerRecapFetchError(
+                    f"unknown attempt candidate conflicts for {document_id}"
+                )
+            else:
+                _require_unknown_attempt_evidence(metadata, document_id)
+        self.journal.plan(plan)
+        if attempt_documents:
+            assert attempt_policy_sha256 is not None
+            self.journal.authorize_unknown_material_attempts(
+                attempt_documents,
+                attempt_policy_sha256=attempt_policy_sha256,
+            )
         self._recover_receipts(intended)
         self.journal.require_reconciled()
         attempts: list[CaseDevPacerPurchaseAttempt] = []
@@ -366,6 +402,13 @@ class CourtListenerRecapFetchClient:
         status = None if evidence is None else str(evidence["status"])
         if status == "confirmed":
             assert evidence is not None
+            if evidence.get("material_authority") == "unknown_status_attempt":
+                return _attempt(
+                    candidate_id,
+                    document_id,
+                    CaseDevPacerPurchaseStatus.QUARANTINED,
+                    "unknown_status_material_pending_clearance",
+                )
             response = _mapping(evidence.get("response"), "confirmed response")
             return _purchased_attempt(candidate_id, document_id, response)
         if status == "failed":
@@ -587,6 +630,23 @@ class CourtListenerRecapFetchClient:
             return
         if state != "confirmed":
             return
+        unknown_material = operation.get("material_authority") == (
+            "unknown_status_attempt"
+        )
+        if unknown_material:
+            billing_evidence = _mapping(
+                validated.get("billing_evidence"), "broker billing evidence"
+            )
+            evidence_sha256 = str(billing_evidence.get("evidence_sha256", ""))
+            operation_key = str(validated["operation_key"])
+            self.journal.reconcile_unknown_broker_billing(
+                document_id,
+                actual_usd=str(validated["authoritative_fee_usd"]),
+                evidence_sha256=evidence_sha256,
+                source_reference=(
+                    f"recap-fetch-broker:{operation_key}:{evidence_sha256}"
+                ),
+            )
         effective_queue_id = receipt_queue_id or local_queue_id
         if effective_queue_id is None:
             return
@@ -607,6 +667,16 @@ class CourtListenerRecapFetchClient:
         if document.get("is_available") is not True:
             return
         download_url = _verified_download(document, document_id)
+        if unknown_material:
+            self.journal.mark_material_available_for_quarantine(
+                document_id,
+                provider_detail_sha256=_sha256_json(document),
+                queue_response_sha256=_sha256_json(queue),
+                download_url_sha256=hashlib.sha256(
+                    download_url.encode("utf-8")
+                ).hexdigest(),
+            )
+            return
         self.journal.reconcile(
             broker_reconciliation_record(validated, download_url=download_url)
         )
@@ -637,6 +707,21 @@ class CourtListenerRecapFetchClient:
                 if operation is None:
                     raise CaseDevPurchaseLedgerError(
                         "queued purchase disappeared during polling"
+                    )
+                if operation.get("material_authority") == "unknown_status_attempt":
+                    self.journal.mark_material_available_for_quarantine(
+                        document_id,
+                        provider_detail_sha256=_sha256_json(document),
+                        queue_response_sha256=_sha256_json(payload),
+                        download_url_sha256=hashlib.sha256(
+                            verified.encode("utf-8")
+                        ).hexdigest(),
+                    )
+                    return _attempt(
+                        candidate_id,
+                        document_id,
+                        CaseDevPacerPurchaseStatus.QUARANTINED,
+                        "unknown_status_material_available_only_in_quarantine",
                     )
                 confirmed = {
                     **dict(queued),
@@ -753,18 +838,36 @@ def _require_explicitly_public(metadata: Mapping[str, Any], document_id: str) ->
         and metadata.get("is_sealed") is False
         and metadata.get("is_private") is False
     )
-    courtlistener_rest_public = (
+    if not explicitly_public:
+        raise CourtListenerRecapFetchError(
+            f"document {document_id} lacks accepted public/nonsealed evidence"
+        )
+
+
+def _require_unknown_attempt_evidence(
+    metadata: Mapping[str, Any], document_id: str
+) -> None:
+    exact_unknown = (
+        metadata.get("redaction_or_seal_status") == "unknown"
+        and metadata.get("is_sealed") is None
+        and metadata.get("is_private") is None
+        and metadata.get("is_available") is False
+        and metadata.get("availability_status") == "unavailable"
+        and metadata.get("requires_paid_recovery") is True
+        and metadata.get("restriction_evidence") == UNKNOWN_STATUS_EVIDENCE
+    )
+    incomplete_private_status = (
         metadata.get("redaction_or_seal_status") == "public"
         and metadata.get("is_sealed") is False
         and metadata.get("is_private") is None
-        and metadata.get("requires_paid_recovery") is True
         and metadata.get("availability_status") == "unavailable"
+        and metadata.get("requires_paid_recovery") is True
         and metadata.get("restriction_evidence")
         == COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE
     )
-    if not explicitly_public and not courtlistener_rest_public:
+    if not exact_unknown and not incomplete_private_status:
         raise CourtListenerRecapFetchError(
-            f"document {document_id} lacks accepted public/nonsealed evidence"
+            f"document {document_id} lacks exact unknown-status attempt evidence"
         )
 
 
@@ -905,3 +1008,10 @@ def _json_object(content: bytes) -> Mapping[str, Any]:
             "CourtListener returned invalid JSON"
         ) from exc
     return _mapping(value, "CourtListener response")
+
+
+def _sha256_json(value: Mapping[str, Any]) -> str:
+    payload = json.dumps(
+        dict(value), sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
