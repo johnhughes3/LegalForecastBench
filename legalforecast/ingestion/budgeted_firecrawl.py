@@ -243,9 +243,11 @@ class BudgetedFirecrawlScheduler:
                 outcomes = self._scrape_authorized_window(authorized)
                 fatal_error: Exception | None = None
                 for target, attempt, outcome in outcomes:
+                    provider_result: FirecrawlScrapeResult | None = None
                     try:
                         if isinstance(outcome, BaseException):
                             raise outcome
+                        provider_result = outcome
                         page = self._commit_success(target, attempt, outcome)
                     except FirecrawlChallengeError as error:
                         self.store.finalize_firecrawl_attempt(
@@ -358,11 +360,28 @@ class BudgetedFirecrawlScheduler:
                         if fatal_error is None:
                             consecutive_5xx = 0
                     except Exception as error:
-                        self.store.finalize_firecrawl_attempt(
-                            attempt.attempt_id,
-                            status="interrupted",
-                        )
-                        fatal_error = fatal_error or error
+                        if self.terminalize_abandoned_authorizations:
+                            if provider_result is None:
+                                self._terminalize_abandoned_authorization(
+                                    target=target,
+                                    attempt=attempt,
+                                )
+                            else:
+                                self._terminalize_result_commit_failure(
+                                    target=target,
+                                    attempt=attempt,
+                                    result=provider_result,
+                                )
+                                fatal_error = fatal_error or error
+                            terminal_failures.add(target.target_id)
+                            if fatal_error is None:
+                                consecutive_5xx = 0
+                        else:
+                            self.store.finalize_firecrawl_attempt(
+                                attempt.attempt_id,
+                                status="interrupted",
+                            )
+                            fatal_error = fatal_error or error
                     else:
                         succeeded[target.target_id] = page
                         self.store.set_firecrawl_target_status(
@@ -578,31 +597,93 @@ class BudgetedFirecrawlScheduler:
                         page_number=attempt.page_number,
                         ordinal=stored_target.ordinal,
                     )
-                    has_orphan = self._artifact_path(target).exists()
-                    self.store.finalize_firecrawl_attempt(
-                        attempt.attempt_id,
-                        status="interrupted",
-                        failure_code=(
-                            "authorization_abandoned_with_orphan"
-                            if has_orphan
-                            else "authorization_abandoned"
-                        ),
-                        failure_message=(
-                            "Provider outcome was not durably committed; original "
-                            "credit reservation retained"
-                        ),
-                        failure_transient=False,
-                    )
-                    self.store.set_firecrawl_target_status(
-                        self.run_id,
-                        attempt.target_id,
-                        "terminal_error",
+                    self._terminalize_abandoned_authorization(
+                        target=target,
+                        attempt=attempt,
                     )
                 else:
                     self.store.finalize_firecrawl_attempt(
                         attempt.attempt_id,
                         status="interrupted",
                     )
+
+    def _terminalize_abandoned_authorization(
+        self,
+        *,
+        target: FirecrawlTargetSpec,
+        attempt: FirecrawlAttempt,
+    ) -> None:
+        """Retain an uncertain reservation and make the target non-retryable."""
+
+        has_orphan = self._artifact_path(target).exists()
+        self.store.finalize_firecrawl_attempt(
+            attempt.attempt_id,
+            status="interrupted",
+            failure_code=(
+                "authorization_abandoned_with_orphan"
+                if has_orphan
+                else "authorization_abandoned"
+            ),
+            failure_message=(
+                "Provider outcome was not durably committed; original "
+                "credit reservation retained"
+            ),
+            failure_transient=False,
+        )
+        self.store.set_firecrawl_target_status(
+            self.run_id,
+            attempt.target_id,
+            "terminal_error",
+        )
+
+    def _terminalize_result_commit_failure(
+        self,
+        *,
+        target: FirecrawlTargetSpec,
+        attempt: FirecrawlAttempt,
+        result: FirecrawlScrapeResult,
+    ) -> None:
+        """Record known provider evidence, then fail closed on local commit loss."""
+
+        current = self.store.firecrawl_attempt(attempt.attempt_id)
+        if current.status != "authorized":
+            # A store operation can fail after the attempt itself committed. In
+            # that case the successful attempt is already exact evidence; the
+            # caller still re-raises the local failure and resume repairs the
+            # target status from that success.
+            if current.status == "succeeded":
+                return
+            raise FirecrawlArtifactError(
+                "post-result failure found an unexpectedly finalized attempt"
+            )
+        try:
+            has_orphan = self._artifact_path(target).exists()
+        except Exception:
+            # A resolver failure happens before publication, so there cannot be
+            # an artifact at a trusted target path.
+            has_orphan = False
+        self.store.finalize_firecrawl_attempt(
+            attempt.attempt_id,
+            status="interrupted",
+            reported_credits=_integral_credits(result.credits_used),
+            proxy_used=result.proxy_used,
+            target_http_status=result.target_status_code,
+            failure_code=(
+                "result_commit_failed_with_orphan"
+                if has_orphan
+                else "result_commit_failed"
+            ),
+            failure_message=(
+                "Validated provider result was not durably committed; original "
+                "credit reservation retained"
+            ),
+            failure_transient=False,
+        )
+        self.store.set_firecrawl_target_status(
+            self.run_id,
+            attempt.target_id,
+            "terminal_error",
+        )
 
     def _raise_open_circuit(self, consecutive_5xx: int) -> None:
         self.store.set_firecrawl_run_status(self.run_id, "circuit_open")

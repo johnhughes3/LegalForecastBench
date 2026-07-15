@@ -2,8 +2,8 @@
 
 The adapter implements the discovery screen's ``fetch`` protocol while routing
 every provider request through the cycle-wide Firecrawl authorization ledger.
-It deliberately supports only one-credit ``basic`` proxy requests and only one
-attempt for each immutable docket target.
+It deliberately supports only one-credit ``basic`` proxy requests and at most
+three durably accounted attempts for each immutable docket target.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from legalforecast.ingestion.budgeted_firecrawl import (
     FirecrawlTargetSpec,
 )
 from legalforecast.ingestion.courtlistener_client import (
+    CourtListenerProviderExhaustedError,
     CourtListenerUnavailableError,
 )
 from legalforecast.ingestion.cycle_acquisition_store import (
@@ -34,6 +35,7 @@ from legalforecast.ingestion.firecrawl_source import (
 _TARGET_PREFIX = "courtlistener-docket:"
 _UNAVAILABLE_TARGET_STATUSES = frozenset({404, 410})
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_MAX_ATTEMPTS_PER_TARGET = 3
 
 
 class DurableBudgetedCourtListenerHTMLSource:
@@ -95,7 +97,7 @@ class DurableBudgetedCourtListenerHTMLSource:
             run_id=self.run_id,
             artifact_dir=self.raw_html_dir,
             artifact_path_resolver=self._artifact_path,
-            max_attempts=1,
+            max_attempts=_MAX_ATTEMPTS_PER_TARGET,
             max_workers=1,
             terminalize_abandoned_authorizations=True,
         )
@@ -112,15 +114,20 @@ class DurableBudgetedCourtListenerHTMLSource:
             for attempt in self.store.firecrawl_attempts(self.run_id)
             if attempt.target_id == target.target_id and attempt.page_number == 1
         )
-        if len(attempts) == 1 and self._is_unavailable_attempt(attempts[0]):
+        terminal_attempt = attempts[-1] if attempts else None
+        if terminal_attempt is not None and self._is_unavailable_attempt(
+            terminal_attempt
+        ):
             raise CourtListenerUnavailableError(
                 f"CourtListener docket {normalized_docket_id} is unavailable"
             )
-        if len(attempts) == 1 and self._is_abandoned_attempt(attempts[0]):
-            if attempts[0].failure_code == "authorization_abandoned_with_orphan":
+        if terminal_attempt is not None and self._is_abandoned_attempt(
+            terminal_attempt
+        ):
+            if terminal_attempt.failure_code == "authorization_abandoned_with_orphan":
                 self._quarantine_abandoned_raw_html(
                     normalized_docket_id,
-                    attempts[0],
+                    terminal_attempt,
                     expected_path,
                 )
             raise CourtListenerUnavailableError(
@@ -128,7 +135,30 @@ class DurableBudgetedCourtListenerHTMLSource:
                 "interrupted after durable authorization; the original credit "
                 "reservation was retained"
             )
-        failure_code = attempts[0].failure_code if len(attempts) == 1 else None
+        if terminal_attempt is not None and self._is_result_commit_failure(
+            terminal_attempt
+        ):
+            if terminal_attempt.failure_code == "result_commit_failed_with_orphan":
+                self._quarantine_abandoned_raw_html(
+                    normalized_docket_id,
+                    terminal_attempt,
+                    expected_path,
+                )
+            raise FirecrawlArtifactError(
+                f"durable Firecrawl target {target.target_id!r} has a terminal "
+                f"local commit failure ({terminal_attempt.failure_code})"
+            )
+        if self._is_exhausted_provider_lineage(attempts):
+            self.store.set_firecrawl_target_status(
+                self.run_id,
+                target.target_id,
+                "terminal_error",
+            )
+            raise CourtListenerProviderExhaustedError(
+                f"CourtListener docket {normalized_docket_id} acquisition exhausted "
+                f"{_MAX_ATTEMPTS_PER_TARGET} bounded provider attempts"
+            )
+        failure_code = terminal_attempt.failure_code if terminal_attempt else None
         detail = f" ({failure_code})" if failure_code is not None else ""
         raise FirecrawlArtifactError(
             f"durable Firecrawl target {target.target_id!r} did not produce a "
@@ -151,7 +181,20 @@ class DurableBudgetedCourtListenerHTMLSource:
             for attempt in attempts
             if self._is_abandoned_attempt(attempt)
         }
-        unavailable_ids = provider_unavailable_ids | abandoned_ids
+        provider_exhausted_ids = {
+            target.target_id
+            for target in targets
+            if self._is_exhausted_provider_lineage(
+                tuple(
+                    attempt
+                    for attempt in attempts
+                    if attempt.target_id == target.target_id
+                )
+            )
+        }
+        unavailable_ids = (
+            provider_unavailable_ids | abandoned_ids | provider_exhausted_ids
+        )
         summary.update(
             {
                 "schema_version": (
@@ -159,12 +202,13 @@ class DurableBudgetedCourtListenerHTMLSource:
                 ),
                 "source": "courtlistener-rest-firecrawl-html",
                 "proxy": "basic",
-                "max_attempts_per_target": 1,
+                "max_attempts_per_target": _MAX_ATTEMPTS_PER_TARGET,
                 "successful_docket_count": sum(
                     target.status == "succeeded" for target in targets
                 ),
                 "unavailable_docket_count": len(unavailable_ids),
                 "provider_unavailable_docket_count": len(provider_unavailable_ids),
+                "provider_exhausted_docket_count": len(provider_exhausted_ids),
                 "abandoned_docket_count": len(abandoned_ids),
                 "target_count": len(targets),
             }
@@ -221,12 +265,21 @@ class DurableBudgetedCourtListenerHTMLSource:
             for attempt in self.store.firecrawl_attempts(self.run_id)
             if attempt.target_id == target_id and attempt.page_number == 1
         )
-        if len(attempts) != 1 or attempts[0].status != "succeeded":
+        successful = tuple(
+            attempt for attempt in attempts if attempt.status == "succeeded"
+        )
+        if (
+            not attempts
+            or len(attempts) > _MAX_ATTEMPTS_PER_TARGET
+            or len(successful) != 1
+            or successful[0] != attempts[-1]
+            or any(not self._is_retryable_attempt(attempt) for attempt in attempts[:-1])
+        ):
             raise FirecrawlArtifactError(
-                f"raw docket HTML lacks one successful committed attempt for "
+                f"raw docket HTML lacks a bounded successful attempt lineage for "
                 f"{target_id!r}"
             )
-        attempt = attempts[0]
+        attempt = successful[0]
         if (
             attempt.request_url != canonical_source_url
             or attempt.artifact_path != expected_path
@@ -354,6 +407,40 @@ class DurableBudgetedCourtListenerHTMLSource:
                 "authorization_abandoned_with_orphan",
             }
             and attempt.failure_transient is False
+        )
+
+    @staticmethod
+    def _is_result_commit_failure(attempt: FirecrawlAttempt) -> bool:
+        return (
+            attempt.status == "interrupted"
+            and attempt.failure_code
+            in {
+                "result_commit_failed",
+                "result_commit_failed_with_orphan",
+            }
+            and attempt.failure_transient is False
+        )
+
+    @staticmethod
+    def _is_retryable_attempt(attempt: FirecrawlAttempt) -> bool:
+        return (
+            attempt.status in {"provider_error", "transport_error"}
+            and attempt.failure_transient is True
+            and attempt.artifact_path is None
+            and attempt.artifact_sha256 is None
+            and attempt.artifact_byte_count is None
+        )
+
+    @classmethod
+    def _is_exhausted_provider_lineage(
+        cls,
+        attempts: tuple[FirecrawlAttempt, ...],
+    ) -> bool:
+        return (
+            len(attempts) == _MAX_ATTEMPTS_PER_TARGET
+            and [attempt.attempt_number for attempt in attempts]
+            == list(range(1, _MAX_ATTEMPTS_PER_TARGET + 1))
+            and all(cls._is_retryable_attempt(attempt) for attempt in attempts)
         )
 
     def _quarantine_abandoned_raw_html(

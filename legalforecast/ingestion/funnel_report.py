@@ -24,6 +24,7 @@ _METADATA_REASONS = frozenset(
 _HTML_RETRIEVAL_REASONS = frozenset(
     {
         "courtlistener_docket_html_unavailable",
+        "courtlistener_docket_html_provider_exhausted",
         "docket_html_unavailable",
         "fetch_failed",
     }

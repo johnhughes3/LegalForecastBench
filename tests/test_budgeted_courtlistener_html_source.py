@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import pytest
 from legalforecast.ingestion.budgeted_courtlistener_html_source import (
@@ -8,6 +10,7 @@ from legalforecast.ingestion.budgeted_courtlistener_html_source import (
 )
 from legalforecast.ingestion.budgeted_firecrawl import FirecrawlArtifactError
 from legalforecast.ingestion.courtlistener_client import (
+    CourtListenerProviderExhaustedError,
     CourtListenerUnavailableError,
 )
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
@@ -16,6 +19,9 @@ from legalforecast.ingestion.firecrawl_source import (
     FirecrawlCourtListenerHTMLSource,
     FirecrawlFixtureTransport,
     FirecrawlHTTPResponse,
+    FirecrawlRateLimitError,
+    FirecrawlServerError,
+    FirecrawlTransport,
     FirecrawlURLValidationError,
 )
 
@@ -73,7 +79,7 @@ def _adapter(
     *,
     store: CycleAcquisitionStore,
     raw_html_dir: Path,
-    transport: FirecrawlFixtureTransport,
+    transport: FirecrawlTransport,
 ) -> DurableBudgetedCourtListenerHTMLSource:
     return DurableBudgetedCourtListenerHTMLSource(
         store=store,
@@ -84,6 +90,49 @@ def _adapter(
         run_id="courtlistener-docket-html-v1",
         raw_html_dir=raw_html_dir,
     )
+
+
+class _RateLimitThenSuccessTransport:
+    def __init__(self, success: FirecrawlHTTPResponse) -> None:
+        self.success = success
+        self.calls = 0
+
+    def scrape(
+        self,
+        *,
+        endpoint: str,
+        headers: Mapping[str, str],
+        payload: Mapping[str, Any],
+        timeout_seconds: float,
+    ) -> FirecrawlHTTPResponse:
+        del endpoint, headers, payload, timeout_seconds
+        self.calls += 1
+        if self.calls == 1:
+            raise FirecrawlRateLimitError(
+                "injected rate limit",
+                provider_http_status=429,
+            )
+        return self.success
+
+
+class _AlwaysServerErrorTransport:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def scrape(
+        self,
+        *,
+        endpoint: str,
+        headers: Mapping[str, str],
+        payload: Mapping[str, Any],
+        timeout_seconds: float,
+    ) -> FirecrawlHTTPResponse:
+        del endpoint, headers, payload, timeout_seconds
+        self.calls += 1
+        raise FirecrawlServerError(
+            "injected provider outage",
+            provider_http_status=503,
+        )
 
 
 def test_adapter_validates_docket_identity_before_durable_authorization(
@@ -143,6 +192,71 @@ def test_adapter_commits_exact_docket_artifact_and_cumulative_audit(
         assert receipt["firecrawl_target_id"] == f"courtlistener-docket:{_DOCKET_ID}"
         assert receipt["reported_credits"] == 1
         assert receipt["artifact_sha256"] == attempt.artifact_sha256
+
+
+def test_global_rate_limit_resumes_with_bounded_second_attempt(
+    tmp_path: Path,
+) -> None:
+    raw_html_dir = tmp_path / "raw"
+    with _store(tmp_path) as store:
+        transport = _RateLimitThenSuccessTransport(_response())
+        source = _adapter(
+            store=store,
+            raw_html_dir=raw_html_dir,
+            transport=transport,
+        )
+
+        with pytest.raises(FirecrawlRateLimitError, match="rate limit"):
+            source.fetch(docket_id=_DOCKET_ID, source_url=_SOURCE_URL)
+
+        [limited] = store.firecrawl_attempts("courtlistener-docket-html-v1")
+        assert limited.status == "provider_error"
+        assert limited.failure_code == "provider_rate_limit"
+        assert limited.failure_transient is True
+        assert source.fetch(docket_id=_DOCKET_ID, source_url=_SOURCE_URL) == _HTML
+
+        limited, succeeded = store.firecrawl_attempts("courtlistener-docket-html-v1")
+        assert [limited.attempt_number, succeeded.attempt_number] == [1, 2]
+        assert succeeded.status == "succeeded"
+        assert transport.calls == 2
+        assert source.audit_summary()["run_reserved_credits"] == 2
+        assert source.audit_summary()["run_reported_credits"] == 1
+        assert set(source.successful_artifact_receipts(batch_digest="a" * 64)) == {
+            _DOCKET_ID
+        }
+
+
+def test_exhausted_provider_retries_become_durable_unavailable_outcome(
+    tmp_path: Path,
+) -> None:
+    raw_html_dir = tmp_path / "raw"
+    with _store(tmp_path) as store:
+        transport = _AlwaysServerErrorTransport()
+        source = _adapter(
+            store=store,
+            raw_html_dir=raw_html_dir,
+            transport=transport,
+        )
+
+        with pytest.raises(CourtListenerProviderExhaustedError, match="exhausted 3"):
+            source.fetch(docket_id=_DOCKET_ID, source_url=_SOURCE_URL)
+
+        attempts = store.firecrawl_attempts("courtlistener-docket-html-v1")
+        assert [attempt.attempt_number for attempt in attempts] == [1, 2, 3]
+        assert {attempt.status for attempt in attempts} == {"provider_error"}
+        assert {attempt.failure_code for attempt in attempts} == {
+            "provider_server_error"
+        }
+        assert transport.calls == 3
+
+        with pytest.raises(CourtListenerProviderExhaustedError, match="exhausted 3"):
+            source.fetch(docket_id=_DOCKET_ID, source_url=_SOURCE_URL)
+        assert transport.calls == 3
+        summary = source.audit_summary()
+        assert summary["provider_exhausted_docket_count"] == 1
+        assert summary["unavailable_docket_count"] == 1
+        assert summary["run_reserved_credits"] == 3
+        assert summary["run_reported_credits"] == 0
 
 
 def test_successful_resume_verifies_committed_source_path_and_hash(
