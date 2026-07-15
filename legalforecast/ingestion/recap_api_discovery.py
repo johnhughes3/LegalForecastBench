@@ -269,15 +269,26 @@ def prescreen_recap_candidate(
     court_id: str | None,
     docket_number: str | None,
     case_name: str | None,
+    defer_bankruptcy_to_authoritative_docket: bool = False,
 ) -> str | None:
     """Return an immutable exclusion reason for cheaply-excludable dockets.
 
     Bankruptcy court ids end in ``b`` (for example ``nysb``); criminal dockets
     carry a ``-cr-`` number token or a ``United States v.`` caption.  Excluding
     these before any docket fetch keeps the API budget on eligible civil cases.
+    Opinion-cluster summaries may opt into one authoritative docket lookup,
+    because those summaries do not reliably distinguish estate and adversary
+    docket metadata.
     """
 
     if court_id is not None and court_id.strip().lower().endswith("b"):
+        if defer_bankruptcy_to_authoritative_docket:
+            # Opinion-search rows are cluster summaries, not the authoritative
+            # RECAP docket record.  Their caption/number can be incomplete or
+            # estate-styled even when the linked docket is an adversary case.
+            # Spend exactly one noncharging docket lookup before deciding; the
+            # default authoritative call below still excludes ordinary cases.
+            return None
         # Bankruptcy adversary proceedings are eligible Rule 12 analogues.
         # A bare bankruptcy court id cannot distinguish an adversary from the
         # main estate case, so incomplete search metadata must proceed to the
@@ -1035,7 +1046,11 @@ def observe_recap_api_candidate(
         "docket_number": docket.docket_number,
         "case_name": docket.case_name,
     }
-    authoritative_prescreen = prescreen_recap_candidate(**authoritative_metadata)
+    authoritative_prescreen = prescreen_recap_candidate(
+        court_id=docket.court_id,
+        docket_number=docket.docket_number,
+        case_name=docket.case_name,
+    )
     if authoritative_prescreen is not None:
         return store.record_observation(
             candidate_id,

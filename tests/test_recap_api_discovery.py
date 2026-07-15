@@ -1871,7 +1871,11 @@ def test_observe_prescreens_authoritative_bankruptcy_metadata(tmp_path: Path) ->
         assert recon_client.request_count == 1
 
 
-def test_observe_retains_authoritative_bankruptcy_adversary(tmp_path: Path) -> None:
+@pytest.mark.parametrize("docket_number", ("1:26-ap-00001", "26-01028"))
+def test_observe_retains_authoritative_bankruptcy_adversary(
+    tmp_path: Path,
+    docket_number: str,
+) -> None:
     store, payload = _seeded_store(
         tmp_path,
         {
@@ -1889,7 +1893,7 @@ def test_observe_retains_authoritative_bankruptcy_adversary(tmp_path: Path) -> N
                     payload={
                         "id": 555,
                         "court": "nysb",
-                        "docket_number": "1:26-ap-00001",
+                        "docket_number": docket_number,
                         "case_name": "Trustee v. Roe",
                         "date_filed": "2026-05-01",
                     },
