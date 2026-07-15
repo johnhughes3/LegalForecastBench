@@ -115,6 +115,44 @@ def test_hybrid_transient_firecrawl_retry_materializes_exact_attempt_lineage(
     assert lineage["firecrawl_run_reported_credits"] == 1
 
 
+def test_hybrid_exhausted_provider_retries_materialize_as_terminal_exclusion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discovery_root, cycle_store = _run_hybrid_discovery(
+        tmp_path,
+        monkeypatch,
+        transient_failures=3,
+    )
+
+    [exclusion] = _read_jsonl(
+        discovery_root / "courtlistener-discovery-exclusions.jsonl"
+    )
+    assert exclusion["candidate_id"] == _DOCKET_ID
+    assert exclusion["stage"] == "retrieval"
+    assert exclusion["reason"] == "courtlistener_docket_html_provider_exhausted"
+    with CycleAcquisitionStore(cycle_store) as store:
+        attempts = store.firecrawl_attempts("hybrid-batch-courtlistener-docket-html-v1")
+        [target] = store.firecrawl_targets("hybrid-batch-courtlistener-docket-html-v1")
+    assert [attempt.attempt_number for attempt in attempts] == [1, 2, 3]
+    assert {attempt.status for attempt in attempts} == {"provider_error"}
+    assert {attempt.failure_code for attempt in attempts} == {"provider_server_error"}
+    assert target.status == "terminal_error"
+
+    snapshot = _materialize_hybrid(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    manifest = verify_snapshot(snapshot, require_complete=True, require_saturated=True)
+    lineage = manifest["stage_commitments"]["courtlistener_discovery_inputs"]
+    assert lineage["accepted_case_count"] == 0
+    assert lineage["excluded_case_count"] == 1
+    assert lineage["firecrawl_source_receipt_count"] == 0
+    assert lineage["firecrawl_run_reserved_credits"] == 3
+    assert lineage["firecrawl_run_reported_credits"] == 0
+
+
 @pytest.mark.parametrize("failure_kind", ["target_404", "target_410", "abandoned"])
 def test_hybrid_terminal_retrieval_exclusion_materializes_with_durable_lineage(
     tmp_path: Path,

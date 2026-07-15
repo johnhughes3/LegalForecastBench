@@ -19,6 +19,7 @@ from legalforecast.ingestion.budgeted_firecrawl import (
     FirecrawlTargetSpec,
 )
 from legalforecast.ingestion.courtlistener_client import (
+    CourtListenerProviderExhaustedError,
     CourtListenerUnavailableError,
 )
 from legalforecast.ingestion.cycle_acquisition_store import (
@@ -147,6 +148,16 @@ class DurableBudgetedCourtListenerHTMLSource:
                 f"durable Firecrawl target {target.target_id!r} has a terminal "
                 f"local commit failure ({terminal_attempt.failure_code})"
             )
+        if self._is_exhausted_provider_lineage(attempts):
+            self.store.set_firecrawl_target_status(
+                self.run_id,
+                target.target_id,
+                "terminal_error",
+            )
+            raise CourtListenerProviderExhaustedError(
+                f"CourtListener docket {normalized_docket_id} acquisition exhausted "
+                f"{_MAX_ATTEMPTS_PER_TARGET} bounded provider attempts"
+            )
         failure_code = terminal_attempt.failure_code if terminal_attempt else None
         detail = f" ({failure_code})" if failure_code is not None else ""
         raise FirecrawlArtifactError(
@@ -170,7 +181,20 @@ class DurableBudgetedCourtListenerHTMLSource:
             for attempt in attempts
             if self._is_abandoned_attempt(attempt)
         }
-        unavailable_ids = provider_unavailable_ids | abandoned_ids
+        provider_exhausted_ids = {
+            target.target_id
+            for target in targets
+            if self._is_exhausted_provider_lineage(
+                tuple(
+                    attempt
+                    for attempt in attempts
+                    if attempt.target_id == target.target_id
+                )
+            )
+        }
+        unavailable_ids = (
+            provider_unavailable_ids | abandoned_ids | provider_exhausted_ids
+        )
         summary.update(
             {
                 "schema_version": (
@@ -184,6 +208,7 @@ class DurableBudgetedCourtListenerHTMLSource:
                 ),
                 "unavailable_docket_count": len(unavailable_ids),
                 "provider_unavailable_docket_count": len(provider_unavailable_ids),
+                "provider_exhausted_docket_count": len(provider_exhausted_ids),
                 "abandoned_docket_count": len(abandoned_ids),
                 "target_count": len(targets),
             }
@@ -404,6 +429,18 @@ class DurableBudgetedCourtListenerHTMLSource:
             and attempt.artifact_path is None
             and attempt.artifact_sha256 is None
             and attempt.artifact_byte_count is None
+        )
+
+    @classmethod
+    def _is_exhausted_provider_lineage(
+        cls,
+        attempts: tuple[FirecrawlAttempt, ...],
+    ) -> bool:
+        return (
+            len(attempts) == _MAX_ATTEMPTS_PER_TARGET
+            and [attempt.attempt_number for attempt in attempts]
+            == list(range(1, _MAX_ATTEMPTS_PER_TARGET + 1))
+            and all(cls._is_retryable_attempt(attempt) for attempt in attempts)
         )
 
     def _quarantine_abandoned_raw_html(

@@ -101,6 +101,71 @@ def test_materialize_courtlistener_snapshot_help_documents_source_binding(
     assert "--snapshot-id" in output
 
 
+def test_materialization_reuses_exact_batch_checkpoint_with_advanced_current(
+    tmp_path: Path,
+) -> None:
+    with CycleAcquisitionStore(tmp_path / "cycle.sqlite3") as store:
+        store.ensure_cycle({"eligibility_anchor": "2026-06-30"})
+        store.ensure_batch("batch", {"provider": "courtlistener"})
+        store.ensure_terms("batch", ("motion to dismiss",))
+        store.commit_search_page(
+            "batch",
+            "motion to dismiss",
+            None,
+            (
+                DiscoveryHit(
+                    provider_hit_id="hit-101",
+                    candidate_id="101",
+                    payload={"id": "101"},
+                ),
+            ),
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        screen_evidence = {"candidate_id": "101", "screened": True}
+        store.record_observation(
+            "101",
+            batch_id="batch",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence=screen_evidence,
+        )
+        store.record_observation(
+            "101",
+            batch_id="batch",
+            state="newly_free",
+            reason_code="newly_free",
+            evidence={"candidate_id": "101", "documents": ["motion"]},
+        )
+
+        cli_module._record_identical_or_new_observation(
+            store=store,
+            batch_id="batch",
+            candidate_id="101",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence=screen_evidence,
+        )
+
+        current = store.current_observation("101")
+        assert current is not None
+        assert current.state == "newly_free"
+        assert len(store.observations("101")) == 2
+        snapshot = store.export_snapshot(
+            tmp_path / "snapshots",
+            snapshot_id="batch-local-screen",
+            batch_id="batch",
+            complete=True,
+            use_batch_terminal_observations=True,
+        )
+
+    assert _read_jsonl(snapshot / "screened-cases.jsonl") == [screen_evidence]
+    [candidate] = _read_jsonl(snapshot / "candidates.jsonl")
+    assert candidate["state"] == "accepted"
+    assert candidate["reason_code"] == "strict_clean_screen_passed"
+    assert candidate["evidence"] == screen_evidence
+
+
 def test_snapshot_identity_allows_legacy_source_omission_only_on_both_sides() -> None:
     summary: dict[str, Any] = {
         "schema_version": "legalforecast.courtlistener_discovery_summary.v1",

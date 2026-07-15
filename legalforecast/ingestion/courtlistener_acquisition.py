@@ -18,6 +18,7 @@ from legalforecast.ingestion.courtlistener_client import (
     CourtListenerClient,
     CourtListenerClientError,
     CourtListenerDocket,
+    CourtListenerProviderExhaustedError,
     CourtListenerUnavailableError,
 )
 from legalforecast.ingestion.courtlistener_dates import (
@@ -478,6 +479,43 @@ def _discover_courtlistener_mtd_candidates_durable(
             )
             continue
 
+        if current is not None and current.reason_code in {
+            "required_documents_complete",
+            "newly_free",
+            "required_documents_newly_free",
+        }:
+            prior_screen = next(
+                (
+                    observation
+                    for observation in reversed(
+                        progress_store.observations(hit.candidate_id)
+                    )
+                    if observation.state == "accepted"
+                    and observation.reason_code == "strict_clean_screen_passed"
+                ),
+                None,
+            )
+            if prior_screen is None:
+                raise CycleAcquisitionStoreError(
+                    f"candidate {hit.candidate_id} has advanced canonical state "
+                    "without prior strict screening evidence"
+                )
+            checkpoint = progress_store.record_observation(
+                hit.candidate_id,
+                batch_id=batch_id,
+                state="accepted",
+                reason_code="strict_clean_screen_passed",
+                evidence=prior_screen.evidence,
+                preserve_current=True,
+            )
+            _append_durable_observation_result(
+                observation=checkpoint,
+                progress_store=progress_store,
+                screened_cases=screened_cases,
+                exclusions=exclusions,
+            )
+            continue
+
         screened, exclusion = _screen_candidate(
             client=client,
             html_source=html_source,
@@ -744,6 +782,14 @@ def _screen_candidate(
                     )
             else:
                 raw_html_path.write_text(raw_html, encoding="utf-8")
+    except CourtListenerProviderExhaustedError as exc:
+        return None, _exclusion(
+            docket_id=docket_id,
+            docket=docket,
+            stage=ExclusionStage.RETRIEVAL,
+            reason="courtlistener_docket_html_provider_exhausted",
+            notes=str(exc),
+        )
     except CourtListenerUnavailableError as exc:
         return None, _exclusion(
             docket_id=docket_id,

@@ -12611,7 +12611,10 @@ def _cmd_acquisition_materialize_courtlistener_snapshot(
                     batch_id=batch_id,
                     verified=verified,
                 )
-                if not store.snapshot_is_saturated(batch_id):
+                if not store.snapshot_is_saturated(
+                    batch_id,
+                    use_batch_terminal_observations=True,
+                ):
                     raise CycleAcquisitionStoreError(
                         "verified CourtListener discovery did not saturate the store"
                     )
@@ -12625,6 +12628,7 @@ def _cmd_acquisition_materialize_courtlistener_snapshot(
                             verified.stage_commitment
                         )
                     },
+                    use_batch_terminal_observations=True,
                 )
                 snapshot_manifest = verify_snapshot(
                     snapshot_path,
@@ -12773,6 +12777,17 @@ def _record_identical_or_new_observation(
     reason_code: str,
     evidence: Mapping[str, object],
 ) -> None:
+    batch_observation = store.batch_terminal_observation(batch_id, candidate_id)
+    if batch_observation is not None:
+        if (
+            batch_observation.state == state
+            and batch_observation.reason_code == reason_code
+            and dict(batch_observation.evidence) == dict(evidence)
+        ):
+            return
+        raise CycleAcquisitionStoreError(
+            f"candidate {candidate_id} already has conflicting batch evidence"
+        )
     current = store.current_observation(candidate_id)
     if current is not None:
         if (

@@ -248,3 +248,96 @@ def test_durable_discovery_preserves_prior_immutable_exclusion(
         "decision_before_release_anchor"
     ]
     assert resumed.exclusions == first.exclusions
+
+
+@pytest.mark.parametrize(
+    ("advanced_state", "advanced_reason"),
+    [
+        ("accepted", "required_documents_complete"),
+        ("newly_free", "newly_free"),
+    ],
+)
+def test_rediscovery_preserves_advanced_canonical_state_and_batch_screen(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    advanced_state: str,
+    advanced_reason: str,
+) -> None:
+    with _store(tmp_path) as store:
+        store.ensure_batch("prior-batch", {"provider": "courtlistener-prior"})
+        store.ensure_terms("prior-batch", ("prior term",))
+        store.commit_search_page(
+            "prior-batch",
+            "prior term",
+            None,
+            (_page("101", next_cursor=None).hits[0],),
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        screen_evidence = {
+            "candidate": {
+                "docket_id": "101",
+                "metadata": {"case_id": "101"},
+            },
+            "candidate_id": "101",
+            "first_written_mtd_disposition_date": "2026-07-14",
+        }
+        store.record_observation(
+            "101",
+            batch_id="prior-batch",
+            state="accepted",
+            reason_code="strict_clean_screen_passed",
+            evidence=screen_evidence,
+        )
+        advanced_evidence = {"candidate_id": "101", "documents": ["motion"]}
+        store.record_observation(
+            "101",
+            batch_id="prior-batch",
+            state=advanced_state,
+            reason_code=advanced_reason,
+            evidence=advanced_evidence,
+        )
+        store.ensure_terms("durable-batch", ("motion to dismiss",))
+        store.commit_search_page(
+            "durable-batch",
+            "motion to dismiss",
+            None,
+            (_page("101", next_cursor=None).hits[0],),
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+
+        def must_not_screen(**_kwargs: Any) -> None:
+            raise AssertionError("advanced candidate must reuse strict screen evidence")
+
+        monkeypatch.setattr(acquisition_module, "_screen_candidate", must_not_screen)
+        result = discover_courtlistener_mtd_candidates(
+            client=cast(CourtListenerClient, object()),
+            html_source=cast(
+                acquisition_module.CourtListenerDocketHTMLSource, object()
+            ),
+            raw_html_dir=tmp_path / "raw",
+            decision_filed_on_or_after=date(2026, 6, 30),
+            search_window_start=date(2026, 7, 11),
+            search_window_end=date(2026, 7, 15),
+            query_terms=("motion to dismiss",),
+            target_clean_cases=100,
+            max_candidates=10,
+            search_page_size=2,
+            resume=True,
+            progress_store=store,
+            batch_id="durable-batch",
+        )
+
+        current = store.current_observation("101")
+        batch = store.batch_terminal_observation("durable-batch", "101")
+
+    assert result.screened_cases == (screen_evidence,)
+    assert current is not None
+    assert current.state == advanced_state
+    assert current.reason_code == advanced_reason
+    assert current.evidence == advanced_evidence
+    assert batch is not None
+    assert batch.state == "accepted"
+    assert batch.reason_code == "strict_clean_screen_passed"
+    assert batch.evidence == screen_evidence

@@ -48,6 +48,10 @@ class CourtListenerUnavailableError(CourtListenerClientError):
     """Raised when requested public fallback material is unavailable."""
 
 
+class CourtListenerProviderExhaustedError(CourtListenerUnavailableError):
+    """Raised after the bounded public-retrieval provider attempts are exhausted."""
+
+
 class CourtListenerResponseError(CourtListenerClientError):
     """Raised for malformed CourtListener responses."""
 

@@ -1537,6 +1537,7 @@ class CycleAcquisitionStore:
         observed_at: str | None = None,
         audit_immutable_skip: bool = True,
         metadata_repair_evidence: Mapping[str, object] | None = None,
+        preserve_current: bool = False,
     ) -> CandidateObservation:
         """Append evidence while preserving immutable and transient precedence.
 
@@ -1544,6 +1545,10 @@ class CycleAcquisitionStore:
         discovery exclusion caused solely by absent court and docket metadata.
         It must identify this candidate and provide both a court and docket
         number.  It cannot supersede an exclusion backed by actual metadata.
+
+        ``preserve_current`` records batch-local terminal evidence without
+        replacing an existing canonical state.  It is reserved for rediscovery
+        checkpoints when the candidate has already advanced beyond screening.
         """
 
         candidate_id = _require_text(candidate_id, "candidate_id")
@@ -1581,6 +1586,21 @@ class CycleAcquisitionStore:
                     f"candidate {candidate_id} was not discovered in batch {batch_id}"
                 )
             current = self._current_observation_row(candidate_id)
+            if preserve_current and (
+                state != "accepted"
+                or reason_code != "strict_clean_screen_passed"
+                or current is None
+                or str(current["reason_code"])
+                not in {
+                    "required_documents_complete",
+                    "newly_free",
+                    "required_documents_newly_free",
+                }
+            ):
+                raise ValueError(
+                    "preserve_current is limited to strict-screen rediscovery of "
+                    "a candidate already advanced through document acquisition"
+                )
             current_is_immutable = bool(
                 current is not None
                 and current["state"] == "excluded"
@@ -1606,6 +1626,8 @@ class CycleAcquisitionStore:
             update_current = (
                 state in _EVIDENCED_STATES and precedence >= current_precedence
             )
+            if preserve_current and current is not None:
+                update_current = False
             if repairs_absent_metadata:
                 update_current = state in _EVIDENCED_STATES
             elif current_is_immutable:
@@ -1887,6 +1909,7 @@ class CycleAcquisitionStore:
         batch_id: str,
         complete: bool,
         stage_commitments: Mapping[str, object] | None = None,
+        use_batch_terminal_observations: bool = False,
     ) -> Path:
         """Atomically publish a complete snapshot or isolated checkpoint export."""
 
@@ -1898,12 +1921,22 @@ class CycleAcquisitionStore:
         self._raise_for_snapshot_collision(snapshot_id=snapshot_id, target=target)
         cycle_hash = self.cycle_hash
         batch_digest = self.batch_digest(batch_id)
-        saturated = self._snapshot_completion(batch_id) if complete else False
+        saturated = (
+            self._snapshot_completion(
+                batch_id,
+                use_batch_terminal_observations=use_batch_terminal_observations,
+            )
+            if complete
+            else False
+        )
         root.mkdir(parents=True, exist_ok=True)
         staging = root / f".{name}.{uuid.uuid4().hex}.tmp"
         staging.mkdir(mode=0o700)
         try:
-            payloads = self._snapshot_payloads(batch_id)
+            payloads = self._snapshot_payloads(
+                batch_id,
+                use_batch_terminal_observations=use_batch_terminal_observations,
+            )
             if complete:
                 _validate_snapshot_target_motion_invariant(
                     payloads["screened-cases.jsonl"]
@@ -2060,7 +2093,12 @@ class CycleAcquisitionStore:
         if target.exists():
             raise FileExistsError(f"snapshot already exists: {target}")
 
-    def snapshot_is_saturated(self, batch_id: str) -> bool:
+    def snapshot_is_saturated(
+        self,
+        batch_id: str,
+        *,
+        use_batch_terminal_observations: bool = False,
+    ) -> bool:
         """Return whether a complete snapshot would be fully exhausted.
 
         This performs the same terminal-candidate preflight as publication but
@@ -2070,23 +2108,72 @@ class CycleAcquisitionStore:
         rename.
         """
 
-        return self._snapshot_completion(batch_id)
+        return self._snapshot_completion(
+            batch_id,
+            use_batch_terminal_observations=use_batch_terminal_observations,
+        )
 
-    def _snapshot_payloads(self, batch_id: str) -> dict[str, bytes]:
-        candidate_rows = self._connection.execute(
-            """
-            SELECT c.candidate_id, o.state, o.reason_code, o.evidence_json,
-                   o.observed_at, o.observation_id
-            FROM candidates c
-            JOIN discovery_hits h ON h.candidate_id = c.candidate_id
-            LEFT JOIN candidate_observations o
-              ON o.observation_id = c.current_observation_id
-            WHERE h.batch_id = ?
-            GROUP BY c.candidate_id
-            ORDER BY c.candidate_id
-            """,
-            (batch_id,),
-        ).fetchall()
+    def _snapshot_payloads(
+        self,
+        batch_id: str,
+        *,
+        use_batch_terminal_observations: bool = False,
+    ) -> dict[str, bytes]:
+        if use_batch_terminal_observations:
+            candidate_rows = self._connection.execute(
+                """
+                WITH ranked AS (
+                    SELECT o.*,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY candidate_id
+                               ORDER BY observation_id DESC
+                           ) AS candidate_rank
+                    FROM candidate_observations o
+                    WHERE batch_id = ?
+                      AND state IN ('accepted', 'excluded', 'skipped_immutable')
+                )
+                SELECT c.candidate_id,
+                       CASE WHEN b.state = 'skipped_immutable'
+                            THEN current.state ELSE b.state END AS state,
+                       CASE WHEN b.state = 'skipped_immutable'
+                            THEN current.reason_code ELSE b.reason_code END
+                            AS reason_code,
+                       CASE WHEN b.state = 'skipped_immutable'
+                            THEN current.evidence_json ELSE b.evidence_json END
+                            AS evidence_json,
+                       CASE WHEN b.state = 'skipped_immutable'
+                            THEN current.observed_at ELSE b.observed_at END
+                            AS observed_at,
+                       CASE WHEN b.state = 'skipped_immutable'
+                            THEN current.observation_id ELSE b.observation_id END
+                            AS observation_id
+                FROM candidates c
+                JOIN discovery_hits h ON h.candidate_id = c.candidate_id
+                LEFT JOIN ranked b
+                  ON b.candidate_id = c.candidate_id AND b.candidate_rank = 1
+                LEFT JOIN candidate_observations current
+                  ON current.observation_id = c.current_observation_id
+                WHERE h.batch_id = ?
+                GROUP BY c.candidate_id
+                ORDER BY c.candidate_id
+                """,
+                (batch_id, batch_id),
+            ).fetchall()
+        else:
+            candidate_rows = self._connection.execute(
+                """
+                SELECT c.candidate_id, o.state, o.reason_code, o.evidence_json,
+                       o.observed_at, o.observation_id
+                FROM candidates c
+                JOIN discovery_hits h ON h.candidate_id = c.candidate_id
+                LEFT JOIN candidate_observations o
+                  ON o.observation_id = c.current_observation_id
+                WHERE h.batch_id = ?
+                GROUP BY c.candidate_id
+                ORDER BY c.candidate_id
+                """,
+                (batch_id,),
+            ).fetchall()
         candidate_records: list[dict[str, object]] = [
             {
                 "candidate_id": row["candidate_id"],
@@ -2189,7 +2276,12 @@ class CycleAcquisitionStore:
             "raw-artifacts.jsonl": _jsonl_bytes(artifacts),
         }
 
-    def _snapshot_completion(self, batch_id: str) -> bool:
+    def _snapshot_completion(
+        self,
+        batch_id: str,
+        *,
+        use_batch_terminal_observations: bool = False,
+    ) -> bool:
         terms = self._connection.execute(
             """
             SELECT term, terminal_status FROM term_progress
@@ -2212,15 +2304,32 @@ class CycleAcquisitionStore:
                 "cannot publish a complete snapshot with incomplete terms: "
                 + ", ".join(incomplete_terms)
             )
-        unresolved = self._connection.execute(
-            """
-            SELECT DISTINCT h.candidate_id FROM discovery_hits h
-            JOIN candidates c ON c.candidate_id = h.candidate_id
-            WHERE h.batch_id = ? AND c.current_observation_id IS NULL
-            ORDER BY h.candidate_id
-            """,
-            (batch_id,),
-        ).fetchall()
+        if use_batch_terminal_observations:
+            unresolved = self._connection.execute(
+                """
+                SELECT DISTINCT h.candidate_id FROM discovery_hits h
+                WHERE h.batch_id = ? AND NOT EXISTS (
+                    SELECT 1 FROM candidate_observations o
+                    WHERE o.batch_id = h.batch_id
+                      AND o.candidate_id = h.candidate_id
+                      AND o.state IN (
+                          'accepted', 'excluded', 'skipped_immutable'
+                      )
+                )
+                ORDER BY h.candidate_id
+                """,
+                (batch_id,),
+            ).fetchall()
+        else:
+            unresolved = self._connection.execute(
+                """
+                SELECT DISTINCT h.candidate_id FROM discovery_hits h
+                JOIN candidates c ON c.candidate_id = h.candidate_id
+                WHERE h.batch_id = ? AND c.current_observation_id IS NULL
+                ORDER BY h.candidate_id
+                """,
+                (batch_id,),
+            ).fetchall()
         if unresolved:
             raise CycleAcquisitionStoreError(
                 "cannot publish a complete snapshot with unresolved candidates: "
