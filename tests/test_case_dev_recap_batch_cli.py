@@ -54,6 +54,9 @@ def test_enrich_recap_case_dev_projects_saturated_opinion_source_without_invente
     assert ranked["identity"]["courtlistener_url"] == (
         "https://www.courtlistener.com/api/rest/v4/dockets/101/"
     )
+    assert ranked["ranking_policy_version"] == "eligibility-aware-v2"
+    assert ranked["eligibility_anchor"] == "2026-06-30"
+    assert ranked["entries"] == []
     assert ranked["source_lineage"] == projected["source_lineage"]
 
     summary = json.loads(
@@ -63,6 +66,8 @@ def test_enrich_recap_case_dev_projects_saturated_opinion_source_without_invente
     assert len(summary["source_batch_digest"]) == 64
     assert len(summary["source_candidate_set_sha256"]) == 64
     assert summary["source_search_type"] == "o"
+    assert summary["ranking_policy_version"] == "eligibility-aware-v2"
+    assert summary["eligibility_anchor"] == "2026-06-30"
     assert len(summary["source_projection_sha256"]) == 64
     run_card = json.loads(
         (output_root / "run-cards" / "enrich-recap-case-dev.json").read_text()

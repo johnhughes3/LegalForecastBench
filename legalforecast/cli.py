@@ -134,6 +134,9 @@ from legalforecast.ingestion.case_dev_ranked_selection import (
     verify_case_dev_ranked_selection,
 )
 from legalforecast.ingestion.case_dev_recap_batch import enrich_recap_discovery_batch
+from legalforecast.ingestion.case_dev_recap_enrichment import (
+    CASE_DEV_RANKING_POLICY_VERSION,
+)
 from legalforecast.ingestion.case_dev_smoke import (
     CaseDevSmokeConfig,
     case_dev_smoke_query_terms,
@@ -3486,7 +3489,8 @@ def _add_acquisition_enrich_recap_case_dev_arguments(
         help=(
             "Cycle acquisition SQLite store containing a fully exhausted "
             "CourtListener search_type=o opinion batch. Requires "
-            "--source-batch-id and replaces --dockets."
+            "--source-batch-id and replaces --dockets. Its frozen search-window "
+            "start becomes the eligibility-aware ranking anchor."
         ),
     )
     parser.add_argument(
@@ -11008,6 +11012,7 @@ def _enrich_case_dev_progress_record(
     live: bool,
     page_size: int,
     max_pages: int,
+    eligibility_anchor: date | None,
     allow_source_bound: bool = False,
     client: CaseDevClient | None = None,
     rate_limiter: CaseDevRateLimiter | None = None,
@@ -11026,6 +11031,7 @@ def _enrich_case_dev_progress_record(
             page_size=page_size,
             max_pages=max_pages,
             allow_source_bound=allow_source_bound,
+            eligibility_anchor=eligibility_anchor,
         )
     except CaseDevServerError as exc:
         return (
@@ -11082,6 +11088,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
     )
     source_commitments: JsonRecord = {}
     projection_bytes: bytes | None = None
+    eligibility_anchor: date | None = None
     if source_store_path is not None and source_batch_id is not None:
         try:
             source = read_saturated_direct_search_leads(
@@ -11096,6 +11103,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
             raise CommandError(str(exc)) from exc
         projection_bytes = _jsonl_bytes(records)
         projection_sha256 = hashlib.sha256(projection_bytes).hexdigest()
+        eligibility_anchor = source.search_window_start
         source_commitments = {
             "source_batch_id": source.source_batch_id,
             "source_batch_digest": source.source_batch_digest,
@@ -11103,6 +11111,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
             "source_search_type": source.source_search_type,
             "source_candidate_set_sha256": source.source_candidate_set_sha256,
             "source_projection_sha256": projection_sha256,
+            "eligibility_anchor": eligibility_anchor.isoformat(),
         }
         dockets_path = projection_path
         source_input_paths = (source_store_path,)
@@ -11202,6 +11211,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
     )
     progress_config: JsonRecord = {
         "schema_version": "legalforecast.case_dev_recap_progress.v1",
+        "ranking_policy_version": CASE_DEV_RANKING_POLICY_VERSION,
         "dockets_sha256": "sha256:" + dockets_sha256,
         "input_record_count": len(records),
         "page_size": page_size,
@@ -11233,6 +11243,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
     if dry_run:
         summary: JsonRecord = {
             "schema_version": "legalforecast.case_dev_recap_batch_summary.v1",
+            "ranking_policy_version": CASE_DEV_RANKING_POLICY_VERSION,
             "dry_run": True,
             "input_record_count": len(records),
             "page_size": page_size,
@@ -11334,6 +11345,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
                     live=live,
                     page_size=page_size,
                     max_pages=max_pages,
+                    eligibility_anchor=eligibility_anchor,
                     allow_source_bound=allow_source_bound,
                     client=serial_client,
                 )
@@ -11372,6 +11384,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
                         live=live,
                         page_size=page_size,
                         max_pages=max_pages,
+                        eligibility_anchor=eligibility_anchor,
                         allow_source_bound=allow_source_bound,
                         rate_limiter=aggregate_rate_limiter,
                     )
@@ -11463,6 +11476,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
     enrichment_failure_count = len(failure_records) - conversion_failure_count
     summary = {
         "schema_version": "legalforecast.case_dev_recap_batch_summary.v1",
+        "ranking_policy_version": CASE_DEV_RANKING_POLICY_VERSION,
         "dry_run": False,
         "case_dev_request_count": request_count,
         "page_size": page_size,
@@ -11489,6 +11503,12 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         "decision_signal_priority_tier_counts": dict(
             Counter(
                 cast(str, record["decision_signal_priority_reason"])
+                for record in ranked_records
+            )
+        ),
+        "eligibility_priority_tier_counts": dict(
+            Counter(
+                cast(str, record["eligibility_priority_reason"])
                 for record in ranked_records
             )
         ),

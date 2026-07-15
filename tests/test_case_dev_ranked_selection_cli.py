@@ -113,6 +113,40 @@ def test_select_case_dev_ranked_rejects_ranked_tamper_before_target_write(
     _assert_no_target_rows(target_store)
 
 
+def test_select_case_dev_ranked_rejects_legacy_ranking_policy(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
+    ranked_path = enrichment_root / "checkpoints" / "case-dev-recap-ranked.jsonl"
+    run_card_path = enrichment_root / "run-cards" / "enrich-recap-case-dev.json"
+    ranked = _read_jsonl(ranked_path)
+    ranked[0].pop("ranking_policy_version")
+    _write_jsonl(ranked_path, ranked)
+    run_card = json.loads(run_card_path.read_text())
+    run_card["ranked_output_sha256"] = hashlib.sha256(
+        ranked_path.read_bytes()
+    ).hexdigest()
+    run_card_path.write_text(json.dumps(run_card, sort_keys=True) + "\n")
+    expected_run_card_sha256 = hashlib.sha256(run_card_path.read_bytes()).hexdigest()
+    target_store = _target_store(tmp_path)
+
+    assert (
+        main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=tmp_path / "selection-run-card.json",
+                summary=tmp_path / "selection-summary.json",
+                expected_enrichment_run_card_sha256=expected_run_card_sha256,
+            )
+        )
+        == 2
+    )
+    _assert_no_target_rows(target_store)
+
+
 def test_select_case_dev_ranked_rejects_forged_rank_and_recomputed_run_card(
     tmp_path: Path,
 ) -> None:

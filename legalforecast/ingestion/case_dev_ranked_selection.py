@@ -11,6 +11,9 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlsplit
 
+from legalforecast.ingestion.case_dev_recap_enrichment import (
+    CASE_DEV_RANKING_POLICY_VERSION,
+)
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, TermTerminalStatus
 from legalforecast.ingestion.recap_api_batch_driver import (
@@ -582,6 +585,10 @@ def _verify_ranked_record(
     rank: int,
     projection_by_docket: Mapping[str, Mapping[str, object]],
 ) -> RankedCaseDevCandidate:
+    if record.get("ranking_policy_version") != CASE_DEV_RANKING_POLICY_VERSION:
+        raise RecapApiBatchDriverError(
+            "ranked record lacks the current eligibility-aware ranking policy"
+        )
     identity = record.get("identity")
     if not isinstance(identity, Mapping):
         raise RecapApiBatchDriverError("ranked record lacks identity")

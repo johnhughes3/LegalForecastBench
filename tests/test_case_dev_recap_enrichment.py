@@ -333,6 +333,266 @@ def test_ranking_prioritizes_explicit_district_12c_over_cheaper_bankruptcy() -> 
     )
 
 
+def test_ranking_prioritizes_linked_post_anchor_merits_disposition() -> None:
+    valid_client, _ = _client(
+        _lookup(
+            docket_id="401",
+            court_id="nysd",
+            docket_number="1:26-cv-00401",
+            entries=(
+                _entry("entry-1", 1, "Complaint", filed_at="2026-06-01"),
+                _entry(
+                    "entry-2",
+                    2,
+                    "Motion to Dismiss under Rule 12(b)(6)",
+                    filed_at="2026-06-10",
+                ),
+                _entry(
+                    "entry-3",
+                    3,
+                    "Order granting Motion to Dismiss under Rule 12(b)(6)",
+                    filed_at="2026-07-02",
+                ),
+            ),
+            limit=10,
+        )
+    )
+    unlinked_client, _ = _client(
+        _lookup(
+            docket_id="402",
+            court_id="nysd",
+            docket_number="1:26-cv-00402",
+            entries=(
+                _entry("entry-1", 1, "Complaint", filed_at="2026-06-01"),
+                _entry(
+                    "entry-3",
+                    3,
+                    "Order granting Motion to Dismiss under Rule 12(b)(6)",
+                    filed_at="2026-07-02",
+                ),
+            ),
+            limit=10,
+        )
+    )
+    pre_anchor_client, _ = _client(
+        _lookup(
+            docket_id="403",
+            court_id="nysd",
+            docket_number="1:26-cv-00403",
+            entries=(
+                _entry(
+                    "entry-2",
+                    2,
+                    "Motion to Dismiss under Rule 12(b)(6)",
+                    filed_at="2026-06-10",
+                ),
+                _entry(
+                    "entry-3",
+                    3,
+                    "Order denying Motion to Dismiss under Rule 12(b)(6)",
+                    filed_at="2026-06-29",
+                ),
+            ),
+            limit=10,
+        )
+    )
+    procedural_client, _ = _client(
+        _lookup(
+            docket_id="404",
+            court_id="nysd",
+            docket_number="1:26-cv-00404",
+            entries=(
+                _entry(
+                    "entry-2",
+                    2,
+                    "Motion to Dismiss under Rule 12(b)(6)",
+                    filed_at="2026-06-10",
+                ),
+                _entry(
+                    "entry-3",
+                    3,
+                    "Order governing Motions to Dismiss and setting briefing",
+                    filed_at="2026-07-02",
+                ),
+            ),
+            limit=10,
+        )
+    )
+    anchor = date(2026, 6, 30)
+    valid = enrich_recap_docket_with_case_dev(
+        client=valid_client,
+        discovery=_discovery("401"),
+        page_size=10,
+        eligibility_anchor=anchor,
+    )
+    unlinked = enrich_recap_docket_with_case_dev(
+        client=unlinked_client,
+        discovery=_discovery("402"),
+        page_size=10,
+        eligibility_anchor=anchor,
+    )
+    pre_anchor = enrich_recap_docket_with_case_dev(
+        client=pre_anchor_client,
+        discovery=_discovery("403"),
+        page_size=10,
+        eligibility_anchor=anchor,
+    )
+    procedural = enrich_recap_docket_with_case_dev(
+        client=procedural_client,
+        discovery=_discovery("404"),
+        page_size=10,
+        eligibility_anchor=anchor,
+    )
+
+    assert valid.eligibility_priority == (
+        0,
+        "strict_post_anchor_mtd_with_observed_target_motion",
+    )
+    assert unlinked.eligibility_priority == (
+        1,
+        "strict_post_anchor_mtd_target_motion_unproven",
+    )
+    assert pre_anchor.eligibility_priority == (
+        4,
+        "first_written_mtd_disposition_before_anchor",
+    )
+    assert procedural.eligibility_priority == (
+        5,
+        "procedural_or_standing_order",
+    )
+    assert [
+        item.courtlistener_docket_id
+        for item in rank_case_dev_recap_enrichments(
+            (procedural, pre_anchor, unlinked, valid)
+        )
+    ] == ["401", "402", "403", "404"]
+    record = valid.to_record()
+    assert record["eligibility_anchor"] == "2026-06-30"
+    assert record["eligibility_priority_tier"] == 0
+    assert record["entries"][2]["filed_at"] == "2026-07-02"
+    assert record["eligibility_screen"]["status"] == (
+        "accepted_strict_civil_mtd_decision"
+    )
+
+
+def test_rule_12c_merits_motion_remains_top_eligibility_tier() -> None:
+    client, _ = _client(
+        _lookup(
+            docket_id="405",
+            court_id="nysd",
+            docket_number="1:26-cv-00405",
+            entries=(
+                _entry(
+                    "entry-2",
+                    2,
+                    "Motion for judgment on the pleadings under Rule 12(c)",
+                    filed_at="2026-06-10",
+                ),
+                _entry(
+                    "entry-3",
+                    3,
+                    "Memorandum and Order granting Defendant's Rule 12(c) "
+                    "Motion for Judgment on the Pleadings",
+                    filed_at="2026-07-03",
+                ),
+            ),
+            limit=10,
+        )
+    )
+
+    enrichment = enrich_recap_docket_with_case_dev(
+        client=client,
+        discovery=_discovery("405"),
+        page_size=10,
+        eligibility_anchor=date(2026, 6, 30),
+    )
+
+    assert enrichment.eligibility_priority == (
+        0,
+        "strict_post_anchor_mtd_with_observed_target_motion",
+    )
+
+
+def test_moot_disposition_is_retained_but_demoted_for_scheduling() -> None:
+    client, _ = _client(
+        _lookup(
+            docket_id="406",
+            court_id="nysd",
+            docket_number="1:26-cv-00406",
+            entries=(
+                _entry(
+                    "entry-2",
+                    2,
+                    "Motion to Dismiss under Rule 12(b)(6)",
+                    filed_at="2026-06-10",
+                ),
+                _entry(
+                    "entry-3",
+                    3,
+                    "Order denying Motion to Dismiss as moot",
+                    filed_at="2026-07-03",
+                ),
+            ),
+            limit=10,
+        )
+    )
+
+    enrichment = enrich_recap_docket_with_case_dev(
+        client=client,
+        discovery=_discovery("406"),
+        page_size=10,
+        eligibility_anchor=date(2026, 6, 30),
+    )
+
+    assert enrichment.eligibility_screen.anchor_disposition_entries
+    assert enrichment.eligibility_priority == (
+        3,
+        "post_anchor_non_merits_or_moot_disposition",
+    )
+    assert enrichment.decision_signal_priority == (
+        2,
+        "post_anchor_non_merits_or_moot_disposition",
+    )
+
+
+def test_missing_disposition_date_is_unknown_not_top_ranked() -> None:
+    decision = _entry(
+        "entry-3",
+        3,
+        "Order granting Motion to Dismiss under Rule 12(b)(6)",
+    )
+    decision.pop("date")
+    client, _ = _client(
+        _lookup(
+            docket_id="407",
+            court_id="nysd",
+            docket_number="1:26-cv-00407",
+            entries=(
+                _entry(
+                    "entry-2",
+                    2,
+                    "Motion to Dismiss under Rule 12(b)(6)",
+                    filed_at="2026-06-10",
+                ),
+                decision,
+            ),
+            limit=10,
+        )
+    )
+
+    enrichment = enrich_recap_docket_with_case_dev(
+        client=client,
+        discovery=_discovery("407"),
+        page_size=10,
+        eligibility_anchor=date(2026, 6, 30),
+    )
+
+    assert enrichment.eligibility_priority == (
+        2,
+        "first_written_mtd_disposition_date_unproven",
+    )
+
+
 def test_ranking_retains_bankruptcy_adversary_with_local_docket_number() -> None:
     client, _ = _client(
         _lookup(
@@ -631,11 +891,12 @@ def _entry(
     entry_number: int,
     description: str,
     *documents: dict[str, object],
+    filed_at: str = date(2026, 7, 1).isoformat(),
 ) -> dict[str, object]:
     return {
         "id": entry_id,
         "entryNumber": entry_number,
-        "date": date(2026, 7, 1).isoformat(),
+        "date": filed_at,
         "description": description,
         "documents": list(documents),
     }
