@@ -26,6 +26,8 @@ web-docket-page value object that screen already accepts.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import time
 import urllib.parse
@@ -55,7 +57,11 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 from legalforecast.ingestion.decision_first_terms import (
     DECISION_FIRST_RECAP_SEARCH_TERMS,
 )
-from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, DiscoveryPage
+from legalforecast.ingestion.discovery_scheduler import (
+    DiscoveryHit,
+    DiscoveryPage,
+    TermTerminalStatus,
+)
 from legalforecast.ingestion.mtd_acquisition_screen import (
     CaseDevDocketMetadata,
     CaseDevMetadataScreen,
@@ -98,6 +104,21 @@ _CANDIDATE_PREFIX = "courtlistener-docket-"
 _CRIMINAL_DOCKET_TOKEN = re.compile(r"-cr-", re.IGNORECASE)
 _CRIMINAL_SLUG_PREFIXES = ("usa-v-", "united-states-v-")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_RANKED_SUBSET_TRANSFER_SCHEMA = (
+    "legalforecast.case_dev_ranked_opinion_subset_transfer.v1"
+)
+_RANKED_SUBSET_TRANSFER_TERM = "case-dev-ranked-opinion-subset-transfer-v1"
+_RANKED_SUBSET_SHARED_COMMITMENTS = (
+    "source_batch_id",
+    "source_batch_digest",
+    "source_cycle_hash",
+    "target_cycle_hash",
+    "source_candidate_set_sha256",
+    "source_projection_sha256",
+    "ranked_output_sha256",
+    "enrichment_run_card_sha256",
+    "selected_candidate_set_sha256",
+)
 
 _MONTHS = (
     "January",
@@ -964,8 +985,7 @@ def _source_bound_adversary_defer_evidence(
     provenance = payload.get("case_dev_ranked_selection_provenance")
     evidence = payload.get("bankruptcy_adversary_entry_evidence")
     if (
-        config.get("discovery_mode")
-        != "legalforecast.case_dev_ranked_opinion_subset_transfer.v1"
+        config.get("discovery_mode") != _RANKED_SUBSET_TRANSFER_SCHEMA
         or not isinstance(provenance, Mapping)
         or not isinstance(evidence, Mapping)
     ):
@@ -977,8 +997,7 @@ def _source_bound_adversary_defer_evidence(
     entry_number = typed_evidence.get("entry_number")
     filed_at = typed_evidence.get("filed_at")
     if (
-        typed_provenance.get("schema_version")
-        != "legalforecast.case_dev_ranked_opinion_subset_transfer.v1"
+        typed_provenance.get("schema_version") != _RANKED_SUBSET_TRANSFER_SCHEMA
         or typed_evidence.get("schema_version")
         != "legalforecast.source_bound_bankruptcy_adversary_entry.v1"
         or not isinstance(ranked_record_sha256, str)
@@ -1001,7 +1020,149 @@ def _source_bound_adversary_defer_evidence(
         date.fromisoformat(filed_at)
     except ValueError:
         return None
+    if not _authenticates_ranked_subset_payload(
+        store,
+        batch_id=batch_id,
+        config=config,
+        payload=payload,
+        expected_candidate_id=f"{_CANDIDATE_PREFIX}{docket.docket_id}",
+    ):
+        return None
     return typed_evidence
+
+
+def _authenticates_ranked_subset_payload(
+    store: CycleAcquisitionStore,
+    *,
+    batch_id: str,
+    config: Mapping[str, object],
+    payload: Mapping[str, Any],
+    expected_candidate_id: str,
+) -> bool:
+    """Bind one deferred payload to the complete frozen subset transfer."""
+
+    selected_count = config.get("selected_candidate_count")
+    selected_set_sha256 = config.get("selected_candidate_set_sha256")
+    if (
+        config.get("selection_semantics") != "exact_case_dev_ranked_subset"
+        or config.get("query_terms") != [_RANKED_SUBSET_TRANSFER_TERM]
+        or type(selected_count) is not int
+        or selected_count <= 0
+        or config.get("top_k_per_term") != selected_count
+        or not isinstance(selected_set_sha256, str)
+        or _SHA256.fullmatch(selected_set_sha256) is None
+        or config.get("target_cycle_hash") != store.cycle_hash
+    ):
+        return False
+    if any(
+        field not in config
+        or payload.get("case_dev_ranked_selection_provenance", {}).get(field)
+        != config[field]
+        for field in _RANKED_SUBSET_SHARED_COMMITMENTS
+    ):
+        return False
+    progress = store.term_progress(batch_id, _RANKED_SUBSET_TRANSFER_TERM)
+    if (
+        progress.terminal_status != TermTerminalStatus.EXHAUSTED
+        or progress.hit_count != selected_count
+    ):
+        return False
+
+    commitments: list[dict[str, object]] = []
+    persisted_payload: Mapping[str, object] | None = None
+    seen_candidates: set[str] = set()
+    seen_dockets: set[str] = set()
+    seen_ranks: set[int] = set()
+    transcript = store.search_page_transcript(batch_id)
+    for page in transcript:
+        if page.get("term") != _RANKED_SUBSET_TRANSFER_TERM:
+            return False
+        raw_hits = page.get("hits")
+        if not isinstance(raw_hits, list):
+            return False
+        for raw_hit in cast(list[object], raw_hits):
+            if not isinstance(raw_hit, Mapping):
+                return False
+            hit = cast(Mapping[str, object], raw_hit)
+            candidate_id = hit.get("candidate_id")
+            raw_hit_payload = hit.get("payload")
+            if not isinstance(candidate_id, str) or not isinstance(
+                raw_hit_payload, Mapping
+            ):
+                return False
+            hit_payload = cast(Mapping[str, object], raw_hit_payload)
+            docket_id = hit_payload.get("docket_id")
+            provenance = hit_payload.get("case_dev_ranked_selection_provenance")
+            if (
+                candidate_id in seen_candidates
+                or not isinstance(docket_id, str)
+                or docket_id in seen_dockets
+                or candidate_id != f"{_CANDIDATE_PREFIX}{docket_id}"
+                or hit_payload.get("candidate_id") != candidate_id
+                or hit_payload.get("query_term") != _RANKED_SUBSET_TRANSFER_TERM
+                or hit_payload.get("provider") != RECAP_API_PROVIDER
+                or not isinstance(provenance, Mapping)
+            ):
+                return False
+            typed_provenance = cast(Mapping[str, object], provenance)
+            rank = typed_provenance.get("rank")
+            ranking_key = typed_provenance.get("ranking_key")
+            ranked_record_sha256 = typed_provenance.get("ranked_record_sha256")
+            returned_url = typed_provenance.get("case_dev_returned_courtlistener_url")
+            if not isinstance(ranking_key, list):
+                return False
+            typed_ranking_key = cast(list[object], ranking_key)
+            if (
+                typed_provenance.get("schema_version") != _RANKED_SUBSET_TRANSFER_SCHEMA
+                or any(
+                    field not in config or typed_provenance.get(field) != config[field]
+                    for field in _RANKED_SUBSET_SHARED_COMMITMENTS
+                )
+                or type(rank) is not int
+                or rank <= 0
+                or rank in seen_ranks
+                or len(typed_ranking_key) != 5
+                or any(
+                    type(value) is not int or value < 0
+                    for value in typed_ranking_key[:4]
+                )
+                or typed_ranking_key[4] != docket_id
+                or not isinstance(ranked_record_sha256, str)
+                or _SHA256.fullmatch(ranked_record_sha256) is None
+                or not isinstance(returned_url, str)
+                or not returned_url
+                or hit.get("provider_hit_id")
+                != (f"{_RANKED_SUBSET_TRANSFER_TERM}:{selected_set_sha256}:{docket_id}")
+            ):
+                return False
+            seen_candidates.add(candidate_id)
+            seen_dockets.add(docket_id)
+            seen_ranks.add(rank)
+            commitments.append(
+                {
+                    "docket_id": docket_id,
+                    "rank": rank,
+                    "ranking_key": typed_ranking_key,
+                    "returned_courtlistener_url": returned_url,
+                    "ranked_record_sha256": ranked_record_sha256,
+                }
+            )
+            if candidate_id == expected_candidate_id:
+                persisted_payload = hit_payload
+
+    commitments.sort(key=lambda record: cast(int, record["rank"]))
+    return (
+        len(commitments) == selected_count
+        and persisted_payload is not None
+        and dict(persisted_payload) == dict(payload)
+        and _canonical_record_sha256(commitments) == selected_set_sha256
+    )
+
+
+def _canonical_record_sha256(records: Sequence[Mapping[str, object]]) -> str:
+    return hashlib.sha256(
+        json.dumps(records, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def _matches_deferred_adversary_entry(
