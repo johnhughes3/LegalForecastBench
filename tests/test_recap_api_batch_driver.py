@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from legalforecast.ingestion.courtlistener_client import (
@@ -15,12 +15,16 @@ from legalforecast.ingestion.courtlistener_client import (
 )
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.recap_api_batch_driver import (
+    DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA,
+    DIRECT_SEARCH_TRANSFER_TERM,
     Batch001Lead,
     RecapApiBatchDriverError,
     read_batch_001_enrichment_failure_leads,
+    read_saturated_direct_search_leads,
     run_discover,
     run_observe,
     seed_batch_001_leads,
+    seed_direct_search_leads,
 )
 from legalforecast.ingestion.recap_api_discovery import (
     RecapReconstructionAuthError,
@@ -1054,3 +1058,336 @@ def test_observe_paces_with_injected_clock(tmp_path: Path) -> None:
         assert slept and all(s == 1.0 for s in slept)
     finally:
         store.close()
+
+
+# ---------------------------------------------------------------------------
+# seed-direct-search.
+# ---------------------------------------------------------------------------
+
+
+def _build_saturated_direct_search_store(
+    tmp_path: Path,
+    *,
+    second_term_exhausted: bool = True,
+    mismatched_docket_id: bool = False,
+    nonnumeric_candidate_id: bool = False,
+) -> Path:
+    """Build a small CourtListener-authoritative direct-search source."""
+
+    path = tmp_path / "direct-search.sqlite3"
+    store = CycleAcquisitionStore(path)
+    store.ensure_cycle({"schema_version": "test", "eligibility_anchor": "2026-06-30"})
+    terms = ("motion to dismiss", "judgment on the pleadings")
+    store.ensure_batch(
+        "direct-search",
+        {
+            "provider": "courtlistener",
+            "search_window_start": "2026-07-11",
+            "search_window_end": "2026-07-15",
+            "query_terms": list(terms),
+            "search_page_size": 100,
+        },
+    )
+    store.ensure_terms("direct-search", terms)
+    candidate_id = "not-numeric" if nonnumeric_candidate_id else "200"
+    store.commit_search_page(
+        "direct-search",
+        terms[0],
+        None,
+        [
+            {
+                "provider_hit_id": "hit-200-high",
+                "candidate_id": candidate_id,
+                "payload": {
+                    "docket_id": "201" if mismatched_docket_id else candidate_id,
+                    "court_id": "nysd",
+                    "docket_number": "1:26-cv-00200",
+                    "case_name": "Alpha LLC v. Beta Inc.",
+                    "recap_documents": [
+                        {
+                            "id": 8200,
+                            "docket_entry_id": 7200,
+                            "entry_number": 70,
+                            "document_number": "70",
+                            "description": "ORDER granting motion to dismiss",
+                            "entry_date_filed": "2026-07-14",
+                            "absolute_url": "/api/rest/v4/recap-documents/8200/",
+                        }
+                    ],
+                },
+            },
+            {
+                "provider_hit_id": "hit-300-criminal",
+                "candidate_id": "300",
+                "payload": {
+                    "docket_id": "300",
+                    "court_id": "nysd",
+                    "docket_number": "1:26-cr-00300",
+                    "case_name": "United States v. Roe",
+                    "recap_documents": [],
+                },
+            },
+        ],
+        next_cursor=None,
+        terminal_status="exhausted",
+    )
+    store.commit_search_page(
+        "direct-search",
+        terms[1],
+        None,
+        [
+            {
+                # A second hit for docket 200 carries the lower triggering entry.
+                # Transfer must aggregate across terms, not keep the first row.
+                "provider_hit_id": "hit-200-low",
+                "candidate_id": "200",
+                "payload": {
+                    "docket_id": "200",
+                    "court_id": "nysd",
+                    "docket_number": "1:26-cv-00200",
+                    "case_name": "Alpha LLC v. Beta Inc.",
+                    "recap_documents": [
+                        {
+                            "id": 8100,
+                            "docket_entry_id": 7100,
+                            "entry_number": 19,
+                            "document_number": "19",
+                            "description": "Order on motion to dismiss",
+                            "entry_date_filed": "2026-07-13",
+                            "absolute_url": "/api/rest/v4/recap-documents/8100/",
+                        },
+                        {
+                            # Invalid/non-positive ordinals cannot displace the
+                            # minimum valid evidence.
+                            "id": 8000,
+                            "entry_number": 0,
+                        },
+                    ],
+                },
+            },
+            {
+                "provider_hit_id": "hit-400-large",
+                "candidate_id": "400",
+                "payload": {
+                    "docket_id": "400",
+                    "court_id": "cand",
+                    "docket_number": "3:26-cv-00400",
+                    "case_name": "Gamma Corp. v. Delta LLC",
+                    "recap_documents": [
+                        {
+                            "id": 8400,
+                            "docket_entry_id": 7400,
+                            "entry_number": 501,
+                            "document_number": "501",
+                            "description": "Order on motion to dismiss",
+                            "entry_date_filed": "2026-07-15",
+                            "absolute_url": "/api/rest/v4/recap-documents/8400/",
+                        }
+                    ],
+                },
+            },
+        ],
+        next_cursor=None if second_term_exhausted else "next-page",
+        terminal_status="exhausted" if second_term_exhausted else None,
+    )
+    store.close()
+    return path
+
+
+def test_read_saturated_direct_search_aggregates_minimum_entry_evidence(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+
+    source = read_saturated_direct_search_leads(path, source_batch_id="direct-search")
+
+    assert source.source_batch_id == "direct-search"
+    assert source.search_window_start == date(2026, 7, 11)
+    assert source.search_window_end == date(2026, 7, 15)
+    assert [lead.docket_id for lead in source.leads] == ["200", "300", "400"]
+    assert len(source.source_candidate_set_sha256) == 64
+    lead_200 = source.leads[0]
+    assert lead_200.candidate_id == "courtlistener-docket-200"
+    assert lead_200.source_provider_hit_id == "hit-200-low"
+    assert lead_200.source_query_term == "judgment on the pleadings"
+    assert lead_200.decision_entry_evidence == {
+        "id": 8100,
+        "docket_entry_id": 7100,
+        "entry_number": 19,
+        "document_number": "19",
+        "description": "Order on motion to dismiss",
+        "entry_date_filed": "2026-07-13",
+        "absolute_url": "/api/rest/v4/recap-documents/8100/",
+    }
+    assert source.leads[1].decision_entry_evidence is None
+    assert source.leads[2].decision_entry_evidence is not None
+    assert source.leads[2].decision_entry_evidence["entry_number"] == 501
+
+
+def test_seed_direct_search_freezes_lineage_canonicalizes_and_prescreens(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = read_saturated_direct_search_leads(path, source_batch_id="direct-search")
+
+    with CycleAcquisitionStore(path) as store:
+        first = seed_direct_search_leads(
+            store,
+            batch_id="rest-screen",
+            source=source,
+            page_size=2,
+        )
+        assert first.leads_selected == 3
+        assert first.leads_seeded == 3
+        assert first.already_seeded is False
+        assert store.candidate_ids("rest-screen") == (
+            "courtlistener-docket-200",
+            "courtlistener-docket-300",
+            "courtlistener-docket-400",
+        )
+        config = store.batch_config("rest-screen")
+        assert config["discovery_mode"] == DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA
+        assert config["source_batch_id"] == "direct-search"
+        assert config["source_batch_digest"] == source.source_batch_digest
+        assert (
+            config["source_candidate_set_sha256"] == source.source_candidate_set_sha256
+        )
+        assert config["decision_window_start"] == "2026-07-11"
+        assert config["decision_window_end"] == "2026-07-15"
+
+        hits = {
+            hit.candidate_id: hit.payload
+            for hit in store.candidate_discovery_hits("rest-screen")
+        }
+        transferred = hits["courtlistener-docket-200"]
+        assert transferred["docket_id"] == "200"
+        assert transferred["decision_entry_evidence"]["entry_number"] == 19
+        provenance = transferred["direct_search_provenance"]
+        assert provenance["schema_version"] == (
+            DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA
+        )
+        assert provenance["source_batch_id"] == "direct-search"
+        assert provenance["source_provider_hit_id"] == "hit-200-low"
+        assert (
+            provenance["source_candidate_set_sha256"]
+            == source.source_candidate_set_sha256
+        )
+        assert hits["courtlistener-docket-300"]["prescreen_exclusion_reason"] == (
+            "criminal_case"
+        )
+
+        transcript = store.search_page_transcript("rest-screen")
+        assert [len(cast(list[object], page["hits"])) for page in transcript] == [2, 1]
+        assert [page["request_cursor"] for page in transcript] == [None, "2"]
+        assert transcript[-1]["terminal_status"] == "exhausted"
+        assert all(page["term"] == DIRECT_SEARCH_TRANSFER_TERM for page in transcript)
+
+        repeated = seed_direct_search_leads(
+            store,
+            batch_id="rest-screen",
+            source=source,
+            page_size=2,
+        )
+        assert repeated.leads_seeded == 0
+        assert repeated.already_seeded is True
+        assert store.search_page_transcript("rest-screen") == transcript
+
+
+def test_seed_direct_search_resumes_after_a_committed_page(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = read_saturated_direct_search_leads(path, source_batch_id="direct-search")
+    original_commit = CycleAcquisitionStore.commit_search_page
+    committed = 0
+
+    def interrupt_after_first_commit(
+        store: CycleAcquisitionStore, *args: Any, **kwargs: Any
+    ) -> Any:
+        nonlocal committed
+        result = original_commit(store, *args, **kwargs)
+        committed += 1
+        if committed == 1:
+            raise RuntimeError("simulated interruption after durable commit")
+        return result
+
+    with CycleAcquisitionStore(path) as store:
+        monkeypatch.setattr(
+            CycleAcquisitionStore, "commit_search_page", interrupt_after_first_commit
+        )
+        with pytest.raises(RuntimeError, match="simulated interruption"):
+            seed_direct_search_leads(
+                store,
+                batch_id="rest-screen-resume",
+                source=source,
+                page_size=2,
+            )
+        assert (
+            store.term_progress(
+                "rest-screen-resume", DIRECT_SEARCH_TRANSFER_TERM
+            ).hit_count
+            == 2
+        )
+
+        monkeypatch.setattr(
+            CycleAcquisitionStore, "commit_search_page", original_commit
+        )
+        resumed = seed_direct_search_leads(
+            store,
+            batch_id="rest-screen-resume",
+            source=source,
+            page_size=2,
+        )
+        assert resumed.leads_seeded == 1
+        assert resumed.already_seeded is False
+        assert store.candidate_ids("rest-screen-resume") == (
+            "courtlistener-docket-200",
+            "courtlistener-docket-300",
+            "courtlistener-docket-400",
+        )
+        assert [
+            len(cast(list[object], page["hits"]))
+            for page in store.search_page_transcript("rest-screen-resume")
+        ] == [2, 1]
+
+
+def test_read_saturated_direct_search_rejects_incomplete_source(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path, second_term_exhausted=False)
+    with pytest.raises(RecapApiBatchDriverError, match="not fully exhausted"):
+        read_saturated_direct_search_leads(path, source_batch_id="direct-search")
+
+
+@pytest.mark.parametrize(
+    ("builder_kwargs", "message"),
+    [
+        ({"nonnumeric_candidate_id": True}, "not numeric"),
+        ({"mismatched_docket_id": True}, "docket id mismatch"),
+    ],
+)
+def test_read_saturated_direct_search_rejects_bad_candidate_identity(
+    tmp_path: Path,
+    builder_kwargs: dict[str, bool],
+    message: str,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path, **builder_kwargs)
+    with pytest.raises(RecapApiBatchDriverError, match=message):
+        read_saturated_direct_search_leads(path, source_batch_id="direct-search")
+
+
+def test_seed_direct_search_rejects_source_target_batch_collision(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_direct_search_store(tmp_path)
+    source = read_saturated_direct_search_leads(path, source_batch_id="direct-search")
+    with CycleAcquisitionStore(path) as store:
+        with pytest.raises(
+            RecapApiBatchDriverError, match="source and target batch ids must differ"
+        ):
+            seed_direct_search_leads(
+                store,
+                batch_id="direct-search",
+                source=source,
+            )
