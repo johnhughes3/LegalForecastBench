@@ -357,6 +357,92 @@ def test_case_dev_matching_found_total_proves_full_cursorless_page_complete(
     )
 
 
+def test_case_dev_duplicate_ids_across_pages_fail_closed(tmp_path: Path) -> None:
+    source = _source_store(tmp_path, _lead())
+    first = RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params={"type": "search", "query": _BULLOCK_QUERY, "limit": 100},
+        status_code=200,
+        payload={
+            "dockets": [_recap_docket()],
+            "found": 2,
+            "next_offset": 1,
+        },
+    )
+    second = RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params={
+            "type": "search",
+            "query": _BULLOCK_QUERY,
+            "offset": 1,
+            "limit": 100,
+        },
+        status_code=200,
+        payload={"dockets": [_recap_docket()], "found": 2},
+    )
+
+    with pytest.raises(OpinionRecapResolutionError, match="duplicate docket IDs"):
+        resolve_opinion_recap_batch(
+            source_store_path=source,
+            source_batch_id="opinion-source",
+            journal_path=tmp_path / "resolver.sqlite3",
+            output_store_path=source,
+            output_batch_id="resolved-opinion-source",
+            case_dev_client=_case_dev(first, second),
+            courtlistener_client=_courtlistener(),
+        )
+
+
+def test_case_dev_cursor_after_reported_total_fails_closed(tmp_path: Path) -> None:
+    source = _source_store(tmp_path, _lead())
+    response = RecordedCaseDevResponse(
+        method="POST",
+        path="/legal/v1/docket",
+        params={"type": "search", "query": _BULLOCK_QUERY, "limit": 100},
+        status_code=200,
+        payload={
+            "dockets": [_recap_docket()],
+            "found": 1,
+            "next_offset": 1,
+        },
+    )
+
+    with pytest.raises(OpinionRecapResolutionError, match="continuation after"):
+        resolve_opinion_recap_batch(
+            source_store_path=source,
+            source_batch_id="opinion-source",
+            journal_path=tmp_path / "resolver.sqlite3",
+            output_store_path=source,
+            output_batch_id="resolved-opinion-source",
+            case_dev_client=_case_dev(response),
+            courtlistener_client=_courtlistener(),
+        )
+
+
+@pytest.mark.parametrize("control", ("\x7f", "\x9f", "\u200b"))
+def test_provider_query_rejects_unicode_control_and_format_characters(
+    tmp_path: Path,
+    control: str,
+) -> None:
+    source = _source_store(
+        tmp_path,
+        _lead(case_name=f"Alpha{control}Beta v. Gamma"),
+    )
+
+    with pytest.raises(OpinionRecapResolutionError, match="control characters"):
+        resolve_opinion_recap_batch(
+            source_store_path=source,
+            source_batch_id="opinion-source",
+            journal_path=tmp_path / "resolver.sqlite3",
+            output_store_path=source,
+            output_batch_id="resolved-opinion-source",
+            case_dev_client=_case_dev(),
+            courtlistener_client=_courtlistener(),
+        )
+
+
 def test_full_cursorless_case_dev_page_falls_back_to_proven_courtlistener_search(
     tmp_path: Path,
 ) -> None:

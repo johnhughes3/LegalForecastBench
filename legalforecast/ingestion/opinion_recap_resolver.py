@@ -569,6 +569,7 @@ def _case_dev_results(
     cursor: str | None = None
     returned_count = 0
     reported_found: int | None = None
+    seen_docket_ids: set[str] = set()
     for _page_index in range(max_pages):
         request: dict[str, object] = {
             "method": "POST",
@@ -595,8 +596,17 @@ def _case_dev_results(
         page_sha256 = _sha256_json(page.raw)
         journal.finish_request(attempt, response_sha256=page_sha256)
         payloads.append(page.raw)
-        candidates.extend(_candidate_from_case_dev(hit) for hit in page.items)
-        returned_count += len(page.items)
+        page_candidates = tuple(_candidate_from_case_dev(hit) for hit in page.items)
+        page_docket_ids = [candidate.docket_id for candidate in page_candidates]
+        if len(page_docket_ids) != len(set(page_docket_ids)) or any(
+            docket_id in seen_docket_ids for docket_id in page_docket_ids
+        ):
+            raise OpinionRecapResolutionError(
+                "Case.dev resolver returned duplicate docket IDs across result rows"
+            )
+        seen_docket_ids.update(page_docket_ids)
+        candidates.extend(page_candidates)
+        returned_count = len(seen_docket_ids)
         page_found = _case_dev_reported_found(page.raw)
         if page_found is not None:
             if reported_found is not None and page_found != reported_found:
@@ -607,6 +617,14 @@ def _case_dev_results(
         if reported_found is not None and reported_found < returned_count:
             raise OpinionRecapResolutionError(
                 "Case.dev resolver found total is below returned row count"
+            )
+        if (
+            page.next_cursor is not None
+            and reported_found is not None
+            and reported_found == returned_count
+        ):
+            raise OpinionRecapResolutionError(
+                "Case.dev resolver returned a continuation after reported found total"
             )
         if page.next_cursor is None:
             exhaustion_unproven = (
@@ -1114,7 +1132,7 @@ def _normalize_identifier(value: str | None) -> str:
 
 
 def _quoted_case_name_query(case_name: str) -> str:
-    if any(ord(character) < 32 for character in case_name):
+    if any(unicodedata.category(character).startswith("C") for character in case_name):
         raise OpinionRecapResolutionError(
             "opinion lead case name contains control characters"
         )
