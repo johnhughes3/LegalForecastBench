@@ -2185,6 +2185,17 @@ def _add_acquisition_discover_courtlistener_arguments(
         ),
     )
     parser.add_argument(
+        "--live-firecrawl-docket-html",
+        action="store_true",
+        help=(
+            "Keep authenticated CourtListener REST as the search authority but "
+            "fetch each strictly allowlisted public docket HTML page through "
+            "Firecrawl. Requires --live and FIRECRAWL_API_KEY. Basic proxy mode "
+            "is capped at one credit per newly fetched candidate; --resume reuses "
+            "persisted raw HTML."
+        ),
+    )
+    parser.add_argument(
         "--courtlistener-fixture",
         type=Path,
         help="Replay recorded CourtListener API JSONL responses without network use.",
@@ -11885,6 +11896,9 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
     fixture_path = cast(Path | None, args.courtlistener_fixture)
     html_fixture_dir = cast(Path | None, args.docket_html_fixture_dir)
     live = cast(bool, args.live)
+    live_firecrawl_docket_html = cast(bool, args.live_firecrawl_docket_html)
+    if live_firecrawl_docket_html and not live:
+        raise CommandError("--live-firecrawl-docket-html requires --live")
     input_paths = tuple(
         path for path in (fixture_path, html_fixture_dir) if path is not None
     )
@@ -11909,6 +11923,9 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             "max_candidates": max_candidates,
             "search_page_size": search_page_size,
             "live": live,
+            "docket_html_source": (
+                "firecrawl" if live_firecrawl_docket_html else "courtlistener"
+            ),
         }
         _write_json(summary_path, summary)
         _write_acquisition_completion(
@@ -11978,6 +11995,11 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
                         "target_clean_cases": target_clean_cases,
                         "max_candidates": max_candidates,
                         "search_page_size": search_page_size,
+                        "docket_html_source": (
+                            "firecrawl"
+                            if live_firecrawl_docket_html
+                            else "courtlistener"
+                        ),
                     },
                 )
         except CycleAcquisitionStoreError as exc:
@@ -11988,9 +12010,25 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
         if config.api_token is None:
             raise CommandError(f"{COURTLISTENER_API_TOKEN_ENV} is required with --live")
         client = CourtListenerClient(config=config)
-        html_source = LiveCourtListenerDocketHTMLSource(
-            timeout_seconds=config.timeout_seconds
-        )
+        if live_firecrawl_docket_html:
+            try:
+                html_source = FirecrawlCourtListenerHTMLSource(
+                    FirecrawlConfig.from_env()
+                )
+            except FirecrawlError as exc:
+                _write_acquisition_failure(
+                    args,
+                    stage="discover-courtlistener",
+                    input_paths=input_paths,
+                    output_paths=output_paths,
+                    reason=str(exc),
+                    paid_activity_requested=False,
+                )
+                raise CommandError(str(exc)) from exc
+        else:
+            html_source = LiveCourtListenerDocketHTMLSource(
+                timeout_seconds=config.timeout_seconds
+            )
     else:
         assert fixture_path is not None
         assert html_fixture_dir is not None
@@ -12014,7 +12052,7 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
             search_page_size=search_page_size,
             resume=cast(bool, args.resume),
         )
-    except (CourtListenerClientError, ValueError) as exc:
+    except (CourtListenerClientError, FirecrawlError, ValueError) as exc:
         _write_acquisition_failure(
             args,
             stage="discover-courtlistener",
@@ -12037,7 +12075,20 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
         exclusions=tuple(exclusion.to_record() for exclusion in result.exclusions),
     )
     _write_jsonl(raw_artifacts_path, raw_artifacts)
-    _write_json(summary_path, {**result.summary, "dry_run": False, "live": live})
+    _write_json(
+        summary_path,
+        {
+            **result.summary,
+            "dry_run": False,
+            "live": live,
+            "docket_html_source": (
+                "firecrawl" if live_firecrawl_docket_html else "courtlistener"
+            ),
+            "firecrawl_max_credits_per_new_candidate": (
+                1 if live_firecrawl_docket_html else 0
+            ),
+        },
+    )
     output_commitments = {
         "screened_cases": _file_commitment(screened_cases_path),
         "exclusions": _file_commitment(exclusions_path),

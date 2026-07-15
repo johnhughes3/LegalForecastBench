@@ -61,6 +61,7 @@ def test_discover_courtlistener_help_documents_live_authority(
     assert "--search-window-start" in output
     assert "--search-window-end" in output
     assert "--live" in output
+    assert "--live-firecrawl-docket-html" in output
     assert "--courtlistener-fixture" in output
     assert "--docket-html-fixture-dir" in output
     assert "--screened-cases-output" in output
@@ -1121,6 +1122,63 @@ def test_discover_courtlistener_live_requires_token(
         == 2
     )
     assert "COURTLISTENER_API_TOKEN is required" in capsys.readouterr().err
+
+
+def test_discover_courtlistener_firecrawl_html_requires_live_search(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    assert (
+        main(
+            [
+                "acquisition",
+                "discover-courtlistener",
+                "--eligibility-anchor",
+                "2026-06-30",
+                "--search-window-start",
+                "2026-07-11",
+                "--search-window-end",
+                "2026-07-14",
+                "--output-root",
+                str(tmp_path / "output"),
+                "--live-firecrawl-docket-html",
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert "--live-firecrawl-docket-html requires --live" in capsys.readouterr().err
+
+
+def test_discover_courtlistener_firecrawl_html_requires_key(
+    tmp_path: Path,
+    capsys: Any,
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.setenv("COURTLISTENER_API_TOKEN", "fixture-token")
+    monkeypatch.delenv("FIRECRAWL_API_KEY", raising=False)
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "discover-courtlistener",
+                "--eligibility-anchor",
+                "2026-06-30",
+                "--search-window-start",
+                "2026-07-11",
+                "--search-window-end",
+                "2026-07-14",
+                "--output-root",
+                str(tmp_path / "output"),
+                "--live",
+                "--live-firecrawl-docket-html",
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert "FIRECRAWL_API_KEY" in capsys.readouterr().err
 
 
 def test_discover_courtlistener_records_local_validation_failure(
