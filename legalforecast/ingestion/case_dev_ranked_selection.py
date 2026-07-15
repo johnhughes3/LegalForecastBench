@@ -630,6 +630,37 @@ def _verify_ranked_record(
         raise RecapApiBatchDriverError(
             f"ranked record source lineage mismatch for docket {docket_id}"
         )
+    screening_metadata = record.get("screening_metadata")
+    source_lineage = projection.get("source_lineage")
+    if not isinstance(screening_metadata, Mapping) or not isinstance(
+        source_lineage, Mapping
+    ):
+        raise RecapApiBatchDriverError(
+            "ranked record lacks source-bound screening metadata for docket "
+            f"{docket_id}"
+        )
+    typed_screening_metadata = cast(Mapping[str, object], screening_metadata)
+    typed_source_lineage = cast(Mapping[str, object], source_lineage)
+    raw_lead_commitment = typed_source_lineage.get("lead_commitment")
+    if not isinstance(raw_lead_commitment, Mapping):
+        raise RecapApiBatchDriverError(
+            f"ranked record lacks source lead commitment for docket {docket_id}"
+        )
+    lead_commitment = cast(Mapping[str, object], raw_lead_commitment)
+    expected_screening_metadata: dict[str, object] = {
+        "case_id": docket_id,
+        "court_id": lead_commitment.get("court_id"),
+        "docket_number": lead_commitment.get("docket_number"),
+        "case_name": lead_commitment.get("case_name"),
+    }
+    if any(
+        typed_screening_metadata.get(field_name) != expected_value
+        for field_name, expected_value in expected_screening_metadata.items()
+    ):
+        raise RecapApiBatchDriverError(
+            "ranked record screening metadata contradicts source for docket "
+            f"{docket_id}"
+        )
     integer_fields = (
         "structural_priority_tier",
         "decision_signal_priority_tier",

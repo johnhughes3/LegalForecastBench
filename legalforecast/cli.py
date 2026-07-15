@@ -11047,8 +11047,30 @@ def _enrich_case_dev_progress_record(
             active_client.request_count - request_count_before,
         )
     if one.successes:
-        payload = one.successes[0].to_record()
+        enrichment = one.successes[0]
         source_lineage = record.get("source_lineage")
+        if isinstance(source_lineage, Mapping):
+            typed_source_lineage = cast(Mapping[str, object], source_lineage)
+            raw_lead_commitment = typed_source_lineage.get("lead_commitment")
+            if not isinstance(raw_lead_commitment, Mapping):
+                raise ValueError(
+                    "source-bound Case.dev enrichment lacks lead commitment"
+                )
+            lead_commitment = cast(Mapping[str, object], raw_lead_commitment)
+            screening_metadata = dict(enrichment.screening_metadata)
+            screening_metadata.update(
+                {
+                    "case_id": enrichment.courtlistener_docket_id,
+                    "court_id": lead_commitment.get("court_id"),
+                    "docket_number": lead_commitment.get("docket_number"),
+                    "case_name": lead_commitment.get("case_name"),
+                }
+            )
+            enrichment = replace(
+                enrichment,
+                screening_metadata=screening_metadata,
+            )
+        payload = enrichment.to_record()
         if isinstance(source_lineage, Mapping):
             payload["source_lineage"] = dict(cast(Mapping[str, Any], source_lineage))
         progress: JsonRecord = {

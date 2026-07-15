@@ -252,6 +252,49 @@ def test_select_case_dev_ranked_rejects_forged_run_card_semantics(
     _assert_no_target_rows(target_store)
 
 
+def test_select_case_dev_ranked_rejects_source_metadata_forgery(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
+    ranked_path = enrichment_root / "checkpoints" / "case-dev-recap-ranked.jsonl"
+    run_card_path = enrichment_root / "run-cards" / "enrich-recap-case-dev.json"
+    ranked = _read_jsonl(ranked_path)
+    forged = next(
+        record
+        for record in ranked
+        if record["identity"]["courtlistener_docket_id"] == "102"
+    )
+    forged["screening_metadata"]["court_id"] = "ca9"
+    forged["structural_priority_tier"] = 2
+    forged["structural_priority_reason"] = "hard_structural_exclusion_metadata"
+    forged["ranking_key"][0] = 2
+    ranked.sort(key=lambda record: record["ranking_key"])
+    _write_jsonl(ranked_path, ranked)
+    run_card = json.loads(run_card_path.read_text())
+    run_card["ranked_output_sha256"] = hashlib.sha256(
+        ranked_path.read_bytes()
+    ).hexdigest()
+    run_card_path.write_text(json.dumps(run_card, sort_keys=True) + "\n")
+    expected_run_card_sha256 = hashlib.sha256(run_card_path.read_bytes()).hexdigest()
+    target_store = _target_store(tmp_path)
+
+    assert (
+        main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=tmp_path / "selection-run-card.json",
+                summary=tmp_path / "selection-summary.json",
+                expected_enrichment_run_card_sha256=expected_run_card_sha256,
+            )
+        )
+        == 2
+    )
+    _assert_no_target_rows(target_store)
+
+
 def test_select_case_dev_ranked_rejects_existing_card_before_target_mutation(
     tmp_path: Path,
 ) -> None:
