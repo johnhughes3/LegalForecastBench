@@ -80,6 +80,10 @@ def test_public_opinion_pdf_url_normalizes_storage_path() -> None:
         "pdf/example.txt",
         "https://evil.example/example.pdf",
         "pdf/example.pdf?token=secret",
+        "pdf/example.pdf%3Ftoken.pdf",
+        "pdf/example.pdf%253Ftoken.pdf",
+        "pdf/example.pdf%23fragment.pdf",
+        "pdf/example.pdf%3Bparams.pdf",
         "pdf/example pdf.pdf",
     ),
 )
@@ -182,6 +186,16 @@ def test_verbatim_excerpt_uses_conclusion_without_unrelated_posture_text() -> No
     assert result.screen.strict_clean is True
     assert "criminal prosecution" not in result.page.entries[-1].text
     assert result.disposition_excerpt == conclusion
+
+
+def test_verbatim_excerpt_uses_final_disposition_not_historical_outcome() -> None:
+    historical = "Earlier in the litigation, the motion to dismiss was denied."
+    operative = (
+        "For the foregoing reasons, Defendant's renewed motion to dismiss is "
+        "granted with prejudice."
+    )
+
+    assert verbatim_mtd_disposition_excerpt(f"{historical}\n\n{operative}") == operative
 
 
 def test_fetch_and_bind_public_opinion_validates_frozen_resolution_evidence() -> None:

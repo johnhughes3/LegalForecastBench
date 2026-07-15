@@ -303,7 +303,19 @@ def public_opinion_pdf_url(local_path: str) -> str | None:
         path = decoded
     else:
         return None
-    if not path or "\\" in path:
+    decoded_path = urllib.parse.urlparse(path)
+    if (
+        not path
+        or "\\" in path
+        or "%" in path
+        or any(delimiter in path for delimiter in "?#;")
+        or decoded_path.scheme
+        or decoded_path.netloc
+        or decoded_path.query
+        or decoded_path.fragment
+        or decoded_path.params
+        or decoded_path.path != path
+    ):
         return None
     if any(character.isspace() or ord(character) < 32 for character in path):
         return None
@@ -311,7 +323,20 @@ def public_opinion_pdf_url(local_path: str) -> str | None:
         return None
     if not path.casefold().endswith(".pdf"):
         return None
-    return f"https://storage.courtlistener.com/{path}"
+    public_url = f"https://storage.courtlistener.com/{path}"
+    final = urllib.parse.urlparse(public_url)
+    if (
+        final.scheme != "https"
+        or final.hostname != "storage.courtlistener.com"
+        or final.username is not None
+        or final.password is not None
+        or final.port is not None
+        or final.query
+        or final.fragment
+        or final.params
+    ):
+        return None
+    return public_url
 
 
 def bind_public_opinion_to_docket(
@@ -431,40 +456,94 @@ def verbatim_mtd_disposition_excerpt(plain_text: str) -> str | None:
     text = plain_text.strip()
     if not text:
         return None
-    candidates: list[str] = []
-    paragraphs = tuple(
-        paragraph.strip()
-        for paragraph in re.split(r"(?:\r?\n)[ \t]*(?:\r?\n)+", text)
-        if paragraph.strip()
-    )
-    candidates.extend(paragraph for paragraph in paragraphs if len(paragraph) <= 4_000)
+    validity: dict[str, bool] = {}
 
-    # OCR/plain-text opinions sometimes collapse the conclusion into one very
-    # long paragraph.  Sentence windows recover a compact verbatim passage while
-    # retaining enough adjacent context for a split "motion" / "granted" phrase.
-    sentences = tuple(
-        sentence.strip()
-        for sentence in re.split(r"(?<=[.!?])\s+(?=[A-Z\[])", text)
-        if sentence.strip()
-    )
-    for index in range(len(sentences)):
-        start = max(0, index - 1)
-        end = min(len(sentences), index + 2)
-        window = " ".join(sentences[start:end])
-        if len(window) <= 4_000:
-            candidates.append(window)
-
-    valid: list[str] = []
-    for candidate in candidates:
+    def is_valid(candidate: str) -> bool:
+        cached = validity.get(candidate)
+        if cached is not None:
+            return cached
         probe = CourtListenerWebDocketEntry(
             row_id="opinion-excerpt-probe",
             entry_number="1",
             filed_at="January 1, 2000",
             text=f"MEMORANDUM OPINION. {candidate}",
         )
-        if screen_courtlistener_entry_for_mtd_decision(probe).actual_mtd_decision:
-            valid.append(candidate)
-    return min(valid, key=len) if valid else None
+        result = screen_courtlistener_entry_for_mtd_decision(probe).actual_mtd_decision
+        validity[candidate] = result
+        return result
+
+    # Generate source-positioned sentence windows.  A window is eligible only
+    # when its final sentence contributes the disposition signal; this prevents
+    # a later unrelated sentence from moving an earlier outcome forward.  One-
+    # through three-sentence windows still support split references such as
+    # "The Rule 12 motion is before the Court. It is granted."
+    sentence_spans = _text_spans(
+        text,
+        re.compile(r"(?<=[.!?])\s+(?=[A-Z\[])"),
+    )
+    valid_windows: list[tuple[int, int, str]] = []
+    for end_index, (_end_start, end_offset) in enumerate(sentence_spans):
+        for start_index in range(max(0, end_index - 2), end_index + 1):
+            start_offset = sentence_spans[start_index][0]
+            candidate = text[start_offset:end_offset].strip()
+            if len(candidate) > 4_000 or not is_valid(candidate):
+                continue
+            if end_index > start_index:
+                prefix_end = sentence_spans[end_index - 1][1]
+                prefix = text[start_offset:prefix_end].strip()
+                if is_valid(prefix):
+                    continue
+            valid_windows.append((start_offset, end_offset, candidate))
+    if valid_windows:
+        return max(
+            valid_windows,
+            key=lambda item: (item[1], -len(item[2]), item[0]),
+        )[2]
+
+    # Fallback for OCR text without usable sentence boundaries.  Preserve the
+    # last recognized paragraph rather than preferring a shorter historical
+    # disposition near the start of the opinion.
+    paragraph_spans = _text_spans(
+        text,
+        re.compile(r"(?:\r?\n)[ \t]*(?:\r?\n)+"),
+    )
+    valid_paragraphs = [
+        (start, end, text[start:end].strip())
+        for start, end in paragraph_spans
+        if end - start <= 4_000 and is_valid(text[start:end].strip())
+    ]
+    if not valid_paragraphs:
+        return None
+    return max(
+        valid_paragraphs,
+        key=lambda item: (item[1], -len(item[2]), item[0]),
+    )[2]
+
+
+def _text_spans(text: str, separator: re.Pattern[str]) -> tuple[tuple[int, int], ...]:
+    """Return trimmed nonempty spans split by ``separator`` in source order."""
+
+    spans: list[tuple[int, int]] = []
+    start = 0
+    for match in separator.finditer(text):
+        _append_trimmed_span(spans, text, start, match.start())
+        start = match.end()
+    _append_trimmed_span(spans, text, start, len(text))
+    return tuple(spans)
+
+
+def _append_trimmed_span(
+    spans: list[tuple[int, int]],
+    text: str,
+    start: int,
+    end: int,
+) -> None:
+    while start < end and text[start].isspace():
+        start += 1
+    while end > start and text[end - 1].isspace():
+        end -= 1
+    if start < end:
+        spans.append((start, end))
 
 
 def _is_mtd_disposition_anchor(entry: CourtListenerWebDocketEntry) -> bool:
