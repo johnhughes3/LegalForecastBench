@@ -1227,8 +1227,8 @@ def _public_relevance_document(document: Mapping[str, Any]) -> Mapping[str, Any]
         "requires_paid_recovery": False,
         "redaction_or_seal_status": status,
         "restriction_evidence": list(evidence),
-        "is_private": document.get("is_private") is True,
-        "is_sealed": document.get("is_sealed") is True or bool(restriction_markers),
+        "is_private": document.get("is_private"),
+        "is_sealed": document.get("is_sealed"),
         "contains_target_outcome": document.get("contains_target_outcome") is True,
         "model_visible": model_visible,
     }

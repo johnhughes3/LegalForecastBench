@@ -661,6 +661,27 @@ def test_public_first_bridge_emits_relevance_for_fully_free_and_paid_gap() -> No
         "cl-123",
         "cl-456",
     }
+    free_selection = next(
+        record
+        for record in result.selection_records
+        if record["candidate_id"] == "cl-123"
+    )
+    assert all(
+        document["redaction_or_seal_status"] == "public"
+        and document["restriction_evidence"]
+        and document["is_sealed"] is None
+        and document["is_private"] is None
+        for document in free_selection["documents"]
+    )
+    free_relevance = next(
+        record
+        for record in result.case_relevance_records
+        if record["candidate_id"] == "cl-123"
+    )
+    assert all(
+        document["is_sealed"] is None and document["is_private"] is None
+        for document in free_relevance["documents"]
+    )
     filters = {
         record.candidate_id: record
         for record in filter_core_documents(result.case_relevance_records)
