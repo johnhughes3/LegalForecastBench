@@ -3489,8 +3489,9 @@ def _add_acquisition_enrich_recap_case_dev_arguments(
         help=(
             "Cycle acquisition SQLite store containing a fully exhausted "
             "CourtListener search_type=o opinion batch. Requires "
-            "--source-batch-id and replaces --dockets. Its frozen search-window "
-            "start becomes the eligibility-aware ranking anchor."
+            "--source-batch-id and replaces --dockets. Ranking always uses the "
+            "frozen cycle-1 eligibility anchor (2026-06-30), independently of "
+            "the discovery window."
         ),
     )
     parser.add_argument(
