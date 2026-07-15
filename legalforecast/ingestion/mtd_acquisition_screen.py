@@ -995,6 +995,7 @@ def _has_direct_mtd_disposition(text: str) -> bool:
     if re.search(
         r"\bmotions?\s+to\s+dismiss\b\s*,?\s*"
         r"(?:(?:ecf|dkt|docket|doc(?:ument)?)\s*(?:no\.?\s*)?\d+\s*,?\s*)?"
+        r"(?:which\s+was\s+filed\s+in\s+response\s+to\s+[^.;]{1,160},\s*)?"
         r"\b(?:is|are|was|were)\s+(?:hereby\s+)?"
         r"(?:denied|dismissed)\s+as\s+moot\b",
         text,

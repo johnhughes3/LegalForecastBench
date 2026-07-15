@@ -65,6 +65,12 @@ from legalforecast.ingestion.mtd_acquisition_screen import (
     screen_case_dev_docket_metadata,
     screen_courtlistener_docket_for_mtd_decision,
 )
+from legalforecast.ingestion.opinion_backed_disposition import (
+    OpinionBackedDispositionError,
+    fetch_and_bind_public_opinion,
+    select_opinion_resolution_for_page,
+    validate_resolved_recap_identity,
+)
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 
 # ---------------------------------------------------------------------------
@@ -982,6 +988,10 @@ def observe_recap_api_candidate(
     }
     if "decision_entry_evidence" in payload:
         base_evidence["decision_entry_evidence"] = payload["decision_entry_evidence"]
+    if "opinion_resolution_evidence" in payload:
+        base_evidence["opinion_resolution_evidence"] = payload[
+            "opinion_resolution_evidence"
+        ]
 
     prescreen = observe_prescreened_reason(payload)
     if prescreen is not None:
@@ -1046,6 +1056,31 @@ def observe_recap_api_candidate(
         "docket_number": docket.docket_number,
         "case_name": docket.case_name,
     }
+    raw_opinion_resolution = payload.get("opinion_resolution_evidence")
+    if raw_opinion_resolution is not None:
+        if not isinstance(raw_opinion_resolution, Mapping):
+            raise RecapApiResponseError("opinion_resolution_evidence must be an object")
+        try:
+            validate_resolved_recap_identity(
+                cast(Mapping[str, Any], raw_opinion_resolution),
+                docket_id=docket.docket_id,
+                court_id=docket.court_id,
+                docket_number=docket.docket_number,
+                case_name=docket.case_name,
+            )
+        except OpinionBackedDispositionError as error:
+            return store.record_observation(
+                candidate_id,
+                batch_id=batch_id,
+                state="excluded",
+                reason_code="invalid_civil_case_metadata",
+                evidence={
+                    **base_evidence,
+                    "provider_contradiction": True,
+                    "exclusion_detail": "opinion_recap_identity_mismatch",
+                    "error": str(error),
+                },
+            )
     authoritative_prescreen = prescreen_recap_candidate(
         court_id=docket.court_id,
         docket_number=docket.docket_number,
@@ -1119,8 +1154,70 @@ def observe_recap_api_candidate(
             evidence={**base_evidence, "error": str(error)},
         )
 
+    screening_page = reconstructed.page
+    opinion_backed_evidence: Mapping[str, object] | None = None
+    if raw_opinion_resolution is not None:
+        assert isinstance(raw_opinion_resolution, Mapping)
+        try:
+            selected_opinion_resolution = select_opinion_resolution_for_page(
+                reconstructed.page,
+                cast(Mapping[str, Any], raw_opinion_resolution),
+            )
+            validate_resolved_recap_identity(
+                selected_opinion_resolution,
+                docket_id=docket.docket_id,
+                court_id=docket.court_id,
+                docket_number=docket.docket_number,
+                case_name=docket.case_name,
+            )
+            opinion_backed = fetch_and_bind_public_opinion(
+                client,
+                page=reconstructed.page,
+                resolved_recap_docket_id=docket_id,
+                resolution_evidence=selected_opinion_resolution,
+            )
+        except CourtListenerUnavailableError as error:
+            return store.record_observation(
+                candidate_id,
+                batch_id=batch_id,
+                state="transient_failure",
+                reason_code="courtlistener_docket_unavailable",
+                evidence={
+                    **base_evidence,
+                    "opinion_evidence_fetch_started": True,
+                    "error": str(error),
+                },
+            )
+        except CourtListenerResponseError as error:
+            return store.record_observation(
+                candidate_id,
+                batch_id=batch_id,
+                state="transient_failure",
+                reason_code="parse_failure",
+                evidence={
+                    **base_evidence,
+                    "opinion_evidence_fetch_started": True,
+                    "error": str(error),
+                },
+            )
+        except OpinionBackedDispositionError as error:
+            return store.record_observation(
+                candidate_id,
+                batch_id=batch_id,
+                state="excluded",
+                reason_code="strict_clean_screen_failed",
+                evidence={
+                    **base_evidence,
+                    "reconstruction_proof": reconstructed.proof.to_record(),
+                    "exclusion_detail": "opinion_backed_disposition_unproven",
+                    "error": str(error),
+                },
+            )
+        screening_page = opinion_backed.disposition.page
+        opinion_backed_evidence = opinion_backed.evidence
+
     anchored = screen_courtlistener_docket_for_mtd_decision(
-        reconstructed.page,
+        screening_page,
         decision_filed_on_or_after=eligibility_anchor,
         decision_filed_on_or_before=decision_window_end,
     )
@@ -1128,7 +1225,7 @@ def observe_recap_api_candidate(
     # docket regardless of date, so the first-disposition anchor can catch a
     # docket whose in-window hit (for example "order adopting R&R") sits atop an
     # earlier MTD report/decision that predates the eligibility anchor.
-    unbounded = screen_courtlistener_docket_for_mtd_decision(reconstructed.page)
+    unbounded = screen_courtlistener_docket_for_mtd_decision(screening_page)
     all_decisions = _decision_entry_records(unbounded.decision_entries)
     anchor_dispositions = _decision_entry_records(unbounded.anchor_disposition_entries)
     unparseable_decisions = [
@@ -1147,6 +1244,8 @@ def observe_recap_api_candidate(
             decision_window_end.isoformat() if decision_window_end else None
         ),
     }
+    if opinion_backed_evidence is not None:
+        evidence["opinion_backed_disposition"] = dict(opinion_backed_evidence)
     if unparseable_decisions:
         return store.record_observation(
             candidate_id,
@@ -1185,7 +1284,7 @@ def observe_recap_api_candidate(
         canonical, canonical_exclusion = screen_courtlistener_docket_page(
             docket=docket,
             metadata_screen=metadata_screen,
-            page=reconstructed.page,
+            page=screening_page,
             decision_filed_on_or_after=eligibility_anchor,
             decision_filed_on_or_before=decision_window_end,
         )

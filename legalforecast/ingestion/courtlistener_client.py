@@ -181,6 +181,88 @@ class CourtListenerDocketEntry:
         return bool(self.recap_document_ids)
 
 
+@dataclass(frozen=True, slots=True)
+class CourtListenerOpinionCluster:
+    """Case-law cluster metadata used to bind a written decision to a docket."""
+
+    cluster_id: str
+    docket_id: str
+    date_filed: str
+    blocked: bool | None
+    sub_opinion_ids: tuple[str, ...]
+    absolute_url: str | None
+    raw: Mapping[str, Any]
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> CourtListenerOpinionCluster:
+        raw_sub_opinions = record.get("sub_opinions")
+        if not isinstance(raw_sub_opinions, list):
+            raise CourtListenerResponseError(
+                "CourtListener opinion cluster sub_opinions must be a list"
+            )
+        sub_opinion_ids = tuple(
+            _strict_resource_reference_value(
+                value,
+                resource_name="opinion",
+                url_segment="opinions",
+                field_name="sub_opinions",
+            )
+            for value in cast(list[object], raw_sub_opinions)
+        )
+        if len(set(sub_opinion_ids)) != len(sub_opinion_ids):
+            raise CourtListenerResponseError(
+                "CourtListener opinion cluster contains duplicate sub_opinions"
+            )
+        return cls(
+            cluster_id=_required_consistent_positive_identifier(record, "id"),
+            docket_id=_strict_resource_reference(
+                record,
+                resource_name="docket",
+                url_segment="dockets",
+                field_names=("docket", "docket_id"),
+            ),
+            date_filed=_required_string(record, "date_filed", "dateFiled"),
+            blocked=_optional_consistent_bool(
+                record,
+                label="opinion cluster blocked status",
+                field_names=("blocked",),
+            ),
+            sub_opinion_ids=sub_opinion_ids,
+            absolute_url=_optional_string(record, "absolute_url"),
+            raw=record,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CourtListenerOpinion:
+    """One public sub-opinion containing the written decision text and PDF."""
+
+    opinion_id: str
+    cluster_id: str
+    plain_text: str | None
+    local_path: str | None
+    download_url: str | None
+    absolute_url: str | None
+    raw: Mapping[str, Any]
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> CourtListenerOpinion:
+        return cls(
+            opinion_id=_required_consistent_positive_identifier(record, "id"),
+            cluster_id=_strict_resource_reference(
+                record,
+                resource_name="opinion cluster",
+                url_segment="clusters",
+                field_names=("cluster", "cluster_id"),
+            ),
+            plain_text=_optional_string(record, "plain_text"),
+            local_path=_optional_string(record, "local_path"),
+            download_url=_optional_string(record, "download_url"),
+            absolute_url=_optional_string(record, "absolute_url"),
+            raw=record,
+        )
+
+
 class _RejectCourtListenerRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Reject redirects so each reservation maps to one physical request."""
 
@@ -500,6 +582,26 @@ class CourtListenerClient:
     def get_docket(self, docket_id: str) -> CourtListenerDocket:
         payload = self._request_json("GET", f"/dockets/{docket_id}/", {})
         return CourtListenerDocket.from_record(payload)
+
+    def get_opinion_cluster(self, cluster_id: str) -> CourtListenerOpinionCluster:
+        normalized = _positive_path_identifier(cluster_id, "cluster_id")
+        payload = self._request_json("GET", f"/clusters/{normalized}/", {})
+        cluster = CourtListenerOpinionCluster.from_record(payload)
+        if cluster.cluster_id != normalized:
+            raise CourtListenerResponseError(
+                "CourtListener opinion cluster response id does not match request"
+            )
+        return cluster
+
+    def get_opinion(self, opinion_id: str) -> CourtListenerOpinion:
+        normalized = _positive_path_identifier(opinion_id, "opinion_id")
+        payload = self._request_json("GET", f"/opinions/{normalized}/", {})
+        opinion = CourtListenerOpinion.from_record(payload)
+        if opinion.opinion_id != normalized:
+            raise CourtListenerResponseError(
+                "CourtListener opinion response id does not match request"
+            )
+        return opinion
 
     def get_recap_document(self, document_id: str) -> CourtListenerRecapDocument:
         payload = self._request_json(
@@ -871,6 +973,105 @@ def _required_docket_reference(record: Mapping[str, Any], *field_names: str) -> 
             )
     joined = ", ".join(field_names)
     raise CourtListenerResponseError(f"missing required CourtListener field: {joined}")
+
+
+def _positive_path_identifier(value: object, field_name: str) -> str:
+    if isinstance(value, bool):
+        raise CourtListenerResponseError(
+            f"CourtListener field {field_name} must be a positive decimal"
+        )
+    normalized = str(value).strip()
+    return _required_positive_identifier_value(normalized, field_name)
+
+
+def _strict_resource_reference(
+    record: Mapping[str, Any],
+    *,
+    resource_name: str,
+    url_segment: str,
+    field_names: tuple[str, ...],
+) -> str:
+    references: list[str] = []
+    for field_name in field_names:
+        if field_name not in record or record[field_name] is None:
+            continue
+        references.append(
+            _strict_resource_reference_value(
+                record[field_name],
+                resource_name=resource_name,
+                url_segment=url_segment,
+                field_name=field_name,
+            )
+        )
+    if not references:
+        joined = ", ".join(field_names)
+        raise CourtListenerResponseError(
+            f"missing required CourtListener field: {joined}"
+        )
+    if any(reference != references[0] for reference in references[1:]):
+        raise CourtListenerResponseError(
+            f"conflicting CourtListener {resource_name} reference aliases"
+        )
+    return references[0]
+
+
+def _strict_resource_reference_value(
+    value: object,
+    *,
+    resource_name: str,
+    url_segment: str,
+    field_name: str,
+) -> str:
+    if isinstance(value, bool):
+        raise CourtListenerResponseError(
+            f"unrecognized CourtListener {resource_name} reference shape for "
+            f"{field_name!r}"
+        )
+    if isinstance(value, int):
+        return _required_positive_identifier_value(str(value), field_name)
+    if not isinstance(value, str) or not value.strip():
+        raise CourtListenerResponseError(
+            f"unrecognized CourtListener {resource_name} reference shape for "
+            f"{field_name!r}"
+        )
+    text = value.strip()
+    if text.isdecimal():
+        return _required_positive_identifier_value(text, field_name)
+    try:
+        parsed = urllib.parse.urlparse(text)
+        port = parsed.port
+    except ValueError as exc:
+        raise CourtListenerResponseError(
+            f"unrecognized CourtListener {resource_name} reference shape for "
+            f"{field_name!r}: {text!r}"
+        ) from exc
+    if parsed.scheme or parsed.netloc:
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname != "www.courtlistener.com"
+            or parsed.username is not None
+            or parsed.password is not None
+            or port not in {None, 443}
+        ):
+            raise CourtListenerResponseError(
+                f"unrecognized CourtListener {resource_name} reference shape for "
+                f"{field_name!r}: {text!r}"
+            )
+    if parsed.query or parsed.fragment or parsed.params:
+        raise CourtListenerResponseError(
+            f"unrecognized CourtListener {resource_name} reference shape for "
+            f"{field_name!r}: {text!r}"
+        )
+    pattern = re.compile(
+        rf"^/api/rest/v4/{re.escape(url_segment)}/(?P<id>[1-9][0-9]*)/$"
+    )
+    match = pattern.fullmatch(parsed.path)
+    if match is None:
+        raise CourtListenerResponseError(
+            f"unrecognized CourtListener {resource_name} reference shape for "
+            f"{field_name!r}: {text!r}"
+        )
+    return match.group("id")
 
 
 def _required_resource_reference(
