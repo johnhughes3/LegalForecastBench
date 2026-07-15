@@ -253,6 +253,8 @@ def _references_motion_to_dismiss(normalized_text: str) -> bool:
         or "motions to dismiss" in normalized_text
         or "rule 12" in normalized_text
         or "mtd" in normalized_text
+        or "judgment on the pleadings" in normalized_text
+        or "judgment on pleadings" in normalized_text
     )
 
 

@@ -347,7 +347,15 @@ class CaseDevRecapEnrichment:
     @property
     def _has_non_merits_or_moot_disposition(self) -> bool:
         for entry in self.entries:
-            text = _normalized(entry.entry_text)
+            text = _normalized(
+                " ".join(
+                    (
+                        entry.entry_text,
+                        *(document.kind or "" for document in entry.documents),
+                        *(document.description for document in entry.documents),
+                    )
+                )
+            )
             screen = screen_courtlistener_entry_for_mtd_decision(
                 entry.as_courtlistener_entry()
             )
@@ -599,6 +607,191 @@ def rank_case_dev_recap_enrichments(
             )
         by_docket[docket_id] = enrichment
     return tuple(sorted(by_docket.values(), key=lambda item: item.ranking_key))
+
+
+def reconstruct_case_dev_recap_enrichment(
+    record: Mapping[str, object],
+) -> CaseDevRecapEnrichment:
+    """Rebuild and verify one normalized enrichment from retained evidence."""
+
+    raw_identity = _mapping(record.get("identity"), "Case.dev ranked identity")
+    identity = CaseDevRecapNamespaceMapping(
+        courtlistener_docket_id=_required_string(
+            raw_identity, "courtlistener_docket_id"
+        ),
+        courtlistener_url=_required_string(raw_identity, "courtlistener_url"),
+        case_dev_id=_required_string(raw_identity, "case_dev_id"),
+        case_dev_url=_required_string(raw_identity, "case_dev_url"),
+    )
+    raw_documents = _record_list(record, "documents")
+    documents: list[CaseDevRecapDocument] = []
+    documents_by_id: dict[str, CaseDevRecapDocument] = {}
+    for item in raw_documents:
+        raw = _mapping(item, "Case.dev ranked document")
+        role_text = _required_string(raw, "document_role")
+        try:
+            role = DocumentRole(role_text)
+        except ValueError as exc:
+            raise CaseDevRecapEnrichmentError(
+                f"invalid ranked document role: {role_text}"
+            ) from exc
+        document = CaseDevRecapDocument(
+            document_id=_required_string(raw, "document_id"),
+            docket_entry_id=_required_string(raw, "docket_entry_id"),
+            entry_number=_optional_string(raw, "entry_number"),
+            entry_text=_required_string(raw, "entry_text"),
+            document_role=role,
+            description=_required_string(raw, "description"),
+            kind=_optional_string(raw, "kind"),
+            pdf_url=_optional_string(raw, "pdf_url"),
+            is_available=_optional_bool(raw, "is_available"),
+            restriction_markers=_record_string_tuple(raw, "restriction_markers"),
+        )
+        if document.document_id in documents_by_id:
+            raise CaseDevRecapEnrichmentError(
+                f"ranked record repeats document: {document.document_id}"
+            )
+        documents_by_id[document.document_id] = document
+        documents.append(document)
+
+    raw_entries = _record_list(record, "entries")
+    entries: list[CaseDevRecapEntry] = []
+    hits: list[CaseDevDocketHit] = []
+    documents_by_entry: dict[str, tuple[CaseDevRecapDocument, ...]] = {}
+    referenced_document_ids: set[str] = set()
+    seen_entry_ids: set[str] = set()
+    for item in raw_entries:
+        raw = _mapping(item, "Case.dev ranked entry")
+        entry_id = _required_string(raw, "docket_entry_id")
+        if entry_id in seen_entry_ids:
+            raise CaseDevRecapEnrichmentError(
+                f"ranked record repeats docket entry: {entry_id}"
+            )
+        seen_entry_ids.add(entry_id)
+        entry_number = _optional_string(raw, "entry_number")
+        filed_at = _optional_string(raw, "filed_at")
+        entry_text = _required_string(raw, "entry_text")
+        document_ids = _record_string_tuple(raw, "document_ids")
+        if len(set(document_ids)) != len(document_ids):
+            raise CaseDevRecapEnrichmentError(
+                f"ranked entry repeats a document: {entry_id}"
+            )
+        entry_documents: list[CaseDevRecapDocument] = []
+        for document_id in document_ids:
+            document = documents_by_id.get(document_id)
+            if document is None or document.docket_entry_id != entry_id:
+                raise CaseDevRecapEnrichmentError(
+                    f"ranked entry/document linkage mismatch: {entry_id}"
+                )
+            if document_id in referenced_document_ids:
+                raise CaseDevRecapEnrichmentError(
+                    f"ranked document is linked more than once: {document_id}"
+                )
+            referenced_document_ids.add(document_id)
+            if (
+                document.entry_number != entry_number
+                or document.entry_text != entry_text
+                or document.document_role != _core_document_role(entry_text)
+            ):
+                raise CaseDevRecapEnrichmentError(
+                    f"ranked document evidence mismatch: {document_id}"
+                )
+            entry_documents.append(document)
+        normalized_documents = tuple(entry_documents)
+        entries.append(
+            CaseDevRecapEntry(
+                docket_entry_id=entry_id,
+                entry_number=entry_number,
+                filed_at=filed_at,
+                entry_text=entry_text,
+                documents=normalized_documents,
+            )
+        )
+        documents_by_entry[entry_id] = normalized_documents
+        hits.append(
+            CaseDevDocketHit(
+                case_id=identity.courtlistener_docket_id,
+                docket_id=identity.courtlistener_docket_id,
+                docket_entry_id=entry_id,
+                entry_number=entry_number,
+                entry_text=entry_text,
+                filed_at=filed_at,
+                source_url=identity.case_dev_url,
+                source_document_ids=document_ids,
+                raw={},
+            )
+        )
+    if referenced_document_ids != set(documents_by_id):
+        raise CaseDevRecapEnrichmentError("ranked record contains an unlinked document")
+
+    raw_anchor = record.get("eligibility_anchor")
+    if not isinstance(raw_anchor, str):
+        raise CaseDevRecapEnrichmentError(
+            "ranked record eligibility_anchor must be an ISO date"
+        )
+    try:
+        eligibility_anchor = date.fromisoformat(raw_anchor)
+    except ValueError as exc:
+        raise CaseDevRecapEnrichmentError(
+            "ranked record eligibility_anchor must be an ISO date"
+        ) from exc
+    pages_fetched = _record_nonnegative_int(record, "pages_fetched")
+    if pages_fetched == 0:
+        raise CaseDevRecapEnrichmentError(
+            "ranked record pages_fetched must be positive"
+        )
+    docket_entry_count = _record_nonnegative_int(record, "docket_entry_count")
+    if docket_entry_count != len(entries):
+        raise CaseDevRecapEnrichmentError(
+            "ranked record docket_entry_count does not match entries"
+        )
+    enrichment = CaseDevRecapEnrichment(
+        identity=identity,
+        screening_metadata=dict(
+            _mapping(record.get("screening_metadata"), "Case.dev screening metadata")
+        ),
+        pages_fetched=pages_fetched,
+        docket_entry_count=docket_entry_count,
+        entries=tuple(entries),
+        documents=tuple(documents),
+        required_documents=_required_document_slots(
+            hits,
+            documents_by_entry=documents_by_entry,
+        ),
+        eligibility_anchor=eligibility_anchor,
+    )
+    normalized_input = dict(record)
+    normalized_input.pop("source_lineage", None)
+    if normalized_input != enrichment.to_record():
+        raise CaseDevRecapEnrichmentError(
+            "ranked record does not match recomputed enrichment semantics"
+        )
+    return enrichment
+
+
+def _record_list(record: Mapping[str, object], field_name: str) -> list[object]:
+    value = record.get(field_name)
+    if not isinstance(value, list):
+        raise CaseDevRecapEnrichmentError(f"ranked record {field_name} must be a list")
+    return cast(list[object], value)
+
+
+def _record_string_tuple(record: Mapping[str, Any], field_name: str) -> tuple[str, ...]:
+    values = _record_list(cast(Mapping[str, object], record), field_name)
+    if any(not isinstance(value, str) or not value for value in values):
+        raise CaseDevRecapEnrichmentError(
+            f"ranked record {field_name} must contain non-empty strings"
+        )
+    return tuple(cast(list[str], values))
+
+
+def _record_nonnegative_int(record: Mapping[str, object], field_name: str) -> int:
+    value = record.get(field_name)
+    if type(value) is not int or value < 0:
+        raise CaseDevRecapEnrichmentError(
+            f"ranked record {field_name} must be a nonnegative integer"
+        )
+    return value
 
 
 def _validate_discovery_identity(
@@ -891,7 +1084,14 @@ def _references_mtd(value: str) -> bool:
     normalized = _normalized(value)
     return any(
         marker in normalized
-        for marker in ("motion to dismiss", "motions to dismiss", "rule 12", "mtd")
+        for marker in (
+            "motion to dismiss",
+            "motions to dismiss",
+            "rule 12",
+            "mtd",
+            "judgment on the pleadings",
+            "judgment on pleadings",
+        )
     )
 
 

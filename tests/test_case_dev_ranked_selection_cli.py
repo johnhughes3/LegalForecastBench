@@ -87,6 +87,25 @@ def test_select_case_dev_ranked_materializes_exact_top_n_rest_batch(
     assert resumed["leads_seeded"] == 0
 
 
+def test_case_dev_enrichment_uses_frozen_anchor_for_narrower_source_window(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(
+        tmp_path,
+        search_window_start="2026-07-10",
+    )
+    enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
+
+    ranked = _read_jsonl(
+        enrichment_root / "checkpoints" / "case-dev-recap-ranked.jsonl"
+    )
+    run_card = json.loads(
+        (enrichment_root / "run-cards" / "enrich-recap-case-dev.json").read_text()
+    )
+    assert {record["eligibility_anchor"] for record in ranked} == {"2026-06-30"}
+    assert run_card["eligibility_anchor"] == "2026-06-30"
+
+
 def test_select_case_dev_ranked_rejects_ranked_tamper_before_target_write(
     tmp_path: Path,
 ) -> None:
@@ -154,7 +173,6 @@ def test_select_case_dev_ranked_rejects_forged_rank_and_recomputed_run_card(
     enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
     ranked_path = enrichment_root / "checkpoints" / "case-dev-recap-ranked.jsonl"
     run_card_path = enrichment_root / "run-cards" / "enrich-recap-case-dev.json"
-    expected_run_card_sha256 = hashlib.sha256(run_card_path.read_bytes()).hexdigest()
     ranked = _read_jsonl(ranked_path)
     ranked.reverse()
     ranked[0].update(
@@ -178,6 +196,44 @@ def test_select_case_dev_ranked_rejects_forged_rank_and_recomputed_run_card(
         ranked_path.read_bytes()
     ).hexdigest()
     run_card_path.write_text(json.dumps(forged_run_card, sort_keys=True) + "\n")
+    expected_run_card_sha256 = hashlib.sha256(run_card_path.read_bytes()).hexdigest()
+    target_store = _target_store(tmp_path)
+
+    assert (
+        main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=tmp_path / "selection-run-card.json",
+                summary=tmp_path / "selection-summary.json",
+                expected_enrichment_run_card_sha256=expected_run_card_sha256,
+            )
+        )
+        == 2
+    )
+    _assert_no_target_rows(target_store)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "forged_value"),
+    [
+        ("ranking_policy_version", "legacy-cost-only-v1"),
+        ("eligibility_anchor", "2026-07-01"),
+    ],
+)
+def test_select_case_dev_ranked_rejects_forged_run_card_semantics(
+    tmp_path: Path,
+    field_name: str,
+    forged_value: str,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
+    run_card_path = enrichment_root / "run-cards" / "enrich-recap-case-dev.json"
+    run_card = json.loads(run_card_path.read_text())
+    run_card[field_name] = forged_value
+    run_card_path.write_text(json.dumps(run_card, sort_keys=True) + "\n")
+    expected_run_card_sha256 = hashlib.sha256(run_card_path.read_bytes()).hexdigest()
     target_store = _target_store(tmp_path)
 
     assert (
@@ -556,7 +612,11 @@ def _run_enrichment(tmp_path: Path, *, source_store: Path) -> Path:
     return output_root
 
 
-def _opinion_source_store(tmp_path: Path) -> Path:
+def _opinion_source_store(
+    tmp_path: Path,
+    *,
+    search_window_start: str = "2026-06-30",
+) -> Path:
     path = tmp_path / "source.sqlite3"
     with CycleAcquisitionStore(path) as store:
         store.ensure_cycle(_cycle_policy())
@@ -567,7 +627,7 @@ def _opinion_source_store(tmp_path: Path) -> Path:
                 "provider": "courtlistener",
                 "search_type": "o",
                 "query_terms": [term],
-                "search_window_start": "2026-06-30",
+                "search_window_start": search_window_start,
                 "search_window_end": "2026-07-15",
             },
         )

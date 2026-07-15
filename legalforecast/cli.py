@@ -11103,7 +11103,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
             raise CommandError(str(exc)) from exc
         projection_bytes = _jsonl_bytes(records)
         projection_sha256 = hashlib.sha256(projection_bytes).hexdigest()
-        eligibility_anchor = source.search_window_start
+        eligibility_anchor = CYCLE_1_ELIGIBILITY_ANCHOR
         source_commitments = {
             "source_batch_id": source.source_batch_id,
             "source_batch_digest": source.source_batch_digest,

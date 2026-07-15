@@ -13,8 +13,11 @@ from urllib.parse import urlsplit
 
 from legalforecast.ingestion.case_dev_recap_enrichment import (
     CASE_DEV_RANKING_POLICY_VERSION,
+    CaseDevRecapEnrichmentError,
+    reconstruct_case_dev_recap_enrichment,
 )
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+from legalforecast.ingestion.decision_text_artifact import CYCLE_1_ELIGIBILITY_ANCHOR
 from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, TermTerminalStatus
 from legalforecast.ingestion.recap_api_batch_driver import (
     DirectSearchLead,
@@ -243,6 +246,8 @@ def verify_case_dev_ranked_selection(
     ranked_records = _read_jsonl(ranked_path)
     ranked_sha256 = _file_sha256(ranked_path)
     expected_commitments = {
+        "ranking_policy_version": CASE_DEV_RANKING_POLICY_VERSION,
+        "eligibility_anchor": CYCLE_1_ELIGIBILITY_ANCHOR.isoformat(),
         "source_batch_id": source.source_batch_id,
         "source_batch_digest": source.source_batch_digest,
         "source_cycle_hash": source.source_cycle_hash,
@@ -585,6 +590,16 @@ def _verify_ranked_record(
     rank: int,
     projection_by_docket: Mapping[str, Mapping[str, object]],
 ) -> RankedCaseDevCandidate:
+    try:
+        enrichment = reconstruct_case_dev_recap_enrichment(record)
+    except CaseDevRecapEnrichmentError as exc:
+        raise RecapApiBatchDriverError(
+            f"ranked record semantics are invalid at rank {rank}: {exc}"
+        ) from exc
+    if enrichment.eligibility_anchor != CYCLE_1_ELIGIBILITY_ANCHOR:
+        raise RecapApiBatchDriverError(
+            "ranked record does not use the frozen cycle-1 eligibility anchor"
+        )
     if record.get("ranking_policy_version") != CASE_DEV_RANKING_POLICY_VERSION:
         raise RecapApiBatchDriverError(
             "ranked record lacks the current eligibility-aware ranking policy"

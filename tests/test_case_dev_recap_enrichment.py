@@ -519,6 +519,67 @@ def test_rule_12c_merits_motion_remains_top_eligibility_tier() -> None:
     )
 
 
+def test_bare_judgment_on_pleadings_counts_free_motion_and_decision() -> None:
+    client, _ = _client(
+        _lookup(
+            docket_id="408",
+            court_id="nysd",
+            docket_number="1:26-cv-00408",
+            entries=(
+                _entry(
+                    "entry-1",
+                    1,
+                    "Complaint",
+                    _document(
+                        "complaint",
+                        pdf_url="https://storage.courtlistener.com/complaint.pdf",
+                        is_available=True,
+                    ),
+                    filed_at="2026-06-01",
+                ),
+                _entry(
+                    "entry-2",
+                    2,
+                    "Motion for judgment on the pleadings",
+                    _document(
+                        "motion",
+                        pdf_url="https://storage.courtlistener.com/motion.pdf",
+                        is_available=True,
+                    ),
+                    filed_at="2026-06-10",
+                ),
+                _entry(
+                    "entry-3",
+                    3,
+                    "Order granting motion for judgment on the pleadings",
+                    _document(
+                        "decision",
+                        pdf_url="https://storage.courtlistener.com/decision.pdf",
+                        is_available=True,
+                    ),
+                    filed_at="2026-07-03",
+                ),
+            ),
+            limit=10,
+        )
+    )
+
+    enrichment = enrich_recap_docket_with_case_dev(
+        client=client,
+        discovery=_discovery("408"),
+        page_size=10,
+        eligibility_anchor=date(2026, 6, 30),
+    )
+
+    assert enrichment.observed_target_motion is True
+    assert enrichment.eligibility_priority == (
+        0,
+        "strict_post_anchor_mtd_with_observed_target_motion",
+    )
+    assert enrichment.actual_free_required_document_count == 3
+    assert enrichment.missing_required_document_count == 0
+
+
 def test_moot_disposition_is_retained_but_demoted_for_scheduling() -> None:
     client, _ = _client(
         _lookup(
@@ -556,6 +617,47 @@ def test_moot_disposition_is_retained_but_demoted_for_scheduling() -> None:
         "post_anchor_non_merits_or_moot_disposition",
     )
     assert enrichment.decision_signal_priority == (
+        3,
+        "post_anchor_non_merits_or_moot_disposition",
+    )
+
+
+def test_moot_disposition_in_document_description_is_demoted() -> None:
+    decision_document = _document("decision")
+    decision_document["description"] = "Order denying Motion to Dismiss as moot"
+    client, _ = _client(
+        _lookup(
+            docket_id="409",
+            court_id="nysd",
+            docket_number="1:26-cv-00409",
+            entries=(
+                _entry(
+                    "entry-2",
+                    2,
+                    "Motion to Dismiss under Rule 12(b)(6)",
+                    filed_at="2026-06-10",
+                ),
+                _entry(
+                    "entry-3",
+                    3,
+                    "Order",
+                    decision_document,
+                    filed_at="2026-07-03",
+                ),
+            ),
+            limit=10,
+        )
+    )
+
+    enrichment = enrich_recap_docket_with_case_dev(
+        client=client,
+        discovery=_discovery("409"),
+        page_size=10,
+        eligibility_anchor=date(2026, 6, 30),
+    )
+
+    assert enrichment.eligibility_screen.has_actual_mtd_decision is True
+    assert enrichment.eligibility_priority == (
         3,
         "post_anchor_non_merits_or_moot_disposition",
     )
