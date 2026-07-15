@@ -14,7 +14,7 @@ import urllib.parse
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from legalforecast.ingestion.courtlistener_client import CourtListenerClient
 from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, DiscoveryPage
@@ -224,6 +224,7 @@ class OpinionDecisionHit:
     case_name: str | None
     date_filed: date
     status: str
+    sub_opinions: tuple[Mapping[str, object], ...]
 
     @classmethod
     def from_record(
@@ -271,6 +272,7 @@ class OpinionDecisionHit:
             case_name=_optional_string(record, "caseName"),
             date_filed=date_filed,
             status=_required_string(record, "status"),
+            sub_opinions=_public_opinion_references(record.get("opinions")),
         )
 
     def to_discovery_hit(self) -> DiscoveryHit:
@@ -291,9 +293,35 @@ class OpinionDecisionHit:
                     "absolute_url": self.absolute_url,
                     "date_filed": self.date_filed.isoformat(),
                     "status": self.status,
+                    "sub_opinions": [dict(item) for item in self.sub_opinions],
                 },
             },
         )
+
+
+def _public_opinion_references(value: object) -> tuple[Mapping[str, object], ...]:
+    """Retain public artifact identity while discarding all decision text."""
+
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        raise OpinionApiDiscoveryError("opinion result opinions must be a list")
+    references: list[Mapping[str, object]] = []
+    for raw in cast(list[object], value):
+        if not isinstance(raw, Mapping):
+            raise OpinionApiDiscoveryError("opinion result opinion must be an object")
+        record = cast(Mapping[str, Any], raw)
+        references.append(
+            {
+                "opinion_id": _positive_identifier(record.get("id"), "opinion id"),
+                "absolute_url": _optional_string(record, "absolute_url"),
+                "download_url": _optional_string(record, "download_url"),
+                "local_path": _optional_string(record, "local_path"),
+            }
+        )
+    return tuple(
+        sorted(references, key=lambda item: int(cast(str, item["opinion_id"])))
+    )
 
 
 @dataclass(frozen=True, slots=True)

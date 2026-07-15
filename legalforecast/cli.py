@@ -331,6 +331,10 @@ from legalforecast.ingestion.model_packet_assembly import (
     assemble_model_packet,
     parsed_markdown_documents_from_conversion_records,
 )
+from legalforecast.ingestion.opinion_recap_resolver import (
+    OpinionRecapResolutionError,
+    resolve_opinion_recap_batch,
+)
 from legalforecast.ingestion.packet_input_planner import plan_packet_build_inputs
 from legalforecast.ingestion.provenance import (
     AvailabilityStatus,
@@ -831,6 +835,21 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_batch_002_unrestricted_discover_arguments(batch_002_unrestricted_discover)
+    batch_002_opinion_resolve = batch_002_subparsers.add_parser(
+        "resolve-opinion-recap-dockets",
+        help=(
+            "Resolve saturated opinion leads to strict RECAP docket identities "
+            "through free Case.dev search with unrestricted CourtListener fallback."
+        ),
+        description=(
+            "Checkpoint every opinion lead and emit a source-bound saturated "
+            "RECAP docket batch. Matching requires exact court plus normalized "
+            "docket number, with a unique high-similarity case name only as a "
+            "fallback. CourtListener queries use type=r and omit available_only. "
+            "No PACER, RECAP Fetch, live Case.dev fetch, or purchase is permitted."
+        ),
+    )
+    _add_batch_002_opinion_resolve_arguments(batch_002_opinion_resolve)
     batch_002_observe = batch_002_subparsers.add_parser(
         "observe",
         help=(
@@ -2670,6 +2689,75 @@ def _add_batch_002_unrestricted_discover_arguments(
     )
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_batch_002_unrestricted_discover)
+
+
+def _add_batch_002_opinion_resolve_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--source-store",
+        type=Path,
+        required=True,
+        help="Store containing the complete saturated opinion-search batch.",
+    )
+    parser.add_argument("--source-batch-id", required=True)
+    parser.add_argument(
+        "--resolver-journal",
+        type=Path,
+        required=True,
+        help="Crash-durable per-request and per-lead resolver SQLite journal.",
+    )
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Cycle store that will receive the resolved saturated source batch.",
+    )
+    parser.add_argument("--batch-id", required=True, help="Resolved output batch ID.")
+    parser.add_argument(
+        "--prior-snapshot",
+        action="append",
+        type=Path,
+        default=[],
+        help=(
+            "Complete saturated prior screening snapshot used for priority "
+            "dedupe after free identity mapping; repeat with its paired hash."
+        ),
+    )
+    parser.add_argument(
+        "--prior-snapshot-manifest-sha256",
+        action="append",
+        default=[],
+        help="Exact manifest SHA-256 paired with --prior-snapshot; repeat in order.",
+    )
+    parser.add_argument(
+        "--case-dev-fixture",
+        type=Path,
+        help=(
+            "Replay free Case.dev docket-search responses. Required for offline "
+            "Case.dev-first runs; omit with --courtlistener-only."
+        ),
+    )
+    parser.add_argument(
+        "--courtlistener-only",
+        action="store_true",
+        help="Skip the free Case.dev mapper and use only CourtListener type=r.",
+    )
+    parser.add_argument("--max-pages-per-lead", type=int, default=25)
+    parser.add_argument(
+        "--case-name-similarity-threshold",
+        type=float,
+        default=0.90,
+        help="Unique same-court fallback threshold; default 0.90.",
+    )
+    _add_batch_002_source_arguments(
+        parser,
+        live_help=(
+            "Use free Case.dev search first and authenticated CourtListener "
+            "type=r as fallback. Requires CASE_DEV_API_KEY (unless "
+            "--courtlistener-only), COURTLISTENER_API_TOKEN, and --request-ledger."
+        ),
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_opinion_resolve)
 
 
 def _add_batch_002_observe_arguments(parser: argparse.ArgumentParser) -> None:
@@ -11621,6 +11709,113 @@ def _cmd_batch_002_unrestricted_discover(args: argparse.Namespace) -> int:
     record = {
         **funnel.to_record(),
         **_batch_002_rate_evidence(args, client, budget),
+    }
+    summary_output = cast(Path | None, args.summary_output)
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cmd_batch_002_opinion_resolve(args: argparse.Namespace) -> int:
+    source_store = cast(Path, args.source_store)
+    source_batch_id = cast(str, args.source_batch_id)
+    resolver_journal = cast(Path, args.resolver_journal)
+    cycle_store = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    prior_paths = tuple(cast(list[Path], args.prior_snapshot))
+    prior_hashes = tuple(cast(list[str], args.prior_snapshot_manifest_sha256))
+    courtlistener_only = cast(bool, args.courtlistener_only)
+    case_dev_fixture = cast(Path | None, args.case_dev_fixture)
+    live = cast(bool, args.live)
+    if courtlistener_only and case_dev_fixture is not None:
+        raise CommandError(
+            "--case-dev-fixture cannot be combined with --courtlistener-only"
+        )
+    if not courtlistener_only and not live and case_dev_fixture is None:
+        raise CommandError(
+            "offline Case.dev-first resolution requires --case-dev-fixture; "
+            "otherwise pass --courtlistener-only"
+        )
+    try:
+        snapshots = (
+            read_verified_priority_dedupe_snapshots(
+                prior_paths,
+                expected_manifest_sha256=prior_hashes,
+            )
+            if prior_paths or prior_hashes
+            else ()
+        )
+        prior_candidate_ids = frozenset(
+            candidate_id
+            for snapshot in snapshots
+            for candidate_id in snapshot.candidate_ids
+        )
+        prior_commitment = (
+            hashlib.sha256(
+                json.dumps(
+                    [
+                        {
+                            "manifest_sha256": snapshot.manifest_sha256,
+                            "cycle_hash": snapshot.cycle_hash,
+                            "batch_digest": snapshot.batch_digest,
+                            "candidate_set_sha256": snapshot.candidate_set_sha256,
+                        }
+                        for snapshot in snapshots
+                    ],
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode()
+            ).hexdigest()
+            if snapshots
+            else None
+        )
+        courtlistener_client, budget = _batch_002_client(args, require_token=live)
+        if courtlistener_only:
+            case_dev_client: CaseDevClient | None = None
+        elif case_dev_fixture is not None:
+            case_dev_client = CaseDevClient(
+                config=CaseDevConfig.from_env(),
+                transport=CaseDevFixtureTransport.from_jsonl(case_dev_fixture),
+                max_retries=0,
+            )
+        else:
+            case_dev_client = CaseDevClient(
+                config=CaseDevConfig.from_env(require_api_key=True),
+                max_retries=0,
+            )
+        summary = resolve_opinion_recap_batch(
+            source_store_path=source_store,
+            source_batch_id=source_batch_id,
+            journal_path=resolver_journal,
+            output_store_path=cycle_store,
+            output_batch_id=batch_id,
+            case_dev_client=case_dev_client,
+            courtlistener_client=courtlistener_client,
+            prior_candidate_ids=prior_candidate_ids,
+            prior_snapshot_commitment_sha256=prior_commitment,
+            max_pages_per_lead=cast(int, args.max_pages_per_lead),
+            case_name_similarity_threshold=cast(
+                float, args.case_name_similarity_threshold
+            ),
+        )
+    except (
+        CaseDevClientError,
+        CourtListenerClientError,
+        CourtListenerRequestBudgetError,
+        CycleAcquisitionStoreError,
+        OpinionRecapResolutionError,
+        RecapApiBatchDriverError,
+        OSError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    record = {
+        **summary.to_record(),
+        "prior_snapshot_count": len(snapshots),
+        "prior_candidate_count": len(prior_candidate_ids),
+        "prior_snapshot_commitment_sha256": prior_commitment,
+        **_batch_002_rate_evidence(args, courtlistener_client, budget),
     }
     summary_output = cast(Path | None, args.summary_output)
     if summary_output is not None:

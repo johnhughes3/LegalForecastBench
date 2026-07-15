@@ -162,11 +162,66 @@ def test_fetch_page_uses_strict_opinion_request_and_retains_metadata_only() -> N
             "absolute_url": "/opinion/10026367/example-v-example/",
             "date_filed": "2026-07-10",
             "status": "Unpublished",
+            "sub_opinions": [
+                {
+                    "opinion_id": "999",
+                    "absolute_url": None,
+                    "download_url": "https://example.invalid/decision.pdf",
+                    "local_path": None,
+                }
+            ],
         },
     }
     assert "decision_entry_evidence" not in hit.payload
     assert "opinions" not in hit.payload
     assert "snippet" not in hit.payload
+
+
+def test_opinion_reference_retains_public_artifact_identity_without_text() -> None:
+    source = _source(
+        _response(
+            payload={
+                "count": 1,
+                "next": None,
+                "results": [
+                    _hit(
+                        opinions=[
+                            {
+                                "id": 11395231,
+                                "absolute_url": "/api/rest/v4/opinions/11395231/",
+                                "download_url": (
+                                    "https://ecf.dcd.uscourts.gov/doc1/045111234567"
+                                ),
+                                "local_path": (
+                                    "pdf/2026/07/14/"
+                                    "bullock_v._phh_mortgage_services.pdf"
+                                ),
+                                "plain_text": "outcome text must not be retained",
+                                "html_with_citations": "<p>outcome</p>",
+                            }
+                        ]
+                    )
+                ],
+            }
+        )
+    )
+
+    evidence = (
+        source.fetch_page(term=TERM, cursor=None, page_size=20)
+        .hits[0]
+        .payload["opinion_discovery_evidence"]
+    )
+
+    assert evidence["sub_opinions"] == [
+        {
+            "opinion_id": "11395231",
+            "absolute_url": "/api/rest/v4/opinions/11395231/",
+            "download_url": "https://ecf.dcd.uscourts.gov/doc1/045111234567",
+            "local_path": ("pdf/2026/07/14/bullock_v._phh_mortgage_services.pdf"),
+        }
+    ]
+    assert "plain_text" not in str(evidence)
+    assert "html_with_citations" not in str(evidence)
 
 
 def test_fetch_page_extracts_and_validates_explicit_continuation() -> None:
