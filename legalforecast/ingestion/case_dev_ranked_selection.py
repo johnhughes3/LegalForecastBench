@@ -27,6 +27,7 @@ from legalforecast.ingestion.recap_api_batch_driver import (
 from legalforecast.ingestion.recap_api_discovery import (
     RECAP_API_PROVIDER,
     build_recap_api_batch_config,
+    parse_adversary_case_number,
     prescreen_recap_candidate,
 )
 
@@ -35,6 +36,13 @@ CASE_DEV_RANKED_TRANSFER_TERM = "case-dev-ranked-opinion-transfer-v1"
 CASE_DEV_RANKED_TRANSFER_SCHEMA = "legalforecast.case_dev_ranked_opinion_transfer.v1"
 CASE_DEV_RANKED_SELECTION_RUN_SCHEMA = (
     "legalforecast.case_dev_ranked_rest_selection_run.v1"
+)
+CASE_DEV_RANKED_SUBSET_TRANSFER_TERM = "case-dev-ranked-opinion-subset-transfer-v1"
+CASE_DEV_RANKED_SUBSET_TRANSFER_SCHEMA = (
+    "legalforecast.case_dev_ranked_opinion_subset_transfer.v1"
+)
+CASE_DEV_RANKED_SUBSET_SELECTION_RUN_SCHEMA = (
+    "legalforecast.case_dev_ranked_rest_subset_selection_run.v1"
 )
 _DOCKET_ID = re.compile(r"[1-9][0-9]*")
 _API_DOCKET_PATH = re.compile(r"^/api/rest/v[1-9][0-9]*/dockets/([1-9][0-9]*)/$")
@@ -51,6 +59,7 @@ class RankedCaseDevCandidate:
     ranking_key: tuple[int, int, int, int, str]
     returned_courtlistener_url: str
     ranked_record_sha256: str
+    bankruptcy_adversary_entry_evidence: Mapping[str, object] | None
 
     def commitment_record(self) -> dict[str, object]:
         return {
@@ -64,7 +73,7 @@ class RankedCaseDevCandidate:
 
 @dataclass(frozen=True, slots=True)
 class VerifiedCaseDevRankedSelection:
-    """Authenticated top-N prefix of one completed free enrichment run."""
+    """Authenticated prefix or exact subset of one free enrichment ranking."""
 
     source: DirectSearchSeedSource
     source_store_path: Path
@@ -75,12 +84,13 @@ class VerifiedCaseDevRankedSelection:
     ranked_output_sha256: str
     enrichment_run_card_sha256: str
     ranked_candidate_count: int
-    top_n: int
+    top_n: int | None
+    selected_docket_ids: tuple[str, ...]
     selected_candidate_set_sha256: str
     selected: tuple[RankedCaseDevCandidate, ...]
 
     def commitment_record(self) -> dict[str, object]:
-        return {
+        record: dict[str, object] = {
             "source_store_path": str(self.source_store_path),
             "source_batch_id": self.source.source_batch_id,
             "source_batch_digest": self.source.source_batch_digest,
@@ -93,10 +103,20 @@ class VerifiedCaseDevRankedSelection:
             "enrichment_run_card_path": str(self.enrichment_run_card_path),
             "enrichment_run_card_sha256": self.enrichment_run_card_sha256,
             "ranked_candidate_count": self.ranked_candidate_count,
-            "top_n": self.top_n,
             "selected_candidate_set_sha256": self.selected_candidate_set_sha256,
             "selected": [candidate.commitment_record() for candidate in self.selected],
         }
+        if self.top_n is not None:
+            # Preserve the existing prefix run-card bytes and schema contract.
+            record["top_n"] = self.top_n
+        else:
+            record.update(
+                {
+                    "selection_semantics": "exact_case_dev_ranked_subset",
+                    "selected_docket_ids": list(self.selected_docket_ids),
+                }
+            )
+        return record
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,7 +155,7 @@ class CaseDevRankedSeedResult:
 
     def to_record(self) -> dict[str, object]:
         return {
-            "schema_version": CASE_DEV_RANKED_SELECTION_RUN_SCHEMA,
+            "schema_version": _selection_run_schema(self.selection),
             "provider_activity_requested": False,
             "provider_activity_executed": False,
             "paid_activity_requested": False,
@@ -218,12 +238,30 @@ def verify_case_dev_ranked_selection(
     ranked_path: Path,
     enrichment_run_card_path: Path,
     expected_enrichment_run_card_sha256: str,
-    top_n: int,
+    top_n: int | None = None,
+    selected_docket_ids: Sequence[str] | None = None,
 ) -> VerifiedCaseDevRankedSelection:
-    """Verify the complete enrichment lineage and return its exact top-N prefix."""
+    """Verify complete lineage and return an exact prefix or docket subset."""
 
-    if top_n <= 0:
+    if (top_n is None) == (selected_docket_ids is None):
+        raise RecapApiBatchDriverError(
+            "provide exactly one of top_n or selected_docket_ids"
+        )
+    requested_dockets: tuple[str, ...] = ()
+    if top_n is not None and top_n <= 0:
         raise RecapApiBatchDriverError("top_n must be a positive integer")
+    if selected_docket_ids is not None:
+        requested_dockets = tuple(selected_docket_ids)
+        if not requested_dockets:
+            raise RecapApiBatchDriverError(
+                "selected_docket_ids must contain at least one docket"
+            )
+        if any(_DOCKET_ID.fullmatch(value) is None for value in requested_dockets):
+            raise RecapApiBatchDriverError(
+                "selected_docket_ids must contain positive numeric docket IDs"
+            )
+        if len(set(requested_dockets)) != len(requested_dockets):
+            raise RecapApiBatchDriverError("selected_docket_ids contains duplicates")
     if _SHA256.fullmatch(expected_enrichment_run_card_sha256) is None:
         raise RecapApiBatchDriverError(
             "expected enrichment run-card SHA-256 must be 64 lowercase hex digits"
@@ -289,7 +327,7 @@ def verify_case_dev_ranked_selection(
     _require_committed_path(run_card, "input_paths", source_store_path)
     _require_committed_path(run_card, "output_paths", source_projection_path)
     _require_committed_path(run_card, "output_paths", ranked_path)
-    if top_n > len(ranked_records):
+    if top_n is not None and top_n > len(ranked_records):
         raise RecapApiBatchDriverError(
             f"top_n={top_n} exceeds verified ranked candidates={len(ranked_records)}"
         )
@@ -316,7 +354,23 @@ def verify_case_dev_ranked_selection(
         raise RecapApiBatchDriverError(
             "ranked successes do not exactly cover the verified source projection"
         )
-    selected = tuple(verified_ranked[:top_n])
+    if top_n is not None:
+        selected = tuple(verified_ranked[:top_n])
+    else:
+        requested_set = set(requested_dockets)
+        unknown = requested_set - seen_dockets
+        if unknown:
+            raise RecapApiBatchDriverError(
+                "selected_docket_ids are absent from verified ranking: "
+                + ", ".join(sorted(unknown, key=int))
+            )
+        # The authenticated ranking, not caller order, is canonical.
+        selected = tuple(
+            candidate
+            for candidate in verified_ranked
+            if candidate.docket_id in requested_set
+        )
+        requested_dockets = tuple(candidate.docket_id for candidate in selected)
     selected_sha256 = _canonical_sha256(
         [candidate.commitment_record() for candidate in selected]
     )
@@ -331,6 +385,7 @@ def verify_case_dev_ranked_selection(
         enrichment_run_card_sha256=run_card_sha256,
         ranked_candidate_count=len(verified_ranked),
         top_n=top_n,
+        selected_docket_ids=requested_dockets,
         selected_candidate_set_sha256=selected_sha256,
         selected=selected,
     )
@@ -356,18 +411,28 @@ def build_case_dev_ranked_target_plan(
         raise RecapApiBatchDriverError(
             "target cycle hash must be 64 lowercase hex digits"
         )
+    transfer_term = _selection_transfer_term(selection)
+    is_subset = selection.top_n is None
     config = build_recap_api_batch_config(
         decision_window_start=source.search_window_start,
         decision_window_end=source.search_window_end,
         auth_mode="authenticated",
-        query_terms=(CASE_DEV_RANKED_TRANSFER_TERM,),
+        query_terms=(transfer_term,),
         page_size=page_size,
-        top_k_per_term=selection.top_n,
+        top_k_per_term=len(selection.selected),
     )
     config.update(
         {
-            "discovery_mode": CASE_DEV_RANKED_TRANSFER_SCHEMA,
-            "selection_semantics": "exact_case_dev_ranked_prefix",
+            "discovery_mode": (
+                CASE_DEV_RANKED_SUBSET_TRANSFER_SCHEMA
+                if is_subset
+                else CASE_DEV_RANKED_TRANSFER_SCHEMA
+            ),
+            "selection_semantics": (
+                "exact_case_dev_ranked_subset"
+                if is_subset
+                else "exact_case_dev_ranked_prefix"
+            ),
             "source_batch_id": source.source_batch_id,
             "source_batch_digest": source.source_batch_digest,
             "source_cycle_hash": source.source_cycle_hash,
@@ -412,6 +477,7 @@ def seed_case_dev_ranked_selection(
     batch_id = plan.batch_id
     selection = plan.selection
     source = selection.source
+    transfer_term = _selection_transfer_term(selection)
     target_cycle_hash = store.cycle_hash
     if target_cycle_hash != plan.target_cycle_hash:
         raise RecapApiBatchDriverError(
@@ -422,8 +488,8 @@ def seed_case_dev_ranked_selection(
         raise RecapApiBatchDriverError(
             "target batch digest differs from ranked-selection plan"
         )
-    store.ensure_terms(batch_id, (CASE_DEV_RANKED_TRANSFER_TERM,))
-    initial_progress = store.term_progress(batch_id, CASE_DEV_RANKED_TRANSFER_TERM)
+    store.ensure_terms(batch_id, (transfer_term,))
+    initial_progress = store.term_progress(batch_id, transfer_term)
     if initial_progress.hit_count > len(selection.selected):
         raise RecapApiBatchDriverError(
             "ranked selection progress exceeds the frozen top-N prefix"
@@ -448,7 +514,7 @@ def seed_case_dev_ranked_selection(
         terminal = None if next_cursor is not None else TermTerminalStatus.EXHAUSTED
         store.commit_search_page(
             batch_id,
-            CASE_DEV_RANKED_TRANSFER_TERM,
+            transfer_term,
             request_cursor,
             expected_hits[offset:next_offset],
             next_cursor=next_cursor,
@@ -456,7 +522,7 @@ def seed_case_dev_ranked_selection(
         )
         offset = next_offset
         request_cursor = next_cursor
-    final_progress = store.term_progress(batch_id, CASE_DEV_RANKED_TRANSFER_TERM)
+    final_progress = store.term_progress(batch_id, transfer_term)
     expected_stored_hits = tuple(
         sorted(expected_hits, key=lambda hit: hit.candidate_id)
     )
@@ -514,7 +580,7 @@ def _ranked_selection_run_card_record(
     selection: VerifiedCaseDevRankedSelection,
 ) -> dict[str, object]:
     return {
-        "schema_version": CASE_DEV_RANKED_SELECTION_RUN_SCHEMA,
+        "schema_version": _selection_run_schema(selection),
         "provider_activity_requested": False,
         "provider_activity_executed": False,
         "paid_activity_requested": False,
@@ -535,6 +601,7 @@ def _ranked_candidate_hit(
     target_cycle_hash: str,
 ) -> DiscoveryHit:
     source = selection.source
+    transfer_term = _selection_transfer_term(selection)
     prescreen_reason = prescreen_recap_candidate(
         court_id=lead.court_id,
         docket_number=lead.docket_number,
@@ -550,9 +617,13 @@ def _ranked_candidate_hit(
         "case_name": lead.case_name,
         "provider": RECAP_API_PROVIDER,
         "prescreen_exclusion_reason": prescreen_reason,
-        "query_term": CASE_DEV_RANKED_TRANSFER_TERM,
+        "query_term": transfer_term,
         "case_dev_ranked_selection_provenance": {
-            "schema_version": CASE_DEV_RANKED_TRANSFER_SCHEMA,
+            "schema_version": (
+                CASE_DEV_RANKED_SUBSET_TRANSFER_SCHEMA
+                if selection.top_n is None
+                else CASE_DEV_RANKED_TRANSFER_SCHEMA
+            ),
             "rank": candidate.rank,
             "ranking_key": list(candidate.ranking_key),
             "ranked_record_sha256": candidate.ranked_record_sha256,
@@ -574,13 +645,36 @@ def _ranked_candidate_hit(
         payload["decision_entry_evidence"] = dict(lead.decision_entry_evidence)
     if lead.opinion_resolution_evidence is not None:
         payload["opinion_resolution_evidence"] = dict(lead.opinion_resolution_evidence)
+    if (
+        selection.top_n is None
+        and candidate.bankruptcy_adversary_entry_evidence is not None
+    ):
+        payload["bankruptcy_adversary_entry_evidence"] = dict(
+            candidate.bankruptcy_adversary_entry_evidence
+        )
     return DiscoveryHit(
         provider_hit_id=(
-            f"{CASE_DEV_RANKED_TRANSFER_TERM}:"
+            f"{transfer_term}:"
             f"{selection.selected_candidate_set_sha256}:{lead.docket_id}"
         ),
         candidate_id=lead.candidate_id,
         payload=payload,
+    )
+
+
+def _selection_transfer_term(selection: VerifiedCaseDevRankedSelection) -> str:
+    return (
+        CASE_DEV_RANKED_SUBSET_TRANSFER_TERM
+        if selection.top_n is None
+        else CASE_DEV_RANKED_TRANSFER_TERM
+    )
+
+
+def _selection_run_schema(selection: VerifiedCaseDevRankedSelection) -> str:
+    return (
+        CASE_DEV_RANKED_SUBSET_SELECTION_RUN_SCHEMA
+        if selection.top_n is None
+        else CASE_DEV_RANKED_SELECTION_RUN_SCHEMA
     )
 
 
@@ -684,13 +778,82 @@ def _verify_ranked_record(
         raise RecapApiBatchDriverError(
             f"ranked record ranking key mismatch for docket {docket_id}"
         )
+    ranked_record_sha256 = _canonical_sha256(record)
     return RankedCaseDevCandidate(
         docket_id=docket_id,
         rank=rank,
         ranking_key=cast(tuple[int, int, int, int, str], expected_key),
         returned_courtlistener_url=case_dev_url,
-        ranked_record_sha256=_canonical_sha256(record),
+        ranked_record_sha256=ranked_record_sha256,
+        bankruptcy_adversary_entry_evidence=(
+            _source_bound_bankruptcy_adversary_entry_evidence(
+                record,
+                docket_id=docket_id,
+                ranked_record_sha256=ranked_record_sha256,
+            )
+        ),
     )
+
+
+def _source_bound_bankruptcy_adversary_entry_evidence(
+    record: Mapping[str, object],
+    *,
+    docket_id: str,
+    ranked_record_sha256: str,
+) -> Mapping[str, object] | None:
+    """Extract one exact initiating-adversary entry from an authenticated rank."""
+
+    metadata = record.get("screening_metadata")
+    entries = record.get("entries")
+    if not isinstance(metadata, Mapping) or not isinstance(entries, list):
+        return None
+    court_id = cast(Mapping[str, object], metadata).get("court_id")
+    docket_number = cast(Mapping[str, object], metadata).get("docket_number")
+    if (
+        not isinstance(court_id, str)
+        or not court_id.casefold().endswith("b")
+        or not isinstance(docket_number, str)
+        or not docket_number.strip()
+    ):
+        return None
+    matches: list[Mapping[str, object]] = []
+    for raw_entry in cast(list[object], entries):
+        if not isinstance(raw_entry, Mapping):
+            continue
+        entry = cast(Mapping[str, object], raw_entry)
+        text = entry.get("entry_text")
+        entry_number = entry.get("entry_number")
+        filed_at = entry.get("filed_at")
+        adversary_case_number = (
+            parse_adversary_case_number(text) if isinstance(text, str) else None
+        )
+        if (
+            not isinstance(text, str)
+            or not isinstance(entry_number, str)
+            or not entry_number.isdecimal()
+            or not isinstance(filed_at, str)
+            or adversary_case_number is None
+            or adversary_case_number.strip().casefold()
+            != docket_number.strip().casefold()
+            or re.search(r"\bcomplaint\b", text, re.IGNORECASE) is None
+            or re.search(r"\bagainst\b", text, re.IGNORECASE) is None
+        ):
+            continue
+        matches.append(
+            {
+                "schema_version": (
+                    "legalforecast.source_bound_bankruptcy_adversary_entry.v1"
+                ),
+                "docket_id": docket_id,
+                "court_id": court_id,
+                "adversary_case_number": adversary_case_number,
+                "entry_number": entry_number,
+                "filed_at": filed_at,
+                "entry_text": text,
+                "ranked_record_sha256": ranked_record_sha256,
+            }
+        )
+    return matches[0] if len(matches) == 1 else None
 
 
 def _courtlistener_url_docket_id(url: str) -> str | None:

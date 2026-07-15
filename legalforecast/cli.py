@@ -939,6 +939,22 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_batch_002_ranked_selection_arguments(batch_002_ranked_selection)
+    batch_002_ranked_subset_selection = batch_002_subparsers.add_parser(
+        "select-case-dev-ranked-subset",
+        help=(
+            "Verify a free Case.dev ranking and materialize an exact docket-ID "
+            "subset without network or paid activity."
+        ),
+        description=(
+            "Provider-free contingency handoff for a noncontiguous subset of a "
+            "completed source-bound Case.dev ranking. The complete source batch, "
+            "projection, ranked output, enrichment run card, every requested "
+            "docket ID, and canonical ranked order are verified before the target "
+            "store is written. This command performs no provider, PACER, RECAP "
+            "Fetch, purchase, or fee-acknowledgment activity."
+        ),
+    )
+    _add_batch_002_ranked_subset_selection_arguments(batch_002_ranked_subset_selection)
     batch_002_snapshot = batch_002_subparsers.add_parser(
         "snapshot",
         help=(
@@ -3066,7 +3082,9 @@ def _add_batch_002_novel_direct_seed_arguments(
     parser.set_defaults(handler=_cmd_batch_002_novel_direct_seed)
 
 
-def _add_batch_002_ranked_selection_arguments(parser: argparse.ArgumentParser) -> None:
+def _add_batch_002_ranked_selection_common_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
     parser.add_argument(
         "--source-store",
         type=Path,
@@ -3120,12 +3138,6 @@ def _add_batch_002_ranked_selection_arguments(parser: argparse.ArgumentParser) -
         ),
     )
     parser.add_argument(
-        "--top-n",
-        type=int,
-        required=True,
-        help="Exact positive ranked prefix to materialize.",
-    )
-    parser.add_argument(
         "--page-size",
         type=int,
         default=100,
@@ -3138,6 +3150,32 @@ def _add_batch_002_ranked_selection_arguments(parser: argparse.ArgumentParser) -
         help="Replay-stable selected-batch lineage run card.",
     )
     parser.add_argument("--summary-output", type=Path)
+
+
+def _add_batch_002_ranked_selection_arguments(parser: argparse.ArgumentParser) -> None:
+    _add_batch_002_ranked_selection_common_arguments(parser)
+    parser.add_argument(
+        "--top-n",
+        type=int,
+        required=True,
+        help="Exact positive ranked prefix to materialize.",
+    )
+    parser.set_defaults(handler=_cmd_batch_002_ranked_selection)
+
+
+def _add_batch_002_ranked_subset_selection_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_batch_002_ranked_selection_common_arguments(parser)
+    parser.add_argument(
+        "--docket-id",
+        action="append",
+        required=True,
+        help=(
+            "Exact CourtListener docket ID to select; repeat for each docket. "
+            "Duplicates and IDs absent from the authenticated ranking fail closed."
+        ),
+    )
     parser.set_defaults(handler=_cmd_batch_002_ranked_selection)
 
 
@@ -12615,7 +12653,11 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
     anchor = _iso_date_argument(
         cast(str, args.eligibility_anchor), "--eligibility-anchor"
     )
-    top_n = cast(int, args.top_n)
+    top_n = cast(int | None, getattr(args, "top_n", None))
+    selected_docket_ids = cast(
+        Sequence[str] | None,
+        getattr(args, "docket_id", None),
+    )
     page_size = cast(int, args.page_size)
     run_card_output = cast(Path, args.run_card_output)
     summary_output = cast(Path | None, args.summary_output)
@@ -12651,6 +12693,7 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
             enrichment_run_card_path=enrichment_run_card,
             expected_enrichment_run_card_sha256=(expected_enrichment_run_card_sha256),
             top_n=top_n,
+            selected_docket_ids=selected_docket_ids,
         )
         with CycleAcquisitionStore(cycle_store) as store:
             _validate_frozen_screening_policy(

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import copy
+import hashlib
+import json
+from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -16,6 +20,7 @@ from legalforecast.ingestion.courtlistener_client import (
 )
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.discovery_scheduler import (
+    DiscoveryHit,
     TermTerminalStatus,
     materialize_independent_term_sets,
 )
@@ -921,19 +926,22 @@ def test_candidate_helpers() -> None:
 
 
 def _seeded_store(
-    tmp_path: Path, hit: dict[str, Any]
+    tmp_path: Path,
+    hit: dict[str, Any],
+    *,
+    batch_config_update: dict[str, object] | None = None,
 ) -> tuple[CycleAcquisitionStore, dict[str, Any]]:
     store = CycleAcquisitionStore(tmp_path / "cycle.sqlite3")
     store.ensure_cycle({"schema_version": "test"})
     term = 'order AND granting AND "motion to dismiss"'
-    store.ensure_batch(
-        "batch-002",
-        build_recap_api_batch_config(
-            decision_window_start=date(2026, 6, 30),
-            decision_window_end=date(2026, 7, 12),
-            auth_mode="anonymous",
-        ),
+    config = build_recap_api_batch_config(
+        decision_window_start=date(2026, 6, 30),
+        decision_window_end=date(2026, 7, 12),
+        auth_mode="anonymous",
     )
+    if batch_config_update is not None:
+        config.update(batch_config_update)
+    store.ensure_batch("batch-002", config)
     source = _search_source(
         (
             _response(
@@ -1056,6 +1064,445 @@ def test_observe_accepts_clean_in_window_decision(tmp_path: Path) -> None:
         }
         current = store.current_observation("courtlistener-docket-555")
         assert current is not None and current.state == "accepted"
+
+
+def _ianb_docket_response(
+    *, docket_number: str = "25-09086"
+) -> RecordedCourtListenerResponse:
+    return _response(
+        path="/dockets/555/",
+        payload={
+            "id": 555,
+            "court": "ianb",
+            "docket_number": docket_number,
+            "case_name": "In re: Mercy Hospital, Iowa City v. PeriGen, Inc.",
+            "date_filed": "2025-07-25",
+            "absolute_url": "https://www.courtlistener.com/docket/555/childers/",
+        },
+    )
+
+
+def _seeded_ranked_subset_bankruptcy_store(
+    tmp_path: Path,
+    *,
+    initiating_text: str,
+    config_update: Mapping[str, object] | None = None,
+    provenance_update: Mapping[str, object] | None = None,
+    provider_hit_id_override: str | None = None,
+) -> tuple[CycleAcquisitionStore, dict[str, Any]]:
+    schema = "legalforecast.case_dev_ranked_opinion_subset_transfer.v1"
+    term = "case-dev-ranked-opinion-subset-transfer-v1"
+    ranked_sha = "a" * 64
+    returned_url = "https://www.courtlistener.com/api/rest/v4/dockets/555/"
+    candidate_commitment = {
+        "docket_id": "555",
+        "rank": 1,
+        "ranking_key": [0, 0, 0, 0, "555"],
+        "returned_courtlistener_url": returned_url,
+        "ranked_record_sha256": ranked_sha,
+    }
+    selected_set_sha256 = hashlib.sha256(
+        json.dumps(
+            [candidate_commitment], sort_keys=True, separators=(",", ":")
+        ).encode()
+    ).hexdigest()
+    store = CycleAcquisitionStore(tmp_path / "cycle.sqlite3")
+    store.ensure_cycle({"schema_version": "test"})
+    shared = {
+        "source_batch_id": "opinion-source",
+        "source_batch_digest": "1" * 64,
+        "source_cycle_hash": "2" * 64,
+        "target_cycle_hash": store.cycle_hash,
+        "source_candidate_set_sha256": "3" * 64,
+        "source_projection_sha256": "4" * 64,
+        "ranked_output_sha256": "5" * 64,
+        "enrichment_run_card_sha256": "6" * 64,
+        "selected_candidate_set_sha256": selected_set_sha256,
+    }
+    config = build_recap_api_batch_config(
+        decision_window_start=date(2026, 6, 30),
+        decision_window_end=date(2026, 7, 12),
+        auth_mode="authenticated",
+        query_terms=(term,),
+        top_k_per_term=1,
+    )
+    config.update(
+        {
+            "discovery_mode": schema,
+            "selection_semantics": "exact_case_dev_ranked_subset",
+            "source_candidate_count": 1,
+            "ranked_candidate_count": 1,
+            "selected_candidate_count": 1,
+            "provider_activity_requested": False,
+            "provider_activity_executed": False,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            **shared,
+        }
+    )
+    if config_update is not None:
+        config.update(config_update)
+    store.ensure_batch("batch-002", config)
+    store.ensure_terms("batch-002", (term,))
+    provenance = {
+        "schema_version": schema,
+        "rank": 1,
+        "ranking_key": [0, 0, 0, 0, "555"],
+        "ranked_record_sha256": ranked_sha,
+        "case_dev_returned_courtlistener_url": returned_url,
+        **shared,
+    }
+    if provenance_update is not None:
+        provenance.update(provenance_update)
+    payload: dict[str, Any] = {
+        "candidate_id": "courtlistener-docket-555",
+        "docket_id": "555",
+        "courtlistener_docket_id": "555",
+        "court_id": "ianb",
+        "docket_number": "25-09086",
+        "case_name": "In re: Mercy Hospital, Iowa City v. PeriGen, Inc.",
+        "provider": RECAP_API_PROVIDER,
+        "prescreen_exclusion_reason": None,
+        "query_term": term,
+        "case_dev_ranked_selection_provenance": provenance,
+        "bankruptcy_adversary_entry_evidence": {
+            "schema_version": (
+                "legalforecast.source_bound_bankruptcy_adversary_entry.v1"
+            ),
+            "docket_id": "555",
+            "court_id": "ianb",
+            "adversary_case_number": "25-09086",
+            "entry_number": "1",
+            "filed_at": "2025-07-25",
+            "entry_text": initiating_text,
+            "ranked_record_sha256": ranked_sha,
+        },
+    }
+    store.commit_search_page(
+        "batch-002",
+        term,
+        None,
+        (
+            DiscoveryHit(
+                provider_hit_id=(
+                    provider_hit_id_override or f"{term}:{selected_set_sha256}:555"
+                ),
+                candidate_id="courtlistener-docket-555",
+                payload=payload,
+            ),
+        ),
+        next_cursor=None,
+        terminal_status=TermTerminalStatus.EXHAUSTED,
+    )
+    [persisted_hit] = store.candidate_discovery_hits("batch-002")
+    return store, dict(persisted_hit.payload)
+
+
+@pytest.mark.parametrize(
+    ("config_update", "provenance_update", "provider_hit_id_override"),
+    [
+        (None, {"source_batch_id": "different-source"}, None),
+        ({"source_projection_sha256": "f" * 64}, None, None),
+        (None, None, "forged-provider-hit-id"),
+        (
+            {"selected_candidate_set_sha256": "e" * 64},
+            {"selected_candidate_set_sha256": "e" * 64},
+            "case-dev-ranked-opinion-subset-transfer-v1:" + "e" * 64 + ":555",
+        ),
+    ],
+)
+def test_observe_rejects_unbound_or_forged_persisted_subset_hit(
+    tmp_path: Path,
+    config_update: Mapping[str, object] | None,
+    provenance_update: Mapping[str, object] | None,
+    provider_hit_id_override: str | None,
+) -> None:
+    initiating_text = (
+        "Adversary case 25-09086. Complaint by Dan R. Childers against PeriGen, Inc."
+    )
+    store, payload = _seeded_ranked_subset_bankruptcy_store(
+        tmp_path,
+        initiating_text=initiating_text,
+        config_update=config_update,
+        provenance_update=provenance_update,
+        provider_hit_id_override=provider_hit_id_override,
+    )
+    with store:
+        recon_client = _client((_ianb_docket_response(),))
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.reason_code == PRESCREEN_BANKRUPTCY_REASON
+        assert observation.evidence["entry_reconstruction_skipped"] is True
+        assert recon_client.request_count == 1
+
+
+def test_observe_rejects_external_subset_payload_not_persisted_in_batch(
+    tmp_path: Path,
+) -> None:
+    initiating_text = (
+        "Adversary case 25-09086. Complaint by Dan R. Childers against PeriGen, Inc."
+    )
+    store, payload = _seeded_ranked_subset_bankruptcy_store(
+        tmp_path,
+        initiating_text=initiating_text,
+    )
+    payload["uncommitted_annotation"] = "not in the frozen discovery hit"
+    with store:
+        recon_client = _client((_ianb_docket_response(),))
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.reason_code == PRESCREEN_BANKRUPTCY_REASON
+        assert observation.evidence["entry_reconstruction_skipped"] is True
+        assert recon_client.request_count == 1
+
+
+def test_observe_rejects_authoritative_adversary_docket_number_mismatch(
+    tmp_path: Path,
+) -> None:
+    initiating_text = (
+        "Adversary case 25-09086. Complaint by Dan R. Childers against PeriGen, Inc."
+    )
+    store, payload = _seeded_ranked_subset_bankruptcy_store(
+        tmp_path,
+        initiating_text=initiating_text,
+    )
+    with store:
+        recon_client = _client((_ianb_docket_response(docket_number="25-09087"),))
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.reason_code == PRESCREEN_BANKRUPTCY_REASON
+        assert observation.evidence["entry_reconstruction_skipped"] is True
+        assert recon_client.request_count == 1
+
+
+def test_observe_defers_bankruptcy_prescreen_only_for_source_bound_adversary_entry(
+    tmp_path: Path,
+) -> None:
+    initiating_text = (
+        "Adversary case 25-09086. Complaint by Dan R. Childers against PeriGen, Inc."
+    )
+    store, payload = _seeded_ranked_subset_bankruptcy_store(
+        tmp_path,
+        initiating_text=initiating_text,
+    )
+    with store:
+        recon_client = _client(
+            (
+                _ianb_docket_response(),
+                _entries_response(
+                    cursor=None,
+                    results=[
+                        {
+                            "id": 7001,
+                            "docket": 555,
+                            "entry_number": 1,
+                            "description": initiating_text,
+                            "date_filed": "2025-07-25",
+                        },
+                        {
+                            "id": 7014,
+                            "docket": 555,
+                            "entry_number": 14,
+                            "description": (
+                                "Motion to Dismiss Adversary Proceeding under "
+                                "Rule 7012 and Rule 12(b)(6)"
+                            ),
+                            "date_filed": "2026-01-05",
+                        },
+                        {
+                            "id": 7020,
+                            "docket": 555,
+                            "entry_number": 20,
+                            "description": (
+                                "Opinion and Order denying Defendant's Motion to "
+                                "Dismiss the adversary complaint (Related Doc # 14)"
+                            ),
+                            "date_filed": "2026-07-13",
+                        },
+                    ],
+                    next_cursor=None,
+                ),
+            )
+        )
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.state == "accepted", (
+            observation.reason_code,
+            observation.evidence.get("canonical_screen_exclusion"),
+        )
+        assert observation.reason_code == "strict_clean_screen_passed"
+        assert observation.evidence["screen"]["case_type_stratum"] == (
+            "bankruptcy_adversary"
+        )
+        assert recon_client.request_count == 2
+
+
+def test_observe_does_not_defer_bankruptcy_without_subset_provenance(
+    tmp_path: Path,
+) -> None:
+    store, payload = _seeded_store(
+        tmp_path,
+        {
+            "id": 486056586,
+            "docket_id": 555,
+            "description": "Opinion and Order on Defendant's Motion to Dismiss",
+            "entry_date_filed": "2026-07-13",
+            "court_id": "ianb",
+            "docketNumber": "25-09086",
+            "caseName": "In re: Mercy Hospital, Iowa City v. PeriGen, Inc.",
+        },
+    )
+    payload["prescreen_exclusion_reason"] = None
+    with store:
+        recon_client = _client((_ianb_docket_response(),))
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.reason_code == PRESCREEN_BANKRUPTCY_REASON
+        assert observation.evidence["entry_reconstruction_skipped"] is True
+        assert recon_client.request_count == 1
+
+
+@pytest.mark.parametrize(
+    ("section", "field", "tampered"),
+    [
+        ("case_dev_ranked_selection_provenance", "schema_version", "wrong"),
+        (
+            "bankruptcy_adversary_entry_evidence",
+            "entry_text",
+            "Complaint by Debtor against Bank",
+        ),
+        ("bankruptcy_adversary_entry_evidence", "filed_at", "not-a-date"),
+        ("bankruptcy_adversary_entry_evidence", "entry_number", "x"),
+        ("bankruptcy_adversary_entry_evidence", "docket_id", "999"),
+        ("bankruptcy_adversary_entry_evidence", "court_id", "nysb"),
+        ("bankruptcy_adversary_entry_evidence", "ranked_record_sha256", "b" * 64),
+    ],
+)
+def test_observe_rejects_tampered_source_bound_adversary_evidence_before_entries(
+    tmp_path: Path,
+    section: str,
+    field: str,
+    tampered: str,
+) -> None:
+    initiating_text = (
+        "Adversary case 25-09086. Complaint by Dan R. Childers against PeriGen, Inc."
+    )
+    store, payload = _seeded_ranked_subset_bankruptcy_store(
+        tmp_path,
+        initiating_text=initiating_text,
+    )
+    tampered_payload = copy.deepcopy(payload)
+    tampered_section = tampered_payload[section]
+    assert isinstance(tampered_section, dict)
+    tampered_section[field] = tampered
+    with store:
+        recon_client = _client((_ianb_docket_response(),))
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            tampered_payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.reason_code == PRESCREEN_BANKRUPTCY_REASON
+        assert observation.evidence["entry_reconstruction_skipped"] is True
+        assert recon_client.request_count == 1
+
+
+def test_observe_main_bankruptcy_case_generic_complaint_does_not_defer(
+    tmp_path: Path,
+) -> None:
+    store, payload = _seeded_ranked_subset_bankruptcy_store(
+        tmp_path,
+        initiating_text="Complaint by Debtor against Bank",
+    )
+    with store:
+        recon_client = _client((_ianb_docket_response(),))
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.reason_code == PRESCREEN_BANKRUPTCY_REASON
+        assert recon_client.request_count == 1
+
+
+def test_observe_excludes_deferred_adversary_when_authoritative_entry_mismatches(
+    tmp_path: Path,
+) -> None:
+    initiating_text = (
+        "Adversary case 25-09086. Complaint by Dan R. Childers against PeriGen, Inc."
+    )
+    store, payload = _seeded_ranked_subset_bankruptcy_store(
+        tmp_path,
+        initiating_text=initiating_text,
+    )
+    with store:
+        recon_client = _client(
+            (
+                _ianb_docket_response(),
+                _entries_response(
+                    cursor=None,
+                    results=[
+                        {
+                            "id": 7001,
+                            "docket": 555,
+                            "entry_number": 1,
+                            "description": initiating_text + " Amended.",
+                            "date_filed": "2025-07-25",
+                        }
+                    ],
+                    next_cursor=None,
+                ),
+            )
+        )
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.reason_code == "invalid_civil_case_metadata"
+        assert observation.evidence["exclusion_detail"] == (
+            "source_bound_adversary_entry_mismatch"
+        )
+        assert recon_client.request_count == 2
 
 
 def test_observe_accepts_public_opinion_backed_terse_mtd_order(
