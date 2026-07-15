@@ -126,6 +126,13 @@ from legalforecast.ingestion.case_dev_purchase import (
     verify_case_dev_purchase_policy_cohort_binding,
     write_case_dev_purchase_policy,
 )
+from legalforecast.ingestion.case_dev_ranked_selection import (
+    CASE_DEV_SOURCE_DOCKET_SCHEMA,
+    build_case_dev_ranked_target_plan,
+    project_case_dev_opinion_source,
+    seed_case_dev_ranked_selection,
+    verify_case_dev_ranked_selection,
+)
 from legalforecast.ingestion.case_dev_recap_batch import enrich_recap_discovery_batch
 from legalforecast.ingestion.case_dev_smoke import (
     CaseDevSmokeConfig,
@@ -814,7 +821,8 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Cycle 1 batch-002 decision-first RECAP REST v4 acquisition driver "
             "(discover / seed-direct-search / rebind-direct-search / "
-            "seed-novel-direct-search / observe / seed-batch-001-leads / snapshot)."
+            "seed-novel-direct-search / select-case-dev-ranked / observe / "
+            "seed-batch-001-leads / snapshot)."
         ),
     )
     batch_002_subparsers = batch_002.add_subparsers(
@@ -914,6 +922,20 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_batch_002_novel_direct_seed_arguments(batch_002_novel_direct_seed)
+    batch_002_ranked_selection = batch_002_subparsers.add_parser(
+        "select-case-dev-ranked",
+        help=(
+            "Verify a free Case.dev ranking and materialize its exact top-N "
+            "opinion dockets as a source-bound REST observation batch."
+        ),
+        description=(
+            "Provider-free handoff from a completed source-bound Case.dev "
+            "enrichment run to the existing batch-002 observe command. The "
+            "source batch, projection, ranked output, run card, exact order, "
+            "and top-N prefix are verified before the target store is written."
+        ),
+    )
+    _add_batch_002_ranked_selection_arguments(batch_002_ranked_selection)
     batch_002_snapshot = batch_002_subparsers.add_parser(
         "snapshot",
         help=(
@@ -3041,6 +3063,81 @@ def _add_batch_002_novel_direct_seed_arguments(
     parser.set_defaults(handler=_cmd_batch_002_novel_direct_seed)
 
 
+def _add_batch_002_ranked_selection_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--source-store",
+        type=Path,
+        required=True,
+        help="Read-only store containing the exhausted opinion-search batch.",
+    )
+    parser.add_argument("--source-batch-id", required=True)
+    parser.add_argument(
+        "--source-projection",
+        type=Path,
+        required=True,
+        help="Exact source projection emitted by enrich-recap-case-dev.",
+    )
+    parser.add_argument(
+        "--ranked",
+        type=Path,
+        required=True,
+        help="Complete ranked JSONL emitted by enrich-recap-case-dev.",
+    )
+    parser.add_argument(
+        "--enrichment-run-card",
+        type=Path,
+        required=True,
+        help="Completed enrichment run card authenticating the projection and rank.",
+    )
+    parser.add_argument(
+        "--expected-enrichment-run-card-sha256",
+        required=True,
+        help=(
+            "External lowercase SHA-256 commitment for the raw enrichment run "
+            "card bytes; checked before the card is parsed."
+        ),
+    )
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help=(
+            "Existing current-cycle acquisition store that will receive the "
+            "selected REST observation batch."
+        ),
+    )
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument(
+        "--eligibility-anchor",
+        default=_BATCH_002_DEFAULT_ANCHOR,
+        metavar="YYYY-MM-DD",
+        help=(
+            "Anchor used to verify that --cycle-store has the current frozen "
+            "screening policy."
+        ),
+    )
+    parser.add_argument(
+        "--top-n",
+        type=int,
+        required=True,
+        help="Exact positive ranked prefix to materialize.",
+    )
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=100,
+        help="Provider-free transfer page size, from 1 through 100.",
+    )
+    parser.add_argument(
+        "--run-card-output",
+        type=Path,
+        required=True,
+        help="Replay-stable selected-batch lineage run card.",
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_ranked_selection)
+
+
 def _add_batch_002_snapshot_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--cycle-store",
@@ -3378,8 +3475,34 @@ def _add_acquisition_enrich_recap_case_dev_arguments(
     parser.add_argument(
         "--dockets",
         type=Path,
-        required=True,
-        help="Potential-docket JSONL from discover-firecrawl-recap.",
+        help=(
+            "Legacy potential-docket JSONL from discover-firecrawl-recap. "
+            "Mutually exclusive with --source-store/--source-batch-id."
+        ),
+    )
+    parser.add_argument(
+        "--source-store",
+        type=Path,
+        help=(
+            "Cycle acquisition SQLite store containing a fully exhausted "
+            "CourtListener search_type=o opinion batch. Requires "
+            "--source-batch-id and replaces --dockets."
+        ),
+    )
+    parser.add_argument(
+        "--source-batch-id",
+        help=(
+            "Fully exhausted CourtListener opinion source batch to project "
+            "by exact shared docket ID. Requires --source-store."
+        ),
+    )
+    parser.add_argument(
+        "--source-projection-output",
+        type=Path,
+        help=(
+            "Deterministic source-bound Case.dev input checkpoint. Defaults "
+            "under --output-root/checkpoints/."
+        ),
     )
     parser.add_argument(
         "--page-size",
@@ -10885,6 +11008,7 @@ def _enrich_case_dev_progress_record(
     live: bool,
     page_size: int,
     max_pages: int,
+    allow_source_bound: bool = False,
     client: CaseDevClient | None = None,
     rate_limiter: CaseDevRateLimiter | None = None,
 ) -> tuple[JsonRecord, int]:
@@ -10901,6 +11025,7 @@ def _enrich_case_dev_progress_record(
             records=(record,),
             page_size=page_size,
             max_pages=max_pages,
+            allow_source_bound=allow_source_bound,
         )
     except CaseDevServerError as exc:
         return (
@@ -10915,10 +11040,14 @@ def _enrich_case_dev_progress_record(
             active_client.request_count - request_count_before,
         )
     if one.successes:
+        payload = one.successes[0].to_record()
+        source_lineage = record.get("source_lineage")
+        if isinstance(source_lineage, Mapping):
+            payload["source_lineage"] = dict(cast(Mapping[str, Any], source_lineage))
         progress: JsonRecord = {
             "input_index": input_index,
             "outcome": "success",
-            "payload": one.successes[0].to_record(),
+            "payload": payload,
         }
     else:
         failure = one.failures[0].to_record()
@@ -10933,7 +11062,67 @@ def _enrich_case_dev_progress_record(
 
 def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
-    dockets_path = cast(Path, args.dockets)
+    dockets_arg = cast(Path | None, args.dockets)
+    source_store_path = cast(Path | None, args.source_store)
+    source_batch_id = cast(str | None, args.source_batch_id)
+    source_mode_requested = source_store_path is not None or source_batch_id is not None
+    if (dockets_arg is not None) == source_mode_requested:
+        raise CommandError(
+            "choose exactly one input mode: --dockets or "
+            "--source-store with --source-batch-id"
+        )
+    if source_mode_requested and (source_store_path is None or source_batch_id is None):
+        raise CommandError(
+            "--source-store and --source-batch-id must be supplied together"
+        )
+    projection_path = _acquisition_path(
+        args,
+        "source_projection_output",
+        output_root / "checkpoints" / "case-dev-recap-source-projection.jsonl",
+    )
+    source_commitments: JsonRecord = {}
+    if source_store_path is not None and source_batch_id is not None:
+        try:
+            source = read_saturated_direct_search_leads(
+                source_store_path,
+                source_batch_id=source_batch_id,
+            )
+        except RecapApiBatchDriverError as exc:
+            raise CommandError(str(exc)) from exc
+        try:
+            records = list(project_case_dev_opinion_source(source))
+        except RecapApiBatchDriverError as exc:
+            raise CommandError(str(exc)) from exc
+        _write_jsonl(projection_path, records)
+        projection_sha256 = hashlib.sha256(projection_path.read_bytes()).hexdigest()
+        source_commitments = {
+            "source_batch_id": source.source_batch_id,
+            "source_batch_digest": source.source_batch_digest,
+            "source_cycle_hash": source.source_cycle_hash,
+            "source_search_type": source.source_search_type,
+            "source_candidate_set_sha256": source.source_candidate_set_sha256,
+            "source_projection_sha256": projection_sha256,
+        }
+        dockets_path = projection_path
+        source_input_paths = (source_store_path,)
+        source_output_paths = (projection_path,)
+        allow_source_bound = True
+    else:
+        if dockets_arg is None:  # pragma: no cover - guarded above
+            raise CommandError("--dockets is required")
+        dockets_path = dockets_arg
+        records = _read_records(dockets_path)
+        if any(
+            record.get("schema_version") == CASE_DEV_SOURCE_DOCKET_SCHEMA
+            for record in records
+        ):
+            raise CommandError(
+                "source-bound exact-ID schema is accepted only from a verified "
+                "--source-store/--source-batch-id projection"
+            )
+        source_input_paths = (dockets_path,)
+        source_output_paths = ()
+        allow_source_bound = False
     fixture_path = cast(Path | None, args.case_dev_fixture)
     live = cast(bool, args.live_case_dev)
     page_size = cast(int, args.page_size)
@@ -10970,11 +11159,13 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
     progress_config_path = (
         output_root / "checkpoints" / "case-dev-recap-progress-config.json"
     )
-    records = _read_records(dockets_path)
     input_paths = (
-        (dockets_path,) if fixture_path is None else (dockets_path, fixture_path)
+        source_input_paths
+        if fixture_path is None
+        else (*source_input_paths, fixture_path)
     )
     output_paths = (
+        *source_output_paths,
         ranked_path,
         failures_path,
         summary_path,
@@ -10991,9 +11182,20 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
             "max_pages_per_docket": max_pages,
             "free_lookup_only": True,
             "pacer_fee_acknowledgment_allowed": False,
+            **source_commitments,
         }
         _write_jsonl(ranked_path, [])
         _write_jsonl(failures_path, [])
+        summary.update(
+            {
+                "ranked_output_sha256": hashlib.sha256(
+                    ranked_path.read_bytes()
+                ).hexdigest(),
+                "failures_output_sha256": hashlib.sha256(
+                    failures_path.read_bytes()
+                ).hexdigest(),
+            }
+        )
         _write_json(summary_path, summary)
         _write_acquisition_completion(
             args,
@@ -11016,6 +11218,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         "page_size": page_size,
         "max_pages_per_docket": max_pages,
         "free_lookup_only": True,
+        **source_commitments,
     }
     resume = cast(bool, args.resume)
     if progress_config_path.exists():
@@ -11096,6 +11299,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
                     live=live,
                     page_size=page_size,
                     max_pages=max_pages,
+                    allow_source_bound=allow_source_bound,
                     client=serial_client,
                 )
                 for input_index, record in pending
@@ -11133,6 +11337,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
                         live=live,
                         page_size=page_size,
                         max_pages=max_pages,
+                        allow_source_bound=allow_source_bound,
                         rate_limiter=aggregate_rate_limiter,
                     )
 
@@ -11177,6 +11382,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
             output_paths=output_paths,
             reason=str(exc),
             paid_activity_requested=False,
+            extra=source_commitments,
         )
         raise CommandError(str(exc)) from exc
 
@@ -11197,7 +11403,10 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
             output_paths=output_paths,
             reason=reason,
             paid_activity_requested=False,
-            extra={"transient_docket_count": transient_count},
+            extra={
+                "transient_docket_count": transient_count,
+                **source_commitments,
+            },
         )
         raise CommandError(reason)
     ranked_records = sorted(
@@ -11258,9 +11467,20 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         ),
         "resumed_terminal_record_count": len(progress_records),
         "reconciled": True,
+        **source_commitments,
     }
     _write_jsonl(ranked_path, ranked_records)
     _write_jsonl(failures_path, failure_records)
+    summary.update(
+        {
+            "ranked_output_sha256": hashlib.sha256(
+                ranked_path.read_bytes()
+            ).hexdigest(),
+            "failures_output_sha256": hashlib.sha256(
+                failures_path.read_bytes()
+            ).hexdigest(),
+        }
+    )
     _write_json(summary_path, summary)
     _write_acquisition_completion(
         args,
@@ -12287,6 +12507,88 @@ def _cmd_batch_002_novel_direct_seed(args: argparse.Namespace) -> int:
                 prior_snapshots=prior_snapshots,
                 page_size=cast(int, args.page_size),
             )
+    except (
+        CycleAcquisitionStoreError,
+        RecapApiBatchDriverError,
+        KeyError,
+        OSError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    record = result.to_record()
+    summary_output = cast(Path | None, args.summary_output)
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
+    source_store = cast(Path, args.source_store)
+    source_batch_id = cast(str, args.source_batch_id)
+    source_projection = cast(Path, args.source_projection)
+    ranked_path = cast(Path, args.ranked)
+    enrichment_run_card = cast(Path, args.enrichment_run_card)
+    expected_enrichment_run_card_sha256 = cast(
+        str, args.expected_enrichment_run_card_sha256
+    )
+    cycle_store = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    anchor = _iso_date_argument(
+        cast(str, args.eligibility_anchor), "--eligibility-anchor"
+    )
+    top_n = cast(int, args.top_n)
+    page_size = cast(int, args.page_size)
+    run_card_output = cast(Path, args.run_card_output)
+    if not cycle_store.is_file():
+        raise CommandError(
+            "--cycle-store must be an existing current-cycle acquisition store"
+        )
+    try:
+        source = read_saturated_direct_search_leads(
+            source_store,
+            source_batch_id=source_batch_id,
+        )
+        selection = verify_case_dev_ranked_selection(
+            source=source,
+            source_store_path=source_store,
+            source_projection_path=source_projection,
+            ranked_path=ranked_path,
+            enrichment_run_card_path=enrichment_run_card,
+            expected_enrichment_run_card_sha256=(expected_enrichment_run_card_sha256),
+            top_n=top_n,
+        )
+        with CycleAcquisitionStore(cycle_store) as store:
+            _validate_frozen_screening_policy(
+                policy=store.cycle_policy,
+                anchor=anchor,
+            )
+            target_cycle_hash = store.cycle_hash
+        plan = build_case_dev_ranked_target_plan(
+            batch_id=batch_id,
+            target_cycle_hash=target_cycle_hash,
+            selection=selection,
+            page_size=page_size,
+        )
+        frozen_run_card = plan.run_card_record()
+        if run_card_output.exists():
+            existing = _read_json_object(run_card_output)
+            if existing != frozen_run_card:
+                raise RecapApiBatchDriverError(
+                    "existing ranked-selection run card does not match this invocation"
+                )
+        with CycleAcquisitionStore(cycle_store) as store:
+            result = seed_case_dev_ranked_selection(
+                store,
+                plan=plan,
+                page_size=page_size,
+            )
+        if result.run_card_record() != frozen_run_card:
+            raise RecapApiBatchDriverError(
+                "materialized ranked selection differs from its frozen plan"
+            )
+        if not run_card_output.exists():
+            _write_json(run_card_output, frozen_run_card)
     except (
         CycleAcquisitionStoreError,
         RecapApiBatchDriverError,

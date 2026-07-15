@@ -8,6 +8,187 @@ from typing import Any
 import legalforecast.cli as cli_module
 import pytest
 from legalforecast.ingestion.case_dev_client import CaseDevRateLimitError
+from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+
+
+def test_enrich_recap_case_dev_projects_saturated_opinion_source_without_invented_url(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    fixture = tmp_path / "case-dev.jsonl"
+    fixture.write_text(json.dumps(_case_dev_response("101")) + "\n")
+    output_root = tmp_path / "output"
+
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(output_root),
+                "--source-store",
+                str(source_store),
+                "--source-batch-id",
+                "opinion-source",
+                "--case-dev-fixture",
+                str(fixture),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    projection_path = (
+        output_root / "checkpoints" / "case-dev-recap-source-projection.jsonl"
+    )
+    [projected] = _read_jsonl(projection_path)
+    assert projected["schema_version"] == (
+        "legalforecast.case_dev_recap_source_docket.v1"
+    )
+    assert projected["docket_id"] == "101"
+    assert "docket_url" not in projected
+    assert projected["source_lineage"]["source_batch_id"] == "opinion-source"
+
+    [ranked] = _read_jsonl(output_root / "checkpoints" / "case-dev-recap-ranked.jsonl")
+    assert ranked["identity"]["courtlistener_docket_id"] == "101"
+    assert ranked["identity"]["courtlistener_url"] == (
+        "https://www.courtlistener.com/api/rest/v4/dockets/101/"
+    )
+    assert ranked["source_lineage"] == projected["source_lineage"]
+
+    summary = json.loads(
+        (output_root / "checkpoints" / "case-dev-recap-summary.json").read_text()
+    )
+    assert summary["source_batch_id"] == "opinion-source"
+    assert len(summary["source_batch_digest"]) == 64
+    assert len(summary["source_candidate_set_sha256"]) == 64
+    assert summary["source_search_type"] == "o"
+    assert len(summary["source_projection_sha256"]) == 64
+    run_card = json.loads(
+        (output_root / "run-cards" / "enrich-recap-case-dev.json").read_text()
+    )
+    assert run_card["source_batch_digest"] == summary["source_batch_digest"]
+    assert (
+        run_card["source_candidate_set_sha256"]
+        == (summary["source_candidate_set_sha256"])
+    )
+    assert run_card["source_projection_sha256"] == (summary["source_projection_sha256"])
+
+
+def test_enrich_recap_case_dev_source_mode_requires_opinion_search(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path, search_type="r")
+    fixture = tmp_path / "case-dev.jsonl"
+    fixture.write_text(json.dumps(_case_dev_response("101")) + "\n")
+
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(tmp_path / "output"),
+                "--source-store",
+                str(source_store),
+                "--source-batch-id",
+                "opinion-source",
+                "--case-dev-fixture",
+                str(fixture),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+
+
+def test_enrich_recap_case_dev_rejects_ambiguous_input_modes(tmp_path: Path) -> None:
+    dockets = tmp_path / "dockets.jsonl"
+    dockets.write_text("", encoding="utf-8")
+    source_store = _opinion_source_store(tmp_path)
+    fixture = tmp_path / "case-dev.jsonl"
+    fixture.write_text(json.dumps(_case_dev_response("101")) + "\n")
+
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(tmp_path / "output"),
+                "--dockets",
+                str(dockets),
+                "--source-store",
+                str(source_store),
+                "--source-batch-id",
+                "opinion-source",
+                "--case-dev-fixture",
+                str(fixture),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+
+
+def test_enrich_recap_case_dev_rejects_fabricated_source_schema_from_dockets(
+    tmp_path: Path,
+) -> None:
+    dockets = tmp_path / "fabricated-source.jsonl"
+    fake_hash = "0" * 64
+    fake_hit = {
+        "provider_hit_id": "fake-opinion",
+        "query_term": '"motion to dismiss"',
+        "payload_sha256": fake_hash,
+    }
+    dockets.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.case_dev_recap_source_docket.v1",
+                "candidate_id": "courtlistener-docket-101",
+                "docket_id": "101",
+                "entry_keys": ["fake-opinion"],
+                "matched_terms": ['"motion to dismiss"'],
+                "eligibility_status": "potential_unverified",
+                "source_lineage": {
+                    "source_batch_id": "fabricated",
+                    "source_batch_digest": fake_hash,
+                    "source_cycle_hash": fake_hash,
+                    "source_search_type": "o",
+                    "source_candidate_set_sha256": fake_hash,
+                    "docket_id": "101",
+                    "lead_commitment": {
+                        "docket_id": "101",
+                        "source_hits": [fake_hit],
+                    },
+                    "source_hits": [fake_hit],
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    fixture = tmp_path / "case-dev.jsonl"
+    fixture.write_text(json.dumps(_case_dev_response("101")) + "\n")
+    output_root = tmp_path / "output"
+
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(output_root),
+                "--dockets",
+                str(dockets),
+                "--case-dev-fixture",
+                str(fixture),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert not (output_root / "checkpoints" / "case-dev-recap-progress.jsonl").exists()
 
 
 def test_enrich_recap_case_dev_ranks_free_lookups_without_fee_flags(
@@ -431,6 +612,55 @@ def test_parallel_enrichment_checks_completed_fatal_before_replacement(
         == 2
     )
     assert set(started_indices) == {0, 1}
+
+
+def _opinion_source_store(tmp_path: Path, *, search_type: str = "o") -> Path:
+    path = tmp_path / "opinion-source.sqlite3"
+    with CycleAcquisitionStore(path) as store:
+        store.ensure_cycle(
+            {"schema_version": "test", "eligibility_anchor": "2026-06-30"}
+        )
+        term = '"motion to dismiss"'
+        store.ensure_batch(
+            "opinion-source",
+            {
+                "schema_version": ("legalforecast.courtlistener_opinion_discovery.v1"),
+                "provider": "courtlistener",
+                "search_type": search_type,
+                "query_terms": [term],
+                "search_window_start": "2026-06-30",
+                "search_window_end": "2026-07-15",
+            },
+        )
+        store.ensure_terms("opinion-source", (term,))
+        store.commit_search_page(
+            "opinion-source",
+            term,
+            None,
+            [
+                {
+                    "provider_hit_id": "cluster-501",
+                    "candidate_id": "101",
+                    "payload": {
+                        "docket_id": "101",
+                        "court_id": "dcd",
+                        "docket_number": "1:25-cv-00101",
+                        "case_name": "Example v. Example",
+                        "opinion_discovery_evidence": {
+                            "schema_version": (
+                                "legalforecast.courtlistener_opinion_hit.v1"
+                            ),
+                            "cluster_id": "501",
+                            "absolute_url": "/opinion/501/example-v-example/",
+                            "date_filed": "2026-07-14",
+                        },
+                    },
+                }
+            ],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+    return path
 
 
 def _case_dev_response(docket_id: str) -> dict[str, object]:
