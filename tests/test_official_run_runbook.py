@@ -63,7 +63,7 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
         "### Step 3: Acquire And Screen Complete CourtListener Dockets",
         "### Step 4: Prepare The Resolved Pool And Provisional Budget",
         "### Step 5: Clear Every Free Document And Freeze The Exact Cohort",
-        "### Step 6: Generate The Broker Allowlist, Then Purchase Explicitly",
+        "### Step 6: Generate Allowlist, Initialize Ledger, Then Purchase",
     )
     assert [
         batch_002_section.index(step) for step in ordered_acquisition_steps
@@ -77,9 +77,15 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
         "legalforecast acquisition clear-disclosures",
         "legalforecast acquisition project-target-cohort",
         "legalforecast acquisition generate-recap-fetch-broker-policy",
+        "legalforecast acquisition init-purchase-ledger",
         "legalforecast acquisition purchase-missing-recap-fetch",
     ):
         assert command in batch_002_section
+    assert batch_002_section.index(
+        "legalforecast acquisition init-purchase-ledger"
+    ) < batch_002_section.index(
+        "legalforecast acquisition purchase-missing-recap-fetch"
+    )
     for disabled_command in (
         "legalforecast batch-002 discover \\",
         "legalforecast batch-002 observe \\",

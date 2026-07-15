@@ -375,7 +375,7 @@ uv run legalforecast acquisition project-target-cohort \
 
 If fewer than 100 post-clearance cases fit the unchanged cap, acquire more candidates rather than restoring a quarantined case or weakening a gate. The exact-cohort summary binds every source and output hash and reconciles every unselected resolved-pool candidate into `target-cohort-exclusions.jsonl`.
 
-### Step 6: Generate The Broker Allowlist, Then Purchase Explicitly
+### Step 6: Generate Allowlist, Initialize Ledger, Then Purchase
 
 Paid acquisition remains a separate, operator-visible stage. First freeze the cohort and purchase-policy artifacts required by the CLI, then generate the signed RECAP Fetch broker allowlist from the exact post-clearance outputs:
 
@@ -390,6 +390,18 @@ uv run legalforecast acquisition generate-recap-fetch-broker-policy \
 
 Inspect the projected total, allowlisted numeric RECAP document IDs, and remaining budget before invoking the only fee-bearing happy path:
 
+Ledger initialization is a mandatory, non-provider step. The absolute ledger path below must exactly match `canonical_ledger_path` in the verified purchase policy. This command must succeed and publish its authenticated initialization receipt before any purchase command runs:
+
+```bash
+uv run legalforecast acquisition init-purchase-ledger \
+  --output-root artifacts/cycle-1/official-acquisition/target-100 \
+  --purchase-policy <verified-purchase-policy.json> \
+  --cohort-policy <frozen-cohort-policy.json> \
+  --purchase-ledger <absolute-canonical-purchase-ledger-path> \
+  --initialization-receipt-output artifacts/cycle-1/official-acquisition/target-100/purchase-ledger-initialization.json \
+  --execute --resume
+```
+
 The allowlist accepts explicit-public proof or the exact current CourtListener REST paid-gap evidence contract.
 Case.dev may support noncharging search and docket enrichment, but its legacy paid-unknown evidence is never purchase authority.
 
@@ -400,7 +412,7 @@ uv run legalforecast acquisition purchase-missing-recap-fetch \
   --selection artifacts/cycle-1/official-acquisition/target-100/exact-cohort/target-cohort-selection.jsonl \
   --purchase-policy <verified-purchase-policy.json> \
   --cohort-policy <frozen-cohort-policy.json> \
-  --purchase-ledger artifacts/cycle-1/official-acquisition/recap-fetch-purchases.sqlite3 \
+  --purchase-ledger <absolute-canonical-purchase-ledger-path> \
   --request-ledger artifacts/cycle-1/official-acquisition/courtlistener-requests.sqlite3 \
   --live-purchase --acknowledge-pacer-fees \
   --execute --resume

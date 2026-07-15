@@ -284,8 +284,11 @@ def initialize_case_dev_purchase_journal(
     """
 
     ledger_path = _canonical_requested_ledger_path(path, policy=policy)
-    receipt = Path(receipt_path).resolve(strict=False)
-    _validate_purchase_ledger_receipt_namespace(ledger_path, receipt)
+    receipt = _validated_purchase_ledger_receipt_path(
+        ledger_path,
+        receipt_path,
+        prepare_parent=True,
+    )
     _prepare_canonical_ledger_parent(ledger_path)
     lock_fd = _acquire_purchase_ledger_lock(ledger_path)
     try:
@@ -378,8 +381,11 @@ def verify_case_dev_purchase_journal_initialization(
     """Read-only verify a previously initialized, still-pristine ledger."""
 
     ledger_path = _canonical_requested_ledger_path(path, policy=policy)
-    receipt = Path(receipt_path).resolve(strict=False)
-    _validate_purchase_ledger_receipt_namespace(ledger_path, receipt)
+    receipt = _validated_purchase_ledger_receipt_path(
+        ledger_path,
+        receipt_path,
+        prepare_parent=False,
+    )
     if ledger_path.parent.resolve() != ledger_path.parent:
         raise CaseDevPurchaseLedgerError(
             "purchase ledger parent path must not traverse a symlink"
@@ -445,14 +451,14 @@ def _validate_purchase_ledger_receipt_namespace(
     ledger_path: Path,
     receipt_path: Path,
 ) -> None:
-    ledger = ledger_path.resolve(strict=False)
-    receipt = receipt_path.resolve(strict=False)
     if receipt_path.is_symlink():
         raise CaseDevPurchaseLedgerError(
             "purchase ledger initialization receipt must not be a symlink"
         )
+    ledger = ledger_path.absolute()
+    receipt = receipt_path.absolute()
     for reserved_path in _purchase_ledger_reserved_paths(ledger):
-        reserved = reserved_path.resolve(strict=False)
+        reserved = reserved_path.absolute()
         if (
             receipt == reserved
             or receipt in reserved.parents
@@ -462,6 +468,32 @@ def _validate_purchase_ledger_receipt_namespace(
                 "purchase ledger initialization receipt conflicts with a reserved "
                 f"ledger path: {reserved_path}"
             )
+
+
+def _validated_purchase_ledger_receipt_path(
+    ledger_path: Path,
+    receipt_path: str | Path,
+    *,
+    prepare_parent: bool,
+) -> Path:
+    """Return an absolute receipt path only after rejecting symlink traversal."""
+
+    receipt = Path(receipt_path).absolute()
+    if receipt.is_symlink():
+        raise CaseDevPurchaseLedgerError(
+            "purchase ledger initialization receipt must not be a symlink"
+        )
+    _validate_existing_path_parent(
+        receipt,
+        label="purchase ledger initialization receipt",
+    )
+    _validate_purchase_ledger_receipt_namespace(ledger_path, receipt)
+    _validate_or_prepare_path_parent(
+        receipt,
+        create_missing=prepare_parent,
+        label="purchase ledger initialization receipt",
+    )
+    return receipt
 
 
 def _refuse_existing_sqlite_sidecars(path: Path) -> None:
@@ -476,12 +508,45 @@ def _refuse_existing_sqlite_sidecars(path: Path) -> None:
 
 
 def _prepare_canonical_ledger_parent(path: Path) -> None:
+    _validate_or_prepare_path_parent(
+        path,
+        create_missing=True,
+        label="purchase ledger",
+    )
+
+
+def _validate_existing_path_parent(path: Path, *, label: str) -> None:
     current = Path(path.anchor)
     for component in path.parent.parts[1:]:
         current /= component
         try:
             metadata = current.lstat()
         except FileNotFoundError:
+            return
+        if stat.S_ISLNK(metadata.st_mode):
+            raise CaseDevPurchaseLedgerError(
+                f"{label} parent path must not traverse a symlink"
+            )
+        if not stat.S_ISDIR(metadata.st_mode):
+            raise CaseDevPurchaseLedgerError(f"{label} parent must be a directory")
+
+
+def _validate_or_prepare_path_parent(
+    path: Path,
+    *,
+    create_missing: bool,
+    label: str,
+) -> None:
+    current = Path(path.anchor)
+    for component in path.parent.parts[1:]:
+        current /= component
+        try:
+            metadata = current.lstat()
+        except FileNotFoundError:
+            if not create_missing:
+                raise CaseDevPurchaseLedgerError(
+                    f"{label} parent path is missing: {current}"
+                ) from None
             try:
                 current.mkdir(mode=0o700)
             except FileExistsError:
@@ -490,12 +555,10 @@ def _prepare_canonical_ledger_parent(path: Path) -> None:
                 metadata = current.lstat()
         if stat.S_ISLNK(metadata.st_mode):
             raise CaseDevPurchaseLedgerError(
-                "purchase ledger parent path must not traverse a symlink"
+                f"{label} parent path must not traverse a symlink"
             )
         if not stat.S_ISDIR(metadata.st_mode):
-            raise CaseDevPurchaseLedgerError(
-                "purchase ledger parent must be a directory"
-            )
+            raise CaseDevPurchaseLedgerError(f"{label} parent must be a directory")
 
 
 def _acquire_purchase_ledger_lock(path: Path) -> int:

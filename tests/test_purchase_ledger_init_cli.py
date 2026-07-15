@@ -13,6 +13,8 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerBusyError,
     CaseDevPurchaseLedgerError,
+    initialize_case_dev_purchase_journal,
+    verify_case_dev_purchase_journal_initialization,
     verify_case_dev_purchase_policy,
 )
 
@@ -80,6 +82,108 @@ def test_init_purchase_ledger_completed_resume_is_read_only(tmp_path: Path) -> N
 
     assert ledger_path.read_bytes() == ledger_before
     assert receipt_path.read_bytes() == receipt_before
+
+
+@pytest.mark.parametrize("alias_kind", ["receipt", "parent"])
+def test_initialize_purchase_ledger_rejects_symlinked_receipt_namespace_before_creation(
+    tmp_path: Path,
+    alias_kind: str,
+) -> None:
+    _, policy_path, _, ledger_path = _inputs(tmp_path)
+    policy = verify_case_dev_purchase_policy(_read_json(policy_path))
+    target_root = tmp_path / "receipt-target"
+    target_root.mkdir()
+    if alias_kind == "receipt":
+        target = target_root / "existing-receipt.json"
+        target.write_bytes(b"preserve")
+        receipt_path = tmp_path / "receipt-link.json"
+        receipt_path.symlink_to(target)
+    else:
+        receipt_parent = tmp_path / "receipt-parent-link"
+        receipt_parent.symlink_to(target_root, target_is_directory=True)
+        receipt_path = receipt_parent / "initialization.json"
+
+    with pytest.raises(CaseDevPurchaseLedgerError, match="symlink"):
+        initialize_case_dev_purchase_journal(
+            ledger_path,
+            policy=policy,
+            receipt_path=receipt_path,
+            purchase_policy_file_sha256="sha256:" + "a" * 64,
+            cohort_policy_file_sha256="sha256:" + "b" * 64,
+            initialized_at="2026-07-15T00:00:00Z",
+        )
+
+    assert not ledger_path.exists()
+    if alias_kind == "receipt":
+        assert target.read_bytes() == b"preserve"
+    else:
+        assert not (target_root / "initialization.json").exists()
+
+
+def test_initialize_purchase_ledger_rejects_reserved_receipt_namespace_before_mkdir(
+    tmp_path: Path,
+) -> None:
+    _, policy_path, _, ledger_path = _inputs(tmp_path)
+    policy = verify_case_dev_purchase_policy(_read_json(policy_path))
+
+    with pytest.raises(CaseDevPurchaseLedgerError, match="reserved ledger path"):
+        initialize_case_dev_purchase_journal(
+            ledger_path,
+            policy=policy,
+            receipt_path=ledger_path / "initialization.json",
+            purchase_policy_file_sha256="sha256:" + "a" * 64,
+            cohort_policy_file_sha256="sha256:" + "b" * 64,
+            initialized_at="2026-07-15T00:00:00Z",
+        )
+
+    assert not ledger_path.exists()
+
+    safe_receipt = tmp_path / "safe-receipts/initialization.json"
+    initialize_case_dev_purchase_journal(
+        ledger_path,
+        policy=policy,
+        receipt_path=safe_receipt,
+        purchase_policy_file_sha256="sha256:" + "a" * 64,
+        cohort_policy_file_sha256="sha256:" + "b" * 64,
+        initialized_at="2026-07-15T00:00:00Z",
+    )
+    assert ledger_path.is_file()
+    assert safe_receipt.is_file()
+
+
+@pytest.mark.parametrize("alias_kind", ["receipt", "parent"])
+def test_verify_purchase_ledger_rejects_symlinked_receipt_namespace(
+    tmp_path: Path,
+    alias_kind: str,
+) -> None:
+    output_root, policy_path, cohort_path, ledger_path = _inputs(tmp_path)
+    assert main(_args(output_root, policy_path, cohort_path, ledger_path)) == 0
+    policy = verify_case_dev_purchase_policy(_read_json(policy_path))
+    canonical_receipt = output_root / "purchase-ledger-initialization.json"
+    canonical_record = _read_json(canonical_receipt)
+    ledger_before = ledger_path.read_bytes()
+    if alias_kind == "receipt":
+        receipt_path = tmp_path / "receipt-link.json"
+        receipt_path.symlink_to(canonical_receipt)
+    else:
+        receipt_parent = tmp_path / "receipt-parent-link"
+        receipt_parent.symlink_to(output_root, target_is_directory=True)
+        receipt_path = receipt_parent / canonical_receipt.name
+
+    with pytest.raises(CaseDevPurchaseLedgerError, match="symlink"):
+        verify_case_dev_purchase_journal_initialization(
+            ledger_path,
+            policy=policy,
+            receipt_path=receipt_path,
+            purchase_policy_file_sha256=str(
+                canonical_record["purchase_policy_file_sha256"]
+            ),
+            cohort_policy_file_sha256=str(
+                canonical_record["cohort_policy_file_sha256"]
+            ),
+        )
+
+    assert ledger_path.read_bytes() == ledger_before
 
 
 def test_init_purchase_ledger_dry_run_does_not_create_ledger(tmp_path: Path) -> None:
