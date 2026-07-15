@@ -128,6 +128,17 @@ class DurableBudgetedCourtListenerHTMLSource:
                 "interrupted after durable authorization; the original credit "
                 "reservation was retained"
             )
+        if len(attempts) == 1 and self._is_result_commit_failure(attempts[0]):
+            if attempts[0].failure_code == "result_commit_failed_with_orphan":
+                self._quarantine_abandoned_raw_html(
+                    normalized_docket_id,
+                    attempts[0],
+                    expected_path,
+                )
+            raise FirecrawlArtifactError(
+                f"durable Firecrawl target {target.target_id!r} has a terminal "
+                f"local commit failure ({attempts[0].failure_code})"
+            )
         failure_code = attempts[0].failure_code if len(attempts) == 1 else None
         detail = f" ({failure_code})" if failure_code is not None else ""
         raise FirecrawlArtifactError(
@@ -352,6 +363,18 @@ class DurableBudgetedCourtListenerHTMLSource:
             in {
                 "authorization_abandoned",
                 "authorization_abandoned_with_orphan",
+            }
+            and attempt.failure_transient is False
+        )
+
+    @staticmethod
+    def _is_result_commit_failure(attempt: FirecrawlAttempt) -> bool:
+        return (
+            attempt.status == "interrupted"
+            and attempt.failure_code
+            in {
+                "result_commit_failed",
+                "result_commit_failed_with_orphan",
             }
             and attempt.failure_transient is False
         )
