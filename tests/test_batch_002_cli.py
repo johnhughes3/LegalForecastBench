@@ -9,6 +9,10 @@ from pathlib import Path
 import pytest
 from legalforecast.cli import _batch_002_default_live_interval, main
 from legalforecast.ingestion.courtlistener_client import COURTLISTENER_API_TOKEN_ENV
+from legalforecast.ingestion.courtlistener_opinion_discovery import (
+    FEDERAL_TRIAL_COURT_IDS,
+    OPINION_STATUS_FILTERS,
+)
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.recap_api_discovery import (
     DECISION_FIRST_RECAP_API_SEARCH_TERMS,
@@ -47,6 +51,43 @@ def _discover_fixture(
         results = first_term_results if index == 0 else []
         records.append(_search_record(term=term, results=results))
     _write_jsonl(path, records)
+
+
+def _opinion_search_record(
+    *, term: str, results: list[dict[str, object]]
+) -> dict[str, object]:
+    return {
+        "method": "GET",
+        "path": "/search/",
+        "params": {
+            "type": "o",
+            "q": term,
+            "filed_after": "2026-06-30",
+            "filed_before": "2026-07-14",
+            "order_by": "dateFiled desc",
+            "court": " ".join(FEDERAL_TRIAL_COURT_IDS),
+            **{name: "on" for name in OPINION_STATUS_FILTERS},
+        },
+        "status_code": 200,
+        "payload": {"count": len(results), "results": results, "next": None},
+    }
+
+
+def _unrestricted_recap_record(
+    *, term: str, results: list[dict[str, object]]
+) -> dict[str, object]:
+    return {
+        "method": "GET",
+        "path": "/search/",
+        "params": {
+            "q": (f"{term} AND entry_date_filed:[2026-06-30 TO 2026-07-15]"),
+            "type": "r",
+            "order_by": "score desc",
+            "page_size": 20,
+        },
+        "status_code": 200,
+        "payload": {"results": results, "next": None},
+    }
 
 
 def _run_discover(
@@ -121,6 +162,178 @@ def test_cli_discover_reports_funnel(
     assert out["complete"] is True
     written = json.loads(summary.read_text(encoding="utf-8"))
     assert written == out
+
+
+def test_cli_discover_opinions_reports_metadata_only_funnel(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(COURTLISTENER_API_TOKEN_ENV, "test-token")
+    store = tmp_path / "cycle.sqlite3"
+    fixture = tmp_path / "opinion-fixture.jsonl"
+    term = '"motion to dismiss"'
+    _write_jsonl(
+        fixture,
+        [
+            _opinion_search_record(
+                term=term,
+                results=[
+                    {
+                        "cluster_id": 10026367,
+                        "docket_id": 70649963,
+                        "absolute_url": "/opinion/10026367/example-v-example/",
+                        "court_id": "txsd",
+                        "docketNumber": "4:26-cv-01234",
+                        "caseName": "Example v. Example",
+                        "dateFiled": "2026-07-10",
+                        "status": "Unpublished",
+                        "snippet": "ORDER granting motion to dismiss",
+                    }
+                ],
+            )
+        ],
+    )
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "discover-opinions",
+                "--cycle-store",
+                str(store),
+                "--batch-id",
+                "opinion-source-v1",
+                "--query-term",
+                term,
+                "--courtlistener-fixture",
+                str(fixture),
+                "--summary-output",
+                str(tmp_path / "summary.json"),
+            ]
+        )
+        == 0
+    )
+    out = json.loads(capsys.readouterr().out)
+    assert out["batch_id"] == "opinion-source-v1"
+    assert out["terms_total"] == 1
+    assert out["terms_terminal"] == 1
+    assert out["distinct_candidates"] == 1
+    assert out["complete"] is True
+    with CycleAcquisitionStore(store) as acquisition_store:
+        hit = acquisition_store.candidate_discovery_hits("opinion-source-v1")[0]
+        assert hit.candidate_id == "70649963"
+        assert "snippet" not in hit.payload
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "seed-direct-search",
+                "--source-store",
+                str(store),
+                "--source-batch-id",
+                "opinion-source-v1",
+                "--cycle-store",
+                str(store),
+                "--batch-id",
+                "opinion-rest-screen-v1",
+            ]
+        )
+        == 0
+    )
+    transfer = json.loads(capsys.readouterr().out)
+    assert transfer["leads_selected"] == 1
+    with CycleAcquisitionStore(store) as acquisition_store:
+        transferred = acquisition_store.candidate_discovery_hits(
+            "opinion-rest-screen-v1"
+        )[0]
+        assert transferred.candidate_id == "courtlistener-docket-70649963"
+        assert "decision_entry_evidence" not in transferred.payload
+
+
+def test_cli_discover_unrestricted_recap_omits_availability_filter_and_transfers(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(COURTLISTENER_API_TOKEN_ENV, "test-token")
+    store = tmp_path / "cycle.sqlite3"
+    fixture = tmp_path / "unrestricted-fixture.jsonl"
+    term = '"motion to dismiss" AND granted'
+    _write_jsonl(
+        fixture,
+        [
+            _unrestricted_recap_record(
+                term=term,
+                results=[
+                    {
+                        "docket_id": 71234567,
+                        "court_id": "nysd",
+                        "docketNumber": "1:26-cv-00123",
+                        "caseName": "Alpha LLC v. Beta Inc.",
+                        "recap_documents": [
+                            {
+                                "id": 998,
+                                "entry_number": 22,
+                                "description": "ORDER granting motion to dismiss",
+                                "is_available": False,
+                            }
+                        ],
+                    }
+                ],
+            )
+        ],
+    )
+    assert (
+        main(
+            [
+                "batch-002",
+                "discover-unrestricted-recap",
+                "--cycle-store",
+                str(store),
+                "--batch-id",
+                "unrestricted-source-v1",
+                "--decision-window-end",
+                "2026-07-15",
+                "--query-term",
+                term,
+                "--courtlistener-fixture",
+                str(fixture),
+            ]
+        )
+        == 0
+    )
+    out = json.loads(capsys.readouterr().out)
+    assert out["distinct_candidates"] == 1
+    assert out["saturated"] is True
+    with CycleAcquisitionStore(store) as acquisition_store:
+        config = acquisition_store.batch_config("unrestricted-source-v1")
+        assert config["available_only"] == "omitted"
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "seed-direct-search",
+                "--source-store",
+                str(store),
+                "--source-batch-id",
+                "unrestricted-source-v1",
+                "--cycle-store",
+                str(store),
+                "--batch-id",
+                "unrestricted-rest-screen-v1",
+            ]
+        )
+        == 0
+    )
+    transfer = json.loads(capsys.readouterr().out)
+    assert transfer["leads_selected"] == 1
+    with CycleAcquisitionStore(store) as acquisition_store:
+        assert acquisition_store.candidate_ids("unrestricted-rest-screen-v1") == (
+            "courtlistener-docket-71234567",
+        )
 
 
 def test_cli_discover_rejects_inverted_window(tmp_path: Path) -> None:

@@ -193,6 +193,10 @@ from legalforecast.ingestion.courtlistener_client import (
     CourtListenerServerError,
     CourtListenerUnavailableError,
 )
+from legalforecast.ingestion.courtlistener_opinion_discovery import (
+    OPINION_MTD_SEARCH_TERMS,
+    OpinionApiDiscoveryError,
+)
 from legalforecast.ingestion.courtlistener_recap_fetch import (
     CourtListenerRecapFetchClient,
     CourtListenerRecapFetchConfig,
@@ -211,6 +215,10 @@ from legalforecast.ingestion.courtlistener_snapshot_materialization import (
     CourtListenerSnapshotMaterializationError,
     VerifiedCourtListenerDiscovery,
     verify_courtlistener_discovery,
+)
+from legalforecast.ingestion.courtlistener_unrestricted_recap_discovery import (
+    UNRESTRICTED_RECAP_SEARCH_TERMS,
+    CourtListenerUnrestrictedRecapDiscoveryError,
 )
 from legalforecast.ingestion.cycle_acquisition_assembler import (
     COMPONENT_PROVENANCE_FILENAME,
@@ -354,6 +362,8 @@ from legalforecast.ingestion.recap_api_batch_driver import (
     read_saturated_direct_search_leads,
     run_discover,
     run_observe,
+    run_opinion_discover,
+    run_unrestricted_discover,
     seed_batch_001_leads,
     seed_direct_search_leads,
 )
@@ -803,6 +813,22 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_batch_002_discover_arguments(batch_002_discover)
+    batch_002_opinion_discover = batch_002_subparsers.add_parser(
+        "discover-opinions",
+        help=(
+            "Discover written MTD-decision leads through authenticated "
+            "CourtListener opinion search for later docket reconstruction."
+        ),
+    )
+    _add_batch_002_opinion_discover_arguments(batch_002_opinion_discover)
+    batch_002_unrestricted_discover = batch_002_subparsers.add_parser(
+        "discover-unrestricted-recap",
+        help=(
+            "Discover filing-level MTD leads without CourtListener's "
+            "available_only filter for later authenticated reconstruction."
+        ),
+    )
+    _add_batch_002_unrestricted_discover_arguments(batch_002_unrestricted_discover)
     batch_002_observe = batch_002_subparsers.add_parser(
         "observe",
         help=(
@@ -2510,6 +2536,123 @@ def _add_batch_002_discover_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_batch_002_discover)
+
+
+def _add_batch_002_opinion_discover_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Acquisition store sqlite path for the opinion-source batch.",
+    )
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument(
+        "--eligibility-anchor",
+        default=_BATCH_002_DEFAULT_ANCHOR,
+        metavar="YYYY-MM-DD",
+        help="Immutable first-written-disposition eligibility anchor.",
+    )
+    parser.add_argument(
+        "--decision-window-start",
+        default=_BATCH_002_DEFAULT_WINDOW_START,
+        metavar="YYYY-MM-DD",
+        help="Inclusive opinion dateFiled lower bound.",
+    )
+    parser.add_argument(
+        "--decision-window-end",
+        default=_BATCH_002_DEFAULT_WINDOW_END,
+        metavar="YYYY-MM-DD",
+        help="Inclusive opinion dateFiled upper bound.",
+    )
+    parser.add_argument(
+        "--query-term",
+        action="append",
+        default=None,
+        help=(
+            "Frozen CourtListener opinion full-text query; repeat to replace the "
+            "default MTD/Rule 12/JOP/adversary term set."
+        ),
+    )
+    parser.add_argument("--top-k-per-term", type=int, default=5_000)
+    parser.add_argument(
+        "--min-interval-seconds",
+        type=float,
+        default=None,
+        help=(
+            "Minimum spacing between opinion-search requests. Live default is "
+            "derived from the selected CourtListener hourly rate profile."
+        ),
+    )
+    _add_batch_002_source_arguments(
+        parser,
+        live_help=(
+            "Use authenticated CourtListener REST opinion search; requires "
+            "COURTLISTENER_API_TOKEN and a durable --request-ledger."
+        ),
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_opinion_discover)
+
+
+def _add_batch_002_unrestricted_discover_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Acquisition store sqlite path for the unrestricted RECAP batch.",
+    )
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument(
+        "--eligibility-anchor",
+        default=_BATCH_002_DEFAULT_ANCHOR,
+        metavar="YYYY-MM-DD",
+        help="Immutable first-written-disposition eligibility anchor.",
+    )
+    parser.add_argument(
+        "--decision-window-start",
+        default=_BATCH_002_DEFAULT_WINDOW_START,
+        metavar="YYYY-MM-DD",
+        help="Inclusive RECAP entry_date_filed search lower bound.",
+    )
+    parser.add_argument(
+        "--decision-window-end",
+        default=_BATCH_002_DEFAULT_WINDOW_END,
+        metavar="YYYY-MM-DD",
+        help="Inclusive RECAP entry_date_filed search upper bound.",
+    )
+    parser.add_argument(
+        "--query-term",
+        action="append",
+        default=None,
+        help=(
+            "Frozen RECAP filing query; repeat to replace the default granted/"
+            "denied MTD terms. The availability filter always remains omitted."
+        ),
+    )
+    parser.add_argument("--top-k-per-term", type=int, default=5_000)
+    parser.add_argument(
+        "--min-interval-seconds",
+        type=float,
+        default=None,
+        help=(
+            "Minimum spacing between unrestricted RECAP search requests. Live "
+            "default follows the selected CourtListener rate profile."
+        ),
+    )
+    _add_batch_002_source_arguments(
+        parser,
+        live_help=(
+            "Use authenticated CourtListener REST type=r search with "
+            "available_only omitted; requires COURTLISTENER_API_TOKEN and a "
+            "durable --request-ledger."
+        ),
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_unrestricted_discover)
 
 
 def _add_batch_002_observe_arguments(parser: argparse.ArgumentParser) -> None:
@@ -11265,6 +11408,136 @@ def _cmd_batch_002_discover(args: argparse.Namespace) -> int:
                 pacer=pacer,
             )
     except (
+        CycleAcquisitionStoreError,
+        CourtListenerRequestBudgetError,
+        RecapApiBatchDriverError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    record = {
+        **funnel.to_record(),
+        **_batch_002_rate_evidence(args, client, budget),
+    }
+    summary_output = cast(Path | None, args.summary_output)
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cmd_batch_002_opinion_discover(args: argparse.Namespace) -> int:
+    cycle_store = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    anchor = _iso_date_argument(
+        cast(str, args.eligibility_anchor), "--eligibility-anchor"
+    )
+    window_start = _iso_date_argument(
+        cast(str, args.decision_window_start), "--decision-window-start"
+    )
+    window_end = _iso_date_argument(
+        cast(str, args.decision_window_end), "--decision-window-end"
+    )
+    if window_end < window_start:
+        raise CommandError(
+            "--decision-window-end cannot precede --decision-window-start"
+        )
+    override = cast(float | None, args.min_interval_seconds)
+    if override is not None and override < 0:
+        raise CommandError("--min-interval-seconds cannot be negative")
+    requested_terms = cast(list[str] | None, args.query_term)
+    query_terms = (
+        OPINION_MTD_SEARCH_TERMS if requested_terms is None else tuple(requested_terms)
+    )
+    client, budget = _batch_002_client(args, require_token=True)
+    if override is not None:
+        pacer: RequestPacer | None = RequestPacer(min_interval_seconds=override)
+    elif cast(bool, args.live):
+        pacer = RequestPacer(
+            min_interval_seconds=_batch_002_default_live_interval(args)
+        )
+    else:
+        pacer = None
+    try:
+        with CycleAcquisitionStore(cycle_store) as store:
+            store.ensure_cycle(_cycle_acquisition_policy(anchor=anchor))
+            funnel = run_opinion_discover(
+                store,
+                batch_id=batch_id,
+                client=client,
+                decision_window_start=window_start,
+                decision_window_end=window_end,
+                query_terms=query_terms,
+                top_k_per_term=cast(int, args.top_k_per_term),
+                pacer=pacer,
+            )
+    except (
+        CycleAcquisitionStoreError,
+        CourtListenerRequestBudgetError,
+        OpinionApiDiscoveryError,
+        RecapApiBatchDriverError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    record = {
+        **funnel.to_record(),
+        **_batch_002_rate_evidence(args, client, budget),
+    }
+    summary_output = cast(Path | None, args.summary_output)
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cmd_batch_002_unrestricted_discover(args: argparse.Namespace) -> int:
+    cycle_store = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    anchor = _iso_date_argument(
+        cast(str, args.eligibility_anchor), "--eligibility-anchor"
+    )
+    window_start = _iso_date_argument(
+        cast(str, args.decision_window_start), "--decision-window-start"
+    )
+    window_end = _iso_date_argument(
+        cast(str, args.decision_window_end), "--decision-window-end"
+    )
+    if window_end < window_start:
+        raise CommandError(
+            "--decision-window-end cannot precede --decision-window-start"
+        )
+    override = cast(float | None, args.min_interval_seconds)
+    if override is not None and override < 0:
+        raise CommandError("--min-interval-seconds cannot be negative")
+    requested_terms = cast(list[str] | None, args.query_term)
+    query_terms = (
+        UNRESTRICTED_RECAP_SEARCH_TERMS
+        if requested_terms is None
+        else tuple(requested_terms)
+    )
+    client, budget = _batch_002_client(args, require_token=True)
+    if override is not None:
+        pacer: RequestPacer | None = RequestPacer(min_interval_seconds=override)
+    elif cast(bool, args.live):
+        pacer = RequestPacer(
+            min_interval_seconds=_batch_002_default_live_interval(args)
+        )
+    else:
+        pacer = None
+    try:
+        with CycleAcquisitionStore(cycle_store) as store:
+            store.ensure_cycle(_cycle_acquisition_policy(anchor=anchor))
+            funnel = run_unrestricted_discover(
+                store,
+                batch_id=batch_id,
+                client=client,
+                decision_window_start=window_start,
+                decision_window_end=window_end,
+                query_terms=query_terms,
+                top_k_per_term=cast(int, args.top_k_per_term),
+                pacer=pacer,
+            )
+    except (
+        CourtListenerUnrestrictedRecapDiscoveryError,
         CycleAcquisitionStoreError,
         CourtListenerRequestBudgetError,
         RecapApiBatchDriverError,
