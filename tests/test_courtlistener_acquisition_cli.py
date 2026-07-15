@@ -18,6 +18,10 @@ from legalforecast.ingestion.courtlistener_acquisition import (
     screen_courtlistener_docket_page,
 )
 from legalforecast.ingestion.courtlistener_client import CourtListenerDocket
+from legalforecast.ingestion.courtlistener_snapshot_materialization import (
+    CourtListenerSnapshotMaterializationError,
+    _validate_frozen_identity,
+)
 from legalforecast.ingestion.courtlistener_web import parse_courtlistener_docket_html
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
@@ -82,6 +86,57 @@ def test_materialize_courtlistener_snapshot_help_documents_source_binding(
     assert "--expected-discovery-run-card-sha256" in output
     assert "--snapshot-root" in output
     assert "--snapshot-id" in output
+
+
+def test_snapshot_identity_allows_legacy_source_omission_only_on_both_sides() -> None:
+    summary: dict[str, Any] = {
+        "schema_version": "legalforecast.courtlistener_discovery_summary.v1",
+        "dry_run": False,
+        "anchor_date": "2026-06-30",
+        "search_window_start": "2026-06-30",
+        "search_window_end": "2026-07-12",
+        "query_terms": ["order on motion to dismiss"],
+        "target_clean_cases": 2,
+        "max_candidates": 5,
+        "search_page_size": 50,
+        "target_met": False,
+        "candidate_limit_reached": False,
+        "per_term": {
+            "order on motion to dismiss": {
+                "terminal_status": "exhausted",
+                "limit_bound": False,
+            }
+        },
+    }
+    run_card = {"anchor_date": "2026-06-30"}
+    cycle_policy = {"eligibility_anchor": "2026-06-30"}
+    legacy_batch = {
+        "provider": "courtlistener",
+        "search_window_start": "2026-06-30",
+        "search_window_end": "2026-07-12",
+        "query_terms": ["order on motion to dismiss"],
+        "target_clean_cases": 2,
+        "max_candidates": 5,
+        "search_page_size": 50,
+    }
+
+    assert _validate_frozen_identity(
+        run_card=run_card,
+        summary=summary,
+        cycle_policy=cycle_policy,
+        batch_config=legacy_batch,
+    ) == date(2026, 6, 30)
+
+    with pytest.raises(
+        CourtListenerSnapshotMaterializationError,
+        match="frozen batch configuration",
+    ):
+        _validate_frozen_identity(
+            run_card=run_card,
+            summary={**summary, "docket_html_source": "firecrawl"},
+            cycle_policy=cycle_policy,
+            batch_config=legacy_batch,
+        )
 
 
 def test_materialize_courtlistener_snapshot_publishes_saturated_source_lineage(

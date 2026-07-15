@@ -245,8 +245,9 @@ def _validate_frozen_identity(
         "target_clean_cases": summary.get("target_clean_cases"),
         "max_candidates": summary.get("max_candidates"),
         "search_page_size": summary.get("search_page_size"),
-        "docket_html_source": summary.get("docket_html_source"),
     }
+    if "docket_html_source" in summary:
+        expected_batch["docket_html_source"] = summary["docket_html_source"]
     if dict(batch_config) != expected_batch:
         raise CourtListenerSnapshotMaterializationError(
             "discovery summary does not match the frozen batch configuration"
