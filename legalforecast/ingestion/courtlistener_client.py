@@ -203,7 +203,7 @@ class CourtListenerRecapDocument:
     """Noncharging RECAP-document metadata used to prove purchase identity."""
 
     document_id: str
-    docket_entry_id: str
+    docket_entry_id: str | None
     document_number: str | None
     attachment_number: str | None
     description: str | None
@@ -214,35 +214,54 @@ class CourtListenerRecapDocument:
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> CourtListenerRecapDocument:
+        docket_entry_reference = _optional_resource_reference(
+            record,
+            resource_name="docket entry",
+            url_segment="docket-entries",
+            field_names=("docket_entry", "docket_entry_id"),
+        )
         return cls(
-            document_id=_required_positive_identifier(
+            document_id=_required_consistent_positive_identifier(
                 record,
                 "id",
                 "recap_document_id",
             ),
-            docket_entry_id=_required_positive_identifier_value(
-                _required_resource_reference(
-                    record,
-                    resource_name="docket entry",
-                    url_segment="docket-entries",
-                    field_names=("docket_entry", "docket_entry_id"),
-                ),
-                "docket_entry",
+            docket_entry_id=(
+                None
+                if docket_entry_reference is None
+                else _required_positive_identifier_value(
+                    docket_entry_reference,
+                    "docket_entry",
+                )
             ),
-            document_number=_optional_string(
+            document_number=_optional_consistent_string(
                 record,
                 "document_number",
                 "documentNumber",
+                label="document number",
             ),
-            attachment_number=_optional_string(
+            attachment_number=_optional_consistent_string(
                 record,
                 "attachment_number",
                 "attachmentNumber",
+                label="attachment number",
             ),
             description=_optional_string(record, "description"),
-            is_available=_optional_bool(record, "is_available", "isAvailable"),
-            is_sealed=_optional_bool(record, "is_sealed", "isSealed"),
-            is_private=_optional_bool(record, "is_private", "isPrivate"),
+            is_available=_optional_consistent_bool(
+                record,
+                label="availability",
+                field_names=("is_available", "isAvailable"),
+            ),
+            is_sealed=_optional_consistent_bool(
+                record,
+                label="sealed status",
+                field_names=("is_sealed", "isSealed"),
+            ),
+            is_private=_optional_consistent_bool(
+                record,
+                label="private status",
+                field_names=("is_private", "isPrivate"),
+            ),
             raw=record,
         )
 
@@ -723,11 +742,20 @@ def _required_string(record: Mapping[str, Any], *field_names: str) -> str:
     return value
 
 
-def _required_positive_identifier(record: Mapping[str, Any], *field_names: str) -> str:
-    return _required_positive_identifier_value(
-        _required_string(record, *field_names),
-        field_names[0],
+def _required_consistent_positive_identifier(
+    record: Mapping[str, Any], *field_names: str
+) -> str:
+    value = _optional_consistent_string(
+        record,
+        *field_names,
+        label="document identifier",
     )
+    if value is None:
+        joined = ", ".join(field_names)
+        raise CourtListenerResponseError(
+            f"missing required CourtListener field: {joined}"
+        )
+    return _required_positive_identifier_value(value, field_names[0])
 
 
 def _required_positive_identifier_value(value: str, field_name: str) -> str:
@@ -746,6 +774,32 @@ def _optional_string(record: Mapping[str, Any], *field_names: str) -> str | None
         if isinstance(value, int) and not isinstance(value, bool):
             return str(value)
     return None
+
+
+def _optional_consistent_string(
+    record: Mapping[str, Any],
+    *field_names: str,
+    label: str,
+) -> str | None:
+    values: list[str] = []
+    for field_name in field_names:
+        if field_name not in record or record[field_name] is None:
+            continue
+        value = record[field_name]
+        if isinstance(value, str) and value.strip():
+            values.append(value.strip())
+            continue
+        if isinstance(value, int) and not isinstance(value, bool):
+            values.append(str(value))
+            continue
+        raise CourtListenerResponseError(
+            f"CourtListener field {field_name} must be a nonempty string or integer"
+        )
+    if not values:
+        return None
+    if any(value != values[0] for value in values[1:]):
+        raise CourtListenerResponseError(f"conflicting CourtListener {label} aliases")
+    return values[0]
 
 
 _DOCKET_ENTRY_TEXT_FIELDS = (
@@ -844,6 +898,34 @@ def _required_resource_reference(
     raise CourtListenerResponseError(f"missing required CourtListener field: {joined}")
 
 
+def _optional_resource_reference(
+    record: Mapping[str, Any],
+    *,
+    resource_name: str,
+    url_segment: str,
+    field_names: tuple[str, ...],
+) -> str | None:
+    references: list[str] = []
+    for field_name in field_names:
+        if field_name not in record or record[field_name] is None:
+            continue
+        references.append(
+            _required_resource_reference(
+                record,
+                resource_name=resource_name,
+                url_segment=url_segment,
+                field_names=(field_name,),
+            )
+        )
+    if not references:
+        return None
+    if any(reference != references[0] for reference in references[1:]):
+        raise CourtListenerResponseError(
+            f"conflicting CourtListener {resource_name} reference aliases"
+        )
+    return references[0]
+
+
 def _required_int(record: Mapping[str, Any], field_name: str) -> int:
     value = record.get(field_name)
     if not isinstance(value, int) or isinstance(value, bool):
@@ -851,7 +933,13 @@ def _required_int(record: Mapping[str, Any], field_name: str) -> int:
     return value
 
 
-def _optional_bool(record: Mapping[str, Any], *field_names: str) -> bool | None:
+def _optional_consistent_bool(
+    record: Mapping[str, Any],
+    *,
+    label: str,
+    field_names: tuple[str, ...],
+) -> bool | None:
+    values: list[bool] = []
     for field_name in field_names:
         if field_name not in record or record[field_name] is None:
             continue
@@ -860,8 +948,12 @@ def _optional_bool(record: Mapping[str, Any], *field_names: str) -> bool | None:
             raise CourtListenerResponseError(
                 f"CourtListener field {field_name} must be boolean or null"
             )
-        return value
-    return None
+        values.append(value)
+    if not values:
+        return None
+    if any(value is not values[0] for value in values[1:]):
+        raise CourtListenerResponseError(f"conflicting CourtListener {label} aliases")
+    return values[0]
 
 
 def _recap_document_ids(record: Mapping[str, Any]) -> tuple[str, ...]:

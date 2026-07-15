@@ -585,6 +585,19 @@ def test_replayed_terminal_failure_does_not_starve_later_document(
         {"redaction_or_seal_status": "sealed", "is_sealed": True, "is_private": False},
         {"redaction_or_seal_status": "public", "is_sealed": False},
         {"redaction_or_seal_status": "public", "is_sealed": False, "is_private": True},
+        {
+            "redaction_or_seal_status": "public",
+            "is_sealed": None,
+            "is_private": None,
+            "availability_status": "unavailable",
+            "requires_paid_recovery": True,
+            "restriction_evidence": [
+                "courtlistener_rest_docket_exact_match",
+                "courtlistener_rest_docket_entry_exact_match",
+                "courtlistener_rest_recap_document_exact_match",
+                "courtlistener_rest_recap_document_is_sealed_false",
+            ],
+        },
     ],
 )
 def test_restricted_or_unknown_documents_never_reach_provider(
