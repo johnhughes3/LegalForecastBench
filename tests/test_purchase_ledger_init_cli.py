@@ -120,6 +120,37 @@ def test_initialize_purchase_ledger_rejects_symlinked_receipt_namespace_before_c
         assert not (target_root / "initialization.json").exists()
 
 
+def test_initialize_purchase_ledger_rejects_reserved_receipt_namespace_before_mkdir(
+    tmp_path: Path,
+) -> None:
+    _, policy_path, _, ledger_path = _inputs(tmp_path)
+    policy = verify_case_dev_purchase_policy(_read_json(policy_path))
+
+    with pytest.raises(CaseDevPurchaseLedgerError, match="reserved ledger path"):
+        initialize_case_dev_purchase_journal(
+            ledger_path,
+            policy=policy,
+            receipt_path=ledger_path / "initialization.json",
+            purchase_policy_file_sha256="sha256:" + "a" * 64,
+            cohort_policy_file_sha256="sha256:" + "b" * 64,
+            initialized_at="2026-07-15T00:00:00Z",
+        )
+
+    assert not ledger_path.exists()
+
+    safe_receipt = tmp_path / "safe-receipts/initialization.json"
+    initialize_case_dev_purchase_journal(
+        ledger_path,
+        policy=policy,
+        receipt_path=safe_receipt,
+        purchase_policy_file_sha256="sha256:" + "a" * 64,
+        cohort_policy_file_sha256="sha256:" + "b" * 64,
+        initialized_at="2026-07-15T00:00:00Z",
+    )
+    assert ledger_path.is_file()
+    assert safe_receipt.is_file()
+
+
 @pytest.mark.parametrize("alias_kind", ["receipt", "parent"])
 def test_verify_purchase_ledger_rejects_symlinked_receipt_namespace(
     tmp_path: Path,

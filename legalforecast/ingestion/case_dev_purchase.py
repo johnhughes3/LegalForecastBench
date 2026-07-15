@@ -455,10 +455,10 @@ def _validate_purchase_ledger_receipt_namespace(
         raise CaseDevPurchaseLedgerError(
             "purchase ledger initialization receipt must not be a symlink"
         )
-    ledger = ledger_path.resolve(strict=False)
-    receipt = receipt_path.resolve(strict=False)
+    ledger = ledger_path.absolute()
+    receipt = receipt_path.absolute()
     for reserved_path in _purchase_ledger_reserved_paths(ledger):
-        reserved = reserved_path.resolve(strict=False)
+        reserved = reserved_path.absolute()
         if (
             receipt == reserved
             or receipt in reserved.parents
@@ -483,12 +483,16 @@ def _validated_purchase_ledger_receipt_path(
         raise CaseDevPurchaseLedgerError(
             "purchase ledger initialization receipt must not be a symlink"
         )
+    _validate_existing_path_parent(
+        receipt,
+        label="purchase ledger initialization receipt",
+    )
+    _validate_purchase_ledger_receipt_namespace(ledger_path, receipt)
     _validate_or_prepare_path_parent(
         receipt,
         create_missing=prepare_parent,
         label="purchase ledger initialization receipt",
     )
-    _validate_purchase_ledger_receipt_namespace(ledger_path, receipt)
     return receipt
 
 
@@ -509,6 +513,22 @@ def _prepare_canonical_ledger_parent(path: Path) -> None:
         create_missing=True,
         label="purchase ledger",
     )
+
+
+def _validate_existing_path_parent(path: Path, *, label: str) -> None:
+    current = Path(path.anchor)
+    for component in path.parent.parts[1:]:
+        current /= component
+        try:
+            metadata = current.lstat()
+        except FileNotFoundError:
+            return
+        if stat.S_ISLNK(metadata.st_mode):
+            raise CaseDevPurchaseLedgerError(
+                f"{label} parent path must not traverse a symlink"
+            )
+        if not stat.S_ISDIR(metadata.st_mode):
+            raise CaseDevPurchaseLedgerError(f"{label} parent must be a directory")
 
 
 def _validate_or_prepare_path_parent(
