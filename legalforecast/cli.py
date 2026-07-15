@@ -15579,6 +15579,9 @@ _PACER_GAP_LEGACY_CHECKPOINT_SCHEMA = (
     "legalforecast.pacer_gap_bridge_candidate_checkpoint.v1"
 )
 _PACER_GAP_CHECKPOINT_SCHEMA = "legalforecast.pacer_gap_bridge_candidate_checkpoint.v2"
+_PACER_GAP_BRIDGE_SEMANTIC_REVISION = (
+    "courtlistener-complaint-and-main-description-2026-07-15-v1"
+)
 _PACER_GAP_LEGACY_PROGRESS_CONFIG_SCHEMA = (
     "legalforecast.pacer_gap_bridge_progress_config.v1"
 )
@@ -15713,6 +15716,7 @@ def _validate_bridge_checkpoint(
 ) -> None:
     outcome = checkpoint.get("outcome")
     attempt_count = checkpoint.get("resumable_attempt_count")
+    semantic_revision = checkpoint.get("bridge_semantic_revision")
     if (
         checkpoint.get("schema_version")
         not in {_PACER_GAP_LEGACY_CHECKPOINT_SCHEMA, _PACER_GAP_CHECKPOINT_SCHEMA}
@@ -15723,6 +15727,10 @@ def _validate_bridge_checkpoint(
         or type(attempt_count) is not int
         or attempt_count < 1
         or attempt_count > _PACER_GAP_MAX_RESUMABLE_ATTEMPTS
+        or (
+            semantic_revision is not None
+            and semantic_revision != _PACER_GAP_BRIDGE_SEMANTIC_REVISION
+        )
         or not _bridge_checkpoint_payload_matches_candidate(
             checkpoint.get("payload"),
             outcome=outcome,
@@ -15971,6 +15979,8 @@ def _bridge_checkpoint_requires_semantic_replay(
     if (
         bridge_provider != "courtlistener_rest"
         or checkpoint.get("outcome") != "exclusion"
+        or checkpoint.get("bridge_semantic_revision")
+        == _PACER_GAP_BRIDGE_SEMANTIC_REVISION
     ):
         return False
     payload = checkpoint.get("payload")
@@ -15982,9 +15992,19 @@ def _bridge_checkpoint_requires_semantic_replay(
         return False
     exclusion_record = cast(Mapping[str, object], exclusion)
     reasons = exclusion_record.get("exclusion_reasons")
-    return (
-        isinstance(reasons, list) and "courtlistener_recap_already_available" in reasons
-    )
+    primary_reason = exclusion_record.get("primary_exclusion_reason")
+    superseded_reasons = {
+        "courtlistener_recap_already_available",
+        "courtlistener_recap_document_match_not_found",
+        "operative_complaint_not_found",
+    }
+    if (
+        not isinstance(primary_reason, str)
+        or not isinstance(reasons, list)
+        or cast(list[object], reasons) != [primary_reason]
+    ):
+        return False
+    return primary_reason in superseded_reasons
 
 
 def _public_first_bridge_with_checkpoints(
@@ -16175,6 +16195,7 @@ def _public_first_bridge_with_checkpoints(
             free_requests = bridge_free_download_requests_from_selection(selection)
             checkpoint: JsonRecord = {
                 "schema_version": _PACER_GAP_CHECKPOINT_SCHEMA,
+                "bridge_semantic_revision": _PACER_GAP_BRIDGE_SEMANTIC_REVISION,
                 "input_index": input_index,
                 "candidate_id": candidate_id,
                 "candidate_input_sha256": candidate_input_sha256,
@@ -16197,6 +16218,7 @@ def _public_first_bridge_with_checkpoints(
             reason, _, detail = str(exc).partition(":")
             checkpoint = {
                 "schema_version": _PACER_GAP_CHECKPOINT_SCHEMA,
+                "bridge_semantic_revision": _PACER_GAP_BRIDGE_SEMANTIC_REVISION,
                 "input_index": input_index,
                 "candidate_id": candidate_id,
                 "candidate_input_sha256": candidate_input_sha256,
@@ -16223,6 +16245,7 @@ def _public_first_bridge_with_checkpoints(
             )
             checkpoint = {
                 "schema_version": _PACER_GAP_CHECKPOINT_SCHEMA,
+                "bridge_semantic_revision": _PACER_GAP_BRIDGE_SEMANTIC_REVISION,
                 "input_index": input_index,
                 "candidate_id": candidate_id,
                 "candidate_input_sha256": candidate_input_sha256,
@@ -16283,6 +16306,7 @@ def _public_first_bridge_with_checkpoints(
                 payload = {"reason": reason, "detail": str(exc)}
             checkpoint = {
                 "schema_version": _PACER_GAP_CHECKPOINT_SCHEMA,
+                "bridge_semantic_revision": _PACER_GAP_BRIDGE_SEMANTIC_REVISION,
                 "input_index": input_index,
                 "candidate_id": candidate_id,
                 "candidate_input_sha256": candidate_input_sha256,

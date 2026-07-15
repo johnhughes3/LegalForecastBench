@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import pytest
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebDocketEntry,
@@ -70,6 +72,19 @@ def test_select_operative_complaint_entry_accepts_strict_pleading_variants(
         "91 ORDER granting Motion to Strike Amended Complaint.",
         "32 Answer to Complaint filed by Defendant.",
         "29 Certificate of Service Complaints filed by Plaintiff.",
+        (
+            "25 REPLY to Response to Motion, filed by Defendant, re 22 Opposed "
+            "MOTION for Extension of Time to File Answer re 1 Complaint, filed "
+            "by Defendant."
+        ),
+        (
+            "17 STIPULATION for Extension of Time to Answer Plaintiff's Complaint "
+            "filed by Defendant."
+        ),
+        (
+            "11 ENDORSED LETTER regarding the deadline to respond to the Complaint "
+            "filed by Defendant."
+        ),
     ),
 )
 def test_select_operative_complaint_entry_rejects_procedural_mentions(
@@ -216,6 +231,221 @@ def test_exact_removal_complaint_outranks_generic_exhibit_labels() -> None:
     assert select_operative_complaint_document(entry, require_free=True) == complaint
 
 
+def test_docket_69736298_selects_exhibit_a_complaint_from_removal() -> None:
+    complaint = _document(
+        kind="Attachment 2",
+        description="Exhibit A- Complaint",
+        free=False,
+    )
+    entry = CourtListenerWebDocketEntry(
+        row_id="entry-1",
+        entry_number="1",
+        filed_at="Mar 13, 2025",
+        text=(
+            "1 March 13, 2025, 3:14 p.m. 1 Mar 13, 2025 NOTICE OF REMOVAL "
+            "Filing fee $405; Receipt #AWAEDC-4754077 Filed by Nate Spiering, "
+            "Craig Meidl, City of Spokane Police Department, Todd Belitz. "
+            "(Attachments: # 1 Civil Cover Sheet, # 2 Exhibit A- Complaint) "
+            "Main Document Notice of Removal Download PDF Attachment 1 Civil "
+            "Cover Sheet Buy on PACER Attachment 2 Exhibit A- Complaint Buy on PACER"
+        ),
+        documents=(
+            _document(description="Notice of Removal"),
+            _document(
+                kind="Attachment 1",
+                description="Civil Cover Sheet",
+                free=False,
+            ),
+            complaint,
+        ),
+    )
+
+    selected = select_operative_complaint_entry((entry,), before_entry=47)
+
+    assert selected is not None
+    assert selected.kind is OperativeComplaintKind.COMPLAINT
+    assert select_operative_complaint_document(entry, require_free=False) == complaint
+    assert select_operative_complaint_document(entry, require_free=True) is None
+
+
+def test_docket_69830319_ignores_proposed_summons_attachment_text() -> None:
+    complaint = _document(description="Complaint", free=False)
+    entry = CourtListenerWebDocketEntry(
+        row_id="entry-1",
+        entry_number="1",
+        filed_at="Apr 1, 2025",
+        text=(
+            "1 April 1, 2025, 1:14 p.m. 1 Apr 1, 2025 COMPLAINT Denise Yeye "
+            "against Newrez LLC, PHH Mortgage Corporation filing fee $405 filed "
+            "by Denise Yeye. (Attachments: # 1 Exhibit 1 Mortgage, # 6 Proposed "
+            "Summons, # 7 Civil Cover Sheet) Main Document Complaint Buy on PACER "
+            "Attachment 6 Proposed Summons Buy on PACER"
+        ),
+        documents=(
+            complaint,
+            _document(
+                kind="Attachment 1", description="Exhibit 1 Mortgage", free=False
+            ),
+            _document(kind="Attachment 6", description="Proposed Summons", free=False),
+            _document(kind="Attachment 7", description="Civil Cover Sheet", free=False),
+        ),
+    )
+
+    selected = select_operative_complaint_entry((entry,), before_entry=21)
+
+    assert selected is not None
+    assert selected.kind is OperativeComplaintKind.COMPLAINT
+    assert select_operative_complaint_document(entry, require_free=False) == complaint
+
+
+def test_docket_71221919_selects_attorney_complaint_label() -> None:
+    complaint = _document(
+        description="ATTORNEY Complaint (Credit Card Required)",
+        free=False,
+    )
+    entry = CourtListenerWebDocketEntry(
+        row_id="entry-1",
+        entry_number="1",
+        filed_at="Aug 28, 2025",
+        text=(
+            "1 Aug. 28, 2025, 2:22 p.m. 1 Aug 28, 2025 Main Document "
+            "ATTORNEY Complaint (Credit Card Required) Buy on PACER"
+        ),
+        documents=(complaint,),
+    )
+
+    selected = select_operative_complaint_entry((entry,), before_entry=28)
+
+    assert selected is not None
+    assert selected.kind is OperativeComplaintKind.COMPLAINT
+    assert select_operative_complaint_document(entry, require_free=False) == complaint
+    assert select_operative_complaint_document(entry, require_free=True) is None
+
+
+def test_docket_71648352_ignores_no_summons_requested_text() -> None:
+    complaint = _document(description="Complaint")
+    entry = CourtListenerWebDocketEntry(
+        row_id="entry-1",
+        entry_number="1",
+        filed_at="Oct 14, 2025",
+        text=(
+            "1 Oct. 14, 2025, 8:35 p.m. 1 Oct 14, 2025 COMPLAINT (Filing fee "
+            "$405). No Summons requested at this time, filed by NETWORK SYSTEM "
+            "TECHNOLOGIES, LLC. (Attachments: # 1 Exhibit1, # 16 Civil Cover Sheet) "
+            "Main Document Complaint Download PDF Attachment 1 Exhibit1 Buy on PACER"
+        ),
+        documents=(
+            complaint,
+            _document(kind="Attachment 1", description="Exhibit1", free=False),
+            _document(
+                kind="Attachment 16", description="Civil Cover Sheet", free=False
+            ),
+        ),
+    )
+
+    later_reply = _entry(
+        25,
+        text=(
+            "25 Nov. 21, 2025 REPLY to Response to Motion, filed by SK hynix "
+            "America Inc., re 22 Opposed MOTION for Extension of Time to File "
+            "Answer re 1 Complaint, filed by Defendant SK hynix America Inc."
+        ),
+        description="Reply to Response to Motion",
+        free=False,
+    )
+
+    selected = select_operative_complaint_entry((entry, later_reply), before_entry=28)
+
+    assert selected is not None
+    assert selected.entry == entry
+    assert selected.kind is OperativeComplaintKind.COMPLAINT
+    assert select_operative_complaint_document(entry, require_free=True) == complaint
+
+
+def test_docket_72270301_keeps_complaint_over_later_notice() -> None:
+    complaint = _entry(
+        1,
+        text="1 VERIFIED COMPLAINT against Defendant filed by Plaintiff.",
+        description="Complaint",
+        free=False,
+    )
+    notice = _entry(
+        22,
+        text=(
+            "22 NOTICE of Voluntary Stay of Counts 7 and 8 of the Verified "
+            "Complaint by Plaintiff."
+        ),
+        description="Notice (Other)",
+        free=False,
+    )
+
+    selected = select_operative_complaint_entry((complaint, notice), before_entry=30)
+
+    assert selected is not None
+    assert selected.entry == complaint
+
+
+def test_docket_72242510_accepts_verified_parenthetical() -> None:
+    entry = _entry(
+        1,
+        text="1 COMPLAINT (Verified) against All Defendants filed by Plaintiff.",
+        description="",
+        free=False,
+    )
+
+    selected = select_operative_complaint_entry((entry,), before_entry=9)
+
+    assert selected is not None
+    assert selected.entry == entry
+    assert selected.kind is OperativeComplaintKind.COMPLAINT
+
+
+def test_docket_73117990_marks_prefixed_amended_removal_pleading() -> None:
+    amended = _document(
+        kind="Attachment 1",
+        description="Exhibit 1 - First Amended Complaint",
+        free=False,
+    )
+    entry = CourtListenerWebDocketEntry(
+        row_id="entry-1",
+        entry_number="1",
+        filed_at="Jan 7, 2026",
+        text="1 NOTICE OF REMOVAL filed by Defendant.",
+        documents=(_document(description="Notice of Removal"), amended),
+    )
+
+    selected = select_operative_complaint_entry((entry,), before_entry=10)
+
+    assert selected is not None
+    assert selected.kind is OperativeComplaintKind.AMENDED_COMPLAINT
+    assert select_operative_complaint_document(entry, require_free=False) == amended
+
+
+def test_removal_with_original_and_amended_complaints_fails_closed() -> None:
+    entry = CourtListenerWebDocketEntry(
+        row_id="entry-1",
+        entry_number="1",
+        filed_at="Mar 13, 2025",
+        text="1 NOTICE OF REMOVAL filed by Defendant.",
+        documents=(
+            _document(description="Notice of Removal"),
+            _document(
+                kind="Attachment 1",
+                description="Exhibit A- Complaint",
+                free=False,
+            ),
+            _document(
+                kind="Attachment 2",
+                description="Exhibit B- First Amended Complaint",
+                free=False,
+            ),
+        ),
+    )
+
+    assert select_operative_complaint_entry((entry,), before_entry=10) is None
+    assert select_operative_complaint_document(entry, require_free=False) is None
+
+
 def _entry(
     number: int,
     *,
@@ -241,6 +471,26 @@ def _entry(
                 pacer_only=not free,
             ),
         ),
+    )
+
+
+def _document(
+    *,
+    description: str,
+    kind: str = "Main Document",
+    free: bool = True,
+) -> CourtListenerWebDocument:
+    slug = re.sub(r"[^a-z0-9]+", "-", description.lower()).strip("-")
+    return CourtListenerWebDocument(
+        kind=kind,
+        description=description,
+        href=(
+            f"https://storage.courtlistener.com/recap/{slug}.pdf"
+            if free
+            else f"https://ecf.example.invalid/{slug}"
+        ),
+        action_label="Download PDF" if free else "Buy on PACER",
+        pacer_only=not free,
     )
 
 

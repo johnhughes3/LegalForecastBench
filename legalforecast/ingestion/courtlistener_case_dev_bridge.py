@@ -1909,19 +1909,41 @@ def _recap_document_matches_web_document(
     recap_document: CourtListenerRecapDocument,
 ) -> bool:
     description_available = recap_document.description is not None
+    kind = _text_key(web_document.kind)
+    if "main" in kind:
+        if recap_document.attachment_number is not None:
+            return False
+        return not description_available or _main_document_descriptions_match(
+            web_document.description,
+            recap_document.description or "",
+        )
     if description_available and _text_key(web_document.description) != _text_key(
         recap_document.description or ""
     ):
         return False
-    kind = _text_key(web_document.kind)
-    if "main" in kind:
-        return recap_document.attachment_number is None
     if "attachment" not in kind:
         return description_available
     if recap_document.attachment_number is None:
         return False
     stated_numbers = tuple(re.findall(r"\d+", kind))
     return not stated_numbers or recap_document.attachment_number in stated_numbers
+
+
+def _main_document_descriptions_match(
+    web_description: str, recap_description: str
+) -> bool:
+    web_key = _text_key(web_description)
+    recap_key = _text_key(recap_description)
+    if web_key == recap_key:
+        return True
+    prefixes = ("motion for ", "motion to ")
+    web_has_prefix = any(web_key.startswith(prefix) for prefix in prefixes)
+    recap_has_prefix = any(recap_key.startswith(prefix) for prefix in prefixes)
+    return any(
+        (not web_has_prefix and recap_key == f"{prefix}{web_key}")
+        or (not recap_has_prefix and web_key == f"{prefix}{recap_key}")
+        for prefix in prefixes
+    )
 
 
 def _requested_paid_gap_entries(
