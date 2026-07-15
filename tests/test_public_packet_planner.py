@@ -45,6 +45,46 @@ def test_public_packet_planner_selects_free_core_packet_documents(
     )
 
 
+def test_opinion_backed_decision_is_free_and_never_model_visible(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    decision = cast(list[dict[str, Any]], record["selected_entries"])[-1]
+    [document] = cast(list[dict[str, Any]], decision["documents"])
+    document.update(
+        description="CourtListener Opinion 11395231 on Motion to Dismiss",
+        href=(
+            "https://storage.courtlistener.com/"
+            "pdf/2026/07/14/bullock_v._phh_mortgage_services.pdf"
+        ),
+        action_label="Download PDF",
+        pacer_only=False,
+        freely_available=True,
+    )
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [candidate] = plan.selected_cases
+    decision_documents = [
+        item
+        for item in candidate.documents
+        if item.document_role is DocumentRole.DECISION
+    ]
+    assert len(decision_documents) == 1
+    assert decision_documents[0].model_visible is False
+    assert decision_documents[0].contains_target_outcome is True
+    assert candidate.missing_required_document_count == 0
+    assert any(
+        request.source_url.endswith("bullock_v._phh_mortgage_services.pdf")
+        for request in plan.download_requests
+    )
+
+
 def test_public_packet_planner_reports_public_document_shortfall(
     tmp_path: Path,
 ) -> None:

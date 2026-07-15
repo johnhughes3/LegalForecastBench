@@ -79,6 +79,84 @@ def test_courtlistener_reconstructs_public_docket_entries() -> None:
     assert client.request_count == 2
 
 
+def test_courtlistener_fetches_typed_opinion_cluster_and_opinion() -> None:
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=CourtListenerFixtureTransport(
+            (
+                _response(
+                    path="/clusters/10927691/",
+                    payload={
+                        "id": 10927691,
+                        "docket": (
+                            "https://www.courtlistener.com/api/rest/v4/"
+                            "dockets/73614335/"
+                        ),
+                        "date_filed": "2026-07-14",
+                        "blocked": False,
+                        "absolute_url": "/opinion/10927691/example/",
+                        "sub_opinions": [
+                            "https://www.courtlistener.com/api/rest/v4/"
+                            "opinions/11395231/"
+                        ],
+                    },
+                ),
+                _response(
+                    path="/opinions/11395231/",
+                    payload={
+                        "id": 11395231,
+                        "cluster": (
+                            "https://www.courtlistener.com/api/rest/v4/"
+                            "clusters/10927691/"
+                        ),
+                        "plain_text": "The motion to dismiss is denied.",
+                        "local_path": "pdf/2026/07/14/example.pdf",
+                        "download_url": "https://ecf.example/show_public_doc",
+                        "absolute_url": "/opinion/10927691/example/",
+                    },
+                ),
+            )
+        ),
+    )
+
+    cluster = client.get_opinion_cluster("10927691")
+    opinion = client.get_opinion("11395231")
+
+    assert cluster.cluster_id == "10927691"
+    assert cluster.docket_id == "73614335"
+    assert cluster.date_filed == "2026-07-14"
+    assert cluster.blocked is False
+    assert cluster.sub_opinion_ids == ("11395231",)
+    assert opinion.opinion_id == "11395231"
+    assert opinion.cluster_id == "10927691"
+    assert opinion.plain_text == "The motion to dismiss is denied."
+    assert opinion.local_path == "pdf/2026/07/14/example.pdf"
+    assert client.request_count == 2
+
+
+def test_courtlistener_opinion_rejects_foreign_reference_shape() -> None:
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=CourtListenerFixtureTransport(
+            (
+                _response(
+                    path="/clusters/10927691/",
+                    payload={
+                        "id": 10927691,
+                        "docket": "https://evil.example/dockets/73614335/",
+                        "date_filed": "2026-07-14",
+                        "blocked": False,
+                        "sub_opinions": [],
+                    },
+                ),
+            )
+        ),
+    )
+
+    with pytest.raises(CourtListenerResponseError, match="docket reference shape"):
+        client.get_opinion_cluster("10927691")
+
+
 def test_courtlistener_live_v4_entry_with_blank_description_normalizes_to_blank() -> (
     None
 ):

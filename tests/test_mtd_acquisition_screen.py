@@ -689,6 +689,11 @@ def test_actual_mtd_decision_entry_does_not_broaden_beyond_exact_event_forms(
             "complaint, ECF 15, the motion to dismiss, ECF 11, is denied as moot."
         ),
         (
+            "MEMORANDUM OPINION. PHH Mortgage Services' Motion to Dismiss, "
+            "ECF No. 5, which was filed in response to the original Complaint, "
+            "ECF No. 1, is denied as moot."
+        ),
+        (
             "REPORT AND RECOMMENDATION re 12 Motion to Dismiss. The Court "
             "recommends that the motion be granted."
         ),

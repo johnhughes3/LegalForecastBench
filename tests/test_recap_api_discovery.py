@@ -1058,6 +1058,148 @@ def test_observe_accepts_clean_in_window_decision(tmp_path: Path) -> None:
         assert current is not None and current.state == "accepted"
 
 
+def test_observe_accepts_public_opinion_backed_terse_mtd_order(
+    tmp_path: Path,
+) -> None:
+    store, payload = _seeded_store(
+        tmp_path,
+        {
+            "id": 9001,
+            "docket_id": 555,
+            "description": "Order on Motion to Dismiss",
+            "entry_date_filed": "2026-07-14",
+            "court_id": "dcd",
+            "docketNumber": "1:25-cv-03820",
+            "caseName": "Bullock v. PHH Mortgage Services",
+        },
+    )
+    payload["opinion_resolution_evidence"] = {
+        "schema_version": "legalforecast.opinion_recap_resolution.v1",
+        "source_opinion": {
+            "candidate_id": "73614335",
+            "cluster_id": "10927691",
+            "date_filed": "2026-07-14",
+            "absolute_url": "/opinion/10927691/bullock/",
+            "sub_opinions": [
+                {
+                    "opinion_id": "11395231",
+                    "absolute_url": "/opinion/10927691/bullock/",
+                    "download_url": "https://ecf.example/show_public_doc",
+                    "local_path": "pdf/2026/07/14/bullock.pdf",
+                }
+            ],
+        },
+        "resolved_recap": {
+            "docket_id": "555",
+            "court_id": "nysd",
+            "docket_number": "1:26-cv-00001",
+            "case_name": "Acme Corp v. Roe",
+        },
+    }
+    with store:
+        recon_client = _client(
+            (
+                _docket_response(555),
+                _entries_response(
+                    cursor=None,
+                    results=[
+                        {
+                            "id": 7001,
+                            "docket": 555,
+                            "entry_number": 4,
+                            "description": "Motion to Dismiss Complaint",
+                            "date_filed": "2026-05-01",
+                        },
+                        {
+                            "id": 7002,
+                            "docket": 555,
+                            "entry_number": 8,
+                            "description": "Order on Motion to Dismiss",
+                            "date_filed": "2026-07-14",
+                            "recap_documents": [
+                                {
+                                    "id": 8002,
+                                    "document_number": "8",
+                                    "attachment_number": None,
+                                    "description": "Order on Motion to Dismiss",
+                                    "is_available": False,
+                                    "is_sealed": None,
+                                    "pacer_doc_id": "045012216720",
+                                }
+                            ],
+                        },
+                    ],
+                    next_cursor=None,
+                ),
+                _response(
+                    path="/clusters/10927691/",
+                    payload={
+                        "id": 10927691,
+                        "docket": (
+                            "https://www.courtlistener.com/api/rest/v4/"
+                            "dockets/73614335/"
+                        ),
+                        "date_filed": "2026-07-14",
+                        "blocked": False,
+                        "absolute_url": "/opinion/10927691/bullock/",
+                        "sub_opinions": [
+                            "https://www.courtlistener.com/api/rest/v4/"
+                            "opinions/11395231/"
+                        ],
+                    },
+                ),
+                _response(
+                    path="/opinions/11395231/",
+                    payload={
+                        "id": 11395231,
+                        "cluster": (
+                            "https://www.courtlistener.com/api/rest/v4/"
+                            "clusters/10927691/"
+                        ),
+                        "plain_text": (
+                            "Defendant moved to dismiss under Rule 12(b)(6). "
+                            "For the foregoing reasons, the motion to dismiss "
+                            "is denied."
+                        ),
+                        "local_path": "pdf/2026/07/14/bullock.pdf",
+                        "download_url": "https://ecf.example/show_public_doc",
+                        "absolute_url": "/opinion/10927691/bullock/",
+                    },
+                ),
+            )
+        )
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.state == "accepted"
+        assert observation.reason_code == "strict_clean_screen_passed"
+        assert observation.evidence["opinion_backed_disposition"]["opinion_id"] == (
+            "11395231"
+        )
+        assert observation.evidence["ai"]["decision_entry_numbers"] == ["8"]
+        selected = observation.evidence["selected_entries"]
+        decision = next(item for item in selected if item["entry_number"] == "8")
+        assert decision["documents"] == [
+            {
+                "kind": "main",
+                "description": ("CourtListener Opinion 11395231 on Motion to Dismiss"),
+                "href": (
+                    "https://storage.courtlistener.com/pdf/2026/07/14/bullock.pdf"
+                ),
+                "action_label": "Download PDF",
+                "pacer_only": False,
+                "freely_available": True,
+                "restriction_markers": [],
+            }
+        ]
+        assert recon_client.request_count == 4
+
+
 def test_observe_links_explicitly_referenced_terse_rest_mtd_label(
     tmp_path: Path,
 ) -> None:
