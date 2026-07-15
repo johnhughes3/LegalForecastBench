@@ -838,6 +838,167 @@ def test_courtlistener_rest_bridge_rejects_entry_mismatch(
 
 
 @pytest.mark.parametrize(
+    ("web_filed_at", "rest_filed_at"),
+    (
+        ("2026-01-01", "2026-01-01"),
+        ("July 6, 2026, 12:22 p.m.", "2026-07-06"),
+        ("Dec. 9, 2025, 3:38 p.m.", "2025-12-09"),
+        ("Jul 1, 2026", "2026-07-01"),
+    ),
+)
+def test_courtlistener_rest_bridge_accepts_real_web_date_formats(
+    web_filed_at: str,
+    rest_filed_at: str,
+) -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    motion = next(entry for entry in selected_entries if entry["entry_number"] == "5")
+    motion["filed_at"] = web_filed_at
+    responses = list(_clean_responses())
+    payload = cast(dict[str, object], copy.deepcopy(dict(responses[1].payload)))
+    results = cast(list[dict[str, object]], payload["results"])
+    results[0]["date_filed"] = rest_filed_at
+    responses[1] = _response(
+        path="/docket-entries/",
+        params={"docket": "123", "page_size": 100},
+        payload=payload,
+    )
+
+    selection, _ = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap,
+        free_download_records=downloads,
+        client=_client(*responses),
+        use_embedded_entries=True,
+    )
+
+    assert selection["candidate_id"] == "123"
+
+
+def test_courtlistener_rest_bridge_rejects_mismatched_real_web_date() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    motion = next(entry for entry in selected_entries if entry["entry_number"] == "5")
+    motion["filed_at"] = "Dec. 9, 2025, 3:38 p.m."
+    responses = list(_clean_responses())
+    payload = cast(dict[str, object], copy.deepcopy(dict(responses[1].payload)))
+    results = cast(list[dict[str, object]], payload["results"])
+    results[0]["date_filed"] = "2025-12-10"
+    responses[1] = _response(
+        path="/docket-entries/",
+        params={"docket": "123", "page_size": 100},
+        payload=payload,
+    )
+
+    with pytest.raises(
+        CourtListenerCaseDevBridgeError,
+        match="courtlistener_entry_date_conflict",
+    ):
+        bridge_public_plan_paid_gap_candidate_via_courtlistener(
+            screened,
+            paid_gap_record=gap,
+            free_download_records=downloads,
+            client=_client(*responses),
+            use_embedded_entries=True,
+        )
+
+
+def test_courtlistener_rest_bridge_accepts_ui_decorated_web_entry_text() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    motion = next(entry for entry in selected_entries if entry["entry_number"] == "5")
+    motion["filed_at"] = "Dec. 9, 2025, 3:38 p.m."
+    documents = cast(list[dict[str, object]], motion["documents"])
+    documents[0]["kind"] = "Main Doc \u00adument"
+    motion["text"] = (
+        "5 Dec. 9, 2025, 3:38 p.m. 5 Dec 9, 2025 "
+        "MOTION to Dismiss filed by Defendant. Main Doc \u00adument "
+        "Motion to Dismiss Buy on PACER 0 \U0001f64f Main Doc \u00adument "
+        "Motion to Dismiss Buy on PACER"
+    )
+    responses = list(_clean_responses())
+    payload = cast(dict[str, object], copy.deepcopy(dict(responses[1].payload)))
+    results = cast(list[dict[str, object]], payload["results"])
+    results[0]["date_filed"] = "2025-12-09"
+    responses[1] = _response(
+        path="/docket-entries/",
+        params={"docket": "123", "page_size": 100},
+        payload=payload,
+    )
+
+    selection, _ = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap,
+        free_download_records=downloads,
+        client=_client(*responses),
+        use_embedded_entries=True,
+    )
+
+    assert selection["candidate_id"] == "123"
+
+
+def test_courtlistener_rest_bridge_rejects_genuine_ui_decorated_text_mismatch() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    motion = next(entry for entry in selected_entries if entry["entry_number"] == "5")
+    documents = cast(list[dict[str, object]], motion["documents"])
+    documents[0]["kind"] = "Main Document"
+    motion["text"] = (
+        "5 Dec. 9, 2025, 3:38 p.m. 5 Dec 9, 2025 "
+        "NOTICE of hearing on an unrelated motion. Main Document "
+        "Motion to Dismiss Buy on PACER"
+    )
+
+    with pytest.raises(
+        CourtListenerCaseDevBridgeError,
+        match="courtlistener_entry_text_conflict",
+    ):
+        bridge_public_plan_paid_gap_candidate_via_courtlistener(
+            screened,
+            paid_gap_record=gap,
+            free_download_records=downloads,
+            client=_client(*_clean_responses()),
+            use_embedded_entries=True,
+        )
+
+
+def test_courtlistener_rest_bridge_accepts_bodyless_ui_entry_from_document() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    motion = next(entry for entry in selected_entries if entry["entry_number"] == "5")
+    motion["filed_at"] = "June 5, 2026, 4:20 p.m."
+    documents = cast(list[dict[str, object]], motion["documents"])
+    documents[0]["kind"] = "Main Doc \u00adument"
+    motion["text"] = (
+        "5 June 5, 2026, 4:20 p.m. 5 Jun 5, 2026 "
+        "Main Doc \u00adument MOTION to Dismiss filed by Defendant. Buy on PACER"
+    )
+    responses = list(_clean_responses())
+    payload = cast(dict[str, object], copy.deepcopy(dict(responses[1].payload)))
+    results = cast(list[dict[str, object]], payload["results"])
+    results[0]["date_filed"] = "2026-06-05"
+    documents[0]["description"] = "Dismiss"
+    responses[1] = _response(
+        path="/docket-entries/",
+        params={"docket": "123", "page_size": 100},
+        payload=payload,
+    )
+    recap_payload = dict(responses[2].payload)
+    recap_payload["description"] = "Dismiss"
+    responses[2] = _response(path="/recap-documents/9005/", payload=recap_payload)
+
+    selection, _ = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap,
+        free_download_records=downloads,
+        client=_client(*responses),
+        use_embedded_entries=True,
+    )
+
+    assert selection["candidate_id"] == "123"
+
+
+@pytest.mark.parametrize(
     ("document_patch", "reason"),
     (
         ({"id": 9999}, "courtlistener_recap_document_id_conflict"),
