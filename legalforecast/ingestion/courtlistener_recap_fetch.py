@@ -918,6 +918,12 @@ def _verified_download(payload: Mapping[str, Any], document_id: str) -> str:
     return url
 
 
+def verified_recap_download_url(payload: Mapping[str, Any], document_id: str) -> str:
+    """Return an ephemeral allowlisted URL for exact available public material."""
+
+    return _verified_download(payload, document_id)
+
+
 def _purchased_attempt(
     candidate_id: str, document_id: str, response: Mapping[str, Any]
 ) -> CaseDevPacerPurchaseAttempt:

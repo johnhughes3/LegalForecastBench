@@ -26,7 +26,6 @@ from legalforecast.ingestion.recap_fetch_attempt_policy import (
     BOUNDED_FETCH_ATTEMPT_AUTHORITY,
     RECAP_FETCH_ATTEMPT_POLICY_VERSION,
     generate_recap_fetch_attempt_policy,
-    verify_recap_fetch_attempt_policy,
 )
 from legalforecast.ingestion.resolved_post_recovery import (
     ResolvedPostRecoveryError,
@@ -176,6 +175,30 @@ def test_broker_receipt_history_hash_and_identity_tamper_fail(mutation: str) -> 
         )
 
 
+def test_later_failed_receipt_invalidates_prior_delivery() -> None:
+    inputs = _inputs()
+    operation = deepcopy(inputs["purchase_operation_records"][0])
+    history = operation["response"]["broker_receipts"]
+    failed = deepcopy(history[0]["receipt"])
+    failed.update(
+        {
+            "state": "failed",
+            "id": None,
+            "held_usd": "0.00",
+            "provider_response_body_sha256": None,
+            "provider_response_sha256": None,
+            "updated_at": "2026-07-15T00:02:00.000Z",
+            "delivered_at": None,
+        }
+    )
+    history.append({"sha256": _hash(failed), "receipt": failed})
+
+    with pytest.raises(ResolvedPostRecoveryError, match="terminal state"):
+        build_resolved_post_recovery_documents(
+            **{**inputs, "purchase_operation_records": [operation]}
+        )
+
+
 def test_resolved_artifact_then_journal_clearance_is_crash_replayable(
     tmp_path: Path,
 ) -> None:
@@ -253,6 +276,30 @@ def test_resolve_post_recovery_cli_help_names_all_lineage_inputs(
         assert flag in help_text
 
 
+def test_recap_fetch_quarantine_recovery_help_names_controlled_inputs(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["acquisition", "recover-recap-fetch-quarantine", "--help"])
+
+    assert exc.value.code == 0
+    help_text = capsys.readouterr().out
+    for flag in (
+        "--selection",
+        "--purchase-policy",
+        "--cohort-policy",
+        "--budget-plan",
+        "--purchase-ledger",
+        "--attempt-policy",
+        "--courtlistener-fixture",
+        "--fixture-documents",
+        "--live-courtlistener-recovery",
+        "--manifest-output",
+        "--document-output-root",
+    ):
+        assert flag in help_text
+
+
 def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
     tmp_path: Path,
 ) -> None:
@@ -324,54 +371,6 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         budget_plan_artifact=budget_artifact,
         selection_records=inputs["selection_records"],
     )
-    attempt_documents = verify_recap_fetch_attempt_policy(
-        attempt_artifact,
-        purchase_policy_artifact=purchase_artifact,
-        cohort_policy_artifact=cohort_artifact,
-        budget_plan=budget_plan,
-        budget_plan_artifact=budget_artifact,
-        selection_records=inputs["selection_records"],
-    )
-    with CaseDevPurchaseJournal(
-        ledger_path, policy=purchase_policy, allow_create=True
-    ) as journal:
-        journal.plan(budget_plan)
-        journal.authorize_unknown_material_attempts(
-            attempt_documents,
-            attempt_policy_sha256=attempt_artifact["policy_sha256"],
-        )
-        journal.submit("123")
-        journal.queue("123", response={"queue_id": "77"})
-        evidence = journal.operation_evidence("123")
-        assert evidence is not None
-        operation_key = str(evidence["operation_key"])
-        receipt = deepcopy(inputs["purchase_operation_records"][0]["response"])[
-            "broker_receipts"
-        ][0]["receipt"]
-        receipt.update(
-            {
-                "operation_key": operation_key,
-                "purchase_policy_sha256": purchase_policy.policy_sha256,
-                "client_code": _client_code(operation_key),
-            }
-        )
-        journal.record_broker_receipt("123", receipt)
-        journal.mark_material_available_for_quarantine(
-            "123",
-            provider_detail_sha256="2" * 64,
-            queue_response_sha256="3" * 64,
-            download_url_sha256="4" * 64,
-        )
-        journal.record_quarantined_material_bytes(
-            "123", content_sha256="5" * 64, byte_count=100
-        )
-
-    inputs["download_records"][0].update(
-        {
-            "attempt_policy_sha256": attempt_artifact["policy_sha256"],
-            "purchase_operation_key": operation_key,
-        }
-    )
     paths = {
         "selection": tmp_path / "selection.jsonl",
         "purchase_policy": tmp_path / "purchase-policy.json",
@@ -390,7 +389,157 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
     _write_object(paths["cohort_policy"], cohort_artifact)
     _write_object(paths["budget_plan"], budget_artifact)
     _write_object(paths["attempt_policy"], attempt_artifact)
-    _write_records(paths["download_manifest"], inputs["download_records"])
+    available_detail = {
+        "id": 123,
+        "is_available": True,
+        "is_sealed": False,
+        "is_private": None,
+        "filepath_local": "/pdf/123.pdf",
+    }
+    purchase_fixture = tmp_path / "purchase-courtlistener.jsonl"
+    _write_records(
+        purchase_fixture,
+        [
+            {
+                "method": "GET",
+                "path": "/recap-documents/123/",
+                "form": {},
+                "status_code": 200,
+                "payload": {
+                    "id": 123,
+                    "is_available": False,
+                    "is_sealed": False,
+                    "is_private": None,
+                },
+            },
+            {
+                "method": "GET",
+                "path": "/recap-fetch/77/",
+                "form": {},
+                "status_code": 200,
+                "payload": {"status": 2},
+            },
+            {
+                "method": "GET",
+                "path": "/recap-documents/123/",
+                "form": {},
+                "status_code": 200,
+                "payload": available_detail,
+            },
+        ],
+    )
+    broker_fixture = tmp_path / "broker.json"
+    _write_object(broker_fixture, [{"id": "77", "reservation_id": "reservation-1"}])
+    with CaseDevPurchaseJournal(ledger_path, policy=purchase_policy, allow_create=True):
+        pass
+    purchase_output_root = tmp_path / "purchase-output"
+    assert (
+        main(
+            [
+                "acquisition",
+                "purchase-missing-recap-fetch",
+                "--budget-plan",
+                str(paths["budget_plan"]),
+                "--selection",
+                str(paths["selection"]),
+                "--purchase-policy",
+                str(paths["purchase_policy"]),
+                "--cohort-policy",
+                str(paths["cohort_policy"]),
+                "--purchase-ledger",
+                str(ledger_path),
+                "--attempt-policy",
+                str(paths["attempt_policy"]),
+                "--courtlistener-fixture",
+                str(purchase_fixture),
+                "--purchase-broker-fixture",
+                str(broker_fixture),
+                "--acknowledge-pacer-fees",
+                "--output-root",
+                str(purchase_output_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    with CaseDevPurchaseJournal(ledger_path, policy=purchase_policy) as journal:
+        evidence = journal.operation_evidence("123")
+        assert evidence is not None
+        operation_key = str(evidence["operation_key"])
+        receipt = deepcopy(inputs["purchase_operation_records"][0]["response"])[
+            "broker_receipts"
+        ][0]["receipt"]
+        receipt.update(
+            {
+                "operation_key": operation_key,
+                "purchase_policy_sha256": purchase_policy.policy_sha256,
+                "client_code": _client_code(operation_key),
+            }
+        )
+        journal.record_broker_receipt("123", receipt)
+
+    recovery_detail_fixture = tmp_path / "recovery-courtlistener.jsonl"
+    _write_records(
+        recovery_detail_fixture,
+        [
+            {
+                "method": "GET",
+                "path": "/recap-documents/123/",
+                "form": {},
+                "status_code": 200,
+                "payload": available_detail,
+            }
+        ],
+    )
+    pdf_content = "%PDF-1.4\ncontrolled fixture\n%%EOF\n"
+    document_fixture = tmp_path / "recovery-documents.json"
+    _write_object(
+        document_fixture,
+        {"https://www.courtlistener.com/pdf/123.pdf": pdf_content},
+    )
+    quarantine_root = tmp_path / "quarantine"
+    assert (
+        main(
+            [
+                "acquisition",
+                "recover-recap-fetch-quarantine",
+                "--selection",
+                str(paths["selection"]),
+                "--purchase-policy",
+                str(paths["purchase_policy"]),
+                "--cohort-policy",
+                str(paths["cohort_policy"]),
+                "--budget-plan",
+                str(paths["budget_plan"]),
+                "--purchase-ledger",
+                str(ledger_path),
+                "--attempt-policy",
+                str(paths["attempt_policy"]),
+                "--courtlistener-fixture",
+                str(recovery_detail_fixture),
+                "--fixture-documents",
+                str(document_fixture),
+                "--manifest-output",
+                str(paths["download_manifest"]),
+                "--document-output-root",
+                str(quarantine_root),
+                "--output-root",
+                str(tmp_path / "recovery-output"),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    assert "courtlistener.com" not in paths["download_manifest"].read_text()
+    assert "download_url" not in paths["download_manifest"].read_text()
+    inputs["download_records"] = _read_records(paths["download_manifest"])
+    content_bytes = pdf_content.encode()
+    _retarget_clearance_inputs(
+        inputs,
+        content_sha256=hashlib.sha256(content_bytes).hexdigest(),
+        byte_count=len(content_bytes),
+        detail_sha256=_hash(available_detail),
+    )
     paths["disclosure_clearance"].write_bytes(inputs["clearance_artifact_bytes"])
     _write_object(paths["clearance_run_card"], inputs["clearance_run_card"])
     paths["reviews"].write_bytes(inputs["reviews_artifact_bytes"])
@@ -691,6 +840,56 @@ def _external_kwargs(inputs: dict[str, Any]) -> dict[str, Any]:
         "restriction_artifact_bytes",
     )
     return {name: inputs[name] for name in names}
+
+
+def _retarget_clearance_inputs(
+    inputs: dict[str, Any],
+    *,
+    content_sha256: str,
+    byte_count: int,
+    detail_sha256: str,
+) -> None:
+    clearance = inputs["clearance_records"][0]
+    clearance.update({"sha256": content_sha256, "byte_count": byte_count})
+    reviews = [
+        json.loads(line)
+        for line in inputs["reviews_artifact_bytes"].decode().splitlines()
+        if line.strip()
+    ]
+    reviews[0]["sha256"] = content_sha256
+    review_bytes = _jsonl_bytes(reviews)
+    receipt = inputs["review_receipt_artifact"]
+    receipt["review_artifact_sha256"] = hashlib.sha256(review_bytes).hexdigest()
+    receipt_bytes = _object_bytes(receipt)
+    restrictions = inputs["restriction_records"]
+    restrictions[0]["fresh_recap_detail_sha256"] = detail_sha256
+    restriction_bytes = _jsonl_bytes(restrictions)
+    clearance_bytes = _jsonl_bytes([clearance])
+    run_card = inputs["clearance_run_card"]
+    run_card["source_commitments"]["reviews"]["sha256"] = hashlib.sha256(
+        review_bytes
+    ).hexdigest()
+    run_card["source_commitments"]["review_receipt"]["sha256"] = hashlib.sha256(
+        receipt_bytes
+    ).hexdigest()
+    run_card["source_commitments"]["restriction_evidence"]["sha256"] = hashlib.sha256(
+        restriction_bytes
+    ).hexdigest()
+    run_card["output_commitments"]["disclosure_clearance"]["sha256"] = hashlib.sha256(
+        clearance_bytes
+    ).hexdigest()
+    run_card["review_authority"]["review_artifact_sha256"] = (
+        "sha256:" + hashlib.sha256(review_bytes).hexdigest()
+    )
+    inputs.update(
+        {
+            "clearance_artifact_bytes": clearance_bytes,
+            "clearance_run_card_bytes": _object_bytes(run_card),
+            "reviews_artifact_bytes": review_bytes,
+            "review_receipt_bytes": receipt_bytes,
+            "restriction_artifact_bytes": restriction_bytes,
+        }
+    )
 
 
 def _jsonl_bytes(records: list[dict[str, object]]) -> bytes:

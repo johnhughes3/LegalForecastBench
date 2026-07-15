@@ -413,6 +413,11 @@ from legalforecast.ingestion.recap_fetch_broker_policy import (
     generate_recap_fetch_broker_policy,
     write_recap_fetch_broker_policy,
 )
+from legalforecast.ingestion.recap_fetch_quarantine_recovery import (
+    RecapFetchQuarantineRecoveryError,
+    recover_recap_fetch_quarantine_documents,
+    write_recap_fetch_quarantine_manifest,
+)
 from legalforecast.ingestion.recap_partial_checkpoint import (
     RecapPartialProjectionError,
     project_partial_recap_checkpoint,
@@ -1379,6 +1384,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_acquisition_purchase_missing_recap_fetch_arguments(
         acquisition_recap_fetch_purchase
+    )
+    acquisition_recap_fetch_recovery = acquisition_subparsers.add_parser(
+        "recover-recap-fetch-quarantine",
+        help=(
+            "Revalidate and download unknown-status RECAP Fetch material into "
+            "a controlled, parser-ineligible quarantine."
+        ),
+    )
+    _add_acquisition_recover_recap_fetch_quarantine_arguments(
+        acquisition_recap_fetch_recovery
     )
     acquisition_docket_fetch_plan = acquisition_subparsers.add_parser(
         "plan-docket-live-fetches",
@@ -4327,6 +4342,50 @@ def _add_acquisition_purchase_missing_recap_fetch_arguments(
         help="Acknowledge that the brokered request may incur PACER fees.",
     )
     parser.set_defaults(handler=_cmd_acquisition_purchase_missing_recap_fetch)
+
+
+def _add_acquisition_recover_recap_fetch_quarantine_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--selection", type=Path, required=True)
+    parser.add_argument("--purchase-policy", type=Path, required=True)
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument("--budget-plan", type=Path, required=True)
+    parser.add_argument("--purchase-ledger", type=Path, required=True)
+    parser.add_argument("--attempt-policy", type=Path, required=True)
+    parser.add_argument("--manifest-output", type=Path)
+    parser.add_argument("--document-output-root", type=Path)
+    parser.add_argument(
+        "--courtlistener-fixture",
+        type=Path,
+        help="Offline JSONL containing the fresh RECAP-document detail response.",
+    )
+    parser.add_argument(
+        "--fixture-documents",
+        type=Path,
+        help="Offline JSON mapping of the verified CourtListener URL to PDF bytes.",
+    )
+    parser.add_argument(
+        "--live-courtlistener-recovery",
+        action="store_true",
+        help=(
+            "Use authenticated CourtListener detail and free public-document "
+            "download transports. This never dispatches a paid request."
+        ),
+    )
+    parser.add_argument(
+        "--request-ledger",
+        type=Path,
+        help="CourtListener request-budget ledger; required for live recovery.",
+    )
+    parser.add_argument(
+        "--courtlistener-rate-profile",
+        choices=tuple(_COURTLISTENER_RATE_PROFILES),
+        default="base",
+    )
+    parser.add_argument("--request-budget-max-wait-seconds", type=float, default=120.0)
+    parser.set_defaults(handler=_cmd_acquisition_recover_recap_fetch_quarantine)
 
 
 def _add_acquisition_plan_docket_live_fetches_arguments(
@@ -17957,6 +18016,157 @@ def _cmd_acquisition_purchase_missing_recap_fetch(args: argparse.Namespace) -> i
         },
     )
     return 0 if result.executed_purchase_count == result.intended_purchase_count else 2
+
+
+def _cmd_acquisition_recover_recap_fetch_quarantine(
+    args: argparse.Namespace,
+) -> int:
+    output_root = _acquisition_output_root(args)
+    selection_path = cast(Path, args.selection)
+    purchase_policy_path = cast(Path, args.purchase_policy)
+    cohort_policy_path = cast(Path, args.cohort_policy)
+    budget_plan_path = cast(Path, args.budget_plan)
+    ledger_path = cast(Path, args.purchase_ledger).resolve()
+    attempt_policy_path = cast(Path, args.attempt_policy)
+    manifest_path = _acquisition_path(
+        args,
+        "manifest_output",
+        output_root / "recap-fetch-quarantine-downloads.jsonl",
+    )
+    document_root = _acquisition_path(
+        args,
+        "document_output_root",
+        output_root / "documents" / "recap-fetch-quarantine",
+    )
+    courtlistener_fixture = cast(Path | None, args.courtlistener_fixture)
+    document_fixture = cast(Path | None, args.fixture_documents)
+    live = cast(bool, args.live_courtlistener_recovery)
+    dry_run = _acquisition_dry_run(args)
+    input_paths = (
+        selection_path,
+        purchase_policy_path,
+        cohort_policy_path,
+        budget_plan_path,
+        ledger_path,
+        attempt_policy_path,
+        *((courtlistener_fixture,) if courtlistener_fixture is not None else ()),
+        *((document_fixture,) if document_fixture is not None else ()),
+    )
+    try:
+        selection_records = _read_records(selection_path)
+        purchase_policy_artifact = _read_json_object(purchase_policy_path)
+        cohort_policy_artifact = _read_json_object(cohort_policy_path)
+        budget_plan_artifact = _read_json_object(budget_plan_path)
+        attempt_policy_artifact = _read_json_object(attempt_policy_path)
+        policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
+        verify_case_dev_purchase_policy_cohort_binding(policy, cohort_policy_artifact)
+        if ledger_path != policy.canonical_ledger_path:
+            raise RecapFetchQuarantineRecoveryError(
+                "--purchase-ledger conflicts with the canonical policy locator"
+            )
+        plan = _missing_core_budget_plan(budget_plan_artifact)
+        allowed_documents = verify_recap_fetch_attempt_policy(
+            attempt_policy_artifact,
+            purchase_policy_artifact=purchase_policy_artifact,
+            cohort_policy_artifact=cohort_policy_artifact,
+            budget_plan=plan,
+            budget_plan_artifact=budget_plan_artifact,
+            selection_records=selection_records,
+        )
+        attempt_policy_sha256 = _required_str(attempt_policy_artifact, "policy_sha256")
+        if dry_run:
+            records: Sequence[Mapping[str, Any]] = (
+                {
+                    "stage": "recover-recap-fetch-quarantine",
+                    "dry_run": True,
+                    "authorized_document_count": len(allowed_documents),
+                    "paid_activity_requested": False,
+                },
+            )
+            _write_jsonl(manifest_path, records)
+        else:
+            if live:
+                if courtlistener_fixture is not None or document_fixture is not None:
+                    raise RecapFetchQuarantineRecoveryError(
+                        "live recovery cannot be combined with offline fixtures"
+                    )
+                request_ledger = cast(Path | None, args.request_ledger)
+                if request_ledger is None:
+                    raise RecapFetchQuarantineRecoveryError(
+                        "--request-ledger is required for live recovery"
+                    )
+                max_wait = cast(float, args.request_budget_max_wait_seconds)
+                if max_wait < 0:
+                    raise RecapFetchQuarantineRecoveryError(
+                        "--request-budget-max-wait-seconds cannot be negative"
+                    )
+                config = CourtListenerRecapFetchConfig.from_env()
+                transport = UrlLibRecapFetchTransport(config.base_url)
+                source: FreeDocumentSource = UrlLibFreeDocumentSource()
+                request_budget = CourtListenerRequestBudget(
+                    request_ledger,
+                    limits=_COURTLISTENER_RATE_PROFILES[
+                        cast(str, args.courtlistener_rate_profile)
+                    ],
+                    max_wait_seconds=max_wait,
+                )
+                before_request = request_budget.before_request
+            else:
+                if courtlistener_fixture is None or document_fixture is None:
+                    raise RecapFetchQuarantineRecoveryError(
+                        "offline recovery requires --courtlistener-fixture and "
+                        "--fixture-documents"
+                    )
+                config = CourtListenerRecapFetchConfig(api_token="offline-fixture")
+                transport = FixtureRecapFetchTransport.from_jsonl(courtlistener_fixture)
+                source = _fixture_free_document_source(document_fixture)
+                before_request = None
+            with CaseDevPurchaseJournal(ledger_path, policy=policy) as journal:
+                records = recover_recap_fetch_quarantine_documents(
+                    journal=journal,
+                    allowed_documents=allowed_documents,
+                    attempt_policy_sha256=attempt_policy_sha256,
+                    output_root=document_root,
+                    source=source,
+                    config=config,
+                    transport=transport,
+                    before_request=before_request,
+                )
+                write_recap_fetch_quarantine_manifest(manifest_path, records)
+    except (
+        CaseDevPurchaseLedgerError,
+        CaseDevPurchasePolicyError,
+        CourtListenerRecapFetchError,
+        CourtListenerRequestBudgetError,
+        FreeDocumentDownloadError,
+        RecapFetchAttemptPolicyError,
+        RecapFetchQuarantineRecoveryError,
+        OSError,
+        sqlite3.Error,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="recover-recap-fetch-quarantine",
+            input_paths=input_paths,
+            output_paths=(manifest_path, ledger_path),
+            reason=str(exc),
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+        )
+        raise CommandError(str(exc)) from exc
+    _write_acquisition_completion(
+        args,
+        stage="recover-recap-fetch-quarantine",
+        input_paths=input_paths,
+        output_paths=(manifest_path, ledger_path),
+        record_count=len(records),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+    )
+    return 0
 
 
 def _cmd_acquisition_plan_docket_live_fetches(args: argparse.Namespace) -> int:

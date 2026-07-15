@@ -721,23 +721,21 @@ def _terminal_delivery_receipt(
                 f"purchase broker receipt identity changed: {key}"
             )
         receipts.append(receipt)
-    eligible = [
-        receipt
-        for receipt in receipts
-        if receipt.get("state") in {"delivered_but_unreconciled", "confirmed"}
-        and receipt.get("operation_key") == operation.get("operation_key")
-        and receipt.get("case_id") == key[0]
-        and receipt.get("recap_document") == key[1]
-    ]
-    if not eligible:
+    if not receipts:
         raise ResolvedPostRecoveryError(
             f"purchase lacks matching delivery receipt: {key}"
         )
-    if len(eligible) != 1 and eligible[-1] != receipts[-1]:
+    terminal = receipts[-1]
+    if not (
+        terminal.get("state") in {"delivered_but_unreconciled", "confirmed"}
+        and terminal.get("operation_key") == operation.get("operation_key")
+        and terminal.get("case_id") == key[0]
+        and terminal.get("recap_document") == key[1]
+    ):
         raise ResolvedPostRecoveryError(
-            f"purchase broker receipt terminal history is ambiguous: {key}"
+            f"purchase broker receipt terminal state is not delivery: {key}"
         )
-    return eligible[-1]
+    return terminal
 
 
 def _validate_download(
