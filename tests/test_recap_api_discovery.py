@@ -1066,13 +1066,15 @@ def test_observe_accepts_clean_in_window_decision(tmp_path: Path) -> None:
         assert current is not None and current.state == "accepted"
 
 
-def _ianb_docket_response() -> RecordedCourtListenerResponse:
+def _ianb_docket_response(
+    *, docket_number: str = "25-09086"
+) -> RecordedCourtListenerResponse:
     return _response(
         path="/dockets/555/",
         payload={
             "id": 555,
             "court": "ianb",
-            "docket_number": "25-09086",
+            "docket_number": docket_number,
             "case_name": "In re: Mercy Hospital, Iowa City v. PeriGen, Inc.",
             "date_filed": "2025-07-25",
             "absolute_url": "https://www.courtlistener.com/docket/555/childers/",
@@ -1169,6 +1171,7 @@ def _seeded_ranked_subset_bankruptcy_store(
             ),
             "docket_id": "555",
             "court_id": "ianb",
+            "adversary_case_number": "25-09086",
             "entry_number": "1",
             "filed_at": "2025-07-25",
             "entry_text": initiating_text,
@@ -1252,6 +1255,31 @@ def test_observe_rejects_external_subset_payload_not_persisted_in_batch(
     payload["uncommitted_annotation"] = "not in the frozen discovery hit"
     with store:
         recon_client = _client((_ianb_docket_response(),))
+        observation = observe_recap_api_candidate(
+            store,
+            "batch-002",
+            payload,
+            client=recon_client,
+            eligibility_anchor=date(2026, 6, 30),
+        )
+
+        assert observation.reason_code == PRESCREEN_BANKRUPTCY_REASON
+        assert observation.evidence["entry_reconstruction_skipped"] is True
+        assert recon_client.request_count == 1
+
+
+def test_observe_rejects_authoritative_adversary_docket_number_mismatch(
+    tmp_path: Path,
+) -> None:
+    initiating_text = (
+        "Adversary case 25-09086. Complaint by Dan R. Childers against PeriGen, Inc."
+    )
+    store, payload = _seeded_ranked_subset_bankruptcy_store(
+        tmp_path,
+        initiating_text=initiating_text,
+    )
+    with store:
+        recon_client = _client((_ianb_docket_response(docket_number="25-09087"),))
         observation = observe_recap_api_candidate(
             store,
             "batch-002",

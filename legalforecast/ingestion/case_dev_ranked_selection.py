@@ -27,6 +27,7 @@ from legalforecast.ingestion.recap_api_batch_driver import (
 from legalforecast.ingestion.recap_api_discovery import (
     RECAP_API_PROVIDER,
     build_recap_api_batch_config,
+    parse_adversary_case_number,
     prescreen_recap_candidate,
 )
 
@@ -807,7 +808,13 @@ def _source_bound_bankruptcy_adversary_entry_evidence(
     if not isinstance(metadata, Mapping) or not isinstance(entries, list):
         return None
     court_id = cast(Mapping[str, object], metadata).get("court_id")
-    if not isinstance(court_id, str) or not court_id.casefold().endswith("b"):
+    docket_number = cast(Mapping[str, object], metadata).get("docket_number")
+    if (
+        not isinstance(court_id, str)
+        or not court_id.casefold().endswith("b")
+        or not isinstance(docket_number, str)
+        or not docket_number.strip()
+    ):
         return None
     matches: list[Mapping[str, object]] = []
     for raw_entry in cast(list[object], entries):
@@ -817,12 +824,17 @@ def _source_bound_bankruptcy_adversary_entry_evidence(
         text = entry.get("entry_text")
         entry_number = entry.get("entry_number")
         filed_at = entry.get("filed_at")
+        adversary_case_number = (
+            parse_adversary_case_number(text) if isinstance(text, str) else None
+        )
         if (
             not isinstance(text, str)
             or not isinstance(entry_number, str)
             or not entry_number.isdecimal()
             or not isinstance(filed_at, str)
-            or re.search(r"\badversary\s+case\b", text, re.IGNORECASE) is None
+            or adversary_case_number is None
+            or adversary_case_number.strip().casefold()
+            != docket_number.strip().casefold()
             or re.search(r"\bcomplaint\b", text, re.IGNORECASE) is None
             or re.search(r"\bagainst\b", text, re.IGNORECASE) is None
         ):
@@ -834,6 +846,7 @@ def _source_bound_bankruptcy_adversary_entry_evidence(
                 ),
                 "docket_id": docket_id,
                 "court_id": court_id,
+                "adversary_case_number": adversary_case_number,
                 "entry_number": entry_number,
                 "filed_at": filed_at,
                 "entry_text": text,

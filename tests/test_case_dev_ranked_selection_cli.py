@@ -13,6 +13,7 @@ from legalforecast.ingestion.case_dev_ranked_selection import (
     CASE_DEV_RANKED_SELECTION_RUN_SCHEMA,
     CASE_DEV_RANKED_SUBSET_SELECTION_RUN_SCHEMA,
     CASE_DEV_RANKED_TRANSFER_SCHEMA,
+    _source_bound_bankruptcy_adversary_entry_evidence,
     project_case_dev_opinion_source,
 )
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
@@ -22,6 +23,52 @@ from legalforecast.ingestion.recap_api_batch_driver import (
     DirectSearchSeedSource,
     RecapApiBatchDriverError,
 )
+
+
+@pytest.mark.parametrize(
+    ("entry_text", "expected_number"),
+    [
+        (
+            "Adversary case 25-09086. Complaint by Trustee against PeriGen, Inc.",
+            "25-09086",
+        ),
+        (
+            "Adversary case 25-09087. Complaint by Trustee against PeriGen, Inc.",
+            None,
+        ),
+        (
+            "Adversary case pending. Complaint by Trustee against PeriGen, Inc.",
+            None,
+        ),
+    ],
+)
+def test_source_bound_adversary_evidence_requires_exact_docket_number(
+    entry_text: str,
+    expected_number: str | None,
+) -> None:
+    evidence = _source_bound_bankruptcy_adversary_entry_evidence(
+        {
+            "screening_metadata": {
+                "court_id": "ianb",
+                "docket_number": "25-09086",
+            },
+            "entries": [
+                {
+                    "entry_number": "1",
+                    "filed_at": "2025-07-25",
+                    "entry_text": entry_text,
+                }
+            ],
+        },
+        docket_id="555",
+        ranked_record_sha256="a" * 64,
+    )
+
+    if expected_number is None:
+        assert evidence is None
+    else:
+        assert evidence is not None
+        assert evidence["adversary_case_number"] == expected_number
 
 
 def test_select_case_dev_ranked_materializes_exact_top_n_rest_batch(

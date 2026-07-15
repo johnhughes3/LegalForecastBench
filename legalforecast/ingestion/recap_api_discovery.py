@@ -104,6 +104,11 @@ _CANDIDATE_PREFIX = "courtlistener-docket-"
 _CRIMINAL_DOCKET_TOKEN = re.compile(r"-cr-", re.IGNORECASE)
 _CRIMINAL_SLUG_PREFIXES = ("usa-v-", "united-states-v-")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_ADVERSARY_CASE_NUMBER = re.compile(
+    r"\badversary\s+case(?:\s+(?:no\.?|number))?\s*(?:[:#]\s*)?"
+    r"(?P<number>[0-9A-Za-z]+(?:[-:.][0-9A-Za-z]+)+)\b",
+    re.IGNORECASE,
+)
 _RANKED_SUBSET_TRANSFER_SCHEMA = (
     "legalforecast.case_dev_ranked_opinion_subset_transfer.v1"
 )
@@ -134,6 +139,21 @@ _MONTHS = (
     "November",
     "December",
 )
+
+
+def parse_adversary_case_number(text: str) -> str | None:
+    """Return one explicit adversary-case number, failing closed on ambiguity."""
+
+    matches = tuple(
+        match.group("number") for match in _ADVERSARY_CASE_NUMBER.finditer(text)
+    )
+    return matches[0] if len(matches) == 1 else None
+
+
+def _same_docket_number(left: str, right: str) -> bool:
+    """Compare already parsed docket numbers without lossy punctuation folding."""
+
+    return left.strip().casefold() == right.strip().casefold()
 
 
 class RecapApiDiscoveryError(RuntimeError):
@@ -996,6 +1016,7 @@ def _source_bound_adversary_defer_evidence(
     entry_text = typed_evidence.get("entry_text")
     entry_number = typed_evidence.get("entry_number")
     filed_at = typed_evidence.get("filed_at")
+    adversary_case_number = typed_evidence.get("adversary_case_number")
     if (
         typed_provenance.get("schema_version") != _RANKED_SUBSET_TRANSFER_SCHEMA
         or typed_evidence.get("schema_version")
@@ -1011,7 +1032,10 @@ def _source_bound_adversary_defer_evidence(
         or not entry_number.isdecimal()
         or not isinstance(filed_at, str)
         or not isinstance(entry_text, str)
-        or re.search(r"\badversary\s+case\b", entry_text, re.IGNORECASE) is None
+        or not isinstance(adversary_case_number, str)
+        or parse_adversary_case_number(entry_text) != adversary_case_number
+        or not isinstance(docket.docket_number, str)
+        or not _same_docket_number(adversary_case_number, docket.docket_number)
         or re.search(r"\bcomplaint\b", entry_text, re.IGNORECASE) is None
         or re.search(r"\bagainst\b", entry_text, re.IGNORECASE) is None
     ):
