@@ -52,6 +52,7 @@ def generate_recap_fetch_broker_policy(
     budget_plan_artifact: Mapping[str, object],
     selection_records: Sequence[Mapping[str, Any]],
     broad_frontier_allowlist: bool = False,
+    attempt_policy_artifact: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Build the exact broker policy accepted by secure-gate.
 
@@ -79,7 +80,7 @@ def generate_recap_fetch_broker_policy(
         raise RecapFetchBrokerPolicyError(
             "broad frontier allowlist requires an explicitly dry-run scope plan"
         )
-    _validate_budget_plan_artifact(
+    validate_recap_fetch_budget_plan_artifact(
         budget_plan_artifact,
         budget_plan=budget_plan,
         reservation_usd=purchase_policy.per_document_reservation_usd,
@@ -109,6 +110,29 @@ def generate_recap_fetch_broker_policy(
     selection = _index_selection(
         selection_records, allow_unselected=broad_frontier_allowlist
     )
+    attempt_documents: Mapping[str, Mapping[str, str]] = {}
+    if attempt_policy_artifact is not None:
+        if broad_frontier_allowlist:
+            raise RecapFetchBrokerPolicyError(
+                "attempt policy cannot expand a broad frontier allowlist"
+            )
+        try:
+            from legalforecast.ingestion.recap_fetch_attempt_policy import (
+                verify_recap_fetch_attempt_policy,
+            )
+
+            attempt_documents = verify_recap_fetch_attempt_policy(
+                attempt_policy_artifact,
+                purchase_policy_artifact=purchase_policy_artifact,
+                cohort_policy_artifact=cohort_policy_artifact,
+                budget_plan=budget_plan,
+                budget_plan_artifact=budget_plan_artifact,
+                selection_records=selection_records,
+            )
+        except ValueError as exc:
+            raise RecapFetchBrokerPolicyError(
+                f"attempt policy is invalid: {exc}"
+            ) from exc
     allowed_documents: list[dict[str, str]] = []
     seen_candidates: set[str] = set()
     seen_documents: set[str] = set()
@@ -152,7 +176,12 @@ def generate_recap_fetch_broker_policy(
                     "missing public restriction metadata for planned RECAP "
                     f"document {canonical_document_id} in {candidate_id}"
                 )
-            _require_not_restricted(metadata, canonical_document_id)
+            try:
+                _require_not_restricted(metadata, canonical_document_id)
+            except RecapFetchBrokerPolicyError:
+                authority = attempt_documents.get(canonical_document_id)
+                if authority is None or authority.get("case_id") != candidate_id:
+                    raise
             allowed_documents.append(
                 {
                     "recap_document": canonical_document_id,
@@ -471,7 +500,7 @@ def _verify_generated_policy_shape(policy: Mapping[str, object]) -> None:
         )
 
 
-def _validate_budget_plan_artifact(
+def validate_recap_fetch_budget_plan_artifact(
     artifact: Mapping[str, object],
     *,
     budget_plan: MissingCoreBudgetPlan,

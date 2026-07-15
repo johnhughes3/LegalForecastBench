@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import sqlite3
 from decimal import Decimal
 from pathlib import Path
 
@@ -16,11 +18,13 @@ from legalforecast.ingestion.case_dev_config import CaseDevConfig
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerCapability,
     CaseDevPacerPurchaseClient,
+    CaseDevPacerPurchaseStatus,
     CaseDevPurchaseJournal,
     CaseDevPurchaseLedgerBusyError,
     CaseDevPurchaseLedgerError,
     CaseDevPurchasePolicyError,
     CaseDevPurchaseReconciliationRequired,
+    PurchaseMaterialState,
     generate_case_dev_purchase_policy,
     verify_case_dev_purchase_policy,
 )
@@ -148,6 +152,352 @@ def test_crash_before_post_leaves_planned_and_reopen_can_submit(
 
     assert result.executed_purchase_count == 1
     assert len(transport.requests) == 1
+
+
+def test_unknown_attempt_billing_and_material_states_are_orthogonal(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan(("doc-1",)))
+        journal.authorize_unknown_material_attempts(
+            {
+                "doc-1": {
+                    "case_id": "case-1",
+                    "selection_document_sha256": "9" * 64,
+                }
+            },
+            attempt_policy_sha256="a" * 64,
+        )
+        assert journal.submit("doc-1") is True
+        journal.mark_unknown("doc-1", "broker timeout")
+
+        evidence = journal.operation_evidence("doc-1")
+        assert evidence is not None
+        assert evidence["status"] == "unknown"
+        assert evidence["material_state"] == PurchaseMaterialState.NOT_RECOVERED
+        assert evidence["material_authority"] == "unknown_status_attempt"
+        assert evidence["attempt_policy_sha256"] == "a" * 64
+        assert journal.committed_amount_usd == "3.05"
+        operation_key = str(evidence["operation_key"])
+        journal.record_broker_receipt(
+            "doc-1",
+            {
+                "operation_key": operation_key,
+                "reservation_id": "reservation-1",
+                "cycle_id": "cycle-1",
+                "purchase_policy_sha256": policy.policy_sha256,
+                "recap_document": "doc-1",
+                "case_id": "case-1",
+                "client_code": "test",
+                "reservation_usd": "3.05",
+                "id": "queue-1",
+                "state": "confirmed",
+                "authoritative_fee_usd": "3.05",
+                "billing_evidence": {"evidence_sha256": "f" * 64},
+            },
+        )
+        journal.recover_broker_queue(
+            "doc-1", queue_id="queue-1", reservation_id="reservation-1"
+        )
+        journal.mark_material_available_for_quarantine(
+            "doc-1",
+            provider_detail_sha256="b" * 64,
+            queue_response_sha256="c" * 64,
+            download_url_sha256="d" * 64,
+        )
+        journal.record_quarantined_material_bytes(
+            "doc-1", content_sha256="e" * 64, byte_count=123
+        )
+        journal.reconcile_unknown_broker_billing(
+            "doc-1",
+            actual_usd="3.05",
+            evidence_sha256="f" * 64,
+            source_reference=f"recap-fetch-broker:{operation_key}:{'f' * 64}",
+        )
+
+        recovered = journal.operation_evidence("doc-1")
+        assert recovered is not None
+        assert recovered["status"] == "confirmed"
+        assert recovered["material_state"] == (
+            PurchaseMaterialState.RECOVERED_PENDING_CLEARANCE
+        )
+        assert recovered["material_evidence"] == {
+            "provider_detail_sha256": "b" * 64,
+            "queue_response_sha256": "c" * 64,
+            "download_url_sha256": "d" * 64,
+            "content_sha256": "e" * 64,
+            "byte_count": 123,
+        }
+        replay = journal.replay_attempt("case-1", "doc-1")
+        assert replay is not None
+        assert replay.status is CaseDevPacerPurchaseStatus.QUARANTINED
+        assert replay.download_url is None
+        assert "storage.courtlistener.com" not in json.dumps(
+            [dict(record) for record in journal.operation_records()]
+        )
+        assert journal.committed_amount_usd == "3.05"
+
+
+def test_unknown_material_clearance_is_independent_of_unresolved_billing(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan(("doc-1",)))
+        journal.authorize_unknown_material_attempts(
+            {
+                "doc-1": {
+                    "case_id": "case-1",
+                    "selection_document_sha256": "9" * 64,
+                }
+            },
+            attempt_policy_sha256="a" * 64,
+        )
+        journal.submit("doc-1")
+        journal.queue("doc-1", response={"queue_id": "77"})
+        journal.mark_material_available_for_quarantine(
+            "doc-1",
+            provider_detail_sha256="b" * 64,
+            queue_response_sha256="c" * 64,
+            download_url_sha256="d" * 64,
+        )
+        journal.record_quarantined_material_bytes(
+            "doc-1", content_sha256="e" * 64, byte_count=123
+        )
+        resolved = {
+            "candidate_id": "case-1",
+            "source_document_id": "doc-1",
+            "recovery_origin": "unknown_status_attempt",
+            "attempt_policy_sha256": "a" * 64,
+            "selection_document_sha256": "9" * 64,
+            "queue_response_sha256": "c" * 64,
+            "fresh_recap_detail_sha256": "b" * 64,
+            "download_url_sha256": "d" * 64,
+            "content_sha256": "e" * 64,
+            "byte_count": 123,
+            "clearance_record_sha256": "f" * 64,
+            "parser_eligible": True,
+            "packet_eligible": True,
+        }
+        resolved["record_sha256"] = hashlib.sha256(
+            json.dumps(resolved, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+
+        journal.clear_unknown_material("doc-1", resolved_record=resolved)
+        evidence = journal.operation_evidence("doc-1")
+        assert evidence is not None
+        assert evidence["status"] == "queued"
+        assert evidence["material_state"] is PurchaseMaterialState.CLEARED_PUBLIC
+        assert journal.committed_amount_usd == "3.05"
+
+
+def test_unknown_attempt_authority_is_exact_and_immutable(tmp_path: Path) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan(("doc-1",)))
+        with pytest.raises(CaseDevPurchaseLedgerError, match="candidate identity"):
+            journal.authorize_unknown_material_attempts(
+                {
+                    "doc-1": {
+                        "case_id": "case-other",
+                        "selection_document_sha256": "9" * 64,
+                    }
+                },
+                attempt_policy_sha256="a" * 64,
+            )
+        journal.authorize_unknown_material_attempts(
+            {
+                "doc-1": {
+                    "case_id": "case-1",
+                    "selection_document_sha256": "9" * 64,
+                }
+            },
+            attempt_policy_sha256="a" * 64,
+        )
+        journal.authorize_unknown_material_attempts(
+            {
+                "doc-1": {
+                    "case_id": "case-1",
+                    "selection_document_sha256": "9" * 64,
+                }
+            },
+            attempt_policy_sha256="a" * 64,
+        )
+        with pytest.raises(CaseDevPurchaseLedgerError, match="immutable"):
+            journal.authorize_unknown_material_attempts(
+                {
+                    "doc-1": {
+                        "case_id": "case-1",
+                        "selection_document_sha256": "9" * 64,
+                    }
+                },
+                attempt_policy_sha256="b" * 64,
+            )
+
+
+def test_unknown_attempt_cannot_use_ordinary_confirmation_paths(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan(("doc-1",)))
+        journal.authorize_unknown_material_attempts(
+            {
+                "doc-1": {
+                    "case_id": "case-1",
+                    "selection_document_sha256": "9" * 64,
+                }
+            },
+            attempt_policy_sha256="a" * 64,
+        )
+        journal.submit("doc-1")
+        with pytest.raises(CaseDevPurchaseLedgerError, match="URL-free"):
+            journal.confirm(
+                "doc-1",
+                response={"downloadUrl": "https://example.test/doc.pdf"},
+                fees={"total_usd": "3.05"},
+            )
+        journal.queue("doc-1", response={"queue_id": "77"})
+        with pytest.raises(CaseDevPurchaseLedgerError, match="quarantined"):
+            journal.confirm_reserved("doc-1", response={"queue_id": "77"})
+        with pytest.raises(CaseDevPurchaseLedgerError, match="URL-free"):
+            journal.reconcile(
+                {
+                    "source_document_id": "doc-1",
+                    "disposition": "confirmed",
+                    "source_type": "billing_receipt",
+                    "source_reference": "receipt-1",
+                    "pacer_fees": {
+                        "pacerFee": "3.00",
+                        "serviceFee": "0.05",
+                        "total": "3.05",
+                    },
+                    "download_url": "https://example.test/doc.pdf",
+                }
+            )
+
+
+def test_reopen_rejects_nonexact_operation_schema(tmp_path: Path) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True):
+        pass
+    connection = sqlite3.connect(ledger)
+    connection.execute("ALTER TABLE purchase_operations ADD COLUMN surprise TEXT")
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(CaseDevPurchaseLedgerError, match="exact supported"):
+        CaseDevPurchaseJournal(ledger, policy=policy)
+
+
+def test_reopen_rejects_contradictory_material_state(tmp_path: Path) -> None:
+    ledger = (tmp_path / "cycle-purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        journal.plan(_plan(("doc-1",)))
+        journal.authorize_unknown_material_attempts(
+            {
+                "doc-1": {
+                    "case_id": "case-1",
+                    "selection_document_sha256": "9" * 64,
+                }
+            },
+            attempt_policy_sha256="a" * 64,
+        )
+    connection = sqlite3.connect(ledger)
+    connection.execute(
+        "UPDATE purchase_material_state SET status='recovered_pending_clearance' "
+        "WHERE source_document_id='doc-1'"
+    )
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(CaseDevPurchaseLedgerError, match="contradictory"):
+        CaseDevPurchaseJournal(ledger, policy=policy)
+
+
+def test_nonempty_legacy_ledger_migrates_after_operations_and_preserves_cap(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "legacy.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    operation_key = "5e675533-550b-4a6f-85f8-75e977004e3c"
+    connection = sqlite3.connect(ledger)
+    connection.executescript(
+        """
+        CREATE TABLE purchase_ledger (
+            singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+            cycle_id TEXT NOT NULL,
+            cohort_policy_sha256 TEXT NOT NULL,
+            purchase_policy_sha256 TEXT NOT NULL,
+            canonical_ledger_path TEXT NOT NULL,
+            hard_cap_usd TEXT NOT NULL,
+            opening_committed_spend_usd TEXT NOT NULL,
+            max_per_case_usd TEXT NOT NULL,
+            per_document_reservation_usd TEXT NOT NULL
+        );
+        CREATE TABLE purchase_operations (
+            source_document_id TEXT PRIMARY KEY,
+            candidate_id TEXT NOT NULL,
+            reservation_usd TEXT NOT NULL,
+            status TEXT NOT NULL CHECK(status IN
+                ('planned','submitted','confirmed','failed','unknown')),
+            operation_key TEXT UNIQUE,
+            actual_usd TEXT,
+            response_json TEXT,
+            error TEXT,
+            reconciliation_json TEXT
+        );
+        CREATE TABLE replacement_events (
+            sequence INTEGER PRIMARY KEY CHECK(sequence >= 0),
+            event_key TEXT NOT NULL UNIQUE,
+            record_json TEXT NOT NULL,
+            record_sha256 TEXT NOT NULL UNIQUE
+        );
+        """
+    )
+    connection.execute(
+        "INSERT INTO purchase_ledger VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            policy.cycle_id,
+            policy.cohort_policy_sha256,
+            policy.policy_sha256,
+            str(policy.canonical_ledger_path),
+            "9.15",
+            "0.00",
+            "9.15",
+            "3.05",
+        ),
+    )
+    connection.execute(
+        """INSERT INTO purchase_operations VALUES
+        ('doc-legacy','case-1','3.05','submitted',?,NULL,NULL,NULL,NULL)""",
+        (operation_key,),
+    )
+    connection.commit()
+    connection.close()
+
+    with CaseDevPurchaseJournal(ledger, policy=policy) as journal:
+        evidence = journal.operation_evidence("doc-legacy")
+        assert evidence is not None
+        assert evidence["operation_key"] == operation_key
+        assert evidence["status"] == "submitted"
+        assert evidence["material_authority"] == "ordinary_public"
+        assert journal.committed_amount_usd == "3.05"
+        foreign_key = journal._connection.execute(
+            "PRAGMA foreign_key_list(purchase_material_state)"
+        ).fetchone()
+        assert foreign_key is not None
+        assert foreign_key["table"] == "purchase_operations"
+        assert journal._connection.execute("PRAGMA user_version").fetchone()[0] == 2
 
 
 def test_crash_after_post_leaves_submitted_and_resume_requires_reconciliation(

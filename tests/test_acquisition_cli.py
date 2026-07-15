@@ -1689,6 +1689,7 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     )
     selection_path = tmp_path / "selection.jsonl"
     downloads_path = tmp_path / "downloads.jsonl"
+    clearance_path = tmp_path / "clearance.jsonl"
     parser_path = tmp_path / "parser.jsonl"
     units_path = tmp_path / "units.jsonl"
     registry_path = _write_model_registry(tmp_path)
@@ -1727,6 +1728,7 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
             _parser_record("decision"),
         ],
     )
+    _write_clearance(downloads_path, clearance_path)
     _write_jsonl(
         units_path,
         [_finalized_prediction_unit_record()],
@@ -1743,6 +1745,8 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
                 str(downloads_path),
                 "--parser-manifest",
                 str(parser_path),
+                "--disclosure-clearance",
+                str(clearance_path),
                 "--prediction-units",
                 str(units_path),
                 "--model-registry",
@@ -1833,6 +1837,8 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
                 str(downloads_path),
                 "--parser-manifest",
                 str(parser_path),
+                "--disclosure-clearance",
+                str(clearance_path),
                 "--prediction-units",
                 str(units_path),
                 "--model-registry",
@@ -1895,6 +1901,7 @@ def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
     selection["target_motion_entry_numbers"] = [33]
     selection_path = tmp_path / "selection.jsonl"
     downloads_path = tmp_path / "downloads.jsonl"
+    clearance_path = tmp_path / "clearance.jsonl"
     parser_path = tmp_path / "parser.jsonl"
     units_path = tmp_path / "units.jsonl"
     registry_path = _write_model_registry(tmp_path)
@@ -1924,6 +1931,7 @@ def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
             _parser_record("decision"),
         ],
     )
+    _write_clearance(downloads_path, clearance_path)
     _write_jsonl(
         units_path,
         [_finalized_prediction_unit_record()],
@@ -1940,6 +1948,8 @@ def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
                 str(downloads_path),
                 "--parser-manifest",
                 str(parser_path),
+                "--disclosure-clearance",
+                str(clearance_path),
                 "--prediction-units",
                 str(units_path),
                 "--model-registry",
@@ -1994,6 +2004,7 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
     )
     selection_path = tmp_path / "selection.jsonl"
     downloads_path = tmp_path / "downloads.jsonl"
+    clearance_path = tmp_path / "clearance.jsonl"
     parser_path = tmp_path / "parser.jsonl"
     units_path = tmp_path / "units.jsonl"
     registry_path = _write_model_registry(
@@ -2046,6 +2057,7 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
             _parser_record("decision"),
         ],
     )
+    _write_clearance(downloads_path, clearance_path)
     _write_jsonl(
         units_path,
         [_finalized_prediction_unit_record()],
@@ -2062,6 +2074,8 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
                 str(downloads_path),
                 "--parser-manifest",
                 str(parser_path),
+                "--disclosure-clearance",
+                str(clearance_path),
                 "--prediction-units",
                 str(units_path),
                 "--model-registry",
@@ -2607,6 +2621,8 @@ def _parser_record(source_document_id: str) -> JsonRecord:
         "metadata_path": f"{markdown_path}.metadata.json",
         "parser_config": {"engine": "fixture"},
         "quality_flags": [],
+        "source_sha256": hashlib.sha256(source_document_id.encode()).hexdigest(),
+        "source_byte_count": 10,
         "extracted_text": {
             "source_document_id": source_document_id,
             "extracted_at": _GENERATED_AT,

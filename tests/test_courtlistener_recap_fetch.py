@@ -118,7 +118,103 @@ def test_purchase_verifies_id_then_submits_exact_broker_contract_and_recovers(
     ]
 
 
-def test_purchase_accepts_exact_courtlistener_rest_nonsealed_evidence(
+def test_mixed_material_preserves_candidate_and_quarantines_only_unknown(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    transport = FixtureRecapFetchTransport(
+        [
+            _response("GET", "/recap-documents/123/", {"id": 123}),
+            _response("GET", "/recap-fetch/77/", {"status": 2}),
+            _response(
+                "GET",
+                "/recap-documents/123/",
+                {
+                    "id": 123,
+                    "is_available": True,
+                    "is_sealed": None,
+                    "is_private": None,
+                    "filepath_local": "https://storage.courtlistener.com/123.pdf",
+                },
+            ),
+            _response("GET", "/recap-documents/124/", {"id": 124}),
+            _response("GET", "/recap-fetch/78/", {"status": 2}),
+            _response(
+                "GET",
+                "/recap-documents/124/",
+                {
+                    "id": 124,
+                    "is_available": True,
+                    "filepath_local": "https://storage.courtlistener.com/124.pdf",
+                },
+            ),
+        ]
+    )
+    broker = FixtureRecapFetchPurchaseBroker(
+        [
+            {"id": "77", "reservation_id": "reservation-1"},
+            {"id": "78", "reservation_id": "reservation-2"},
+        ]
+    )
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    plan = _plan(("123", "124"))
+    unknown_metadata = {
+        "redaction_or_seal_status": "unknown",
+        "is_sealed": None,
+        "is_private": None,
+        "is_available": False,
+        "availability_status": "unavailable",
+        "requires_paid_recovery": True,
+        "restriction_evidence": [
+            "courtlistener_rest_docket_exact_match",
+            "courtlistener_rest_docket_entry_exact_match",
+            "courtlistener_rest_recap_document_exact_match",
+            "courtlistener_rest_recap_document_is_available_false",
+            "courtlistener_rest_recap_document_seal_status_unknown",
+            "courtlistener_rest_no_positive_restriction_marker",
+        ],
+    }
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        result = CourtListenerRecapFetchClient(
+            _config(), journal=journal, transport=transport, purchase_broker=broker
+        ).execute_purchase_plan(
+            plan,
+            public_documents={
+                "123": unknown_metadata,
+                "124": {
+                    "redaction_or_seal_status": "public",
+                    "is_sealed": False,
+                    "is_private": False,
+                },
+            },
+            attempt_documents={
+                "123": {
+                    "case_id": "case-1",
+                    "selection_document_sha256": "a" * 64,
+                }
+            },
+            attempt_policy_sha256="b" * 64,
+            live=True,
+            acknowledge_pacer_fees=True,
+        )
+
+        unknown = journal.operation_evidence("123")
+        assert unknown is not None
+        assert unknown["status"] == "queued"
+        assert unknown["material_state"].value == ("available_pending_quarantine")
+        assert "storage.courtlistener.com" not in str(unknown)
+        assert journal.statuses() == {"123": "queued", "124": "confirmed"}
+
+    assert [attempt.status.value for attempt in result.attempts] == [
+        "quarantined",
+        "purchased",
+    ]
+    assert result.attempts[0].download_url is None
+    assert result.executed_purchase_count == 1
+    assert result.quarantined_material_count == 1
+
+
+def test_private_null_recap_evidence_requires_attempt_policy_and_quarantine(
     tmp_path: Path,
 ) -> None:
     ledger = (tmp_path / "purchases.sqlite3").resolve()
@@ -163,11 +259,19 @@ def test_purchase_accepts_exact_courtlistener_rest_nonsealed_evidence(
         ).execute_purchase_plan(
             _plan(),
             public_documents=metadata,
+            attempt_documents={
+                "123": {
+                    "case_id": "case-1",
+                    "selection_document_sha256": "a" * 64,
+                }
+            },
+            attempt_policy_sha256="b" * 64,
             live=True,
             acknowledge_pacer_fees=True,
         )
 
-    assert result.executed_purchase_count == 1
+    assert result.executed_purchase_count == 0
+    assert result.quarantined_material_count == 1
 
 
 def test_live_fails_closed_without_budget_broker_before_paid_submission(
@@ -446,6 +550,34 @@ def test_cli_help_exposes_brokered_command(capsys: pytest.CaptureFixture[str]) -
     assert "--request-budget-max-wait-seconds" in output
 
 
+def test_brokered_purchase_cli_requires_selection_before_reading_inputs(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(
+            [
+                "acquisition",
+                "purchase-missing-recap-fetch",
+                "--output-root",
+                str(tmp_path),
+                "--budget-plan",
+                "missing-budget.json",
+                "--purchase-policy",
+                "missing-policy.json",
+                "--cohort-policy",
+                "missing-cohort.json",
+                "--purchase-ledger",
+                "missing-ledger.sqlite3",
+            ]
+        )
+
+    assert exc.value.code == 2
+    assert (
+        "the following arguments are required: --selection" in capsys.readouterr().err
+    )
+
+
 @pytest.mark.parametrize(
     ("queue_status", "expected_status", "expected_reason"),
     [
@@ -647,6 +779,35 @@ def test_restricted_or_unknown_documents_never_reach_provider(
             )
     assert transport.requests == []
     assert broker.requests == []
+
+
+def test_attempt_policy_is_fully_validated_before_journal_plan(
+    tmp_path: Path,
+) -> None:
+    ledger = (tmp_path / "purchases.sqlite3").resolve()
+    policy = verify_case_dev_purchase_policy(_policy(ledger))
+    with CaseDevPurchaseJournal(ledger, policy=policy, allow_create=True) as journal:
+        client = CourtListenerRecapFetchClient(
+            _config(),
+            journal=journal,
+            transport=FixtureRecapFetchTransport([]),
+            purchase_broker=FixtureRecapFetchPurchaseBroker([]),
+        )
+        with pytest.raises(CourtListenerRecapFetchError, match="unplanned"):
+            client.execute_purchase_plan(
+                _plan(),
+                public_documents=_public_documents(),
+                attempt_documents={
+                    "999": {
+                        "case_id": "case-1",
+                        "selection_document_sha256": "9" * 64,
+                    }
+                },
+                attempt_policy_sha256="a" * 64,
+                live=True,
+                acknowledge_pacer_fees=True,
+            )
+        assert journal.statuses() == {}
 
 
 def test_document_identity_mismatch_blocks_paid_submission(tmp_path: Path) -> None:
