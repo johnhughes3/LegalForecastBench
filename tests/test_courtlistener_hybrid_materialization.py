@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -56,6 +57,93 @@ def test_hybrid_discovery_materializes_with_exact_firecrawl_lineage(
     assert lineage["firecrawl_source_receipt_count"] == 1
     assert lineage["firecrawl_run_reserved_credits"] == 1
     assert lineage["firecrawl_run_reported_credits"] == 1
+
+
+@pytest.mark.parametrize("failure_kind", ["target_404", "target_410", "abandoned"])
+def test_hybrid_terminal_retrieval_exclusion_materializes_with_durable_lineage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_kind: str,
+) -> None:
+    discovery_root, cycle_store = _run_hybrid_discovery_with_terminal_exclusion(
+        tmp_path,
+        monkeypatch,
+        failure_kind=failure_kind,
+    )
+
+    [exclusion] = _read_jsonl(
+        discovery_root / "courtlistener-discovery-exclusions.jsonl"
+    )
+    assert exclusion["candidate_id"] == "122"
+    assert exclusion["stage"] == "retrieval"
+    assert exclusion["reason"] == "courtlistener_docket_html_unavailable"
+    with CycleAcquisitionStore(cycle_store) as store:
+        attempts = store.firecrawl_attempts("hybrid-batch-courtlistener-docket-html-v1")
+    assert len(attempts) == 2
+    failed, succeeded = attempts
+    if failure_kind.startswith("target_"):
+        assert failed.status == "target_error"
+        assert failed.failure_code == "target_http_status_invalid"
+        assert failed.target_http_status == int(failure_kind.removeprefix("target_"))
+    else:
+        assert failed.status == "interrupted"
+        assert failed.failure_code == "authorization_abandoned"
+        assert failed.failure_transient is False
+    assert succeeded.status == "succeeded"
+
+    snapshot = _materialize_hybrid(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    manifest = verify_snapshot(snapshot, require_complete=True, require_saturated=True)
+    lineage = manifest["stage_commitments"]["courtlistener_discovery_inputs"]
+    assert lineage["accepted_case_count"] == 1
+    assert lineage["excluded_case_count"] == 1
+    assert lineage["firecrawl_source_receipt_count"] == 1
+    assert lineage["firecrawl_run_reserved_credits"] == 2
+    assert lineage["firecrawl_run_reported_credits"] == (
+        2 if failure_kind.startswith("target_") else 1
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [
+        ("reason", "courtlistener_docket_unavailable"),
+        ("stage", "screening"),
+    ],
+)
+def test_hybrid_materialization_rejects_unmatched_terminal_retrieval_exclusion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    replacement: str,
+    capsys: Any,
+) -> None:
+    discovery_root, cycle_store = _run_hybrid_discovery_with_terminal_exclusion(
+        tmp_path,
+        monkeypatch,
+        failure_kind="target_404",
+    )
+    exclusions_path = discovery_root / "courtlistener-discovery-exclusions.jsonl"
+    [exclusion] = _read_jsonl(exclusions_path)
+    exclusion[field] = replacement
+    _write_jsonl(exclusions_path, [exclusion])
+    _recommit_output(discovery_root, "exclusions", exclusions_path)
+
+    assert (
+        main(
+            _materialize_command(
+                tmp_path=tmp_path,
+                discovery_root=discovery_root,
+                cycle_store=cycle_store,
+                snapshot_id=f"unmatched-terminal-{field}",
+            )
+        )
+        == 2
+    )
+    assert "Firecrawl" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
@@ -270,6 +358,201 @@ def _run_hybrid_discovery(
         == 0
     )
     return output_root, cycle_store
+
+
+def _run_hybrid_discovery_with_terminal_exclusion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    failure_kind: str,
+) -> tuple[Path, Path]:
+    output_root = tmp_path / "discovery"
+    cycle_store = tmp_path / "cycle.sqlite3"
+    fixture_path = tmp_path / "courtlistener.jsonl"
+    _write_jsonl(
+        fixture_path,
+        [
+            _fixture_response(
+                path="/search/",
+                params={
+                    "q": (
+                        '"order on motion to dismiss" AND '
+                        "entry_date_filed:[2026-06-30 TO 2026-07-12]"
+                    ),
+                    "type": "r",
+                    "order_by": "score desc",
+                    "available_only": "on",
+                    "page_size": 50,
+                },
+                payload={
+                    "results": [
+                        {
+                            "docket_id": 122,
+                            "docket_entry_id": 15,
+                            "description": "Order on motion to dismiss",
+                            "entry_date_filed": "2026-06-30",
+                        },
+                        {
+                            "docket_id": int(_DOCKET_ID),
+                            "docket_entry_id": 16,
+                            "description": "Order on motion to dismiss",
+                            "entry_date_filed": "2026-06-30",
+                        },
+                    ],
+                    "next": None,
+                },
+            ),
+            _fixture_response(
+                path="/dockets/122/",
+                payload={
+                    "id": 122,
+                    "court": "nysd",
+                    "docket_number": "1:26-cv-00000",
+                    "case_name": "Unavailable v. Example",
+                    "absolute_url": (
+                        "https://www.courtlistener.com/docket/122/"
+                        "unavailable-v-example/"
+                    ),
+                },
+            ),
+            _fixture_response(
+                path=f"/dockets/{_DOCKET_ID}/",
+                payload={
+                    "id": int(_DOCKET_ID),
+                    "court": "nysd",
+                    "docket_number": "1:26-cv-00001",
+                    "case_name": "Fixture v. Example",
+                    "absolute_url": _DOCKET_URL,
+                },
+            ),
+        ],
+    )
+    fixture_client = CourtListenerClient(
+        config=CourtListenerConfig(api_token="fixture-token"),
+        transport=CourtListenerFixtureTransport.from_jsonl(fixture_path),
+    )
+    success_response = _firecrawl_success_response()
+    transport = (
+        FirecrawlFixtureTransport(
+            [
+                _firecrawl_unavailable_response(
+                    int(failure_kind.removeprefix("target_"))
+                ),
+                success_response,
+            ]
+        )
+        if failure_kind.startswith("target_")
+        else _AbandonThenSuccessTransport(success_response)
+    )
+    firecrawl_source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="fixture-key", proxy="basic"),
+        transport=transport,
+    )
+    monkeypatch.setenv("COURTLISTENER_API_TOKEN", "fixture-token")
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fixture-key")
+
+    def fixture_client_factory(**_kwargs: object) -> CourtListenerClient:
+        return fixture_client
+
+    def fixture_firecrawl_source(
+        _config: FirecrawlConfig,
+    ) -> FirecrawlCourtListenerHTMLSource:
+        return firecrawl_source
+
+    monkeypatch.setattr("legalforecast.cli.CourtListenerClient", fixture_client_factory)
+    monkeypatch.setattr(
+        "legalforecast.cli.FirecrawlCourtListenerHTMLSource",
+        fixture_firecrawl_source,
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "discover-courtlistener",
+                "--eligibility-anchor",
+                "2026-06-30",
+                "--search-window-start",
+                "2026-06-30",
+                "--search-window-end",
+                "2026-07-12",
+                "--cycle-store",
+                str(cycle_store),
+                "--batch-id",
+                "hybrid-batch",
+                "--query-term",
+                _QUERY,
+                "--target-clean-cases",
+                "3",
+                "--max-candidates",
+                "5",
+                "--output-root",
+                str(output_root),
+                "--live",
+                "--live-firecrawl-docket-html",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    return output_root, cycle_store
+
+
+class _AbandonThenSuccessTransport:
+    def __init__(self, success_response: FirecrawlHTTPResponse) -> None:
+        self._success_response = success_response
+        self._calls = 0
+
+    def scrape(
+        self,
+        *,
+        endpoint: str,
+        headers: Mapping[str, str],
+        payload: Mapping[str, Any],
+        timeout_seconds: float,
+    ) -> FirecrawlHTTPResponse:
+        del endpoint, headers, payload, timeout_seconds
+        self._calls += 1
+        if self._calls == 1:
+            raise RuntimeError("injected provider transport interruption")
+        return self._success_response
+
+
+def _firecrawl_unavailable_response(target_status: int) -> FirecrawlHTTPResponse:
+    return FirecrawlHTTPResponse(
+        status_code=200,
+        payload={
+            "success": True,
+            "data": {
+                "rawHtml": "<html><body>Not found</body></html>",
+                "metadata": {
+                    "statusCode": target_status,
+                    "proxyUsed": "basic",
+                    "cacheState": "miss",
+                    "creditsUsed": 1,
+                    "sourceURL": "https://www.courtlistener.com/docket/122/",
+                },
+            },
+        },
+    )
+
+
+def _firecrawl_success_response() -> FirecrawlHTTPResponse:
+    return FirecrawlHTTPResponse(
+        status_code=200,
+        payload={
+            "success": True,
+            "data": {
+                "rawHtml": _docket_html(),
+                "metadata": {
+                    "statusCode": 200,
+                    "proxyUsed": "basic",
+                    "cacheState": "miss",
+                    "creditsUsed": 1,
+                    "sourceURL": _DOCKET_URL,
+                },
+            },
+        },
+    )
 
 
 def _materialize_hybrid(
