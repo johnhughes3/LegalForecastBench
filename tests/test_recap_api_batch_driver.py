@@ -1199,6 +1199,57 @@ def _build_saturated_direct_search_store(
     return path
 
 
+def _build_saturated_opinion_search_store(tmp_path: Path) -> Path:
+    """Build an opinion-search source whose bankruptcy summary is inconclusive."""
+
+    path = tmp_path / "opinion-search.sqlite3"
+    with CycleAcquisitionStore(path) as store:
+        store.ensure_cycle(
+            {"schema_version": "test", "eligibility_anchor": "2026-06-30"}
+        )
+        term = '"Rule 7012" OR "motion to dismiss adversary complaint"'
+        store.ensure_batch(
+            "opinion-search",
+            {
+                "provider": "courtlistener",
+                "search_type": "o",
+                "search_window_start": "2026-06-30",
+                "search_window_end": "2026-07-15",
+                "query_terms": [term],
+                "page_size": 20,
+            },
+        )
+        store.ensure_terms("opinion-search", (term,))
+        store.commit_search_page(
+            "opinion-search",
+            term,
+            None,
+            [
+                {
+                    "provider_hit_id": "10026367",
+                    "candidate_id": "70649963",
+                    "payload": {
+                        "docket_id": "70649963",
+                        "court_id": "nysb",
+                        # Opinion summaries can expose a court-local number and
+                        # an estate-style cluster caption even when the linked
+                        # authoritative docket is an adversary proceeding.
+                        "docket_number": "26-01028",
+                        "case_name": "In re Example Debtor",
+                        "opinion_discovery_evidence": {
+                            "cluster_id": "10026367",
+                            "absolute_url": "/opinion/10026367/example/",
+                            "date_filed": "2026-07-10",
+                        },
+                    },
+                }
+            ],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+    return path
+
+
 def _build_prior_screening_snapshot(
     tmp_path: Path,
     *,
@@ -1264,6 +1315,7 @@ def test_read_saturated_direct_search_aggregates_minimum_entry_evidence(
 
     source = read_saturated_direct_search_leads(path, source_batch_id="direct-search")
 
+    assert source.source_search_type is None
     assert source.source_batch_id == "direct-search"
     assert source.search_window_start == date(2026, 7, 11)
     assert source.search_window_end == date(2026, 7, 15)
@@ -1285,6 +1337,27 @@ def test_read_saturated_direct_search_aggregates_minimum_entry_evidence(
     assert source.leads[1].decision_entry_evidence is None
     assert source.leads[2].decision_entry_evidence is not None
     assert source.leads[2].decision_entry_evidence["entry_number"] == 501
+
+
+def test_seed_opinion_bankruptcy_lead_defers_to_authoritative_docket(
+    tmp_path: Path,
+) -> None:
+    path = _build_saturated_opinion_search_store(tmp_path)
+    source = read_saturated_direct_search_leads(path, source_batch_id="opinion-search")
+
+    assert source.source_search_type == "o"
+    with CycleAcquisitionStore(path) as store:
+        seed_direct_search_leads(
+            store,
+            batch_id="opinion-rest-screen",
+            source=source,
+        )
+        config = store.batch_config("opinion-rest-screen")
+        assert config["source_search_type"] == "o"
+        payload = store.candidate_discovery_hits("opinion-rest-screen")[0].payload
+
+    assert payload["court_id"] == "nysb"
+    assert payload["prescreen_exclusion_reason"] is None
 
 
 def test_seed_direct_search_freezes_lineage_canonicalizes_and_prescreens(

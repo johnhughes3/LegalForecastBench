@@ -838,6 +838,7 @@ class DirectSearchSeedSource:
     source_batch_id: str
     source_batch_digest: str
     source_cycle_hash: str
+    source_search_type: str | None
     source_candidate_set_sha256: str
     search_window_start: date
     search_window_end: date
@@ -969,6 +970,15 @@ def read_saturated_direct_search_leads(
         if config.get("provider") != "courtlistener":
             raise RecapApiBatchDriverError(
                 "direct-search source batch is not CourtListener-authoritative"
+            )
+        raw_search_type = config.get("search_type")
+        if raw_search_type is None:
+            source_search_type = None
+        elif isinstance(raw_search_type, str) and raw_search_type.strip():
+            source_search_type = raw_search_type.strip()
+        else:
+            raise RecapApiBatchDriverError(
+                "direct-search source batch has invalid search_type"
             )
         query_terms = config.get("query_terms")
         if not isinstance(query_terms, list) or not query_terms:
@@ -1142,6 +1152,7 @@ def read_saturated_direct_search_leads(
         source_batch_id=source_batch_id,
         source_batch_digest=source_batch_digest,
         source_cycle_hash=source_cycle_hash,
+        source_search_type=source_search_type,
         source_candidate_set_sha256=candidate_set_sha256,
         search_window_start=window_start,
         search_window_end=window_end,
@@ -1452,6 +1463,7 @@ def seed_direct_search_leads(
             "discovery_mode": DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA,
             "source_batch_id": source.source_batch_id,
             "source_batch_digest": source.source_batch_digest,
+            "source_search_type": source.source_search_type,
             "source_candidate_count": len(source.leads),
             "source_candidate_set_sha256": source.source_candidate_set_sha256,
         }
@@ -1613,6 +1625,7 @@ def seed_novel_direct_search_leads(
             "source_batch_id": source.source_batch_id,
             "source_batch_digest": source.source_batch_digest,
             "source_cycle_hash": source.source_cycle_hash,
+            "source_search_type": source.source_search_type,
             "source_candidate_count": len(source.leads),
             "source_candidate_set_sha256": source.source_candidate_set_sha256,
             "prior_snapshot_count": len(ordered_snapshots),
@@ -1714,6 +1727,7 @@ def _direct_search_lead_to_hit(
         court_id=lead.court_id,
         docket_number=lead.docket_number,
         case_name=lead.case_name,
+        defer_bankruptcy_to_authoritative_docket=(source.source_search_type == "o"),
     )
     payload: dict[str, Any] = {
         "candidate_id": lead.candidate_id,
