@@ -1028,14 +1028,11 @@ def _candidate_from_case_dev(hit: CaseDevDocketHit) -> _ProviderCandidate:
     if not isinstance(raw, Mapping):
         raise OpinionRecapResolutionError("case.dev mapping hit lacks legal_docket")
     record = cast(Mapping[str, Any], raw)
-    return _provider_candidate(record, id_fields=("id", "docketId", "docket_id"))
+    return _provider_candidate(record, id_fields=("id",))
 
 
 def _candidate_from_courtlistener(record: Mapping[str, Any]) -> _ProviderCandidate:
-    return _provider_candidate(
-        record,
-        id_fields=("docket_id", "docketId", "id"),
-    )
+    return _provider_candidate(record, id_fields=("docket_id",))
 
 
 def _provider_candidate(

@@ -147,6 +147,13 @@ def _recap_docket(
     }
 
 
+def _courtlistener_recap_docket(**overrides: object) -> dict[str, object]:
+    record = _recap_docket()
+    record["docket_id"] = record.pop("id")
+    record.update(overrides)
+    return record
+
+
 def test_case_dev_exact_identity_resolves_without_courtlistener_quota(
     tmp_path: Path,
 ) -> None:
@@ -227,7 +234,7 @@ def test_full_cursorless_case_dev_page_falls_back_to_proven_courtlistener_search
             path="/search/",
             params=params,
             status_code=200,
-            payload={"results": [_recap_docket()], "next": None},
+            payload={"results": [_courtlistener_recap_docket()], "next": None},
         )
     )
 
@@ -274,6 +281,41 @@ def test_exact_identity_ambiguity_is_ledgered_and_fails_closed(tmp_path: Path) -
     ]
 
 
+def test_courtlistener_fallback_rejects_generic_id_without_recap_docket_id(
+    tmp_path: Path,
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    params: dict[str, Any] = {
+        "type": "r",
+        "q": "Bullock v. PHH Mortgage Services",
+        "order_by": "score desc",
+        "page_size": 20,
+    }
+    courtlistener = _courtlistener(
+        RecordedCourtListenerResponse(
+            method="GET",
+            path="/search/",
+            params=params,
+            status_code=200,
+            payload={"results": [_recap_docket()], "next": None},
+        )
+    )
+
+    with pytest.raises(
+        OpinionRecapResolutionError,
+        match="positive numeric RECAP docket ID",
+    ):
+        resolve_opinion_recap_batch(
+            source_store_path=source,
+            source_batch_id="opinion-source",
+            journal_path=tmp_path / "resolver.sqlite3",
+            output_store_path=source,
+            output_batch_id="resolved-opinion-source",
+            case_dev_client=_case_dev(_case_dev_response()),
+            courtlistener_client=courtlistener,
+        )
+
+
 def test_courtlistener_fallback_omits_available_only_and_uses_similarity(
     tmp_path: Path,
 ) -> None:
@@ -289,7 +331,7 @@ def test_courtlistener_fallback_omits_available_only_and_uses_similarity(
         path="/search/",
         params=params,
         status_code=200,
-        payload={"results": [_recap_docket()], "next": None},
+        payload={"results": [_courtlistener_recap_docket()], "next": None},
     )
     case_dev = _case_dev(_case_dev_response())
     courtlistener = _courtlistener(response)
