@@ -151,6 +151,42 @@ def test_initialize_purchase_ledger_rejects_reserved_receipt_namespace_before_mk
     assert safe_receipt.is_file()
 
 
+def test_initialize_purchase_ledger_rejects_dotdot_receipt_alias_without_mutation(
+    tmp_path: Path,
+) -> None:
+    _, policy_path, _, ledger_path = _inputs(tmp_path)
+    policy = verify_case_dev_purchase_policy(_read_json(policy_path))
+    alias_parent = tmp_path / "receipt-alias"
+    aliased_receipt = alias_parent / ".." / ledger_path.relative_to(tmp_path)
+    aliased_receipt /= "initialization.json"
+
+    with pytest.raises(CaseDevPurchaseLedgerError, match="dot-dot"):
+        initialize_case_dev_purchase_journal(
+            ledger_path,
+            policy=policy,
+            receipt_path=aliased_receipt,
+            purchase_policy_file_sha256="sha256:" + "a" * 64,
+            cohort_policy_file_sha256="sha256:" + "b" * 64,
+            initialized_at="2026-07-15T00:00:00Z",
+        )
+
+    assert not alias_parent.exists()
+    assert not ledger_path.parent.exists()
+    assert not ledger_path.exists()
+
+    safe_receipt = tmp_path / "safe-receipts/initialization.json"
+    initialize_case_dev_purchase_journal(
+        ledger_path,
+        policy=policy,
+        receipt_path=safe_receipt,
+        purchase_policy_file_sha256="sha256:" + "a" * 64,
+        cohort_policy_file_sha256="sha256:" + "b" * 64,
+        initialized_at="2026-07-15T00:00:00Z",
+    )
+    assert ledger_path.is_file()
+    assert safe_receipt.is_file()
+
+
 @pytest.mark.parametrize("alias_kind", ["receipt", "parent"])
 def test_verify_purchase_ledger_rejects_symlinked_receipt_namespace(
     tmp_path: Path,
@@ -184,6 +220,36 @@ def test_verify_purchase_ledger_rejects_symlinked_receipt_namespace(
         )
 
     assert ledger_path.read_bytes() == ledger_before
+
+
+def test_verify_purchase_ledger_rejects_dotdot_receipt_alias(
+    tmp_path: Path,
+) -> None:
+    output_root, policy_path, cohort_path, ledger_path = _inputs(tmp_path)
+    assert main(_args(output_root, policy_path, cohort_path, ledger_path)) == 0
+    policy = verify_case_dev_purchase_policy(_read_json(policy_path))
+    canonical_receipt = output_root / "purchase-ledger-initialization.json"
+    canonical_record = _read_json(canonical_receipt)
+    ledger_before = ledger_path.read_bytes()
+    alias_parent = tmp_path / "receipt-alias"
+    alias_parent.mkdir()
+    aliased_receipt = alias_parent / ".." / output_root.name / canonical_receipt.name
+
+    with pytest.raises(CaseDevPurchaseLedgerError, match="dot-dot"):
+        verify_case_dev_purchase_journal_initialization(
+            ledger_path,
+            policy=policy,
+            receipt_path=aliased_receipt,
+            purchase_policy_file_sha256=str(
+                canonical_record["purchase_policy_file_sha256"]
+            ),
+            cohort_policy_file_sha256=str(
+                canonical_record["cohort_policy_file_sha256"]
+            ),
+        )
+
+    assert ledger_path.read_bytes() == ledger_before
+    assert canonical_receipt.is_file()
 
 
 def test_init_purchase_ledger_dry_run_does_not_create_ledger(tmp_path: Path) -> None:
