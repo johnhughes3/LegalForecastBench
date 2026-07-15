@@ -639,9 +639,9 @@ def reconstruct_case_dev_recap_enrichment(
             document_id=_required_string(raw, "document_id"),
             docket_entry_id=_required_string(raw, "docket_entry_id"),
             entry_number=_optional_string(raw, "entry_number"),
-            entry_text=_required_string(raw, "entry_text"),
+            entry_text=_record_exact_string(raw, "entry_text"),
             document_role=role,
-            description=_required_string(raw, "description"),
+            description=_record_exact_string(raw, "description"),
             kind=_optional_string(raw, "kind"),
             pdf_url=_optional_string(raw, "pdf_url"),
             is_available=_optional_bool(raw, "is_available"),
@@ -670,7 +670,7 @@ def reconstruct_case_dev_recap_enrichment(
         seen_entry_ids.add(entry_id)
         entry_number = _optional_string(raw, "entry_number")
         filed_at = _optional_string(raw, "filed_at")
-        entry_text = _required_string(raw, "entry_text")
+        entry_text = _record_exact_string(raw, "entry_text")
         document_ids = _record_string_tuple(raw, "document_ids")
         if len(set(document_ids)) != len(document_ids):
             raise CaseDevRecapEnrichmentError(
@@ -778,11 +778,20 @@ def _record_list(record: Mapping[str, object], field_name: str) -> list[object]:
 
 def _record_string_tuple(record: Mapping[str, Any], field_name: str) -> tuple[str, ...]:
     values = _record_list(cast(Mapping[str, object], record), field_name)
-    if any(not isinstance(value, str) or not value for value in values):
+    if any(not isinstance(value, str) or not value.strip() for value in values):
         raise CaseDevRecapEnrichmentError(
             f"ranked record {field_name} must contain non-empty strings"
         )
     return tuple(cast(list[str], values))
+
+
+def _record_exact_string(record: Mapping[str, Any], field_name: str) -> str:
+    value = record.get(field_name)
+    if not isinstance(value, str) or not value.strip():
+        raise CaseDevRecapEnrichmentError(
+            f"ranked record {field_name} must be a non-empty string"
+        )
+    return value
 
 
 def _record_nonnegative_int(record: Mapping[str, object], field_name: str) -> int:

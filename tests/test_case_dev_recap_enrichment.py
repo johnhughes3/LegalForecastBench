@@ -13,6 +13,7 @@ from legalforecast.ingestion.case_dev_recap_enrichment import (
     CaseDevRecapEnrichmentError,
     enrich_recap_docket_with_case_dev,
     rank_case_dev_recap_enrichments,
+    reconstruct_case_dev_recap_enrichment,
 )
 from legalforecast.ingestion.firecrawl_recap_discovery import RecapDiscoveredDocket
 
@@ -114,6 +115,63 @@ def test_enrichment_exhausts_free_entry_pages_and_keeps_availability_distinct() 
         "live" not in params and "acknowledgePacerFees" not in params
         for _method, _path, params in transport.requests
     )
+
+
+def test_ranked_reconstruction_preserves_exact_case_dev_entry_text() -> None:
+    raw_document = _document(
+        "doc-1",
+        pdf_url="https://storage.courtlistener.com/doc-1.pdf",
+        is_available=True,
+    )
+    del raw_document["description"]
+    client, _transport = _client(
+        _lookup(
+            entries=(
+                _entry(
+                    "entry-1",
+                    1,
+                    " REPORT AND RECOMMENDATION on Motion to Dismiss",
+                    raw_document,
+                ),
+            ),
+            limit=10,
+        )
+    )
+    enrichment = enrich_recap_docket_with_case_dev(
+        client=client,
+        discovery=_discovery(),
+        page_size=10,
+        eligibility_anchor=date(2026, 6, 30),
+    )
+
+    assert enrichment.entries[0].entry_text.startswith(" ")
+    assert enrichment.documents[0].entry_text.startswith(" ")
+    assert enrichment.documents[0].description == enrichment.entries[0].entry_text
+    assert reconstruct_case_dev_recap_enrichment(enrichment.to_record()) == enrichment
+
+    blank_text = enrichment.to_record()
+    raw_entries = blank_text["entries"]
+    assert isinstance(raw_entries, list)
+    raw_entry = raw_entries[0]
+    assert isinstance(raw_entry, dict)
+    raw_entry["entry_text"] = "  "
+    with pytest.raises(
+        CaseDevRecapEnrichmentError,
+        match="ranked record entry_text must be a non-empty string",
+    ):
+        reconstruct_case_dev_recap_enrichment(blank_text)
+
+    noncanonical_url = enrichment.to_record()
+    raw_documents = noncanonical_url["documents"]
+    assert isinstance(raw_documents, list)
+    raw_document_record = raw_documents[0]
+    assert isinstance(raw_document_record, dict)
+    raw_document_record["pdf_url"] = " https://storage.courtlistener.com/doc-1.pdf "
+    with pytest.raises(
+        CaseDevRecapEnrichmentError,
+        match="ranked record does not match recomputed enrichment semantics",
+    ):
+        reconstruct_case_dev_recap_enrichment(noncanonical_url)
 
 
 def test_pdf_url_without_boolean_availability_fails_closed_as_missing() -> None:
