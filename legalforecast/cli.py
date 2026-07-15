@@ -360,12 +360,14 @@ from legalforecast.ingestion.recap_api_batch_driver import (
     RecapApiBatchDriverError,
     read_batch_001_enrichment_failure_leads,
     read_saturated_direct_search_leads,
+    read_verified_priority_dedupe_snapshots,
     run_discover,
     run_observe,
     run_opinion_discover,
     run_unrestricted_discover,
     seed_batch_001_leads,
     seed_direct_search_leads,
+    seed_novel_direct_search_leads,
 )
 from legalforecast.ingestion.recap_api_discovery import (
     RecapApiDiscoveryError,
@@ -797,8 +799,8 @@ def build_parser() -> argparse.ArgumentParser:
         "batch-002",
         help=(
             "Cycle 1 batch-002 decision-first RECAP REST v4 acquisition driver "
-            "(discover / seed-direct-search / observe / seed-batch-001-leads / "
-            "snapshot)."
+            "(discover / seed-direct-search / seed-novel-direct-search / observe / "
+            "seed-batch-001-leads / snapshot)."
         ),
     )
     batch_002_subparsers = batch_002.add_subparsers(
@@ -853,6 +855,21 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_batch_002_direct_seed_arguments(batch_002_direct_seed)
+    batch_002_novel_direct_seed = batch_002_subparsers.add_parser(
+        "seed-novel-direct-search",
+        help=(
+            "Transfer only provider-source dockets unseen in one or more exact, "
+            "verified prior screening snapshots; zero network, priority-only."
+        ),
+        description=(
+            "Verify the complete saturated provider source and every supplied "
+            "prior snapshot before writing a deterministic novel-only REST "
+            "screening batch. Prior outcomes are never imported as current-cycle "
+            "exclusions; cross-cycle snapshots are candidate-ID priority dedupe "
+            "only. This command performs no provider or PACER requests."
+        ),
+    )
+    _add_batch_002_novel_direct_seed_arguments(batch_002_novel_direct_seed)
     batch_002_snapshot = batch_002_subparsers.add_parser(
         "snapshot",
         help=(
@@ -2799,6 +2816,63 @@ def _add_batch_002_direct_seed_arguments(parser: argparse.ArgumentParser) -> Non
     )
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_batch_002_direct_seed)
+
+
+def _add_batch_002_novel_direct_seed_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--source-store",
+        type=Path,
+        required=True,
+        help="Store containing the saturated provider-authoritative search batch.",
+    )
+    parser.add_argument(
+        "--source-batch-id",
+        required=True,
+        help="Exact saturated source batch identifier.",
+    )
+    parser.add_argument(
+        "--prior-snapshot",
+        action="append",
+        type=Path,
+        required=True,
+        help=(
+            "Complete saturated prior screening snapshot directory. Repeat in "
+            "the same order as --prior-snapshot-manifest-sha256."
+        ),
+    )
+    parser.add_argument(
+        "--prior-snapshot-manifest-sha256",
+        action="append",
+        required=True,
+        help=(
+            "Expected lowercase SHA-256 of the paired prior manifest.json. "
+            "Repeat once per --prior-snapshot; mismatches fail before target writes."
+        ),
+    )
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help=(
+            "Target REST acquisition store. Target cycle identity must still "
+            "match the complete provider source cycle."
+        ),
+    )
+    parser.add_argument(
+        "--batch-id",
+        required=True,
+        help="New novel-only REST screening batch identifier.",
+    )
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=100,
+        help="Durable transfer page size, from 1 through 100; default 100.",
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_novel_direct_seed)
 
 
 def _add_batch_002_snapshot_arguments(parser: argparse.ArgumentParser) -> None:
@@ -11652,6 +11726,48 @@ def _cmd_batch_002_direct_seed(args: argparse.Namespace) -> int:
                 store,
                 batch_id=batch_id,
                 source=source,
+                page_size=cast(int, args.page_size),
+            )
+    except (
+        CycleAcquisitionStoreError,
+        RecapApiBatchDriverError,
+        KeyError,
+        OSError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    record = result.to_record()
+    summary_output = cast(Path | None, args.summary_output)
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cmd_batch_002_novel_direct_seed(args: argparse.Namespace) -> int:
+    source_store = cast(Path, args.source_store)
+    source_batch_id = cast(str, args.source_batch_id)
+    prior_snapshot_paths = tuple(cast(list[Path], args.prior_snapshot))
+    expected_manifest_hashes = tuple(
+        cast(list[str], args.prior_snapshot_manifest_sha256)
+    )
+    cycle_store = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    try:
+        source = read_saturated_direct_search_leads(
+            source_store,
+            source_batch_id=source_batch_id,
+        )
+        prior_snapshots = read_verified_priority_dedupe_snapshots(
+            prior_snapshot_paths,
+            expected_manifest_sha256=expected_manifest_hashes,
+        )
+        with CycleAcquisitionStore(cycle_store) as store:
+            result = seed_novel_direct_search_leads(
+                store,
+                batch_id=batch_id,
+                source=source,
+                prior_snapshots=prior_snapshots,
                 page_size=cast(int, args.page_size),
             )
     except (

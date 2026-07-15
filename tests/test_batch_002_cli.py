@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from argparse import Namespace
 from pathlib import Path
@@ -977,6 +978,72 @@ def _direct_seed_args(store: Path) -> list[str]:
     ]
 
 
+def _build_cli_prior_snapshot(tmp_path: Path, *, candidate_id: str) -> tuple[Path, str]:
+    store_path = tmp_path / "prior.sqlite3"
+    with CycleAcquisitionStore(store_path) as store:
+        store.ensure_cycle(
+            {
+                "schema_version": "legalforecast.cycle_acquisition_policy.v1",
+                "eligibility_anchor": "2026-06-30",
+            }
+        )
+        store.ensure_batch("prior", {"provider": "courtlistener"})
+        store.ensure_terms("prior", ("screen",))
+        store.commit_search_page(
+            "prior",
+            "screen",
+            None,
+            [
+                {
+                    "provider_hit_id": "prior-hit",
+                    "candidate_id": candidate_id,
+                    "payload": {"candidate_id": candidate_id},
+                }
+            ],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        store.record_observation(
+            candidate_id,
+            batch_id="prior",
+            state="excluded",
+            reason_code="decision_before_release_anchor",
+            evidence={
+                "candidate_id": candidate_id,
+                "decision_date": "2026-06-29",
+            },
+        )
+        snapshot = store.export_snapshot(
+            tmp_path / "prior-snapshots",
+            snapshot_id="prior-snapshot",
+            batch_id="prior",
+            complete=True,
+        )
+    digest = hashlib.sha256((snapshot / "manifest.json").read_bytes()).hexdigest()
+    return snapshot, digest
+
+
+def _novel_direct_seed_args(
+    store: Path, snapshot: Path, manifest_sha256: str
+) -> list[str]:
+    return [
+        "batch-002",
+        "seed-novel-direct-search",
+        "--source-store",
+        str(store),
+        "--source-batch-id",
+        _DIRECT_SEARCH_SOURCE_BATCH_ID,
+        "--prior-snapshot",
+        str(snapshot),
+        "--prior-snapshot-manifest-sha256",
+        manifest_sha256,
+        "--cycle-store",
+        str(store),
+        "--batch-id",
+        "novel-direct-search-rest-screen",
+    ]
+
+
 @pytest.mark.parametrize(
     "missing_flag",
     ("--source-store", "--source-batch-id", "--cycle-store", "--batch-id"),
@@ -1047,6 +1114,72 @@ def test_cli_direct_seed_rejects_same_source_and_target_batch(tmp_path: Path) ->
     args[args.index("--batch-id") + 1] = _DIRECT_SEARCH_SOURCE_BATCH_ID
 
     assert main(args) == 2
+
+
+def test_cli_novel_direct_seed_is_zero_network_idempotent_and_auditable(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    summary_path = tmp_path / "novel-seed-summary.json"
+    _build_direct_search_store(store_path)
+    snapshot, manifest_hash = _build_cli_prior_snapshot(
+        tmp_path, candidate_id="courtlistener-docket-555"
+    )
+    args = [
+        *_novel_direct_seed_args(store_path, snapshot, manifest_hash),
+        "--summary-output",
+        str(summary_path),
+    ]
+
+    assert main(args) == 0
+    first = json.loads(capsys.readouterr().out)
+    assert first["selection_semantics"] == "priority_dedupe_only"
+    assert first["prior_outcomes_authoritative"] is False
+    assert first["leads_selected"] == 1
+    assert first["leads_excluded_from_target"] == 1
+    assert first["leads_seeded"] == 1
+    assert json.loads(summary_path.read_text(encoding="utf-8")) == first
+    with CycleAcquisitionStore(store_path) as store:
+        assert store.candidate_ids("novel-direct-search-rest-screen") == (
+            "courtlistener-docket-777",
+        )
+        config = store.batch_config("novel-direct-search-rest-screen")
+        assert config["source_candidate_count"] == 2
+        assert config["selected_candidate_count"] == 1
+        assert config["excluded_from_target_candidate_count"] == 1
+        assert config["prior_outcomes_authoritative"] is False
+
+    assert main(args) == 0
+    second = json.loads(capsys.readouterr().out)
+    assert second["leads_seeded"] == 0
+    assert second["already_seeded"] is True
+
+
+def test_cli_novel_direct_seed_rejects_manifest_mismatch_before_target_write(
+    tmp_path: Path,
+) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    _build_direct_search_store(store_path)
+    snapshot, _manifest_hash = _build_cli_prior_snapshot(
+        tmp_path, candidate_id="courtlistener-docket-555"
+    )
+
+    assert main(_novel_direct_seed_args(store_path, snapshot, "0" * 64)) == 2
+    with CycleAcquisitionStore(store_path) as store:
+        with pytest.raises(KeyError):
+            store.batch_config("novel-direct-search-rest-screen")
+
+
+def test_cli_novel_direct_seed_help_states_priority_only_cross_cycle_contract(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["batch-002", "seed-novel-direct-search", "--help"])
+    assert exc_info.value.code == 0
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "no provider or PACER requests" in help_text
+    assert "cross-cycle snapshots are candidate-ID priority dedupe only" in help_text
+    assert "--prior-snapshot-manifest-sha256" in help_text
 
 
 def test_cli_batch_002_live_help_distinguishes_discover_and_observe(
