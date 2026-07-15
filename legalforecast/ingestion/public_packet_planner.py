@@ -976,6 +976,14 @@ def _core_packet_restriction_reasons(
 
     decision_floor = min(decision_entries) if decision_entries else _max_entry(page)
     complaint_floor = min(target_entries) if target_entries else decision_floor
+    complaint_selection = (
+        None
+        if complaint_floor is None
+        else select_operative_complaint_entry(
+            page.entries,
+            before_entry=complaint_floor,
+        )
+    )
     target_numbers = set(target_entries)
     decision_numbers = set(decision_entries)
     reasons: list[str] = []
@@ -988,9 +996,7 @@ def _core_packet_restriction_reasons(
             required_role = "target_mtd"
         elif entry_number in decision_numbers:
             required_role = "decision"
-        elif _entry_is_before(
-            entry, complaint_floor
-        ) and _restricted_entry_looks_like_complaint(entry):
+        elif complaint_selection is not None and entry is complaint_selection.entry:
             required_role = "operative_complaint"
         elif (
             _entry_is_before(entry, decision_floor)
@@ -1009,26 +1015,6 @@ def _core_packet_restriction_reasons(
             )
         )
     return tuple(dict.fromkeys(reasons))
-
-
-def _restricted_entry_looks_like_complaint(
-    entry: CourtListenerWebDocketEntry,
-) -> bool:
-    text = " ".join(
-        (
-            entry.text,
-            *(document.description for document in entry.documents),
-        )
-    ).casefold()
-    if "complaint" not in text:
-        return False
-    return not bool(
-        re.search(
-            r"\b(?:answer|order|motion|memorandum|opposition|reply|notice)\b"
-            r"[^.]{0,80}\bcomplaint\b",
-            text,
-        )
-    )
 
 
 def _entry_restriction_markers(

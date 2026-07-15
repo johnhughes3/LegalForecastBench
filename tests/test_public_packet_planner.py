@@ -391,6 +391,77 @@ def test_public_packet_planner_excludes_restricted_core_document_text(
 
 
 @pytest.mark.parametrize(
+    "order_text",
+    (
+        pytest.param(
+            "9 ORDER: The Court previously permitted temporary whole-case sealing. "
+            "The Court now concludes that no basis exists to seal the case in its "
+            "entirety because Plaintiff may use a pseudonym. The Complaint may be "
+            "dismissed if service is not timely made. Document is sealed.",
+            id="jane-doe-v-dow-entry-9",
+        ),
+        pytest.param(
+            "47 MINUTE entry: The Clerk is directed to unseal Schedule A to the "
+            "Complaint and the identified complaint exhibits. Document is sealed.",
+            id="sony-entry-47",
+        ),
+    ),
+)
+def test_restricted_unsealing_order_is_not_the_operative_complaint(
+    tmp_path: Path,
+    order_text: str,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    selected_entries = cast(list[dict[str, Any]], record["selected_entries"])
+    selected_entries.insert(
+        1,
+        {
+            "row_id": "entry-3",
+            "entry_number": "3",
+            "filed_at": "Jan 15, 2026",
+            "text": order_text,
+            "restriction_markers": ["text_documentissealed", "text_underseal"],
+            "documents": [],
+        },
+    )
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [selected] = plan.selected_cases
+    assert selected.documents[0].docket_entry_number == 1
+    assert plan.final_exclusions == ()
+
+
+def test_restricted_selected_operative_complaint_still_excludes(
+    tmp_path: Path,
+) -> None:
+    record = _screened_case_with_embedded_entries()
+    complaint = cast(list[dict[str, Any]], record["selected_entries"])[0]
+    complaint["restriction_markers"] = [
+        "text_documentissealed",
+        "text_underseal",
+    ]
+
+    plan = plan_public_packet_downloads(
+        (record,),
+        raw_html_dir=tmp_path / "unused",
+        target_clean_cases=1,
+        use_embedded_entries=True,
+    )
+
+    [excluded] = plan.final_exclusions
+    assert excluded.exclusion_reasons == (
+        "sealed_or_restricted_material:operative_complaint_entry_1:"
+        "text_documentissealed,text_underseal",
+    )
+
+
+@pytest.mark.parametrize(
     "merits_phrase",
     (
         "private right of action",
