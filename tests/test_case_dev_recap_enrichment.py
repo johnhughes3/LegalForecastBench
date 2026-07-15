@@ -392,15 +392,21 @@ def test_ranking_prioritizes_linked_post_anchor_merits_disposition() -> None:
                     "Order denying Motion to Dismiss under Rule 12(b)(6)",
                     filed_at="2026-06-29",
                 ),
+                _entry(
+                    "entry-4",
+                    4,
+                    "Order granting renewed Motion to Dismiss under Rule 12(b)(6)",
+                    filed_at="2026-07-02",
+                ),
             ),
             limit=10,
         )
     )
     procedural_client, _ = _client(
         _lookup(
-            docket_id="404",
+            docket_id="400",
             court_id="nysd",
-            docket_number="1:26-cv-00404",
+            docket_number="1:26-cv-00400",
             entries=(
                 _entry(
                     "entry-2",
@@ -439,7 +445,7 @@ def test_ranking_prioritizes_linked_post_anchor_merits_disposition() -> None:
     )
     procedural = enrich_recap_docket_with_case_dev(
         client=procedural_client,
-        discovery=_discovery("404"),
+        discovery=_discovery("400"),
         page_size=10,
         eligibility_anchor=anchor,
     )
@@ -465,7 +471,7 @@ def test_ranking_prioritizes_linked_post_anchor_merits_disposition() -> None:
         for item in rank_case_dev_recap_enrichments(
             (procedural, pre_anchor, unlinked, valid)
         )
-    ] == ["401", "402", "403", "404"]
+    ] == ["401", "402", "403", "400"]
     record = valid.to_record()
     assert record["eligibility_anchor"] == "2026-06-30"
     assert record["eligibility_priority_tier"] == 0
@@ -550,7 +556,7 @@ def test_moot_disposition_is_retained_but_demoted_for_scheduling() -> None:
         "post_anchor_non_merits_or_moot_disposition",
     )
     assert enrichment.decision_signal_priority == (
-        2,
+        3,
         "post_anchor_non_merits_or_moot_disposition",
     )
 

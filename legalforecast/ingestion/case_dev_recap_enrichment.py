@@ -382,12 +382,7 @@ class CaseDevRecapEnrichment:
         """Prioritize eligibility evidence without treating weak signals as drops."""
 
         if self.eligibility_anchor is not None:
-            tier, reason = self.eligibility_priority
-            if tier <= 1:
-                return (tier, reason)
-            if tier <= 3:
-                return (2, reason)
-            return (3, reason)
+            return self.eligibility_priority
 
         texts = tuple(
             f"{document.entry_text} {document.description}".lower()
