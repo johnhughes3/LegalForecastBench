@@ -11,7 +11,13 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlsplit
 
+from legalforecast.ingestion.case_dev_recap_enrichment import (
+    CASE_DEV_RANKING_POLICY_VERSION,
+    CaseDevRecapEnrichmentError,
+    reconstruct_case_dev_recap_enrichment,
+)
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+from legalforecast.ingestion.decision_text_artifact import CYCLE_1_ELIGIBILITY_ANCHOR
 from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, TermTerminalStatus
 from legalforecast.ingestion.recap_api_batch_driver import (
     DirectSearchLead,
@@ -240,6 +246,8 @@ def verify_case_dev_ranked_selection(
     ranked_records = _read_jsonl(ranked_path)
     ranked_sha256 = _file_sha256(ranked_path)
     expected_commitments = {
+        "ranking_policy_version": CASE_DEV_RANKING_POLICY_VERSION,
+        "eligibility_anchor": CYCLE_1_ELIGIBILITY_ANCHOR.isoformat(),
         "source_batch_id": source.source_batch_id,
         "source_batch_digest": source.source_batch_digest,
         "source_cycle_hash": source.source_cycle_hash,
@@ -582,6 +590,20 @@ def _verify_ranked_record(
     rank: int,
     projection_by_docket: Mapping[str, Mapping[str, object]],
 ) -> RankedCaseDevCandidate:
+    try:
+        enrichment = reconstruct_case_dev_recap_enrichment(record)
+    except CaseDevRecapEnrichmentError as exc:
+        raise RecapApiBatchDriverError(
+            f"ranked record semantics are invalid at rank {rank}: {exc}"
+        ) from exc
+    if enrichment.eligibility_anchor != CYCLE_1_ELIGIBILITY_ANCHOR:
+        raise RecapApiBatchDriverError(
+            "ranked record does not use the frozen cycle-1 eligibility anchor"
+        )
+    if record.get("ranking_policy_version") != CASE_DEV_RANKING_POLICY_VERSION:
+        raise RecapApiBatchDriverError(
+            "ranked record lacks the current eligibility-aware ranking policy"
+        )
     identity = record.get("identity")
     if not isinstance(identity, Mapping):
         raise RecapApiBatchDriverError("ranked record lacks identity")
@@ -607,6 +629,37 @@ def _verify_ranked_record(
     ):
         raise RecapApiBatchDriverError(
             f"ranked record source lineage mismatch for docket {docket_id}"
+        )
+    screening_metadata = record.get("screening_metadata")
+    source_lineage = projection.get("source_lineage")
+    if not isinstance(screening_metadata, Mapping) or not isinstance(
+        source_lineage, Mapping
+    ):
+        raise RecapApiBatchDriverError(
+            "ranked record lacks source-bound screening metadata for docket "
+            f"{docket_id}"
+        )
+    typed_screening_metadata = cast(Mapping[str, object], screening_metadata)
+    typed_source_lineage = cast(Mapping[str, object], source_lineage)
+    raw_lead_commitment = typed_source_lineage.get("lead_commitment")
+    if not isinstance(raw_lead_commitment, Mapping):
+        raise RecapApiBatchDriverError(
+            f"ranked record lacks source lead commitment for docket {docket_id}"
+        )
+    lead_commitment = cast(Mapping[str, object], raw_lead_commitment)
+    expected_screening_metadata: dict[str, object] = {
+        "case_id": docket_id,
+        "court_id": lead_commitment.get("court_id"),
+        "docket_number": lead_commitment.get("docket_number"),
+        "case_name": lead_commitment.get("case_name"),
+    }
+    if any(
+        typed_screening_metadata.get(field_name) != expected_value
+        for field_name, expected_value in expected_screening_metadata.items()
+    ):
+        raise RecapApiBatchDriverError(
+            "ranked record screening metadata contradicts source for docket "
+            f"{docket_id}"
         )
     integer_fields = (
         "structural_priority_tier",

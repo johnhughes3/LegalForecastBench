@@ -334,6 +334,8 @@ uv run legalforecast acquisition enrich-recap-case-dev \
 
 Pagination exhaustion must be proven for each successful docket. Provider failures and unproven pagination remain ledgered failures rather than cheap candidates.
 
+For a source-bound CourtListener opinion batch, the enrichment stage also binds the frozen search-window start as its eligibility anchor, retains every Case.dev docket entry and filed date, and replays the canonical MTD screen before cost ordering. Linked post-anchor merits dispositions rank first; moot or procedural rulings, pre-anchor dispositions, missing dates, and unproved target-motion linkage are demoted but never silently excluded. The ranked artifact records `ranking_policy_version`, the complete eligibility screen, and the exact entry evidence so the downstream selector can reject legacy lexical rankings.
+
 ### Step 3: Acquire And Screen Complete CourtListener Dockets
 
 Fetch the ranked public CourtListener docket pages through Firecrawl, including every docket page needed to prove pagination completeness. The ten workers parallelize Firecrawl requests; SQLite authorization and artifact commits remain serialized:

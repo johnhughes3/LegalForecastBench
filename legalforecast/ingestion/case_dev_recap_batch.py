@@ -6,6 +6,7 @@ import re
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from datetime import date
 from typing import cast
 from urllib.parse import urlsplit
 
@@ -310,6 +311,7 @@ def enrich_recap_discovery_batch(
     page_size: int = 100,
     max_pages: int = 100,
     allow_source_bound: bool = False,
+    eligibility_anchor: date | None = None,
 ) -> CaseDevRecapBatchResult:
     """Convert and enrich every record into exactly one terminal batch result."""
 
@@ -368,6 +370,7 @@ def enrich_recap_discovery_batch(
                 discovery=discovery,
                 page_size=page_size,
                 max_pages=max_pages,
+                eligibility_anchor=eligibility_anchor,
             )
         except (CaseDevAuthError, CaseDevRateLimitError, CaseDevServerError):
             raise

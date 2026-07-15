@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
+from datetime import date
 from typing import Any, cast
 from urllib.parse import urlsplit
 
@@ -13,10 +14,19 @@ from legalforecast.ingestion.case_dev_client import (
     CaseDevDocketHit,
     CaseDevPage,
 )
+from legalforecast.ingestion.courtlistener_dates import parse_courtlistener_filed_date
+from legalforecast.ingestion.courtlistener_web import (
+    CourtListenerWebDocketEntry,
+    CourtListenerWebDocketPage,
+    CourtListenerWebDocument,
+)
 from legalforecast.ingestion.docket_sync import classify_document_role
 from legalforecast.ingestion.firecrawl_recap_discovery import RecapDiscoveredDocket
 from legalforecast.ingestion.mtd_acquisition_screen import (
+    MtdDocketDecisionScreen,
     screen_case_dev_docket_metadata,
+    screen_courtlistener_docket_for_mtd_decision,
+    screen_courtlistener_entry_for_mtd_decision,
 )
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.restricted_material import restricted_material_markers
@@ -50,6 +60,7 @@ _REQUIRED_ENTRY_ROLES = frozenset(
         DocumentRole.DECISION,
     }
 )
+CASE_DEV_RANKING_POLICY_VERSION = "eligibility-aware-v2"
 
 
 class CaseDevRecapEnrichmentError(RuntimeError):
@@ -151,6 +162,53 @@ class CaseDevRecapDocument:
 
 
 @dataclass(frozen=True, slots=True)
+class CaseDevRecapEntry:
+    """One normalized Case.dev docket entry retained for free eligibility ranking."""
+
+    docket_entry_id: str
+    entry_number: str | None
+    filed_at: str | None
+    entry_text: str
+    documents: tuple[CaseDevRecapDocument, ...]
+
+    def as_courtlistener_entry(self) -> CourtListenerWebDocketEntry:
+        return CourtListenerWebDocketEntry(
+            row_id=self.docket_entry_id,
+            entry_number=self.entry_number,
+            filed_at=self.filed_at,
+            text=self.entry_text,
+            documents=tuple(
+                CourtListenerWebDocument(
+                    kind=document.kind or "",
+                    description=document.description,
+                    href=document.pdf_url,
+                    action_label=None,
+                    pacer_only=not document.actually_free,
+                    restriction_markers=document.restriction_markers,
+                )
+                for document in self.documents
+            ),
+            restriction_markers=tuple(
+                dict.fromkeys(
+                    marker
+                    for document in self.documents
+                    for marker in document.restriction_markers
+                )
+            ),
+            narrative_text=self.entry_text,
+        )
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "docket_entry_id": self.docket_entry_id,
+            "entry_number": self.entry_number,
+            "filed_at": self.filed_at,
+            "entry_text": self.entry_text,
+            "document_ids": [document.document_id for document in self.documents],
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class CaseDevRequiredDocumentSlot:
     """One required core-document slot and its conservative satisfaction proof."""
 
@@ -184,8 +242,10 @@ class CaseDevRecapEnrichment:
     screening_metadata: Mapping[str, object]
     pages_fetched: int
     docket_entry_count: int
+    entries: tuple[CaseDevRecapEntry, ...]
     documents: tuple[CaseDevRecapDocument, ...]
     required_documents: tuple[CaseDevRequiredDocumentSlot, ...]
+    eligibility_anchor: date | None = None
 
     @property
     def courtlistener_docket_id(self) -> str:
@@ -212,6 +272,106 @@ class CaseDevRecapEnrichment:
         return self.required_document_count - self.actual_free_required_document_count
 
     @property
+    def eligibility_screen(self) -> MtdDocketDecisionScreen:
+        """Replay the canonical MTD screen over the free Case.dev entry inventory."""
+
+        return screen_courtlistener_docket_for_mtd_decision(
+            CourtListenerWebDocketPage(
+                docket_id=self.courtlistener_docket_id,
+                source_url=self.identity.courtlistener_url,
+                title=cast(str | None, self.screening_metadata.get("case_name")),
+                entries=tuple(entry.as_courtlistener_entry() for entry in self.entries),
+                has_next_page=False,
+            ),
+            decision_filed_on_or_after=self.eligibility_anchor,
+        )
+
+    @property
+    def observed_target_motion(self) -> bool:
+        """Return whether Case.dev exposes a motion filing distinct from its ruling."""
+
+        for entry in self.entries:
+            screen = screen_courtlistener_entry_for_mtd_decision(
+                entry.as_courtlistener_entry()
+            )
+            if screen.actual_mtd_decision:
+                continue
+            if _core_document_role(entry.entry_text) in {
+                DocumentRole.MTD_NOTICE,
+                DocumentRole.MTD_MEMORANDUM,
+            }:
+                return True
+            if "motion_filing_only" in screen.exclusion_reasons:
+                return True
+        return False
+
+    @property
+    def eligibility_priority(self) -> tuple[int, str]:
+        """Return a recall-preserving eligibility scheduling tier.
+
+        This is deliberately a ranking signal, not an exclusion. CourtListener
+        remains authoritative, while complete Case.dev entry dates and text let
+        us spend the constrained REST quota on the strongest candidates first.
+        """
+
+        if self.eligibility_anchor is None:
+            return (2, "eligibility_anchor_unconfigured")
+        screen = self.eligibility_screen
+        anchor_dates = tuple(
+            parse_courtlistener_filed_date(entry.filed_at)
+            for entry in screen.anchor_disposition_entries
+        )
+        if any(
+            filed_at is not None and filed_at < self.eligibility_anchor
+            for filed_at in anchor_dates
+        ):
+            return (4, "first_written_mtd_disposition_before_anchor")
+        if self._has_non_merits_or_moot_disposition:
+            return (3, "post_anchor_non_merits_or_moot_disposition")
+        if anchor_dates and any(filed_at is None for filed_at in anchor_dates):
+            return (2, "first_written_mtd_disposition_date_unproven")
+        if screen.strict_clean:
+            if not anchor_dates:
+                return (2, "first_written_mtd_disposition_date_unproven")
+            if self.observed_target_motion:
+                return (0, "strict_post_anchor_mtd_with_observed_target_motion")
+            return (1, "strict_post_anchor_mtd_target_motion_unproven")
+        if screen.has_actual_mtd_decision:
+            return (3, "post_anchor_mtd_requires_posture_review")
+        if "mtd_decision_outside_date_window" in screen.exclusion_reasons:
+            return (4, "first_written_mtd_disposition_before_anchor")
+        if "procedural_or_standing_order" in screen.exclusion_reasons:
+            return (5, "procedural_or_standing_order")
+        return (6, "eligible_mtd_disposition_unproven")
+
+    @property
+    def _has_non_merits_or_moot_disposition(self) -> bool:
+        for entry in self.entries:
+            text = _normalized(
+                " ".join(
+                    (
+                        entry.entry_text,
+                        *(document.kind or "" for document in entry.documents),
+                        *(document.description for document in entry.documents),
+                    )
+                )
+            )
+            screen = screen_courtlistener_entry_for_mtd_decision(
+                entry.as_courtlistener_entry()
+            )
+            if not screen.actual_mtd_decision:
+                continue
+            if re.search(r"\b(?:as\s+moot|mooting)\b", text, re.I):
+                return True
+            if re.search(
+                r"\bterminate\w*\b[^.;]{0,160}\bmotion\w*\s+to\s+dismiss\b",
+                text,
+                re.I,
+            ) and re.search(r"\bamended\s+complaint\b", text, re.I):
+                return True
+        return False
+
+    @property
     def structural_priority(self) -> tuple[int, str]:
         """Return a recall-preserving structural scheduling tier and reason."""
 
@@ -227,7 +387,10 @@ class CaseDevRecapEnrichment:
 
     @property
     def decision_signal_priority(self) -> tuple[int, str]:
-        """Prioritize explicit dispositions without treating weak signals as drops."""
+        """Prioritize eligibility evidence without treating weak signals as drops."""
+
+        if self.eligibility_anchor is not None:
+            return self.eligibility_priority
 
         texts = tuple(
             f"{document.entry_text} {document.description}".lower()
@@ -273,12 +436,15 @@ class CaseDevRecapEnrichment:
 
     def to_record(self) -> dict[str, object]:
         structural_tier, structural_reason = self.structural_priority
+        eligibility_tier, eligibility_reason = self.eligibility_priority
         decision_tier, decision_reason = self.decision_signal_priority
         return {
+            "ranking_policy_version": CASE_DEV_RANKING_POLICY_VERSION,
             "identity": self.identity.to_record(),
             "screening_metadata": dict(self.screening_metadata),
             "pages_fetched": self.pages_fetched,
             "docket_entry_count": self.docket_entry_count,
+            "entries": [entry.to_record() for entry in self.entries],
             "documents": [document.to_record() for document in self.documents],
             "required_documents": [
                 document.to_record() for document in self.required_documents
@@ -290,6 +456,15 @@ class CaseDevRecapEnrichment:
             "missing_required_document_count": self.missing_required_document_count,
             "structural_priority_tier": structural_tier,
             "structural_priority_reason": structural_reason,
+            "eligibility_anchor": (
+                None
+                if self.eligibility_anchor is None
+                else self.eligibility_anchor.isoformat()
+            ),
+            "eligibility_priority_tier": eligibility_tier,
+            "eligibility_priority_reason": eligibility_reason,
+            "eligibility_screen": self.eligibility_screen.to_record(),
+            "observed_target_motion": self.observed_target_motion,
             "decision_signal_priority_tier": decision_tier,
             "decision_signal_priority_reason": decision_reason,
             "ranking_key": list(self.ranking_key),
@@ -302,6 +477,7 @@ def enrich_recap_docket_with_case_dev(
     discovery: RecapDiscoveredDocket | CaseDevRecapLookupTarget,
     page_size: int = 100,
     max_pages: int = 100,
+    eligibility_anchor: date | None = None,
 ) -> CaseDevRecapEnrichment:
     """Inventory one RECAP docket using free ``includeEntries`` lookups only."""
 
@@ -367,6 +543,16 @@ def enrich_recap_docket_with_case_dev(
         raise CaseDevRecapEnrichmentError("case_dev_identity_missing")
     entries = _deduplicate_hits(hits)
     documents_by_entry, documents = _inventory_documents(entries)
+    normalized_entries = tuple(
+        CaseDevRecapEntry(
+            docket_entry_id=entry.docket_entry_id,
+            entry_number=entry.entry_number,
+            filed_at=entry.filed_at,
+            entry_text=entry.entry_text,
+            documents=documents_by_entry[entry.docket_entry_id],
+        )
+        for entry in entries
+    )
     required_documents = _required_document_slots(
         entries,
         documents_by_entry=documents_by_entry,
@@ -381,8 +567,10 @@ def enrich_recap_docket_with_case_dev(
         screening_metadata=screening_metadata,
         pages_fetched=pages_fetched,
         docket_entry_count=len(entries),
+        entries=normalized_entries,
         documents=documents,
         required_documents=required_documents,
+        eligibility_anchor=eligibility_anchor,
     )
 
 
@@ -419,6 +607,191 @@ def rank_case_dev_recap_enrichments(
             )
         by_docket[docket_id] = enrichment
     return tuple(sorted(by_docket.values(), key=lambda item: item.ranking_key))
+
+
+def reconstruct_case_dev_recap_enrichment(
+    record: Mapping[str, object],
+) -> CaseDevRecapEnrichment:
+    """Rebuild and verify one normalized enrichment from retained evidence."""
+
+    raw_identity = _mapping(record.get("identity"), "Case.dev ranked identity")
+    identity = CaseDevRecapNamespaceMapping(
+        courtlistener_docket_id=_required_string(
+            raw_identity, "courtlistener_docket_id"
+        ),
+        courtlistener_url=_required_string(raw_identity, "courtlistener_url"),
+        case_dev_id=_required_string(raw_identity, "case_dev_id"),
+        case_dev_url=_required_string(raw_identity, "case_dev_url"),
+    )
+    raw_documents = _record_list(record, "documents")
+    documents: list[CaseDevRecapDocument] = []
+    documents_by_id: dict[str, CaseDevRecapDocument] = {}
+    for item in raw_documents:
+        raw = _mapping(item, "Case.dev ranked document")
+        role_text = _required_string(raw, "document_role")
+        try:
+            role = DocumentRole(role_text)
+        except ValueError as exc:
+            raise CaseDevRecapEnrichmentError(
+                f"invalid ranked document role: {role_text}"
+            ) from exc
+        document = CaseDevRecapDocument(
+            document_id=_required_string(raw, "document_id"),
+            docket_entry_id=_required_string(raw, "docket_entry_id"),
+            entry_number=_optional_string(raw, "entry_number"),
+            entry_text=_required_string(raw, "entry_text"),
+            document_role=role,
+            description=_required_string(raw, "description"),
+            kind=_optional_string(raw, "kind"),
+            pdf_url=_optional_string(raw, "pdf_url"),
+            is_available=_optional_bool(raw, "is_available"),
+            restriction_markers=_record_string_tuple(raw, "restriction_markers"),
+        )
+        if document.document_id in documents_by_id:
+            raise CaseDevRecapEnrichmentError(
+                f"ranked record repeats document: {document.document_id}"
+            )
+        documents_by_id[document.document_id] = document
+        documents.append(document)
+
+    raw_entries = _record_list(record, "entries")
+    entries: list[CaseDevRecapEntry] = []
+    hits: list[CaseDevDocketHit] = []
+    documents_by_entry: dict[str, tuple[CaseDevRecapDocument, ...]] = {}
+    referenced_document_ids: set[str] = set()
+    seen_entry_ids: set[str] = set()
+    for item in raw_entries:
+        raw = _mapping(item, "Case.dev ranked entry")
+        entry_id = _required_string(raw, "docket_entry_id")
+        if entry_id in seen_entry_ids:
+            raise CaseDevRecapEnrichmentError(
+                f"ranked record repeats docket entry: {entry_id}"
+            )
+        seen_entry_ids.add(entry_id)
+        entry_number = _optional_string(raw, "entry_number")
+        filed_at = _optional_string(raw, "filed_at")
+        entry_text = _required_string(raw, "entry_text")
+        document_ids = _record_string_tuple(raw, "document_ids")
+        if len(set(document_ids)) != len(document_ids):
+            raise CaseDevRecapEnrichmentError(
+                f"ranked entry repeats a document: {entry_id}"
+            )
+        entry_documents: list[CaseDevRecapDocument] = []
+        for document_id in document_ids:
+            document = documents_by_id.get(document_id)
+            if document is None or document.docket_entry_id != entry_id:
+                raise CaseDevRecapEnrichmentError(
+                    f"ranked entry/document linkage mismatch: {entry_id}"
+                )
+            if document_id in referenced_document_ids:
+                raise CaseDevRecapEnrichmentError(
+                    f"ranked document is linked more than once: {document_id}"
+                )
+            referenced_document_ids.add(document_id)
+            if (
+                document.entry_number != entry_number
+                or document.entry_text != entry_text
+                or document.document_role != _core_document_role(entry_text)
+            ):
+                raise CaseDevRecapEnrichmentError(
+                    f"ranked document evidence mismatch: {document_id}"
+                )
+            entry_documents.append(document)
+        normalized_documents = tuple(entry_documents)
+        entries.append(
+            CaseDevRecapEntry(
+                docket_entry_id=entry_id,
+                entry_number=entry_number,
+                filed_at=filed_at,
+                entry_text=entry_text,
+                documents=normalized_documents,
+            )
+        )
+        documents_by_entry[entry_id] = normalized_documents
+        hits.append(
+            CaseDevDocketHit(
+                case_id=identity.courtlistener_docket_id,
+                docket_id=identity.courtlistener_docket_id,
+                docket_entry_id=entry_id,
+                entry_number=entry_number,
+                entry_text=entry_text,
+                filed_at=filed_at,
+                source_url=identity.case_dev_url,
+                source_document_ids=document_ids,
+                raw={},
+            )
+        )
+    if referenced_document_ids != set(documents_by_id):
+        raise CaseDevRecapEnrichmentError("ranked record contains an unlinked document")
+
+    raw_anchor = record.get("eligibility_anchor")
+    if not isinstance(raw_anchor, str):
+        raise CaseDevRecapEnrichmentError(
+            "ranked record eligibility_anchor must be an ISO date"
+        )
+    try:
+        eligibility_anchor = date.fromisoformat(raw_anchor)
+    except ValueError as exc:
+        raise CaseDevRecapEnrichmentError(
+            "ranked record eligibility_anchor must be an ISO date"
+        ) from exc
+    pages_fetched = _record_nonnegative_int(record, "pages_fetched")
+    if pages_fetched == 0:
+        raise CaseDevRecapEnrichmentError(
+            "ranked record pages_fetched must be positive"
+        )
+    docket_entry_count = _record_nonnegative_int(record, "docket_entry_count")
+    if docket_entry_count != len(entries):
+        raise CaseDevRecapEnrichmentError(
+            "ranked record docket_entry_count does not match entries"
+        )
+    enrichment = CaseDevRecapEnrichment(
+        identity=identity,
+        screening_metadata=dict(
+            _mapping(record.get("screening_metadata"), "Case.dev screening metadata")
+        ),
+        pages_fetched=pages_fetched,
+        docket_entry_count=docket_entry_count,
+        entries=tuple(entries),
+        documents=tuple(documents),
+        required_documents=_required_document_slots(
+            hits,
+            documents_by_entry=documents_by_entry,
+        ),
+        eligibility_anchor=eligibility_anchor,
+    )
+    normalized_input = dict(record)
+    normalized_input.pop("source_lineage", None)
+    if normalized_input != enrichment.to_record():
+        raise CaseDevRecapEnrichmentError(
+            "ranked record does not match recomputed enrichment semantics"
+        )
+    return enrichment
+
+
+def _record_list(record: Mapping[str, object], field_name: str) -> list[object]:
+    value = record.get(field_name)
+    if not isinstance(value, list):
+        raise CaseDevRecapEnrichmentError(f"ranked record {field_name} must be a list")
+    return cast(list[object], value)
+
+
+def _record_string_tuple(record: Mapping[str, Any], field_name: str) -> tuple[str, ...]:
+    values = _record_list(cast(Mapping[str, object], record), field_name)
+    if any(not isinstance(value, str) or not value for value in values):
+        raise CaseDevRecapEnrichmentError(
+            f"ranked record {field_name} must contain non-empty strings"
+        )
+    return tuple(cast(list[str], values))
+
+
+def _record_nonnegative_int(record: Mapping[str, object], field_name: str) -> int:
+    value = record.get(field_name)
+    if type(value) is not int or value < 0:
+        raise CaseDevRecapEnrichmentError(
+            f"ranked record {field_name} must be a nonnegative integer"
+        )
+    return value
 
 
 def _validate_discovery_identity(
@@ -711,7 +1084,14 @@ def _references_mtd(value: str) -> bool:
     normalized = _normalized(value)
     return any(
         marker in normalized
-        for marker in ("motion to dismiss", "motions to dismiss", "rule 12", "mtd")
+        for marker in (
+            "motion to dismiss",
+            "motions to dismiss",
+            "rule 12",
+            "mtd",
+            "judgment on the pleadings",
+            "judgment on pleadings",
+        )
     )
 
 
