@@ -236,6 +236,14 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     cohort_reason_policy_taxonomy,
     verify_snapshot,
 )
+from legalforecast.ingestion.decision_text_artifact import (
+    CYCLE_1_ELIGIBILITY_ANCHOR,
+    DecisionTextArtifactError,
+    build_decision_text_records,
+)
+from legalforecast.ingestion.decision_text_artifact import (
+    MANIFEST_SCHEMA_VERSION as DECISION_TEXT_MANIFEST_SCHEMA_VERSION,
+)
 from legalforecast.ingestion.disclosure_clearance import (
     DisclosureClearanceError,
     build_clearance_records,
@@ -319,6 +327,7 @@ from legalforecast.ingestion.missing_core_budget import (
     write_missing_core_budget_plan,
 )
 from legalforecast.ingestion.mistral_markdown_parser import (
+    EXPECTED_PARSER_REVISION,
     MistralMarkdownConversionRecord,
     MistralMarkdownConversionRequest,
     MistralMarkdownConversionStatus,
@@ -1340,6 +1349,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Convert acquired documents to Markdown parser artifacts.",
     )
     _add_acquisition_parse_documents_arguments(acquisition_parse)
+    acquisition_decision_texts = acquisition_subparsers.add_parser(
+        "build-decision-texts",
+        help=(
+            "Build hash-bound first-written-disposition text for Stage B labeling "
+            "and audit from cleared Mistral artifacts."
+        ),
+    )
+    _add_acquisition_build_decision_texts_arguments(acquisition_decision_texts)
     acquisition_llm_unitize = acquisition_subparsers.add_parser(
         "llm-unitize",
         help="Use a registry-backed LLM to construct frozen Stage A units.",
@@ -4310,6 +4327,60 @@ def _add_acquisition_parse_documents_arguments(
     parser.set_defaults(handler=_cmd_acquisition_parse_documents)
 
 
+def _add_acquisition_build_decision_texts_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--selection",
+        type=Path,
+        required=True,
+        help="Frozen exact-cohort selection JSONL.",
+    )
+    parser.add_argument(
+        "--selection-run-card",
+        type=Path,
+        required=True,
+        help=(
+            "Executed project-target-cohort or extend-target-cohort run card "
+            "committing the exact selection bytes."
+        ),
+    )
+    parser.add_argument(
+        "--download-manifest",
+        type=Path,
+        required=True,
+        help="Merged acquired-document manifest committed by disclosure clearance.",
+    )
+    parser.add_argument("--disclosure-clearance", type=Path, required=True)
+    parser.add_argument(
+        "--clearance-run-card",
+        type=Path,
+        required=True,
+        help="Executed clear-disclosures run card with authenticated review authority.",
+    )
+    parser.add_argument("--restriction-evidence", type=Path, required=True)
+    parser.add_argument("--parser-manifest", type=Path, required=True)
+    parser.add_argument(
+        "--parser-run-card",
+        type=Path,
+        required=True,
+        help=(
+            "Executed live parse-documents run card committing the requests, "
+            "clearance, pinned parser identity, and exact parser manifest."
+        ),
+    )
+    parser.add_argument(
+        "--markdown-root",
+        type=Path,
+        required=True,
+        help="Trusted root containing Mistral Markdown paths in --parser-manifest.",
+    )
+    parser.add_argument("--decision-texts-output", type=Path)
+    parser.add_argument("--decision-texts-manifest-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_build_decision_texts)
+
+
 def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> None:
     _add_acquisition_common_arguments(parser)
     parser.add_argument(
@@ -7204,6 +7275,10 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
             "total_estimated_cost_usd": (
                 projection.budget_plan.total_estimated_cost_usd
             ),
+            "output_commitments": {
+                str(path): _bytes_sha256(payload)
+                for path, payload in output_records.items()
+            },
         },
     )
     return 0
@@ -8419,6 +8494,136 @@ def _validate_clearance_run_card_commitments(
         "sha256"
     ):
         raise CommandError("clear-disclosures review authority hash mismatch")
+
+
+def _validate_selection_run_card_commitment(
+    run_card: Mapping[str, Any],
+    *,
+    selection_path: Path,
+    selection_sha256: str,
+    selection_record_count: int,
+) -> None:
+    if (
+        run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or run_card.get("stage")
+        not in {"project-target-cohort", "extend-target-cohort"}
+        or run_card.get("status") != "completed"
+        or run_card.get("dry_run") is not False
+        or run_card.get("execute") is not True
+        or run_card.get("paid_activity_executed") is not False
+    ):
+        raise CommandError(
+            "decision texts require an executed target-cohort selection run card"
+        )
+    record_count = run_card.get("record_count")
+    if record_count != selection_record_count or selection_record_count <= 0:
+        raise CommandError("target-cohort selection run card has invalid record count")
+    _validate_path_keyed_output_commitment(
+        run_card,
+        path=selection_path,
+        expected_sha256=selection_sha256,
+        label="target-cohort selection",
+    )
+
+
+def _validate_parser_run_card_commitments(
+    run_card: Mapping[str, Any],
+    *,
+    parser_manifest_path: Path,
+    parser_manifest_sha256: str,
+    clearance_path: Path,
+    clearance_sha256: str,
+    parser_record_count: int,
+) -> None:
+    if (
+        run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or run_card.get("stage") != "parse-documents"
+        or run_card.get("status") != "completed"
+        or run_card.get("dry_run") is not False
+        or run_card.get("execute") is not True
+        or run_card.get("paid_activity_requested") is not False
+        or run_card.get("paid_activity_executed") is not False
+    ):
+        raise CommandError(
+            "decision texts require an executed parse-documents run card"
+        )
+    if run_card.get("record_count") != parser_record_count or parser_record_count <= 0:
+        raise CommandError("parse-documents run card has invalid record count")
+    source_commitments = run_card.get("source_commitments")
+    output_commitments = run_card.get("output_commitments")
+    if not isinstance(source_commitments, Mapping) or not isinstance(
+        output_commitments, Mapping
+    ):
+        raise CommandError("parse-documents run card lacks exact commitments")
+    _validate_named_path_commitment(
+        cast(Mapping[str, object], source_commitments),
+        name="disclosure_clearance",
+        expected_path=clearance_path,
+        expected_sha256=clearance_sha256,
+    )
+    _validate_named_existing_file_commitment(
+        cast(Mapping[str, object], source_commitments), name="requests"
+    )
+    _validate_named_path_commitment(
+        cast(Mapping[str, object], output_commitments),
+        name="parser_manifest",
+        expected_path=parser_manifest_path,
+        expected_sha256=parser_manifest_sha256,
+    )
+    execution = run_card.get("parser_execution")
+    if not isinstance(execution, Mapping):
+        raise CommandError("parse-documents run card lacks parser execution provenance")
+    execution_record = cast(Mapping[str, object], execution)
+    if (
+        execution_record.get("mode") != "live_mistral"
+        or execution_record.get("engine") != "mistral"
+        or execution_record.get("parser_revision") != EXPECTED_PARSER_REVISION
+        or execution_record.get("fixture_markdown") is not False
+    ):
+        raise CommandError(
+            "decision texts require the pinned live Mistral parser execution"
+        )
+    parser_root = execution_record.get("parser_root")
+    if not isinstance(parser_root, str) or not parser_root.strip():
+        raise CommandError("parse-documents run card has invalid parser root")
+
+
+def _validate_path_keyed_output_commitment(
+    run_card: Mapping[str, Any],
+    *,
+    path: Path,
+    expected_sha256: str,
+    label: str,
+) -> None:
+    commitments = run_card.get("output_commitments")
+    if not isinstance(commitments, Mapping):
+        raise CommandError(f"{label} run card lacks output commitments")
+    expected_path = path.resolve()
+    matches = [
+        digest
+        for raw_path, digest in cast(Mapping[object, object], commitments).items()
+        if isinstance(raw_path, str) and Path(raw_path).resolve() == expected_path
+    ]
+    if len(matches) != 1 or matches[0] != expected_sha256:
+        raise CommandError(f"{label} commitment mismatch")
+
+
+def _validate_named_existing_file_commitment(
+    commitments: Mapping[str, object], *, name: str
+) -> None:
+    commitment = commitments.get(name)
+    if not isinstance(commitment, Mapping):
+        raise CommandError(f"parse-documents run card lacks {name} commitment")
+    record = cast(Mapping[str, object], commitment)
+    raw_path = record.get("path")
+    expected_sha256 = record.get("sha256")
+    if not isinstance(raw_path, str) or not _valid_prefixed_sha256(expected_sha256):
+        raise CommandError(f"parse-documents run card has invalid {name} commitment")
+    path = Path(raw_path)
+    if path.is_symlink() or not path.is_file():
+        raise CommandError(f"parse-documents committed {name} file is missing")
+    if _path_sha256(path) != expected_sha256:
+        raise CommandError(f"parse-documents committed {name} file changed")
 
 
 def _validate_named_path_commitment(
@@ -17419,6 +17624,8 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
         for record in request_records
     )
     dry_run = _acquisition_dry_run(args)
+    fixture_markdown_dir = cast(Path | None, args.fixture_markdown_dir)
+    parser_root = cast(Path | None, args.parser_root)
     if dry_run:
         _write_jsonl(
             manifest_path,
@@ -17432,9 +17639,7 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
             ],
         )
     else:
-        fixture_markdown_dir = cast(Path | None, args.fixture_markdown_dir)
         if fixture_markdown_dir is None:
-            parser_root = cast(Path | None, args.parser_root)
             records = convert_documents_to_markdown(
                 requests,
                 config=MistralParserConfig(
@@ -17463,6 +17668,29 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
                 for record, request in zip(records, request_records, strict=True)
             ],
         )
+    source_commitments = {
+        "requests": {
+            "path": str(requests_path.resolve()),
+            "sha256": _path_sha256(requests_path),
+        },
+        "disclosure_clearance": {
+            "path": str(clearance_path.resolve()),
+            "sha256": _path_sha256(clearance_path),
+        },
+    }
+    output_commitments = (
+        {}
+        if dry_run
+        else {
+            "parser_manifest": {
+                "path": str(manifest_path.resolve()),
+                "sha256": _path_sha256(manifest_path),
+            }
+        }
+    )
+    effective_parser_root = (
+        MistralParserConfig().parser_root if parser_root is None else parser_root
+    )
     _write_acquisition_completion(
         args,
         stage="parse-documents",
@@ -17472,6 +17700,167 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
+        extra={
+            "source_commitments": source_commitments,
+            "output_commitments": output_commitments,
+            "parser_execution": {
+                "mode": (
+                    "live_mistral"
+                    if fixture_markdown_dir is None
+                    else "fixture_markdown"
+                ),
+                "engine": (
+                    "mistral" if fixture_markdown_dir is None else "fixture_markdown"
+                ),
+                "parser_revision": (
+                    EXPECTED_PARSER_REVISION if fixture_markdown_dir is None else None
+                ),
+                "parser_root": str(effective_parser_root.expanduser().resolve()),
+                "fixture_markdown": fixture_markdown_dir is not None,
+            },
+        },
+    )
+    return 0
+
+
+def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
+    """Materialize authenticated, audit-only first-disposition text."""
+
+    output_root = _acquisition_output_root(args)
+    source_paths = {
+        "selection": cast(Path, args.selection),
+        "selection_run_card": cast(Path, args.selection_run_card),
+        "download_manifest": cast(Path, args.download_manifest),
+        "disclosure_clearance": cast(Path, args.disclosure_clearance),
+        "clearance_run_card": cast(Path, args.clearance_run_card),
+        "restriction_evidence": cast(Path, args.restriction_evidence),
+        "parser_manifest": cast(Path, args.parser_manifest),
+        "parser_run_card": cast(Path, args.parser_run_card),
+    }
+    markdown_root = cast(Path, args.markdown_root)
+    decision_texts_path = _acquisition_path(
+        args,
+        "decision_texts_output",
+        output_root / "decision-texts.jsonl",
+    )
+    manifest_path = _acquisition_path(
+        args,
+        "decision_texts_manifest_output",
+        output_root / "decision-texts-manifest.json",
+    )
+    try:
+        source_bytes: dict[str, bytes] = {}
+        for name, path in source_paths.items():
+            if path.is_symlink() or not path.is_file():
+                raise OSError(f"decision text input is not a regular file: {path}")
+            source_bytes[name] = path.read_bytes()
+    except OSError as exc:
+        raise CommandError(str(exc)) from exc
+    source_sha256 = {
+        name: _bytes_sha256(payload) for name, payload in source_bytes.items()
+    }
+    selection_records = _projection_jsonl_records(
+        source_bytes["selection"], source=source_paths["selection"]
+    )
+    parser_records = _projection_jsonl_records(
+        source_bytes["parser_manifest"], source=source_paths["parser_manifest"]
+    )
+    clearance_run_card = _projection_json_object(
+        source_bytes["clearance_run_card"],
+        source=source_paths["clearance_run_card"],
+    )
+    _validate_clearance_run_card_commitments(
+        clearance_run_card,
+        source_paths=source_paths,
+        source_sha256=source_sha256,
+    )
+    selection_run_card = _projection_json_object(
+        source_bytes["selection_run_card"],
+        source=source_paths["selection_run_card"],
+    )
+    _validate_selection_run_card_commitment(
+        selection_run_card,
+        selection_path=source_paths["selection"],
+        selection_sha256=source_sha256["selection"],
+        selection_record_count=len(selection_records),
+    )
+    parser_run_card = _projection_json_object(
+        source_bytes["parser_run_card"],
+        source=source_paths["parser_run_card"],
+    )
+    _validate_parser_run_card_commitments(
+        parser_run_card,
+        parser_manifest_path=source_paths["parser_manifest"],
+        parser_manifest_sha256=source_sha256["parser_manifest"],
+        clearance_path=source_paths["disclosure_clearance"],
+        clearance_sha256=source_sha256["disclosure_clearance"],
+        parser_record_count=len(parser_records),
+    )
+    commitments = {f"{name}_sha256": digest for name, digest in source_sha256.items()}
+    try:
+        records = build_decision_text_records(
+            selections=selection_records,
+            download_manifest=_projection_jsonl_records(
+                source_bytes["download_manifest"],
+                source=source_paths["download_manifest"],
+            ),
+            clearance_records=_projection_jsonl_records(
+                source_bytes["disclosure_clearance"],
+                source=source_paths["disclosure_clearance"],
+            ),
+            restriction_records=_projection_jsonl_records(
+                source_bytes["restriction_evidence"],
+                source=source_paths["restriction_evidence"],
+            ),
+            parser_records=parser_records,
+            markdown_root=markdown_root,
+            input_commitments=commitments,
+        )
+    except DecisionTextArtifactError as exc:
+        raise CommandError(str(exc)) from exc
+    decision_texts_payload = _projection_jsonl_bytes(records)
+    manifest = {
+        "schema_version": DECISION_TEXT_MANIFEST_SCHEMA_VERSION,
+        "eligibility_anchor": CYCLE_1_ELIGIBILITY_ANCHOR.isoformat(),
+        "record_count": len(records),
+        "candidate_ids_sha256": _canonical_json_sha256(
+            [record["candidate_id"] for record in records]
+        ),
+        "decision_texts_sha256": _bytes_sha256(decision_texts_payload),
+        "input_commitments": dict(sorted(commitments.items())),
+        "outcome_material_model_visible": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+    }
+    manifest_payload = _projection_json_bytes(manifest)
+    dry_run = _acquisition_dry_run(args)
+    if not dry_run:
+        _ensure_projection_artifact(
+            decision_texts_path,
+            decision_texts_payload,
+            resume=cast(bool, args.resume),
+            stage="build-decision-texts",
+        )
+        _ensure_projection_artifact(
+            manifest_path,
+            manifest_payload,
+            resume=cast(bool, args.resume),
+            stage="build-decision-texts",
+        )
+    _write_acquisition_completion(
+        args,
+        stage="build-decision-texts",
+        input_paths=(*source_paths.values(), markdown_root),
+        output_paths=(decision_texts_path, manifest_path),
+        record_count=len(records),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "eligibility_anchor": CYCLE_1_ELIGIBILITY_ANCHOR.isoformat(),
+            "decision_texts_sha256": _bytes_sha256(decision_texts_payload),
+            "input_commitments": dict(sorted(commitments.items())),
+        },
     )
     return 0
 

@@ -61,6 +61,27 @@ infisical-agent-sandbox run \
 
 The sentinel-`op` and child-environment tests in `tests/test_mistral_markdown_parser.py` enforce the subprocess boundary, but they do not authorize injecting a broad acquisition secret set into the parent process.
 
+Build the Stage B disposition-text artifact only from the exact selected cohort, authenticated download manifest, authenticated disclosure-clearance run card, restriction evidence, and pinned Mistral parser output used by the cycle:
+
+```bash
+uv run legalforecast acquisition build-decision-texts \
+  --output-root <assembled-cycle-root> \
+  --selection <selection.jsonl> \
+  --selection-run-card <project-or-extend-target-cohort-run-card.json> \
+  --download-manifest <download-manifest.jsonl> \
+  --disclosure-clearance <disclosure-clearance.jsonl> \
+  --clearance-run-card <clear-disclosures-run-card.json> \
+  --restriction-evidence <restriction-evidence.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --parser-run-card <parse-documents-run-card.json> \
+  --markdown-root <parsed-markdown-root> \
+  --decision-texts-output <assembled-cycle-root>/decision-texts.jsonl \
+  --decision-texts-manifest-output <assembled-cycle-root>/decision-texts-manifest.json \
+  --execute --no-resume
+```
+
+The command reconciles exact candidate and document coverage; verifies the target-cohort, authenticated clearance, and live-parser run-card commitments; admits only the single public, outcome-bearing, non-model-visible first written disposition entered on or after the Cycle 1 anchor; and binds the source and extracted-text hashes to the pinned parser revision. Fixture parser provenance is refused. It fails closed on missing, ambiguous, sealed, private, malformed restriction flags, unpinned, unauthenticated, or drifted inputs. `decision-texts.jsonl` is private Stage B and audit input only: never place it in a model-visible packet, hand-edit it, or substitute a manually assembled file.
+
 After Stage B labeling completes, freeze the single cycle-level reliability sample before any lawyer adjudication:
 
 ```bash
@@ -69,7 +90,7 @@ uv run legalforecast acquisition plan-label-audit \
   --llm-label-audit <llm-label-audit.jsonl> \
   --selection <selection.jsonl> \
   --prediction-units <finalized-prediction-units.jsonl> \
-  --decision-texts <decision-texts.jsonl> \
+  --decision-texts <assembled-cycle-root>/decision-texts.jsonl \
   --labeling-policy <precommitted-labeling-policy.json> \
   --lawyer-review-queue <lawyer-review-queue.jsonl> \
   --execute --no-resume

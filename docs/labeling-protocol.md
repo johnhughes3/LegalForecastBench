@@ -28,6 +28,8 @@ The benchmark locks labels to the first written disposition that resolves the re
 
 If a later order changes the practical posture of the case, the label remains tied to what the first written disposition did to the frozen unit. This rule keeps scoring aligned with what the model was asked to forecast.
 
+Stage B and label-audit disposition text must come from `uv run legalforecast acquisition build-decision-texts`. The command requires exact cohort and document reconciliation against committed target-cohort, authenticated disclosure-clearance, restriction, and live pinned-Mistral-parser run cards and artifacts; enforces the Cycle 1 eligibility anchor; and admits only a single public, explicitly outcome-bearing disposition that was never model-visible. Its hash-bound JSONL output is private label evidence, not packet input. Do not hand-author or edit it; any missing, ambiguous, restricted, malformed, unauthenticated, hash-drifted, fixture-derived, or unpinned input stops the stage.
+
 ## Primary Outcome
 
 The primary label is `fully_dismissed`.
