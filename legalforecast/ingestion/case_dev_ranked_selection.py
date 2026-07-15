@@ -166,6 +166,14 @@ def project_case_dev_opinion_source(
         )
     projected: list[dict[str, object]] = []
     for lead in source.leads:
+        raw_docket_id = cast(object, lead.docket_id)
+        if (
+            not isinstance(raw_docket_id, str)
+            or _DOCKET_ID.fullmatch(raw_docket_id) is None
+        ):
+            raise RecapApiBatchDriverError(
+                "opinion source lead has invalid docket identity"
+            )
         source_hits = [hit.to_record() for hit in lead.source_hits]
         entry_keys = sorted({hit.provider_hit_id for hit in lead.source_hits})
         matched_terms = sorted({hit.query_term for hit in lead.source_hits})
@@ -251,6 +259,14 @@ def verify_case_dev_ranked_selection(
         or run_card.get("pacer_fee_acknowledgment_allowed") is not False
         or run_card.get("paid_activity_requested") is not False
         or run_card.get("paid_activity_executed") is not False
+        or run_card.get("reconciled") is not True
+        or run_card.get("failure_count") != 0
+        or run_card.get("conversion_failure_count") != 0
+        or run_card.get("enrichment_failure_count") != 0
+        or run_card.get("input_record_count") != len(projection_records)
+        or run_card.get("converted_docket_count") != len(projection_records)
+        or run_card.get("enrichment_attempt_count") != len(projection_records)
+        or run_card.get("successful_docket_count") != len(projection_records)
         or any(
             run_card.get(key) != value for key, value in expected_commitments.items()
         )
@@ -269,9 +285,7 @@ def verify_case_dev_ranked_selection(
         raise RecapApiBatchDriverError(
             f"top_n={top_n} exceeds verified ranked candidates={len(ranked_records)}"
         )
-    projection_by_docket = {
-        cast(str, record["docket_id"]): record for record in projection_records
-    }
+    projection_by_docket = _projection_by_docket(projection_records)
     verified_ranked: list[RankedCaseDevCandidate] = []
     seen_dockets: set[str] = set()
     previous_key: tuple[int, int, int, int, str] | None = None
@@ -290,6 +304,10 @@ def verify_case_dev_ranked_selection(
         seen_dockets.add(candidate.docket_id)
         previous_key = candidate.ranking_key
         verified_ranked.append(candidate)
+    if seen_dockets != set(projection_by_docket):
+        raise RecapApiBatchDriverError(
+            "ranked successes do not exactly cover the verified source projection"
+        )
     selected = tuple(verified_ranked[:top_n])
     selected_sha256 = _canonical_sha256(
         [candidate.commitment_record() for candidate in selected]
@@ -379,6 +397,10 @@ def seed_case_dev_ranked_selection(
 
     if not 1 <= page_size <= 100:
         raise RecapApiBatchDriverError("page_size must be from 1 through 100")
+    if plan.target_batch_config.get("page_size") != page_size:
+        raise RecapApiBatchDriverError(
+            "ranked selection replay page size differs from its frozen plan"
+        )
     batch_id = plan.batch_id
     selection = plan.selection
     source = selection.source
@@ -393,57 +415,86 @@ def seed_case_dev_ranked_selection(
             "target batch digest differs from ranked-selection plan"
         )
     store.ensure_terms(batch_id, (CASE_DEV_RANKED_TRANSFER_TERM,))
-    progress = store.term_progress(batch_id, CASE_DEV_RANKED_TRANSFER_TERM)
-    if progress.terminal_status is not None:
-        return CaseDevRankedSeedResult(
-            batch_id=batch_id,
-            target_cycle_hash=target_cycle_hash,
-            target_batch_digest=target_batch_digest,
-            leads_selected=len(selection.selected),
-            leads_seeded=0,
-            already_seeded=True,
-            selection=selection,
-        )
-    offset = progress.hit_count
-    if offset > len(selection.selected):
+    initial_progress = store.term_progress(batch_id, CASE_DEV_RANKED_TRANSFER_TERM)
+    if initial_progress.hit_count > len(selection.selected):
         raise RecapApiBatchDriverError(
             "ranked selection progress exceeds the frozen top-N prefix"
         )
-    starting_offset = offset
     lead_by_docket = {lead.docket_id: lead for lead in source.leads}
+    expected_hits = tuple(
+        _ranked_candidate_hit(
+            candidate,
+            lead=lead_by_docket[candidate.docket_id],
+            selection=selection,
+            target_cycle_hash=target_cycle_hash,
+        )
+        for candidate in selection.selected
+    )
+    offset = 0
+    request_cursor: str | None = None
     while offset < len(selection.selected):
-        page = selection.selected[offset : offset + page_size]
-        next_offset = offset + len(page)
+        next_offset = min(offset + page_size, len(selection.selected))
         next_cursor = (
             str(next_offset) if next_offset < len(selection.selected) else None
         )
         terminal = None if next_cursor is not None else TermTerminalStatus.EXHAUSTED
-        progress = store.commit_search_page(
+        store.commit_search_page(
             batch_id,
             CASE_DEV_RANKED_TRANSFER_TERM,
-            progress.cursor,
-            tuple(
-                _ranked_candidate_hit(
-                    candidate,
-                    lead=lead_by_docket[candidate.docket_id],
-                    selection=selection,
-                    target_cycle_hash=target_cycle_hash,
-                )
-                for candidate in page
-            ),
+            request_cursor,
+            expected_hits[offset:next_offset],
             next_cursor=next_cursor,
             terminal_status=terminal,
         )
         offset = next_offset
+        request_cursor = next_cursor
+    final_progress = store.term_progress(batch_id, CASE_DEV_RANKED_TRANSFER_TERM)
+    expected_stored_hits = tuple(
+        sorted(expected_hits, key=lambda hit: hit.candidate_id)
+    )
+    if (
+        final_progress.hit_count != len(selection.selected)
+        or final_progress.terminal_status != TermTerminalStatus.EXHAUSTED
+        or store.candidate_discovery_hits(batch_id) != expected_stored_hits
+    ):
+        raise RecapApiBatchDriverError(
+            "materialized ranked selection does not match its deterministic pages"
+        )
+    already_seeded = (
+        initial_progress.terminal_status == TermTerminalStatus.EXHAUSTED
+        and initial_progress.hit_count == len(selection.selected)
+    )
     return CaseDevRankedSeedResult(
         batch_id=batch_id,
         target_cycle_hash=target_cycle_hash,
         target_batch_digest=target_batch_digest,
         leads_selected=len(selection.selected),
-        leads_seeded=len(selection.selected) - starting_offset,
-        already_seeded=False,
+        leads_seeded=(
+            0
+            if already_seeded
+            else len(selection.selected) - initial_progress.hit_count
+        ),
+        already_seeded=already_seeded,
         selection=selection,
     )
+
+
+def _projection_by_docket(
+    records: Sequence[Mapping[str, object]],
+) -> dict[str, Mapping[str, object]]:
+    projected: dict[str, Mapping[str, object]] = {}
+    for record in records:
+        docket_id = record.get("docket_id")
+        if not isinstance(docket_id, str) or _DOCKET_ID.fullmatch(docket_id) is None:
+            raise RecapApiBatchDriverError(
+                "Case.dev source projection has invalid docket_id"
+            )
+        if docket_id in projected:
+            raise RecapApiBatchDriverError(
+                f"Case.dev source projection repeats docket {docket_id}"
+            )
+        projected[docket_id] = record
+    return projected
 
 
 def _ranked_selection_run_card_record(

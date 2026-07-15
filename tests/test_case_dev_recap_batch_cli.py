@@ -102,6 +102,44 @@ def test_enrich_recap_case_dev_source_mode_requires_opinion_search(
     )
 
 
+def test_enrich_recap_case_dev_rejected_resume_preserves_source_projection(
+    tmp_path: Path,
+) -> None:
+    first_source = _opinion_source_store(tmp_path)
+    fixture = tmp_path / "case-dev.jsonl"
+    fixture.write_text(json.dumps(_case_dev_response("101")) + "\n")
+    output_root = tmp_path / "output"
+    first_args = [
+        "acquisition",
+        "enrich-recap-case-dev",
+        "--output-root",
+        str(output_root),
+        "--source-store",
+        str(first_source),
+        "--source-batch-id",
+        "opinion-source",
+        "--case-dev-fixture",
+        str(fixture),
+        "--execute",
+        "--resume",
+    ]
+    assert cli_module.main(first_args) == 0
+    projection_path = (
+        output_root / "checkpoints" / "case-dev-recap-source-projection.jsonl"
+    )
+    original_projection = projection_path.read_bytes()
+
+    second_source = _opinion_source_store(
+        tmp_path,
+        name="second-opinion-source.sqlite3",
+        docket_id="102",
+    )
+    second_args = list(first_args)
+    second_args[second_args.index(str(first_source))] = str(second_source)
+    assert cli_module.main(second_args) == 2
+    assert projection_path.read_bytes() == original_projection
+
+
 def test_enrich_recap_case_dev_rejects_ambiguous_input_modes(tmp_path: Path) -> None:
     dockets = tmp_path / "dockets.jsonl"
     dockets.write_text("", encoding="utf-8")
@@ -614,8 +652,14 @@ def test_parallel_enrichment_checks_completed_fatal_before_replacement(
     assert set(started_indices) == {0, 1}
 
 
-def _opinion_source_store(tmp_path: Path, *, search_type: str = "o") -> Path:
-    path = tmp_path / "opinion-source.sqlite3"
+def _opinion_source_store(
+    tmp_path: Path,
+    *,
+    search_type: str = "o",
+    name: str = "opinion-source.sqlite3",
+    docket_id: str = "101",
+) -> Path:
+    path = tmp_path / name
     with CycleAcquisitionStore(path) as store:
         store.ensure_cycle(
             {"schema_version": "test", "eligibility_anchor": "2026-06-30"}
@@ -640,11 +684,11 @@ def _opinion_source_store(tmp_path: Path, *, search_type: str = "o") -> Path:
             [
                 {
                     "provider_hit_id": "cluster-501",
-                    "candidate_id": "101",
+                    "candidate_id": docket_id,
                     "payload": {
-                        "docket_id": "101",
+                        "docket_id": docket_id,
                         "court_id": "dcd",
-                        "docket_number": "1:25-cv-00101",
+                        "docket_number": f"1:25-cv-{int(docket_id):05d}",
                         "case_name": "Example v. Example",
                         "opinion_discovery_evidence": {
                             "schema_version": (

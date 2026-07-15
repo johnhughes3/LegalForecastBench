@@ -5,13 +5,22 @@ import json
 import sqlite3
 from datetime import date
 from pathlib import Path
+from typing import cast
 
+import pytest
 from legalforecast.cli import _cycle_acquisition_policy, main
 from legalforecast.ingestion.case_dev_ranked_selection import (
     CASE_DEV_RANKED_SELECTION_RUN_SCHEMA,
     CASE_DEV_RANKED_TRANSFER_SCHEMA,
+    project_case_dev_opinion_source,
 )
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+from legalforecast.ingestion.recap_api_batch_driver import (
+    DirectSearchHitProvenance,
+    DirectSearchLead,
+    DirectSearchSeedSource,
+    RecapApiBatchDriverError,
+)
 
 
 def test_select_case_dev_ranked_materializes_exact_top_n_rest_batch(
@@ -190,6 +199,242 @@ def test_select_case_dev_ranked_rejects_existing_card_before_target_mutation(
         == 2
     )
     _assert_no_target_rows(fresh_target)
+
+
+def test_select_case_dev_ranked_rejects_completed_enrichment_with_failure(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    fixture = tmp_path / "case-dev-with-permanent-failure.jsonl"
+    invalid = _case_dev_response("101", entries=[])
+    invalid["payload"] = {
+        "docket": {
+            "id": "999",
+            "url": "https://www.courtlistener.com/api/rest/v4/dockets/999/",
+            "entries": [],
+        }
+    }
+    _write_jsonl(
+        fixture,
+        [
+            invalid,
+            _case_dev_response("102", entries=[]),
+        ],
+    )
+    enrichment_root = tmp_path / "enrichment-with-failure"
+    assert (
+        main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(enrichment_root),
+                "--source-store",
+                str(source_store),
+                "--source-batch-id",
+                "opinion-source",
+                "--case-dev-fixture",
+                str(fixture),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    target_store = _target_store(tmp_path)
+
+    assert (
+        main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=tmp_path / "selection-run-card.json",
+                summary=tmp_path / "selection-summary.json",
+            )
+        )
+        == 2
+    )
+    _assert_no_target_rows(target_store)
+
+
+@pytest.mark.parametrize(
+    ("run_card_locator", "summary_locator"),
+    [
+        ("shared-output", "shared-output"),
+        ("source-store", "fresh-summary"),
+        ("source-store-lock", "fresh-summary"),
+        ("fresh-card", "source-projection"),
+        ("cycle-store", "fresh-summary"),
+        ("fresh-card", "cycle-store-lock"),
+    ],
+)
+def test_select_case_dev_ranked_rejects_output_aliases_before_target_mutation(
+    tmp_path: Path,
+    run_card_locator: str,
+    summary_locator: str,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
+    source_projection = (
+        enrichment_root / "checkpoints" / "case-dev-recap-source-projection.jsonl"
+    )
+    target_store = _target_store(tmp_path)
+    paths = {
+        "shared-output": tmp_path / "shared-output.json",
+        "source-store": source_store,
+        "source-store-lock": Path(f"{source_store}.lock"),
+        "source-projection": source_projection,
+        "cycle-store": target_store,
+        "cycle-store-lock": Path(f"{target_store}.lock"),
+        "fresh-card": tmp_path / "fresh-card.json",
+        "fresh-summary": tmp_path / "fresh-summary.json",
+    }
+    protected_bytes = {
+        path: path.read_bytes()
+        for path in (
+            source_store,
+            Path(f"{source_store}.lock"),
+            source_projection,
+            target_store,
+            Path(f"{target_store}.lock"),
+        )
+        if path.exists()
+    }
+
+    assert (
+        main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=paths[run_card_locator],
+                summary=paths[summary_locator],
+            )
+        )
+        == 2
+    )
+    assert all(
+        path.read_bytes() == payload for path, payload in protected_bytes.items()
+    )
+    _assert_no_target_rows(target_store)
+
+
+def test_select_case_dev_ranked_rejects_hardlinked_output_before_target_mutation(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
+    ranked_path = enrichment_root / "checkpoints" / "case-dev-recap-ranked.jsonl"
+    ranked_bytes = ranked_path.read_bytes()
+    hardlinked_run_card = tmp_path / "hardlinked-run-card.json"
+    hardlinked_run_card.hardlink_to(ranked_path)
+    target_store = _target_store(tmp_path)
+
+    assert (
+        main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=hardlinked_run_card,
+                summary=tmp_path / "selection-summary.json",
+            )
+        )
+        == 2
+    )
+    assert ranked_path.read_bytes() == ranked_bytes
+    _assert_no_target_rows(target_store)
+
+
+def test_select_case_dev_ranked_replays_terminal_page_commitment(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
+    target_store = _target_store(tmp_path)
+    run_card = tmp_path / "selection-run-card.json"
+    summary = tmp_path / "selection-summary.json"
+    args = _selection_args(
+        source_store=source_store,
+        enrichment_root=enrichment_root,
+        target_store=target_store,
+        run_card=run_card,
+        summary=summary,
+    )
+    assert main(args) == 0
+    with sqlite3.connect(target_store) as connection:
+        connection.execute(
+            "UPDATE search_pages SET response_hash = ? WHERE batch_id = ?",
+            ("0" * 64, "ranked-rest"),
+        )
+        connection.commit()
+
+    assert main(args) == 2
+
+
+def test_select_case_dev_ranked_rejects_wrong_terminal_materialization(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
+    target_store = _target_store(tmp_path)
+    run_card = tmp_path / "selection-run-card.json"
+    summary = tmp_path / "selection-summary.json"
+    args = _selection_args(
+        source_store=source_store,
+        enrichment_root=enrichment_root,
+        target_store=target_store,
+        run_card=run_card,
+        summary=summary,
+    )
+    assert main(args) == 0
+    with sqlite3.connect(target_store) as connection:
+        connection.execute(
+            "INSERT INTO candidates(candidate_id, first_batch_id, discovered_at) "
+            "VALUES (?, ?, ?)",
+            ("courtlistener-docket-999", "ranked-rest", "2026-07-15T00:00:00Z"),
+        )
+        connection.execute(
+            "UPDATE discovery_hits SET candidate_id = ?, payload_json = ? "
+            "WHERE batch_id = ?",
+            ("courtlistener-docket-999", "{}", "ranked-rest"),
+        )
+        connection.commit()
+
+    assert main(args) == 2
+
+
+def test_project_case_dev_opinion_source_rejects_malformed_docket_id() -> None:
+    hit = DirectSearchHitProvenance(
+        provider_hit_id="cluster-501",
+        query_term='"motion to dismiss"',
+        payload_sha256="0" * 64,
+    )
+    source = DirectSearchSeedSource(
+        source_batch_id="opinion-source",
+        source_batch_digest="1" * 64,
+        source_cycle_hash="2" * 64,
+        source_search_type="o",
+        source_candidate_set_sha256="3" * 64,
+        search_window_start=date(2026, 6, 30),
+        search_window_end=date(2026, 7, 15),
+        leads=(
+            DirectSearchLead(
+                docket_id=cast(str, None),
+                source_provider_hit_id=hit.provider_hit_id,
+                source_query_term=hit.query_term,
+                source_payload_sha256=hit.payload_sha256,
+                source_hits=(hit,),
+                court_id="dcd",
+                docket_number="1:25-cv-00101",
+                case_name="Example v. Example",
+                decision_entry_evidence=None,
+            ),
+        ),
+    )
+
+    with pytest.raises(RecapApiBatchDriverError, match="invalid docket identity"):
+        project_case_dev_opinion_source(source)
 
 
 def _selection_args(
