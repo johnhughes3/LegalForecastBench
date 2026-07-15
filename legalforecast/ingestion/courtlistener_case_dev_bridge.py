@@ -12,7 +12,6 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -29,6 +28,7 @@ from legalforecast.ingestion.courtlistener_client import (
     CourtListenerRecapDocument,
     CourtListenerServerError,
 )
+from legalforecast.ingestion.courtlistener_dates import parse_courtlistener_filed_date
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerEntryRole,
     CourtListenerWebDocketEntry,
@@ -1591,7 +1591,12 @@ def _bridge_courtlistener_rest_gap_documents(
                 f"courtlistener_entry_ambiguous: {number}"
             )
         hit = hits[0]
-        if hit.entry_text and _text_key(hit.entry_text) != _text_key(web_entry.text):
+        web_document = _select_courtlistener_document(web_entry, role)
+        if hit.entry_text and not _courtlistener_entry_text_matches(
+            hit.entry_text,
+            web_entry=web_entry,
+            web_document=web_document,
+        ):
             raise CourtListenerCaseDevBridgeError(
                 f"courtlistener_entry_text_conflict: {number}"
             )
@@ -1603,7 +1608,6 @@ def _bridge_courtlistener_rest_gap_documents(
             raise CourtListenerCaseDevBridgeError(
                 f"courtlistener_entry_date_conflict: {number}"
             )
-        web_document = _select_courtlistener_document(web_entry, role)
         if web_document.freely_available:
             raise CourtListenerCaseDevBridgeError(
                 f"paid_gap_public_document_conflict: {number}"
@@ -1645,24 +1649,75 @@ def _bridge_courtlistener_rest_gap_documents(
 def _same_filed_date(first: str, second: str) -> bool:
     """Compare REST ISO dates with either scraped or reconstructed web dates."""
 
-    first_date = _normalized_filed_date(first)
-    second_date = _normalized_filed_date(second)
+    first_date = parse_courtlistener_filed_date(first)
+    second_date = parse_courtlistener_filed_date(second)
     if first_date is None or second_date is None:
         return first.strip() == second.strip()
     return first_date == second_date
 
 
-def _normalized_filed_date(value: str) -> date | None:
-    try:
-        return date.fromisoformat(value.strip()[:10])
-    except ValueError:
-        pass
-    for date_format in ("%B %d, %Y", "%b %d, %Y"):
-        try:
-            return datetime.strptime(value.strip(), date_format).date()
-        except ValueError:
-            continue
-    return None
+_LEADING_COURTLISTENER_DATE = re.compile(
+    r"^(?P<date>[A-Z][a-z]+\.?(?:\s+)\d{1,2},\s+\d{4}"
+    r"(?:,\s+(?:noon|midnight|(?:1[0-2]|[1-9])(?::[0-5]\d)?\s+[ap]\.m\.))?)"
+)
+
+
+def _courtlistener_entry_text_matches(
+    rest_text: str,
+    *,
+    web_entry: CourtListenerWebDocketEntry,
+    web_document: CourtListenerWebDocument,
+) -> bool:
+    """Corroborate the REST narrative against a decorated docket-page row."""
+
+    narrative = web_entry.narrative_text
+    if narrative is None:
+        narrative = web_entry.text
+        if web_document.kind and web_document.kind in narrative:
+            narrative = narrative.split(web_document.kind, maxsplit=1)[0]
+    body = _strip_courtlistener_entry_prefix(
+        narrative,
+        entry_number=web_entry.entry_number,
+    )
+    rest_key = _text_key(rest_text)
+    body_key = _text_key(body)
+    if body_key:
+        return _nonempty_token_sequence_matches(rest_key, body_key)
+    return _nonempty_token_sequence_matches(
+        rest_key,
+        _text_key(web_document.description),
+    )
+
+
+def _nonempty_token_sequence_matches(first: str, second: str) -> bool:
+    if not first or not second:
+        return False
+    padded_first = f" {first} "
+    padded_second = f" {second} "
+    return padded_first in padded_second or padded_second in padded_first
+
+
+def _strip_courtlistener_entry_prefix(
+    value: str,
+    *,
+    entry_number: str | None,
+) -> str:
+    """Remove the duplicated entry/date columns from CourtListener row text."""
+
+    remaining = value.strip()
+    for _ in range(2):
+        if entry_number is not None:
+            number_match = re.match(rf"^{re.escape(entry_number)}\b\s*", remaining)
+            if number_match is not None:
+                remaining = remaining[number_match.end() :]
+        date_match = _LEADING_COURTLISTENER_DATE.match(remaining)
+        if date_match is None:
+            break
+        rendered_date = date_match.group("date")
+        if parse_courtlistener_filed_date(rendered_date) is None:
+            break
+        remaining = remaining[date_match.end() :].strip()
+    return remaining
 
 
 def _select_courtlistener_recap_document(
