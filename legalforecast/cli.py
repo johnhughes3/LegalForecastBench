@@ -11081,6 +11081,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         output_root / "checkpoints" / "case-dev-recap-source-projection.jsonl",
     )
     source_commitments: JsonRecord = {}
+    projection_bytes: bytes | None = None
     if source_store_path is not None and source_batch_id is not None:
         try:
             source = read_saturated_direct_search_leads(
@@ -11093,8 +11094,8 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
             records = list(project_case_dev_opinion_source(source))
         except RecapApiBatchDriverError as exc:
             raise CommandError(str(exc)) from exc
-        _write_jsonl(projection_path, records)
-        projection_sha256 = hashlib.sha256(projection_path.read_bytes()).hexdigest()
+        projection_bytes = _jsonl_bytes(records)
+        projection_sha256 = hashlib.sha256(projection_bytes).hexdigest()
         source_commitments = {
             "source_batch_id": source.source_batch_id,
             "source_batch_digest": source.source_batch_digest,
@@ -11173,6 +11174,62 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         progress_config_path,
     )
     dry_run = _acquisition_dry_run(args)
+    resume = cast(bool, args.resume)
+    run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards" / "enrich-recap-case-dev.json",
+    )
+    log_path = _acquisition_path(
+        args,
+        "log_output",
+        output_root / "logs" / "enrich-recap-case-dev.jsonl",
+    )
+    _validate_ranked_handoff_paths(
+        protected_paths=input_paths,
+        writable_paths=(
+            *output_paths,
+            run_card_path,
+            log_path,
+        ),
+        sqlite_paths=(source_store_path,) if source_store_path is not None else (),
+        context="Case.dev enrichment",
+    )
+    dockets_sha256 = (
+        hashlib.sha256(projection_bytes).hexdigest()
+        if projection_bytes is not None
+        else hashlib.sha256(dockets_path.read_bytes()).hexdigest()
+    )
+    progress_config: JsonRecord = {
+        "schema_version": "legalforecast.case_dev_recap_progress.v1",
+        "dockets_sha256": "sha256:" + dockets_sha256,
+        "input_record_count": len(records),
+        "page_size": page_size,
+        "max_pages_per_docket": max_pages,
+        "free_lookup_only": True,
+        **source_commitments,
+    }
+    if projection_bytes is not None and projection_path.exists():
+        if projection_path.read_bytes() != projection_bytes:
+            raise CommandError(
+                "existing Case.dev source projection does not match the verified source"
+            )
+    if not dry_run:
+        if progress_config_path.exists():
+            if not resume:
+                raise CommandError(
+                    "Case.dev enrichment progress exists; use --resume or remove it"
+                )
+            if _read_json_object(progress_config_path) != progress_config:
+                raise CommandError(
+                    "Case.dev enrichment progress does not match the current "
+                    "input/config"
+                )
+        elif progress_path.exists():
+            raise CommandError("Case.dev enrichment progress is missing its config")
+    if projection_bytes is not None and not projection_path.exists():
+        projection_path.parent.mkdir(parents=True, exist_ok=True)
+        projection_path.write_bytes(projection_bytes)
     if dry_run:
         summary: JsonRecord = {
             "schema_version": "legalforecast.case_dev_recap_batch_summary.v1",
@@ -11210,29 +11267,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         )
         return 0
 
-    progress_config: JsonRecord = {
-        "schema_version": "legalforecast.case_dev_recap_progress.v1",
-        "dockets_sha256": "sha256:"
-        + hashlib.sha256(dockets_path.read_bytes()).hexdigest(),
-        "input_record_count": len(records),
-        "page_size": page_size,
-        "max_pages_per_docket": max_pages,
-        "free_lookup_only": True,
-        **source_commitments,
-    }
-    resume = cast(bool, args.resume)
-    if progress_config_path.exists():
-        if not resume:
-            raise CommandError(
-                "Case.dev enrichment progress exists; use --resume or remove it"
-            )
-        if _read_json_object(progress_config_path) != progress_config:
-            raise CommandError(
-                "Case.dev enrichment progress does not match the current input/config"
-            )
-    else:
-        if progress_path.exists():
-            raise CommandError("Case.dev enrichment progress is missing its config")
+    if not progress_config_path.exists():
         _write_json(progress_config_path, progress_config)
 
     progress_records = _read_records(progress_path) if progress_path.exists() else []
@@ -12540,6 +12575,22 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
     top_n = cast(int, args.top_n)
     page_size = cast(int, args.page_size)
     run_card_output = cast(Path, args.run_card_output)
+    summary_output = cast(Path | None, args.summary_output)
+    _validate_ranked_handoff_paths(
+        protected_paths=(
+            source_store,
+            source_projection,
+            ranked_path,
+            enrichment_run_card,
+            cycle_store,
+        ),
+        writable_paths=(
+            run_card_output,
+            *((summary_output,) if summary_output is not None else ()),
+        ),
+        sqlite_paths=(source_store, cycle_store),
+        context="ranked Case.dev selection",
+    )
     if not cycle_store.is_file():
         raise CommandError(
             "--cycle-store must be an existing current-cycle acquisition store"
@@ -12598,11 +12649,72 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
     ) as exc:
         raise CommandError(str(exc)) from exc
     record = result.to_record()
-    summary_output = cast(Path | None, args.summary_output)
     if summary_output is not None:
         _write_json(summary_output, record)
     print(json.dumps(record, sort_keys=True))
     return 0
+
+
+def _validate_ranked_handoff_paths(
+    *,
+    protected_paths: Sequence[Path],
+    writable_paths: Sequence[Path],
+    sqlite_paths: Sequence[Path],
+    context: str,
+) -> None:
+    """Reject writable aliases before checkpoint or cycle-store mutation."""
+
+    reserved_paths = list(protected_paths)
+    for store_path in sqlite_paths:
+        reserved_paths.extend(
+            Path(f"{store_path}{suffix}")
+            for suffix in (".lock", "-wal", "-shm", "-journal")
+        )
+    try:
+        protected = tuple((path, path.resolve(strict=False)) for path in reserved_paths)
+        writable = tuple((path, path.resolve(strict=False)) for path in writable_paths)
+    except OSError as exc:
+        raise CommandError(f"cannot resolve {context} paths: {exc}") from exc
+
+    seen: dict[Path, Path] = {}
+    for path, identity in writable:
+        previous = seen.get(identity)
+        if previous is not None:
+            raise CommandError(
+                f"{context} writable outputs alias: {previous} and {path}"
+            )
+        seen[identity] = path
+        if path.is_symlink():
+            raise CommandError(f"{context} writable output is a symlink: {path}")
+        if path.exists():
+            try:
+                metadata = path.stat()
+            except OSError as exc:
+                raise CommandError(
+                    f"cannot inspect {context} writable output {path}: {exc}"
+                ) from exc
+            if not path.is_file() or metadata.st_nlink != 1:
+                raise CommandError(
+                    f"{context} writable output is not a singly linked file: {path}"
+                )
+        for protected_path, protected_identity in protected:
+            if identity == protected_identity:
+                raise CommandError(
+                    f"{context} writable output aliases protected input: "
+                    f"{path} and {protected_path}"
+                )
+            if path.exists() and protected_path.exists():
+                try:
+                    aliases = path.samefile(protected_path)
+                except OSError as exc:
+                    raise CommandError(
+                        f"cannot inspect {context} path aliases: {exc}"
+                    ) from exc
+                if aliases:
+                    raise CommandError(
+                        f"{context} writable output hard-links protected input: "
+                        f"{path} and {protected_path}"
+                    )
 
 
 def _cmd_batch_002_snapshot(args: argparse.Namespace) -> int:
@@ -22523,13 +22635,16 @@ def _read_json_object(path: Path) -> JsonRecord:
     return dict(cast(Mapping[str, Any], loaded))
 
 
-def _write_jsonl(path: Path, records: Iterable[Mapping[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = "".join(
+def _jsonl_bytes(records: Iterable[Mapping[str, Any]]) -> bytes:
+    return "".join(
         f"{json.dumps(dict(record), sort_keys=True, allow_nan=False)}\n"
         for record in records
-    )
-    path.write_text(payload, encoding="utf-8")
+    ).encode()
+
+
+def _write_jsonl(path: Path, records: Iterable[Mapping[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(_jsonl_bytes(records))
 
 
 def _append_jsonl(path: Path, records: Iterable[Mapping[str, Any]]) -> None:
