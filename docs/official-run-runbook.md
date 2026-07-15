@@ -98,6 +98,23 @@ uv run legalforecast acquisition plan-label-audit \
 
 Keep `llm-label-audit-cycle-planned.jsonl`, `cycle-label-audit-plan.json`, and the merged review queue in controlled private storage for lawyer review. The only check-in-safe outputs are `cycle-label-audit-summary.json` and `adjudication-routing-summary.json`; both are redacted and hash-bound to the private plan. Supply the plan and the same precommitted policy back to `apply-lawyer-review` with `--cycle-label-audit-plan` and `--labeling-policy`; audit-sample adjudications do not replace unanimous model labels.
 
+Final corpus reconciliation must consume the three content files from one canonical complete and saturated screening snapshot, plus that snapshot's manifest:
+
+```bash
+uv run legalforecast acquisition finalize-corpus \
+  <all-stage-inputs> \
+  --screened-cases <screening-snapshot>/screened-cases.jsonl \
+  --discovery-summary <screening-snapshot>/summary.json \
+  --discovery-exclusions <screening-snapshot>/exclusions.jsonl \
+  --screening-snapshot-manifest <screening-snapshot>/manifest.json \
+  --screening-cycle-store <assembled-cycle-root>/store/cycle-acquisition.sqlite3 \
+  --target-cohort-preparation-root <successful-target-cohort-root> \
+  --target-clean-cases <100-or-150> \
+  --execute --no-resume
+```
+
+Do not hand-author a compatibility summary or substitute a replay-stage summary. `finalize-corpus` requires the successful canonical `prepare-target-cohort` root, verifies its self-hashed configuration, completion evidence, and exhaustive stage commitments, and uses that authenticated lineage to pin the exact snapshot path, manifest hash, cycle hash, batch digest, and target size. It then verifies the snapshot's immutable cycle-store registration, manifest schema, complete and saturated state, member hashes, byte counts, row counts, canonical summary shape, and exact accepted-plus-excluded reconciliation before accepting any downstream readiness evidence. Include every later exclusion file separately with `--exclusion-source` so every screened-but-unselected or downstream-rejected candidate reaches the complete exclusion ledger.
+
 ## Before Dispatch
 
 Run the release gate at the exact SHA you intend to dispatch:

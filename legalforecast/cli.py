@@ -449,6 +449,11 @@ from legalforecast.ingestion.snapshot_quarantine import (
     SnapshotQuarantineError,
     quarantine_orphan_snapshot,
 )
+from legalforecast.ingestion.snapshot_reconciliation import (
+    SnapshotReconciliation,
+    SnapshotReconciliationError,
+    verify_saturated_snapshot_reconciliation,
+)
 from legalforecast.ingestion.snapshot_replay import (
     SnapshotReplayBundle,
     SnapshotReplayError,
@@ -5330,19 +5335,46 @@ def _add_acquisition_finalize_corpus_arguments(
         "--screened-cases",
         type=Path,
         required=True,
-        help="Accepted JSONL from acquisition discover-courtlistener.",
+        help="screened-cases.jsonl from the complete saturated screening snapshot.",
     )
     parser.add_argument(
         "--discovery-summary",
         type=Path,
         required=True,
-        help="Summary JSON from acquisition discover-courtlistener.",
+        help="summary.json from the same complete saturated screening snapshot.",
     )
     parser.add_argument(
         "--discovery-exclusions",
         type=Path,
         required=True,
-        help="Exclusion JSONL from acquisition discover-courtlistener.",
+        help="exclusions.jsonl from the same complete saturated screening snapshot.",
+    )
+    parser.add_argument(
+        "--screening-snapshot-manifest",
+        type=Path,
+        required=True,
+        help=(
+            "manifest.json that proves the discovery summary, screened cases, and "
+            "discovery exclusions belong to one complete saturated snapshot."
+        ),
+    )
+    parser.add_argument(
+        "--screening-cycle-store",
+        type=Path,
+        required=True,
+        help=(
+            "cycle-acquisition.sqlite3 containing the immutable registration for "
+            "the supplied screening snapshot."
+        ),
+    )
+    parser.add_argument(
+        "--target-cohort-preparation-root",
+        type=Path,
+        required=True,
+        help=(
+            "Canonical successful prepare-target-cohort root that precommits the "
+            "current screening snapshot and target size."
+        ),
     )
     parser.add_argument(
         "--exclusion-source",
@@ -20257,6 +20289,20 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     screened_cases_path = cast(Path, args.screened_cases)
     discovery_summary_path = cast(Path, args.discovery_summary)
     discovery_exclusions_path = cast(Path, args.discovery_exclusions)
+    screening_snapshot_manifest_path = cast(Path, args.screening_snapshot_manifest)
+    screening_cycle_store_path = cast(Path, args.screening_cycle_store)
+    target_preparation_root = cast(Path, args.target_cohort_preparation_root)
+    target_preparation_config_path = (
+        target_preparation_root / _TARGET_COHORT_PREPARATION.config_filename
+    )
+    target_preparation_summary_path = (
+        target_preparation_root / _TARGET_COHORT_PREPARATION.summary_filename
+    )
+    target_preparation_run_card_path = (
+        target_preparation_root
+        / "run-cards"
+        / f"{_TARGET_COHORT_PREPARATION.stage}.json"
+    )
     exclusion_paths = tuple(cast(list[Path], args.exclusion_source))
     complete_ledger_path = _acquisition_path(
         args,
@@ -20294,10 +20340,17 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         screened_cases_path,
         discovery_summary_path,
         discovery_exclusions_path,
+        screening_snapshot_manifest_path,
+        screening_cycle_store_path,
+        target_preparation_config_path,
+        target_preparation_summary_path,
+        target_preparation_run_card_path,
         *exclusion_paths,
     )
     dry_run = _acquisition_dry_run(args)
     target_clean_cases = cast(int, args.target_clean_cases)
+    discovery_reconciliation: SnapshotReconciliation | None = None
+    verified_preparation: _VerifiedPreparationForFrontier | None = None
     if dry_run:
         _write_jsonl(complete_ledger_path, [])
         _write_json(
@@ -20312,6 +20365,53 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         clean_count = 0
         meets_target = False
     else:
+        try:
+            verified_preparation = _verify_completed_preparation_for_frontier(
+                preparation_root=target_preparation_root,
+                preparation_summary_path=target_preparation_summary_path,
+                preparation_config_path=target_preparation_config_path,
+                snapshot_manifest_path=screening_snapshot_manifest_path,
+            )
+            if verified_preparation.target_case_count != target_clean_cases:
+                raise CommandError(
+                    "final corpus target differs from the authenticated target "
+                    "cohort preparation"
+                )
+            target_preparation_config = _read_json_object(
+                target_preparation_config_path
+            )
+            discovery_reconciliation = verify_saturated_snapshot_reconciliation(
+                manifest_path=screening_snapshot_manifest_path,
+                summary_path=discovery_summary_path,
+                screened_cases_path=screened_cases_path,
+                exclusions_path=discovery_exclusions_path,
+                cycle_store_path=screening_cycle_store_path,
+                expected_snapshot_path=Path(
+                    _required_str(target_preparation_config, "snapshot")
+                ),
+                expected_manifest_sha256=_required_str(
+                    target_preparation_config,
+                    "snapshot_manifest_sha256",
+                ),
+                expected_cycle_hash=_required_str(
+                    target_preparation_config,
+                    "snapshot_cycle_hash",
+                ),
+                expected_batch_digest=_required_str(
+                    target_preparation_config,
+                    "snapshot_batch_digest",
+                ),
+            )
+        except (CommandError, SnapshotReconciliationError, ValueError) as exc:
+            _write_acquisition_failure(
+                args,
+                stage="finalize-corpus",
+                input_paths=input_paths,
+                output_paths=(complete_ledger_path, readiness_path),
+                reason=str(exc),
+                paid_activity_requested=False,
+            )
+            raise CommandError(str(exc)) from exc
         selection_records = _read_records(selection_path)
         parser_records = _read_records(parser_manifest_path)
         clearance_records = _read_records(disclosure_clearance_path)
@@ -20355,7 +20455,6 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         packet_build_records = _read_records(packet_build_input_path)
         packet_records = _read_records(packets_path)
         screened_case_records = _read_records(screened_cases_path)
-        discovery_summary = _read_json_object(discovery_summary_path)
         discovery_exclusion_records = _read_records(discovery_exclusions_path)
         exclusion_groups = tuple(_read_records(path) for path in exclusion_paths)
         ledger = merge_exclusion_ledger_records(
@@ -20370,7 +20469,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         try:
             _validate_acquisition_discovery_reconciliation(
                 screened_case_records=screened_case_records,
-                discovery_summary=discovery_summary,
+                discovery_reconciliation=discovery_reconciliation,
                 discovery_exclusion_records=discovery_exclusion_records,
                 selection_records=selection_records,
                 complete_ledger_records=complete_ledger_records,
@@ -20462,7 +20561,19 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
                 ),
                 required_clean_count=target_clean_cases,
             )
-        _write_json(readiness_path, report.to_record())
+        readiness_record = report.to_record()
+        readiness_record["screening_snapshot_reconciliation"] = (
+            discovery_reconciliation.to_record()
+        )
+        readiness_record["target_cohort_preparation"] = {
+            "root": str(target_preparation_root.resolve()),
+            "config_sha256": _path_sha256(target_preparation_config_path),
+            "summary_sha256": _path_sha256(target_preparation_summary_path),
+            "success_run_card_sha256": _path_sha256(
+                verified_preparation.success_run_card_path
+            ),
+        }
+        _write_json(readiness_path, readiness_record)
         clean_count = report.clean_count
         meets_target = report.meets_target
         if not meets_target:
@@ -20492,6 +20603,24 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             "target_clean_cases": target_clean_cases,
             "clean_count": clean_count,
             "meets_target": meets_target,
+            **(
+                {
+                    "screening_snapshot_reconciliation": (
+                        discovery_reconciliation.to_record()
+                    ),
+                    "target_cohort_preparation": {
+                        "root": str(target_preparation_root.resolve()),
+                        "config_sha256": _path_sha256(target_preparation_config_path),
+                        "summary_sha256": _path_sha256(target_preparation_summary_path),
+                        "success_run_card_sha256": _path_sha256(
+                            verified_preparation.success_run_card_path
+                        ),
+                    },
+                }
+                if discovery_reconciliation is not None
+                and verified_preparation is not None
+                else {}
+            ),
         },
     )
     return 0
@@ -20565,7 +20694,7 @@ def _readiness_exclusion_stage(reason: str) -> str:
 def _validate_acquisition_discovery_reconciliation(
     *,
     screened_case_records: Sequence[Mapping[str, Any]],
-    discovery_summary: Mapping[str, Any],
+    discovery_reconciliation: SnapshotReconciliation,
     discovery_exclusion_records: Sequence[Mapping[str, Any]],
     selection_records: Sequence[Mapping[str, Any]],
     complete_ledger_records: Sequence[Mapping[str, Any]],
@@ -20592,9 +20721,9 @@ def _validate_acquisition_discovery_reconciliation(
         if len(candidate_ids) != len(set(candidate_ids)):
             raise CommandError(f"duplicate candidate_id in {label}")
 
-    accepted_count = _required_int(discovery_summary, "accepted_case_count")
-    excluded_count = _required_int(discovery_summary, "excluded_case_count")
-    processed_count = _required_int(discovery_summary, "processed_candidate_count")
+    accepted_count = discovery_reconciliation.accepted_count
+    excluded_count = discovery_reconciliation.excluded_count
+    processed_count = discovery_reconciliation.processed_count
     if accepted_count != len(screened_ids):
         raise CommandError(
             "discovery accepted_case_count does not match screened-cases JSONL"
