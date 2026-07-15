@@ -6,7 +6,11 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
-from legalforecast.cli import main
+from legalforecast.cli import (
+    _PACER_GAP_BRIDGE_SEMANTIC_REVISION,
+    _bridge_checkpoint_requires_semantic_replay,
+    main,
+)
 from legalforecast.ingestion.core_document_filter import filter_core_documents
 from legalforecast.ingestion.courtlistener_case_dev_bridge import (
     CourtListenerCaseDevBridgeError,
@@ -546,8 +550,17 @@ def test_bridge_pacer_gaps_cli_checkpoints_newly_free_request(
     assert "free recovery request drifted" in capsys.readouterr().err
 
 
-def test_bridge_replays_legacy_already_available_exclusion(
+@pytest.mark.parametrize(
+    "exclusion_reason",
+    (
+        "courtlistener_recap_already_available",
+        "operative_complaint_not_found",
+        "courtlistener_recap_document_match_not_found",
+    ),
+)
+def test_bridge_replays_exclusions_with_superseded_semantics(
     tmp_path: Path,
+    exclusion_reason: str,
 ) -> None:
     screened, gap, downloads = _paid_gap_inputs()
     screened_path = tmp_path / "screened.jsonl"
@@ -593,9 +606,11 @@ def test_bridge_replays_legacy_already_available_exclusion(
     )
     checkpoint = _read_json(checkpoint_path)
     assert checkpoint["outcome"] == "exclusion"
-    checkpoint["payload"]["exclusion_record"]["exclusion_reasons"] = [
-        "courtlistener_recap_already_available"
-    ]
+    checkpoint["payload"]["exclusion_record"]["exclusion_reasons"] = [exclusion_reason]
+    checkpoint["payload"]["exclusion_record"]["primary_exclusion_reason"] = (
+        exclusion_reason
+    )
+    checkpoint.pop("bridge_semantic_revision", None)
     checkpoint_path.write_text(
         json.dumps(checkpoint, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
@@ -614,6 +629,160 @@ def test_bridge_replays_legacy_already_available_exclusion(
     assert summary["semantic_replay_candidate_count"] == 1
     assert summary["resumed_terminal_candidate_count"] == 0
     assert summary["courtlistener_request_count"] == 3
+    replayed = _read_json(checkpoint_path)
+    assert replayed["bridge_semantic_revision"] == _PACER_GAP_BRIDGE_SEMANTIC_REVISION
+
+
+def test_semantic_replay_requires_exact_consistent_legacy_exclusion() -> None:
+    reason = "operative_complaint_not_found"
+    checkpoint: dict[str, Any] = {
+        "outcome": "exclusion",
+        "payload": {
+            "exclusion_record": {
+                "primary_exclusion_reason": reason,
+                "exclusion_reasons": [reason],
+            }
+        },
+    }
+
+    assert _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+
+    checkpoint["payload"]["exclusion_record"]["exclusion_reasons"] = [
+        reason,
+        "courtlistener_rest_response_invalid",
+    ]
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+    checkpoint["payload"]["exclusion_record"]["exclusion_reasons"] = [reason]
+    checkpoint["payload"]["exclusion_record"]["primary_exclusion_reason"] = (
+        "courtlistener_rest_response_invalid"
+    )
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+    checkpoint["payload"]["exclusion_record"]["primary_exclusion_reason"] = reason
+    checkpoint["bridge_semantic_revision"] = _PACER_GAP_BRIDGE_SEMANTIC_REVISION
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+    checkpoint.pop("bridge_semantic_revision")
+    checkpoint["outcome"] = "success"
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+    checkpoint["outcome"] = "exclusion"
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="case.dev"
+    )
+
+
+def test_semantic_replay_that_remains_excluded_runs_only_once(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    screened = _screened_case()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    complaint_entry = next(
+        entry for entry in selected_entries if entry["entry_number"] == "1"
+    )
+    complaint_documents = cast(list[dict[str, object]], complaint_entry["documents"])
+    complaint_documents[0].update(
+        {
+            "action_label": "Buy on PACER",
+            "href": "https://ecf.nysd.uscourts.gov/doc1/complaint",
+            "pacer_only": True,
+        }
+    )
+    plan = plan_public_packet_downloads(
+        (screened,), use_embedded_entries=True, target_clean_cases=1
+    )
+    [gap] = plan.paid_gap_cases
+    downloads = [
+        {
+            **request.to_record(),
+            "local_path": f"123/{request.source_document_id}.pdf",
+            "sha256": "a" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in plan.download_requests
+    ]
+    complaint_entry["text"] = "1 NOTICE regarding another filing."
+    complaint_documents[0]["description"] = "Notice (Other)"
+
+    screened_path = tmp_path / "screened.jsonl"
+    public_path = tmp_path / "public.jsonl"
+    gaps_path = tmp_path / "gaps.jsonl"
+    downloads_path = tmp_path / "downloads.jsonl"
+    fixture_path = tmp_path / "courtlistener.jsonl"
+    output_root = tmp_path / "output"
+    _write_jsonl(screened_path, [screened])
+    _write_jsonl(public_path, [])
+    _write_jsonl(gaps_path, [gap.to_record()])
+    _write_jsonl(downloads_path, downloads)
+    _write_jsonl(
+        fixture_path,
+        [_recorded_response_record(response) for response in _clean_responses()],
+    )
+    command = [
+        "acquisition",
+        "bridge-pacer-gaps",
+        "--screened-cases",
+        str(screened_path),
+        "--use-embedded-entries",
+        "--courtlistener-fixture",
+        str(fixture_path),
+        "--public-selection",
+        str(public_path),
+        "--paid-gaps",
+        str(gaps_path),
+        "--free-download-manifest",
+        str(downloads_path),
+        "--output-root",
+        str(output_root),
+        "--execute",
+    ]
+
+    assert main(command) == 0
+    [checkpoint_path] = sorted(
+        (output_root / "checkpoints" / "pacer-gap-bridge").glob("*.json")
+    )
+    first = _read_json(checkpoint_path)
+    assert first["outcome"] == "exclusion"
+    assert first["payload"]["exclusion_record"]["primary_exclusion_reason"] == (
+        "operative_complaint_not_found"
+    )
+    first.pop("bridge_semantic_revision")
+    checkpoint_path.write_text(
+        json.dumps(first, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    assert main(command) == 0
+    replayed = _read_json(checkpoint_path)
+    assert replayed["outcome"] == "exclusion"
+    assert replayed["payload"]["exclusion_record"]["primary_exclusion_reason"] == (
+        "operative_complaint_not_found"
+    )
+    assert replayed["bridge_semantic_revision"] == _PACER_GAP_BRIDGE_SEMANTIC_REVISION
+    replay_summary = _read_json(output_root / "pacer-gap-bridge-summary.json")
+    assert replay_summary["semantic_replay_candidate_count"] == 1
+    assert replay_summary["courtlistener_request_count"] == 2
+
+    _write_jsonl(fixture_path, [])
+    assert main(command) == 0
+    resumed_summary = _read_json(output_root / "pacer-gap-bridge-summary.json")
+    assert resumed_summary["semantic_replay_candidate_count"] == 0
+    assert resumed_summary["resumed_terminal_candidate_count"] == 1
+    assert resumed_summary["courtlistener_request_count"] == 0
+
+    invalid = _read_json(checkpoint_path)
+    invalid["bridge_semantic_revision"] = "unknown-or-newer-revision"
+    checkpoint_path.write_text(
+        json.dumps(invalid, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    assert main(command) == 2
+    assert "PACER-gap bridge checkpoint is invalid" in capsys.readouterr().err
 
 
 def test_courtlistener_rest_bridge_checkpoints_and_resumes_without_refetch(
@@ -1276,6 +1445,318 @@ def test_bridge_accepts_equivalent_recap_detail_aliases() -> None:
     )
 
     assert selection["candidate_id"] == "123"
+
+
+@pytest.mark.parametrize(
+    (
+        "web_description",
+        "recap_description",
+        "attachment_number",
+        "expected_error",
+    ),
+    (
+        (
+            "Judgment on the Pleadings",
+            "Motion for Judgment on the Pleadings",
+            None,
+            None,
+        ),
+        ("Dismiss", "Motion to Dismiss", None, None),
+        (
+            "Judgment on the Pleadings",
+            "Motion for Summary Judgment",
+            None,
+            "courtlistener_recap_document_match_not_found: 38",
+        ),
+        (
+            "Judgment on the Pleadings",
+            "Motion for Judgment on the Pleadings",
+            1,
+            "courtlistener_recap_document_match_not_found: 38",
+        ),
+        (
+            "Motion to Dismiss",
+            "Motion for Motion to Dismiss",
+            None,
+            "courtlistener_recap_document_match_not_found: 38",
+        ),
+        (
+            "Motion for Judgment",
+            "Motion to Motion for Judgment",
+            None,
+            "courtlistener_recap_document_match_not_found: 38",
+        ),
+    ),
+    ids=(
+        "motion-for-equivalent-main",
+        "motion-to-equivalent-main",
+        "genuine-conflict",
+        "attachment-not-main",
+        "cross-prefix-motion-for",
+        "cross-prefix-motion-to",
+    ),
+)
+def test_bridge_handles_nobriga_main_document_description_equivalence(
+    web_description: str,
+    recap_description: str,
+    attachment_number: int | None,
+    expected_error: str | None,
+) -> None:
+    screened = _screened_case_variant(
+        candidate_id="69466572",
+        docket_number="3:24-cv-01980",
+        case_name="Nobriga v. Clear Blue Specialty Insurance Company",
+    )
+    candidate = cast(dict[str, object], screened["candidate"])
+    metadata = cast(dict[str, object], candidate["metadata"])
+    metadata["court"] = "ctd"
+    ai = cast(dict[str, object], screened["ai"])
+    ai.update(
+        {
+            "target_motion_entry_numbers": ["38"],
+            "decision_entry_numbers": ["63"],
+        }
+    )
+    screened["selected_entries"] = [
+        _entry(
+            1,
+            "COMPLAINT filed by Plaintiff.",
+            "Complaint",
+            "https://storage.courtlistener.com/complaint.pdf",
+            pacer_only=False,
+        ),
+        _entry(
+            38,
+            "Motion for Judgment on the Pleadings",
+            web_description,
+            "https://ecf.ctd.uscourts.gov/doc1/04109336810?caseid=162721",
+            pacer_only=True,
+        ),
+        _entry(
+            63,
+            "ORDER granting ECF No. 38.",
+            "Order on Motion for Judgment on the Pleadings",
+            (
+                "https://storage.courtlistener.com/recap/"
+                "gov.uscourts.ctd.162721/gov.uscourts.ctd.162721.63.0.pdf"
+            ),
+            pacer_only=False,
+        ),
+    ]
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    motion_entry = next(
+        entry for entry in selected_entries if entry["entry_number"] == "38"
+    )
+    motion_entry["filed_at"] = "Oct. 30, 2025, 10:43 a.m."
+    plan = plan_public_packet_downloads(
+        (screened,), use_embedded_entries=True, target_clean_cases=1
+    )
+    [gap] = plan.paid_gap_cases
+    downloads = tuple(
+        {
+            **request.to_record(),
+            "local_path": f"69466572/{request.source_document_id}.pdf",
+            "sha256": "a" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in plan.download_requests
+    )
+    responses = (
+        _response(
+            path="/dockets/69466572/",
+            payload={
+                "id": 69466572,
+                "court": "ctd",
+                "docket_number": "3:24-cv-01980",
+                "case_name": "Nobriga v. Clear Blue Specialty Insurance Company",
+            },
+        ),
+        _response(
+            path="/docket-entries/",
+            params={"docket": "69466572", "page_size": 100},
+            payload={
+                "results": [
+                    {
+                        "id": 70038,
+                        "docket": 69466572,
+                        "entry_number": 38,
+                        "description": "Motion for Judgment on the Pleadings",
+                        "date_filed": "2025-10-30",
+                        "recap_documents": [{"id": 457180788}],
+                    }
+                ],
+                "next": None,
+            },
+        ),
+        _response(
+            path="/recap-documents/457180788/",
+            payload={
+                "id": 457180788,
+                "docket_entry": 70038,
+                "document_number": "38",
+                "attachment_number": attachment_number,
+                "description": recap_description,
+                "is_available": False,
+                "is_sealed": False,
+            },
+        ),
+    )
+
+    if expected_error is not None:
+        with pytest.raises(CourtListenerCaseDevBridgeError, match=expected_error):
+            bridge_public_plan_paid_gap_candidate_via_courtlistener(
+                screened,
+                paid_gap_record=gap.to_record(),
+                free_download_records=downloads,
+                client=_client(*responses),
+                use_embedded_entries=True,
+            )
+        return
+
+    selection, _ = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap.to_record(),
+        free_download_records=downloads,
+        client=_client(*responses),
+        use_embedded_entries=True,
+    )
+
+    recovered = [
+        document
+        for document in selection["documents"]
+        if document.get("requires_paid_recovery") is True
+    ]
+    assert [document["source_document_id"] for document in recovered] == ["457180788"]
+
+
+def test_docket_71985792_reconciles_motion_to_main_description() -> None:
+    screened = _screened_case_variant(
+        candidate_id="71985792",
+        docket_number="3:25-cv-10355",
+        case_name=("Epidemic Sound, AB v. Meta Platforms, Inc., f/k/a Facebook, Inc."),
+    )
+    candidate = cast(dict[str, object], screened["candidate"])
+    metadata = cast(dict[str, object], candidate["metadata"])
+    metadata["court"] = "cand"
+    ai = cast(dict[str, object], screened["ai"])
+    ai.update(
+        {
+            "target_motion_entry_numbers": ["48"],
+            "decision_entry_numbers": ["58"],
+        }
+    )
+    motion_text = "MOTION to Dismiss Complaint filed by Meta Platforms, Inc."
+    screened["selected_entries"] = [
+        _entry(
+            1,
+            "COMPLAINT filed by Plaintiff.",
+            "Complaint",
+            "https://storage.courtlistener.com/complaint.pdf",
+            pacer_only=False,
+        ),
+        _entry(
+            48,
+            motion_text,
+            "Dismiss",
+            "https://ecf.cand.uscourts.gov/doc1/035026975626?caseid=460656",
+            pacer_only=True,
+        ),
+        _entry(
+            58,
+            "ORDER granting in part ECF No. 48.",
+            "Order on Motion to Dismiss",
+            "https://storage.courtlistener.com/recap/decision.pdf",
+            pacer_only=False,
+        ),
+    ]
+    plan = plan_public_packet_downloads(
+        (screened,), use_embedded_entries=True, target_clean_cases=1
+    )
+    [gap] = plan.paid_gap_cases
+    downloads = tuple(
+        {
+            **request.to_record(),
+            "local_path": f"71985792/{request.source_document_id}.pdf",
+            "sha256": "a" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in plan.download_requests
+    )
+    responses = (
+        _response(
+            path="/dockets/71985792/",
+            payload={
+                "id": 71985792,
+                "court": "cand",
+                "docket_number": "3:25-cv-10355",
+                "case_name": (
+                    "Epidemic Sound, AB v. Meta Platforms, Inc., f/k/a Facebook, Inc."
+                ),
+            },
+        ),
+        _response(
+            path="/docket-entries/",
+            params={"docket": "71985792", "page_size": 100},
+            payload={
+                "results": [
+                    {
+                        "id": 70048,
+                        "docket": 71985792,
+                        "entry_number": 48,
+                        "description": motion_text,
+                        "date_filed": "2026-01-01",
+                        "recap_documents": [
+                            {"id": 475181725},
+                            {"id": 475244563},
+                        ],
+                    }
+                ],
+                "next": None,
+            },
+        ),
+        _response(
+            path="/recap-documents/475181725/",
+            payload={
+                "id": 475181725,
+                "docket_entry": 70048,
+                "document_number": "48",
+                "attachment_number": None,
+                "description": "Motion to Dismiss",
+                "is_available": False,
+                "is_sealed": None,
+            },
+        ),
+        _response(
+            path="/recap-documents/475244563/",
+            payload={
+                "id": 475244563,
+                "docket_entry": 70048,
+                "document_number": "48",
+                "attachment_number": 1,
+                "description": "Proposed Order",
+                "is_available": False,
+                "is_sealed": None,
+            },
+        ),
+    )
+
+    selection, _ = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap.to_record(),
+        free_download_records=downloads,
+        client=_client(*responses),
+        use_embedded_entries=True,
+    )
+
+    recovered = [
+        document
+        for document in selection["documents"]
+        if document.get("requires_paid_recovery") is True
+    ]
+    assert [document["source_document_id"] for document in recovered] == ["475181725"]
+    assert recovered[0]["docket_entry_number"] == 48
+    assert recovered[0]["is_sealed"] is None
+    assert recovered[0]["redaction_or_seal_status"] == "unknown"
 
 
 @pytest.mark.parametrize(
