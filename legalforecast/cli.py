@@ -223,6 +223,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     ConfigMismatchError,
     CycleAcquisitionStore,
     CycleAcquisitionStoreError,
+    FirecrawlAttempt,
     SnapshotVerificationError,
     cohort_reason_policy_taxonomy,
     verify_snapshot,
@@ -11869,6 +11870,8 @@ def _firecrawl_docket_html_audit(
         except KeyError:
             # Initialization can fail before the durable run row is created.
             pass
+    audit_schema_version = durable_summary.pop("schema_version", None)
+    firecrawl_run_status = durable_summary.pop("status", None)
     executed = _firecrawl_metered_activity_executed(
         live=requested,
         summary=durable_summary,
@@ -11881,6 +11884,16 @@ def _firecrawl_docket_html_audit(
         "firecrawl_cycle_credit_cap": credit_cap,
         "pacer_paid_activity_requested": False,
         "pacer_paid_activity_executed": False,
+        **(
+            {"firecrawl_audit_schema_version": audit_schema_version}
+            if audit_schema_version is not None
+            else {}
+        ),
+        **(
+            {"firecrawl_run_status": firecrawl_run_status}
+            if firecrawl_run_status is not None
+            else {}
+        ),
         **durable_summary,
     }
 
@@ -12252,85 +12265,129 @@ def _cmd_acquisition_discover_courtlistener(args: argparse.Namespace) -> int:
         if durable_firecrawl_store is not None:
             durable_firecrawl_store.close()
 
-    _write_jsonl(screened_cases_path, list(result.screened_cases))
-    _write_jsonl(
-        exclusions_path,
-        [exclusion.to_record() for exclusion in result.exclusions],
-    )
-    _write_jsonl(search_pages_path, list(result.search_pages))
-    raw_artifacts = _courtlistener_raw_artifact_records(
-        raw_html_dir=raw_html_dir,
-        screened_cases=result.screened_cases,
-        exclusions=tuple(exclusion.to_record() for exclusion in result.exclusions),
-    )
-    if live_firecrawl_docket_html:
-        raw_artifact_ids = {
-            _required_str(record, "candidate_id") for record in raw_artifacts
-        }
-        receipt_ids = set(firecrawl_source_receipts)
-        if raw_artifact_ids != receipt_ids:
-            missing_receipts = sorted(raw_artifact_ids - receipt_ids)
-            orphan_receipts = sorted(receipt_ids - raw_artifact_ids)
-            raise CommandError(
-                "Firecrawl raw artifact receipts do not reconcile: "
-                f"missing={missing_receipts!r}, orphan={orphan_receipts!r}"
-            )
-        for record in raw_artifacts:
-            candidate_id = _required_str(record, "candidate_id")
-            record["source_receipt"] = dict(firecrawl_source_receipts[candidate_id])
-    _write_jsonl(raw_artifacts_path, raw_artifacts)
-    summary: JsonRecord = {
-        **result.summary,
-        "dry_run": False,
-        "live": live,
-    }
-    if firecrawl_audit is not None:
-        summary.update(
-            {
-                "docket_html_source": "firecrawl",
-                "firecrawl_run_id": firecrawl_run_id,
-                "firecrawl_credit_cap": firecrawl_credit_cap,
-                "firecrawl_source_receipt_count": len(firecrawl_source_receipts),
-                **firecrawl_audit,
-            }
+    try:
+        _write_jsonl(screened_cases_path, list(result.screened_cases))
+        _write_jsonl(
+            exclusions_path,
+            [exclusion.to_record() for exclusion in result.exclusions],
         )
-    _write_json(summary_path, summary)
-    output_commitments = {
-        "screened_cases": _file_commitment(screened_cases_path),
-        "exclusions": _file_commitment(exclusions_path),
-        "summary": _file_commitment(summary_path),
-        "search_pages": _file_commitment(search_pages_path),
-        "raw_artifacts": _file_commitment(raw_artifacts_path),
-    }
-    _write_acquisition_completion(
-        args,
-        stage="discover-courtlistener",
-        input_paths=input_paths,
-        output_paths=output_paths,
-        record_count=len(result.screened_cases),
-        dry_run=False,
-        paid_activity_requested=live_firecrawl_docket_html,
-        paid_activity_executed=(
-            False
-            if firecrawl_audit is None
-            else cast(bool, firecrawl_audit["firecrawl_metered_activity_executed"])
-        ),
-        extra={
-            "anchor_date": anchor.isoformat(),
-            "target_clean_cases": target_clean_cases,
-            "accepted_case_count": len(result.screened_cases),
-            "excluded_case_count": len(result.exclusions),
-            "cycle_hash": cycle_hash,
-            "batch_digest": batch_digest,
-            **(
-                {"firecrawl_source_receipt_count": len(firecrawl_source_receipts)}
-                if live_firecrawl_docket_html
-                else {}
+        _write_jsonl(search_pages_path, list(result.search_pages))
+        raw_artifacts = _courtlistener_raw_artifact_records(
+            raw_html_dir=raw_html_dir,
+            screened_cases=result.screened_cases,
+            exclusions=tuple(exclusion.to_record() for exclusion in result.exclusions),
+        )
+        if live_firecrawl_docket_html:
+            raw_artifact_ids = {
+                _required_str(record, "candidate_id") for record in raw_artifacts
+            }
+            receipt_ids = set(firecrawl_source_receipts)
+            if raw_artifact_ids != receipt_ids:
+                missing_receipts = sorted(raw_artifact_ids - receipt_ids)
+                orphan_receipts = sorted(receipt_ids - raw_artifact_ids)
+                raise FirecrawlArtifactError(
+                    "Firecrawl raw artifact receipts do not reconcile: "
+                    f"missing={missing_receipts!r}, orphan={orphan_receipts!r}"
+                )
+            for record in raw_artifacts:
+                candidate_id = _required_str(record, "candidate_id")
+                record["source_receipt"] = dict(firecrawl_source_receipts[candidate_id])
+        _write_jsonl(raw_artifacts_path, raw_artifacts)
+        summary: JsonRecord = {
+            **result.summary,
+            "dry_run": False,
+            "live": live,
+        }
+        if firecrawl_audit is not None:
+            summary.update(
+                {
+                    "docket_html_source": "firecrawl",
+                    "firecrawl_run_id": firecrawl_run_id,
+                    "firecrawl_credit_cap": firecrawl_credit_cap,
+                    "firecrawl_source_receipt_count": len(firecrawl_source_receipts),
+                    **firecrawl_audit,
+                }
+            )
+        _write_json(summary_path, summary)
+        output_commitments = {
+            "screened_cases": _file_commitment(screened_cases_path),
+            "exclusions": _file_commitment(exclusions_path),
+            "summary": _file_commitment(summary_path),
+            "search_pages": _file_commitment(search_pages_path),
+            "raw_artifacts": _file_commitment(raw_artifacts_path),
+        }
+        _write_acquisition_completion(
+            args,
+            stage="discover-courtlistener",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=len(result.screened_cases),
+            dry_run=False,
+            paid_activity_requested=live_firecrawl_docket_html,
+            paid_activity_executed=(
+                False
+                if firecrawl_audit is None
+                else cast(
+                    bool,
+                    firecrawl_audit["firecrawl_metered_activity_executed"],
+                )
             ),
-            "output_commitments": output_commitments,
-            **({} if firecrawl_audit is None else firecrawl_audit),
-        },
-    )
+            extra={
+                "anchor_date": anchor.isoformat(),
+                "target_clean_cases": target_clean_cases,
+                "accepted_case_count": len(result.screened_cases),
+                "excluded_case_count": len(result.exclusions),
+                "cycle_hash": cycle_hash,
+                "batch_digest": batch_digest,
+                **(
+                    {"firecrawl_source_receipt_count": len(firecrawl_source_receipts)}
+                    if live_firecrawl_docket_html
+                    else {}
+                ),
+                "output_commitments": output_commitments,
+                **({} if firecrawl_audit is None else firecrawl_audit),
+            },
+        )
+    except (FirecrawlArtifactError, OSError, UnicodeError, ValueError) as exc:
+        if (
+            live_firecrawl_docket_html
+            and cycle_store_path is not None
+            and firecrawl_run_id is not None
+        ):
+            durable_summary = _firecrawl_credit_summary_if_available(
+                store_path=cycle_store_path,
+                run_id=firecrawl_run_id,
+            )
+            durable_summary.pop("schema_version", None)
+            durable_run_status = durable_summary.pop("status", None)
+            assert firecrawl_audit is not None
+            firecrawl_audit.update(durable_summary)
+            if durable_run_status is not None:
+                firecrawl_audit["firecrawl_run_status"] = durable_run_status
+            firecrawl_audit["firecrawl_metered_activity_executed"] = (
+                _firecrawl_metered_activity_executed(
+                    live=True,
+                    summary=firecrawl_audit,
+                )
+            )
+        _write_acquisition_failure(
+            args,
+            stage="discover-courtlistener",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=live_firecrawl_docket_html,
+            paid_activity_executed=(
+                False
+                if firecrawl_audit is None
+                else cast(
+                    bool,
+                    firecrawl_audit["firecrawl_metered_activity_executed"],
+                )
+            ),
+            extra=firecrawl_audit,
+        )
+        raise CommandError(str(exc)) from exc
     return 0
 
 
@@ -12377,13 +12434,26 @@ def _cmd_acquisition_materialize_courtlistener_snapshot(
         with CycleAcquisitionStore(cycle_store_path) as store:
             cycle_hash = store.cycle_hash
             batch_digest = store.batch_digest(batch_id)
+            batch_config = store.batch_config(batch_id)
+            firecrawl_attempts: Sequence[FirecrawlAttempt] = ()
+            firecrawl_run_summary: Mapping[str, object] | None = None
+            if batch_config.get("docket_html_source") == "firecrawl":
+                firecrawl_run_id = _required_str(
+                    batch_config,
+                    "firecrawl_run_id",
+                )
+                firecrawl_attempts = store.firecrawl_attempts(firecrawl_run_id)
+                firecrawl_run_summary = store.firecrawl_run_summary(firecrawl_run_id)
             verified = verify_courtlistener_discovery(
                 run_card_path=run_card_path,
                 expected_run_card_sha256=expected_run_card_sha256,
                 expected_cycle_hash=cycle_hash,
+                expected_batch_id=batch_id,
                 expected_batch_digest=batch_digest,
                 cycle_policy=store.cycle_policy,
-                batch_config=store.batch_config(batch_id),
+                batch_config=batch_config,
+                firecrawl_attempts=firecrawl_attempts,
+                firecrawl_run_summary=firecrawl_run_summary,
             )
             _validate_frozen_screening_policy(
                 policy=store.cycle_policy,

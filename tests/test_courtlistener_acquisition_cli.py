@@ -4,11 +4,13 @@ import hashlib
 import json
 import shutil
 import urllib.request
+from collections.abc import Iterable, Mapping
 from datetime import date
 from email.message import Message
 from pathlib import Path
 from typing import Any, cast
 
+import legalforecast.cli as cli_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.courtlistener_acquisition import (
@@ -1337,9 +1339,11 @@ def test_discover_courtlistener_firecrawl_dry_run_records_credit_ceiling(
     assert summary["firecrawl_metered_activity_executed"] is False
 
 
+@pytest.mark.parametrize("failure_mode", [None, "write", "receipt"])
 def test_discover_courtlistener_firecrawl_live_run_records_metered_activity(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    failure_mode: str | None,
 ) -> None:
     output_root = tmp_path / "output"
     cycle_store = tmp_path / "cycle.sqlite3"
@@ -1462,40 +1466,78 @@ def test_discover_courtlistener_firecrawl_live_run_records_metered_activity(
         "legalforecast.cli.FirecrawlCourtListenerHTMLSource",
         lambda _config: firecrawl_source,
     )
+    if failure_mode == "write":
+        real_write_jsonl = cli_module._write_jsonl
 
-    assert (
-        main(
-            [
-                "acquisition",
-                "discover-courtlistener",
-                "--eligibility-anchor",
-                "2026-06-30",
-                "--search-window-start",
-                "2026-06-30",
-                "--search-window-end",
-                "2026-07-12",
-                "--cycle-store",
-                str(cycle_store),
-                "--batch-id",
-                "hybrid-batch",
-                "--query-term",
-                "order on motion to dismiss",
-                "--target-clean-cases",
-                "2",
-                "--max-candidates",
-                "5",
-                "--output-root",
-                str(output_root),
-                "--live",
-                "--live-firecrawl-docket-html",
-                "--execute",
-            ]
+        def fail_raw_manifest(
+            path: Path,
+            records: Iterable[Mapping[str, Any]],
+        ) -> None:
+            if path.name == "courtlistener-raw-artifacts.jsonl":
+                raise OSError("injected raw manifest write failure")
+            real_write_jsonl(path, records)
+
+        monkeypatch.setattr(cli_module, "_write_jsonl", fail_raw_manifest)
+    elif failure_mode == "receipt":
+        monkeypatch.setattr(
+            "legalforecast.cli."
+            "DurableBudgetedCourtListenerHTMLSource.successful_artifact_receipts",
+            lambda _self, *, batch_digest: {},
         )
-        == 0
+
+    return_code = main(
+        [
+            "acquisition",
+            "discover-courtlistener",
+            "--eligibility-anchor",
+            "2026-06-30",
+            "--search-window-start",
+            "2026-06-30",
+            "--search-window-end",
+            "2026-07-12",
+            "--cycle-store",
+            str(cycle_store),
+            "--batch-id",
+            "hybrid-batch",
+            "--query-term",
+            "order on motion to dismiss",
+            "--target-clean-cases",
+            "2",
+            "--max-candidates",
+            "5",
+            "--output-root",
+            str(output_root),
+            "--live",
+            "--live-firecrawl-docket-html",
+            "--execute",
+        ]
     )
+    if failure_mode is not None:
+        assert return_code == 2
+        failed_run_card = _read_json(
+            output_root / "run-cards" / "discover-courtlistener.json"
+        )
+        assert failed_run_card["status"] == "failed"
+        assert failed_run_card["paid_activity_requested"] is True
+        assert failed_run_card["paid_activity_executed"] is True
+        assert failed_run_card["run_reserved_credits"] == 2
+        assert failed_run_card["run_reported_credits"] == 2
+        expected_reason = (
+            "injected raw manifest write failure"
+            if failure_mode == "write"
+            else "Firecrawl raw artifact receipts do not reconcile"
+        )
+        assert expected_reason in failed_run_card["failure_reason"]
+        return
+    assert return_code == 0
 
     summary = _read_json(output_root / "courtlistener-discovery-summary.json")
     run_card = _read_json(output_root / "run-cards" / "discover-courtlistener.json")
+    assert summary["schema_version"] == (
+        "legalforecast.courtlistener_discovery_summary.v1"
+    )
+    assert run_card["schema_version"] == "legalforecast.acquisition_run_card.v1"
+    assert run_card["status"] == "completed"
     for artifact in (summary, run_card):
         assert artifact["docket_html_source"] == "firecrawl"
         assert artifact["firecrawl_metered_activity_requested"] is True
