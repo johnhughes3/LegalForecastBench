@@ -8,7 +8,7 @@ operator drives through the CLI: it wires those primitives to the durable
 :class:`~legalforecast.ingestion.cycle_acquisition_store.CycleAcquisitionStore`
 and emits funnel-style summaries.
 
-Three phases, each resumable through the store and each fail-closed:
+Four phases, each resumable through the store and each fail-closed:
 
 ``discover``
     Attach the batch config, materialize each frozen decision-first term's own
@@ -26,11 +26,18 @@ Three phases, each resumable through the store and each fail-closed:
     docket ids into the batch-002 store under a dedicated re-observation term so
     ``observe`` covers them.  Idempotent.
 
+``seed-direct-search``
+    Verify a saturated direct CourtListener search batch, transfer its exact
+    docket union into a source-bound REST reconstruction batch, and preserve the
+    cheapest safe prescreens and triggering-entry lower bounds. No provider
+    request is made by this phase.
+
 Nothing here mutates the frozen screening files or the source batch-001 store.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sqlite3
@@ -80,6 +87,10 @@ BATCH_001_REOBSERVATION_PROVENANCE_SCHEMA = (
 # state -- corroborated by ``checkpoints/case-dev-recap-failures.jsonl`` -- is the
 # authoritative marker of an enrichment failure, so it is the seed selector.
 BATCH_001_ENRICHMENT_FAILURE_CLASS = "case_dev_enrichment_failure"
+DIRECT_SEARCH_TRANSFER_TERM = "courtlistener-direct-search-transfer-v1"
+DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA = (
+    "legalforecast.courtlistener_direct_search_transfer.v1"
+)
 
 
 class RecapApiBatchDriverError(RuntimeError):
@@ -604,6 +615,476 @@ class SeedResult:
             "leads_seeded": self.leads_seeded,
             "already_seeded": self.already_seeded,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class DirectSearchHitProvenance:
+    """Immutable identity of one source search hit contributing a docket lead."""
+
+    provider_hit_id: str
+    query_term: str
+    payload_sha256: str
+
+    def to_record(self) -> dict[str, str]:
+        return {
+            "provider_hit_id": self.provider_hit_id,
+            "query_term": self.query_term,
+            "payload_sha256": self.payload_sha256,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class DirectSearchLead:
+    """One numeric direct-search candidate transferred for REST reconstruction."""
+
+    docket_id: str
+    source_provider_hit_id: str
+    source_query_term: str
+    source_payload_sha256: str
+    source_hits: tuple[DirectSearchHitProvenance, ...]
+    court_id: str | None
+    docket_number: str | None
+    case_name: str | None
+    decision_entry_evidence: Mapping[str, object] | None
+
+    @property
+    def candidate_id(self) -> str:
+        return f"courtlistener-docket-{self.docket_id}"
+
+    def commitment_record(self) -> dict[str, object]:
+        """Return the canonical source record covered by the set commitment."""
+
+        return {
+            "docket_id": self.docket_id,
+            "court_id": self.court_id,
+            "docket_number": self.docket_number,
+            "case_name": self.case_name,
+            "decision_entry_evidence": (
+                None
+                if self.decision_entry_evidence is None
+                else dict(self.decision_entry_evidence)
+            ),
+            "source_hits": [hit.to_record() for hit in self.source_hits],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class DirectSearchSeedSource:
+    """Verified saturated direct-search source and its deterministic leads."""
+
+    source_batch_id: str
+    source_batch_digest: str
+    source_cycle_hash: str
+    source_candidate_set_sha256: str
+    search_window_start: date
+    search_window_end: date
+    leads: tuple[DirectSearchLead, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DirectSearchSeedResult:
+    """Outcome of a source-bound direct-search transfer pass."""
+
+    batch_id: str
+    source_batch_id: str
+    source_batch_digest: str
+    source_candidate_set_sha256: str
+    leads_selected: int
+    leads_seeded: int
+    already_seeded: bool
+
+    def to_record(self) -> dict[str, object]:
+        return {
+            "schema_version": "legalforecast.direct_search_seed_result.v1",
+            "batch_id": self.batch_id,
+            "term": DIRECT_SEARCH_TRANSFER_TERM,
+            "source_batch_id": self.source_batch_id,
+            "source_batch_digest": self.source_batch_digest,
+            "source_candidate_set_sha256": self.source_candidate_set_sha256,
+            "leads_selected": self.leads_selected,
+            "leads_seeded": self.leads_seeded,
+            "already_seeded": self.already_seeded,
+        }
+
+
+def read_saturated_direct_search_leads(
+    source_store_path: str | Path,
+    *,
+    source_batch_id: str,
+) -> DirectSearchSeedSource:
+    """Read one fully exhausted CourtListener direct-search batch, read-only."""
+
+    path = Path(source_store_path)
+    if not path.exists():
+        raise RecapApiBatchDriverError(f"direct-search source store not found: {path}")
+    connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    connection.row_factory = sqlite3.Row
+    try:
+        batch = connection.execute(
+            "SELECT config_json, config_digest FROM batches WHERE batch_id = ?",
+            (source_batch_id,),
+        ).fetchone()
+        if batch is None:
+            raise RecapApiBatchDriverError(
+                f"direct-search source batch not found: {source_batch_id}"
+            )
+        decoded = cast(object, json.loads(str(batch["config_json"])))
+        if not isinstance(decoded, dict):
+            raise RecapApiBatchDriverError(
+                "direct-search batch config is not an object"
+            )
+        config = cast(dict[str, object], decoded)
+        if config.get("provider") != "courtlistener":
+            raise RecapApiBatchDriverError(
+                "direct-search source batch is not CourtListener-authoritative"
+            )
+        query_terms = config.get("query_terms")
+        if not isinstance(query_terms, list) or not query_terms:
+            raise RecapApiBatchDriverError(
+                "direct-search source batch lacks frozen query terms"
+            )
+        terms = tuple(str(term).strip() for term in cast(list[object], query_terms))
+        if any(not term for term in terms) or len(set(terms)) != len(terms):
+            raise RecapApiBatchDriverError(
+                "direct-search source batch has invalid frozen query terms"
+            )
+        progress_rows = connection.execute(
+            "SELECT term, terminal_status FROM term_progress WHERE batch_id = ?",
+            (source_batch_id,),
+        ).fetchall()
+        progress = {str(row["term"]): row["terminal_status"] for row in progress_rows}
+        if set(progress) != set(terms) or any(
+            progress.get(term) != TermTerminalStatus.EXHAUSTED for term in terms
+        ):
+            raise RecapApiBatchDriverError(
+                "direct-search source batch is not fully exhausted"
+            )
+        try:
+            window_start = date.fromisoformat(str(config["search_window_start"]))
+            window_end = date.fromisoformat(str(config["search_window_end"]))
+        except (KeyError, ValueError) as exc:
+            raise RecapApiBatchDriverError(
+                "direct-search source batch has invalid search window"
+            ) from exc
+        if window_end < window_start:
+            raise RecapApiBatchDriverError(
+                "direct-search source batch search window is inverted"
+            )
+        cycle = connection.execute(
+            "SELECT policy_hash FROM cycle_identity WHERE singleton = 1"
+        ).fetchone()
+        if cycle is None:
+            raise RecapApiBatchDriverError(
+                "direct-search source store lacks frozen cycle identity"
+            )
+        rows = connection.execute(
+            """
+            SELECT candidate_id, term, provider_hit_id, payload_json
+            FROM discovery_hits
+            WHERE batch_id = ?
+            ORDER BY candidate_id, term, provider_hit_id
+            """,
+            (source_batch_id,),
+        ).fetchall()
+        source_batch_digest = str(batch["config_digest"])
+        source_cycle_hash = str(cycle["policy_hash"])
+    except (json.JSONDecodeError, sqlite3.DatabaseError) as exc:
+        raise RecapApiBatchDriverError(
+            f"direct-search source store is unreadable: {path}: {exc}"
+        ) from exc
+    finally:
+        connection.close()
+
+    grouped: dict[
+        str,
+        list[
+            tuple[
+                str,
+                str,
+                str,
+                dict[str, object],
+                tuple[int, int, str, dict[str, object]] | None,
+            ]
+        ],
+    ] = {}
+    try:
+        for row in rows:
+            docket_id = str(row["candidate_id"])
+            if not docket_id.isascii() or not docket_id.isdigit():
+                raise RecapApiBatchDriverError(
+                    f"direct-search candidate id is not numeric: {docket_id!r}"
+                )
+            payload_json = str(row["payload_json"])
+            parsed = cast(object, json.loads(payload_json))
+            if not isinstance(parsed, dict):
+                raise RecapApiBatchDriverError(
+                    f"direct-search payload is not an object: {docket_id}"
+                )
+            payload = cast(dict[str, object], parsed)
+            if str(payload.get("docket_id")) != docket_id:
+                raise RecapApiBatchDriverError(
+                    f"direct-search payload docket id mismatch: {docket_id}"
+                )
+            evidence = _minimum_direct_search_entry_evidence(payload, docket_id)
+            grouped.setdefault(docket_id, []).append(
+                (
+                    str(row["term"]),
+                    str(row["provider_hit_id"]),
+                    payload_json,
+                    payload,
+                    evidence,
+                )
+            )
+    except json.JSONDecodeError as exc:
+        raise RecapApiBatchDriverError(
+            f"direct-search source contains invalid payload JSON: {exc}"
+        ) from exc
+
+    leads_list: list[DirectSearchLead] = []
+    for docket_id, docket_rows in grouped.items():
+        docket_rows.sort(key=lambda item: (item[2], item[0], item[1]))
+        primary = docket_rows[0][3]
+        evidence_rows = [item for item in docket_rows if item[4] is not None]
+        representative = (
+            min(evidence_rows, key=lambda item: cast(tuple[object, ...], item[4])[:3])
+            if evidence_rows
+            else docket_rows[0]
+        )
+        minimum_evidence = (
+            representative[4][3] if representative[4] is not None else None
+        )
+        representative_hit = DirectSearchHitProvenance(
+            provider_hit_id=representative[1],
+            query_term=representative[0],
+            payload_sha256=hashlib.sha256(representative[2].encode()).hexdigest(),
+        )
+        source_hits = tuple(
+            sorted(
+                (
+                    DirectSearchHitProvenance(
+                        provider_hit_id=provider_hit_id,
+                        query_term=term,
+                        payload_sha256=hashlib.sha256(
+                            payload_json.encode()
+                        ).hexdigest(),
+                    )
+                    for (
+                        term,
+                        provider_hit_id,
+                        payload_json,
+                        _payload,
+                        _evidence,
+                    ) in docket_rows
+                ),
+                key=lambda hit: (
+                    hit.query_term,
+                    hit.provider_hit_id,
+                    hit.payload_sha256,
+                ),
+            )
+        )
+        leads_list.append(
+            DirectSearchLead(
+                docket_id=docket_id,
+                source_provider_hit_id=representative_hit.provider_hit_id,
+                source_query_term=representative_hit.query_term,
+                source_payload_sha256=representative_hit.payload_sha256,
+                source_hits=source_hits,
+                court_id=_optional_str(primary.get("court_id")),
+                docket_number=_optional_str(primary.get("docket_number"))
+                or _optional_str(primary.get("docketNumber")),
+                case_name=_optional_str(primary.get("case_name"))
+                or _optional_str(primary.get("caseName")),
+                decision_entry_evidence=minimum_evidence,
+            )
+        )
+    leads = tuple(sorted(leads_list, key=lambda lead: int(lead.docket_id)))
+    candidate_set_sha256 = hashlib.sha256(
+        json.dumps(
+            [lead.commitment_record() for lead in leads],
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    return DirectSearchSeedSource(
+        source_batch_id=source_batch_id,
+        source_batch_digest=source_batch_digest,
+        source_cycle_hash=source_cycle_hash,
+        source_candidate_set_sha256=candidate_set_sha256,
+        search_window_start=window_start,
+        search_window_end=window_end,
+        leads=leads,
+    )
+
+
+def _minimum_direct_search_entry_evidence(
+    payload: Mapping[str, object], docket_id: str
+) -> tuple[int, int, str, dict[str, object]] | None:
+    raw_documents = payload.get("recap_documents")
+    if raw_documents is None:
+        return None
+    if not isinstance(raw_documents, list):
+        raise RecapApiBatchDriverError(
+            f"direct-search recap_documents is not a list: {docket_id}"
+        )
+    options: list[tuple[int, int, str, dict[str, object]]] = []
+    for raw_document in cast(list[object], raw_documents):
+        if not isinstance(raw_document, Mapping):
+            raise RecapApiBatchDriverError(
+                f"direct-search recap document is not an object: {docket_id}"
+            )
+        document = cast(Mapping[str, object], raw_document)
+        entry_number = _positive_integer_prefix(document.get("entry_number"))
+        if entry_number is None or entry_number <= 0:
+            continue
+        evidence: dict[str, object] = {
+            "id": document.get("id"),
+            "docket_entry_id": document.get("docket_entry_id"),
+            "entry_number": entry_number,
+            "document_number": document.get("document_number"),
+            "description": document.get("description")
+            or document.get("short_description"),
+            "entry_date_filed": document.get("entry_date_filed"),
+            "absolute_url": document.get("absolute_url"),
+        }
+        attachment_rank = 0 if document.get("attachment_number") is None else 1
+        canonical_document = json.dumps(
+            dict(document), sort_keys=True, separators=(",", ":"), default=str
+        )
+        options.append((entry_number, attachment_rank, canonical_document, evidence))
+    return min(options, key=lambda item: item[:3]) if options else None
+
+
+def seed_direct_search_leads(
+    store: CycleAcquisitionStore,
+    *,
+    batch_id: str,
+    source: DirectSearchSeedSource,
+    page_size: int = 100,
+) -> DirectSearchSeedResult:
+    """Attach and resumably seed a REST-only screening batch from direct search."""
+
+    if not 1 <= page_size <= 100:
+        raise ValueError("page_size must be from 1 through 100")
+    if store.cycle_hash != source.source_cycle_hash:
+        raise RecapApiBatchDriverError(
+            "direct-search source and REST target cycle identities differ"
+        )
+    if batch_id == source.source_batch_id:
+        raise RecapApiBatchDriverError(
+            "direct-search source and target batch ids must differ"
+        )
+    config = build_recap_api_batch_config(
+        decision_window_start=source.search_window_start,
+        decision_window_end=source.search_window_end,
+        auth_mode="authenticated",
+        query_terms=(DIRECT_SEARCH_TRANSFER_TERM,),
+        page_size=page_size,
+        top_k_per_term=max(len(source.leads), 1),
+    )
+    config.update(
+        {
+            "discovery_mode": DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA,
+            "source_batch_id": source.source_batch_id,
+            "source_batch_digest": source.source_batch_digest,
+            "source_candidate_count": len(source.leads),
+            "source_candidate_set_sha256": source.source_candidate_set_sha256,
+        }
+    )
+    store.ensure_batch(batch_id, config)
+    store.ensure_terms(batch_id, (DIRECT_SEARCH_TRANSFER_TERM,))
+    progress = store.term_progress(batch_id, DIRECT_SEARCH_TRANSFER_TERM)
+    if progress.terminal_status is not None:
+        return DirectSearchSeedResult(
+            batch_id=batch_id,
+            source_batch_id=source.source_batch_id,
+            source_batch_digest=source.source_batch_digest,
+            source_candidate_set_sha256=source.source_candidate_set_sha256,
+            leads_selected=len(source.leads),
+            leads_seeded=0,
+            already_seeded=True,
+        )
+    offset = progress.hit_count
+    starting_offset = offset
+    if offset > len(source.leads):
+        raise RecapApiBatchDriverError(
+            "direct-search transfer progress exceeds frozen lead count"
+        )
+    while offset < len(source.leads):
+        page = source.leads[offset : offset + page_size]
+        next_offset = offset + len(page)
+        next_cursor = str(next_offset) if next_offset < len(source.leads) else None
+        terminal = None if next_cursor is not None else TermTerminalStatus.EXHAUSTED
+        hits = tuple(_direct_search_lead_to_hit(lead, source) for lead in page)
+        progress = store.commit_search_page(
+            batch_id,
+            DIRECT_SEARCH_TRANSFER_TERM,
+            progress.cursor,
+            hits,
+            next_cursor=next_cursor,
+            terminal_status=terminal,
+        )
+        offset = next_offset
+    if not source.leads:
+        store.commit_search_page(
+            batch_id,
+            DIRECT_SEARCH_TRANSFER_TERM,
+            progress.cursor,
+            (),
+            next_cursor=None,
+            terminal_status=TermTerminalStatus.EXHAUSTED,
+        )
+    return DirectSearchSeedResult(
+        batch_id=batch_id,
+        source_batch_id=source.source_batch_id,
+        source_batch_digest=source.source_batch_digest,
+        source_candidate_set_sha256=source.source_candidate_set_sha256,
+        leads_selected=len(source.leads),
+        leads_seeded=len(source.leads) - starting_offset,
+        already_seeded=False,
+    )
+
+
+def _direct_search_lead_to_hit(
+    lead: DirectSearchLead,
+    source: DirectSearchSeedSource,
+) -> DiscoveryHit:
+    prescreen_reason = prescreen_recap_candidate(
+        court_id=lead.court_id,
+        docket_number=lead.docket_number,
+        case_name=lead.case_name,
+    )
+    payload: dict[str, Any] = {
+        "candidate_id": lead.candidate_id,
+        "docket_id": lead.docket_id,
+        "courtlistener_docket_id": lead.docket_id,
+        "court_id": lead.court_id,
+        "docket_number": lead.docket_number,
+        "case_name": lead.case_name,
+        "provider": RECAP_API_PROVIDER,
+        "prescreen_exclusion_reason": prescreen_reason,
+        "query_term": DIRECT_SEARCH_TRANSFER_TERM,
+        "direct_search_provenance": {
+            "schema_version": DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA,
+            "source_batch_id": source.source_batch_id,
+            "source_batch_digest": source.source_batch_digest,
+            "source_candidate_set_sha256": source.source_candidate_set_sha256,
+            "source_provider_hit_id": lead.source_provider_hit_id,
+            "source_query_term": lead.source_query_term,
+            "source_payload_sha256": lead.source_payload_sha256,
+            "source_hits": [hit.to_record() for hit in lead.source_hits],
+        },
+    }
+    if lead.decision_entry_evidence is not None:
+        payload["decision_entry_evidence"] = dict(lead.decision_entry_evidence)
+    return DiscoveryHit(
+        provider_hit_id=(
+            f"{DIRECT_SEARCH_TRANSFER_TERM}:{source.source_batch_digest}:"
+            f"{lead.docket_id}"
+        ),
+        candidate_id=lead.candidate_id,
+        payload=payload,
+    )
 
 
 def read_batch_001_enrichment_failure_leads(

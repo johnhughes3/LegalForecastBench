@@ -83,6 +83,20 @@ _COURTLISTENER_REST_FREE_RESTRICTION_EVIDENCE = (
     "courtlistener_rest_recap_document_is_sealed_false",
     "courtlistener_rest_public_download_url_allowlisted",
 )
+_COURTLISTENER_REST_FREE_UNKNOWN_PRIVACY_EVIDENCE = (
+    "courtlistener_rest_docket_exact_match",
+    "courtlistener_rest_docket_entry_exact_match",
+    "courtlistener_rest_recap_document_exact_match",
+    "courtlistener_rest_recap_document_is_available_true",
+    "courtlistener_rest_recap_document_is_sealed_unknown",
+    "courtlistener_rest_public_download_url_allowlisted",
+)
+_COURTLISTENER_REST_PAID_UNKNOWN_PRIVACY_EVIDENCE = (
+    "courtlistener_rest_docket_exact_match",
+    "courtlistener_rest_docket_entry_exact_match",
+    "courtlistener_rest_recap_document_exact_match",
+    "courtlistener_rest_recap_document_is_sealed_unknown",
+)
 _CASE_DEV_FREE_RESTRICTION_EVIDENCE = (
     "courtlistener_docket_entry_checked",
     "case_dev_entry_and_document_checked",
@@ -218,6 +232,26 @@ class _CourtListenerRestGapDocument:
     def model_visible(self) -> bool:
         return self.document_role in _MODEL_VISIBLE_ROLES
 
+    @property
+    def restriction_status(self) -> str:
+        """Keep missing seal metadata unknown until disclosure clearance."""
+
+        return "public" if self.is_sealed is False else "unknown"
+
+    @property
+    def restriction_evidence(self) -> tuple[str, ...] | list[str]:
+        if self.free:
+            return (
+                _COURTLISTENER_REST_FREE_RESTRICTION_EVIDENCE
+                if self.is_sealed is False
+                else _COURTLISTENER_REST_FREE_UNKNOWN_PRIVACY_EVIDENCE
+            )
+        return (
+            COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE
+            if self.is_sealed is False
+            else _COURTLISTENER_REST_PAID_UNKNOWN_PRIVACY_EVIDENCE
+        )
+
     def selection_record(self) -> dict[str, Any]:
         return {
             "candidate_id": self.candidate_id,
@@ -236,12 +270,8 @@ class _CourtListenerRestGapDocument:
             "contains_target_outcome": self.contains_target_outcome,
             "availability_status": "available" if self.free else "unavailable",
             "requires_paid_recovery": not self.free,
-            "redaction_or_seal_status": "public",
-            "restriction_evidence": list(
-                _COURTLISTENER_REST_FREE_RESTRICTION_EVIDENCE
-                if self.free
-                else COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE
-            ),
+            "redaction_or_seal_status": self.restriction_status,
+            "restriction_evidence": list(self.restriction_evidence),
             "is_private": None,
             "is_sealed": self.is_sealed,
             "file_extension": "pdf",
@@ -262,12 +292,8 @@ class _CourtListenerRestGapDocument:
             "source_url_or_reference": self.source_url_or_reference,
             "availability_status": "available" if self.free else "unavailable",
             "requires_paid_recovery": not self.free,
-            "redaction_or_seal_status": "public",
-            "restriction_evidence": list(
-                _COURTLISTENER_REST_FREE_RESTRICTION_EVIDENCE
-                if self.free
-                else COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE
-            ),
+            "redaction_or_seal_status": self.restriction_status,
+            "restriction_evidence": list(self.restriction_evidence),
             "is_private": None,
             "is_sealed": self.is_sealed,
             "contains_target_outcome": self.contains_target_outcome,
@@ -845,20 +871,30 @@ def bridge_free_download_requests_from_selection(
         ):
             continue
         restriction_evidence = _string_sequence(document.get("restriction_evidence"))
-        rest_evidence_valid = (
+        rest_public_evidence_valid = (
             restriction_evidence == _COURTLISTENER_REST_FREE_RESTRICTION_EVIDENCE
             and document.get("is_sealed") is False
+            and document.get("redaction_or_seal_status") == "public"
+        )
+        rest_unknown_evidence_valid = (
+            restriction_evidence == _COURTLISTENER_REST_FREE_UNKNOWN_PRIVACY_EVIDENCE
+            and document.get("is_sealed") is None
+            and document.get("redaction_or_seal_status") == "unknown"
         )
         case_dev_evidence_valid = (
             restriction_evidence == _CASE_DEV_FREE_RESTRICTION_EVIDENCE
             and document.get("is_sealed") is None
+            and document.get("redaction_or_seal_status") == "public"
         )
         if (
             document.get("availability_status") != "available"
             or document.get("requires_paid_recovery") is not False
             or _required_str(document, "source_provider") != "courtlistener"
-            or document.get("redaction_or_seal_status") != "public"
-            or not (rest_evidence_valid or case_dev_evidence_valid)
+            or not (
+                rest_public_evidence_valid
+                or rest_unknown_evidence_valid
+                or case_dev_evidence_valid
+            )
         ):
             raise CourtListenerCaseDevBridgeError(
                 f"bridge_free_document_evidence_invalid: {candidate_id}"
@@ -1848,10 +1884,6 @@ def _select_courtlistener_recap_document(
     if selected.is_sealed is True or _record_is_restricted(selected.raw):
         raise CourtListenerCaseDevBridgeError(
             f"restricted_core_document: {entry_number}"
-        )
-    if selected.is_sealed is not False:
-        raise CourtListenerCaseDevBridgeError(
-            f"courtlistener_recap_privacy_unproven: {entry_number}"
         )
     if selected.is_available is True:
         raw_url = _optional_str_any(

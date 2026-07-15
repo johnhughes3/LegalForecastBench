@@ -1180,7 +1180,7 @@ def test_courtlistener_rest_bridge_rejects_changed_genuine_leading_number() -> N
         )
 
 
-def test_bridge_quarantines_live_sparse_recap_shape_without_seal_clearance() -> None:
+def test_bridge_preserves_sparse_unknown_seal_as_recoverable_paid_gap() -> None:
     screened, gap, downloads = _paid_gap_inputs()
     responses = list(_clean_responses())
     recap_payload = dict(responses[2].payload)
@@ -1189,17 +1189,34 @@ def test_bridge_quarantines_live_sparse_recap_shape_without_seal_clearance() -> 
     recap_payload["is_sealed"] = None
     responses[2] = _response(path="/recap-documents/9005/", payload=recap_payload)
 
-    with pytest.raises(
-        CourtListenerCaseDevBridgeError,
-        match="courtlistener_recap_privacy_unproven: 5",
-    ):
-        bridge_public_plan_paid_gap_candidate_via_courtlistener(
-            screened,
-            paid_gap_record=gap,
-            free_download_records=downloads,
-            client=_client(*responses),
-            use_embedded_entries=True,
-        )
+    selection, relevance = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap,
+        free_download_records=downloads,
+        client=_client(*responses),
+        use_embedded_entries=True,
+    )
+
+    [document] = [
+        item
+        for item in selection["documents"]
+        if item.get("resolved_from_paid_gap") is True
+    ]
+    assert document["requires_paid_recovery"] is True
+    assert document["is_sealed"] is None
+    assert document["redaction_or_seal_status"] == "unknown"
+    assert document["restriction_evidence"] == [
+        "courtlistener_rest_docket_exact_match",
+        "courtlistener_rest_docket_entry_exact_match",
+        "courtlistener_rest_recap_document_exact_match",
+        "courtlistener_rest_recap_document_is_sealed_unknown",
+    ]
+    [relevance_document] = [
+        item
+        for item in relevance["documents"]
+        if item.get("resolved_from_paid_gap") is True
+    ]
+    assert relevance_document["redaction_or_seal_status"] == "unknown"
 
 
 @pytest.mark.parametrize(
@@ -1266,7 +1283,6 @@ def test_bridge_accepts_equivalent_recap_detail_aliases() -> None:
     (
         ({"id": 9999}, "courtlistener_recap_document_id_conflict"),
         ({"docket_entry": 7999}, "courtlistener_recap_entry_conflict"),
-        ({"is_sealed": None}, "courtlistener_recap_privacy_unproven"),
         (
             {"document_number": None},
             "courtlistener_recap_document_number_unproven",
@@ -1424,6 +1440,49 @@ def test_courtlistener_rest_bridge_recovers_gap_that_became_public() -> None:
             "source_url": ("https://www.courtlistener.com/recap/newly-free-motion.pdf"),
         }
     ]
+
+
+def test_bridge_downloads_public_url_with_unknown_seal_for_clearance() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    responses = list(_clean_responses())
+    payload = dict(responses[2].payload)
+    payload.update(
+        {
+            "is_available": True,
+            "is_sealed": None,
+            "filepath_local": "recap/newly-free-motion.pdf",
+        }
+    )
+    responses[2] = _response(path="/recap-documents/9005/", payload=payload)
+
+    result = bridge_public_plan_paid_gaps_via_courtlistener(
+        (screened,),
+        public_selection_records=(),
+        paid_gap_records=(gap,),
+        free_download_records=downloads,
+        client=_client(*responses),
+        use_embedded_entries=True,
+    )
+
+    [selection] = result.selection_records
+    [document] = [
+        item
+        for item in selection["documents"]
+        if item.get("resolved_from_paid_gap") is True
+    ]
+    assert document["availability_status"] == "available"
+    assert document["requires_paid_recovery"] is False
+    assert document["redaction_or_seal_status"] == "unknown"
+    assert document["is_sealed"] is None
+    assert document["restriction_evidence"] == [
+        "courtlistener_rest_docket_exact_match",
+        "courtlistener_rest_docket_entry_exact_match",
+        "courtlistener_rest_recap_document_exact_match",
+        "courtlistener_rest_recap_document_is_available_true",
+        "courtlistener_rest_recap_document_is_sealed_unknown",
+        "courtlistener_rest_public_download_url_allowlisted",
+    ]
+    assert len(result.free_download_requests) == 1
 
 
 @pytest.mark.parametrize(

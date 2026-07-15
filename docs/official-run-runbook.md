@@ -222,7 +222,7 @@ A recovery is complete only when every expected matrix cell is present exactly o
 
 ## Cycle 1 Batch-002 CourtListener-First Acquisition
 
-The supported hierarchy is `acquisition discover-firecrawl-recap-decisions` → `acquisition enrich-recap-case-dev` → `acquisition acquire-ranked-firecrawl-dockets` → `acquisition screen-firecrawl-dockets` → `acquisition prepare-target-100`. CourtListener remains the source for decision results, public docket pages, free RECAP documents, authoritative paid-gap metadata, and every RECAP Fetch purchase. Firecrawl is used only for the demonstrated CourtListener search and docket-HTML surface gap; it does not become a legal-data or purchase authority. Case.dev is used only for equivalent free lookup and prioritization; no Case.dev live PACER fetch or purchase is permitted. Run every stage against the official acquisition store, never a batch-001 store, and do not pass mutable checkpoints directly to preparation.
+The preferred hierarchy is saturated CourtListener search → `batch-002 seed-direct-search` → authenticated `batch-002 observe` → `batch-002 snapshot` → `acquisition prepare-target-100`. CourtListener remains the source for decision results, docket reconstruction, free RECAP documents, authoritative paid-gap metadata, and every RECAP Fetch purchase. Firecrawl is used only for the demonstrated CourtListener search and docket-HTML surface gap, as a compatibility fallback when authenticated REST cannot supply the required surface; it does not become a legal-data or purchase authority. Case.dev is used only for equivalent free lookup and prioritization; no Case.dev live PACER fetch or purchase is permitted. Run every stage against the official acquisition store, never a batch-001 store, and do not pass mutable checkpoints directly to preparation.
 
 ### Credential Prerequisites
 
@@ -256,6 +256,45 @@ uv run legalforecast acquisition discover-firecrawl-recap-decisions \
 ```
 
 The command completes every frozen query term and page before publishing the potential-docket file. A partial checkpoint is not a saturated discovery result and must not proceed downstream.
+
+### Preferred REST Transfer Before Compatibility Steps 2 And 3
+
+When discovery already committed a saturated `provider: courtlistener` batch, reuse that exact docket union without searching again or scraping docket HTML. The transfer is provider-free: it verifies every frozen source term is exhausted, canonicalizes numeric docket IDs, commits a hash of the exact source candidate set and all contributing search-hit payloads, and preserves only safe metadata prescreens plus the minimum positive triggering entry number.
+
+```bash
+uv run legalforecast batch-002 seed-direct-search \
+  --source-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --source-batch-id <saturated-direct-search-batch-id> \
+  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --batch-id <new-rest-screen-batch-id> \
+  --page-size 100 \
+  --summary-output artifacts/cycle-1/official-acquisition/direct-search-transfer.json
+```
+
+Reconstruct and strictly screen the transferred dockets through authenticated CourtListener REST. The durable request ledger enforces the configured minute, hour, and day ceilings; stopping at a ceiling is resumable and does not change candidate membership.
+
+```bash
+uv run legalforecast batch-002 observe \
+  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --batch-id <new-rest-screen-batch-id> \
+  --eligibility-anchor 2026-06-30 \
+  --live \
+  --request-ledger artifacts/cycle-1/official-acquisition/courtlistener-requests.sqlite3 \
+  --courtlistener-rate-profile base \
+  --summary-output artifacts/cycle-1/official-acquisition/rest-screen-summary.json
+```
+
+Only after every transferred candidate is terminal, publish the immutable REST snapshot:
+
+```bash
+uv run legalforecast batch-002 snapshot \
+  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --batch-id <new-rest-screen-batch-id> \
+  --snapshot-id <new-rest-screen-batch-id>-complete \
+  --output-root artifacts/cycle-1/official-acquisition/snapshots
+```
+
+This REST path supersedes the Case.dev-ranking and Firecrawl-docket steps below whenever it is available. Retain those steps only as bounded compatibility fallbacks for genuine REST-unavailable dockets.
 
 ### Step 2: Enrich And Rank With Free Case.dev Lookup
 
@@ -336,6 +375,8 @@ uv run legalforecast acquisition prepare-target-100 \
 ```
 
 The successful preparation summary commits the snapshot, immutable semantic configuration, stage inputs and outputs, provisional selected candidate IDs, and cost frontier. Cycle 1 freezes the target-100 provisional cap at `$567.30`; every later projection must repeat that exact value rather than falling back to the CLI default. The `06-clearance-inputs/` directory contains one restriction-evidence row and one disclosure-review request for every downloaded free document. The summary deliberately names `clear-disclosures`, not purchase, as the next stage.
+
+An `is_sealed: null` provider field is unknown metadata, not affirmative evidence that a filing is sealed. The pipeline may continue trying public routes and later classify the document as a recoverable missing/paid gap. It must not mark the document free unless public availability is affirmatively proven, and packet admission still fails closed until disclosure clearance is complete.
 
 ### Step 5: Clear Every Free Document And Freeze The Exact Cohort
 
@@ -431,3 +472,4 @@ Each command prints a machine-readable JSON summary to stdout (use `--summary-ou
 - `discover` funnel: `terms_terminal`/`terms_total` (how many frozen terms reached a bounded terminal state), `total_hits` (raw document hits), `distinct_candidates` (deduped dockets), `prescreen_exclusions_by_reason` (bankruptcy/criminal dockets dropped before any fetch), and `per_term` progress. `complete: true` means every term is bounded; `saturated: true` means every term was exhausted rather than limit-bound.
 - `observe` tally: `considered` (candidates scanned), `skipped_already_observed` (resume skips), `observed` (fetched this pass), `eligible` (strict-clean accepted), `excluded_by_reason` (immutable/posture exclusions, with the underlying strict-screen reason surfaced as `strict_clean_screen_failed:<screen_reason>`), and `transient_by_reason` (retryable failures to re-run).
 - `seed-batch-001-leads`: `leads_selected`, `leads_seeded`, and `already_seeded`.
+- `seed-direct-search`: the same transfer counts plus `source_batch_digest` and `source_candidate_set_sha256`, which bind the REST batch to the exact saturated source pool.

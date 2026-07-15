@@ -79,6 +79,9 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
         "legalforecast acquisition generate-recap-fetch-broker-policy",
         "legalforecast acquisition init-purchase-ledger",
         "legalforecast acquisition purchase-missing-recap-fetch",
+        "legalforecast batch-002 seed-direct-search",
+        "legalforecast batch-002 observe",
+        "legalforecast batch-002 snapshot",
     ):
         assert command in batch_002_section
     assert batch_002_section.index(
@@ -86,10 +89,7 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
     ) < batch_002_section.index(
         "legalforecast acquisition purchase-missing-recap-fetch"
     )
-    for disabled_command in (
-        "legalforecast batch-002 discover \\",
-        "legalforecast batch-002 observe \\",
-    ):
+    for disabled_command in ("legalforecast batch-002 discover \\",):
         assert disabled_command not in batch_002_section
     assert "--max-projected-budget-usd 567.30" in batch_002_section
     for hierarchy_contract in (
