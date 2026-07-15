@@ -493,7 +493,6 @@ def _validate_discovery_activity(
         or successful_count != receipt_count
         or unavailable_count != provider_unavailable_count + abandoned_count
         or target_count != successful_count + unavailable_count
-        or run_reported != successful_count + provider_unavailable_count
         or run_reported > run_reserved
         or cycle_reserved < run_reserved
         or cycle_reported < run_reported
@@ -584,6 +583,15 @@ def _validate_discovery_activity(
     if len(terminal_unsuccessful_attempts) != unavailable_count:
         raise CourtListenerSnapshotMaterializationError(
             "Firecrawl durable terminal attempts do not reconcile"
+        )
+    durable_reported_credits = sum(
+        attempt.reported_credits
+        for attempt in attempts_by_id.values()
+        if attempt.reported_credits is not None
+    )
+    if durable_reported_credits != run_reported:
+        raise CourtListenerSnapshotMaterializationError(
+            "Firecrawl durable reported credits do not reconcile with the run ledger"
         )
     return _HybridFirecrawlEvidence(
         batch_id=expected_batch_id,
@@ -815,7 +823,7 @@ def _validate_terminal_firecrawl_attempt(
         and attempt.failure_transient is False
         and attempt.provider_http_status == 200
         and attempt.target_http_status in {404, 410}
-        and attempt.reported_credits == 1
+        and attempt.reported_credits in {0, 1}
         and attempt.proxy_used == "basic"
         and isinstance(attempt.failure_message, str)
         and bool(attempt.failure_message.strip())
@@ -1163,9 +1171,12 @@ def _verify_firecrawl_source_receipt(
         receipt.get("firecrawl_attempt_id"),
         f"Firecrawl source receipt attempt ID for {candidate_id}",
     )
+    reported_credits = receipt.get("reported_credits")
     if (
         receipt.get("reserved_credits") != 1
-        or receipt.get("reported_credits") != 1
+        or isinstance(reported_credits, bool)
+        or not isinstance(reported_credits, int)
+        or reported_credits not in {0, 1}
         or receipt.get("proxy_used") != "basic"
         or receipt.get("target_http_status") != 200
     ):

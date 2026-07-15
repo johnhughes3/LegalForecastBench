@@ -59,6 +59,30 @@ def test_hybrid_discovery_materializes_with_exact_firecrawl_lineage(
     assert lineage["firecrawl_run_reported_credits"] == 1
 
 
+def test_hybrid_discovery_materializes_zero_credit_success_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discovery_root, cycle_store = _run_hybrid_discovery(
+        tmp_path,
+        monkeypatch,
+        reported_credits=0,
+    )
+
+    [raw_artifact] = _read_jsonl(discovery_root / "courtlistener-raw-artifacts.jsonl")
+    assert raw_artifact["source_receipt"]["reported_credits"] == 0
+
+    snapshot = _materialize_hybrid(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    manifest = verify_snapshot(snapshot, require_complete=True, require_saturated=True)
+    lineage = manifest["stage_commitments"]["courtlistener_discovery_inputs"]
+    assert lineage["firecrawl_run_reserved_credits"] == 1
+    assert lineage["firecrawl_run_reported_credits"] == 0
+
+
 @pytest.mark.parametrize("failure_kind", ["target_404", "target_410", "abandoned"])
 def test_hybrid_terminal_retrieval_exclusion_materializes_with_durable_lineage(
     tmp_path: Path,
@@ -105,6 +129,30 @@ def test_hybrid_terminal_retrieval_exclusion_materializes_with_durable_lineage(
     assert lineage["firecrawl_run_reported_credits"] == (
         2 if failure_kind.startswith("target_") else 1
     )
+
+
+@pytest.mark.parametrize("failure_kind", ["target_404", "target_410"])
+def test_hybrid_terminal_retrieval_exclusion_materializes_zero_credit_outcomes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_kind: str,
+) -> None:
+    discovery_root, cycle_store = _run_hybrid_discovery_with_terminal_exclusion(
+        tmp_path,
+        monkeypatch,
+        failure_kind=failure_kind,
+        reported_credits=0,
+    )
+
+    snapshot = _materialize_hybrid(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    manifest = verify_snapshot(snapshot, require_complete=True, require_saturated=True)
+    lineage = manifest["stage_commitments"]["courtlistener_discovery_inputs"]
+    assert lineage["firecrawl_run_reserved_credits"] == 2
+    assert lineage["firecrawl_run_reported_credits"] == 0
 
 
 @pytest.mark.parametrize(
@@ -156,7 +204,7 @@ def test_hybrid_materialization_rejects_unmatched_terminal_retrieval_exclusion(
         ("firecrawl_attempt_id", 999),
         ("request_url", "https://www.courtlistener.com/docket/999/"),
         ("reserved_credits", 2),
-        ("reported_credits", 0),
+        ("reported_credits", 2),
         ("proxy_used", "stealth"),
         ("target_http_status", 404),
         ("artifact_sha256", "0" * 64),
@@ -237,6 +285,8 @@ def test_hybrid_materialization_rejects_unreconciled_metered_audit(
 def _run_hybrid_discovery(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    *,
+    reported_credits: int = 1,
 ) -> tuple[Path, Path]:
     output_root = tmp_path / "discovery"
     cycle_store = tmp_path / "cycle.sqlite3"
@@ -298,7 +348,7 @@ def _run_hybrid_discovery(
                                 "statusCode": 200,
                                 "proxyUsed": "basic",
                                 "cacheState": "miss",
-                                "creditsUsed": 1,
+                                "creditsUsed": reported_credits,
                                 "sourceURL": _DOCKET_URL,
                             },
                         },
@@ -365,6 +415,7 @@ def _run_hybrid_discovery_with_terminal_exclusion(
     monkeypatch: pytest.MonkeyPatch,
     *,
     failure_kind: str,
+    reported_credits: int = 1,
 ) -> tuple[Path, Path]:
     output_root = tmp_path / "discovery"
     cycle_store = tmp_path / "cycle.sqlite3"
@@ -431,12 +482,13 @@ def _run_hybrid_discovery_with_terminal_exclusion(
         config=CourtListenerConfig(api_token="fixture-token"),
         transport=CourtListenerFixtureTransport.from_jsonl(fixture_path),
     )
-    success_response = _firecrawl_success_response()
+    success_response = _firecrawl_success_response(reported_credits)
     transport = (
         FirecrawlFixtureTransport(
             [
                 _firecrawl_unavailable_response(
-                    int(failure_kind.removeprefix("target_"))
+                    int(failure_kind.removeprefix("target_")),
+                    reported_credits,
                 ),
                 success_response,
             ]
@@ -517,7 +569,10 @@ class _AbandonThenSuccessTransport:
         return self._success_response
 
 
-def _firecrawl_unavailable_response(target_status: int) -> FirecrawlHTTPResponse:
+def _firecrawl_unavailable_response(
+    target_status: int,
+    reported_credits: int = 1,
+) -> FirecrawlHTTPResponse:
     return FirecrawlHTTPResponse(
         status_code=200,
         payload={
@@ -528,7 +583,7 @@ def _firecrawl_unavailable_response(target_status: int) -> FirecrawlHTTPResponse
                     "statusCode": target_status,
                     "proxyUsed": "basic",
                     "cacheState": "miss",
-                    "creditsUsed": 1,
+                    "creditsUsed": reported_credits,
                     "sourceURL": "https://www.courtlistener.com/docket/122/",
                 },
             },
@@ -536,7 +591,9 @@ def _firecrawl_unavailable_response(target_status: int) -> FirecrawlHTTPResponse
     )
 
 
-def _firecrawl_success_response() -> FirecrawlHTTPResponse:
+def _firecrawl_success_response(
+    reported_credits: int = 1,
+) -> FirecrawlHTTPResponse:
     return FirecrawlHTTPResponse(
         status_code=200,
         payload={
@@ -547,7 +604,7 @@ def _firecrawl_success_response() -> FirecrawlHTTPResponse:
                     "statusCode": 200,
                     "proxyUsed": "basic",
                     "cacheState": "miss",
-                    "creditsUsed": 1,
+                    "creditsUsed": reported_credits,
                     "sourceURL": _DOCKET_URL,
                 },
             },
