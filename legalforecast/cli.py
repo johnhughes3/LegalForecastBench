@@ -521,9 +521,11 @@ from legalforecast.labeling.llm_pipeline import (
     unitization_review_queue_records,
 )
 from legalforecast.labeling.provider_journal import (
+    PROVIDER_JOURNAL_SCHEMA_VERSION,
     ProviderCycleCaps,
     ProviderJournalError,
     load_provider_cycle_caps,
+    verify_provider_journal_identity,
 )
 from legalforecast.multiharness.cli import add_multiharness_parser
 from legalforecast.path_safety import safe_path_component
@@ -5176,6 +5178,27 @@ def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> Non
         help="Finalized prediction-units JSONL from apply-unitization-review.",
     )
     parser.add_argument(
+        "--llm-unitization-run-card",
+        type=Path,
+        help="Authenticated Stage A unitization run card. Required with --execute.",
+    )
+    parser.add_argument(
+        "--unitization-review-run-card",
+        type=Path,
+        help=(
+            "Completed apply-unitization-review run card for the finalized units. "
+            "Required with --execute."
+        ),
+    )
+    parser.add_argument(
+        "--llm-review-stage-a-run-card",
+        type=Path,
+        help=(
+            "Completed authenticated structural-review run card whose queue was "
+            "adjudicated. Required with --execute."
+        ),
+    )
+    parser.add_argument(
         "--markdown-root",
         type=Path,
         help=(
@@ -5208,6 +5231,14 @@ def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> Non
         ),
     )
     _add_provider_cycle_caps_argument(parser)
+    parser.add_argument(
+        "--provider-journal",
+        type=Path,
+        help=(
+            "Exact canonical cycle-wide provider journal committed by llm-unitize. "
+            "Required with --execute."
+        ),
+    )
     parser.add_argument(
         "--labels-output",
         type=Path,
@@ -5284,6 +5315,11 @@ def _add_acquisition_llm_review_stage_a_arguments(
         help="Immutable raw units from llm-unitize.",
     )
     parser.add_argument(
+        "--llm-unitization-run-card",
+        type=Path,
+        help="Authenticated Stage A unitization run card. Required with --execute.",
+    )
+    parser.add_argument(
         "--unitization-review-queue",
         type=Path,
         required=True,
@@ -5301,6 +5337,14 @@ def _add_acquisition_llm_review_stage_a_arguments(
         help="Registry key for the structural reviewer (for Cycle 1, Gemini Flash).",
     )
     _add_provider_cycle_caps_argument(parser)
+    parser.add_argument(
+        "--provider-journal",
+        type=Path,
+        help=(
+            "Exact canonical cycle-wide provider journal committed by llm-unitize. "
+            "Required with --execute."
+        ),
+    )
     parser.add_argument(
         "--structural-flags-output",
         type=Path,
@@ -22807,19 +22851,6 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
     return 0
 
 
-def _official_provider_cycle_caps(args: argparse.Namespace) -> ProviderCycleCaps:
-    path = cast(Path | None, getattr(args, "provider_cycle_caps", None))
-    if path is None:
-        raise CommandError(
-            "live LLM acquisition requires --provider-cycle-caps with a frozen "
-            "externally bounded caps artifact"
-        )
-    try:
-        return load_provider_cycle_caps(path)
-    except ProviderJournalError as exc:
-        raise CommandError(str(exc)) from exc
-
-
 _STAGE_A_UNITIZATION_LINEAGE_SCHEMA_VERSION = (
     "legalforecast.stage_a_unitization_lineage.v1"
 )
@@ -23251,16 +23282,26 @@ _STAGE_A_PROVIDER_ATTEMPT_COLUMNS = (
 
 
 def _stage_a_provider_attempt_rows(path: Path) -> tuple[JsonRecord, ...]:
+    return _provider_stage_attempt_rows(path, stage="llm-unitize")
+
+
+def _provider_stage_attempt_rows(
+    path: Path, *, stage: str | None = None
+) -> tuple[JsonRecord, ...]:
     if path.is_symlink() or not path.is_file():
         raise CommandError(f"shared provider journal is not a regular file: {path}")
     try:
         with sqlite3.connect(path) as connection:
             connection.row_factory = sqlite3.Row
+            where = " WHERE stage = ?" if stage is not None else ""
+            parameters: tuple[object, ...] = (stage,) if stage is not None else ()
             rows = connection.execute(
                 "SELECT "
                 + ", ".join(_STAGE_A_PROVIDER_ATTEMPT_COLUMNS)
-                + " FROM provider_attempts WHERE stage = 'llm-unitize' "
-                "ORDER BY logical_call_key, attempt_ordinal"
+                + " FROM provider_attempts"
+                + where
+                + " ORDER BY stage, logical_call_key, attempt_ordinal",
+                parameters,
             ).fetchall()
     except sqlite3.Error as exc:
         raise CommandError(f"cannot read shared provider journal: {exc}") from exc
@@ -23276,6 +23317,14 @@ def _verify_stage_a_provider_replay(
     audit_path: Path,
     review_queue_path: Path,
 ) -> tuple[dict[str, JsonRecord], str]:
+    try:
+        verify_provider_journal_identity(
+            lineage.provider_journal_path,
+            cycle_id=lineage.cohort_cycle_id,
+            provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+        )
+    except ProviderJournalError as exc:
+        raise CommandError(str(exc)) from exc
     try:
         prompt_records = stage_a_unitization_prompt_records(
             selection_records=lineage.selection_records,
@@ -23458,6 +23507,7 @@ def _stage_a_unitization_run_card_extra(
             + model_registry_entry_sha256(lineage.registry_entry),
             "model_registry_sha256": lineage.registry_sha256,
             "provider": lineage.registry_entry.provider,
+            "provider_journal_schema_version": PROVIDER_JOURNAL_SCHEMA_VERSION,
             "provider_cycle_caps_sha256": lineage.provider_caps_sha256,
             "provider_cycle_caps_cycle_id": lineage.provider_caps.cycle_id,
             "provider_cycle_cap_usd": lineage.provider_caps.cap_usd(
@@ -23501,6 +23551,7 @@ def _incomplete_stage_a_unitization_run_card_extra(
             + model_registry_entry_sha256(lineage.registry_entry),
             "model_registry_sha256": lineage.registry_sha256,
             "provider": lineage.registry_entry.provider,
+            "provider_journal_schema_version": PROVIDER_JOURNAL_SCHEMA_VERSION,
             "provider_cycle_caps_sha256": lineage.provider_caps_sha256,
             "provider_cycle_caps_cycle_id": lineage.provider_caps.cycle_id,
             "provider_cycle_cap_usd": lineage.provider_caps.cap_usd(
@@ -23638,6 +23689,7 @@ def _verify_stage_a_unitization_run_card(
         + model_registry_entry_sha256(lineage.registry_entry),
         "model_registry_sha256": lineage.registry_sha256,
         "provider": lineage.registry_entry.provider,
+        "provider_journal_schema_version": PROVIDER_JOURNAL_SCHEMA_VERSION,
         "provider_cycle_caps_sha256": lineage.provider_caps_sha256,
         "provider_cycle_caps_cycle_id": lineage.provider_caps.cycle_id,
         "provider_cycle_cap_usd": lineage.provider_caps.cap_usd(
@@ -23743,6 +23795,311 @@ def _verify_unitization_review_run_card(
         raise CommandError("apply-unitization-review commitment changed")
 
 
+def _verified_shared_provider_chain(
+    args: argparse.Namespace,
+    *,
+    raw_prediction_units_path: Path,
+    expected_review_queue_path: Path | None = None,
+) -> tuple[_StageAUnitizationLineage, Path]:
+    unitization_card_path = _required_stage_a_lineage_path(
+        args, "llm_unitization_run_card", "--llm-unitization-run-card"
+    )
+    lineage = _verify_stage_a_unitization_run_card(
+        unitization_card_path,
+        expected_prediction_units_path=raw_prediction_units_path,
+        expected_review_queue_path=expected_review_queue_path,
+    )
+    caps_path = _required_stage_a_lineage_path(
+        args, "provider_cycle_caps", "--provider-cycle-caps"
+    )
+    try:
+        caps = load_provider_cycle_caps(caps_path)
+    except ProviderJournalError as exc:
+        raise CommandError(str(exc)) from exc
+    caps_sha256 = _path_sha256(caps_path)
+    if caps.cycle_id != lineage.cohort_cycle_id:
+        raise CommandError(
+            "provider cycle caps cycle_id differs from authenticated cohort"
+        )
+    if caps_sha256 != lineage.provider_caps_sha256:
+        raise CommandError(
+            "provider cycle caps artifact differs from authenticated Stage A"
+        )
+    journal_path = _required_stage_a_lineage_path(
+        args, "provider_journal", "--provider-journal"
+    )
+    if journal_path.resolve() != lineage.provider_journal_path.resolve():
+        raise CommandError(
+            "provider journal path differs from authenticated Stage A cycle journal"
+        )
+    try:
+        verify_provider_journal_identity(
+            journal_path,
+            cycle_id=lineage.cohort_cycle_id,
+            provider_cycle_caps_sha256=lineage.provider_caps_sha256,
+        )
+    except ProviderJournalError as exc:
+        raise CommandError(str(exc)) from exc
+    return lineage, unitization_card_path
+
+
+def _unitization_review_card_paths(
+    run_card_path: Path,
+) -> tuple[Path, Path, Path, Path, Path]:
+    card = _read_json_object(run_card_path)
+    raw_inputs = card.get("input_paths")
+    raw_outputs = card.get("output_paths")
+    if (
+        not isinstance(raw_inputs, Sequence)
+        or isinstance(raw_inputs, (str, bytes))
+        or not isinstance(raw_outputs, Sequence)
+        or isinstance(raw_outputs, (str, bytes))
+    ):
+        raise CommandError("apply-unitization-review run card paths differ")
+    typed_inputs = cast(Sequence[object], raw_inputs)
+    typed_outputs = cast(Sequence[object], raw_outputs)
+    if len(typed_inputs) != 4 or len(typed_outputs) != 1:
+        raise CommandError("apply-unitization-review run card paths differ")
+    inputs = tuple(Path(str(path)) for path in typed_inputs)
+    output = Path(str(typed_outputs[0]))
+    return inputs[0], inputs[1], inputs[2], inputs[3], output
+
+
+def _verify_finalized_stage_a_provider_chain(
+    args: argparse.Namespace,
+    *,
+    finalized_prediction_units_path: Path,
+) -> tuple[_StageAUnitizationLineage, Path, Path]:
+    review_card_path = _required_stage_a_lineage_path(
+        args, "unitization_review_run_card", "--unitization-review-run-card"
+    )
+    raw_path, committed_unit_card, review_queue, adjudications, finalized_path = (
+        _unitization_review_card_paths(review_card_path)
+    )
+    requested_unit_card = _required_stage_a_lineage_path(
+        args, "llm_unitization_run_card", "--llm-unitization-run-card"
+    )
+    if (
+        committed_unit_card.resolve() != requested_unit_card.resolve()
+        or finalized_path.resolve() != finalized_prediction_units_path.resolve()
+    ):
+        raise CommandError(
+            "finalized Stage A run-card chain differs from requested artifacts"
+        )
+    lineage, unit_card_path = _verified_shared_provider_chain(
+        args,
+        raw_prediction_units_path=raw_path,
+    )
+    _verify_unitization_review_run_card(
+        review_card_path,
+        llm_unitization_run_card_path=unit_card_path,
+        raw_prediction_units_path=raw_path,
+        original_review_queue_path=None,
+        review_queue_path=review_queue,
+        adjudications_path=adjudications,
+        finalized_path=finalized_prediction_units_path,
+    )
+    return lineage, unit_card_path, review_queue
+
+
+def _verified_provider_stage_attempts(
+    *,
+    stage: str,
+    journal_path: Path,
+    expected_prompts: Mapping[tuple[str, str], str],
+    providers_by_model: Mapping[str, str],
+    model_registry_sha256: str,
+) -> JsonRecord:
+    rows = _provider_stage_attempt_rows(journal_path, stage=stage)
+    rows_by_call: dict[tuple[str, str], list[Mapping[str, Any]]] = defaultdict(list)
+    for row in rows:
+        key = (_required_str(row, "candidate_id"), _required_str(row, "model_key"))
+        if key not in expected_prompts:
+            raise CommandError(
+                f"{stage} journal contains an unexpected candidate/model call: {key}"
+            )
+        expected_prompt_sha = expected_prompts[key].removeprefix("sha256:")
+        expected_logical_key = hashlib.sha256(
+            "\0".join((stage, key[0], key[1])).encode("utf-8")
+        ).hexdigest()
+        prompt_text = _required_str(row, "prompt_text")
+        if (
+            row.get("stage") != stage
+            or row.get("logical_call_key") != expected_logical_key
+            or row.get("provider") != providers_by_model.get(key[1])
+            or row.get("model_registry_sha256") != model_registry_sha256
+            or row.get("prompt_sha256") != expected_prompt_sha
+            or hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()
+            != expected_prompt_sha
+        ):
+            raise CommandError(f"{stage} provider replay identity differs: {key}")
+        rows_by_call[key].append(row)
+    if set(rows_by_call) != set(expected_prompts):
+        raise CommandError(f"{stage} provider journal call coverage differs")
+    for key, call_rows in rows_by_call.items():
+        if sum(row.get("status") == "settled" for row in call_rows) != 1:
+            raise CommandError(f"{stage} requires one settled provider call: {key}")
+    return {
+        "stage": stage,
+        "call_count": len(expected_prompts),
+        "attempt_count": len(rows),
+        "attempts_sha256": _canonical_json_sha256(rows),
+    }
+
+
+def _provider_chain_commitment(
+    *,
+    lineage: _StageAUnitizationLineage,
+    stage_attempts: Mapping[str, object],
+) -> JsonRecord:
+    return {
+        "schema_version": PROVIDER_JOURNAL_SCHEMA_VERSION,
+        "cycle_id": lineage.cohort_cycle_id,
+        "provider_cycle_caps_sha256": lineage.provider_caps_sha256,
+        "provider_journal": str(lineage.provider_journal_path.resolve()),
+        "stage_attempts": dict(stage_attempts),
+    }
+
+
+def _verify_stage_a_review_run_card(
+    run_card_path: Path,
+    *,
+    lineage: _StageAUnitizationLineage,
+    llm_unitization_run_card_path: Path,
+    expected_review_queue_path: Path,
+) -> None:
+    if run_card_path.is_symlink() or not run_card_path.is_file():
+        raise CommandError("llm-review-stage-a run card is not a regular file")
+    card = _read_json_object(run_card_path)
+    if (
+        card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or card.get("stage") != "llm-review-stage-a"
+        or card.get("status") != "completed"
+        or card.get("dry_run") is not False
+        or card.get("execute") is not True
+        or card.get("paid_activity_requested") is not True
+        or card.get("paid_activity_executed") is not True
+    ):
+        raise CommandError("invalid authenticated llm-review-stage-a run card")
+    source = card.get("source_commitments")
+    outputs = card.get("output_commitments")
+    execution = card.get("model_execution")
+    chain = card.get("provider_chain")
+    if not all(
+        isinstance(value, Mapping) for value in (source, outputs, execution, chain)
+    ):
+        raise CommandError("llm-review-stage-a run card lacks exact commitments")
+    source_records = cast(Mapping[str, object], source)
+    output_records = cast(Mapping[str, object], outputs)
+    execution_record = cast(Mapping[str, object], execution)
+    chain_record = cast(Mapping[str, object], chain)
+    unit_card = _stage_a_committed_path(source_records, "llm_unitization_run_card")
+    if (
+        unit_card.resolve() != llm_unitization_run_card_path.resolve()
+        or source_records.get("llm_unitization_run_card")
+        != _stage_a_file_commitment(llm_unitization_run_card_path)
+    ):
+        raise CommandError("structural review Stage A run-card lineage differs")
+    for name in (
+        "selection",
+        "parser_manifest",
+        "raw_prediction_units",
+        "unitization_review_queue",
+        "model_registry",
+        "provider_cycle_caps",
+    ):
+        path = _stage_a_committed_path(source_records, name)
+        if source_records.get(name) != _stage_a_file_commitment(path):
+            raise CommandError(f"structural review {name} commitment changed")
+    caps_path = _stage_a_committed_path(source_records, "provider_cycle_caps")
+    if (
+        _path_sha256(caps_path) != lineage.provider_caps_sha256
+        or chain_record.get("schema_version") != PROVIDER_JOURNAL_SCHEMA_VERSION
+        or chain_record.get("cycle_id") != lineage.cohort_cycle_id
+        or chain_record.get("provider_cycle_caps_sha256")
+        != lineage.provider_caps_sha256
+        or chain_record.get("provider_journal")
+        != str(lineage.provider_journal_path.resolve())
+    ):
+        raise CommandError("structural review provider chain identity differs")
+    queue_path = _stage_a_committed_path(output_records, "review_queue")
+    audit_path = _stage_a_committed_path(output_records, "audit")
+    flags_path = _stage_a_committed_path(output_records, "structural_flags")
+    if queue_path.resolve() != expected_review_queue_path.resolve():
+        raise CommandError("structural review queue differs from adjudicated queue")
+    expected_outputs = {
+        "structural_flags": _stage_a_file_commitment(flags_path),
+        "review_queue": _stage_a_file_commitment(queue_path),
+        "audit": _stage_a_file_commitment(audit_path),
+    }
+    if dict(output_records) != expected_outputs:
+        raise CommandError("structural review output commitment changed")
+    registry_path = _stage_a_committed_path(source_records, "model_registry")
+    model_key = execution_record.get("model_key")
+    if not isinstance(model_key, str) or not model_key.strip():
+        raise CommandError("structural review model key is invalid")
+    entry, registry_sha = _registry_entry_for_key(registry_path, model_key)
+    expected_execution = {
+        "model_key": entry.registry_key,
+        "model_entry_sha256": "sha256:" + model_registry_entry_sha256(entry),
+        "model_registry_sha256": registry_sha,
+        "provider": entry.provider,
+    }
+    if dict(execution_record) != expected_execution:
+        raise CommandError("structural review model execution commitment changed")
+    audit_records = _read_records(audit_path)
+    expected_prompts = {
+        (_required_str(record, "candidate_id"), entry.registry_key): _required_str(
+            record, "prompt_sha256"
+        )
+        for record in audit_records
+    }
+    stage_attempts = _verified_provider_stage_attempts(
+        stage="llm-review-stage-a",
+        journal_path=lineage.provider_journal_path,
+        expected_prompts=expected_prompts,
+        providers_by_model={entry.registry_key: entry.provider},
+        model_registry_sha256=registry_sha,
+    )
+    if chain_record.get("stage_attempts") != stage_attempts:
+        raise CommandError("structural review provider attempts changed")
+    raw_inputs = card.get("input_paths")
+    raw_outputs = card.get("output_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise CommandError("structural review run card lacks exact inputs")
+    if not isinstance(raw_outputs, Sequence) or isinstance(raw_outputs, (str, bytes)):
+        raise CommandError("structural review run card lacks exact outputs")
+    expected_inputs = (
+        *(
+            _stage_a_committed_path(source_records, name).resolve()
+            for name in (
+                "selection",
+                "parser_manifest",
+                "raw_prediction_units",
+                "unitization_review_queue",
+                "llm_unitization_run_card",
+                "model_registry",
+                "provider_cycle_caps",
+            )
+        ),
+        lineage.provider_journal_path.resolve(),
+    )
+    if (
+        tuple(Path(str(path)).resolve() for path in cast(Sequence[object], raw_inputs))
+        != expected_inputs
+    ):
+        raise CommandError("structural review input paths changed")
+    if tuple(
+        Path(str(path)).resolve() for path in cast(Sequence[object], raw_outputs)
+    ) != (
+        flags_path.resolve(),
+        queue_path.resolve(),
+        audit_path.resolve(),
+        lineage.provider_journal_path.resolve(),
+    ):
+        raise CommandError("structural review output paths changed")
+
+
 def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     provider_journal_arg = cast(Path | None, args.provider_journal)
@@ -23806,6 +24163,8 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
                     lineage.registry_entry.provider
                 )
             },
+            provider_cycle_id=lineage.cohort_cycle_id,
+            provider_cycle_caps_sha256=lineage.provider_caps_sha256,
         )
         _write_jsonl(prediction_units_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
@@ -23860,7 +24219,13 @@ def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
 
 def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
-    provider_journal_path = output_root / "provider-attempts.sqlite3"
+    provider_journal_arg = cast(Path | None, args.provider_journal)
+    provider_journal_path = provider_journal_arg or (
+        output_root / "provider-attempts.sqlite3"
+    )
+    unitization_card_path = cast(Path | None, args.llm_unitization_run_card)
+    review_card_path = cast(Path | None, args.unitization_review_run_card)
+    structural_review_card_path = cast(Path | None, args.llm_review_stage_a_run_card)
     selection_path = cast(Path, args.selection)
     parser_manifest_path = cast(Path, args.parser_manifest)
     decision_texts_path = cast(Path, args.decision_texts)
@@ -23908,6 +24273,16 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
     model_keys = tuple(cast(list[str], args.model_key))
     _require_explicit_unique_model_keys(model_keys)
     dry_run = _acquisition_dry_run(args)
+    completion_extra: JsonRecord = {
+        "decision_text_commitments": {
+            "decision_texts_sha256": decision_text_artifact.decision_texts_sha256,
+            "decision_texts_manifest_sha256": decision_text_artifact.manifest_sha256,
+            "decision_texts_run_card_sha256": decision_text_artifact.run_card_sha256,
+            "finalized_prediction_units_sha256": (
+                decision_text_artifact.finalized_prediction_units_sha256
+            ),
+        }
+    }
     if dry_run:
         _write_jsonl(
             labels_path,
@@ -23923,6 +24298,23 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         )
         _write_jsonl(lawyer_review_queue_path, [])
     else:
+        lineage, authenticated_unitization_card, adjudicated_review_queue = (
+            _verify_finalized_stage_a_provider_chain(
+                args,
+                finalized_prediction_units_path=prediction_units_path,
+            )
+        )
+        authenticated_structural_card = _required_stage_a_lineage_path(
+            args,
+            "llm_review_stage_a_run_card",
+            "--llm-review-stage-a-run-card",
+        )
+        _verify_stage_a_review_run_card(
+            authenticated_structural_card,
+            lineage=lineage,
+            llm_unitization_run_card_path=authenticated_unitization_card,
+            expected_review_queue_path=adjudicated_review_queue,
+        )
         registry_entries, registry_sha256 = _registry_entries_for_keys(
             model_registry_path,
             model_keys,
@@ -23935,9 +24327,8 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             registry_entries,
             evaluated_model_registry_path=evaluated_registry_path,
         )
-        provider_caps = _official_provider_cycle_caps(args)
         caps_by_provider = {
-            entry.provider: provider_caps.cap_usd(entry.provider)
+            entry.provider: lineage.provider_caps.cap_usd(entry.provider)
             for entry in registry_entries
         }
         result = llm_label_cases(
@@ -23952,12 +24343,73 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             continue_on_error=cast(bool, args.continue_on_error),
             provider_journal_path=provider_journal_path,
             provider_cycle_caps_usd=caps_by_provider,
+            provider_cycle_id=lineage.cohort_cycle_id,
+            provider_cycle_caps_sha256=lineage.provider_caps_sha256,
         )
         _write_jsonl(labels_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
         _write_jsonl(
             lawyer_review_queue_path,
             lawyer_review_queue_records(result.audit_records),
+        )
+        expected_prompts: dict[tuple[str, str], str] = {}
+        for record in result.audit_records:
+            candidate_id = _required_str(record, "candidate_id")
+            raw_outputs = record.get("model_outputs", ())
+            if not isinstance(raw_outputs, Sequence) or isinstance(
+                raw_outputs, (str, bytes)
+            ):
+                raise CommandError("llm-label audit model_outputs is invalid")
+            for output in cast(Sequence[Mapping[str, Any]], raw_outputs):
+                key = (candidate_id, _required_str(output, "model_key"))
+                if key in expected_prompts:
+                    raise CommandError(f"duplicate llm-label model output: {key}")
+                expected_prompts[key] = _required_str(output, "provider_prompt_sha256")
+        providers_by_model = {
+            entry.registry_key: entry.provider for entry in registry_entries
+        }
+        stage_attempts = _verified_provider_stage_attempts(
+            stage="llm-label",
+            journal_path=provider_journal_path,
+            expected_prompts=expected_prompts,
+            providers_by_model=providers_by_model,
+            model_registry_sha256=registry_sha256,
+        )
+        completion_extra.update(
+            {
+                "provider_chain": _provider_chain_commitment(
+                    lineage=lineage,
+                    stage_attempts=stage_attempts,
+                ),
+                "stage_a_lineage": {
+                    "llm_unitization_run_card": _stage_a_file_commitment(
+                        authenticated_unitization_card
+                    ),
+                    "llm_review_stage_a_run_card": _stage_a_file_commitment(
+                        authenticated_structural_card
+                    ),
+                    "unitization_review_run_card": _stage_a_file_commitment(
+                        cast(Path, review_card_path)
+                    ),
+                },
+                "model_execution": {
+                    "model_keys": [entry.registry_key for entry in registry_entries],
+                    "model_entry_sha256": {
+                        entry.registry_key: "sha256:"
+                        + model_registry_entry_sha256(entry)
+                        for entry in registry_entries
+                    },
+                    "model_registry_sha256": registry_sha256,
+                    "providers": providers_by_model,
+                },
+                "output_commitments": {
+                    "labels": _stage_a_file_commitment(labels_path),
+                    "audit": _stage_a_file_commitment(audit_path),
+                    "lawyer_review_queue": _stage_a_file_commitment(
+                        lawyer_review_queue_path
+                    ),
+                },
+            }
         )
     _write_acquisition_completion(
         args,
@@ -23969,9 +24421,13 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             decision_texts_manifest_path,
             decision_texts_run_card_path,
             prediction_units_path,
+            *((unitization_card_path,) if unitization_card_path else ()),
+            *((structural_review_card_path,) if structural_review_card_path else ()),
+            *((review_card_path,) if review_card_path else ()),
             model_registry_path,
             evaluated_registry_path,
             *((provider_caps_path,) if provider_caps_path is not None else ()),
+            *((provider_journal_arg,) if provider_journal_arg else ()),
         ),
         output_paths=(
             labels_path,
@@ -23983,20 +24439,7 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         dry_run=dry_run,
         paid_activity_requested=not dry_run,
         paid_activity_executed=not dry_run,
-        extra={
-            "decision_text_commitments": {
-                "decision_texts_sha256": decision_text_artifact.decision_texts_sha256,
-                "decision_texts_manifest_sha256": (
-                    decision_text_artifact.manifest_sha256
-                ),
-                "decision_texts_run_card_sha256": (
-                    decision_text_artifact.run_card_sha256
-                ),
-                "finalized_prediction_units_sha256": (
-                    decision_text_artifact.finalized_prediction_units_sha256
-                ),
-            }
-        },
+        extra=completion_extra,
     )
     return 0
 
@@ -24050,7 +24493,11 @@ def _require_complete_registry_panel(
 
 def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
-    provider_journal_path = output_root / "provider-attempts.sqlite3"
+    provider_journal_arg = cast(Path | None, args.provider_journal)
+    provider_journal_path = provider_journal_arg or (
+        output_root / "provider-attempts.sqlite3"
+    )
+    unitization_card_path = cast(Path | None, args.llm_unitization_run_card)
     selection_path = cast(Path, args.selection)
     parser_path = cast(Path, args.parser_manifest)
     units_path = cast(Path, args.prediction_units)
@@ -24071,6 +24518,7 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
     )
     selections = _read_records(selection_path)
     dry_run = _acquisition_dry_run(args)
+    completion_extra: JsonRecord = {}
     if dry_run:
         _write_jsonl(flags_path, [])
         _write_jsonl(queue_path, _read_records(existing_queue_path))
@@ -24085,10 +24533,14 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             ],
         )
     else:
+        lineage, authenticated_unitization_card = _verified_shared_provider_chain(
+            args,
+            raw_prediction_units_path=units_path,
+            expected_review_queue_path=existing_queue_path,
+        )
         entry, registry_sha = _registry_entry_for_key(
             registry_path, cast(str, args.model_key)
         )
-        provider_caps = _official_provider_cycle_caps(args)
         result = llm_review_stage_a_units(
             selection_records=selections,
             parser_records=_read_records(parser_path),
@@ -24099,8 +24551,10 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             timeout_seconds=cast(float, args.timeout_seconds),
             provider_journal_path=provider_journal_path,
             provider_cycle_caps_usd={
-                entry.provider: provider_caps.cap_usd(entry.provider)
+                entry.provider: lineage.provider_caps.cap_usd(entry.provider)
             },
+            provider_cycle_id=lineage.cohort_cycle_id,
+            provider_cycle_caps_sha256=lineage.provider_caps_sha256,
         )
         _write_jsonl(flags_path, result.records)
         _write_jsonl(audit_path, result.audit_records)
@@ -24110,6 +24564,52 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
                 _read_records(existing_queue_path), result.records
             ),
         )
+        expected_prompts = {
+            (
+                _required_str(record, "candidate_id"),
+                _required_str(record, "model_key"),
+            ): _required_str(record, "prompt_sha256")
+            for record in result.audit_records
+        }
+        stage_attempts = _verified_provider_stage_attempts(
+            stage="llm-review-stage-a",
+            journal_path=provider_journal_path,
+            expected_prompts=expected_prompts,
+            providers_by_model={entry.registry_key: entry.provider},
+            model_registry_sha256=registry_sha,
+        )
+        completion_extra = {
+            "provider_chain": _provider_chain_commitment(
+                lineage=lineage,
+                stage_attempts=stage_attempts,
+            ),
+            "model_execution": {
+                "model_key": entry.registry_key,
+                "model_entry_sha256": "sha256:" + model_registry_entry_sha256(entry),
+                "model_registry_sha256": registry_sha,
+                "provider": entry.provider,
+            },
+            "source_commitments": {
+                "selection": _stage_a_file_commitment(selection_path),
+                "parser_manifest": _stage_a_file_commitment(parser_path),
+                "raw_prediction_units": _stage_a_file_commitment(units_path),
+                "unitization_review_queue": _stage_a_file_commitment(
+                    existing_queue_path
+                ),
+                "llm_unitization_run_card": _stage_a_file_commitment(
+                    authenticated_unitization_card
+                ),
+                "model_registry": _stage_a_file_commitment(registry_path),
+                "provider_cycle_caps": _stage_a_file_commitment(
+                    cast(Path, provider_caps_path)
+                ),
+            },
+            "output_commitments": {
+                "structural_flags": _stage_a_file_commitment(flags_path),
+                "review_queue": _stage_a_file_commitment(queue_path),
+                "audit": _stage_a_file_commitment(audit_path),
+            },
+        }
     _write_acquisition_completion(
         args,
         stage="llm-review-stage-a",
@@ -24118,14 +24618,17 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             parser_path,
             units_path,
             existing_queue_path,
+            *((unitization_card_path,) if unitization_card_path else ()),
             registry_path,
             *((provider_caps_path,) if provider_caps_path is not None else ()),
+            *((provider_journal_arg,) if provider_journal_arg else ()),
         ),
         output_paths=(flags_path, queue_path, audit_path, provider_journal_path),
         record_count=len(selections),
         dry_run=dry_run,
         paid_activity_requested=not dry_run,
         paid_activity_executed=not dry_run,
+        extra=completion_extra,
     )
     return 0
 

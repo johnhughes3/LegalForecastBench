@@ -206,6 +206,8 @@ def llm_unitize_cases(
     provider_journal_path: str | Path | None = None,
     provider_cycle_cap_usd: float = DEFAULT_CYCLE_PROVIDER_CAP_USD,
     provider_cycle_caps_usd: Mapping[str, float] | None = None,
+    provider_cycle_id: str | None = None,
+    provider_cycle_caps_sha256: str | None = None,
 ) -> LlmBatchResult:
     """Generate and validate Stage A prediction units from predecision materials."""
 
@@ -238,6 +240,8 @@ def llm_unitize_cases(
                     fallback=provider_cycle_cap_usd,
                     caps=provider_cycle_caps_usd,
                 ),
+                cycle_id=provider_cycle_id,
+                provider_cycle_caps_sha256=provider_cycle_caps_sha256,
             )
             response = complete_live_prompt(
                 registry_entry,
@@ -381,6 +385,8 @@ def llm_review_stage_a_units(
     provider_journal_path: str | Path | None = None,
     provider_cycle_cap_usd: float = DEFAULT_CYCLE_PROVIDER_CAP_USD,
     provider_cycle_caps_usd: Mapping[str, float] | None = None,
+    provider_cycle_id: str | None = None,
+    provider_cycle_caps_sha256: str | None = None,
 ) -> LlmBatchResult:
     """Flag structural defects without permitting the reviewer to rewrite Stage A."""
 
@@ -412,6 +418,8 @@ def llm_review_stage_a_units(
                 fallback=provider_cycle_cap_usd,
                 caps=provider_cycle_caps_usd,
             ),
+            cycle_id=provider_cycle_id,
+            provider_cycle_caps_sha256=provider_cycle_caps_sha256,
         )
         try:
             response = complete_live_prompt(
@@ -657,6 +665,8 @@ def llm_label_cases(
     provider_journal_path: str | Path | None = None,
     provider_cycle_cap_usd: float = DEFAULT_CYCLE_PROVIDER_CAP_USD,
     provider_cycle_caps_usd: Mapping[str, float] | None = None,
+    provider_cycle_id: str | None = None,
+    provider_cycle_caps_sha256: str | None = None,
 ) -> LlmBatchResult:
     """Generate Stage B outcome labels with registry-backed LLM judges."""
 
@@ -757,6 +767,8 @@ def llm_label_cases(
                             fallback=provider_cycle_cap_usd,
                             caps=provider_cycle_caps_usd,
                         ),
+                        provider_cycle_id=provider_cycle_id,
+                        provider_cycle_caps_sha256=provider_cycle_caps_sha256,
                     )
                 )
                 labels_by_model[entry.registry_key] = labels
@@ -907,6 +919,8 @@ def _llm_label_one_model(
     timeout_seconds: float,
     provider_journal_path: str | Path | None,
     provider_cycle_cap_usd: float,
+    provider_cycle_id: str | None,
+    provider_cycle_caps_sha256: str | None,
 ) -> tuple[tuple[OutcomeLabel, ...], SolverResponse, int, int, str]:
     prompt = _labeling_prompt(
         selection,
@@ -923,6 +937,8 @@ def _llm_label_one_model(
         registry_entry=registry_entry,
         model_registry_sha256=model_registry_sha256,
         cycle_cap_usd=provider_cycle_cap_usd,
+        cycle_id=provider_cycle_id,
+        provider_cycle_caps_sha256=provider_cycle_caps_sha256,
     )
     try:
         response = complete_live_prompt(
@@ -1072,9 +1088,15 @@ def _provider_attempt_journal(
     registry_entry: ModelRegistryEntry,
     model_registry_sha256: str | None,
     cycle_cap_usd: float,
+    cycle_id: str | None,
+    provider_cycle_caps_sha256: str | None,
 ) -> ProviderAttemptJournal | None:
     if path is None:
         return None
+    if not cycle_id or not provider_cycle_caps_sha256:
+        raise LlmPipelineError(
+            "provider journal requires authenticated cycle_id and caps artifact hash"
+        )
     return ProviderAttemptJournal(
         path,
         identity=ProviderCallIdentity(
@@ -1092,6 +1114,8 @@ def _provider_attempt_journal(
             output_token_price=registry_entry.output_token_price,
         ),
         cycle_cap_usd=cycle_cap_usd,
+        cycle_id=cycle_id,
+        provider_cycle_caps_sha256=provider_cycle_caps_sha256,
     )
 
 

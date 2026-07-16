@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 from argparse import Namespace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -246,6 +247,8 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
         provider="openai",
         reservation_usd=0.1,
         cycle_cap_usd=10.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256=cli._path_sha256(caps_path),
     ) as journal:
         journal.run_attempt(1, lambda: {"fixture": "response"})
         raw_output = '{"unit_seeds": []}'
@@ -351,6 +354,8 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
         provider="openai",
         reservation_usd=0.1,
         cycle_cap_usd=10.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256=cli._path_sha256(caps_path),
     ) as journal:
         journal.run_attempt(1, lambda: {"fixture": "wrong-model-response"})
         journal.settle_attempt(
@@ -377,6 +382,100 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
             prediction_units_path=raw_path,
             audit_path=audit_path,
             review_queue_path=queue_path,
+        )
+
+
+def test_provider_stage_replay_rejects_duplicate_cross_model_and_cross_stage_rows(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    prompt = "frozen label prompt"
+    prompt_sha = hashlib.sha256(prompt.encode()).hexdigest()
+    with ProviderAttemptJournal(
+        path,
+        identity=ProviderCallIdentity(
+            stage="llm-label",
+            candidate_id="cand-1",
+            model_key="openai:judge-a",
+            prompt=prompt,
+            model_registry_sha256="registry-sha",
+        ),
+        provider="openai",
+        reservation_usd=0.1,
+        cycle_cap_usd=10.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256="sha256:caps",
+    ) as journal:
+        journal.run_attempt(1, lambda: {"fixture": "response"})
+        journal.settle_attempt(
+            1,
+            input_tokens=1,
+            output_tokens=1,
+            actual_cost_usd=0.01,
+            raw_output="{}",
+        )
+        journal.commit_reconstruction({"labels": []})
+
+    expected = {("cand-1", "openai:judge-a"): prompt_sha}
+    providers = {"openai:judge-a": "openai"}
+    cli._verified_provider_stage_attempts(
+        stage="llm-label",
+        journal_path=path,
+        expected_prompts=expected,
+        providers_by_model=providers,
+        model_registry_sha256="registry-sha",
+    )
+
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "INSERT INTO provider_attempts SELECT logical_call_key, 2, stage, "
+            "candidate_id, model_key, provider, account, prompt_text, "
+            "prompt_sha256, model_registry_sha256, reservation_usd, status, "
+            "raw_response_json, normalized_response_json, "
+            "reconstructed_result_json, input_tokens, output_tokens, "
+            "actual_cost_usd, failure_type, failure_message, reserved_at, "
+            "completed_at FROM provider_attempts WHERE attempt_ordinal = 1"
+        )
+    with pytest.raises(cli.CommandError, match="one settled provider call"):
+        cli._verified_provider_stage_attempts(
+            stage="llm-label",
+            journal_path=path,
+            expected_prompts=expected,
+            providers_by_model=providers,
+            model_registry_sha256="registry-sha",
+        )
+
+    with sqlite3.connect(path) as connection:
+        connection.execute("DELETE FROM provider_attempts WHERE attempt_ordinal = 2")
+        connection.execute("UPDATE provider_attempts SET model_key = 'openai:judge-b'")
+    with pytest.raises(cli.CommandError, match="unexpected candidate/model"):
+        cli._verified_provider_stage_attempts(
+            stage="llm-label",
+            journal_path=path,
+            expected_prompts=expected,
+            providers_by_model=providers,
+            model_registry_sha256="registry-sha",
+        )
+
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "UPDATE provider_attempts SET model_key = 'openai:judge-a', "
+            "logical_call_key = ?",
+            (
+                hashlib.sha256(
+                    "\0".join(
+                        ("llm-review-stage-a", "cand-1", "openai:judge-a")
+                    ).encode()
+                ).hexdigest(),
+            ),
+        )
+    with pytest.raises(cli.CommandError, match="provider replay identity differs"):
+        cli._verified_provider_stage_attempts(
+            stage="llm-label",
+            journal_path=path,
+            expected_prompts=expected,
+            providers_by_model=providers,
+            model_registry_sha256="registry-sha",
         )
 
 
