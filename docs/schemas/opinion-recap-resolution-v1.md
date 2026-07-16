@@ -16,6 +16,10 @@ Every logical request is written to the resolver SQLite journal before dispatch,
 
 CourtListener's separately metered physical attempts remain governed by the shared durable request-budget ledger.
 
+An operator may explicitly enable the zero-paid Firecrawl contingency for the exact condition where that authenticated ledger cannot reserve another CourtListener REST request. The contingency never activates for authentication, rate-limit, malformed-response, target-response, or Firecrawl provider failures. It performs the same quoted, source-court-constrained `type=r` search against public CourtListener HTML, requires explicit result-count and pagination exhaustion, and accepts identity only through the ordinary strict matcher.
+
+Firecrawl attempts use the basic one-credit proxy under a durable cycle-wide run whose authorization cap cannot exceed 45,000 credits. Every raw HTML page is content-addressed and validated before use; retries are bounded, reservations survive interruption, and provider failures abort retryably without writing a terminal lead outcome. Enabling the contingency requires the source and output batches to use the same cycle store so the shared credit authorization cannot be detached from its frozen source commitment.
+
 The output batch is published only after all frozen source leads reconcile and is marked complete and saturated under one synthetic resolution term.
 
 Only resolved, prior-snapshot-novel RECAP dockets enter that batch; known prior candidates remain auditable `deferred` outcomes and ambiguous or unmatched identities remain auditable `excluded` outcomes.
@@ -87,3 +91,15 @@ infisical-agent-sandbox run \
 Repeat the paired prior-snapshot arguments for every frozen prior snapshot.
 
 If Case.dev is unavailable, pass `--courtlistener-only`; this spends CourtListener request capacity for every selected lead but still performs no paid activity.
+
+To authorize the Firecrawl contingency after authenticated CourtListener request-budget exhaustion, add all of the following live-only options:
+
+```bash
+  --firecrawl-on-budget-exhaustion \
+  --firecrawl-credit-cap <cycle-wide-cap-at-most-45000> \
+  --firecrawl-run-id <immutable-run-id> \
+  --firecrawl-artifact-dir <durable-raw-html-directory> \
+  --firecrawl-max-attempts 3
+```
+
+The attempt override is optional and defaults to three. All other Firecrawl options are rejected unless `--firecrawl-on-budget-exhaustion` is present. The command still requires `--live`, an authenticated CourtListener client, and the ordinary durable CourtListener request ledger; offline fixtures cannot activate the contingency.
