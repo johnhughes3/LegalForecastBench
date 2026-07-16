@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 import pytest
 from legalforecast.cli import main
@@ -26,11 +27,13 @@ def test_labeling_policy_binds_registry_and_precommits_five_percent() -> None:
 
     verify_labeling_policy(artifact, judge_registry_path=JUDGE_REGISTRY)
 
-    audit = artifact["policy"]["label_audit"]
+    policy = cast(dict[str, object], artifact["policy"])
+    audit = cast(dict[str, object], policy["label_audit"])
     assert audit["sample_fraction"] == 0.05
     assert audit["max_llm_error_rate"] == 0.05
     assert audit["max_human_disagreement_rate"] == 0.05
-    assert "labels_sha256" not in audit["seed_components"]
+    seed_components = cast(list[str], audit["seed_components"])
+    assert "labels_sha256" not in seed_components
 
 
 def test_labeling_policy_rejects_different_judge_registry(tmp_path: Path) -> None:
@@ -66,7 +69,8 @@ def test_execution_policy_round_trip_and_rejects_late_precommitment() -> None:
     )
 
     late = _execution_decisions()
-    late["lifecycle"]["labeling_policy_published_at"] = "2026-07-13T01:00:00Z"
+    lifecycle = cast(dict[str, object], late["lifecycle"])
+    lifecycle["labeling_policy_published_at"] = "2026-07-13T01:00:00Z"
     with pytest.raises(PolicyArtifactError, match="before labeling"):
         generate_execution_policy(late)
 

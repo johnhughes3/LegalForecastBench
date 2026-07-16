@@ -772,7 +772,7 @@ def _write_registry(
 ) -> None:
     prices = input_price_by_model or {}
     releases = release_by_model or {}
-    records = [
+    records: list[dict[str, object]] = [
         {
             "provider": "example",
             "model_id": model_id,
