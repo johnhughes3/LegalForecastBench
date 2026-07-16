@@ -141,7 +141,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}-${{ inputs.model_keys }}-${{ inputs.ablations }}
+  group: run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}-${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}-${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}
   cancel-in-progress: false
 
 jobs:
@@ -592,7 +592,7 @@ jobs:
         shell: bash
         env:
           ABLATIONS: ${{ inputs.ablations }}
-          CONCURRENCY_GROUP: run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}-${{ inputs.model_keys }}-${{ inputs.ablations }}
+          CONCURRENCY_GROUP: run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}-${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}-${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}
           CYCLE_ID: ${{ inputs.cycle_id }}
           FREEZE_COMMITMENT_PATH: ${{ steps.validate.outputs.freeze_bundle_path }}
           MODEL_KEYS: ${{ inputs.model_keys }}
