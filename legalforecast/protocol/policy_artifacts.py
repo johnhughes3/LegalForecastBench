@@ -302,6 +302,15 @@ def _validated_execution_policy(raw: Mapping[str, Any]) -> dict[str, Any]:
     }
     if len(unique_shards) != len(normalized_shards):
         raise PolicyArtifactError("shard_schedule.shards contains duplicates")
+    casefold_shards = {
+        (model_key.casefold(), ablation.casefold())
+        for model_key, ablation in unique_shards
+    }
+    if len(casefold_shards) != len(unique_shards):
+        raise PolicyArtifactError(
+            "shard_schedule.shards contains case-insensitive concurrency "
+            "identity collisions"
+        )
     if len(normalized_shards) != shards["shard_count"]:
         raise PolicyArtifactError(
             "shard_schedule.shard_count must equal the number of declared shards"

@@ -107,6 +107,18 @@ def test_execution_policy_rejects_unimplemented_concurrency_modes(
         generate_execution_policy(decisions)
 
 
+def test_execution_policy_rejects_casefold_colliding_shard_groups() -> None:
+    decisions = _execution_decisions()
+    schedule = cast(dict[str, object], decisions["shard_schedule"])
+    shards = cast(list[dict[str, str]], schedule["shards"])
+    for shard in shards:
+        if shard["model_key"] == "fixture:model-b":
+            shard["model_key"] = "fixture:MODEL-A"
+
+    with pytest.raises(PolicyArtifactError, match="case-insensitive concurrency"):
+        generate_execution_policy(decisions)
+
+
 def test_policy_generator_and_verifier_clis_round_trip(tmp_path: Path) -> None:
     labeling_path = tmp_path / "labeling-policy.json"
     assert (

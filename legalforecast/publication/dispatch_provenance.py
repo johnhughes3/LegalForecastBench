@@ -550,6 +550,13 @@ def _declared_shards_from_policy(
     )
     if len(set(pairs)) != len(pairs):
         raise DispatchProvenanceError("frozen shard schedule contains duplicates")
+    if len(
+        {(model.casefold(), ablation.casefold()) for model, ablation in pairs}
+    ) != len(pairs):
+        raise DispatchProvenanceError(
+            "frozen shard schedule contains case-insensitive concurrency "
+            "identity collisions"
+        )
     return tuple(sorted(pairs))
 
 
