@@ -17,6 +17,7 @@ CASE_DEV_ESTIMATED_COST_PER_REQUEST_USD_ENV = "CASE_DEV_ESTIMATED_COST_PER_REQUE
 
 DEFAULT_CASE_DEV_BASE_URL = "https://api.case.dev"
 DEFAULT_CASE_DEV_TIMEOUT_SECONDS = 30.0
+DEFAULT_CASE_DEV_RATE_LIMIT_PER_MINUTE = 30
 CASE_DEV_ALLOWED_BASE_HOSTS = frozenset({"api.case.dev", "sandbox.case.dev"})
 
 _TRUTHY_VALUES = {"1", "true", "yes", "on"}
@@ -71,9 +72,12 @@ class CaseDevConfig:
                 values.get(CASE_DEV_LIVE_TESTS_ENV),
                 CASE_DEV_LIVE_TESTS_ENV,
             ),
-            rate_limit_per_minute=_optional_positive_int(
-                values.get(CASE_DEV_RATE_LIMIT_PER_MINUTE_ENV),
-                CASE_DEV_RATE_LIMIT_PER_MINUTE_ENV,
+            rate_limit_per_minute=(
+                _optional_positive_int(
+                    values.get(CASE_DEV_RATE_LIMIT_PER_MINUTE_ENV),
+                    CASE_DEV_RATE_LIMIT_PER_MINUTE_ENV,
+                )
+                or DEFAULT_CASE_DEV_RATE_LIMIT_PER_MINUTE
             ),
             timeout_seconds=_positive_float(
                 values.get(CASE_DEV_TIMEOUT_SECONDS_ENV),

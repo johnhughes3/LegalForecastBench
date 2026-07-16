@@ -18,6 +18,228 @@ from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStor
 _QUERY_EXPRESSION_ABSENT = object()
 
 
+def test_enrich_recap_case_dev_worker_ceiling_and_help_are_safe_by_default(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit, match="0"):
+        cli_module.build_parser().parse_args(
+            ["acquisition", "enrich-recap-case-dev", "--help"]
+        )
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "1-5, default 1" in help_text
+    assert "defaults conservatively to 30" in help_text
+    assert "cooldown" in help_text
+    assert "are also shared" in help_text
+
+    dockets = tmp_path / "dockets.jsonl"
+    dockets.write_text(
+        json.dumps(
+            {
+                "candidate_id": "courtlistener-docket-101",
+                "docket_id": "101",
+                "docket_url": "https://www.courtlistener.com/docket/101/example/",
+                "entry_keys": ["entry-101"],
+                "matched_terms": ["motion to dismiss"],
+                "eligibility_status": "potential_unverified",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(tmp_path / "workers-five"),
+                "--dockets",
+                str(dockets),
+                "--live-case-dev",
+                "--workers",
+                "5",
+            ]
+        )
+        == 0
+    )
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(tmp_path / "workers-six"),
+                "--dockets",
+                str(dockets),
+                "--live-case-dev",
+                "--workers",
+                "6",
+            ]
+        )
+        == 2
+    )
+
+
+def test_five_live_workers_share_default_limiter_and_serial_checkpoint_writer(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dockets = tmp_path / "dockets.jsonl"
+    dockets.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "candidate_id": f"courtlistener-docket-{docket_id}",
+                    "docket_id": docket_id,
+                    "docket_url": (
+                        f"https://www.courtlistener.com/docket/{docket_id}/example/"
+                    ),
+                    "entry_keys": [f"entry-{docket_id}"],
+                    "matched_terms": ["motion to dismiss"],
+                    "eligibility_status": "potential_unverified",
+                }
+            )
+            + "\n"
+            for docket_id in ("101", "102", "103", "104", "105")
+        ),
+        encoding="utf-8",
+    )
+    barrier = threading.Barrier(5)
+    limiter_ids: set[int] = set()
+    limiter_rates: set[int | None] = set()
+
+    def fake_enrich(
+        *,
+        input_index: int,
+        rate_limiter: Any,
+        **_kwargs: Any,
+    ) -> tuple[dict[str, Any], int]:
+        limiter_ids.add(id(rate_limiter))
+        limiter_rates.add(rate_limiter.rate_limit_per_minute)
+        barrier.wait(timeout=5)
+        return (
+            {
+                "input_index": input_index,
+                "outcome": "failure",
+                "payload": {
+                    "input_index": input_index,
+                    "reason": "offline_test_terminal",
+                },
+            },
+            0,
+        )
+
+    real_append_jsonl = cli_module._append_jsonl
+    checkpoint_writer_threads: set[int | None] = set()
+
+    def record_checkpoint_writer(path: Path, records: Any) -> None:
+        if path.name == "case-dev-recap-progress.jsonl":
+            checkpoint_writer_threads.add(threading.current_thread().ident)
+        real_append_jsonl(path, records)
+
+    monkeypatch.setattr(cli_module, "_enrich_case_dev_progress_record", fake_enrich)
+    monkeypatch.setattr(cli_module, "_append_jsonl", record_checkpoint_writer)
+    monkeypatch.setenv("CASE_DEV_API_KEY", "offline-test-key")
+    monkeypatch.delenv("CASE_DEV_RATE_LIMIT_PER_MINUTE", raising=False)
+
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(tmp_path / "output"),
+                "--dockets",
+                str(dockets),
+                "--live-case-dev",
+                "--workers",
+                "5",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    assert len(limiter_ids) == 1
+    assert limiter_rates == {30}
+    assert checkpoint_writer_threads == {threading.current_thread().ident}
+
+
+def test_resume_can_raise_worker_count_without_changing_checkpoint_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dockets = tmp_path / "dockets.jsonl"
+    dockets.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "candidate_id": f"courtlistener-docket-{docket_id}",
+                    "docket_id": docket_id,
+                    "docket_url": (
+                        f"https://www.courtlistener.com/docket/{docket_id}/example/"
+                    ),
+                    "entry_keys": [f"entry-{docket_id}"],
+                    "matched_terms": ["motion to dismiss"],
+                    "eligibility_status": "potential_unverified",
+                }
+            )
+            + "\n"
+            for docket_id in ("101", "102", "103", "104", "105", "106")
+        ),
+        encoding="utf-8",
+    )
+    phase = "initial"
+    resumed_indices: set[int] = set()
+
+    def fake_enrich(*, input_index: int, **_kwargs: Any) -> tuple[dict[str, Any], int]:
+        if phase == "initial" and input_index == 1:
+            raise CaseDevRateLimitError("offline terminal breaker")
+        if phase == "resumed":
+            resumed_indices.add(input_index)
+        return (
+            {
+                "input_index": input_index,
+                "outcome": "failure",
+                "payload": {
+                    "input_index": input_index,
+                    "reason": "offline_test_terminal",
+                },
+            },
+            0,
+        )
+
+    monkeypatch.setattr(cli_module, "_enrich_case_dev_progress_record", fake_enrich)
+    monkeypatch.setenv("CASE_DEV_API_KEY", "offline-test-key")
+    output_root = tmp_path / "output"
+    base_args = [
+        "acquisition",
+        "enrich-recap-case-dev",
+        "--output-root",
+        str(output_root),
+        "--dockets",
+        str(dockets),
+        "--live-case-dev",
+        "--execute",
+    ]
+
+    assert cli_module.main([*base_args, "--workers", "1"]) == 2
+    progress_config = json.loads(
+        (
+            output_root / "checkpoints" / "case-dev-recap-progress-config.json"
+        ).read_text()
+    )
+    assert "workers" not in progress_config
+
+    phase = "resumed"
+    assert cli_module.main([*base_args, "--workers", "5", "--resume"]) == 0
+    assert resumed_indices == {1, 2, 3, 4, 5}
+    failures = _read_jsonl(
+        output_root / "checkpoints" / "case-dev-recap-failures.jsonl"
+    )
+    assert [record["input_index"] for record in failures] == list(range(6))
+
+
 def test_enrich_recap_case_dev_projects_saturated_opinion_source_without_invented_url(
     tmp_path: Path,
 ) -> None:
@@ -680,7 +902,7 @@ def test_parallel_enrichment_checkpoints_completed_sibling_before_rate_limit_abo
                 }
             )
             + "\n"
-            for docket_id in ("101", "102", "103")
+            for docket_id in ("101", "102", "103", "104", "105", "106")
         ),
         encoding="utf-8",
     )
@@ -694,7 +916,7 @@ def test_parallel_enrichment_checkpoints_completed_sibling_before_rate_limit_abo
         if input_index == 0:
             assert sibling_started.wait(timeout=5)
             raise CaseDevRateLimitError("organization rate limit")
-        if input_index == 2:
+        if input_index == 5:
             raise AssertionError("fatal provider error must prevent replacement work")
         sibling_started.set()
         assert release_sibling.wait(timeout=5)
@@ -741,22 +963,18 @@ def test_parallel_enrichment_checkpoints_completed_sibling_before_rate_limit_abo
                 str(dockets),
                 "--live-case-dev",
                 "--workers",
-                "2",
+                "5",
                 "--execute",
             ]
         )
         == 2
     )
-    assert _read_jsonl(
+    progress = _read_jsonl(
         output_root / "checkpoints" / "case-dev-recap-progress.jsonl"
-    ) == [
-        {
-            "input_index": 1,
-            "outcome": "success",
-            "payload": {"completed": True},
-        }
-    ]
-    assert set(started_indices) == {0, 1}
+    )
+    assert {record["input_index"] for record in progress} == {1, 2, 3, 4}
+    assert all(record["outcome"] == "success" for record in progress)
+    assert set(started_indices) == {0, 1, 2, 3, 4}
 
 
 def test_parallel_enrichment_checks_completed_fatal_before_replacement(
@@ -779,11 +997,11 @@ def test_parallel_enrichment_checks_completed_fatal_before_replacement(
                 }
             )
             + "\n"
-            for docket_id in ("101", "102", "103")
+            for docket_id in ("101", "102", "103", "104", "105", "106")
         ),
         encoding="utf-8",
     )
-    initial_workers_finished = (threading.Event(), threading.Event())
+    initial_workers_finished = tuple(threading.Event() for _ in range(5))
     started_indices: list[int] = []
 
     def fake_enrich(*, input_index: int, **_kwargs: Any) -> tuple[dict[str, Any], int]:
@@ -791,8 +1009,8 @@ def test_parallel_enrichment_checks_completed_fatal_before_replacement(
         if input_index == 0:
             initial_workers_finished[0].set()
             raise CaseDevRateLimitError("organization rate limit")
-        if input_index == 1:
-            initial_workers_finished[1].set()
+        if input_index < 5:
+            initial_workers_finished[input_index].set()
         return (
             {
                 "input_index": input_index,
@@ -844,13 +1062,13 @@ def test_parallel_enrichment_checks_completed_fatal_before_replacement(
                 str(dockets),
                 "--live-case-dev",
                 "--workers",
-                "2",
+                "5",
                 "--execute",
             ]
         )
         == 2
     )
-    assert set(started_indices) == {0, 1}
+    assert set(started_indices) == {0, 1, 2, 3, 4}
 
 
 def _opinion_source_store(

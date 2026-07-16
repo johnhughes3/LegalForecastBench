@@ -8,6 +8,7 @@ from legalforecast.ingestion.case_dev_config import (
     CASE_DEV_LIVE_TESTS_ENV,
     CASE_DEV_RATE_LIMIT_PER_MINUTE_ENV,
     CASE_DEV_TIMEOUT_SECONDS_ENV,
+    DEFAULT_CASE_DEV_RATE_LIMIT_PER_MINUTE,
     CaseDevConfig,
     CaseDevConfigError,
     case_dev_live_skip_reason,
@@ -21,6 +22,7 @@ def test_case_dev_config_defaults_are_offline_safe() -> None:
     assert config.base_url == "https://api.case.dev"
     assert config.live_tests_enabled is False
     assert config.live_tests_available is False
+    assert config.rate_limit_per_minute == DEFAULT_CASE_DEV_RATE_LIMIT_PER_MINUTE
     assert config.timeout_seconds == 30.0
 
 
