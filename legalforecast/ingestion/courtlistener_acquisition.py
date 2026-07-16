@@ -813,6 +813,7 @@ def screen_courtlistener_docket_html(
     metadata_screen: CaseDevMetadataScreen,
     raw_html: str,
     decision_filed_on_or_after: date,
+    candidate_text_override: str | None = None,
 ) -> tuple[Mapping[str, Any] | None, ExclusionLedgerEntry | None]:
     """Strictly screen one already-fetched public CourtListener docket page.
 
@@ -850,6 +851,7 @@ def screen_courtlistener_docket_html(
         metadata_screen=metadata_screen,
         page=parsed,
         decision_filed_on_or_after=decision_filed_on_or_after,
+        candidate_text_override=candidate_text_override,
     )
 
 
