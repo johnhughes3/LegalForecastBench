@@ -3801,7 +3801,7 @@ Validation task `dm0g.3` closed after proving zero cycles, unchanged dependency 
 | O-DECIDE | decision under 5qd6 | PLAN-MR | Immutable launch_case_count, default 100, and reserve policy recorded before output |
 | O-SOURCE-SCOPE | task under 5qd6.73 | PLAN-MR | All 15 currently nonclosed source children and any later arrivals classified from live evidence |
 | O-COMPLAINT-ORDER | task under 5qd6.73 | O-SOURCE-SCOPE | Safe checkpoint, REST-first ordering, and regenerated exact residual input |
-| O-POLICY-MR | merge/refresh checkpoint task under 5qd6 | O-DECIDE, O-SOURCE-SCOPE, 5qd6.36 | Projection/reconciliation policy code merged and owning worktree refreshed |
+| O-POLICY-MR | merge/refresh checkpoint task under 5qd6 | O-DECIDE, O-SOURCE-SCOPE | Parameterized projection/reconciliation policy code merged and owning worktree refreshed; 5qd6.36 still gates the immutable projection |
 | O-RECONCILE | task under 5qd6.73 | O-POLICY-MR plus every required lane named by O-SOURCE-SCOPE | Complete reconciled universe with at least launch_case_count eligible cases |
 | O-PREELIGIBILITY | task under 5qd6 | O-RECONCILE, 5qd6.39.7 | Supported disclosure decisions and noncharging cost feasibility bound to the projection pool |
 | O-PROJECT | task under 5qd6 | O-DECIDE, 5qd6.36, O-RECONCILE, O-PREELIGIBILITY, 5qd6.73.1 | Immutable exact cohort and deterministic ranked reserve |
