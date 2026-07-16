@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 import hashlib
 import inspect
 import json
@@ -31,6 +32,9 @@ _RUN_CARD_SCHEMA = "legalforecast.rest_observation_policy_rebind_run.v1"
 _OFFICIAL_CONTRACT_SHA256 = (
     "c257d1b9233b81c631c67a68041bf2285feb5a8a7a880a3059e3f7c4d912c85b"
 )
+_OLD_TO_CURRENT_WITNESS = "rest_observation_policy_rebind_old_to_current_v1.diff"
+_DELTA_COMMIT_WITNESS = "rest_observation_policy_rebind_6ffbbdb_v1.diff"
+_OLD_SOURCE_WITNESS = "rest_observation_policy_rebind_old_source_v1.txt"
 _SNAPSHOT_FILES = (
     "screened-cases.jsonl",
     "exclusions.jsonl",
@@ -264,7 +268,7 @@ def load_official_rest_observation_rebind_contract() -> RestObservationRebindCon
 
 
 def verify_official_rest_observation_rebind_semantics() -> Mapping[str, object]:
-    """Verify the pinned code-diff proof without reading any provider state."""
+    """Verify the packaged code-diff proof without reading any provider state."""
 
     contract = load_official_rest_observation_rebind_contract()
     _verify_git_noop_semantics(contract)
@@ -579,6 +583,207 @@ def _verify_git_noop_semantics(contract: RestObservationRebindContract) -> None:
     old_commit = _required_text(proof, "source_code_commit")
     target_commit = _required_text(proof, "target_code_commit")
     delta_commit = _required_text(proof, "commit")
+    current_bytes = _read_regular_file(
+        repository_root / source_path, label="current screening source"
+    )
+    if (
+        hashlib.sha256(current_bytes).hexdigest()
+        != (contract.allowed_policy_delta["new_sha256"])
+    ):
+        raise RestObservationPolicyRebindError(
+            "current screening source does not match authorized target hash"
+        )
+
+    proof_data_root = Path(__file__).resolve().parents[1] / "data"
+    old_source = _read_regular_file(
+        proof_data_root / _OLD_SOURCE_WITNESS,
+        label="packaged old screening source",
+    )
+    if (
+        hashlib.sha256(old_source).hexdigest()
+        != (contract.allowed_policy_delta["old_sha256"])
+    ):
+        raise RestObservationPolicyRebindError(
+            "packaged old screening source does not match authorized hash"
+        )
+    old_to_current = _read_regular_file(
+        proof_data_root / _OLD_TO_CURRENT_WITNESS,
+        label="packaged old-to-current semantic witness",
+    )
+    if hashlib.sha256(old_to_current).hexdigest() != proof.get(
+        "old_to_current_diff_sha256"
+    ):
+        raise RestObservationPolicyRebindError(
+            "old-to-current screening diff commitment mismatch"
+        )
+    commit_diff = _read_regular_file(
+        proof_data_root / _DELTA_COMMIT_WITNESS,
+        label="packaged 6ffbbdb semantic witness",
+    )
+    if hashlib.sha256(commit_diff).hexdigest() != proof.get(
+        "commit_screening_diff_sha256"
+    ):
+        raise RestObservationPolicyRebindError(
+            "6ffbbdb screening diff commitment mismatch"
+        )
+    _verify_semantic_witness_shape(
+        old_to_current=old_to_current,
+        commit_diff=commit_diff,
+        source_path=source_path,
+        old_source=old_source,
+        current_source=current_bytes,
+    )
+
+    revisions = (old_commit, target_commit, delta_commit, f"{delta_commit}^")
+    available = tuple(
+        _git_object_available(repository_root, revision) for revision in revisions
+    )
+    if any(available) and not all(available):
+        raise RestObservationPolicyRebindError(
+            "semantic no-op proof git history is only partially available"
+        )
+    if all(available):
+        _crosscheck_git_semantic_witnesses(
+            contract=contract,
+            repository_root=repository_root,
+            source_path=source_path,
+            old_commit=old_commit,
+            target_commit=target_commit,
+            delta_commit=delta_commit,
+            packaged_old_to_current=old_to_current,
+            packaged_commit_diff=commit_diff,
+        )
+
+    parameter = inspect.signature(screen_courtlistener_docket_page).parameters.get(
+        "candidate_text_override"
+    )
+    if parameter is None or parameter.default is not None:
+        raise RestObservationPolicyRebindError(
+            "REST screen override is not optional with default None"
+        )
+
+
+def _verify_semantic_witness_shape(
+    *,
+    old_to_current: bytes,
+    commit_diff: bytes,
+    source_path: str,
+    old_source: bytes,
+    current_source: bytes,
+) -> None:
+    expected_header = (
+        f"diff --git a/{source_path} b/{source_path}\n".encode(),
+        f"--- a/{source_path}\n".encode(),
+        f"+++ b/{source_path}\n".encode(),
+    )
+    for label, payload in (
+        ("old-to-current", old_to_current),
+        ("6ffbbdb", commit_diff),
+    ):
+        if not all(marker in payload for marker in expected_header):
+            raise RestObservationPolicyRebindError(
+                f"{label} semantic witness path mismatch"
+            )
+
+    old_to_current_changes = _diff_changed_lines(old_to_current)
+    expected_old_to_current_changes = (
+        ("+", "    candidate_text_override: str | None = None,"),
+        ("+", "        candidate_text_override=candidate_text_override,"),
+        ("+", "    candidate_text_override: str | None = None,"),
+        (
+            "+",
+            "    candidate_text = candidate_text_override or _candidate_text(docket)",
+        ),
+        ("-", "        candidate_text=_candidate_text(docket),"),
+        ("+", "        candidate_text=candidate_text,"),
+        ("-", "        candidate_text=_candidate_text(docket),"),
+        ("+", "        candidate_text=candidate_text,"),
+    )
+    if old_to_current_changes != expected_old_to_current_changes:
+        raise RestObservationPolicyRebindError(
+            "old-to-current semantic witness change shape mismatch"
+        )
+    if _source_changed_lines(old_source, current_source) != (
+        expected_old_to_current_changes
+    ):
+        raise RestObservationPolicyRebindError(
+            "packaged old source does not produce the authorized target change shape"
+        )
+
+    expected_commit_changes = (
+        ("+", "    candidate_text_override: str | None = None,"),
+        ("+", "        candidate_text_override=candidate_text_override,"),
+    )
+    if _diff_changed_lines(commit_diff) != expected_commit_changes:
+        raise RestObservationPolicyRebindError(
+            "6ffbbdb semantic witness change shape mismatch"
+        )
+
+
+def _diff_changed_lines(payload: bytes) -> tuple[tuple[str, str], ...]:
+    try:
+        lines = payload.decode("utf-8").splitlines()
+    except UnicodeDecodeError as exc:
+        raise RestObservationPolicyRebindError(
+            "semantic witness is not valid UTF-8"
+        ) from exc
+    return tuple(
+        (line[0], line[1:])
+        for line in lines
+        if line.startswith(("+", "-")) and not line.startswith(("+++", "---"))
+    )
+
+
+def _source_changed_lines(
+    old_source: bytes,
+    current_source: bytes,
+) -> tuple[tuple[str, str], ...]:
+    try:
+        old_lines = old_source.decode("utf-8").splitlines()
+        current_lines = current_source.decode("utf-8").splitlines()
+    except UnicodeDecodeError as exc:
+        raise RestObservationPolicyRebindError(
+            "screening source witness is not valid UTF-8"
+        ) from exc
+    changes: list[tuple[str, str]] = []
+    matcher = difflib.SequenceMatcher(
+        None,
+        old_lines,
+        current_lines,
+        autojunk=False,
+    )
+    for tag, old_start, old_end, current_start, current_end in matcher.get_opcodes():
+        if tag == "equal":
+            continue
+        changes.extend(("-", line) for line in old_lines[old_start:old_end])
+        changes.extend(("+", line) for line in current_lines[current_start:current_end])
+    return tuple(changes)
+
+
+def _git_object_available(repository_root: Path, revision: str) -> bool:
+    try:
+        result = subprocess.run(
+            ("git", "cat-file", "-e", revision),
+            cwd=repository_root,
+            check=False,
+            capture_output=True,
+        )
+    except OSError:
+        return False
+    return result.returncode == 0
+
+
+def _crosscheck_git_semantic_witnesses(
+    *,
+    contract: RestObservationRebindContract,
+    repository_root: Path,
+    source_path: str,
+    old_commit: str,
+    target_commit: str,
+    delta_commit: str,
+    packaged_old_to_current: bytes,
+    packaged_commit_diff: bytes,
+) -> None:
     old_bytes = _git_bytes(repository_root, "show", f"{old_commit}:{source_path}")
     target_bytes = _git_bytes(repository_root, "show", f"{target_commit}:{source_path}")
     if (
@@ -590,50 +795,28 @@ def _verify_git_noop_semantics(contract: RestObservationRebindContract) -> None:
         raise RestObservationPolicyRebindError(
             "semantic no-op proof code blobs do not match policy hashes"
         )
-    current_bytes = _read_regular_file(
-        repository_root / source_path, label="current screening source"
-    )
     if (
-        hashlib.sha256(current_bytes).hexdigest()
-        != (contract.allowed_policy_delta["new_sha256"])
+        _git_bytes(
+            repository_root, "diff", old_commit, target_commit, "--", source_path
+        )
+        != packaged_old_to_current
     ):
         raise RestObservationPolicyRebindError(
-            "current screening source does not match authorized target hash"
+            "packaged old-to-current witness does not match git history"
         )
-    old_to_current = _git_bytes(
-        repository_root,
-        "diff",
-        old_commit,
-        target_commit,
-        "--",
-        source_path,
-    )
-    if hashlib.sha256(old_to_current).hexdigest() != proof.get(
-        "old_to_current_diff_sha256"
+    if (
+        _git_bytes(
+            repository_root,
+            "diff",
+            f"{delta_commit}^",
+            delta_commit,
+            "--",
+            source_path,
+        )
+        != packaged_commit_diff
     ):
         raise RestObservationPolicyRebindError(
-            "old-to-current screening diff commitment mismatch"
-        )
-    commit_diff = _git_bytes(
-        repository_root,
-        "diff",
-        f"{delta_commit}^",
-        delta_commit,
-        "--",
-        source_path,
-    )
-    if hashlib.sha256(commit_diff).hexdigest() != proof.get(
-        "commit_screening_diff_sha256"
-    ):
-        raise RestObservationPolicyRebindError(
-            "6ffbbdb screening diff commitment mismatch"
-        )
-    parameter = inspect.signature(screen_courtlistener_docket_page).parameters.get(
-        "candidate_text_override"
-    )
-    if parameter is None or parameter.default is not None:
-        raise RestObservationPolicyRebindError(
-            "REST screen override is not optional with default None"
+            "packaged 6ffbbdb witness does not match git history"
         )
 
 

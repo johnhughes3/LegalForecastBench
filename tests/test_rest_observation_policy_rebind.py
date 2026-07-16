@@ -6,6 +6,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+import legalforecast.ingestion.rest_observation_policy_rebind as rebind_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.cycle_acquisition_store import (
@@ -606,6 +607,40 @@ def test_official_contract_pins_exact_100_outcomes() -> None:
     proof = verify_official_rest_observation_rebind_semantics()
     assert proof["commit"] == "6ffbbdbc915a8a8bda7a40b474e656fd6425e6cf"
     assert proof["rest_observation_mode"] == "candidate_text_override_none"
+
+
+def test_official_semantic_proof_does_not_require_historical_git_objects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        rebind_module,
+        "_git_object_available",
+        lambda _repository_root, _revision: False,
+    )
+
+    proof = verify_official_rest_observation_rebind_semantics()
+
+    assert proof["source_code_commit"] == ("126a18b5849f83c0ba2d87f3fd424ca99e7faf14")
+
+
+def test_official_semantic_proof_rejects_tampered_packaged_witness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_read = rebind_module._read_regular_file
+
+    def tamper_old_to_current(path: Path, *, label: str) -> bytes:
+        payload = original_read(path, label=label)
+        if label == "packaged old-to-current semantic witness":
+            return payload + b"# tampered\n"
+        return payload
+
+    monkeypatch.setattr(rebind_module, "_read_regular_file", tamper_old_to_current)
+
+    with pytest.raises(
+        RestObservationPolicyRebindError,
+        match="old-to-current screening diff commitment mismatch",
+    ):
+        verify_official_rest_observation_rebind_semantics()
 
 
 def test_terminal_rest_rebind_help_is_explicitly_provider_free(
