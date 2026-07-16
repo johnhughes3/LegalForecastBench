@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from argparse import Namespace
 from pathlib import Path
@@ -56,6 +57,10 @@ def test_rebase_pacer_gap_checkpoints_help_is_explicitly_noncharging(
     assert "--previous-checkpoint-dir" in output
     assert "--current-paid-gaps" in output
     assert "--receipt-output" in output
+    assert "--previous-snapshot" in output
+    assert "--expected-added-candidate-id" in output
+    assert "--expected-invalidated-candidate-id" in output
+    assert "same-cycle union" in output
     assert "constructs no provider client" in output
     assert "performs no purchase" in output
 
@@ -128,6 +133,189 @@ def test_rebase_pacer_gap_checkpoints_reorders_atomically_and_is_idempotent(
         )
         for binding in receipt["checkpoint_bindings"]
     } == {("cl-456", 2, 1)}
+
+
+def test_rebase_pacer_gap_checkpoints_append_only_union_schedules_only_addition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _append_only_pacer_gap_rebase_fixture(tmp_path)
+    monkeypatch.setattr(
+        cli,
+        "_courtlistener_bridge_client",
+        lambda *args, **kwargs: pytest.fail("rebase constructed a provider client"),
+    )
+    prior_checkpoint_bytes = {
+        path.name: path.read_bytes()
+        for path in fixture["previous_checkpoint_dir"].glob("*.json")
+    }
+
+    assert main(fixture["command"]) == 0
+
+    receipt = _read_json(fixture["receipt"])
+    expected_added = ["cl-789", "cl-790", "cl-791", "cl-792", "cl-793", "cl-794"]
+    assert (
+        receipt["append_only_snapshot_proof"]["added_candidate_ids"] == expected_added
+    )
+    assert receipt["added_candidate_ids"] == expected_added
+    assert receipt["added_public_candidate_ids"] == []
+    assert receipt["added_unrouted_candidate_ids"] == []
+    assert receipt["added_paid_gap_candidate_ids"] == expected_added
+    assert receipt["previous_checkpoint_count"] == 2
+    assert receipt["checkpoint_count"] == 2
+    assert receipt["invalidated_checkpoint_count"] == 0
+    assert receipt["replay_required_candidate_ids"] == expected_added
+    assert receipt["replay_required_candidate_count"] == 6
+    assert receipt["provider_request_count"] == 0
+    assert {
+        path.name: path.read_bytes()
+        for path in fixture["destination_checkpoint_dir"].glob("*.json")
+    } == prior_checkpoint_bytes
+    config = _read_json(fixture["destination_config"])
+    assert config["paid_gap_count"] == 8
+    assert [row["candidate_id"] for row in config["source_commitments"]] == [
+        "cl-123",
+        "cl-456",
+        "cl-789",
+        "cl-790",
+        "cl-791",
+        "cl-792",
+        "cl-793",
+        "cl-794",
+    ]
+
+
+def test_rebase_pacer_gap_checkpoints_append_only_authenticates_unrouted_additions(
+    tmp_path: Path,
+) -> None:
+    fixture = _append_only_pacer_gap_rebase_fixture(
+        tmp_path,
+        reserve_last_added=True,
+        include_excluded_addition=True,
+    )
+
+    assert main(fixture["command"]) == 0
+
+    receipt = _read_json(fixture["receipt"])
+    assert receipt["added_candidate_ids"] == [
+        "cl-789",
+        "cl-790",
+        "cl-791",
+        "cl-792",
+        "cl-793",
+        "cl-794",
+        "cl-excluded",
+    ]
+    assert receipt["added_paid_gap_candidate_ids"] == [
+        "cl-789",
+        "cl-790",
+        "cl-791",
+        "cl-792",
+        "cl-793",
+    ]
+    assert receipt["added_public_candidate_ids"] == []
+    assert receipt["added_unrouted_candidate_ids"] == ["cl-794", "cl-excluded"]
+    assert receipt["replay_required_candidate_ids"] == [
+        "cl-789",
+        "cl-790",
+        "cl-791",
+        "cl-792",
+        "cl-793",
+    ]
+
+
+def test_rebase_pacer_gap_checkpoints_append_only_rejects_wrong_external_pin(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    fixture = _append_only_pacer_gap_rebase_fixture(tmp_path)
+    command = list(fixture["command"])
+    pin_index = command.index("--expected-added-candidate-id") + 1
+    command[pin_index] = "cl-not-reviewed"
+    checkpoints_before = {
+        path.name: path.read_bytes()
+        for path in fixture["destination_checkpoint_dir"].glob("*.json")
+    }
+
+    assert main(command) == 2
+    assert "do not match the external pin" in capsys.readouterr().err
+    assert {
+        path.name: path.read_bytes()
+        for path in fixture["destination_checkpoint_dir"].glob("*.json")
+    } == checkpoints_before
+    assert not fixture["receipt"].exists()
+
+
+def test_rebase_pacer_gap_checkpoints_current_policy_replay_invalidates_exact_drop(
+    tmp_path: Path,
+) -> None:
+    fixture = _append_only_pacer_gap_rebase_fixture(tmp_path, invalidate_prior=True)
+    cl_456_checkpoint = next(
+        path
+        for path in fixture["previous_checkpoint_dir"].glob("*.json")
+        if _read_json(path)["candidate_id"] == "cl-456"
+    )
+    retained_sha256 = hashlib.sha256(cl_456_checkpoint.read_bytes()).hexdigest()
+
+    assert main(fixture["command"]) == 0
+
+    receipt = _read_json(fixture["receipt"])
+    expected_added = ["cl-789", "cl-790", "cl-791", "cl-792", "cl-793"]
+    assert receipt["append_only_snapshot_proof"]["invalidated_candidate_ids"] == [
+        "cl-123"
+    ]
+    assert (
+        receipt["append_only_snapshot_proof"]["previous_manifest_in_current_ancestry"]
+        is False
+    )
+    assert receipt["invalidated_candidate_ids"] == ["cl-123"]
+    assert receipt["removed_invalidated_candidate_ids"] == ["cl-123"]
+    assert receipt["replay_invalidated_candidate_ids"] == []
+    assert receipt["invalidated_checkpoint_count"] == 1
+    assert receipt["invalidated_checkpoints"][0]["candidate_id"] == "cl-123"
+    assert receipt["invalidated_checkpoints"][0]["removed_from_current_routes"] is True
+    assert receipt["replay_required_candidate_ids"] == expected_added
+    assert receipt["replay_required_candidate_count"] == 5
+    retained = list(fixture["destination_checkpoint_dir"].glob("*.json"))
+    assert len(retained) == 1
+    assert _read_json(retained[0])["candidate_id"] == "cl-456"
+    [binding] = receipt["checkpoint_bindings"]
+    assert binding["candidate_id"] == "cl-456"
+    assert binding["previous_sha256"] == f"sha256:{retained_sha256}"
+    assert binding["payload_rebound_fields"] == ["payload.selection_record.cost_rank"]
+
+
+def test_rebase_pacer_gap_checkpoints_append_only_requires_complete_flag_set(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    fixture = _pacer_gap_rebase_fixture(tmp_path)
+    command = [
+        *fixture["command"],
+        "--previous-snapshot",
+        str(tmp_path / "not-consulted"),
+    ]
+
+    assert main(command) == 2
+    assert (
+        "all append-only snapshot proof flags must be supplied together"
+        in capsys.readouterr().err
+    )
+    assert not fixture["receipt"].exists()
+
+
+def test_rebase_pacer_gap_checkpoints_append_only_rejects_screened_evidence_drift(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    fixture = _append_only_pacer_gap_rebase_fixture(tmp_path)
+    current_screened = _read_jsonl(fixture["current_screened"])
+    current_screened[0]["case_name"] = "Drifted v. Evidence"
+    _write_jsonl(fixture["current_screened"], current_screened)
+
+    assert main(fixture["command"]) == 2
+    assert "screened evidence differs from snapshot" in capsys.readouterr().err
+    assert not fixture["receipt"].exists()
 
 
 def test_rebase_pacer_gap_checkpoints_invalidates_materially_changed_success(
@@ -1914,6 +2102,9 @@ def _pacer_gap_rebase_fixture(tmp_path: Path) -> dict[str, Any]:
         case_name="Second v. Example",
     )
     for screened in (first, second):
+        screened["candidate_id"] = cast(dict[str, object], screened["candidate"])[
+            "docket_id"
+        ]
         screened["selected_entries"] = cast(
             list[dict[str, object]], screened["selected_entries"]
         )[1:]
@@ -2124,21 +2315,222 @@ def _pacer_gap_rebase_fixture(tmp_path: Path) -> dict[str, Any]:
     }
 
 
+def _append_only_pacer_gap_rebase_fixture(
+    tmp_path: Path,
+    *,
+    invalidate_prior: bool = False,
+    reserve_last_added: bool = False,
+    include_excluded_addition: bool = False,
+) -> dict[str, Any]:
+    bridge_root = tmp_path / "bridge"
+    bridge_root.mkdir()
+    fixture = _pacer_gap_rebase_fixture(bridge_root)
+    previous_screened = _read_jsonl(fixture["previous_screened"])
+    added_ids = ["cl-789", "cl-790", "cl-791", "cl-792", "cl-793"]
+    if not invalidate_prior:
+        added_ids.append("cl-794")
+    added_screened_records: list[dict[str, object]] = []
+    for index, candidate_id in enumerate(added_ids, start=3):
+        added_screened = _screened_case_variant(
+            candidate_id=candidate_id,
+            docket_number=f"1:26-cv-{index:05d}",
+            case_name=f"Added {index} v. Example",
+        )
+        added_screened["candidate_id"] = candidate_id
+        added_screened["selected_entries"] = cast(
+            list[dict[str, object]], added_screened["selected_entries"]
+        )[1:]
+        added_screened_records.append(added_screened)
+    excluded_screened_record: dict[str, object] | None = None
+    if include_excluded_addition:
+        excluded_screened_record = _screened_case_variant(
+            candidate_id="cl-excluded",
+            docket_number="1:26-cv-99999",
+            case_name="Excluded v. Example",
+        )
+        excluded_screened_record["candidate_id"] = "cl-excluded"
+    retained_screened = previous_screened[1:] if invalidate_prior else previous_screened
+    current_screened = [*retained_screened, *added_screened_records]
+    _write_jsonl(fixture["current_screened"], current_screened)
+
+    plan = plan_public_packet_downloads(
+        current_screened,
+        use_embedded_entries=True,
+        target_clean_cases=len(current_screened),
+    )
+    current_public = [record.to_record() for record in plan.selected_cases]
+    current_paid = [record.to_record() for record in plan.paid_gap_cases]
+    if reserve_last_added:
+        current_public = [
+            record
+            for record in current_public
+            if record["candidate_id"] != added_ids[-1]
+        ]
+        current_paid = [
+            record for record in current_paid if record["candidate_id"] != added_ids[-1]
+        ]
+    assert not current_public
+    expected_routed_added_ids = added_ids[:-1] if reserve_last_added else added_ids
+    assert [record["candidate_id"] for record in current_paid] == [
+        *(["cl-456"] if invalidate_prior else ["cl-123", "cl-456"]),
+        *expected_routed_added_ids,
+    ]
+    _write_jsonl(fixture["current_public"], current_public)
+    _write_jsonl(fixture["current_paid"], current_paid)
+    previous_free = _read_jsonl(fixture["previous_free"])
+    new_free = [
+        {
+            **request.to_record(),
+            "local_path": f"{request.candidate_id}/{request.source_document_id}.pdf",
+            "sha256": "d" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in plan.download_requests
+        if request.candidate_id in added_ids
+        and (not reserve_last_added or request.candidate_id != added_ids[-1])
+    ]
+    current_free = [
+        *(
+            record
+            for candidate_id in (
+                ("cl-456",) if invalidate_prior else ("cl-123", "cl-456")
+            )
+            for record in previous_free
+            if record["candidate_id"] == candidate_id
+        ),
+        *new_free,
+    ]
+    _write_jsonl(fixture["current_free"], current_free)
+
+    previous_snapshot, cycle_hash, _ = _complete_snapshot(
+        tmp_path / "previous-snapshot-source",
+        cast(list[dict[str, object]], previous_screened),
+        batch_id="prior-screening-batch",
+        snapshot_id="prior-screening-snapshot",
+    )
+    added_snapshot, added_cycle_hash, _ = _complete_snapshot(
+        tmp_path / "added-snapshot-source",
+        added_screened_records,
+        batch_id="added-screening-batch",
+        snapshot_id="added-screening-snapshot",
+        excluded_records=(
+            [excluded_screened_record] if excluded_screened_record is not None else None
+        ),
+    )
+    assert added_cycle_hash == cycle_hash
+    union_root = tmp_path / "union"
+    union_root.mkdir()
+    union_store = union_root / "cycle-acquisition.sqlite3"
+    with CycleAcquisitionStore(union_store) as store:
+        assert (
+            store.ensure_cycle({"eligibility_anchor": "2026-06-30", "fixture": True})
+            == cycle_hash
+        )
+    previous_manifest_sha256 = hashlib.sha256(
+        (previous_snapshot / "manifest.json").read_bytes()
+    ).hexdigest()
+    added_manifest_sha256 = hashlib.sha256(
+        (added_snapshot / "manifest.json").read_bytes()
+    ).hexdigest()
+    current_base_snapshot = previous_snapshot
+    current_base_manifest_sha256 = previous_manifest_sha256
+    if invalidate_prior:
+        current_base_snapshot, retained_cycle_hash, _ = _complete_snapshot(
+            tmp_path / "current-policy-retained-source",
+            cast(list[dict[str, object]], retained_screened),
+            batch_id="current-policy-retained-batch",
+            snapshot_id="current-policy-retained-snapshot",
+        )
+        assert retained_cycle_hash == cycle_hash
+        current_base_manifest_sha256 = hashlib.sha256(
+            (current_base_snapshot / "manifest.json").read_bytes()
+        ).hexdigest()
+    assert (
+        main(
+            [
+                "acquisition",
+                "union-screening-snapshots",
+                "--cycle-store",
+                str(union_store),
+                "--batch-id",
+                "append-only-union-batch",
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--source-snapshot",
+                str(current_base_snapshot),
+                "--expected-source-snapshot-manifest-sha256",
+                current_base_manifest_sha256,
+                "--source-snapshot",
+                str(added_snapshot),
+                "--expected-source-snapshot-manifest-sha256",
+                added_manifest_sha256,
+                "--snapshot-root",
+                str(union_root / "snapshots"),
+                "--snapshot-id",
+                "append-only-union",
+                "--output-root",
+                str(union_root / "output"),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    current_snapshot = union_root / "snapshots/append-only-union"
+    current_manifest_sha256 = hashlib.sha256(
+        (current_snapshot / "manifest.json").read_bytes()
+    ).hexdigest()
+    fixture["command"] = [
+        *fixture["command"],
+        "--previous-snapshot",
+        str(previous_snapshot),
+        "--expected-previous-snapshot-manifest-sha256",
+        previous_manifest_sha256,
+        "--current-snapshot",
+        str(current_snapshot),
+        "--expected-current-snapshot-manifest-sha256",
+        current_manifest_sha256,
+        *(
+            flag
+            for candidate_id in [
+                *added_ids,
+                *(("cl-excluded",) if include_excluded_addition else ()),
+            ]
+            for flag in ("--expected-added-candidate-id", candidate_id)
+        ),
+        *(
+            ("--expected-invalidated-candidate-id", "cl-123")
+            if invalidate_prior
+            else ()
+        ),
+    ]
+    fixture.update(
+        {
+            "previous_snapshot": previous_snapshot,
+            "current_snapshot": current_snapshot,
+        }
+    )
+    return fixture
+
+
 def _complete_snapshot(
     root: Path,
     screened_records: list[dict[str, object]],
+    *,
+    batch_id: str = "pacer-gap-fixture",
+    snapshot_id: str = "complete-fixture",
+    excluded_records: list[dict[str, object]] | None = None,
 ) -> tuple[Path, str, Path]:
-    batch_id = "pacer-gap-fixture"
     term = "fixture-term"
     raw_html_dir = root / "raw-courtlistener-html"
     with CycleAcquisitionStore(root / "cycle-acquisition.sqlite3") as store:
         cycle_hash = store.ensure_cycle(
             {"eligibility_anchor": "2026-06-30", "fixture": True}
         )
-        store.ensure_batch(batch_id, {"fixture": "pacer-gap"})
+        store.ensure_batch(batch_id, {"fixture": "pacer-gap", "batch_id": batch_id})
         store.ensure_terms(batch_id, [term])
         hits_list: list[DiscoveryHit] = []
-        for index, record in enumerate(screened_records):
+        terminal_records = [*screened_records, *(excluded_records or [])]
+        for index, record in enumerate(terminal_records):
             candidate = cast(dict[str, object], record["candidate"])
             candidate_id = candidate["docket_id"]
             assert isinstance(candidate_id, str)
@@ -2158,12 +2550,18 @@ def _complete_snapshot(
             next_cursor=None,
             terminal_status=TermTerminalStatus.EXHAUSTED,
         )
-        for hit, record in zip(hits, screened_records, strict=True):
+        accepted_count = len(screened_records)
+        for index, (hit, record) in enumerate(zip(hits, terminal_records, strict=True)):
+            accepted = index < accepted_count
             store.record_observation(
                 hit.candidate_id,
                 batch_id=batch_id,
-                state="accepted",
-                reason_code="strict_clean_screen_passed",
+                state="accepted" if accepted else "excluded",
+                reason_code=(
+                    "strict_clean_screen_passed"
+                    if accepted
+                    else "strict_clean_screen_failed"
+                ),
                 evidence=record,
             )
             store.write_raw_artifact(
@@ -2174,7 +2572,7 @@ def _complete_snapshot(
             )
         snapshot_path = store.export_snapshot(
             root / "snapshots",
-            snapshot_id="complete-fixture",
+            snapshot_id=snapshot_id,
             batch_id=batch_id,
             complete=True,
         )
