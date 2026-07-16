@@ -17725,6 +17725,23 @@ _PACER_GAP_COMPATIBLE_SEMANTIC_REVISIONS = frozenset(
         "courtlistener-complaint-and-main-description-2026-07-15-v1",
     }
 )
+# A terminal exclusion may replay only when its own classifier changed. Missing
+# revisions are pre-v1 checkpoints; v2 changed operative-complaint recovery;
+# v3 removed the false recap-sequence entry-number alias conflict. Later global
+# revisions must not reopen already-adjudicated exclusions.
+_PACER_GAP_EXCLUSION_REPLAY_REVISIONS: Mapping[str, frozenset[str | None]] = {
+    "courtlistener_recap_already_available": frozenset({None}),
+    "courtlistener_recap_document_match_not_found": frozenset({None}),
+    "operative_complaint_not_found": frozenset(
+        {
+            None,
+            "courtlistener-complaint-and-main-description-2026-07-15-v1",
+        }
+    ),
+    "courtlistener_rest_entry_number_alias_conflict": frozenset(
+        {"courtlistener-rest-operative-complaint-recovery-2026-07-16-v2"}
+    ),
+}
 _PACER_GAP_LEGACY_PROGRESS_CONFIG_SCHEMA = (
     "legalforecast.pacer_gap_bridge_progress_config.v1"
 )
@@ -19274,23 +19291,17 @@ def _bridge_checkpoint_requires_semantic_replay(
     exclusion_record = cast(Mapping[str, object], exclusion)
     reasons = exclusion_record.get("exclusion_reasons")
     primary_reason = exclusion_record.get("primary_exclusion_reason")
-    superseded_reasons = {
-        "courtlistener_recap_already_available",
-        "courtlistener_recap_document_match_not_found",
-        "operative_complaint_not_found",
-    }
     if (
         not isinstance(primary_reason, str)
         or not isinstance(reasons, list)
         or cast(list[object], reasons) != [primary_reason]
     ):
         return False
-    if primary_reason == "courtlistener_rest_entry_number_alias_conflict":
-        return (
-            checkpoint.get("bridge_semantic_revision")
-            == "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2"
-        )
-    return primary_reason in superseded_reasons
+    semantic_revision = checkpoint.get("bridge_semantic_revision")
+    if semantic_revision is not None and not isinstance(semantic_revision, str):
+        return False
+    replay_revisions = _PACER_GAP_EXCLUSION_REPLAY_REVISIONS.get(primary_reason)
+    return replay_revisions is not None and semantic_revision in replay_revisions
 
 
 def _public_first_bridge_with_checkpoints(
