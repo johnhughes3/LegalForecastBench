@@ -842,7 +842,7 @@ def _http_payload(
         return _json_payload(raw_body, path=path)
     try:
         return _json_payload(raw_body, path=path)
-    except _CourtListenerResponseBodyError:
+    except (_CourtListenerResponseBodyError, CourtListenerResponseError):
         return {
             "detail": (
                 f"CourtListener request to {path} failed with status "
