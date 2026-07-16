@@ -317,6 +317,31 @@ def test_promote_terminal_firecrawl_subset_rejects_writable_files_in_output_tree
     assert not (output_root / "raw-docket-html").exists()
 
 
+def test_promote_terminal_firecrawl_subset_resume_cannot_overwrite_snapshot_summary(
+    tmp_path: Path,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+    assert main(_promotion_args(fixture)) == 0
+    output_root = cast(Path, fixture["output_root"])
+    snapshot = output_root / "snapshots/terminal-promoted"
+    snapshot_summary = snapshot / "summary.json"
+    original_summary = snapshot_summary.read_bytes()
+    args = [
+        *_promotion_args(fixture),
+        "--summary-output",
+        str(snapshot_summary),
+    ]
+
+    assert main(args) == 2
+    assert snapshot_summary.read_bytes() == original_summary
+    verify_snapshot(
+        snapshot,
+        expected_cycle_hash=cast(str, fixture["target_cycle_hash"]),
+        require_complete=True,
+        require_saturated=True,
+    )
+
+
 def test_select_case_dev_ranked_accepts_authenticated_unrestricted_recap_source(
     tmp_path: Path,
 ) -> None:
