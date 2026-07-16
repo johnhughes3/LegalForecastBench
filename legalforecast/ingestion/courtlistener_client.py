@@ -44,6 +44,10 @@ class CourtListenerServerError(CourtListenerClientError):
     """Raised for retryable server responses."""
 
 
+class _CourtListenerResponseBodyError(CourtListenerServerError):
+    """Raised when a successful provider response has no parseable JSON body."""
+
+
 class CourtListenerUnavailableError(CourtListenerClientError):
     """Raised when requested public fallback material is unavailable."""
 
@@ -451,15 +455,25 @@ class UrlLibCourtListenerTransport:
                 request,
                 timeout=timeout_seconds,
             ) as response:
+                raw_body = response.read()
                 return CourtListenerHTTPResponse(
                     status_code=response.status,
-                    payload=_json_payload(response.read()),
+                    payload=_http_payload(
+                        status_code=response.status,
+                        raw_body=raw_body,
+                        path=path,
+                    ),
                     headers=dict(response.headers.items()),
                 )
         except urllib.error.HTTPError as exc:
+            raw_body = exc.read()
             return CourtListenerHTTPResponse(
                 status_code=exc.code,
-                payload=_json_payload(exc.read()),
+                payload=_http_payload(
+                    status_code=exc.code,
+                    raw_body=raw_body,
+                    path=path,
+                ),
                 headers=dict(exc.headers.items()) if exc.headers else {},
             )
         except (TimeoutError, urllib.error.URLError) as exc:
@@ -809,10 +823,50 @@ def _page_from_payload[TPageItem](
     )
 
 
-def _json_payload(raw_body: bytes) -> Mapping[str, Any]:
+def _http_payload(
+    *,
+    status_code: int,
+    raw_body: bytes,
+    path: str,
+) -> Mapping[str, Any]:
+    """Parse successful JSON while preserving authoritative HTTP error status.
+
+    CourtListener occasionally returns an empty, truncated, or HTML body with a
+    successful status.  That is a transient provider response and must enter the
+    client's existing bounded retry loop.  For non-success statuses, the status
+    remains authoritative even when the explanatory body is malformed; a 404
+    must not become a retryable parse error, for example.
+    """
+
+    if 200 <= status_code < 300:
+        return _json_payload(raw_body, path=path)
+    try:
+        return _json_payload(raw_body, path=path)
+    except _CourtListenerResponseBodyError:
+        return {
+            "detail": (
+                f"CourtListener request to {path} failed with status "
+                f"{status_code} and an invalid response body"
+            )
+        }
+
+
+def _json_payload(raw_body: bytes, *, path: str) -> Mapping[str, Any]:
+    label = (
+        "CourtListener search response body"
+        if path == "/search/"
+        else f"CourtListener response body for {path}"
+    )
     if not raw_body:
-        return {}
-    decoded: object = json.loads(raw_body.decode("utf-8"))
+        raise _CourtListenerResponseBodyError(f"{label} was empty")
+    try:
+        text = raw_body.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise _CourtListenerResponseBodyError(f"{label} was not valid UTF-8") from exc
+    try:
+        decoded: object = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise _CourtListenerResponseBodyError(f"{label} was malformed JSON") from exc
     return _mapping(decoded, "response payload")
 
 

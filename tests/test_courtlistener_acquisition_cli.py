@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import sqlite3
 import urllib.request
 from collections.abc import Iterable, Mapping
 from datetime import date
@@ -1896,6 +1897,104 @@ def test_discover_courtlistener_records_local_validation_failure(
     assert failure["status"] == "failed"
     assert failure["failure_reason"] == expected_reason
     assert failure["paid_activity_executed"] is False
+
+
+def test_discover_courtlistener_malformed_search_exhaustion_is_durable(
+    tmp_path: Path,
+    capsys: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class RawResponse:
+        status = 200
+
+        def __init__(self) -> None:
+            self.headers: dict[str, str] = {"Content-Type": "text/html"}
+
+        def __enter__(self) -> RawResponse:
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"<html><body>temporary upstream response</body></html>"
+
+    class RawOpener:
+        def __init__(self) -> None:
+            self.request_count = 0
+
+        def open(self, *_: object, **__: object) -> RawResponse:
+            self.request_count += 1
+            return RawResponse()
+
+    opener = RawOpener()
+    monkeypatch.setattr(urllib.request, "build_opener", lambda *_: opener)
+    monkeypatch.setenv("COURTLISTENER_API_TOKEN", "fixture-token")
+    output_root = tmp_path / "output"
+    cycle_store = tmp_path / "cycle.sqlite3"
+    request_ledger = tmp_path / "courtlistener-requests.sqlite3"
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "discover-courtlistener",
+                "--eligibility-anchor",
+                "2026-06-30",
+                "--search-window-start",
+                "2026-06-30",
+                "--search-window-end",
+                "2026-07-16",
+                "--cycle-store",
+                str(cycle_store),
+                "--batch-id",
+                "malformed-search-batch",
+                "--query-term",
+                "motion to dismiss",
+                "--target-clean-cases",
+                "1",
+                "--max-candidates",
+                "5",
+                "--search-page-size",
+                "50",
+                "--request-ledger",
+                str(request_ledger),
+                "--live",
+                "--output-root",
+                str(output_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+
+    assert "CourtListener search response body was malformed JSON" in (
+        capsys.readouterr().err
+    )
+    failure = _read_json(output_root / "run-cards" / "discover-courtlistener.json")
+    assert failure["status"] == "failed"
+    assert failure["failure_reason"] == (
+        "CourtListener search response body was malformed JSON"
+    )
+    assert failure["courtlistener_physical_requests"] == 3
+    assert failure["courtlistener_reservations_this_run"] == 3
+    assert failure["courtlistener_reservations_total"] == 3
+    assert opener.request_count == 3
+    with sqlite3.connect(request_ledger) as connection:
+        [attempt_count] = connection.execute(
+            "SELECT COUNT(*) FROM courtlistener_request_attempts"
+        ).fetchone()
+    assert attempt_count == 3
+    with CycleAcquisitionStore(cycle_store) as store:
+        assert store.search_page_transcript("malformed-search-batch") == ()
+        progress = store.term_progress(
+            "malformed-search-batch",
+            "motion to dismiss",
+        )
+    assert progress.cursor is None
+    assert progress.hit_count == 0
+    assert progress.terminal_status is None
+    assert not (output_root / "courtlistener-search-pages.jsonl").exists()
 
 
 @pytest.mark.parametrize(
