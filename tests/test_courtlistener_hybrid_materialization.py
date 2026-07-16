@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -143,6 +144,70 @@ def test_hybrid_retryable_target_202_then_success_materializes_exact_lineage(
     assert lineage["accepted_case_count"] == 1
     assert lineage["firecrawl_run_reserved_credits"] == 2
     assert lineage["firecrawl_run_reported_credits"] == 2
+
+
+def test_hybrid_retryable_target_202_rejects_nonfrozen_proxy_profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discovery_root, cycle_store = _run_hybrid_discovery(
+        tmp_path,
+        monkeypatch,
+        target_accepted_failures=1,
+    )
+    with sqlite3.connect(cycle_store) as connection:
+        connection.execute(
+            """
+            UPDATE firecrawl_attempts
+            SET proxy_used = 'stealth'
+            WHERE target_http_status = 202
+            """
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="target-error attempts do not reconcile",
+    ):
+        _materialize_hybrid(
+            tmp_path=tmp_path,
+            discovery_root=discovery_root,
+            cycle_store=cycle_store,
+        )
+
+
+def test_hybrid_mixed_legacy_and_current_202_retries_materialize(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discovery_root, cycle_store = _run_hybrid_discovery(
+        tmp_path,
+        monkeypatch,
+        target_accepted_failures=2,
+    )
+    _rewrite_first_retryable_202_as_legacy(
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+
+    with CycleAcquisitionStore(cycle_store) as store:
+        attempts = store.firecrawl_attempts("hybrid-batch-courtlistener-docket-html-v1")
+    assert [attempt.failure_code for attempt in attempts] == [
+        "target_http_status_invalid",
+        "target_http_status_retryable",
+        None,
+    ]
+    assert [attempt.failure_transient for attempt in attempts] == [False, True, None]
+
+    snapshot = _materialize_hybrid(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    manifest = verify_snapshot(snapshot, require_complete=True, require_saturated=True)
+    lineage = manifest["stage_commitments"]["courtlistener_discovery_inputs"]
+    assert lineage["accepted_case_count"] == 1
+    assert lineage["firecrawl_run_reserved_credits"] == 3
+    assert lineage["firecrawl_run_reported_credits"] == 3
 
 
 def test_hybrid_exhausted_provider_retries_materialize_as_terminal_exclusion(
@@ -859,6 +924,40 @@ def _materialize_hybrid(
         == 0
     )
     return tmp_path / "snapshots" / "hybrid-complete"
+
+
+def _rewrite_first_retryable_202_as_legacy(
+    *,
+    discovery_root: Path,
+    cycle_store: Path,
+) -> None:
+    with sqlite3.connect(cycle_store) as connection:
+        cursor = connection.execute(
+            """
+            UPDATE firecrawl_attempts
+            SET failure_code = 'target_http_status_invalid',
+                failure_transient = 0
+            WHERE run_id = 'hybrid-batch-courtlistener-docket-html-v1'
+              AND attempt_number = 1
+              AND target_http_status = 202
+            """
+        )
+    assert cursor.rowcount == 1
+
+    failure_counts = {
+        "target_http_status_invalid": 1,
+        "target_http_status_retryable": 1,
+    }
+    summary_path = discovery_root / "courtlistener-discovery-summary.json"
+    summary = _read_json(summary_path)
+    summary["failure_code_counts"] = failure_counts
+    summary_path.write_text(json.dumps(summary, sort_keys=True), encoding="utf-8")
+    _recommit_output(discovery_root, "summary", summary_path)
+
+    run_card_path = discovery_root / "run-cards" / "discover-courtlistener.json"
+    run_card = _read_json(run_card_path)
+    run_card["failure_code_counts"] = failure_counts
+    run_card_path.write_text(json.dumps(run_card, sort_keys=True), encoding="utf-8")
 
 
 def _materialize_command(

@@ -11,6 +11,9 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, cast
 
+from legalforecast.ingestion.budgeted_firecrawl import (
+    is_retryable_target_accepted,
+)
 from legalforecast.ingestion.cycle_acquisition_store import (
     CandidateObservation,
     FirecrawlAttempt,
@@ -1018,6 +1021,8 @@ def _validate_transient_firecrawl_attempt(
 
 
 def _is_retryable_target_202_attempt(attempt: FirecrawlAttempt) -> bool:
+    """Apply the frozen basic-proxy snapshot profile to a generic accepted 202."""
+
     legacy_retryable = (
         attempt.failure_code == "target_http_status_invalid"
         and attempt.failure_transient is False
@@ -1027,14 +1032,10 @@ def _is_retryable_target_202_attempt(attempt: FirecrawlAttempt) -> bool:
         and attempt.failure_transient is True
     )
     return (
-        attempt.status == "target_error"
+        is_retryable_target_accepted(attempt)
         and (legacy_retryable or current_retryable)
-        and attempt.provider_http_status == 200
-        and attempt.target_http_status == 202
         and attempt.reported_credits in {0, 1}
         and attempt.proxy_used == "basic"
-        and isinstance(attempt.failure_response_sha256, str)
-        and _SHA256.fullmatch(attempt.failure_response_sha256) is not None
     )
 
 

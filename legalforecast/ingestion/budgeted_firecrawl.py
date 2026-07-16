@@ -229,7 +229,7 @@ class BudgetedFirecrawlScheduler:
             attempt.target_id
             for attempt in self.store.firecrawl_attempts(self.run_id)
             if attempt.failure_transient is False
-            and not _is_retryable_target_accepted(attempt)
+            and not is_retryable_target_accepted(attempt)
         }
         for target in ordered:
             if target.target_id in succeeded:
@@ -831,7 +831,7 @@ def _integral_credits(value: float | None) -> int:
     return credits
 
 
-def _is_retryable_target_accepted(attempt: FirecrawlAttempt) -> bool:
+def is_retryable_target_accepted(attempt: FirecrawlAttempt) -> bool:
     """Recognize CourtListener 202 attempts, including legacy terminal records."""
 
     return (
@@ -868,7 +868,7 @@ def _recent_target_accepted_count(
         }
     )
     return sum(
-        _is_retryable_target_accepted(attempt) for attempt in completed[-window_size:]
+        is_retryable_target_accepted(attempt) for attempt in completed[-window_size:]
     )
 
 
