@@ -2051,13 +2051,16 @@ def test_bridge_preserves_sparse_unknown_seal_as_recoverable_paid_gap() -> None:
         if item.get("resolved_from_paid_gap") is True
     ]
     assert document["requires_paid_recovery"] is True
+    assert document["is_available"] is False
     assert document["is_sealed"] is None
     assert document["redaction_or_seal_status"] == "unknown"
     assert document["restriction_evidence"] == [
         "courtlistener_rest_docket_exact_match",
         "courtlistener_rest_docket_entry_exact_match",
         "courtlistener_rest_recap_document_exact_match",
-        "courtlistener_rest_recap_document_is_sealed_unknown",
+        "courtlistener_rest_recap_document_is_available_false",
+        "courtlistener_rest_recap_document_seal_status_unknown",
+        "courtlistener_rest_no_positive_restriction_marker",
     ]
     [relevance_document] = [
         item
@@ -2065,6 +2068,27 @@ def test_bridge_preserves_sparse_unknown_seal_as_recoverable_paid_gap() -> None:
         if item.get("resolved_from_paid_gap") is True
     ]
     assert relevance_document["redaction_or_seal_status"] == "unknown"
+
+
+def test_bridge_rejects_unknown_availability_in_attempt_evidence_scope() -> None:
+    screened, gap, downloads = _paid_gap_inputs()
+    responses = list(_clean_responses())
+    recap_payload = dict(responses[2].payload)
+    recap_payload["is_available"] = None
+    recap_payload["is_sealed"] = None
+    responses[2] = _response(path="/recap-documents/9005/", payload=recap_payload)
+
+    with pytest.raises(
+        CourtListenerCaseDevBridgeError,
+        match="courtlistener_recap_availability_unproven",
+    ):
+        bridge_public_plan_paid_gap_candidate_via_courtlistener(
+            screened,
+            paid_gap_record=gap,
+            free_download_records=downloads,
+            client=_client(*responses),
+            use_embedded_entries=True,
+        )
 
 
 @pytest.mark.parametrize(

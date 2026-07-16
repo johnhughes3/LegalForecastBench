@@ -51,6 +51,7 @@ from legalforecast.ingestion.recap_api_discovery import (
     public_recap_download_url,
     web_entry_from_api,
 )
+from legalforecast.ingestion.recap_fetch_attempt_policy import UNKNOWN_STATUS_EVIDENCE
 from legalforecast.ingestion.recap_fetch_broker_policy import (
     COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE,
 )
@@ -95,12 +96,6 @@ _COURTLISTENER_REST_FREE_UNKNOWN_PRIVACY_EVIDENCE = (
     "courtlistener_rest_recap_document_is_available_true",
     "courtlistener_rest_recap_document_is_sealed_unknown",
     "courtlistener_rest_public_download_url_allowlisted",
-)
-_COURTLISTENER_REST_PAID_UNKNOWN_PRIVACY_EVIDENCE = (
-    "courtlistener_rest_docket_exact_match",
-    "courtlistener_rest_docket_entry_exact_match",
-    "courtlistener_rest_recap_document_exact_match",
-    "courtlistener_rest_recap_document_is_sealed_unknown",
 )
 _CASE_DEV_FREE_RESTRICTION_EVIDENCE = (
     "courtlistener_docket_entry_checked",
@@ -226,8 +221,10 @@ class _CourtListenerRestGapDocument:
     document_role: DocumentRole
     source_url_or_reference: str
     description: str
+    is_available: bool | None
     is_sealed: bool | None
     is_private: bool | None
+    positive_restriction_markers: tuple[str, ...]
     free: bool = False
 
     @property
@@ -252,10 +249,17 @@ class _CourtListenerRestGapDocument:
                 if self.is_sealed is False
                 else _COURTLISTENER_REST_FREE_UNKNOWN_PRIVACY_EVIDENCE
             )
-        return (
-            COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE
-            if self.is_sealed is False
-            else _COURTLISTENER_REST_PAID_UNKNOWN_PRIVACY_EVIDENCE
+        if self.is_sealed is False:
+            return COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE
+        if (
+            self.is_available is False
+            and self.is_sealed is None
+            and self.is_private is None
+            and not self.positive_restriction_markers
+        ):
+            return UNKNOWN_STATUS_EVIDENCE
+        raise CourtListenerCaseDevBridgeError(
+            f"courtlistener_recap_attempt_evidence_unproven: {self.docket_entry_number}"
         )
 
     def selection_record(self) -> dict[str, Any]:
@@ -278,6 +282,7 @@ class _CourtListenerRestGapDocument:
             "requires_paid_recovery": not self.free,
             "redaction_or_seal_status": self.restriction_status,
             "restriction_evidence": list(self.restriction_evidence),
+            **({"is_available": self.is_available} if not self.free else {}),
             "is_private": self.is_private,
             "is_sealed": self.is_sealed,
             "file_extension": "pdf",
@@ -300,6 +305,7 @@ class _CourtListenerRestGapDocument:
             "requires_paid_recovery": not self.free,
             "redaction_or_seal_status": self.restriction_status,
             "restriction_evidence": list(self.restriction_evidence),
+            **({"is_available": self.is_available} if not self.free else {}),
             "is_private": self.is_private,
             "is_sealed": self.is_sealed,
             "contains_target_outcome": self.contains_target_outcome,
@@ -1697,8 +1703,12 @@ def _bridge_courtlistener_rest_gap_documents(
                     f"{recap_document.document_id}/"
                 ),
                 description=description,
+                is_available=recap_document.is_available,
                 is_sealed=recap_document.is_sealed,
                 is_private=recap_document.is_private,
+                positive_restriction_markers=_record_restriction_markers(
+                    recap_document.raw
+                ),
                 free=public_download_url is not None,
             )
         )
@@ -2528,22 +2538,23 @@ def _document_role_score(description: str, role: DocumentRole) -> int:
     return 0
 
 
-def _record_is_restricted(record: Mapping[str, Any]) -> bool:
-    if restricted_material_markers(
-        records=(record,),
-        text_fields=(
-            _optional_str(record, "description") or "",
-            _optional_str(record, "docket_entry_text") or "",
-            _optional_str(record, "text") or "",
-        ),
-    ):
-        return True
+def _record_restriction_markers(record: Mapping[str, Any]) -> tuple[str, ...]:
+    markers = set(
+        restricted_material_markers(
+            records=(record,),
+            text_fields=(
+                _optional_str(record, "description") or "",
+                _optional_str(record, "docket_entry_text") or "",
+                _optional_str(record, "text") or "",
+            ),
+        )
+    )
     for key, value in record.items():
         normalized_key = _identifier(str(key))
         if normalized_key in {"issealed", "isprivate", "isrestricted"} and (
             value is True or (value is not None and not isinstance(value, bool))
         ):
-            return True
+            markers.add(f"field_{normalized_key}")
         if normalized_key in {
             "availabilitystatus",
             "redactionorsealstatus",
@@ -2553,8 +2564,12 @@ def _record_is_restricted(record: Mapping[str, Any]) -> bool:
         }:
             normalized_value = _text_key(str(value)).replace(" ", "_")
             if normalized_value in _RESTRICTED_STATUS_VALUES:
-                return True
-    return False
+                markers.add(f"status_{normalized_key}_{normalized_value}")
+    return tuple(sorted(markers))
+
+
+def _record_is_restricted(record: Mapping[str, Any]) -> bool:
+    return bool(_record_restriction_markers(record))
 
 
 def _exclusion(

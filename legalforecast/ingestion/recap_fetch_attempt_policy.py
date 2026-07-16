@@ -245,7 +245,14 @@ def _selection_index(
                     "selected document must be an object"
                 )
             document = cast(Mapping[str, Any], item)
-            document_id = _canonical_document_id(document.get("source_document_id"))
+            # A selected case can include ordinary free documents whose stable
+            # source identifiers are provider-qualified strings. Only IDs in
+            # the executable paid plan are RECAP Fetch identifiers and must be
+            # canonical positive integers; that validation happens during
+            # executable-plan matching.
+            document_id = _canonical_text(
+                document.get("source_document_id"), "source_document_id"
+            )
             if document_id in documents:
                 raise RecapFetchAttemptPolicyError(
                     "selected document IDs must be unique"

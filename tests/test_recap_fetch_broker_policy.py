@@ -16,6 +16,7 @@ from legalforecast.ingestion.missing_core_budget import (
     MissingCoreBudgetPlan,
 )
 from legalforecast.ingestion.recap_fetch_attempt_policy import (
+    RecapFetchAttemptPolicyError,
     generate_recap_fetch_attempt_policy,
 )
 from legalforecast.ingestion.recap_fetch_broker_policy import (
@@ -312,6 +313,77 @@ def test_verified_attempt_policy_adds_all_incomplete_privacy_docs_to_union() -> 
         ("case-1", "123", "unknown_status_quarantine"),
         ("case-2", "456", "unknown_status_quarantine"),
     ]
+
+
+def test_attempt_policy_indexes_mixed_free_and_paid_document_id_shapes() -> None:
+    selection = deepcopy(_selection())
+    free_document = {
+        "source_document_id": "cl-123-entry-1-complaint",
+        "source_provider": "courtlistener",
+        "document_role": "complaint",
+        "availability_status": "available",
+        "requires_paid_recovery": False,
+        "redaction_or_seal_status": "public",
+        "restriction_evidence": ["courtlistener_public_download_record_checked"],
+        "is_sealed": False,
+        "is_private": False,
+    }
+    selection[0]["documents"].insert(0, free_document)
+    unknown = selection[0]["documents"][1]
+    unknown.update(
+        {
+            "redaction_or_seal_status": "unknown",
+            "restriction_evidence": [
+                "courtlistener_rest_docket_exact_match",
+                "courtlistener_rest_docket_entry_exact_match",
+                "courtlistener_rest_recap_document_exact_match",
+                "courtlistener_rest_recap_document_is_available_false",
+                "courtlistener_rest_recap_document_seal_status_unknown",
+                "courtlistener_rest_no_positive_restriction_marker",
+            ],
+            "is_sealed": None,
+            "is_private": None,
+            "is_available": False,
+            "availability_status": "unavailable",
+            "requires_paid_recovery": True,
+        }
+    )
+    plan = _budget_plan()
+
+    attempt_policy = generate_recap_fetch_attempt_policy(
+        purchase_policy_artifact=_purchase_policy(),
+        cohort_policy_artifact=_cohort_policy(),
+        budget_plan=plan,
+        budget_plan_artifact=plan.to_record(),
+        selection_records=selection,
+    )
+
+    assert [
+        (row["case_id"], row["recap_document"])
+        for row in attempt_policy["policy"]["allowed_documents"]
+    ] == [("case-1", "123"), ("case-2", "456")]
+
+    duplicated = deepcopy(selection)
+    duplicated[0]["documents"][0]["source_document_id"] = "123"
+    with pytest.raises(RecapFetchAttemptPolicyError, match="unique"):
+        generate_recap_fetch_attempt_policy(
+            purchase_policy_artifact=_purchase_policy(),
+            cohort_policy_artifact=_cohort_policy(),
+            budget_plan=plan,
+            budget_plan_artifact=plan.to_record(),
+            selection_records=duplicated,
+        )
+
+    noncanonical = deepcopy(selection)
+    noncanonical[0]["documents"][0]["source_document_id"] = " cl-123-entry-1-complaint"
+    with pytest.raises(RecapFetchAttemptPolicyError, match="canonical string"):
+        generate_recap_fetch_attempt_policy(
+            purchase_policy_artifact=_purchase_policy(),
+            cohort_policy_artifact=_cohort_policy(),
+            budget_plan=plan,
+            budget_plan_artifact=plan.to_record(),
+            selection_records=noncanonical,
+        )
 
 
 def test_attempt_policy_tamper_or_cross_candidate_reuse_fails_closed() -> None:
