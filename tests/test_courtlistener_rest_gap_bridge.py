@@ -336,6 +336,40 @@ def test_bridge_rejects_contradictory_rest_docket_aliases() -> None:
         )
 
 
+def test_bridge_accepts_equivalent_rest_docket_url_alias_with_query() -> None:
+    screened, gap, downloads = _complaint_gap_inputs()
+    complaint = _rest_entry(1, 7001, 9001, "COMPLAINT filed")
+    complaint["docket_id"] = (
+        "https://www.courtlistener.com/api/rest/v4/dockets/123/?format=json"
+    )
+    responses = (
+        _docket_response(),
+        _response(
+            path="/docket-entries/",
+            params={"docket": "123", "page_size": 100},
+            payload={
+                "results": [
+                    complaint,
+                    _rest_entry(5, 7005, 9005, "MOTION to Dismiss"),
+                ],
+                "next": None,
+            },
+        ),
+        _recap_document_response(1, 7001, 9001, "Complaint"),
+        _recap_document_response(5, 7005, 9005, "Motion to Dismiss"),
+    )
+
+    selection, _ = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap,
+        free_download_records=downloads,
+        client=_authenticated_client(*responses),
+        use_embedded_entries=True,
+    )
+
+    assert selection["candidate_id"] == "123"
+
+
 def test_bridge_keeps_ambiguous_removed_state_complaint_excluded() -> None:
     screened, gap, downloads = _complaint_gap_inputs()
     removal = _rest_entry(1, 7001, 9001, "NOTICE OF REMOVAL filed")

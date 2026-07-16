@@ -1806,7 +1806,10 @@ def _validate_rest_entry_docket_aliases(
             normalized = str(value)
         elif isinstance(value, str) and value.strip():
             text = value.strip()
-            match = re.search(r"/dockets/(?P<id>[1-9][0-9]*)/?$", text)
+            match = re.search(
+                r"/dockets/(?P<id>[1-9][0-9]*)/?(?:\?.*)?$",
+                text,
+            )
             normalized = match.group("id") if match is not None else text
         else:
             continue
