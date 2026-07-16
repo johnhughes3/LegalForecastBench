@@ -119,6 +119,8 @@ from legalforecast.ingestion.case_dev_firecrawl import (
 )
 from legalforecast.ingestion.case_dev_provisional_frontier import (
     materialize_case_dev_provisional_frontier,
+    provisional_frontier_batch_digest,
+    provisional_frontier_run_card_record,
     ranked_records_for_provisional_frontier,
     verify_case_dev_provisional_frontier,
 )
@@ -3482,6 +3484,14 @@ def _add_batch_002_provisional_frontier_arguments(
         type=Path,
         required=True,
         help="Immutable Case.dev enrichment progress configuration JSON.",
+    )
+    parser.add_argument(
+        "--expected-progress-config-sha256",
+        required=True,
+        help=(
+            "External lowercase SHA-256 of the raw progress-config bytes; the "
+            "verified bytes are parsed exactly once before any target write."
+        ),
     )
     parser.add_argument(
         "--progress",
@@ -14553,6 +14563,7 @@ def _cmd_batch_002_provisional_frontier(args: argparse.Namespace) -> int:
     source_batch_id = cast(str, args.source_batch_id)
     source_projection = cast(Path, args.source_projection)
     progress_config = cast(Path, args.progress_config)
+    expected_progress_config_sha256 = cast(str, args.expected_progress_config_sha256)
     progress_path = cast(Path, args.progress)
     expected_progress_sha256 = cast(str, args.expected_progress_sha256)
     cycle_store = cast(Path, args.cycle_store)
@@ -14595,39 +14606,60 @@ def _cmd_batch_002_provisional_frontier(args: argparse.Namespace) -> int:
             source_projection_path=source_projection,
             progress_config_path=progress_config,
             progress_path=progress_path,
+            expected_progress_config_sha256=expected_progress_config_sha256,
             expected_progress_sha256=expected_progress_sha256,
         )
         ranked_records = ranked_records_for_provisional_frontier(frontier)
         ranked_bytes = _jsonl_bytes(ranked_records)
+        ranked_output_sha256 = hashlib.sha256(ranked_bytes).hexdigest()
         if ranked_output.exists():
             if ranked_output.read_bytes() != ranked_bytes:
                 raise RecapApiBatchDriverError(
                     "existing provisional ranked output differs from authenticated "
                     "progress"
                 )
-        else:
-            ranked_output.parent.mkdir(parents=True, exist_ok=True)
-            ranked_output.write_bytes(ranked_bytes)
         with CycleAcquisitionStore(cycle_store) as store:
             _validate_frozen_screening_policy(policy=store.cycle_policy, anchor=anchor)
+            planned_run_card = provisional_frontier_run_card_record(
+                frontier=frontier,
+                batch_id=batch_id,
+                target_cycle_hash=store.cycle_hash,
+                target_batch_digest=provisional_frontier_batch_digest(
+                    frontier=frontier,
+                    page_size=page_size,
+                ),
+            )
+            frozen_run_card = {
+                **planned_run_card,
+                "ranked_path": str(ranked_output),
+                "ranked_output_sha256": ranked_output_sha256,
+            }
+            if run_card_output.exists() and (
+                _read_json_object(run_card_output) != frozen_run_card
+            ):
+                raise RecapApiBatchDriverError(
+                    "existing provisional-frontier run card does not match this "
+                    "invocation"
+                )
+            if not ranked_output.exists():
+                ranked_output.parent.mkdir(parents=True, exist_ok=True)
+                ranked_output.write_bytes(ranked_bytes)
+            # Every mutation below is identity-bound and resumable. If a page or
+            # final run-card write is interrupted, the same plan resumes exactly.
             result = materialize_case_dev_provisional_frontier(
                 store,
                 batch_id=batch_id,
                 frontier=frontier,
                 page_size=page_size,
             )
-        frozen_run_card = {
-            **result.run_card_record(),
-            "ranked_path": str(ranked_output),
-            "ranked_output_sha256": hashlib.sha256(ranked_bytes).hexdigest(),
-        }
-        if run_card_output.exists():
-            if _read_json_object(run_card_output) != frozen_run_card:
+            if (
+                result.run_card_record() != planned_run_card
+                or result.target_batch_digest != planned_run_card["target_batch_digest"]
+            ):
                 raise RecapApiBatchDriverError(
-                    "existing provisional-frontier run card does not match this "
-                    "invocation"
+                    "materialized provisional batch changed its planned identity"
                 )
-        else:
+        if not run_card_output.exists():
             _write_json(run_card_output, frozen_run_card)
     except (
         CycleAcquisitionStoreError,
@@ -14640,7 +14672,7 @@ def _cmd_batch_002_provisional_frontier(args: argparse.Namespace) -> int:
     record = {
         **result.to_record(),
         "ranked_path": str(ranked_output),
-        "ranked_output_sha256": hashlib.sha256(ranked_bytes).hexdigest(),
+        "ranked_output_sha256": ranked_output_sha256,
     }
     if summary_output is not None:
         _write_json(summary_output, record)

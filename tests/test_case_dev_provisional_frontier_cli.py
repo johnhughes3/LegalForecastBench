@@ -371,6 +371,64 @@ def test_provisional_frontier_rejects_repeated_terminal_success(tmp_path: Path) 
     )
 
 
+@pytest.mark.parametrize(
+    "forged_run_card",
+    [
+        {"ranked_path": "/tmp/forged-ranked.jsonl"},
+        {"ranked_output_sha256": "0" * 64},
+    ],
+)
+def test_existing_run_card_mismatch_precedes_target_batch_mutation(
+    tmp_path: Path,
+    forged_run_card: dict[str, object],
+) -> None:
+    source_store = _source_store(tmp_path)
+    enrichment_root = _completed_enrichment(tmp_path, source_store)
+    target_store = _target_store(tmp_path)
+    run_card_path = tmp_path / "run-card.json"
+    run_card_path.write_text(
+        json.dumps(forged_run_card, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    assert (
+        main(
+            _provisional_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                ranked_path=tmp_path / "ranked.jsonl",
+                run_card_path=run_card_path,
+                summary_path=tmp_path / "summary.json",
+            )
+        )
+        == 2
+    )
+    with CycleAcquisitionStore(target_store) as store:
+        with pytest.raises(KeyError, match="unknown batch"):
+            store.batch_config("provisional-rest")
+
+
+def test_progress_config_external_hash_precedes_target_batch_mutation(
+    tmp_path: Path,
+) -> None:
+    source_store = _source_store(tmp_path)
+    enrichment_root = _completed_enrichment(tmp_path, source_store)
+    target_store = _target_store(tmp_path)
+    args = _provisional_args(
+        source_store=source_store,
+        enrichment_root=enrichment_root,
+        target_store=target_store,
+        ranked_path=tmp_path / "ranked.jsonl",
+        run_card_path=tmp_path / "run-card.json",
+        summary_path=tmp_path / "summary.json",
+    )
+    digest_index = args.index("--expected-progress-config-sha256") + 1
+    args[digest_index] = "0" * 64
+    assert main(args) == 2
+    with CycleAcquisitionStore(target_store) as store:
+        with pytest.raises(KeyError, match="unknown batch"):
+            store.batch_config("provisional-rest")
+
+
 def test_firecrawl_handoff_rejects_tampered_compact_hit_commitment(
     tmp_path: Path,
 ) -> None:
@@ -566,6 +624,10 @@ def _provisional_args(
         str(checkpoints / "case-dev-recap-source-projection.jsonl"),
         "--progress-config",
         str(checkpoints / "case-dev-recap-progress-config.json"),
+        "--expected-progress-config-sha256",
+        hashlib.sha256(
+            (checkpoints / "case-dev-recap-progress-config.json").read_bytes()
+        ).hexdigest(),
         "--progress",
         str(progress_path),
         "--expected-progress-sha256",

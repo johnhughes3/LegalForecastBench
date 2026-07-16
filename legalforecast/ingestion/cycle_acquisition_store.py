@@ -1885,18 +1885,28 @@ class CycleAcquisitionStore:
                     f"stored snapshot manifest is not an object: {row['snapshot_id']}"
                 )
             manifest = cast(dict[str, Any], parsed)
+            provisional_marker_present = any(
+                field in manifest
+                for field in (
+                    "provisional_frontier",
+                    "final_cohort_eligible",
+                    "full_source_terminal",
+                )
+            )
+            if provisional_marker_present and (
+                manifest.get("provisional_frontier") is not True
+                or manifest.get("final_cohort_eligible") is not False
+                or manifest.get("full_source_terminal") is not False
+            ):
+                raise CycleAcquisitionStoreError(
+                    "stored snapshot has contradictory cohort-safety flags: "
+                    f"{row['snapshot_id']}"
+                )
+            if provisional_marker_present:
+                continue
             if manifest.get("saturated") is not True:
                 raise CycleAcquisitionStoreError(
                     "published cohort observations require saturated snapshots: "
-                    f"{row['snapshot_id']}"
-                )
-            if (
-                manifest.get("provisional_frontier") is True
-                or manifest.get("final_cohort_eligible") is False
-                or manifest.get("full_source_terminal") is False
-            ):
-                raise CycleAcquisitionStoreError(
-                    "published cohort observations reject provisional snapshot: "
                     f"{row['snapshot_id']}"
                 )
             snapshots.append(
@@ -1931,11 +1941,20 @@ class CycleAcquisitionStore:
         cycle_hash = self.cycle_hash
         batch_digest = self.batch_digest(batch_id)
         batch_config = self.batch_config(batch_id)
-        provisional_frontier = batch_config.get("provisional_frontier") is True
-        if provisional_frontier and (
-            batch_config.get("final_cohort_eligible") is not False
-            or batch_config.get("full_source_terminal") is not False
-        ):
+        provisional_marker_present = any(
+            field in batch_config
+            for field in (
+                "provisional_frontier",
+                "final_cohort_eligible",
+                "full_source_terminal",
+            )
+        )
+        provisional_frontier = provisional_marker_present and (
+            batch_config.get("provisional_frontier") is True
+            and batch_config.get("final_cohort_eligible") is False
+            and batch_config.get("full_source_terminal") is False
+        )
+        if provisional_marker_present and not provisional_frontier:
             raise SnapshotVerificationError(
                 "provisional batch has contradictory cohort-safety flags"
             )

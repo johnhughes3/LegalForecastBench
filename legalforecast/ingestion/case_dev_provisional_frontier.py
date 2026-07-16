@@ -162,19 +162,12 @@ class CaseDevProvisionalFrontierResult:
     frontier: VerifiedCaseDevProvisionalFrontier
 
     def run_card_record(self) -> dict[str, object]:
-        return {
-            "schema_version": CASE_DEV_PROVISIONAL_FRONTIER_RUN_SCHEMA,
-            "provider_activity_requested": False,
-            "provider_activity_executed": False,
-            "paid_activity_requested": False,
-            "paid_activity_executed": False,
-            "pacer_fee_acknowledgment_allowed": False,
-            "batch_id": self.batch_id,
-            "target_cycle_hash": self.target_cycle_hash,
-            "target_batch_digest": self.target_batch_digest,
-            "leads_selected": len(self.frontier.selected),
-            **self.frontier.commitment_record(),
-        }
+        return provisional_frontier_run_card_record(
+            frontier=self.frontier,
+            batch_id=self.batch_id,
+            target_cycle_hash=self.target_cycle_hash,
+            target_batch_digest=self.target_batch_digest,
+        )
 
     def to_record(self) -> dict[str, object]:
         record = self.run_card_record()
@@ -199,13 +192,26 @@ def verify_case_dev_provisional_frontier(
     source_projection_path: Path,
     progress_config_path: Path,
     progress_path: Path,
+    expected_progress_config_sha256: str,
     expected_progress_sha256: str,
 ) -> VerifiedCaseDevProvisionalFrontier:
     """Authenticate partial progress and reconcile every source row exactly once."""
 
-    if _SHA256.fullmatch(expected_progress_sha256) is None:
+    for label, digest in (
+        ("progress-config", expected_progress_config_sha256),
+        ("progress", expected_progress_sha256),
+    ):
+        if _SHA256.fullmatch(digest) is None:
+            raise RecapApiBatchDriverError(
+                f"expected {label} SHA-256 must be 64 lowercase hex digits"
+            )
+    progress_config_bytes = _read_regular_bytes(
+        progress_config_path, "Case.dev progress config"
+    )
+    progress_config_sha256 = hashlib.sha256(progress_config_bytes).hexdigest()
+    if progress_config_sha256 != expected_progress_config_sha256:
         raise RecapApiBatchDriverError(
-            "expected progress SHA-256 must be 64 lowercase hex digits"
+            "Case.dev progress-config SHA-256 does not match the external commitment"
         )
     progress_bytes = _read_regular_bytes(progress_path, "Case.dev progress")
     progress_sha256 = hashlib.sha256(progress_bytes).hexdigest()
@@ -221,7 +227,7 @@ def verify_case_dev_provisional_frontier(
         )
     projection_by_docket = case_dev_projection_by_docket(projection_records)
     source_commitments = case_dev_source_authority_commitments(source)
-    config = _read_json_object(progress_config_path)
+    config = _json_object_from_bytes(progress_config_bytes, "Case.dev progress config")
     projection_sha256 = _file_sha256(source_projection_path)
     expected_config: dict[str, object] = {
         "schema_version": "legalforecast.case_dev_recap_progress.v1",
@@ -387,7 +393,7 @@ def verify_case_dev_provisional_frontier(
         progress_config_path=progress_config_path,
         progress_path=progress_path,
         source_projection_sha256=projection_sha256,
-        progress_config_sha256=_file_sha256(progress_config_path),
+        progress_config_sha256=progress_config_sha256,
         progress_sha256=progress_sha256,
         success_candidate_set_sha256=_canonical_sha256(selected_commitments),
         terminal_excluded_candidate_set_sha256=_canonical_sha256(exclusions),
@@ -409,30 +415,23 @@ def materialize_case_dev_provisional_frontier(
 ) -> CaseDevProvisionalFrontierResult:
     """Materialize all and only authenticated successes as a provisional batch."""
 
-    if not 1 <= page_size <= 100:
-        raise RecapApiBatchDriverError("page_size must be from 1 through 100")
     if batch_id == frontier.source.source_batch_id:
         raise RecapApiBatchDriverError(
             "provisional target batch must differ from its source batch"
         )
     source = frontier.source
-    config = build_recap_api_batch_config(
-        decision_window_start=source.search_window_start,
-        decision_window_end=source.search_window_end,
-        auth_mode="authenticated",
-        query_terms=(CASE_DEV_PROVISIONAL_FRONTIER_TERM,),
+    config = provisional_frontier_batch_config(
+        frontier=frontier,
         page_size=page_size,
-        top_k_per_term=len(frontier.selected),
-    )
-    config.update(
-        {
-            "discovery_mode": CASE_DEV_PROVISIONAL_FRONTIER_SCHEMA,
-            "selection_semantics": CASE_DEV_PROVISIONAL_FRONTIER_SEMANTICS,
-            "selected_candidate_count": len(frontier.selected),
-            **frontier.commitment_record(),
-        }
     )
     digest = store.ensure_batch(batch_id, config)
+    if digest != provisional_frontier_batch_digest(
+        frontier=frontier,
+        page_size=page_size,
+    ):
+        raise RecapApiBatchDriverError(
+            "provisional batch digest differs from its pre-mutation plan"
+        )
     store.ensure_terms(batch_id, (CASE_DEV_PROVISIONAL_FRONTIER_TERM,))
     initial = store.term_progress(batch_id, CASE_DEV_PROVISIONAL_FRONTIER_TERM)
     if initial.hit_count > len(frontier.selected):
@@ -498,6 +497,81 @@ def ranked_records_for_provisional_frontier(
     """Return authenticated success payloads in canonical ranking order."""
 
     return frontier.ranked_records
+
+
+def provisional_frontier_batch_config(
+    *,
+    frontier: VerifiedCaseDevProvisionalFrontier,
+    page_size: int,
+) -> dict[str, object]:
+    """Build the exact immutable target-batch config without mutating a store."""
+
+    if not 1 <= page_size <= 100:
+        raise RecapApiBatchDriverError("page_size must be from 1 through 100")
+    source = frontier.source
+    config = build_recap_api_batch_config(
+        decision_window_start=source.search_window_start,
+        decision_window_end=source.search_window_end,
+        auth_mode="authenticated",
+        query_terms=(CASE_DEV_PROVISIONAL_FRONTIER_TERM,),
+        page_size=page_size,
+        top_k_per_term=len(frontier.selected),
+    )
+    config.update(
+        {
+            "discovery_mode": CASE_DEV_PROVISIONAL_FRONTIER_SCHEMA,
+            "selection_semantics": CASE_DEV_PROVISIONAL_FRONTIER_SEMANTICS,
+            "selected_candidate_count": len(frontier.selected),
+            **frontier.commitment_record(),
+        }
+    )
+    return config
+
+
+def provisional_frontier_batch_digest(
+    *,
+    frontier: VerifiedCaseDevProvisionalFrontier,
+    page_size: int,
+) -> str:
+    """Derive the store's exact config digest before target-batch mutation."""
+
+    config = provisional_frontier_batch_config(
+        frontier=frontier,
+        page_size=page_size,
+    )
+    return hashlib.sha256(
+        json.dumps(
+            config,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode()
+    ).hexdigest()
+
+
+def provisional_frontier_run_card_record(
+    *,
+    frontier: VerifiedCaseDevProvisionalFrontier,
+    batch_id: str,
+    target_cycle_hash: str,
+    target_batch_digest: str,
+) -> dict[str, object]:
+    """Build the exact immutable run-card body from pre-mutation commitments."""
+
+    return {
+        "schema_version": CASE_DEV_PROVISIONAL_FRONTIER_RUN_SCHEMA,
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "pacer_fee_acknowledgment_allowed": False,
+        "batch_id": batch_id,
+        "target_cycle_hash": target_cycle_hash,
+        "target_batch_digest": target_batch_digest,
+        "leads_selected": len(frontier.selected),
+        **frontier.commitment_record(),
+    }
 
 
 def _provisional_hit(
@@ -602,13 +676,13 @@ def _read_regular_bytes(path: Path, label: str) -> bytes:
         raise RecapApiBatchDriverError(f"cannot read {label}: {exc}") from exc
 
 
-def _read_json_object(path: Path) -> dict[str, object]:
+def _json_object_from_bytes(payload: bytes, label: str) -> dict[str, object]:
     try:
-        value = json.loads(_read_regular_bytes(path, str(path)))
+        value = json.loads(payload)
     except (json.JSONDecodeError, UnicodeError) as exc:
-        raise RecapApiBatchDriverError(f"invalid JSON object {path}: {exc}") from exc
+        raise RecapApiBatchDriverError(f"invalid JSON object {label}: {exc}") from exc
     if not isinstance(value, dict):
-        raise RecapApiBatchDriverError(f"JSON artifact is not an object: {path}")
+        raise RecapApiBatchDriverError(f"JSON artifact is not an object: {label}")
     return cast(dict[str, object], value)
 
 

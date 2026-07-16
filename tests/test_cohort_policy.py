@@ -17,6 +17,7 @@ from legalforecast.ingestion.cohort_policy import (
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
     CycleAcquisitionStoreError,
+    SnapshotVerificationError,
     cohort_reason_policy_taxonomy,
 )
 
@@ -202,6 +203,108 @@ def test_observation_export_appends_verified_snapshots_only(tmp_path: Path) -> N
     tampered[1]["batch_id"] = "batch-999"
     with pytest.raises(CohortPolicyError, match="hash does not match"):
         verify_observation_manifest(tampered, policy_artifact=policy)
+
+
+def test_provisional_snapshot_coexists_with_later_publishable_snapshot(
+    tmp_path: Path,
+) -> None:
+    store_path = tmp_path / "cycle.sqlite3"
+    snapshot_root = tmp_path / "snapshots"
+    with CycleAcquisitionStore(store_path) as store:
+        cycle_hash = store.ensure_cycle({"schema": "test", "anchor": "2026-06-30"})
+        store.ensure_batch(
+            "provisional",
+            {
+                "provisional_frontier": True,
+                "final_cohort_eligible": False,
+                "full_source_terminal": False,
+            },
+        )
+        store.ensure_terms("provisional", ["term"])
+        store.commit_search_page(
+            "provisional",
+            "term",
+            None,
+            [],
+            next_cursor=None,
+            terminal_status="limit_bound",
+        )
+        provisional_path = store.export_snapshot(
+            snapshot_root,
+            snapshot_id="provisional-snapshot",
+            batch_id="provisional",
+            complete=True,
+        )
+        store.ensure_batch("final", {"window": "final"})
+        store.ensure_terms("final", ["term"])
+        store.commit_search_page(
+            "final",
+            "term",
+            None,
+            [],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        final_path = store.export_snapshot(
+            snapshot_root,
+            snapshot_id="final-snapshot",
+            batch_id="final",
+            complete=True,
+        )
+
+        published = store.published_snapshots()
+        observations = export_observation_manifest(
+            store=store,
+            policy_artifact=generate_cohort_policy(_decisions(cycle_hash)),
+            destination=tmp_path / "observations.jsonl",
+        )
+
+    assert [snapshot.snapshot_id for snapshot in published] == ["final-snapshot"]
+    assert [record.get("snapshot_id") for record in observations[1:]] == [
+        "final-snapshot"
+    ]
+    assert provisional_path.is_dir()
+    assert final_path.is_dir()
+
+
+@pytest.mark.parametrize(
+    "malformed_config",
+    [
+        {"provisional_frontier": True},
+        {
+            "provisional_frontier": True,
+            "final_cohort_eligible": True,
+            "full_source_terminal": False,
+        },
+        {"final_cohort_eligible": False, "full_source_terminal": False},
+    ],
+)
+def test_export_snapshot_rejects_malformed_provisional_markers(
+    tmp_path: Path,
+    malformed_config: dict[str, object],
+) -> None:
+    with CycleAcquisitionStore(tmp_path / "cycle.sqlite3") as store:
+        store.ensure_cycle({"schema": "test", "anchor": "2026-06-30"})
+        store.ensure_batch("malformed", malformed_config)
+        store.ensure_terms("malformed", ["term"])
+        store.commit_search_page(
+            "malformed",
+            "term",
+            None,
+            [],
+            next_cursor=None,
+            terminal_status="exhausted",
+        )
+        with pytest.raises(
+            SnapshotVerificationError,
+            match="contradictory cohort-safety flags",
+        ):
+            store.export_snapshot(
+                tmp_path / "snapshots",
+                snapshot_id="malformed-snapshot",
+                batch_id="malformed",
+                complete=True,
+            )
 
 
 def test_observation_export_rejects_unsaturated_snapshot(tmp_path: Path) -> None:

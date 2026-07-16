@@ -573,6 +573,9 @@ def _verify_provisional_firecrawl_partition(
             source_projection_path=required_paths["source_projection_path"],
             progress_config_path=required_paths["progress_config_path"],
             progress_path=required_paths["progress_path"],
+            expected_progress_config_sha256=cast(
+                str, run_card["progress_config_sha256"]
+            ),
             expected_progress_sha256=progress_sha256,
         )
     except (OSError, RecapApiBatchDriverError, ValueError) as exc:
