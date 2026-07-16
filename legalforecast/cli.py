@@ -116,6 +116,11 @@ from legalforecast.ingestion.case_dev_firecrawl import (
     acquire_case_dev_firecrawl_html,
     screen_case_dev_firecrawl_successes,
 )
+from legalforecast.ingestion.case_dev_provisional_frontier import (
+    materialize_case_dev_provisional_frontier,
+    ranked_records_for_provisional_frontier,
+    verify_case_dev_provisional_frontier,
+)
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerCapability,
     CaseDevPacerPurchaseAttempt,
@@ -1030,6 +1035,21 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_batch_002_ranked_subset_selection_arguments(batch_002_ranked_subset_selection)
+    batch_002_provisional_frontier = batch_002_subparsers.add_parser(
+        "select-case-dev-provisional-frontier",
+        help=(
+            "Authenticate completed Case.dev successes from partial progress and "
+            "materialize a provisional public Firecrawl frontier."
+        ),
+        description=(
+            "Provider-free, noncharging handoff that reconciles every source row "
+            "as an authenticated success, authorized terminal exclusion, or "
+            "explicit pending row. Only successes enter the provisional batch. "
+            "The batch is never final-cohort eligible and authorizes no PACER, "
+            "purchase, freeze, dispatch, or evaluation activity."
+        ),
+    )
+    _add_batch_002_provisional_frontier_arguments(batch_002_provisional_frontier)
     batch_002_snapshot = batch_002_subparsers.add_parser(
         "snapshot",
         help=(
@@ -3438,6 +3458,77 @@ def _add_batch_002_ranked_subset_selection_arguments(
         ),
     )
     parser.set_defaults(handler=_cmd_batch_002_ranked_selection)
+
+
+def _add_batch_002_provisional_frontier_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--source-store",
+        type=Path,
+        required=True,
+        help="Read-only store containing the exhausted CourtListener source batch.",
+    )
+    parser.add_argument("--source-batch-id", required=True)
+    parser.add_argument(
+        "--source-projection",
+        type=Path,
+        required=True,
+        help="Exact source projection emitted by enrich-recap-case-dev.",
+    )
+    parser.add_argument(
+        "--progress-config",
+        type=Path,
+        required=True,
+        help="Immutable Case.dev enrichment progress configuration JSON.",
+    )
+    parser.add_argument(
+        "--progress",
+        type=Path,
+        required=True,
+        help="Durable partial Case.dev enrichment progress JSONL.",
+    )
+    parser.add_argument(
+        "--expected-progress-sha256",
+        required=True,
+        help=(
+            "External lowercase SHA-256 of the raw partial progress bytes, "
+            "checked before any target write."
+        ),
+    )
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Existing current-cycle store receiving the provisional batch.",
+    )
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument(
+        "--eligibility-anchor",
+        default=_BATCH_002_DEFAULT_ANCHOR,
+        metavar="YYYY-MM-DD",
+        help="Anchor used to verify the target store's frozen screening policy.",
+    )
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=100,
+        help="Provider-free transfer page size, from 1 through 100.",
+    )
+    parser.add_argument(
+        "--ranked-output",
+        type=Path,
+        required=True,
+        help="Canonical ranked JSONL containing authenticated successes only.",
+    )
+    parser.add_argument(
+        "--run-card-output",
+        type=Path,
+        required=True,
+        help="Replay-stable provisional-frontier lineage run card.",
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_provisional_frontier)
 
 
 def _add_batch_002_snapshot_arguments(parser: argparse.ArgumentParser) -> None:
@@ -14420,6 +14511,106 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
     ) as exc:
         raise CommandError(str(exc)) from exc
     record = result.to_record()
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cmd_batch_002_provisional_frontier(args: argparse.Namespace) -> int:
+    source_store = cast(Path, args.source_store)
+    source_batch_id = cast(str, args.source_batch_id)
+    source_projection = cast(Path, args.source_projection)
+    progress_config = cast(Path, args.progress_config)
+    progress_path = cast(Path, args.progress)
+    expected_progress_sha256 = cast(str, args.expected_progress_sha256)
+    cycle_store = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    anchor = _iso_date_argument(
+        cast(str, args.eligibility_anchor), "--eligibility-anchor"
+    )
+    page_size = cast(int, args.page_size)
+    ranked_output = cast(Path, args.ranked_output)
+    run_card_output = cast(Path, args.run_card_output)
+    summary_output = cast(Path | None, args.summary_output)
+    _validate_ranked_handoff_paths(
+        protected_paths=(
+            source_store,
+            source_projection,
+            progress_config,
+            progress_path,
+            cycle_store,
+        ),
+        writable_paths=(
+            ranked_output,
+            run_card_output,
+            *((summary_output,) if summary_output is not None else ()),
+        ),
+        sqlite_paths=(source_store, cycle_store),
+        context="provisional Case.dev frontier",
+    )
+    if not cycle_store.is_file():
+        raise CommandError(
+            "--cycle-store must be an existing current-cycle acquisition store"
+        )
+    try:
+        source = read_saturated_direct_search_leads(
+            source_store,
+            source_batch_id=source_batch_id,
+        )
+        frontier = verify_case_dev_provisional_frontier(
+            source=source,
+            source_store_path=source_store,
+            source_projection_path=source_projection,
+            progress_config_path=progress_config,
+            progress_path=progress_path,
+            expected_progress_sha256=expected_progress_sha256,
+        )
+        ranked_records = ranked_records_for_provisional_frontier(frontier)
+        ranked_bytes = _jsonl_bytes(ranked_records)
+        if ranked_output.exists():
+            if ranked_output.read_bytes() != ranked_bytes:
+                raise RecapApiBatchDriverError(
+                    "existing provisional ranked output differs from authenticated "
+                    "progress"
+                )
+        else:
+            ranked_output.parent.mkdir(parents=True, exist_ok=True)
+            ranked_output.write_bytes(ranked_bytes)
+        with CycleAcquisitionStore(cycle_store) as store:
+            _validate_frozen_screening_policy(policy=store.cycle_policy, anchor=anchor)
+            result = materialize_case_dev_provisional_frontier(
+                store,
+                batch_id=batch_id,
+                frontier=frontier,
+                page_size=page_size,
+            )
+        frozen_run_card = {
+            **result.run_card_record(),
+            "ranked_path": str(ranked_output),
+            "ranked_output_sha256": hashlib.sha256(ranked_bytes).hexdigest(),
+        }
+        if run_card_output.exists():
+            if _read_json_object(run_card_output) != frozen_run_card:
+                raise RecapApiBatchDriverError(
+                    "existing provisional-frontier run card does not match this "
+                    "invocation"
+                )
+        else:
+            _write_json(run_card_output, frozen_run_card)
+    except (
+        CycleAcquisitionStoreError,
+        RecapApiBatchDriverError,
+        KeyError,
+        OSError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    record = {
+        **result.to_record(),
+        "ranked_path": str(ranked_output),
+        "ranked_output_sha256": hashlib.sha256(ranked_bytes).hexdigest(),
+    }
     if summary_output is not None:
         _write_json(summary_output, record)
     print(json.dumps(record, sort_keys=True))
