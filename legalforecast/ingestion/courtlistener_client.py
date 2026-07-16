@@ -165,11 +165,12 @@ class CourtListenerDocketEntry:
             docket_id=_required_docket_reference(
                 record, "docket", "docket_id", "docketId"
             ),
+            # CourtListener uses recap_sequence_number to order unnumbered
+            # entries; it is not a docket entry-number alias or fallback.
             entry_number=_optional_string(
                 record,
                 "entry_number",
                 "entryNumber",
-                "recap_sequence_number",
             ),
             entry_text=_docket_entry_text(record),
             filed_at=_optional_string(

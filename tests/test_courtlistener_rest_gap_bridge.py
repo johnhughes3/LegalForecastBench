@@ -20,6 +20,7 @@ from legalforecast.ingestion.courtlistener_case_dev_bridge import (
 from legalforecast.ingestion.courtlistener_client import (
     CourtListenerClient,
     CourtListenerConfig,
+    CourtListenerDocketEntry,
     CourtListenerFixtureTransport,
     CourtListenerResponseError,
     RecordedCourtListenerResponse,
@@ -308,6 +309,50 @@ def test_bridge_rejects_contradictory_rest_entry_number_aliases() -> None:
             client=_authenticated_client(*responses),
             use_embedded_entries=True,
         )
+
+
+def test_bridge_accepts_independent_rest_recap_sequence_number() -> None:
+    screened, gap, downloads = _complaint_gap_inputs()
+    complaint = _rest_entry(1, 7001, 9001, "COMPLAINT filed")
+    complaint["recap_sequence_number"] = "2026-01-01.001"
+    motion = _rest_entry(5, 7005, 9005, "MOTION to Dismiss")
+    motion["recap_sequence_number"] = "2026-01-01.002"
+    responses = (
+        _docket_response(),
+        _response(
+            path="/docket-entries/",
+            params={"docket": "123", "page_size": 100},
+            payload={"results": [complaint, motion], "next": None},
+        ),
+        _recap_document_response(1, 7001, 9001, "Complaint"),
+        _recap_document_response(5, 7005, 9005, "Motion to Dismiss"),
+    )
+
+    selection, _ = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap,
+        free_download_records=downloads,
+        client=_authenticated_client(*responses),
+        use_embedded_entries=True,
+    )
+
+    recovered = [
+        document
+        for document in selection["documents"]
+        if document.get("document_role") == "complaint"
+    ]
+    assert len(recovered) == 1
+    assert recovered[0]["docket_entry_number"] == 1
+
+
+def test_rest_recap_sequence_number_does_not_become_entry_number() -> None:
+    entry = _rest_entry(1, 7001, 9001, "COMPLAINT filed")
+    entry.pop("entry_number")
+    entry["recap_sequence_number"] = "2026-01-01.001"
+
+    parsed = CourtListenerDocketEntry.from_record(entry)
+
+    assert parsed.entry_number is None
 
 
 def test_bridge_rejects_contradictory_rest_docket_aliases() -> None:
@@ -929,6 +974,7 @@ def test_bridge_resumes_known_prior_revision_without_refetch_and_rejects_tamper(
         "courtlistener_recap_already_available",
         "operative_complaint_not_found",
         "courtlistener_recap_document_match_not_found",
+        "courtlistener_rest_entry_number_alias_conflict",
     ),
 )
 def test_bridge_replays_exclusions_with_superseded_semantics(
@@ -983,7 +1029,12 @@ def test_bridge_replays_exclusions_with_superseded_semantics(
     checkpoint["payload"]["exclusion_record"]["primary_exclusion_reason"] = (
         exclusion_reason
     )
-    checkpoint.pop("bridge_semantic_revision", None)
+    if exclusion_reason == "courtlistener_rest_entry_number_alias_conflict":
+        checkpoint["bridge_semantic_revision"] = (
+            "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2"
+        )
+    else:
+        checkpoint.pop("bridge_semantic_revision", None)
     checkpoint_path.write_text(
         json.dumps(checkpoint, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
@@ -1055,6 +1106,38 @@ def test_semantic_replay_requires_exact_consistent_legacy_exclusion() -> None:
     checkpoint["outcome"] = "exclusion"
     assert not _bridge_checkpoint_requires_semantic_replay(
         checkpoint, bridge_provider="case.dev"
+    )
+
+
+def test_alias_conflict_semantic_replay_requires_exact_v2_revision() -> None:
+    reason = "courtlistener_rest_entry_number_alias_conflict"
+    checkpoint: dict[str, Any] = {
+        "bridge_semantic_revision": (
+            "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2"
+        ),
+        "outcome": "exclusion",
+        "payload": {
+            "exclusion_record": {
+                "primary_exclusion_reason": reason,
+                "exclusion_reasons": [reason],
+            }
+        },
+    }
+
+    assert _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+
+    checkpoint["bridge_semantic_revision"] = (
+        "courtlistener-complaint-and-main-description-2026-07-15-v1"
+    )
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+
+    checkpoint.pop("bridge_semantic_revision")
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
     )
 
 
