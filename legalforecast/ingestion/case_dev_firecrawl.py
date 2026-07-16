@@ -680,7 +680,10 @@ def _recover_source_bound_bankruptcy_adversary(
     parent docket number and therefore remain excluded.
     """
 
-    if "bankruptcy_court" not in metadata_screen.exclusion_reasons:
+    recoverable_reasons = {"bankruptcy_court", "not_civil_cv_docket"}
+    if "bankruptcy_court" not in metadata_screen.exclusion_reasons or not set(
+        metadata_screen.exclusion_reasons
+    ).issubset(recoverable_reasons):
         return metadata_screen
     metadata = metadata_screen.metadata
     court_id = (metadata.court_id or "").strip().casefold()
@@ -715,7 +718,7 @@ def _recover_source_bound_bankruptcy_adversary(
         exclusion_reasons=tuple(
             reason
             for reason in metadata_screen.exclusion_reasons
-            if reason not in {"bankruptcy_court", "not_civil_cv_docket"}
+            if reason not in recoverable_reasons
         ),
     )
 
