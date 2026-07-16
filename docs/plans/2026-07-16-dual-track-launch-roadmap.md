@@ -1,6 +1,6 @@
 # Dual-Track Launch Roadmap: LegalForecast-MTD Cycle 1 and Community Harness Comparisons
 
-Status: proposed execution plan
+Status: implementation-ready; planning PR open
 
 Date: 2026-07-16
 
@@ -9,6 +9,8 @@ Repository: `johnhughes3/LegalForecastBench`
 Roadmap issue: [#203](https://github.com/johnhughes3/LegalForecastBench/issues/203)
 
 Codex CLI harness issue: [#204](https://github.com/johnhughes3/LegalForecastBench/issues/204)
+
+Planning PR: [#205](https://github.com/johnhughes3/LegalForecastBench/pull/205)
 
 Primary owner: John Hughes
 
