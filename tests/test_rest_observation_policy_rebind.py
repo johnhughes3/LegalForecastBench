@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -424,6 +425,61 @@ def test_rebind_refuses_any_additional_policy_drift(tmp_path: Path) -> None:
             contract=fixture["contract"],
             verify_git_semantics=False,
         )
+
+
+def test_rebind_reads_required_source_registration_from_wal(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    source_store = fixture["source_store"]
+    writer = sqlite3.connect(source_store)
+    writer.row_factory = sqlite3.Row
+    try:
+        assert writer.execute("PRAGMA journal_mode=WAL").fetchone()[0] == "wal"
+        writer.execute("PRAGMA wal_autocheckpoint=0")
+        registration = writer.execute(
+            """
+            SELECT snapshot_id, batch_id, complete, path, manifest_json, created_at
+            FROM snapshots
+            WHERE snapshot_id = ?
+            """,
+            ("source-complete",),
+        ).fetchone()
+        assert registration is not None
+        writer.execute(
+            "DELETE FROM snapshots WHERE snapshot_id = ?", ("source-complete",)
+        )
+        writer.commit()
+        writer.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        writer.execute(
+            """
+            INSERT INTO snapshots(
+                snapshot_id, batch_id, complete, path, manifest_json, created_at
+            ) VALUES(?, ?, ?, ?, ?, ?)
+            """,
+            tuple(registration),
+        )
+        writer.commit()
+        assert source_store.with_name(f"{source_store.name}-wal").stat().st_size > 0
+        source_stat = source_store.stat()
+        source_sha256 = _file_sha256(source_store)
+
+        result = rebind_terminal_rest_observations(
+            source_store_path=source_store,
+            source_snapshot_path=fixture["source_snapshot"],
+            selection_run_card_path=fixture["selection"],
+            target_store_path=fixture["target_store"],
+            target_batch_id=fixture["target_batch_id"],
+            snapshot_output_root=tmp_path / "wal-current-snapshots",
+            snapshot_id="wal-current-complete",
+            run_card_path=tmp_path / "wal-run-card.json",
+            contract=fixture["contract"],
+            verify_git_semantics=False,
+        )
+
+        assert result.rebound_count == 2
+        assert source_store.stat().st_mtime_ns == source_stat.st_mtime_ns
+        assert _file_sha256(source_store) == source_sha256
+    finally:
+        writer.close()
 
 
 def test_rebind_refuses_tampered_source_snapshot(tmp_path: Path) -> None:

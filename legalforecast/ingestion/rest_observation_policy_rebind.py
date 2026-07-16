@@ -695,7 +695,7 @@ def _read_source_store_evidence(
                 f"source store is not a regular file: {source}"
             )
         connection = sqlite3.connect(
-            f"{source.as_uri()}?mode=ro&immutable=1",
+            f"{source.as_uri()}?mode=ro",
             uri=True,
         )
         connection.row_factory = sqlite3.Row
