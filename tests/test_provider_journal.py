@@ -18,6 +18,28 @@ from legalforecast.labeling.provider_journal import (
 )
 
 
+def test_journal_closes_connection_when_pragma_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FailingConnection:
+        closed = False
+        row_factory: object = None
+
+        def execute(self, statement: str) -> None:
+            raise sqlite3.OperationalError(f"failed pragma: {statement}")
+
+        def close(self) -> None:
+            self.closed = True
+
+    connection = FailingConnection()
+    monkeypatch.setattr(sqlite3, "connect", lambda *args, **kwargs: connection)
+
+    with pytest.raises(sqlite3.OperationalError, match="failed pragma"):
+        _journal(tmp_path / "provider-attempts.sqlite3")
+
+    assert connection.closed is True
+
+
 def test_provider_cycle_caps_load_externally_bounded_provider_caps(
     tmp_path: Path,
 ) -> None:

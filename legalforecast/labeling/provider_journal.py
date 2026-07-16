@@ -238,10 +238,10 @@ class ProviderAttemptJournal:
         self.cycle_cap_usd = cycle_cap_usd
         self._durable_ordinals: dict[int, int] = {}
         self._connection = sqlite3.connect(self.path, isolation_level=None)
-        self._connection.row_factory = sqlite3.Row
-        self._connection.execute("PRAGMA journal_mode = WAL")
-        self._connection.execute("PRAGMA synchronous = FULL")
         try:
+            self._connection.row_factory = sqlite3.Row
+            self._connection.execute("PRAGMA journal_mode = WAL")
+            self._connection.execute("PRAGMA synchronous = FULL")
             self._create_schema()
             self._ensure_journal_identity()
             self._ensure_ledger()

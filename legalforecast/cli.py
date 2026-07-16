@@ -517,8 +517,11 @@ from legalforecast.labeling.llm_pipeline import (
     llm_review_stage_a_units,
     llm_unitize_cases,
     merge_structural_flags_into_review_queue,
+    stage_a_structural_flag_records,
+    stage_a_structural_review_prompt_records,
     stage_a_unitization_prompt_records,
     unitization_review_queue_records,
+    unitization_review_queue_records_from_items,
 )
 from legalforecast.labeling.provider_journal import (
     PROVIDER_JOURNAL_SCHEMA_VERSION,
@@ -590,6 +593,8 @@ from legalforecast.unitization.construct_units import (
 from legalforecast.unitization.review import (
     UnitizationReviewError,
     apply_unitization_reviews,
+    canonical_records_sha256,
+    canonical_sha256,
     require_finalized_envelopes,
 )
 from legalforecast.unitization.schemas import (
@@ -5386,6 +5391,20 @@ def _add_acquisition_apply_unitization_review_arguments(
         ),
     )
     parser.add_argument(
+        "--llm-review-stage-a-run-card",
+        type=Path,
+        help=(
+            "Completed authenticated structural-review run card that produced "
+            "the queue. Required with --execute."
+        ),
+    )
+    _add_provider_cycle_caps_argument(parser)
+    parser.add_argument(
+        "--provider-journal",
+        type=Path,
+        help="Exact shared provider journal. Required with --execute.",
+    )
+    parser.add_argument(
         "--unitization-review-queue",
         type=Path,
         required=True,
@@ -5732,6 +5751,14 @@ def _add_acquisition_finalize_corpus_arguments(
     )
     parser.add_argument("--labels", type=Path, required=True)
     parser.add_argument("--llm-label-audit", type=Path, required=True)
+    parser.add_argument(
+        "--llm-label-run-card",
+        type=Path,
+        help=(
+            "Completed authenticated llm-label run card replayed before readiness. "
+            "Required with --execute."
+        ),
+    )
     parser.add_argument("--stage-b-judge-registry", type=Path, required=True)
     parser.add_argument("--labeling-policy", type=Path, required=True)
     parser.add_argument("--lawyer-review-queue", type=Path, required=True)
@@ -23380,9 +23407,6 @@ def _verify_stage_a_provider_replay(
         or set(audit_by_candidate) != candidate_ids
     ):
         raise CommandError("llm-unitize candidate coverage differs from selection")
-    if queue_records != list(unitization_review_queue_records(audit_records)):
-        raise CommandError("llm-unitize review queue does not reproduce from audit")
-
     attempt_rows = _stage_a_provider_attempt_rows(lineage.provider_journal_path)
     rows_by_candidate: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
     for row in attempt_rows:
@@ -23393,6 +23417,7 @@ def _verify_stage_a_provider_replay(
             )
         rows_by_candidate[candidate_id].append(row)
     prompt_commitments: dict[str, JsonRecord] = {}
+    journal_queue_by_candidate: dict[str, list[JsonRecord]] = {}
     for candidate_id in sorted(candidate_ids):
         prompt_record = prompts_by_candidate[candidate_id]
         prompt = _required_str(prompt_record, "prompt")
@@ -23437,6 +23462,20 @@ def _verify_stage_a_provider_replay(
         reconstructed_units = cast(Mapping[str, object], reconstructed).get(
             "prediction_units"
         )
+        reconstructed_review_items: object = cast(
+            Mapping[str, object], reconstructed
+        ).get("review_items")
+        if (
+            not isinstance(reconstructed_review_items, Sequence)
+            or isinstance(reconstructed_review_items, (str, bytes))
+            or not all(
+                isinstance(item, Mapping)
+                for item in cast(Sequence[object], reconstructed_review_items)
+            )
+        ):
+            raise CommandError(
+                f"llm-unitize journal review items are invalid: {candidate_id}"
+            )
         raw = raw_by_candidate[candidate_id]
         if (
             raw.get("case_id") != prompt_record.get("case_id")
@@ -23446,6 +23485,28 @@ def _verify_stage_a_provider_replay(
                 f"llm-unitize raw units do not reproduce from journal: {candidate_id}"
             )
         audit = audit_by_candidate[candidate_id]
+        journal_review_items = [
+            dict(cast(Mapping[str, Any], item))
+            for item in cast(Sequence[object], reconstructed_review_items)
+        ]
+        if audit.get("review_items", []) != journal_review_items:
+            raise CommandError(
+                f"llm-unitize review items do not reproduce from journal: "
+                f"{candidate_id}"
+            )
+        candidate_queue = list(
+            unitization_review_queue_records_from_items(
+                candidate_id=candidate_id,
+                case_id=_required_str(prompt_record, "case_id"),
+                review_items=journal_review_items,
+            )
+        )
+        if audit.get("unitization_review_queue", []) != candidate_queue:
+            raise CommandError(
+                f"llm-unitize audit queue does not reproduce from journal: "
+                f"{candidate_id}"
+            )
+        journal_queue_by_candidate[candidate_id] = candidate_queue
         normalized_record = cast(Mapping[str, object], normalized)
         raw_output = normalized_record.get("raw_output")
         if not isinstance(raw_output, str):
@@ -23473,6 +23534,17 @@ def _verify_stage_a_provider_replay(
             "prediction_units_sha256": _canonical_json_sha256(raw["prediction_units"]),
             "provider_attempt_ordinal": row["attempt_ordinal"],
         }
+    journal_queue_records = [
+        queue_record
+        for audit_record in audit_records
+        for queue_record in journal_queue_by_candidate[
+            _required_str(audit_record, "candidate_id")
+        ]
+    ]
+    if queue_records != journal_queue_records:
+        raise CommandError("llm-unitize review queue does not reproduce from journal")
+    if queue_records != list(unitization_review_queue_records(audit_records)):
+        raise CommandError("llm-unitize review queue does not reproduce from audit")
     return prompt_commitments, _canonical_json_sha256(attempt_rows)
 
 
@@ -23748,10 +23820,13 @@ def _verify_unitization_review_run_card(
     run_card_path: Path,
     *,
     llm_unitization_run_card_path: Path,
+    llm_review_stage_a_run_card_path: Path,
     raw_prediction_units_path: Path,
     original_review_queue_path: Path | None,
     review_queue_path: Path,
     adjudications_path: Path,
+    provider_cycle_caps_path: Path,
+    provider_journal_path: Path,
     finalized_path: Path,
 ) -> None:
     if run_card_path.is_symlink() or not run_card_path.is_file():
@@ -23766,7 +23841,7 @@ def _verify_unitization_review_run_card(
         or card.get("paid_activity_executed") is not False
     ):
         raise CommandError("invalid completed apply-unitization-review run card")
-    _verify_stage_a_unitization_run_card(
+    lineage = _verify_stage_a_unitization_run_card(
         llm_unitization_run_card_path,
         expected_prediction_units_path=raw_prediction_units_path,
         expected_review_queue_path=original_review_queue_path,
@@ -23774,8 +23849,11 @@ def _verify_unitization_review_run_card(
     expected_inputs = (
         raw_prediction_units_path,
         llm_unitization_run_card_path,
+        llm_review_stage_a_run_card_path,
         review_queue_path,
         adjudications_path,
+        provider_cycle_caps_path,
+        provider_journal_path,
     )
     raw_inputs = card.get("input_paths")
     raw_outputs = card.get("output_paths")
@@ -23796,8 +23874,12 @@ def _verify_unitization_review_run_card(
         "llm_unitization_run_card": _stage_a_file_commitment(
             llm_unitization_run_card_path
         ),
+        "llm_review_stage_a_run_card": _stage_a_file_commitment(
+            llm_review_stage_a_run_card_path
+        ),
         "unitization_review_queue": _stage_a_file_commitment(review_queue_path),
         "adjudications": _stage_a_file_commitment(adjudications_path),
+        "provider_cycle_caps": _stage_a_file_commitment(provider_cycle_caps_path),
     }
     expected_output_commitments = {
         "finalized_prediction_units": _stage_a_file_commitment(finalized_path)
@@ -23810,6 +23892,35 @@ def _verify_unitization_review_run_card(
         or card.get("record_count") != len(_read_records(finalized_path))
     ):
         raise CommandError("apply-unitization-review commitment changed")
+    if (
+        provider_cycle_caps_path.resolve()
+        != _stage_a_committed_path(
+            lineage.input_commitments, "provider_cycle_caps"
+        ).resolve()
+        or _path_sha256(provider_cycle_caps_path) != lineage.provider_caps_sha256
+        or provider_journal_path.resolve() != lineage.provider_journal_path.resolve()
+    ):
+        raise CommandError("apply-unitization-review provider authority differs")
+    _verify_stage_a_review_run_card(
+        llm_review_stage_a_run_card_path,
+        lineage=lineage,
+        llm_unitization_run_card_path=llm_unitization_run_card_path,
+        expected_review_queue_path=review_queue_path,
+    )
+    try:
+        reproduced = list(
+            apply_unitization_reviews(
+                prediction_unit_records=_read_records(raw_prediction_units_path),
+                review_records=_read_records(review_queue_path),
+                adjudication_records=_read_records(adjudications_path),
+            )
+        )
+    except UnitizationReviewError as exc:
+        raise CommandError(f"cannot replay unitization adjudications: {exc}") from exc
+    if _read_records(finalized_path) != reproduced:
+        raise CommandError(
+            "finalized prediction units do not replay from authenticated adjudications"
+        )
 
 
 def _verified_shared_provider_chain(
@@ -23818,6 +23929,9 @@ def _verified_shared_provider_chain(
     raw_prediction_units_path: Path,
     expected_review_queue_path: Path | None = None,
     expected_audit_path: Path | None = None,
+    expected_selection_path: Path | None = None,
+    expected_parser_manifest_path: Path | None = None,
+    expected_markdown_root: Path | None = None,
 ) -> tuple[_StageAUnitizationLineage, Path]:
     unitization_card_path = _required_stage_a_lineage_path(
         args, "llm_unitization_run_card", "--llm-unitization-run-card"
@@ -23827,6 +23941,12 @@ def _verified_shared_provider_chain(
         expected_prediction_units_path=raw_prediction_units_path,
         expected_review_queue_path=expected_review_queue_path,
         expected_audit_path=expected_audit_path,
+    )
+    _verify_stage_a_source_authority(
+        lineage,
+        expected_selection_path=expected_selection_path,
+        expected_parser_manifest_path=expected_parser_manifest_path,
+        expected_markdown_root=expected_markdown_root,
     )
     caps_path = _required_stage_a_lineage_path(
         args, "provider_cycle_caps", "--provider-cycle-caps"
@@ -23862,9 +23982,37 @@ def _verified_shared_provider_chain(
     return lineage, unitization_card_path
 
 
+def _verify_stage_a_source_authority(
+    lineage: _StageAUnitizationLineage,
+    *,
+    expected_selection_path: Path | None,
+    expected_parser_manifest_path: Path | None,
+    expected_markdown_root: Path | None,
+) -> None:
+    """Bind every downstream Stage A consumer to unitizer-authenticated sources."""
+
+    expected_files = {
+        "selection": expected_selection_path,
+        "parser_manifest": expected_parser_manifest_path,
+    }
+    for name, path in expected_files.items():
+        if path is None:
+            continue
+        committed = lineage.input_commitments.get(name)
+        if committed != _stage_a_file_commitment(path):
+            raise CommandError(f"downstream {name} differs from authenticated Stage A")
+    if (
+        expected_markdown_root is not None
+        and expected_markdown_root.resolve() != lineage.markdown_root.resolve()
+    ):
+        raise CommandError(
+            "downstream Markdown root differs from authenticated Stage A"
+        )
+
+
 def _unitization_review_card_paths(
     run_card_path: Path,
-) -> tuple[Path, Path, Path, Path, Path]:
+) -> tuple[Path, Path, Path, Path, Path, Path, Path, Path]:
     card = _read_json_object(run_card_path)
     raw_inputs = card.get("input_paths")
     raw_outputs = card.get("output_paths")
@@ -23877,29 +24025,60 @@ def _unitization_review_card_paths(
         raise CommandError("apply-unitization-review run card paths differ")
     typed_inputs = cast(Sequence[object], raw_inputs)
     typed_outputs = cast(Sequence[object], raw_outputs)
-    if len(typed_inputs) != 4 or len(typed_outputs) != 1:
+    if len(typed_inputs) != 7 or len(typed_outputs) != 1:
         raise CommandError("apply-unitization-review run card paths differ")
     inputs = tuple(Path(str(path)) for path in typed_inputs)
     output = Path(str(typed_outputs[0]))
-    return inputs[0], inputs[1], inputs[2], inputs[3], output
+    return (
+        inputs[0],
+        inputs[1],
+        inputs[2],
+        inputs[3],
+        inputs[4],
+        inputs[5],
+        inputs[6],
+        output,
+    )
 
 
 def _verify_finalized_stage_a_provider_chain(
     args: argparse.Namespace,
     *,
     finalized_prediction_units_path: Path,
+    expected_selection_path: Path | None = None,
+    expected_parser_manifest_path: Path | None = None,
+    expected_markdown_root: Path | None = None,
 ) -> tuple[_StageAUnitizationLineage, Path, Path]:
     review_card_path = _required_stage_a_lineage_path(
         args, "unitization_review_run_card", "--unitization-review-run-card"
     )
-    raw_path, committed_unit_card, review_queue, adjudications, finalized_path = (
-        _unitization_review_card_paths(review_card_path)
-    )
+    (
+        raw_path,
+        committed_unit_card,
+        structural_card,
+        review_queue,
+        adjudications,
+        caps_path,
+        journal_path,
+        finalized_path,
+    ) = _unitization_review_card_paths(review_card_path)
     requested_unit_card = _required_stage_a_lineage_path(
         args, "llm_unitization_run_card", "--llm-unitization-run-card"
     )
+    requested_structural_card = _required_stage_a_lineage_path(
+        args, "llm_review_stage_a_run_card", "--llm-review-stage-a-run-card"
+    )
+    requested_caps = _required_stage_a_lineage_path(
+        args, "provider_cycle_caps", "--provider-cycle-caps"
+    )
+    requested_journal = _required_stage_a_lineage_path(
+        args, "provider_journal", "--provider-journal"
+    )
     if (
         committed_unit_card.resolve() != requested_unit_card.resolve()
+        or structural_card.resolve() != requested_structural_card.resolve()
+        or caps_path.resolve() != requested_caps.resolve()
+        or journal_path.resolve() != requested_journal.resolve()
         or finalized_path.resolve() != finalized_prediction_units_path.resolve()
     ):
         raise CommandError(
@@ -23908,14 +24087,20 @@ def _verify_finalized_stage_a_provider_chain(
     lineage, unit_card_path = _verified_shared_provider_chain(
         args,
         raw_prediction_units_path=raw_path,
+        expected_selection_path=expected_selection_path,
+        expected_parser_manifest_path=expected_parser_manifest_path,
+        expected_markdown_root=expected_markdown_root,
     )
     _verify_unitization_review_run_card(
         review_card_path,
         llm_unitization_run_card_path=unit_card_path,
+        llm_review_stage_a_run_card_path=structural_card,
         raw_prediction_units_path=raw_path,
         original_review_queue_path=None,
         review_queue_path=review_queue,
         adjudications_path=adjudications,
+        provider_cycle_caps_path=caps_path,
+        provider_journal_path=journal_path,
         finalized_path=finalized_prediction_units_path,
     )
     return lineage, unit_card_path, review_queue
@@ -23992,6 +24177,34 @@ def _provider_chain_commitment(
     }
 
 
+def _label_stage_attempts_from_audit(
+    audit_records: Sequence[Mapping[str, Any]],
+) -> tuple[dict[tuple[str, str], str], set[tuple[str, str]]]:
+    expected_prompts: dict[tuple[str, str], str] = {}
+    validation_failures: set[tuple[str, str]] = set()
+    for record in audit_records:
+        candidate_id = _required_str(record, "candidate_id")
+        raw_outputs = record.get("model_outputs", ())
+        if not isinstance(raw_outputs, Sequence) or isinstance(
+            raw_outputs, (str, bytes)
+        ):
+            raise CommandError("llm-label audit model_outputs is invalid")
+        for output_value in cast(Sequence[object], raw_outputs):
+            if not isinstance(output_value, Mapping):
+                raise CommandError("llm-label audit model output is invalid")
+            output = cast(Mapping[str, Any], output_value)
+            key = (candidate_id, _required_str(output, "model_key"))
+            if key in expected_prompts:
+                raise CommandError(f"duplicate llm-label model output: {key}")
+            expected_prompts[key] = _required_str(output, "provider_prompt_sha256")
+            output_status = output.get("status")
+            if output_status == "validation_failed":
+                validation_failures.add(key)
+            elif output_status is not None:
+                raise CommandError(f"invalid llm-label model output status: {key}")
+    return expected_prompts, validation_failures
+
+
 def _verify_stage_a_review_run_card(
     run_card_path: Path,
     *,
@@ -24035,6 +24248,26 @@ def _verify_stage_a_review_run_card(
         != _stage_a_file_commitment(llm_unitization_run_card_path)
     ):
         raise CommandError("structural review Stage A run-card lineage differs")
+    unit_card_record = _read_json_object(llm_unitization_run_card_path)
+    unit_outputs = unit_card_record.get("output_commitments")
+    if not isinstance(unit_outputs, Mapping):
+        raise CommandError("structural review unitizer outputs are missing")
+    expected_stage_a_sources = {
+        "selection": lineage.input_commitments.get("selection"),
+        "parser_manifest": lineage.input_commitments.get("parser_manifest"),
+        "raw_prediction_units": cast(Mapping[str, object], unit_outputs).get(
+            "prediction_units"
+        ),
+        "unitization_review_queue": cast(Mapping[str, object], unit_outputs).get(
+            "unitization_review_queue"
+        ),
+        "provider_cycle_caps": lineage.input_commitments.get("provider_cycle_caps"),
+    }
+    if any(
+        source_records.get(name) != commitment
+        for name, commitment in expected_stage_a_sources.items()
+    ):
+        raise CommandError("structural review source lineage differs from Stage A")
     for name in (
         "selection",
         "parser_manifest",
@@ -24097,12 +24330,28 @@ def _verify_stage_a_review_run_card(
     }
     if dict(execution_record) != expected_execution:
         raise CommandError("structural review model execution commitment changed")
-    audit_records = _read_records(audit_path)
+    selection_path = _stage_a_committed_path(source_records, "selection")
+    parser_path = _stage_a_committed_path(source_records, "parser_manifest")
+    raw_units_path = _stage_a_committed_path(source_records, "raw_prediction_units")
+    original_queue_path = _stage_a_committed_path(
+        source_records, "unitization_review_queue"
+    )
+    try:
+        prompt_records = stage_a_structural_review_prompt_records(
+            selection_records=_read_records(selection_path),
+            parser_records=_read_records(parser_path),
+            prediction_unit_records=_read_records(raw_units_path),
+            markdown_root=lineage.markdown_root,
+        )
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise CommandError(
+            f"cannot reconstruct structural-review prompts: {exc}"
+        ) from exc
     expected_prompts = {
         (_required_str(record, "candidate_id"), entry.registry_key): _required_str(
             record, "prompt_sha256"
         )
-        for record in audit_records
+        for record in prompt_records
     }
     stage_attempts = _verified_provider_stage_attempts(
         stage="llm-review-stage-a",
@@ -24113,6 +24362,117 @@ def _verify_stage_a_review_run_card(
     )
     if chain_record.get("stage_attempts") != stage_attempts:
         raise CommandError("structural review provider attempts changed")
+    raw_records = _read_records(raw_units_path)
+    raw_by_candidate = {
+        _required_str(record, "candidate_id"): record for record in raw_records
+    }
+    audit_records = _read_records(audit_path)
+    audit_by_candidate = {
+        _required_str(record, "candidate_id"): record for record in audit_records
+    }
+    if len(raw_by_candidate) != len(raw_records) or len(audit_by_candidate) != len(
+        audit_records
+    ):
+        raise CommandError("structural review contains duplicate candidate records")
+    attempt_rows = _provider_stage_attempt_rows(
+        lineage.provider_journal_path, stage="llm-review-stage-a"
+    )
+    settled_by_candidate: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for row in attempt_rows:
+        if row.get("status") == "settled":
+            settled_by_candidate[_required_str(row, "candidate_id")].append(row)
+    reconstructed_flags: list[JsonRecord] = []
+    prompt_by_candidate = {
+        _required_str(record, "candidate_id"): record for record in prompt_records
+    }
+    if set(raw_by_candidate) != set(prompt_by_candidate) or set(
+        audit_by_candidate
+    ) != set(prompt_by_candidate):
+        raise CommandError("structural review candidate coverage differs")
+    for candidate_id, prompt_record in prompt_by_candidate.items():
+        rows = settled_by_candidate.get(candidate_id, [])
+        if len(rows) != 1:
+            raise CommandError(
+                f"structural review requires one settled reconstruction: {candidate_id}"
+            )
+        row = rows[0]
+        try:
+            normalized_value: object = json.loads(
+                _required_str(row, "normalized_response_json")
+            )
+            reconstructed_value: object = json.loads(
+                _required_str(row, "reconstructed_result_json")
+            )
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise CommandError(
+                f"structural review journal reconstruction is invalid: {candidate_id}"
+            ) from exc
+        if not isinstance(normalized_value, Mapping) or not isinstance(
+            reconstructed_value, Mapping
+        ):
+            raise CommandError(
+                f"structural review journal reconstruction is invalid: {candidate_id}"
+            )
+        normalized = cast(Mapping[str, object], normalized_value)
+        reconstructed = cast(Mapping[str, object], reconstructed_value)
+        flags: object = reconstructed.get("structural_flags")
+        if (
+            not isinstance(flags, Sequence)
+            or isinstance(flags, (str, bytes))
+            or not all(
+                isinstance(flag, Mapping) for flag in cast(Sequence[object], flags)
+            )
+        ):
+            raise CommandError(
+                f"structural review journal flags are invalid: {candidate_id}"
+            )
+        raw_record = raw_by_candidate[candidate_id]
+        raw_sha = canonical_sha256(raw_record)
+        candidate_flags = list(
+            stage_a_structural_flag_records(
+                candidate_id=candidate_id,
+                case_id=_required_str(prompt_record, "case_id"),
+                reviewer_model_key=entry.registry_key,
+                model_registry_sha256=registry_sha,
+                raw_prediction_units_sha256=raw_sha,
+                structural_flags=cast(Sequence[Mapping[str, Any]], flags),
+            )
+        )
+        audit = audit_by_candidate[candidate_id]
+        raw_output: object = normalized.get("raw_output")
+        if not isinstance(raw_output, str) or any(
+            (
+                audit.get("status")
+                != ("flags_pending" if candidate_flags else "passed"),
+                audit.get("case_id") != prompt_record.get("case_id"),
+                audit.get("model_key") != entry.registry_key,
+                audit.get("model_registry_sha256") != registry_sha,
+                audit.get("raw_prediction_units_sha256") != raw_sha,
+                audit.get("prompt_sha256") != prompt_record.get("prompt_sha256"),
+                audit.get("structural_flags_sha256")
+                != canonical_records_sha256(candidate_flags),
+                audit.get("flag_count") != len(candidate_flags),
+                audit.get("input_tokens") != normalized.get("input_tokens"),
+                audit.get("output_tokens") != normalized.get("output_tokens"),
+                audit.get("estimated_cost") != normalized.get("actual_cost_usd"),
+                audit.get("raw_output_sha256")
+                != _bytes_sha256(raw_output.encode("utf-8")),
+            )
+        ):
+            raise CommandError(
+                f"structural review audit does not reproduce from journal: "
+                f"{candidate_id}"
+            )
+        reconstructed_flags.extend(candidate_flags)
+    if _read_records(flags_path) != reconstructed_flags:
+        raise CommandError("structural review flags do not reproduce from journal")
+    expected_queue = list(
+        merge_structural_flags_into_review_queue(
+            _read_records(original_queue_path), reconstructed_flags
+        )
+    )
+    if _read_records(queue_path) != expected_queue:
+        raise CommandError("structural review queue does not reproduce from journal")
     raw_inputs = card.get("input_paths")
     raw_outputs = card.get("output_paths")
     if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
@@ -24148,6 +24508,244 @@ def _verify_stage_a_review_run_card(
         lineage.provider_journal_path.resolve(),
     ):
         raise CommandError("structural review output paths changed")
+
+
+def _verify_llm_label_run_card(
+    run_card_path: Path,
+    *,
+    lineage: _StageAUnitizationLineage,
+    selection_path: Path,
+    parser_manifest_path: Path,
+    decision_texts_path: Path,
+    decision_texts_manifest_path: Path,
+    decision_texts_run_card_path: Path,
+    finalized_prediction_units_path: Path,
+    llm_unitization_run_card_path: Path,
+    llm_review_stage_a_run_card_path: Path,
+    unitization_review_run_card_path: Path,
+    model_registry_path: Path,
+    evaluated_model_registry_path: Path,
+    provider_cycle_caps_path: Path,
+    labels_path: Path,
+    audit_path: Path,
+) -> None:
+    """Replay the exact Stage B provider/output chain before corpus readiness."""
+
+    if run_card_path.is_symlink() or not run_card_path.is_file():
+        raise CommandError("llm-label run card is not a regular file")
+    card = _read_json_object(run_card_path)
+    if (
+        card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or card.get("stage") != "llm-label"
+        or card.get("status") != "completed"
+        or card.get("dry_run") is not False
+        or card.get("execute") is not True
+        or card.get("paid_activity_requested") is not True
+        or card.get("paid_activity_executed") is not True
+    ):
+        raise CommandError("invalid authenticated llm-label run card")
+    sources = card.get("source_commitments")
+    outputs = card.get("output_commitments")
+    execution = card.get("model_execution")
+    chain = card.get("provider_chain")
+    stage_a = card.get("stage_a_lineage")
+    if not all(
+        isinstance(value, Mapping)
+        for value in (sources, outputs, execution, chain, stage_a)
+    ):
+        raise CommandError("llm-label run card lacks exact commitments")
+    source_records = cast(Mapping[str, object], sources)
+    output_records = cast(Mapping[str, object], outputs)
+    execution_record = cast(Mapping[str, object], execution)
+    chain_record = cast(Mapping[str, object], chain)
+    expected_sources = {
+        "selection": _stage_a_file_commitment(selection_path),
+        "parser_manifest": _stage_a_file_commitment(parser_manifest_path),
+        "decision_texts": _stage_a_file_commitment(decision_texts_path),
+        "decision_texts_manifest": _stage_a_file_commitment(
+            decision_texts_manifest_path
+        ),
+        "decision_texts_run_card": _stage_a_file_commitment(
+            decision_texts_run_card_path
+        ),
+        "finalized_prediction_units": _stage_a_file_commitment(
+            finalized_prediction_units_path
+        ),
+        "llm_unitization_run_card": _stage_a_file_commitment(
+            llm_unitization_run_card_path
+        ),
+        "llm_review_stage_a_run_card": _stage_a_file_commitment(
+            llm_review_stage_a_run_card_path
+        ),
+        "unitization_review_run_card": _stage_a_file_commitment(
+            unitization_review_run_card_path
+        ),
+        "model_registry": _stage_a_file_commitment(model_registry_path),
+        "evaluated_model_registry": _stage_a_file_commitment(
+            evaluated_model_registry_path
+        ),
+        "provider_cycle_caps": _stage_a_file_commitment(provider_cycle_caps_path),
+    }
+    if dict(source_records) != expected_sources:
+        raise CommandError("llm-label source commitment changed")
+    expected_decision_commitments = {
+        "decision_texts_sha256": _path_sha256(decision_texts_path),
+        "decision_texts_manifest_sha256": _path_sha256(decision_texts_manifest_path),
+        "decision_texts_run_card_sha256": _path_sha256(decision_texts_run_card_path),
+        "finalized_prediction_units_sha256": _path_sha256(
+            finalized_prediction_units_path
+        ),
+    }
+    if card.get("decision_text_commitments") != expected_decision_commitments:
+        raise CommandError("llm-label decision-text commitment changed")
+    expected_stage_a = {
+        "llm_unitization_run_card": expected_sources["llm_unitization_run_card"],
+        "llm_review_stage_a_run_card": expected_sources["llm_review_stage_a_run_card"],
+        "unitization_review_run_card": expected_sources["unitization_review_run_card"],
+    }
+    if dict(cast(Mapping[str, object], stage_a)) != expected_stage_a:
+        raise CommandError("llm-label Stage A lineage changed")
+    lawyer_review_queue_path = _stage_a_committed_path(
+        output_records, "lawyer_review_queue"
+    )
+    expected_outputs = {
+        "labels": _stage_a_file_commitment(labels_path),
+        "audit": _stage_a_file_commitment(audit_path),
+        "lawyer_review_queue": _stage_a_file_commitment(lawyer_review_queue_path),
+    }
+    if dict(output_records) != expected_outputs:
+        raise CommandError("llm-label output commitment changed")
+    if card.get("record_count") != len(_read_records(selection_path)):
+        raise CommandError("llm-label record count changed")
+    raw_model_keys = execution_record.get("model_keys")
+    if not isinstance(raw_model_keys, Sequence) or isinstance(
+        raw_model_keys, (str, bytes)
+    ):
+        raise CommandError("llm-label model keys are invalid")
+    model_keys = tuple(str(value) for value in cast(Sequence[object], raw_model_keys))
+    entries, registry_sha = _registry_entries_for_keys(model_registry_path, model_keys)
+    providers = {entry.registry_key: entry.provider for entry in entries}
+    expected_execution = {
+        "model_keys": [entry.registry_key for entry in entries],
+        "model_entry_sha256": {
+            entry.registry_key: "sha256:" + model_registry_entry_sha256(entry)
+            for entry in entries
+        },
+        "model_registry_sha256": registry_sha,
+        "providers": providers,
+    }
+    if dict(execution_record) != expected_execution:
+        raise CommandError("llm-label model execution commitment changed")
+    audit_records = _read_records(audit_path)
+    expected_prompts, validation_failures = _label_stage_attempts_from_audit(
+        audit_records
+    )
+    stage_attempts = _verified_provider_stage_attempts(
+        stage="llm-label",
+        journal_path=lineage.provider_journal_path,
+        expected_prompts=expected_prompts,
+        providers_by_model=providers,
+        model_registry_sha256=registry_sha,
+        expected_validation_failures=validation_failures,
+    )
+    if dict(chain_record) != _provider_chain_commitment(
+        lineage=lineage, stage_attempts=stage_attempts
+    ):
+        raise CommandError("llm-label provider chain changed")
+    audit_outputs: dict[tuple[str, str], Mapping[str, Any]] = {}
+    reproduced_labels: list[JsonRecord] = []
+    for audit in audit_records:
+        candidate_id = _required_str(audit, "candidate_id")
+        for label in cast(
+            Sequence[Mapping[str, Any]], audit.get("selected_labels", ())
+        ):
+            reproduced_labels.append(dict(label))
+        for output in cast(Sequence[Mapping[str, Any]], audit.get("model_outputs", ())):
+            audit_outputs[(candidate_id, _required_str(output, "model_key"))] = output
+    for row in _provider_stage_attempt_rows(
+        lineage.provider_journal_path, stage="llm-label"
+    ):
+        key = (_required_str(row, "candidate_id"), _required_str(row, "model_key"))
+        if row.get("status") not in {"settled", "validated_response"}:
+            continue
+        output = audit_outputs[key]
+        try:
+            normalized_value: object = json.loads(
+                _required_str(row, "normalized_response_json")
+            )
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise CommandError(
+                f"llm-label normalized replay is invalid: {key}"
+            ) from exc
+        if not isinstance(normalized_value, Mapping):
+            raise CommandError(f"llm-label normalized replay is invalid: {key}")
+        normalized = cast(Mapping[str, object], normalized_value)
+        raw_output: object = normalized.get("raw_output")
+        if not isinstance(raw_output, str) or any(
+            (
+                output.get("input_tokens") != normalized.get("input_tokens"),
+                output.get("output_tokens") != normalized.get("output_tokens"),
+                output.get("estimated_cost") != normalized.get("actual_cost_usd"),
+                output.get("raw_output_sha256")
+                != _bytes_sha256(raw_output.encode("utf-8")),
+            )
+        ):
+            raise CommandError(
+                f"llm-label audit does not reproduce from journal: {key}"
+            )
+        if row.get("status") == "settled":
+            try:
+                reconstructed_value: object = json.loads(
+                    _required_str(row, "reconstructed_result_json")
+                )
+            except (json.JSONDecodeError, ValueError) as exc:
+                raise CommandError(
+                    f"llm-label reconstruction is invalid: {key}"
+                ) from exc
+            if not isinstance(reconstructed_value, Mapping) or output.get(
+                "labels"
+            ) != cast(Mapping[str, object], reconstructed_value).get("labels"):
+                raise CommandError(
+                    f"llm-label labels do not reproduce from journal: {key}"
+                )
+    if _read_records(labels_path) != reproduced_labels:
+        raise CommandError("llm-label selected labels do not reproduce from audit")
+    if _read_records(lawyer_review_queue_path) != list(
+        lawyer_review_queue_records(audit_records)
+    ):
+        raise CommandError("llm-label lawyer queue does not reproduce from audit")
+    expected_inputs = (
+        selection_path,
+        parser_manifest_path,
+        decision_texts_path,
+        decision_texts_manifest_path,
+        decision_texts_run_card_path,
+        finalized_prediction_units_path,
+        llm_unitization_run_card_path,
+        llm_review_stage_a_run_card_path,
+        unitization_review_run_card_path,
+        model_registry_path,
+        evaluated_model_registry_path,
+        provider_cycle_caps_path,
+        lineage.provider_journal_path,
+    )
+    raw_inputs = card.get("input_paths")
+    raw_outputs = card.get("output_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise CommandError("llm-label run card lacks exact input paths")
+    if not isinstance(raw_outputs, Sequence) or isinstance(raw_outputs, (str, bytes)):
+        raise CommandError("llm-label run card lacks exact output paths")
+    typed_inputs = cast(Sequence[object], raw_inputs)
+    typed_outputs = cast(Sequence[object], raw_outputs)
+    if tuple(Path(str(path)).resolve() for path in typed_inputs) != tuple(
+        path.resolve() for path in expected_inputs
+    ) or tuple(Path(str(path)).resolve() for path in typed_outputs) != (
+        labels_path.resolve(),
+        audit_path.resolve(),
+        lawyer_review_queue_path.resolve(),
+        lineage.provider_journal_path.resolve(),
+    ):
+        raise CommandError("llm-label artifact paths changed")
 
 
 def _cmd_acquisition_llm_unitize(args: argparse.Namespace) -> int:
@@ -24352,6 +24950,9 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             _verify_finalized_stage_a_provider_chain(
                 args,
                 finalized_prediction_units_path=prediction_units_path,
+                expected_selection_path=selection_path,
+                expected_parser_manifest_path=parser_manifest_path,
+                expected_markdown_root=markdown_root,
             )
         )
         authenticated_structural_card = _required_stage_a_lineage_path(
@@ -24402,25 +25003,9 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             lawyer_review_queue_path,
             lawyer_review_queue_records(result.audit_records),
         )
-        expected_prompts: dict[tuple[str, str], str] = {}
-        validation_failure_calls: set[tuple[str, str]] = set()
-        for record in result.audit_records:
-            candidate_id = _required_str(record, "candidate_id")
-            raw_outputs = record.get("model_outputs", ())
-            if not isinstance(raw_outputs, Sequence) or isinstance(
-                raw_outputs, (str, bytes)
-            ):
-                raise CommandError("llm-label audit model_outputs is invalid")
-            for output in cast(Sequence[Mapping[str, Any]], raw_outputs):
-                key = (candidate_id, _required_str(output, "model_key"))
-                if key in expected_prompts:
-                    raise CommandError(f"duplicate llm-label model output: {key}")
-                expected_prompts[key] = _required_str(output, "provider_prompt_sha256")
-                output_status = output.get("status")
-                if output_status == "validation_failed":
-                    validation_failure_calls.add(key)
-                elif output_status is not None:
-                    raise CommandError(f"invalid llm-label model output status: {key}")
+        expected_prompts, validation_failure_calls = _label_stage_attempts_from_audit(
+            result.audit_records
+        )
         providers_by_model = {
             entry.registry_key: entry.provider for entry in registry_entries
         }
@@ -24464,6 +25049,36 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
                     "audit": _stage_a_file_commitment(audit_path),
                     "lawyer_review_queue": _stage_a_file_commitment(
                         lawyer_review_queue_path
+                    ),
+                },
+                "source_commitments": {
+                    "selection": _stage_a_file_commitment(selection_path),
+                    "parser_manifest": _stage_a_file_commitment(parser_manifest_path),
+                    "decision_texts": _stage_a_file_commitment(decision_texts_path),
+                    "decision_texts_manifest": _stage_a_file_commitment(
+                        decision_texts_manifest_path
+                    ),
+                    "decision_texts_run_card": _stage_a_file_commitment(
+                        decision_texts_run_card_path
+                    ),
+                    "finalized_prediction_units": _stage_a_file_commitment(
+                        prediction_units_path
+                    ),
+                    "llm_unitization_run_card": _stage_a_file_commitment(
+                        authenticated_unitization_card
+                    ),
+                    "llm_review_stage_a_run_card": _stage_a_file_commitment(
+                        authenticated_structural_card
+                    ),
+                    "unitization_review_run_card": _stage_a_file_commitment(
+                        cast(Path, review_card_path)
+                    ),
+                    "model_registry": _stage_a_file_commitment(model_registry_path),
+                    "evaluated_model_registry": _stage_a_file_commitment(
+                        evaluated_registry_path
+                    ),
+                    "provider_cycle_caps": _stage_a_file_commitment(
+                        cast(Path, provider_caps_path)
                     ),
                 },
             }
@@ -24594,6 +25209,9 @@ def _cmd_acquisition_llm_review_stage_a(args: argparse.Namespace) -> int:
             args,
             raw_prediction_units_path=units_path,
             expected_review_queue_path=existing_queue_path,
+            expected_selection_path=selection_path,
+            expected_parser_manifest_path=parser_path,
+            expected_markdown_root=markdown_root,
         )
         entry, registry_sha = _registry_entry_for_key(
             registry_path, cast(str, args.model_key)
@@ -24694,6 +25312,9 @@ def _cmd_acquisition_apply_unitization_review(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     prediction_units_path = cast(Path, args.prediction_units)
     unitization_run_card_path = cast(Path | None, args.llm_unitization_run_card)
+    structural_review_card_path = cast(Path | None, args.llm_review_stage_a_run_card)
+    provider_caps_path = cast(Path | None, args.provider_cycle_caps)
+    provider_journal_path = cast(Path | None, args.provider_journal)
     review_queue_path = cast(Path, args.unitization_review_queue)
     adjudications_path = cast(Path, args.adjudications)
     finalized_path = _acquisition_path(
@@ -24712,9 +25333,28 @@ def _cmd_acquisition_apply_unitization_review(args: argparse.Namespace) -> int:
                 "apply-unitization-review requires --llm-unitization-run-card "
                 "with --execute"
             )
-        _verify_stage_a_unitization_run_card(
-            unitization_run_card_path,
-            expected_prediction_units_path=prediction_units_path,
+        if structural_review_card_path is None:
+            raise CommandError(
+                "apply-unitization-review requires --llm-review-stage-a-run-card "
+                "with --execute"
+            )
+        if provider_caps_path is None:
+            raise CommandError(
+                "apply-unitization-review requires --provider-cycle-caps with --execute"
+            )
+        if provider_journal_path is None:
+            raise CommandError(
+                "apply-unitization-review requires --provider-journal with --execute"
+            )
+        lineage, authenticated_unitization_card = _verified_shared_provider_chain(
+            args,
+            raw_prediction_units_path=prediction_units_path,
+        )
+        _verify_stage_a_review_run_card(
+            structural_review_card_path,
+            lineage=lineage,
+            llm_unitization_run_card_path=authenticated_unitization_card,
+            expected_review_queue_path=review_queue_path,
         )
         try:
             finalized = apply_unitization_reviews(
@@ -24733,8 +25373,12 @@ def _cmd_acquisition_apply_unitization_review(args: argparse.Namespace) -> int:
                 "llm_unitization_run_card": _stage_a_file_commitment(
                     unitization_run_card_path
                 ),
+                "llm_review_stage_a_run_card": _stage_a_file_commitment(
+                    structural_review_card_path
+                ),
                 "unitization_review_queue": _stage_a_file_commitment(review_queue_path),
                 "adjudications": _stage_a_file_commitment(adjudications_path),
+                "provider_cycle_caps": _stage_a_file_commitment(provider_caps_path),
             },
             "output_commitments": {
                 "finalized_prediction_units": _stage_a_file_commitment(finalized_path)
@@ -24746,8 +25390,11 @@ def _cmd_acquisition_apply_unitization_review(args: argparse.Namespace) -> int:
         input_paths=(
             prediction_units_path,
             *((unitization_run_card_path,) if unitization_run_card_path else ()),
+            *((structural_review_card_path,) if structural_review_card_path else ()),
             review_queue_path,
             adjudications_path,
+            *((provider_caps_path,) if provider_caps_path else ()),
+            *((provider_journal_path,) if provider_journal_path else ()),
         ),
         output_paths=(finalized_path,),
         record_count=record_count,
@@ -25404,6 +26051,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     )
     labels_path = cast(Path, args.labels)
     label_audit_path = cast(Path, args.llm_label_audit)
+    label_run_card_path = cast(Path | None, args.llm_label_run_card)
     stage_b_judge_registry_path = cast(Path, args.stage_b_judge_registry)
     labeling_policy_path = cast(Path, args.labeling_policy)
     lawyer_review_path = cast(Path, args.lawyer_review_queue)
@@ -25482,6 +26130,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         ),
         labels_path,
         label_audit_path,
+        *((label_run_card_path,) if label_run_card_path else ()),
         stage_b_judge_registry_path,
         labeling_policy_path,
         lawyer_review_path,
@@ -25545,11 +26194,18 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             raise CommandError(
                 "finalize-corpus requires --provider-journal with --execute"
             )
+        if label_run_card_path is None:
+            raise CommandError(
+                "finalize-corpus requires --llm-label-run-card with --execute"
+            )
         lineage, authenticated_unitization_card = _verified_shared_provider_chain(
             args,
             raw_prediction_units_path=raw_prediction_units_path,
             expected_review_queue_path=original_unitization_review_path,
             expected_audit_path=unitization_audit_path,
+            expected_selection_path=selection_path,
+            expected_parser_manifest_path=parser_manifest_path,
+            expected_markdown_root=markdown_root,
         )
         if (
             authenticated_unitization_card.resolve()
@@ -25569,11 +26225,32 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         _verify_unitization_review_run_card(
             unitization_review_run_card_path,
             llm_unitization_run_card_path=llm_unitization_run_card_path,
+            llm_review_stage_a_run_card_path=structural_review_run_card_path,
             raw_prediction_units_path=raw_prediction_units_path,
             original_review_queue_path=original_unitization_review_path,
             review_queue_path=unitization_review_path,
             adjudications_path=unitization_adjudications_path,
+            provider_cycle_caps_path=provider_caps_path,
+            provider_journal_path=provider_journal_path,
             finalized_path=prediction_units_path,
+        )
+        _verify_llm_label_run_card(
+            label_run_card_path,
+            lineage=lineage,
+            selection_path=selection_path,
+            parser_manifest_path=parser_manifest_path,
+            decision_texts_path=decision_texts_path,
+            decision_texts_manifest_path=decision_texts_manifest_path,
+            decision_texts_run_card_path=decision_texts_run_card_path,
+            finalized_prediction_units_path=prediction_units_path,
+            llm_unitization_run_card_path=llm_unitization_run_card_path,
+            llm_review_stage_a_run_card_path=structural_review_run_card_path,
+            unitization_review_run_card_path=unitization_review_run_card_path,
+            model_registry_path=stage_b_judge_registry_path,
+            evaluated_model_registry_path=model_registry_path,
+            provider_cycle_caps_path=provider_caps_path,
+            labels_path=labels_path,
+            audit_path=label_audit_path,
         )
         try:
             verified_preparation = _verify_completed_preparation_for_frontier(

@@ -7,7 +7,8 @@ from argparse import Namespace
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 from legalforecast import cli
@@ -18,6 +19,43 @@ from legalforecast.labeling.provider_journal import (
     ProviderCallIdentity,
 )
 from legalforecast.selection import TrainingCutoffStatus
+
+
+def test_downstream_stage_a_sources_require_exact_authenticated_paths(
+    tmp_path: Path,
+) -> None:
+    selection = tmp_path / "selection.jsonl"
+    parser = tmp_path / "parser.jsonl"
+    markdown_root = tmp_path / "markdown"
+    selection.write_text("{}\n", encoding="utf-8")
+    parser.write_text("{}\n", encoding="utf-8")
+    markdown_root.mkdir()
+    lineage = cast(
+        cli._StageAUnitizationLineage,
+        SimpleNamespace(
+            input_commitments={
+                "selection": cli._stage_a_file_commitment(selection),
+                "parser_manifest": cli._stage_a_file_commitment(parser),
+            },
+            markdown_root=markdown_root,
+        ),
+    )
+    cli._verify_stage_a_source_authority(
+        lineage,
+        expected_selection_path=selection,
+        expected_parser_manifest_path=parser,
+        expected_markdown_root=markdown_root,
+    )
+
+    substituted_selection = tmp_path / "same-bytes-selection.jsonl"
+    substituted_selection.write_bytes(selection.read_bytes())
+    with pytest.raises(cli.CommandError, match="selection differs"):
+        cli._verify_stage_a_source_authority(
+            lineage,
+            expected_selection_path=substituted_selection,
+            expected_parser_manifest_path=parser,
+            expected_markdown_root=markdown_root,
+        )
 
 
 def test_stage_a_parse_lineage_rejects_markdown_drift_and_extra_files(
@@ -320,6 +358,37 @@ def test_stage_a_provider_replay_rejects_rehashed_or_cross_cohort_units(
     assert commitments["cand-1"]["prediction_units_sha256"].startswith("sha256:")
     assert digest.startswith("sha256:")
 
+    coordinated_audit = json.loads(audit_path.read_text().strip())
+    coordinated_audit["review_items"] = [
+        {"unit_id": "unit-1", "reason": "low_confidence"}
+    ]
+    coordinated_audit["unitization_review_queue"] = [
+        {
+            "schema_version": "legalforecast.unitization_review_queue.v1",
+            "status": "pending_adjudication",
+            "candidate_id": "cand-1",
+            "case_id": "case-1",
+            "unit_id": "unit-1",
+            "review_id": "cand-1:unit-1:stage-a-review",
+            "route_reason": "low_confidence",
+            "review_item": coordinated_audit["review_items"][0],
+        }
+    ]
+    _write_jsonl(audit_path, [coordinated_audit])
+    _write_jsonl(queue_path, coordinated_audit["unitization_review_queue"])
+    with pytest.raises(cli.CommandError, match="review items do not reproduce"):
+        cli._verify_stage_a_provider_replay(
+            lineage=lineage,
+            prediction_units_path=raw_path,
+            audit_path=audit_path,
+            review_queue_path=queue_path,
+        )
+    authentic_audit = dict(coordinated_audit)
+    authentic_audit["review_items"] = []
+    authentic_audit["unitization_review_queue"] = []
+    _write_jsonl(audit_path, [authentic_audit])
+    _write_jsonl(queue_path, [])
+
     authentic_raw = json.loads(raw_path.read_text().strip())
     _write_jsonl(raw_path, [authentic_raw, authentic_raw])
     with pytest.raises(cli.CommandError, match="duplicate llm-unitize output"):
@@ -498,7 +567,6 @@ def test_structural_review_run_card_rejects_finalize_path_and_journal_substituti
     for path in paths.values():
         _write_jsonl(path, [])
     unit_card = tmp_path / "llm-unitize.json"
-    _write_json(unit_card, {})
     registry_path = tmp_path / "registry.json"
     entry = _registry_entry()
     _write_json(registry_path, [entry.to_record()])
@@ -524,6 +592,17 @@ def test_structural_review_run_card_rejects_finalize_path_and_journal_substituti
         },
     )
     caps = cli.load_provider_cycle_caps(caps_path)
+    _write_json(
+        unit_card,
+        {
+            "output_commitments": {
+                "prediction_units": cli._stage_a_file_commitment(paths["raw-units"]),
+                "unitization_review_queue": cli._stage_a_file_commitment(
+                    paths["original-queue"]
+                ),
+            }
+        },
+    )
     journal_path = tmp_path / "provider-attempts.sqlite3"
     ProviderAttemptJournal(
         journal_path,
@@ -552,7 +631,11 @@ def test_structural_review_run_card_rejects_finalize_path_and_journal_substituti
         markdown_root=tmp_path,
         cohort_cycle_id="cycle-1",
         input_paths=(),
-        input_commitments={},
+        input_commitments={
+            "selection": cli._stage_a_file_commitment(paths["selection"]),
+            "parser_manifest": cli._stage_a_file_commitment(paths["parser"]),
+            "provider_cycle_caps": cli._stage_a_file_commitment(caps_path),
+        },
         markdown_tree={},
     )
     source_paths = {

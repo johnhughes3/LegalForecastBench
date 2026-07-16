@@ -390,12 +390,23 @@ def llm_review_stage_a_units(
 ) -> LlmBatchResult:
     """Flag structural defects without permitting the reviewer to rewrite Stage A."""
 
-    parser_by_key = _parser_records_by_candidate_and_document(parser_records)
+    selections = tuple(selection_records)
+    parser_rows = tuple(parser_records)
+    parser_by_key = _parser_records_by_candidate_and_document(parser_rows)
     raw_unit_records = tuple(prediction_unit_records)
     units_by_candidate = _prediction_units_by_candidate(raw_unit_records)
+    prompt_by_candidate = {
+        _required_str(record, "candidate_id"): _required_str(record, "prompt")
+        for record in stage_a_structural_review_prompt_records(
+            selection_records=selections,
+            parser_records=parser_rows,
+            prediction_unit_records=raw_unit_records,
+            markdown_root=markdown_root,
+        )
+    }
     records: list[JsonRecord] = []
     audits: list[JsonRecord] = []
-    for selection in selection_records:
+    for selection in selections:
         candidate_id = _required_str(selection, "candidate_id")
         documents = _predecision_documents(
             selection,
@@ -405,7 +416,7 @@ def llm_review_stage_a_units(
         units = units_by_candidate.get(candidate_id, ())
         if not units:
             raise LlmPipelineError(f"no Stage A units for candidate {candidate_id}")
-        prompt = _stage_a_structural_review_prompt(selection, documents, units)
+        prompt = prompt_by_candidate[candidate_id]
         journal = _provider_attempt_journal(
             path=provider_journal_path,
             stage="llm-review-stage-a",
@@ -446,21 +457,16 @@ def llm_review_stage_a_units(
             if _required_str(record, "candidate_id") == candidate_id
         )
         raw_sha = canonical_sha256(raw_record)
-        candidate_flag_records: list[JsonRecord] = []
-        for flag in flags:
-            flag_hash = canonical_sha256(flag)
-            candidate_flag_records.append(
-                {
-                    "schema_version": "legalforecast.stage_a_structural_flag.v1",
-                    "candidate_id": candidate_id,
-                    "case_id": _required_str(selection, "case_id"),
-                    "reviewer_model_key": registry_entry.registry_key,
-                    "model_registry_sha256": model_registry_sha256 or "unrecorded",
-                    "raw_prediction_units_sha256": raw_sha,
-                    "flag_sha256": flag_hash,
-                    **flag,
-                }
+        candidate_flag_records = list(
+            stage_a_structural_flag_records(
+                candidate_id=candidate_id,
+                case_id=_required_str(selection, "case_id"),
+                reviewer_model_key=registry_entry.registry_key,
+                model_registry_sha256=model_registry_sha256 or "unrecorded",
+                raw_prediction_units_sha256=raw_sha,
+                structural_flags=flags,
             )
+        )
         records.extend(candidate_flag_records)
         response_metadata = dict(response.metadata or {})
         audits.append(
@@ -482,6 +488,69 @@ def llm_review_stage_a_units(
             }
         )
     return LlmBatchResult(records=tuple(records), audit_records=tuple(audits))
+
+
+def stage_a_structural_review_prompt_records(
+    *,
+    selection_records: Iterable[Mapping[str, Any]],
+    parser_records: Iterable[Mapping[str, Any]],
+    prediction_unit_records: Iterable[Mapping[str, Any]],
+    markdown_root: str | Path,
+) -> tuple[JsonRecord, ...]:
+    """Reconstruct exact structural-review prompts from authenticated Stage A."""
+
+    parser_by_key = _parser_records_by_candidate_and_document(parser_records)
+    units_by_candidate = _prediction_units_by_candidate(prediction_unit_records)
+    output: list[JsonRecord] = []
+    for selection in selection_records:
+        candidate_id = _required_str(selection, "candidate_id")
+        units = units_by_candidate.get(candidate_id, ())
+        if not units:
+            raise LlmPipelineError(f"no Stage A units for candidate {candidate_id}")
+        documents = _predecision_documents(
+            selection,
+            parser_by_key=parser_by_key,
+            markdown_root=Path(markdown_root),
+        )
+        prompt = _stage_a_structural_review_prompt(selection, documents, units)
+        output.append(
+            {
+                "candidate_id": candidate_id,
+                "case_id": _required_str(selection, "case_id"),
+                "prompt": prompt,
+                "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+            }
+        )
+    return tuple(output)
+
+
+def stage_a_structural_flag_records(
+    *,
+    candidate_id: str,
+    case_id: str,
+    reviewer_model_key: str,
+    model_registry_sha256: str,
+    raw_prediction_units_sha256: str,
+    structural_flags: Iterable[Mapping[str, Any]],
+) -> tuple[JsonRecord, ...]:
+    """Envelope reconstructed flags exactly as the live producer does."""
+
+    output: list[JsonRecord] = []
+    for flag in structural_flags:
+        flag_record = dict(flag)
+        output.append(
+            {
+                "schema_version": "legalforecast.stage_a_structural_flag.v1",
+                "candidate_id": candidate_id,
+                "case_id": case_id,
+                "reviewer_model_key": reviewer_model_key,
+                "model_registry_sha256": model_registry_sha256,
+                "raw_prediction_units_sha256": raw_prediction_units_sha256,
+                "flag_sha256": canonical_sha256(flag_record),
+                **flag_record,
+            }
+        )
+    return tuple(output)
 
 
 def merge_structural_flags_into_review_queue(
@@ -1624,19 +1693,38 @@ def _unitization_review_queue_records(
     case_id: str,
     result: StageAConstructionResult,
 ) -> list[JsonRecord]:
-    return [
+    return list(
+        unitization_review_queue_records_from_items(
+            candidate_id=candidate_id,
+            case_id=case_id,
+            review_items=(item.to_record() for item in result.review_items),
+        )
+    )
+
+
+def unitization_review_queue_records_from_items(
+    *,
+    candidate_id: str,
+    case_id: str,
+    review_items: Iterable[Mapping[str, Any]],
+) -> tuple[JsonRecord, ...]:
+    """Build the canonical blinded queue from journaled Stage A review items."""
+
+    return tuple(
         {
             "schema_version": "legalforecast.unitization_review_queue.v1",
             "status": "pending_adjudication",
             "candidate_id": candidate_id,
             "case_id": case_id,
-            "unit_id": item.unit_id,
-            "review_id": f"{candidate_id}:{item.unit_id}:stage-a-review",
-            "route_reason": item.reason.value,
-            "review_item": item.to_record(),
+            "unit_id": _required_str(item, "unit_id"),
+            "review_id": (
+                f"{candidate_id}:{_required_str(item, 'unit_id')}:stage-a-review"
+            ),
+            "route_reason": _required_str(item, "reason"),
+            "review_item": dict(item),
         }
-        for item in result.review_items
-    ]
+        for item in review_items
+    )
 
 
 def unitization_review_queue_records(

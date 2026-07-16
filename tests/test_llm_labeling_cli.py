@@ -530,6 +530,12 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
                 str(output_root / "prediction-units.jsonl"),
                 "--llm-unitization-run-card",
                 str(unitization_card),
+                "--llm-review-stage-a-run-card",
+                str(review_root / "run-cards" / "llm-review-stage-a.json"),
+                "--provider-cycle-caps",
+                str(caps_path),
+                "--provider-journal",
+                str(provider_journal),
                 "--unitization-review-queue",
                 str(review_root / "unitization-review-queue-reviewed.jsonl"),
                 "--adjudications",
@@ -690,6 +696,101 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
     }
     assert label_audit["label_audit_gate"]["status"] == "awaiting_cycle_level_plan"
     assert _read_jsonl(output_root / "lawyer-review-queue.jsonl") == []
+
+    lineage = cli._verify_stage_a_unitization_run_card(
+        unitization_card,
+        expected_prediction_units_path=output_root / "prediction-units.jsonl",
+        expected_review_queue_path=output_root / "unitization-review-queue.jsonl",
+        expected_audit_path=output_root / "llm-unitization-audit.jsonl",
+    )
+    label_run_card_path = output_root / "run-cards" / "llm-label.json"
+    cli._verify_llm_label_run_card(
+        label_run_card_path,
+        lineage=lineage,
+        selection_path=selection_path,
+        parser_manifest_path=parser_path,
+        decision_texts_path=tmp_path / "stage-b" / "decision-texts.jsonl",
+        decision_texts_manifest_path=(
+            tmp_path / "stage-b" / "decision-texts-manifest.json"
+        ),
+        decision_texts_run_card_path=(
+            tmp_path / "stage-b" / "build-decision-texts.json"
+        ),
+        finalized_prediction_units_path=finalized_units_path,
+        llm_unitization_run_card_path=unitization_card,
+        llm_review_stage_a_run_card_path=(
+            review_root / "run-cards" / "llm-review-stage-a.json"
+        ),
+        unitization_review_run_card_path=(
+            apply_root / "run-cards" / "apply-unitization-review.json"
+        ),
+        model_registry_path=registry_path,
+        evaluated_model_registry_path=_evaluated_registry_path(tmp_path),
+        provider_cycle_caps_path=caps_path,
+        labels_path=output_root / "labels.jsonl",
+        audit_path=output_root / "llm-label-audit.jsonl",
+    )
+    substituted_labels = _read_jsonl(output_root / "labels.jsonl")
+    substituted_labels[0]["fully_dismissed"] = False
+    _write_jsonl(output_root / "labels.jsonl", substituted_labels)
+    label_run_card["output_commitments"]["labels"] = cli._stage_a_file_commitment(
+        output_root / "labels.jsonl"
+    )
+    _write_json(label_run_card_path, label_run_card)
+    with pytest.raises(cli.CommandError, match="selected labels do not reproduce"):
+        cli._verify_llm_label_run_card(
+            label_run_card_path,
+            lineage=lineage,
+            selection_path=selection_path,
+            parser_manifest_path=parser_path,
+            decision_texts_path=tmp_path / "stage-b" / "decision-texts.jsonl",
+            decision_texts_manifest_path=(
+                tmp_path / "stage-b" / "decision-texts-manifest.json"
+            ),
+            decision_texts_run_card_path=(
+                tmp_path / "stage-b" / "build-decision-texts.json"
+            ),
+            finalized_prediction_units_path=finalized_units_path,
+            llm_unitization_run_card_path=unitization_card,
+            llm_review_stage_a_run_card_path=(
+                review_root / "run-cards" / "llm-review-stage-a.json"
+            ),
+            unitization_review_run_card_path=(
+                apply_root / "run-cards" / "apply-unitization-review.json"
+            ),
+            model_registry_path=registry_path,
+            evaluated_model_registry_path=_evaluated_registry_path(tmp_path),
+            provider_cycle_caps_path=caps_path,
+            labels_path=output_root / "labels.jsonl",
+            audit_path=output_root / "llm-label-audit.jsonl",
+        )
+
+    flags_path = review_root / "stage-a-structural-flags.jsonl"
+    fabricated_flag = {
+        "schema_version": "legalforecast.stage_a_structural_flag.v1",
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "flag_sha256": "sha256:fabricated",
+    }
+    _write_jsonl(flags_path, [fabricated_flag])
+    structural_card_path = review_root / "run-cards" / "llm-review-stage-a.json"
+    structural_run_card["output_commitments"]["structural_flags"] = (
+        cli._stage_a_file_commitment(flags_path)
+    )
+    _write_json(structural_card_path, structural_run_card)
+    with pytest.raises(cli.CommandError, match="flags do not reproduce"):
+        cli._verify_stage_a_review_run_card(
+            structural_card_path,
+            lineage=lineage,
+            llm_unitization_run_card_path=unitization_card,
+            expected_review_queue_path=(
+                review_root / "unitization-review-queue-reviewed.jsonl"
+            ),
+            expected_structural_flags_path=flags_path,
+            expected_audit_path=review_root / "stage-a-structural-review-audit.jsonl",
+            expected_registry_path=registry_path,
+            expected_model_key="openai:gpt-test",
+        )
 
 
 def test_executed_llm_unitize_requires_authenticated_lineage_before_provider(
