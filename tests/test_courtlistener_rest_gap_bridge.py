@@ -877,7 +877,7 @@ def test_bridge_pacer_gaps_cli_runs_noncharging_courtlistener_rest_mode(
     assert summary["paid_activity_executed"] is False
 
 
-def test_bridge_resumes_known_prior_revision_without_refetch_and_rejects_tamper(
+def test_bridge_replays_pre_storage_host_success_and_rejects_tamper(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -929,7 +929,7 @@ def test_bridge_resumes_known_prior_revision_without_refetch_and_rejects_tamper(
     [request] = _read_jsonl(requests_path)
     assert request["source_document_id"] == "9005"
     assert request["source_url"] == (
-        "https://www.courtlistener.com/recap/newly-free-motion.pdf"
+        "https://storage.courtlistener.com/recap/newly-free-motion.pdf"
     )
     [selection] = _read_jsonl(output_root / "public-packet-selection-reconciled.jsonl")
     assert selection["planning_status"] == "free_recovery_required"
@@ -943,19 +943,62 @@ def test_bridge_resumes_known_prior_revision_without_refetch_and_rejects_tamper(
         (output_root / "checkpoints" / "pacer-gap-bridge").glob("*.json")
     )
     checkpoint = _read_json(checkpoint_path)
+    assert checkpoint["bridge_semantic_revision"] == (
+        _PACER_GAP_BRIDGE_SEMANTIC_REVISION
+    )
+    current_checkpoint_bytes = checkpoint_path.read_bytes()
+    _write_jsonl(fixture_path, [])
+    assert main(command) == 0
+    current_resumed = _read_json(output_root / "pacer-gap-bridge-summary.json")
+    assert current_resumed["semantic_replay_candidate_count"] == 0
+    assert current_resumed["resumed_terminal_candidate_count"] == 1
+    assert current_resumed["courtlistener_request_count"] == 0
+    assert checkpoint_path.read_bytes() == current_checkpoint_bytes
+
     checkpoint["bridge_semantic_revision"] = (
-        "courtlistener-complaint-and-main-description-2026-07-15-v1"
+        "courtlistener-rest-recap-sequence-semantics-2026-07-16-v3"
     )
     checkpoint_path.write_text(
         json.dumps(checkpoint, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
+    safe_prior_checkpoint_bytes = checkpoint_path.read_bytes()
+    assert main(command) == 0
+    safe_prior_resumed = _read_json(output_root / "pacer-gap-bridge-summary.json")
+    assert safe_prior_resumed["semantic_replay_candidate_count"] == 0
+    assert safe_prior_resumed["resumed_terminal_candidate_count"] == 1
+    assert safe_prior_resumed["courtlistener_request_count"] == 0
+    assert checkpoint_path.read_bytes() == safe_prior_checkpoint_bytes
 
-    _write_jsonl(fixture_path, [])
+    old_url = "https://www.courtlistener.com/recap/newly-free-motion.pdf"
+    payload = checkpoint["payload"]
+    selection_document = next(
+        document
+        for document in payload["selection_record"]["documents"]
+        if document["source_document_id"] == "9005"
+    )
+    selection_document["source_url"] = old_url
+    selection_document["source_url_or_reference"] = old_url
+    relevance_document = next(
+        document
+        for document in payload["case_relevance_record"]["documents"]
+        if document["source_document_id"] == "9005"
+    )
+    relevance_document["source_url_or_reference"] = old_url
+    payload["free_download_requests"][0]["source_url"] = old_url
+    checkpoint_path.write_text(
+        json.dumps(checkpoint, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    _write_jsonl(
+        fixture_path,
+        [_recorded_response_record(response) for response in responses],
+    )
     assert main(command) == 0
     assert _read_jsonl(requests_path) == [request]
-    resumed = _read_json(output_root / "pacer-gap-bridge-summary.json")
-    assert resumed["resumed_terminal_candidate_count"] == 1
-    assert resumed["courtlistener_request_count"] == 0
+    replayed = _read_json(output_root / "pacer-gap-bridge-summary.json")
+    assert replayed["semantic_replay_candidate_count"] == 1
+    assert replayed["resumed_terminal_candidate_count"] == 0
+    assert replayed["courtlistener_request_count"] == 3
 
     checkpoint = _read_json(checkpoint_path)
     checkpoint["payload"]["free_download_requests"][0]["source_url"] = (
@@ -1103,7 +1146,49 @@ def test_semantic_replay_requires_exact_consistent_legacy_exclusion() -> None:
     assert not _bridge_checkpoint_requires_semantic_replay(
         checkpoint, bridge_provider="courtlistener_rest"
     )
-    checkpoint["outcome"] = "exclusion"
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="case.dev"
+    )
+
+
+def test_success_semantic_replay_requires_exact_stale_download_binding() -> None:
+    stale_url = "https://www.courtlistener.com/recap/example.pdf"
+    checkpoint: dict[str, Any] = {
+        "bridge_semantic_revision": (
+            "courtlistener-rest-recap-sequence-semantics-2026-07-16-v3"
+        ),
+        "outcome": "success",
+        "payload": {"free_download_requests": [{"source_url": stale_url}]},
+    }
+
+    assert _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+
+    checkpoint["payload"]["free_download_requests"][0]["source_url"] = (
+        "https://storage.courtlistener.com/recap/example.pdf"
+    )
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+
+    checkpoint["payload"]["free_download_requests"][0]["source_url"] = (
+        stale_url + "?download=1"
+    )
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+
+    checkpoint["payload"]["free_download_requests"][0]["source_url"] = stale_url
+    checkpoint.pop("bridge_semantic_revision")
+    assert _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+
+    checkpoint["bridge_semantic_revision"] = _PACER_GAP_BRIDGE_SEMANTIC_REVISION
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
     assert not _bridge_checkpoint_requires_semantic_replay(
         checkpoint, bridge_provider="case.dev"
     )
@@ -2361,9 +2446,11 @@ def test_courtlistener_rest_bridge_recovers_gap_that_became_public() -> None:
             ],
             "source_document_id": "9005",
             "source_provider": "courtlistener",
-            "source_url": ("https://www.courtlistener.com/recap/newly-free-motion.pdf"),
+            "source_url": (
+                "https://storage.courtlistener.com/recap/newly-free-motion.pdf"
+            ),
             "source_url_or_reference": (
-                "https://www.courtlistener.com/recap/newly-free-motion.pdf"
+                "https://storage.courtlistener.com/recap/newly-free-motion.pdf"
             ),
         }
     ]
@@ -2380,7 +2467,9 @@ def test_courtlistener_rest_bridge_recovers_gap_that_became_public() -> None:
             "file_extension": "pdf",
             "source_document_id": "9005",
             "source_provider": "courtlistener",
-            "source_url": ("https://www.courtlistener.com/recap/newly-free-motion.pdf"),
+            "source_url": (
+                "https://storage.courtlistener.com/recap/newly-free-motion.pdf"
+            ),
         }
     ]
 

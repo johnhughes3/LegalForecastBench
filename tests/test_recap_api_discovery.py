@@ -49,6 +49,7 @@ from legalforecast.ingestion.recap_api_discovery import (
     observe_recap_api_candidate,
     pacer_for_client,
     prescreen_recap_candidate,
+    public_recap_download_url,
     reconstruct_docket_page,
     resolve_auth_mode,
 )
@@ -1971,10 +1972,22 @@ def test_reconstruction_accepts_actual_v4_free_recap_document_shape() -> None:
 
     [document] = reconstructed.page.entries[0].documents
     assert document.href == (
-        "https://www.courtlistener.com/recap/gov.uscourts.nysd.123456.20.0.pdf"
+        "https://storage.courtlistener.com/recap/gov.uscourts.nysd.123456.20.0.pdf"
     )
     assert document.pacer_only is False
     assert document.freely_available is True
+
+
+def test_public_recap_download_url_uses_storage_only_for_relative_recap_keys() -> None:
+    assert public_recap_download_url("recap/example.pdf") == (
+        "https://storage.courtlistener.com/recap/example.pdf"
+    )
+    assert public_recap_download_url("/recap/example.pdf") == (
+        "https://storage.courtlistener.com/recap/example.pdf"
+    )
+    assert public_recap_download_url("other/example.pdf") is None
+    explicit_url = "https://www.courtlistener.com/recap/example.pdf"
+    assert public_recap_download_url(explicit_url) == explicit_url
 
 
 @pytest.mark.parametrize(
