@@ -7,7 +7,6 @@ from typing import Any
 
 import legalforecast.cli as cli
 import pytest
-from legalforecast.cli import main
 from legalforecast.ingestion import cohort_document_materializer as materializer_module
 from legalforecast.ingestion.cohort_document_materializer import (
     CohortDocumentMaterializationError,
@@ -70,7 +69,7 @@ def test_materialize_cohort_documents_help_is_authoritative(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     with pytest.raises(SystemExit) as exc_info:
-        main(["acquisition", "materialize-cohort-documents", "--help"])
+        cli.main(["acquisition", "materialize-cohort-documents", "--help"])
 
     assert exc_info.value.code == 0
     output = capsys.readouterr().out
@@ -515,7 +514,7 @@ def test_materialized_parse_rejects_stripped_unknown_origin_binding(
     )
 
     assert (
-        main(
+        cli.main(
             [
                 "acquisition",
                 "parse-documents",

@@ -2935,7 +2935,13 @@ def read_case_dev_purchase_snapshot(
             "purchase ledger is not a complete authenticated SQLite journal"
         ) from exc
     finally:
-        _release_purchase_ledger_lock(lock_fd)
+        # Keep the descriptor close explicit in this read-only path. Besides
+        # making its lifetime obvious to static analysis, the nested finally
+        # guarantees close even if unlocking itself reports an OS error.
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        finally:
+            os.close(lock_fd)
     after = _purchase_snapshot_filesystem_identity(observed_paths)
     if after != before:
         raise CaseDevPurchaseLedgerError(
