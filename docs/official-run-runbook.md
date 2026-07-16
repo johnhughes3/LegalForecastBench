@@ -442,7 +442,7 @@ A recovery is complete only when every expected matrix cell is present exactly o
 
 ## Cycle 1 Batch-002 CourtListener-First Acquisition
 
-The preferred hierarchy is saturated CourtListener search → `batch-002 seed-direct-search` → authenticated `batch-002 observe` → `batch-002 snapshot` → `acquisition prepare-target-100`. CourtListener remains the source for decision results, docket reconstruction, free RECAP documents, authoritative paid-gap metadata, and every RECAP Fetch purchase. Firecrawl is used only for the demonstrated CourtListener search and docket-HTML surface gap, as a compatibility fallback when authenticated REST cannot supply the required surface; it does not become a legal-data or purchase authority. Case.dev is used only for equivalent free lookup and prioritization; no Case.dev live PACER fetch or purchase is permitted. Run every stage against the official acquisition store, never a batch-001 store, and do not pass mutable checkpoints directly to preparation.
+The preferred hierarchy is saturated CourtListener search → `batch-002 seed-direct-search` → authenticated `batch-002 observe` → `batch-002 snapshot` → `acquisition prepare-target-cohort --target-case-count 150`. CourtListener remains the source for decision results, docket reconstruction, free RECAP documents, authoritative paid-gap metadata, and every RECAP Fetch purchase. Firecrawl is used only for the demonstrated CourtListener search and docket-HTML surface gap, as a compatibility fallback when authenticated REST cannot supply the required surface; it does not become a legal-data or purchase authority. Case.dev is used only for equivalent free lookup and prioritization; no Case.dev live PACER fetch or purchase is permitted. Run every stage against the official acquisition store, never a batch-001 store, and do not pass mutable checkpoints directly to preparation.
 
 ### Credential Prerequisites
 
@@ -601,15 +601,21 @@ uv run legalforecast acquisition screen-firecrawl-dockets \
   --execute --resume
 ```
 
-Do not rank or prepare from partial outputs. Require the screening summary and snapshot manifest to report complete reconciliation, `complete: true`, and `saturated: true`, then record the manifest's exact `cycle_hash`. `prepare-target-100` rejects a partial, changed, or wrong-cycle snapshot and carries every viable row through authoritative CourtListener public-document and paid-gap resolution.
+Do not rank or prepare from partial outputs. Require the screening summary and snapshot manifest to report complete reconciliation, `complete: true`, and `saturated: true`, then record the manifest's exact `cycle_hash`. `prepare-target-cohort` rejects a partial, changed, or wrong-cycle snapshot and carries every viable row through authoritative CourtListener public-document and paid-gap resolution.
+
+If the same cycle gains reviewed candidates after a completed PACER-gap bridge, first publish a complete saturated `union-screening-snapshots` output. Reuse old terminal checkpoints only through `rebase-pacer-gap-checkpoints` with both externally pinned manifest hashes and one `--expected-added-candidate-id` per exact addition. A pure append requires the old snapshot in the union ancestry. If a complete current-policy replay invalidates a prior acceptance, also pass one `--expected-invalidated-candidate-id` per exact invalidation; that explicitly pinned path may replace the ancestry requirement but must prove every other prior terminal evidence record and raw commitment unchanged. Both paths require exact screened projections, unchanged retained route semantics, and a terminal checkpoint for every prior paid gap. The receipt's `replay_required_candidate_ids` must equal the new paid-gap additions plus only invalidated candidates that remain currently routed; invalidated candidates removed from current routes must be recorded separately and not replayed. Otherwise stop. The rebase is provider-free and preserves byte-identical prior checkpoints when their index, input hash, and payload did not change.
+
+The acquisition objective and launch minimum are separate. Plan and preserve the full frontier against **150** clean cases. A supported initial launch may later project the cheapest cleared **100** cases from that same authenticated full pool. Do not rewrite the preparation objective as 100 merely because the supported launch projection is 100, and never raise or relax the frozen budget cap to make either count fit.
+
+`legalforecast acquisition prepare-target-100` remains a compatibility wrapper for previously frozen exact-100 artifacts; do not use it to replace the 150-case preparation objective for this cycle.
 
 ### Step 4: Prepare The Resolved Pool And Provisional Budget
 
-Run the public-first preparation chain from that immutable snapshot. This command plans public downloads, downloads free documents, resolves remaining gap metadata through authenticated noncharging CourtListener REST, applies the core-document filter, and emits disclosure-review requests plus a provisional 100-case budget. It never purchases a document.
+Run the public-first preparation chain from that immutable snapshot. This command plans public downloads against the 150-case objective, downloads free documents, resolves remaining gap metadata through authenticated noncharging CourtListener REST, applies the core-document filter, and emits disclosure-review requests plus the full untruncated frontier. It never purchases a document.
 
 ```bash
-uv run legalforecast acquisition prepare-target-100 \
-  --output-root artifacts/cycle-1/official-acquisition/target-100 \
+uv run legalforecast acquisition prepare-target-cohort \
+  --output-root artifacts/cycle-1/official-acquisition/target-150-frontier \
   --snapshot artifacts/cycle-1/official-acquisition/snapshots/batch-002-ranked-dockets-complete \
   --expected-cycle-hash <snapshot-cycle-hash> \
   --use-embedded-entries \
@@ -619,10 +625,11 @@ uv run legalforecast acquisition prepare-target-100 \
   --cost-per-document-usd 3.05 \
   --max-projected-budget-usd 567.30 \
   --max-missing-core-documents-per-case 24 \
+  --target-case-count 150 \
   --execute --resume
 ```
 
-The successful preparation summary commits the snapshot, immutable semantic configuration, stage inputs and outputs, provisional selected candidate IDs, and cost frontier. Cycle 1 freezes the target-100 provisional cap at `$567.30`; every later projection must repeat that exact value rather than falling back to the CLI default. The `06-clearance-inputs/` directory contains one restriction-evidence row and one disclosure-review request for every downloaded free document. The summary deliberately names `clear-disclosures`, not purchase, as the next stage.
+The successful preparation summary commits the snapshot, immutable semantic configuration, stage inputs and outputs, provisional selected candidate IDs, 150-case objective, and full cost frontier. Cycle 1 freezes the provisional cap at `$567.30`; every later projection must repeat that exact value rather than falling back to the CLI default. The `06-clearance-inputs/` directory contains one restriction-evidence row and one disclosure-review request for every downloaded free document. The summary deliberately names `clear-disclosures`, not purchase, as the next stage.
 
 An `is_sealed: null` provider field is unknown metadata, not affirmative evidence that a filing is sealed. The pipeline may continue trying public routes and later classify the document as a recoverable missing/paid gap. It must not mark the document free unless public availability is affirmatively proven, and packet admission still fails closed until disclosure clearance is complete.
 
@@ -639,12 +646,12 @@ Set paths for the exact completed preparation outputs, a normal acquisition revi
 The frozen cohort policy selects the reviewer authority from the immutable main-pinned registry; callers cannot supply or replace the expected reviewer-policy digest.
 
 ```zsh
-review_requests=artifacts/cycle-1/official-acquisition/target-100/06-clearance-inputs/disclosure-review-requests.jsonl
-download_manifest=artifacts/cycle-1/official-acquisition/target-100/03c-merged-downloads/document-downloads-merged.jsonl
-document_root=artifacts/cycle-1/official-acquisition/target-100/documents/free
-restriction_evidence=artifacts/cycle-1/official-acquisition/target-100/06-clearance-inputs/restriction-evidence.jsonl
-review_root=artifacts/cycle-1/official-acquisition/target-100/disclosure-review
-clearance_root=artifacts/cycle-1/official-acquisition/target-100/free-clearance
+review_requests=artifacts/cycle-1/official-acquisition/target-150-frontier/06-clearance-inputs/disclosure-review-requests.jsonl
+download_manifest=artifacts/cycle-1/official-acquisition/target-150-frontier/03c-merged-downloads/document-downloads-merged.jsonl
+document_root=artifacts/cycle-1/official-acquisition/target-150-frontier/documents/free
+restriction_evidence=artifacts/cycle-1/official-acquisition/target-150-frontier/06-clearance-inputs/restriction-evidence.jsonl
+review_root=artifacts/cycle-1/official-acquisition/target-150-frontier/disclosure-review
+clearance_root=artifacts/cycle-1/official-acquisition/target-150-frontier/free-clearance
 private_review_root=<absolute-controlled-private-review-root>
 reviewer_policy=<externally-reviewed-human-hardware-reviewer-policy.json>
 cohort_policy=<frozen-cohort-policy.json>
@@ -786,19 +793,19 @@ Clearance success is necessary but does not by itself authorize a downstream com
 Before projection, recovery, parse, extension, packet planning, or finalization, require that command's current verifier to consume the completed clearance run card and carry its exact signed-review source commitments and reviewer-policy pin.
 If the live downstream contract omits that lineage, stop here and fix the gate; do not pass loose clearance files as a substitute.
 
-Only after clearance succeeds may the exact downstream cohort be projected. This recomputes the cheapest complete frontier after quarantines and writes selection, relevance, restriction, manifest, clearance, budget, and exclusion artifacts containing exactly the chosen cases.
+Only after clearance succeeds may the supported 100-case launch cohort be projected from the 150-case preparation. This recomputes the cheapest complete frontier after quarantines and writes selection, relevance, restriction, manifest, clearance, budget, and exclusion artifacts containing exactly the chosen cases. It does not replace or lower the 150-case acquisition objective.
 
 ```bash
 uv run legalforecast acquisition project-target-cohort \
-  --output-root artifacts/cycle-1/official-acquisition/target-100/exact-cohort \
-  --selection artifacts/cycle-1/official-acquisition/target-100/03-gap-bridge/public-packet-selection-reconciled.jsonl \
-  --case-relevance artifacts/cycle-1/official-acquisition/target-100/03-gap-bridge/case-relevance.jsonl \
-  --download-manifest artifacts/cycle-1/official-acquisition/target-100/03c-merged-downloads/document-downloads-merged.jsonl \
-  --disclosure-clearance artifacts/cycle-1/official-acquisition/target-100/free-clearance/disclosure-clearance.jsonl \
-  --clearance-run-card artifacts/cycle-1/official-acquisition/target-100/free-clearance/run-cards/clear-disclosures.json \
-  --restriction-evidence artifacts/cycle-1/official-acquisition/target-100/06-clearance-inputs/restriction-evidence.jsonl \
-  --preparation-summary artifacts/cycle-1/official-acquisition/target-100/target-100-preparation-summary.json \
-  --preparation-config artifacts/cycle-1/official-acquisition/target-100/target-100-config.json \
+  --output-root artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100 \
+  --selection artifacts/cycle-1/official-acquisition/target-150-frontier/03-gap-bridge/public-packet-selection-reconciled.jsonl \
+  --case-relevance artifacts/cycle-1/official-acquisition/target-150-frontier/03-gap-bridge/case-relevance.jsonl \
+  --download-manifest artifacts/cycle-1/official-acquisition/target-150-frontier/03c-merged-downloads/document-downloads-merged.jsonl \
+  --disclosure-clearance artifacts/cycle-1/official-acquisition/target-150-frontier/free-clearance/disclosure-clearance.jsonl \
+  --clearance-run-card artifacts/cycle-1/official-acquisition/target-150-frontier/free-clearance/run-cards/clear-disclosures.json \
+  --restriction-evidence artifacts/cycle-1/official-acquisition/target-150-frontier/06-clearance-inputs/restriction-evidence.jsonl \
+  --preparation-summary artifacts/cycle-1/official-acquisition/target-150-frontier/target-cohort-preparation-summary.json \
+  --preparation-config artifacts/cycle-1/official-acquisition/target-150-frontier/target-cohort-config.json \
   --snapshot-manifest artifacts/cycle-1/official-acquisition/snapshots/batch-002-ranked-dockets-complete/manifest.json \
   --target-case-count 100 \
   --cost-per-document-usd 3.05 \
@@ -817,9 +824,9 @@ Paid acquisition remains a separate, operator-visible stage. First freeze the co
 uv run legalforecast acquisition generate-recap-fetch-broker-policy \
   --purchase-policy <verified-purchase-policy.json> \
   --cohort-policy <frozen-cohort-policy.json> \
-  --budget-plan artifacts/cycle-1/official-acquisition/target-100/exact-cohort/missing-core-budget-plan.json \
-  --selection artifacts/cycle-1/official-acquisition/target-100/exact-cohort/target-cohort-selection.jsonl \
-  --output artifacts/cycle-1/official-acquisition/target-100/courtlistener-recap-fetch-policy-v1.json
+  --budget-plan artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/missing-core-budget-plan.json \
+  --selection artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/target-cohort-selection.jsonl \
+  --output artifacts/cycle-1/official-acquisition/target-150-frontier/courtlistener-recap-fetch-policy-v1.json
 ```
 
 Inspect the projected total, allowlisted numeric RECAP document IDs, and remaining budget before invoking the only fee-bearing happy path:
@@ -828,11 +835,11 @@ Ledger initialization is a mandatory, non-provider step. The absolute ledger pat
 
 ```bash
 uv run legalforecast acquisition init-purchase-ledger \
-  --output-root artifacts/cycle-1/official-acquisition/target-100 \
+  --output-root artifacts/cycle-1/official-acquisition/target-150-frontier \
   --purchase-policy <verified-purchase-policy.json> \
   --cohort-policy <frozen-cohort-policy.json> \
   --purchase-ledger <absolute-canonical-purchase-ledger-path> \
-  --initialization-receipt-output artifacts/cycle-1/official-acquisition/target-100/purchase-ledger-initialization.json \
+  --initialization-receipt-output artifacts/cycle-1/official-acquisition/target-150-frontier/purchase-ledger-initialization.json \
   --execute --resume
 ```
 
@@ -841,9 +848,9 @@ Case.dev may support noncharging search and docket enrichment, but its legacy pa
 
 ```bash
 uv run legalforecast acquisition purchase-missing-recap-fetch \
-  --output-root artifacts/cycle-1/official-acquisition/target-100 \
-  --budget-plan artifacts/cycle-1/official-acquisition/target-100/exact-cohort/missing-core-budget-plan.json \
-  --selection artifacts/cycle-1/official-acquisition/target-100/exact-cohort/target-cohort-selection.jsonl \
+  --output-root artifacts/cycle-1/official-acquisition/target-150-frontier \
+  --budget-plan artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/missing-core-budget-plan.json \
+  --selection artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/target-cohort-selection.jsonl \
   --purchase-policy <verified-purchase-policy.json> \
   --cohort-policy <frozen-cohort-policy.json> \
   --purchase-ledger <absolute-canonical-purchase-ledger-path> \

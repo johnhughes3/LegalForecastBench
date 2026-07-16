@@ -407,6 +407,11 @@ from legalforecast.ingestion.opinion_recap_resolver import (
     OpinionRecapResolutionError,
     resolve_opinion_recap_batch,
 )
+from legalforecast.ingestion.pacer_gap_append_rebase import (
+    AppendOnlyPacerGapRebaseError,
+    verify_append_only_snapshot_union,
+    verify_screened_case_projection,
+)
 from legalforecast.ingestion.packet_input_planner import plan_packet_build_inputs
 from legalforecast.ingestion.provenance import (
     AvailabilityStatus,
@@ -1384,12 +1389,14 @@ def build_parser() -> argparse.ArgumentParser:
             "reordering."
         ),
         description=(
-            "Prove that screened cases and public routes are byte-identical, "
-            "paid-gap records changed only by cost rank or manifest-derived new "
-            "free complaints, and prior free bytes are unchanged except for a "
-            "false-to-true reuse marker. Then atomically reindex verified bridge "
-            "checkpoints and emit an audit receipt. This command constructs no "
-            "provider client, acknowledges no fee, and performs no purchase."
+            "By default, prove that screened cases and public routes are "
+            "byte-identical. With all append-only snapshot proof flags, authenticate "
+            "an externally pinned same-cycle union, unchanged prior evidence and "
+            "routes, and the exact disjoint additions. Paid-gap records may otherwise "
+            "change only by cost rank or manifest-derived new free complaints. Then "
+            "atomically reindex verified bridge checkpoints and emit an audit receipt. "
+            "This command constructs no provider client, acknowledges no fee, and "
+            "performs no purchase."
         ),
     )
     _add_acquisition_rebase_pacer_gap_checkpoints_arguments(
@@ -2086,6 +2093,43 @@ def _add_acquisition_rebase_pacer_gap_checkpoints_arguments(
         help=(
             "Deterministic provenance receipt; defaults to OUTPUT_ROOT/run-cards/"
             "rebase-pacer-gap-checkpoints-receipt.json."
+        ),
+    )
+    parser.add_argument(
+        "--previous-snapshot",
+        type=Path,
+        help=(
+            "Complete saturated snapshot authenticating the prior screened set; "
+            "enables append-only rebase mode."
+        ),
+    )
+    parser.add_argument(
+        "--expected-previous-snapshot-manifest-sha256",
+        help="Externally pinned lowercase SHA-256 of the prior snapshot manifest.",
+    )
+    parser.add_argument(
+        "--current-snapshot",
+        type=Path,
+        help="Complete saturated same-cycle union authenticating the grown set.",
+    )
+    parser.add_argument(
+        "--expected-current-snapshot-manifest-sha256",
+        help="Externally pinned lowercase SHA-256 of the current union manifest.",
+    )
+    parser.add_argument(
+        "--expected-added-candidate-id",
+        action="append",
+        help=(
+            "Externally approved disjoint candidate addition; repeat once per exact "
+            "addition. All append-only proof flags must be supplied together."
+        ),
+    )
+    parser.add_argument(
+        "--expected-invalidated-candidate-id",
+        action="append",
+        help=(
+            "Externally approved prior candidate invalidated by the pinned current-"
+            "policy replay; repeat for the exact set. Unpinned drift fails closed."
         ),
     )
     parser.set_defaults(handler=_cmd_acquisition_rebase_pacer_gap_checkpoints)
@@ -18797,24 +18841,33 @@ def _validate_free_manifest_growth(
     current_path: Path,
     *,
     current_route_ids: Sequence[str],
+    allowed_removed_candidate_ids: set[str] | None = None,
 ) -> tuple[dict[tuple[str, str], JsonRecord], int]:
     previous = _free_manifest_records_by_identity(previous_path)
     current = _free_manifest_records_by_identity(current_path)
-    if not set(previous).issubset(current):
+    allowed_removed = allowed_removed_candidate_ids or set()
+    removed = set(previous) - set(current)
+    if any(
+        candidate_id not in allowed_removed for candidate_id, _document_id in removed
+    ):
         raise CommandError("free-download manifest removed prior documents")
+    retained_previous = set(previous) - removed
     expected_retained_order = [
         identity
         for candidate_id in current_route_ids
         for identity in previous
-        if identity[0] == candidate_id
+        if identity in retained_previous and identity[0] == candidate_id
     ]
-    retained_current_order = [identity for identity in current if identity in previous]
+    retained_current_order = [
+        identity for identity in current if identity in retained_previous
+    ]
     if retained_current_order != expected_retained_order:
         raise CommandError(
             "free-download manifest prior-document order does not match current routes"
         )
     reuse_transition_count = 0
-    for identity, (previous_record, previous_line) in previous.items():
+    for identity in retained_previous:
+        previous_record, previous_line = previous[identity]
         current_record, current_line = current[identity]
         if previous_line == current_line:
             continue
@@ -19125,6 +19178,7 @@ def _reject_symlink_path_components(*, label: str, path: Path) -> None:
 def _validate_pacer_gap_rebase_paths(
     *,
     protected_files: Sequence[Path],
+    protected_directories: Sequence[Path] = (),
     previous_checkpoint_dir: Path,
     checkpoint_dir: Path,
     writable_files: Sequence[tuple[str, Path]],
@@ -19133,6 +19187,7 @@ def _validate_pacer_gap_rebase_paths(
 
     protected_scopes = [
         *(("protected input", path, False) for path in protected_files),
+        *(("protected snapshot", path, True) for path in protected_directories),
         ("previous checkpoint directory", previous_checkpoint_dir, True),
     ]
     writable_scopes = [
@@ -19410,6 +19465,97 @@ def _replace_checkpoint_directory_under_lock(
             shutil.rmtree(backup)
 
 
+def _append_only_route_changes(
+    *,
+    previous_public: Sequence[Mapping[str, Any]],
+    previous_paid: Sequence[Mapping[str, Any]],
+    current_public: Sequence[Mapping[str, Any]],
+    current_paid: Sequence[Mapping[str, Any]],
+    expected_added_ids: set[str],
+    expected_invalidated_ids: set[str],
+) -> tuple[set[str], set[str], set[str], set[str]]:
+    """Prove exact route additions and isolate externally pinned invalidations."""
+
+    def routes(
+        public: Sequence[Mapping[str, Any]],
+        paid: Sequence[Mapping[str, Any]],
+        *,
+        source: str,
+    ) -> dict[str, tuple[str, Mapping[str, Any]]]:
+        public_by_id = _records_by_candidate_id(public, source=f"{source} public")
+        paid_by_id = _records_by_candidate_id(paid, source=f"{source} paid")
+        overlap = set(public_by_id) & set(paid_by_id)
+        if overlap:
+            raise CommandError(
+                f"{source} routes repeat candidates: " + ", ".join(sorted(overlap))
+            )
+        return {
+            **{
+                candidate_id: ("public", record)
+                for candidate_id, record in public_by_id.items()
+            },
+            **{
+                candidate_id: ("paid", record)
+                for candidate_id, record in paid_by_id.items()
+            },
+        }
+
+    previous = routes(previous_public, previous_paid, source="prior")
+    current = routes(current_public, current_paid, source="current")
+    additions = set(current) - set(previous)
+    if additions != expected_added_ids:
+        raise CommandError(
+            "append-only routed additions do not match external pins: "
+            f"expected {sorted(expected_added_ids)}, got {sorted(additions)}"
+        )
+    unexpected_removed = (set(previous) - set(current)) - expected_invalidated_ids
+    if unexpected_removed:
+        raise CommandError(
+            "append-only routes removed unpinned candidates: "
+            + ", ".join(sorted(unexpected_removed))
+        )
+    unknown_invalidations = expected_invalidated_ids - set(previous)
+    if unknown_invalidations:
+        raise CommandError(
+            "append-only invalidation pins were not previously routed: "
+            + ", ".join(sorted(unknown_invalidations))
+        )
+    for candidate_id, (previous_route, previous_record) in previous.items():
+        if candidate_id in expected_invalidated_ids:
+            continue
+        current_route_record = current.get(candidate_id)
+        if current_route_record is None:
+            continue
+        current_route, current_record = current_route_record
+        if previous_route != current_route:
+            raise CommandError(
+                f"append-only route changed for retained candidate {candidate_id}"
+            )
+        previous_stable = {
+            key: value for key, value in previous_record.items() if key != "cost_rank"
+        }
+        current_stable = {
+            key: value for key, value in current_record.items() if key != "cost_rank"
+        }
+        if previous_stable != current_stable:
+            raise CommandError(
+                "append-only route semantics changed for retained candidate "
+                f"{candidate_id}"
+            )
+    current_public_ids = {
+        _required_str(record, "candidate_id") for record in current_public
+    }
+    current_paid_ids = {
+        _required_str(record, "candidate_id") for record in current_paid
+    }
+    return (
+        additions & current_public_ids,
+        additions & current_paid_ids,
+        expected_invalidated_ids - set(current),
+        expected_invalidated_ids & current_paid_ids,
+    )
+
+
 def _cmd_acquisition_rebase_pacer_gap_checkpoints(
     args: argparse.Namespace,
 ) -> int:
@@ -19426,6 +19572,32 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
     current_free_path = cast(Path, args.current_free_download_manifest)
     previous_checkpoint_dir = cast(Path, args.previous_checkpoint_dir)
     previous_config_path = cast(Path, args.previous_checkpoint_config)
+    append_core_values = (
+        args.previous_snapshot,
+        args.expected_previous_snapshot_manifest_sha256,
+        args.current_snapshot,
+        args.expected_current_snapshot_manifest_sha256,
+        args.expected_added_candidate_id,
+    )
+    append_mode = any(value is not None for value in append_core_values) or (
+        args.expected_invalidated_candidate_id is not None
+    )
+    if append_mode and any(value is None for value in append_core_values):
+        raise CommandError(
+            "all append-only snapshot proof flags must be supplied together"
+        )
+    previous_snapshot = cast(Path, args.previous_snapshot) if append_mode else None
+    current_snapshot = cast(Path, args.current_snapshot) if append_mode else None
+    expected_added_candidate_ids = (
+        tuple(cast(Sequence[str], args.expected_added_candidate_id))
+        if append_mode
+        else ()
+    )
+    expected_invalidated_candidate_ids = (
+        tuple(cast(Sequence[str], args.expected_invalidated_candidate_id))
+        if args.expected_invalidated_candidate_id is not None
+        else ()
+    )
     checkpoint_dir = _acquisition_path(
         args,
         "checkpoint_dir",
@@ -19451,6 +19623,11 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         "log_output",
         output_root / "logs/rebase-pacer-gap-checkpoints.jsonl",
     )
+    snapshot_input_paths: tuple[Path, ...] = (
+        (cast(Path, previous_snapshot), cast(Path, current_snapshot))
+        if append_mode
+        else ()
+    )
     input_paths = (
         previous_screened_path,
         current_screened_path,
@@ -19462,9 +19639,26 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         current_free_path,
         previous_checkpoint_dir,
         previous_config_path,
+        *snapshot_input_paths,
     )
     _validate_pacer_gap_rebase_paths(
-        protected_files=(*input_paths[:-2], previous_config_path),
+        protected_files=(
+            previous_screened_path,
+            current_screened_path,
+            previous_public_path,
+            current_public_path,
+            previous_paid_path,
+            current_paid_path,
+            previous_free_path,
+            current_free_path,
+            previous_config_path,
+        ),
+        protected_directories=(
+            cast(Path, previous_snapshot),
+            cast(Path, current_snapshot),
+        )
+        if append_mode
+        else (),
         previous_checkpoint_dir=previous_checkpoint_dir,
         checkpoint_dir=checkpoint_dir,
         writable_files=(
@@ -19475,11 +19669,6 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
             ("stage log", log_path),
         ),
     )
-    if previous_screened_path.read_bytes() != current_screened_path.read_bytes():
-        raise CommandError("screened cases are not byte-identical")
-    if previous_public_path.read_bytes() != current_public_path.read_bytes():
-        raise CommandError("public selection is not byte-identical")
-
     previous_screened = _read_records(previous_screened_path)
     current_screened = _read_records(current_screened_path)
     previous_public = _read_records(previous_public_path)
@@ -19488,6 +19677,56 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
     current_paid = _read_records(current_paid_path)
     previous_free = _read_records(previous_free_path)
     current_free = _read_records(current_free_path)
+    append_proof: JsonRecord | None = None
+    expected_added_ids = set(expected_added_candidate_ids)
+    expected_invalidated_ids = set(expected_invalidated_candidate_ids)
+    if append_mode:
+        assert previous_snapshot is not None and current_snapshot is not None
+        try:
+            proof = verify_append_only_snapshot_union(
+                previous_snapshot=previous_snapshot,
+                expected_previous_manifest_sha256=cast(
+                    str, args.expected_previous_snapshot_manifest_sha256
+                ),
+                current_snapshot=current_snapshot,
+                expected_current_manifest_sha256=cast(
+                    str, args.expected_current_snapshot_manifest_sha256
+                ),
+                expected_added_candidate_ids=expected_added_candidate_ids,
+                expected_invalidated_candidate_ids=(expected_invalidated_candidate_ids),
+            )
+            previous_screened_ids = set(
+                verify_screened_case_projection(
+                    snapshot=previous_snapshot,
+                    screened_records=previous_screened,
+                )
+            )
+            current_screened_ids = set(
+                verify_screened_case_projection(
+                    snapshot=current_snapshot,
+                    screened_records=current_screened,
+                )
+            )
+        except AppendOnlyPacerGapRebaseError as exc:
+            raise CommandError(f"append-only snapshot proof failed: {exc}") from exc
+        if current_screened_ids - previous_screened_ids != expected_added_ids:
+            raise CommandError(
+                "append-only accepted screened additions do not match external pins"
+            )
+        removed_screened_ids = previous_screened_ids - current_screened_ids
+        if (
+            removed_screened_ids - expected_invalidated_ids
+            or expected_invalidated_ids - previous_screened_ids
+        ):
+            raise CommandError(
+                "append-only accepted screened invalidations do not match external pins"
+            )
+        append_proof = proof.to_record()
+    else:
+        if previous_screened_path.read_bytes() != current_screened_path.read_bytes():
+            raise CommandError("screened cases are not byte-identical")
+        if previous_public_path.read_bytes() != current_public_path.read_bytes():
+            raise CommandError("public selection is not byte-identical")
     try:
         validate_public_plan_bridge_inputs(
             public_selection_records=previous_public,
@@ -19514,7 +19753,25 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
     _validate_route_cost_ranks(
         current_public, current_paid, source="current public plan"
     )
-    if set(previous_paid_by_id) != set(current_paid_by_id):
+    added_public_candidate_ids: set[str] = set()
+    added_paid_candidate_ids: set[str] = set()
+    removed_invalidated_candidate_ids: set[str] = set()
+    replay_invalidated_candidate_ids: set[str] = set()
+    if append_mode:
+        (
+            added_public_candidate_ids,
+            added_paid_candidate_ids,
+            removed_invalidated_candidate_ids,
+            replay_invalidated_candidate_ids,
+        ) = _append_only_route_changes(
+            previous_public=previous_public,
+            previous_paid=previous_paid,
+            current_public=current_public,
+            current_paid=current_paid,
+            expected_added_ids=expected_added_ids,
+            expected_invalidated_ids=expected_invalidated_ids,
+        )
+    elif set(previous_paid_by_id) != set(current_paid_by_id):
         raise CommandError("paid-gap candidates were added or removed")
     current_route_order = [
         *(_required_str(record, "candidate_id") for record in current_public),
@@ -19524,12 +19781,19 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         previous_free_path,
         current_free_path,
         current_route_ids=current_route_order,
+        allowed_removed_candidate_ids=(
+            expected_invalidated_ids if append_mode else None
+        ),
     )
     added_free_by_candidate: dict[str, list[JsonRecord]] = defaultdict(list)
     for (candidate_id, _source_document_id), record in added_free_by_identity.items():
         added_free_by_candidate[candidate_id].append(record)
     materially_changed_candidate_ids: set[str] = set()
     for candidate_id, previous_record in previous_paid_by_id.items():
+        if candidate_id not in current_paid_by_id:
+            if append_mode and candidate_id in expected_invalidated_ids:
+                continue
+            raise CommandError(f"paid-gap candidate was removed: {candidate_id}")
         previous_without_rank = {
             key: value for key, value in previous_record.items() if key != "cost_rank"
         }
@@ -19556,7 +19820,9 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
             raise CommandError(
                 f"new free documents were not reflected in paid gap {candidate_id}"
             )
-    unknown_added_candidates = set(added_free_by_candidate) - set(previous_paid_by_id)
+    unknown_added_candidates = set(added_free_by_candidate) - (
+        set(previous_paid_by_id) | expected_added_ids
+    )
     if unknown_added_candidates:
         raise CommandError(
             "new free documents do not belong to retained paid-gap candidates: "
@@ -19573,6 +19839,14 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
                 "free-download manifest added an unrouted document "
                 f"{candidate_id}/{source_document_id}"
             )
+    unpinned_material_changes = (
+        materially_changed_candidate_ids - expected_invalidated_ids
+    )
+    if append_mode and unpinned_material_changes:
+        raise CommandError(
+            "append-only rebase cannot invalidate prior checkpoint semantics: "
+            + ", ".join(sorted(unpinned_material_changes))
+        )
 
     previous_config = _read_json_object(previous_config_path)
     if previous_config.get("schema_version") not in {
@@ -19637,6 +19911,11 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         raise CommandError(
             "previous source commitments do not authenticate the screened inputs"
         )
+    current_screened_by_id = {
+        _bridge_candidate_id(record): record for record in current_screened
+    }
+    if len(current_screened_by_id) != len(current_screened):
+        raise CommandError("current screened cases repeat a candidate identity")
     prior_checkpoint_payloads = _checkpoint_directory_bytes(previous_checkpoint_dir)
     checkpoint_by_id: dict[str, tuple[str, JsonRecord]] = {}
     previous_index_by_id = {
@@ -19675,10 +19954,33 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
             _normalize_bridge_checkpoint(checkpoint),
         )
 
+    if append_mode:
+        if set(checkpoint_by_id) != set(previous_paid_by_id):
+            raise CommandError(
+                "append-only rebase requires one authenticated checkpoint for every "
+                "prior paid-gap candidate"
+            )
+        nonterminal = sorted(
+            candidate_id
+            for candidate_id, (_filename, checkpoint) in checkpoint_by_id.items()
+            if checkpoint.get("outcome") not in {"success", "exclusion"}
+        )
+        if nonterminal:
+            raise CommandError(
+                "append-only rebase requires prior terminal outcomes: "
+                + ", ".join(nonterminal)
+            )
+
     current_route_ids = [
         *(_required_str(record, "candidate_id") for record in current_public),
         *(_required_str(record, "candidate_id") for record in current_paid),
     ]
+    current_source_commitments = _bridge_source_commitments(
+        screened_records=current_screened,
+        routed_candidate_ids=current_route_ids,
+        raw_html_dir=None,
+        use_embedded_entries=True,
+    )
     current_config: JsonRecord = {
         **previous_config,
         "schema_version": _PACER_GAP_PROGRESS_CONFIG_SCHEMA,
@@ -19689,9 +19991,7 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         "screened_case_count": len(current_screened),
         "public_selection_count": len(current_public),
         "paid_gap_count": len(current_paid),
-        "source_commitments": [
-            commitments_by_id[candidate_id] for candidate_id in current_route_ids
-        ],
+        "source_commitments": current_source_commitments,
     }
     current_index_by_id = {
         _required_str(record, "candidate_id"): index
@@ -19700,14 +20000,59 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
     checkpoint_payloads: dict[str, bytes] = {}
     bindings: list[JsonRecord] = []
     invalidations: list[JsonRecord] = []
+    if append_mode:
+        for candidate_id in sorted(expected_invalidated_ids & set(checkpoint_by_id)):
+            previous_filename, checkpoint = checkpoint_by_id[candidate_id]
+            current_record = current_paid_by_id.get(candidate_id)
+            invalidations.append(
+                {
+                    "candidate_id": candidate_id,
+                    "reason": "externally_pinned_current_policy_replay_invalidation",
+                    "previous_outcome": checkpoint["outcome"],
+                    "previous_filename": previous_filename,
+                    "previous_sha256": "sha256:"
+                    + hashlib.sha256(
+                        prior_checkpoint_payloads[previous_filename]
+                    ).hexdigest(),
+                    "previous_candidate_input_sha256": checkpoint[
+                        "candidate_input_sha256"
+                    ],
+                    "current_candidate_input_sha256": (
+                        _canonical_json_sha256(
+                            {
+                                "screened_case": current_screened_by_id[candidate_id],
+                                "paid_gap": current_record,
+                            }
+                        )
+                        if current_record is not None
+                        and candidate_id in current_screened_by_id
+                        else None
+                    ),
+                    "previous_cost_rank": previous_paid_by_id[candidate_id][
+                        "cost_rank"
+                    ],
+                    "current_cost_rank": (
+                        current_record.get("cost_rank")
+                        if current_record is not None
+                        else None
+                    ),
+                    "removed_from_current_routes": candidate_id
+                    in removed_invalidated_candidate_ids,
+                }
+            )
     terminal_count = 0
     for candidate_id, (previous_filename, checkpoint) in sorted(
-        checkpoint_by_id.items(), key=lambda item: current_index_by_id[item[0]]
+        (
+            item
+            for item in checkpoint_by_id.items()
+            if item[0] not in expected_invalidated_ids
+        ),
+        key=lambda item: current_index_by_id[item[0]],
     ):
         current_index = current_index_by_id[candidate_id]
         current_input_sha256 = _canonical_json_sha256(
             {
-                "screened_case": screened_by_id[candidate_id],
+                "screened_case": current_screened_by_id[candidate_id],
                 "paid_gap": current_paid_by_id[candidate_id],
             }
         )
@@ -19747,7 +20092,12 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
             input_index=current_index,
             candidate_id=candidate_id,
         ).name
-        current_payload = _json_bytes(rebased)
+        current_payload = (
+            prior_checkpoint_payloads[previous_filename]
+            if current_filename == previous_filename
+            and json.loads(prior_checkpoint_payloads[previous_filename]) == rebased
+            else _json_bytes(rebased)
+        )
         checkpoint_payloads[current_filename] = current_payload
         terminal_count += rebased["outcome"] in {"success", "exclusion"}
         bindings.append(
@@ -19790,6 +20140,23 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
             ("free_download_manifest", previous_free_path, current_free_path),
         )
     }
+    bound_candidate_ids = {
+        _required_str(binding, "candidate_id") for binding in bindings
+    }
+    replay_required_candidate_ids = sorted(
+        set(current_paid_by_id) - bound_candidate_ids
+    )
+    expected_replay_candidate_ids = (
+        added_paid_candidate_ids | replay_invalidated_candidate_ids
+    )
+    if (
+        append_mode
+        and set(replay_required_candidate_ids) != expected_replay_candidate_ids
+    ):
+        raise CommandError(
+            "append-only rebase would schedule a prior candidate or skip a new paid "
+            "addition"
+        )
     receipt: JsonRecord = {
         "schema_version": _PACER_GAP_REBASE_RECEIPT_SCHEMA,
         "status": "completed",
@@ -19807,10 +20174,12 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         "current_checkpoint_dir": str(checkpoint_dir.resolve()),
         "checkpoint_count": len(bindings),
         "previous_checkpoint_count": len(checkpoint_by_id),
-        "previously_uncheckpointed_candidate_count": len(current_paid)
-        - len(checkpoint_by_id),
+        "previously_uncheckpointed_candidate_count": len(
+            set(current_paid_by_id) - set(checkpoint_by_id)
+        ),
         "invalidated_checkpoint_count": len(invalidations),
         "replay_required_candidate_count": len(current_paid) - len(bindings),
+        "replay_required_candidate_ids": replay_required_candidate_ids,
         "terminal_checkpoint_count": terminal_count,
         "retryable_checkpoint_count": len(bindings) - terminal_count,
         "added_free_document_count": len(added_free_ids),
@@ -19821,6 +20190,13 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         "pacer_fee_acknowledgment_allowed": False,
         "checkpoint_bindings": bindings,
         "invalidated_checkpoints": invalidations,
+        "append_only_snapshot_proof": append_proof,
+        "added_candidate_ids": sorted(expected_added_ids),
+        "added_public_candidate_ids": sorted(added_public_candidate_ids),
+        "added_paid_gap_candidate_ids": sorted(added_paid_candidate_ids),
+        "invalidated_candidate_ids": sorted(expected_invalidated_ids),
+        "removed_invalidated_candidate_ids": sorted(removed_invalidated_candidate_ids),
+        "replay_invalidated_candidate_ids": sorted(replay_invalidated_candidate_ids),
     }
     dry_run = _acquisition_dry_run(args)
     if not dry_run:
