@@ -106,9 +106,10 @@ def check_b1_4() -> tuple[bool, str]:
     return bool(hits), f"anchor computation found in: {hits or 'none'}"
 
 
-def check_b1_5() -> tuple[bool, str]:
+def check_b1_5(
+    registry_dir: Path = REPO / "model_registries",
+) -> tuple[bool, str]:
     problems: list[str] = []
-    registry_dir = REPO / "model_registries"
     for registry_path in sorted(registry_dir.glob("*.json")):
         entries = json.loads(registry_path.read_text(encoding="utf-8"))
         # This directory also contains cycle-scoped policy manifests, such as
@@ -451,9 +452,11 @@ def check_v2_7() -> tuple[bool, str]:
     )
 
 
-def check_v2_8() -> tuple[bool, str]:
+def check_v2_8(
+    registry_dir: Path = REPO / "model_registries",
+) -> tuple[bool, str]:
     problems: list[str] = []
-    for registry_path in sorted((REPO / "model_registries").glob("*.json")):
+    for registry_path in sorted(registry_dir.glob("*.json")):
         entries = json.loads(registry_path.read_text(encoding="utf-8"))
         if not isinstance(entries, list):
             continue

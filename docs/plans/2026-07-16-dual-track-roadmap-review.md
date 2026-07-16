@@ -45,6 +45,8 @@ The security threat model doesn't support this gating. R-06 through R-10, Q-06, 
 
 Both are enforceable with a scoped workspace, a curated task-materialization step, and a redaction pass over outputs — days of work, not weeks.
 
+Implementation clarification accepted after review: pinned public task bytes are still treated as untrusted input. Before either Tier-0 solver starts, the native process runs in a disposable sandbox with an isolated HOME/XDG/session state, provider credentials injected through the narrow supported mechanism, filesystem access scoped to curated read-only solver input plus a narrow writable output root, no ordinary home or repository mount, and evaluator-private material physically absent. Output allowlisting and redaction remain publication gates, not substitutes for pre-execution isolation.
+
 **Concrete restructuring ask:** add **E-00: Tier-0 operator-run preliminary paired smoke**, with dependencies only on E-01 (provider-terms check), H-01 (pin the LAB commit), a *lite* version of task materialization and output discovery, and a basic redaction check. Run the pinned smoke task (`identify-issues-in-counterparty-motion-brief`) through (a) local Claude Code headless and (b) the native LAB thin harness with the same pinned model via API, score both with the pinned LAB evaluator, and publish with an explicit **"preliminary — not yet independently reproducible"** label. Re-gate R-06–R-10, Q-06, Q-07, and the full #41 boundary onto the **contributor-intake gate (Outcome C2 / Gate C-D1)** where they belong. RISK-04's mitigation (labeling) already concedes that preliminary local results are legitimate when labeled; the plan just never schedules one.
 
 This also requires amending #196's acceptance criteria — split it into "preliminary paired smoke" and "reproducible community adapter." The issue text is a tool John controls, not a constraint; the plan currently treats it as near-immutable (E-04's acceptance defers to "a reviewed issue amendment"). Do the amendment as part of landing this review.
@@ -77,6 +79,8 @@ Asks:
 ### 6. Elevate cost and wall-clock to headline metrics of the harness comparison.
 
 E-04's deliverables include a cost report, but the comparison semantics (§7.9) rank on score. For every audience that matters here — law firms deciding what to deploy, LegalQuants' practical bent, labs studying harness efficiency — **$/task, tokens, and minutes per arm are as interesting as the rubric delta**. "Claude Code scored +N points but cost 6x and took 4x longer" is a finding; it's arguably *the* finding for practitioners. Make score, cost, tokens, and wall-clock co-equal columns in the score artifact and the comparison output, and report variance across repeats (E-08's repeat policy already gives you the data). This is nearly free and doubles the writeup's substance.
+
+Implementation clarification accepted after review: subscription execution is never reported as `$0` and is not assigned a comparable `$/task` unless a frozen accounting basis supports it. The amended roadmap records raw tokens and wall-clock separately, labels direct provider charges versus list-price-equivalent estimates, and uses `subscription_unallocable` when marginal or amortized subscription cost cannot be allocated without false precision.
 
 ## Endorsements (do not relitigate these)
 

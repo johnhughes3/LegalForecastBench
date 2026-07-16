@@ -54,7 +54,9 @@ Acquire toward at least 150 clean cases in parallel because attrition and later 
 
 Before any model sees a Cycle 1 packet, create and hash-bind an exact-100 projection from the then-eligible clean pool using a deterministic, output-blind rule.
 
-If John instead elects to run every clean case in a pool of at least 150, record that decision before packet exposure and re-estimate the matrix, budget, and dispatch schedule.
+Cycle 1 has no all-eligible or at-least-150 launch branch.
+
+Any later run over the reserve pool is a separately named extension or cycle with its own freeze, matrix, budget, dispatch, and claims.
 
 The Beads graph currently contradicts the exact-100 launch policy because `5qd6.39` depends on `5qd6.75` and `5qd6.38`.
 
@@ -822,7 +824,7 @@ Missing runtime, unsupported capability, interface drift, unknown auth state, un
 
 ### 9.1 Exact-100 launch rule
 
-The official launch target is exactly 100 cases unless John records a superseding pre-output decision.
+The official Cycle 1 launch target is exactly 100 cases.
 
 The eligible source pool may exceed 100.
 
@@ -854,7 +856,7 @@ That task inventories every nonclosed `5qd6.73.*` record from live `bd` and clas
 
 The classification, not this dated plan's snapshot, determines the complete blocker set for the target reconciliation gate.
 
-Then add one target reconciliation child under `5qd6.73`, parameterized by immutable `launch_case_count` with 100 as the recorded default.
+Then add one target reconciliation child under `5qd6.73` with immutable `launch_case_count=100` for Cycle 1.
 
 That gate depends on every required lane identified by the source-universe reconciliation, including the July Case.dev enrichment chain, provisional Firecrawl screening, CourtListener complaint replay, authenticated REST replay, HTML replay, residual Firecrawl complaint fallback, transport defects that affect terminal evidence, and final source reconciliation.
 
@@ -872,7 +874,7 @@ Firecrawl is credit-consuming fallback work, not PACER or document-purchase acti
 
 ### 9.4 Downstream unblock
 
-After John approves the exact-100 policy, set immutable `launch_case_count=100` and make `5qd6.39` the production pass for that cohort.
+Record immutable `launch_case_count=100` and make `5qd6.39` the production pass for that cohort.
 
 Use a make-before-break graph migration.
 
@@ -1474,7 +1476,7 @@ Acceptance: the issue links the retained plan or plan PR, names both finish line
 
 Acceptance: the Beads graph is cycle-free and contains ready parallel starts.
 
-### P-02: Resolve the exact-100 versus at-least-150 launch policy
+### P-02: Record the exact-100 Cycle 1 and reserve policy
 
 Lane: W0 plus coordinator.
 
@@ -1482,7 +1484,7 @@ Priority: P0.
 
 Dependencies: P-01.
 
-Purpose: remove the current mismatch between the user's first-100 objective, the operator note, and live blocking edges.
+Purpose: make the agreed exact-100 Cycle 1 objective immutable and remove the mismatch with the live blocking edges while acquisition continues toward the reserve.
 
 Deliverables: signed-off decision record, projection policy, replacement rule, budget impact, and graph migration plan.
 
@@ -1490,9 +1492,9 @@ Tests: deterministic projection golden test and graph before/after validation.
 
 Acceptance: the decision is recorded before any benchmark output exists.
 
-Acceptance: if exact 100 is selected, the at-least-150 reserve no longer blocks `5qd6.39` and therefore no longer blocks `5qd6.41` transitively.
+Acceptance: the at-least-150 reserve no longer blocks `5qd6.39` and therefore no longer blocks `5qd6.41` transitively.
 
-Acceptance: if all at least 150 is selected, cost and workflow capacity are re-approved before dispatch.
+Acceptance: Cycle 1 remains exactly 100; the at-least-150 inventory is reserve and later-extension capacity and does not change the Cycle 1 matrix.
 
 ### P-03: Reconcile overlapping official-run records
 
@@ -4156,7 +4158,7 @@ No real-service test runs on an untrusted pull request.
 
 ### 18.2 Gate O-B: cohort policy
 
-- [ ] John records exact 100 versus all at least 150 before model output.
+- [ ] John records immutable `launch_case_count=100` before model output; at least 150 remains the reserve objective.
 
 - [ ] The intended official model universe, registry hash, deployment/release evidence, and authority for the inclusive `2026-06-30` anchor are frozen.
 
@@ -4472,7 +4474,7 @@ Validation task `dm0g.3` closed after proving zero cycles, unchanged dependency 
 
 | Handle | Type and parent | Blocking dependencies | Terminal evidence |
 | --- | --- | --- | --- |
-| O-DECIDE | decision under 5qd6 | PLAN-MR | Immutable launch_case_count, default 100, and reserve policy recorded before output |
+| O-DECIDE | decision under 5qd6 | PLAN-MR | Immutable launch_case_count=100 and reserve policy recorded before output |
 | O-SOURCE-SCOPE | task under 5qd6.73 | PLAN-MR | All 15 currently nonclosed source children and any later arrivals classified from live evidence |
 | O-COMPLAINT-ORDER | task under 5qd6.73 | O-SOURCE-SCOPE | Safe checkpoint, REST-first ordering, and regenerated exact residual input |
 | O-POLICY-MR | merge/refresh checkpoint task under 5qd6 | O-DECIDE, O-SOURCE-SCOPE | Parameterized projection/reconciliation policy code merged and owning worktree refreshed; 5qd6.36 still gates the immutable projection |
@@ -4880,23 +4882,27 @@ Do not perform this cutover until PLAN-MR is merged, O-DECIDE records launch_cas
 
 First add replacement dependencies, using bd syntax where the blocked issue is the first argument:
 
-    O-PROJECT blocks 5qd6.37
-    O-PROJECT blocks 5qd6.39
-    5qd6.39.11 blocks 5qd6.39.6
-    5qd6.39.6 blocks 5qd6.39
-    5qd6.39.10 blocks 5qd6.39
-    O-W1-SMOKE-GATE blocks 5qd6.35
-    I-37 blocks 5qd6.35
-    O-ANCHOR-REVALIDATE blocks 5qd6.41
+```text
+O-PROJECT blocks 5qd6.37
+O-PROJECT blocks 5qd6.39
+5qd6.39.11 blocks 5qd6.39.6
+5qd6.39.6 blocks 5qd6.39
+5qd6.39.10 blocks 5qd6.39
+O-W1-SMOKE-GATE blocks 5qd6.35
+I-37 blocks 5qd6.35
+O-ANCHOR-REVALIDATE blocks 5qd6.41
+```
 
 After each addition, require an empty cycle output and inspect both the purchase and production blocker sets.
 
 Only after replacement edges exist:
 
-    remove 5qd6.38 as a blocker of 5qd6.39
-    remove 5qd6.75 as a blocker of 5qd6.39
-    remove 5qd6.73 as a blocker of 5qd6.39
-    remove 5qd6.73 as a blocker of 5qd6.37
+```text
+remove 5qd6.38 as a blocker of 5qd6.39
+remove 5qd6.75 as a blocker of 5qd6.39
+remove 5qd6.73 as a blocker of 5qd6.39
+remove 5qd6.73 as a blocker of 5qd6.37
+```
 
 The acquisition umbrella and reserve work remain related and active; they simply cease to gate the exact-100 production pass.
 
@@ -4904,12 +4910,14 @@ The acquisition umbrella and reserve work remain related and active; they simply
 
 After each creation or mutation batch run live checks equivalent to:
 
-    bd dep cycles --json
-    bd ready --exclude-type epic --json
-    bd dep list 5qd6.39 --direction=down --json
-    bd dep list 5qd6.37 --direction=down --json
-    bd dep tree 5qd6.41 --direction=down --show-all-paths
-    bd list --parent LegalForecastBench-5qd6.73 --all --flat --json
+```bash
+bd dep cycles --json
+bd ready --exclude-type epic --json
+bd dep list 5qd6.39 --direction=down --json
+bd dep list 5qd6.37 --direction=down --json
+bd dep tree 5qd6.41 --direction=down --show-all-paths
+bd list --parent LegalForecastBench-5qd6.73 --all --flat --json
+```
 
 Final assertions:
 
@@ -5348,7 +5356,7 @@ Contingency: relabel the run `mcp_mediated`, exclude it from the primary compari
 
 ### DEC-01: first official cohort size
 
-Recommended default: freeze an exact 100 from the clean available pool as soon as the target reconciliation gate passes; continue acquisition toward at least 150 as reserve.
+Cycle 1 policy: freeze an exact 100 from the clean available pool as soon as the target reconciliation gate passes; continue acquisition toward at least 150 as reserve.
 
 Owner: John.
 
