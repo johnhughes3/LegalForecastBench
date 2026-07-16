@@ -78,6 +78,7 @@ class VerifiedCaseDevProvisionalFrontier:
     pending_candidate_set_sha256: str
     terminal_exclusion_reason_counts: tuple[tuple[str, int], ...]
     selected: tuple[RankedCaseDevCandidate, ...]
+    ranked_records: tuple[dict[str, object], ...]
     terminal_exclusions: tuple[dict[str, object], ...]
     pending: tuple[dict[str, object], ...]
 
@@ -236,7 +237,7 @@ def verify_case_dev_provisional_frontier(
             )
         latest[input_index] = record
 
-    successes: list[tuple[int, RankedCaseDevCandidate]] = []
+    successes: list[tuple[int, RankedCaseDevCandidate, dict[str, object]]] = []
     exclusions: list[dict[str, object]] = []
     pending: list[dict[str, object]] = []
     exclusion_reasons: Counter[str] = Counter()
@@ -267,7 +268,7 @@ def verify_case_dev_provisional_frontier(
                 raise RecapApiBatchDriverError(
                     "Case.dev success does not match its source index"
                 )
-            successes.append((input_index, candidate))
+            successes.append((input_index, candidate, dict(payload)))
             continue
         if _progress_is_retryable(progress):
             pending.append(
@@ -329,13 +330,13 @@ def verify_case_dev_provisional_frontier(
                 candidate.bankruptcy_adversary_entry_evidence
             ),
         )
-        for rank, (_, candidate) in enumerate(successes, start=1)
+        for rank, (_, candidate, _) in enumerate(successes, start=1)
     )
     if not selected:
         raise RecapApiBatchDriverError(
             "Case.dev provisional frontier has no authenticated successes"
         )
-    success_indices = {index for index, _ in successes}
+    success_indices = {index for index, _, _ in successes}
     exclusion_indices = {cast(int, item["input_index"]) for item in exclusions}
     pending_indices = {cast(int, item["input_index"]) for item in pending}
     expected_indices = set(range(len(projection_records)))
@@ -363,6 +364,7 @@ def verify_case_dev_provisional_frontier(
         pending_candidate_set_sha256=_canonical_sha256(pending),
         terminal_exclusion_reason_counts=tuple(sorted(exclusion_reasons.items())),
         selected=selected,
+        ranked_records=tuple(record for _, _, record in successes),
         terminal_exclusions=tuple(exclusions),
         pending=tuple(pending),
     )
@@ -463,24 +465,7 @@ def ranked_records_for_provisional_frontier(
 ) -> tuple[dict[str, object], ...]:
     """Return authenticated success payloads in canonical ranking order."""
 
-    latest = _latest_progress_by_index(
-        frontier.progress_path, frontier.source_candidate_count
-    )
-    by_docket: dict[str, dict[str, object]] = {}
-    for progress in latest.values():
-        if progress.get("outcome") != "success":
-            continue
-        payload = progress.get("payload")
-        if not isinstance(payload, Mapping):  # pragma: no cover - verified above
-            continue
-        record = dict(cast(Mapping[str, object], payload))
-        identity = record.get("identity")
-        if isinstance(identity, Mapping):
-            typed_identity = cast(Mapping[str, object], identity)
-            docket_id = typed_identity.get("courtlistener_docket_id")
-            if isinstance(docket_id, str):
-                by_docket[docket_id] = record
-    return tuple(by_docket[candidate.docket_id] for candidate in frontier.selected)
+    return frontier.ranked_records
 
 
 def _provisional_hit(
@@ -544,15 +529,6 @@ def _progress_is_retryable(record: Mapping[str, object]) -> bool:
         and typed_payload is not None
         and typed_payload.get("reason") in _RETRYABLE_FAILURE_REASONS
     )
-
-
-def _latest_progress_by_index(path: Path, count: int) -> dict[int, dict[str, object]]:
-    latest: dict[int, dict[str, object]] = {}
-    for record in _read_jsonl(path):
-        input_index = record.get("input_index")
-        if type(input_index) is int and 0 <= input_index < count:
-            latest[input_index] = record
-    return latest
 
 
 def _required_projection_text(record: Mapping[str, object], field: str) -> str:
