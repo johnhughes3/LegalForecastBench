@@ -10325,19 +10325,27 @@ def _validate_disclosure_review_paths(
 
 
 def _reject_existing_parent_symlink(path: Path) -> None:
-    # Walk the lexical path rather than first resolving to an existing parent.
-    # ``Path.exists()`` is false for a dangling symlink, so skipping missing
-    # parents would let an output traverse that link if its target appeared
-    # between validation and publication.
-    current = Path(os.path.abspath(os.fspath(path.parent)))
-    while True:
+    # Preserve the caller's original components, including ``..``. Resolving or
+    # applying ``abspath`` first would erase ``symlink/..`` even though the
+    # kernel follows the symlink before processing the parent traversal.
+    parent = path.parent
+    if parent.is_absolute():
+        current = Path(parent.anchor)
+        components = parent.parts[1:]
+    else:
+        current = Path.cwd()
+        components = parent.parts
+    for component in components:
+        if component in {"", "."}:
+            continue
+        if component == "..":
+            current = current.parent
+            continue
+        current = current / component
         if current.is_symlink():
             raise CommandError(
                 f"disclosure review output parent is a symlink: {current}"
             )
-        if current == current.parent:
-            break
-        current = current.parent
 
 
 def _ensure_disclosure_review_artifact(

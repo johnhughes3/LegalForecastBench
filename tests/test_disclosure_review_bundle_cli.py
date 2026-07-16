@@ -261,6 +261,20 @@ def test_prepare_review_rejects_input_alias_and_output_symlink(
     assert "output parent is a symlink" in capsys.readouterr().err
     assert not missing_target.exists()
 
+    traversal_case = tmp_path / "traversal-case"
+    traversal_args = _prepare_args(traversal_case)
+    traversal_root = traversal_case / "traversal-root"
+    traversal_root.mkdir()
+    outside_parent = traversal_case / "outside-parent"
+    symlink_target = outside_parent / "target"
+    symlink_target.mkdir(parents=True)
+    (traversal_root / "jump").symlink_to(symlink_target, target_is_directory=True)
+    escaped_output = outside_parent / "escaped-worksheet.json"
+    traversal_output = traversal_root / "jump" / ".." / escaped_output.name
+    assert main([*traversal_args, "--worksheet-output", str(traversal_output)]) == 2
+    assert "output parent is a symlink" in capsys.readouterr().err
+    assert not escaped_output.exists()
+
 
 def test_prepare_review_rejects_metadata_alias_without_mutating_input(
     tmp_path: Path,

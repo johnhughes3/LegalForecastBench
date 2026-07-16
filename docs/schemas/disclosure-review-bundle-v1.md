@@ -28,7 +28,7 @@ Preparation consumes the exact bytes of:
 
 - `review-requests.jsonl`, with one `legalforecast.disclosure_review_request.v1` row per document and `required_human_decision: "cleared_or_quarantined"`;
 - the merged download-manifest JSONL;
-- restriction-evidence JSONL; and
+- restriction-evidence JSONL;
 - the frozen cohort policy and the reviewer policy selected by its main-pinned disclosure authority; and
 - every document addressed by the manifest beneath `--document-root`.
 
