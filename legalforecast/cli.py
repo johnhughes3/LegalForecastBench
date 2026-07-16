@@ -85,6 +85,7 @@ from legalforecast.ingestion.budgeted_docket_acquisition import (
     BudgetedDocketAcquisitionError,
     acquire_ranked_dockets,
     materialize_selected_slice_batch,
+    provisional_lineage_flags,
     ranked_parent_requires_authenticated_handoff,
     render_complete_docket_html,
     verify_authenticated_ranked_firecrawl_handoff,
@@ -115,6 +116,13 @@ from legalforecast.ingestion.case_dev_firecrawl import (
     CaseDevFirecrawlBatchError,
     acquire_case_dev_firecrawl_html,
     screen_case_dev_firecrawl_successes,
+)
+from legalforecast.ingestion.case_dev_provisional_frontier import (
+    materialize_case_dev_provisional_frontier,
+    provisional_frontier_batch_digest,
+    provisional_frontier_run_card_record,
+    ranked_records_for_provisional_frontier,
+    verify_case_dev_provisional_frontier,
 )
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerCapability,
@@ -1030,6 +1038,21 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_batch_002_ranked_subset_selection_arguments(batch_002_ranked_subset_selection)
+    batch_002_provisional_frontier = batch_002_subparsers.add_parser(
+        "select-case-dev-provisional-frontier",
+        help=(
+            "Authenticate completed Case.dev successes from partial progress and "
+            "materialize a provisional public Firecrawl frontier."
+        ),
+        description=(
+            "Provider-free, noncharging handoff that reconciles every source row "
+            "as an authenticated success, authorized terminal exclusion, or "
+            "explicit pending row. Only successes enter the provisional batch. "
+            "The batch is never final-cohort eligible and authorizes no PACER, "
+            "purchase, freeze, dispatch, or evaluation activity."
+        ),
+    )
+    _add_batch_002_provisional_frontier_arguments(batch_002_provisional_frontier)
     batch_002_snapshot = batch_002_subparsers.add_parser(
         "snapshot",
         help=(
@@ -3438,6 +3461,85 @@ def _add_batch_002_ranked_subset_selection_arguments(
         ),
     )
     parser.set_defaults(handler=_cmd_batch_002_ranked_selection)
+
+
+def _add_batch_002_provisional_frontier_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--source-store",
+        type=Path,
+        required=True,
+        help="Read-only store containing the exhausted CourtListener source batch.",
+    )
+    parser.add_argument("--source-batch-id", required=True)
+    parser.add_argument(
+        "--source-projection",
+        type=Path,
+        required=True,
+        help="Exact source projection emitted by enrich-recap-case-dev.",
+    )
+    parser.add_argument(
+        "--progress-config",
+        type=Path,
+        required=True,
+        help="Immutable Case.dev enrichment progress configuration JSON.",
+    )
+    parser.add_argument(
+        "--expected-progress-config-sha256",
+        required=True,
+        help=(
+            "External lowercase SHA-256 of the raw progress-config bytes; the "
+            "verified bytes are parsed exactly once before any target write."
+        ),
+    )
+    parser.add_argument(
+        "--progress",
+        type=Path,
+        required=True,
+        help="Durable partial Case.dev enrichment progress JSONL.",
+    )
+    parser.add_argument(
+        "--expected-progress-sha256",
+        required=True,
+        help=(
+            "External lowercase SHA-256 of the raw partial progress bytes, "
+            "checked before any target write."
+        ),
+    )
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Existing current-cycle store receiving the provisional batch.",
+    )
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument(
+        "--eligibility-anchor",
+        default=_BATCH_002_DEFAULT_ANCHOR,
+        metavar="YYYY-MM-DD",
+        help="Anchor used to verify the target store's frozen screening policy.",
+    )
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=100,
+        help="Provider-free transfer page size, from 1 through 100.",
+    )
+    parser.add_argument(
+        "--ranked-output",
+        type=Path,
+        required=True,
+        help="Canonical ranked JSONL containing authenticated successes only.",
+    )
+    parser.add_argument(
+        "--run-card-output",
+        type=Path,
+        required=True,
+        help="Replay-stable provisional-frontier lineage run card.",
+    )
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_batch_002_provisional_frontier)
 
 
 def _add_batch_002_snapshot_arguments(parser: argparse.ArgumentParser) -> None:
@@ -7052,6 +7154,22 @@ def _cmd_acquisition_prepare_target(
             protected_paths=_target_100_protected_paths(args),
         )
         raise CommandError(str(exc)) from exc
+    if (
+        snapshot_manifest.get("provisional_frontier") is True
+        or snapshot_manifest.get("final_cohort_eligible") is False
+        or snapshot_manifest.get("full_source_terminal") is False
+    ):
+        reason = (
+            "target preparation rejects provisional snapshots until the full source "
+            "is terminal and final-cohort eligibility is authenticated"
+        )
+        _write_target_100_attempt_failure(
+            args,
+            profile=profile,
+            reason=reason,
+            protected_paths=_target_100_protected_paths(args),
+        )
+        raise CommandError(reason)
     candidate_pool_size = len(_read_records(snapshot / "screened-cases.jsonl"))
     config_type = (
         Target100PreparationConfig
@@ -11671,6 +11789,7 @@ def _cmd_acquisition_project_firecrawl_recap_checkpoint(
             cycle_policy = store.cycle_policy
             frozen_batch_config = store.batch_config(batch_id)
     except (
+        BudgetedDocketAcquisitionError,
         CycleAcquisitionStoreError,
         FirecrawlArtifactError,
         KeyError,
@@ -13291,14 +13410,21 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
         )
     if _acquisition_dry_run(args) and not store_path.exists():
         source_bound = False
+        provisional_flags: JsonRecord = {}
     else:
         try:
             with CycleAcquisitionStore(store_path) as store:
+                parent_config = store.batch_config(cast(str, args.parent_batch_id))
                 source_bound = ranked_parent_requires_authenticated_handoff(
                     store,
                     cast(str, args.parent_batch_id),
                 )
-        except (BudgetedDocketAcquisitionError, CycleAcquisitionStoreError) as exc:
+                provisional_flags = provisional_lineage_flags(parent_config)
+        except (
+            BudgetedDocketAcquisitionError,
+            CycleAcquisitionStoreError,
+            KeyError,
+        ) as exc:
             raise CommandError(str(exc)) from exc
     if source_bound and selection_run_card_path is None:
         raise CommandError(
@@ -13357,6 +13483,7 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
             "success_count": 0,
             "exclusion_count": 0,
             "pagination_complete_before_screening": False,
+            **provisional_flags,
         }
         _write_jsonl(successes_path, [])
         _write_jsonl(exclusions_path, [])
@@ -13406,6 +13533,7 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
             "firecrawl_proxy": config.proxy,
             "firecrawl_force_browser": config.force_browser,
             "firecrawl_max_credits_per_scrape": config.max_credits_per_scrape,
+            **provisional_flags,
         }
         run_id = cast(str, args.run_id)
         try:
@@ -13467,9 +13595,12 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
                 "retrieved_at": retrieved_at,
                 "pagination_complete_for_anchor_window": True,
                 "page_count": len(bundle.pages),
+                **provisional_flags,
             }
         )
-    exclusions = [failure.as_record() for failure in result.failures]
+    exclusions = [
+        {**failure.as_record(), **provisional_flags} for failure in result.failures
+    ]
     _write_jsonl(successes_path, successes)
     _write_jsonl(exclusions_path, exclusions)
     summary = {
@@ -13482,6 +13613,7 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
         ),
         "pagination_complete_before_screening": True,
         "workers": workers,
+        **provisional_flags,
     }
     _write_json(summary_path, summary)
     _write_acquisition_completion(
@@ -14420,6 +14552,128 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
     ) as exc:
         raise CommandError(str(exc)) from exc
     record = result.to_record()
+    if summary_output is not None:
+        _write_json(summary_output, record)
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cmd_batch_002_provisional_frontier(args: argparse.Namespace) -> int:
+    source_store = cast(Path, args.source_store)
+    source_batch_id = cast(str, args.source_batch_id)
+    source_projection = cast(Path, args.source_projection)
+    progress_config = cast(Path, args.progress_config)
+    expected_progress_config_sha256 = cast(str, args.expected_progress_config_sha256)
+    progress_path = cast(Path, args.progress)
+    expected_progress_sha256 = cast(str, args.expected_progress_sha256)
+    cycle_store = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    anchor = _iso_date_argument(
+        cast(str, args.eligibility_anchor), "--eligibility-anchor"
+    )
+    page_size = cast(int, args.page_size)
+    ranked_output = cast(Path, args.ranked_output)
+    run_card_output = cast(Path, args.run_card_output)
+    summary_output = cast(Path | None, args.summary_output)
+    _validate_ranked_handoff_paths(
+        protected_paths=(
+            source_store,
+            source_projection,
+            progress_config,
+            progress_path,
+            cycle_store,
+        ),
+        writable_paths=(
+            ranked_output,
+            run_card_output,
+            *((summary_output,) if summary_output is not None else ()),
+        ),
+        sqlite_paths=(source_store, cycle_store),
+        context="provisional Case.dev frontier",
+    )
+    if not cycle_store.is_file():
+        raise CommandError(
+            "--cycle-store must be an existing current-cycle acquisition store"
+        )
+    try:
+        source = read_saturated_direct_search_leads(
+            source_store,
+            source_batch_id=source_batch_id,
+        )
+        frontier = verify_case_dev_provisional_frontier(
+            source=source,
+            source_store_path=source_store,
+            source_projection_path=source_projection,
+            progress_config_path=progress_config,
+            progress_path=progress_path,
+            expected_progress_config_sha256=expected_progress_config_sha256,
+            expected_progress_sha256=expected_progress_sha256,
+        )
+        ranked_records = ranked_records_for_provisional_frontier(frontier)
+        ranked_bytes = _jsonl_bytes(ranked_records)
+        ranked_output_sha256 = hashlib.sha256(ranked_bytes).hexdigest()
+        if ranked_output.exists():
+            if ranked_output.read_bytes() != ranked_bytes:
+                raise RecapApiBatchDriverError(
+                    "existing provisional ranked output differs from authenticated "
+                    "progress"
+                )
+        with CycleAcquisitionStore(cycle_store) as store:
+            _validate_frozen_screening_policy(policy=store.cycle_policy, anchor=anchor)
+            planned_run_card = provisional_frontier_run_card_record(
+                frontier=frontier,
+                batch_id=batch_id,
+                target_cycle_hash=store.cycle_hash,
+                target_batch_digest=provisional_frontier_batch_digest(
+                    frontier=frontier,
+                    page_size=page_size,
+                ),
+            )
+            frozen_run_card = {
+                **planned_run_card,
+                "ranked_path": str(ranked_output),
+                "ranked_output_sha256": ranked_output_sha256,
+            }
+            if run_card_output.exists() and (
+                _read_json_object(run_card_output) != frozen_run_card
+            ):
+                raise RecapApiBatchDriverError(
+                    "existing provisional-frontier run card does not match this "
+                    "invocation"
+                )
+            if not ranked_output.exists():
+                ranked_output.parent.mkdir(parents=True, exist_ok=True)
+                ranked_output.write_bytes(ranked_bytes)
+            # Every mutation below is identity-bound and resumable. If a page or
+            # final run-card write is interrupted, the same plan resumes exactly.
+            result = materialize_case_dev_provisional_frontier(
+                store,
+                batch_id=batch_id,
+                frontier=frontier,
+                page_size=page_size,
+            )
+            if (
+                result.run_card_record() != planned_run_card
+                or result.target_batch_digest != planned_run_card["target_batch_digest"]
+            ):
+                raise RecapApiBatchDriverError(
+                    "materialized provisional batch changed its planned identity"
+                )
+        if not run_card_output.exists():
+            _write_json(run_card_output, frozen_run_card)
+    except (
+        CycleAcquisitionStoreError,
+        RecapApiBatchDriverError,
+        KeyError,
+        OSError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+    record = {
+        **result.to_record(),
+        "ranked_path": str(ranked_output),
+        "ranked_output_sha256": ranked_output_sha256,
+    }
     if summary_output is not None:
         _write_json(summary_output, record)
     print(json.dumps(record, sort_keys=True))
@@ -16087,9 +16341,19 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
             expected_manifest_sha256=expected_source_hashes,
             expected_cycle_hash=expected_cycle_hash,
         )
+        union_provisional_flags: JsonRecord = (
+            {
+                "provisional_frontier": True,
+                "final_cohort_eligible": False,
+                "full_source_terminal": False,
+            }
+            if union.stage_commitment.get("provisional_frontier") is True
+            else {}
+        )
         batch_config = {
             "stage": "provider-free-screening-snapshot-union",
             "source_commitment": dict(union.stage_commitment),
+            **union_provisional_flags,
         }
         with CycleAcquisitionStore(cycle_store_path) as store:
             if store.cycle_hash != expected_cycle_hash:
@@ -16228,6 +16492,7 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
             "output_commitments": {
                 "owned_raw_artifacts": _file_commitment(owned_raw_manifest_path)
             },
+            **union_provisional_flags,
         }
         _write_json(summary_path, summary)
         _write_acquisition_completion(
@@ -16738,6 +17003,18 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
             fetch_exclusion_records=fetch_exclusion_records,
         )
         with CycleAcquisitionStore(cycle_store_path) as store:
+            batch_config = store.batch_config(batch_id)
+            provisional_flags = provisional_lineage_flags(batch_config)
+            _require_provisional_lineage_on_records(
+                success_records,
+                provisional_flags=provisional_flags,
+                label="Firecrawl success",
+            )
+            _require_provisional_lineage_on_records(
+                fetch_exclusion_records,
+                provisional_flags=provisional_flags,
+                label="Firecrawl fetch exclusion",
+            )
             _validate_frozen_screening_policy(
                 policy=store.cycle_policy,
                 anchor=anchor,
@@ -16747,7 +17024,13 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
                 snapshot_id=snapshot_id,
                 batch_id=batch_id,
             )
+        snapshot_stage_commitments: JsonRecord = {
+            "firecrawl_screen_inputs": input_commitments,
+        }
+        if provisional_flags:
+            snapshot_stage_commitments["provisional_lineage"] = provisional_flags
     except (
+        BudgetedDocketAcquisitionError,
         CycleAcquisitionStoreError,
         SnapshotVerificationError,
         KeyError,
@@ -16798,6 +17081,21 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
                 snapshot_path=snapshot_path,
                 snapshot_manifest=snapshot_manifest,
             )
+            if snapshot_manifest.get("stage_commitments") != (
+                snapshot_stage_commitments
+            ) or any(
+                snapshot_manifest.get(field) != value
+                for field, value in provisional_flags.items()
+                if field
+                in {
+                    "provisional_frontier",
+                    "final_cohort_eligible",
+                    "full_source_terminal",
+                }
+            ):
+                raise CycleAcquisitionStoreError(
+                    "existing screening snapshot changed provisional lineage"
+                )
         except (CycleAcquisitionStoreError, KeyError, OSError, ValueError) as exc:
             _write_acquisition_failure(
                 args,
@@ -16829,6 +17127,7 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
             "snapshot_complete": snapshot_manifest["complete"],
             "snapshot_saturated": snapshot_manifest["saturated"],
             "resumed_existing_snapshot": True,
+            **provisional_flags,
         }
         _write_json(summary_path, summary)
         _write_acquisition_completion(
@@ -16931,7 +17230,7 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
                 batch_id=batch_id,
                 complete=True,
                 stage_commitments={
-                    "firecrawl_screen_inputs": input_commitments,
+                    **snapshot_stage_commitments,
                 },
             )
             snapshot_manifest = verify_snapshot(
@@ -16976,6 +17275,7 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
         "batch_digest": snapshot_manifest["batch_digest"],
         "snapshot_complete": snapshot_manifest["complete"],
         "snapshot_saturated": snapshot_manifest["saturated"],
+        **provisional_flags,
     }
     _write_json(summary_path, summary)
     _write_acquisition_completion(
@@ -16990,6 +17290,35 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
         extra=summary,
     )
     return 0
+
+
+def _require_provisional_lineage_on_records(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    provisional_flags: Mapping[str, object],
+    label: str,
+) -> None:
+    """Reject stripped, upgraded, or injected provisional record lineage."""
+
+    for index, record in enumerate(records, start=1):
+        if provisional_flags:
+            if any(
+                record.get(field) != value for field, value in provisional_flags.items()
+            ):
+                raise CycleAcquisitionStoreError(
+                    f"{label} row {index} changed provisional lineage"
+                )
+        elif any(
+            field in record
+            for field in (
+                "provisional_frontier",
+                "final_cohort_eligible",
+                "full_source_terminal",
+            )
+        ):
+            raise CycleAcquisitionStoreError(
+                f"{label} row {index} injects provisional lineage"
+            )
 
 
 def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int:

@@ -69,6 +69,7 @@ def load_screening_snapshot_union(
     source_commitments: list[dict[str, object]] = []
     seen_manifest_sha256: set[str] = set()
     seen_batch_digests: set[str] = set()
+    provisional_union = False
     for snapshot, expected_manifest_hash in zip(
         snapshots, expected_manifest_sha256, strict=True
     ):
@@ -88,6 +89,24 @@ def load_screening_snapshot_union(
             require_complete=True,
             require_saturated=True,
         )
+        marker_present = any(
+            field in manifest
+            for field in (
+                "provisional_frontier",
+                "final_cohort_eligible",
+                "full_source_terminal",
+            )
+        )
+        if marker_present:
+            if (
+                manifest.get("provisional_frontier") is not True
+                or manifest.get("final_cohort_eligible") is not False
+                or manifest.get("full_source_terminal") is not False
+            ):
+                raise ScreeningSnapshotUnionError(
+                    "source snapshot has contradictory provisional lineage"
+                )
+            provisional_union = True
         batch_digest = _string(manifest.get("batch_digest"), "source batch digest")
         if manifest_sha256 in seen_manifest_sha256:
             raise ScreeningSnapshotUnionError(
@@ -148,6 +167,14 @@ def load_screening_snapshot_union(
         "sources": source_commitments,
         "candidate_count": len(candidate_by_id),
     }
+    if provisional_union:
+        stage_commitment.update(
+            {
+                "provisional_frontier": True,
+                "final_cohort_eligible": False,
+                "full_source_terminal": False,
+            }
+        )
     return ScreeningSnapshotUnion(
         candidates=tuple(candidate_by_id[key] for key in sorted(candidate_by_id)),
         raw_artifacts=tuple(

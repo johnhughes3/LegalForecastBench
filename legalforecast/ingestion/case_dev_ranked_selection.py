@@ -307,7 +307,7 @@ def verify_case_dev_ranked_selection(
     ranked_sha256 = _file_sha256(ranked_path)
     terminal_exclusion_records = _read_jsonl(terminal_exclusion_path)
     terminal_exclusion_sha256 = _file_sha256(terminal_exclusion_path)
-    projection_by_docket = _projection_by_docket(projection_records)
+    projection_by_docket = case_dev_projection_by_docket(projection_records)
     (
         terminal_exclusion_commitments,
         terminal_excluded_dockets,
@@ -370,7 +370,7 @@ def verify_case_dev_ranked_selection(
     seen_dockets: set[str] = set()
     previous_key: tuple[int, int, int, int, str] | None = None
     for rank, record in enumerate(ranked_records, start=1):
-        candidate = _verify_ranked_record(
+        candidate = verify_case_dev_ranked_record(
             record,
             rank=rank,
             projection_by_docket=projection_by_docket,
@@ -676,7 +676,7 @@ def seed_case_dev_ranked_selection(
     )
 
 
-def _projection_by_docket(
+def case_dev_projection_by_docket(
     records: Sequence[Mapping[str, object]],
 ) -> dict[str, Mapping[str, object]]:
     projected: dict[str, Mapping[str, object]] = {}
@@ -919,7 +919,7 @@ def _selection_run_schema(selection: VerifiedCaseDevRankedSelection) -> str:
     )
 
 
-def _verify_ranked_record(
+def verify_case_dev_ranked_record(
     record: Mapping[str, object],
     *,
     rank: int,
