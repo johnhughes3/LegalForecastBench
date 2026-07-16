@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import io
 import json
+import urllib.error
 import urllib.request
 from pathlib import Path
+from types import TracebackType
+from typing import Self
 
 import pytest
 from legalforecast.ingestion import (
@@ -23,6 +27,9 @@ from legalforecast.ingestion.courtlistener_client import (
     CourtListenerHTTPResponse,
     UrlLibCourtListenerTransport,
     _RejectCourtListenerRedirectHandler,
+)
+from legalforecast.ingestion.courtlistener_request_budget import (
+    CourtListenerRequestBudget,
 )
 
 
@@ -432,6 +439,222 @@ def test_urllib_transport_maps_bare_read_timeout_to_retryable_error(
         )
 
 
+@pytest.mark.parametrize(
+    ("body", "reason"),
+    (
+        (b"", "empty"),
+        (b'{"results":[', "malformed JSON"),
+        (b"<html><body>upstream error</body></html>", "malformed JSON"),
+        (b"{not-json}", "malformed JSON"),
+    ),
+    ids=("empty", "truncated", "html", "malformed-json"),
+)
+def test_urllib_transport_classifies_invalid_success_body_as_retryable(
+    body: bytes,
+    reason: str,
+) -> None:
+    transport = UrlLibCourtListenerTransport(
+        "https://www.courtlistener.com/api/rest/v4"
+    )
+    transport._opener = _RawSequenceOpener((body,))
+
+    with pytest.raises(CourtListenerServerError, match=reason):
+        transport.request(
+            method="GET",
+            path="/search/",
+            params={"q": "motion to dismiss", "type": "r"},
+            headers={},
+            timeout_seconds=1,
+        )
+
+
+def test_invalid_search_body_retries_and_reconciles_durable_attempts(
+    tmp_path: Path,
+) -> None:
+    transport = UrlLibCourtListenerTransport(
+        "https://www.courtlistener.com/api/rest/v4"
+    )
+    transport._opener = _RawSequenceOpener(
+        (
+            b"<html><body>temporary upstream error</body></html>",
+            b'{"results":[],"next":null}',
+        )
+    )
+    budget = CourtListenerRequestBudget(tmp_path / "requests.sqlite3")
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=transport,
+        max_retries=1,
+        before_request=budget.before_request,
+    )
+
+    page = client.search_raw({"q": "motion to dismiss", "type": "r"})
+
+    assert page.items == ()
+    assert client.request_count == 2
+    assert budget.local_reservations == 2
+    assert budget.total_reservations() == 2
+    assert transport._opener.request_count == 2
+
+
+def test_valid_json_search_schema_error_is_not_retried(tmp_path: Path) -> None:
+    transport = UrlLibCourtListenerTransport(
+        "https://www.courtlistener.com/api/rest/v4"
+    )
+    transport._opener = _RawSequenceOpener((b'{"results":"not-a-list"}',))
+    budget = CourtListenerRequestBudget(tmp_path / "requests.sqlite3")
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=transport,
+        max_retries=2,
+        before_request=budget.before_request,
+    )
+
+    with pytest.raises(CourtListenerResponseError, match="results or items"):
+        client.search_raw({"q": "motion to dismiss", "type": "r"})
+
+    assert client.request_count == 1
+    assert budget.total_reservations() == 1
+    assert transport._opener.request_count == 1
+
+
+def test_invalid_error_body_preserves_nonretryable_http_status() -> None:
+    transport = UrlLibCourtListenerTransport(
+        "https://www.courtlistener.com/api/rest/v4"
+    )
+    transport._opener = _RawSequenceOpener(
+        (
+            urllib.error.HTTPError(
+                "https://www.courtlistener.com/api/rest/v4/search/",
+                404,
+                "Not Found",
+                {},
+                io.BytesIO(b""),
+            ),
+        )
+    )
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=transport,
+        max_retries=2,
+    )
+
+    with pytest.raises(CourtListenerUnavailableError, match="status 404"):
+        client.search_raw({"q": "motion to dismiss", "type": "r"})
+
+    assert client.request_count == 1
+    assert transport._opener.request_count == 1
+
+
+@pytest.mark.parametrize(
+    "body",
+    (b"[]", b"null", b'"oops"'),
+    ids=("list", "null", "string"),
+)
+def test_non_object_server_error_body_retries_before_success(body: bytes) -> None:
+    transport = UrlLibCourtListenerTransport(
+        "https://www.courtlistener.com/api/rest/v4"
+    )
+    transport._opener = _RawSequenceOpener(
+        (
+            urllib.error.HTTPError(
+                "https://www.courtlistener.com/api/rest/v4/search/",
+                503,
+                "Service Unavailable",
+                {},
+                io.BytesIO(body),
+            ),
+            b'{"results":[],"next":null}',
+        )
+    )
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=transport,
+        max_retries=1,
+    )
+
+    page = client.search_raw({"q": "motion to dismiss", "type": "r"})
+
+    assert page.items == ()
+    assert client.request_count == 2
+    assert transport._opener.request_count == 2
+
+
+def test_non_object_server_error_body_fails_closed_after_retries() -> None:
+    transport = UrlLibCourtListenerTransport(
+        "https://www.courtlistener.com/api/rest/v4"
+    )
+    transport._opener = _RawSequenceOpener(
+        tuple(
+            urllib.error.HTTPError(
+                "https://www.courtlistener.com/api/rest/v4/search/",
+                503,
+                "Service Unavailable",
+                {},
+                io.BytesIO(b"[]"),
+            )
+            for _ in range(2)
+        )
+    )
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=transport,
+        max_retries=1,
+    )
+
+    with pytest.raises(CourtListenerServerError, match="status 503"):
+        client.search_raw({"q": "motion to dismiss", "type": "r"})
+
+    assert client.request_count == 2
+    assert transport._opener.request_count == 2
+
+
+def test_non_object_not_found_body_preserves_http_status() -> None:
+    transport = UrlLibCourtListenerTransport(
+        "https://www.courtlistener.com/api/rest/v4"
+    )
+    transport._opener = _RawSequenceOpener(
+        (
+            urllib.error.HTTPError(
+                "https://www.courtlistener.com/api/rest/v4/search/",
+                404,
+                "Not Found",
+                {},
+                io.BytesIO(b"[]"),
+            ),
+        )
+    )
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=transport,
+        max_retries=2,
+    )
+
+    with pytest.raises(CourtListenerUnavailableError, match="status 404"):
+        client.search_raw({"q": "motion to dismiss", "type": "r"})
+
+    assert client.request_count == 1
+    assert transport._opener.request_count == 1
+
+
+def test_non_object_success_body_is_not_retried() -> None:
+    transport = UrlLibCourtListenerTransport(
+        "https://www.courtlistener.com/api/rest/v4"
+    )
+    transport._opener = _RawSequenceOpener((b"[]",))
+    client = CourtListenerClient(
+        config=CourtListenerConfig(),
+        transport=transport,
+        max_retries=2,
+    )
+
+    with pytest.raises(CourtListenerResponseError, match="must be an object"):
+        client.search_raw({"q": "motion to dismiss", "type": "r"})
+
+    assert client.request_count == 1
+    assert transport._opener.request_count == 1
+
+
 def test_authenticated_redirect_rejects_cross_host_before_forwarding_header() -> None:
     handler = _RejectCourtListenerRedirectHandler()
     original = urllib.request.Request(
@@ -571,3 +794,39 @@ def _response(
         status_code=status_code,
         payload=payload,
     )
+
+
+class _RawResponse:
+    def __init__(self, body: bytes, *, status: int = 200) -> None:
+        self._body = body
+        self.status = status
+        self.headers: dict[str, str] = {"Content-Type": "application/json"}
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        del exc_type, exc_value, traceback
+
+    def read(self) -> bytes:
+        return self._body
+
+
+class _RawSequenceOpener:
+    def __init__(self, responses: tuple[bytes | BaseException, ...]) -> None:
+        self._responses = list(responses)
+        self.request_count = 0
+
+    def open(self, *_: object, **__: object) -> _RawResponse:
+        self.request_count += 1
+        if not self._responses:
+            raise AssertionError("unexpected additional CourtListener request")
+        response = self._responses.pop(0)
+        if isinstance(response, BaseException):
+            raise response
+        return _RawResponse(response)
