@@ -196,13 +196,16 @@ def test_declared_shard_dispatch_records_frozen_pair_and_remaining_schedule(
         json.dumps(record, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    assert load_dispatch_provenance(
-        provenance_path,
-        expected_cycle_id="cycle-1",
-        expected_model_keys=tuple(
-            f"fixture:model-{model}" for model in ("a", "b", "c", "d")
-        ),
-    ) == record
+    assert (
+        load_dispatch_provenance(
+            provenance_path,
+            expected_cycle_id="cycle-1",
+            expected_model_keys=tuple(
+                f"fixture:model-{model}" for model in ("a", "b", "c", "d")
+            ),
+        )
+        == record
+    )
 
 
 @pytest.mark.parametrize(
@@ -235,6 +238,60 @@ def test_shard_dispatch_rejects_undeclared_or_full_set_request(
             current_workflow_run_attempt=1,
             requested_model_keys=model_keys,
             requested_ablations=ablations,
+            shard_only=True,
+        )
+
+
+def test_shard_dispatch_rejects_duplicate_prior_shard(tmp_path: Path) -> None:
+    bundle_path, bundle_sha = _write_sharded_bundle(tmp_path)
+
+    with pytest.raises(
+        DispatchProvenanceError,
+        match="duplicate frozen shard",
+    ):
+        build_dispatch_provenance(
+            current_freeze_bundle_path=bundle_path,
+            candidate_freeze_bundle_paths=(bundle_path,),
+            root_path=tmp_path,
+            current_model_registry_path=tmp_path / "root-registry.json",
+            prior_dispatches=(
+                {
+                    "workflow_run_id": "1001",
+                    "workflow_run_attempt": 1,
+                    "freeze_bundle_sha256": bundle_sha,
+                    "model_keys": ["fixture:model-a"],
+                    "ablations": ["full_packet"],
+                },
+            ),
+            current_workflow_run_id="1002",
+            current_workflow_run_attempt=1,
+            requested_model_keys=("fixture:model-a",),
+            requested_ablations=("full_packet",),
+            shard_only=True,
+        )
+
+
+def test_shard_dispatch_rejects_frozen_execution_policy_hash_mismatch(
+    tmp_path: Path,
+) -> None:
+    bundle_path, _ = _write_sharded_bundle(tmp_path)
+    execution_policy_path = tmp_path / "execution-policy.json"
+    execution_policy_path.write_text(
+        execution_policy_path.read_text(encoding="utf-8") + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(DispatchProvenanceError, match="execution policy hash mismatch"):
+        build_dispatch_provenance(
+            current_freeze_bundle_path=bundle_path,
+            candidate_freeze_bundle_paths=(bundle_path,),
+            root_path=tmp_path,
+            current_model_registry_path=tmp_path / "root-registry.json",
+            prior_dispatches=(),
+            current_workflow_run_id="1001",
+            current_workflow_run_attempt=1,
+            requested_model_keys=("fixture:model-a",),
+            requested_ablations=("full_packet",),
             shard_only=True,
         )
 
