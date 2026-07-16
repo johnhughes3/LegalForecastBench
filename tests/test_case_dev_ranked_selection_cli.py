@@ -282,6 +282,41 @@ def test_promote_terminal_firecrawl_subset_rejects_outputs_inside_source_bundle(
     assert not cast(Path, fixture["output_root"]).exists()
 
 
+@pytest.mark.parametrize(
+    ("flag", "tree", "name"),
+    [
+        ("--screened-cases-output", "snapshot", "screened-cases.jsonl"),
+        ("--exclusions-output", "snapshot", "exclusions.jsonl"),
+        ("--summary-output", "snapshot", "summary.json"),
+        ("--run-card-output", "snapshot", "run-card.json"),
+        ("--log-output", "snapshot", "log.jsonl"),
+        ("--screened-cases-output", "raw", "screened-cases.jsonl"),
+        ("--exclusions-output", "raw", "exclusions.jsonl"),
+        ("--summary-output", "raw", "summary.json"),
+        ("--run-card-output", "raw", "run-card.json"),
+        ("--log-output", "raw", "log.jsonl"),
+    ],
+)
+def test_promote_terminal_firecrawl_subset_rejects_writable_files_in_output_trees(
+    tmp_path: Path,
+    flag: str,
+    tree: str,
+    name: str,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+    output_root = cast(Path, fixture["output_root"])
+    tree_path = (
+        output_root / "snapshots/terminal-promoted"
+        if tree == "snapshot"
+        else output_root / "raw-docket-html"
+    )
+    args = [*_promotion_args(fixture), flag, str(tree_path / name)]
+
+    assert main(args) == 2
+    assert not (output_root / "snapshots").exists()
+    assert not (output_root / "raw-docket-html").exists()
+
+
 def test_select_case_dev_ranked_accepts_authenticated_unrestricted_recap_source(
     tmp_path: Path,
 ) -> None:

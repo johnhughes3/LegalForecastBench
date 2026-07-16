@@ -32283,6 +32283,18 @@ def _validate_terminal_promotion_paths(
                     "terminal promotion output would contain immutable source "
                     f"evidence: {protected}"
                 )
+    for writable_file in writable_files:
+        writable = writable_file.resolve()
+        for tree in writable_trees:
+            if (
+                writable == tree
+                or writable.is_relative_to(tree)
+                or tree.is_relative_to(writable)
+            ):
+                raise CommandError(
+                    "terminal promotion writable file overlaps its snapshot or "
+                    f"raw HTML output tree: {writable}"
+                )
     if (
         raw_html_dir.resolve() == snapshot_path.resolve()
         or raw_html_dir.resolve().is_relative_to(snapshot_path.resolve())

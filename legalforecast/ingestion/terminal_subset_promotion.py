@@ -170,6 +170,16 @@ def verify_terminal_subset_promotion_source(
         _required_text(row, "candidate_id") for row in evidence.screened_records
     }
     lead_by_docket = {lead.docket_id: lead for lead in selection.source.leads}
+    missing_dockets = sorted(
+        candidate.docket_id
+        for candidate in selection.selected
+        if candidate.docket_id not in lead_by_docket
+    )
+    if missing_dockets:
+        raise TerminalSubsetPromotionError(
+            "terminal selection references dockets missing from its source: "
+            + ", ".join(missing_dockets)
+        )
     expected_candidate_ids = {
         lead_by_docket[candidate.docket_id].candidate_id
         for candidate in selection.selected
@@ -330,6 +340,8 @@ def _verify_provisional_lineage(
     if (
         type(source_count) is not int
         or any(type(value) is not int for value in partition)
+        or source_count <= 0
+        or any(cast(int, value) < 0 for value in partition)
         or sum(cast(tuple[int, int, int], partition)) != source_count
     ):
         raise TerminalSubsetPromotionError(
