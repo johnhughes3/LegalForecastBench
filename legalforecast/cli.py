@@ -250,6 +250,7 @@ from legalforecast.ingestion.decision_text_artifact import (
     CYCLE_1_ELIGIBILITY_ANCHOR,
     DecisionTextArtifactError,
     build_decision_text_records,
+    verify_decision_text_artifact,
 )
 from legalforecast.ingestion.decision_text_artifact import (
     MANIFEST_SCHEMA_VERSION as DECISION_TEXT_MANIFEST_SCHEMA_VERSION,
@@ -572,6 +573,7 @@ from legalforecast.unitization.construct_units import (
 from legalforecast.unitization.review import (
     UnitizationReviewError,
     apply_unitization_reviews,
+    require_finalized_envelopes,
 )
 from legalforecast.unitization.schemas import (
     ChallengeScope,
@@ -4874,7 +4876,28 @@ def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> Non
         "--parser-manifest",
         type=Path,
         required=True,
-        help="JSONL from acquisition parse-documents.",
+        help=(
+            "JSONL from acquisition parse-documents, used only to cross-check the "
+            "authenticated Stage B decision text; it is never prompt authority."
+        ),
+    )
+    parser.add_argument(
+        "--decision-texts",
+        type=Path,
+        required=True,
+        help="Authenticated private JSONL from acquisition build-decision-texts.",
+    )
+    parser.add_argument(
+        "--decision-texts-manifest",
+        type=Path,
+        required=True,
+        help="Immutable manifest emitted with --decision-texts.",
+    )
+    parser.add_argument(
+        "--decision-texts-run-card",
+        type=Path,
+        required=True,
+        help="Completed executed build-decision-texts acquisition run card.",
     )
     parser.add_argument(
         "--prediction-units",
@@ -4885,7 +4908,10 @@ def _add_acquisition_llm_label_arguments(parser: argparse.ArgumentParser) -> Non
     parser.add_argument(
         "--markdown-root",
         type=Path,
-        help="Root for parser Markdown artifacts; defaults to markdown.",
+        help=(
+            "Root used only to cross-check pinned decision Markdown against the "
+            "authenticated JSONL; defaults to markdown."
+        ),
     )
     parser.add_argument(
         "--model-registry",
@@ -19381,6 +19407,7 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
         extra={
             "eligibility_anchor": CYCLE_1_ELIGIBILITY_ANCHOR.isoformat(),
             "decision_texts_sha256": _bytes_sha256(decision_texts_payload),
+            "decision_texts_manifest_sha256": _bytes_sha256(manifest_payload),
             "input_commitments": dict(sorted(commitments.items())),
         },
     )
@@ -19492,6 +19519,9 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
     provider_journal_path = output_root / "provider-attempts.sqlite3"
     selection_path = cast(Path, args.selection)
     parser_manifest_path = cast(Path, args.parser_manifest)
+    decision_texts_path = cast(Path, args.decision_texts)
+    decision_texts_manifest_path = cast(Path, args.decision_texts_manifest)
+    decision_texts_run_card_path = cast(Path, args.decision_texts_run_card)
     prediction_units_path = cast(Path, args.prediction_units)
     markdown_root = cast(Path | None, args.markdown_root) or (output_root / "markdown")
     model_registry_path = cast(Path, args.model_registry)
@@ -19513,6 +19543,24 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         output_root / "lawyer-review-queue.jsonl",
     )
     selection_records = _read_records(selection_path)
+    parser_records = _read_records(parser_manifest_path)
+    prediction_unit_records = _read_records(prediction_units_path)
+    try:
+        finalized_unit_records = require_finalized_envelopes(prediction_unit_records)
+        decision_text_artifact = verify_decision_text_artifact(
+            decision_texts_path=decision_texts_path,
+            manifest_path=decision_texts_manifest_path,
+            run_card_path=decision_texts_run_card_path,
+            selections=selection_records,
+            selection_path=selection_path,
+            parser_records=parser_records,
+            parser_manifest_path=parser_manifest_path,
+            finalized_unit_records=finalized_unit_records,
+            finalized_units_path=prediction_units_path,
+            markdown_root=markdown_root,
+        )
+    except (DecisionTextArtifactError, UnitizationReviewError) as exc:
+        raise CommandError(str(exc)) from exc
     model_keys = tuple(cast(list[str], args.model_key))
     _require_explicit_unique_model_keys(model_keys)
     dry_run = _acquisition_dry_run(args)
@@ -19550,9 +19598,8 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         }
         result = llm_label_cases(
             selection_records=selection_records,
-            parser_records=_read_records(parser_manifest_path),
-            prediction_unit_records=_read_records(prediction_units_path),
-            markdown_root=markdown_root,
+            prediction_unit_records=finalized_unit_records,
+            decision_text_artifact=decision_text_artifact,
             registry_entries=registry_entries,
             model_registry_sha256=registry_sha256,
             consensus_policy=LlmConsensusPolicy(cast(str, args.consensus_policy)),
@@ -19574,6 +19621,9 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         input_paths=(
             selection_path,
             parser_manifest_path,
+            decision_texts_path,
+            decision_texts_manifest_path,
+            decision_texts_run_card_path,
             prediction_units_path,
             model_registry_path,
             evaluated_registry_path,
@@ -19589,6 +19639,20 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
         dry_run=dry_run,
         paid_activity_requested=not dry_run,
         paid_activity_executed=not dry_run,
+        extra={
+            "decision_text_commitments": {
+                "decision_texts_sha256": decision_text_artifact.decision_texts_sha256,
+                "decision_texts_manifest_sha256": (
+                    decision_text_artifact.manifest_sha256
+                ),
+                "decision_texts_run_card_sha256": (
+                    decision_text_artifact.run_card_sha256
+                ),
+                "finalized_prediction_units_sha256": (
+                    decision_text_artifact.finalized_prediction_units_sha256
+                ),
+            }
+        },
     )
     return 0
 

@@ -82,6 +82,27 @@ uv run legalforecast acquisition build-decision-texts \
 
 The command reconciles exact candidate and document coverage; verifies the target-cohort, authenticated clearance, and live-parser run-card commitments; admits only the single public, outcome-bearing, non-model-visible first written disposition entered on or after the Cycle 1 anchor; and binds the source and extracted-text hashes to the pinned parser revision. Fixture parser provenance is refused. It fails closed on missing, ambiguous, sealed, private, malformed restriction flags, unpinned, unauthenticated, or drifted inputs. `decision-texts.jsonl` is private Stage B and audit input only: never place it in a model-visible packet, hand-edit it, or substitute a manually assembled file.
 
+Pass that exact artifact, its immutable manifest, and the completed builder run card to Stage B. The parser manifest and Markdown remain required only to cross-check the authenticated artifact against the pinned live-Mistral lineage; `llm-label` never uses Markdown directly as prompt authority:
+
+```bash
+uv run legalforecast acquisition llm-label \
+  --output-root <assembled-cycle-root> \
+  --selection <selection.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --markdown-root <parsed-markdown-root> \
+  --decision-texts <assembled-cycle-root>/decision-texts.jsonl \
+  --decision-texts-manifest <assembled-cycle-root>/decision-texts-manifest.json \
+  --decision-texts-run-card <assembled-cycle-root>/run-cards/build-decision-texts.json \
+  --prediction-units <finalized-prediction-units.jsonl> \
+  --model-registry <frozen-stage-b-judge-registry.json> \
+  --evaluated-model-registry <frozen-evaluated-model-registry.json> \
+  --model-key <provider:model-id> \
+  --provider-cycle-caps <provider-cycle-caps.json> \
+  --execute --no-resume
+```
+
+Repeat `--model-key` for every entry in the frozen judge registry. Before the first provider reservation, the command verifies exact candidate and case mapping, decision-document, disposition-date, text, text-hash, source hash and byte count, empty parser quality flags, selection, parser, and finalized-unit coverage and provenance. It binds the decision JSONL, manifest, run-card, per-record, and text hashes plus the exact raw finalized-units file and candidate-envelope hashes into each provider prompt and therefore the provider journal identity, and repeats those commitments in the label audit and `llm-label` run card. Any mismatch stops the stage without a provider call.
+
 After Stage B labeling completes, freeze the single cycle-level reliability sample before any lawyer adjudication:
 
 ```bash

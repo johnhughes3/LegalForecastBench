@@ -62,6 +62,9 @@ def test_build_decision_texts_emits_consumer_compatible_hash_bound_rows(
     run_card = json.loads(
         (output / "run-cards" / "build-decision-texts.json").read_text(encoding="utf-8")
     )
+    assert run_card["decision_texts_manifest_sha256"] == _sha256(
+        output / "decision-texts-manifest.json"
+    )
     assert run_card["paid_activity_requested"] is False
     assert run_card["paid_activity_executed"] is False
 

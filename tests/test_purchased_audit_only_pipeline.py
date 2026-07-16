@@ -14,6 +14,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerPurchaseStatus,
 )
 from legalforecast.ingestion.free_document_downloader import FixtureFreeDocumentSource
+from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.ingestion.packet_input_planner import plan_packet_build_inputs
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.ingestion.purchased_document_recovery import (
@@ -201,6 +202,13 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
         ),
         encoding="utf-8",
     )
+    stage_b_args = _write_authenticated_stage_b_inputs(
+        root=tmp_path / "stage-b",
+        selection_path=selection_path,
+        parser_manifest=parser_manifest,
+        markdown_root=output_root / "markdown",
+        decision_text=decision_text,
+    )
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", _stage_b_completion)
     assert (
         main(
@@ -213,6 +221,7 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
                 str(parser_manifest),
                 "--prediction-units",
                 str(units_path),
+                *stage_b_args,
                 "--model-registry",
                 str(registry_path),
                 "--evaluated-model-registry",
@@ -322,6 +331,7 @@ def _selection() -> JsonRecord:
         "source_url": "https://www.courtlistener.com/docket/cand-1/",
         "target_motion_entry_numbers": [5],
         "decision_entry_numbers": [16],
+        "selected": True,
         "documents": [
             _selection_document("complaint", "complaint", 1, True, False),
             _selection_document("mtd", "motion_to_dismiss_notice", 5, True, False),
@@ -406,6 +416,127 @@ def _stage_b_completion(*args: Any, **kwargs: Any) -> SolverResponse:
         estimated_cost=0.01,
         metadata={"provider": "openai", "model_id": "gpt-test"},
     )
+
+
+def _write_authenticated_stage_b_inputs(
+    *,
+    root: Path,
+    selection_path: Path,
+    parser_manifest: Path,
+    markdown_root: Path,
+    decision_text: str,
+) -> list[str]:
+    conversions = _read_jsonl(parser_manifest)
+    [decision_parser] = [
+        record for record in conversions if record["source_document_id"] == "decision"
+    ]
+    text_sha256 = hashlib.sha256(decision_text.encode()).hexdigest()
+    decision_parser["parser_config"] = {
+        "engine": "mistral",
+        "parser_revision": EXPECTED_PARSER_REVISION,
+        "expected_parser_revision": EXPECTED_PARSER_REVISION,
+        "fixture_markdown": False,
+    }
+    decision_parser["extracted_text"] = {
+        "source_document_id": "decision",
+        "extraction_method": "mistral_parser_markdown",
+        "text_sha256": text_sha256,
+    }
+    _write_jsonl(parser_manifest, conversions)
+    commitments = {
+        "clearance_run_card_sha256": "sha256:" + "b" * 64,
+        "disclosure_clearance_sha256": "sha256:" + "c" * 64,
+        "download_manifest_sha256": "sha256:" + "d" * 64,
+        "parser_manifest_sha256": _sha256(parser_manifest),
+        "parser_run_card_sha256": "sha256:" + "e" * 64,
+        "restriction_evidence_sha256": "sha256:" + "f" * 64,
+        "selection_sha256": _sha256(selection_path),
+        "selection_run_card_sha256": "sha256:" + "1" * 64,
+    }
+    record = {
+        "schema_version": "legalforecast.decision_text.v1",
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "document_id": "decision",
+        "entered_date": "2026-07-01",
+        "text": decision_text,
+        "is_first_written_disposition": True,
+        "contains_target_outcome": True,
+        "model_visible": False,
+        "document_role": "decision",
+        "docket_entry_number": 16,
+        "source_sha256": decision_parser["source_sha256"],
+        "source_byte_count": decision_parser["source_byte_count"],
+        "text_sha256": text_sha256,
+        "markdown_sha256": text_sha256,
+        "extraction_method": "mistral_parser_markdown",
+        "parser_revision": EXPECTED_PARSER_REVISION,
+        "clearance": {
+            "status": "cleared",
+            "restriction_status": "public",
+            "reviewer_id": "reviewer:test",
+            "controlled_store_provenance": "private-store://test/decision",
+            "reviewed_at": "2026-07-15T12:00:00Z",
+        },
+        "input_commitments": commitments,
+    }
+    decision_texts = root / "decision-texts.jsonl"
+    manifest_path = root / "decision-texts-manifest.json"
+    run_card_path = root / "build-decision-texts.json"
+    _write_jsonl(decision_texts, [record])
+    manifest = {
+        "schema_version": "legalforecast.decision_text_manifest.v1",
+        "eligibility_anchor": "2026-06-30",
+        "record_count": 1,
+        "candidate_ids_sha256": _canonical_sha256(["cand-1"]),
+        "decision_texts_sha256": _sha256(decision_texts),
+        "input_commitments": commitments,
+        "outcome_material_model_visible": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+    }
+    _write_json(manifest_path, manifest)
+    _write_json(
+        run_card_path,
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "build-decision-texts",
+            "status": "completed",
+            "execute": True,
+            "dry_run": False,
+            "record_count": 1,
+            "eligibility_anchor": "2026-06-30",
+            "decision_texts_sha256": _sha256(decision_texts),
+            "decision_texts_manifest_sha256": _sha256(manifest_path),
+            "input_commitments": commitments,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+        },
+    )
+    return [
+        "--decision-texts",
+        str(decision_texts),
+        "--decision-texts-manifest",
+        str(manifest_path),
+        "--decision-texts-run-card",
+        str(run_card_path),
+        "--markdown-root",
+        str(markdown_root),
+    ]
+
+
+def _sha256(path: Path) -> str:
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _canonical_sha256(value: object) -> str:
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _write_json(path: Path, value: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _registry_record() -> JsonRecord:
