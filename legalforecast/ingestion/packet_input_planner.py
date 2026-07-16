@@ -126,6 +126,12 @@ def load_verified_raw_artifacts(
         namespaced_candidate = _COURTLISTENER_DOCKET_CANDIDATE_ID.fullmatch(
             candidate_id
         )
+        if re.fullmatch(r"[0-9]+", candidate_id) is not None:
+            raise PacketInputPlanningError(
+                "raw-artifact manifest contains a bare numeric candidate identity "
+                f"on line {line_number}; expected "
+                f"{_COURTLISTENER_DOCKET_CANDIDATE_PREFIX}{candidate_id}"
+            )
         if (
             candidate_id.startswith(_COURTLISTENER_DOCKET_CANDIDATE_PREFIX)
             and namespaced_candidate is None
@@ -161,15 +167,6 @@ def load_verified_raw_artifacts(
                 "duplicate raw-artifact path binding for candidates "
                 f"{paths[lexical_path]} and {candidate_id}: {lexical_path}"
             )
-        if (
-            namespaced_candidate is not None
-            and lexical_path.name != f"{namespaced_candidate.group('docket_id')}.html"
-        ):
-            raise PacketInputPlanningError(
-                "raw-artifact candidate/path ownership mismatch on line "
-                f"{line_number}: {candidate_id} cannot own {lexical_path.name}"
-            )
-
         current = lexical_root
         try:
             for component in relative_path.parts:
@@ -212,6 +209,18 @@ def load_verified_raw_artifacts(
             raise PacketInputPlanningError(
                 f"raw-artifact sha256 is invalid on line {line_number}"
             )
+        if namespaced_candidate is not None:
+            docket_id = namespaced_candidate.group("docket_id")
+            direct_layout = relative_path.parts == (f"{docket_id}.html",)
+            union_layout = relative_path.parts == (
+                candidate_id,
+                f"{expected_sha256}.html",
+            )
+            if not direct_layout and not union_layout:
+                raise PacketInputPlanningError(
+                    "raw-artifact candidate/path ownership mismatch on line "
+                    f"{line_number}: {candidate_id} does not own {relative_path}"
+                )
         try:
             payload = lexical_path.read_bytes()
         except OSError as exc:
@@ -301,6 +310,15 @@ def bind_verified_raw_artifacts(
                 f"{selection_candidate_id}"
             )
         artifact = matches[0]
+        if (
+            re.fullmatch(r"[0-9]+", selection_candidate_id) is not None
+            and artifact.manifest_candidate_id == selection_candidate_id
+        ):
+            raise PacketInputPlanningError(
+                "numeric selection candidate requires namespaced raw-artifact "
+                "ownership: "
+                f"{_COURTLISTENER_DOCKET_CANDIDATE_PREFIX}{selection_candidate_id}"
+            )
         prior_owner = owners_by_manifest_id.get(artifact.manifest_candidate_id)
         if prior_owner is not None:
             raise PacketInputPlanningError(

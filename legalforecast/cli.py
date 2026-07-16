@@ -5222,18 +5222,19 @@ def _add_acquisition_plan_packet_inputs_arguments(
         type=Path,
         required=True,
         help=(
-            "Containment root for saved CourtListener docket HTML committed by "
-            "--raw-artifacts-manifest."
+            "Containment root for committed CourtListener docket HTML; official "
+            "union runs use <union-output-root>/union-raw-artifacts."
         ),
     )
     parser.add_argument(
         "--raw-artifacts-manifest",
         type=Path,
         help=(
-            "Canonical raw-artifacts.jsonl binding namespaced candidate IDs to "
-            "verified docket HTML paths and hashes. Required with --execute; "
-            "exact courtlistener-docket-<numeric> identities may bind the same "
-            "numeric selection ID."
+            "Canonical raw-artifact JSONL binding namespaced candidate IDs to "
+            "verified docket HTML paths and hashes; official union runs use "
+            "<union-output-root>/union-raw-artifacts.jsonl. Required with "
+            "--execute; exact courtlistener-docket-<numeric> identities may bind "
+            "the same numeric selection ID."
         ),
     )
     parser.add_argument(

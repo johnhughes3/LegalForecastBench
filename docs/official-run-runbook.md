@@ -147,12 +147,12 @@ uv run legalforecast acquisition plan-packet-inputs \
   --disclosure-clearance <disclosure-clearance.jsonl> \
   --prediction-units <finalized-prediction-units.jsonl> \
   --model-registry model_registries/cycle-1-2026-06-30.json \
-  --raw-html-dir <canonical-snapshot>/raw-html \
-  --raw-artifacts-manifest <canonical-snapshot>/raw-artifacts.jsonl \
+  --raw-html-dir <union-output-root>/union-raw-artifacts \
+  --raw-artifacts-manifest <union-output-root>/union-raw-artifacts.jsonl \
   --execute --no-resume
 ```
 
-The executed command refuses an omitted manifest. A numeric target-selection candidate ID may bind only to the exact canonical `courtlistener-docket-<same-digits>` manifest identity. The planner preserves both IDs, the original manifest path, byte count, and SHA-256 in audit provenance; it fails closed on nonnumeric reserved aliases, exact-versus-namespaced collisions, multiple candidate owners, missing ownership, duplicate paths, or content/hash drift. Never rename raw-artifact candidate IDs or hand-edit the manifest to make packet planning pass.
+The executed command refuses an omitted manifest. Use the final `union-screening-snapshots` output root, not a guessed directory inside its exported snapshot. A numeric target-selection candidate ID may bind only to the exact canonical `courtlistener-docket-<same-digits>` manifest identity; a bare numeric manifest identity is refused. The loader accepts the direct canonical `<docket-id>.html` layout and the union-owned `<namespaced-candidate-id>/<sha256>.html` layout, verifying the path ownership and content commitment in either case. The planner preserves both IDs, the original manifest path, byte count, and SHA-256 in audit provenance; it fails closed on nonnumeric reserved aliases, exact-versus-namespaced collisions, multiple candidate owners, missing ownership, duplicate paths, cross-candidate path substitution, or content/hash drift. Never rename raw-artifact candidate IDs or hand-edit the manifest to make packet planning pass.
 
 ## Before Dispatch
 

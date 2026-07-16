@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from legalforecast.ingestion.packet_input_planner import (
     PacketInputPlanningError,
+    VerifiedRawArtifact,
     bind_verified_raw_artifacts,
     load_verified_raw_artifacts,
 )
@@ -96,6 +97,22 @@ def test_load_verified_raw_artifacts_rejects_nonnumeric_reserved_aliases(
         )
 
 
+def test_load_verified_raw_artifacts_rejects_bare_numeric_manifest_identity(
+    tmp_path: Path,
+) -> None:
+    raw_html_root = tmp_path / "raw-html"
+    raw_html_root.mkdir()
+    payload = b"<html>canonical docket</html>"
+    raw_path = raw_html_root / "70649963.html"
+    raw_path.write_bytes(payload)
+
+    with pytest.raises(PacketInputPlanningError, match="bare numeric"):
+        load_verified_raw_artifacts(
+            [_record("70649963", raw_path, payload)],
+            raw_html_dir=raw_html_root,
+        )
+
+
 def test_load_verified_raw_artifacts_rejects_cross_candidate_path_substitution(
     tmp_path: Path,
 ) -> None:
@@ -129,16 +146,49 @@ def test_bind_verified_raw_artifacts_rejects_alias_collision(
     second = raw_html_root / "70649963.html"
     first.write_bytes(first_payload)
     second.write_bytes(second_payload)
-    artifacts = load_verified_raw_artifacts(
-        [
-            _record("70649963", first, first_payload),
-            _record("courtlistener-docket-70649963", second, second_payload),
-        ],
-        raw_html_dir=raw_html_root,
-    )
+    artifacts = {
+        "70649963": VerifiedRawArtifact(
+            manifest_candidate_id="70649963",
+            manifest_path=str(first),
+            path=first,
+            text=first_payload.decode(),
+            sha256=hashlib.sha256(first_payload).hexdigest(),
+            byte_count=len(first_payload),
+        ),
+        "courtlistener-docket-70649963": VerifiedRawArtifact(
+            manifest_candidate_id="courtlistener-docket-70649963",
+            manifest_path=str(second),
+            path=second,
+            text=second_payload.decode(),
+            sha256=hashlib.sha256(second_payload).hexdigest(),
+            byte_count=len(second_payload),
+        ),
+    }
 
     with pytest.raises(PacketInputPlanningError, match="alias collision"):
         bind_verified_raw_artifacts(("70649963",), artifacts=artifacts)
+
+
+def test_bind_verified_raw_artifacts_defensively_rejects_bare_numeric_owner(
+    tmp_path: Path,
+) -> None:
+    raw_path = tmp_path / "70649963.html"
+    payload = b"<html>canonical docket</html>"
+    raw_path.write_bytes(payload)
+    artifact = VerifiedRawArtifact(
+        manifest_candidate_id="70649963",
+        manifest_path=str(raw_path),
+        path=raw_path,
+        text=payload.decode(),
+        sha256=hashlib.sha256(payload).hexdigest(),
+        byte_count=len(payload),
+    )
+
+    with pytest.raises(PacketInputPlanningError, match="requires namespaced"):
+        bind_verified_raw_artifacts(
+            ("70649963",),
+            artifacts={"70649963": artifact},
+        )
 
 
 def test_bind_verified_raw_artifacts_rejects_multiple_candidate_owners(

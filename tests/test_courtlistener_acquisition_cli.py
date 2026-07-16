@@ -47,6 +47,11 @@ from legalforecast.ingestion.firecrawl_source import (
 from legalforecast.ingestion.mtd_acquisition_screen import (
     screen_case_dev_docket_metadata,
 )
+from legalforecast.ingestion.packet_input_planner import (
+    PacketInputPlanningError,
+    bind_verified_raw_artifacts,
+    load_verified_raw_artifacts,
+)
 from legalforecast.ingestion.screening_snapshot_union import (
     ScreeningSnapshotUnionError,
     load_screening_snapshot_union,
@@ -418,6 +423,12 @@ def test_old_and_direct_snapshots_union_provider_free_then_prepare(
     assert len(_read_jsonl(union_snapshot / "screened-cases.jsonl")) == 2
     first_manifest = (union_snapshot / "manifest.json").read_bytes()
     auxiliary_manifest = tmp_path / "union-output" / "union-raw-artifacts.jsonl"
+    union_raw_records = _read_jsonl(auxiliary_manifest)
+    with pytest.raises(PacketInputPlanningError, match="bare numeric"):
+        load_verified_raw_artifacts(
+            union_raw_records,
+            raw_html_dir=tmp_path / "union-output" / "union-raw-artifacts",
+        )
     auxiliary_manifest.unlink()
     assert main(union_command) == 0
     assert (union_snapshot / "manifest.json").read_bytes() == first_manifest
@@ -475,6 +486,102 @@ def test_old_and_direct_snapshots_union_provider_free_then_prepare(
         tmp_path / "union-prepared" / "target-cohort-preparation-summary.json"
     )
     assert prepared["selected_case_count"] == 2
+
+
+def test_namespaced_union_raw_output_binds_numeric_packet_selection(
+    tmp_path: Path,
+) -> None:
+    discovery_root, _discovery_store = _run_saturated_discovery(tmp_path)
+    [screened] = _read_jsonl(discovery_root / "courtlistener-screened-cases.jsonl")
+    namespaced_candidate_id = "courtlistener-docket-123"
+    screened["candidate_id"] = namespaced_candidate_id
+    candidate = cast(dict[str, Any], screened["candidate"])
+    candidate["docket_id"] = namespaced_candidate_id
+    candidate["candidate_key"] = namespaced_candidate_id
+    namespaced_raw_dir = tmp_path / "namespaced-raw"
+    namespaced_raw_dir.mkdir()
+    (namespaced_raw_dir / f"{namespaced_candidate_id}.html").write_bytes(
+        (discovery_root / "raw-courtlistener-html" / "123.html").read_bytes()
+    )
+    namespaced_cycle_root = tmp_path / "namespaced-cycle"
+    source_snapshot, cycle_hash = _complete_snapshot(
+        namespaced_cycle_root,
+        [screened],
+        raw_html_dir=namespaced_raw_dir,
+    )
+    second_screened = cast(dict[str, Any], json.loads(json.dumps(screened)))
+    second_namespaced_candidate_id = "courtlistener-docket-124"
+    second_screened["candidate_id"] = second_namespaced_candidate_id
+    second_candidate = cast(dict[str, Any], second_screened["candidate"])
+    second_candidate["docket_id"] = second_namespaced_candidate_id
+    second_candidate["candidate_key"] = second_namespaced_candidate_id
+    second_raw_dir = tmp_path / "second-namespaced-raw"
+    second_raw_dir.mkdir()
+    (second_raw_dir / f"{second_namespaced_candidate_id}.html").write_bytes(
+        (discovery_root / "raw-courtlistener-html" / "123.html").read_bytes()
+    )
+    second_snapshot, second_cycle_hash = _complete_snapshot(
+        tmp_path / "second-namespaced-cycle",
+        [second_screened],
+        raw_html_dir=second_raw_dir,
+        batch_id="second-courtlistener-fixture",
+        fixture_marker="second-courtlistener",
+        snapshot_id="second-complete-fixture",
+    )
+    assert second_cycle_hash == cycle_hash
+    union_output = tmp_path / "namespaced-union-output"
+    assert (
+        main(
+            [
+                "acquisition",
+                "union-screening-snapshots",
+                "--cycle-store",
+                str(namespaced_cycle_root / "cycle-acquisition.sqlite3"),
+                "--batch-id",
+                "namespaced-union",
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--source-snapshot",
+                str(source_snapshot),
+                "--expected-source-snapshot-manifest-sha256",
+                _manifest_sha256(source_snapshot),
+                "--source-snapshot",
+                str(second_snapshot),
+                "--expected-source-snapshot-manifest-sha256",
+                _manifest_sha256(second_snapshot),
+                "--snapshot-root",
+                str(tmp_path / "namespaced-union-snapshots"),
+                "--snapshot-id",
+                "namespaced-complete-union",
+                "--output-root",
+                str(union_output),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    raw_manifest_path = union_output / "union-raw-artifacts.jsonl"
+    raw_records = _read_jsonl(raw_manifest_path)
+    raw_record = next(
+        record
+        for record in raw_records
+        if record["candidate_id"] == namespaced_candidate_id
+    )
+    assert raw_record["candidate_id"] == namespaced_candidate_id
+    raw_root = union_output / "union-raw-artifacts"
+    relative_path = Path(str(raw_record["path"])).relative_to(raw_root)
+    assert relative_path.parts == (
+        namespaced_candidate_id,
+        f"{raw_record['sha256']}.html",
+    )
+    artifacts = load_verified_raw_artifacts(
+        raw_records,
+        raw_html_dir=raw_root,
+    )
+    bindings = bind_verified_raw_artifacts(("123", "124"), artifacts=artifacts)
+    assert bindings["123"].manifest_candidate_id == namespaced_candidate_id
+    assert bindings["123"].binding_kind == "courtlistener_docket_numeric_alias"
 
 
 def test_snapshot_union_rejects_copied_identical_source(tmp_path: Path) -> None:
@@ -2154,14 +2261,16 @@ def _complete_snapshot(
     screened_records: list[dict[str, object]],
     *,
     raw_html_dir: Path,
+    batch_id: str = "courtlistener-fixture",
+    fixture_marker: str = "courtlistener",
+    snapshot_id: str = "complete-fixture",
 ) -> tuple[Path, str]:
-    batch_id = "courtlistener-fixture"
     term = "fixture-term"
     with CycleAcquisitionStore(root / "cycle-acquisition.sqlite3") as store:
         cycle_hash = store.ensure_cycle(
             {"eligibility_anchor": "2026-06-30", "fixture": True}
         )
-        store.ensure_batch(batch_id, {"fixture": "courtlistener"})
+        store.ensure_batch(batch_id, {"fixture": fixture_marker})
         store.ensure_terms(batch_id, [term])
         hits_list: list[DiscoveryHit] = []
         for index, record in enumerate(screened_records):
@@ -2201,7 +2310,7 @@ def _complete_snapshot(
             )
         snapshot_path = store.export_snapshot(
             root / "snapshots",
-            snapshot_id="complete-fixture",
+            snapshot_id=snapshot_id,
             batch_id=batch_id,
             complete=True,
         )
