@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from collections import deque
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from pathlib import Path
 from threading import Event, Lock, get_ident
 
@@ -12,6 +13,7 @@ from legalforecast.ingestion.budgeted_firecrawl import (
     FirecrawlArtifactError,
     FirecrawlCircuitOpenError,
     FirecrawlTargetSpec,
+    is_retryable_target_accepted,
     load_successful_firecrawl_pages,
 )
 from legalforecast.ingestion.cycle_acquisition_store import (
@@ -26,6 +28,7 @@ from legalforecast.ingestion.firecrawl_source import (
     FirecrawlResponseError,
     FirecrawlScrapeResult,
     FirecrawlServerError,
+    FirecrawlTargetHTTPError,
 )
 
 
@@ -646,7 +649,9 @@ def test_scheduler_exhausts_retries_and_resume_does_not_repeat_work(
         ).run([good, bad])
         assert empty_source.calls == []
         assert [page.raw_html for page in resumed.pages] == ["good"]
-        assert resumed.summary == store.firecrawl_run_summary("run-001")
+        assert {
+            key: resumed.summary[key] for key in store.firecrawl_run_summary("run-001")
+        } == store.firecrawl_run_summary("run-001")
 
 
 def test_load_successful_pages_reconstructs_and_verifies_durable_run(
@@ -703,3 +708,498 @@ def test_scheduler_marks_crash_window_authorization_interrupted_before_retry(
             "succeeded",
         ]
         assert result.pages[0].attempt_number == 2
+
+
+def test_scheduler_resumes_legacy_terminal_202_and_interrupted_authorization(
+    tmp_path: Path,
+) -> None:
+    succeeded = _target("docket-a", 0)
+    accepted = _target("docket-b", 1)
+    interrupted = _target("docket-c", 2)
+    pending = _target("docket-d", 3)
+    with _store(tmp_path) as store:
+        BudgetedFirecrawlScheduler(
+            store=store,
+            source=FixtureSource(
+                {succeeded.source_url: [_success(succeeded, "already durable")]}
+            ),
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+        ).run([succeeded])
+
+        for target in (accepted, interrupted, pending):
+            store.ensure_firecrawl_target(
+                "run-001",
+                target_id=target.target_id,
+                target_kind=target.target_kind,
+                source_url=target.source_url,
+                ordinal=target.ordinal,
+            )
+        accepted_attempt = store.authorize_firecrawl_attempt(
+            "run-001",
+            target_id=accepted.target_id,
+            page_number=accepted.page_number,
+            request_url=accepted.source_url,
+        )
+        store.finalize_firecrawl_attempt(
+            accepted_attempt.attempt_id,
+            status="target_error",
+            reported_credits=5,
+            proxy_used="stealth",
+            provider_http_status=200,
+            target_http_status=202,
+            failure_code="target_http_status_invalid",
+            failure_message="CourtListener target returned a non-success status",
+            failure_transient=False,
+            failure_response_sha256="a" * 64,
+        )
+        legacy_record = store.firecrawl_attempt(accepted_attempt.attempt_id)
+        assert is_retryable_target_accepted(legacy_record)
+        assert not is_retryable_target_accepted(
+            replace(legacy_record, failure_transient=True)
+        )
+        assert not is_retryable_target_accepted(
+            replace(
+                legacy_record,
+                failure_code="target_http_status_retryable",
+                failure_transient=False,
+            )
+        )
+        assert is_retryable_target_accepted(
+            replace(
+                legacy_record,
+                failure_code="target_http_status_retryable",
+                failure_transient=True,
+            )
+        )
+        store.set_firecrawl_target_status(
+            "run-001", accepted.target_id, "terminal_error"
+        )
+        store.authorize_firecrawl_attempt(
+            "run-001",
+            target_id=interrupted.target_id,
+            page_number=interrupted.page_number,
+            request_url=interrupted.source_url,
+        )
+
+        resumed_source = FixtureSource(
+            {
+                accepted.source_url: [_success(accepted, "accepted recovered")],
+                interrupted.source_url: [
+                    _success(interrupted, "interrupted recovered")
+                ],
+                pending.source_url: [_success(pending, "pending acquired")],
+            }
+        )
+        result = BudgetedFirecrawlScheduler(
+            store=store,
+            source=resumed_source,
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+            sleeper=lambda _seconds: None,
+        ).run([succeeded, accepted, interrupted, pending])
+
+        assert resumed_source.calls == [
+            pending.source_url,
+            accepted.source_url,
+            interrupted.source_url,
+        ]
+        assert [page.target_id for page in result.pages] == [
+            succeeded.target_id,
+            accepted.target_id,
+            interrupted.target_id,
+            pending.target_id,
+        ]
+        assert {
+            target.target_id: target.status
+            for target in store.firecrawl_targets("run-001")
+        } == {
+            succeeded.target_id: "succeeded",
+            accepted.target_id: "succeeded",
+            interrupted.target_id: "succeeded",
+            pending.target_id: "succeeded",
+        }
+        attempts = store.firecrawl_attempts("run-001")
+        assert [attempt.status for attempt in attempts] == [
+            "succeeded",
+            "target_error",
+            "interrupted",
+            "succeeded",
+            "succeeded",
+            "succeeded",
+        ]
+        assert result.summary["run_reserved_credits"] == 30
+        assert result.summary["run_reported_credits"] == 25
+
+
+def test_scheduler_bounds_retried_target_202_to_existing_attempt_cap(
+    tmp_path: Path,
+) -> None:
+    target = _target("docket-accepted", 0)
+    with _store(tmp_path) as store:
+        store.ensure_firecrawl_target(
+            "run-001",
+            target_id=target.target_id,
+            target_kind=target.target_kind,
+            source_url=target.source_url,
+            ordinal=target.ordinal,
+        )
+        legacy_attempt = store.authorize_firecrawl_attempt(
+            "run-001",
+            target_id=target.target_id,
+            page_number=target.page_number,
+            request_url=target.source_url,
+        )
+        store.finalize_firecrawl_attempt(
+            legacy_attempt.attempt_id,
+            status="target_error",
+            reported_credits=5,
+            proxy_used="stealth",
+            provider_http_status=200,
+            target_http_status=202,
+            failure_code="target_http_status_invalid",
+            failure_message="CourtListener target returned a non-success status",
+            failure_transient=False,
+            failure_response_sha256="b" * 64,
+        )
+        store.set_firecrawl_target_status("run-001", target.target_id, "terminal_error")
+        source = FixtureSource(
+            {
+                target.source_url: [
+                    FirecrawlTargetHTTPError(
+                        202, reported_credits=5, proxy_used="stealth"
+                    ),
+                    FirecrawlTargetHTTPError(
+                        202, reported_credits=5, proxy_used="stealth"
+                    ),
+                    _success(target, "must not exceed attempt cap"),
+                ]
+            }
+        )
+
+        result = BudgetedFirecrawlScheduler(
+            store=store,
+            source=source,
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+            sleeper=lambda _seconds: None,
+        ).run([target])
+
+        assert result.pages == ()
+        assert source.calls == [target.source_url, target.source_url]
+        assert [
+            (attempt.status, attempt.target_http_status, attempt.failure_transient)
+            for attempt in store.firecrawl_attempts("run-001")
+        ] == [
+            ("target_error", 202, False),
+            ("target_error", 202, True),
+            ("target_error", 202, True),
+        ]
+        assert store.firecrawl_targets("run-001")[0].status == "retry_exhausted"
+        assert result.summary["run_reserved_credits"] == 15
+        assert result.summary["run_reported_credits"] == 15
+
+
+def test_scheduler_does_not_recover_legacy_202_without_strict_response_evidence(
+    tmp_path: Path,
+) -> None:
+    target = _target("docket-unproven-accepted", 0)
+    with _store(tmp_path) as store:
+        store.ensure_firecrawl_target(
+            "run-001",
+            target_id=target.target_id,
+            target_kind=target.target_kind,
+            source_url=target.source_url,
+            ordinal=target.ordinal,
+        )
+        attempt = store.authorize_firecrawl_attempt(
+            "run-001",
+            target_id=target.target_id,
+            page_number=target.page_number,
+            request_url=target.source_url,
+        )
+        store.finalize_firecrawl_attempt(
+            attempt.attempt_id,
+            status="target_error",
+            reported_credits=5,
+            proxy_used="stealth",
+            provider_http_status=200,
+            target_http_status=202,
+            failure_code="target_http_status_invalid",
+            failure_message="CourtListener target returned a non-success status",
+            failure_transient=False,
+            failure_response_sha256=None,
+        )
+        store.set_firecrawl_target_status("run-001", target.target_id, "terminal_error")
+        source = FixtureSource(
+            {target.source_url: [_success(target, "must not be trusted to retry")]}
+        )
+
+        result = BudgetedFirecrawlScheduler(
+            store=store,
+            source=source,
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+            sleeper=lambda _seconds: None,
+        ).run([target])
+
+        assert result.pages == ()
+        assert source.calls == []
+        assert len(store.firecrawl_attempts("run-001")) == 1
+        assert store.firecrawl_targets("run-001")[0].status == "terminal_error"
+
+
+def test_scheduler_resumes_recent_eight_of_ten_202s_at_two_workers_after_cooldown(
+    tmp_path: Path,
+) -> None:
+    targets = [_target(f"docket-{index:02d}", index) for index in range(54)]
+    already_succeeded = targets[:2]
+    accepted = targets[2:10]
+    pending = targets[10:]
+    cooldowns: list[float] = []
+    with _store(tmp_path) as store:
+        for target in targets:
+            store.ensure_firecrawl_target(
+                "run-001",
+                target_id=target.target_id,
+                target_kind=target.target_kind,
+                source_url=target.source_url,
+                ordinal=target.ordinal,
+            )
+        for target in already_succeeded:
+            attempt = store.authorize_firecrawl_attempt(
+                "run-001",
+                target_id=target.target_id,
+                page_number=target.page_number,
+                request_url=target.source_url,
+            )
+            store.commit_firecrawl_artifact(
+                attempt.attempt_id,
+                tmp_path / "raw" / f"{target.target_id}.html",
+                f"<html>{target.target_id}</html>".encode(),
+                reported_credits=5,
+                proxy_used="stealth",
+                target_http_status=200,
+            )
+        for index, target in enumerate(accepted):
+            attempt = store.authorize_firecrawl_attempt(
+                "run-001",
+                target_id=target.target_id,
+                page_number=target.page_number,
+                request_url=target.source_url,
+            )
+            store.finalize_firecrawl_attempt(
+                attempt.attempt_id,
+                status="target_error",
+                reported_credits=5,
+                proxy_used="stealth",
+                provider_http_status=200,
+                target_http_status=202,
+                failure_code="target_http_status_invalid",
+                failure_message=("CourtListener target returned a non-success status"),
+                failure_transient=False,
+                failure_response_sha256=f"{index + 1:064x}",
+            )
+            store.set_firecrawl_target_status(
+                "run-001", target.target_id, "terminal_error"
+            )
+
+        source = FixtureSource(
+            {
+                target.source_url: [_success(target, f"recovered {target.target_id}")]
+                for target in (*accepted, *pending)
+            }
+        )
+        result = BudgetedFirecrawlScheduler(
+            store=store,
+            source=source,
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+            max_workers=10,
+            sleeper=cooldowns.append,
+        ).run(targets)
+
+        assert cooldowns == [5.0]
+        assert result.summary["configured_max_workers"] == 10
+        assert result.summary["initial_effective_workers"] == 2
+        assert result.summary["minimum_effective_workers"] == 2
+        assert result.summary["final_effective_workers"] == 10
+        assert result.summary["target_http_202_cooldown_count"] == 1
+        assert set(source.calls[:44]) == {target.source_url for target in pending}
+        assert set(source.calls[44:]) == {target.source_url for target in accepted}
+        attempts = store.firecrawl_attempts("run-001")
+        assert [attempt.target_id for attempt in attempts[10:54]] == [
+            target.target_id for target in pending
+        ]
+        assert [attempt.target_id for attempt in attempts[54:]] == [
+            target.target_id for target in accepted
+        ]
+        assert len(result.pages) == len(targets)
+        assert result.summary["run_reserved_credits"] == 310
+        assert result.summary["run_reported_credits"] == 310
+
+
+def test_scheduler_exponentially_cools_repeated_202_pressure_windows(
+    tmp_path: Path,
+) -> None:
+    targets = [_target(f"docket-pressure-{index:02d}", index) for index in range(41)]
+    accepted_indexes = {0, 10, 19, 27, 34}
+    cooldowns: list[float] = []
+
+    def accepted_error(index: int) -> FirecrawlTargetHTTPError:
+        error = FirecrawlTargetHTTPError(
+            202,
+            reported_credits=5,
+            proxy_used="stealth",
+        )
+        error.attach_response_evidence(
+            provider_http_status=200,
+            response_sha256=f"{index + 1:064x}",
+        )
+        return error
+
+    source = FixtureSource(
+        {
+            target.source_url: (
+                [accepted_error(index), _success(target, "recovered")]
+                if index in accepted_indexes
+                else [_success(target, "clean")]
+            )
+            for index, target in enumerate(targets)
+        }
+    )
+    with _store(tmp_path) as store:
+        result = BudgetedFirecrawlScheduler(
+            store=store,
+            source=source,
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+            max_workers=10,
+            sleeper=cooldowns.append,
+        ).run(targets)
+
+        assert cooldowns == [5.0, 10.0, 20.0, 40.0, 60.0]
+        assert result.summary["configured_max_workers"] == 10
+        assert result.summary["initial_effective_workers"] == 10
+        assert result.summary["minimum_effective_workers"] == 5
+        assert result.summary["final_effective_workers"] == 7
+        assert result.summary["target_http_202_cooldown_count"] == 5
+        assert result.summary["target_http_202_maximum_cooldown_seconds"] == 60.0
+        assert len(result.pages) == len(targets)
+        assert len(store.firecrawl_attempts("run-001")) == len(targets) + 5
+
+
+def test_scheduler_cooldown_interruption_authorizes_no_new_attempt(
+    tmp_path: Path,
+) -> None:
+    accepted = _target("docket-accepted", 0)
+    pending = _target("docket-pending", 1)
+    with _store(tmp_path) as store:
+        for target in (accepted, pending):
+            store.ensure_firecrawl_target(
+                "run-001",
+                target_id=target.target_id,
+                target_kind=target.target_kind,
+                source_url=target.source_url,
+                ordinal=target.ordinal,
+            )
+        attempt = store.authorize_firecrawl_attempt(
+            "run-001",
+            target_id=accepted.target_id,
+            page_number=accepted.page_number,
+            request_url=accepted.source_url,
+        )
+        store.finalize_firecrawl_attempt(
+            attempt.attempt_id,
+            status="target_error",
+            reported_credits=5,
+            proxy_used="stealth",
+            provider_http_status=200,
+            target_http_status=202,
+            failure_code="target_http_status_invalid",
+            failure_message="CourtListener target returned a non-success status",
+            failure_transient=False,
+            failure_response_sha256="c" * 64,
+        )
+        store.set_firecrawl_target_status(
+            "run-001", accepted.target_id, "terminal_error"
+        )
+
+        def interrupt(_seconds: float) -> None:
+            raise RuntimeError("controlled stop during cooldown")
+
+        source = FixtureSource(
+            {
+                accepted.source_url: [_success(accepted, "must not run")],
+                pending.source_url: [_success(pending, "must not run")],
+            }
+        )
+        with pytest.raises(RuntimeError, match="controlled stop"):
+            BudgetedFirecrawlScheduler(
+                store=store,
+                source=source,
+                run_id="run-001",
+                artifact_dir=tmp_path / "raw",
+                max_workers=10,
+                sleeper=interrupt,
+            ).run([accepted, pending])
+
+        assert source.calls == []
+        assert len(store.firecrawl_attempts("run-001")) == 1
+        assert store.firecrawl_run_summary("run-001")["run_reserved_credits"] == 5
+
+
+def test_target_202_pressure_does_not_increment_provider_5xx_breaker(
+    tmp_path: Path,
+) -> None:
+    first = _target("docket-server-a", 0)
+    accepted = _target("docket-accepted", 1)
+    second = _target("docket-server-b", 2)
+    accepted_error = FirecrawlTargetHTTPError(
+        202,
+        reported_credits=5,
+        proxy_used="stealth",
+    )
+    accepted_error.attach_response_evidence(
+        provider_http_status=200,
+        response_sha256="d" * 64,
+    )
+    source = FixtureSource(
+        {
+            first.source_url: [
+                FirecrawlServerError("HTTP 500"),
+                _success(first, "first recovered"),
+            ],
+            accepted.source_url: [
+                accepted_error,
+                _success(accepted, "accepted recovered"),
+            ],
+            second.source_url: [
+                FirecrawlServerError("HTTP 500"),
+                _success(second, "second recovered"),
+            ],
+        }
+    )
+    with _store(tmp_path) as store:
+        result = BudgetedFirecrawlScheduler(
+            store=store,
+            source=source,
+            run_id="run-001",
+            artifact_dir=tmp_path / "raw",
+            provider_5xx_circuit_threshold=2,
+            sleeper=lambda _seconds: None,
+        ).run([first, accepted, second])
+
+        assert len(result.pages) == 3
+        assert store.firecrawl_run_status("run-001") == "active"
+        assert [
+            (attempt.status, attempt.failure_code)
+            for attempt in store.firecrawl_attempts("run-001")
+        ] == [
+            ("provider_error", "provider_server_error"),
+            ("target_error", "target_http_status_retryable"),
+            ("provider_error", "provider_server_error"),
+            ("succeeded", None),
+            ("succeeded", None),
+            ("succeeded", None),
+        ]

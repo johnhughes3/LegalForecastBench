@@ -17,6 +17,7 @@ from legalforecast.ingestion.budgeted_firecrawl import (
     BudgetedFirecrawlScheduler,
     FirecrawlArtifactError,
     FirecrawlTargetSpec,
+    is_retryable_target_accepted,
 )
 from legalforecast.ingestion.courtlistener_client import (
     CourtListenerProviderExhaustedError,
@@ -424,9 +425,13 @@ class DurableBudgetedCourtListenerHTMLSource:
     @staticmethod
     def _is_retryable_attempt(attempt: FirecrawlAttempt) -> bool:
         return (
-            attempt.status in {"provider_error", "transport_error"}
-            and attempt.failure_transient is True
-            and attempt.artifact_path is None
+            (
+                attempt.status in {"provider_error", "transport_error"}
+                and attempt.failure_transient is True
+            )
+            or is_retryable_target_accepted(attempt)
+        ) and (
+            attempt.artifact_path is None
             and attempt.artifact_sha256 is None
             and attempt.artifact_byte_count is None
         )

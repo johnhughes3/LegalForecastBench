@@ -255,7 +255,13 @@ def test_ranked_budgeted_cli_feeds_strict_selected_slice_snapshot(
             store.term_progress("partial-parent", "motion to dismiss").terminal_status
             is None
         )
-        assert store.firecrawl_run_config("dockets-001")["workers"] == 1
+        run_config = store.firecrawl_run_config("dockets-001")
+        assert run_config["workers"] == 1
+        assert run_config["max_attempts_per_page"] == 3
+        assert run_config["provider_breaker_threshold"] == 5
+        assert run_config["target_http_pressure_policy_version"] == (
+            "courtlistener-target-http-202-aimd-v1"
+        )
 
 
 def test_ranked_budgeted_cli_dry_run_does_not_mutate_cycle_store(
@@ -521,6 +527,68 @@ def test_ranked_budgeted_cli_requires_sequential_resume_for_legacy_run(
                 "1",
                 "--workers",
                 "10",
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--live-firecrawl",
+                "--output-root",
+                str(output),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "acquire-ranked-firecrawl-dockets",
+                "--cycle-store",
+                str(store_path),
+                "--parent-batch-id",
+                "partial-parent",
+                "--selected-batch-id",
+                "selected-001",
+                "--run-id",
+                "legacy-dockets",
+                "--ranked",
+                str(ranked_path),
+                "--max-candidates",
+                "1",
+                "--workers",
+                "1",
+                "--max-attempts-per-page",
+                "4",
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--live-firecrawl",
+                "--output-root",
+                str(output),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "acquire-ranked-firecrawl-dockets",
+                "--cycle-store",
+                str(store_path),
+                "--parent-batch-id",
+                "partial-parent",
+                "--selected-batch-id",
+                "selected-001",
+                "--run-id",
+                "legacy-dockets",
+                "--ranked",
+                str(ranked_path),
+                "--max-candidates",
+                "1",
+                "--workers",
+                "1",
+                "--provider-breaker-threshold",
+                "6",
                 "--decision-filed-on-or-after",
                 "2026-06-30",
                 "--live-firecrawl",

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import time
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
@@ -35,6 +36,9 @@ from legalforecast.ingestion.firecrawl_source import (
 
 FirecrawlTargetKind = Literal["search", "docket"]
 _HTTP_STATUS = re.compile(r"\bHTTP\s+(?P<status>[1-5][0-9]{2})\b", re.IGNORECASE)
+TARGET_HTTP_PRESSURE_POLICY_VERSION = "courtlistener-target-http-202-aimd-v1"
+_TARGET_HTTP_202_BASE_COOLDOWN_SECONDS = 5.0
+_TARGET_HTTP_202_MAX_COOLDOWN_SECONDS = 60.0
 
 
 class FirecrawlCircuitOpenError(RuntimeError):
@@ -142,6 +146,7 @@ class BudgetedFirecrawlScheduler:
         | None = None,
         semantic_failure_quarantine_dir: str | Path | None = None,
         terminalize_abandoned_authorizations: bool = False,
+        sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
         if not run_id.strip():
             raise ValueError("run_id must be nonempty")
@@ -163,6 +168,7 @@ class BudgetedFirecrawlScheduler:
         self.artifact_validator = artifact_validator
         self.artifact_path_resolver = artifact_path_resolver
         self.terminalize_abandoned_authorizations = terminalize_abandoned_authorizations
+        self.sleeper = sleeper
         self.semantic_failure_quarantine_dir = (
             Path(semantic_failure_quarantine_dir).resolve()
             if semantic_failure_quarantine_dir is not None
@@ -199,11 +205,28 @@ class BudgetedFirecrawlScheduler:
         if consecutive_5xx >= self.provider_5xx_circuit_threshold:
             self._raise_open_circuit(consecutive_5xx)
 
+        prior_attempts = self.store.firecrawl_attempts(self.run_id)
+        recent_target_202_count = _recent_target_accepted_count(
+            prior_attempts,
+            window_size=self.max_workers,
+        )
+        effective_workers = max(1, self.max_workers - recent_target_202_count)
+        initial_effective_workers = effective_workers
+        minimum_effective_workers = effective_workers
+        target_202_cooldown_count = 0
+        maximum_target_202_cooldown_seconds = 0.0
+        target_202_streak = int(recent_target_202_count > 0)
+        cooldown_pending_seconds = (
+            _target_202_cooldown_seconds(target_202_streak)
+            if target_202_streak
+            else None
+        )
         succeeded = self._successful_attempts(ordered)
         terminal_failures = {
             attempt.target_id
             for attempt in self.store.firecrawl_attempts(self.run_id)
             if attempt.failure_transient is False
+            and not is_retryable_target_accepted(attempt)
         }
         for target in ordered:
             if target.target_id in succeeded:
@@ -223,8 +246,18 @@ class BudgetedFirecrawlScheduler:
                     continue
                 eligible.append(target)
 
-            for start in range(0, len(eligible), self.max_workers):
-                window = eligible[start : start + self.max_workers]
+            start = 0
+            while start < len(eligible):
+                if cooldown_pending_seconds is not None:
+                    self.sleeper(cooldown_pending_seconds)
+                    target_202_cooldown_count += 1
+                    maximum_target_202_cooldown_seconds = max(
+                        maximum_target_202_cooldown_seconds,
+                        cooldown_pending_seconds,
+                    )
+                    cooldown_pending_seconds = None
+                window = eligible[start : start + effective_workers]
+                start += len(window)
                 authorized: list[tuple[FirecrawlTargetSpec, FirecrawlAttempt]] = []
                 authorization_error: Exception | None = None
                 for target in window:
@@ -241,6 +274,11 @@ class BudgetedFirecrawlScheduler:
                     authorized.append((target, attempt))
 
                 outcomes = self._scrape_authorized_window(authorized)
+                target_202_count = sum(
+                    isinstance(outcome, FirecrawlTargetHTTPError)
+                    and outcome.target_status_code == 202
+                    for _target, _attempt, outcome in outcomes
+                )
                 fatal_error: Exception | None = None
                 for target, attempt, outcome in outcomes:
                     provider_result: FirecrawlScrapeResult | None = None
@@ -311,10 +349,11 @@ class BudgetedFirecrawlScheduler:
                             target_http_status=error.target_status_code,
                             **_failure_evidence(error),
                         )
-                        terminal_failures.add(target.target_id)
-                        self.store.set_firecrawl_target_status(
-                            self.run_id, target.target_id, "terminal_error"
-                        )
+                        if not error.transient:
+                            terminal_failures.add(target.target_id)
+                            self.store.set_firecrawl_target_status(
+                                self.run_id, target.target_id, "terminal_error"
+                            )
                         if fatal_error is None:
                             consecutive_5xx = 0
                     except FirecrawlResponseError as error:
@@ -394,6 +433,25 @@ class BudgetedFirecrawlScheduler:
                     raise fatal_error
                 if authorization_error is not None:
                     raise authorization_error
+                if target_202_count:
+                    effective_workers = max(
+                        1,
+                        effective_workers - target_202_count,
+                    )
+                    minimum_effective_workers = min(
+                        minimum_effective_workers,
+                        effective_workers,
+                    )
+                    target_202_streak += 1
+                    cooldown_pending_seconds = _target_202_cooldown_seconds(
+                        target_202_streak
+                    )
+                else:
+                    target_202_streak = 0
+                    effective_workers = min(
+                        self.max_workers,
+                        effective_workers + 1,
+                    )
 
         for target in ordered:
             if (
@@ -411,7 +469,21 @@ class BudgetedFirecrawlScheduler:
         )
         return BudgetedFirecrawlRunResult(
             pages=pages,
-            summary=self.store.firecrawl_run_summary(self.run_id),
+            summary={
+                **self.store.firecrawl_run_summary(self.run_id),
+                "configured_max_workers": self.max_workers,
+                "initial_effective_workers": initial_effective_workers,
+                "minimum_effective_workers": minimum_effective_workers,
+                "final_effective_workers": effective_workers,
+                "target_http_pressure_policy_version": (
+                    TARGET_HTTP_PRESSURE_POLICY_VERSION
+                ),
+                "target_http_202_cooldown_count": target_202_cooldown_count,
+                "target_http_202_maximum_cooldown_seconds": (
+                    maximum_target_202_cooldown_seconds
+                ),
+                "target_http_202_adaptive_backoff": True,
+            },
         )
 
     def _scrape_authorized_window(
@@ -754,6 +826,63 @@ def _integral_credits(value: float | None) -> int:
     if credits < 0:
         raise FirecrawlResponseError("Firecrawl creditsUsed must be non-negative")
     return credits
+
+
+def is_retryable_target_accepted(attempt: FirecrawlAttempt) -> bool:
+    """Recognize CourtListener 202 attempts, including legacy terminal records."""
+
+    legacy_retryable = (
+        attempt.failure_code == "target_http_status_invalid"
+        and attempt.failure_transient is False
+    )
+    current_retryable = (
+        attempt.failure_code == "target_http_status_retryable"
+        and attempt.failure_transient is True
+    )
+    return (
+        attempt.status == "target_error"
+        and (legacy_retryable or current_retryable)
+        and attempt.provider_http_status == 200
+        and attempt.target_http_status == 202
+        and attempt.reported_credits is not None
+        and attempt.proxy_used in {"basic", "stealth"}
+        and attempt.failure_response_sha256 is not None
+        and re.fullmatch(r"[0-9a-f]{64}", attempt.failure_response_sha256) is not None
+        and attempt.artifact_path is None
+        and attempt.artifact_sha256 is None
+        and attempt.artifact_byte_count is None
+    )
+
+
+def _recent_target_accepted_count(
+    attempts: Sequence[FirecrawlAttempt],
+    *,
+    window_size: int,
+) -> int:
+    """Count CourtListener 202s in the latest completed pressure window."""
+
+    completed = tuple(
+        attempt
+        for attempt in attempts
+        if attempt.status
+        in {
+            "provider_error",
+            "succeeded",
+            "target_error",
+            "transport_error",
+        }
+    )
+    return sum(
+        is_retryable_target_accepted(attempt) for attempt in completed[-window_size:]
+    )
+
+
+def _target_202_cooldown_seconds(streak: int) -> float:
+    _require_positive_int(streak, "target HTTP 202 streak")
+    return min(
+        _TARGET_HTTP_202_MAX_COOLDOWN_SECONDS,
+        _TARGET_HTTP_202_BASE_COOLDOWN_SECONDS * (2 ** (streak - 1)),
+    )
 
 
 def _require_positive_int(value: object, name: str) -> None:
