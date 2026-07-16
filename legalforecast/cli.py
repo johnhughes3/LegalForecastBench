@@ -19503,10 +19503,11 @@ def _append_only_route_changes(
     previous = routes(previous_public, previous_paid, source="prior")
     current = routes(current_public, current_paid, source="current")
     additions = set(current) - set(previous)
-    if additions != expected_added_ids:
+    expected_routed_additions = expected_added_ids & set(current)
+    if additions != expected_routed_additions:
         raise CommandError(
-            "append-only routed additions do not match external pins: "
-            f"expected {sorted(expected_added_ids)}, got {sorted(additions)}"
+            "append-only routed additions do not match routed snapshot additions: "
+            f"expected {sorted(expected_routed_additions)}, got {sorted(additions)}"
         )
     unexpected_removed = (set(previous) - set(current)) - expected_invalidated_ids
     if unexpected_removed:
@@ -19709,9 +19710,11 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
             )
         except AppendOnlyPacerGapRebaseError as exc:
             raise CommandError(f"append-only snapshot proof failed: {exc}") from exc
-        if current_screened_ids - previous_screened_ids != expected_added_ids:
+        expected_accepted_additions = expected_added_ids & current_screened_ids
+        if current_screened_ids - previous_screened_ids != expected_accepted_additions:
             raise CommandError(
-                "append-only accepted screened additions do not match external pins"
+                "append-only accepted screened additions do not match accepted "
+                "snapshot additions"
             )
         removed_screened_ids = previous_screened_ids - current_screened_ids
         if (
@@ -20194,6 +20197,9 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         "added_candidate_ids": sorted(expected_added_ids),
         "added_public_candidate_ids": sorted(added_public_candidate_ids),
         "added_paid_gap_candidate_ids": sorted(added_paid_candidate_ids),
+        "added_unrouted_candidate_ids": sorted(
+            expected_added_ids - added_public_candidate_ids - added_paid_candidate_ids
+        ),
         "invalidated_candidate_ids": sorted(expected_invalidated_ids),
         "removed_invalidated_candidate_ids": sorted(removed_invalidated_candidate_ids),
         "replay_invalidated_candidate_ids": sorted(replay_invalidated_candidate_ids),

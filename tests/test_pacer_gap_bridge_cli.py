@@ -159,6 +159,7 @@ def test_rebase_pacer_gap_checkpoints_append_only_union_schedules_only_addition(
     )
     assert receipt["added_candidate_ids"] == expected_added
     assert receipt["added_public_candidate_ids"] == []
+    assert receipt["added_unrouted_candidate_ids"] == []
     assert receipt["added_paid_gap_candidate_ids"] == expected_added
     assert receipt["previous_checkpoint_count"] == 2
     assert receipt["checkpoint_count"] == 2
@@ -181,6 +182,45 @@ def test_rebase_pacer_gap_checkpoints_append_only_union_schedules_only_addition(
         "cl-792",
         "cl-793",
         "cl-794",
+    ]
+
+
+def test_rebase_pacer_gap_checkpoints_append_only_authenticates_unrouted_additions(
+    tmp_path: Path,
+) -> None:
+    fixture = _append_only_pacer_gap_rebase_fixture(
+        tmp_path,
+        reserve_last_added=True,
+        include_excluded_addition=True,
+    )
+
+    assert main(fixture["command"]) == 0
+
+    receipt = _read_json(fixture["receipt"])
+    assert receipt["added_candidate_ids"] == [
+        "cl-789",
+        "cl-790",
+        "cl-791",
+        "cl-792",
+        "cl-793",
+        "cl-794",
+        "cl-excluded",
+    ]
+    assert receipt["added_paid_gap_candidate_ids"] == [
+        "cl-789",
+        "cl-790",
+        "cl-791",
+        "cl-792",
+        "cl-793",
+    ]
+    assert receipt["added_public_candidate_ids"] == []
+    assert receipt["added_unrouted_candidate_ids"] == ["cl-794", "cl-excluded"]
+    assert receipt["replay_required_candidate_ids"] == [
+        "cl-789",
+        "cl-790",
+        "cl-791",
+        "cl-792",
+        "cl-793",
     ]
 
 
@@ -2276,7 +2316,11 @@ def _pacer_gap_rebase_fixture(tmp_path: Path) -> dict[str, Any]:
 
 
 def _append_only_pacer_gap_rebase_fixture(
-    tmp_path: Path, *, invalidate_prior: bool = False
+    tmp_path: Path,
+    *,
+    invalidate_prior: bool = False,
+    reserve_last_added: bool = False,
+    include_excluded_addition: bool = False,
 ) -> dict[str, Any]:
     bridge_root = tmp_path / "bridge"
     bridge_root.mkdir()
@@ -2297,6 +2341,14 @@ def _append_only_pacer_gap_rebase_fixture(
             list[dict[str, object]], added_screened["selected_entries"]
         )[1:]
         added_screened_records.append(added_screened)
+    excluded_screened_record: dict[str, object] | None = None
+    if include_excluded_addition:
+        excluded_screened_record = _screened_case_variant(
+            candidate_id="cl-excluded",
+            docket_number="1:26-cv-99999",
+            case_name="Excluded v. Example",
+        )
+        excluded_screened_record["candidate_id"] = "cl-excluded"
     retained_screened = previous_screened[1:] if invalidate_prior else previous_screened
     current_screened = [*retained_screened, *added_screened_records]
     _write_jsonl(fixture["current_screened"], current_screened)
@@ -2308,10 +2360,20 @@ def _append_only_pacer_gap_rebase_fixture(
     )
     current_public = [record.to_record() for record in plan.selected_cases]
     current_paid = [record.to_record() for record in plan.paid_gap_cases]
+    if reserve_last_added:
+        current_public = [
+            record
+            for record in current_public
+            if record["candidate_id"] != added_ids[-1]
+        ]
+        current_paid = [
+            record for record in current_paid if record["candidate_id"] != added_ids[-1]
+        ]
     assert not current_public
+    expected_routed_added_ids = added_ids[:-1] if reserve_last_added else added_ids
     assert [record["candidate_id"] for record in current_paid] == [
         *(["cl-456"] if invalidate_prior else ["cl-123", "cl-456"]),
-        *added_ids,
+        *expected_routed_added_ids,
     ]
     _write_jsonl(fixture["current_public"], current_public)
     _write_jsonl(fixture["current_paid"], current_paid)
@@ -2325,6 +2387,7 @@ def _append_only_pacer_gap_rebase_fixture(
         }
         for request in plan.download_requests
         if request.candidate_id in added_ids
+        and (not reserve_last_added or request.candidate_id != added_ids[-1])
     ]
     current_free = [
         *(
@@ -2350,6 +2413,9 @@ def _append_only_pacer_gap_rebase_fixture(
         added_screened_records,
         batch_id="added-screening-batch",
         snapshot_id="added-screening-snapshot",
+        excluded_records=(
+            [excluded_screened_record] if excluded_screened_record is not None else None
+        ),
     )
     assert added_cycle_hash == cycle_hash
     union_root = tmp_path / "union"
@@ -2425,7 +2491,10 @@ def _append_only_pacer_gap_rebase_fixture(
         current_manifest_sha256,
         *(
             flag
-            for candidate_id in added_ids
+            for candidate_id in [
+                *added_ids,
+                *(("cl-excluded",) if include_excluded_addition else ()),
+            ]
             for flag in ("--expected-added-candidate-id", candidate_id)
         ),
         *(
@@ -2449,6 +2518,7 @@ def _complete_snapshot(
     *,
     batch_id: str = "pacer-gap-fixture",
     snapshot_id: str = "complete-fixture",
+    excluded_records: list[dict[str, object]] | None = None,
 ) -> tuple[Path, str, Path]:
     term = "fixture-term"
     raw_html_dir = root / "raw-courtlistener-html"
@@ -2459,7 +2529,8 @@ def _complete_snapshot(
         store.ensure_batch(batch_id, {"fixture": "pacer-gap", "batch_id": batch_id})
         store.ensure_terms(batch_id, [term])
         hits_list: list[DiscoveryHit] = []
-        for index, record in enumerate(screened_records):
+        terminal_records = [*screened_records, *(excluded_records or [])]
+        for index, record in enumerate(terminal_records):
             candidate = cast(dict[str, object], record["candidate"])
             candidate_id = candidate["docket_id"]
             assert isinstance(candidate_id, str)
@@ -2479,12 +2550,18 @@ def _complete_snapshot(
             next_cursor=None,
             terminal_status=TermTerminalStatus.EXHAUSTED,
         )
-        for hit, record in zip(hits, screened_records, strict=True):
+        accepted_count = len(screened_records)
+        for index, (hit, record) in enumerate(zip(hits, terminal_records, strict=True)):
+            accepted = index < accepted_count
             store.record_observation(
                 hit.candidate_id,
                 batch_id=batch_id,
-                state="accepted",
-                reason_code="strict_clean_screen_passed",
+                state="accepted" if accepted else "excluded",
+                reason_code=(
+                    "strict_clean_screen_passed"
+                    if accepted
+                    else "strict_clean_screen_failed"
+                ),
                 evidence=record,
             )
             store.write_raw_artifact(
