@@ -525,6 +525,12 @@ from legalforecast.ingestion.target_cohort_projection import (
     project_target_cohort,
     restriction_evidence_from_case_relevance,
 )
+from legalforecast.ingestion.terminal_subset_promotion import (
+    TerminalSubsetPromotionError,
+    read_pinned_terminal_selection_docket_ids,
+    read_verified_promotion_raw,
+    verify_terminal_subset_promotion_source,
+)
 from legalforecast.labeling.cycle_label_audit import (
     CycleLabelAuditError,
     evaluate_cycle_label_audit,
@@ -1331,6 +1337,25 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_replay_screening_arguments(acquisition_replay_screening)
+    acquisition_promote_terminal_subset = acquisition_subparsers.add_parser(
+        "promote-terminal-firecrawl-subset",
+        help=(
+            "Promote a hash-bound provisional Firecrawl exact subset after its "
+            "complete Case.dev source becomes terminal."
+        ),
+        description=(
+            "Reconstruct a completed terminal Case.dev ranking and exact-subset "
+            "selection, verify the existing selected target batch, then verify "
+            "the prior provisional snapshot, strict-screen run card, normalized "
+            "screen inputs, accepted-set equality, and raw byte commitments. "
+            "Only then remove provisional record fields under an explicit "
+            "promotion commitment and run the current strict screen. This command "
+            "has no provider, PACER, purchase, or fee-acknowledgment path."
+        ),
+    )
+    _add_acquisition_promote_terminal_subset_arguments(
+        acquisition_promote_terminal_subset
+    )
     acquisition_quarantine_snapshot = acquisition_subparsers.add_parser(
         "quarantine-orphan-snapshot",
         help=(
@@ -4356,6 +4381,95 @@ def _add_acquisition_replay_screening_arguments(
     parser.add_argument("--exclusions-output", type=Path)
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_replay_screening_snapshots)
+
+
+def _add_acquisition_promote_terminal_subset_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--source-store",
+        type=Path,
+        required=True,
+        help="Read-only store containing the exhausted terminal source batch.",
+    )
+    parser.add_argument("--source-batch-id", required=True)
+    parser.add_argument("--source-projection", type=Path, required=True)
+    parser.add_argument("--ranked", type=Path, required=True)
+    parser.add_argument("--failures", type=Path, required=True)
+    parser.add_argument("--enrichment-run-card", type=Path, required=True)
+    parser.add_argument(
+        "--expected-enrichment-run-card-sha256",
+        required=True,
+        help="External lowercase SHA-256 of the completed enrichment run card.",
+    )
+    parser.add_argument(
+        "--selection-run-card",
+        type=Path,
+        required=True,
+        help="Frozen exact-subset selection card for the existing target batch.",
+    )
+    parser.add_argument(
+        "--expected-selection-run-card-sha256",
+        required=True,
+        help="External lowercase SHA-256 of --selection-run-card.",
+    )
+    parser.add_argument("--cycle-store", type=Path, required=True)
+    parser.add_argument(
+        "--batch-id",
+        required=True,
+        help="Existing nonprovisional exact-subset batch committed by the card.",
+    )
+    parser.add_argument(
+        "--expected-target-cycle-hash",
+        required=True,
+        help="External lowercase SHA-256 of the target cycle policy.",
+    )
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=100,
+        help="Provider-free exact-subset transfer page size used by the card.",
+    )
+    parser.add_argument("--source-snapshot", type=Path, required=True)
+    parser.add_argument(
+        "--expected-source-snapshot-manifest-sha256",
+        required=True,
+        help="External lowercase SHA-256 of the provisional manifest.json.",
+    )
+    parser.add_argument("--source-screen-run-card", type=Path, required=True)
+    parser.add_argument(
+        "--expected-source-screen-run-card-sha256",
+        required=True,
+        help="External lowercase SHA-256 of the provisional strict-screen card.",
+    )
+    parser.add_argument(
+        "--source-bundle-root",
+        type=Path,
+        required=True,
+        help=(
+            "Self-contained read-only root holding the source snapshot, screen "
+            "inputs, run card, and raw HTML at their committed relative paths."
+        ),
+    )
+    parser.add_argument(
+        "--expected-source-cycle-hash",
+        required=True,
+        help="Required cycle hash of the provisional source snapshot.",
+    )
+    parser.add_argument(
+        "--decision-filed-on-or-after",
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="Fail-closed first-written-disposition eligibility anchor.",
+    )
+    parser.add_argument("--snapshot-root", type=Path)
+    parser.add_argument("--snapshot-id", required=True)
+    parser.add_argument("--raw-html-dir", type=Path)
+    parser.add_argument("--screened-cases-output", type=Path)
+    parser.add_argument("--exclusions-output", type=Path)
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_promote_terminal_subset)
 
 
 def _add_acquisition_quarantine_snapshot_arguments(
@@ -17698,6 +17812,384 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
         _write_acquisition_failure(
             args,
             stage="replay-screening-snapshots",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=str(exc),
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=provider_flags,
+        )
+        raise CommandError(str(exc)) from exc
+
+
+def _cmd_acquisition_promote_terminal_subset(args: argparse.Namespace) -> int:
+    """Promote one terminal exact subset without provider or paid activity."""
+
+    output_root = cast(Path, args.output_root)
+    cycle_store_path = cast(Path, args.cycle_store)
+    batch_id = cast(str, args.batch_id)
+    source_store = cast(Path, args.source_store)
+    source_projection = cast(Path, args.source_projection)
+    ranked_path = cast(Path, args.ranked)
+    failures_path = cast(Path, args.failures)
+    enrichment_run_card = cast(Path, args.enrichment_run_card)
+    selection_run_card = cast(Path, args.selection_run_card)
+    source_snapshot = cast(Path, args.source_snapshot)
+    source_screen_run_card = cast(Path, args.source_screen_run_card)
+    source_bundle_root = cast(Path, args.source_bundle_root)
+    anchor = _iso_date_argument(
+        cast(str, args.decision_filed_on_or_after),
+        "--decision-filed-on-or-after",
+    )
+    snapshot_root = _acquisition_path(args, "snapshot_root", output_root / "snapshots")
+    snapshot_id = cast(str, args.snapshot_id)
+    snapshot_path = snapshot_root / snapshot_id
+    raw_html_dir = _acquisition_path(
+        args, "raw_html_dir", output_root / "raw-docket-html"
+    )
+    screened_cases_path = _acquisition_path(
+        args,
+        "screened_cases_output",
+        output_root / "terminal-promoted-screened-cases.jsonl",
+    )
+    exclusions_path = _acquisition_path(
+        args,
+        "exclusions_output",
+        output_root / "terminal-promoted-screening-exclusions.jsonl",
+    )
+    summary_path = _acquisition_path(
+        args,
+        "summary_output",
+        output_root / "terminal-subset-promotion-summary.json",
+    )
+    input_paths = (
+        source_store,
+        source_projection,
+        ranked_path,
+        failures_path,
+        enrichment_run_card,
+        selection_run_card,
+        source_snapshot,
+        source_screen_run_card,
+        source_bundle_root,
+        cycle_store_path,
+    )
+    output_paths = (
+        screened_cases_path,
+        exclusions_path,
+        summary_path,
+        raw_html_dir,
+        snapshot_path,
+    )
+    provider_flags: JsonRecord = {
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+    }
+
+    try:
+        _validate_terminal_promotion_paths(
+            args=args,
+            protected_paths=(
+                source_store,
+                source_projection,
+                ranked_path,
+                failures_path,
+                enrichment_run_card,
+                selection_run_card,
+                source_snapshot,
+                source_screen_run_card,
+                source_bundle_root,
+            ),
+            snapshot_path=snapshot_path,
+            raw_html_dir=raw_html_dir,
+            screened_cases_path=screened_cases_path,
+            exclusions_path=exclusions_path,
+            summary_path=summary_path,
+            cycle_store_path=cycle_store_path,
+        )
+        selected_docket_ids = read_pinned_terminal_selection_docket_ids(
+            selection_run_card,
+            expected_selection_run_card_sha256=cast(
+                str, args.expected_selection_run_card_sha256
+            ),
+        )
+        source = read_saturated_direct_search_leads(
+            source_store,
+            source_batch_id=cast(str, args.source_batch_id),
+        )
+        selection = verify_case_dev_ranked_selection(
+            source=source,
+            source_store_path=source_store,
+            source_projection_path=source_projection,
+            ranked_path=ranked_path,
+            terminal_exclusion_path=failures_path,
+            enrichment_run_card_path=enrichment_run_card,
+            expected_enrichment_run_card_sha256=cast(
+                str, args.expected_enrichment_run_card_sha256
+            ),
+            selected_docket_ids=selected_docket_ids,
+        )
+        plan = build_case_dev_ranked_target_plan(
+            batch_id=batch_id,
+            target_cycle_hash=cast(str, args.expected_target_cycle_hash),
+            selection=selection,
+            page_size=cast(int, args.page_size),
+        )
+        bundle = verify_terminal_subset_promotion_source(
+            selection=selection,
+            expected_selection_run_card_record=plan.run_card_record(),
+            selection_run_card=selection_run_card,
+            expected_selection_run_card_sha256=cast(
+                str, args.expected_selection_run_card_sha256
+            ),
+            source_snapshot=source_snapshot,
+            expected_source_snapshot_manifest_sha256=cast(
+                str, args.expected_source_snapshot_manifest_sha256
+            ),
+            source_screen_run_card=source_screen_run_card,
+            expected_source_screen_run_card_sha256=cast(
+                str, args.expected_source_screen_run_card_sha256
+            ),
+            source_bundle_root=source_bundle_root,
+            expected_source_cycle_hash=cast(str, args.expected_source_cycle_hash),
+        )
+        success_records = [dict(record) for record in bundle.promoted_success_records]
+        _validate_firecrawl_success_commitments(success_records)
+        existing_snapshot: tuple[Path, Mapping[str, Any]] | None
+        with CycleAcquisitionStore(cycle_store_path) as store:
+            if store.cycle_hash != cast(str, args.expected_target_cycle_hash):
+                raise CycleAcquisitionStoreError("target cycle hash mismatch")
+            _validate_frozen_screening_policy(policy=store.cycle_policy, anchor=anchor)
+            if store.batch_config(batch_id) != plan.target_batch_config:
+                raise CycleAcquisitionStoreError(
+                    "existing exact-subset batch config differs from terminal plan"
+                )
+            if store.batch_digest(batch_id) != plan.target_batch_digest:
+                raise CycleAcquisitionStoreError(
+                    "existing exact-subset batch digest differs from terminal plan"
+                )
+            expected_candidate_ids = tuple(
+                sorted(success.candidate_id for success in bundle.successes)
+            )
+            if store.candidate_ids(batch_id) != expected_candidate_ids:
+                raise CycleAcquisitionStoreError(
+                    "existing exact-subset batch candidate set changed"
+                )
+            existing_snapshot = store.existing_complete_snapshot(
+                snapshot_root,
+                snapshot_id=snapshot_id,
+                batch_id=batch_id,
+            )
+
+        source_raw_dir = bundle.successes[0].raw_path.parent
+        strict_result = screen_case_dev_firecrawl_successes(
+            successes=success_records,
+            raw_html_directory=source_raw_dir,
+            decision_filed_on_or_after=anchor,
+        )
+        accepted_ids = {
+            _screened_case_dev_id(record) for record in strict_result.screened_cases
+        }
+        expected_ids = {success.candidate_id for success in bundle.successes}
+        if accepted_ids != expected_ids or strict_result.exclusions:
+            raise TerminalSubsetPromotionError(
+                "current strict screen no longer accepts the exact terminal subset"
+            )
+
+        if _acquisition_dry_run(args):
+            summary: JsonRecord = {
+                "schema_version": "legalforecast.terminal_subset_promotion_summary.v1",
+                "dry_run": True,
+                "anchor_date": anchor.isoformat(),
+                "selected_candidate_count": len(bundle.successes),
+                "accepted_case_count": 0,
+                "excluded_case_count": 0,
+                "reconciled": False,
+                **provider_flags,
+            }
+            _write_json(summary_path, summary)
+            _write_acquisition_completion(
+                args,
+                stage="promote-terminal-firecrawl-subset",
+                input_paths=input_paths,
+                output_paths=output_paths,
+                record_count=0,
+                dry_run=True,
+                paid_activity_requested=False,
+                paid_activity_executed=False,
+                extra=summary,
+            )
+            return 0
+        if existing_snapshot is not None:
+            if not cast(bool, args.resume):
+                raise FileExistsError(
+                    "complete terminal promotion snapshot already exists and "
+                    f"--no-resume forbids reuse: {existing_snapshot[0]}"
+                )
+            snapshot_path, snapshot_manifest = existing_snapshot
+            expected_stage_commitments = {
+                "terminal_subset_promotion": dict(bundle.commitment)
+            }
+            if snapshot_manifest.get("stage_commitments") != expected_stage_commitments:
+                raise CycleAcquisitionStoreError(
+                    "existing terminal promotion snapshot changed its source binding"
+                )
+            if any(
+                field in snapshot_manifest
+                for field in (
+                    "provisional_frontier",
+                    "final_cohort_eligible",
+                    "full_source_terminal",
+                )
+            ):
+                raise CycleAcquisitionStoreError(
+                    "existing terminal promotion snapshot contains provisional lineage"
+                )
+            screened_cases = _read_records(snapshot_path / "screened-cases.jsonl")
+            all_exclusions = _read_records(snapshot_path / "exclusions.jsonl")
+            resumed_ids = {_screened_case_dev_id(record) for record in screened_cases}
+            if resumed_ids != expected_ids or all_exclusions:
+                raise CycleAcquisitionStoreError(
+                    "existing terminal promotion snapshot is not the exact "
+                    "accepted subset"
+                )
+            snapshot_summary = _read_json_object(snapshot_path / "summary.json")
+            if snapshot_summary.get("reconciliation_complete") is not True:
+                raise CycleAcquisitionStoreError(
+                    "existing terminal promotion snapshot is not reconciled"
+                )
+            _write_jsonl(screened_cases_path, screened_cases)
+            _write_jsonl(exclusions_path, all_exclusions)
+            summary = {
+                "schema_version": (
+                    "legalforecast.terminal_subset_promotion_summary.v1"
+                ),
+                "dry_run": False,
+                "anchor_date": anchor.isoformat(),
+                "selected_candidate_count": len(bundle.successes),
+                "accepted_case_count": len(screened_cases),
+                "excluded_case_count": len(all_exclusions),
+                "reconciled": True,
+                "snapshot_path": str(snapshot_path),
+                "cycle_hash": snapshot_manifest["cycle_hash"],
+                "batch_digest": snapshot_manifest["batch_digest"],
+                "snapshot_complete": snapshot_manifest["complete"],
+                "snapshot_saturated": snapshot_manifest["saturated"],
+                "final_cohort_eligible": True,
+                "full_source_terminal": True,
+                "resumed_existing_snapshot": True,
+                **provider_flags,
+            }
+            _write_json(summary_path, summary)
+            _write_acquisition_completion(
+                args,
+                stage="promote-terminal-firecrawl-subset",
+                input_paths=input_paths,
+                output_paths=output_paths,
+                record_count=len(screened_cases),
+                dry_run=False,
+                paid_activity_requested=False,
+                paid_activity_executed=False,
+                extra=summary,
+            )
+            return 0
+        if snapshot_path.exists():
+            raise FileExistsError(
+                "terminal promotion snapshot already exists and is immutable: "
+                f"{snapshot_path}"
+            )
+
+        rescreen_metadata = _rescreen_metadata_by_candidate(success_records)
+        with CycleAcquisitionStore(cycle_store_path) as store:
+            for success in bundle.successes:
+                destination = raw_html_dir / f"{success.docket_id}.html"
+                store.write_raw_artifact(
+                    success.candidate_id,
+                    destination,
+                    read_verified_promotion_raw(success),
+                    retrieved_at=_required_str(success.record, "retrieved_at"),
+                    validator=_validate_raw_docket_bytes,
+                )
+            for screened in strict_result.screened_cases:
+                candidate_id = _screened_case_dev_id(screened)
+                evidence = dict(screened)
+                evidence["candidate_id"] = candidate_id
+                store.record_observation(
+                    candidate_id,
+                    batch_id=batch_id,
+                    state="accepted",
+                    reason_code="strict_clean_screen_passed",
+                    evidence=evidence,
+                    metadata_repair_evidence=rescreen_metadata[candidate_id],
+                )
+            snapshot_path = store.export_snapshot(
+                snapshot_root,
+                snapshot_id=snapshot_id,
+                batch_id=batch_id,
+                complete=True,
+                stage_commitments={
+                    "terminal_subset_promotion": dict(bundle.commitment)
+                },
+            )
+            snapshot_manifest = verify_snapshot(
+                snapshot_path,
+                expected_cycle_hash=store.cycle_hash,
+                expected_batch_digest=plan.target_batch_digest,
+                require_complete=True,
+                require_saturated=True,
+            )
+        screened_cases = _read_records(snapshot_path / "screened-cases.jsonl")
+        all_exclusions = _read_records(snapshot_path / "exclusions.jsonl")
+        snapshot_summary = _read_json_object(snapshot_path / "summary.json")
+        _write_jsonl(screened_cases_path, screened_cases)
+        _write_jsonl(exclusions_path, all_exclusions)
+        summary = {
+            "schema_version": "legalforecast.terminal_subset_promotion_summary.v1",
+            "dry_run": False,
+            "anchor_date": anchor.isoformat(),
+            "selected_candidate_count": len(bundle.successes),
+            "accepted_case_count": len(screened_cases),
+            "excluded_case_count": len(all_exclusions),
+            "reconciled": snapshot_summary.get("reconciliation_complete") is True,
+            "snapshot_path": str(snapshot_path),
+            "cycle_hash": snapshot_manifest["cycle_hash"],
+            "batch_digest": snapshot_manifest["batch_digest"],
+            "snapshot_complete": snapshot_manifest["complete"],
+            "snapshot_saturated": snapshot_manifest["saturated"],
+            "final_cohort_eligible": True,
+            "full_source_terminal": True,
+            "resumed_existing_snapshot": False,
+            **provider_flags,
+        }
+        _write_json(summary_path, summary)
+        _write_acquisition_completion(
+            args,
+            stage="promote-terminal-firecrawl-subset",
+            input_paths=input_paths,
+            output_paths=output_paths,
+            record_count=len(screened_cases),
+            dry_run=False,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+        return 0
+    except (
+        BudgetedDocketAcquisitionError,
+        CycleAcquisitionStoreError,
+        RecapApiBatchDriverError,
+        SnapshotVerificationError,
+        TerminalSubsetPromotionError,
+        KeyError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        _write_acquisition_failure(
+            args,
+            stage="promote-terminal-firecrawl-subset",
             input_paths=input_paths,
             output_paths=output_paths,
             reason=str(exc),
@@ -31733,6 +32225,72 @@ def _validate_screen_resume_output_paths(
             raise CommandError(
                 f"{flag} must be outside the committed snapshot tree: {snapshot_root}"
             )
+
+
+def _validate_terminal_promotion_paths(
+    *,
+    args: argparse.Namespace,
+    protected_paths: Sequence[Path],
+    snapshot_path: Path,
+    raw_html_dir: Path,
+    screened_cases_path: Path,
+    exclusions_path: Path,
+    summary_path: Path,
+    cycle_store_path: Path,
+) -> None:
+    output_root = cast(Path, args.output_root)
+    writable_files = (
+        cycle_store_path,
+        screened_cases_path,
+        exclusions_path,
+        summary_path,
+        _acquisition_path(
+            args,
+            "run_card_output",
+            output_root / "run-cards/promote-terminal-firecrawl-subset.json",
+        ),
+        _acquisition_path(
+            args,
+            "log_output",
+            output_root / "logs/promote-terminal-firecrawl-subset.jsonl",
+        ),
+    )
+    _validate_ranked_handoff_paths(
+        protected_paths=tuple(protected_paths),
+        writable_paths=writable_files,
+        sqlite_paths=(cast(Path, args.source_store), cycle_store_path),
+        context="terminal exact-subset promotion",
+    )
+    protected_resolved = tuple(path.resolve() for path in protected_paths)
+    for writable_file in writable_files:
+        writable = writable_file.resolve()
+        for protected in protected_resolved:
+            if writable == protected or writable.is_relative_to(protected):
+                raise CommandError(
+                    "terminal promotion writable output is inside immutable source "
+                    f"evidence: {writable}"
+                )
+    writable_trees = (raw_html_dir.resolve(), snapshot_path.resolve())
+    for writable in writable_trees:
+        for protected in protected_resolved:
+            if writable == protected or writable.is_relative_to(protected):
+                raise CommandError(
+                    "terminal promotion output overlaps immutable source evidence: "
+                    f"{writable}"
+                )
+            if protected.is_relative_to(writable):
+                raise CommandError(
+                    "terminal promotion output would contain immutable source "
+                    f"evidence: {protected}"
+                )
+    if (
+        raw_html_dir.resolve() == snapshot_path.resolve()
+        or raw_html_dir.resolve().is_relative_to(snapshot_path.resolve())
+        or snapshot_path.resolve().is_relative_to(raw_html_dir.resolve())
+    ):
+        raise CommandError(
+            "terminal promotion raw HTML and snapshot trees must not overlap"
+        )
 
 
 def _validate_replay_output_paths(

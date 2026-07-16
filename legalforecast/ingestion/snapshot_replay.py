@@ -84,6 +84,153 @@ class SupplementalReplaySource:
 
 
 @dataclass(frozen=True, slots=True)
+class VerifiedSupplementalReplaySourceEvidence:
+    """One externally hash-bound portable snapshot and all screen inputs."""
+
+    snapshot: Path
+    manifest: Mapping[str, Any]
+    manifest_sha256: str
+    screen_run_card: Path
+    screen_run_card_record: Mapping[str, Any]
+    screen_run_card_sha256: str
+    success_records: tuple[Mapping[str, Any], ...]
+    exclusion_records: tuple[Mapping[str, Any], ...]
+    screened_records: tuple[Mapping[str, Any], ...]
+    successes: tuple[ReplaySuccess, ...]
+    screen_input_commitment: Mapping[str, object]
+
+
+def verify_supplemental_replay_source_evidence(
+    source: SupplementalReplaySource,
+    *,
+    expected_manifest_sha256: str,
+) -> VerifiedSupplementalReplaySourceEvidence:
+    """Verify one portable snapshot without combining or replaying its outcomes."""
+
+    _require_sha256(expected_manifest_sha256, "source snapshot manifest SHA-256")
+    _require_sha256(source.expected_cycle_hash, "supplemental source cycle hash")
+    _require_sha256(
+        source.expected_screen_run_card_sha256,
+        "supplemental screen run-card SHA-256",
+    )
+    snapshot = _verified_supplemental_snapshot_path(source)
+    screen_run_card = _verified_supplemental_screen_run_card(source)
+    manifest_path = _safe_regular_file(
+        snapshot / "manifest.json", label="source snapshot manifest"
+    )
+    manifest_sha256 = _sha256_file(manifest_path)
+    if manifest_sha256 != expected_manifest_sha256:
+        raise SnapshotReplayError("source snapshot manifest SHA-256 mismatch")
+    run_card, run_card_sha256 = _read_hashed_json_object(
+        screen_run_card, label="source screen run card"
+    )
+    if run_card_sha256 != source.expected_screen_run_card_sha256:
+        raise SnapshotReplayError("supplemental screen run-card SHA-256 mismatch")
+    if run_card.get("stage") != "screen-firecrawl-dockets":
+        raise SnapshotReplayError("source screen run card has the wrong stage")
+    input_paths = _absolute_run_card_paths(run_card.get("input_paths"), "input_paths")
+    output_paths = _absolute_run_card_paths(
+        run_card.get("output_paths"), "output_paths"
+    )
+    relocated = _relocated_source_paths(
+        snapshot=snapshot,
+        screen_run_card=screen_run_card,
+        input_paths=input_paths,
+        output_paths=output_paths,
+        supplemental=source,
+    )
+    try:
+        manifest = verify_snapshot(
+            snapshot,
+            expected_cycle_hash=source.expected_cycle_hash,
+            require_complete=True,
+            require_saturated=True,
+            raw_artifact_relocation=relocated.raw_artifact_relocation,
+        )
+    except SnapshotVerificationError as exc:
+        raise SnapshotReplayError(str(exc)) from exc
+    if _sha256_file(manifest_path) != manifest_sha256:
+        raise SnapshotReplayError(
+            "source snapshot manifest changed during verification"
+        )
+    if len(relocated.input_paths) < 4:
+        raise SnapshotReplayError("source screen run card has incomplete inputs")
+    successes_path = _safe_regular_file(
+        relocated.input_paths[1], label="source successes JSONL"
+    )
+    exclusions_path = _safe_regular_file(
+        relocated.input_paths[2], label="source fetch exclusions JSONL"
+    )
+    raw_dir = _safe_directory(relocated.input_paths[3], label="source raw HTML")
+    success_records = tuple(_read_jsonl(successes_path, label="source successes JSONL"))
+    exclusion_records = tuple(
+        _read_jsonl(exclusions_path, label="source fetch exclusions JSONL")
+    )
+    _verify_screen_input_commitment(
+        manifest=manifest,
+        successes=success_records,
+        exclusions=exclusion_records,
+        snapshot=snapshot,
+    )
+    stage_commitments = manifest.get("stage_commitments")
+    if not isinstance(stage_commitments, Mapping):
+        raise SnapshotReplayError("source snapshot lacks stage commitments")
+    typed_stage_commitments = cast(Mapping[str, object], stage_commitments)
+    screen_inputs = typed_stage_commitments.get("firecrawl_screen_inputs")
+    if not isinstance(screen_inputs, Mapping):
+        raise SnapshotReplayError(
+            "source snapshot lacks firecrawl_screen_inputs commitment"
+        )
+    snapshot_id = _required_text(manifest, "snapshot_id")
+    successes: list[ReplaySuccess] = []
+    outcome_ids: set[str] = set()
+    for record in success_records:
+        success = _verified_success(
+            record,
+            raw_dir=raw_dir,
+            source_snapshot_id=snapshot_id,
+            source_manifest_sha256=manifest_sha256,
+        )
+        if success.candidate_id in outcome_ids:
+            raise SnapshotReplayError(
+                f"duplicate source outcome for {success.candidate_id}"
+            )
+        outcome_ids.add(success.candidate_id)
+        successes.append(success)
+    for record in exclusion_records:
+        candidate_id = _required_text(record, "case_id")
+        if candidate_id in outcome_ids:
+            raise SnapshotReplayError(f"duplicate source outcome for {candidate_id}")
+        outcome_ids.add(candidate_id)
+    snapshot_candidate_ids = {
+        _required_text(row, "candidate_id")
+        for row in _read_jsonl(
+            snapshot / "candidates.jsonl", label="source snapshot candidates"
+        )
+    }
+    if outcome_ids != snapshot_candidate_ids:
+        raise SnapshotReplayError(
+            "source screen inputs do not reconcile with snapshot candidates"
+        )
+    screened_records = tuple(
+        _read_jsonl(snapshot / "screened-cases.jsonl", label="source screened cases")
+    )
+    return VerifiedSupplementalReplaySourceEvidence(
+        snapshot=snapshot,
+        manifest=dict(manifest),
+        manifest_sha256=manifest_sha256,
+        screen_run_card=screen_run_card,
+        screen_run_card_record=dict(run_card),
+        screen_run_card_sha256=run_card_sha256,
+        success_records=success_records,
+        exclusion_records=exclusion_records,
+        screened_records=screened_records,
+        successes=tuple(successes),
+        screen_input_commitment=dict(cast(Mapping[str, object], screen_inputs)),
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class SnapshotReplayBundle:
     """Deduplicated inputs ready for one provider-free strict rescreen."""
 
@@ -263,6 +410,19 @@ def collect_snapshot_replay_bundle(
             if "cycle hash mismatch" in message:
                 message = "source snapshot cycle hash mismatch"
             raise SnapshotReplayError(f"{snapshot}: {message}") from exc
+        if any(
+            field in manifest
+            for field in (
+                "provisional_frontier",
+                "final_cohort_eligible",
+                "full_source_terminal",
+            )
+        ):
+            raise SnapshotReplayError(
+                "generic snapshot replay rejects provisional sources; use the "
+                "terminal exact-subset promotion command with authenticated "
+                f"terminal selection evidence: {snapshot}"
+            )
         if _sha256_file(manifest_path) != manifest_sha256:
             raise SnapshotReplayError(
                 f"source snapshot manifest changed during verification: {snapshot}"
