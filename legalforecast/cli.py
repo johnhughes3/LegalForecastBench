@@ -5061,8 +5061,7 @@ def _add_acquisition_disclosure_clearance_arguments(
     parser.add_argument("--review-worksheet", type=Path, required=True)
     parser.add_argument("--reviews", type=Path, required=True)
     parser.add_argument("--review-receipt", type=Path, required=True)
-    parser.add_argument("--reviewer-policy", type=Path, required=True)
-    parser.add_argument("--cohort-policy", type=Path, required=True)
+    _add_disclosure_review_authority_arguments(parser)
     parser.add_argument(
         "--restriction-evidence",
         type=Path,
@@ -5082,8 +5081,7 @@ def _add_acquisition_prepare_disclosure_review_arguments(
     parser.add_argument("--download-manifest", type=Path, required=True)
     parser.add_argument("--document-root", type=Path, required=True)
     parser.add_argument("--restriction-evidence", type=Path, required=True)
-    parser.add_argument("--reviewer-policy", type=Path, required=True)
-    parser.add_argument("--cohort-policy", type=Path, required=True)
+    _add_disclosure_review_authority_arguments(parser)
     parser.add_argument("--worksheet-output", type=Path)
     parser.add_argument(
         "--controlled-private-store-root",
@@ -5100,8 +5098,7 @@ def _add_acquisition_prepare_disclosure_review_arguments(
 def _add_acquisition_review_signer_preflight_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
-    parser.add_argument("--reviewer-policy", type=Path, required=True)
-    parser.add_argument("--cohort-policy", type=Path, required=True)
+    _add_disclosure_review_authority_arguments(parser)
     parser.add_argument(
         "--signing-statement",
         type=Path,
@@ -5148,8 +5145,7 @@ def _add_acquisition_build_disclosure_review_arguments(
     _add_acquisition_common_arguments(parser)
     parser.add_argument("--review-worksheet", type=Path, required=True)
     parser.add_argument("--decisions", type=Path, required=True)
-    parser.add_argument("--reviewer-policy", type=Path, required=True)
-    parser.add_argument("--cohort-policy", type=Path, required=True)
+    _add_disclosure_review_authority_arguments(parser)
     parser.add_argument("--controlled-store-uri", required=True)
     parser.add_argument("--authenticated-at", required=True)
     parser.add_argument("--reviews-output", type=Path)
@@ -5169,10 +5165,32 @@ def _add_acquisition_seal_disclosure_review_arguments(
     parser.add_argument("--decisions", type=Path, required=True)
     parser.add_argument("--signing-statement", type=Path, required=True)
     parser.add_argument("--signature", type=Path, required=True)
-    parser.add_argument("--reviewer-policy", type=Path, required=True)
-    parser.add_argument("--cohort-policy", type=Path, required=True)
+    _add_disclosure_review_authority_arguments(parser)
     parser.add_argument("--review-receipt-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_seal_disclosure_review)
+
+
+def _add_disclosure_review_authority_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--reviewer-policy",
+        type=Path,
+        required=True,
+        help=(
+            "Exact hardware reviewer policy bytes; verified against the authority "
+            "selected by the frozen cohort."
+        ),
+    )
+    parser.add_argument(
+        "--cohort-policy",
+        type=Path,
+        required=True,
+        help=(
+            "main-pinned disclosure authority selector: the exact verified frozen "
+            "cohort policy."
+        ),
+    )
 
 
 def _add_acquisition_resolve_post_recovery_arguments(
@@ -10307,15 +10325,27 @@ def _validate_disclosure_review_paths(
 
 
 def _reject_existing_parent_symlink(path: Path) -> None:
-    current = path.parent
-    while not current.exists() and current != current.parent:
-        current = current.parent
-    while current != current.parent:
+    # Preserve the caller's original components, including ``..``. Resolving or
+    # applying ``abspath`` first would erase ``symlink/..`` even though the
+    # kernel follows the symlink before processing the parent traversal.
+    parent = path.parent
+    if parent.is_absolute():
+        current = Path(parent.anchor)
+        components = parent.parts[1:]
+    else:
+        current = Path.cwd()
+        components = parent.parts
+    for component in components:
+        if component in {"", "."}:
+            continue
+        if component == "..":
+            current = current.parent
+            continue
+        current = current / component
         if current.is_symlink():
             raise CommandError(
                 f"disclosure review output parent is a symlink: {current}"
             )
-        current = current.parent
 
 
 def _ensure_disclosure_review_artifact(

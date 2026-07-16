@@ -235,7 +235,9 @@ def test_prepare_review_is_resumable_and_keeps_private_map_out_of_run_card(
     assert main(args) == 2
 
 
-def test_prepare_review_rejects_input_alias_and_output_symlink(tmp_path: Path) -> None:
+def test_prepare_review_rejects_input_alias_and_output_symlink(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     args = _prepare_args(tmp_path)
     manifest = tmp_path / "manifest.jsonl"
     assert main([*args, "--worksheet-output", str(manifest)]) == 2
@@ -247,6 +249,31 @@ def test_prepare_review_rejects_input_alias_and_output_symlink(tmp_path: Path) -
     output.symlink_to(target)
     assert main(args) == 2
     assert target.read_text(encoding="utf-8") == "do not overwrite"
+
+    output.unlink()
+    dangling_parent = tmp_path / "dangling-parent"
+    missing_target = tmp_path / "missing-parent-target"
+    dangling_parent.symlink_to(missing_target, target_is_directory=True)
+    assert (
+        main([*args, "--worksheet-output", str(dangling_parent / "worksheet.json")])
+        == 2
+    )
+    assert "output parent is a symlink" in capsys.readouterr().err
+    assert not missing_target.exists()
+
+    traversal_case = tmp_path / "traversal-case"
+    traversal_args = _prepare_args(traversal_case)
+    traversal_root = traversal_case / "traversal-root"
+    traversal_root.mkdir()
+    outside_parent = traversal_case / "outside-parent"
+    symlink_target = outside_parent / "target"
+    symlink_target.mkdir(parents=True)
+    (traversal_root / "jump").symlink_to(symlink_target, target_is_directory=True)
+    escaped_output = outside_parent / "escaped-worksheet.json"
+    traversal_output = traversal_root / "jump" / ".." / escaped_output.name
+    assert main([*traversal_args, "--worksheet-output", str(traversal_output)]) == 2
+    assert "output parent is a symlink" in capsys.readouterr().err
+    assert not escaped_output.exists()
 
 
 def test_prepare_review_rejects_metadata_alias_without_mutating_input(
@@ -300,6 +327,27 @@ def test_signer_preflight_reports_missing_hardware_without_key_material(
     captured = capsys.readouterr()
     assert "LegalForecastBench-5qd6.39.7.1" in captured.err
     assert "AAAAC3" not in captured.err
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "prepare-disclosure-review",
+        "preflight-disclosure-review-signer",
+        "build-disclosure-review-bundle",
+        "seal-disclosure-review-bundle",
+        "clear-disclosures",
+    ],
+)
+def test_disclosure_review_help_names_main_pinned_authority(
+    command: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["acquisition", command, "--help"])
+    assert exc.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "main-pinned disclosure authority" in help_text
+    assert "--expected-reviewer-policy-sha256" not in help_text
 
 
 def test_private_interactive_recorder_requires_hash_and_batch_confirmation(

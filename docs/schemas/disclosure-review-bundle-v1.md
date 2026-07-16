@@ -14,7 +14,7 @@ The public acquisition root and the controlled private review store are separate
 The private map contains absolute local inspection paths and must not be copied into a run card, packet input, checked-in artifact, provider prompt, or public output.
 The worksheet, signing statement, and receipt bind document and source hashes without disclosing those private paths or matched sensitive values.
 
-Production authentication requires an externally precommitted reviewer-policy SHA-256 and a human hardware-backed OpenSSH security-key identity.
+Production authentication requires a reviewer-policy SHA-256 committed by the immutable main-pinned disclosure-authority registry and a human hardware-backed OpenSSH security-key identity.
 The only accepted production public-key types are `sk-ssh-ed25519@openssh.com` and `sk-ecdsa-sha2-nistp256@openssh.com`.
 An ordinary software SSH key cannot be represented as a human reviewer identity.
 Software-key service identities exist only for direct test fixtures behind an internal opt-in that the CLI does not expose; they are not a production alternative.
@@ -28,7 +28,8 @@ Preparation consumes the exact bytes of:
 
 - `review-requests.jsonl`, with one `legalforecast.disclosure_review_request.v1` row per document and `required_human_decision: "cleared_or_quarantined"`;
 - the merged download-manifest JSONL;
-- restriction-evidence JSONL; and
+- restriction-evidence JSONL;
+- the frozen cohort policy and the reviewer policy selected by its main-pinned disclosure authority; and
 - every document addressed by the manifest beneath `--document-root`.
 
 The request, manifest, and restriction key sets must be identical on `(candidate_id, source_document_id)`.
@@ -40,6 +41,7 @@ The request `sha256`, `byte_count`, and `free_or_purchased` values must equal th
 `disclosure-review-worksheet.json` has schema `legalforecast.disclosure_review_worksheet.v1` and these top-level fields:
 
 - `schema_version`;
+- `disclosure_authority`, binding the cycle ID, cohort-policy SHA-256, eligibility anchor, main-pinned authority SHA-256, reviewer ID, reviewer-policy SHA-256, and hardware public-key fingerprint;
 - `source_sha256`, containing the exact raw-byte SHA-256 values for `review_requests`, `download_manifest`, and `restriction_evidence`;
 - `document_set_sha256`, the SHA-256 of the canonical ordered `documents` array;
 - `document_count`; and
@@ -67,8 +69,9 @@ The reviewer-policy JSON has schema `legalforecast.disclosure_reviewer_policy.v1
 }
 ```
 
-The value passed through `--expected-reviewer-policy-sha256` must come from the independently reviewed, externally recorded precommitment for those exact policy bytes.
-Computing a digest from a newly supplied policy at invocation time and treating it as precommitted defeats the pin and is not permitted.
+Every authority-consuming production command receives `--cohort-policy` and `--reviewer-policy`.
+The verified frozen cohort identity selects an immutable authority registry entry, and that entry pins the exact reviewer-policy SHA-256, hardware public-key fingerprint, reviewer identity, and controlled-store prefix.
+There is no caller-supplied expected-hash override; changing the policy or cohort bytes fails closed against the main-pinned authority.
 The `controlled_store_uri_prefix` and every review's `controlled_store_provenance` use the `private-store://` scheme; the signed URI must equal the prefix or be a descendant path with a segment boundary.
 
 ## Human decisions and canonical reviews
