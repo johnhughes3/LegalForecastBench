@@ -27,6 +27,11 @@ on:
         required: true
         default: full_packet,metadata_only
         type: string
+      shard_only:
+        description: Run exactly one frozen model-key/ablation shard without aggregating or publishing.
+        required: true
+        default: false
+        type: boolean
       model_registry_uri:
         description: Frozen model registry s3:// URI, manifests/ key, or checked-out JSON path.
         required: true
@@ -136,7 +141,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}
+  group: run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}-${{ inputs.model_keys }}-${{ inputs.ablations }}
   cancel-in-progress: false
 
 jobs:
@@ -586,11 +591,13 @@ jobs:
       - name: Validate staged dispatch and build provenance
         shell: bash
         env:
+          ABLATIONS: ${{ inputs.ablations }}
           CYCLE_ID: ${{ inputs.cycle_id }}
           FREEZE_COMMITMENT_PATH: ${{ steps.validate.outputs.freeze_bundle_path }}
           MODEL_KEYS: ${{ inputs.model_keys }}
           MODEL_REGISTRY_PATH: /tmp/lfb-model-registry.json
           PRIOR_DISPATCHES_JSON: ${{ inputs.prior_dispatches_json }}
+          SHARD_ONLY: ${{ inputs.shard_only }}
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
         run: |
@@ -606,6 +613,17 @@ jobs:
             [[ -z "${key}" ]] && continue
             model_key_args+=(--requested-model-key "${key}")
           done
+          ablation_args=()
+          shard_args=()
+          if [[ "${SHARD_ONLY}" == "true" ]]; then
+            IFS=',' read -ra requested_ablations <<< "${ABLATIONS}"
+            for raw_ablation in "${requested_ablations[@]}"; do
+              ablation="${raw_ablation//[[:space:]]/}"
+              [[ -z "${ablation}" ]] && continue
+              ablation_args+=(--requested-ablation "${ablation}")
+            done
+            shard_args+=(--shard-only)
+          fi
           python -m legalforecast.publication.dispatch_provenance \
             --current-freeze-bundle "${FREEZE_COMMITMENT_PATH}" \
             "${candidate_args[@]}" \
@@ -616,6 +634,8 @@ jobs:
             --workflow-run-attempt "${WORKFLOW_RUN_ATTEMPT}" \
             --supersedes-report-uri "s3://${LFB_RESULTS_BUCKET}/reports/${CYCLE_ID}/multi-ablation/" \
             "${model_key_args[@]}" \
+            "${ablation_args[@]}" \
+            "${shard_args[@]}" \
             --output /tmp/lfb-dispatch-provenance.json
 
       - name: Build matrix JSON
@@ -1024,7 +1044,7 @@ jobs:
     needs:
       - build-matrix
       - run-case
-    if: ${{ !inputs.dry_run && needs.run-case.result == 'success' }}
+    if: ${{ !inputs.dry_run && !inputs.shard_only && needs.run-case.result == 'success' }}
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 30
     environment: legalforecastbench-official-eval
