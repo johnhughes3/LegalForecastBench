@@ -27,6 +27,7 @@ from legalforecast.multiharness.spec import (
     ConformanceReport,
     TaskIndex,
 )
+from legalforecast.protocol.freeze import REQUIRED_FREEZE_ARTIFACTS
 from legalforecast.unitization.schemas import (
     ChallengeScope,
     PredictionUnit,
@@ -274,10 +275,33 @@ def _validate_fixture_artifacts(fixture_dir: Path) -> None:
     )
     frozen_artifacts = freeze_record.get("artifacts")
     if not isinstance(frozen_artifacts, list):
-        raise RuntimeError("fixture freeze must commit exactly nine artifacts")
+        raise RuntimeError(
+            "fixture freeze must commit the canonical required artifact set"
+        )
     typed_frozen_artifacts = cast(list[object], frozen_artifacts)
-    if len(typed_frozen_artifacts) != 9:
-        raise RuntimeError("fixture freeze must commit exactly nine artifacts")
+    artifact_names: list[str] = []
+    for artifact in typed_frozen_artifacts:
+        if not isinstance(artifact, dict):
+            raise RuntimeError(
+                "fixture freeze must commit the canonical required artifact set"
+            )
+        artifact_record = cast(dict[str, object], artifact)
+        name = artifact_record.get("name")
+        if not isinstance(name, str):
+            raise RuntimeError(
+                "fixture freeze must commit the canonical required artifact set"
+            )
+        artifact_names.append(name)
+
+    required_names = {artifact.value for artifact in REQUIRED_FREEZE_ARTIFACTS}
+    if (
+        len(artifact_names) != len(required_names)
+        or set(artifact_names) != required_names
+    ):
+        raise RuntimeError(
+            "fixture freeze must commit the canonical required artifact set "
+            f"(expected={sorted(required_names)!r}, actual={artifact_names!r})"
+        )
     if (fixture_dir / "preregistration-validation.json").exists():
         raise RuntimeError(
             "fixture output contains deprecated preregistration artifact"
