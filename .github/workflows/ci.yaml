@@ -53,21 +53,9 @@ jobs:
         run: uv run pytest -q
 
       - name: Rebuild and verify packet renders
-        run: |
-          set -euo pipefail
-          rm -rf tmp/ci-packet-render
-          uv run legalforecast acquisition build-packets \
-            --input tests/fixtures/packet_render_ci/packet-build-input.jsonl \
-            --output-root tmp/ci-packet-render \
-            --packets-output tmp/ci-packet-render/packets.jsonl \
-            --case-packets-output tmp/ci-packet-render/case-packets.jsonl \
-            --audit-output tmp/ci-packet-render/packet-audit.jsonl \
-            --execute
-          diff -u tests/fixtures/packet_render_ci/expected-packets.jsonl tmp/ci-packet-render/packets.jsonl
-          uv run scripts/reconstruct_packets.py \
-            --manifest tests/fixtures/packet_render_ci/expected-packet-render.json \
-            --output tmp/ci-packet-render/packet-render-verification.json \
-            --verify-packet-render-dir tmp/ci-packet-render
+        run: >-
+          uv run pytest -q
+          tests/test_packet_render_ci_workflow.py::test_production_packet_builder_matches_reviewed_golden
 
       - name: Build package
         run: uv build --out-dir tmp/ci-dist
