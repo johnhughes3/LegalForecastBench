@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,6 +56,14 @@ _API_DOCKET_PATH = re.compile(r"^/api/rest/v[1-9][0-9]*/dockets/([1-9][0-9]*)/$"
 _PUBLIC_DOCKET_PATH = re.compile(r"^/docket/([1-9][0-9]*)/[^/]+/$")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _UNRESTRICTED_QUERY_EXPRESSION = "{term} AND entry_date_filed:[{start} TO {end}]"
+_TERMINAL_EXCLUSION_REASONS = frozenset(
+    {
+        "case_dev_continuation_cycle",
+        "case_dev_page_limit_reached",
+        "case_dev_pagination_exhaustion_unproven",
+        "case_dev_server_error_retries_exhausted",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,11 +95,16 @@ class VerifiedCaseDevRankedSelection:
     source_store_path: Path
     source_projection_path: Path
     ranked_path: Path
+    terminal_exclusion_path: Path
     enrichment_run_card_path: Path
     source_projection_sha256: str
     ranked_output_sha256: str
+    terminal_exclusion_output_sha256: str
     enrichment_run_card_sha256: str
     ranked_candidate_count: int
+    terminal_exclusion_count: int
+    terminal_exclusion_reason_counts: tuple[tuple[str, int], ...]
+    terminal_excluded_candidate_set_sha256: str
     top_n: int | None
     selected_docket_ids: tuple[str, ...]
     selected_candidate_set_sha256: str
@@ -104,9 +118,19 @@ class VerifiedCaseDevRankedSelection:
             "source_projection_sha256": self.source_projection_sha256,
             "ranked_path": str(self.ranked_path),
             "ranked_output_sha256": self.ranked_output_sha256,
+            "terminal_exclusion_path": str(self.terminal_exclusion_path),
+            "terminal_exclusion_output_sha256": (self.terminal_exclusion_output_sha256),
             "enrichment_run_card_path": str(self.enrichment_run_card_path),
             "enrichment_run_card_sha256": self.enrichment_run_card_sha256,
+            "source_candidate_count": len(self.source.leads),
             "ranked_candidate_count": self.ranked_candidate_count,
+            "terminal_exclusion_count": self.terminal_exclusion_count,
+            "terminal_exclusion_reason_counts": dict(
+                self.terminal_exclusion_reason_counts
+            ),
+            "terminal_excluded_candidate_set_sha256": (
+                self.terminal_excluded_candidate_set_sha256
+            ),
             "selected_candidate_set_sha256": self.selected_candidate_set_sha256,
             "selected": [candidate.commitment_record() for candidate in self.selected],
         }
@@ -233,6 +257,7 @@ def verify_case_dev_ranked_selection(
     source_store_path: Path,
     source_projection_path: Path,
     ranked_path: Path,
+    terminal_exclusion_path: Path,
     enrichment_run_card_path: Path,
     expected_enrichment_run_card_sha256: str,
     top_n: int | None = None,
@@ -280,12 +305,24 @@ def verify_case_dev_ranked_selection(
     projection_sha256 = _file_sha256(source_projection_path)
     ranked_records = _read_jsonl(ranked_path)
     ranked_sha256 = _file_sha256(ranked_path)
+    terminal_exclusion_records = _read_jsonl(terminal_exclusion_path)
+    terminal_exclusion_sha256 = _file_sha256(terminal_exclusion_path)
+    projection_by_docket = _projection_by_docket(projection_records)
+    (
+        terminal_exclusion_commitments,
+        terminal_excluded_dockets,
+        terminal_exclusion_reason_counts,
+    ) = _verify_terminal_exclusion_records(
+        terminal_exclusion_records,
+        projection_records=projection_records,
+    )
     expected_commitments = {
         "ranking_policy_version": CASE_DEV_RANKING_POLICY_VERSION,
         "eligibility_anchor": CYCLE_1_ELIGIBILITY_ANCHOR.isoformat(),
         **case_dev_source_authority_commitments(source),
         "source_projection_sha256": projection_sha256,
         "ranked_output_sha256": ranked_sha256,
+        "failures_output_sha256": terminal_exclusion_sha256,
     }
     if (
         run_card.get("schema_version")
@@ -299,13 +336,17 @@ def verify_case_dev_ranked_selection(
         or run_card.get("paid_activity_requested") is not False
         or run_card.get("paid_activity_executed") is not False
         or run_card.get("reconciled") is not True
-        or run_card.get("failure_count") != 0
+        or run_card.get("failure_count") != len(terminal_exclusion_records)
         or run_card.get("conversion_failure_count") != 0
-        or run_card.get("enrichment_failure_count") != 0
+        or run_card.get("enrichment_failure_count") != len(terminal_exclusion_records)
         or run_card.get("input_record_count") != len(projection_records)
         or run_card.get("converted_docket_count") != len(projection_records)
         or run_card.get("enrichment_attempt_count") != len(projection_records)
-        or run_card.get("successful_docket_count") != len(projection_records)
+        or run_card.get("successful_docket_count") != len(ranked_records)
+        or len(ranked_records) + len(terminal_exclusion_records)
+        != len(projection_records)
+        or run_card.get("failure_reason_counts")
+        != dict(terminal_exclusion_reason_counts)
         or any(
             run_card.get(key) != value for key, value in expected_commitments.items()
         )
@@ -320,11 +361,11 @@ def verify_case_dev_ranked_selection(
     _require_committed_path(run_card, "input_paths", source_store_path)
     _require_committed_path(run_card, "output_paths", source_projection_path)
     _require_committed_path(run_card, "output_paths", ranked_path)
+    _require_committed_path(run_card, "output_paths", terminal_exclusion_path)
     if top_n is not None and top_n > len(ranked_records):
         raise RecapApiBatchDriverError(
             f"top_n={top_n} exceeds verified ranked candidates={len(ranked_records)}"
         )
-    projection_by_docket = _projection_by_docket(projection_records)
     verified_ranked: list[RankedCaseDevCandidate] = []
     seen_dockets: set[str] = set()
     previous_key: tuple[int, int, int, int, str] | None = None
@@ -343,9 +384,14 @@ def verify_case_dev_ranked_selection(
         seen_dockets.add(candidate.docket_id)
         previous_key = candidate.ranking_key
         verified_ranked.append(candidate)
-    if seen_dockets != set(projection_by_docket):
+    if seen_dockets & terminal_excluded_dockets:
         raise RecapApiBatchDriverError(
-            "ranked successes do not exactly cover the verified source projection"
+            "ranked successes overlap authenticated terminal exclusions"
+        )
+    if seen_dockets | terminal_excluded_dockets != set(projection_by_docket):
+        raise RecapApiBatchDriverError(
+            "ranked successes and terminal exclusions do not exactly cover the "
+            "verified source projection"
         )
     if top_n is not None:
         selected = tuple(verified_ranked[:top_n])
@@ -372,16 +418,93 @@ def verify_case_dev_ranked_selection(
         source_store_path=source_store_path,
         source_projection_path=source_projection_path,
         ranked_path=ranked_path,
+        terminal_exclusion_path=terminal_exclusion_path,
         enrichment_run_card_path=enrichment_run_card_path,
         source_projection_sha256=projection_sha256,
         ranked_output_sha256=ranked_sha256,
+        terminal_exclusion_output_sha256=terminal_exclusion_sha256,
         enrichment_run_card_sha256=run_card_sha256,
         ranked_candidate_count=len(verified_ranked),
+        terminal_exclusion_count=len(terminal_exclusion_records),
+        terminal_exclusion_reason_counts=terminal_exclusion_reason_counts,
+        terminal_excluded_candidate_set_sha256=_canonical_sha256(
+            terminal_exclusion_commitments
+        ),
         top_n=top_n,
         selected_docket_ids=requested_dockets,
         selected_candidate_set_sha256=selected_sha256,
         selected=selected,
     )
+
+
+def _verify_terminal_exclusion_records(
+    records: Sequence[Mapping[str, object]],
+    *,
+    projection_records: Sequence[Mapping[str, object]],
+) -> tuple[tuple[dict[str, object], ...], set[str], tuple[tuple[str, int], ...]]:
+    """Authenticate safe terminal drops against exact projected identities."""
+
+    expected_fields = {
+        "input_index",
+        "candidate_id",
+        "docket_id",
+        "stage",
+        "reason",
+        "detail",
+    }
+    commitments: list[dict[str, object]] = []
+    excluded_dockets: set[str] = set()
+    reasons: Counter[str] = Counter()
+    previous_index = -1
+    for record in records:
+        if set(record) != expected_fields:
+            raise RecapApiBatchDriverError(
+                "Case.dev terminal exclusion has an invalid record schema"
+            )
+        input_index = record.get("input_index")
+        candidate_id = record.get("candidate_id")
+        docket_id = record.get("docket_id")
+        stage = record.get("stage")
+        reason = record.get("reason")
+        detail = record.get("detail")
+        if (
+            type(input_index) is not int
+            or input_index <= previous_index
+            or input_index >= len(projection_records)
+            or not isinstance(candidate_id, str)
+            or not isinstance(docket_id, str)
+            or stage != "case_dev_enrichment"
+            or not isinstance(reason, str)
+            or reason not in _TERMINAL_EXCLUSION_REASONS
+            or not isinstance(detail, str)
+            or not detail
+            or detail != detail.strip()
+        ):
+            raise RecapApiBatchDriverError(
+                "Case.dev terminal exclusion is not an authorized terminal drop"
+            )
+        projection = projection_records[input_index]
+        if (
+            projection.get("candidate_id") != candidate_id
+            or projection.get("docket_id") != docket_id
+            or docket_id in excluded_dockets
+        ):
+            raise RecapApiBatchDriverError(
+                "Case.dev terminal exclusion does not match its source projection"
+            )
+        commitments.append(
+            {
+                "input_index": input_index,
+                "candidate_id": candidate_id,
+                "docket_id": docket_id,
+                "reason": reason,
+                "record_sha256": _canonical_sha256(dict(record)),
+            }
+        )
+        excluded_dockets.add(docket_id)
+        reasons[reason] += 1
+        previous_index = input_index
+    return tuple(commitments), excluded_dockets, tuple(sorted(reasons.items()))
 
 
 def build_case_dev_ranked_target_plan(
@@ -431,6 +554,16 @@ def build_case_dev_ranked_target_plan(
             "source_candidate_count": len(source.leads),
             "source_projection_sha256": selection.source_projection_sha256,
             "ranked_output_sha256": selection.ranked_output_sha256,
+            "terminal_exclusion_output_sha256": (
+                selection.terminal_exclusion_output_sha256
+            ),
+            "terminal_exclusion_count": selection.terminal_exclusion_count,
+            "terminal_exclusion_reason_counts": dict(
+                selection.terminal_exclusion_reason_counts
+            ),
+            "terminal_excluded_candidate_set_sha256": (
+                selection.terminal_excluded_candidate_set_sha256
+            ),
             "enrichment_run_card_sha256": selection.enrichment_run_card_sha256,
             "ranked_candidate_count": selection.ranked_candidate_count,
             "selected_candidate_count": len(selection.selected),
@@ -624,6 +757,16 @@ def _ranked_candidate_hit(
             "target_cycle_hash": target_cycle_hash,
             "source_projection_sha256": selection.source_projection_sha256,
             "ranked_output_sha256": selection.ranked_output_sha256,
+            "terminal_exclusion_output_sha256": (
+                selection.terminal_exclusion_output_sha256
+            ),
+            "terminal_exclusion_count": selection.terminal_exclusion_count,
+            "terminal_exclusion_reason_counts": dict(
+                selection.terminal_exclusion_reason_counts
+            ),
+            "terminal_excluded_candidate_set_sha256": (
+                selection.terminal_excluded_candidate_set_sha256
+            ),
             "enrichment_run_card_sha256": selection.enrichment_run_card_sha256,
             "selected_candidate_set_sha256": (selection.selected_candidate_set_sha256),
         },

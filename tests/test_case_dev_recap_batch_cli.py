@@ -880,6 +880,9 @@ def test_enrich_recap_case_dev_bounds_resumable_server_failures(
         output_root / "checkpoints" / "case-dev-recap-failures.jsonl"
     )
     assert failure["reason"] == "case_dev_server_error_retries_exhausted"
+    assert failure["candidate_id"] == "courtlistener-docket-101"
+    assert failure["docket_id"] == "101"
+    assert failure["stage"] == "case_dev_enrichment"
 
 
 def test_parallel_enrichment_checkpoints_completed_sibling_before_rate_limit_abort(

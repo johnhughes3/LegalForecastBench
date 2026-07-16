@@ -3353,6 +3353,16 @@ def _add_batch_002_ranked_selection_common_arguments(
         help="Complete ranked JSONL emitted by enrich-recap-case-dev.",
     )
     parser.add_argument(
+        "--failures",
+        type=Path,
+        required=True,
+        help=(
+            "Complete terminal-failure JSONL emitted by enrich-recap-case-dev. "
+            "Only source-matched, explicitly authorized terminal exclusions are "
+            "accepted; integrity conflicts fail closed."
+        ),
+    )
+    parser.add_argument(
         "--enrichment-run-card",
         type=Path,
         required=True,
@@ -12628,6 +12638,43 @@ def _bound_case_dev_transient_progress(
     }
 
 
+def _case_dev_failure_output_record(
+    progress: Mapping[str, object],
+    *,
+    source_record: Mapping[str, object],
+) -> JsonRecord:
+    """Bind an exhausted-provider terminal failure to its source identity."""
+
+    payload = progress.get("payload")
+    if not isinstance(payload, Mapping):  # pragma: no cover - progress is prevalidated
+        raise CommandError("Case.dev terminal failure payload is invalid")
+    failure = dict(cast(Mapping[str, Any], payload))
+    if failure.get("reason") != "case_dev_server_error_retries_exhausted":
+        return failure
+    input_index = progress.get("input_index")
+    candidate_id = source_record.get("candidate_id")
+    docket_id = source_record.get("docket_id")
+    if (
+        type(input_index) is not int
+        or not isinstance(candidate_id, str)
+        or not candidate_id
+        or not isinstance(docket_id, str)
+        or not docket_id
+    ):
+        raise CommandError(
+            "Case.dev exhausted-provider failure lacks a canonical source identity"
+        )
+    failure.update(
+        {
+            "input_index": input_index,
+            "candidate_id": candidate_id,
+            "docket_id": docket_id,
+            "stage": "case_dev_enrichment",
+        }
+    )
+    return failure
+
+
 def _enrich_case_dev_progress_record(
     *,
     input_index: int,
@@ -13104,7 +13151,10 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         key=lambda record: tuple(cast(Sequence[object], record["ranking_key"])),
     )
     failure_records = [
-        dict(cast(Mapping[str, Any], progress_by_index[index]["payload"]))
+        _case_dev_failure_output_record(
+            progress_by_index[index],
+            source_record=records[index],
+        )
         for index in sorted(progress_by_index)
         if progress_by_index[index]["outcome"] == "failure"
     ]
@@ -14267,6 +14317,7 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
     source_batch_id = cast(str, args.source_batch_id)
     source_projection = cast(Path, args.source_projection)
     ranked_path = cast(Path, args.ranked)
+    terminal_exclusion_path = cast(Path, args.failures)
     enrichment_run_card = cast(Path, args.enrichment_run_card)
     expected_enrichment_run_card_sha256 = cast(
         str, args.expected_enrichment_run_card_sha256
@@ -14289,6 +14340,7 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
             source_store,
             source_projection,
             ranked_path,
+            terminal_exclusion_path,
             enrichment_run_card,
             cycle_store,
         ),
@@ -14313,6 +14365,7 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
             source_store_path=source_store,
             source_projection_path=source_projection,
             ranked_path=ranked_path,
+            terminal_exclusion_path=terminal_exclusion_path,
             enrichment_run_card_path=enrichment_run_card,
             expected_enrichment_run_card_sha256=(expected_enrichment_run_card_sha256),
             top_n=top_n,

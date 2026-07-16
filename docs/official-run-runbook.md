@@ -532,7 +532,7 @@ uv run legalforecast acquisition enrich-recap-case-dev \
   --execute --resume
 ```
 
-Pagination exhaustion must be proven for each successful docket. Provider failures and unproven pagination remain ledgered failures rather than cheap candidates.
+Pagination exhaustion must be proven for each successful docket. Bounded provider exhaustion, page-limit exhaustion, continuation cycles, and unproven pagination remain explicit terminal-exclusion records rather than cheap candidates; identity or metadata conflicts still block the handoff.
 
 For either source schema, the projection and completion card bind the source batch/config/cycle digests, complete candidate and hit-set digests, ordered query terms, search window, source type, and `available_only` semantics. Eligibility remains independently anchored to 2026-06-30. The enrichment retains every Case.dev docket entry and filed date and replays the canonical MTD screen before cost ordering. Linked post-anchor merits dispositions rank first; moot or procedural rulings, pre-anchor dispositions, missing dates, and unproved target-motion linkage are demoted but never silently excluded. The ranked artifact records `ranking_policy_version`, the complete eligibility screen, and the exact entry evidence.
 
@@ -544,6 +544,7 @@ uv run legalforecast batch-002 select-case-dev-ranked \
   --source-batch-id <saturated-o-or-r-source-batch-id> \
   --source-projection artifacts/cycle-1/official-acquisition/case-dev-enrichment/checkpoints/case-dev-recap-source-projection.jsonl \
   --ranked artifacts/cycle-1/official-acquisition/case-dev-enrichment/ranked-dockets.jsonl \
+  --failures artifacts/cycle-1/official-acquisition/case-dev-enrichment/enrichment-failures.jsonl \
   --enrichment-run-card artifacts/cycle-1/official-acquisition/case-dev-enrichment/run-cards/enrich-recap-case-dev.json \
   --expected-enrichment-run-card-sha256 <pinned-enrichment-run-card-sha256> \
   --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
@@ -554,7 +555,7 @@ uv run legalforecast batch-002 select-case-dev-ranked \
 
 Immediately after selection, compute the selector run card's SHA-256 from its raw bytes and record that digest out of band. The acquisition command must receive this independently recorded digest through `--expected-ranked-selection-run-card-sha256`; never derive or recompute the expected value from the selector card supplied to acquisition.
 
-Any enrichment failure blocks this full-source selector. The failure JSONL remains the explicit terminal reconciliation ledger; resolve or intentionally create a fresh authenticated source cohort rather than dropping failed rows from the ranked file.
+The selector authenticates both enrichment outputs. Ranked successes and authorized terminal exclusions must be disjoint and together reconcile the complete frozen source projection. The terminal-exclusion JSONL is bound by raw-byte digest, source index and docket identity, reason counts, and excluded-candidate-set commitment. Transient rows, conversion failures, identity conflicts, contradictory metadata, or noncanonical exclusion records still block selection; they may not be silently dropped from the ranked file.
 
 ### Step 3: Acquire And Screen Complete CourtListener Dockets
 
