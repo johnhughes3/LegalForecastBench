@@ -100,7 +100,10 @@ def test_provisional_frontier_reconciles_success_exclusion_and_pending(
     ]
 
     assert main(args) == 0
-    assert json.loads(summary_path.read_text())["already_seeded"] is True
+    summary = json.loads(summary_path.read_text())
+    assert summary["already_seeded"] is True
+    assert "pending" not in summary
+    assert "selected" not in summary
 
 
 @pytest.mark.parametrize(

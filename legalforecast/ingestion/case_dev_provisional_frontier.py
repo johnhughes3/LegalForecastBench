@@ -18,6 +18,9 @@ from legalforecast.ingestion.case_dev_ranked_selection import (
     project_case_dev_opinion_source,
     verify_case_dev_ranked_record,
 )
+from legalforecast.ingestion.case_dev_recap_enrichment import (
+    CASE_DEV_RANKING_POLICY_VERSION,
+)
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.decision_text_artifact import CYCLE_1_ELIGIBILITY_ANCHOR
 from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, TermTerminalStatus
@@ -143,11 +146,19 @@ class CaseDevProvisionalFrontierResult:
         }
 
     def to_record(self) -> dict[str, object]:
-        return {
-            **self.run_card_record(),
-            "leads_seeded": self.leads_seeded,
-            "already_seeded": self.already_seeded,
-        }
+        record = self.run_card_record()
+        # The run card retains the exact identity arrays. Console/summary output
+        # stays bounded even when thousands of source rows remain pending.
+        record.pop("selected")
+        record.pop("terminal_exclusions")
+        record.pop("pending")
+        record.update(
+            {
+                "leads_seeded": self.leads_seeded,
+                "already_seeded": self.already_seeded,
+            }
+        )
+        return record
 
 
 def verify_case_dev_provisional_frontier(
@@ -183,7 +194,7 @@ def verify_case_dev_provisional_frontier(
     projection_sha256 = _file_sha256(source_projection_path)
     expected_config: dict[str, object] = {
         "schema_version": "legalforecast.case_dev_recap_progress.v1",
-        "ranking_policy_version": "eligibility-aware-v2",
+        "ranking_policy_version": CASE_DEV_RANKING_POLICY_VERSION,
         "dockets_sha256": "sha256:" + projection_sha256,
         "input_record_count": len(projection_records),
         "page_size": config.get("page_size"),
