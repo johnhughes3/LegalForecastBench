@@ -239,6 +239,9 @@ uv run legalforecast acquisition finalize-corpus \
   --parser-manifest <parser-manifest.jsonl> \
   --raw-prediction-units <prediction-units.jsonl> \
   --llm-unitization-run-card <llm-unitize-run-card.json> \
+  --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
+  --provider-cycle-caps <provider-cycle-caps.json> \
+  --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
   --prediction-units <finalized-prediction-units.jsonl> \
   --unitization-review-run-card <apply-unitization-review-run-card.json> \
   --markdown-root <parsed-markdown-root> \
@@ -257,7 +260,7 @@ uv run legalforecast acquisition finalize-corpus \
   --execute --no-resume
 ```
 
-Do not hand-author a compatibility summary or substitute a replay-stage summary. `finalize-corpus` requires the successful canonical `prepare-target-cohort` root, verifies its self-hashed configuration, completion evidence, and exhaustive stage commitments, and uses that authenticated lineage to pin the exact snapshot path, manifest hash, cycle hash, batch digest, and target size. It then authenticates the decision-text bundle against the exact selection, parser output, finalized units, and Markdown; requires every Stage B audit row's `decision_text_commitment` to match; verifies the snapshot's immutable cycle-store registration, complete and saturated state, member hashes, row counts, and accepted-plus-excluded reconciliation; and accepts the packet artifacts only after those gates pass. Include every later exclusion file separately with `--exclusion-source` so every screened-but-unselected or downstream-rejected candidate reaches the complete exclusion ledger.
+Do not hand-author a compatibility summary or substitute a replay-stage summary. `finalize-corpus` requires the successful canonical `prepare-target-cohort` root, verifies its self-hashed configuration, completion evidence, and exhaustive stage commitments, and uses that authenticated lineage to pin the exact snapshot path, manifest hash, cycle hash, batch digest, and target size. It replays the authenticated unitizer and structural-review cards against the exact raw units, original and merged review queues, structural flags, review audit, reviewer registry and key, provider-caps bytes, and canonical shared journal before accepting the apply-review card. It then authenticates the decision-text bundle against the exact selection, parser output, finalized units, and Markdown; requires every Stage B audit row's `decision_text_commitment` to match; verifies the snapshot's immutable cycle-store registration, complete and saturated state, member hashes, row counts, and accepted-plus-excluded reconciliation; and accepts the packet artifacts only after those gates pass. Include every later exclusion file separately with `--exclusion-source` so every screened-but-unselected or downstream-rejected candidate reaches the complete exclusion ledger.
 
 ## Before Dispatch
 

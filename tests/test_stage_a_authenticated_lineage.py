@@ -4,6 +4,7 @@ import hashlib
 import json
 import sqlite3
 from argparse import Namespace
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -476,6 +477,180 @@ def test_provider_stage_replay_rejects_duplicate_cross_model_and_cross_stage_row
             expected_prompts=expected,
             providers_by_model=providers,
             model_registry_sha256="registry-sha",
+        )
+
+
+def test_structural_review_run_card_rejects_finalize_path_and_journal_substitution(
+    tmp_path: Path,
+) -> None:
+    paths = {
+        name: tmp_path / f"{name}.jsonl"
+        for name in (
+            "selection",
+            "parser",
+            "raw-units",
+            "original-queue",
+            "flags",
+            "reviewed-queue",
+            "audit",
+        )
+    }
+    for path in paths.values():
+        _write_jsonl(path, [])
+    unit_card = tmp_path / "llm-unitize.json"
+    _write_json(unit_card, {})
+    registry_path = tmp_path / "registry.json"
+    entry = _registry_entry()
+    _write_json(registry_path, [entry.to_record()])
+    resolved_entry, registry_sha = cli._registry_entry_for_key(
+        registry_path, entry.registry_key
+    )
+    caps_path = tmp_path / "caps.json"
+    _write_json(
+        caps_path,
+        {
+            "schema_version": "legalforecast.provider_cycle_caps.v1",
+            "cycle_id": "cycle-1",
+            "providers": [
+                {
+                    "provider": "openai",
+                    "cycle_reservation_cap_usd": "10.00",
+                    "external_spend_limit_usd": "20.00",
+                    "external_limit_scope": "fixture",
+                    "external_limit_source": "fixture",
+                    "verified_at": "2026-07-16T00:00:00Z",
+                }
+            ],
+        },
+    )
+    caps = cli.load_provider_cycle_caps(caps_path)
+    journal_path = tmp_path / "provider-attempts.sqlite3"
+    ProviderAttemptJournal(
+        journal_path,
+        identity=ProviderCallIdentity(
+            stage="fixture-bootstrap",
+            candidate_id="fixture",
+            model_key=entry.registry_key,
+            prompt="fixture",
+            model_registry_sha256=registry_sha,
+        ),
+        provider="openai",
+        reservation_usd=0.0,
+        cycle_cap_usd=10.0,
+        cycle_id="cycle-1",
+        provider_cycle_caps_sha256=cli._path_sha256(caps_path),
+    ).close()
+    lineage = cli._StageAUnitizationLineage(
+        selection_records=(),
+        parser_records=(),
+        registry_entry=resolved_entry,
+        registry_sha256=registry_sha,
+        provider_caps=caps,
+        provider_caps_sha256=cli._path_sha256(caps_path),
+        provider_journal_path=journal_path,
+        document_root=tmp_path,
+        markdown_root=tmp_path,
+        cohort_cycle_id="cycle-1",
+        input_paths=(),
+        input_commitments={},
+        markdown_tree={},
+    )
+    source_paths = {
+        "selection": paths["selection"],
+        "parser_manifest": paths["parser"],
+        "raw_prediction_units": paths["raw-units"],
+        "unitization_review_queue": paths["original-queue"],
+        "llm_unitization_run_card": unit_card,
+        "model_registry": registry_path,
+        "provider_cycle_caps": caps_path,
+    }
+    output_paths = {
+        "structural_flags": paths["flags"],
+        "review_queue": paths["reviewed-queue"],
+        "audit": paths["audit"],
+    }
+    stage_attempts = cli._verified_provider_stage_attempts(
+        stage="llm-review-stage-a",
+        journal_path=journal_path,
+        expected_prompts={},
+        providers_by_model={entry.registry_key: entry.provider},
+        model_registry_sha256=registry_sha,
+    )
+    run_card_path = tmp_path / "llm-review-stage-a.json"
+    _write_json(
+        run_card_path,
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "llm-review-stage-a",
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "paid_activity_requested": True,
+            "paid_activity_executed": True,
+            "source_commitments": {
+                name: cli._stage_a_file_commitment(path)
+                for name, path in source_paths.items()
+            },
+            "output_commitments": {
+                name: cli._stage_a_file_commitment(path)
+                for name, path in output_paths.items()
+            },
+            "model_execution": {
+                "model_key": entry.registry_key,
+                "model_entry_sha256": "sha256:"
+                + cli.model_registry_entry_sha256(resolved_entry),
+                "model_registry_sha256": registry_sha,
+                "provider": entry.provider,
+            },
+            "provider_chain": cli._provider_chain_commitment(
+                lineage=lineage,
+                stage_attempts=stage_attempts,
+            ),
+            "input_paths": [str(path.resolve()) for path in source_paths.values()]
+            + [str(journal_path.resolve())],
+            "output_paths": [
+                str(paths[name].resolve())
+                for name in ("flags", "reviewed-queue", "audit")
+            ]
+            + [str(journal_path.resolve())],
+        },
+    )
+
+    expected = {
+        "expected_structural_flags_path": paths["flags"],
+        "expected_audit_path": paths["audit"],
+        "expected_registry_path": registry_path,
+        "expected_model_key": entry.registry_key,
+    }
+    cli._verify_stage_a_review_run_card(
+        run_card_path,
+        lineage=lineage,
+        llm_unitization_run_card_path=unit_card,
+        expected_review_queue_path=paths["reviewed-queue"],
+        **expected,
+    )
+
+    substituted_flags = tmp_path / "substituted-flags.jsonl"
+    _write_jsonl(substituted_flags, [])
+    with pytest.raises(cli.CommandError, match="structural review output path differs"):
+        cli._verify_stage_a_review_run_card(
+            run_card_path,
+            lineage=lineage,
+            llm_unitization_run_card_path=unit_card,
+            expected_review_queue_path=paths["reviewed-queue"],
+            **{**expected, "expected_structural_flags_path": substituted_flags},
+        )
+
+    with pytest.raises(cli.CommandError, match="provider chain identity differs"):
+        cli._verify_stage_a_review_run_card(
+            run_card_path,
+            lineage=replace(
+                lineage,
+                provider_journal_path=tmp_path / "substituted-provider.sqlite3",
+            ),
+            llm_unitization_run_card_path=unit_card,
+            expected_review_queue_path=paths["reviewed-queue"],
+            **expected,
         )
 
 

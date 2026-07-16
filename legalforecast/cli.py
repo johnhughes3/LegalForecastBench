@@ -18,7 +18,7 @@ import tempfile
 import time
 import uuid
 from collections import Counter, defaultdict
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence, Set
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, date, datetime, timedelta
@@ -5679,6 +5679,14 @@ def _add_acquisition_finalize_corpus_arguments(
         ),
     )
     parser.add_argument(
+        "--llm-review-stage-a-run-card",
+        type=Path,
+        help=(
+            "Authenticated llm-review-stage-a run card replayed during final "
+            "readiness. Required with --execute."
+        ),
+    )
+    parser.add_argument(
         "--prediction-units",
         type=Path,
         required=True,
@@ -5695,6 +5703,15 @@ def _add_acquisition_finalize_corpus_arguments(
     parser.add_argument("--stage-a-structural-review-audit", type=Path, required=True)
     parser.add_argument("--stage-a-review-model-registry", type=Path, required=True)
     parser.add_argument("--stage-a-review-model-key", required=True)
+    _add_provider_cycle_caps_argument(parser)
+    parser.add_argument(
+        "--provider-journal",
+        type=Path,
+        help=(
+            "Exact canonical provider journal shared by llm-unitize, structural "
+            "review, and labeling. Required with --execute."
+        ),
+    )
     parser.add_argument("--unitization-review-queue", type=Path, required=True)
     parser.add_argument(
         "--unitization-review-adjudications",
@@ -23800,6 +23817,7 @@ def _verified_shared_provider_chain(
     *,
     raw_prediction_units_path: Path,
     expected_review_queue_path: Path | None = None,
+    expected_audit_path: Path | None = None,
 ) -> tuple[_StageAUnitizationLineage, Path]:
     unitization_card_path = _required_stage_a_lineage_path(
         args, "llm_unitization_run_card", "--llm-unitization-run-card"
@@ -23808,6 +23826,7 @@ def _verified_shared_provider_chain(
         unitization_card_path,
         expected_prediction_units_path=raw_prediction_units_path,
         expected_review_queue_path=expected_review_queue_path,
+        expected_audit_path=expected_audit_path,
     )
     caps_path = _required_stage_a_lineage_path(
         args, "provider_cycle_caps", "--provider-cycle-caps"
@@ -23909,6 +23928,7 @@ def _verified_provider_stage_attempts(
     expected_prompts: Mapping[tuple[str, str], str],
     providers_by_model: Mapping[str, str],
     model_registry_sha256: str,
+    expected_validation_failures: Set[tuple[str, str]] = frozenset(),
 ) -> JsonRecord:
     rows = _provider_stage_attempt_rows(journal_path, stage=stage)
     rows_by_call: dict[tuple[str, str], list[Mapping[str, Any]]] = defaultdict(list)
@@ -23936,9 +23956,20 @@ def _verified_provider_stage_attempts(
         rows_by_call[key].append(row)
     if set(rows_by_call) != set(expected_prompts):
         raise CommandError(f"{stage} provider journal call coverage differs")
+    if not expected_validation_failures <= set(expected_prompts):
+        raise CommandError(f"{stage} validation-failure audit coverage differs")
     for key, call_rows in rows_by_call.items():
-        if sum(row.get("status") == "settled" for row in call_rows) != 1:
-            raise CommandError(f"{stage} requires one settled provider call: {key}")
+        expected_status = (
+            "validated_response" if key in expected_validation_failures else "settled"
+        )
+        if sum(row.get("status") == expected_status for row in call_rows) != 1 or any(
+            row.get("status") in {"settled", "validated_response"}
+            and row.get("status") != expected_status
+            for row in call_rows
+        ):
+            raise CommandError(
+                f"{stage} requires one {expected_status} provider call: {key}"
+            )
     return {
         "stage": stage,
         "call_count": len(expected_prompts),
@@ -23967,6 +23998,10 @@ def _verify_stage_a_review_run_card(
     lineage: _StageAUnitizationLineage,
     llm_unitization_run_card_path: Path,
     expected_review_queue_path: Path,
+    expected_structural_flags_path: Path | None = None,
+    expected_audit_path: Path | None = None,
+    expected_registry_path: Path | None = None,
+    expected_model_key: str | None = None,
 ) -> None:
     if run_card_path.is_symlink() or not run_card_path.is_file():
         raise CommandError("llm-review-stage-a run card is not a regular file")
@@ -24025,8 +24060,18 @@ def _verify_stage_a_review_run_card(
     queue_path = _stage_a_committed_path(output_records, "review_queue")
     audit_path = _stage_a_committed_path(output_records, "audit")
     flags_path = _stage_a_committed_path(output_records, "structural_flags")
-    if queue_path.resolve() != expected_review_queue_path.resolve():
-        raise CommandError("structural review queue differs from adjudicated queue")
+    if (
+        queue_path.resolve() != expected_review_queue_path.resolve()
+        or (
+            expected_structural_flags_path is not None
+            and flags_path.resolve() != expected_structural_flags_path.resolve()
+        )
+        or (
+            expected_audit_path is not None
+            and audit_path.resolve() != expected_audit_path.resolve()
+        )
+    ):
+        raise CommandError("structural review output path differs")
     expected_outputs = {
         "structural_flags": _stage_a_file_commitment(flags_path),
         "review_queue": _stage_a_file_commitment(queue_path),
@@ -24038,6 +24083,11 @@ def _verify_stage_a_review_run_card(
     model_key = execution_record.get("model_key")
     if not isinstance(model_key, str) or not model_key.strip():
         raise CommandError("structural review model key is invalid")
+    if (
+        expected_registry_path is not None
+        and registry_path.resolve() != expected_registry_path.resolve()
+    ) or (expected_model_key is not None and model_key != expected_model_key):
+        raise CommandError("structural review model authority differs")
     entry, registry_sha = _registry_entry_for_key(registry_path, model_key)
     expected_execution = {
         "model_key": entry.registry_key,
@@ -24353,6 +24403,7 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             lawyer_review_queue_records(result.audit_records),
         )
         expected_prompts: dict[tuple[str, str], str] = {}
+        validation_failure_calls: set[tuple[str, str]] = set()
         for record in result.audit_records:
             candidate_id = _required_str(record, "candidate_id")
             raw_outputs = record.get("model_outputs", ())
@@ -24365,6 +24416,11 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
                 if key in expected_prompts:
                     raise CommandError(f"duplicate llm-label model output: {key}")
                 expected_prompts[key] = _required_str(output, "provider_prompt_sha256")
+                output_status = output.get("status")
+                if output_status == "validation_failed":
+                    validation_failure_calls.add(key)
+                elif output_status is not None:
+                    raise CommandError(f"invalid llm-label model output status: {key}")
         providers_by_model = {
             entry.registry_key: entry.provider for entry in registry_entries
         }
@@ -24374,6 +24430,7 @@ def _cmd_acquisition_llm_label(args: argparse.Namespace) -> int:
             expected_prompts=expected_prompts,
             providers_by_model=providers_by_model,
             model_registry_sha256=registry_sha256,
+            expected_validation_failures=validation_failure_calls,
         )
         completion_extra.update(
             {
@@ -25323,6 +25380,9 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     markdown_root = cast(Path, args.markdown_root)
     raw_prediction_units_path = cast(Path, args.raw_prediction_units)
     llm_unitization_run_card_path = cast(Path | None, args.llm_unitization_run_card)
+    structural_review_run_card_path = cast(
+        Path | None, args.llm_review_stage_a_run_card
+    )
     prediction_units_path = cast(Path, args.prediction_units)
     unitization_audit_path = cast(Path, args.llm_unitization_audit)
     original_unitization_review_path = cast(
@@ -25332,6 +25392,8 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     structural_review_audit_path = cast(Path, args.stage_a_structural_review_audit)
     structural_review_registry_path = cast(Path, args.stage_a_review_model_registry)
     structural_review_model_key = cast(str, args.stage_a_review_model_key)
+    provider_caps_path = cast(Path | None, args.provider_cycle_caps)
+    provider_journal_path = cast(Path | None, args.provider_journal)
     unitization_review_path = cast(Path, args.unitization_review_queue)
     unitization_adjudications_path = cast(
         Path,
@@ -25398,12 +25460,19 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         markdown_root,
         raw_prediction_units_path,
         *((llm_unitization_run_card_path,) if llm_unitization_run_card_path else ()),
+        *(
+            (structural_review_run_card_path,)
+            if structural_review_run_card_path
+            else ()
+        ),
         prediction_units_path,
         unitization_audit_path,
         original_unitization_review_path,
         structural_flags_path,
         structural_review_audit_path,
         structural_review_registry_path,
+        *((provider_caps_path,) if provider_caps_path else ()),
+        *((provider_journal_path,) if provider_journal_path else ()),
         unitization_review_path,
         unitization_adjudications_path,
         *(
@@ -25464,11 +25533,38 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             raise CommandError(
                 "finalize-corpus requires --unitization-review-run-card with --execute"
             )
-        _verify_stage_a_unitization_run_card(
-            llm_unitization_run_card_path,
-            expected_prediction_units_path=raw_prediction_units_path,
+        if structural_review_run_card_path is None:
+            raise CommandError(
+                "finalize-corpus requires --llm-review-stage-a-run-card with --execute"
+            )
+        if provider_caps_path is None:
+            raise CommandError(
+                "finalize-corpus requires --provider-cycle-caps with --execute"
+            )
+        if provider_journal_path is None:
+            raise CommandError(
+                "finalize-corpus requires --provider-journal with --execute"
+            )
+        lineage, authenticated_unitization_card = _verified_shared_provider_chain(
+            args,
+            raw_prediction_units_path=raw_prediction_units_path,
             expected_review_queue_path=original_unitization_review_path,
             expected_audit_path=unitization_audit_path,
+        )
+        if (
+            authenticated_unitization_card.resolve()
+            != llm_unitization_run_card_path.resolve()
+        ):
+            raise CommandError("finalize-corpus Stage A unitization authority differs")
+        _verify_stage_a_review_run_card(
+            structural_review_run_card_path,
+            lineage=lineage,
+            llm_unitization_run_card_path=authenticated_unitization_card,
+            expected_review_queue_path=unitization_review_path,
+            expected_structural_flags_path=structural_flags_path,
+            expected_audit_path=structural_review_audit_path,
+            expected_registry_path=structural_review_registry_path,
+            expected_model_key=structural_review_model_key,
         )
         _verify_unitization_review_run_card(
             unitization_review_run_card_path,

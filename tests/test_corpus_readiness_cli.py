@@ -846,9 +846,21 @@ def _stub_stage_a_run_card_chain(
     monkeypatch: pytest.MonkeyPatch, inputs: Path
 ) -> list[str]:
     unitization_card = inputs / "llm-unitize-run-card.json"
+    structural_card = inputs / "llm-review-stage-a-run-card.json"
     review_card = inputs / "apply-unitization-review-run-card.json"
+    provider_caps = inputs / "provider-cycle-caps.json"
+    provider_journal = inputs / "provider-attempts.sqlite3"
     unitization_card.write_text("{}\n", encoding="utf-8")
+    structural_card.write_text("{}\n", encoding="utf-8")
     review_card.write_text("{}\n", encoding="utf-8")
+    provider_caps.write_text("{}\n", encoding="utf-8")
+    provider_journal.write_bytes(b"fixture")
+    lineage = SimpleNamespace(provider_journal_path=provider_journal)
+    monkeypatch.setattr(
+        cli,
+        "_verified_shared_provider_chain",
+        lambda *args, **kwargs: (lineage, unitization_card),
+    )
     monkeypatch.setattr(
         cli,
         "_verify_stage_a_unitization_run_card",
@@ -859,9 +871,20 @@ def _stub_stage_a_run_card_chain(
         "_verify_unitization_review_run_card",
         lambda *args, **kwargs: None,
     )
+    monkeypatch.setattr(
+        cli,
+        "_verify_stage_a_review_run_card",
+        lambda *args, **kwargs: None,
+    )
     return [
         "--llm-unitization-run-card",
         str(unitization_card),
+        "--llm-review-stage-a-run-card",
+        str(structural_card),
         "--unitization-review-run-card",
         str(review_card),
+        "--provider-cycle-caps",
+        str(provider_caps),
+        "--provider-journal",
+        str(provider_journal),
     ]

@@ -721,6 +721,9 @@ def llm_label_cases(
     for selection in selections:
         candidate_id = _required_str(selection, "candidate_id")
         decision_text, decision_commitment = decisions_by_candidate[candidate_id]
+        model_outputs: list[JsonRecord] = []
+        attempted_entry: ModelRegistryEntry | None = None
+        attempted_prompt_sha256: str | None = None
         try:
             if candidate_id in excluded_candidates:
                 audit_records.append(
@@ -746,16 +749,26 @@ def llm_label_cases(
                 raise LlmPipelineError(
                     f"verified decision text date mismatch for {candidate_id}"
                 )
-            model_outputs: list[JsonRecord] = []
             votes: list[EnsembleLabelVote] = []
             labels_by_model: dict[str, tuple[OutcomeLabel, ...]] = {}
+            provider_prompt = _labeling_prompt(
+                selection,
+                decision_text,
+                tuple(frozen_units),
+                decision_text_commitment=decision_commitment,
+            )
+            attempted_prompt_sha256 = (
+                "sha256:" + hashlib.sha256(provider_prompt.encode("utf-8")).hexdigest()
+            )
             for entry in registry_entries:
+                attempted_entry = entry
                 labels, response, finding_count, missing_flag_count, prompt_sha256 = (
                     _llm_label_one_model(
                         selection=selection,
                         decision_text=decision_text,
                         decision_text_commitment=decision_commitment,
                         frozen_units=tuple(frozen_units),
+                        prompt=provider_prompt,
                         registry_entry=entry,
                         model_registry_sha256=model_registry_sha256,
                         transport=transport,
@@ -899,6 +912,24 @@ def llm_label_cases(
             elif isinstance(exc, FrozenUnitWorkflowRequiredError):
                 failure_record.update(_response_audit_fields(exc.response))
                 failure_record.update(_frozen_unit_workflow_audit_fields(exc))
+            if isinstance(
+                exc, (LlmResponseValidationError, FrozenUnitWorkflowRequiredError)
+            ):
+                if attempted_entry is None or attempted_prompt_sha256 is None:
+                    raise LlmPipelineError(
+                        "validated provider failure lacks attempted model identity"
+                    ) from exc
+                failure_record["model_outputs"] = [
+                    *model_outputs,
+                    {
+                        "status": "validation_failed",
+                        "model_key": attempted_entry.registry_key,
+                        "provider_prompt_sha256": attempted_prompt_sha256,
+                        **_response_audit_fields(exc.response),
+                        "error_type": type(exc).__name__,
+                        "error_message": str(exc),
+                    },
+                ]
             failure_record["decision_text_commitment"] = decision_commitment
             audit_records.append(failure_record)
             if not continue_on_error:
@@ -912,6 +943,7 @@ def _llm_label_one_model(
     decision_text: StageBDecisionText,
     decision_text_commitment: Mapping[str, str],
     frozen_units: tuple[PredictionUnit, ...],
+    prompt: str,
     registry_entry: ModelRegistryEntry,
     model_registry_sha256: str | None,
     transport: LiveModelTransport | None,
@@ -922,12 +954,6 @@ def _llm_label_one_model(
     provider_cycle_id: str | None,
     provider_cycle_caps_sha256: str | None,
 ) -> tuple[tuple[OutcomeLabel, ...], SolverResponse, int, int, str]:
-    prompt = _labeling_prompt(
-        selection,
-        decision_text,
-        frozen_units,
-        decision_text_commitment=decision_text_commitment,
-    )
     prompt_sha256 = "sha256:" + hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     journal = _provider_attempt_journal(
         path=provider_journal_path,

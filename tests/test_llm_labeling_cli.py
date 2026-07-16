@@ -467,6 +467,7 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
     assert main(review_args) == 0
     assert provider_calls == 2
 
+    provider_calls_before_bad_journal = provider_calls
     bad_journal_args = list(review_args)
     bad_journal_args[bad_journal_args.index(str(provider_journal))] = str(
         tmp_path / "different-output-root" / "provider-attempts.sqlite3"
@@ -475,8 +476,9 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
         tmp_path / "different-output-root"
     )
     assert main(bad_journal_args) == 2
-    assert provider_calls == 2
+    assert provider_calls == provider_calls_before_bad_journal
 
+    provider_calls_before_mutated_caps = provider_calls
     mutated_caps = tmp_path / "mutated-provider-caps.json"
     mutated_caps.write_text(caps_path.read_text() + "\n", encoding="utf-8")
     mutated_caps_args = list(review_args)
@@ -485,8 +487,9 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
         tmp_path / "mutated-caps-output"
     )
     assert main(mutated_caps_args) == 2
-    assert provider_calls == 2
+    assert provider_calls == provider_calls_before_mutated_caps
 
+    provider_calls_before_wrong_cycle = provider_calls
     wrong_cycle_caps = tmp_path / "wrong-cycle-provider-caps.json"
     wrong_cycle_payload = json.loads(caps_path.read_text())
     wrong_cycle_payload["cycle_id"] = "different-cycle"
@@ -497,7 +500,7 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
         tmp_path / "wrong-cycle-output"
     )
     assert main(wrong_cycle_args) == 2
-    assert provider_calls == 2
+    assert provider_calls == provider_calls_before_wrong_cycle
 
     adjudications_path = tmp_path / "unitization-adjudications.jsonl"
     _write_jsonl(
@@ -580,6 +583,7 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
     )
     assert provider_calls == 3
 
+    provider_calls_before_bad_label_chain = provider_calls
     bad_label_chain_args = list(provider_chain_args)
     bad_label_chain_args[bad_label_chain_args.index(str(provider_journal))] = str(
         tmp_path / "label-different-root" / "provider-attempts.sqlite3"
@@ -612,7 +616,7 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
         )
         == 2
     )
-    assert provider_calls == 3
+    assert provider_calls == provider_calls_before_bad_label_chain
 
     labels = _read_jsonl(output_root / "labels.jsonl")
     assert labels[0]["unit_id"] == "unit-1"
@@ -1923,7 +1927,7 @@ def test_acquisition_llm_label_failure_audit_keeps_model_accounting(
     _write_json(registry_path, [_registry_record()])
 
     def invalid_label_completion(*args: Any, **kwargs: Any) -> SolverResponse:
-        return SolverResponse(
+        response = SolverResponse(
             raw_output=json.dumps(
                 {
                     "unit_findings": [
@@ -1943,6 +1947,7 @@ def test_acquisition_llm_label_failure_audit_keeps_model_accounting(
             estimated_cost=0.23,
             metadata={"provider": "openai", "model_id": "gpt-test"},
         )
+        return _settle_fixture_unitization_attempt(response, kwargs)
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", invalid_label_completion)
     _rewrite_as_finalized(units_path)
@@ -2002,6 +2007,27 @@ def test_acquisition_llm_label_failure_audit_keeps_model_accounting(
     assert audit["output_tokens"] == 56
     assert str(audit["raw_output_sha256"]).startswith("sha256:")
     assert audit["metadata"]["model_id"] == "gpt-test"
+    assert audit["model_outputs"] == [
+        {
+            "status": "validation_failed",
+            "model_key": "openai:gpt-test",
+            "provider_prompt_sha256": audit["model_outputs"][0][
+                "provider_prompt_sha256"
+            ],
+            "input_tokens": 234,
+            "output_tokens": 56,
+            "estimated_cost": 0.23,
+            "raw_output_sha256": audit["raw_output_sha256"],
+            "metadata": {"provider": "openai", "model_id": "gpt-test"},
+            "error_type": "LlmResponseValidationError",
+            "error_message": audit["error_message"],
+        }
+    ]
+    provider_chain = json.loads(
+        (output_root / "run-cards" / "llm-label.json").read_text(encoding="utf-8")
+    )["provider_chain"]
+    assert provider_chain["stage_attempts"]["call_count"] == 1
+    assert provider_chain["stage_attempts"]["attempt_count"] == 1
 
 
 def test_acquisition_llm_label_missing_unit_flags_gate_frozen_unit_workflow(
@@ -2048,7 +2074,7 @@ def test_acquisition_llm_label_missing_unit_flags_gate_frozen_unit_workflow(
     _write_json(registry_path, [_registry_record()])
 
     def missing_unit_completion(*args: Any, **kwargs: Any) -> SolverResponse:
-        return SolverResponse(
+        response = SolverResponse(
             raw_output=json.dumps(
                 {
                     "unit_findings": [
@@ -2078,6 +2104,7 @@ def test_acquisition_llm_label_missing_unit_flags_gate_frozen_unit_workflow(
             estimated_cost=0.34,
             metadata={"provider": "openai", "model_id": "gpt-test"},
         )
+        return _settle_fixture_unitization_attempt(response, kwargs)
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", missing_unit_completion)
     _rewrite_as_finalized(units_path)
