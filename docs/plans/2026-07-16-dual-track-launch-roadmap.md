@@ -896,7 +896,7 @@ Parsing and labeling fail closed while either path returns 404.
 
 No broader credential path substitutes for those stage-specific folders.
 
-John confirms exact-100 versus all-at-least-150 before projection freeze.
+John records immutable `launch_case_count=100` and the nonblocking reserve boundary before projection freeze.
 
 John confirms label-judge composition and the precise exact-model/provider-family disjointness claim.
 
@@ -1284,7 +1284,7 @@ No PR merges with unexplained failing checks, skipped hooks, or unresolved corre
 
 PR P0: retained roadmap, architecture decisions, GitHub umbrella issue, and successor Beads graph export.
 
-PR P1: exact-100 versus at-least-150 policy and live graph reconciliation.
+PR P1: immutable exact-100 Cycle 1 and reserve policy plus live graph reconciliation.
 
 PR P2: architecture boundary ADR and import/CLI ownership tests.
 
