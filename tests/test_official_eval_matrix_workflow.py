@@ -85,9 +85,18 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
 
 
 def test_shard_only_dispatch_gates_aggregation_and_records_provenance() -> None:
+    provenance_step = BUILD_MATRIX_JOB[
+        BUILD_MATRIX_JOB.index(
+            "- name: Validate staged dispatch and build provenance"
+        ) : BUILD_MATRIX_JOB.index("- name: Build matrix JSON")
+    ]
     assert "SHARD_ONLY: ${{ inputs.shard_only }}" in BUILD_MATRIX_JOB
     assert "ABLATIONS: ${{ inputs.ablations }}" in BUILD_MATRIX_JOB
     assert 'ablation_args+=(--requested-ablation "${ablation}")' in BUILD_MATRIX_JOB
+    assert 'key="${raw_key}"' in provenance_step
+    assert 'ablation="${raw_ablation}"' in provenance_step
+    assert 'key="${raw_key//[[:space:]]/}"' not in provenance_step
+    assert 'ablation="${raw_ablation//[[:space:]]/}"' not in provenance_step
     assert "shard_args+=(--shard-only)" in BUILD_MATRIX_JOB
     assert '"${ablation_args[@]}"' in BUILD_MATRIX_JOB
     assert '"${shard_args[@]}"' in BUILD_MATRIX_JOB
@@ -100,7 +109,14 @@ def test_shard_only_dispatch_gates_aggregation_and_records_provenance() -> None:
     ).read_text(encoding="utf-8")
     assert "_load_execution_policy(" in provenance_source
     assert 'execution_policy["concurrency_policy"]' in provenance_source
+    assert "_shard_concurrency_group_from_policy(" in provenance_source
     assert '"dispatch_mode": "shard_only"' in provenance_source
+    assert '--workflow-ref "${WORKFLOW_REF}"' in BUILD_MATRIX_JOB
+    assert '--concurrency-group "${CONCURRENCY_GROUP}"' in BUILD_MATRIX_JOB
+    assert (
+        "- name: Upload dispatch provenance\n"
+        "        uses: actions/upload-artifact@v7" in BUILD_MATRIX_JOB
+    )
 
 
 def test_declared_shards_have_distinct_concurrency_groups() -> None:
@@ -110,6 +126,7 @@ def test_declared_shards_have_distinct_concurrency_groups() -> None:
     assert "${{ inputs.cycle_id }}" in expression
     assert "${{ inputs.model_keys }}" in expression
     assert "${{ inputs.ablations }}" in expression
+    assert f"CONCURRENCY_GROUP: {expression}" in BUILD_MATRIX_JOB
 
     def render_group(model_key: str, ablation: str) -> str:
         return (
@@ -125,16 +142,28 @@ def test_declared_shards_have_distinct_concurrency_groups() -> None:
         for ablation in ("full_packet", "metadata_only")
     ]
     assert len(groups) == 8
-    assert len(set(groups)) == 8
+    assert len({group.casefold() for group in groups}) == 8
     assert "cancel-in-progress: false" in WORKFLOW
 
-    # GitHub retains only one pending run per concurrency group. Simulate its
-    # pending-slot replacement rule and prove all eight declared shards survive.
+    # GitHub concurrency groups are case-insensitive and retain only one pending
+    # run. Model both running and replaceable pending slots; distinct frozen
+    # shards must all start instead of replacing one another.
+    running_run_by_group: dict[str, str] = {}
     pending_run_by_group: dict[str, str] = {}
     expected_run_ids = {f"run-{index}" for index in range(len(groups))}
     for index, group in enumerate(groups):
-        pending_run_by_group[group] = f"run-{index}"
-    assert set(pending_run_by_group.values()) == expected_run_ids
+        group_key = group.casefold()
+        run_id = f"run-{index}"
+        if group_key not in running_run_by_group:
+            running_run_by_group[group_key] = run_id
+        else:
+            pending_run_by_group[group_key] = run_id
+    assert set(running_run_by_group.values()) == expected_run_ids
+    assert pending_run_by_group == {}
+    assert {running_run_by_group[groups[index].casefold()] for index in (0, 1)} == {
+        "run-0",
+        "run-1",
+    }
 
 
 def test_amendment_dispatch_is_new_models_only_and_aggregation_unions_runs() -> None:

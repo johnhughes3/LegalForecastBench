@@ -10,6 +10,7 @@ from legalforecast.protocol.policy_artifacts import generate_execution_policy
 from legalforecast.publication.dispatch_provenance import (
     DispatchProvenanceError,
     build_dispatch_provenance,
+    build_shard_concurrency_group,
     load_dispatch_provenance,
 )
 
@@ -166,6 +167,10 @@ def test_declared_shard_dispatch_records_frozen_pair_and_remaining_schedule(
         prior_dispatches=(),
         current_workflow_run_id="1001",
         current_workflow_run_attempt=1,
+        current_workflow_ref="refs/heads/main",
+        current_concurrency_group=_workflow_group(
+            ("fixture:model-a",), ("full_packet",)
+        ),
         requested_model_keys=("fixture:model-a",),
         requested_ablations=("full_packet",),
         shard_only=True,
@@ -185,6 +190,10 @@ def test_declared_shard_dispatch_records_frozen_pair_and_remaining_schedule(
         "model_key": "fixture:model-a",
         "ablation": "full_packet",
     }
+    assert record["workflow_ref"] == "refs/heads/main"
+    assert record["concurrency_group"] == _workflow_group(
+        ("fixture:model-a",), ("full_packet",)
+    )
     assert record["remaining_shards"] == [
         {"model_key": f"fixture:model-{model}", "ablation": ablation}
         for model in ("a", "b", "c", "d")
@@ -206,6 +215,83 @@ def test_declared_shard_dispatch_records_frozen_pair_and_remaining_schedule(
         )
         == record
     )
+
+
+def test_frozen_policy_builds_exact_workflow_concurrency_group(
+    tmp_path: Path,
+) -> None:
+    _write_sharded_bundle(tmp_path)
+    artifact = json.loads(
+        (tmp_path / "execution-policy.json").read_text(encoding="utf-8")
+    )
+
+    groups = {
+        build_shard_concurrency_group(
+            execution_policy_artifact=artifact,
+            workflow_ref="refs/heads/main",
+            model_key=f"fixture:model-{model}",
+            ablation=ablation,
+        )
+        for model in "abcd"
+        for ablation in ("full_packet", "metadata_only")
+    }
+
+    assert len(groups) == 8
+    assert _workflow_group(("fixture:model-a",), ("full_packet",)) in groups
+
+
+@pytest.mark.parametrize(
+    ("model_key", "ablation", "message"),
+    (
+        (" fixture:model-a", "full_packet", "canonical spelling"),
+        ("fixture:model-a", "full_packet ", "surrounding whitespace"),
+        ("fixture:not-declared", "full_packet", "not declared"),
+    ),
+)
+def test_frozen_policy_rejects_noncanonical_or_undeclared_concurrency_identity(
+    tmp_path: Path,
+    model_key: str,
+    ablation: str,
+    message: str,
+) -> None:
+    _write_sharded_bundle(tmp_path)
+    artifact = json.loads(
+        (tmp_path / "execution-policy.json").read_text(encoding="utf-8")
+    )
+
+    with pytest.raises(DispatchProvenanceError, match=message):
+        build_shard_concurrency_group(
+            execution_policy_artifact=artifact,
+            workflow_ref="refs/heads/main",
+            model_key=model_key,
+            ablation=ablation,
+        )
+
+
+def test_shard_dispatch_rejects_group_not_authorized_by_frozen_policy(
+    tmp_path: Path,
+) -> None:
+    bundle_path, _ = _write_sharded_bundle(tmp_path)
+
+    with pytest.raises(
+        DispatchProvenanceError, match="concurrency group does not match"
+    ):
+        build_dispatch_provenance(
+            current_freeze_bundle_path=bundle_path,
+            candidate_freeze_bundle_paths=(bundle_path,),
+            root_path=tmp_path,
+            current_model_registry_path=tmp_path / "root-registry.json",
+            prior_dispatches=(),
+            current_workflow_run_id="1001",
+            current_workflow_run_attempt=1,
+            current_workflow_ref="refs/heads/main",
+            current_concurrency_group=_workflow_group(
+                ("fixture:model-b",), ("full_packet",)
+            ),
+            requested_model_keys=("fixture:model-a",),
+            requested_ablations=("full_packet",),
+            shard_only=True,
+        )
 
 
 @pytest.mark.parametrize(
@@ -236,6 +322,8 @@ def test_shard_dispatch_rejects_undeclared_or_full_set_request(
             prior_dispatches=(),
             current_workflow_run_id="1001",
             current_workflow_run_attempt=1,
+            current_workflow_ref="refs/heads/main",
+            current_concurrency_group=_workflow_group(model_keys, ablations),
             requested_model_keys=model_keys,
             requested_ablations=ablations,
             shard_only=True,
@@ -265,6 +353,10 @@ def test_shard_dispatch_rejects_duplicate_prior_shard(tmp_path: Path) -> None:
             ),
             current_workflow_run_id="1002",
             current_workflow_run_attempt=1,
+            current_workflow_ref="refs/heads/main",
+            current_concurrency_group=_workflow_group(
+                ("fixture:model-a",), ("full_packet",)
+            ),
             requested_model_keys=("fixture:model-a",),
             requested_ablations=("full_packet",),
             shard_only=True,
@@ -290,6 +382,10 @@ def test_shard_dispatch_rejects_frozen_execution_policy_hash_mismatch(
             prior_dispatches=(),
             current_workflow_run_id="1001",
             current_workflow_run_attempt=1,
+            current_workflow_ref="refs/heads/main",
+            current_concurrency_group=_workflow_group(
+                ("fixture:model-a",), ("full_packet",)
+            ),
             requested_model_keys=("fixture:model-a",),
             requested_ablations=("full_packet",),
             shard_only=True,
@@ -308,6 +404,10 @@ def test_load_shard_provenance_rejects_tampered_ablation_schedule(
         prior_dispatches=(),
         current_workflow_run_id="1001",
         current_workflow_run_attempt=1,
+        current_workflow_ref="refs/heads/main",
+        current_concurrency_group=_workflow_group(
+            ("fixture:model-a",), ("full_packet",)
+        ),
         requested_model_keys=("fixture:model-a",),
         requested_ablations=("full_packet",),
         shard_only=True,
@@ -325,6 +425,45 @@ def test_load_shard_provenance_rejects_tampered_ablation_schedule(
         DispatchProvenanceError,
         match="exact official model/ablation schedule",
     ):
+        load_dispatch_provenance(
+            provenance_path,
+            expected_cycle_id="cycle-1",
+            expected_model_keys=tuple(
+                f"fixture:model-{model}" for model in ("a", "b", "c", "d")
+            ),
+        )
+
+
+def test_load_shard_provenance_rejects_tampered_concurrency_group(
+    tmp_path: Path,
+) -> None:
+    bundle_path, _ = _write_sharded_bundle(tmp_path)
+    record = build_dispatch_provenance(
+        current_freeze_bundle_path=bundle_path,
+        candidate_freeze_bundle_paths=(bundle_path,),
+        root_path=tmp_path,
+        current_model_registry_path=tmp_path / "root-registry.json",
+        prior_dispatches=(),
+        current_workflow_run_id="1001",
+        current_workflow_run_attempt=1,
+        current_workflow_ref="refs/heads/main",
+        current_concurrency_group=_workflow_group(
+            ("fixture:model-a",), ("full_packet",)
+        ),
+        requested_model_keys=("fixture:model-a",),
+        requested_ablations=("full_packet",),
+        shard_only=True,
+    )
+    record["concurrency_group"] = _workflow_group(
+        ("fixture:model-b",), ("full_packet",)
+    )
+    provenance_path = tmp_path / "tampered-concurrency-provenance.json"
+    provenance_path.write_text(
+        json.dumps(record, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(DispatchProvenanceError, match="concurrency_group"):
         load_dispatch_provenance(
             provenance_path,
             expected_cycle_id="cycle-1",
@@ -450,6 +589,19 @@ def _write_sharded_bundle(tmp_path: Path) -> tuple[Path, str]:
         encoding="utf-8",
     )
     return bundle_path, bundle_sha
+
+
+def _workflow_group(
+    model_keys: tuple[str, ...],
+    ablations: tuple[str, ...],
+    *,
+    cycle_id: str = "cycle-1",
+    workflow_ref: str = "refs/heads/main",
+) -> str:
+    return (
+        f"run-benchmark-{cycle_id}-{workflow_ref}-"
+        f"{','.join(model_keys)}-{','.join(ablations)}"
+    )
 
 
 def _registry_entry(model_id: str) -> dict[str, object]:
