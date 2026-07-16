@@ -14423,13 +14423,11 @@ def _cmd_batch_002_opinion_resolve(args: argparse.Namespace) -> int:
                 "Firecrawl opinion fallback currently requires --source-store "
                 "and --cycle-store to identify the same cycle store"
             )
-        firecrawl_max_attempts = firecrawl_attempt_override or 3
     else:
         if firecrawl_values_present:
             raise CommandError(
                 "Firecrawl fallback options require --firecrawl-on-budget-exhaustion"
             )
-        firecrawl_max_attempts = 3
     try:
         snapshots = (
             read_verified_priority_dedupe_snapshots(
@@ -14494,7 +14492,7 @@ def _cmd_batch_002_opinion_resolve(args: argparse.Namespace) -> int:
                     FirecrawlConfig.from_env(proxy="basic")
                 ),
                 credit_cap=firecrawl_credit_cap,
-                max_attempts=firecrawl_max_attempts,
+                max_attempts=firecrawl_attempt_override or 3,
                 max_pages_per_lead=cast(int, args.max_pages_per_lead),
             )
         summary = resolve_opinion_recap_batch(
@@ -14518,6 +14516,8 @@ def _cmd_batch_002_opinion_resolve(args: argparse.Namespace) -> int:
         CourtListenerClientError,
         CourtListenerRequestBudgetError,
         CycleAcquisitionStoreError,
+        FirecrawlArtifactError,
+        FirecrawlCircuitOpenError,
         FirecrawlError,
         OpinionRecapResolutionError,
         RecapApiBatchDriverError,

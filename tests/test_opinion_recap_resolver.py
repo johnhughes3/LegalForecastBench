@@ -10,6 +10,10 @@ from typing import Any
 
 import pytest
 from legalforecast.cli import main
+from legalforecast.ingestion.budgeted_firecrawl import (
+    FirecrawlArtifactError,
+    FirecrawlCircuitOpenError,
+)
 from legalforecast.ingestion.case_dev_client import (
     CaseDevAuthError,
     CaseDevClient,
@@ -1316,3 +1320,69 @@ def test_cli_rejects_firecrawl_credit_cap_above_cycle_limit(
     )
 
     assert "must be between 1 and 45000" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "scheduler_error",
+    [
+        FirecrawlArtifactError("fallback artifact is unavailable"),
+        FirecrawlCircuitOpenError("fallback circuit is open"),
+    ],
+)
+def test_cli_reports_firecrawl_scheduler_failures_without_traceback(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    scheduler_error: RuntimeError,
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fixture-key")
+    monkeypatch.setattr(
+        "legalforecast.cli._batch_002_client",
+        lambda _args, *, require_token: (object(), object()),
+    )
+    monkeypatch.setattr(
+        "legalforecast.cli.BudgetedOpinionRecapFirecrawlResolver",
+        lambda **_kwargs: object(),
+    )
+
+    def fail_resolution(**_kwargs: object) -> None:
+        raise scheduler_error
+
+    monkeypatch.setattr(
+        "legalforecast.cli.resolve_opinion_recap_batch",
+        fail_resolution,
+    )
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "resolve-opinion-recap-dockets",
+                "--source-store",
+                str(source),
+                "--source-batch-id",
+                "opinion-source",
+                "--resolver-journal",
+                str(tmp_path / "resolver.sqlite3"),
+                "--cycle-store",
+                str(source),
+                "--batch-id",
+                "resolved-opinion-source",
+                "--courtlistener-only",
+                "--live",
+                "--request-ledger",
+                str(tmp_path / "request-ledger.sqlite3"),
+                "--firecrawl-on-budget-exhaustion",
+                "--firecrawl-credit-cap",
+                "100",
+                "--firecrawl-run-id",
+                "opinion-fallback",
+                "--firecrawl-artifact-dir",
+                str(tmp_path / "raw"),
+            ]
+        )
+        == 2
+    )
+
+    assert str(scheduler_error) in capsys.readouterr().err

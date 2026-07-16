@@ -95,7 +95,8 @@ class OpinionRecapFirecrawlResolver(Protocol):
     """Resolver seam used by the opinion-to-RECAP orchestration."""
 
     @property
-    def policy(self) -> Mapping[str, object]: ...
+    def policy(self) -> Mapping[str, object]:
+        raise NotImplementedError
 
     def search(
         self,
@@ -104,7 +105,8 @@ class OpinionRecapFirecrawlResolver(Protocol):
         source_ordinal: int,
         query: str,
         court_id: str,
-    ) -> OpinionRecapFirecrawlResults: ...
+    ) -> OpinionRecapFirecrawlResults:
+        raise NotImplementedError
 
 
 def build_opinion_recap_search_url(*, query: str, court_id: str, page: int = 1) -> str:
