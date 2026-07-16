@@ -32,8 +32,14 @@ from legalforecast.ingestion.case_dev_client import (
     CaseDevServerError,
 )
 from legalforecast.ingestion.courtlistener_client import CourtListenerClient
+from legalforecast.ingestion.courtlistener_request_budget import (
+    CourtListenerRequestBudgetExhausted,
+)
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, TermTerminalStatus
+from legalforecast.ingestion.opinion_recap_firecrawl import (
+    OpinionRecapFirecrawlResolver,
+)
 from legalforecast.ingestion.recap_api_batch_driver import (
     DirectSearchLead,
     DirectSearchSeedSource,
@@ -348,6 +354,7 @@ def resolve_opinion_recap_batch(
     output_batch_id: str,
     case_dev_client: CaseDevClient | None,
     courtlistener_client: CourtListenerClient,
+    firecrawl_resolver: OpinionRecapFirecrawlResolver | None = None,
     prior_candidate_ids: frozenset[str] = frozenset(),
     prior_snapshot_commitment_sha256: str | None = None,
     max_pages_per_lead: int = _DEFAULT_MAX_PAGES,
@@ -386,11 +393,15 @@ def resolve_opinion_recap_batch(
         "source_lead_count": len(source.leads),
         "output_store": str(Path(output_store_path).resolve()),
         "output_batch_id": output_batch_id,
-        "provider_order": (
-            ["case.dev", "courtlistener_rest"]
-            if case_dev_client is not None
-            else ["courtlistener_rest"]
-        ),
+        "provider_order": [
+            *(["case.dev"] if case_dev_client is not None else []),
+            "courtlistener_rest",
+            *(
+                ["courtlistener_html_via_firecrawl"]
+                if firecrawl_resolver is not None
+                else []
+            ),
+        ],
         "case_dev_search_live_pacer": False,
         "case_dev_server_error_fallback": "courtlistener_rest",
         "provider_query_contract": "quoted_exact_case_name_v1",
@@ -406,6 +417,8 @@ def resolve_opinion_recap_batch(
         "prior_snapshot_commitment_sha256": prior_snapshot_commitment_sha256,
         "paid_activity_allowed": False,
     }
+    if firecrawl_resolver is not None:
+        policy["firecrawl_fallback_policy"] = dict(firecrawl_resolver.policy)
     case_dev_start = 0 if case_dev_client is None else case_dev_client.request_count
     courtlistener_start = courtlistener_client.request_count
     with _ResolutionJournal(journal_path, policy) as journal:
@@ -423,6 +436,7 @@ def resolve_opinion_recap_batch(
                 source=source,
                 case_dev_client=case_dev_client,
                 courtlistener_client=courtlistener_client,
+                firecrawl_resolver=firecrawl_resolver,
                 prior_candidate_ids=prior_candidate_ids,
                 max_pages=max_pages_per_lead,
                 similarity_threshold=case_name_similarity_threshold,
@@ -487,6 +501,7 @@ def _resolve_one_lead(
     source: DirectSearchSeedSource,
     case_dev_client: CaseDevClient | None,
     courtlistener_client: CourtListenerClient,
+    firecrawl_resolver: OpinionRecapFirecrawlResolver | None,
     prior_candidate_ids: frozenset[str],
     max_pages: int,
     similarity_threshold: float,
@@ -553,13 +568,25 @@ def _resolve_one_lead(
                     prior_candidate_ids=prior_candidate_ids,
                 )
                 return
-    results = _courtlistener_results(
-        journal,
-        source_candidate_id=lead.docket_id,
-        query=query,
-        client=courtlistener_client,
-        max_pages=max_pages,
-    )
+    try:
+        results = _courtlistener_results(
+            journal,
+            source_candidate_id=lead.docket_id,
+            query=query,
+            client=courtlistener_client,
+            max_pages=max_pages,
+        )
+    except CourtListenerRequestBudgetExhausted:
+        if firecrawl_resolver is None:
+            raise
+        results = _firecrawl_results(
+            journal,
+            source_candidate_id=lead.docket_id,
+            source_ordinal=ordinal,
+            query=query,
+            court_id=lead.court_id,
+            resolver=firecrawl_resolver,
+        )
     match = _strict_match(
         lead,
         results,
@@ -739,6 +766,57 @@ def _courtlistener_results(
         candidates=_deduped_candidates(candidates),
         response_sha256=_response_commitment(payloads),
         page_count=len(payloads),
+    )
+
+
+def _firecrawl_results(
+    journal: _ResolutionJournal,
+    *,
+    source_candidate_id: str,
+    source_ordinal: int,
+    query: str,
+    court_id: str,
+    resolver: OpinionRecapFirecrawlResolver,
+) -> _ProviderResults:
+    request = {
+        "method": "GET",
+        "route": "courtlistener_public_search_via_firecrawl",
+        "query": query,
+        "court_id": court_id,
+        "available_only": "omitted",
+        "paid_activity_allowed": False,
+    }
+    attempt = journal.start_request(
+        source_candidate_id=source_candidate_id,
+        provider="courtlistener_html_via_firecrawl",
+        request=request,
+    )
+    try:
+        results = resolver.search(
+            source_candidate_id=source_candidate_id,
+            source_ordinal=source_ordinal,
+            query=query,
+            court_id=court_id,
+        )
+    except BaseException as exc:
+        journal.finish_request(attempt, error=exc)
+        raise
+    journal.finish_request(attempt, response_sha256=results.response_sha256)
+    return _ProviderResults(
+        provider="courtlistener_html_via_firecrawl",
+        query=query,
+        candidates=tuple(
+            _ProviderCandidate(
+                docket_id=candidate.docket_id,
+                court_id=candidate.court_id,
+                docket_number=candidate.docket_number,
+                case_name=candidate.case_name,
+                raw=candidate.raw,
+            )
+            for candidate in results.candidates
+        ),
+        response_sha256=results.response_sha256,
+        page_count=results.page_count,
     )
 
 

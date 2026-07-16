@@ -10,6 +10,10 @@ from typing import Any
 
 import pytest
 from legalforecast.cli import main
+from legalforecast.ingestion.budgeted_firecrawl import (
+    FirecrawlArtifactError,
+    FirecrawlCircuitOpenError,
+)
 from legalforecast.ingestion.case_dev_client import (
     CaseDevAuthError,
     CaseDevClient,
@@ -18,12 +22,23 @@ from legalforecast.ingestion.case_dev_client import (
 )
 from legalforecast.ingestion.case_dev_config import CaseDevConfig
 from legalforecast.ingestion.courtlistener_client import (
+    CourtListenerAuthError,
     CourtListenerClient,
     CourtListenerConfig,
     CourtListenerFixtureTransport,
+    CourtListenerRateLimitError,
+    CourtListenerServerError,
     RecordedCourtListenerResponse,
 )
+from legalforecast.ingestion.courtlistener_request_budget import (
+    CourtListenerRequestBudgetExhausted,
+)
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+from legalforecast.ingestion.firecrawl_source import FirecrawlRateLimitError
+from legalforecast.ingestion.opinion_recap_firecrawl import (
+    OpinionRecapFirecrawlCandidate,
+    OpinionRecapFirecrawlResults,
+)
 from legalforecast.ingestion.opinion_recap_resolver import (
     OPINION_RECAP_RESOLUTION_SCHEMA,
     OpinionRecapResolutionError,
@@ -696,6 +711,210 @@ def test_case_dev_server_error_is_journaled_then_falls_back_to_courtlistener(
     )
 
 
+class _FirecrawlResolverFixture:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    @property
+    def policy(self) -> dict[str, object]:
+        return {
+            "schema_version": "legalforecast.opinion_recap_firecrawl_policy.v1",
+            "credit_cap": 100,
+            "reserved_credits_per_attempt": 1,
+        }
+
+    def search(
+        self,
+        *,
+        source_candidate_id: str,
+        source_ordinal: int,
+        query: str,
+        court_id: str,
+    ) -> OpinionRecapFirecrawlResults:
+        self.calls.append(
+            {
+                "source_candidate_id": source_candidate_id,
+                "source_ordinal": source_ordinal,
+                "query": query,
+                "court_id": court_id,
+            }
+        )
+        raw = _courtlistener_recap_docket()
+        return OpinionRecapFirecrawlResults(
+            candidates=(
+                OpinionRecapFirecrawlCandidate(
+                    docket_id="71878956",
+                    court_id="dcd",
+                    docket_number="1:25-cv-03820",
+                    case_name="Bullock v. PHH Mortgage Services, LLC",
+                    raw=raw,
+                ),
+            ),
+            response_sha256="f" * 64,
+            page_count=1,
+            reserved_credits=1,
+            reported_credits=1,
+        )
+
+
+class _FailingFirecrawlResolverFixture(_FirecrawlResolverFixture):
+    def search(
+        self,
+        *,
+        source_candidate_id: str,
+        source_ordinal: int,
+        query: str,
+        court_id: str,
+    ) -> OpinionRecapFirecrawlResults:
+        del source_candidate_id, source_ordinal, query, court_id
+        raise FirecrawlRateLimitError("fixture Firecrawl rate limit")
+
+
+def test_courtlistener_budget_exhaustion_uses_strict_firecrawl_fallback(
+    tmp_path: Path,
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    fallback = _FirecrawlResolverFixture()
+
+    def exhausted(_method: str, _path: str) -> None:
+        raise CourtListenerRequestBudgetExhausted("rolling day exhausted")
+
+    courtlistener = CourtListenerClient(
+        config=CourtListenerConfig(api_token="fixture"),
+        transport=CourtListenerFixtureTransport(()),
+        max_retries=0,
+        before_request=exhausted,
+    )
+    summary = resolve_opinion_recap_batch(
+        source_store_path=source,
+        source_batch_id="opinion-source",
+        journal_path=tmp_path / "resolver.sqlite3",
+        output_store_path=source,
+        output_batch_id="resolved-opinion-source",
+        case_dev_client=_case_dev(_case_dev_response()),
+        courtlistener_client=courtlistener,
+        firecrawl_resolver=fallback,
+    )
+
+    assert summary.resolved == 1
+    assert fallback.calls == [
+        {
+            "source_candidate_id": "73614335",
+            "source_ordinal": 0,
+            "query": _BULLOCK_QUERY,
+            "court_id": "dcd",
+        }
+    ]
+    outcome = read_resolution_outcomes(tmp_path / "resolver.sqlite3")[0]
+    evidence = outcome["evidence"]["opinion_resolution_evidence"]
+    assert evidence["resolver"]["provider"] == "courtlistener_html_via_firecrawl"
+    assert evidence["resolver"]["match_method"] == "exact_court_normalized_docket"
+    connection = sqlite3.connect(tmp_path / "resolver.sqlite3")
+    try:
+        assert connection.execute(
+            "SELECT provider, state, error_type FROM request_attempts "
+            "ORDER BY attempt_id"
+        ).fetchall() == [
+            ("case.dev", "succeeded", None),
+            (
+                "courtlistener_rest",
+                "failed",
+                "CourtListenerRequestBudgetExhausted",
+            ),
+            ("courtlistener_html_via_firecrawl", "succeeded", None),
+        ]
+    finally:
+        connection.close()
+
+
+@pytest.mark.parametrize(
+    ("status_code", "error_type"),
+    (
+        (403, CourtListenerAuthError),
+        (429, CourtListenerRateLimitError),
+        (503, CourtListenerServerError),
+    ),
+)
+def test_nonbudget_courtlistener_failures_never_use_firecrawl_fallback(
+    tmp_path: Path,
+    status_code: int,
+    error_type: type[Exception],
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    fallback = _FirecrawlResolverFixture()
+    params: dict[str, Any] = {
+        "type": "r",
+        "q": _BULLOCK_QUERY,
+        "order_by": "score desc",
+        "page_size": 20,
+    }
+    courtlistener = _courtlistener(
+        RecordedCourtListenerResponse(
+            method="GET",
+            path="/search/",
+            params=params,
+            status_code=status_code,
+            payload={"detail": "fixture failure"},
+        )
+    )
+
+    with pytest.raises(error_type, match="fixture failure"):
+        resolve_opinion_recap_batch(
+            source_store_path=source,
+            source_batch_id="opinion-source",
+            journal_path=tmp_path / "resolver.sqlite3",
+            output_store_path=source,
+            output_batch_id="resolved-opinion-source",
+            case_dev_client=_case_dev(_case_dev_response()),
+            courtlistener_client=courtlistener,
+            firecrawl_resolver=fallback,
+        )
+
+    assert fallback.calls == []
+
+
+def test_firecrawl_provider_failure_never_terminally_excludes_lead(
+    tmp_path: Path,
+) -> None:
+    source = _source_store(tmp_path, _lead())
+
+    def exhausted(_method: str, _path: str) -> None:
+        raise CourtListenerRequestBudgetExhausted("rolling day exhausted")
+
+    courtlistener = CourtListenerClient(
+        config=CourtListenerConfig(api_token="fixture"),
+        transport=CourtListenerFixtureTransport(()),
+        max_retries=0,
+        before_request=exhausted,
+    )
+
+    with pytest.raises(FirecrawlRateLimitError, match="fixture Firecrawl rate limit"):
+        resolve_opinion_recap_batch(
+            source_store_path=source,
+            source_batch_id="opinion-source",
+            journal_path=tmp_path / "resolver.sqlite3",
+            output_store_path=source,
+            output_batch_id="resolved-opinion-source",
+            case_dev_client=_case_dev(_case_dev_response()),
+            courtlistener_client=courtlistener,
+            firecrawl_resolver=_FailingFirecrawlResolverFixture(),
+        )
+
+    assert read_resolution_outcomes(tmp_path / "resolver.sqlite3") == ()
+    connection = sqlite3.connect(tmp_path / "resolver.sqlite3")
+    try:
+        assert connection.execute(
+            "SELECT provider, state, error_type FROM request_attempts "
+            "ORDER BY attempt_id DESC LIMIT 1"
+        ).fetchone() == (
+            "courtlistener_html_via_firecrawl",
+            "failed",
+            "FirecrawlRateLimitError",
+        )
+    finally:
+        connection.close()
+
+
 def test_prior_candidate_is_deferred_after_free_mapping_and_not_emitted(
     tmp_path: Path,
 ) -> None:
@@ -939,3 +1158,231 @@ def test_cli_help_freezes_no_paid_and_unrestricted_fallback_contract(
     help_text = " ".join(capsys.readouterr().out.split())
     assert "CourtListener queries use type=r and omit available_only" in help_text
     assert "No PACER, RECAP Fetch, live Case.dev fetch, or purchase" in help_text
+    assert (
+        "When the durable authenticated CourtListener REST request ledger" in help_text
+    )
+    assert "Never activates for auth, rate-limit, response, or provider failures" in (
+        help_text
+    )
+
+
+def test_cli_rejects_firecrawl_fallback_for_offline_replay(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    case_dev_fixture = tmp_path / "case-dev.jsonl"
+    courtlistener_fixture = tmp_path / "courtlistener.jsonl"
+    case_dev_fixture.write_text("", encoding="utf-8")
+    courtlistener_fixture.write_text("", encoding="utf-8")
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "resolve-opinion-recap-dockets",
+                "--source-store",
+                str(source),
+                "--source-batch-id",
+                "opinion-source",
+                "--resolver-journal",
+                str(tmp_path / "resolver.sqlite3"),
+                "--cycle-store",
+                str(source),
+                "--batch-id",
+                "resolved-opinion-source",
+                "--case-dev-fixture",
+                str(case_dev_fixture),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--firecrawl-on-budget-exhaustion",
+                "--firecrawl-credit-cap",
+                "100",
+                "--firecrawl-run-id",
+                "opinion-fallback",
+                "--firecrawl-artifact-dir",
+                str(tmp_path / "raw"),
+            ]
+        )
+        == 2
+    )
+
+    assert "requires --live" in capsys.readouterr().err
+
+
+def test_cli_rejects_orphaned_firecrawl_fallback_options(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    courtlistener_fixture = tmp_path / "courtlistener.jsonl"
+    courtlistener_fixture.write_text("", encoding="utf-8")
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "resolve-opinion-recap-dockets",
+                "--source-store",
+                str(source),
+                "--source-batch-id",
+                "opinion-source",
+                "--resolver-journal",
+                str(tmp_path / "resolver.sqlite3"),
+                "--cycle-store",
+                str(source),
+                "--batch-id",
+                "resolved-opinion-source",
+                "--courtlistener-only",
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--firecrawl-credit-cap",
+                "100",
+            ]
+        )
+        == 2
+    )
+
+    assert "require --firecrawl-on-budget-exhaustion" in capsys.readouterr().err
+
+
+def test_cli_rejects_orphaned_firecrawl_attempt_override(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    courtlistener_fixture = tmp_path / "courtlistener.jsonl"
+    courtlistener_fixture.write_text("", encoding="utf-8")
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "resolve-opinion-recap-dockets",
+                "--source-store",
+                str(source),
+                "--source-batch-id",
+                "opinion-source",
+                "--resolver-journal",
+                str(tmp_path / "resolver.sqlite3"),
+                "--cycle-store",
+                str(source),
+                "--batch-id",
+                "resolved-opinion-source",
+                "--courtlistener-only",
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--firecrawl-max-attempts",
+                "5",
+            ]
+        )
+        == 2
+    )
+
+    assert "require --firecrawl-on-budget-exhaustion" in capsys.readouterr().err
+
+
+def test_cli_rejects_firecrawl_credit_cap_above_cycle_limit(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = _source_store(tmp_path, _lead())
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "resolve-opinion-recap-dockets",
+                "--source-store",
+                str(source),
+                "--source-batch-id",
+                "opinion-source",
+                "--resolver-journal",
+                str(tmp_path / "resolver.sqlite3"),
+                "--cycle-store",
+                str(source),
+                "--batch-id",
+                "resolved-opinion-source",
+                "--courtlistener-only",
+                "--live",
+                "--request-ledger",
+                str(tmp_path / "request-ledger.sqlite3"),
+                "--firecrawl-on-budget-exhaustion",
+                "--firecrawl-credit-cap",
+                "45001",
+                "--firecrawl-run-id",
+                "opinion-fallback",
+                "--firecrawl-artifact-dir",
+                str(tmp_path / "raw"),
+            ]
+        )
+        == 2
+    )
+
+    assert "must be between 1 and 45000" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "scheduler_error",
+    [
+        FirecrawlArtifactError("fallback artifact is unavailable"),
+        FirecrawlCircuitOpenError("fallback circuit is open"),
+    ],
+)
+def test_cli_reports_firecrawl_scheduler_failures_without_traceback(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    scheduler_error: RuntimeError,
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    monkeypatch.setenv("FIRECRAWL_API_KEY", "fixture-key")
+    monkeypatch.setattr(
+        "legalforecast.cli._batch_002_client",
+        lambda _args, *, require_token: (object(), object()),
+    )
+    monkeypatch.setattr(
+        "legalforecast.cli.BudgetedOpinionRecapFirecrawlResolver",
+        lambda **_kwargs: object(),
+    )
+
+    def fail_resolution(**_kwargs: object) -> None:
+        raise scheduler_error
+
+    monkeypatch.setattr(
+        "legalforecast.cli.resolve_opinion_recap_batch",
+        fail_resolution,
+    )
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "resolve-opinion-recap-dockets",
+                "--source-store",
+                str(source),
+                "--source-batch-id",
+                "opinion-source",
+                "--resolver-journal",
+                str(tmp_path / "resolver.sqlite3"),
+                "--cycle-store",
+                str(source),
+                "--batch-id",
+                "resolved-opinion-source",
+                "--courtlistener-only",
+                "--live",
+                "--request-ledger",
+                str(tmp_path / "request-ledger.sqlite3"),
+                "--firecrawl-on-budget-exhaustion",
+                "--firecrawl-credit-cap",
+                "100",
+                "--firecrawl-run-id",
+                "opinion-fallback",
+                "--firecrawl-artifact-dir",
+                str(tmp_path / "raw"),
+            ]
+        )
+        == 2
+    )
+
+    assert str(scheduler_error) in capsys.readouterr().err

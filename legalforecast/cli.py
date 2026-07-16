@@ -399,6 +399,10 @@ from legalforecast.ingestion.model_packet_assembly import (
     assemble_model_packet,
     parsed_markdown_documents_from_conversion_records,
 )
+from legalforecast.ingestion.opinion_recap_firecrawl import (
+    BudgetedOpinionRecapFirecrawlResolver,
+    OpinionRecapFirecrawlPageSource,
+)
 from legalforecast.ingestion.opinion_recap_resolver import (
     OpinionRecapResolutionError,
     resolve_opinion_recap_batch,
@@ -3119,6 +3123,48 @@ def _add_batch_002_opinion_resolve_arguments(parser: argparse.ArgumentParser) ->
         type=float,
         default=0.90,
         help="Unique same-court fallback threshold; default 0.90.",
+    )
+    parser.add_argument(
+        "--firecrawl-on-budget-exhaustion",
+        action="store_true",
+        help=(
+            "When the durable authenticated CourtListener REST request ledger "
+            "cannot reserve another request, continue only through strict "
+            "one-credit Firecrawl CourtListener HTML searches. Never activates "
+            "for auth, rate-limit, response, or provider failures."
+        ),
+    )
+    parser.add_argument(
+        "--firecrawl-credit-cap",
+        type=int,
+        help=(
+            "Cycle-wide Firecrawl authorization cap. Required with "
+            "--firecrawl-on-budget-exhaustion and must match an existing cycle "
+            "budget; maximum 45000."
+        ),
+    )
+    parser.add_argument(
+        "--firecrawl-run-id",
+        help=(
+            "Immutable Firecrawl fallback run ID. Required with "
+            "--firecrawl-on-budget-exhaustion."
+        ),
+    )
+    parser.add_argument(
+        "--firecrawl-artifact-dir",
+        type=Path,
+        help=(
+            "Durable raw CourtListener search-HTML directory. Required with "
+            "--firecrawl-on-budget-exhaustion."
+        ),
+    )
+    parser.add_argument(
+        "--firecrawl-max-attempts",
+        type=int,
+        help=(
+            "Bounded Firecrawl attempts per HTML page. Defaults to 3 when the "
+            "fallback is enabled; rejected when the fallback is disabled."
+        ),
     )
     _add_batch_002_source_arguments(
         parser,
@@ -14331,6 +14377,11 @@ def _cmd_batch_002_opinion_resolve(args: argparse.Namespace) -> int:
     courtlistener_only = cast(bool, args.courtlistener_only)
     case_dev_fixture = cast(Path | None, args.case_dev_fixture)
     live = cast(bool, args.live)
+    firecrawl_enabled = cast(bool, args.firecrawl_on_budget_exhaustion)
+    firecrawl_credit_cap = cast(int | None, args.firecrawl_credit_cap)
+    firecrawl_run_id = cast(str | None, args.firecrawl_run_id)
+    firecrawl_artifact_dir = cast(Path | None, args.firecrawl_artifact_dir)
+    firecrawl_attempt_override = cast(int | None, args.firecrawl_max_attempts)
     if courtlistener_only and case_dev_fixture is not None:
         raise CommandError(
             "--case-dev-fixture cannot be combined with --courtlistener-only"
@@ -14340,6 +14391,43 @@ def _cmd_batch_002_opinion_resolve(args: argparse.Namespace) -> int:
             "offline Case.dev-first resolution requires --case-dev-fixture; "
             "otherwise pass --courtlistener-only"
         )
+    firecrawl_values_present = any(
+        value is not None
+        for value in (
+            firecrawl_credit_cap,
+            firecrawl_run_id,
+            firecrawl_artifact_dir,
+            firecrawl_attempt_override,
+        )
+    )
+    if firecrawl_enabled:
+        if not live:
+            raise CommandError("--firecrawl-on-budget-exhaustion requires --live")
+        if (
+            firecrawl_credit_cap is None
+            or firecrawl_run_id is None
+            or not firecrawl_run_id.strip()
+            or firecrawl_artifact_dir is None
+        ):
+            raise CommandError(
+                "--firecrawl-on-budget-exhaustion requires "
+                "--firecrawl-credit-cap, --firecrawl-run-id, and "
+                "--firecrawl-artifact-dir"
+            )
+        if not 1 <= firecrawl_credit_cap <= 45_000:
+            raise CommandError("--firecrawl-credit-cap must be between 1 and 45000")
+        if firecrawl_attempt_override is not None and firecrawl_attempt_override <= 0:
+            raise CommandError("--firecrawl-max-attempts must be positive")
+        if source_store.resolve() != cycle_store.resolve():
+            raise CommandError(
+                "Firecrawl opinion fallback currently requires --source-store "
+                "and --cycle-store to identify the same cycle store"
+            )
+    else:
+        if firecrawl_values_present:
+            raise CommandError(
+                "Firecrawl fallback options require --firecrawl-on-budget-exhaustion"
+            )
     try:
         snapshots = (
             read_verified_priority_dedupe_snapshots(
@@ -14387,6 +14475,26 @@ def _cmd_batch_002_opinion_resolve(args: argparse.Namespace) -> int:
                 config=CaseDevConfig.from_env(require_api_key=True),
                 max_retries=0,
             )
+        firecrawl_resolver: BudgetedOpinionRecapFirecrawlResolver | None = None
+        if firecrawl_enabled:
+            assert (
+                firecrawl_credit_cap is not None
+                and firecrawl_run_id is not None
+                and firecrawl_artifact_dir is not None
+            )
+            firecrawl_resolver = BudgetedOpinionRecapFirecrawlResolver(
+                store_path=cycle_store,
+                source_batch_id=source_batch_id,
+                output_batch_id=batch_id,
+                run_id=firecrawl_run_id,
+                artifact_dir=firecrawl_artifact_dir,
+                source=OpinionRecapFirecrawlPageSource(
+                    FirecrawlConfig.from_env(proxy="basic")
+                ),
+                credit_cap=firecrawl_credit_cap,
+                max_attempts=firecrawl_attempt_override or 3,
+                max_pages_per_lead=cast(int, args.max_pages_per_lead),
+            )
         summary = resolve_opinion_recap_batch(
             source_store_path=source_store,
             source_batch_id=source_batch_id,
@@ -14395,6 +14503,7 @@ def _cmd_batch_002_opinion_resolve(args: argparse.Namespace) -> int:
             output_batch_id=batch_id,
             case_dev_client=case_dev_client,
             courtlistener_client=courtlistener_client,
+            firecrawl_resolver=firecrawl_resolver,
             prior_candidate_ids=prior_candidate_ids,
             prior_snapshot_commitment_sha256=prior_commitment,
             max_pages_per_lead=cast(int, args.max_pages_per_lead),
@@ -14407,6 +14516,9 @@ def _cmd_batch_002_opinion_resolve(args: argparse.Namespace) -> int:
         CourtListenerClientError,
         CourtListenerRequestBudgetError,
         CycleAcquisitionStoreError,
+        FirecrawlArtifactError,
+        FirecrawlCircuitOpenError,
+        FirecrawlError,
         OpinionRecapResolutionError,
         RecapApiBatchDriverError,
         OSError,

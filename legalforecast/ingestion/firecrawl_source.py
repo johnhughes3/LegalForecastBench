@@ -15,7 +15,7 @@ import os
 import re
 import urllib.error
 import urllib.request
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Literal, Protocol, cast
@@ -357,17 +357,16 @@ class FirecrawlCourtListenerHTMLSource:
         using :meth:`scrape`, which additionally enforces that identity match.
         """
 
-        docket_id: str | None
         try:
-            docket_id = validate_courtlistener_docket_url(source_url)
+            self._canonicalize_source_url(source_url)
+        except (FirecrawlURLValidationError, ValueError) as exc:
+            raise FirecrawlURLValidationError(
+                "source URL is not an allowlisted CourtListener docket or "
+                "RECAP search URL"
+            ) from exc
+        try:
+            docket_id: str | None = validate_courtlistener_docket_url(source_url)
         except FirecrawlURLValidationError:
-            try:
-                validate_courtlistener_recap_search_url(source_url)
-            except FirecrawlURLValidationError as exc:
-                raise FirecrawlURLValidationError(
-                    "source URL is not an allowlisted CourtListener docket or "
-                    "RECAP search URL"
-                ) from exc
             docket_id = None
         return self._scrape_validated_url(source_url=source_url, docket_id=docket_id)
 
@@ -396,6 +395,7 @@ class FirecrawlCourtListenerHTMLSource:
                 docket_id=docket_id,
                 proxy_requested=self.config.proxy,
                 max_credits=self.config.max_credits_per_scrape,
+                source_url_canonicalizer=self._canonicalize_source_url,
             )
         except FirecrawlError as error:
             error.attach_response_evidence(
@@ -403,6 +403,11 @@ class FirecrawlCourtListenerHTMLSource:
                 response_sha256=response_sha256,
             )
             raise
+
+    def _canonicalize_source_url(self, source_url: str) -> str:
+        """Return the exact allowlisted target used for request/response binding."""
+
+        return canonicalize_courtlistener_source_url(source_url)
 
 
 def _scrape_payload(
@@ -614,6 +619,9 @@ def _validated_result(
     docket_id: str | None,
     proxy_requested: FirecrawlProxy,
     max_credits: int,
+    source_url_canonicalizer: Callable[[str], str] = (
+        canonicalize_courtlistener_source_url
+    ),
 ) -> FirecrawlScrapeResult:
     if payload.get("success") is not True:
         raise FirecrawlResponseError(
@@ -655,12 +663,12 @@ def _validated_result(
             "Firecrawl response did not report its resolved source URL",
             failure_code="resolved_url_missing",
         )
-    authorized_url = canonicalize_courtlistener_source_url(source_url)
+    authorized_url = source_url_canonicalizer(source_url)
     try:
         resolved_urls = tuple(
-            canonicalize_courtlistener_source_url(value) for value in resolved_values
+            source_url_canonicalizer(value) for value in resolved_values
         )
-    except FirecrawlURLValidationError as exc:
+    except (FirecrawlURLValidationError, ValueError) as exc:
         raise FirecrawlResponseError(
             "Firecrawl resolved URL is not an allowlisted CourtListener target",
             failure_code="resolved_url_not_allowlisted",
