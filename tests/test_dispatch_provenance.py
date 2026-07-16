@@ -296,6 +296,44 @@ def test_shard_dispatch_rejects_frozen_execution_policy_hash_mismatch(
         )
 
 
+def test_load_shard_provenance_rejects_tampered_ablation_schedule(
+    tmp_path: Path,
+) -> None:
+    bundle_path, _ = _write_sharded_bundle(tmp_path)
+    record = build_dispatch_provenance(
+        current_freeze_bundle_path=bundle_path,
+        candidate_freeze_bundle_paths=(bundle_path,),
+        root_path=tmp_path,
+        current_model_registry_path=tmp_path / "root-registry.json",
+        prior_dispatches=(),
+        current_workflow_run_id="1001",
+        current_workflow_run_attempt=1,
+        requested_model_keys=("fixture:model-a",),
+        requested_ablations=("full_packet",),
+        shard_only=True,
+    )
+    record["shard_schedule"][0]["ablation"] = "judge_removed"
+    record["requested_shard"]["ablation"] = "judge_removed"
+    record["dispatches"][0]["ablations"] = ["judge_removed"]
+    provenance_path = tmp_path / "tampered-shard-provenance.json"
+    provenance_path.write_text(
+        json.dumps(record, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        DispatchProvenanceError,
+        match="exact official model/ablation schedule",
+    ):
+        load_dispatch_provenance(
+            provenance_path,
+            expected_cycle_id="cycle-1",
+            expected_model_keys=tuple(
+                f"fixture:model-{model}" for model in ("a", "b", "c", "d")
+            ),
+        )
+
+
 def _write_bundle(
     tmp_path: Path,
     *,

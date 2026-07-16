@@ -12,6 +12,7 @@ from typing import Any, cast
 
 from legalforecast._hashing import is_lowercase_sha256
 from legalforecast.protocol.manifest import hash_payload
+from legalforecast.protocol.policy_artifacts import OFFICIAL_SHARD_ABLATIONS
 
 DISPATCH_PROVENANCE_SCHEMA_VERSION = "legalforecast.dispatch_provenance.v1"
 JsonRecord = dict[str, Any]
@@ -175,9 +176,7 @@ def build_dispatch_provenance(
                 "freeze_bundle_sha256": current.bundle_sha256,
                 "model_keys": list(requested),
                 **(
-                    {"ablations": list(requested_ablation_values)}
-                    if shard_only
-                    else {}
+                    {"ablations": list(requested_ablation_values)} if shard_only else {}
                 ),
             },
             introduced_keys_by_freeze=introduced_keys_by_freeze,
@@ -221,9 +220,7 @@ def build_dispatch_provenance(
         record.update(
             {
                 "dispatch_mode": "shard_only",
-                "shard_schedule": [
-                    _shard_record(shard) for shard in declared_shards
-                ],
+                "shard_schedule": [_shard_record(shard) for shard in declared_shards],
                 "requested_shard": _shard_record(requested_shard),
                 "remaining_shards": [
                     _shard_record(shard)
@@ -544,9 +541,7 @@ def _validated_dispatch_record(
     if require_shard:
         ablations = tuple(sorted(_string_sequence(raw, "ablations")))
         pairs = tuple(
-            (model_key, ablation)
-            for model_key in model_keys
-            for ablation in ablations
+            (model_key, ablation) for model_key in model_keys for ablation in ablations
         )
         if len(pairs) != 1:
             raise DispatchProvenanceError(
@@ -686,9 +681,15 @@ def _validate_provenance_record(
         assert declared_shards is not None
         if len(set(declared_shards)) != len(declared_shards):
             raise DispatchProvenanceError("shard_schedule contains duplicates")
-        if {model_key for model_key, _ in declared_shards} != expected:
+        expected_schedule = {
+            (model_key, ablation)
+            for model_key in expected
+            for ablation in OFFICIAL_SHARD_ABLATIONS
+        }
+        if set(declared_shards) != expected_schedule:
             raise DispatchProvenanceError(
-                "shard_schedule does not match expected registry model set"
+                "shard_schedule does not match the exact official "
+                "model/ablation schedule"
             )
         _require_unique_dispatch_shards(validated_dispatches)
         requested = _required_mapping(record, "requested_shard")
