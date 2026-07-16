@@ -84,9 +84,23 @@ def test_plan_packet_inputs_accepts_cycle_1_registry_and_anchor(
     output_root = tmp_path / "acquisition"
     raw_html_dir = tmp_path / "raw-html"
     raw_html_dir.mkdir()
-    (raw_html_dir / "cand-1.html").write_text(
+    raw_html_path = raw_html_dir / "cand-1.html"
+    raw_html_path.write_text(
         _post_anchor_docket_html(),
         encoding="utf-8",
+    )
+    raw_html = raw_html_path.read_bytes()
+    raw_artifacts_path = tmp_path / "raw-artifacts.jsonl"
+    _write_jsonl(
+        raw_artifacts_path,
+        [
+            {
+                "candidate_id": "cand-1",
+                "path": str(raw_html_path),
+                "byte_count": len(raw_html),
+                "sha256": hashlib.sha256(raw_html).hexdigest(),
+            }
+        ],
     )
     selection_path = tmp_path / "selection.jsonl"
     downloads_path = tmp_path / "downloads.jsonl"
@@ -172,6 +186,8 @@ def test_plan_packet_inputs_accepts_cycle_1_registry_and_anchor(
                 str(CYCLE_1_REGISTRY),
                 "--raw-html-dir",
                 str(raw_html_dir),
+                "--raw-artifacts-manifest",
+                str(raw_artifacts_path),
                 "--output-root",
                 str(output_root),
                 "--generated-at",

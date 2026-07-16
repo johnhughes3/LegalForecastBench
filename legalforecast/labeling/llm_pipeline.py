@@ -19,6 +19,12 @@ from legalforecast.evals.live_model_solver import (
     complete_live_prompt,
 )
 from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast.ingestion.decision_text_artifact import (
+    SCHEMA_VERSION as DECISION_TEXT_SCHEMA_VERSION,
+)
+from legalforecast.ingestion.decision_text_artifact import (
+    VerifiedDecisionTextArtifact,
+)
 from legalforecast.ingestion.provenance import DocumentRole
 from legalforecast.labeling.ensemble import (
     DEFAULT_HIGH_CONFIDENCE_THRESHOLD,
@@ -602,9 +608,8 @@ def _excerpt_is_supported(text: str, excerpt: str) -> bool:
 def llm_label_cases(
     *,
     selection_records: Iterable[Mapping[str, Any]],
-    parser_records: Iterable[Mapping[str, Any]],
     prediction_unit_records: Iterable[Mapping[str, Any]],
-    markdown_root: str | Path,
+    decision_text_artifact: VerifiedDecisionTextArtifact,
     registry_entries: Sequence[ModelRegistryEntry],
     model_registry_sha256: str | None = None,
     consensus_policy: LlmConsensusPolicy = LlmConsensusPolicy.UNANIMOUS,
@@ -621,9 +626,45 @@ def llm_label_cases(
 
     if not registry_entries:
         raise LlmPipelineError("at least one registry entry is required")
-    parser_by_key = _parser_records_by_candidate_and_document(parser_records)
+    selections = tuple(selection_records)
     finalized_unit_records = require_finalized_envelopes(prediction_unit_records)
     units_by_candidate = _prediction_units_by_candidate(finalized_unit_records)
+    decisions_by_candidate = _verified_stage_b_decisions(decision_text_artifact)
+    selection_candidate_ids = [
+        _required_str(record, "candidate_id") for record in selections
+    ]
+    if len(selection_candidate_ids) != len(set(selection_candidate_ids)):
+        raise LlmPipelineError("selection contains duplicate candidates")
+    finalized_candidate_ids = [
+        _required_str(record, "candidate_id") for record in finalized_unit_records
+    ]
+    if len(finalized_candidate_ids) != len(set(finalized_candidate_ids)):
+        raise LlmPipelineError(
+            "finalized prediction units contain duplicate candidates"
+        )
+    if not (
+        set(selection_candidate_ids)
+        == set(finalized_candidate_ids)
+        == set(decisions_by_candidate)
+    ):
+        raise LlmPipelineError(
+            "decision text, selection, and finalized-unit candidate coverage differ"
+        )
+    finalized_cases = {
+        _required_str(record, "candidate_id"): _required_str(record, "case_id")
+        for record in finalized_unit_records
+    }
+    for selection in selections:
+        candidate_id = _required_str(selection, "candidate_id")
+        case_id = _required_str(selection, "case_id")
+        _, commitment = decisions_by_candidate[candidate_id]
+        if (
+            finalized_cases[candidate_id] != case_id
+            or commitment["decision_text_case_id"] != case_id
+        ):
+            raise LlmPipelineError(
+                f"Stage B candidate/case provenance mismatch: {candidate_id}"
+            )
     excluded_candidates = {
         _required_str(record, "candidate_id")
         for record in finalized_unit_records
@@ -631,8 +672,9 @@ def llm_label_cases(
     }
     records: list[JsonRecord] = []
     audit_records: list[JsonRecord] = []
-    for selection in selection_records:
+    for selection in selections:
         candidate_id = _required_str(selection, "candidate_id")
+        decision_text, decision_commitment = decisions_by_candidate[candidate_id]
         try:
             if candidate_id in excluded_candidates:
                 audit_records.append(
@@ -647,30 +689,26 @@ def llm_label_cases(
                         "label_count": 0,
                         "unit_count": 0,
                         "estimated_cost": 0.0,
+                        "decision_text_commitment": decision_commitment,
                     }
                 )
                 continue
             frozen_units = units_by_candidate.get(candidate_id)
             if not frozen_units:
                 raise LlmPipelineError(f"prediction units missing for {candidate_id}")
-            decision = _decision_document(
-                selection,
-                parser_by_key=parser_by_key,
-                markdown_root=Path(markdown_root),
-            )
-            decision_text = StageBDecisionText(
-                document_id=decision.source_document_id,
-                entered_date=_decision_date(selection),
-                text=decision.markdown,
-            )
+            if decision_text.entered_date != _decision_date(selection):
+                raise LlmPipelineError(
+                    f"verified decision text date mismatch for {candidate_id}"
+                )
             model_outputs: list[JsonRecord] = []
             votes: list[EnsembleLabelVote] = []
             labels_by_model: dict[str, tuple[OutcomeLabel, ...]] = {}
             for entry in registry_entries:
-                labels, response, finding_count, missing_flag_count = (
+                labels, response, finding_count, missing_flag_count, prompt_sha256 = (
                     _llm_label_one_model(
                         selection=selection,
                         decision_text=decision_text,
+                        decision_text_commitment=decision_commitment,
                         frozen_units=tuple(frozen_units),
                         registry_entry=entry,
                         model_registry_sha256=model_registry_sha256,
@@ -695,6 +733,7 @@ def llm_label_cases(
                         "raw_output_sha256": response.raw_output_sha256,
                         "finding_count": finding_count,
                         "missing_unit_flag_count": missing_flag_count,
+                        "provider_prompt_sha256": prompt_sha256,
                         "metadata": dict(response.metadata or {}),
                         "labels": [label.to_record() for label in labels],
                     }
@@ -759,6 +798,7 @@ def llm_label_cases(
                     "case_id": _required_str(selection, "case_id"),
                     "model_keys": [entry.registry_key for entry in registry_entries],
                     "model_registry_sha256": model_registry_sha256 or "unrecorded",
+                    "decision_text_commitment": decision_commitment,
                     "human_verified": _human_verified_from_review_counts(
                         adjudicated_review_count=adjudicated_review_count,
                         pending_review_count=pending_review_count,
@@ -811,6 +851,7 @@ def llm_label_cases(
             elif isinstance(exc, FrozenUnitWorkflowRequiredError):
                 failure_record.update(_response_audit_fields(exc.response))
                 failure_record.update(_frozen_unit_workflow_audit_fields(exc))
+            failure_record["decision_text_commitment"] = decision_commitment
             audit_records.append(failure_record)
             if not continue_on_error:
                 raise
@@ -821,6 +862,7 @@ def _llm_label_one_model(
     *,
     selection: Mapping[str, Any],
     decision_text: StageBDecisionText,
+    decision_text_commitment: Mapping[str, str],
     frozen_units: tuple[PredictionUnit, ...],
     registry_entry: ModelRegistryEntry,
     model_registry_sha256: str | None,
@@ -829,8 +871,14 @@ def _llm_label_one_model(
     timeout_seconds: float,
     provider_journal_path: str | Path | None,
     provider_cycle_cap_usd: float,
-) -> tuple[tuple[OutcomeLabel, ...], SolverResponse, int, int]:
-    prompt = _labeling_prompt(selection, decision_text, frozen_units)
+) -> tuple[tuple[OutcomeLabel, ...], SolverResponse, int, int, str]:
+    prompt = _labeling_prompt(
+        selection,
+        decision_text,
+        frozen_units,
+        decision_text_commitment=decision_text_commitment,
+    )
+    prompt_sha256 = "sha256:" + hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     journal = _provider_attempt_journal(
         path=provider_journal_path,
         stage="llm-label",
@@ -896,9 +944,16 @@ def _llm_label_one_model(
                     "labels": [label.to_record() for label in result.labels],
                     "finding_count": len(findings),
                     "missing_unit_flag_count": len(missing_flags),
+                    "decision_text_commitment": dict(decision_text_commitment),
                 }
             )
-        return result.labels, response, len(findings), len(missing_flags)
+        return (
+            result.labels,
+            response,
+            len(findings),
+            len(missing_flags),
+            prompt_sha256,
+        )
     finally:
         if journal is not None:
             journal.close()
@@ -1008,6 +1063,8 @@ def _labeling_prompt(
     selection: Mapping[str, Any],
     decision_text: StageBDecisionText,
     frozen_units: Sequence[PredictionUnit],
+    *,
+    decision_text_commitment: Mapping[str, str],
 ) -> str:
     payload = {
         "task": "Create Stage B outcome labels for frozen LegalForecastBench units.",
@@ -1059,6 +1116,7 @@ def _labeling_prompt(
             "document_id": decision_text.document_id,
             "entered_date": decision_text.entered_date,
             "text": decision_text.text,
+            "commitment": dict(decision_text_commitment),
         },
         "output_schema": {
             "unit_findings": [
@@ -1177,45 +1235,66 @@ def _predecision_documents(
     return tuple(documents)
 
 
-def _decision_document(
-    selection: Mapping[str, Any],
-    *,
-    parser_by_key: Mapping[tuple[str, str], Mapping[str, Any]],
-    markdown_root: Path,
-) -> _LlmDocument:
-    candidate_id = _required_str(selection, "candidate_id")
-    decision_entries = set(_int_tuple(selection.get("decision_entry_numbers")))
-    candidates: list[Mapping[str, Any]] = []
-    for document in _record_sequence(selection.get("documents"), "documents"):
-        role = DocumentRole(_required_str(document, "document_role"))
-        if _bool(document.get("contains_target_outcome")) or role in {
-            DocumentRole.DECISION,
-            DocumentRole.ORDER,
-        }:
-            candidates.append(document)
-    if not candidates:
-        raise LlmPipelineError(f"decision document missing for {candidate_id}")
-    candidates.sort(
-        key=lambda record: (
-            _optional_int(record, "docket_entry_number") not in decision_entries,
-            _optional_int(record, "docket_entry_number") or 10**9,
+def _verified_stage_b_decisions(
+    artifact: VerifiedDecisionTextArtifact,
+) -> dict[str, tuple[StageBDecisionText, JsonRecord]]:
+    output: dict[str, tuple[StageBDecisionText, JsonRecord]] = {}
+    seen_document_ids: set[str] = set()
+    for record in artifact.records:
+        candidate_id = _required_str(record, "candidate_id")
+        if candidate_id in output:
+            raise LlmPipelineError(f"duplicate decision text candidate: {candidate_id}")
+        if record.get("schema_version") != DECISION_TEXT_SCHEMA_VERSION:
+            raise LlmPipelineError(
+                f"unsupported verified decision text schema: {candidate_id}"
+            )
+        if (
+            record.get("is_first_written_disposition") is not True
+            or record.get("contains_target_outcome") is not True
+            or record.get("model_visible") is not False
+        ):
+            raise LlmPipelineError(
+                "verified decision text violates Stage B visibility gates: "
+                f"{candidate_id}"
+            )
+        document_id = _required_str(record, "document_id")
+        if document_id in seen_document_ids:
+            raise LlmPipelineError(
+                f"decision document_id is not globally unique: {document_id}"
+            )
+        seen_document_ids.add(document_id)
+        decision_text = StageBDecisionText(
+            document_id=document_id,
+            entered_date=_required_str(record, "entered_date"),
+            text=_required_str(record, "text"),
         )
-    )
-    document = candidates[0]
-    source_document_id = _required_str(document, "source_document_id")
-    parser_record = _required_parser_record(
-        parser_by_key,
-        candidate_id=candidate_id,
-        source_document_id=source_document_id,
-    )
-    return _LlmDocument(
-        candidate_id=candidate_id,
-        source_document_id=source_document_id,
-        document_role=DocumentRole(_required_str(document, "document_role")),
-        docket_entry_number=_optional_int(document, "docket_entry_number"),
-        description=_optional_str(document, "description") or "decision",
-        markdown=_markdown_text(parser_record, markdown_root=markdown_root),
-    )
+        recorded_text_sha256 = _required_str(record, "text_sha256").removeprefix(
+            "sha256:"
+        )
+        if recorded_text_sha256 != decision_text.text_sha256:
+            raise LlmPipelineError(
+                f"verified decision text hash mismatch: {candidate_id}"
+            )
+        output[candidate_id] = (
+            decision_text,
+            {
+                "decision_texts_sha256": artifact.decision_texts_sha256,
+                "decision_texts_manifest_sha256": artifact.manifest_sha256,
+                "decision_texts_run_card_sha256": artifact.run_card_sha256,
+                "decision_text_record_sha256": artifact.record_commitment(record),
+                "decision_text_sha256": "sha256:" + decision_text.text_sha256,
+                "decision_text_case_id": _required_str(record, "case_id"),
+                "finalized_prediction_units_sha256": (
+                    artifact.finalized_prediction_units_sha256
+                ),
+                "finalized_unit_envelope_sha256": (
+                    artifact.finalized_unit_envelope_sha256s[candidate_id]
+                ),
+            },
+        )
+    if not output:
+        raise LlmPipelineError("verified decision text artifact is empty")
+    return output
 
 
 def _parser_records_by_candidate_and_document(

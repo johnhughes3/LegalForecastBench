@@ -82,6 +82,27 @@ uv run legalforecast acquisition build-decision-texts \
 
 The command reconciles exact candidate and document coverage; verifies the target-cohort, authenticated clearance, and live-parser run-card commitments; admits only the single public, outcome-bearing, non-model-visible first written disposition entered on or after the Cycle 1 anchor; and binds the source and extracted-text hashes to the pinned parser revision. Fixture parser provenance is refused. It fails closed on missing, ambiguous, sealed, private, malformed restriction flags, unpinned, unauthenticated, or drifted inputs. `decision-texts.jsonl` is private Stage B and audit input only: never place it in a model-visible packet, hand-edit it, or substitute a manually assembled file.
 
+Pass that exact artifact, its immutable manifest, and the completed builder run card to Stage B. The parser manifest and Markdown remain required only to cross-check the authenticated artifact against the pinned live-Mistral lineage; `llm-label` never uses Markdown directly as prompt authority:
+
+```bash
+uv run legalforecast acquisition llm-label \
+  --output-root <assembled-cycle-root> \
+  --selection <selection.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --markdown-root <parsed-markdown-root> \
+  --decision-texts <assembled-cycle-root>/decision-texts.jsonl \
+  --decision-texts-manifest <assembled-cycle-root>/decision-texts-manifest.json \
+  --decision-texts-run-card <assembled-cycle-root>/run-cards/build-decision-texts.json \
+  --prediction-units <finalized-prediction-units.jsonl> \
+  --model-registry <frozen-stage-b-judge-registry.json> \
+  --evaluated-model-registry <frozen-evaluated-model-registry.json> \
+  --model-key <provider:model-id> \
+  --provider-cycle-caps <provider-cycle-caps.json> \
+  --execute --no-resume
+```
+
+Repeat `--model-key` for every entry in the frozen judge registry. Before the first provider reservation, the command verifies exact candidate and case mapping, decision-document, disposition-date, text, text-hash, source hash and byte count, empty parser quality flags, selection, parser, and finalized-unit coverage and provenance. It binds the decision JSONL, manifest, run-card, per-record, and text hashes plus the exact raw finalized-units file and candidate-envelope hashes into each provider prompt and therefore the provider journal identity, and repeats those commitments in the label audit and `llm-label` run card. Any mismatch stops the stage without a provider call.
+
 After Stage B labeling completes, freeze the single cycle-level reliability sample before any lawyer adjudication:
 
 ```bash
@@ -89,14 +110,89 @@ uv run legalforecast acquisition plan-label-audit \
   --output-root <assembled-cycle-root> \
   --llm-label-audit <llm-label-audit.jsonl> \
   --selection <selection.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
   --prediction-units <finalized-prediction-units.jsonl> \
+  --markdown-root <parsed-markdown-root> \
   --decision-texts <assembled-cycle-root>/decision-texts.jsonl \
+  --decision-texts-manifest <assembled-cycle-root>/decision-texts-manifest.json \
+  --decision-texts-run-card <assembled-cycle-root>/run-cards/build-decision-texts.json \
   --labeling-policy <precommitted-labeling-policy.json> \
   --lawyer-review-queue <lawyer-review-queue.jsonl> \
   --execute --no-resume
 ```
 
 Keep `llm-label-audit-cycle-planned.jsonl`, `cycle-label-audit-plan.json`, and the merged review queue in controlled private storage for lawyer review. The only check-in-safe outputs are `cycle-label-audit-summary.json` and `adjudication-routing-summary.json`; both are redacted and hash-bound to the private plan. Supply the plan and the same precommitted policy back to `apply-lawyer-review` with `--cycle-label-audit-plan` and `--labeling-policy`; audit-sample adjudications do not replace unanimous model labels.
+
+```bash
+uv run legalforecast acquisition apply-lawyer-review \
+  --output-root <assembled-cycle-root> \
+  --selection <selection.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --prediction-units <finalized-prediction-units.jsonl> \
+  --markdown-root <parsed-markdown-root> \
+  --labels <labels.jsonl> \
+  --adjudications <checked-in-lawyer-adjudications.jsonl> \
+  --decision-texts <assembled-cycle-root>/decision-texts.jsonl \
+  --decision-texts-manifest <assembled-cycle-root>/decision-texts-manifest.json \
+  --decision-texts-run-card <assembled-cycle-root>/run-cards/build-decision-texts.json \
+  --llm-label-audit <assembled-cycle-root>/llm-label-audit-cycle-planned.jsonl \
+  --cycle-label-audit-plan <assembled-cycle-root>/cycle-label-audit-plan.json \
+  --labeling-policy <precommitted-labeling-policy.json> \
+  --execute --no-resume
+```
+
+Plan official packet inputs only from the canonical discovery snapshot's committed raw-artifact manifest:
+
+```bash
+uv run legalforecast acquisition plan-packet-inputs \
+  --output-root <assembled-cycle-root> \
+  --selection <selection.jsonl> \
+  --download-manifest <download-manifest.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --disclosure-clearance <disclosure-clearance.jsonl> \
+  --prediction-units <finalized-prediction-units.jsonl> \
+  --model-registry model_registries/cycle-1-2026-06-30.json \
+  --raw-html-dir <union-output-root>/union-raw-artifacts \
+  --raw-artifacts-manifest <union-output-root>/union-raw-artifacts.jsonl \
+  --execute --no-resume
+```
+
+The executed command refuses an omitted manifest. Use the final `union-screening-snapshots` output root, not a guessed directory inside its exported snapshot. A numeric target-selection candidate ID may bind only to the exact canonical `courtlistener-docket-<same-digits>` manifest identity; a bare numeric manifest identity is refused. The loader accepts the direct canonical `<docket-id>.html` layout and the union-owned `<namespaced-candidate-id>/<sha256>.html` layout, verifying the path ownership and content commitment in either case. The planner preserves both IDs, the original manifest path, byte count, and SHA-256 in audit provenance; it fails closed on nonnumeric reserved aliases, exact-versus-namespaced collisions, multiple candidate owners, missing ownership, duplicate paths, cross-candidate path substitution, or content/hash drift. Never rename raw-artifact candidate IDs or hand-edit the manifest to make packet planning pass.
+
+Build packets only after the packet-input plan succeeds:
+
+```bash
+uv run legalforecast acquisition build-packets \
+  --output-root <assembled-cycle-root> \
+  --input <assembled-cycle-root>/packet-build-input.jsonl \
+  --execute --no-resume
+```
+
+Final corpus reconciliation runs only after both packet stages complete. It consumes the authenticated decision-text JSONL, its manifest and completed builder run card, and the three content files from one canonical complete and saturated screening snapshot plus that snapshot's manifest:
+
+```bash
+uv run legalforecast acquisition finalize-corpus \
+  <all-other-stage-inputs> \
+  --selection <selection.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --prediction-units <finalized-prediction-units.jsonl> \
+  --markdown-root <parsed-markdown-root> \
+  --decision-texts <assembled-cycle-root>/decision-texts.jsonl \
+  --decision-texts-manifest <assembled-cycle-root>/decision-texts-manifest.json \
+  --decision-texts-run-card <assembled-cycle-root>/run-cards/build-decision-texts.json \
+  --packet-build-input <assembled-cycle-root>/packet-build-input.jsonl \
+  --packets <assembled-cycle-root>/packets.jsonl \
+  --screened-cases <screening-snapshot>/screened-cases.jsonl \
+  --discovery-summary <screening-snapshot>/summary.json \
+  --discovery-exclusions <screening-snapshot>/exclusions.jsonl \
+  --screening-snapshot-manifest <screening-snapshot>/manifest.json \
+  --screening-cycle-store <assembled-cycle-root>/store/cycle-acquisition.sqlite3 \
+  --target-cohort-preparation-root <successful-target-cohort-root> \
+  --target-clean-cases <100-or-150> \
+  --execute --no-resume
+```
+
+Do not hand-author a compatibility summary or substitute a replay-stage summary. `finalize-corpus` requires the successful canonical `prepare-target-cohort` root, verifies its self-hashed configuration, completion evidence, and exhaustive stage commitments, and uses that authenticated lineage to pin the exact snapshot path, manifest hash, cycle hash, batch digest, and target size. It then authenticates the decision-text bundle against the exact selection, parser output, finalized units, and Markdown; requires every Stage B audit row's `decision_text_commitment` to match; verifies the snapshot's immutable cycle-store registration, complete and saturated state, member hashes, row counts, and accepted-plus-excluded reconciliation; and accepts the packet artifacts only after those gates pass. Include every later exclusion file separately with `--exclusion-source` so every screened-but-unselected or downstream-rejected candidate reaches the complete exclusion ledger.
 
 ## Before Dispatch
 

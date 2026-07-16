@@ -136,8 +136,63 @@ Later batches consult the ledger so an **immutable-state** docket is skipped-wit
 9. **The clearance contract (executed inside steps 7(iii) and 8.4 — this step defines it; rev 7 note: it is no longer a separate sequential stage, purchased-document clearance runs inside each step-8 loop iteration).** If a purchased core document is quarantined, apply the **precommitted ranked replacement rule** recorded in the cohort-policy artifact: the next-cheapest eligible frontier candidate under the same cap replaces the case, and the purchase ledger records both the write-off and the replacement. **The clearance artifact contract (steps 7 and 9):** a spot-check cannot license sending court documents to external model providers — fully-free cases bypass case.dev restriction metadata, and the bridge **hard-codes** unknown-restriction records as `redaction_or_seal_status: "public", is_sealed: False` (`courtlistener_case_dev_bridge.py:95-135,249-264,802-805`), while court-public documents can still contain SSNs, minors' names, medical material, or quoted sealed content. Required per document (free and purchased): automated checks (sensitive-pattern scan: SSN/DOB/minor-indicators; docket-derived seal/restriction signals, replacing the hard-coded "public" with derived-or-fail-closed); **fail-closed handling of image-only PDFs and OCR failure** (a document whose text cannot be scanned is quarantined, never passed); a quarantine bucket for flagged/unknown documents; human clearance recorded per document (or per reviewed batch of flagged docs) with **authenticated reviewer identity or controlled-store provenance** and the document hash in the artifact. `finalize-corpus` gains a required `--disclosure-clearance` input; the parse stage refuses documents whose hash lacks a clearance row **and re-hashes the actual bytes it reads against the clearance hash** (parse planning today trusts `local_path` without hashing, `cli.py:4692-4713`). The eye check survives only as the human step inside this gate.
 10. **Parse once:** `acquisition plan-parse-documents` → `acquisition parse-documents` (Mistral tool; parser checkout pinned, minimal env per keyless plan §4f; only cleared documents reach it).
 11. **Unitize once + Stage A adjudication producing finalized units (rev 6; fourth pass accepted: rev 5's queue-draining tool produced an adjudications artifact nothing downstream could consume — unitization writes prediction units *before* emitting the review queue (`llm_pipeline.py:239-260`), labeling consumes those prediction-unit records and takes no adjudications input (`llm_pipeline.py:284-312`), and readiness accepts only disposition `accepted_as_frozen` (`corpus_readiness.py:301-310`), so a reviewer who found a bad unit boundary had no gate-satisfying path except rubber-stamping it).** `acquisition llm-unitize` (provider-call journaling per keyless plan §4e′) → the Stage A tool (`apply-unitization-review`, work item 14) drains `unitization-review-queue.jsonl` (`cli.py:3452-3508`) supporting **accept, amend, split, merge, and candidate-exclusion** dispositions, and emits a **finalized prediction-units artifact** — the post-adjudication unit set that Stage B labeling and corpus readiness consume *instead of* the raw unitization output. Original units, adjudications, and finalized units are **hash-linked** (each finalized unit records its source unit hash(es) and adjudication ID); readiness verifies the hash chain and accepts amended dispositions, not only `accepted_as_frozen`. John (or a delegated lawyer) drains the queue **before Stage B labeling**, since unit boundaries feed everything downstream.
-12. **Label once:** `acquisition llm-label` over the **finalized units** with the **frozen judge registry and explicit judge `--model-key`s** (eval-readiness §2a) — omitting `--model-key` uses every registry entry (`cli.py:1202-1342`), so bare invocations are forbidden; a machine gate (small bead) asserts the judge keys are exact-model disjoint from the eval registry before the run starts. Then the **separate post-label cycle-level stratified audit command** (eval-readiness §2(b) — sampling is decoupled from the per-case labeling loop) samples over the *whole cycle's* persisted ensembles, and the lawyer loop drains via `acquisition apply-lawyer-review`.
-13. **Packets + finalize:** `acquisition plan-packet-inputs --model-registry model_registries/cycle-1-2026-06-30.json` → `acquisition build-packets` → `acquisition finalize-corpus` with the full required input set including the clearance artifact and finalized units → publish the funnel summary (`yr43.16`). **`acquisition merge-artifacts` is cut from this path (fourth pass, overengineering accepted):** once the assembler produces one root and every downstream stage runs exactly once, there are no multi-root downstream artifacts left to merge; the command survives only for exceptional repair scenarios, never in the normal Phase 2 sequence.
+12. **Label once, authenticate the cycle audit, then drain lawyer review:** `acquisition llm-label` runs over the **finalized units** and authenticated `build-decision-texts` JSONL, manifest, and completed run card, with the **frozen judge registry and explicit judge `--model-key`s** (eval-readiness §2a). Bare invocations are forbidden; the command requires every frozen judge, asserts exact-model disjointness from the eval registry, and authenticates exact decision-text and parser lineage before any provider call. Then the **separate post-label cycle-level stratified audit command** (eval-readiness §2(b) — sampling is decoupled from the per-case labeling loop) samples over the *whole cycle's* persisted ensembles. Its executed form binds the audit to the same selection, parser manifest, finalized units, Markdown root, and authenticated decision-text artifact used by Stage B:
+
+   ```bash
+   uv run legalforecast acquisition plan-label-audit \
+     --output-root tmp/acquisition/cycle-1/label-audit \
+     --execute \
+     --llm-label-audit tmp/acquisition/cycle-1/labeling/llm-label-audit.jsonl \
+     --selection tmp/acquisition/cycle-1/selection.jsonl \
+     --prediction-units tmp/acquisition/cycle-1/finalized-prediction-units.jsonl \
+     --decision-texts tmp/acquisition/cycle-1/decision-texts/decision-texts.jsonl \
+     --decision-texts-manifest tmp/acquisition/cycle-1/decision-texts/decision-texts-manifest.json \
+     --decision-texts-run-card tmp/acquisition/cycle-1/decision-texts/run-cards/build-decision-texts.json \
+     --parser-manifest tmp/acquisition/cycle-1/parser-manifest.jsonl \
+     --markdown-root tmp/acquisition/cycle-1/markdown \
+     --labeling-policy tmp/acquisition/cycle-1/labeling-policy.json \
+     --lawyer-review-queue tmp/acquisition/cycle-1/labeling/lawyer-review-queue.jsonl
+   ```
+
+   After John records the adjudications, the executed lawyer-review application repeats that authenticated lineage rather than accepting a naked decision-text file:
+
+   ```bash
+   uv run legalforecast acquisition apply-lawyer-review \
+     --output-root tmp/acquisition/cycle-1/lawyer-review \
+     --execute \
+     --selection tmp/acquisition/cycle-1/selection.jsonl \
+     --parser-manifest tmp/acquisition/cycle-1/parser-manifest.jsonl \
+     --prediction-units tmp/acquisition/cycle-1/finalized-prediction-units.jsonl \
+     --markdown-root tmp/acquisition/cycle-1/markdown \
+     --labels tmp/acquisition/cycle-1/labeling/labels.jsonl \
+     --adjudications tmp/acquisition/cycle-1/lawyer-adjudications.jsonl \
+     --decision-texts tmp/acquisition/cycle-1/decision-texts/decision-texts.jsonl \
+     --decision-texts-manifest tmp/acquisition/cycle-1/decision-texts/decision-texts-manifest.json \
+     --decision-texts-run-card tmp/acquisition/cycle-1/decision-texts/run-cards/build-decision-texts.json \
+     --llm-label-audit tmp/acquisition/cycle-1/label-audit/llm-label-audit-cycle-planned.jsonl \
+     --cycle-label-audit-plan tmp/acquisition/cycle-1/label-audit/cycle-label-audit-plan.json \
+     --labeling-policy tmp/acquisition/cycle-1/labeling-policy.json
+   ```
+
+13. **Plan packet inputs, then build packets:** run `acquisition plan-packet-inputs --model-registry model_registries/cycle-1-2026-06-30.json` and only after that plan succeeds run `acquisition build-packets`. These are mandatory predecessors of finalization; finalization must authenticate the exact packet-build input and built packets rather than running before or alongside packet construction. **`acquisition merge-artifacts` is cut from this path (fourth pass, overengineering accepted):** once the assembler produces one root and every downstream stage runs exactly once, there are no multi-root downstream artifacts left to merge; the command survives only for exceptional repair scenarios, never in the normal Phase 2 sequence.
+14. **Finalize only after packets exist:** invoke `acquisition finalize-corpus` with its full required input set, including the clearance artifact, packet-build input, built packets, finalized units, and the same authenticated decision-text lineage checked by the Stage B audit and lawyer-review gates; then publish the funnel summary (`yr43.16`). The downstream lineage-critical portion of the invocation is:
+
+   ```bash
+   uv run legalforecast acquisition finalize-corpus \
+     --output-root tmp/acquisition/cycle-1/finalized \
+     --execute \
+     --selection tmp/acquisition/cycle-1/selection.jsonl \
+     --parser-manifest tmp/acquisition/cycle-1/parser-manifest.jsonl \
+     --decision-texts tmp/acquisition/cycle-1/decision-texts/decision-texts.jsonl \
+     --decision-texts-manifest tmp/acquisition/cycle-1/decision-texts/decision-texts-manifest.json \
+     --decision-texts-run-card tmp/acquisition/cycle-1/decision-texts/run-cards/build-decision-texts.json \
+     --markdown-root tmp/acquisition/cycle-1/markdown \
+     --prediction-units tmp/acquisition/cycle-1/finalized-prediction-units.jsonl \
+     --packet-build-input tmp/acquisition/cycle-1/packet-inputs/packet-build-input.jsonl \
+     --packets tmp/acquisition/cycle-1/packets/packets.jsonl \
+     # plus every other required argument reported by:
+     # uv run legalforecast acquisition finalize-corpus --help
+   ```
 
 Why single-pass Phase 2 is also the cheap option: every LLM stage runs over the final deduplicated corpus exactly once — no cross-batch replay, no re-billing a candidate that later merged away, and the cycle audit's sample universe exists when the audit runs.
 

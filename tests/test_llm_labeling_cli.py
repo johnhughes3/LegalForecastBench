@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any, cast
 
 import legalforecast.labeling.llm_pipeline as llm_pipeline
 import pytest
+from legalforecast import cli
 from legalforecast.cli import (
     CommandError,
     _require_complete_registry_panel,
@@ -15,11 +18,59 @@ from legalforecast.cli import (
 )
 from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.evals.model_registry import load_model_registry
+from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.unitization import ChallengeScope, PredictionUnit, SourceCitation
 from legalforecast.unitization.review import apply_unitization_reviews
 from pytest import MonkeyPatch, raises
 
 JsonRecord = dict[str, Any]
+
+
+def _stub_downstream_decision_artifact(
+    monkeypatch: MonkeyPatch,
+    decision_texts_path: Path,
+    *,
+    replace_after_verification: bool = False,
+) -> list[str]:
+    monkeypatch.setattr(cli, "require_finalized_envelopes", lambda records: records)
+    authenticated_records = tuple(_read_jsonl(decision_texts_path))
+
+    class _Artifact:
+        records = authenticated_records
+
+        def verify_stage_b_audit_commitments(self, records: object) -> None:
+            del records
+
+    def verify(**kwargs: object) -> _Artifact:
+        del kwargs
+        if replace_after_verification:
+            _write_jsonl(
+                decision_texts_path,
+                [
+                    {
+                        "document_id": "decision",
+                        "entered_date": "2026-05-18",
+                        "text": "The authenticated decision was replaced.",
+                    }
+                ],
+            )
+        return _Artifact()
+
+    monkeypatch.setattr(cli, "verify_decision_text_artifact", verify)
+    return [
+        "--selection",
+        str(decision_texts_path),
+        "--parser-manifest",
+        str(decision_texts_path),
+        "--prediction-units",
+        str(decision_texts_path),
+        "--decision-texts-manifest",
+        str(decision_texts_path),
+        "--decision-texts-run-card",
+        str(decision_texts_path),
+        "--markdown-root",
+        str(decision_texts_path.parent),
+    ]
 
 
 def _provider_caps_path(root: Path) -> Path:
@@ -130,7 +181,20 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
     )
     _write_json(registry_path, [_registry_record()])
 
-    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", _fake_completion)
+    def journaled_completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        response = _fake_completion(*args, **kwargs)
+        journal = kwargs["attempt_handler"]
+        journal.run_attempt(1, lambda: {"fixture": "provider-response"})
+        journal.settle_attempt(
+            1,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            actual_cost_usd=response.estimated_cost,
+            raw_output=response.raw_output,
+        )
+        return response
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", journaled_completion)
 
     assert (
         main(
@@ -182,6 +246,12 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
         }
     ]
     _rewrite_as_finalized(output_root / "prediction-units.jsonl")
+    stage_b_args = _write_authenticated_stage_b_inputs(
+        root=tmp_path / "stage-b",
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+    )
 
     assert (
         main(
@@ -194,6 +264,7 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
                 str(parser_path),
                 "--prediction-units",
                 str(output_root / "prediction-units.jsonl"),
+                *stage_b_args,
                 "--output-root",
                 str(output_root),
                 "--model-registry",
@@ -219,6 +290,38 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
     assert label_audit["status"] == "succeeded"
     assert label_audit["human_verified"] is False
     assert label_audit["model_outputs"][0]["model_key"] == "openai:gpt-test"
+    commitments = label_audit["decision_text_commitment"]
+    assert commitments["decision_texts_sha256"] == _sha256_path(
+        tmp_path / "stage-b" / "decision-texts.jsonl"
+    )
+    assert commitments["finalized_prediction_units_sha256"] == _sha256_path(
+        output_root / "prediction-units.jsonl"
+    )
+    assert commitments["finalized_unit_envelope_sha256"].startswith("sha256:")
+    prompt_sha256 = label_audit["model_outputs"][0]["provider_prompt_sha256"]
+    with sqlite3.connect(output_root / "provider-attempts.sqlite3") as connection:
+        prompt_text, journal_prompt_sha256, reconstructed = connection.execute(
+            "SELECT prompt_text, prompt_sha256, reconstructed_result_json "
+            "FROM provider_attempts WHERE stage = 'llm-label'"
+        ).fetchone()
+    prompt = json.loads(prompt_text)
+    assert prompt["decision_text"]["commitment"] == commitments
+    assert prompt["decision_text"]["text"] == (
+        "The motion to dismiss Count I is granted without leave to amend."
+    )
+    assert prompt_sha256 == "sha256:" + journal_prompt_sha256
+    assert json.loads(reconstructed)["decision_text_commitment"] == commitments
+    label_run_card = json.loads(
+        (output_root / "run-cards" / "llm-label.json").read_text()
+    )
+    assert label_run_card["decision_text_commitments"] == {
+        "decision_texts_sha256": commitments["decision_texts_sha256"],
+        "decision_texts_manifest_sha256": commitments["decision_texts_manifest_sha256"],
+        "decision_texts_run_card_sha256": commitments["decision_texts_run_card_sha256"],
+        "finalized_prediction_units_sha256": commitments[
+            "finalized_prediction_units_sha256"
+        ],
+    }
     assert label_audit["label_audit_gate"]["status"] == "awaiting_cycle_level_plan"
     assert _read_jsonl(output_root / "lawyer-review-queue.jsonl") == []
 
@@ -293,6 +396,12 @@ def test_acquisition_llm_label_persists_lawyer_review_queue_with_partial_success
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", partial_review_completion)
     _rewrite_as_finalized(units_path)
+    stage_b_args = _write_authenticated_stage_b_inputs(
+        root=tmp_path / "stage-b",
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+    )
 
     assert (
         main(
@@ -305,6 +414,7 @@ def test_acquisition_llm_label_persists_lawyer_review_queue_with_partial_success
                 str(parser_path),
                 "--prediction-units",
                 str(units_path),
+                *stage_b_args,
                 "--output-root",
                 str(output_root),
                 "--model-registry",
@@ -346,13 +456,166 @@ def test_acquisition_llm_label_persists_lawyer_review_queue_with_partial_success
     assert "unit-auto" not in queue_by_unit
 
 
-def test_acquisition_apply_lawyer_review_merges_checked_in_adjudication(
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("artifact_date", "decision text date mismatch"),
+        ("restricted", "sealed/private/restricted"),
+        ("duplicate", "duplicate decision text candidate"),
+        ("fixture_parser", "pinned live Mistral revision"),
+        ("source_sha", "decision source hash mismatch"),
+        ("source_bytes", "decision source byte-count mismatch"),
+        ("quality_flags", "decision parser record has quality flags"),
+        ("finalized_case", "finalized prediction-units case mismatch"),
+        ("finalized_provenance", "automatic finalized-unit provenance"),
+        ("markdown_drift", "extracted text hash mismatch"),
+        ("manifest_drift", "manifest eligibility anchor drift"),
+    ],
+)
+def test_llm_label_rejects_unauthenticated_decision_text_before_provider_call(
     tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    mutation: str,
+    message: str,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    markdown_root = output_root / "markdown"
+    decision_path = markdown_root / "cand-1" / "decision.md"
+    _write_markdown(decision_path, "Count I is dismissed.")
+    selection_path = tmp_path / "selection.jsonl"
+    parser_path = tmp_path / "parser.jsonl"
+    units_path = tmp_path / "prediction-units.jsonl"
+    registry_path = tmp_path / "registry.json"
+    _write_jsonl(selection_path, [_selection_record()])
+    _write_jsonl(parser_path, [_parser_record("decision", "decision.md")])
+    _write_jsonl(
+        units_path,
+        [
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "prediction_units": [_prediction_unit_record("unit-1", "Count I")],
+            }
+        ],
+    )
+    _rewrite_as_finalized(units_path)
+    _write_json(registry_path, [_registry_record()])
+    stage_root = tmp_path / "stage-b"
+    stage_b_args = _write_authenticated_stage_b_inputs(
+        root=stage_root,
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+    )
+    decision_texts_path = stage_root / "decision-texts.jsonl"
+    manifest_path = stage_root / "decision-texts-manifest.json"
+    if mutation == "artifact_date":
+        rows = _read_jsonl(decision_texts_path)
+        rows[0]["entered_date"] = "2026-07-01"
+        _write_jsonl(decision_texts_path, rows)
+        _reseal_stage_b_bundle(stage_root, selection_path, parser_path)
+    elif mutation == "restricted":
+        rows = _read_jsonl(decision_texts_path)
+        rows[0]["clearance"]["restriction_status"] = "sealed"
+        _write_jsonl(decision_texts_path, rows)
+        _reseal_stage_b_bundle(stage_root, selection_path, parser_path)
+    elif mutation == "duplicate":
+        rows = _read_jsonl(decision_texts_path)
+        rows.append(dict(rows[0]))
+        _write_jsonl(decision_texts_path, rows)
+        _reseal_stage_b_bundle(stage_root, selection_path, parser_path)
+    elif mutation == "fixture_parser":
+        rows = _read_jsonl(parser_path)
+        rows[0]["parser_config"]["fixture_markdown"] = True
+        _write_jsonl(parser_path, rows)
+        _reseal_stage_b_bundle(stage_root, selection_path, parser_path)
+    elif mutation == "source_sha":
+        rows = _read_jsonl(parser_path)
+        rows[0]["source_sha256"] = "2" * 64
+        _write_jsonl(parser_path, rows)
+        _reseal_stage_b_bundle(stage_root, selection_path, parser_path)
+    elif mutation == "source_bytes":
+        rows = _read_jsonl(parser_path)
+        rows[0]["source_byte_count"] = 43
+        _write_jsonl(parser_path, rows)
+        _reseal_stage_b_bundle(stage_root, selection_path, parser_path)
+    elif mutation == "quality_flags":
+        rows = _read_jsonl(parser_path)
+        rows[0]["quality_flags"] = ["manual_review_required"]
+        _write_jsonl(parser_path, rows)
+        _reseal_stage_b_bundle(stage_root, selection_path, parser_path)
+    elif mutation == "finalized_case":
+        rows = _read_jsonl(units_path)
+        rows[0]["case_id"] = "wrong-case"
+        _write_jsonl(units_path, rows)
+    elif mutation == "finalized_provenance":
+        rows = _read_jsonl(units_path)
+        rows[0]["prediction_units"][0]["source_unit_sha256s"] = ["3" * 64]
+        _write_jsonl(units_path, rows)
+    elif mutation == "markdown_drift":
+        decision_path.write_text("Count I survives.", encoding="utf-8")
+    elif mutation == "manifest_drift":
+        manifest = json.loads(manifest_path.read_text())
+        manifest["eligibility_anchor"] = "2026-07-01"
+        _write_json(manifest_path, manifest)
+    else:  # pragma: no cover - parametrization is exhaustive
+        raise AssertionError(mutation)
+
+    provider_calls = 0
+
+    def forbidden_provider_call(*args: Any, **kwargs: Any) -> SolverResponse:
+        nonlocal provider_calls
+        provider_calls += 1
+        raise AssertionError("provider must not be called")
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", forbidden_provider_call)
+    assert (
+        main(
+            [
+                "acquisition",
+                "llm-label",
+                "--selection",
+                str(selection_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--prediction-units",
+                str(units_path),
+                *stage_b_args,
+                "--output-root",
+                str(output_root),
+                "--model-registry",
+                str(registry_path),
+                "--evaluated-model-registry",
+                str(_evaluated_registry_path(tmp_path)),
+                "--model-key",
+                "openai:gpt-test",
+                "--provider-cycle-caps",
+                str(_provider_caps_path(tmp_path)),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert message in capsys.readouterr().err
+    assert provider_calls == 0
+    assert not (output_root / "provider-attempts.sqlite3").exists()
+    assert not (output_root / "labels.jsonl").exists()
+
+
+def test_acquisition_apply_lawyer_review_uses_verified_bytes_after_source_replacement(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     output_root = tmp_path / "acquisition"
     labels_path = tmp_path / "labels.jsonl"
     adjudications_path = tmp_path / "adjudications.jsonl"
     decision_texts_path = _write_decision_texts(tmp_path / "decision-texts.jsonl")
+    decision_artifact_args = _stub_downstream_decision_artifact(
+        monkeypatch,
+        decision_texts_path,
+        replace_after_verification=True,
+    )
     llm_label_audit_path = tmp_path / "llm-label-audit.jsonl"
     auto_label = _label_record(
         "unit-auto",
@@ -401,6 +664,7 @@ def test_acquisition_apply_lawyer_review_merges_checked_in_adjudication(
                 str(adjudications_path),
                 "--decision-texts",
                 str(decision_texts_path),
+                *decision_artifact_args,
                 "--llm-label-audit",
                 str(llm_label_audit_path),
                 "--output-root",
@@ -514,11 +778,15 @@ def test_apply_adjudicated_reviews_rejects_uncited_document() -> None:
 
 def test_acquisition_apply_lawyer_review_fails_without_audited_auto_label(
     tmp_path: Path,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     output_root = tmp_path / "acquisition"
     labels_path = tmp_path / "labels.jsonl"
     adjudications_path = tmp_path / "adjudications.jsonl"
     decision_texts_path = _write_decision_texts(tmp_path / "decision-texts.jsonl")
+    decision_artifact_args = _stub_downstream_decision_artifact(
+        monkeypatch, decision_texts_path
+    )
     llm_label_audit_path = tmp_path / "llm-label-audit.jsonl"
     auto_label = _label_record(
         "unit-auto",
@@ -557,6 +825,7 @@ def test_acquisition_apply_lawyer_review_fails_without_audited_auto_label(
                 str(adjudications_path),
                 "--decision-texts",
                 str(decision_texts_path),
+                *decision_artifact_args,
                 "--llm-label-audit",
                 str(llm_label_audit_path),
                 "--output-root",
@@ -572,11 +841,15 @@ def test_acquisition_apply_lawyer_review_fails_without_audited_auto_label(
 
 def test_acquisition_apply_lawyer_review_fails_closed_on_audit_error(
     tmp_path: Path,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     output_root = tmp_path / "acquisition"
     labels_path = tmp_path / "labels.jsonl"
     adjudications_path = tmp_path / "adjudications.jsonl"
     decision_texts_path = _write_decision_texts(tmp_path / "decision-texts.jsonl")
+    decision_artifact_args = _stub_downstream_decision_artifact(
+        monkeypatch, decision_texts_path
+    )
     llm_label_audit_path = tmp_path / "llm-label-audit.jsonl"
     auto_label = _label_record(
         "unit-auto",
@@ -625,6 +898,7 @@ def test_acquisition_apply_lawyer_review_fails_closed_on_audit_error(
                 str(adjudications_path),
                 "--decision-texts",
                 str(decision_texts_path),
+                *decision_artifact_args,
                 "--llm-label-audit",
                 str(llm_label_audit_path),
                 "--human-blind-disagreement-rate",
@@ -986,6 +1260,9 @@ def test_labeling_prompt_explains_not_addressed_resolution() -> None:
                 text="The motion is granted as to Count I.",
             ),
             (_prediction_unit(),),
+            decision_text_commitment={
+                "decision_texts_sha256": "sha256:" + "a" * 64,
+            },
         )
     )
 
@@ -1187,6 +1464,12 @@ def test_acquisition_llm_label_failure_audit_keeps_model_accounting(
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", invalid_label_completion)
     _rewrite_as_finalized(units_path)
+    stage_b_args = _write_authenticated_stage_b_inputs(
+        root=tmp_path / "stage-b",
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+    )
 
     assert (
         main(
@@ -1199,6 +1482,7 @@ def test_acquisition_llm_label_failure_audit_keeps_model_accounting(
                 str(parser_path),
                 "--prediction-units",
                 str(units_path),
+                *stage_b_args,
                 "--output-root",
                 str(output_root),
                 "--model-registry",
@@ -1303,6 +1587,12 @@ def test_acquisition_llm_label_missing_unit_flags_gate_frozen_unit_workflow(
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", missing_unit_completion)
     _rewrite_as_finalized(units_path)
+    stage_b_args = _write_authenticated_stage_b_inputs(
+        root=tmp_path / "stage-b",
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+    )
 
     assert (
         main(
@@ -1315,6 +1605,7 @@ def test_acquisition_llm_label_missing_unit_flags_gate_frozen_unit_workflow(
                 str(parser_path),
                 "--prediction-units",
                 str(units_path),
+                *stage_b_args,
                 "--output-root",
                 str(output_root),
                 "--model-registry",
@@ -1403,6 +1694,7 @@ def _selection_record() -> JsonRecord:
         "docket_number": "1:26-cv-1",
         "target_motion_entry_numbers": [5],
         "decision_entry_numbers": [16],
+        "selected": True,
         "documents": [
             _selection_document("complaint", "complaint", 1, True, False),
             _selection_document("mtd", "motion_to_dismiss_notice", 5, True, False),
@@ -1426,6 +1718,9 @@ def _selection_document(
         "description": role,
         "model_visible": model_visible,
         "contains_target_outcome": contains_target_outcome,
+        "is_sealed": False,
+        "is_private": False,
+        "restriction_status": "public",
     }
 
 
@@ -1701,6 +1996,177 @@ def _ensemble_vote_record(
 def _write_markdown(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def _write_authenticated_stage_b_inputs(
+    *,
+    root: Path,
+    selection_path: Path,
+    parser_path: Path,
+    markdown_root: Path,
+) -> list[str]:
+    selection = _read_jsonl(selection_path)
+    parser_rows = _read_jsonl(parser_path)
+    [decision_document] = [
+        document
+        for document in selection[0]["documents"]
+        if document["source_document_id"] == "decision"
+    ]
+    [decision_parser] = [
+        record for record in parser_rows if record["source_document_id"] == "decision"
+    ]
+    markdown_path = markdown_root / decision_parser["markdown_path"]
+    text = markdown_path.read_text(encoding="utf-8")
+    text_sha256 = hashlib.sha256(text.encode()).hexdigest()
+    decision_parser.update(
+        {
+            "source_sha256": "a" * 64,
+            "source_byte_count": 42,
+            "quality_flags": [],
+            "parser_config": {
+                "engine": "mistral",
+                "parser_revision": EXPECTED_PARSER_REVISION,
+                "expected_parser_revision": EXPECTED_PARSER_REVISION,
+                "fixture_markdown": False,
+            },
+            "extracted_text": {
+                "source_document_id": "decision",
+                "extraction_method": "mistral_parser_markdown",
+                "text_sha256": text_sha256,
+            },
+        }
+    )
+    _write_jsonl(parser_path, parser_rows)
+    commitments = {
+        "clearance_run_card_sha256": "sha256:" + "b" * 64,
+        "disclosure_clearance_sha256": "sha256:" + "c" * 64,
+        "download_manifest_sha256": "sha256:" + "d" * 64,
+        "parser_manifest_sha256": _sha256_path(parser_path),
+        "parser_run_card_sha256": "sha256:" + "e" * 64,
+        "restriction_evidence_sha256": "sha256:" + "f" * 64,
+        "selection_sha256": _sha256_path(selection_path),
+        "selection_run_card_sha256": "sha256:" + "1" * 64,
+    }
+    record = {
+        "schema_version": "legalforecast.decision_text.v1",
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "document_id": "decision",
+        "entered_date": "2026-06-30",
+        "text": text,
+        "is_first_written_disposition": True,
+        "contains_target_outcome": True,
+        "model_visible": False,
+        "document_role": decision_document["document_role"],
+        "docket_entry_number": decision_document["docket_entry_number"],
+        "source_sha256": "a" * 64,
+        "source_byte_count": 42,
+        "text_sha256": text_sha256,
+        "markdown_sha256": text_sha256,
+        "extraction_method": "mistral_parser_markdown",
+        "parser_revision": EXPECTED_PARSER_REVISION,
+        "clearance": {
+            "status": "cleared",
+            "restriction_status": "public",
+            "reviewer_id": "reviewer:test",
+            "controlled_store_provenance": "private-store://test/decision",
+            "reviewed_at": "2026-07-15T12:00:00Z",
+        },
+        "input_commitments": commitments,
+    }
+    decision_texts = root / "decision-texts.jsonl"
+    manifest_path = root / "decision-texts-manifest.json"
+    run_card_path = root / "build-decision-texts.json"
+    _write_jsonl(decision_texts, [record])
+    manifest = {
+        "schema_version": "legalforecast.decision_text_manifest.v1",
+        "eligibility_anchor": "2026-06-30",
+        "record_count": 1,
+        "candidate_ids_sha256": _canonical_sha256(["cand-1"]),
+        "decision_texts_sha256": _sha256_path(decision_texts),
+        "input_commitments": commitments,
+        "outcome_material_model_visible": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+    }
+    _write_json(manifest_path, manifest)
+    _write_json(
+        run_card_path,
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "build-decision-texts",
+            "status": "completed",
+            "execute": True,
+            "dry_run": False,
+            "record_count": 1,
+            "eligibility_anchor": "2026-06-30",
+            "decision_texts_sha256": _sha256_path(decision_texts),
+            "decision_texts_manifest_sha256": _sha256_path(manifest_path),
+            "input_commitments": commitments,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            "input_paths": [],
+            "output_paths": [str(decision_texts), str(manifest_path)],
+        },
+    )
+    return [
+        "--decision-texts",
+        str(decision_texts),
+        "--decision-texts-manifest",
+        str(manifest_path),
+        "--decision-texts-run-card",
+        str(run_card_path),
+        "--markdown-root",
+        str(markdown_root),
+    ]
+
+
+def _sha256_path(path: Path) -> str:
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _canonical_sha256(value: object) -> str:
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _reseal_stage_b_bundle(
+    root: Path,
+    selection_path: Path,
+    parser_path: Path,
+) -> None:
+    decision_texts_path = root / "decision-texts.jsonl"
+    manifest_path = root / "decision-texts-manifest.json"
+    run_card_path = root / "build-decision-texts.json"
+    rows = _read_jsonl(decision_texts_path)
+    manifest = json.loads(manifest_path.read_text())
+    run_card = json.loads(run_card_path.read_text())
+    commitments = dict(rows[0]["input_commitments"])
+    commitments["selection_sha256"] = _sha256_path(selection_path)
+    commitments["parser_manifest_sha256"] = _sha256_path(parser_path)
+    for row in rows:
+        row["input_commitments"] = commitments
+    _write_jsonl(decision_texts_path, rows)
+    manifest.update(
+        {
+            "record_count": len(rows),
+            "candidate_ids_sha256": _canonical_sha256(
+                [row["candidate_id"] for row in rows]
+            ),
+            "decision_texts_sha256": _sha256_path(decision_texts_path),
+            "input_commitments": commitments,
+        }
+    )
+    _write_json(manifest_path, manifest)
+    run_card.update(
+        {
+            "record_count": len(rows),
+            "decision_texts_sha256": _sha256_path(decision_texts_path),
+            "decision_texts_manifest_sha256": _sha256_path(manifest_path),
+            "input_commitments": commitments,
+        }
+    )
+    _write_json(run_card_path, run_card)
 
 
 _DECISION_TEXT = (
