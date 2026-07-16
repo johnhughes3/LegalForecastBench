@@ -99,6 +99,174 @@ def test_provisional_frontier_reconciles_success_exclusion_and_pending(
         "101"
     ]
 
+    firecrawl_fixture = tmp_path / "firecrawl.jsonl"
+    source_url = "https://www.courtlistener.com/docket/101/example-101-v-example/"
+    _write_jsonl(
+        firecrawl_fixture,
+        [
+            {
+                "status_code": 200,
+                "payload": {
+                    "success": True,
+                    "data": {
+                        "rawHtml": _docket_html(),
+                        "metadata": {
+                            "statusCode": 200,
+                            "sourceURL": source_url + "?order_by=desc&page=1",
+                            "proxyUsed": "basic",
+                            "cacheState": "miss",
+                            "creditsUsed": 1,
+                        },
+                    },
+                },
+            }
+        ],
+    )
+    firecrawl_output = tmp_path / "firecrawl-output"
+    assert (
+        main(
+            [
+                "acquisition",
+                "acquire-ranked-firecrawl-dockets",
+                "--cycle-store",
+                str(target_store),
+                "--parent-batch-id",
+                "provisional-rest",
+                "--selected-batch-id",
+                "provisional-selected",
+                "--run-id",
+                "provisional-firecrawl",
+                "--ranked",
+                str(ranked_path),
+                "--ranked-selection-run-card",
+                str(run_card_path),
+                "--expected-ranked-selection-run-card-sha256",
+                hashlib.sha256(run_card_path.read_bytes()).hexdigest(),
+                "--max-candidates",
+                "1",
+                "--workers",
+                "1",
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--firecrawl-fixture",
+                str(firecrawl_fixture),
+                "--output-root",
+                str(firecrawl_output),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    [firecrawl_success] = _read_jsonl(
+        firecrawl_output / "firecrawl-docket-successes.jsonl"
+    )
+    assert firecrawl_success["provisional_frontier"] is True
+    assert firecrawl_success["final_cohort_eligible"] is False
+    firecrawl_summary = json.loads(
+        (firecrawl_output / "firecrawl-docket-summary.json").read_text()
+    )
+    assert firecrawl_summary["pending_count"] == 2
+    firecrawl_run_card = json.loads(
+        (
+            firecrawl_output / "run-cards" / "acquire-ranked-firecrawl-dockets.json"
+        ).read_text()
+    )
+    assert firecrawl_run_card["provisional_frontier"] is True
+    assert firecrawl_run_card["final_cohort_eligible"] is False
+    assert (
+        firecrawl_run_card["pending_candidate_set_sha256"]
+        == run_card["pending_candidate_set_sha256"]
+    )
+    with CycleAcquisitionStore(target_store) as store:
+        child_config = store.batch_config("provisional-selected")
+        assert child_config["provisional_frontier"] is True
+        assert child_config["final_cohort_eligible"] is False
+        assert (
+            child_config["pending_candidate_set_sha256"]
+            == (run_card["pending_candidate_set_sha256"])
+        )
+
+    screen_output = tmp_path / "screen-output"
+    snapshot_root = tmp_path / "snapshots"
+    screen_args = [
+        "acquisition",
+        "screen-firecrawl-dockets",
+        "--cycle-store",
+        str(target_store),
+        "--batch-id",
+        "provisional-selected",
+        "--successes",
+        str(firecrawl_output / "firecrawl-docket-successes.jsonl"),
+        "--fetch-exclusions",
+        str(firecrawl_output / "firecrawl-docket-exclusions.jsonl"),
+        "--raw-html-dir",
+        str(firecrawl_output / "raw-docket-html"),
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--snapshot-root",
+        str(snapshot_root),
+        "--snapshot-id",
+        "provisional-screened",
+        "--output-root",
+        str(screen_output),
+        "--execute",
+    ]
+    assert main(screen_args) == 0
+    snapshot = snapshot_root / "provisional-screened"
+    manifest = json.loads((snapshot / "manifest.json").read_text())
+    assert manifest["complete"] is True
+    assert manifest["saturated"] is True
+    assert manifest["provisional_frontier"] is True
+    assert manifest["final_cohort_eligible"] is False
+    assert (
+        manifest["stage_commitments"]["provisional_lineage"][
+            "pending_candidate_set_sha256"
+        ]
+        == run_card["pending_candidate_set_sha256"]
+    )
+    screen_summary = json.loads(
+        (screen_output / "firecrawl-screening-summary.json").read_text()
+    )
+    assert screen_summary["provisional_frontier"] is True
+    assert screen_summary["final_cohort_eligible"] is False
+    assert (
+        screen_summary["pending_candidate_set_sha256"]
+        == run_card["pending_candidate_set_sha256"]
+    )
+
+    stripped = dict(firecrawl_success)
+    stripped.pop("pending_candidate_set_sha256")
+    _write_jsonl(firecrawl_output / "firecrawl-docket-successes.jsonl", [stripped])
+    assert main(screen_args) == 2
+    _write_jsonl(
+        firecrawl_output / "firecrawl-docket-successes.jsonl", [firecrawl_success]
+    )
+
+    fixture_documents = tmp_path / "documents.jsonl"
+    courtlistener_fixture = tmp_path / "courtlistener.jsonl"
+    _write_jsonl(fixture_documents, [])
+    _write_jsonl(courtlistener_fixture, [])
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-100",
+                "--output-root",
+                str(tmp_path / "target-preparation"),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                manifest["cycle_hash"],
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--use-embedded-entries",
+            ]
+        )
+        == 2
+    )
+
     assert main(args) == 0
     summary = json.loads(summary_path.read_text())
     assert summary["already_seeded"] is True
@@ -439,6 +607,38 @@ def _case_dev_response(docket_id: str) -> dict[str, object]:
             }
         },
     }
+
+
+def _docket_html() -> str:
+    def entry(number: int, filed: str, text: str, description: str) -> str:
+        return (
+            f'<div class="row" id="entry-{number}">'
+            f'<div class="col-xs-1">{number}</div>'
+            f'<div class="col-xs-3"><span title="{filed}">{filed}</span></div>'
+            f'<div class="col-xs-8">{text}'
+            f'<div class="recap-documents"><div>Main Document</div>'
+            f'<div>{description}</div><a href="https://storage.courtlistener.com/'
+            f'{number}.pdf">Download PDF</a></div></div></div>'
+        )
+
+    return (
+        "<html><head><title>Example 101 v. Example</title></head><body>"
+        '<div id="docket-entry-table">'
+        + entry(1, "January 2, 2026", "COMPLAINT filed", "Complaint")
+        + entry(
+            5,
+            "February 2, 2026",
+            "MOTION to Dismiss and Memorandum in Support",
+            "Motion to Dismiss and Memorandum in Support",
+        )
+        + entry(
+            16,
+            "June 30, 2026",
+            "ORDER granting Motion to Dismiss",
+            "Order on Motion to Dismiss",
+        )
+        + "</div></body></html>"
+    )
 
 
 def _read_jsonl(path: Path) -> list[dict[str, object]]:

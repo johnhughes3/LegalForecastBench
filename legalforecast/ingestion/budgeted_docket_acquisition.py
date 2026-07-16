@@ -113,6 +113,24 @@ _PROVISIONAL_HANDOFF_COMMITMENTS = (
     "pending_candidate_set_sha256",
     "selected_candidate_set_sha256",
 )
+_PROVISIONAL_LINEAGE = {
+    "provisional_frontier": True,
+    "final_cohort_eligible": False,
+    "full_source_terminal": False,
+}
+_PROVISIONAL_PROPAGATED_FIELDS = (
+    "source_candidate_count",
+    "source_candidate_set_sha256",
+    "source_projection_sha256",
+    "progress_config_sha256",
+    "progress_sha256",
+    "success_count",
+    "terminal_exclusion_count",
+    "pending_count",
+    "success_candidate_set_sha256",
+    "terminal_excluded_candidate_set_sha256",
+    "pending_candidate_set_sha256",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -629,6 +647,8 @@ def materialize_selected_slice_batch(
     selection_hash = hashlib.sha256(
         json.dumps(selection_payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
+    parent_config = store.batch_config(parent_batch_id)
+    provisional_lineage = provisional_lineage_flags(parent_config)
     store.ensure_batch(
         selected_batch_id,
         {
@@ -638,6 +658,7 @@ def materialize_selected_slice_batch(
             "selection_hash": selection_hash,
             "selection_count": len(targets),
             "parent_discovery_saturation_claimed": False,
+            **provisional_lineage,
         },
     )
     term = "selected-ranked-slice"
@@ -658,6 +679,53 @@ def materialize_selected_slice_batch(
         terminal_status=TermTerminalStatus.EXHAUSTED,
     )
     return targets
+
+
+def provisional_lineage_flags(
+    batch_config: Mapping[str, object],
+) -> dict[str, object]:
+    """Return exact provisional lineage or reject partial/contradictory markers."""
+
+    present = any(field in batch_config for field in _PROVISIONAL_LINEAGE)
+    if not present:
+        return {}
+    if any(
+        batch_config.get(field) != value
+        for field, value in _PROVISIONAL_LINEAGE.items()
+    ):
+        raise BudgetedDocketAcquisitionError(
+            "provisional batch has incomplete or contradictory cohort-safety flags"
+        )
+    lineage: dict[str, object] = dict(_PROVISIONAL_LINEAGE)
+    for field in _PROVISIONAL_PROPAGATED_FIELDS:
+        value = batch_config.get(field)
+        if value is None:
+            raise BudgetedDocketAcquisitionError(
+                f"provisional batch lacks required lineage field: {field}"
+            )
+        lineage[field] = value
+    source_count = lineage["source_candidate_count"]
+    counts = tuple(
+        lineage[field]
+        for field in ("success_count", "terminal_exclusion_count", "pending_count")
+    )
+    if (
+        type(source_count) is not int
+        or source_count <= 0
+        or any(type(value) is not int or value < 0 for value in counts)
+        or sum(cast(tuple[int, int, int], counts)) != source_count
+    ):
+        raise BudgetedDocketAcquisitionError(
+            "provisional batch partition counts do not reconcile"
+        )
+    for field in _PROVISIONAL_PROPAGATED_FIELDS:
+        if field.endswith("sha256"):
+            value = lineage[field]
+            if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
+                raise BudgetedDocketAcquisitionError(
+                    f"provisional batch has invalid lineage hash: {field}"
+                )
+    return lineage
 
 
 def ranked_docket_targets(

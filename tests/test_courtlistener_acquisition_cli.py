@@ -488,6 +488,109 @@ def test_old_and_direct_snapshots_union_provider_free_then_prepare(
     assert prepared["selected_case_count"] == 2
 
 
+def test_snapshot_union_cannot_upgrade_a_provisional_source(tmp_path: Path) -> None:
+    discovery_root, cycle_store = _run_saturated_discovery(tmp_path)
+    direct_snapshot = _materialize_discovery(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+        snapshot_id="provisional-direct",
+    )
+    old_snapshot = _create_old_replay_snapshot(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    direct_manifest_path = direct_snapshot / "manifest.json"
+    direct_manifest = json.loads(direct_manifest_path.read_text())
+    direct_manifest.update(
+        {
+            "provisional_frontier": True,
+            "final_cohort_eligible": False,
+            "full_source_terminal": False,
+        }
+    )
+    direct_manifest_path.write_text(
+        json.dumps(direct_manifest, sort_keys=True, separators=(",", ":")) + "\n"
+    )
+    with CycleAcquisitionStore(cycle_store) as store:
+        cycle_hash = store.cycle_hash
+    union_root = tmp_path / "union-snapshots"
+    assert (
+        main(
+            [
+                "acquisition",
+                "union-screening-snapshots",
+                "--cycle-store",
+                str(cycle_store),
+                "--batch-id",
+                "provisional-union",
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--source-snapshot",
+                str(old_snapshot),
+                "--source-snapshot",
+                str(direct_snapshot),
+                "--expected-source-snapshot-manifest-sha256",
+                _manifest_sha256(old_snapshot),
+                "--expected-source-snapshot-manifest-sha256",
+                _manifest_sha256(direct_snapshot),
+                "--snapshot-root",
+                str(union_root),
+                "--snapshot-id",
+                "provisional-complete-union",
+                "--output-root",
+                str(tmp_path / "union-output"),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    union_snapshot = union_root / "provisional-complete-union"
+    union_manifest = json.loads((union_snapshot / "manifest.json").read_text())
+    assert union_manifest["provisional_frontier"] is True
+    assert union_manifest["final_cohort_eligible"] is False
+    assert (
+        union_manifest["stage_commitments"]["screening_snapshot_union_inputs"][
+            "provisional_frontier"
+        ]
+        is True
+    )
+    union_summary = json.loads(
+        (
+            tmp_path / "union-output" / "screening-snapshot-union-summary.json"
+        ).read_text()
+    )
+    assert union_summary["provisional_frontier"] is True
+    assert union_summary["final_cohort_eligible"] is False
+    fixture_documents = tmp_path / "provisional-union-documents.jsonl"
+    fixture_documents.write_text("", encoding="utf-8")
+    courtlistener_fixture = tmp_path / "provisional-union-courtlistener.jsonl"
+    courtlistener_fixture.write_text("", encoding="utf-8")
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-cohort",
+                "--output-root",
+                str(tmp_path / "rejected-provisional-union"),
+                "--snapshot",
+                str(union_snapshot),
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--target-case-count",
+                "1",
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--use-embedded-entries",
+            ]
+        )
+        == 2
+    )
+
+
 def test_namespaced_union_raw_output_binds_numeric_packet_selection(
     tmp_path: Path,
 ) -> None:

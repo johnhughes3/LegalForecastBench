@@ -1890,6 +1890,15 @@ class CycleAcquisitionStore:
                     "published cohort observations require saturated snapshots: "
                     f"{row['snapshot_id']}"
                 )
+            if (
+                manifest.get("provisional_frontier") is True
+                or manifest.get("final_cohort_eligible") is False
+                or manifest.get("full_source_terminal") is False
+            ):
+                raise CycleAcquisitionStoreError(
+                    "published cohort observations reject provisional snapshot: "
+                    f"{row['snapshot_id']}"
+                )
             snapshots.append(
                 PublishedSnapshot(
                     snapshot_id=str(row["snapshot_id"]),
@@ -1921,6 +1930,15 @@ class CycleAcquisitionStore:
         self._raise_for_snapshot_collision(snapshot_id=snapshot_id, target=target)
         cycle_hash = self.cycle_hash
         batch_digest = self.batch_digest(batch_id)
+        batch_config = self.batch_config(batch_id)
+        provisional_frontier = batch_config.get("provisional_frontier") is True
+        if provisional_frontier and (
+            batch_config.get("final_cohort_eligible") is not False
+            or batch_config.get("full_source_terminal") is not False
+        ):
+            raise SnapshotVerificationError(
+                "provisional batch has contradictory cohort-safety flags"
+            )
         saturated = (
             self._snapshot_completion(
                 batch_id,
@@ -1961,6 +1979,14 @@ class CycleAcquisitionStore:
                 "created_at": _utc_now(),
                 "files": files,
             }
+            if provisional_frontier:
+                manifest.update(
+                    {
+                        "provisional_frontier": True,
+                        "final_cohort_eligible": False,
+                        "full_source_terminal": False,
+                    }
+                )
             if stage_commitments is not None:
                 normalized_commitments = json.loads(_canonical_json(stage_commitments))
                 if not isinstance(normalized_commitments, dict):
