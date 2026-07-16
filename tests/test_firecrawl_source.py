@@ -472,6 +472,28 @@ def test_generic_scrape_rejects_arbitrary_url_before_transport() -> None:
     assert transport.requests == []
 
 
+def test_generic_scrape_accepts_explicit_narrow_custom_canonicalizer() -> None:
+    source_url = (
+        "https://www.courtlistener.com/?type=r&q=%22Bullock%22&court=dcd&"
+        "order_by=score+desc"
+    )
+    transport = FirecrawlFixtureTransport([_success_response(source_url=source_url)])
+
+    class _NarrowSearchSource(FirecrawlCourtListenerHTMLSource):
+        def _canonicalize_source_url(self, value: str) -> str:
+            if value != source_url:
+                raise FirecrawlURLValidationError("not the frozen resolver URL")
+            return value
+
+    source = _NarrowSearchSource(
+        FirecrawlConfig(api_key="test-key"),
+        transport=transport,
+    )
+
+    assert source.scrape_url(source_url=source_url).resolved_url == source_url
+    assert len(transport.requests) == 1
+
+
 @pytest.mark.parametrize(
     "url",
     [
