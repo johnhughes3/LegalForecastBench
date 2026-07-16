@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import math
@@ -16549,12 +16550,26 @@ def _free_manifest_records_by_identity(
 
 
 def _validate_free_manifest_growth(
-    previous_path: Path, current_path: Path
+    previous_path: Path,
+    current_path: Path,
+    *,
+    current_route_ids: Sequence[str],
 ) -> tuple[dict[tuple[str, str], JsonRecord], int]:
     previous = _free_manifest_records_by_identity(previous_path)
     current = _free_manifest_records_by_identity(current_path)
     if not set(previous).issubset(current):
         raise CommandError("free-download manifest removed prior documents")
+    expected_retained_order = [
+        identity
+        for candidate_id in current_route_ids
+        for identity in previous
+        if identity[0] == candidate_id
+    ]
+    retained_current_order = [identity for identity in current if identity in previous]
+    if retained_current_order != expected_retained_order:
+        raise CommandError(
+            "free-download manifest prior-document order does not match current routes"
+        )
     reuse_transition_count = 0
     for identity, (previous_record, previous_line) in previous.items():
         current_record, current_line = current[identity]
@@ -16618,6 +16633,15 @@ def _validate_manifest_derived_paid_gap_change(
         for source_document_id, document in previous_documents_by_id.items()
     ):
         raise CommandError(f"paid-gap prior documents drifted for {candidate_id}")
+    retained_current_order = [
+        _required_str(document, "source_document_id")
+        for document in current_documents
+        if _required_str(document, "source_document_id") in previous_documents_by_id
+    ]
+    if retained_current_order != list(previous_documents_by_id):
+        raise CommandError(
+            f"paid-gap prior documents were reordered for {candidate_id}"
+        )
     added_plan_documents = {
         source_document_id: document
         for source_document_id, document in current_documents_by_id.items()
@@ -16761,7 +16785,7 @@ def _rebind_rank_only_checkpoint_payload(
     if set(selection) != set(previous_paid_gap) | derived_fields:
         raise CommandError(f"rank-only selection shape drifted for {candidate_id}")
     for field_name, previous_value in previous_paid_gap.items():
-        if field_name in derived_fields:
+        if field_name in derived_fields or field_name == "cost_rank":
             continue
         if selection.get(field_name) != previous_value:
             raise CommandError(
@@ -16964,6 +16988,66 @@ def _json_bytes(record: Mapping[str, Any]) -> bytes:
     ).encode("utf-8")
 
 
+def _pacer_gap_rebase_lock_path(checkpoint_dir: Path) -> Path:
+    return checkpoint_dir.parent / f".{checkpoint_dir.name}.rebase.lock"
+
+
+def _acquire_pacer_gap_rebase_lock(checkpoint_dir: Path) -> int:
+    lock_path = _pacer_gap_rebase_lock_path(checkpoint_dir)
+    flags = os.O_RDWR | os.O_CREAT
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        lock_fd = os.open(lock_path, flags, 0o600)
+    except OSError as exc:
+        raise CommandError(
+            f"PACER-gap rebase lock must be a regular non-symlink file: {lock_path}"
+        ) from exc
+    lock_stat = os.fstat(lock_fd)
+    if not stat.S_ISREG(lock_stat.st_mode) or lock_stat.st_nlink != 1:
+        os.close(lock_fd)
+        raise CommandError(
+            f"PACER-gap rebase lock must be a singly linked file: {lock_path}"
+        )
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as exc:
+        os.close(lock_fd)
+        raise CommandError(
+            f"PACER-gap rebase destination is already locked: {checkpoint_dir}"
+        ) from exc
+    try:
+        locked_stat = os.fstat(lock_fd)
+        path_stat = lock_path.lstat()
+    except OSError as exc:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        os.close(lock_fd)
+        raise CommandError(
+            f"PACER-gap rebase lock changed while acquiring it: {lock_path}"
+        ) from exc
+    if (
+        not stat.S_ISREG(locked_stat.st_mode)
+        or locked_stat.st_nlink != 1
+        or not stat.S_ISREG(path_stat.st_mode)
+        or path_stat.st_nlink != 1
+        or (locked_stat.st_dev, locked_stat.st_ino)
+        != (path_stat.st_dev, path_stat.st_ino)
+    ):
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        os.close(lock_fd)
+        raise CommandError(
+            f"PACER-gap rebase lock changed while acquiring it: {lock_path}"
+        )
+    return lock_fd
+
+
+def _release_pacer_gap_rebase_lock(lock_fd: int) -> None:
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+    finally:
+        os.close(lock_fd)
+
+
 def _replace_checkpoint_directory_transactionally(
     *,
     checkpoint_dir: Path,
@@ -16975,9 +17059,38 @@ def _replace_checkpoint_directory_transactionally(
     prior_config_bytes: bytes,
     receipt: Mapping[str, Any],
 ) -> None:
-    """Install a rebase as one rollback-safe transaction with config last."""
+    """Serialize and install a rollback-safe checkpoint/config/receipt set."""
 
     checkpoint_dir.parent.mkdir(parents=True, exist_ok=True)
+    lock_fd = _acquire_pacer_gap_rebase_lock(checkpoint_dir)
+    try:
+        _replace_checkpoint_directory_under_lock(
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_config_path=checkpoint_config_path,
+            receipt_path=receipt_path,
+            checkpoint_payloads=checkpoint_payloads,
+            prior_checkpoint_payloads=prior_checkpoint_payloads,
+            config=config,
+            prior_config_bytes=prior_config_bytes,
+            receipt=receipt,
+        )
+    finally:
+        _release_pacer_gap_rebase_lock(lock_fd)
+
+
+def _replace_checkpoint_directory_under_lock(
+    *,
+    checkpoint_dir: Path,
+    checkpoint_config_path: Path,
+    receipt_path: Path,
+    checkpoint_payloads: Mapping[str, bytes],
+    prior_checkpoint_payloads: Mapping[str, bytes],
+    config: Mapping[str, Any],
+    prior_config_bytes: bytes,
+    receipt: Mapping[str, Any],
+) -> None:
+    """Install one rebase while the destination's exclusive lock is held."""
+
     desired_config = _json_bytes(config)
     desired_receipt = _json_bytes(receipt)
     if checkpoint_dir.exists():
@@ -17010,6 +17123,7 @@ def _replace_checkpoint_directory_transactionally(
     old_receipt = receipt_path.read_bytes() if receipt_existed else None
     moved_existing = False
     installed = False
+    commit_succeeded = False
     try:
         for filename, payload in checkpoint_payloads.items():
             destination = stage / filename
@@ -17029,6 +17143,7 @@ def _replace_checkpoint_directory_transactionally(
         installed = True
         _atomic_write_json(checkpoint_config_path, config)
         _atomic_write_json(receipt_path, receipt)
+        commit_succeeded = True
     except Exception:
         if installed and checkpoint_dir.exists():
             shutil.rmtree(checkpoint_dir)
@@ -17048,7 +17163,7 @@ def _replace_checkpoint_directory_transactionally(
     finally:
         if stage.exists():
             shutil.rmtree(stage)
-        if backup.exists():
+        if commit_succeeded and backup.exists():
             shutil.rmtree(backup)
 
 
@@ -17110,6 +17225,7 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         previous_checkpoint_dir=previous_checkpoint_dir,
         checkpoint_dir=checkpoint_dir,
         writable_files=(
+            ("transaction lock", _pacer_gap_rebase_lock_path(checkpoint_dir)),
             ("checkpoint config", checkpoint_config_path),
             ("receipt", receipt_path),
             ("run card", run_card_path),
@@ -17157,8 +17273,14 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
     )
     if set(previous_paid_by_id) != set(current_paid_by_id):
         raise CommandError("paid-gap candidates were added or removed")
+    current_route_order = [
+        *(_required_str(record, "candidate_id") for record in current_public),
+        *(_required_str(record, "candidate_id") for record in current_paid),
+    ]
     added_free_by_identity, reuse_transition_count = _validate_free_manifest_growth(
-        previous_free_path, current_free_path
+        previous_free_path,
+        current_free_path,
+        current_route_ids=current_route_order,
     )
     added_free_by_candidate: dict[str, list[JsonRecord]] = defaultdict(list)
     for (candidate_id, _source_document_id), record in added_free_by_identity.items():
@@ -17442,7 +17564,10 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
         "current_checkpoint_dir": str(checkpoint_dir.resolve()),
         "checkpoint_count": len(bindings),
         "previous_checkpoint_count": len(checkpoint_by_id),
+        "previously_uncheckpointed_candidate_count": len(current_paid)
+        - len(checkpoint_by_id),
         "invalidated_checkpoint_count": len(invalidations),
+        "replay_required_candidate_count": len(current_paid) - len(bindings),
         "terminal_checkpoint_count": terminal_count,
         "retryable_checkpoint_count": len(bindings) - terminal_count,
         "added_free_document_count": len(added_free_ids),
@@ -17479,6 +17604,7 @@ def _cmd_acquisition_rebase_pacer_gap_checkpoints(
             "terminal_checkpoint_count": terminal_count,
             "retryable_checkpoint_count": len(bindings) - terminal_count,
             "invalidated_checkpoint_count": len(invalidations),
+            "replay_required_candidate_count": len(current_paid) - len(bindings),
             "added_free_document_count": len(added_free_ids),
             "reused_existing_transition_count": reuse_transition_count,
             "provider_request_count": 0,

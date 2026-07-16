@@ -76,11 +76,15 @@ def test_rebase_pacer_gap_checkpoints_reorders_atomically_and_is_idempotent(
         path.name: path.read_bytes()
         for path in fixture["destination_checkpoint_dir"].glob("*.json")
     }
+    first_config = fixture["destination_config"].read_bytes()
+    first_receipt = fixture["receipt"].read_bytes()
     assert main(fixture["command"]) == 0
     assert first_bytes == {
         path.name: path.read_bytes()
         for path in fixture["destination_checkpoint_dir"].glob("*.json")
     }
+    assert fixture["destination_config"].read_bytes() == first_config
+    assert fixture["receipt"].read_bytes() == first_receipt
 
     checkpoints = sorted(
         (
@@ -95,8 +99,10 @@ def test_rebase_pacer_gap_checkpoints_reorders_atomically_and_is_idempotent(
     assert all(record["resumable_attempt_count"] == 2 for record in checkpoints)
     receipt = _read_json(fixture["receipt"])
     assert receipt["previous_checkpoint_count"] == 2
+    assert receipt["previously_uncheckpointed_candidate_count"] == 0
     assert receipt["checkpoint_count"] == 1
     assert receipt["invalidated_checkpoint_count"] == 1
+    assert receipt["replay_required_candidate_count"] == 1
     assert receipt["terminal_checkpoint_count"] == 1
     assert receipt["added_free_document_count"] == 1
     assert receipt["provider_request_count"] == 0
@@ -158,6 +164,7 @@ def test_rebase_pacer_gap_checkpoints_invalidates_materially_changed_success(
 
 def test_rebase_pacer_gap_checkpoints_rejects_stale_rank_in_success_payload(
     tmp_path: Path,
+    capsys: Any,
 ) -> None:
     fixture = _pacer_gap_rebase_fixture(tmp_path)
     checkpoint_path = next(
@@ -168,8 +175,12 @@ def test_rebase_pacer_gap_checkpoints_rejects_stale_rank_in_success_payload(
     checkpoint = _read_json(checkpoint_path)
     checkpoint["payload"]["selection_record"]["cost_rank"] = 999
     _write_json(checkpoint_path, checkpoint)
+    _write_json(
+        fixture["destination_checkpoint_dir"] / checkpoint_path.name, checkpoint
+    )
 
     assert main(fixture["command"]) == 2
+    assert "cost rank is stale" in capsys.readouterr().err
     assert not fixture["receipt"].exists()
 
 
@@ -233,6 +244,26 @@ def test_rebase_pacer_gap_checkpoints_rejects_symlink_parent_without_mutation(
     } == checkpoints_before
 
 
+def test_rebase_pacer_gap_checkpoints_rejects_concurrent_destination_writer(
+    tmp_path: Path,
+) -> None:
+    fixture = _pacer_gap_rebase_fixture(tmp_path)
+    checkpoints_before = {
+        path.name: path.read_bytes()
+        for path in fixture["destination_checkpoint_dir"].glob("*.json")
+    }
+    lock_fd = cli._acquire_pacer_gap_rebase_lock(fixture["destination_checkpoint_dir"])
+    try:
+        assert main(fixture["command"]) == 2
+    finally:
+        cli._release_pacer_gap_rebase_lock(lock_fd)
+    assert {
+        path.name: path.read_bytes()
+        for path in fixture["destination_checkpoint_dir"].glob("*.json")
+    } == checkpoints_before
+    assert not fixture["receipt"].exists()
+
+
 @pytest.mark.parametrize("mutation", ["drift", "remove", "add", "duplicate"])
 def test_rebase_pacer_gap_checkpoints_rejects_paid_gap_set_or_content_changes(
     tmp_path: Path,
@@ -267,6 +298,59 @@ def test_rebase_pacer_gap_checkpoints_rejects_prior_free_document_drift(
 
     assert main(fixture["command"]) == 2
     assert not fixture["receipt"].exists()
+
+
+def test_rebase_pacer_gap_checkpoints_rejects_prior_free_document_reordering(
+    tmp_path: Path,
+) -> None:
+    fixture = _pacer_gap_rebase_fixture(tmp_path)
+    current_free = _read_jsonl(fixture["current_free"])
+    assert len(current_free) >= 3
+    current_free[0], current_free[1] = current_free[1], current_free[0]
+    _write_jsonl(fixture["current_free"], current_free)
+
+    assert main(fixture["command"]) == 2
+    assert not fixture["receipt"].exists()
+
+
+def test_manifest_derived_gap_change_rejects_prior_document_reordering(
+    tmp_path: Path,
+) -> None:
+    fixture = _pacer_gap_rebase_fixture(tmp_path)
+    previous = next(
+        record
+        for record in _read_jsonl(fixture["previous_paid"])
+        if record["candidate_id"] == "cl-123"
+    )
+    current = next(
+        record
+        for record in _read_jsonl(fixture["current_paid"])
+        if record["candidate_id"] == "cl-123"
+    )
+    second_prior = copy.deepcopy(
+        cast(list[dict[str, object]], previous["documents"])[0]
+    )
+    second_prior["source_document_id"] = "cl-123-second-prior-document"
+    cast(list[dict[str, object]], previous["documents"]).append(second_prior)
+    current_documents = cast(list[dict[str, object]], current["documents"])
+    current_documents.extend([copy.deepcopy(second_prior)])
+    current_documents[-2], current_documents[-1] = (
+        current_documents[-1],
+        current_documents[-2],
+    )
+    added_free = next(
+        record
+        for record in _read_jsonl(fixture["current_free"])
+        if record["source_document_id"] == "cl-123-entry-1-complaint"
+    )
+
+    with pytest.raises(cli.CommandError, match="reordered"):
+        cli._validate_manifest_derived_paid_gap_change(
+            candidate_id="cl-123",
+            previous=previous,
+            current=current,
+            added_free_documents=[added_free],
+        )
 
 
 def test_rebase_pacer_gap_checkpoints_rejects_duplicate_free_documents(
@@ -390,6 +474,46 @@ def test_rebase_pacer_gap_checkpoints_rolls_back_failed_receipt_commit(
     }
     assert fixture["destination_config"].read_bytes() == original_config
     assert fixture["receipt"].read_bytes() == original_receipt
+
+
+def test_rebase_pacer_gap_checkpoints_preserves_backup_when_restore_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _pacer_gap_rebase_fixture(tmp_path)
+    original_checkpoints = {
+        path.name: path.read_bytes()
+        for path in fixture["destination_checkpoint_dir"].glob("*.json")
+    }
+    atomic_write = cli._atomic_write_json
+    real_replace = cli.os.replace
+
+    def fail_receipt(path: Path, payload: dict[str, object]) -> None:
+        if path == fixture["receipt"]:
+            raise OSError("simulated receipt commit failure")
+        atomic_write(path, payload)
+
+    def fail_backup_restore(source: str | Path, destination: str | Path) -> None:
+        source_path = Path(source)
+        if (
+            source_path.name.startswith(".pacer-gap-rebase-backup.")
+            and Path(destination) == fixture["destination_checkpoint_dir"]
+        ):
+            raise OSError("simulated backup restoration failure")
+        real_replace(source, destination)
+
+    monkeypatch.setattr(cli, "_atomic_write_json", fail_receipt)
+    monkeypatch.setattr(cli.os, "replace", fail_backup_restore)
+    with pytest.raises(OSError, match="simulated backup restoration failure"):
+        main(fixture["command"])
+
+    backups = list(
+        fixture["destination_checkpoint_dir"].parent.glob(".pacer-gap-rebase-backup.*")
+    )
+    assert len(backups) == 1
+    assert {
+        path.name: path.read_bytes() for path in backups[0].glob("*.json")
+    } == original_checkpoints
 
 
 def test_live_courtlistener_bridge_reserves_every_physical_attempt(
@@ -1867,7 +1991,16 @@ def _pacer_gap_rebase_fixture(tmp_path: Path) -> dict[str, Any]:
             )
     _write_jsonl(paths["current_paid"], current_paid)
     _write_jsonl(paths["previous_free"], free)
-    _write_jsonl(paths["current_free"], [*free, added_free])
+    current_free = [
+        *(
+            record
+            for candidate_id in ("cl-456", "cl-123")
+            for record in free
+            if record["candidate_id"] == candidate_id
+        ),
+        added_free,
+    ]
+    _write_jsonl(paths["current_free"], current_free)
 
     route_ids = [record["candidate_id"] for record in paid]
     source_commitments = cli._bridge_source_commitments(
