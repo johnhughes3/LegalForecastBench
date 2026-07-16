@@ -943,9 +943,32 @@ def test_bridge_replays_pre_storage_host_success_and_rejects_tamper(
         (output_root / "checkpoints" / "pacer-gap-bridge").glob("*.json")
     )
     checkpoint = _read_json(checkpoint_path)
+    assert checkpoint["bridge_semantic_revision"] == (
+        _PACER_GAP_BRIDGE_SEMANTIC_REVISION
+    )
+    current_checkpoint_bytes = checkpoint_path.read_bytes()
+    _write_jsonl(fixture_path, [])
+    assert main(command) == 0
+    current_resumed = _read_json(output_root / "pacer-gap-bridge-summary.json")
+    assert current_resumed["semantic_replay_candidate_count"] == 0
+    assert current_resumed["resumed_terminal_candidate_count"] == 1
+    assert current_resumed["courtlistener_request_count"] == 0
+    assert checkpoint_path.read_bytes() == current_checkpoint_bytes
+
     checkpoint["bridge_semantic_revision"] = (
         "courtlistener-rest-recap-sequence-semantics-2026-07-16-v3"
     )
+    checkpoint_path.write_text(
+        json.dumps(checkpoint, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    safe_prior_checkpoint_bytes = checkpoint_path.read_bytes()
+    assert main(command) == 0
+    safe_prior_resumed = _read_json(output_root / "pacer-gap-bridge-summary.json")
+    assert safe_prior_resumed["semantic_replay_candidate_count"] == 0
+    assert safe_prior_resumed["resumed_terminal_candidate_count"] == 1
+    assert safe_prior_resumed["courtlistener_request_count"] == 0
+    assert checkpoint_path.read_bytes() == safe_prior_checkpoint_bytes
+
     old_url = "https://www.courtlistener.com/recap/newly-free-motion.pdf"
     payload = checkpoint["payload"]
     selection_document = next(
@@ -1120,9 +1143,48 @@ def test_semantic_replay_requires_exact_consistent_legacy_exclusion() -> None:
     )
     checkpoint.pop("bridge_semantic_revision")
     checkpoint["outcome"] = "success"
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="case.dev"
+    )
+
+
+def test_success_semantic_replay_requires_exact_stale_download_binding() -> None:
+    stale_url = "https://www.courtlistener.com/recap/example.pdf"
+    checkpoint: dict[str, Any] = {
+        "bridge_semantic_revision": (
+            "courtlistener-rest-recap-sequence-semantics-2026-07-16-v3"
+        ),
+        "outcome": "success",
+        "payload": {"free_download_requests": [{"source_url": stale_url}]},
+    }
+
     assert _bridge_checkpoint_requires_semantic_replay(
         checkpoint, bridge_provider="courtlistener_rest"
     )
+
+    checkpoint["payload"]["free_download_requests"][0]["source_url"] = (
+        "https://storage.courtlistener.com/recap/example.pdf"
+    )
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+
+    checkpoint["payload"]["free_download_requests"][0]["source_url"] = (
+        stale_url + "?download=1"
+    )
+    assert not _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+
+    checkpoint["payload"]["free_download_requests"][0]["source_url"] = stale_url
+    checkpoint.pop("bridge_semantic_revision")
+    assert _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
+
     checkpoint["bridge_semantic_revision"] = _PACER_GAP_BRIDGE_SEMANTIC_REVISION
     assert not _bridge_checkpoint_requires_semantic_replay(
         checkpoint, bridge_provider="courtlistener_rest"
