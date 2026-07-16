@@ -17716,6 +17716,12 @@ _PACER_GAP_CHECKPOINT_SCHEMA = "legalforecast.pacer_gap_bridge_candidate_checkpo
 _PACER_GAP_BRIDGE_SEMANTIC_REVISION = (
     "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2"
 )
+_PACER_GAP_COMPATIBLE_SEMANTIC_REVISIONS = frozenset(
+    {
+        _PACER_GAP_BRIDGE_SEMANTIC_REVISION,
+        "courtlistener-complaint-and-main-description-2026-07-15-v1",
+    }
+)
 _PACER_GAP_LEGACY_PROGRESS_CONFIG_SCHEMA = (
     "legalforecast.pacer_gap_bridge_progress_config.v1"
 )
@@ -17866,7 +17872,10 @@ def _validate_bridge_checkpoint(
         or attempt_count > _PACER_GAP_MAX_RESUMABLE_ATTEMPTS
         or (
             semantic_revision is not None
-            and semantic_revision != _PACER_GAP_BRIDGE_SEMANTIC_REVISION
+            and (
+                not isinstance(semantic_revision, str)
+                or semantic_revision not in _PACER_GAP_COMPATIBLE_SEMANTIC_REVISIONS
+            )
         )
         or not _bridge_checkpoint_payload_matches_candidate(
             checkpoint.get("payload"),

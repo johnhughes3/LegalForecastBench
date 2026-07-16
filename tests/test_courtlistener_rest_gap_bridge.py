@@ -832,7 +832,7 @@ def test_bridge_pacer_gaps_cli_runs_noncharging_courtlistener_rest_mode(
     assert summary["paid_activity_executed"] is False
 
 
-def test_bridge_pacer_gaps_cli_checkpoints_newly_free_request(
+def test_bridge_resumes_known_prior_revision_without_refetch_and_rejects_tamper(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -894,6 +894,17 @@ def test_bridge_pacer_gaps_cli_checkpoints_newly_free_request(
     assert bridge_summary["document_bytes_ready_case_count"] == 0
     assert bridge_summary["next_stage"] == "download-free"
 
+    [checkpoint_path] = sorted(
+        (output_root / "checkpoints" / "pacer-gap-bridge").glob("*.json")
+    )
+    checkpoint = _read_json(checkpoint_path)
+    checkpoint["bridge_semantic_revision"] = (
+        "courtlistener-complaint-and-main-description-2026-07-15-v1"
+    )
+    checkpoint_path.write_text(
+        json.dumps(checkpoint, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
     _write_jsonl(fixture_path, [])
     assert main(command) == 0
     assert _read_jsonl(requests_path) == [request]
@@ -901,9 +912,6 @@ def test_bridge_pacer_gaps_cli_checkpoints_newly_free_request(
     assert resumed["resumed_terminal_candidate_count"] == 1
     assert resumed["courtlistener_request_count"] == 0
 
-    [checkpoint_path] = sorted(
-        (output_root / "checkpoints" / "pacer-gap-bridge").glob("*.json")
-    )
     checkpoint = _read_json(checkpoint_path)
     checkpoint["payload"]["free_download_requests"][0]["source_url"] = (
         "https://example.com/tampered.pdf"
