@@ -17714,11 +17714,12 @@ _PACER_GAP_LEGACY_CHECKPOINT_SCHEMA = (
 )
 _PACER_GAP_CHECKPOINT_SCHEMA = "legalforecast.pacer_gap_bridge_candidate_checkpoint.v2"
 _PACER_GAP_BRIDGE_SEMANTIC_REVISION = (
-    "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2"
+    "courtlistener-rest-recap-sequence-semantics-2026-07-16-v3"
 )
 _PACER_GAP_COMPATIBLE_SEMANTIC_REVISIONS = frozenset(
     {
         _PACER_GAP_BRIDGE_SEMANTIC_REVISION,
+        "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2",
         "courtlistener-complaint-and-main-description-2026-07-15-v1",
     }
 )
@@ -19255,6 +19256,11 @@ def _bridge_checkpoint_requires_semantic_replay(
         or cast(list[object], reasons) != [primary_reason]
     ):
         return False
+    if primary_reason == "courtlistener_rest_entry_number_alias_conflict":
+        return (
+            checkpoint.get("bridge_semantic_revision")
+            == "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2"
+        )
     return primary_reason in superseded_reasons
 
 

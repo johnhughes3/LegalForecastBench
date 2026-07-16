@@ -1777,7 +1777,7 @@ def _complete_courtlistener_rest_entries(
 
 def _validate_rest_entry_number_aliases(entry: CourtListenerDocketEntry) -> None:
     aliases: set[str] = set()
-    for field_name in ("entry_number", "entryNumber", "recap_sequence_number"):
+    for field_name in ("entry_number", "entryNumber"):
         value = entry.raw.get(field_name)
         if isinstance(value, bool) or value is None:
             continue
