@@ -123,17 +123,23 @@ def test_declared_shards_have_distinct_concurrency_groups() -> None:
     group_match = re.search(r"(?m)^  group: (?P<expression>.+)$", WORKFLOW)
     assert group_match is not None
     expression = group_match.group("expression")
+    model_identity_expression = (
+        "${{ inputs.shard_only && inputs.model_keys || 'full-matrix' }}"
+    )
+    ablation_identity_expression = (
+        "${{ inputs.shard_only && inputs.ablations || 'full-matrix' }}"
+    )
     assert "${{ inputs.cycle_id }}" in expression
-    assert "${{ inputs.model_keys }}" in expression
-    assert "${{ inputs.ablations }}" in expression
+    assert model_identity_expression in expression
+    assert ablation_identity_expression in expression
     assert f"CONCURRENCY_GROUP: {expression}" in BUILD_MATRIX_JOB
 
     def render_group(model_key: str, ablation: str) -> str:
         return (
             expression.replace("${{ inputs.cycle_id }}", "cycle-1")
             .replace("${{ github.ref }}", "refs/heads/main")
-            .replace("${{ inputs.model_keys }}", model_key)
-            .replace("${{ inputs.ablations }}", ablation)
+            .replace(model_identity_expression, model_key)
+            .replace(ablation_identity_expression, ablation)
         )
 
     groups = [
@@ -164,6 +170,15 @@ def test_declared_shards_have_distinct_concurrency_groups() -> None:
         "run-0",
         "run-1",
     }
+
+    non_shard_group = (
+        expression.replace("${{ inputs.cycle_id }}", "cycle-1")
+        .replace("${{ github.ref }}", "refs/heads/main")
+        .replace(model_identity_expression, "full-matrix")
+        .replace(ablation_identity_expression, "full-matrix")
+    )
+    assert "fixture:model-a" not in non_shard_group
+    assert non_shard_group.endswith("-full-matrix-full-matrix")
 
 
 def test_amendment_dispatch_is_new_models_only_and_aggregation_unions_runs() -> None:
