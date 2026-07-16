@@ -25,6 +25,7 @@ def test_official_eval_matrix_workflow_is_manual_and_protected() -> None:
         "run_input_manifest_uri:",
         "labels_uri:",
         "ablations:",
+        "shard_only:",
         "model_registry_uri:",
         "model_keys:",
         "freeze_bundle_path:",
@@ -58,7 +59,6 @@ def test_official_eval_matrix_workflow_defaults_to_current_review_release() -> N
 
 
 def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
-    assert "run-benchmark-${{ inputs.cycle_id }}-${{ github.ref }}" in WORKFLOW
     assert "matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}" in WORKFLOW
     assert (
         "max-parallel: ${{ fromJSON(needs.build-matrix.outputs.max_parallel) }}"
@@ -82,6 +82,59 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
         "projected_model_cost_usd: ${{ steps.matrix.outputs.projected_model_cost_usd }}"
         in WORKFLOW
     )
+
+
+def test_shard_only_dispatch_gates_aggregation_and_records_provenance() -> None:
+    assert "SHARD_ONLY: ${{ inputs.shard_only }}" in BUILD_MATRIX_JOB
+    assert "ABLATIONS: ${{ inputs.ablations }}" in BUILD_MATRIX_JOB
+    assert 'ablation_args+=(--requested-ablation "${ablation}")' in BUILD_MATRIX_JOB
+    assert "shard_args+=(--shard-only)" in BUILD_MATRIX_JOB
+    assert '"${ablation_args[@]}"' in BUILD_MATRIX_JOB
+    assert '"${shard_args[@]}"' in BUILD_MATRIX_JOB
+    assert (
+        "if: ${{ !inputs.dry_run && !inputs.shard_only && "
+        "needs.run-case.result == 'success' }}" in AGGREGATE_RESULTS_JOB
+    )
+    provenance_source = (
+        ROOT / "legalforecast" / "publication" / "dispatch_provenance.py"
+    ).read_text(encoding="utf-8")
+    assert "_load_execution_policy(" in provenance_source
+    assert 'execution_policy["concurrency_policy"]' in provenance_source
+    assert '"dispatch_mode": "shard_only"' in provenance_source
+
+
+def test_declared_shards_have_distinct_concurrency_groups() -> None:
+    group_match = re.search(r"(?m)^  group: (?P<expression>.+)$", WORKFLOW)
+    assert group_match is not None
+    expression = group_match.group("expression")
+    assert "${{ inputs.cycle_id }}" in expression
+    assert "${{ inputs.model_keys }}" in expression
+    assert "${{ inputs.ablations }}" in expression
+
+    def render_group(model_key: str, ablation: str) -> str:
+        return (
+            expression.replace("${{ inputs.cycle_id }}", "cycle-1")
+            .replace("${{ github.ref }}", "refs/heads/main")
+            .replace("${{ inputs.model_keys }}", model_key)
+            .replace("${{ inputs.ablations }}", ablation)
+        )
+
+    groups = [
+        render_group(f"fixture:model-{model}", ablation)
+        for model in "abcd"
+        for ablation in ("full_packet", "metadata_only")
+    ]
+    assert len(groups) == 8
+    assert len(set(groups)) == 8
+    assert "cancel-in-progress: false" in WORKFLOW
+
+    # GitHub retains only one pending run per concurrency group. Simulate its
+    # pending-slot replacement rule and prove all eight declared shards survive.
+    pending_run_by_group: dict[str, str] = {}
+    expected_run_ids = {f"run-{index}" for index in range(len(groups))}
+    for index, group in enumerate(groups):
+        pending_run_by_group[group] = f"run-{index}"
+    assert set(pending_run_by_group.values()) == expected_run_ids
 
 
 def test_amendment_dispatch_is_new_models_only_and_aggregation_unions_runs() -> None:
