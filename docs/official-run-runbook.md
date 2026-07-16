@@ -636,7 +636,7 @@ This sequence is local, provider-free, and noncharging.
 Do not run a purchase, parser or labeling-model call, model evaluation, official freeze, or dispatch as part of this gate.
 
 Set paths for the exact completed preparation outputs, a normal acquisition review root, and a separate controlled private store.
-The reviewer-policy digest must come from an independently reviewed external precommitment; do not derive a new digest at invocation time and call it precommitted.
+The frozen cohort policy selects the reviewer authority from the immutable main-pinned registry; callers cannot supply or replace the expected reviewer-policy digest.
 
 ```zsh
 review_requests=artifacts/cycle-1/official-acquisition/target-100/06-clearance-inputs/disclosure-review-requests.jsonl
@@ -647,7 +647,7 @@ review_root=artifacts/cycle-1/official-acquisition/target-100/disclosure-review
 clearance_root=artifacts/cycle-1/official-acquisition/target-100/free-clearance
 private_review_root=<absolute-controlled-private-review-root>
 reviewer_policy=<externally-reviewed-human-hardware-reviewer-policy.json>
-reviewer_policy_sha256=<externally-precommitted-policy-sha256>
+cohort_policy=<frozen-cohort-policy.json>
 controlled_store_uri=private-store://<authority>/<cycle-1-review-location>
 ```
 
@@ -662,17 +662,19 @@ uv run legalforecast acquisition prepare-disclosure-review \
   --download-manifest "$download_manifest" \
   --document-root "$document_root" \
   --restriction-evidence "$restriction_evidence" \
+  --reviewer-policy "$reviewer_policy" \
+  --cohort-policy "$cohort_policy" \
   --worksheet-output "$review_root/disclosure-review-worksheet.json" \
   --controlled-private-store-root "$private_review_root" \
   --execute --resume
 ```
 
-Preflight the exact reviewer-policy bytes against the external pin before recording an authenticated bundle:
+Preflight the exact reviewer-policy bytes against the authority selected by the frozen cohort before recording an authenticated bundle:
 
 ```zsh
 uv run legalforecast acquisition preflight-disclosure-review-signer \
   --reviewer-policy "$reviewer_policy" \
-  --expected-reviewer-policy-sha256 "$reviewer_policy_sha256"
+  --cohort-policy "$cohort_policy"
 ```
 
 Production requires `identity_kind: "human_hardware"` and an `sk-ssh-ed25519@openssh.com` or `sk-ecdsa-sha2-nistp256@openssh.com` public key.
@@ -710,7 +712,7 @@ uv run legalforecast acquisition build-disclosure-review-bundle \
   --review-worksheet "$review_root/disclosure-review-worksheet.json" \
   --decisions "$decisions" \
   --reviewer-policy "$reviewer_policy" \
-  --expected-reviewer-policy-sha256 "$reviewer_policy_sha256" \
+  --cohort-policy "$cohort_policy" \
   --controlled-store-uri "$controlled_store_uri" \
   --authenticated-at "$authenticated_at" \
   --reviews-output "$review_root/disclosure-reviews.jsonl" \
@@ -724,7 +726,7 @@ Immediately before the hardware touch, display and inspect the exact per-documen
 ```zsh
 uv run legalforecast acquisition preflight-disclosure-review-signer \
   --reviewer-policy "$reviewer_policy" \
-  --expected-reviewer-policy-sha256 "$reviewer_policy_sha256" \
+  --cohort-policy "$cohort_policy" \
   --signing-statement "$review_root/disclosure-review-signing-statement.json"
 ```
 
@@ -753,7 +755,7 @@ uv run legalforecast acquisition seal-disclosure-review-bundle \
   --signing-statement "$review_root/disclosure-review-signing-statement.json" \
   --signature "$review_root/disclosure-review-signing-statement.json.sig" \
   --reviewer-policy "$reviewer_policy" \
-  --expected-reviewer-policy-sha256 "$reviewer_policy_sha256" \
+  --cohort-policy "$cohort_policy" \
   --review-receipt-output "$review_root/disclosure-review-receipt.json" \
   --execute --resume
 ```
@@ -771,7 +773,7 @@ uv run legalforecast acquisition clear-disclosures \
   --reviews "$review_root/disclosure-reviews.jsonl" \
   --review-receipt "$review_root/disclosure-review-receipt.json" \
   --reviewer-policy "$reviewer_policy" \
-  --expected-reviewer-policy-sha256 "$reviewer_policy_sha256" \
+  --cohort-policy "$cohort_policy" \
   --restriction-evidence "$restriction_evidence" \
   --execute --resume
 ```

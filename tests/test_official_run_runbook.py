@@ -117,6 +117,44 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
         assert deprecated not in combined
 
 
+def test_disclosure_review_runbook_uses_main_pinned_authority_contract() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    section = runbook.split(
+        "### Step 5: Clear Every Free Document And Freeze The Exact Cohort",
+        maxsplit=1,
+    )[1].split("### Step 6:", maxsplit=1)[0]
+
+    assert "cohort_policy=<frozen-cohort-policy.json>" in section
+    assert "--expected-reviewer-policy-sha256" not in section
+
+    required_options = {
+        "prepare-disclosure-review": ("--reviewer-policy", "--cohort-policy"),
+        "preflight-disclosure-review-signer": (
+            "--reviewer-policy",
+            "--cohort-policy",
+        ),
+        "build-disclosure-review-bundle": (
+            "--reviewer-policy",
+            "--cohort-policy",
+        ),
+        "seal-disclosure-review-bundle": (
+            "--reviewer-policy",
+            "--cohort-policy",
+        ),
+        "clear-disclosures": ("--reviewer-policy", "--cohort-policy"),
+    }
+    for command, options in required_options.items():
+        marker = f"uv run legalforecast acquisition {command}"
+        command_blocks = [
+            remainder.split("```", maxsplit=1)[0]
+            for remainder in section.split(marker)[1:]
+        ]
+        assert command_blocks, f"{command} is not documented"
+        for command_block in command_blocks:
+            for option in options:
+                assert option in command_block, f"{command} is missing {option}"
+
+
 def test_documented_aggregate_command_accepts_downloaded_workflow_tree(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
