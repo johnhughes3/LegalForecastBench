@@ -4,15 +4,27 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from html import escape
+from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.ingestion.budgeted_firecrawl import (
     BudgetedFirecrawlScheduler,
     FirecrawlTargetSpec,
+)
+from legalforecast.ingestion.case_dev_ranked_selection import (
+    CASE_DEV_RANKED_SELECTION_RUN_SCHEMA,
+    CASE_DEV_RANKED_SUBSET_SELECTION_RUN_SCHEMA,
+)
+from legalforecast.ingestion.courtlistener_opinion_discovery import (
+    OPINION_API_POLICY_SCHEMA,
+)
+from legalforecast.ingestion.courtlistener_unrestricted_recap_discovery import (
+    UNRESTRICTED_RECAP_POLICY_SCHEMA,
 )
 from legalforecast.ingestion.courtlistener_web import (
     CourtListenerWebParseError,
@@ -30,10 +42,40 @@ from legalforecast.ingestion.firecrawl_docket_pagination import (
     may_stop_at_anchor_boundary,
     paginate_courtlistener_docket,
 )
+from legalforecast.ingestion.mtd_acquisition_screen import (
+    courtlistener_public_docket_url_from_case_dev,
+)
 
 
 class BudgetedDocketAcquisitionError(ValueError):
     """Raised when ranked input cannot produce a complete screening artifact."""
+
+
+_SHA256 = re.compile(r"[0-9a-f]{64}")
+_RANKED_PREFIX_TERM = "case-dev-ranked-opinion-transfer-v1"
+_RANKED_SUBSET_TERM = "case-dev-ranked-opinion-subset-transfer-v1"
+_AUTHENTICATED_HANDOFF_COMMITMENTS = (
+    "source_batch_id",
+    "source_batch_digest",
+    "source_cycle_hash",
+    "source_schema_version",
+    "source_search_type",
+    "source_available_only",
+    "source_query_expression",
+    "source_query_terms",
+    "source_search_window_start",
+    "source_search_window_end",
+    "source_query_commitment_sha256",
+    "source_candidate_set_sha256",
+    "source_hit_set_sha256",
+    "source_projection_sha256",
+    "ranked_output_sha256",
+    "enrichment_run_card_sha256",
+    "selected_candidate_set_sha256",
+)
+_AUTHENTICATED_SELECTION_SEMANTICS = frozenset(
+    {"exact_case_dev_ranked_prefix", "exact_case_dev_ranked_subset"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +124,316 @@ class DocketAcquisitionFailure:
             "failure_stage": self.failure_stage,
             "failure_reason": self.failure_reason,
         }
+
+
+def ranked_parent_requires_authenticated_handoff(
+    store: CycleAcquisitionStore,
+    parent_batch_id: str,
+) -> bool:
+    """Derive source-bound authentication from one frozen parent batch."""
+
+    try:
+        parent_config = store.batch_config(parent_batch_id)
+    except KeyError as exc:
+        raise BudgetedDocketAcquisitionError("ranked parent batch is missing") from exc
+    return parent_config.get(
+        "selection_semantics"
+    ) in _AUTHENTICATED_SELECTION_SEMANTICS or any(
+        field in parent_config for field in _AUTHENTICATED_HANDOFF_COMMITMENTS
+    )
+
+
+def verify_authenticated_ranked_firecrawl_handoff(
+    *,
+    store: CycleAcquisitionStore,
+    parent_batch_id: str,
+    ranked_path: Path,
+    selection_run_card_path: Path,
+    expected_selection_run_card_sha256: str,
+    max_candidates: int,
+) -> tuple[dict[str, Any], ...]:
+    """Return the exact authenticated prefix/subset authorized for Firecrawl."""
+
+    if _SHA256.fullmatch(expected_selection_run_card_sha256) is None:
+        raise BudgetedDocketAcquisitionError(
+            "expected ranked-selection run-card SHA-256 is invalid"
+        )
+    try:
+        run_card_bytes = selection_run_card_path.read_bytes()
+        ranked_bytes = ranked_path.read_bytes()
+        run_card_value = json.loads(run_card_bytes)
+        ranked_values = [json.loads(line) for line in ranked_bytes.splitlines() if line]
+    except (OSError, json.JSONDecodeError, UnicodeError) as exc:
+        raise BudgetedDocketAcquisitionError(
+            f"authenticated ranked handoff artifact is unreadable: {exc}"
+        ) from exc
+    run_card_sha256 = hashlib.sha256(run_card_bytes).hexdigest()
+    if run_card_sha256 != expected_selection_run_card_sha256:
+        raise BudgetedDocketAcquisitionError(
+            "ranked-selection run card does not match its external SHA-256"
+        )
+    if not isinstance(run_card_value, dict) or not all(
+        isinstance(record, dict) for record in ranked_values
+    ):
+        raise BudgetedDocketAcquisitionError(
+            "authenticated ranked handoff artifacts must contain JSON objects"
+        )
+    run_card = cast(dict[str, object], run_card_value)
+    ranked = [cast(dict[str, Any], record) for record in ranked_values]
+    schema = run_card.get("schema_version")
+    if schema == CASE_DEV_RANKED_SELECTION_RUN_SCHEMA:
+        selection_semantics = "exact_case_dev_ranked_prefix"
+        transfer_term = _RANKED_PREFIX_TERM
+    elif schema == CASE_DEV_RANKED_SUBSET_SELECTION_RUN_SCHEMA:
+        selection_semantics = "exact_case_dev_ranked_subset"
+        transfer_term = _RANKED_SUBSET_TERM
+    else:
+        raise BudgetedDocketAcquisitionError(
+            "ranked-selection run card uses an unsupported schema"
+        )
+    source_search_type = run_card.get("source_search_type")
+    source_schema = run_card.get("source_schema_version")
+    source_available_only = run_card.get("source_available_only")
+    source_query_expression = run_card.get("source_query_expression")
+    if source_search_type == "o":
+        source_supported = (
+            source_schema == OPINION_API_POLICY_SCHEMA
+            and source_available_only == "absent"
+            and source_query_expression is None
+        )
+    elif source_search_type == "r":
+        source_supported = (
+            source_schema == UNRESTRICTED_RECAP_POLICY_SCHEMA
+            and source_available_only == "omitted"
+            and source_query_expression
+            == "{term} AND entry_date_filed:[{start} TO {end}]"
+        )
+    else:
+        source_supported = False
+    if not source_supported:
+        raise BudgetedDocketAcquisitionError(
+            "ranked-selection source schema/type substitution is not permitted"
+        )
+    raw_source_query_terms = run_card.get("source_query_terms")
+    if not isinstance(raw_source_query_terms, list):
+        raise BudgetedDocketAcquisitionError(
+            "ranked-selection source query terms are invalid"
+        )
+    source_query_term_values = cast(list[object], raw_source_query_terms)
+    if not all(
+        isinstance(term, str) and bool(term) and term == term.strip()
+        for term in source_query_term_values
+    ):
+        raise BudgetedDocketAcquisitionError(
+            "ranked-selection source query terms are invalid"
+        )
+    source_query_terms = cast(list[str], source_query_term_values)
+    query_commitment: dict[str, object] = {
+        "source_schema_version": source_schema,
+        "source_search_type": source_search_type,
+        "source_available_only": source_available_only,
+        "source_query_expression": source_query_expression,
+        "source_query_terms": source_query_terms,
+        "source_search_window_start": run_card.get("source_search_window_start"),
+        "source_search_window_end": run_card.get("source_search_window_end"),
+    }
+    if run_card.get("source_query_commitment_sha256") != _canonical_record_sha256(
+        query_commitment
+    ):
+        raise BudgetedDocketAcquisitionError(
+            "ranked-selection source query commitment does not reconcile"
+        )
+    for field in (
+        "source_batch_digest",
+        "source_cycle_hash",
+        "source_query_commitment_sha256",
+        "source_candidate_set_sha256",
+        "source_hit_set_sha256",
+        "source_projection_sha256",
+        "ranked_output_sha256",
+        "enrichment_run_card_sha256",
+        "selected_candidate_set_sha256",
+    ):
+        value = run_card.get(field)
+        if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
+            raise BudgetedDocketAcquisitionError(
+                f"ranked-selection run card has invalid {field}"
+            )
+    if (
+        run_card.get("provider_activity_requested") is not False
+        or run_card.get("provider_activity_executed") is not False
+        or run_card.get("paid_activity_requested") is not False
+        or run_card.get("paid_activity_executed") is not False
+        or run_card.get("batch_id") != parent_batch_id
+        or run_card.get("target_cycle_hash") != store.cycle_hash
+        or run_card.get("ranked_output_sha256")
+        != hashlib.sha256(ranked_bytes).hexdigest()
+        or run_card.get("ranked_candidate_count") != len(ranked)
+    ):
+        raise BudgetedDocketAcquisitionError(
+            "ranked-selection run card does not authenticate the Firecrawl input"
+        )
+    try:
+        parent_config = store.batch_config(parent_batch_id)
+        parent_digest = store.batch_digest(parent_batch_id)
+        parent_progress = store.term_progress(parent_batch_id, transfer_term)
+    except KeyError as exc:
+        raise BudgetedDocketAcquisitionError(
+            "ranked-selection parent batch is missing"
+        ) from exc
+    if (
+        run_card.get("target_batch_digest") != parent_digest
+        or parent_config.get("selection_semantics") != selection_semantics
+        or parent_config.get("query_terms") != [transfer_term]
+        or parent_progress.terminal_status != TermTerminalStatus.EXHAUSTED
+        or any(
+            field not in run_card or parent_config.get(field) != run_card.get(field)
+            for field in _AUTHENTICATED_HANDOFF_COMMITMENTS
+        )
+    ):
+        raise BudgetedDocketAcquisitionError(
+            "ranked-selection parent batch does not match the authenticated run card"
+        )
+    raw_selected = run_card.get("selected")
+    leads_selected = run_card.get("leads_selected")
+    if not isinstance(raw_selected, list):
+        raise BudgetedDocketAcquisitionError(
+            "ranked-selection selected commitments must be an array"
+        )
+    selected = cast(list[object], raw_selected)
+    if (
+        type(leads_selected) is not int
+        or leads_selected <= 0
+        or leads_selected != len(selected)
+        or max_candidates != leads_selected
+        or parent_config.get("selected_candidate_count") != leads_selected
+        or parent_progress.hit_count != leads_selected
+    ):
+        raise BudgetedDocketAcquisitionError(
+            "Firecrawl max-candidates must equal the complete authenticated selection"
+        )
+    selected_objects: list[Mapping[str, object]] = []
+    selected_records: list[dict[str, Any]] = []
+    seen_dockets: set[str] = set()
+    seen_ranks: set[int] = set()
+    for raw_commitment in selected:
+        if not isinstance(raw_commitment, Mapping):
+            raise BudgetedDocketAcquisitionError(
+                "ranked-selection selected commitment is invalid"
+            )
+        commitment = cast(Mapping[str, object], raw_commitment)
+        if set(commitment) != {
+            "docket_id",
+            "rank",
+            "ranking_key",
+            "returned_courtlistener_url",
+            "ranked_record_sha256",
+        }:
+            raise BudgetedDocketAcquisitionError(
+                "ranked-selection selected commitment has unexpected fields"
+            )
+        docket_id = commitment.get("docket_id")
+        rank = commitment.get("rank")
+        if (
+            not isinstance(docket_id, str)
+            or not docket_id.isascii()
+            or not re.fullmatch(r"[1-9][0-9]*", docket_id)
+            or type(rank) is not int
+            or rank <= 0
+            or rank > len(ranked)
+            or docket_id in seen_dockets
+            or rank in seen_ranks
+        ):
+            raise BudgetedDocketAcquisitionError(
+                "ranked-selection selected identity/rank is invalid"
+            )
+        record = ranked[rank - 1]
+        identity = record.get("identity")
+        if not isinstance(identity, Mapping):
+            raise BudgetedDocketAcquisitionError(
+                "authenticated ranked record lacks identity"
+            )
+        typed_identity = cast(Mapping[str, object], identity)
+        if (
+            typed_identity.get("courtlistener_docket_id") != docket_id
+            or typed_identity.get("courtlistener_url")
+            != commitment.get("returned_courtlistener_url")
+            or record.get("ranking_key") != commitment.get("ranking_key")
+            or _canonical_record_sha256(record)
+            != commitment.get("ranked_record_sha256")
+        ):
+            raise BudgetedDocketAcquisitionError(
+                f"authenticated ranked record mismatch for docket {docket_id}"
+            )
+        seen_dockets.add(docket_id)
+        seen_ranks.add(rank)
+        screening_metadata = record.get("screening_metadata")
+        if not isinstance(screening_metadata, Mapping):
+            raise BudgetedDocketAcquisitionError(
+                f"authenticated ranked record lacks screening metadata for {docket_id}"
+            )
+        case_name = cast(Mapping[str, object], screening_metadata).get("case_name")
+        if (
+            not isinstance(case_name, str)
+            or not case_name
+            or case_name != case_name.strip()
+        ):
+            raise BudgetedDocketAcquisitionError(
+                "authenticated ranked record lacks a canonical case name for "
+                f"{docket_id}"
+            )
+        public_url = courtlistener_public_docket_url_from_case_dev(
+            {"docket_id": docket_id, "case_name": case_name}
+        )
+        if public_url is None:
+            raise BudgetedDocketAcquisitionError(
+                f"authenticated public docket URL cannot be derived for {docket_id}"
+            )
+        handoff_identity = dict(typed_identity)
+        handoff_identity["courtlistener_url"] = public_url
+        handoff_record = dict(record)
+        handoff_record["identity"] = handoff_identity
+        selected_objects.append(commitment)
+        selected_records.append(handoff_record)
+    selected_ranks = [cast(int, item["rank"]) for item in selected_objects]
+    if selected_ranks != sorted(selected_ranks):
+        raise BudgetedDocketAcquisitionError(
+            "authenticated selected ranks are not in canonical order"
+        )
+    if selection_semantics == "exact_case_dev_ranked_prefix":
+        if (
+            selected_ranks != list(range(1, leads_selected + 1))
+            or run_card.get("top_n") != leads_selected
+        ):
+            raise BudgetedDocketAcquisitionError(
+                "authenticated prefix is not the exact ranked prefix"
+            )
+    elif run_card.get("selected_docket_ids") != [
+        cast(str, item["docket_id"]) for item in selected_objects
+    ]:
+        raise BudgetedDocketAcquisitionError(
+            "authenticated subset docket list does not reconcile"
+        )
+    if run_card.get("selected_candidate_set_sha256") != _canonical_record_sha256(
+        selected_objects
+    ):
+        raise BudgetedDocketAcquisitionError(
+            "authenticated selected candidate-set commitment does not reconcile"
+        )
+    expected_parent_ids = tuple(
+        sorted(f"courtlistener-docket-{docket_id}" for docket_id in seen_dockets)
+    )
+    if store.candidate_ids(parent_batch_id) != expected_parent_ids:
+        raise BudgetedDocketAcquisitionError(
+            "ranked-selection parent candidates do not exactly reconcile"
+        )
+    return tuple(selected_records)
+
+
+def _canonical_record_sha256(value: object) -> str:
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def materialize_selected_slice_batch(

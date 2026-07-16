@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from collections import Counter
 from collections.abc import Iterable, Mapping
@@ -27,12 +29,19 @@ from legalforecast.ingestion.case_dev_recap_enrichment import (
     enrich_recap_docket_with_case_dev,
     rank_case_dev_recap_enrichments,
 )
+from legalforecast.ingestion.courtlistener_opinion_discovery import (
+    OPINION_API_POLICY_SCHEMA,
+)
+from legalforecast.ingestion.courtlistener_unrestricted_recap_discovery import (
+    UNRESTRICTED_RECAP_POLICY_SCHEMA,
+)
 from legalforecast.ingestion.firecrawl_recap_discovery import RecapDiscoveredDocket
 
 _DOCKET_ID = re.compile(r"[1-9][0-9]*")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _DOCKET_PATH = re.compile(r"^/docket/(?P<docket_id>[1-9][0-9]*)/[^/]+/$")
 _COURTLISTENER_HOST = "www.courtlistener.com"
+_UNRESTRICTED_QUERY_EXPRESSION = "{term} AND entry_date_filed:[{start} TO {end}]"
 
 
 class RecapDocketRecordError(ValueError):
@@ -218,18 +227,45 @@ def case_dev_recap_lookup_target_from_record(
         "source_batch_id",
         "source_batch_digest",
         "source_cycle_hash",
+        "source_schema_version",
+        "source_search_type",
+        "source_available_only",
+        "source_query_commitment_sha256",
         "source_candidate_set_sha256",
+        "source_hit_set_sha256",
+        "source_search_window_start",
+        "source_search_window_end",
     ):
         _required_string(typed_lineage, field_name, "source_lineage_invalid")
-    if typed_lineage.get("source_search_type") != "o":
+    source_search_type = typed_lineage.get("source_search_type")
+    source_schema_version = typed_lineage.get("source_schema_version")
+    source_available_only = typed_lineage.get("source_available_only")
+    source_query_expression = typed_lineage.get("source_query_expression")
+    if source_search_type == "o":
+        supported_source = (
+            source_schema_version == OPINION_API_POLICY_SCHEMA
+            and source_available_only == "absent"
+            and source_query_expression is None
+        )
+    elif source_search_type == "r":
+        supported_source = (
+            source_schema_version == UNRESTRICTED_RECAP_POLICY_SCHEMA
+            and source_available_only == "omitted"
+            and source_query_expression == _UNRESTRICTED_QUERY_EXPRESSION
+        )
+    else:
+        supported_source = False
+    if not supported_source:
         raise RecapDocketRecordError(
             "source_lineage_invalid",
-            "source lineage must identify CourtListener opinion search_type=o",
+            "source lineage must identify a supported CourtListener o/r schema",
         )
     for field_name in (
         "source_batch_digest",
         "source_cycle_hash",
+        "source_query_commitment_sha256",
         "source_candidate_set_sha256",
+        "source_hit_set_sha256",
     ):
         value = _required_string(
             typed_lineage,
@@ -241,6 +277,59 @@ def case_dev_recap_lookup_target_from_record(
                 "source_lineage_invalid",
                 f"{field_name} must be a lowercase SHA-256 digest",
             )
+    source_query_terms = _required_string_list(typed_lineage, "source_query_terms")
+    raw_source_window_start = _required_string(
+        typed_lineage,
+        "source_search_window_start",
+        "source_lineage_invalid",
+    )
+    raw_source_window_end = _required_string(
+        typed_lineage,
+        "source_search_window_end",
+        "source_lineage_invalid",
+    )
+    try:
+        source_window_start = date.fromisoformat(raw_source_window_start)
+        source_window_end = date.fromisoformat(raw_source_window_end)
+    except ValueError as exc:
+        raise RecapDocketRecordError(
+            "source_lineage_invalid",
+            "source lineage has an invalid search window",
+        ) from exc
+    if (
+        raw_source_window_start != source_window_start.isoformat()
+        or raw_source_window_end != source_window_end.isoformat()
+    ):
+        raise RecapDocketRecordError(
+            "source_lineage_invalid",
+            "source lineage must use a canonical search window",
+        )
+    if source_window_end < source_window_start:
+        raise RecapDocketRecordError(
+            "source_lineage_invalid",
+            "source lineage search window is inverted",
+        )
+    query_commitment = {
+        "source_schema_version": source_schema_version,
+        "source_search_type": source_search_type,
+        "source_available_only": source_available_only,
+        "source_query_expression": source_query_expression,
+        "source_query_terms": list(source_query_terms),
+        "source_search_window_start": source_window_start.isoformat(),
+        "source_search_window_end": source_window_end.isoformat(),
+    }
+    query_commitment_sha256 = hashlib.sha256(
+        json.dumps(
+            query_commitment,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    if typed_lineage.get("source_query_commitment_sha256") != query_commitment_sha256:
+        raise RecapDocketRecordError(
+            "source_lineage_invalid",
+            "source query commitment does not match its frozen fields",
+        )
     lead_commitment = typed_lineage.get("lead_commitment")
     source_hits = typed_lineage.get("source_hits")
     if not isinstance(lead_commitment, Mapping) or not isinstance(source_hits, list):
@@ -288,6 +377,11 @@ def case_dev_recap_lookup_target_from_record(
             )
         projected_hit_keys.append(provider_hit_id)
         projected_terms.append(query_term)
+        if query_term not in source_query_terms:
+            raise RecapDocketRecordError(
+                "source_lineage_invalid",
+                "source hit query is outside the frozen source terms",
+            )
     if (
         tuple(sorted(set(projected_hit_keys))) != entry_keys
         or tuple(sorted(set(projected_terms))) != matched_terms

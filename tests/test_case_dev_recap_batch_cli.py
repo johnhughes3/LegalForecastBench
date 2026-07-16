@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import threading
 from pathlib import Path
@@ -8,7 +9,13 @@ from typing import Any
 import legalforecast.cli as cli_module
 import pytest
 from legalforecast.ingestion.case_dev_client import CaseDevRateLimitError
+from legalforecast.ingestion.case_dev_recap_batch import (
+    RecapDocketRecordError,
+    case_dev_recap_lookup_target_from_record,
+)
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+
+_QUERY_EXPRESSION_ABSENT = object()
 
 
 def test_enrich_recap_case_dev_projects_saturated_opinion_source_without_invented_url(
@@ -59,6 +66,60 @@ def test_enrich_recap_case_dev_projects_saturated_opinion_source_without_invente
     assert ranked["entries"] == []
     assert ranked["source_lineage"] == projected["source_lineage"]
 
+
+def test_source_bound_projection_rejects_noncanonical_search_window_spelling(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    fixture = tmp_path / "case-dev.jsonl"
+    fixture.write_text(json.dumps(_case_dev_response("101")) + "\n")
+    output_root = tmp_path / "output"
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(output_root),
+                "--source-store",
+                str(source_store),
+                "--source-batch-id",
+                "opinion-source",
+                "--case-dev-fixture",
+                str(fixture),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    [projected] = _read_jsonl(
+        output_root / "checkpoints" / "case-dev-recap-source-projection.jsonl"
+    )
+    lineage = projected["source_lineage"]
+    lineage["source_search_window_start"] = "20260630"
+    query_commitment = {
+        "source_schema_version": lineage["source_schema_version"],
+        "source_search_type": lineage["source_search_type"],
+        "source_available_only": lineage["source_available_only"],
+        "source_query_expression": lineage["source_query_expression"],
+        "source_query_terms": lineage["source_query_terms"],
+        "source_search_window_start": "2026-06-30",
+        "source_search_window_end": "2026-07-15",
+    }
+    lineage["source_query_commitment_sha256"] = hashlib.sha256(
+        json.dumps(
+            query_commitment,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+
+    with pytest.raises(RecapDocketRecordError, match="canonical search window"):
+        case_dev_recap_lookup_target_from_record(
+            projected,
+            allow_source_bound=True,
+        )
+
     summary = json.loads(
         (output_root / "checkpoints" / "case-dev-recap-summary.json").read_text()
     )
@@ -80,12 +141,147 @@ def test_enrich_recap_case_dev_projects_saturated_opinion_source_without_invente
     assert run_card["source_projection_sha256"] == (summary["source_projection_sha256"])
 
 
-def test_enrich_recap_case_dev_source_mode_requires_opinion_search(
+def test_enrich_recap_case_dev_projects_saturated_unrestricted_recap_source(
     tmp_path: Path,
 ) -> None:
     source_store = _opinion_source_store(tmp_path, search_type="r")
     fixture = tmp_path / "case-dev.jsonl"
     fixture.write_text(json.dumps(_case_dev_response("101")) + "\n")
+    output_root = tmp_path / "output"
+
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(output_root),
+                "--source-store",
+                str(source_store),
+                "--source-batch-id",
+                "opinion-source",
+                "--case-dev-fixture",
+                str(fixture),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    [projected] = _read_jsonl(
+        output_root / "checkpoints" / "case-dev-recap-source-projection.jsonl"
+    )
+    lineage = projected["source_lineage"]
+    assert lineage["source_search_type"] == "r"
+    assert lineage["source_schema_version"] == (
+        "legalforecast.courtlistener_unrestricted_recap.v1"
+    )
+    assert lineage["source_available_only"] == "omitted"
+    assert lineage["source_query_terms"] == ['"motion to dismiss"']
+    assert lineage["source_search_window_start"] == "2026-06-30"
+    assert lineage["source_search_window_end"] == "2026-07-15"
+    assert len(lineage["source_hit_set_sha256"]) == 64
+
+    summary = json.loads(
+        (output_root / "run-cards" / "enrich-recap-case-dev.json").read_text()
+    )
+    assert summary["source_search_type"] == "r"
+    assert summary["source_available_only"] == "omitted"
+    assert summary["source_query_terms"] == ['"motion to dismiss"']
+    assert summary["free_lookup_only"] is True
+    assert summary["pacer_fee_acknowledgment_allowed"] is False
+
+
+@pytest.mark.parametrize(
+    ("search_type", "schema_version", "available_only"),
+    [
+        ("rd", "legalforecast.courtlistener_unrestricted_recap.v1", "omitted"),
+        ("r", "legalforecast.courtlistener_opinion_discovery.v1", "omitted"),
+        ("r", "legalforecast.courtlistener_unrestricted_recap.v1", "on"),
+    ],
+)
+def test_enrich_recap_case_dev_rejects_unsupported_or_substituted_source_schema(
+    tmp_path: Path,
+    search_type: str,
+    schema_version: str,
+    available_only: str,
+) -> None:
+    source_store = _opinion_source_store(
+        tmp_path,
+        search_type=search_type,
+        schema_version=schema_version,
+        available_only=available_only,
+    )
+    fixture = tmp_path / "case-dev.jsonl"
+    fixture.write_text(json.dumps(_case_dev_response("101")) + "\n")
+
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(tmp_path / "output"),
+                "--source-store",
+                str(source_store),
+                "--source-batch-id",
+                "opinion-source",
+                "--case-dev-fixture",
+                str(fixture),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+
+
+@pytest.mark.parametrize(
+    "query_expression",
+    [
+        None,
+        "",
+        " {term} AND entry_date_filed:[{start} TO {end}]",
+        "{term} AND entry_date_filed:[{start} TO {end}]",
+        7,
+    ],
+)
+def test_enrich_recap_case_dev_rejects_present_opinion_query_expression(
+    tmp_path: Path,
+    query_expression: object,
+) -> None:
+    source_store = _opinion_source_store(
+        tmp_path,
+        query_expression=query_expression,
+    )
+    fixture = tmp_path / "case-dev.jsonl"
+    fixture.write_text(json.dumps(_case_dev_response("101")) + "\n")
+
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(tmp_path / "output"),
+                "--source-store",
+                str(source_store),
+                "--source-batch-id",
+                "opinion-source",
+                "--case-dev-fixture",
+                str(fixture),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+
+
+def test_enrich_recap_case_dev_rejects_noncanonical_numeric_source_identity(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path, docket_id="001")
+    fixture = tmp_path / "case-dev.jsonl"
+    fixture.write_text(json.dumps(_case_dev_response("1")) + "\n")
 
     assert (
         cli_module.main(
@@ -661,6 +857,9 @@ def _opinion_source_store(
     tmp_path: Path,
     *,
     search_type: str = "o",
+    schema_version: str | None = None,
+    available_only: str | None = None,
+    query_expression: object = _QUERY_EXPRESSION_ABSENT,
     name: str = "opinion-source.sqlite3",
     docket_id: str = "101",
 ) -> Path:
@@ -670,16 +869,34 @@ def _opinion_source_store(
             {"schema_version": "test", "eligibility_anchor": "2026-06-30"}
         )
         term = '"motion to dismiss"'
+        if schema_version is None:
+            schema_version = (
+                "legalforecast.courtlistener_unrestricted_recap.v1"
+                if search_type == "r"
+                else "legalforecast.courtlistener_opinion_discovery.v1"
+            )
+        config: dict[str, object] = {
+            "schema_version": schema_version,
+            "provider": "courtlistener",
+            "search_type": search_type,
+            "query_terms": [term],
+            "search_window_start": "2026-06-30",
+            "search_window_end": "2026-07-15",
+        }
+        if search_type == "r" or available_only is not None:
+            config["available_only"] = (
+                "omitted" if available_only is None else available_only
+            )
+            config["search_page_size"] = 20
+        if search_type == "r" and query_expression is _QUERY_EXPRESSION_ABSENT:
+            config["query_expression"] = (
+                "{term} AND entry_date_filed:[{start} TO {end}]"
+            )
+        elif query_expression is not _QUERY_EXPRESSION_ABSENT:
+            config["query_expression"] = query_expression
         store.ensure_batch(
             "opinion-source",
-            {
-                "schema_version": ("legalforecast.courtlistener_opinion_discovery.v1"),
-                "provider": "courtlistener",
-                "search_type": search_type,
-                "query_terms": [term],
-                "search_window_start": "2026-06-30",
-                "search_window_end": "2026-07-15",
-            },
+            config,
         )
         store.ensure_terms("opinion-source", (term,))
         store.commit_search_page(
