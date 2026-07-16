@@ -126,6 +126,7 @@ DIRECT_SEARCH_NOVEL_TRANSFER_PROVENANCE_SCHEMA = (
 PRIOR_SNAPSHOT_PRIORITY_DEDUPE_SCHEMA = (
     "legalforecast.prior_screening_snapshot_priority_dedupe.v1"
 )
+_POSITIVE_ASCII_INTEGER = re.compile(r"[1-9][0-9]*")
 _SNAPSHOT_METADATA_FILES = (
     "manifest.json",
     "screened-cases.jsonl",
@@ -854,8 +855,16 @@ class DirectSearchSeedSource:
     source_batch_id: str
     source_batch_digest: str
     source_cycle_hash: str
+    source_schema_version: str | None
     source_search_type: str | None
+    source_available_only_present: bool
+    source_available_only: str | None
+    source_query_expression_present: bool
+    source_query_expression: str | None
+    source_query_terms: tuple[str, ...]
     source_candidate_set_sha256: str
+    source_hit_set_sha256: str
+    source_eligibility_anchor: str | None
     search_window_start: date
     search_window_end: date
     leads: tuple[DirectSearchLead, ...]
@@ -1011,7 +1020,13 @@ def read_saturated_direct_search_leads(
             raise RecapApiBatchDriverError(
                 f"direct-search source batch not found: {source_batch_id}"
             )
-        decoded = cast(object, json.loads(str(batch["config_json"])))
+        config_json = str(batch["config_json"])
+        source_batch_digest = str(batch["config_digest"])
+        if hashlib.sha256(config_json.encode()).hexdigest() != source_batch_digest:
+            raise RecapApiBatchDriverError(
+                "direct-search source batch config digest is invalid"
+            )
+        decoded = cast(object, json.loads(config_json))
         if not isinstance(decoded, dict):
             raise RecapApiBatchDriverError(
                 "direct-search batch config is not an object"
@@ -1024,19 +1039,62 @@ def read_saturated_direct_search_leads(
         raw_search_type = config.get("search_type")
         if raw_search_type is None:
             source_search_type = None
-        elif isinstance(raw_search_type, str) and raw_search_type.strip():
-            source_search_type = raw_search_type.strip()
+        elif (
+            isinstance(raw_search_type, str)
+            and raw_search_type
+            and raw_search_type == raw_search_type.strip()
+        ):
+            source_search_type = raw_search_type
         else:
             raise RecapApiBatchDriverError(
                 "direct-search source batch has invalid search_type"
+            )
+        raw_schema_version = config.get("schema_version")
+        source_schema_version = (
+            raw_schema_version
+            if isinstance(raw_schema_version, str)
+            and raw_schema_version
+            and raw_schema_version == raw_schema_version.strip()
+            else None
+        )
+        source_available_only_present = "available_only" in config
+        raw_available_only = config.get("available_only")
+        source_available_only = (
+            raw_available_only
+            if isinstance(raw_available_only, str)
+            and raw_available_only
+            and raw_available_only == raw_available_only.strip()
+            else None
+        )
+        source_query_expression_present = "query_expression" in config
+        raw_query_expression = config.get("query_expression")
+        if not source_query_expression_present:
+            source_query_expression = None
+        elif (
+            isinstance(raw_query_expression, str)
+            and raw_query_expression
+            and raw_query_expression == raw_query_expression.strip()
+        ):
+            source_query_expression = raw_query_expression
+        else:
+            raise RecapApiBatchDriverError(
+                "direct-search source batch has invalid query_expression"
             )
         query_terms = config.get("query_terms")
         if not isinstance(query_terms, list) or not query_terms:
             raise RecapApiBatchDriverError(
                 "direct-search source batch lacks frozen query terms"
             )
-        terms = tuple(str(term).strip() for term in cast(list[object], query_terms))
-        if any(not term for term in terms) or len(set(terms)) != len(terms):
+        raw_terms = cast(list[object], query_terms)
+        if not all(
+            isinstance(term, str) and bool(term) and term == term.strip()
+            for term in raw_terms
+        ):
+            raise RecapApiBatchDriverError(
+                "direct-search source batch has invalid frozen query terms"
+            )
+        terms = tuple(cast(list[str], raw_terms))
+        if len(set(terms)) != len(terms):
             raise RecapApiBatchDriverError(
                 "direct-search source batch has invalid frozen query terms"
             )
@@ -1063,7 +1121,8 @@ def read_saturated_direct_search_leads(
                 "direct-search source batch search window is inverted"
             )
         cycle = connection.execute(
-            "SELECT policy_hash FROM cycle_identity WHERE singleton = 1"
+            "SELECT schema_version, policy_json, policy_hash "
+            "FROM cycle_identity WHERE singleton = 1"
         ).fetchone()
         if cycle is None:
             raise RecapApiBatchDriverError(
@@ -1078,8 +1137,36 @@ def read_saturated_direct_search_leads(
             """,
             (source_batch_id,),
         ).fetchall()
-        source_batch_digest = str(batch["config_digest"])
+        policy_json = str(cycle["policy_json"])
         source_cycle_hash = str(cycle["policy_hash"])
+        decoded_policy = cast(object, json.loads(policy_json))
+        if not isinstance(decoded_policy, dict):
+            raise RecapApiBatchDriverError(
+                "direct-search source cycle policy is not an object"
+            )
+        canonical_cycle_identity = json.dumps(
+            {
+                "schema_version": str(cycle["schema_version"]),
+                "policy": decoded_policy,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+        if (
+            hashlib.sha256(canonical_cycle_identity.encode()).hexdigest()
+            != source_cycle_hash
+        ):
+            raise RecapApiBatchDriverError(
+                "direct-search source cycle policy digest is invalid"
+            )
+        raw_eligibility_anchor = cast(dict[str, object], decoded_policy).get(
+            "eligibility_anchor"
+        )
+        source_eligibility_anchor = (
+            raw_eligibility_anchor if isinstance(raw_eligibility_anchor, str) else None
+        )
     except (json.JSONDecodeError, sqlite3.DatabaseError) as exc:
         raise RecapApiBatchDriverError(
             f"direct-search source store is unreadable: {path}: {exc}"
@@ -1102,9 +1189,10 @@ def read_saturated_direct_search_leads(
     try:
         for row in rows:
             docket_id = str(row["candidate_id"])
-            if not docket_id.isascii() or not docket_id.isdigit():
+            if _POSITIVE_ASCII_INTEGER.fullmatch(docket_id) is None:
                 raise RecapApiBatchDriverError(
-                    f"direct-search candidate id is not numeric: {docket_id!r}"
+                    "direct-search candidate id is not numeric or not a canonical "
+                    f"positive integer: {docket_id!r}"
                 )
             payload_json = str(row["payload_json"])
             parsed = cast(object, json.loads(payload_json))
@@ -1113,7 +1201,18 @@ def read_saturated_direct_search_leads(
                     f"direct-search payload is not an object: {docket_id}"
                 )
             payload = cast(dict[str, object], parsed)
-            if str(payload.get("docket_id")) != docket_id:
+            raw_payload_docket_id = payload.get("docket_id")
+            if isinstance(raw_payload_docket_id, bool) or not isinstance(
+                raw_payload_docket_id, str | int
+            ):
+                raise RecapApiBatchDriverError(
+                    f"direct-search payload docket id is invalid: {docket_id}"
+                )
+            payload_docket_id = str(raw_payload_docket_id)
+            if (
+                _POSITIVE_ASCII_INTEGER.fullmatch(payload_docket_id) is None
+                or payload_docket_id != docket_id
+            ):
                 raise RecapApiBatchDriverError(
                     f"direct-search payload docket id mismatch: {docket_id}"
                 )
@@ -1196,6 +1295,20 @@ def read_saturated_direct_search_leads(
             )
         )
     leads = tuple(sorted(leads_list, key=lambda lead: int(lead.docket_id)))
+    hit_set_sha256 = hashlib.sha256(
+        json.dumps(
+            [
+                {
+                    "docket_id": lead.docket_id,
+                    "source_hit": hit.to_record(),
+                }
+                for lead in leads
+                for hit in lead.source_hits
+            ],
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
     candidate_set_sha256 = hashlib.sha256(
         json.dumps(
             [lead.commitment_record() for lead in leads],
@@ -1207,8 +1320,16 @@ def read_saturated_direct_search_leads(
         source_batch_id=source_batch_id,
         source_batch_digest=source_batch_digest,
         source_cycle_hash=source_cycle_hash,
+        source_schema_version=source_schema_version,
         source_search_type=source_search_type,
+        source_available_only_present=source_available_only_present,
+        source_available_only=source_available_only,
+        source_query_expression_present=source_query_expression_present,
+        source_query_expression=source_query_expression,
+        source_query_terms=terms,
         source_candidate_set_sha256=candidate_set_sha256,
+        source_hit_set_sha256=hit_set_sha256,
+        source_eligibility_anchor=source_eligibility_anchor,
         search_window_start=window_start,
         search_window_end=window_end,
         leads=leads,

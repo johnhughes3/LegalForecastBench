@@ -135,6 +135,83 @@ def test_select_case_dev_ranked_materializes_exact_top_n_rest_batch(
     assert resumed["leads_seeded"] == 0
 
 
+def test_select_case_dev_ranked_accepts_authenticated_unrestricted_recap_source(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path, search_type="r")
+    enrichment_root = _run_enrichment(tmp_path, source_store=source_store)
+    target_store = _target_store(tmp_path)
+    run_card = tmp_path / "selection-run-card.json"
+
+    assert (
+        main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=run_card,
+                summary=tmp_path / "selection-summary.json",
+            )
+        )
+        == 0
+    )
+
+    frozen = json.loads(run_card.read_text())
+    assert frozen["source_search_type"] == "r"
+    assert frozen["source_schema_version"] == (
+        "legalforecast.courtlistener_unrestricted_recap.v1"
+    )
+    assert frozen["source_available_only"] == "omitted"
+    assert frozen["source_query_terms"] == ['"motion to dismiss"']
+    assert len(frozen["source_query_commitment_sha256"]) == 64
+    assert len(frozen["source_hit_set_sha256"]) == 64
+    with CycleAcquisitionStore(target_store) as store:
+        config = store.batch_config("ranked-rest")
+        assert config["source_search_type"] == "r"
+        assert config["source_available_only"] == "omitted"
+        [hit] = store.candidate_discovery_hits("ranked-rest")
+    provenance = hit.payload["case_dev_ranked_selection_provenance"]
+    assert provenance["source_search_type"] == "r"
+    assert (
+        provenance["source_query_commitment_sha256"]
+        == (frozen["source_query_commitment_sha256"])
+    )
+
+
+def test_select_case_dev_ranked_rejects_source_type_substitution(
+    tmp_path: Path,
+) -> None:
+    unrestricted_source = _opinion_source_store(
+        tmp_path,
+        search_type="r",
+        name="unrestricted.sqlite3",
+    )
+    enrichment_root = _run_enrichment(
+        tmp_path,
+        source_store=unrestricted_source,
+    )
+    opinion_source = _opinion_source_store(
+        tmp_path,
+        search_type="o",
+        name="opinion.sqlite3",
+    )
+    target_store = _target_store(tmp_path)
+
+    assert (
+        main(
+            _selection_args(
+                source_store=opinion_source,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=tmp_path / "selection-run-card.json",
+                summary=tmp_path / "selection-summary.json",
+            )
+        )
+        == 2
+    )
+    _assert_no_target_rows(target_store)
+
+
 def test_select_case_dev_ranked_subset_materializes_exact_noncontiguous_dockets(
     tmp_path: Path,
 ) -> None:
@@ -672,27 +749,36 @@ def test_project_case_dev_opinion_source_rejects_malformed_docket_id() -> None:
         query_term='"motion to dismiss"',
         payload_sha256="0" * 64,
     )
+    lead = DirectSearchLead(
+        docket_id=cast(str, None),
+        source_provider_hit_id=hit.provider_hit_id,
+        source_query_term=hit.query_term,
+        source_payload_sha256=hit.payload_sha256,
+        source_hits=(hit,),
+        court_id="dcd",
+        docket_number="1:25-cv-00101",
+        case_name="Example v. Example",
+        decision_entry_evidence=None,
+    )
     source = DirectSearchSeedSource(
         source_batch_id="opinion-source",
         source_batch_digest="1" * 64,
         source_cycle_hash="2" * 64,
+        source_schema_version="legalforecast.courtlistener_opinion_discovery.v1",
         source_search_type="o",
-        source_candidate_set_sha256="3" * 64,
+        source_available_only_present=False,
+        source_available_only=None,
+        source_query_expression_present=False,
+        source_query_expression=None,
+        source_query_terms=(hit.query_term,),
+        source_candidate_set_sha256=_canonical_sha256([lead.commitment_record()]),
+        source_hit_set_sha256=_canonical_sha256(
+            [{"docket_id": lead.docket_id, "source_hit": hit.to_record()}]
+        ),
+        source_eligibility_anchor="2026-06-30",
         search_window_start=date(2026, 6, 30),
         search_window_end=date(2026, 7, 15),
-        leads=(
-            DirectSearchLead(
-                docket_id=cast(str, None),
-                source_provider_hit_id=hit.provider_hit_id,
-                source_query_term=hit.query_term,
-                source_payload_sha256=hit.payload_sha256,
-                source_hits=(hit,),
-                court_id="dcd",
-                docket_number="1:25-cv-00101",
-                case_name="Example v. Example",
-                decision_entry_evidence=None,
-            ),
-        ),
+        leads=(lead,),
     )
 
     with pytest.raises(RecapApiBatchDriverError, match="invalid docket identity"):
@@ -835,20 +921,38 @@ def _opinion_source_store(
     *,
     search_window_start: str = "2026-06-30",
     docket_ids: tuple[str, ...] = ("101", "102"),
+    search_type: str = "o",
+    name: str = "source.sqlite3",
 ) -> Path:
-    path = tmp_path / "source.sqlite3"
+    path = tmp_path / name
     with CycleAcquisitionStore(path) as store:
         store.ensure_cycle(_cycle_policy())
         term = '"motion to dismiss"'
+        config: dict[str, object] = {
+            "schema_version": (
+                "legalforecast.courtlistener_unrestricted_recap.v1"
+                if search_type == "r"
+                else "legalforecast.courtlistener_opinion_discovery.v1"
+            ),
+            "provider": "courtlistener",
+            "search_type": search_type,
+            "query_terms": [term],
+            "search_window_start": search_window_start,
+            "search_window_end": "2026-07-15",
+        }
+        if search_type == "r":
+            config.update(
+                {
+                    "available_only": "omitted",
+                    "query_expression": (
+                        "{term} AND entry_date_filed:[{start} TO {end}]"
+                    ),
+                    "search_page_size": 20,
+                }
+            )
         store.ensure_batch(
             "opinion-source",
-            {
-                "provider": "courtlistener",
-                "search_type": "o",
-                "query_terms": [term],
-                "search_window_start": search_window_start,
-                "search_window_end": "2026-07-15",
-            },
+            config,
         )
         store.ensure_terms("opinion-source", (term,))
         store.commit_search_page(
@@ -954,6 +1058,12 @@ def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
         "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),
         encoding="utf-8",
     )
+
+
+def _canonical_sha256(value: object) -> str:
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def _assert_no_target_rows(path: Path) -> None:

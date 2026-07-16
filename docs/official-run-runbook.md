@@ -487,12 +487,13 @@ This REST path supersedes the Case.dev-ranking and Firecrawl-docket steps below 
 
 ### Step 2: Enrich And Rank With Free Case.dev Lookup
 
-Use Case.dev only for noncharging docket lookup and `includeEntries` enrichment. This stage ranks which CourtListener dockets to acquire first; it never sends `live: true`, acknowledges PACER fees, or supplies purchase authority:
+Use Case.dev only for noncharging docket lookup and `includeEntries` enrichment. The authenticated source mode accepts either a saturated CourtListener opinion search (`search_type=o`) or a saturated unrestricted RECAP search (`search_type=r`) whose frozen config records `available_only=omitted`. It projects only the exact positive numeric docket identities committed by that source; it never sends `live: true`, acknowledges PACER fees, or supplies purchase authority:
 
 ```bash
 uv run legalforecast acquisition enrich-recap-case-dev \
   --output-root artifacts/cycle-1/official-acquisition/case-dev-enrichment \
-  --dockets artifacts/cycle-1/official-acquisition/decision-search/decision-dockets.jsonl \
+  --source-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --source-batch-id <saturated-o-or-r-source-batch-id> \
   --workers 2 \
   --live-case-dev \
   --ranked-output artifacts/cycle-1/official-acquisition/case-dev-enrichment/ranked-dockets.jsonl \
@@ -502,7 +503,27 @@ uv run legalforecast acquisition enrich-recap-case-dev \
 
 Pagination exhaustion must be proven for each successful docket. Provider failures and unproven pagination remain ledgered failures rather than cheap candidates.
 
-For a source-bound CourtListener opinion batch, the enrichment stage also binds the frozen search-window start as its eligibility anchor, retains every Case.dev docket entry and filed date, and replays the canonical MTD screen before cost ordering. Linked post-anchor merits dispositions rank first; moot or procedural rulings, pre-anchor dispositions, missing dates, and unproved target-motion linkage are demoted but never silently excluded. The ranked artifact records `ranking_policy_version`, the complete eligibility screen, and the exact entry evidence so the downstream selector can reject legacy lexical rankings.
+For either source schema, the projection and completion card bind the source batch/config/cycle digests, complete candidate and hit-set digests, ordered query terms, search window, source type, and `available_only` semantics. Eligibility remains independently anchored to 2026-06-30. The enrichment retains every Case.dev docket entry and filed date and replays the canonical MTD screen before cost ordering. Linked post-anchor merits dispositions rank first; moot or procedural rulings, pre-anchor dispositions, missing dates, and unproved target-motion linkage are demoted but never silently excluded. The ranked artifact records `ranking_policy_version`, the complete eligibility screen, and the exact entry evidence.
+
+Before Firecrawl, materialize an authenticated exact prefix (or use `select-case-dev-ranked-subset` with repeated `--docket-id` for an exact noncontiguous set). Pin the raw enrichment run-card SHA-256 out of band and preserve the selector run card:
+
+```bash
+uv run legalforecast batch-002 select-case-dev-ranked \
+  --source-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --source-batch-id <saturated-o-or-r-source-batch-id> \
+  --source-projection artifacts/cycle-1/official-acquisition/case-dev-enrichment/checkpoints/case-dev-recap-source-projection.jsonl \
+  --ranked artifacts/cycle-1/official-acquisition/case-dev-enrichment/ranked-dockets.jsonl \
+  --enrichment-run-card artifacts/cycle-1/official-acquisition/case-dev-enrichment/run-cards/enrich-recap-case-dev.json \
+  --expected-enrichment-run-card-sha256 <pinned-enrichment-run-card-sha256> \
+  --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --batch-id <ranked-selection-batch-id> \
+  --top-n 100 \
+  --run-card-output artifacts/cycle-1/official-acquisition/case-dev-enrichment/ranked-selection-run-card.json
+```
+
+Immediately after selection, compute the selector run card's SHA-256 from its raw bytes and record that digest out of band. The acquisition command must receive this independently recorded digest through `--expected-ranked-selection-run-card-sha256`; never derive or recompute the expected value from the selector card supplied to acquisition.
+
+Any enrichment failure blocks this full-source selector. The failure JSONL remains the explicit terminal reconciliation ledger; resolve or intentionally create a fresh authenticated source cohort rather than dropping failed rows from the ranked file.
 
 ### Step 3: Acquire And Screen Complete CourtListener Dockets
 
@@ -512,11 +533,13 @@ Fetch the ranked public CourtListener docket pages through Firecrawl, including 
 uv run legalforecast acquisition acquire-ranked-firecrawl-dockets \
   --output-root artifacts/cycle-1/official-acquisition/docket-acquisition \
   --cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
-  --parent-batch-id batch-002-decision-search \
+  --parent-batch-id <ranked-selection-batch-id> \
   --selected-batch-id batch-002-ranked-dockets \
   --run-id batch-002-ranked-dockets-primary \
   --ranked artifacts/cycle-1/official-acquisition/case-dev-enrichment/ranked-dockets.jsonl \
-  --max-candidates 3000 \
+  --ranked-selection-run-card artifacts/cycle-1/official-acquisition/case-dev-enrichment/ranked-selection-run-card.json \
+  --expected-ranked-selection-run-card-sha256 <pinned-ranked-selection-run-card-sha256> \
+  --max-candidates 100 \
   --max-pages-per-docket 100 \
   --workers 10 \
   --decision-filed-on-or-after 2026-06-30 \
@@ -527,6 +550,8 @@ uv run legalforecast acquisition acquire-ranked-firecrawl-dockets \
   --exclusions-output artifacts/cycle-1/official-acquisition/docket-acquisition/docket-fetch-exclusions.jsonl \
   --execute --resume
 ```
+
+For authenticated source-bound input, `--max-candidates` must exactly equal the selector's committed prefix/subset count. The command verifies the external selector-card digest, the full ranked-file digest, every selected ranked-record digest, the source schema/type commitments, the saturated parent transfer, and the exact selected/omitted reconciliation before any Firecrawl request. Source-bound ranked JSONL without this run card is rejected.
 
 Strict-screen the committed CourtListener docket bytes and publish the immutable complete snapshot:
 

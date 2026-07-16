@@ -16,6 +16,12 @@ from legalforecast.ingestion.case_dev_recap_enrichment import (
     CaseDevRecapEnrichmentError,
     reconstruct_case_dev_recap_enrichment,
 )
+from legalforecast.ingestion.courtlistener_opinion_discovery import (
+    OPINION_API_POLICY_SCHEMA,
+)
+from legalforecast.ingestion.courtlistener_unrestricted_recap_discovery import (
+    UNRESTRICTED_RECAP_POLICY_SCHEMA,
+)
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
 from legalforecast.ingestion.decision_text_artifact import CYCLE_1_ELIGIBILITY_ANCHOR
 from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, TermTerminalStatus
@@ -48,6 +54,7 @@ _DOCKET_ID = re.compile(r"[1-9][0-9]*")
 _API_DOCKET_PATH = re.compile(r"^/api/rest/v[1-9][0-9]*/dockets/([1-9][0-9]*)/$")
 _PUBLIC_DOCKET_PATH = re.compile(r"^/docket/([1-9][0-9]*)/[^/]+/$")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_UNRESTRICTED_QUERY_EXPRESSION = "{term} AND entry_date_filed:[{start} TO {end}]"
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,10 +99,7 @@ class VerifiedCaseDevRankedSelection:
     def commitment_record(self) -> dict[str, object]:
         record: dict[str, object] = {
             "source_store_path": str(self.source_store_path),
-            "source_batch_id": self.source.source_batch_id,
-            "source_batch_digest": self.source.source_batch_digest,
-            "source_cycle_hash": self.source.source_cycle_hash,
-            "source_candidate_set_sha256": (self.source.source_candidate_set_sha256),
+            **case_dev_source_authority_commitments(self.source),
             "source_projection_path": str(self.source_projection_path),
             "source_projection_sha256": self.source_projection_sha256,
             "ranked_path": str(self.ranked_path),
@@ -184,12 +188,9 @@ class CaseDevRankedSeedResult:
 def project_case_dev_opinion_source(
     source: DirectSearchSeedSource,
 ) -> tuple[dict[str, object], ...]:
-    """Project an exhausted opinion batch into exact-ID lookup records."""
+    """Project an exhausted supported CourtListener batch into exact-ID records."""
 
-    if source.source_search_type != "o":
-        raise RecapApiBatchDriverError(
-            "Case.dev source ranking requires a CourtListener search_type=o batch"
-        )
+    source_commitments = case_dev_source_authority_commitments(source)
     projected: list[dict[str, object]] = []
     for lead in source.leads:
         raw_docket_id = cast(object, lead.docket_id)
@@ -216,11 +217,7 @@ def project_case_dev_opinion_source(
                 "matched_terms": matched_terms,
                 "eligibility_status": "potential_unverified",
                 "source_lineage": {
-                    "source_batch_id": source.source_batch_id,
-                    "source_batch_digest": source.source_batch_digest,
-                    "source_cycle_hash": source.source_cycle_hash,
-                    "source_search_type": source.source_search_type,
-                    "source_candidate_set_sha256": (source.source_candidate_set_sha256),
+                    **source_commitments,
                     "docket_id": lead.docket_id,
                     "lead_commitment": lead.commitment_record(),
                     "source_hits": source_hits,
@@ -286,11 +283,7 @@ def verify_case_dev_ranked_selection(
     expected_commitments = {
         "ranking_policy_version": CASE_DEV_RANKING_POLICY_VERSION,
         "eligibility_anchor": CYCLE_1_ELIGIBILITY_ANCHOR.isoformat(),
-        "source_batch_id": source.source_batch_id,
-        "source_batch_digest": source.source_batch_digest,
-        "source_cycle_hash": source.source_cycle_hash,
-        "source_search_type": "o",
-        "source_candidate_set_sha256": source.source_candidate_set_sha256,
+        **case_dev_source_authority_commitments(source),
         "source_projection_sha256": projection_sha256,
         "ranked_output_sha256": ranked_sha256,
     }
@@ -433,12 +426,9 @@ def build_case_dev_ranked_target_plan(
                 if is_subset
                 else "exact_case_dev_ranked_prefix"
             ),
-            "source_batch_id": source.source_batch_id,
-            "source_batch_digest": source.source_batch_digest,
-            "source_cycle_hash": source.source_cycle_hash,
+            **case_dev_source_authority_commitments(source),
             "target_cycle_hash": target_cycle_hash,
             "source_candidate_count": len(source.leads),
-            "source_candidate_set_sha256": source.source_candidate_set_sha256,
             "source_projection_sha256": selection.source_projection_sha256,
             "ranked_output_sha256": selection.ranked_output_sha256,
             "enrichment_run_card_sha256": selection.enrichment_run_card_sha256,
@@ -630,11 +620,8 @@ def _ranked_candidate_hit(
             "case_dev_returned_courtlistener_url": (
                 candidate.returned_courtlistener_url
             ),
-            "source_batch_id": source.source_batch_id,
-            "source_batch_digest": source.source_batch_digest,
-            "source_cycle_hash": source.source_cycle_hash,
+            **case_dev_source_authority_commitments(source),
             "target_cycle_hash": target_cycle_hash,
-            "source_candidate_set_sha256": source.source_candidate_set_sha256,
             "source_projection_sha256": selection.source_projection_sha256,
             "ranked_output_sha256": selection.ranked_output_sha256,
             "enrichment_run_card_sha256": selection.enrichment_run_card_sha256,
@@ -660,6 +647,117 @@ def _ranked_candidate_hit(
         candidate_id=lead.candidate_id,
         payload=payload,
     )
+
+
+def case_dev_source_authority_commitments(
+    source: DirectSearchSeedSource,
+) -> dict[str, object]:
+    """Validate and project the only source schemas eligible for free ranking."""
+
+    for field_name, value in (
+        ("source_batch_digest", source.source_batch_digest),
+        ("source_cycle_hash", source.source_cycle_hash),
+        ("source_candidate_set_sha256", source.source_candidate_set_sha256),
+        ("source_hit_set_sha256", source.source_hit_set_sha256),
+    ):
+        if _SHA256.fullmatch(value) is None:
+            raise RecapApiBatchDriverError(f"Case.dev source has invalid {field_name}")
+    if (
+        not source.source_batch_id
+        or source.source_batch_id != source.source_batch_id.strip()
+    ):
+        raise RecapApiBatchDriverError("Case.dev source has invalid source_batch_id")
+    if source.source_eligibility_anchor != CYCLE_1_ELIGIBILITY_ANCHOR.isoformat():
+        raise RecapApiBatchDriverError(
+            "Case.dev source cycle does not use the frozen 2026-06-30 anchor"
+        )
+    if not source.source_query_terms or len(set(source.source_query_terms)) != len(
+        source.source_query_terms
+    ):
+        raise RecapApiBatchDriverError(
+            "Case.dev source lacks canonical frozen query terms"
+        )
+    if any(not term or term != term.strip() for term in source.source_query_terms):
+        raise RecapApiBatchDriverError(
+            "Case.dev source lacks canonical frozen query terms"
+        )
+    if source.search_window_end < source.search_window_start:
+        raise RecapApiBatchDriverError("Case.dev source search window is inverted")
+    if source.source_search_type == "o":
+        if (
+            source.source_schema_version != OPINION_API_POLICY_SCHEMA
+            or source.source_available_only_present
+            or source.source_query_expression_present
+            or source.source_query_expression is not None
+        ):
+            raise RecapApiBatchDriverError(
+                "Case.dev source search_type=o requires the supported opinion "
+                "schema with available_only absent"
+            )
+        available_only = "absent"
+    elif source.source_search_type == "r":
+        if (
+            source.source_schema_version != UNRESTRICTED_RECAP_POLICY_SCHEMA
+            or not source.source_available_only_present
+            or source.source_available_only != "omitted"
+            or not source.source_query_expression_present
+            or source.source_query_expression != _UNRESTRICTED_QUERY_EXPRESSION
+        ):
+            raise RecapApiBatchDriverError(
+                "Case.dev source search_type=r requires the supported unrestricted "
+                "RECAP schema with available_only omitted"
+            )
+        available_only = "omitted"
+    else:
+        raise RecapApiBatchDriverError(
+            "Case.dev source ranking supports only CourtListener search_type=o or r"
+        )
+
+    expected_candidate_set = _canonical_sha256(
+        [lead.commitment_record() for lead in source.leads]
+    )
+    if source.source_candidate_set_sha256 != expected_candidate_set:
+        raise RecapApiBatchDriverError(
+            "Case.dev source candidate-set commitment does not match its leads"
+        )
+    expected_hit_set = _canonical_sha256(
+        [
+            {"docket_id": lead.docket_id, "source_hit": hit.to_record()}
+            for lead in source.leads
+            for hit in lead.source_hits
+        ]
+    )
+    if source.source_hit_set_sha256 != expected_hit_set:
+        raise RecapApiBatchDriverError(
+            "Case.dev source hit-set commitment does not match its leads"
+        )
+    source_terms = set(source.source_query_terms)
+    if any(
+        hit.query_term not in source_terms
+        for lead in source.leads
+        for hit in lead.source_hits
+    ):
+        raise RecapApiBatchDriverError(
+            "Case.dev source hit uses a query outside the frozen source terms"
+        )
+    query_commitment: dict[str, object] = {
+        "source_schema_version": source.source_schema_version,
+        "source_search_type": source.source_search_type,
+        "source_available_only": available_only,
+        "source_query_expression": source.source_query_expression,
+        "source_query_terms": list(source.source_query_terms),
+        "source_search_window_start": source.search_window_start.isoformat(),
+        "source_search_window_end": source.search_window_end.isoformat(),
+    }
+    return {
+        "source_batch_id": source.source_batch_id,
+        "source_batch_digest": source.source_batch_digest,
+        "source_cycle_hash": source.source_cycle_hash,
+        **query_commitment,
+        "source_query_commitment_sha256": _canonical_sha256(query_commitment),
+        "source_candidate_set_sha256": source.source_candidate_set_sha256,
+        "source_hit_set_sha256": source.source_hit_set_sha256,
+    }
 
 
 def _selection_transfer_term(selection: VerifiedCaseDevRankedSelection) -> str:

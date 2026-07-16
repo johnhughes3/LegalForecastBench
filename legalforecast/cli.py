@@ -81,9 +81,12 @@ from legalforecast.ingestion.budgeted_courtlistener_html_source import (
     DurableBudgetedCourtListenerHTMLSource,
 )
 from legalforecast.ingestion.budgeted_docket_acquisition import (
+    BudgetedDocketAcquisitionError,
     acquire_ranked_dockets,
     materialize_selected_slice_batch,
+    ranked_parent_requires_authenticated_handoff,
     render_complete_docket_html,
+    verify_authenticated_ranked_firecrawl_handoff,
 )
 from legalforecast.ingestion.budgeted_firecrawl import (
     BudgetedFirecrawlScheduler,
@@ -133,6 +136,7 @@ from legalforecast.ingestion.case_dev_purchase import (
 from legalforecast.ingestion.case_dev_ranked_selection import (
     CASE_DEV_SOURCE_DOCKET_SCHEMA,
     build_case_dev_ranked_target_plan,
+    case_dev_source_authority_commitments,
     project_case_dev_opinion_source,
     seed_case_dev_ranked_selection,
     verify_case_dev_ranked_selection,
@@ -3284,7 +3288,10 @@ def _add_batch_002_ranked_selection_common_arguments(
         "--source-store",
         type=Path,
         required=True,
-        help="Read-only store containing the exhausted opinion-search batch.",
+        help=(
+            "Read-only store containing an exhausted supported CourtListener "
+            "search_type=o or unrestricted search_type=r source batch."
+        ),
     )
     parser.add_argument("--source-batch-id", required=True)
     parser.add_argument(
@@ -3754,7 +3761,9 @@ def _add_acquisition_enrich_recap_case_dev_arguments(
         type=Path,
         help=(
             "Cycle acquisition SQLite store containing a fully exhausted "
-            "CourtListener search_type=o opinion batch. Requires "
+            "supported CourtListener search_type=o opinion batch or "
+            "search_type=r unrestricted RECAP batch with available_only "
+            "omitted. Requires "
             "--source-batch-id and replaces --dockets. Ranking always uses the "
             "frozen cycle-1 eligibility anchor (2026-06-30), independently of "
             "the discovery window."
@@ -3763,8 +3772,8 @@ def _add_acquisition_enrich_recap_case_dev_arguments(
     parser.add_argument(
         "--source-batch-id",
         help=(
-            "Fully exhausted CourtListener opinion source batch to project "
-            "by exact shared docket ID. Requires --source-store."
+            "Fully exhausted supported CourtListener o/r source batch to "
+            "project by exact numeric docket ID. Requires --source-store."
         ),
     )
     parser.add_argument(
@@ -3822,6 +3831,21 @@ def _add_acquisition_acquire_ranked_dockets_arguments(
     parser.add_argument("--selected-batch-id", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--ranked", type=Path, required=True)
+    parser.add_argument(
+        "--ranked-selection-run-card",
+        type=Path,
+        help=(
+            "Authenticated batch-002 ranked prefix/subset run card. Required "
+            "when --ranked contains source-bound o/r enrichment records."
+        ),
+    )
+    parser.add_argument(
+        "--expected-ranked-selection-run-card-sha256",
+        help=(
+            "External lowercase SHA-256 of --ranked-selection-run-card; both "
+            "flags are required together and verified before Firecrawl activity."
+        ),
+    )
     parser.add_argument("--max-candidates", type=int, required=True)
     parser.add_argument("--max-pages-per-docket", type=int, default=1000)
     parser.add_argument(
@@ -11831,11 +11855,7 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         projection_sha256 = hashlib.sha256(projection_bytes).hexdigest()
         eligibility_anchor = CYCLE_1_ELIGIBILITY_ANCHOR
         source_commitments = {
-            "source_batch_id": source.source_batch_id,
-            "source_batch_digest": source.source_batch_digest,
-            "source_cycle_hash": source.source_cycle_hash,
-            "source_search_type": source.source_search_type,
-            "source_candidate_set_sha256": source.source_candidate_set_sha256,
+            **case_dev_source_authority_commitments(source),
             "source_projection_sha256": projection_sha256,
             "eligibility_anchor": eligibility_anchor.isoformat(),
         }
@@ -12308,8 +12328,54 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
         args, "summary_output", output_root / "firecrawl-docket-summary.json"
     )
     records = _read_records(ranked_path)
+    selection_run_card_path = cast(Path | None, args.ranked_selection_run_card)
+    expected_selection_sha256 = cast(
+        str | None,
+        args.expected_ranked_selection_run_card_sha256,
+    )
+    if (selection_run_card_path is None) != (expected_selection_sha256 is None):
+        raise CommandError(
+            "--ranked-selection-run-card and "
+            "--expected-ranked-selection-run-card-sha256 are required together"
+        )
+    if _acquisition_dry_run(args) and not store_path.exists():
+        source_bound = False
+    else:
+        try:
+            with CycleAcquisitionStore(store_path) as store:
+                source_bound = ranked_parent_requires_authenticated_handoff(
+                    store,
+                    cast(str, args.parent_batch_id),
+                )
+        except (BudgetedDocketAcquisitionError, CycleAcquisitionStoreError) as exc:
+            raise CommandError(str(exc)) from exc
+    if source_bound and selection_run_card_path is None:
+        raise CommandError(
+            "source-bound parent batch requires an authenticated ranked-selection "
+            "run card and external SHA-256"
+        )
+    if selection_run_card_path is not None and expected_selection_sha256 is not None:
+        try:
+            with CycleAcquisitionStore(store_path) as store:
+                records = list(
+                    verify_authenticated_ranked_firecrawl_handoff(
+                        store=store,
+                        parent_batch_id=cast(str, args.parent_batch_id),
+                        ranked_path=ranked_path,
+                        selection_run_card_path=selection_run_card_path,
+                        expected_selection_run_card_sha256=(expected_selection_sha256),
+                        max_candidates=cast(int, args.max_candidates),
+                    )
+                )
+        except (BudgetedDocketAcquisitionError, CycleAcquisitionStoreError) as exc:
+            raise CommandError(str(exc)) from exc
+    base_input_paths = (
+        (ranked_path,)
+        if selection_run_card_path is None
+        else (ranked_path, selection_run_card_path)
+    )
     input_paths = (
-        (ranked_path,) if fixture_path is None else (ranked_path, fixture_path)
+        base_input_paths if fixture_path is None else (*base_input_paths, fixture_path)
     )
     output_paths = (successes_path, exclusions_path, summary_path)
     metadata_by_docket: dict[str, Mapping[str, object]] = {}
