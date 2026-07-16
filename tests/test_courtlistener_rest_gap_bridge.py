@@ -1226,6 +1226,138 @@ def test_alias_conflict_semantic_replay_requires_exact_v2_revision() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("exclusion_reason", "semantic_revision", "expected_replay"),
+    (
+        ("courtlistener_recap_already_available", None, True),
+        (
+            "courtlistener_recap_already_available",
+            "courtlistener-complaint-and-main-description-2026-07-15-v1",
+            False,
+        ),
+        (
+            "courtlistener_recap_already_available",
+            "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2",
+            False,
+        ),
+        ("courtlistener_recap_document_match_not_found", None, True),
+        (
+            "courtlistener_recap_document_match_not_found",
+            "courtlistener-complaint-and-main-description-2026-07-15-v1",
+            False,
+        ),
+        (
+            "courtlistener_recap_document_match_not_found",
+            "courtlistener-rest-recap-sequence-semantics-2026-07-16-v3",
+            False,
+        ),
+        ("operative_complaint_not_found", None, True),
+        (
+            "operative_complaint_not_found",
+            "courtlistener-complaint-and-main-description-2026-07-15-v1",
+            True,
+        ),
+        (
+            "operative_complaint_not_found",
+            "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2",
+            False,
+        ),
+        (
+            "operative_complaint_not_found",
+            "courtlistener-rest-recap-sequence-semantics-2026-07-16-v3",
+            False,
+        ),
+        (
+            "courtlistener_rest_entry_number_alias_conflict",
+            "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2",
+            True,
+        ),
+        (
+            "courtlistener_rest_entry_number_alias_conflict",
+            "courtlistener-rest-recap-sequence-semantics-2026-07-16-v3",
+            False,
+        ),
+        (
+            "operative_complaint_not_found",
+            "future-unrelated-semantic-revision",
+            False,
+        ),
+    ),
+)
+def test_exclusion_semantic_replay_is_reason_and_revision_specific(
+    exclusion_reason: str,
+    semantic_revision: str | None,
+    expected_replay: bool,
+) -> None:
+    checkpoint: dict[str, Any] = {
+        "outcome": "exclusion",
+        "payload": {
+            "exclusion_record": {
+                "primary_exclusion_reason": exclusion_reason,
+                "exclusion_reasons": [exclusion_reason],
+            }
+        },
+    }
+    if semantic_revision is not None:
+        checkpoint["bridge_semantic_revision"] = semantic_revision
+
+    assert (
+        _bridge_checkpoint_requires_semantic_replay(
+            checkpoint, bridge_provider="courtlistener_rest"
+        )
+        is expected_replay
+    )
+
+
+def test_current_v4_poststate_has_zero_semantic_replay_candidates() -> None:
+    exclusion_reasons = (
+        "courtlistener_recap_already_available",
+        "courtlistener_recap_document_match_not_found",
+        "operative_complaint_not_found",
+        "courtlistener_rest_entry_number_alias_conflict",
+    )
+    checkpoints: list[dict[str, Any]] = [
+        {
+            "bridge_semantic_revision": _PACER_GAP_BRIDGE_SEMANTIC_REVISION,
+            "outcome": "success",
+            "payload": {
+                "free_download_requests": [
+                    {
+                        "source_url": (
+                            "https://storage.courtlistener.com/recap/"
+                            f"current-{index}.pdf"
+                        )
+                    }
+                ]
+            },
+        }
+        for index in range(98)
+    ]
+    checkpoints.extend(
+        {
+            "bridge_semantic_revision": _PACER_GAP_BRIDGE_SEMANTIC_REVISION,
+            "outcome": "exclusion",
+            "payload": {
+                "exclusion_record": {
+                    "primary_exclusion_reason": reason,
+                    "exclusion_reasons": [reason],
+                }
+            },
+        }
+        for reason in (
+            exclusion_reasons[index % len(exclusion_reasons)] for index in range(27)
+        )
+    )
+
+    assert len(checkpoints) == 125
+    assert not any(
+        _bridge_checkpoint_requires_semantic_replay(
+            checkpoint, bridge_provider="courtlistener_rest"
+        )
+        for checkpoint in checkpoints
+    )
+
+
 def test_semantic_replay_that_remains_excluded_runs_only_once(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
