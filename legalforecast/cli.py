@@ -16389,7 +16389,7 @@ _PACER_GAP_LEGACY_CHECKPOINT_SCHEMA = (
 )
 _PACER_GAP_CHECKPOINT_SCHEMA = "legalforecast.pacer_gap_bridge_candidate_checkpoint.v2"
 _PACER_GAP_BRIDGE_SEMANTIC_REVISION = (
-    "courtlistener-complaint-and-main-description-2026-07-15-v1"
+    "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2"
 )
 _PACER_GAP_LEGACY_PROGRESS_CONFIG_SCHEMA = (
     "legalforecast.pacer_gap_bridge_progress_config.v1"

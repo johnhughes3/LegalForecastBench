@@ -46,7 +46,11 @@ from legalforecast.ingestion.operative_complaint import (
     select_operative_complaint_entry,
 )
 from legalforecast.ingestion.provenance import DocumentRole
-from legalforecast.ingestion.recap_api_discovery import public_recap_download_url
+from legalforecast.ingestion.recap_api_discovery import (
+    REST_DOCKET_PAGE_HARD_CAP,
+    public_recap_download_url,
+    web_entry_from_api,
+)
 from legalforecast.ingestion.recap_fetch_broker_policy import (
     COURTLISTENER_REST_PAID_RESTRICTION_EVIDENCE,
 )
@@ -54,6 +58,7 @@ from legalforecast.ingestion.restricted_material import restricted_material_mark
 
 _CASE_DEV_SEARCH_LIMIT = 20
 _CASE_DEV_DOCKET_PAGE_SIZE = 100
+_COURTLISTENER_REST_DOCKET_PAGE_SIZE = 100
 _RECOVERABLE_ROLES = frozenset(
     {
         DocumentRole.COMPLAINT,
@@ -783,7 +788,10 @@ def bridge_public_plan_paid_gap_candidate_via_courtlistener(
         docket_number=docket_number,
         caption=caption,
     )
-    rest_entries = tuple(client.iter_docket_entries(candidate_id, page_size=100))
+    rest_entries = _complete_courtlistener_rest_entries(
+        client,
+        candidate_id=candidate_id,
+    )
     documents = _bridge_courtlistener_rest_gap_documents(
         screened_case_record,
         page=page,
@@ -1603,6 +1611,7 @@ def _bridge_courtlistener_rest_gap_documents(
     requested = _requested_paid_gap_entries(
         record,
         page=page,
+        rest_entries=rest_entries,
         paid_gap_reasons=paid_gap_reasons,
     )
     by_number: dict[int, list[CourtListenerDocketEntry]] = {}
@@ -1694,6 +1703,118 @@ def _bridge_courtlistener_rest_gap_documents(
             )
         )
     return tuple(bridged)
+
+
+def _complete_courtlistener_rest_entries(
+    client: CourtListenerClient,
+    *,
+    candidate_id: str,
+) -> tuple[CourtListenerDocketEntry, ...]:
+    """Exhaust and validate REST docket-entry pagination before role selection."""
+
+    entries: list[CourtListenerDocketEntry] = []
+    entry_id_by_number: dict[int, str] = {}
+    seen_entry_ids: set[str] = set()
+    seen_cursors: set[str] = set()
+    cursor: str | None = None
+    pages_fetched = 0
+    while True:
+        page = client.list_docket_entries(
+            candidate_id,
+            cursor=cursor,
+            page_size=_COURTLISTENER_REST_DOCKET_PAGE_SIZE,
+        )
+        pages_fetched += 1
+        for entry in page.items:
+            if entry.docket_id != candidate_id:
+                raise CourtListenerCaseDevBridgeError(
+                    "courtlistener_entry_docket_conflict: "
+                    f"{entry.entry_number or entry.docket_entry_id}"
+                )
+            if entry.docket_entry_id in seen_entry_ids:
+                raise CourtListenerCaseDevBridgeError(
+                    f"courtlistener_rest_entry_duplicate: {entry.docket_entry_id}"
+                )
+            seen_entry_ids.add(entry.docket_entry_id)
+            _validate_rest_entry_docket_aliases(entry, candidate_id=candidate_id)
+            _validate_rest_entry_number_aliases(entry)
+            number = _positive_entry_number(entry.entry_number)
+            if number is not None:
+                previous_id = entry_id_by_number.get(number)
+                if previous_id is not None and previous_id != entry.docket_entry_id:
+                    raise CourtListenerCaseDevBridgeError(
+                        f"courtlistener_rest_entry_number_conflict: {number}"
+                    )
+                entry_id_by_number[number] = entry.docket_entry_id
+            entries.append(entry)
+        next_cursor = page.next_cursor
+        if next_cursor is None:
+            break
+        if (
+            pages_fetched >= REST_DOCKET_PAGE_HARD_CAP
+            or next_cursor == cursor
+            or next_cursor in seen_cursors
+        ):
+            reason = (
+                "courtlistener_rest_pagination_exhaustion_unproven"
+                if pages_fetched >= REST_DOCKET_PAGE_HARD_CAP
+                else "courtlistener_rest_pagination_cursor_conflict"
+            )
+            raise CourtListenerCaseDevBridgeError(reason)
+        seen_cursors.add(next_cursor)
+        cursor = next_cursor
+    return tuple(
+        sorted(
+            entries,
+            key=lambda entry: (
+                _positive_entry_number(entry.entry_number) is None,
+                _positive_entry_number(entry.entry_number) or 0,
+                entry.docket_entry_id,
+            ),
+        )
+    )
+
+
+def _validate_rest_entry_number_aliases(entry: CourtListenerDocketEntry) -> None:
+    aliases: set[str] = set()
+    for field_name in ("entry_number", "entryNumber", "recap_sequence_number"):
+        value = entry.raw.get(field_name)
+        if isinstance(value, bool) or value is None:
+            continue
+        if isinstance(value, int):
+            aliases.add(str(value))
+        elif isinstance(value, str) and value.strip():
+            normalized = value.strip()
+            aliases.add(str(int(normalized)) if normalized.isdecimal() else normalized)
+    if len(aliases) > 1:
+        raise CourtListenerCaseDevBridgeError(
+            f"courtlistener_rest_entry_number_alias_conflict: {entry.docket_entry_id}"
+        )
+
+
+def _validate_rest_entry_docket_aliases(
+    entry: CourtListenerDocketEntry,
+    *,
+    candidate_id: str,
+) -> None:
+    aliases: set[str] = set()
+    for field_name in ("docket", "docket_id", "docketId"):
+        value = entry.raw.get(field_name)
+        if isinstance(value, bool) or value is None:
+            continue
+        if isinstance(value, int):
+            normalized = str(value)
+        elif isinstance(value, str) and value.strip():
+            text = value.strip()
+            match = re.search(r"/dockets/(?P<id>[1-9][0-9]*)/?$", text)
+            normalized = match.group("id") if match is not None else text
+        else:
+            continue
+        aliases.add(normalized)
+    if aliases != {candidate_id}:
+        raise CourtListenerCaseDevBridgeError(
+            f"courtlistener_rest_entry_docket_alias_conflict: {entry.docket_entry_id}"
+        )
 
 
 def _same_filed_date(first: str, second: str) -> bool:
@@ -1952,6 +2073,7 @@ def _requested_paid_gap_entries(
     record: Mapping[str, Any],
     *,
     page: CourtListenerWebDocketPage,
+    rest_entries: tuple[CourtListenerDocketEntry, ...] = (),
     paid_gap_reasons: tuple[str, ...],
 ) -> tuple[tuple[CourtListenerWebDocketEntry, DocumentRole], ...]:
     ai = _mapping(record.get("ai"), "ai")
@@ -1972,9 +2094,12 @@ def _requested_paid_gap_entries(
         base = _paid_gap_reason_base(reason)
         explicit_number = _paid_gap_reason_entry_number(reason)
         if base == "no_free_operative_complaint":
-            complaint = select_operative_complaint_entry(
-                numbered_entries.values(),
+            rest_complaint = select_operative_complaint_entry(
+                (web_entry_from_api(entry) for entry in rest_entries),
                 before_entry=min(target_numbers),
+            )
+            complaint = rest_complaint or select_operative_complaint_entry(
+                numbered_entries.values(), before_entry=min(target_numbers)
             )
             if complaint is None:
                 raise CourtListenerCaseDevBridgeError("operative_complaint_not_found")

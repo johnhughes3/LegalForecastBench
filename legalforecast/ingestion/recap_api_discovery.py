@@ -694,7 +694,7 @@ def reconstruct_docket_page(
         docket_id=docket_id,
         source_url=docket.source_url,
         title=docket.case_name,
-        entries=tuple(_web_entry_from_api(entry) for entry in ordered_entries),
+        entries=tuple(web_entry_from_api(entry) for entry in ordered_entries),
         # Every entry has been fetched, so the reconstructed page is single-page
         # by construction; the screen rejects multi-page HTML scrapes, and this
         # API route is exhaustive rather than truncated.
@@ -703,9 +703,11 @@ def reconstruct_docket_page(
     return ReconstructedDocket(docket=docket, page=page, proof=proof)
 
 
-def _web_entry_from_api(
+def web_entry_from_api(
     entry: CourtListenerDocketEntry,
 ) -> CourtListenerWebDocketEntry:
+    """Convert one typed REST docket row into the strict public-docket shape."""
+
     restriction_markers = restricted_material_markers(
         records=(entry.raw,),
         text_fields=(entry.entry_text,),

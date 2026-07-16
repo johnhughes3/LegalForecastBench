@@ -75,6 +75,308 @@ def test_courtlistener_rest_bridge_emits_real_public_recap_id_for_plan() -> None
     assert client.request_count == 3
 
 
+def test_bridge_recovers_operative_complaint_from_complete_paginated_rest() -> None:
+    screened, gap, downloads = _complaint_gap_inputs()
+    responses = (
+        _docket_response(),
+        _response(
+            path="/docket-entries/",
+            params={"docket": "123", "page_size": 100},
+            payload={
+                "results": [_rest_entry(5, 7005, 9005, "MOTION to Dismiss")],
+                "next": (
+                    "https://www.courtlistener.com/api/rest/v4/"
+                    "docket-entries/?cursor=older"
+                ),
+            },
+        ),
+        _response(
+            path="/docket-entries/",
+            params={"docket": "123", "cursor": "older", "page_size": 100},
+            payload={
+                "results": [_rest_entry(1, 7001, 9001, "COMPLAINT filed")],
+                "next": None,
+            },
+        ),
+        _recap_document_response(1, 7001, 9001, "Complaint"),
+        _recap_document_response(5, 7005, 9005, "Motion to Dismiss"),
+    )
+
+    selection, _ = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap,
+        free_download_records=downloads,
+        client=_authenticated_client(*responses),
+        use_embedded_entries=True,
+    )
+
+    recovered = [
+        (document["docket_entry_number"], document["document_role"])
+        for document in selection["documents"]
+        if document.get("resolved_from_paid_gap") is True
+    ]
+    assert recovered == [
+        (1, "complaint"),
+        (5, "motion_to_dismiss_memorandum"),
+    ]
+
+
+def test_bridge_uses_latest_unique_pre_mtd_rest_complaint() -> None:
+    screened, gap, downloads = _complaint_gap_inputs()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    selected_entries.insert(
+        0,
+        _entry(
+            1,
+            "Initial filing",
+            "Complaint",
+            "https://ecf.nysd.uscourts.gov/doc1/complaint",
+            pacer_only=True,
+        ),
+    )
+    responses = (
+        _docket_response(),
+        _response(
+            path="/docket-entries/",
+            params={"docket": "123", "page_size": 100},
+            payload={
+                "results": [
+                    _rest_entry(1, 7001, 9001, "COMPLAINT filed"),
+                    _rest_entry(3, 7003, 9003, "AMENDED COMPLAINT filed"),
+                    _rest_entry(5, 7005, 9005, "MOTION to Dismiss"),
+                ],
+                "next": None,
+            },
+        ),
+        _recap_document_response(3, 7003, 9003, "Amended Complaint"),
+        _recap_document_response(5, 7005, 9005, "Motion to Dismiss"),
+    )
+
+    selection, _ = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap,
+        free_download_records=downloads,
+        client=_authenticated_client(*responses),
+        use_embedded_entries=True,
+    )
+
+    complaint_documents = [
+        document
+        for document in selection["documents"]
+        if document["document_role"] in {"complaint", "amended_complaint"}
+    ]
+    assert [
+        (document["docket_entry_number"], document["document_role"])
+        for document in complaint_documents
+    ] == [(3, "amended_complaint")]
+
+
+def test_bridge_falls_back_to_exhaustive_public_entry_for_missing_rest_role() -> None:
+    screened, gap, downloads = _complaint_gap_inputs()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    selected_entries.insert(
+        0,
+        _entry(
+            1,
+            "Initial filing",
+            "Complaint",
+            "https://ecf.nysd.uscourts.gov/doc1/complaint",
+            pacer_only=True,
+        ),
+    )
+    responses = (
+        _docket_response(),
+        _response(
+            path="/docket-entries/",
+            params={"docket": "123", "page_size": 100},
+            payload={
+                "results": [
+                    _rest_entry(1, 7001, 9001, "Initial filing"),
+                    _rest_entry(5, 7005, 9005, "MOTION to Dismiss"),
+                ],
+                "next": None,
+            },
+        ),
+        _recap_document_response(1, 7001, 9001, "Complaint"),
+        _recap_document_response(5, 7005, 9005, "Motion to Dismiss"),
+    )
+
+    selection, _ = bridge_public_plan_paid_gap_candidate_via_courtlistener(
+        screened,
+        paid_gap_record=gap,
+        free_download_records=downloads,
+        client=_authenticated_client(*responses),
+        use_embedded_entries=True,
+    )
+
+    assert any(
+        document["docket_entry_number"] == 1
+        and document["document_role"] == "complaint"
+        for document in selection["documents"]
+    )
+
+
+def test_bridge_rejects_contradictory_rest_entry_numbers_across_pages() -> None:
+    screened, gap, downloads = _complaint_gap_inputs()
+    responses = (
+        _docket_response(),
+        _response(
+            path="/docket-entries/",
+            params={"docket": "123", "page_size": 100},
+            payload={
+                "results": [_rest_entry(1, 7001, 9001, "COMPLAINT filed")],
+                "next": (
+                    "https://www.courtlistener.com/api/rest/v4/"
+                    "docket-entries/?cursor=duplicate"
+                ),
+            },
+        ),
+        _response(
+            path="/docket-entries/",
+            params={"docket": "123", "cursor": "duplicate", "page_size": 100},
+            payload={
+                "results": [_rest_entry(1, 7002, 9002, "COMPLAINT filed")],
+                "next": None,
+            },
+        ),
+    )
+
+    with pytest.raises(
+        CourtListenerCaseDevBridgeError,
+        match="courtlistener_rest_entry_number_conflict: 1",
+    ):
+        bridge_public_plan_paid_gap_candidate_via_courtlistener(
+            screened,
+            paid_gap_record=gap,
+            free_download_records=downloads,
+            client=_authenticated_client(*responses),
+            use_embedded_entries=True,
+        )
+
+
+def test_bridge_rejects_nonadvancing_rest_pagination_cursor() -> None:
+    screened, gap, downloads = _complaint_gap_inputs()
+    next_url = "https://www.courtlistener.com/api/rest/v4/docket-entries/?cursor=loop"
+    responses = (
+        _docket_response(),
+        _response(
+            path="/docket-entries/",
+            params={"docket": "123", "page_size": 100},
+            payload={"results": [], "next": next_url},
+        ),
+        _response(
+            path="/docket-entries/",
+            params={"docket": "123", "cursor": "loop", "page_size": 100},
+            payload={"results": [], "next": next_url},
+        ),
+    )
+
+    with pytest.raises(
+        CourtListenerCaseDevBridgeError,
+        match="courtlistener_rest_pagination_cursor_conflict",
+    ):
+        bridge_public_plan_paid_gap_candidate_via_courtlistener(
+            screened,
+            paid_gap_record=gap,
+            free_download_records=downloads,
+            client=_authenticated_client(*responses),
+            use_embedded_entries=True,
+        )
+
+
+def test_bridge_rejects_contradictory_rest_entry_number_aliases() -> None:
+    screened, gap, downloads = _complaint_gap_inputs()
+    complaint = _rest_entry(1, 7001, 9001, "COMPLAINT filed")
+    complaint["entryNumber"] = 2
+    responses = (
+        _docket_response(),
+        _response(
+            path="/docket-entries/",
+            params={"docket": "123", "page_size": 100},
+            payload={"results": [complaint], "next": None},
+        ),
+    )
+
+    with pytest.raises(
+        CourtListenerCaseDevBridgeError,
+        match="courtlistener_rest_entry_number_alias_conflict: 7001",
+    ):
+        bridge_public_plan_paid_gap_candidate_via_courtlistener(
+            screened,
+            paid_gap_record=gap,
+            free_download_records=downloads,
+            client=_authenticated_client(*responses),
+            use_embedded_entries=True,
+        )
+
+
+def test_bridge_rejects_contradictory_rest_docket_aliases() -> None:
+    screened, gap, downloads = _complaint_gap_inputs()
+    complaint = _rest_entry(1, 7001, 9001, "COMPLAINT filed")
+    complaint["docket_id"] = 999
+    responses = (
+        _docket_response(),
+        _response(
+            path="/docket-entries/",
+            params={"docket": "123", "page_size": 100},
+            payload={"results": [complaint], "next": None},
+        ),
+    )
+
+    with pytest.raises(
+        CourtListenerCaseDevBridgeError,
+        match="courtlistener_rest_entry_docket_alias_conflict: 7001",
+    ):
+        bridge_public_plan_paid_gap_candidate_via_courtlistener(
+            screened,
+            paid_gap_record=gap,
+            free_download_records=downloads,
+            client=_authenticated_client(*responses),
+            use_embedded_entries=True,
+        )
+
+
+def test_bridge_keeps_ambiguous_removed_state_complaint_excluded() -> None:
+    screened, gap, downloads = _complaint_gap_inputs()
+    removal = _rest_entry(1, 7001, 9001, "NOTICE OF REMOVAL filed")
+    removal["recap_documents"] = [
+        {
+            "id": 9001,
+            "attachment_number": 1,
+            "description": "Exhibit A - Complaint",
+            "is_available": False,
+            "is_sealed": False,
+        },
+        {
+            "id": 9002,
+            "attachment_number": 2,
+            "description": "Exhibit B - Amended Complaint",
+            "is_available": False,
+            "is_sealed": False,
+        },
+    ]
+    responses = (
+        _docket_response(),
+        _response(
+            path="/docket-entries/",
+            params={"docket": "123", "page_size": 100},
+            payload={"results": [removal], "next": None},
+        ),
+    )
+
+    with pytest.raises(
+        CourtListenerCaseDevBridgeError,
+        match="operative_complaint_not_found",
+    ):
+        bridge_public_plan_paid_gap_candidate_via_courtlistener(
+            screened,
+            paid_gap_record=gap,
+            free_download_records=downloads,
+            client=_authenticated_client(*responses),
+            use_embedded_entries=True,
+        )
+
+
 def test_courtlistener_rest_bridge_preserves_explicit_private_false() -> None:
     screened, gap, downloads = _paid_gap_inputs()
     responses = list(_clean_responses())
@@ -693,6 +995,12 @@ def test_semantic_replay_requires_exact_consistent_legacy_exclusion() -> None:
         checkpoint, bridge_provider="courtlistener_rest"
     )
     checkpoint["payload"]["exclusion_record"]["primary_exclusion_reason"] = reason
+    checkpoint["bridge_semantic_revision"] = (
+        "courtlistener-complaint-and-main-description-2026-07-15-v1"
+    )
+    assert _bridge_checkpoint_requires_semantic_replay(
+        checkpoint, bridge_provider="courtlistener_rest"
+    )
     checkpoint["bridge_semantic_revision"] = _PACER_GAP_BRIDGE_SEMANTIC_REVISION
     assert not _bridge_checkpoint_requires_semantic_replay(
         checkpoint, bridge_provider="courtlistener_rest"
@@ -2105,6 +2413,104 @@ def _paid_gap_inputs() -> tuple[
         for request in plan.download_requests
     )
     return screened, gap.to_record(), downloads
+
+
+def _complaint_gap_inputs() -> tuple[
+    dict[str, object], dict[str, object], tuple[dict[str, object], ...]
+]:
+    screened = _screened_case()
+    selected_entries = cast(list[dict[str, object]], screened["selected_entries"])
+    complaint = next(
+        entry for entry in selected_entries if entry["entry_number"] == "1"
+    )
+    [complaint_document] = cast(list[dict[str, object]], complaint["documents"])
+    complaint_document.update(
+        {
+            "href": "https://ecf.nysd.uscourts.gov/doc1/complaint",
+            "action_label": "Buy on PACER",
+            "pacer_only": True,
+        }
+    )
+    plan = plan_public_packet_downloads(
+        (screened,), use_embedded_entries=True, target_clean_cases=1
+    )
+    [gap] = plan.paid_gap_cases
+    downloads = tuple(
+        {
+            **request.to_record(),
+            "local_path": f"123/{request.source_document_id}.pdf",
+            "sha256": "a" * 64,
+            "free_or_purchased": "free",
+        }
+        for request in plan.download_requests
+    )
+    screened["selected_entries"] = [
+        entry for entry in selected_entries if entry["entry_number"] != "1"
+    ]
+    return screened, gap.to_record(), downloads
+
+
+def _docket_response() -> RecordedCourtListenerResponse:
+    return _response(
+        path="/dockets/123/",
+        payload={
+            "id": 123,
+            "court": "nysd",
+            "docket_number": "1:26-cv-00001",
+            "case_name": "Fixture v. Example",
+        },
+    )
+
+
+def _rest_entry(
+    entry_number: int,
+    docket_entry_id: int,
+    document_id: int,
+    description: str,
+) -> dict[str, object]:
+    document_description = (
+        "Amended Complaint"
+        if "amended complaint" in description.casefold()
+        else "Complaint"
+        if "complaint" in description.casefold()
+        else "Motion to Dismiss"
+    )
+    return {
+        "id": docket_entry_id,
+        "docket": 123,
+        "entry_number": entry_number,
+        "description": description,
+        "date_filed": "2026-01-01",
+        "recap_documents": [
+            {
+                "id": document_id,
+                "attachment_number": None,
+                "description": document_description,
+                "is_available": False,
+                "is_sealed": False,
+            }
+        ],
+    }
+
+
+def _recap_document_response(
+    entry_number: int,
+    docket_entry_id: int,
+    document_id: int,
+    description: str,
+) -> RecordedCourtListenerResponse:
+    return _response(
+        path=f"/recap-documents/{document_id}/",
+        payload={
+            "id": document_id,
+            "docket_entry": docket_entry_id,
+            "document_number": str(entry_number),
+            "attachment_number": None,
+            "description": description,
+            "is_available": False,
+            "is_sealed": False,
+        },
+    )
 
 
 def _clean_responses() -> tuple[RecordedCourtListenerResponse, ...]:
