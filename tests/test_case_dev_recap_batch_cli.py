@@ -240,6 +240,135 @@ def test_resume_can_raise_worker_count_without_changing_checkpoint_identity(
     assert [record["input_index"] for record in failures] == list(range(6))
 
 
+def test_enrichment_schedules_only_pending_rows_by_signal_then_input_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    records = (
+        {
+            "candidate_id": "courtlistener-docket-101",
+            "docket_id": "101",
+            "docket_url": "https://www.courtlistener.com/docket/101/generic/",
+            "entry_keys": ["entry-101"],
+            "matched_terms": ['"motion to dismiss"'],
+            "eligibility_status": "potential_unverified",
+        },
+        {
+            "candidate_id": "courtlistener-docket-102",
+            "docket_id": "102",
+            "docket_url": "https://www.courtlistener.com/docket/102/decision/",
+            "entry_keys": ["entry-102"],
+            "matched_terms": ['"dismissing complaint" AND order'],
+            "eligibility_status": "potential_unverified",
+        },
+        {
+            "candidate_id": "courtlistener-docket-103",
+            "docket_id": "103",
+            "docket_url": "https://www.courtlistener.com/docket/103/exact/",
+            "entry_keys": ["entry-103"],
+            "matched_terms": ['"motion to dismiss"'],
+            "eligibility_status": "potential_unverified",
+            "source_lineage": {
+                "lead_commitment": {
+                    "decision_entry_evidence": {
+                        "description": "ORDER granting motion to dismiss"
+                    }
+                }
+            },
+        },
+        {
+            "candidate_id": "courtlistener-docket-104",
+            "docket_id": "104",
+            "docket_url": "https://www.courtlistener.com/docket/104/exact-tie/",
+            "entry_keys": ["entry-104"],
+            "matched_terms": ['"motion to dismiss"'],
+            "eligibility_status": "potential_unverified",
+            "source_lineage": {
+                "lead_commitment": {
+                    "decision_entry_evidence": {
+                        "description": "ORDER denying motion to dismiss"
+                    }
+                }
+            },
+        },
+        {
+            "candidate_id": "courtlistener-docket-105",
+            "docket_id": "105",
+            "docket_url": "https://www.courtlistener.com/docket/105/decision-tie/",
+            "entry_keys": ["entry-105"],
+            "matched_terms": ['"motion to dismiss" AND denied'],
+            "eligibility_status": "potential_unverified",
+        },
+    )
+    dockets = tmp_path / "dockets.jsonl"
+    original_docket_bytes = "".join(json.dumps(record) + "\n" for record in records)
+    dockets.write_text(original_docket_bytes, encoding="utf-8")
+    output_root = tmp_path / "output"
+    phase = "initial"
+    started_indices: list[int] = []
+
+    def fake_enrich(*, input_index: int, **_kwargs: Any) -> tuple[dict[str, Any], int]:
+        started_indices.append(input_index)
+        if phase == "initial" and input_index == 3:
+            raise CaseDevRateLimitError("offline scheduling checkpoint")
+        return (
+            {
+                "input_index": input_index,
+                "outcome": "failure",
+                "payload": {
+                    "input_index": input_index,
+                    "reason": "offline_test_terminal",
+                },
+            },
+            0,
+        )
+
+    monkeypatch.setattr(cli_module, "_enrich_case_dev_progress_record", fake_enrich)
+    monkeypatch.setenv("CASE_DEV_API_KEY", "offline-test-key")
+    base_args = [
+        "acquisition",
+        "enrich-recap-case-dev",
+        "--output-root",
+        str(output_root),
+        "--dockets",
+        str(dockets),
+        "--live-case-dev",
+        "--execute",
+    ]
+
+    assert cli_module.main(base_args) == 2
+    assert started_indices == [2, 3]
+    progress_path = output_root / "checkpoints" / "case-dev-recap-progress.jsonl"
+    with progress_path.open("a", encoding="utf-8") as stream:
+        stream.write(
+            json.dumps(
+                {
+                    "input_index": 0,
+                    "outcome": "transient",
+                    "payload": {"reason": "case_dev_server_error"},
+                }
+            )
+            + "\n"
+        )
+
+    phase = "resume"
+    started_indices.clear()
+    assert cli_module.main([*base_args, "--resume"]) == 0
+
+    assert started_indices == [3, 1, 4, 0]
+    assert dockets.read_text(encoding="utf-8") == original_docket_bytes
+    progress_config = json.loads(
+        (output_root / "checkpoints" / "case-dev-recap-progress-config.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert "scheduling_policy" not in progress_config
+    failures = _read_jsonl(
+        output_root / "checkpoints" / "case-dev-recap-failures.jsonl"
+    )
+    assert [record["input_index"] for record in failures] == list(range(5))
+
+
 def test_enrich_recap_case_dev_projects_saturated_opinion_source_without_invented_url(
     tmp_path: Path,
 ) -> None:

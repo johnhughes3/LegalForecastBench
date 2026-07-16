@@ -146,6 +146,9 @@ from legalforecast.ingestion.case_dev_recap_batch import enrich_recap_discovery_
 from legalforecast.ingestion.case_dev_recap_enrichment import (
     CASE_DEV_RANKING_POLICY_VERSION,
 )
+from legalforecast.ingestion.case_dev_scheduling import (
+    case_dev_enrichment_schedule_key,
+)
 from legalforecast.ingestion.case_dev_smoke import (
     CaseDevSmokeConfig,
     case_dev_smoke_query_terms,
@@ -13019,6 +13022,12 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
             if input_index not in progress_by_index
             or _case_dev_progress_is_retryable(progress_by_index[input_index])
         ]
+        pending.sort(
+            key=lambda item: case_dev_enrichment_schedule_key(
+                input_index=item[0],
+                record=item[1],
+            )
+        )
         request_count = 0
         if workers == 1:
             serial_client = _case_dev_client(
