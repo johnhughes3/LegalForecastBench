@@ -61,6 +61,67 @@ infisical-agent-sandbox run \
 
 The sentinel-`op` and child-environment tests in `tests/test_mistral_markdown_parser.py` enforce the subprocess boundary, but they do not authorize injecting a broad acquisition secret set into the parent process.
 
+Unitize Stage A only from that exact authenticated materialization and pinned live-parser lineage. Use one explicit provider journal for the cycle; creating a fresh output-root-local journal is refused because it would reset the cycle reservation ledger:
+
+```bash
+uv run legalforecast acquisition llm-unitize \
+  --output-root <assembled-cycle-root> \
+  --selection <selection.jsonl> \
+  --selection-run-card <project-or-extend-target-cohort-run-card.json> \
+  --download-manifest <materialized-download-manifest.jsonl> \
+  --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
+  --materialization-run-card <materialize-cohort-documents-run-card.json> \
+  --document-root <materialized-document-root> \
+  --parse-requests <parse-document-requests.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --parser-run-card <parse-documents-run-card.json> \
+  --markdown-root <parsed-markdown-root> \
+  --model-registry <frozen-stage-a-registry.json> \
+  --model-key <provider:model-id> \
+  --provider-cycle-caps <provider-cycle-caps.json> \
+  --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --execute --no-resume
+```
+
+Before any provider call, the command replays the target selection, immutable materializer, parse requests, pinned live-Mistral card, parser manifest, and complete Markdown tree. It rejects provider caps whose `cycle_id` differs from the authenticated cohort. The journal stores an immutable v2 identity containing that cycle ID, the exact caps-artifact hash, and its canonical path; copying it to another output root or opening it with changed caps is refused. The completed run card commits the journal schema and identity, exact registry entry, caps artifact, prompts, settled provider attempts, reconstructed units, raw outputs, audit, and review queue. A partial `--continue-on-error` run remains resumable but is explicitly marked incomplete and is inadmissible downstream.
+
+Run the structural Stage A review against the same unitizer card, caps artifact, and canonical provider journal even when its ordinary outputs live under a different root:
+
+```bash
+uv run legalforecast acquisition llm-review-stage-a \
+  --output-root <structural-review-root> \
+  --selection <selection.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --markdown-root <parsed-markdown-root> \
+  --prediction-units <prediction-units.jsonl> \
+  --llm-unitization-run-card <llm-unitize-run-card.json> \
+  --unitization-review-queue <unitization-review-queue.jsonl> \
+  --model-registry <frozen-stage-a-reviewer-registry.json> \
+  --model-key <provider:model-id> \
+  --provider-cycle-caps <provider-cycle-caps.json> \
+  --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --execute --no-resume
+```
+
+The command replays Stage A before resolving the reviewer model, refuses a different journal path, wrong cycle, or byte-different caps artifact before a provider call, and commits the exact reviewer model, prompt identities, provider attempts, input artifacts, merged queue, flags, and audit in its run card.
+
+After structural review, apply adjudications only through the authenticated unitizer card:
+
+```bash
+uv run legalforecast acquisition apply-unitization-review \
+  --output-root <assembled-cycle-root> \
+  --prediction-units <prediction-units.jsonl> \
+  --llm-unitization-run-card <llm-unitize-run-card.json> \
+  --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
+  --unitization-review-queue <verified-merged-review-queue.jsonl> \
+  --adjudications <unitization-adjudications.jsonl> \
+  --provider-cycle-caps <provider-cycle-caps.json> \
+  --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --execute --no-resume
+```
+
+The apply card propagates the unitizer and structural-review cards plus the exact caps and journal authority, and commits the raw units, authenticated merged queue, adjudications, and replayed finalized units. Neither this command nor finalization accepts a rehashed, hand-authored, cross-cohort, cross-model, prompt-substituted, or independently regenerated Stage A artifact.
+
 Build the Stage B disposition-text artifact only from the exact selected cohort, authenticated download manifest, authenticated disclosure-clearance run card, restriction evidence, and pinned Mistral parser output used by the cycle:
 
 ```bash
@@ -94,14 +155,19 @@ uv run legalforecast acquisition llm-label \
   --decision-texts-manifest <assembled-cycle-root>/decision-texts-manifest.json \
   --decision-texts-run-card <assembled-cycle-root>/run-cards/build-decision-texts.json \
   --prediction-units <finalized-prediction-units.jsonl> \
+  --llm-unitization-run-card <llm-unitize-run-card.json> \
+  --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
+  --unitization-review-run-card <apply-unitization-review-run-card.json> \
+  --llm-label-run-card <llm-label-run-card.json> \
   --model-registry <frozen-stage-b-judge-registry.json> \
   --evaluated-model-registry <frozen-evaluated-model-registry.json> \
   --model-key <provider:model-id> \
   --provider-cycle-caps <provider-cycle-caps.json> \
+  --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
   --execute --no-resume
 ```
 
-Repeat `--model-key` for every entry in the frozen judge registry. Before the first provider reservation, the command verifies exact candidate and case mapping, decision-document, disposition-date, text, text-hash, source hash and byte count, empty parser quality flags, selection, parser, and finalized-unit coverage and provenance. It binds the decision JSONL, manifest, run-card, per-record, and text hashes plus the exact raw finalized-units file and candidate-envelope hashes into each provider prompt and therefore the provider journal identity, and repeats those commitments in the label audit and `llm-label` run card. Any mismatch stops the stage without a provider call.
+Repeat `--model-key` for every entry in the frozen judge registry. Before the first provider reservation, the command replays the authenticated unitizer, structural-review, and apply-review cards; verifies exact candidate and case mapping, decision-document, disposition-date, text, text-hash, source hash and byte count, empty parser quality flags, selection, parser, and finalized-unit coverage and provenance; and requires the same canonical journal and exact caps artifact used by Stage A. It binds the decision JSONL, manifest, run-card, per-record, and text hashes plus the exact finalized-units file, candidate-envelope hashes, full Stage A card chain, journal identity, and stage-specific settled attempts into the label audit and `llm-label` run card. Changing `--output-root` cannot create a new ledger because `--provider-journal` must still resolve to the unitizer-committed canonical path. Any mismatch stops the stage without a provider call.
 
 After Stage B labeling completes, freeze the single cycle-level reliability sample before any lawyer adjudication:
 
@@ -175,7 +241,13 @@ uv run legalforecast acquisition finalize-corpus \
   <all-other-stage-inputs> \
   --selection <selection.jsonl> \
   --parser-manifest <parser-manifest.jsonl> \
+  --raw-prediction-units <prediction-units.jsonl> \
+  --llm-unitization-run-card <llm-unitize-run-card.json> \
+  --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
+  --provider-cycle-caps <provider-cycle-caps.json> \
+  --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
   --prediction-units <finalized-prediction-units.jsonl> \
+  --unitization-review-run-card <apply-unitization-review-run-card.json> \
   --markdown-root <parsed-markdown-root> \
   --decision-texts <assembled-cycle-root>/decision-texts.jsonl \
   --decision-texts-manifest <assembled-cycle-root>/decision-texts-manifest.json \
@@ -192,7 +264,7 @@ uv run legalforecast acquisition finalize-corpus \
   --execute --no-resume
 ```
 
-Do not hand-author a compatibility summary or substitute a replay-stage summary. `finalize-corpus` requires the successful canonical `prepare-target-cohort` root, verifies its self-hashed configuration, completion evidence, and exhaustive stage commitments, and uses that authenticated lineage to pin the exact snapshot path, manifest hash, cycle hash, batch digest, and target size. It then authenticates the decision-text bundle against the exact selection, parser output, finalized units, and Markdown; requires every Stage B audit row's `decision_text_commitment` to match; verifies the snapshot's immutable cycle-store registration, complete and saturated state, member hashes, row counts, and accepted-plus-excluded reconciliation; and accepts the packet artifacts only after those gates pass. Include every later exclusion file separately with `--exclusion-source` so every screened-but-unselected or downstream-rejected candidate reaches the complete exclusion ledger.
+Do not hand-author a compatibility summary or substitute a replay-stage summary. `finalize-corpus` requires the successful canonical `prepare-target-cohort` root, verifies its self-hashed configuration, completion evidence, and exhaustive stage commitments, and uses that authenticated lineage to pin the exact snapshot path, manifest hash, cycle hash, batch digest, and target size. It replays the authenticated unitizer and structural-review cards against the exact raw units, original and merged review queues, structural flags, review audit, reviewer registry and key, provider-caps bytes, and canonical shared journal before accepting and reproducing the apply-review output. It then replays the authenticated `llm-label` card against the same Stage A authority, exact decision-text inputs, judge registry, journaled per-model reconstructions, labels, audit, and original lawyer queue. Finally it verifies the snapshot's immutable cycle-store registration, complete and saturated state, member hashes, row counts, and accepted-plus-excluded reconciliation, and accepts the packet artifacts only after those gates pass. Include every later exclusion file separately with `--exclusion-source` so every screened-but-unselected or downstream-rejected candidate reaches the complete exclusion ledger.
 
 ## Before Dispatch
 

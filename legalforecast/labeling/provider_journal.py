@@ -19,6 +19,7 @@ from legalforecast.evals.live_model_solver import LiveModelProviderError
 JsonRecord = Mapping[str, object]
 DEFAULT_CYCLE_PROVIDER_CAP_USD = 1_000.0
 PROVIDER_CYCLE_CAPS_SCHEMA_VERSION = "legalforecast.provider_cycle_caps.v1"
+PROVIDER_JOURNAL_SCHEMA_VERSION = "legalforecast.provider_attempt_journal.v2"
 
 
 class ProviderJournalError(RuntimeError):
@@ -60,6 +61,70 @@ class ProviderCycleCaps:
                 f"provider cycle caps artifact has no entry for {provider!r}"
             ) from exc
         return float(cap.cycle_reservation_cap_usd)
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderJournalIdentity:
+    """Authenticated identity stored inside one canonical cycle journal."""
+
+    schema_version: str
+    cycle_id: str
+    provider_cycle_caps_sha256: str
+    canonical_path: str
+
+
+def verify_provider_journal_identity(
+    path: str | Path,
+    *,
+    cycle_id: str,
+    provider_cycle_caps_sha256: str,
+) -> ProviderJournalIdentity:
+    """Read and verify a journal's immutable cycle, caps, and path identity."""
+
+    source = Path(path)
+    if source.is_symlink() or not source.is_file():
+        raise ProviderJournalError(f"provider journal is not a regular file: {source}")
+    try:
+        with sqlite3.connect(source) as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(
+                "SELECT schema_version, cycle_id, provider_cycle_caps_sha256, "
+                "canonical_path FROM provider_journal_metadata"
+            ).fetchall()
+    except sqlite3.Error as exc:
+        raise ProviderJournalError(
+            f"cannot read provider journal identity: {exc}"
+        ) from exc
+    if len(rows) != 1:
+        raise ProviderJournalReplayMismatchError(
+            "provider journal must contain exactly one authenticated identity"
+        )
+    row = rows[0]
+    identity = ProviderJournalIdentity(
+        schema_version=str(row["schema_version"]),
+        cycle_id=str(row["cycle_id"]),
+        provider_cycle_caps_sha256=str(row["provider_cycle_caps_sha256"]),
+        canonical_path=str(row["canonical_path"]),
+    )
+    if identity.schema_version != PROVIDER_JOURNAL_SCHEMA_VERSION:
+        raise ProviderJournalReplayMismatchError(
+            "provider journal schema identity differs"
+        )
+    if identity.cycle_id != _nonempty_identity(cycle_id, "cycle_id"):
+        raise ProviderJournalReplayMismatchError(
+            "provider journal cycle identity differs"
+        )
+    if identity.provider_cycle_caps_sha256 != _nonempty_identity(
+        provider_cycle_caps_sha256, "provider_cycle_caps_sha256"
+    ):
+        raise ProviderJournalReplayMismatchError(
+            "provider journal caps artifact identity differs"
+        )
+    if Path(identity.canonical_path) != source.resolve():
+        raise ProviderJournalReplayMismatchError(
+            "provider journal canonical path differs"
+        )
+    return identity
 
 
 def load_provider_cycle_caps(path: str | Path) -> ProviderCycleCaps:
@@ -152,6 +217,8 @@ class ProviderAttemptJournal:
         provider: str,
         reservation_usd: float,
         cycle_cap_usd: float = DEFAULT_CYCLE_PROVIDER_CAP_USD,
+        cycle_id: str,
+        provider_cycle_caps_sha256: str,
     ) -> None:
         if reservation_usd < 0 or cycle_cap_usd <= 0:
             raise ValueError(
@@ -160,17 +227,27 @@ class ProviderAttemptJournal:
             )
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.canonical_path = self.path.resolve()
+        self.cycle_id = _nonempty_identity(cycle_id, "cycle_id")
+        self.provider_cycle_caps_sha256 = _nonempty_identity(
+            provider_cycle_caps_sha256, "provider_cycle_caps_sha256"
+        )
         self.identity = identity
         self.provider = provider
         self.reservation_usd = reservation_usd
         self.cycle_cap_usd = cycle_cap_usd
         self._durable_ordinals: dict[int, int] = {}
         self._connection = sqlite3.connect(self.path, isolation_level=None)
-        self._connection.row_factory = sqlite3.Row
-        self._connection.execute("PRAGMA journal_mode = WAL")
-        self._connection.execute("PRAGMA synchronous = FULL")
-        self._create_schema()
-        self._ensure_ledger()
+        try:
+            self._connection.row_factory = sqlite3.Row
+            self._connection.execute("PRAGMA journal_mode = WAL")
+            self._connection.execute("PRAGMA synchronous = FULL")
+            self._create_schema()
+            self._ensure_journal_identity()
+            self._ensure_ledger()
+        except BaseException:
+            self._connection.close()
+            raise
 
     def __enter__(self) -> Self:
         return self
@@ -344,6 +421,13 @@ class ProviderAttemptJournal:
                 cycle_cap_usd REAL NOT NULL CHECK (cycle_cap_usd > 0),
                 PRIMARY KEY (provider, account)
             );
+            CREATE TABLE IF NOT EXISTS provider_journal_metadata (
+                singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+                schema_version TEXT NOT NULL,
+                cycle_id TEXT NOT NULL,
+                provider_cycle_caps_sha256 TEXT NOT NULL,
+                canonical_path TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS provider_attempts (
                 logical_call_key TEXT NOT NULL,
                 attempt_ordinal INTEGER NOT NULL CHECK (attempt_ordinal > 0),
@@ -373,6 +457,53 @@ class ProviderAttemptJournal:
             );
             """
         )
+
+    def _ensure_journal_identity(self) -> None:
+        expected = (
+            PROVIDER_JOURNAL_SCHEMA_VERSION,
+            self.cycle_id,
+            self.provider_cycle_caps_sha256,
+            str(self.canonical_path),
+        )
+        with self._connection:
+            row = self._connection.execute(
+                "SELECT schema_version, cycle_id, provider_cycle_caps_sha256, "
+                "canonical_path FROM provider_journal_metadata WHERE singleton = 1"
+            ).fetchone()
+            if row is None:
+                attempt_count = self._connection.execute(
+                    "SELECT COUNT(*) AS count FROM provider_attempts"
+                ).fetchone()
+                assert attempt_count is not None
+                if int(attempt_count["count"]) != 0:
+                    raise ProviderJournalReplayMismatchError(
+                        "existing provider journal lacks authenticated cycle identity"
+                    )
+                self._connection.execute(
+                    "INSERT INTO provider_journal_metadata("
+                    "singleton, schema_version, cycle_id, "
+                    "provider_cycle_caps_sha256, canonical_path) "
+                    "VALUES (1, ?, ?, ?, ?)",
+                    expected,
+                )
+                return
+            actual = tuple(row[key] for key in row.keys())
+            if actual[0] != expected[0]:
+                raise ProviderJournalReplayMismatchError(
+                    "provider journal schema identity differs"
+                )
+            if actual[1] != expected[1]:
+                raise ProviderJournalReplayMismatchError(
+                    "provider journal cycle identity differs"
+                )
+            if actual[2] != expected[2]:
+                raise ProviderJournalReplayMismatchError(
+                    "provider journal caps artifact identity differs"
+                )
+            if actual[3] != expected[3]:
+                raise ProviderJournalReplayMismatchError(
+                    "provider journal canonical path differs"
+                )
 
     def _ensure_ledger(self) -> None:
         with self._connection:
@@ -596,6 +727,12 @@ def _required_nonempty_string(record: Mapping[str, object], field: str) -> str:
     value = record.get(field)
     if not isinstance(value, str) or not value.strip():
         raise ProviderJournalError(f"provider cycle caps {field} must be non-empty")
+    return value.strip()
+
+
+def _nonempty_identity(value: str, field: str) -> str:
+    if not value.strip():
+        raise ValueError(f"provider journal {field} must be non-empty")
     return value.strip()
 
 

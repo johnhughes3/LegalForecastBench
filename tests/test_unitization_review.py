@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 from copy import deepcopy
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from legalforecast import cli
 from legalforecast.cli import main
 from legalforecast.unitization.review import (
     ADJUDICATION_SCHEMA_VERSION,
@@ -161,14 +163,32 @@ def test_finalized_chain_verifies_candidate_exclusion_adjudication() -> None:
         verify_finalized_prediction_units([broken], raw, adjudications, queue)
 
 
-def test_apply_unitization_review_cli_writes_finalized_artifact(tmp_path: Path) -> None:
+def test_apply_unitization_review_cli_writes_finalized_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     raw_path = tmp_path / "raw.jsonl"
     queue_path = tmp_path / "queue.jsonl"
     adjudications_path = tmp_path / "adjudications.jsonl"
     output_root = tmp_path / "out"
+    unitization_run_card = tmp_path / "llm-unitize.json"
+    structural_run_card = tmp_path / "llm-review-stage-a.json"
+    provider_caps = tmp_path / "provider-caps.json"
+    provider_journal = tmp_path / "provider-attempts.sqlite3"
     _write_jsonl(raw_path, [_candidate("cand", [_unit("a")])])
     _write_jsonl(queue_path, [_review("cand", "a")])
     _write_jsonl(adjudications_path, [_adjudication("cand", "ACCEPT", ["a"])])
+    unitization_run_card.write_text("{}\n", encoding="utf-8")
+    structural_run_card.write_text("{}\n", encoding="utf-8")
+    provider_caps.write_text("{}\n", encoding="utf-8")
+    provider_journal.write_bytes(b"fixture")
+    monkeypatch.setattr(
+        cli,
+        "_verified_shared_provider_chain",
+        lambda *args, **kwargs: (object(), unitization_run_card),
+    )
+    monkeypatch.setattr(
+        cli, "_verify_stage_a_review_run_card", lambda *args, **kwargs: None
+    )
 
     assert (
         main(
@@ -177,6 +197,14 @@ def test_apply_unitization_review_cli_writes_finalized_artifact(tmp_path: Path) 
                 "apply-unitization-review",
                 "--prediction-units",
                 str(raw_path),
+                "--llm-unitization-run-card",
+                str(unitization_run_card),
+                "--llm-review-stage-a-run-card",
+                str(structural_run_card),
+                "--provider-cycle-caps",
+                str(provider_caps),
+                "--provider-journal",
+                str(provider_journal),
                 "--unitization-review-queue",
                 str(queue_path),
                 "--adjudications",
@@ -195,6 +223,54 @@ def test_apply_unitization_review_cli_writes_finalized_artifact(tmp_path: Path) 
     )
     assert record["schema_version"] == FINALIZED_SCHEMA_VERSION
     assert record["prediction_units"][0]["adjudication_id"] == "adj-cand"
+
+    finalized_path = output_root / "finalized-prediction-units.jsonl"
+    run_card_path = output_root / "run-cards" / "apply-unitization-review.json"
+    lineage = SimpleNamespace(
+        input_commitments={
+            "provider_cycle_caps": cli._stage_a_file_commitment(provider_caps)
+        },
+        provider_caps_sha256=cli._path_sha256(provider_caps),
+        provider_journal_path=provider_journal,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_stage_a_unitization_run_card",
+        lambda *args, **kwargs: lineage,
+    )
+    cli._verify_unitization_review_run_card(
+        run_card_path,
+        llm_unitization_run_card_path=unitization_run_card,
+        llm_review_stage_a_run_card_path=structural_run_card,
+        raw_prediction_units_path=raw_path,
+        original_review_queue_path=None,
+        review_queue_path=queue_path,
+        adjudications_path=adjudications_path,
+        provider_cycle_caps_path=provider_caps,
+        provider_journal_path=provider_journal,
+        finalized_path=finalized_path,
+    )
+    substituted = json.loads(finalized_path.read_text().strip())
+    substituted["prediction_units"][0]["claim_name"] = "Substituted claim"
+    _write_jsonl(finalized_path, [substituted])
+    card = json.loads(run_card_path.read_text())
+    card["output_commitments"]["finalized_prediction_units"] = (
+        cli._stage_a_file_commitment(finalized_path)
+    )
+    run_card_path.write_text(json.dumps(card) + "\n", encoding="utf-8")
+    with pytest.raises(cli.CommandError, match="do not replay"):
+        cli._verify_unitization_review_run_card(
+            run_card_path,
+            llm_unitization_run_card_path=unitization_run_card,
+            llm_review_stage_a_run_card_path=structural_run_card,
+            raw_prediction_units_path=raw_path,
+            original_review_queue_path=None,
+            review_queue_path=queue_path,
+            adjudications_path=adjudications_path,
+            provider_cycle_caps_path=provider_caps,
+            provider_journal_path=provider_journal,
+            finalized_path=finalized_path,
+        )
 
 
 def _candidate(candidate_id: str, units: list[dict[str, Any]]) -> dict[str, Any]:

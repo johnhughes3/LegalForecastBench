@@ -13,8 +13,31 @@ from legalforecast.labeling.provider_journal import (
     ProviderBudgetExceededError,
     ProviderCallIdentity,
     ProviderJournalError,
+    ProviderJournalReplayMismatchError,
     load_provider_cycle_caps,
 )
+
+
+def test_journal_closes_connection_when_pragma_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FailingConnection:
+        closed = False
+        row_factory: object = None
+
+        def execute(self, statement: str) -> None:
+            raise sqlite3.OperationalError(f"failed pragma: {statement}")
+
+        def close(self) -> None:
+            self.closed = True
+
+    connection = FailingConnection()
+    monkeypatch.setattr(sqlite3, "connect", lambda *args, **kwargs: connection)
+
+    with pytest.raises(sqlite3.OperationalError, match="failed pragma"):
+        _journal(tmp_path / "provider-attempts.sqlite3")
+
+    assert connection.closed is True
 
 
 def test_provider_cycle_caps_load_externally_bounded_provider_caps(
@@ -375,6 +398,39 @@ def test_two_judges_have_distinct_candidate_model_call_rows(tmp_path: Path) -> N
     ]
 
 
+def test_journal_rejects_changed_cycle_caps_or_canonical_path(tmp_path: Path) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path):
+        pass
+
+    with pytest.raises(ProviderJournalReplayMismatchError, match="caps artifact"):
+        _journal(path, caps_sha256="sha256:mutated")
+
+    moved = tmp_path / "different-root" / "provider-attempts.sqlite3"
+    moved.parent.mkdir()
+    moved.write_bytes(path.read_bytes())
+    with pytest.raises(ProviderJournalReplayMismatchError, match="canonical path"):
+        _journal(moved)
+
+
+def test_one_cycle_cap_is_shared_across_provider_stages(tmp_path: Path) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+    with _journal(path, stage="llm-unitize", reservation=0.6, cap=1.0) as unitize:
+        unitize.run_attempt(1, lambda: {"request_id": "unitize"})
+        unitize.settle_attempt(
+            1,
+            input_tokens=1,
+            output_tokens=1,
+            actual_cost_usd=0.6,
+            raw_output="{}",
+        )
+        unitize.commit_reconstruction({"prediction_units": []})
+
+    with _journal(path, stage="llm-label", reservation=0.5, cap=1.0) as label:
+        with pytest.raises(ProviderBudgetExceededError, match="cycle cap"):
+            label.run_attempt(1, lambda: {"request_id": "must-not-run"})
+
+
 def _journal(
     path: Path,
     *,
@@ -382,6 +438,8 @@ def _journal(
     model_key: str = "openai:judge-a",
     reservation: float = 0.1,
     cap: float = 1.0,
+    cycle_id: str = "cycle-1",
+    caps_sha256: str = "sha256:frozen-caps",
 ) -> ProviderAttemptJournal:
     return ProviderAttemptJournal(
         path,
@@ -395,6 +453,8 @@ def _journal(
         provider="openai",
         reservation_usd=reservation,
         cycle_cap_usd=cap,
+        cycle_id=cycle_id,
+        provider_cycle_caps_sha256=caps_sha256,
     )
 
 

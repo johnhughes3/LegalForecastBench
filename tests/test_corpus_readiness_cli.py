@@ -37,6 +37,7 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
     output_root = tmp_path / "out"
     markdown_root = tmp_path / "markdown"
     inputs.mkdir()
+    stage_a_run_card_args = _stub_stage_a_run_card_chain(monkeypatch, inputs)
     markdown_root.mkdir()
     (markdown_root / "decision-1.md").write_text(
         "The Court rules. Count I is dismissed.",
@@ -322,6 +323,7 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
                 str(inputs / "units.jsonl"),
                 "--raw-prediction-units",
                 str(inputs / "raw-units.jsonl"),
+                *stage_a_run_card_args,
                 "--llm-unitization-audit",
                 str(inputs / "unitization-audit.jsonl"),
                 "--original-unitization-review-queue",
@@ -430,6 +432,7 @@ def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(
 ) -> None:
     inputs = tmp_path / "inputs"
     inputs.mkdir()
+    stage_a_run_card_args = _stub_stage_a_run_card_chain(monkeypatch, inputs)
     _write_jsonl(
         inputs / "screened-cases.jsonl",
         [
@@ -509,6 +512,7 @@ def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(
             str(inputs / "units.jsonl"),
             "--raw-prediction-units",
             str(inputs / "raw-units.jsonl"),
+            *stage_a_run_card_args,
             "--llm-unitization-audit",
             str(inputs / "unitization-audit.jsonl"),
             "--original-unitization-review-queue",
@@ -574,6 +578,7 @@ def test_acquisition_finalize_corpus_rejects_summary_not_bound_to_snapshot_manif
 ) -> None:
     inputs = tmp_path / "inputs"
     inputs.mkdir()
+    stage_a_run_card_args = _stub_stage_a_run_card_chain(monkeypatch, inputs)
     _write_jsonl(inputs / "screened-cases.jsonl", [])
     _write_jsonl(inputs / "discovery-exclusions.jsonl", [])
     snapshot_fixture = _write_snapshot_manifest(
@@ -620,6 +625,7 @@ def test_acquisition_finalize_corpus_rejects_summary_not_bound_to_snapshot_manif
             str(tmp_path),
             "--raw-prediction-units",
             str(inputs / "screened-cases.jsonl"),
+            *stage_a_run_card_args,
             "--prediction-units",
             str(inputs / "screened-cases.jsonl"),
             "--llm-unitization-audit",
@@ -834,3 +840,60 @@ def _stub_verified_preparation(
             success_run_card_path=success_run_card,
         ),
     )
+
+
+def _stub_stage_a_run_card_chain(
+    monkeypatch: pytest.MonkeyPatch, inputs: Path
+) -> list[str]:
+    unitization_card = inputs / "llm-unitize-run-card.json"
+    structural_card = inputs / "llm-review-stage-a-run-card.json"
+    review_card = inputs / "apply-unitization-review-run-card.json"
+    label_card = inputs / "llm-label-run-card.json"
+    provider_caps = inputs / "provider-cycle-caps.json"
+    provider_journal = inputs / "provider-attempts.sqlite3"
+    unitization_card.write_text("{}\n", encoding="utf-8")
+    structural_card.write_text("{}\n", encoding="utf-8")
+    review_card.write_text("{}\n", encoding="utf-8")
+    label_card.write_text("{}\n", encoding="utf-8")
+    provider_caps.write_text("{}\n", encoding="utf-8")
+    provider_journal.write_bytes(b"fixture")
+    lineage = SimpleNamespace(provider_journal_path=provider_journal)
+    monkeypatch.setattr(
+        cli,
+        "_verified_shared_provider_chain",
+        lambda *args, **kwargs: (lineage, unitization_card),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_stage_a_unitization_run_card",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_unitization_review_run_card",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_stage_a_review_run_card",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_llm_label_run_card",
+        lambda *args, **kwargs: None,
+    )
+    return [
+        "--llm-unitization-run-card",
+        str(unitization_card),
+        "--llm-review-stage-a-run-card",
+        str(structural_card),
+        "--unitization-review-run-card",
+        str(review_card),
+        "--llm-label-run-card",
+        str(label_card),
+        "--provider-cycle-caps",
+        str(provider_caps),
+        "--provider-journal",
+        str(provider_journal),
+    ]

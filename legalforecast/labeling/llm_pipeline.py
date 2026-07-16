@@ -206,6 +206,8 @@ def llm_unitize_cases(
     provider_journal_path: str | Path | None = None,
     provider_cycle_cap_usd: float = DEFAULT_CYCLE_PROVIDER_CAP_USD,
     provider_cycle_caps_usd: Mapping[str, float] | None = None,
+    provider_cycle_id: str | None = None,
+    provider_cycle_caps_sha256: str | None = None,
 ) -> LlmBatchResult:
     """Generate and validate Stage A prediction units from predecision materials."""
 
@@ -223,6 +225,9 @@ def llm_unitize_cases(
                 markdown_root=Path(markdown_root),
             )
             prompt = _unitization_prompt(selection, documents)
+            prompt_sha256 = (
+                "sha256:" + hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+            )
             journal = _provider_attempt_journal(
                 path=provider_journal_path,
                 stage="llm-unitize",
@@ -235,6 +240,8 @@ def llm_unitize_cases(
                     fallback=provider_cycle_cap_usd,
                     caps=provider_cycle_caps_usd,
                 ),
+                cycle_id=provider_cycle_id,
+                provider_cycle_caps_sha256=provider_cycle_caps_sha256,
             )
             response = complete_live_prompt(
                 registry_entry,
@@ -299,6 +306,7 @@ def llm_unitize_cases(
                     "case_id": _required_str(selection, "case_id"),
                     "model_key": registry_entry.registry_key,
                     "model_registry_sha256": model_registry_sha256 or "unrecorded",
+                    "provider_prompt_sha256": prompt_sha256,
                     "human_verified": _unitization_human_verified(result),
                     "unit_count": len(result.units),
                     "scorable_unit_count": sum(
@@ -331,6 +339,38 @@ def llm_unitize_cases(
     return LlmBatchResult(records=tuple(records), audit_records=tuple(audit_records))
 
 
+def stage_a_unitization_prompt_records(
+    *,
+    selection_records: Iterable[Mapping[str, Any]],
+    parser_records: Iterable[Mapping[str, Any]],
+    markdown_root: str | Path,
+) -> tuple[JsonRecord, ...]:
+    """Reconstruct exact Stage A prompts from authenticated parser inputs."""
+
+    parser_by_key = _parser_records_by_candidate_and_document(parser_records)
+    prompts: list[JsonRecord] = []
+    for selection in selection_records:
+        candidate_id = _required_str(selection, "candidate_id")
+        prompt = _unitization_prompt(
+            selection,
+            _predecision_documents(
+                selection,
+                parser_by_key=parser_by_key,
+                markdown_root=Path(markdown_root),
+            ),
+        )
+        prompts.append(
+            {
+                "candidate_id": candidate_id,
+                "case_id": _required_str(selection, "case_id"),
+                "prompt": prompt,
+                "prompt_sha256": "sha256:"
+                + hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+            }
+        )
+    return tuple(prompts)
+
+
 def llm_review_stage_a_units(
     *,
     selection_records: Iterable[Mapping[str, Any]],
@@ -345,15 +385,28 @@ def llm_review_stage_a_units(
     provider_journal_path: str | Path | None = None,
     provider_cycle_cap_usd: float = DEFAULT_CYCLE_PROVIDER_CAP_USD,
     provider_cycle_caps_usd: Mapping[str, float] | None = None,
+    provider_cycle_id: str | None = None,
+    provider_cycle_caps_sha256: str | None = None,
 ) -> LlmBatchResult:
     """Flag structural defects without permitting the reviewer to rewrite Stage A."""
 
-    parser_by_key = _parser_records_by_candidate_and_document(parser_records)
+    selections = tuple(selection_records)
+    parser_rows = tuple(parser_records)
+    parser_by_key = _parser_records_by_candidate_and_document(parser_rows)
     raw_unit_records = tuple(prediction_unit_records)
     units_by_candidate = _prediction_units_by_candidate(raw_unit_records)
+    prompt_by_candidate = {
+        _required_str(record, "candidate_id"): _required_str(record, "prompt")
+        for record in stage_a_structural_review_prompt_records(
+            selection_records=selections,
+            parser_records=parser_rows,
+            prediction_unit_records=raw_unit_records,
+            markdown_root=markdown_root,
+        )
+    }
     records: list[JsonRecord] = []
     audits: list[JsonRecord] = []
-    for selection in selection_records:
+    for selection in selections:
         candidate_id = _required_str(selection, "candidate_id")
         documents = _predecision_documents(
             selection,
@@ -363,7 +416,7 @@ def llm_review_stage_a_units(
         units = units_by_candidate.get(candidate_id, ())
         if not units:
             raise LlmPipelineError(f"no Stage A units for candidate {candidate_id}")
-        prompt = _stage_a_structural_review_prompt(selection, documents, units)
+        prompt = prompt_by_candidate[candidate_id]
         journal = _provider_attempt_journal(
             path=provider_journal_path,
             stage="llm-review-stage-a",
@@ -376,6 +429,8 @@ def llm_review_stage_a_units(
                 fallback=provider_cycle_cap_usd,
                 caps=provider_cycle_caps_usd,
             ),
+            cycle_id=provider_cycle_id,
+            provider_cycle_caps_sha256=provider_cycle_caps_sha256,
         )
         try:
             response = complete_live_prompt(
@@ -402,21 +457,16 @@ def llm_review_stage_a_units(
             if _required_str(record, "candidate_id") == candidate_id
         )
         raw_sha = canonical_sha256(raw_record)
-        candidate_flag_records: list[JsonRecord] = []
-        for flag in flags:
-            flag_hash = canonical_sha256(flag)
-            candidate_flag_records.append(
-                {
-                    "schema_version": "legalforecast.stage_a_structural_flag.v1",
-                    "candidate_id": candidate_id,
-                    "case_id": _required_str(selection, "case_id"),
-                    "reviewer_model_key": registry_entry.registry_key,
-                    "model_registry_sha256": model_registry_sha256 or "unrecorded",
-                    "raw_prediction_units_sha256": raw_sha,
-                    "flag_sha256": flag_hash,
-                    **flag,
-                }
+        candidate_flag_records = list(
+            stage_a_structural_flag_records(
+                candidate_id=candidate_id,
+                case_id=_required_str(selection, "case_id"),
+                reviewer_model_key=registry_entry.registry_key,
+                model_registry_sha256=model_registry_sha256 or "unrecorded",
+                raw_prediction_units_sha256=raw_sha,
+                structural_flags=flags,
             )
+        )
         records.extend(candidate_flag_records)
         response_metadata = dict(response.metadata or {})
         audits.append(
@@ -438,6 +488,69 @@ def llm_review_stage_a_units(
             }
         )
     return LlmBatchResult(records=tuple(records), audit_records=tuple(audits))
+
+
+def stage_a_structural_review_prompt_records(
+    *,
+    selection_records: Iterable[Mapping[str, Any]],
+    parser_records: Iterable[Mapping[str, Any]],
+    prediction_unit_records: Iterable[Mapping[str, Any]],
+    markdown_root: str | Path,
+) -> tuple[JsonRecord, ...]:
+    """Reconstruct exact structural-review prompts from authenticated Stage A."""
+
+    parser_by_key = _parser_records_by_candidate_and_document(parser_records)
+    units_by_candidate = _prediction_units_by_candidate(prediction_unit_records)
+    output: list[JsonRecord] = []
+    for selection in selection_records:
+        candidate_id = _required_str(selection, "candidate_id")
+        units = units_by_candidate.get(candidate_id, ())
+        if not units:
+            raise LlmPipelineError(f"no Stage A units for candidate {candidate_id}")
+        documents = _predecision_documents(
+            selection,
+            parser_by_key=parser_by_key,
+            markdown_root=Path(markdown_root),
+        )
+        prompt = _stage_a_structural_review_prompt(selection, documents, units)
+        output.append(
+            {
+                "candidate_id": candidate_id,
+                "case_id": _required_str(selection, "case_id"),
+                "prompt": prompt,
+                "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+            }
+        )
+    return tuple(output)
+
+
+def stage_a_structural_flag_records(
+    *,
+    candidate_id: str,
+    case_id: str,
+    reviewer_model_key: str,
+    model_registry_sha256: str,
+    raw_prediction_units_sha256: str,
+    structural_flags: Iterable[Mapping[str, Any]],
+) -> tuple[JsonRecord, ...]:
+    """Envelope reconstructed flags exactly as the live producer does."""
+
+    output: list[JsonRecord] = []
+    for flag in structural_flags:
+        flag_record = dict(flag)
+        output.append(
+            {
+                "schema_version": "legalforecast.stage_a_structural_flag.v1",
+                "candidate_id": candidate_id,
+                "case_id": case_id,
+                "reviewer_model_key": reviewer_model_key,
+                "model_registry_sha256": model_registry_sha256,
+                "raw_prediction_units_sha256": raw_prediction_units_sha256,
+                "flag_sha256": canonical_sha256(flag_record),
+                **flag_record,
+            }
+        )
+    return tuple(output)
 
 
 def merge_structural_flags_into_review_queue(
@@ -621,6 +734,8 @@ def llm_label_cases(
     provider_journal_path: str | Path | None = None,
     provider_cycle_cap_usd: float = DEFAULT_CYCLE_PROVIDER_CAP_USD,
     provider_cycle_caps_usd: Mapping[str, float] | None = None,
+    provider_cycle_id: str | None = None,
+    provider_cycle_caps_sha256: str | None = None,
 ) -> LlmBatchResult:
     """Generate Stage B outcome labels with registry-backed LLM judges."""
 
@@ -675,6 +790,9 @@ def llm_label_cases(
     for selection in selections:
         candidate_id = _required_str(selection, "candidate_id")
         decision_text, decision_commitment = decisions_by_candidate[candidate_id]
+        model_outputs: list[JsonRecord] = []
+        attempted_entry: ModelRegistryEntry | None = None
+        attempted_prompt_sha256: str | None = None
         try:
             if candidate_id in excluded_candidates:
                 audit_records.append(
@@ -700,16 +818,26 @@ def llm_label_cases(
                 raise LlmPipelineError(
                     f"verified decision text date mismatch for {candidate_id}"
                 )
-            model_outputs: list[JsonRecord] = []
             votes: list[EnsembleLabelVote] = []
             labels_by_model: dict[str, tuple[OutcomeLabel, ...]] = {}
+            provider_prompt = _labeling_prompt(
+                selection,
+                decision_text,
+                tuple(frozen_units),
+                decision_text_commitment=decision_commitment,
+            )
+            attempted_prompt_sha256 = (
+                "sha256:" + hashlib.sha256(provider_prompt.encode("utf-8")).hexdigest()
+            )
             for entry in registry_entries:
+                attempted_entry = entry
                 labels, response, finding_count, missing_flag_count, prompt_sha256 = (
                     _llm_label_one_model(
                         selection=selection,
                         decision_text=decision_text,
                         decision_text_commitment=decision_commitment,
                         frozen_units=tuple(frozen_units),
+                        prompt=provider_prompt,
                         registry_entry=entry,
                         model_registry_sha256=model_registry_sha256,
                         transport=transport,
@@ -721,6 +849,8 @@ def llm_label_cases(
                             fallback=provider_cycle_cap_usd,
                             caps=provider_cycle_caps_usd,
                         ),
+                        provider_cycle_id=provider_cycle_id,
+                        provider_cycle_caps_sha256=provider_cycle_caps_sha256,
                     )
                 )
                 labels_by_model[entry.registry_key] = labels
@@ -851,6 +981,24 @@ def llm_label_cases(
             elif isinstance(exc, FrozenUnitWorkflowRequiredError):
                 failure_record.update(_response_audit_fields(exc.response))
                 failure_record.update(_frozen_unit_workflow_audit_fields(exc))
+            if isinstance(
+                exc, (LlmResponseValidationError, FrozenUnitWorkflowRequiredError)
+            ):
+                if attempted_entry is None or attempted_prompt_sha256 is None:
+                    raise LlmPipelineError(
+                        "validated provider failure lacks attempted model identity"
+                    ) from exc
+                failure_record["model_outputs"] = [
+                    *model_outputs,
+                    {
+                        "status": "validation_failed",
+                        "model_key": attempted_entry.registry_key,
+                        "provider_prompt_sha256": attempted_prompt_sha256,
+                        **_response_audit_fields(exc.response),
+                        "error_type": type(exc).__name__,
+                        "error_message": str(exc),
+                    },
+                ]
             failure_record["decision_text_commitment"] = decision_commitment
             audit_records.append(failure_record)
             if not continue_on_error:
@@ -864,6 +1012,7 @@ def _llm_label_one_model(
     decision_text: StageBDecisionText,
     decision_text_commitment: Mapping[str, str],
     frozen_units: tuple[PredictionUnit, ...],
+    prompt: str,
     registry_entry: ModelRegistryEntry,
     model_registry_sha256: str | None,
     transport: LiveModelTransport | None,
@@ -871,13 +1020,9 @@ def _llm_label_one_model(
     timeout_seconds: float,
     provider_journal_path: str | Path | None,
     provider_cycle_cap_usd: float,
+    provider_cycle_id: str | None,
+    provider_cycle_caps_sha256: str | None,
 ) -> tuple[tuple[OutcomeLabel, ...], SolverResponse, int, int, str]:
-    prompt = _labeling_prompt(
-        selection,
-        decision_text,
-        frozen_units,
-        decision_text_commitment=decision_text_commitment,
-    )
     prompt_sha256 = "sha256:" + hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     journal = _provider_attempt_journal(
         path=provider_journal_path,
@@ -887,6 +1032,8 @@ def _llm_label_one_model(
         registry_entry=registry_entry,
         model_registry_sha256=model_registry_sha256,
         cycle_cap_usd=provider_cycle_cap_usd,
+        cycle_id=provider_cycle_id,
+        provider_cycle_caps_sha256=provider_cycle_caps_sha256,
     )
     try:
         response = complete_live_prompt(
@@ -1036,9 +1183,15 @@ def _provider_attempt_journal(
     registry_entry: ModelRegistryEntry,
     model_registry_sha256: str | None,
     cycle_cap_usd: float,
+    cycle_id: str | None,
+    provider_cycle_caps_sha256: str | None,
 ) -> ProviderAttemptJournal | None:
     if path is None:
         return None
+    if not cycle_id or not provider_cycle_caps_sha256:
+        raise LlmPipelineError(
+            "provider journal requires authenticated cycle_id and caps artifact hash"
+        )
     return ProviderAttemptJournal(
         path,
         identity=ProviderCallIdentity(
@@ -1056,6 +1209,8 @@ def _provider_attempt_journal(
             output_token_price=registry_entry.output_token_price,
         ),
         cycle_cap_usd=cycle_cap_usd,
+        cycle_id=cycle_id,
+        provider_cycle_caps_sha256=provider_cycle_caps_sha256,
     )
 
 
@@ -1538,19 +1693,38 @@ def _unitization_review_queue_records(
     case_id: str,
     result: StageAConstructionResult,
 ) -> list[JsonRecord]:
-    return [
+    return list(
+        unitization_review_queue_records_from_items(
+            candidate_id=candidate_id,
+            case_id=case_id,
+            review_items=(item.to_record() for item in result.review_items),
+        )
+    )
+
+
+def unitization_review_queue_records_from_items(
+    *,
+    candidate_id: str,
+    case_id: str,
+    review_items: Iterable[Mapping[str, Any]],
+) -> tuple[JsonRecord, ...]:
+    """Build the canonical blinded queue from journaled Stage A review items."""
+
+    return tuple(
         {
             "schema_version": "legalforecast.unitization_review_queue.v1",
             "status": "pending_adjudication",
             "candidate_id": candidate_id,
             "case_id": case_id,
-            "unit_id": item.unit_id,
-            "review_id": f"{candidate_id}:{item.unit_id}:stage-a-review",
-            "route_reason": item.reason.value,
-            "review_item": item.to_record(),
+            "unit_id": _required_str(item, "unit_id"),
+            "review_id": (
+                f"{candidate_id}:{_required_str(item, 'unit_id')}:stage-a-review"
+            ),
+            "route_reason": _required_str(item, "reason"),
+            "review_item": dict(item),
         }
-        for item in result.review_items
-    ]
+        for item in review_items
+    )
 
 
 def unitization_review_queue_records(

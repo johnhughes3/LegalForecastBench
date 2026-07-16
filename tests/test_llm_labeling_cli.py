@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
@@ -19,6 +20,10 @@ from legalforecast.cli import (
 from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.evals.model_registry import load_model_registry
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
+from legalforecast.labeling.provider_journal import (
+    ProviderAttemptJournal,
+    ProviderCallIdentity,
+)
 from legalforecast.unitization import ChallengeScope, PredictionUnit, SourceCitation
 from legalforecast.unitization.review import apply_unitization_reviews
 from pytest import MonkeyPatch, raises
@@ -106,6 +111,169 @@ def _evaluated_registry_path(root: Path) -> Path:
     return path
 
 
+def _stub_authenticated_stage_a_lineage(
+    monkeypatch: MonkeyPatch,
+    *,
+    selection_path: Path,
+    parser_path: Path,
+    markdown_root: Path,
+    registry_path: Path,
+    caps_path: Path,
+    provider_journal_path: Path,
+) -> list[str]:
+    fixture_lineage_paths = {
+        name: selection_path.parent / f"fixture-{name.replace('_', '-')}.json"
+        for name in (
+            "selection_run_card",
+            "download_manifest",
+            "disclosure_clearance",
+            "materialization_run_card",
+            "parse_requests",
+            "parser_run_card",
+        )
+    }
+    for path in fixture_lineage_paths.values():
+        _write_json(path, {})
+    entry, registry_sha256 = cli._registry_entry_for_key(
+        registry_path, "openai:gpt-test"
+    )
+    caps = cli.load_provider_cycle_caps(caps_path)
+    markdown_tree = {
+        path.relative_to(markdown_root).as_posix(): {
+            "path": str(path.resolve()),
+            "sha256": cli._path_sha256(path),
+            "byte_count": path.stat().st_size,
+        }
+        for path in sorted(markdown_root.rglob("*.md"))
+    }
+    lineage = cli._StageAUnitizationLineage(
+        selection_records=tuple(_read_jsonl(selection_path)),
+        parser_records=tuple(_read_jsonl(parser_path)),
+        registry_entry=entry,
+        registry_sha256=registry_sha256,
+        provider_caps=caps,
+        provider_caps_sha256=cli._path_sha256(caps_path),
+        provider_journal_path=provider_journal_path,
+        document_root=markdown_root,
+        markdown_root=markdown_root,
+        cohort_cycle_id=caps.cycle_id,
+        input_paths=(
+            selection_path,
+            parser_path,
+            markdown_root,
+            registry_path,
+            caps_path,
+            provider_journal_path,
+        ),
+        input_commitments={
+            "selection": cli._stage_a_file_commitment(selection_path),
+            **{
+                name: cli._stage_a_file_commitment(path)
+                for name, path in fixture_lineage_paths.items()
+            },
+            "parser_manifest": cli._stage_a_file_commitment(parser_path),
+            "model_registry": cli._stage_a_file_commitment(registry_path),
+            "provider_cycle_caps": cli._stage_a_file_commitment(caps_path),
+            "document_tree": {},
+            "markdown_tree": markdown_tree,
+        },
+        markdown_tree=markdown_tree,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_stage_a_unitization_lineage",
+        lambda *args, **kwargs: lineage,
+    )
+    return ["--provider-journal", str(provider_journal_path)]
+
+
+def _stub_authenticated_finalized_provider_chain(
+    monkeypatch: MonkeyPatch,
+    *,
+    selection_path: Path,
+    parser_path: Path,
+    markdown_root: Path,
+    registry_path: Path,
+    caps_path: Path,
+    provider_journal_path: Path,
+    finalized_units_path: Path,
+) -> list[str]:
+    entry = load_model_registry(registry_path).entries[0]
+    caps = cli.load_provider_cycle_caps(caps_path)
+    registry_sha = cli._path_sha256(registry_path).removeprefix("sha256:")
+    if not provider_journal_path.exists():
+        ProviderAttemptJournal(
+            provider_journal_path,
+            identity=ProviderCallIdentity(
+                stage="fixture-bootstrap",
+                candidate_id="fixture",
+                model_key=entry.registry_key,
+                prompt="fixture",
+                model_registry_sha256=registry_sha,
+            ),
+            provider=entry.provider,
+            reservation_usd=0.0,
+            cycle_cap_usd=caps.cap_usd(entry.provider),
+            cycle_id=caps.cycle_id,
+            provider_cycle_caps_sha256=cli._path_sha256(caps_path),
+        ).close()
+    unit_card = finalized_units_path.parent / "fixture-unitization-run-card.json"
+    structural_card = (
+        finalized_units_path.parent / "fixture-structural-review-run-card.json"
+    )
+    apply_card = finalized_units_path.parent / "fixture-apply-run-card.json"
+    review_queue = finalized_units_path.parent / "fixture-review-queue.jsonl"
+    for path in (unit_card, structural_card, apply_card):
+        _write_json(path, {})
+    _write_jsonl(review_queue, [])
+    lineage = cli._StageAUnitizationLineage(
+        selection_records=tuple(_read_jsonl(selection_path)),
+        parser_records=tuple(_read_jsonl(parser_path)),
+        registry_entry=entry,
+        registry_sha256=registry_sha,
+        provider_caps=caps,
+        provider_caps_sha256=cli._path_sha256(caps_path),
+        provider_journal_path=provider_journal_path,
+        document_root=markdown_root,
+        markdown_root=markdown_root,
+        cohort_cycle_id=caps.cycle_id,
+        input_paths=(),
+        input_commitments={},
+        markdown_tree={},
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_finalized_stage_a_provider_chain",
+        lambda *args, **kwargs: (lineage, unit_card, review_queue),
+    )
+    monkeypatch.setattr(cli, "_verify_stage_a_review_run_card", lambda *a, **k: None)
+    return [
+        "--llm-unitization-run-card",
+        str(unit_card),
+        "--llm-review-stage-a-run-card",
+        str(structural_card),
+        "--unitization-review-run-card",
+        str(apply_card),
+        "--provider-journal",
+        str(provider_journal_path),
+    ]
+
+
+def _settle_fixture_unitization_attempt(
+    response: SolverResponse, kwargs: Mapping[str, Any]
+) -> SolverResponse:
+    journal = kwargs["attempt_handler"]
+    journal.run_attempt(1, lambda: {"fixture": "provider-response"})
+    journal.settle_attempt(
+        1,
+        input_tokens=response.input_tokens,
+        output_tokens=response.output_tokens,
+        actual_cost_usd=response.estimated_cost,
+        raw_output=response.raw_output,
+    )
+    return response
+
+
 def test_llm_label_requires_iso_first_written_disposition_date() -> None:
     selection = _selection_record()
     del selection["decision_date"]
@@ -180,8 +348,28 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
         ],
     )
     _write_json(registry_path, [_registry_record()])
+    stage_b_args = _write_authenticated_stage_b_inputs(
+        root=tmp_path / "stage-b",
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+    )
+    caps_path = _provider_caps_path(tmp_path)
+    stage_a_args = _stub_authenticated_stage_a_lineage(
+        monkeypatch,
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+        registry_path=registry_path,
+        caps_path=caps_path,
+        provider_journal_path=output_root / "provider-attempts.sqlite3",
+    )
+
+    provider_calls = 0
 
     def journaled_completion(*args: Any, **kwargs: Any) -> SolverResponse:
+        nonlocal provider_calls
+        provider_calls += 1
         response = _fake_completion(*args, **kwargs)
         journal = kwargs["attempt_handler"]
         journal.run_attempt(1, lambda: {"fixture": "provider-response"})
@@ -212,7 +400,8 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
                 "--model-key",
                 "openai:gpt-test",
                 "--provider-cycle-caps",
-                str(_provider_caps_path(tmp_path)),
+                str(caps_path),
+                *stage_a_args,
                 "--execute",
             ]
         )
@@ -245,13 +434,130 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
             "unit_id": "unit-1",
         }
     ]
-    _rewrite_as_finalized(output_root / "prediction-units.jsonl")
-    stage_b_args = _write_authenticated_stage_b_inputs(
-        root=tmp_path / "stage-b",
-        selection_path=selection_path,
-        parser_path=parser_path,
-        markdown_root=markdown_root,
+    unitization_card = output_root / "run-cards" / "llm-unitize.json"
+    provider_journal = output_root / "provider-attempts.sqlite3"
+    review_root = tmp_path / "structural-review-output"
+    review_args = [
+        "acquisition",
+        "llm-review-stage-a",
+        "--selection",
+        str(selection_path),
+        "--parser-manifest",
+        str(parser_path),
+        "--markdown-root",
+        str(markdown_root),
+        "--prediction-units",
+        str(output_root / "prediction-units.jsonl"),
+        "--llm-unitization-run-card",
+        str(unitization_card),
+        "--unitization-review-queue",
+        str(output_root / "unitization-review-queue.jsonl"),
+        "--model-registry",
+        str(registry_path),
+        "--model-key",
+        "openai:gpt-test",
+        "--provider-cycle-caps",
+        str(caps_path),
+        "--provider-journal",
+        str(provider_journal),
+        "--output-root",
+        str(review_root),
+        "--execute",
+    ]
+    assert main(review_args) == 0
+    assert provider_calls == 2
+
+    provider_calls_before_bad_journal = provider_calls
+    bad_journal_args = list(review_args)
+    bad_journal_args[bad_journal_args.index(str(provider_journal))] = str(
+        tmp_path / "different-output-root" / "provider-attempts.sqlite3"
     )
+    bad_journal_args[bad_journal_args.index(str(review_root))] = str(
+        tmp_path / "different-output-root"
+    )
+    assert main(bad_journal_args) == 2
+    assert provider_calls == provider_calls_before_bad_journal
+
+    provider_calls_before_mutated_caps = provider_calls
+    mutated_caps = tmp_path / "mutated-provider-caps.json"
+    mutated_caps.write_text(caps_path.read_text() + "\n", encoding="utf-8")
+    mutated_caps_args = list(review_args)
+    mutated_caps_args[mutated_caps_args.index(str(caps_path))] = str(mutated_caps)
+    mutated_caps_args[mutated_caps_args.index(str(review_root))] = str(
+        tmp_path / "mutated-caps-output"
+    )
+    assert main(mutated_caps_args) == 2
+    assert provider_calls == provider_calls_before_mutated_caps
+
+    provider_calls_before_wrong_cycle = provider_calls
+    wrong_cycle_caps = tmp_path / "wrong-cycle-provider-caps.json"
+    wrong_cycle_payload = json.loads(caps_path.read_text())
+    wrong_cycle_payload["cycle_id"] = "different-cycle"
+    _write_json(wrong_cycle_caps, wrong_cycle_payload)
+    wrong_cycle_args = list(review_args)
+    wrong_cycle_args[wrong_cycle_args.index(str(caps_path))] = str(wrong_cycle_caps)
+    wrong_cycle_args[wrong_cycle_args.index(str(review_root))] = str(
+        tmp_path / "wrong-cycle-output"
+    )
+    assert main(wrong_cycle_args) == 2
+    assert provider_calls == provider_calls_before_wrong_cycle
+
+    adjudications_path = tmp_path / "unitization-adjudications.jsonl"
+    _write_jsonl(
+        adjudications_path,
+        [
+            {
+                "schema_version": "legalforecast.unitization_adjudication.v1",
+                "adjudication_id": "adj-cand-1",
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "review_ids": ["cand-1:unit-1:stage-a-review"],
+                "source_unit_ids": ["unit-1"],
+                "disposition": "ACCEPT",
+                "finalized_units": [],
+                "adjudicator_id": "john-hughes",
+                "adjudication_notes": "Accepted after blinded review.",
+            }
+        ],
+    )
+    apply_root = tmp_path / "apply-review-output"
+    assert (
+        main(
+            [
+                "acquisition",
+                "apply-unitization-review",
+                "--prediction-units",
+                str(output_root / "prediction-units.jsonl"),
+                "--llm-unitization-run-card",
+                str(unitization_card),
+                "--llm-review-stage-a-run-card",
+                str(review_root / "run-cards" / "llm-review-stage-a.json"),
+                "--provider-cycle-caps",
+                str(caps_path),
+                "--provider-journal",
+                str(provider_journal),
+                "--unitization-review-queue",
+                str(review_root / "unitization-review-queue-reviewed.jsonl"),
+                "--adjudications",
+                str(adjudications_path),
+                "--output-root",
+                str(apply_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    finalized_units_path = apply_root / "finalized-prediction-units.jsonl"
+    provider_chain_args = [
+        "--llm-unitization-run-card",
+        str(unitization_card),
+        "--llm-review-stage-a-run-card",
+        str(review_root / "run-cards" / "llm-review-stage-a.json"),
+        "--unitization-review-run-card",
+        str(apply_root / "run-cards" / "apply-unitization-review.json"),
+        "--provider-journal",
+        str(provider_journal),
+    ]
 
     assert (
         main(
@@ -263,7 +569,7 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
                 "--parser-manifest",
                 str(parser_path),
                 "--prediction-units",
-                str(output_root / "prediction-units.jsonl"),
+                str(finalized_units_path),
                 *stage_b_args,
                 "--output-root",
                 str(output_root),
@@ -275,11 +581,48 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
                 "openai:gpt-test",
                 "--provider-cycle-caps",
                 str(_provider_caps_path(tmp_path)),
+                *provider_chain_args,
                 "--execute",
             ]
         )
         == 0
     )
+    assert provider_calls == 3
+
+    provider_calls_before_bad_label_chain = provider_calls
+    bad_label_chain_args = list(provider_chain_args)
+    bad_label_chain_args[bad_label_chain_args.index(str(provider_journal))] = str(
+        tmp_path / "label-different-root" / "provider-attempts.sqlite3"
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "llm-label",
+                "--selection",
+                str(selection_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--prediction-units",
+                str(finalized_units_path),
+                *stage_b_args,
+                "--output-root",
+                str(tmp_path / "label-different-root"),
+                "--model-registry",
+                str(registry_path),
+                "--evaluated-model-registry",
+                str(_evaluated_registry_path(tmp_path)),
+                "--model-key",
+                "openai:gpt-test",
+                "--provider-cycle-caps",
+                str(caps_path),
+                *bad_label_chain_args,
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert provider_calls == provider_calls_before_bad_label_chain
 
     labels = _read_jsonl(output_root / "labels.jsonl")
     assert labels[0]["unit_id"] == "unit-1"
@@ -295,7 +638,7 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
         tmp_path / "stage-b" / "decision-texts.jsonl"
     )
     assert commitments["finalized_prediction_units_sha256"] == _sha256_path(
-        output_root / "prediction-units.jsonl"
+        finalized_units_path
     )
     assert commitments["finalized_unit_envelope_sha256"].startswith("sha256:")
     prompt_sha256 = label_audit["model_outputs"][0]["provider_prompt_sha256"]
@@ -314,6 +657,35 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
     label_run_card = json.loads(
         (output_root / "run-cards" / "llm-label.json").read_text()
     )
+    structural_run_card = json.loads(
+        (review_root / "run-cards" / "llm-review-stage-a.json").read_text()
+    )
+    for card, stage in (
+        (structural_run_card, "llm-review-stage-a"),
+        (label_run_card, "llm-label"),
+    ):
+        assert card["provider_chain"] == {
+            "schema_version": "legalforecast.provider_attempt_journal.v2",
+            "cycle_id": "test-cycle",
+            "provider_cycle_caps_sha256": _sha256_path(caps_path),
+            "provider_journal": str(provider_journal.resolve()),
+            "stage_attempts": {
+                "stage": stage,
+                "call_count": 1,
+                "attempt_count": 1,
+                "attempts_sha256": card["provider_chain"]["stage_attempts"][
+                    "attempts_sha256"
+                ],
+            },
+        }
+        assert card["provider_chain"]["stage_attempts"]["attempts_sha256"].startswith(
+            "sha256:"
+        )
+    assert label_run_card["stage_a_lineage"]["llm_review_stage_a_run_card"] == (
+        cli._stage_a_file_commitment(
+            review_root / "run-cards" / "llm-review-stage-a.json"
+        )
+    )
     assert label_run_card["decision_text_commitments"] == {
         "decision_texts_sha256": commitments["decision_texts_sha256"],
         "decision_texts_manifest_sha256": commitments["decision_texts_manifest_sha256"],
@@ -324,6 +696,148 @@ def test_acquisition_llm_unitize_and_label_validate_registry_outputs(
     }
     assert label_audit["label_audit_gate"]["status"] == "awaiting_cycle_level_plan"
     assert _read_jsonl(output_root / "lawyer-review-queue.jsonl") == []
+
+    lineage = cli._verify_stage_a_unitization_run_card(
+        unitization_card,
+        expected_prediction_units_path=output_root / "prediction-units.jsonl",
+        expected_review_queue_path=output_root / "unitization-review-queue.jsonl",
+        expected_audit_path=output_root / "llm-unitization-audit.jsonl",
+    )
+    label_run_card_path = output_root / "run-cards" / "llm-label.json"
+    cli._verify_llm_label_run_card(
+        label_run_card_path,
+        lineage=lineage,
+        selection_path=selection_path,
+        parser_manifest_path=parser_path,
+        decision_texts_path=tmp_path / "stage-b" / "decision-texts.jsonl",
+        decision_texts_manifest_path=(
+            tmp_path / "stage-b" / "decision-texts-manifest.json"
+        ),
+        decision_texts_run_card_path=(
+            tmp_path / "stage-b" / "build-decision-texts.json"
+        ),
+        finalized_prediction_units_path=finalized_units_path,
+        llm_unitization_run_card_path=unitization_card,
+        llm_review_stage_a_run_card_path=(
+            review_root / "run-cards" / "llm-review-stage-a.json"
+        ),
+        unitization_review_run_card_path=(
+            apply_root / "run-cards" / "apply-unitization-review.json"
+        ),
+        model_registry_path=registry_path,
+        evaluated_model_registry_path=_evaluated_registry_path(tmp_path),
+        provider_cycle_caps_path=caps_path,
+        labels_path=output_root / "labels.jsonl",
+        audit_path=output_root / "llm-label-audit.jsonl",
+    )
+    substituted_labels = _read_jsonl(output_root / "labels.jsonl")
+    substituted_labels[0]["fully_dismissed"] = False
+    _write_jsonl(output_root / "labels.jsonl", substituted_labels)
+    label_run_card["output_commitments"]["labels"] = cli._stage_a_file_commitment(
+        output_root / "labels.jsonl"
+    )
+    _write_json(label_run_card_path, label_run_card)
+    with pytest.raises(cli.CommandError, match="selected labels do not reproduce"):
+        cli._verify_llm_label_run_card(
+            label_run_card_path,
+            lineage=lineage,
+            selection_path=selection_path,
+            parser_manifest_path=parser_path,
+            decision_texts_path=tmp_path / "stage-b" / "decision-texts.jsonl",
+            decision_texts_manifest_path=(
+                tmp_path / "stage-b" / "decision-texts-manifest.json"
+            ),
+            decision_texts_run_card_path=(
+                tmp_path / "stage-b" / "build-decision-texts.json"
+            ),
+            finalized_prediction_units_path=finalized_units_path,
+            llm_unitization_run_card_path=unitization_card,
+            llm_review_stage_a_run_card_path=(
+                review_root / "run-cards" / "llm-review-stage-a.json"
+            ),
+            unitization_review_run_card_path=(
+                apply_root / "run-cards" / "apply-unitization-review.json"
+            ),
+            model_registry_path=registry_path,
+            evaluated_model_registry_path=_evaluated_registry_path(tmp_path),
+            provider_cycle_caps_path=caps_path,
+            labels_path=output_root / "labels.jsonl",
+            audit_path=output_root / "llm-label-audit.jsonl",
+        )
+
+    flags_path = review_root / "stage-a-structural-flags.jsonl"
+    fabricated_flag = {
+        "schema_version": "legalforecast.stage_a_structural_flag.v1",
+        "candidate_id": "cand-1",
+        "case_id": "case-1",
+        "flag_sha256": "sha256:fabricated",
+    }
+    _write_jsonl(flags_path, [fabricated_flag])
+    structural_card_path = review_root / "run-cards" / "llm-review-stage-a.json"
+    structural_run_card["output_commitments"]["structural_flags"] = (
+        cli._stage_a_file_commitment(flags_path)
+    )
+    _write_json(structural_card_path, structural_run_card)
+    with pytest.raises(cli.CommandError, match="flags do not reproduce"):
+        cli._verify_stage_a_review_run_card(
+            structural_card_path,
+            lineage=lineage,
+            llm_unitization_run_card_path=unitization_card,
+            expected_review_queue_path=(
+                review_root / "unitization-review-queue-reviewed.jsonl"
+            ),
+            expected_structural_flags_path=flags_path,
+            expected_audit_path=review_root / "stage-a-structural-review-audit.jsonl",
+            expected_registry_path=registry_path,
+            expected_model_key="openai:gpt-test",
+        )
+
+
+def test_executed_llm_unitize_requires_authenticated_lineage_before_provider(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    selection_path = tmp_path / "selection.jsonl"
+    parser_path = tmp_path / "parser.jsonl"
+    registry_path = tmp_path / "registry.json"
+    _write_jsonl(selection_path, [_selection_record()])
+    _write_jsonl(parser_path, [_parser_record("complaint", "complaint.md")])
+    _write_json(registry_path, [_registry_record()])
+    provider_calls = 0
+
+    def forbidden_provider_call(*args: Any, **kwargs: Any) -> SolverResponse:
+        nonlocal provider_calls
+        provider_calls += 1
+        raise AssertionError("provider must not be called")
+
+    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", forbidden_provider_call)
+    assert (
+        main(
+            [
+                "acquisition",
+                "llm-unitize",
+                "--selection",
+                str(selection_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--model-registry",
+                str(registry_path),
+                "--model-key",
+                "openai:gpt-test",
+                "--provider-cycle-caps",
+                str(_provider_caps_path(tmp_path)),
+                "--provider-journal",
+                str(tmp_path / "shared-provider-attempts.sqlite3"),
+                "--output-root",
+                str(tmp_path / "out"),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert provider_calls == 0
+    assert "authenticated Stage A lineage requires" in capsys.readouterr().err
 
 
 def test_acquisition_llm_label_persists_lawyer_review_queue_with_partial_success(
@@ -366,7 +880,7 @@ def test_acquisition_llm_label_persists_lawyer_review_queue_with_partial_success
 
     def partial_review_completion(*args: Any, **kwargs: Any) -> SolverResponse:
         entry = args[0]
-        return SolverResponse(
+        response = SolverResponse(
             raw_output=json.dumps(
                 {
                     "unit_findings": [
@@ -393,6 +907,7 @@ def test_acquisition_llm_label_persists_lawyer_review_queue_with_partial_success
             estimated_cost=0.01,
             metadata={"provider": "openai", "model_id": entry.model_id},
         )
+        return _settle_fixture_unitization_attempt(response, kwargs)
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", partial_review_completion)
     _rewrite_as_finalized(units_path)
@@ -401,6 +916,17 @@ def test_acquisition_llm_label_persists_lawyer_review_queue_with_partial_success
         selection_path=selection_path,
         parser_path=parser_path,
         markdown_root=markdown_root,
+    )
+    caps_path = _provider_caps_path(tmp_path)
+    provider_chain_args = _stub_authenticated_finalized_provider_chain(
+        monkeypatch,
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+        registry_path=registry_path,
+        caps_path=caps_path,
+        provider_journal_path=output_root / "provider-attempts.sqlite3",
+        finalized_units_path=units_path,
     )
 
     assert (
@@ -428,7 +954,8 @@ def test_acquisition_llm_label_persists_lawyer_review_queue_with_partial_success
                 "--model-key",
                 "openai:gpt-c",
                 "--provider-cycle-caps",
-                str(_provider_caps_path(tmp_path)),
+                str(caps_path),
+                *provider_chain_args,
                 "--execute",
             ]
         )
@@ -940,9 +1467,19 @@ def test_acquisition_llm_unitize_accepts_singleton_string_list_fields(
         ],
     )
     _write_json(registry_path, [_registry_record()])
+    caps_path = _provider_caps_path(tmp_path)
+    stage_a_args = _stub_authenticated_stage_a_lineage(
+        monkeypatch,
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+        registry_path=registry_path,
+        caps_path=caps_path,
+        provider_journal_path=output_root / "provider-attempts.sqlite3",
+    )
 
     def fake_completion(*args: Any, **kwargs: Any) -> SolverResponse:
-        return SolverResponse(
+        response = SolverResponse(
             raw_output=json.dumps(
                 {
                     "unit_seeds": [
@@ -966,6 +1503,7 @@ def test_acquisition_llm_unitize_accepts_singleton_string_list_fields(
             estimated_cost=0.01,
             metadata={"provider": "openai", "model_id": "gpt-test"},
         )
+        return _settle_fixture_unitization_attempt(response, kwargs)
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", fake_completion)
 
@@ -985,7 +1523,8 @@ def test_acquisition_llm_unitize_accepts_singleton_string_list_fields(
                 "--model-key",
                 "openai:gpt-test",
                 "--provider-cycle-caps",
-                str(_provider_caps_path(tmp_path)),
+                str(caps_path),
+                *stage_a_args,
                 "--execute",
             ]
         )
@@ -1020,9 +1559,19 @@ def test_acquisition_llm_unitize_accepts_top_level_seed_array(
         ],
     )
     _write_json(registry_path, [_registry_record()])
+    caps_path = _provider_caps_path(tmp_path)
+    stage_a_args = _stub_authenticated_stage_a_lineage(
+        monkeypatch,
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+        registry_path=registry_path,
+        caps_path=caps_path,
+        provider_journal_path=output_root / "provider-attempts.sqlite3",
+    )
 
     def fake_completion(*args: Any, **kwargs: Any) -> SolverResponse:
-        return SolverResponse(
+        response = SolverResponse(
             raw_output=json.dumps(
                 [
                     {
@@ -1044,6 +1593,7 @@ def test_acquisition_llm_unitize_accepts_top_level_seed_array(
             estimated_cost=0.01,
             metadata={"provider": "openai", "model_id": "gpt-test"},
         )
+        return _settle_fixture_unitization_attempt(response, kwargs)
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", fake_completion)
 
@@ -1063,7 +1613,8 @@ def test_acquisition_llm_unitize_accepts_top_level_seed_array(
                 "--model-key",
                 "openai:gpt-test",
                 "--provider-cycle-caps",
-                str(_provider_caps_path(tmp_path)),
+                str(caps_path),
+                *stage_a_args,
                 "--execute",
             ]
         )
@@ -1097,9 +1648,19 @@ def test_acquisition_llm_unitize_rejects_missing_required_unit_fields(
         ],
     )
     _write_json(registry_path, [_registry_record()])
+    caps_path = _provider_caps_path(tmp_path)
+    stage_a_args = _stub_authenticated_stage_a_lineage(
+        monkeypatch,
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+        registry_path=registry_path,
+        caps_path=caps_path,
+        provider_journal_path=output_root / "provider-attempts.sqlite3",
+    )
 
     def incomplete_completion(*args: Any, **kwargs: Any) -> SolverResponse:
-        return SolverResponse(
+        response = SolverResponse(
             raw_output=json.dumps(
                 {
                     "unit_seeds": [
@@ -1121,6 +1682,7 @@ def test_acquisition_llm_unitize_rejects_missing_required_unit_fields(
             estimated_cost=0.01,
             metadata={"provider": "openai", "model_id": "gpt-test"},
         )
+        return _settle_fixture_unitization_attempt(response, kwargs)
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", incomplete_completion)
 
@@ -1141,7 +1703,8 @@ def test_acquisition_llm_unitize_rejects_missing_required_unit_fields(
                 "openai:gpt-test",
                 "--continue-on-error",
                 "--provider-cycle-caps",
-                str(_provider_caps_path(tmp_path)),
+                str(caps_path),
+                *stage_a_args,
                 "--execute",
             ]
         )
@@ -1178,6 +1741,16 @@ def test_acquisition_llm_unitize_accepts_first_balanced_json_object(
         ],
     )
     _write_json(registry_path, [_registry_record()])
+    caps_path = _provider_caps_path(tmp_path)
+    stage_a_args = _stub_authenticated_stage_a_lineage(
+        monkeypatch,
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+        registry_path=registry_path,
+        caps_path=caps_path,
+        provider_journal_path=output_root / "provider-attempts.sqlite3",
+    )
 
     payload = {
         "unit_seeds": [
@@ -1197,13 +1770,14 @@ def test_acquisition_llm_unitize_accepts_first_balanced_json_object(
     }
 
     def fake_completion(*args: Any, **kwargs: Any) -> SolverResponse:
-        return SolverResponse(
+        response = SolverResponse(
             raw_output=f'{json.dumps(payload)}\n{{"debug": true}}',
             input_tokens=100,
             output_tokens=50,
             estimated_cost=0.01,
             metadata={"provider": "openai", "model_id": "gpt-test"},
         )
+        return _settle_fixture_unitization_attempt(response, kwargs)
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", fake_completion)
 
@@ -1223,7 +1797,8 @@ def test_acquisition_llm_unitize_accepts_first_balanced_json_object(
                 "--model-key",
                 "openai:gpt-test",
                 "--provider-cycle-caps",
-                str(_provider_caps_path(tmp_path)),
+                str(caps_path),
+                *stage_a_args,
                 "--execute",
             ]
         )
@@ -1337,9 +1912,19 @@ def test_acquisition_llm_unitize_failure_audit_keeps_model_accounting(
         ],
     )
     _write_json(registry_path, [_registry_record()])
+    caps_path = _provider_caps_path(tmp_path)
+    stage_a_args = _stub_authenticated_stage_a_lineage(
+        monkeypatch,
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+        registry_path=registry_path,
+        caps_path=caps_path,
+        provider_journal_path=output_root / "provider-attempts.sqlite3",
+    )
 
     def invalid_completion(*args: Any, **kwargs: Any) -> SolverResponse:
-        return SolverResponse(
+        response = SolverResponse(
             raw_output=json.dumps(
                 {
                     "unit_seeds": [
@@ -1363,6 +1948,7 @@ def test_acquisition_llm_unitize_failure_audit_keeps_model_accounting(
             estimated_cost=0.12,
             metadata={"provider": "openai", "model_id": "gpt-test"},
         )
+        return _settle_fixture_unitization_attempt(response, kwargs)
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", invalid_completion)
 
@@ -1383,7 +1969,8 @@ def test_acquisition_llm_unitize_failure_audit_keeps_model_accounting(
                 "openai:gpt-test",
                 "--continue-on-error",
                 "--provider-cycle-caps",
-                str(_provider_caps_path(tmp_path)),
+                str(caps_path),
+                *stage_a_args,
                 "--execute",
             ]
         )
@@ -1441,7 +2028,7 @@ def test_acquisition_llm_label_failure_audit_keeps_model_accounting(
     _write_json(registry_path, [_registry_record()])
 
     def invalid_label_completion(*args: Any, **kwargs: Any) -> SolverResponse:
-        return SolverResponse(
+        response = SolverResponse(
             raw_output=json.dumps(
                 {
                     "unit_findings": [
@@ -1461,6 +2048,7 @@ def test_acquisition_llm_label_failure_audit_keeps_model_accounting(
             estimated_cost=0.23,
             metadata={"provider": "openai", "model_id": "gpt-test"},
         )
+        return _settle_fixture_unitization_attempt(response, kwargs)
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", invalid_label_completion)
     _rewrite_as_finalized(units_path)
@@ -1469,6 +2057,17 @@ def test_acquisition_llm_label_failure_audit_keeps_model_accounting(
         selection_path=selection_path,
         parser_path=parser_path,
         markdown_root=markdown_root,
+    )
+    caps_path = _provider_caps_path(tmp_path)
+    provider_chain_args = _stub_authenticated_finalized_provider_chain(
+        monkeypatch,
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+        registry_path=registry_path,
+        caps_path=caps_path,
+        provider_journal_path=output_root / "provider-attempts.sqlite3",
+        finalized_units_path=units_path,
     )
 
     assert (
@@ -1493,7 +2092,8 @@ def test_acquisition_llm_label_failure_audit_keeps_model_accounting(
                 "--evaluated-model-registry",
                 str(_evaluated_registry_path(tmp_path)),
                 "--provider-cycle-caps",
-                str(_provider_caps_path(tmp_path)),
+                str(caps_path),
+                *provider_chain_args,
                 "--execute",
             ]
         )
@@ -1508,6 +2108,27 @@ def test_acquisition_llm_label_failure_audit_keeps_model_accounting(
     assert audit["output_tokens"] == 56
     assert str(audit["raw_output_sha256"]).startswith("sha256:")
     assert audit["metadata"]["model_id"] == "gpt-test"
+    assert audit["model_outputs"] == [
+        {
+            "status": "validation_failed",
+            "model_key": "openai:gpt-test",
+            "provider_prompt_sha256": audit["model_outputs"][0][
+                "provider_prompt_sha256"
+            ],
+            "input_tokens": 234,
+            "output_tokens": 56,
+            "estimated_cost": 0.23,
+            "raw_output_sha256": audit["raw_output_sha256"],
+            "metadata": {"provider": "openai", "model_id": "gpt-test"},
+            "error_type": "LlmResponseValidationError",
+            "error_message": audit["error_message"],
+        }
+    ]
+    provider_chain = json.loads(
+        (output_root / "run-cards" / "llm-label.json").read_text(encoding="utf-8")
+    )["provider_chain"]
+    assert provider_chain["stage_attempts"]["call_count"] == 1
+    assert provider_chain["stage_attempts"]["attempt_count"] == 1
 
 
 def test_acquisition_llm_label_missing_unit_flags_gate_frozen_unit_workflow(
@@ -1554,7 +2175,7 @@ def test_acquisition_llm_label_missing_unit_flags_gate_frozen_unit_workflow(
     _write_json(registry_path, [_registry_record()])
 
     def missing_unit_completion(*args: Any, **kwargs: Any) -> SolverResponse:
-        return SolverResponse(
+        response = SolverResponse(
             raw_output=json.dumps(
                 {
                     "unit_findings": [
@@ -1584,6 +2205,7 @@ def test_acquisition_llm_label_missing_unit_flags_gate_frozen_unit_workflow(
             estimated_cost=0.34,
             metadata={"provider": "openai", "model_id": "gpt-test"},
         )
+        return _settle_fixture_unitization_attempt(response, kwargs)
 
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", missing_unit_completion)
     _rewrite_as_finalized(units_path)
@@ -1592,6 +2214,17 @@ def test_acquisition_llm_label_missing_unit_flags_gate_frozen_unit_workflow(
         selection_path=selection_path,
         parser_path=parser_path,
         markdown_root=markdown_root,
+    )
+    caps_path = _provider_caps_path(tmp_path)
+    provider_chain_args = _stub_authenticated_finalized_provider_chain(
+        monkeypatch,
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+        registry_path=registry_path,
+        caps_path=caps_path,
+        provider_journal_path=output_root / "provider-attempts.sqlite3",
+        finalized_units_path=units_path,
     )
 
     assert (
@@ -1616,7 +2249,8 @@ def test_acquisition_llm_label_missing_unit_flags_gate_frozen_unit_workflow(
                 "--evaluated-model-registry",
                 str(_evaluated_registry_path(tmp_path)),
                 "--provider-cycle-caps",
-                str(_provider_caps_path(tmp_path)),
+                str(caps_path),
+                *provider_chain_args,
                 "--execute",
             ]
         )
@@ -1673,6 +2307,8 @@ def _fake_completion(*args: Any, **kwargs: Any) -> SolverResponse:
             ],
             "missing_unit_flags": [],
         }
+    elif "Review frozen Stage A units" in prompt:
+        raw_output = {"structural_flags": []}
     else:
         raise AssertionError("unexpected prompt")
     return SolverResponse(

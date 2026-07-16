@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import legalforecast.labeling.llm_pipeline as llm_pipeline
+from legalforecast import cli
 from legalforecast.cli import main
 from legalforecast.evals.inspect_task import SolverResponse
 from legalforecast.ingestion.case_dev_purchase import (
@@ -21,6 +22,10 @@ from legalforecast.ingestion.purchased_document_recovery import (
     PurchasedDocumentRecoveryRequest,
     purchased_document_download_manifest_records,
     recover_purchased_documents,
+)
+from legalforecast.labeling.provider_journal import (
+    ProviderAttemptJournal,
+    ProviderCallIdentity,
 )
 from legalforecast.unitization.review import apply_unitization_reviews
 
@@ -209,6 +214,53 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
         markdown_root=output_root / "markdown",
         decision_text=decision_text,
     )
+    [entry] = cli.load_model_registry(registry_path).entries
+    caps = cli.load_provider_cycle_caps(provider_caps_path)
+    registry_sha = cli._path_sha256(registry_path).removeprefix("sha256:")
+    provider_journal = output_root / "provider-attempts.sqlite3"
+    ProviderAttemptJournal(
+        provider_journal,
+        identity=ProviderCallIdentity(
+            stage="fixture-bootstrap",
+            candidate_id="fixture",
+            model_key=entry.registry_key,
+            prompt="fixture",
+            model_registry_sha256=registry_sha,
+        ),
+        provider=entry.provider,
+        reservation_usd=0.0,
+        cycle_cap_usd=caps.cap_usd(entry.provider),
+        cycle_id=caps.cycle_id,
+        provider_cycle_caps_sha256=cli._path_sha256(provider_caps_path),
+    ).close()
+    unit_card = tmp_path / "fixture-unitization-run-card.json"
+    structural_card = tmp_path / "fixture-structural-review-run-card.json"
+    apply_card = tmp_path / "fixture-apply-run-card.json"
+    review_queue = tmp_path / "fixture-review-queue.jsonl"
+    for path in (unit_card, structural_card, apply_card):
+        path.write_text("{}\n", encoding="utf-8")
+    _write_jsonl(review_queue, [])
+    lineage = cli._StageAUnitizationLineage(
+        selection_records=(selection,),
+        parser_records=tuple(_read_jsonl(parser_manifest)),
+        registry_entry=entry,
+        registry_sha256=registry_sha,
+        provider_caps=caps,
+        provider_caps_sha256=cli._path_sha256(provider_caps_path),
+        provider_journal_path=provider_journal,
+        document_root=document_root,
+        markdown_root=output_root / "markdown",
+        cohort_cycle_id=caps.cycle_id,
+        input_paths=(),
+        input_commitments={},
+        markdown_tree={},
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_finalized_stage_a_provider_chain",
+        lambda *args, **kwargs: (lineage, unit_card, review_queue),
+    )
+    monkeypatch.setattr(cli, "_verify_stage_a_review_run_card", lambda *a, **k: None)
     monkeypatch.setattr(llm_pipeline, "complete_live_prompt", _stage_b_completion)
     assert (
         main(
@@ -230,6 +282,14 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
                 "openai:gpt-test",
                 "--provider-cycle-caps",
                 str(provider_caps_path),
+                "--llm-unitization-run-card",
+                str(unit_card),
+                "--llm-review-stage-a-run-card",
+                str(structural_card),
+                "--unitization-review-run-card",
+                str(apply_card),
+                "--provider-journal",
+                str(provider_journal),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -390,10 +450,9 @@ def _prediction_units() -> JsonRecord:
 
 
 def _stage_b_completion(*args: Any, **kwargs: Any) -> SolverResponse:
-    del kwargs
     prompt = cast(str, args[1])
     assert "Create Stage B outcome labels" in prompt
-    return SolverResponse(
+    response = SolverResponse(
         raw_output=json.dumps(
             {
                 "unit_findings": [
@@ -416,6 +475,16 @@ def _stage_b_completion(*args: Any, **kwargs: Any) -> SolverResponse:
         estimated_cost=0.01,
         metadata={"provider": "openai", "model_id": "gpt-test"},
     )
+    journal = kwargs["attempt_handler"]
+    journal.run_attempt(1, lambda: {"fixture": "provider-response"})
+    journal.settle_attempt(
+        1,
+        input_tokens=response.input_tokens,
+        output_tokens=response.output_tokens,
+        actual_cost_usd=response.estimated_cost,
+        raw_output=response.raw_output,
+    )
+    return response
 
 
 def _write_authenticated_stage_b_inputs(
