@@ -43,6 +43,7 @@ from legalforecast.evals.inspect_task import (
     run_inspect_fixture,
 )
 from legalforecast.evals.model_registry import (
+    ModelRegistry,
     ModelRegistryEntry,
     earliest_eligible_decision_date,
     load_model_registry,
@@ -274,12 +275,29 @@ from legalforecast.ingestion.decision_text_artifact import (
 )
 from legalforecast.ingestion.disclosure_clearance import (
     DisclosureClearanceError,
+    ReviewAuthority,
     build_clearance_records,
     require_cleared_documents,
     require_cleared_parse_requests,
     require_cleared_parser_records,
     validate_review_receipt,
     verify_parse_request_bytes,
+)
+from legalforecast.ingestion.disclosure_review_authority import (
+    DisclosureReviewAuthority,
+    DisclosureReviewAuthorityError,
+    load_main_disclosure_review_authority,
+)
+from legalforecast.ingestion.disclosure_review_bundle import (
+    ReviewBundleError,
+    build_private_inspection_map,
+    build_review_artifact,
+    build_signing_statement,
+    canonical_json_bytes,
+    prepare_review_worksheet,
+    read_unique_regular_file,
+    reviewer_policy_preflight,
+    seal_review_receipt,
 )
 from legalforecast.ingestion.discovery_scheduler import (
     DiscoveryHit,
@@ -1503,6 +1521,34 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_assemble_cycle_arguments(acquisition_assemble_cycle)
+    acquisition_prepare_review = acquisition_subparsers.add_parser(
+        "prepare-disclosure-review",
+        help=(
+            "Build a deterministic private review worksheet and exact-byte "
+            "inspection map."
+        ),
+    )
+    _add_acquisition_prepare_disclosure_review_arguments(acquisition_prepare_review)
+    acquisition_review_preflight = acquisition_subparsers.add_parser(
+        "preflight-disclosure-review-signer",
+        help="Verify the externally pinned hardware reviewer policy.",
+    )
+    _add_acquisition_review_signer_preflight_arguments(acquisition_review_preflight)
+    acquisition_record_review = acquisition_subparsers.add_parser(
+        "record-disclosure-review-decisions",
+        help="Interactively inspect and record every disclosure decision privately.",
+    )
+    _add_acquisition_record_disclosure_review_arguments(acquisition_record_review)
+    acquisition_build_review = acquisition_subparsers.add_parser(
+        "build-disclosure-review-bundle",
+        help="Build exact review JSONL and the detached SSHSIG signing statement.",
+    )
+    _add_acquisition_build_disclosure_review_arguments(acquisition_build_review)
+    acquisition_seal_review = acquisition_subparsers.add_parser(
+        "seal-disclosure-review-bundle",
+        help="Verify the external hardware SSHSIG and emit a review receipt.",
+    )
+    _add_acquisition_seal_disclosure_review_arguments(acquisition_seal_review)
     acquisition_clearance = acquisition_subparsers.add_parser(
         "clear-disclosures",
         help="Scan and record hash-bound disclosure clearance per document.",
@@ -4879,10 +4925,14 @@ def _add_acquisition_disclosure_clearance_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
     _add_acquisition_common_arguments(parser)
+    parser.add_argument("--review-requests", type=Path, required=True)
     parser.add_argument("--download-manifest", type=Path, required=True)
     parser.add_argument("--document-root", type=Path, required=True)
+    parser.add_argument("--review-worksheet", type=Path, required=True)
     parser.add_argument("--reviews", type=Path, required=True)
     parser.add_argument("--review-receipt", type=Path, required=True)
+    parser.add_argument("--reviewer-policy", type=Path, required=True)
+    parser.add_argument("--cohort-policy", type=Path, required=True)
     parser.add_argument(
         "--restriction-evidence",
         type=Path,
@@ -4892,6 +4942,107 @@ def _add_acquisition_disclosure_clearance_arguments(
     parser.add_argument("--clearance-output", type=Path)
     parser.add_argument("--quarantine-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_disclosure_clearance)
+
+
+def _add_acquisition_prepare_disclosure_review_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--review-requests", type=Path, required=True)
+    parser.add_argument("--download-manifest", type=Path, required=True)
+    parser.add_argument("--document-root", type=Path, required=True)
+    parser.add_argument("--restriction-evidence", type=Path, required=True)
+    parser.add_argument("--reviewer-policy", type=Path, required=True)
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument("--worksheet-output", type=Path)
+    parser.add_argument(
+        "--controlled-private-store-root",
+        type=Path,
+        required=True,
+        help=(
+            "Private review-store root, separate from normal acquisition artifacts; "
+            "its contents are never committed to downstream run cards."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_prepare_disclosure_review)
+
+
+def _add_acquisition_review_signer_preflight_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--reviewer-policy", type=Path, required=True)
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument(
+        "--signing-statement",
+        type=Path,
+        help=(
+            "After bundle construction, display the exact per-document decision "
+            "summary that the hardware key will sign."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_review_signer_preflight)
+
+
+def _add_acquisition_record_disclosure_review_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--review-worksheet", type=Path, required=True)
+    parser.add_argument("--private-inspection-map", type=Path, required=True)
+    parser.add_argument(
+        "--reviewer-id",
+        required=True,
+        help="Intended hardware reviewer ID; build must match it to signed policy.",
+    )
+    parser.add_argument(
+        "--controlled-private-store-root",
+        type=Path,
+        required=True,
+        help="Private root containing the inspection map and decision output.",
+    )
+    parser.add_argument("--decisions-output", type=Path)
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=Path,
+        help=(
+            "Private durable per-document checkpoint directory; defaults to "
+            "<controlled-private-store-root>/checkpoints."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_record_disclosure_review)
+
+
+def _add_acquisition_build_disclosure_review_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--review-worksheet", type=Path, required=True)
+    parser.add_argument("--decisions", type=Path, required=True)
+    parser.add_argument("--reviewer-policy", type=Path, required=True)
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument("--controlled-store-uri", required=True)
+    parser.add_argument("--authenticated-at", required=True)
+    parser.add_argument("--reviews-output", type=Path)
+    parser.add_argument("--signing-statement-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_build_disclosure_review)
+
+
+def _add_acquisition_seal_disclosure_review_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--review-requests", type=Path, required=True)
+    parser.add_argument("--download-manifest", type=Path, required=True)
+    parser.add_argument("--restriction-evidence", type=Path, required=True)
+    parser.add_argument("--review-worksheet", type=Path, required=True)
+    parser.add_argument("--reviews", type=Path, required=True)
+    parser.add_argument("--decisions", type=Path, required=True)
+    parser.add_argument("--signing-statement", type=Path, required=True)
+    parser.add_argument("--signature", type=Path, required=True)
+    parser.add_argument("--reviewer-policy", type=Path, required=True)
+    parser.add_argument("--cohort-policy", type=Path, required=True)
+    parser.add_argument("--review-receipt-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_seal_disclosure_review)
 
 
 def _add_acquisition_resolve_post_recovery_arguments(
@@ -5668,6 +5819,35 @@ def _add_acquisition_plan_packet_inputs_arguments(
 def _add_acquisition_build_packets_arguments(parser: argparse.ArgumentParser) -> None:
     _add_acquisition_common_arguments(parser)
     parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--packet-input-run-card", type=Path)
+    parser.add_argument("--selection", type=Path)
+    parser.add_argument("--download-manifest", type=Path)
+    parser.add_argument("--parser-manifest", type=Path)
+    parser.add_argument("--parser-run-card", type=Path)
+    parser.add_argument("--disclosure-clearance", type=Path)
+    parser.add_argument("--raw-prediction-units", type=Path)
+    parser.add_argument("--prediction-units", type=Path)
+    parser.add_argument("--llm-unitization-audit", type=Path)
+    parser.add_argument("--llm-unitize-run-card", type=Path)
+    parser.add_argument("--llm-unitize-provider-journal", type=Path)
+    parser.add_argument("--original-unitization-review-queue", type=Path)
+    parser.add_argument("--stage-a-structural-flags", type=Path)
+    parser.add_argument("--stage-a-structural-review-audit", type=Path)
+    parser.add_argument("--stage-a-review-run-card", type=Path)
+    parser.add_argument("--stage-a-review-provider-journal", type=Path)
+    parser.add_argument("--stage-a-review-model-registry", type=Path)
+    parser.add_argument("--stage-a-review-model-key")
+    parser.add_argument("--unitization-review-queue", type=Path)
+    parser.add_argument("--unitization-review-adjudications", type=Path)
+    parser.add_argument("--apply-unitization-review-run-card", type=Path)
+    parser.add_argument("--parse-plan-run-card", type=Path)
+    parser.add_argument("--model-registry", type=Path)
+    parser.add_argument("--expected-model-registry-sha256")
+    parser.add_argument("--raw-html-dir", type=Path)
+    parser.add_argument("--raw-artifacts-manifest", type=Path)
+    parser.add_argument("--document-root", type=Path)
+    parser.add_argument("--markdown-root", type=Path)
+    parser.add_argument("--materialization-run-card", type=Path)
     parser.add_argument("--packets-output", type=Path)
     parser.add_argument("--case-packets-output", type=Path)
     parser.add_argument("--audit-output", type=Path)
@@ -5685,6 +5865,7 @@ def _add_acquisition_finalize_corpus_arguments(
     _add_acquisition_common_arguments(parser)
     parser.add_argument("--selection", type=Path, required=True)
     parser.add_argument("--parser-manifest", type=Path, required=True)
+    parser.add_argument("--parser-run-card", type=Path, required=True)
     parser.add_argument("--decision-texts", type=Path, required=True)
     parser.add_argument("--decision-texts-manifest", type=Path, required=True)
     parser.add_argument("--decision-texts-run-card", type=Path, required=True)
@@ -5712,6 +5893,18 @@ def _add_acquisition_finalize_corpus_arguments(
         required=True,
         help="Root containing parse-documents Markdown used to verify label excerpts.",
     )
+    parser.add_argument(
+        "--raw-html-dir",
+        type=Path,
+        required=True,
+        help="Canonical committed CourtListener docket-HTML containment root.",
+    )
+    parser.add_argument(
+        "--raw-artifacts-manifest",
+        type=Path,
+        required=True,
+        help="Canonical raw docket-artifact manifest used by packet planning.",
+    )
     parser.add_argument("--raw-prediction-units", type=Path, required=True)
     parser.add_argument(
         "--llm-unitization-run-card",
@@ -5736,6 +5929,8 @@ def _add_acquisition_finalize_corpus_arguments(
         help="Finalized prediction units emitted by apply-unitization-review.",
     )
     parser.add_argument("--llm-unitization-audit", type=Path, required=True)
+    parser.add_argument("--llm-unitize-run-card", type=Path, required=True)
+    parser.add_argument("--llm-unitize-provider-journal", type=Path, required=True)
     parser.add_argument(
         "--original-unitization-review-queue",
         type=Path,
@@ -5744,6 +5939,8 @@ def _add_acquisition_finalize_corpus_arguments(
     )
     parser.add_argument("--stage-a-structural-flags", type=Path, required=True)
     parser.add_argument("--stage-a-structural-review-audit", type=Path, required=True)
+    parser.add_argument("--stage-a-review-run-card", type=Path, required=True)
+    parser.add_argument("--stage-a-review-provider-journal", type=Path, required=True)
     parser.add_argument("--stage-a-review-model-registry", type=Path, required=True)
     parser.add_argument("--stage-a-review-model-key", required=True)
     _add_provider_cycle_caps_argument(parser)
@@ -5767,12 +5964,15 @@ def _add_acquisition_finalize_corpus_arguments(
     )
     parser.add_argument(
         "--unitization-review-run-card",
+        "--apply-unitization-review-run-card",
+        dest="unitization_review_run_card",
         type=Path,
         help=(
             "Completed apply-unitization-review run card binding the authenticated "
             "unitizer card to the finalized units. Required with --execute."
         ),
     )
+    parser.add_argument("--parse-plan-run-card", type=Path, required=True)
     parser.add_argument("--labels", type=Path, required=True)
     parser.add_argument("--llm-label-audit", type=Path, required=True)
     parser.add_argument(
@@ -5793,8 +5993,19 @@ def _add_acquisition_finalize_corpus_arguments(
         help="JSONL from apply-lawyer-review proving review and audit-gate outcomes.",
     )
     parser.add_argument("--packet-build-input", type=Path, required=True)
+    parser.add_argument(
+        "--packet-input-run-card",
+        type=Path,
+        help="Completed plan-packet-inputs card; required for execution.",
+    )
     parser.add_argument("--packets", type=Path, required=True)
+    parser.add_argument(
+        "--packet-build-run-card",
+        type=Path,
+        help="Completed build-packets card; required for execution.",
+    )
     parser.add_argument("--model-registry", type=Path, required=True)
+    parser.add_argument("--expected-model-registry-sha256", required=True)
     parser.add_argument(
         "--screened-cases",
         type=Path,
@@ -5915,14 +6126,150 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         return handler(parsed)
     except CommandError as exc:
+        _record_disclosure_command_failure(parsed, str(exc))
         print(f"legalforecast: {exc}", file=sys.stderr)
         return 2
     except FileNotFoundError as exc:
+        _record_disclosure_command_failure(parsed, f"missing file: {exc.filename}")
         print(f"legalforecast: missing file: {exc.filename}", file=sys.stderr)
         return 2
     except ValueError as exc:
+        _record_disclosure_command_failure(parsed, str(exc))
         print(f"legalforecast: {exc}", file=sys.stderr)
         return 2
+    except OSError as exc:
+        if _record_disclosure_command_failure(parsed, str(exc)):
+            print(f"legalforecast: {exc}", file=sys.stderr)
+            return 2
+        raise
+    except KeyboardInterrupt:
+        _record_disclosure_command_failure(parsed, "interactive review interrupted")
+        raise
+
+
+def _record_disclosure_command_failure(args: argparse.Namespace, reason: str) -> bool:
+    """Best-effort durable failure boundary for all disclosure-review stages."""
+
+    command = getattr(args, "acquisition_command", None)
+    context = _disclosure_failure_context(args, command)
+    if context is None:
+        return False
+    stage, input_paths, output_paths = context
+    try:
+        _write_disclosure_review_failure(
+            args,
+            stage=stage,
+            input_paths=input_paths,
+            output_paths=output_paths,
+            reason=reason,
+        )
+    except (CommandError, OSError, UnicodeError, ValueError) as exc:
+        # A completed run card is deliberately never overwritten by a later
+        # exception (including a phase-two log fsync failure).
+        print(
+            f"legalforecast: unable to publish {stage} failure metadata: {exc}",
+            file=sys.stderr,
+        )
+    return True
+
+
+def _disclosure_failure_context(
+    args: argparse.Namespace, command: object
+) -> tuple[str, tuple[Path, ...], tuple[Path, ...]] | None:
+    disclosure_commands = {
+        "prepare-disclosure-review",
+        "record-disclosure-review-decisions",
+        "build-disclosure-review-bundle",
+        "seal-disclosure-review-bundle",
+    }
+    if command not in disclosure_commands:
+        return None
+    command_name = cast(str, command)
+    output_root = _acquisition_output_root(args)
+    if command == "prepare-disclosure-review":
+        return (
+            command_name,
+            (
+                cast(Path, args.review_requests),
+                cast(Path, args.download_manifest),
+                cast(Path, args.restriction_evidence),
+                cast(Path, args.reviewer_policy),
+                cast(Path, args.cohort_policy),
+                cast(Path, args.document_root),
+            ),
+            (
+                _acquisition_path(
+                    args,
+                    "worksheet_output",
+                    output_root / "disclosure-review-worksheet.json",
+                ),
+            ),
+        )
+    if command == "record-disclosure-review-decisions":
+        private_root = cast(Path, args.controlled_private_store_root).resolve()
+        return (
+            command_name,
+            (
+                cast(Path, args.review_worksheet),
+                cast(Path, args.private_inspection_map),
+            ),
+            (
+                _acquisition_path(
+                    args,
+                    "decisions_output",
+                    private_root / "disclosure-review-decisions.jsonl",
+                ),
+            ),
+        )
+    if command == "build-disclosure-review-bundle":
+        return (
+            command_name,
+            (
+                cast(Path, args.review_worksheet),
+                cast(Path, args.decisions),
+                cast(Path, args.reviewer_policy),
+                cast(Path, args.cohort_policy),
+            ),
+            (
+                _acquisition_path(
+                    args,
+                    "reviews_output",
+                    output_root / "disclosure-reviews.jsonl",
+                ),
+                _acquisition_path(
+                    args,
+                    "signing_statement_output",
+                    output_root / "disclosure-review-signing-statement.json",
+                ),
+            ),
+        )
+    if command == "seal-disclosure-review-bundle":
+        return (
+            command_name,
+            tuple(
+                cast(Path, getattr(args, name))
+                for name in (
+                    "review_requests",
+                    "download_manifest",
+                    "restriction_evidence",
+                    "review_worksheet",
+                    "reviews",
+                    "decisions",
+                    "signing_statement",
+                    "signature",
+                    "reviewer_policy",
+                    "cohort_policy",
+                )
+            ),
+            (
+                _acquisition_path(
+                    args,
+                    "review_receipt_output",
+                    output_root / "disclosure-review-receipt.json",
+                ),
+            ),
+        )
+    return None
 
 
 def _cmd_discover(args: argparse.Namespace) -> int:
@@ -8060,6 +8407,12 @@ def _cmd_acquisition_project_target_cohort(args: argparse.Namespace) -> int:
             int, args.max_missing_core_documents_per_case
         ),
     )
+    _verify_authenticated_clearance_run_card(
+        clearance_path=source_paths["disclosure_clearance"],
+        clearance_run_card_path=source_paths["clearance_run_card"],
+        expected_download_manifest_path=source_paths["download_manifest"],
+        expected_restriction_path=source_paths["restriction_evidence"],
+    )
     try:
         projection = project_target_cohort(
             selections=_projection_jsonl_records(
@@ -8354,6 +8707,7 @@ def _cmd_acquisition_extend_target_cohort(args: argparse.Namespace) -> int:
         clearance_run_card_path=clearance_run_card_path,
         reviews_path=reviews_path,
         review_receipt_path=review_receipt_path,
+        cohort_policy_path=cohort_policy_path,
         restriction_evidence_path=restriction_evidence_path,
         disclosure_clearance_path=disclosure_clearance_path,
         full_paths=full_paths,
@@ -8428,6 +8782,7 @@ def _authenticated_extension_lineage(
     clearance_run_card_path: Path,
     reviews_path: Path,
     review_receipt_path: Path,
+    cohort_policy_path: Path,
     restriction_evidence_path: Path,
     disclosure_clearance_path: Path,
     full_paths: Mapping[str, Path],
@@ -8513,6 +8868,31 @@ def _authenticated_extension_lineage(
     clearance_sources = clearance_run_card.get("source_commitments")
     if not isinstance(clearance_sources, Mapping):
         raise CommandError("clear-disclosures run card lacks source commitments")
+    review_requests_path = _named_committed_path(
+        clearance_run_card,
+        commitment_group="source_commitments",
+        name="review_requests",
+    )
+    review_worksheet_path = _named_committed_path(
+        clearance_run_card,
+        commitment_group="source_commitments",
+        name="review_worksheet",
+    )
+    reviewer_policy_path = _named_committed_path(
+        clearance_run_card,
+        commitment_group="source_commitments",
+        name="reviewer_policy",
+    )
+    committed_cohort_policy_path = _named_committed_path(
+        clearance_run_card,
+        commitment_group="source_commitments",
+        name="cohort_policy",
+    )
+    if committed_cohort_policy_path.resolve() != cohort_policy_path.resolve():
+        raise CommandError("clearance committed a different cohort policy")
+    authority_record = clearance_run_card.get("review_authority")
+    if not isinstance(authority_record, Mapping):
+        raise CommandError("clear-disclosures run card lacks review authority")
     for name, path, digest in (
         ("reviews", reviews_path, _bytes_sha256(lineage_bytes["reviews"])),
         (
@@ -8528,27 +8908,59 @@ def _authenticated_extension_lineage(
             expected_sha256=digest,
         )
     try:
-        review_authority = validate_review_receipt(
-            lineage_bytes["reviews"],
+        review_requests_bytes = _read_retained_extension_artifact(review_requests_path)
+        worksheet_bytes = _read_retained_extension_artifact(review_worksheet_path)
+        reviewer_policy_bytes = _read_retained_extension_artifact(reviewer_policy_path)
+        cohort_policy_artifact_bytes = _read_retained_extension_artifact(
+            committed_cohort_policy_path
+        )
+        disclosure_authority = load_main_disclosure_review_authority(
             _projection_json_object(
+                cohort_policy_artifact_bytes, source=committed_cohort_policy_path
+            ),
+            reviewer_policy_bytes=reviewer_policy_bytes,
+        )
+        clearance_lineage = validate_authenticated_clearance_lineage(
+            clearance_records=_projection_jsonl_records(
+                full_artifacts["disclosure-clearance.jsonl"],
+                source=disclosure_clearance_path,
+            ),
+            clearance_artifact_bytes=full_artifacts["disclosure-clearance.jsonl"],
+            clearance_run_card=clearance_run_card,
+            clearance_run_card_bytes=lineage_bytes["clearance_run_card"],
+            reviews_artifact_bytes=lineage_bytes["reviews"],
+            review_receipt_artifact=_projection_json_object(
                 lineage_bytes["review_receipt"], source=review_receipt_path
             ),
+            review_receipt_bytes=lineage_bytes["review_receipt"],
+            review_requests_artifact_bytes=review_requests_bytes,
+            review_worksheet_artifact=_projection_json_object(
+                worksheet_bytes, source=review_worksheet_path
+            ),
+            review_worksheet_bytes=worksheet_bytes,
+            reviewer_policy_bytes=reviewer_policy_bytes,
+            disclosure_authority=disclosure_authority,
+            cohort_policy_artifact_bytes=cohort_policy_artifact_bytes,
+            download_manifest_artifact_bytes=full_artifacts[
+                "document-downloads-merged.jsonl"
+            ],
+            restriction_records=_projection_jsonl_records(
+                lineage_bytes["restriction_evidence"], source=restriction_evidence_path
+            ),
+            restriction_artifact_bytes=lineage_bytes["restriction_evidence"],
         )
+        review_authority = clearance_lineage.authority
         frontier_rows = _verified_target_cohort_frontier_rows(frontier)
-    except (DisclosureClearanceError, ValueError) as exc:
+    except (
+        DisclosureClearanceError,
+        DisclosureReviewAuthorityError,
+        ValueError,
+    ) as exc:
         raise CommandError(str(exc)) from exc
-    authority = clearance_run_card.get("review_authority")
-    expected_authority = {
-        "reviewer_id": review_authority.reviewer_id,
-        "controlled_store_uri": review_authority.controlled_store_uri,
-        "authentication_method": review_authority.authentication_method,
-        "authenticated_at": review_authority.authenticated_at,
-        "review_artifact_sha256": ("sha256:" + review_authority.review_artifact_sha256),
-    }
-    if (
-        not isinstance(authority, Mapping)
-        or dict(cast(Mapping[str, object], authority)) != expected_authority
-    ):
+    expected_authority = _clearance_review_authority_record(
+        review_authority, disclosure_authority
+    )
+    if dict(cast(Mapping[str, object], authority_record)) != expected_authority:
         raise CommandError("clear-disclosures review authority differs from receipt")
 
     policy = cast(Mapping[str, Any], frontier["policy"])
@@ -9397,9 +9809,8 @@ def _validate_clearance_run_card_commitments(
     if not cast(str, authority_record["controlled_store_uri"]).startswith(
         "private-store://"
     ) or authority_record["authentication_method"] not in {
-        "cloudflare_access_oidc",
-        "controlled_store_service_identity",
-        "github_verified_signature",
+        "human_hardware_ssh_signature",
+        "controlled_store_service_ssh_signature",
     }:
         raise CommandError("clear-disclosures run card has invalid review authority")
     reviews_commitment = cast(
@@ -9410,6 +9821,8 @@ def _validate_clearance_run_card_commitments(
         "sha256"
     ):
         raise CommandError("clear-disclosures review authority hash mismatch")
+    if not _valid_prefixed_sha256(authority_record.get("reviewer_policy_sha256")):
+        raise CommandError("clear-disclosures run card lacks reviewer policy pin")
 
 
 def _validate_selection_run_card_commitment(
@@ -9536,8 +9949,7 @@ def _validate_named_existing_file_commitment(
     if not isinstance(raw_path, str) or not _valid_prefixed_sha256(expected_sha256):
         raise CommandError(f"parse-documents run card has invalid {name} commitment")
     path = Path(raw_path)
-    if path.is_symlink() or not path.is_file():
-        raise CommandError(f"parse-documents committed {name} file is missing")
+    _require_materializer_artifact(path, label=f"parse-documents committed {name}")
     if _path_sha256(path) != expected_sha256:
         raise CommandError(f"parse-documents committed {name} file changed")
 
@@ -9595,6 +10007,32 @@ def _projection_jsonl_records(payload: bytes, *, source: Path) -> list[JsonRecor
             )
         records.append(dict(cast(Mapping[str, Any], loaded)))
     return records
+
+
+def _projection_committed_records(payload: bytes, *, source: Path) -> list[JsonRecord]:
+    """Decode a committed JSON or JSONL artifact into records for replay."""
+
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise CommandError(f"projection input is not UTF-8: {source}") from exc
+    try:
+        loaded = _loads_json(text)
+    except ValueError:
+        return _projection_jsonl_records(payload, source=source)
+    if isinstance(loaded, Mapping):
+        return [dict(cast(Mapping[str, Any], loaded))]
+    if isinstance(loaded, Sequence) and not isinstance(loaded, (str, bytes)):
+        records: list[JsonRecord] = []
+        for index, item in enumerate(cast(Sequence[object], loaded)):
+            if not isinstance(item, Mapping):
+                raise CommandError(
+                    f"projection input JSON array must contain objects: "
+                    f"{source}:{index}"
+                )
+            records.append(dict(cast(Mapping[str, Any], item)))
+        return records
+    raise CommandError(f"projection input must contain JSON records: {source}")
 
 
 def _projection_json_object(payload: bytes, *, source: Path) -> JsonRecord:
@@ -9655,6 +10093,462 @@ def _ensure_projection_artifact(
     finally:
         if temporary_path is not None and temporary_path.exists():
             temporary_path.unlink()
+
+
+def _validate_disclosure_review_paths(
+    *,
+    input_paths: Sequence[Path],
+    output_paths: Sequence[Path],
+    protected_roots: Sequence[Path] = (),
+) -> None:
+    """Reject aliases, links, and writable overlap before private review work."""
+
+    resolved_inputs: list[Path] = []
+    for source in input_paths:
+        _reject_existing_parent_symlink(source)
+        if source.is_symlink() or not source.is_file():
+            raise CommandError(
+                f"disclosure review input is not a regular file: {source}"
+            )
+        metadata = source.stat(follow_symlinks=False)
+        if metadata.st_nlink != 1:
+            raise CommandError(
+                f"disclosure review input has hard-link aliases: {source}"
+            )
+        resolved_inputs.append(source.resolve())
+    resolved_outputs: list[Path] = []
+    for output in output_paths:
+        _reject_existing_parent_symlink(output)
+        if output.is_symlink():
+            raise CommandError(f"disclosure review output is a symlink: {output}")
+        resolved = output.resolve()
+        if output.exists():
+            if not output.is_file():
+                raise CommandError(
+                    f"disclosure review output is not a regular file: {output}"
+                )
+            if output.stat(follow_symlinks=False).st_nlink != 1:
+                raise CommandError(
+                    f"disclosure review output has hard-link aliases: {output}"
+                )
+        if resolved in resolved_inputs:
+            raise CommandError(f"disclosure review output aliases an input: {output}")
+        for source, source_resolved in zip(input_paths, resolved_inputs, strict=True):
+            if output.exists() and output.samefile(source):
+                raise CommandError(
+                    f"disclosure review output hard-links input: {output} vs {source}"
+                )
+            if resolved.is_relative_to(source_resolved):
+                raise CommandError(
+                    f"disclosure review output is nested under input: {output}"
+                )
+        for protected in protected_roots:
+            protected_resolved = protected.resolve()
+            if resolved == protected_resolved or resolved.is_relative_to(
+                protected_resolved
+            ):
+                raise CommandError(
+                    "disclosure review output overlaps protected document root: "
+                    f"{output}"
+                )
+        resolved_outputs.append(resolved)
+    if len(set(resolved_outputs)) != len(resolved_outputs):
+        raise CommandError("disclosure review outputs alias one another")
+    for index, output in enumerate(output_paths):
+        for other in output_paths[index + 1 :]:
+            if output.exists() and other.exists() and output.samefile(other):
+                raise CommandError("disclosure review outputs share an inode")
+
+
+def _reject_existing_parent_symlink(path: Path) -> None:
+    current = path.parent
+    while not current.exists() and current != current.parent:
+        current = current.parent
+    while current != current.parent:
+        if current.is_symlink():
+            raise CommandError(
+                f"disclosure review output parent is a symlink: {current}"
+            )
+        current = current.parent
+
+
+def _ensure_disclosure_review_artifact(
+    path: Path, payload: bytes, *, resume: bool
+) -> None:
+    """Publish one immutable artifact with an exclusive atomic directory entry."""
+
+    _reject_existing_parent_symlink(path)
+    if path.exists() or path.is_symlink():
+        if resume and path.exists() and not path.is_symlink():
+            _recover_disclosure_review_publish_alias(path)
+        if not resume:
+            raise CommandError(f"disclosure review output already exists: {path}")
+        try:
+            existing_payload = read_unique_regular_file(path)
+        except ReviewBundleError:
+            existing_payload = None
+        if existing_payload != payload:
+            raise CommandError(f"disclosure review resume artifact mismatch: {path}")
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _reject_existing_parent_symlink(path)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
+            os.chmod(temporary_path, 0o600)
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            os.link(temporary_path, path, follow_symlinks=False)
+        except FileExistsError:
+            _reject_existing_parent_symlink(path)
+            try:
+                metadata = path.stat(follow_symlinks=False)
+            except OSError:
+                metadata = None
+            if (
+                not resume
+                or metadata is None
+                or path.is_symlink()
+                or not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_nlink != 1
+                or path.read_bytes() != payload
+            ):
+                raise CommandError(
+                    f"disclosure review output appeared concurrently: {path}"
+                ) from None
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if temporary_path is not None and temporary_path.exists():
+            temporary_path.unlink()
+
+
+def _recover_disclosure_review_publish_alias(path: Path) -> None:
+    """Remove only same-inode private temp links left by an interrupted publish."""
+
+    try:
+        metadata = path.stat(follow_symlinks=False)
+    except OSError:
+        return
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink <= 1:
+        return
+    aliases: list[Path] = []
+    for candidate in path.parent.glob(f".{path.name}.*.tmp"):
+        try:
+            candidate_metadata = candidate.stat(follow_symlinks=False)
+        except OSError:
+            continue
+        if (
+            not candidate.is_symlink()
+            and stat.S_ISREG(candidate_metadata.st_mode)
+            and candidate_metadata.st_ino == metadata.st_ino
+            and candidate_metadata.st_dev == metadata.st_dev
+        ):
+            aliases.append(candidate)
+    for alias in aliases:
+        alias.unlink()
+    if aliases:
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+
+
+def _disclosure_review_metadata_paths(
+    args: argparse.Namespace, *, output_root: Path, stage: str
+) -> tuple[Path, Path]:
+    return (
+        _acquisition_path(
+            args, "run_card_output", output_root / "run-cards" / f"{stage}.json"
+        ),
+        _acquisition_path(args, "log_output", output_root / "logs" / f"{stage}.jsonl"),
+    )
+
+
+def _append_disclosure_review_log(
+    path: Path, records: Iterable[Mapping[str, Any]]
+) -> None:
+    """Durably append disclosure metadata without following filesystem links."""
+
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    if nofollow is None:
+        raise CommandError("disclosure metadata requires O_NOFOLLOW")
+    payload = "".join(
+        f"{json.dumps(dict(record), sort_keys=True, allow_nan=False)}\n"
+        for record in records
+    ).encode()
+    _reject_existing_parent_symlink(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _reject_existing_parent_symlink(path)
+    file_fd: int | None = None
+    try:
+        file_fd = os.open(
+            path,
+            os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_CLOEXEC | nofollow,
+            0o600,
+        )
+        before = os.fstat(file_fd)
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+            raise CommandError(f"disclosure review log is unsafe: {path}")
+        remaining = memoryview(payload)
+        while remaining:
+            written = os.write(file_fd, remaining)
+            if written <= 0:
+                raise OSError("disclosure review log append made no progress")
+            remaining = remaining[written:]
+        os.fsync(file_fd)
+        after = os.fstat(file_fd)
+        if (
+            after.st_dev != before.st_dev
+            or after.st_ino != before.st_ino
+            or not stat.S_ISREG(after.st_mode)
+            or after.st_nlink != 1
+            or after.st_size < before.st_size + len(payload)
+        ):
+            raise CommandError(f"disclosure review log changed while appending: {path}")
+    finally:
+        if file_fd is not None:
+            os.close(file_fd)
+    directory_fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+
+
+def _completed_disclosure_review_resume(
+    args: argparse.Namespace,
+    *,
+    stage: str,
+    input_paths: Sequence[Path],
+    output_paths: Sequence[Path],
+    record_count: int,
+    expected_extra: Mapping[str, object] | None = None,
+) -> bool:
+    """Return without mutating an already completed exact stage record."""
+
+    if not cast(bool, args.resume) or _acquisition_dry_run(args):
+        return False
+    output_root = _acquisition_output_root(args)
+    run_card_path, log_path = _disclosure_review_metadata_paths(
+        args, output_root=output_root, stage=stage
+    )
+    if not run_card_path.exists() and not log_path.exists():
+        return False
+    regular_inputs = tuple(
+        path for path in (*input_paths, *output_paths) if path.is_file()
+    )
+    protected_roots = tuple(path for path in input_paths if path.is_dir())
+    _validate_disclosure_review_paths(
+        input_paths=regular_inputs,
+        output_paths=(run_card_path, log_path),
+        protected_roots=protected_roots,
+    )
+    expected: dict[str, object] = {
+        "schema_version": "legalforecast.acquisition_run_card.v1",
+        "stage": stage,
+        "status": "completed",
+        "dry_run": False,
+        "execute": True,
+        "record_count": record_count,
+        "input_paths": [str(path) for path in input_paths],
+        "output_paths": [str(path) for path in output_paths],
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+    }
+    if expected_extra is not None:
+        for name, value in expected_extra.items():
+            if name in expected:
+                raise CommandError(f"{stage} resume expectation repeats {name}")
+            expected[name] = value
+    run_card: JsonRecord | None = None
+    card_completed = False
+    if run_card_path.exists():
+        if not run_card_path.is_file():
+            raise CommandError(f"{stage} resume run card is unsafe")
+        run_card = _read_json_object(run_card_path)
+        status = run_card.get("status")
+        if status == "completed":
+            if set(run_card) != {*expected, "resume", "generated_at"} or any(
+                run_card.get(name) != value for name, value in expected.items()
+            ):
+                raise CommandError(f"{stage} completed resume metadata mismatch")
+            if not isinstance(run_card.get("resume"), bool):
+                raise CommandError(f"{stage} completed resume flag is invalid")
+            generated_at = run_card.get("generated_at")
+            if not isinstance(generated_at, str):
+                raise CommandError(f"{stage} completed resume timestamp is invalid")
+            try:
+                _parse_datetime(generated_at)
+            except (TypeError, ValueError) as exc:
+                raise CommandError(
+                    f"{stage} completed resume timestamp is invalid"
+                ) from exc
+            card_completed = True
+        elif status == "failed":
+            expected_failure: dict[str, object] = {
+                **{
+                    name: value
+                    for name, value in expected.items()
+                    if name not in {"status", "record_count"}
+                    and (expected_extra is None or name not in expected_extra)
+                },
+                "status": "failed",
+                "record_count": 0,
+            }
+            if set(run_card) != {
+                *expected_failure,
+                "resume",
+                "generated_at",
+                "failure_reason",
+            } or any(
+                run_card.get(name) != value for name, value in expected_failure.items()
+            ):
+                raise CommandError(f"{stage} failed resume metadata mismatch")
+            if not isinstance(run_card.get("resume"), bool) or not isinstance(
+                run_card.get("failure_reason"), str
+            ):
+                raise CommandError(f"{stage} failed resume metadata mismatch")
+            try:
+                _parse_datetime(cast(str, run_card.get("generated_at")))
+            except (TypeError, ValueError) as exc:
+                raise CommandError(
+                    f"{stage} failed resume timestamp is invalid"
+                ) from exc
+        else:
+            raise CommandError(f"{stage} resume metadata mismatch")
+    log_records = _read_records(log_path) if log_path.exists() else []
+    log_fields = {
+        "schema_version",
+        "event",
+        "stage",
+        "status",
+        "dry_run",
+        "run_card_path",
+        "record_count",
+        "paid_activity_requested",
+        "paid_activity_executed",
+    }
+    log_completed = False
+    for index, record in enumerate(log_records):
+        status = record.get("status")
+        if status not in {"failed", "completed"}:
+            raise CommandError(f"{stage} completed resume log mismatch")
+        if status == "completed":
+            if log_completed or index != len(log_records) - 1:
+                raise CommandError(f"{stage} completed resume log mismatch")
+            log_completed = True
+        event = "stage_completed" if status == "completed" else "stage_failed"
+        count = record_count if status == "completed" else 0
+        if set(record) != log_fields or any(
+            record.get(name) != value
+            for name, value in {
+                "schema_version": "legalforecast.acquisition_stage_log.v1",
+                "stage": stage,
+                "status": status,
+                "event": event,
+                "dry_run": False,
+                "run_card_path": str(run_card_path),
+                "record_count": count,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+            }.items()
+        ):
+            raise CommandError(f"{stage} completed resume log mismatch")
+    if card_completed and log_completed:
+        return True
+    if not card_completed and not log_completed:
+        # A durable failure history is retryable after its inputs are repaired.
+        return False
+    if card_completed:
+        _append_disclosure_review_log(
+            log_path,
+            [
+                {
+                    "schema_version": "legalforecast.acquisition_stage_log.v1",
+                    "event": "stage_completed",
+                    "stage": stage,
+                    "status": "completed",
+                    "dry_run": False,
+                    "run_card_path": str(run_card_path),
+                    "record_count": record_count,
+                    "paid_activity_requested": False,
+                    "paid_activity_executed": False,
+                }
+            ],
+        )
+        return True
+    repaired_card: JsonRecord = {
+        **expected,
+        "resume": cast(bool, args.resume),
+        "generated_at": _iso_datetime(datetime.now(UTC)),
+    }
+    _atomic_write_json(run_card_path, repaired_card)
+    return True
+
+
+def _write_disclosure_review_failure(
+    args: argparse.Namespace,
+    *,
+    stage: str,
+    input_paths: Sequence[Path],
+    output_paths: Sequence[Path],
+    reason: str,
+) -> None:
+    """Never replace or append to an already completed disclosure stage record."""
+
+    output_root = _acquisition_output_root(args)
+    run_card_path, log_path = _disclosure_review_metadata_paths(
+        args, output_root=output_root, stage=stage
+    )
+    regular_inputs = tuple(
+        path for path in (*input_paths, *output_paths) if path.is_file()
+    )
+    protected_roots = tuple(path for path in input_paths if path.is_dir())
+    _validate_disclosure_review_paths(
+        input_paths=regular_inputs,
+        output_paths=(run_card_path, log_path),
+        protected_roots=protected_roots,
+    )
+    completed = False
+    if run_card_path.exists():
+        try:
+            completed = _read_json_object(run_card_path).get("status") == "completed"
+        except (OSError, UnicodeError, ValueError):
+            completed = True
+    if log_path.exists():
+        try:
+            completed = completed or any(
+                row.get("status") == "completed" for row in _read_records(log_path)
+            )
+        except (OSError, UnicodeError, ValueError):
+            completed = True
+    if completed:
+        raise CommandError(
+            f"{stage} already has terminal completion metadata; refusing failure write"
+        )
+    _write_acquisition_failure(
+        args,
+        stage=stage,
+        input_paths=input_paths,
+        output_paths=output_paths,
+        reason=reason,
+        paid_activity_requested=False,
+        resumable_terminal_metadata=True,
+    )
 
 
 def _target_100_protected_scopes(
@@ -19738,17 +20632,38 @@ def _verify_materializer_clearance_lineage(
         raise CommandError("purchased clearance committed a different manifest")
     reviews_path = _materializer_committed_path(source_records, "reviews")
     receipt_path = _materializer_committed_path(source_records, "review_receipt")
+    requests_path = _materializer_committed_path(source_records, "review_requests")
+    worksheet_path = _materializer_committed_path(source_records, "review_worksheet")
+    reviewer_policy_path = _materializer_committed_path(
+        source_records, "reviewer_policy"
+    )
+    cohort_policy_path = _materializer_committed_path(source_records, "cohort_policy")
     restriction_path = _materializer_committed_path(
         source_records, "restriction_evidence"
     )
     for label, path in (
         ("purchased review", reviews_path),
         ("purchased review receipt", receipt_path),
+        ("purchased review requests", requests_path),
+        ("purchased review worksheet", worksheet_path),
+        ("purchased reviewer policy", reviewer_policy_path),
+        ("purchased cohort policy", cohort_policy_path),
         ("purchased restriction evidence", restriction_path),
     ):
         _require_materializer_artifact(path, label=label)
     clearance_records = _read_records(clearance_path)
     restriction_records = _read_records(restriction_path)
+    authority_record = run_card.get("review_authority")
+    if not isinstance(authority_record, Mapping):
+        raise CommandError("purchased clearance run card lacks review authority")
+    reviewer_policy_bytes = reviewer_policy_path.read_bytes()
+    try:
+        disclosure_authority = load_main_disclosure_review_authority(
+            _read_json_object(cohort_policy_path),
+            reviewer_policy_bytes=reviewer_policy_bytes,
+        )
+    except DisclosureReviewAuthorityError as exc:
+        raise CommandError(str(exc)) from exc
     _validate_clearance_run_card_commitments(
         run_card,
         source_paths={
@@ -19770,15 +20685,28 @@ def _verify_materializer_clearance_lineage(
         reviews_artifact_bytes=reviews_path.read_bytes(),
         review_receipt_artifact=_read_json_object(receipt_path),
         review_receipt_bytes=receipt_path.read_bytes(),
+        review_requests_artifact_bytes=requests_path.read_bytes(),
+        review_worksheet_artifact=_read_json_object(worksheet_path),
+        review_worksheet_bytes=worksheet_path.read_bytes(),
+        reviewer_policy_bytes=reviewer_policy_bytes,
+        disclosure_authority=disclosure_authority,
+        cohort_policy_artifact_bytes=cohort_policy_path.read_bytes(),
+        download_manifest_artifact_bytes=manifest_path.read_bytes(),
         restriction_records=restriction_records,
         restriction_artifact_bytes=restriction_path.read_bytes(),
     )
     return {
         "clearance_records": clearance_records,
+        "manifest_path": manifest_path,
         "restriction_path": restriction_path,
         "restriction_records": restriction_records,
         "reviews_path": reviews_path,
         "receipt_path": receipt_path,
+        "requests_path": requests_path,
+        "worksheet_path": worksheet_path,
+        "reviewer_policy_path": reviewer_policy_path,
+        "cohort_policy_path": cohort_policy_path,
+        "disclosure_authority": disclosure_authority,
     }
 
 
@@ -19790,6 +20718,9 @@ def _materializer_clearance_lineage_kwargs(
 ) -> dict[str, Any]:
     reviews_path = cast(Path, lineage["reviews_path"])
     receipt_path = cast(Path, lineage["receipt_path"])
+    requests_path = cast(Path, lineage["requests_path"])
+    worksheet_path = cast(Path, lineage["worksheet_path"])
+    reviewer_policy_path = cast(Path, lineage["reviewer_policy_path"])
     restriction_path = cast(Path, lineage["restriction_path"])
     return {
         "clearance_artifact_bytes": clearance_path.read_bytes(),
@@ -19798,6 +20729,19 @@ def _materializer_clearance_lineage_kwargs(
         "reviews_artifact_bytes": reviews_path.read_bytes(),
         "review_receipt_artifact": _read_json_object(receipt_path),
         "review_receipt_bytes": receipt_path.read_bytes(),
+        "review_requests_artifact_bytes": requests_path.read_bytes(),
+        "review_worksheet_artifact": _read_json_object(worksheet_path),
+        "review_worksheet_bytes": worksheet_path.read_bytes(),
+        "reviewer_policy_bytes": reviewer_policy_path.read_bytes(),
+        "disclosure_authority": cast(
+            DisclosureReviewAuthority, lineage["disclosure_authority"]
+        ),
+        "cohort_policy_artifact_bytes": cast(
+            Path, lineage["cohort_policy_path"]
+        ).read_bytes(),
+        "download_manifest_artifact_bytes": cast(
+            Path, lineage["manifest_path"]
+        ).read_bytes(),
         "restriction_records": cast(
             Sequence[Mapping[str, Any]], lineage["restriction_records"]
         ),
@@ -21963,12 +22907,937 @@ def _cmd_acquisition_recover_purchased(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_acquisition_disclosure_clearance(args: argparse.Namespace) -> int:
+def _cmd_acquisition_prepare_disclosure_review(args: argparse.Namespace) -> int:
+    stage = "prepare-disclosure-review"
     output_root = _acquisition_output_root(args)
+    requests_path = cast(Path, args.review_requests)
+    manifest_path = cast(Path, args.download_manifest)
+    restriction_path = cast(Path, args.restriction_evidence)
+    reviewer_policy_path = cast(Path, args.reviewer_policy)
+    cohort_policy_path = cast(Path, args.cohort_policy)
+    document_root = cast(Path, args.document_root)
+    worksheet_path = _acquisition_path(
+        args, "worksheet_output", output_root / "disclosure-review-worksheet.json"
+    )
+    private_root = cast(Path, args.controlled_private_store_root)
+    inspection_path = private_root / "private-document-inspection-map.jsonl"
+    run_card_path, log_path = _disclosure_review_metadata_paths(
+        args, output_root=output_root, stage=stage
+    )
+    input_paths = (
+        requests_path,
+        manifest_path,
+        restriction_path,
+        reviewer_policy_path,
+        cohort_policy_path,
+    )
+    _validate_disclosure_review_paths(
+        input_paths=input_paths,
+        output_paths=(worksheet_path, inspection_path, run_card_path, log_path),
+        protected_roots=(document_root,),
+    )
+    if (
+        output_root.resolve() == private_root.resolve()
+        or output_root.resolve().is_relative_to(private_root.resolve())
+        or private_root.resolve().is_relative_to(output_root.resolve())
+    ):
+        raise CommandError(
+            "controlled private review store must be separate from acquisition output"
+        )
+    try:
+        request_bytes = requests_path.read_bytes()
+        manifest_bytes = manifest_path.read_bytes()
+        restriction_bytes = restriction_path.read_bytes()
+        reviewer_policy_bytes = reviewer_policy_path.read_bytes()
+        disclosure_authority = load_main_disclosure_review_authority(
+            _read_json_object(cohort_policy_path),
+            reviewer_policy_bytes=reviewer_policy_bytes,
+        )
+        manifest = _read_records(manifest_path)
+        worksheet = prepare_review_worksheet(
+            _read_records(requests_path),
+            manifest,
+            _read_records(restriction_path),
+            document_root=document_root,
+            review_requests_bytes=request_bytes,
+            download_manifest_bytes=manifest_bytes,
+            restriction_evidence_bytes=restriction_bytes,
+            disclosure_authority=disclosure_authority,
+        )
+        inspection = build_private_inspection_map(
+            worksheet, manifest, document_root=document_root
+        )
+    except (DisclosureReviewAuthorityError, OSError, ReviewBundleError) as exc:
+        raise CommandError(str(exc)) from exc
+    if not _acquisition_dry_run(args):
+        _ensure_disclosure_review_artifact(
+            worksheet_path,
+            canonical_json_bytes(worksheet),
+            resume=cast(bool, args.resume),
+        )
+        _ensure_disclosure_review_artifact(
+            inspection_path, inspection, resume=cast(bool, args.resume)
+        )
+        if _completed_disclosure_review_resume(
+            args,
+            stage=stage,
+            input_paths=(*input_paths, document_root),
+            output_paths=(worksheet_path,),
+            record_count=cast(int, worksheet["document_count"]),
+            expected_extra={
+                "private_inspection_map_written": True,
+                "private_inspection_map_excluded_from_commitments": True,
+            },
+        ):
+            return 0
+    _write_acquisition_completion(
+        args,
+        stage=stage,
+        input_paths=(*input_paths, document_root),
+        output_paths=(worksheet_path,),
+        record_count=cast(int, worksheet["document_count"]),
+        dry_run=_acquisition_dry_run(args),
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "private_inspection_map_written": not _acquisition_dry_run(args),
+            "private_inspection_map_excluded_from_commitments": True,
+        },
+        resumable_terminal_metadata=True,
+    )
+    return 0
+
+
+def _cmd_acquisition_review_signer_preflight(args: argparse.Namespace) -> int:
+    policy_path = cast(Path, args.reviewer_policy)
+    cohort_policy_path = cast(Path, args.cohort_policy)
+    try:
+        policy_bytes = policy_path.read_bytes()
+        disclosure_authority = load_main_disclosure_review_authority(
+            _read_json_object(cohort_policy_path),
+            reviewer_policy_bytes=policy_bytes,
+        )
+        policy = reviewer_policy_preflight(
+            policy_bytes,
+            expected_reviewer_policy_sha256=(
+                disclosure_authority.reviewer_policy_sha256
+            ),
+        )
+    except (DisclosureReviewAuthorityError, OSError, ReviewBundleError) as exc:
+        raise CommandError(str(exc)) from exc
+    statement_path = cast(Path | None, args.signing_statement)
+    if statement_path is not None:
+        statement = _read_json_object(statement_path)
+        if (
+            statement.get("schema_version")
+            != "legalforecast.disclosure_review_statement.v1"
+            or statement.get("reviewer_policy_sha256") != policy.sha256
+            or statement.get("authenticated_reviewer_id") != policy.reviewer_id
+            or statement.get("authentication_method") != "human_hardware_ssh_signature"
+            or statement.get("cycle_id") != disclosure_authority.identity.cycle_id
+            or statement.get("cohort_policy_sha256")
+            != disclosure_authority.identity.cohort_policy_sha256
+            or statement.get("eligibility_anchor")
+            != disclosure_authority.identity.eligibility_anchor.isoformat()
+            or statement.get("disclosure_authority_sha256")
+            != disclosure_authority.authority_sha256
+            or statement.get("ssh_public_key_fingerprint")
+            != disclosure_authority.ssh_public_key_fingerprint
+        ):
+            raise CommandError(
+                "signing statement differs from hardware reviewer policy"
+            )
+        summary = statement.get("decision_summary")
+        if not isinstance(summary, Mapping):
+            raise CommandError("signing statement lacks visible decision summary")
+        print(
+            json.dumps(
+                {
+                    "decision_artifact_sha256": statement.get(
+                        "decision_artifact_sha256"
+                    ),
+                    "decision_confirmation_sha256": statement.get(
+                        "decision_confirmation_sha256"
+                    ),
+                    "cleared_count": statement.get("cleared_count"),
+                    "quarantined_count": statement.get("quarantined_count"),
+                    "decision_summary": summary,
+                },
+                indent=2,
+                sort_keys=True,
+                allow_nan=False,
+            )
+        )
+    return 0
+
+
+def _cmd_acquisition_record_disclosure_review(args: argparse.Namespace) -> int:
+    stage = "record-disclosure-review-decisions"
+    output_root = _acquisition_output_root(args)
+    private_root = cast(Path, args.controlled_private_store_root).resolve()
+    worksheet_path = cast(Path, args.review_worksheet)
+    inspection_path = cast(Path, args.private_inspection_map)
+    intended_reviewer_id = cast(str, args.reviewer_id).strip()
+    if not intended_reviewer_id:
+        raise CommandError("--reviewer-id must not be empty")
+    decisions_path = _acquisition_path(
+        args, "decisions_output", private_root / "disclosure-review-decisions.jsonl"
+    )
+    checkpoint_root = cast(Path | None, args.checkpoint_dir) or (
+        private_root / "checkpoints"
+    )
+    progress_directory = checkpoint_root / "documents"
+    progress_config_path = (
+        checkpoint_root / "disclosure-review-decisions.progress-config.json"
+    )
+    run_card_path, log_path = _disclosure_review_metadata_paths(
+        args, output_root=output_root, stage=stage
+    )
+    for label, path in (
+        ("--output-root", output_root),
+        ("--private-inspection-map", inspection_path),
+        ("--decisions-output", decisions_path),
+        ("private progress checkpoint directory", progress_directory),
+        ("private progress config", progress_config_path),
+        ("--run-card-output", run_card_path),
+        ("--log-output", log_path),
+    ):
+        resolved = path.resolve()
+        if resolved != private_root and not resolved.is_relative_to(private_root):
+            raise CommandError(
+                f"{label} must remain inside the controlled private root"
+            )
+    _validate_disclosure_review_paths(
+        input_paths=(worksheet_path, inspection_path),
+        output_paths=(
+            decisions_path,
+            progress_config_path,
+            run_card_path,
+            log_path,
+        ),
+    )
+    worksheet_bytes = worksheet_path.read_bytes()
+    try:
+        inspection_bytes = read_unique_regular_file(inspection_path)
+    except ReviewBundleError as exc:
+        raise CommandError("private inspection map is unsafe") from exc
+    worksheet = _read_json_object(worksheet_path)
+    raw_documents = worksheet.get("documents")
+    if not isinstance(raw_documents, list) or not raw_documents:
+        raise CommandError("review worksheet has no documents")
+    typed_documents = cast(list[object], raw_documents)
+    documents: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for item in typed_documents:
+        if not isinstance(item, Mapping):
+            raise CommandError("review worksheet has a non-object document")
+        row = cast(Mapping[str, Any], item)
+        key = (
+            _required_str(row, "candidate_id"),
+            _required_str(row, "source_document_id"),
+        )
+        if key in documents:
+            raise CommandError(f"review worksheet repeats a document: {key}")
+        documents[key] = row
+    try:
+        inspection_text = inspection_bytes.decode("utf-8")
+        inspection_rows: list[JsonRecord] = []
+        for line_number, line in enumerate(inspection_text.splitlines(), start=1):
+            if not line.strip():
+                continue
+            loaded = _loads_json(line)
+            if not isinstance(loaded, Mapping):
+                raise ValueError(
+                    f"private inspection map:{line_number} must contain an object"
+                )
+            inspection_rows.append(dict(cast(Mapping[str, Any], loaded)))
+    except (UnicodeError, ValueError) as exc:
+        raise CommandError("private inspection map is malformed") from exc
+    inspections: dict[tuple[str, str], Mapping[str, Any]] = {}
+    inspection_fields = {
+        "candidate_id",
+        "source_document_id",
+        "inspection_path",
+        "sha256",
+        "byte_count",
+    }
+    for row in inspection_rows:
+        if set(row) != inspection_fields:
+            raise CommandError("private inspection map has unexpected fields")
+        key = (
+            _required_str(row, "candidate_id"),
+            _required_str(row, "source_document_id"),
+        )
+        if key in inspections:
+            raise CommandError(f"private inspection map repeats a document: {key}")
+        inspections[key] = row
+    if len(documents) != len(typed_documents) or set(documents) != set(inspections):
+        raise CommandError("private inspection map differs from review worksheet")
+    progress_resolved = progress_directory.resolve()
+    for key, inspection in inspections.items():
+        inspection_document = Path(
+            _required_str(inspection, "inspection_path")
+        ).resolve()
+        inspection_parent = inspection_document.parent
+        if (
+            progress_resolved == inspection_document
+            or progress_resolved == inspection_parent
+            or progress_resolved.is_relative_to(inspection_parent)
+            or inspection_parent.is_relative_to(progress_resolved)
+        ):
+            raise CommandError(
+                f"private checkpoint directory overlaps inspection bytes: {key}"
+            )
+    progress_config: dict[str, object] = {
+        "schema_version": "legalforecast.disclosure_review_progress_config.v1",
+        "review_worksheet_sha256": _bytes_sha256(worksheet_bytes),
+        "private_inspection_map_sha256": _bytes_sha256(inspection_bytes),
+        "document_set_sha256": _required_str(worksheet, "document_set_sha256"),
+        "document_count": len(documents),
+        "intended_reviewer_id": intended_reviewer_id,
+    }
+    progress_config_bytes = canonical_json_bytes(progress_config)
+    if _acquisition_dry_run(args):
+        _write_acquisition_completion(
+            args,
+            stage=stage,
+            input_paths=(worksheet_path, inspection_path),
+            output_paths=(decisions_path,),
+            record_count=len(documents),
+            dry_run=True,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+        )
+        return 0
+    if run_card_path.exists() and not decisions_path.exists():
+        existing_card = _read_json_object(run_card_path)
+        if existing_card.get("status") == "completed":
+            raise CommandError("completed recorder metadata lacks decision artifact")
+    if decisions_path.exists() and (run_card_path.exists() or log_path.exists()):
+        decision_bytes = decisions_path.read_bytes()
+        decisions = _read_records(decisions_path)
+        decision_summary = _validate_interactive_review_decisions(decisions)
+        _validate_recorded_decisions_against_review_inputs(
+            decisions,
+            documents=documents,
+            inspections=inspections,
+        )
+        if (
+            not progress_config_path.is_file()
+            or progress_config_path.read_bytes() != progress_config_bytes
+        ):
+            raise CommandError("completed recorder progress config mismatch")
+        completed_progress = _load_disclosure_review_progress(
+            progress_directory,
+            documents=documents,
+            inspections=inspections,
+            worksheet_bytes=worksheet_bytes,
+            inspection_bytes=inspection_bytes,
+            intended_reviewer_id=intended_reviewer_id,
+        )
+        if set(completed_progress) != set(documents):
+            raise CommandError("completed recorder progress coverage mismatch")
+        expected_decision_bytes, checkpoint_summary = _decision_artifact_from_progress(
+            completed_progress
+        )
+        if decision_bytes != expected_decision_bytes or decision_summary != (
+            checkpoint_summary
+        ):
+            raise CommandError(
+                "completed decision artifact differs from private checkpoints"
+            )
+        completed_extra = {
+            "human_batch_summary": checkpoint_summary,
+            "decisions_sha256": _bytes_sha256(expected_decision_bytes),
+            "private_progress_checkpoint": {
+                "config_sha256": _bytes_sha256(progress_config_bytes),
+                "progress_tree_sha256": _disclosure_review_progress_tree_sha256(
+                    progress_directory
+                ),
+                "completed_document_count": len(decisions),
+            },
+        }
+        if _completed_disclosure_review_resume(
+            args,
+            stage=stage,
+            input_paths=(worksheet_path, inspection_path),
+            output_paths=(decisions_path,),
+            record_count=len(decisions),
+            expected_extra=completed_extra,
+        ):
+            return 0
+        raise CommandError("completed decision artifact lacks exact terminal metadata")
+    if not sys.stdin.isatty():
+        raise CommandError(
+            "interactive disclosure review UI requires a TTY; the later hardware "
+            "SSHSIG is the sole reviewer authentication authority"
+        )
+    _reject_existing_parent_symlink(progress_directory)
+    if progress_directory.exists() and (
+        progress_directory.is_symlink() or not progress_directory.is_dir()
+    ):
+        raise CommandError("private review checkpoint path is not a directory")
+    if progress_directory.exists() and not progress_config_path.exists():
+        raise CommandError("private review progress lacks its exact input config")
+    _ensure_disclosure_review_artifact(
+        progress_config_path,
+        progress_config_bytes,
+        resume=cast(bool, args.resume),
+    )
+    progress_by_key = _load_disclosure_review_progress(
+        progress_directory,
+        documents=documents,
+        inspections=inspections,
+        worksheet_bytes=worksheet_bytes,
+        inspection_bytes=inspection_bytes,
+        intended_reviewer_id=intended_reviewer_id,
+    )
+    decision_bases: list[dict[str, object]] = []
+    for key in sorted(documents):
+        document = documents[key]
+        inspection = inspections[key]
+        digest, inspection_display = _validate_private_review_inspection(
+            key, document=document, inspection=inspection
+        )
+        prior = progress_by_key.get(key)
+        if prior is not None:
+            decision_bases.append(_decision_base_from_progress(prior))
+            continue
+        print(
+            f"Review {key[0]}/{key[1]} at {inspection_display}\n"
+            f"SHA-256: {digest}\n"
+            f"Restriction: {document.get('restriction_status')}\n"
+            f"Markers: {document.get('automated_markers')}",
+            file=sys.stderr,
+        )
+        confirmed = input("Type the full inspected SHA-256: ").strip().lower()
+        if confirmed != digest:
+            raise CommandError(f"inspection hash confirmation mismatch: {key}")
+        decision = input("Decision [cleared/quarantined]: ").strip().lower()
+        if decision not in {"cleared", "quarantined"}:
+            raise CommandError(f"invalid disclosure decision: {key}")
+        markers = document.get("automated_markers")
+        if decision == "cleared" and (
+            markers != []
+            or document.get("restriction_status") not in {"public", "redacted"}
+        ):
+            raise CommandError(f"flagged document cannot be cleared: {key}")
+        # The human decision applies to the bytes just inspected. Re-open and
+        # rehash after the prompt so a concurrent replacement cannot be
+        # checkpointed as though the reviewer saw the committed document.
+        _validate_private_review_inspection(
+            key, document=document, inspection=inspection
+        )
+        recorded_at = _iso_datetime(datetime.now(UTC))
+        progress: dict[str, object] = {
+            "schema_version": "legalforecast.disclosure_review_progress.v1",
+            "candidate_id": key[0],
+            "source_document_id": key[1],
+            "worksheet_document_sha256": _canonical_json_sha256(document),
+            "inspection_record_sha256": _canonical_json_sha256(inspection),
+            "review_worksheet_sha256": _bytes_sha256(worksheet_bytes),
+            "private_inspection_map_sha256": _bytes_sha256(inspection_bytes),
+            "status": decision,
+            "reviewed_at": recorded_at,
+            "inspected_at": recorded_at,
+            "inspected_sha256": digest,
+            "recording_method": "interactive_review_cli",
+            "intended_reviewer_id": intended_reviewer_id,
+        }
+        progress_checkpoint = _disclosure_review_progress_path(progress_directory, key)
+        _ensure_disclosure_review_artifact(
+            progress_checkpoint,
+            canonical_json_bytes(progress),
+            resume=cast(bool, args.resume),
+        )
+        decision_bases.append(_decision_base_from_progress(progress))
+    # Final decisions are always re-derived from the durable checkpoint bytes,
+    # never from the transient in-memory rows used while prompting.
+    progress_by_key = _load_disclosure_review_progress(
+        progress_directory,
+        documents=documents,
+        inspections=inspections,
+        worksheet_bytes=worksheet_bytes,
+        inspection_bytes=inspection_bytes,
+        intended_reviewer_id=intended_reviewer_id,
+    )
+    if set(progress_by_key) != set(documents):
+        raise CommandError("private disclosure review progress coverage mismatch")
+    decision_bytes, decision_summary = _decision_artifact_from_progress(progress_by_key)
+    confirmation_sha256 = cast(
+        str, decision_summary["confirmation_sha256"]
+    ).removeprefix("sha256:")
+    cleared_count = cast(int, decision_summary["cleared_count"])
+    quarantined_count = cast(int, decision_summary["quarantined_count"])
+    confirmation = (
+        f"CONFIRM {len(decision_bases)} {cleared_count} {quarantined_count} "
+        f"{confirmation_sha256}"
+    )
+    print(
+        "Batch summary: "
+        f"documents={len(decision_bases)} cleared={cleared_count} "
+        f"quarantined={quarantined_count} sha256={confirmation_sha256}",
+        file=sys.stderr,
+    )
+    if input(f"Type exactly '{confirmation}': ").strip() != confirmation:
+        raise CommandError("human batch confirmation mismatch")
+    confirmed_progress = _load_disclosure_review_progress(
+        progress_directory,
+        documents=documents,
+        inspections=inspections,
+        worksheet_bytes=worksheet_bytes,
+        inspection_bytes=inspection_bytes,
+        intended_reviewer_id=intended_reviewer_id,
+    )
+    confirmed_decision_bytes, confirmed_summary = _decision_artifact_from_progress(
+        confirmed_progress
+    )
+    if (
+        confirmed_decision_bytes != decision_bytes
+        or confirmed_summary != decision_summary
+    ):
+        raise CommandError("private checkpoints changed during batch confirmation")
+    progress_by_key = confirmed_progress
+    decision_bytes = confirmed_decision_bytes
+    decision_count = len(progress_by_key)
+    completion_extra = {
+        "human_batch_summary": decision_summary,
+        "decisions_sha256": _bytes_sha256(decision_bytes),
+        "private_progress_checkpoint": {
+            "config_sha256": _bytes_sha256(progress_config_bytes),
+            "progress_tree_sha256": _disclosure_review_progress_tree_sha256(
+                progress_directory
+            ),
+            "completed_document_count": decision_count,
+        },
+    }
+    _ensure_disclosure_review_artifact(
+        decisions_path, decision_bytes, resume=cast(bool, args.resume)
+    )
+    if _completed_disclosure_review_resume(
+        args,
+        stage=stage,
+        input_paths=(worksheet_path, inspection_path),
+        output_paths=(decisions_path,),
+        record_count=decision_count,
+        expected_extra=completion_extra,
+    ):
+        return 0
+    _write_acquisition_completion(
+        args,
+        stage=stage,
+        input_paths=(worksheet_path, inspection_path),
+        output_paths=(decisions_path,),
+        record_count=decision_count,
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra=completion_extra,
+        resumable_terminal_metadata=True,
+    )
+    return 0
+
+
+def _validate_private_review_inspection(
+    key: tuple[str, str],
+    *,
+    document: Mapping[str, Any],
+    inspection: Mapping[str, Any],
+) -> tuple[str, str]:
+    digest = _required_str(document, "sha256")
+    if _required_str(inspection, "sha256") != digest or inspection.get(
+        "byte_count"
+    ) != document.get("byte_count"):
+        raise CommandError(f"private inspection commitment mismatch: {key}")
+    inspection_display = _required_str(inspection, "inspection_path")
+    inspected_path = Path(inspection_display)
+    try:
+        inspected_bytes = read_unique_regular_file(inspected_path)
+    except ReviewBundleError as exc:
+        raise CommandError(f"private inspection bytes are unavailable: {key}") from exc
+    if hashlib.sha256(inspected_bytes).hexdigest() != digest or len(
+        inspected_bytes
+    ) != document.get("byte_count"):
+        raise CommandError(f"private inspection bytes changed: {key}")
+    return digest, inspection_display
+
+
+def _load_disclosure_review_progress(
+    progress_directory: Path,
+    *,
+    documents: Mapping[tuple[str, str], Mapping[str, Any]],
+    inspections: Mapping[tuple[str, str], Mapping[str, Any]],
+    worksheet_bytes: bytes,
+    inspection_bytes: bytes,
+    intended_reviewer_id: str,
+) -> dict[tuple[str, str], Mapping[str, Any]]:
+    if not progress_directory.exists():
+        return {}
+    fields = {
+        "schema_version",
+        "candidate_id",
+        "source_document_id",
+        "worksheet_document_sha256",
+        "inspection_record_sha256",
+        "review_worksheet_sha256",
+        "private_inspection_map_sha256",
+        "status",
+        "reviewed_at",
+        "inspected_at",
+        "inspected_sha256",
+        "recording_method",
+        "intended_reviewer_id",
+    }
+    progress_by_key: dict[tuple[str, str], Mapping[str, Any]] = {}
+    checkpoint_paths = sorted(progress_directory.glob("*.json"))
+    for checkpoint_path in checkpoint_paths:
+        _recover_disclosure_review_publish_alias(checkpoint_path)
+        try:
+            checkpoint_bytes = read_unique_regular_file(checkpoint_path)
+            loaded = _loads_json(checkpoint_bytes.decode("utf-8"))
+        except (ReviewBundleError, UnicodeError, ValueError) as exc:
+            raise CommandError(
+                "private disclosure review checkpoint is unsafe"
+            ) from exc
+        if not isinstance(loaded, Mapping):
+            raise CommandError("private disclosure review checkpoint is unsafe")
+        row = dict(cast(Mapping[str, Any], loaded))
+        canonical_checkpoint = canonical_json_bytes(row)
+        try:
+            checkpoint_bytes = read_unique_regular_file(checkpoint_path)
+        except ReviewBundleError as exc:
+            raise CommandError(
+                "private disclosure review checkpoint is unsafe"
+            ) from exc
+        if checkpoint_bytes != canonical_checkpoint:
+            raise CommandError("private disclosure review checkpoint is unsafe")
+        key = (
+            _required_str(row, "candidate_id"),
+            _required_str(row, "source_document_id"),
+        )
+        if (
+            set(row) != fields
+            or row.get("schema_version")
+            != "legalforecast.disclosure_review_progress.v1"
+            or row.get("recording_method") != "interactive_review_cli"
+            or row.get("intended_reviewer_id") != intended_reviewer_id
+            or row.get("status") not in {"cleared", "quarantined"}
+            or key not in documents
+            or key in progress_by_key
+            or row.get("worksheet_document_sha256")
+            != _canonical_json_sha256(documents[key])
+            or row.get("inspection_record_sha256")
+            != _canonical_json_sha256(inspections[key])
+            or row.get("review_worksheet_sha256") != _bytes_sha256(worksheet_bytes)
+            or row.get("private_inspection_map_sha256")
+            != _bytes_sha256(inspection_bytes)
+            or row.get("inspected_sha256") != documents[key].get("sha256")
+        ):
+            raise CommandError("private disclosure review progress is invalid")
+        if checkpoint_path != _disclosure_review_progress_path(progress_directory, key):
+            raise CommandError("private disclosure review checkpoint name is invalid")
+        _parse_datetime(_required_str(row, "reviewed_at"))
+        _parse_datetime(_required_str(row, "inspected_at"))
+        progress_by_key[key] = row
+    if set(progress_directory.iterdir()) != set(checkpoint_paths):
+        raise CommandError("private disclosure review checkpoint directory has junk")
+    return progress_by_key
+
+
+def _disclosure_review_progress_path(
+    progress_directory: Path, key: tuple[str, str]
+) -> Path:
+    identity = canonical_json_bytes(
+        {"candidate_id": key[0], "source_document_id": key[1]}
+    )
+    return progress_directory / f"{hashlib.sha256(identity).hexdigest()}.json"
+
+
+def _disclosure_review_progress_tree_sha256(progress_directory: Path) -> str:
+    records: list[dict[str, object]] = []
+    for path in sorted(progress_directory.iterdir()):
+        if path.suffix != ".json":
+            continue
+        try:
+            payload = read_unique_regular_file(path)
+        except ReviewBundleError as exc:
+            raise CommandError(
+                "private disclosure review checkpoint is unsafe"
+            ) from exc
+        records.append({"name": path.name, "sha256": _bytes_sha256(payload)})
+    return _bytes_sha256(canonical_json_bytes(records))
+
+
+def _decision_base_from_progress(progress: Mapping[str, Any]) -> dict[str, object]:
+    return {
+        name: progress[name]
+        for name in (
+            "candidate_id",
+            "source_document_id",
+            "status",
+            "reviewed_at",
+            "inspected_at",
+            "inspected_sha256",
+            "recording_method",
+            "intended_reviewer_id",
+        )
+    }
+
+
+def _decision_artifact_from_progress(
+    progress_by_key: Mapping[tuple[str, str], Mapping[str, Any]],
+) -> tuple[bytes, dict[str, object]]:
+    """Derive the sole canonical decision artifact from durable checkpoints."""
+
+    decision_bases = [
+        _decision_base_from_progress(progress_by_key[key])
+        for key in sorted(progress_by_key)
+    ]
+    confirmation_sha256 = hashlib.sha256(
+        b"".join(canonical_json_bytes(row) for row in decision_bases)
+    ).hexdigest()
+    decisions = [
+        {**row, "batch_confirmation_sha256": confirmation_sha256}
+        for row in decision_bases
+    ]
+    reviewer_ids = {cast(str, row["intended_reviewer_id"]) for row in decision_bases}
+    if not decisions or len(reviewer_ids) != 1:
+        raise CommandError("private disclosure review progress reviewer mismatch")
+    cleared_count = sum(row["status"] == "cleared" for row in decision_bases)
+    return (
+        b"".join(canonical_json_bytes(row) for row in decisions),
+        {
+            "document_count": len(decisions),
+            "cleared_count": cleared_count,
+            "quarantined_count": len(decisions) - cleared_count,
+            "confirmation_sha256": "sha256:" + confirmation_sha256,
+            "intended_reviewer_id": reviewer_ids.pop(),
+        },
+    )
+
+
+def _validate_recorded_decisions_against_review_inputs(
+    decisions: Sequence[Mapping[str, Any]],
+    *,
+    documents: Mapping[tuple[str, str], Mapping[str, Any]],
+    inspections: Mapping[tuple[str, str], Mapping[str, Any]],
+) -> None:
+    index: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for decision in decisions:
+        key = (
+            _required_str(decision, "candidate_id"),
+            _required_str(decision, "source_document_id"),
+        )
+        if key in index or key not in documents:
+            raise CommandError("recorded disclosure decision coverage mismatch")
+        _validate_private_review_inspection(
+            key, document=documents[key], inspection=inspections[key]
+        )
+        if decision.get("inspected_sha256") != documents[key].get("sha256"):
+            raise CommandError(f"recorded decision inspected wrong bytes: {key}")
+        index[key] = decision
+    if set(index) != set(documents):
+        raise CommandError("recorded disclosure decision coverage mismatch")
+
+
+def _cmd_acquisition_build_disclosure_review(args: argparse.Namespace) -> int:
+    stage = "build-disclosure-review-bundle"
+    output_root = _acquisition_output_root(args)
+    worksheet_path = cast(Path, args.review_worksheet)
+    decisions_path = cast(Path, args.decisions)
+    policy_path = cast(Path, args.reviewer_policy)
+    cohort_policy_path = cast(Path, args.cohort_policy)
+    reviews_path = _acquisition_path(
+        args, "reviews_output", output_root / "disclosure-reviews.jsonl"
+    )
+    statement_path = _acquisition_path(
+        args,
+        "signing_statement_output",
+        output_root / "disclosure-review-signing-statement.json",
+    )
+    input_paths = (worksheet_path, decisions_path, policy_path, cohort_policy_path)
+    run_card_path, log_path = _disclosure_review_metadata_paths(
+        args, output_root=output_root, stage=stage
+    )
+    _validate_disclosure_review_paths(
+        input_paths=input_paths,
+        output_paths=(reviews_path, statement_path, run_card_path, log_path),
+    )
+    try:
+        worksheet_bytes = worksheet_path.read_bytes()
+        worksheet = _read_json_object(worksheet_path)
+        policy_bytes = policy_path.read_bytes()
+        disclosure_authority = load_main_disclosure_review_authority(
+            _read_json_object(cohort_policy_path),
+            reviewer_policy_bytes=policy_bytes,
+        )
+        policy = reviewer_policy_preflight(
+            policy_bytes,
+            expected_reviewer_policy_sha256=(
+                disclosure_authority.reviewer_policy_sha256
+            ),
+        )
+        controlled_store_uri = cast(str, args.controlled_store_uri)
+        decision_bytes = decisions_path.read_bytes()
+        decisions = _read_records(decisions_path)
+        decision_summary = _validate_interactive_review_decisions(decisions)
+        if decision_summary["intended_reviewer_id"] != policy.reviewer_id:
+            raise ReviewBundleError("decision artifact has the wrong intended reviewer")
+        review_bytes = build_review_artifact(
+            worksheet,
+            decisions,
+            reviewer_id=policy.reviewer_id,
+            controlled_store_uri=controlled_store_uri,
+        )
+        statement = build_signing_statement(
+            review_bytes,
+            decision_bytes,
+            worksheet_bytes,
+            worksheet,
+            reviewer_policy=_read_json_object(policy_path),
+            reviewer_policy_bytes=policy_bytes,
+            disclosure_authority=disclosure_authority,
+            controlled_store_uri=controlled_store_uri,
+            authenticated_at=cast(str, args.authenticated_at),
+        )
+    except (DisclosureReviewAuthorityError, OSError, ReviewBundleError) as exc:
+        raise CommandError(str(exc)) from exc
+    if not _acquisition_dry_run(args):
+        _ensure_disclosure_review_artifact(
+            reviews_path, review_bytes, resume=cast(bool, args.resume)
+        )
+        _ensure_disclosure_review_artifact(
+            statement_path,
+            canonical_json_bytes(statement),
+            resume=cast(bool, args.resume),
+        )
+        if _completed_disclosure_review_resume(
+            args,
+            stage=stage,
+            input_paths=input_paths,
+            output_paths=(reviews_path, statement_path),
+            record_count=len(_read_records(decisions_path)),
+            expected_extra={
+                "human_batch_summary": decision_summary,
+                "decisions_sha256": _bytes_sha256(decisions_path.read_bytes()),
+            },
+        ):
+            return 0
+    _write_acquisition_completion(
+        args,
+        stage=stage,
+        input_paths=input_paths,
+        output_paths=(reviews_path, statement_path),
+        record_count=len(_read_records(decisions_path)),
+        dry_run=_acquisition_dry_run(args),
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "human_batch_summary": decision_summary,
+            "decisions_sha256": _bytes_sha256(decisions_path.read_bytes()),
+        },
+        resumable_terminal_metadata=True,
+    )
+    return 0
+
+
+def _cmd_acquisition_seal_disclosure_review(args: argparse.Namespace) -> int:
+    stage = "seal-disclosure-review-bundle"
+    output_root = _acquisition_output_root(args)
+    request_path = cast(Path, args.review_requests)
+    manifest_path = cast(Path, args.download_manifest)
+    restriction_path = cast(Path, args.restriction_evidence)
+    worksheet_path = cast(Path, args.review_worksheet)
+    reviews_path = cast(Path, args.reviews)
+    decisions_path = cast(Path, args.decisions)
+    statement_path = cast(Path, args.signing_statement)
+    signature_path = cast(Path, args.signature)
+    policy_path = cast(Path, args.reviewer_policy)
+    cohort_policy_path = cast(Path, args.cohort_policy)
+    receipt_path = _acquisition_path(
+        args,
+        "review_receipt_output",
+        output_root / "disclosure-review-receipt.json",
+    )
+    input_paths = (
+        request_path,
+        manifest_path,
+        restriction_path,
+        worksheet_path,
+        reviews_path,
+        decisions_path,
+        statement_path,
+        signature_path,
+        policy_path,
+        cohort_policy_path,
+    )
+    run_card_path, log_path = _disclosure_review_metadata_paths(
+        args, output_root=output_root, stage=stage
+    )
+    _validate_disclosure_review_paths(
+        input_paths=input_paths,
+        output_paths=(receipt_path, run_card_path, log_path),
+    )
+    try:
+        reviewer_policy_bytes = policy_path.read_bytes()
+        disclosure_authority = load_main_disclosure_review_authority(
+            _read_json_object(cohort_policy_path),
+            reviewer_policy_bytes=reviewer_policy_bytes,
+        )
+        receipt = seal_review_receipt(
+            reviews_path.read_bytes(),
+            decisions_path.read_bytes(),
+            worksheet_path.read_bytes(),
+            _read_json_object(worksheet_path),
+            _read_json_object(statement_path),
+            signature_path.read_bytes(),
+            reviewer_policy=_read_json_object(policy_path),
+            reviewer_policy_bytes=reviewer_policy_bytes,
+            disclosure_authority=disclosure_authority,
+            review_requests_bytes=request_path.read_bytes(),
+            download_manifest_bytes=manifest_path.read_bytes(),
+            restriction_evidence_bytes=restriction_path.read_bytes(),
+        )
+    except (DisclosureReviewAuthorityError, OSError, ReviewBundleError) as exc:
+        raise CommandError(str(exc)) from exc
+    if not _acquisition_dry_run(args):
+        _ensure_disclosure_review_artifact(
+            receipt_path,
+            canonical_json_bytes(receipt),
+            resume=cast(bool, args.resume),
+        )
+        if _completed_disclosure_review_resume(
+            args,
+            stage=stage,
+            input_paths=input_paths,
+            output_paths=(receipt_path,),
+            record_count=cast(int, _read_json_object(statement_path)["document_count"]),
+        ):
+            return 0
+    _write_acquisition_completion(
+        args,
+        stage=stage,
+        input_paths=input_paths,
+        output_paths=(receipt_path,),
+        record_count=cast(int, _read_json_object(statement_path)["document_count"]),
+        dry_run=_acquisition_dry_run(args),
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        resumable_terminal_metadata=True,
+    )
+    return 0
+
+
+def _cmd_acquisition_disclosure_clearance(args: argparse.Namespace) -> int:
+    stage = "clear-disclosures"
+    output_root = _acquisition_output_root(args)
+    requests_path = cast(Path, args.review_requests)
     manifest_path = cast(Path, args.download_manifest)
     document_root = cast(Path, args.document_root)
+    worksheet_path = cast(Path, args.review_worksheet)
     reviews_path = cast(Path, args.reviews)
     review_receipt_path = cast(Path, args.review_receipt)
+    reviewer_policy_path = cast(Path, args.reviewer_policy)
+    cohort_policy_path = cast(Path, args.cohort_policy)
     restriction_path = cast(Path, args.restriction_evidence)
     clearance_path = _acquisition_path(
         args, "clearance_output", output_root / "disclosure-clearance.jsonl"
@@ -21976,12 +23845,62 @@ def _cmd_acquisition_disclosure_clearance(args: argparse.Namespace) -> int:
     quarantine_path = _acquisition_path(
         args, "quarantine_output", output_root / "disclosure-quarantine.jsonl"
     )
+    source_paths = (
+        manifest_path,
+        requests_path,
+        worksheet_path,
+        reviews_path,
+        review_receipt_path,
+        reviewer_policy_path,
+        cohort_policy_path,
+        restriction_path,
+    )
+    run_card_path, log_path = _disclosure_review_metadata_paths(
+        args, output_root=output_root, stage=stage
+    )
+    _validate_disclosure_review_paths(
+        input_paths=source_paths,
+        output_paths=(clearance_path, quarantine_path, run_card_path, log_path),
+        protected_roots=(document_root,),
+    )
     documents = _read_records(manifest_path)
     reviews = _read_records(reviews_path)
     restrictions = _read_records(restriction_path)
     try:
+        requests_bytes = requests_path.read_bytes()
+        manifest_bytes = manifest_path.read_bytes()
+        restriction_bytes = restriction_path.read_bytes()
+        reviewer_policy_bytes = reviewer_policy_path.read_bytes()
+        disclosure_authority = load_main_disclosure_review_authority(
+            _read_json_object(cohort_policy_path),
+            reviewer_policy_bytes=reviewer_policy_bytes,
+        )
+        recomputed_worksheet = prepare_review_worksheet(
+            _read_records(requests_path),
+            documents,
+            restrictions,
+            document_root=document_root,
+            review_requests_bytes=requests_bytes,
+            download_manifest_bytes=manifest_bytes,
+            restriction_evidence_bytes=restriction_bytes,
+            disclosure_authority=disclosure_authority,
+        )
+        worksheet_bytes = worksheet_path.read_bytes()
+        if canonical_json_bytes(recomputed_worksheet) != worksheet_bytes:
+            raise ReviewBundleError(
+                "signed review worksheet differs from exact current "
+                "input/document bytes"
+            )
         review_authority = validate_review_receipt(
-            reviews_path.read_bytes(), _read_json_object(review_receipt_path)
+            reviews_path.read_bytes(),
+            _read_json_object(review_receipt_path),
+            reviewer_policy_bytes=reviewer_policy_bytes,
+            disclosure_authority=disclosure_authority,
+            worksheet_bytes=worksheet_bytes,
+            worksheet=recomputed_worksheet,
+            review_requests_bytes=requests_bytes,
+            download_manifest_bytes=manifest_bytes,
+            restriction_evidence_bytes=restriction_bytes,
         )
         records = build_clearance_records(
             documents,
@@ -21990,18 +23909,37 @@ def _cmd_acquisition_disclosure_clearance(args: argparse.Namespace) -> int:
             review_authority=review_authority,
             restriction_records=restrictions,
         )
-    except (DisclosureClearanceError, OSError) as exc:
+    except (
+        DisclosureClearanceError,
+        DisclosureReviewAuthorityError,
+        OSError,
+        ReviewBundleError,
+    ) as exc:
         raise CommandError(str(exc)) from exc
     clearance_rows = [record.to_record() for record in records]
     quarantined = [row for row in clearance_rows if row["status"] != "cleared"]
     dry_run = _acquisition_dry_run(args)
     if not dry_run:
-        _write_jsonl(clearance_path, clearance_rows)
-        _write_jsonl(quarantine_path, quarantined)
+        clearance_bytes = b"".join(canonical_json_bytes(row) for row in clearance_rows)
+        quarantine_bytes = b"".join(canonical_json_bytes(row) for row in quarantined)
+        _ensure_disclosure_review_artifact(
+            clearance_path, clearance_bytes, resume=cast(bool, args.resume)
+        )
+        _ensure_disclosure_review_artifact(
+            quarantine_path, quarantine_bytes, resume=cast(bool, args.resume)
+        )
     source_commitments = {
         "download_manifest": {
             "path": str(manifest_path.resolve()),
             "sha256": _path_sha256(manifest_path),
+        },
+        "review_requests": {
+            "path": str(requests_path.resolve()),
+            "sha256": _path_sha256(requests_path),
+        },
+        "review_worksheet": {
+            "path": str(worksheet_path.resolve()),
+            "sha256": _path_sha256(worksheet_path),
         },
         "reviews": {
             "path": str(reviews_path.resolve()),
@@ -22010,6 +23948,14 @@ def _cmd_acquisition_disclosure_clearance(args: argparse.Namespace) -> int:
         "review_receipt": {
             "path": str(review_receipt_path.resolve()),
             "sha256": _path_sha256(review_receipt_path),
+        },
+        "reviewer_policy": {
+            "path": str(reviewer_policy_path.resolve()),
+            "sha256": _path_sha256(reviewer_policy_path),
+        },
+        "cohort_policy": {
+            "path": str(cohort_policy_path.resolve()),
+            "sha256": _path_sha256(cohort_policy_path),
         },
         "restriction_evidence": {
             "path": str(restriction_path.resolve()),
@@ -22030,16 +23976,27 @@ def _cmd_acquisition_disclosure_clearance(args: argparse.Namespace) -> int:
             },
         }
     )
+    completion_inputs = (*source_paths, document_root)
+    if not dry_run and _completed_disclosure_review_resume(
+        args,
+        stage=stage,
+        input_paths=completion_inputs,
+        output_paths=(clearance_path, quarantine_path),
+        record_count=len(records),
+        expected_extra={
+            "quarantined_document_count": len(quarantined),
+            "source_commitments": source_commitments,
+            "output_commitments": output_commitments,
+            "review_authority": _clearance_review_authority_record(
+                review_authority, disclosure_authority
+            ),
+        },
+    ):
+        return 0
     _write_acquisition_completion(
         args,
-        stage="clear-disclosures",
-        input_paths=(
-            manifest_path,
-            reviews_path,
-            review_receipt_path,
-            restriction_path,
-            document_root,
-        ),
+        stage=stage,
+        input_paths=completion_inputs,
         output_paths=(clearance_path, quarantine_path),
         record_count=len(records),
         dry_run=dry_run,
@@ -22049,18 +24006,95 @@ def _cmd_acquisition_disclosure_clearance(args: argparse.Namespace) -> int:
             "quarantined_document_count": len(quarantined),
             "source_commitments": source_commitments,
             "output_commitments": output_commitments,
-            "review_authority": {
-                "reviewer_id": review_authority.reviewer_id,
-                "controlled_store_uri": review_authority.controlled_store_uri,
-                "authentication_method": review_authority.authentication_method,
-                "authenticated_at": review_authority.authenticated_at,
-                "review_artifact_sha256": (
-                    "sha256:" + review_authority.review_artifact_sha256
-                ),
-            },
+            "review_authority": _clearance_review_authority_record(
+                review_authority, disclosure_authority
+            ),
         },
     )
     return 0
+
+
+def _clearance_review_authority_record(
+    review_authority: ReviewAuthority,
+    disclosure_authority: DisclosureReviewAuthority,
+) -> dict[str, str]:
+    """Bind receipt identity to the independently main-pinned authority."""
+
+    return {
+        "reviewer_id": review_authority.reviewer_id,
+        "controlled_store_uri": review_authority.controlled_store_uri,
+        "authentication_method": review_authority.authentication_method,
+        "authenticated_at": review_authority.authenticated_at,
+        "review_artifact_sha256": ("sha256:" + review_authority.review_artifact_sha256),
+        "reviewer_policy_sha256": ("sha256:" + review_authority.reviewer_policy_sha256),
+        "cycle_id": disclosure_authority.identity.cycle_id,
+        "cohort_policy_sha256": (
+            "sha256:" + disclosure_authority.identity.cohort_policy_sha256
+        ),
+        "eligibility_anchor": (
+            disclosure_authority.identity.eligibility_anchor.isoformat()
+        ),
+        "disclosure_authority_sha256": (
+            "sha256:" + disclosure_authority.authority_sha256
+        ),
+        "ssh_public_key_fingerprint": (disclosure_authority.ssh_public_key_fingerprint),
+    }
+
+
+def _validate_interactive_review_decisions(
+    decisions: Sequence[Mapping[str, Any]],
+) -> dict[str, object]:
+    """Require the supported private interactive recorder's exact artifact."""
+
+    if not decisions:
+        raise ReviewBundleError("interactive decision artifact is empty")
+    fields = {
+        "candidate_id",
+        "source_document_id",
+        "status",
+        "reviewed_at",
+        "inspected_at",
+        "inspected_sha256",
+        "recording_method",
+        "intended_reviewer_id",
+        "batch_confirmation_sha256",
+    }
+    base_rows: list[dict[str, object]] = []
+    pins: set[str] = set()
+    for row in decisions:
+        if set(row) != fields or row.get("recording_method") != (
+            "interactive_review_cli"
+        ):
+            raise ReviewBundleError(
+                "decisions must come from record-disclosure-review-decisions"
+            )
+        pin = _required_str(row, "batch_confirmation_sha256")
+        if not re.fullmatch(r"[0-9a-f]{64}", pin):
+            raise ReviewBundleError("decision batch confirmation is malformed")
+        pins.add(pin)
+        base_rows.append(
+            {
+                name: value
+                for name, value in row.items()
+                if name != "batch_confirmation_sha256"
+            }
+        )
+    expected = hashlib.sha256(
+        b"".join(canonical_json_bytes(row) for row in base_rows)
+    ).hexdigest()
+    if pins != {expected}:
+        raise ReviewBundleError("decision batch confirmation hash mismatch")
+    cleared = sum(row.get("status") == "cleared" for row in decisions)
+    reviewer_ids = {_required_str(row, "intended_reviewer_id") for row in decisions}
+    if len(reviewer_ids) != 1:
+        raise ReviewBundleError("decision artifact has conflicting reviewer IDs")
+    return {
+        "document_count": len(decisions),
+        "cleared_count": cleared,
+        "quarantined_count": len(decisions) - cleared,
+        "confirmation_sha256": "sha256:" + expected,
+        "intended_reviewer_id": next(iter(reviewer_ids)),
+    }
 
 
 def _authenticated_clearance_lineage_inputs(
@@ -22082,14 +24116,95 @@ def _authenticated_clearance_lineage_inputs(
     clearance_run_card_path, reviews_path, review_receipt_path, restriction_path = cast(
         tuple[Path, Path, Path, Path], raw_paths
     )
+    return _authenticated_clearance_lineage_from_run_card(
+        clearance_path=clearance_path,
+        clearance_run_card_path=clearance_run_card_path,
+        expected_reviews_path=reviews_path,
+        expected_review_receipt_path=review_receipt_path,
+        expected_restriction_path=restriction_path,
+    )
+
+
+def _authenticated_clearance_lineage_from_run_card(
+    *,
+    clearance_path: Path,
+    clearance_run_card_path: Path,
+    expected_download_manifest_path: Path | None = None,
+    expected_reviews_path: Path | None = None,
+    expected_review_receipt_path: Path | None = None,
+    expected_restriction_path: Path | None = None,
+) -> tuple[dict[str, Any], tuple[Path, ...]]:
+    """Load every exact signed-clearance input from its committed run card."""
+
+    run_card = _read_json_object(clearance_run_card_path)
+    committed_clearance_path = _named_committed_path(
+        run_card,
+        commitment_group="output_commitments",
+        name="disclosure_clearance",
+    )
+    if committed_clearance_path.resolve() != clearance_path.resolve():
+        raise ResolvedPostRecoveryError(
+            "clear-disclosures run card committed a different clearance artifact"
+        )
+    reviews_path = _named_committed_path(
+        run_card, commitment_group="source_commitments", name="reviews"
+    )
+    review_receipt_path = _named_committed_path(
+        run_card, commitment_group="source_commitments", name="review_receipt"
+    )
+    restriction_path = _named_committed_path(
+        run_card, commitment_group="source_commitments", name="restriction_evidence"
+    )
+    review_requests_path = _named_committed_path(
+        run_card, commitment_group="source_commitments", name="review_requests"
+    )
+    review_worksheet_path = _named_committed_path(
+        run_card, commitment_group="source_commitments", name="review_worksheet"
+    )
+    reviewer_policy_path = _named_committed_path(
+        run_card, commitment_group="source_commitments", name="reviewer_policy"
+    )
+    cohort_policy_path = _named_committed_path(
+        run_card, commitment_group="source_commitments", name="cohort_policy"
+    )
+    download_manifest_path = _named_committed_path(
+        run_card, commitment_group="source_commitments", name="download_manifest"
+    )
+    expected_paths = (
+        ("download manifest", expected_download_manifest_path, download_manifest_path),
+        ("reviews", expected_reviews_path, reviews_path),
+        ("review receipt", expected_review_receipt_path, review_receipt_path),
+        ("restriction evidence", expected_restriction_path, restriction_path),
+    )
+    for label, expected, committed in expected_paths:
+        if expected is not None and expected.resolve() != committed.resolve():
+            raise ResolvedPostRecoveryError(
+                f"clear-disclosures committed different {label} bytes"
+            )
+    reviewer_policy_bytes = reviewer_policy_path.read_bytes()
+    cohort_policy_bytes = cohort_policy_path.read_bytes()
+    try:
+        disclosure_authority = load_main_disclosure_review_authority(
+            _read_json_object(cohort_policy_path),
+            reviewer_policy_bytes=reviewer_policy_bytes,
+        )
+    except DisclosureReviewAuthorityError as exc:
+        raise ResolvedPostRecoveryError(str(exc)) from exc
     return (
         {
             "clearance_artifact_bytes": clearance_path.read_bytes(),
-            "clearance_run_card": _read_json_object(clearance_run_card_path),
+            "clearance_run_card": run_card,
             "clearance_run_card_bytes": clearance_run_card_path.read_bytes(),
             "reviews_artifact_bytes": reviews_path.read_bytes(),
             "review_receipt_artifact": _read_json_object(review_receipt_path),
             "review_receipt_bytes": review_receipt_path.read_bytes(),
+            "review_requests_artifact_bytes": review_requests_path.read_bytes(),
+            "review_worksheet_artifact": _read_json_object(review_worksheet_path),
+            "review_worksheet_bytes": review_worksheet_path.read_bytes(),
+            "reviewer_policy_bytes": reviewer_policy_bytes,
+            "disclosure_authority": disclosure_authority,
+            "cohort_policy_artifact_bytes": cohort_policy_bytes,
+            "download_manifest_artifact_bytes": download_manifest_path.read_bytes(),
             "restriction_records": _read_records(restriction_path),
             "restriction_artifact_bytes": restriction_path.read_bytes(),
         },
@@ -22098,8 +24213,38 @@ def _authenticated_clearance_lineage_inputs(
             reviews_path,
             review_receipt_path,
             restriction_path,
+            review_requests_path,
+            review_worksheet_path,
+            reviewer_policy_path,
+            cohort_policy_path,
+            download_manifest_path,
         ),
     )
+
+
+def _verify_authenticated_clearance_run_card(
+    *,
+    clearance_path: Path,
+    clearance_run_card_path: Path,
+    expected_download_manifest_path: Path | None = None,
+    expected_restriction_path: Path | None = None,
+) -> tuple[Path, ...]:
+    """Independently replay signed clearance and return its immutable inputs."""
+
+    kwargs, paths = _authenticated_clearance_lineage_from_run_card(
+        clearance_path=clearance_path,
+        clearance_run_card_path=clearance_run_card_path,
+        expected_download_manifest_path=expected_download_manifest_path,
+        expected_restriction_path=expected_restriction_path,
+    )
+    try:
+        validate_authenticated_clearance_lineage(
+            clearance_records=_read_records(clearance_path),
+            **kwargs,
+        )
+    except (OSError, ResolvedPostRecoveryError) as exc:
+        raise CommandError(str(exc)) from exc
+    return paths
 
 
 def _selection_requires_resolved_post_recovery(
@@ -22304,6 +24449,7 @@ def _cmd_acquisition_resolve_post_recovery(args: argparse.Namespace) -> int:
 
 def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
+    dry_run = _acquisition_dry_run(args)
     selection_path = cast(Path | None, args.selection)
     download_manifest_path = cast(Path, args.download_manifest)
     clearance_path = cast(Path, args.disclosure_clearance)
@@ -22353,6 +24499,11 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
     if not is_materialized and materialization_card_path is not None:
         raise CommandError(
             "--materialization-run-card requires exact materialization markers"
+        )
+    if not dry_run and not is_materialized:
+        raise CommandError(
+            "executed parse planning requires canonical materialized documents "
+            "and --materialization-run-card"
         )
     resolved_records = _read_records(resolved_path) if resolved_path is not None else []
     needs_resolved_lineage = _selection_requires_resolved_post_recovery(
@@ -22433,7 +24584,6 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
         }
         for record in records
     )
-    dry_run = _acquisition_dry_run(args)
     if dry_run:
         _write_jsonl(
             requests_path,
@@ -22508,6 +24658,7 @@ def _cmd_acquisition_plan_parse_documents(args: argparse.Namespace) -> int:
 
 def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
+    dry_run = _acquisition_dry_run(args)
     selection_path = cast(Path | None, args.selection)
     requests_path = cast(Path, args.requests)
     clearance_path = cast(Path, args.disclosure_clearance)
@@ -22530,6 +24681,11 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
     if not is_materialized and materialization_card_path is not None:
         raise CommandError(
             "--materialization-run-card requires exact materialization markers"
+        )
+    if not dry_run and not is_materialized:
+        raise CommandError(
+            "executed parsing requires canonical materialized documents and "
+            "--materialization-run-card"
         )
     materialization_paths: tuple[Path, ...] = ()
     if materialization_card_path is not None:
@@ -22584,7 +24740,7 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
         clearance_kwargs, clearance_lineage_paths = (
             _authenticated_clearance_lineage_inputs(args, clearance_path=clearance_path)
         )
-    if not _acquisition_dry_run(args):
+    if not dry_run:
         try:
             require_cleared_parse_requests(request_records, clearance_records)
             if needs_resolved_lineage:
@@ -22616,7 +24772,6 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
         _mistral_markdown_request(record, output_root=output_root)
         for record in request_records
     )
-    dry_run = _acquisition_dry_run(args)
     fixture_markdown_dir = cast(Path | None, args.fixture_markdown_dir)
     parser_root = cast(Path | None, args.parser_root)
     if dry_run:
@@ -22767,6 +24922,7 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
     """Materialize authenticated, audit-only first-disposition text."""
 
     output_root = _acquisition_output_root(args)
+    dry_run = _acquisition_dry_run(args)
     clearance_card_path = cast(Path | None, args.clearance_run_card)
     materialization_card_path = cast(Path | None, args.materialization_run_card)
     source_paths = {
@@ -22928,8 +25084,11 @@ def _cmd_acquisition_build_decision_texts(args: argparse.Namespace) -> int:
         "paid_activity_executed": False,
     }
     manifest_payload = _projection_json_bytes(manifest)
-    dry_run = _acquisition_dry_run(args)
     if not dry_run:
+        if not is_materialized:
+            raise CommandError(
+                "executed decision-text construction requires canonical materialization"
+            )
         _ensure_projection_artifact(
             decision_texts_path,
             decision_texts_payload,
@@ -25831,6 +27990,11 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         raise CommandError(
             "--materialization-run-card requires exact materialization markers"
         )
+    if not dry_run and not is_materialized:
+        raise CommandError(
+            "executed packet planning requires canonical materialized documents "
+            "and --materialization-run-card"
+        )
     materialization_paths: tuple[Path, ...] = ()
     if materialization_card_path is not None:
         materialization_paths = _verify_materialized_downstream_lineage(
@@ -25872,6 +28036,8 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
                 resolved_records=resolved_records,
             )
         )
+    generated_at: datetime | None = None
+    decision_filed_on_or_after: date | None = None
     if dry_run:
         _write_jsonl(
             packet_build_input_path,
@@ -25928,6 +28094,47 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         _write_jsonl(candidate_manifest_path, plan.candidate_manifest_records)
         _write_jsonl(extracted_texts_path, plan.extracted_text_records)
         _write_jsonl(exclusion_ledger_path, plan.exclusion_ledger_records)
+    planner_parameters: dict[str, object] = {}
+    planner_sources: dict[str, object] = {}
+    if not dry_run:
+        assert generated_at is not None
+        assert decision_filed_on_or_after is not None
+        planner_parameters = {
+            "generated_at": _iso_datetime(generated_at),
+            "search_query": cast(str, args.search_query),
+            "search_window": cast(str, args.search_window),
+            "decision_filed_on_or_after": decision_filed_on_or_after.isoformat(),
+            "source_dir": str(output_root.resolve()),
+            "raw_html_dir": str(raw_html_dir.resolve()),
+            "document_root": str(document_root.resolve()),
+            "markdown_root": str(markdown_root.resolve()),
+        }
+        planner_sources = {
+            "selection": _materializer_file_commitment(selection_path),
+            "download_manifest": _materializer_file_commitment(download_manifest_path),
+            "parser_manifest": _materializer_file_commitment(parser_manifest_path),
+            "disclosure_clearance": _materializer_file_commitment(clearance_path),
+            "prediction_units": _materializer_file_commitment(prediction_units_path),
+            "model_registry": _materializer_file_commitment(model_registry_path),
+            **(
+                {
+                    "raw_artifacts_manifest": _materializer_file_commitment(
+                        raw_artifacts_manifest_path
+                    )
+                }
+                if raw_artifacts_manifest_path is not None
+                else {}
+            ),
+            **(
+                {
+                    "resolved_post_recovery_documents": (
+                        _materializer_file_commitment(resolved_path)
+                    )
+                }
+                if resolved_path is not None
+                else {}
+            ),
+        }
     _write_acquisition_completion(
         args,
         stage="plan-packet-inputs",
@@ -25965,6 +28172,8 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
         paid_activity_requested=False,
         paid_activity_executed=False,
         extra={
+            "deterministic_parameters": planner_parameters,
+            "replay_source_commitments": planner_sources,
             "model_registry_path": str(model_registry_path.resolve()),
             "model_registry_sha256": sha256_file(model_registry_path),
             **(
@@ -25996,6 +28205,43 @@ def _cmd_acquisition_plan_packet_inputs(args: argparse.Namespace) -> int:
                 for index, path in enumerate(purchase_lineage_paths)
             },
             "purchase_state_sha256": purchase_state_sha256,
+            "authenticated_materialization_lineage": (
+                []
+                if dry_run
+                else _packet_materialization_lineage_commitments(
+                    selection_path=selection_path,
+                    download_manifest_path=download_manifest_path,
+                    clearance_path=clearance_path,
+                    document_root=document_root,
+                    materialization_run_card_path=cast(Path, materialization_card_path),
+                )
+            ),
+            "output_commitments": (
+                {}
+                if dry_run
+                else {
+                    "packet_build_input": {
+                        "path": str(packet_build_input_path.resolve()),
+                        "sha256": _path_sha256(packet_build_input_path),
+                    },
+                    "document_manifest": {
+                        "path": str(document_manifest_path.resolve()),
+                        "sha256": _path_sha256(document_manifest_path),
+                    },
+                    "candidate_manifest": {
+                        "path": str(candidate_manifest_path.resolve()),
+                        "sha256": _path_sha256(candidate_manifest_path),
+                    },
+                    "extracted_texts": {
+                        "path": str(extracted_texts_path.resolve()),
+                        "sha256": _path_sha256(extracted_texts_path),
+                    },
+                    "exclusion_ledger": {
+                        "path": str(exclusion_ledger_path.resolve()),
+                        "sha256": _path_sha256(exclusion_ledger_path),
+                    },
+                }
+            ),
             **(
                 {
                     "resolved_post_recovery_documents_path": str(
@@ -26031,8 +28277,222 @@ def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
         "audit_output",
         output_root / "packet-audit.jsonl",
     )
-    records = _read_records(input_path)
     dry_run = _acquisition_dry_run(args)
+    records = _read_records(input_path) if dry_run else []
+    packet_input_run_card_path = cast(Path | None, args.packet_input_run_card)
+    selection_path = cast(Path | None, args.selection)
+    download_manifest_path = cast(Path | None, args.download_manifest)
+    parser_manifest_path = cast(Path | None, args.parser_manifest)
+    parser_run_card_path = cast(Path | None, args.parser_run_card)
+    clearance_path = cast(Path | None, args.disclosure_clearance)
+    raw_prediction_units_path = cast(Path | None, args.raw_prediction_units)
+    prediction_units_path = cast(Path | None, args.prediction_units)
+    unitization_audit_path = cast(Path | None, args.llm_unitization_audit)
+    unitization_run_card_path = cast(Path | None, args.llm_unitize_run_card)
+    unitization_provider_journal_path = cast(
+        Path | None, args.llm_unitize_provider_journal
+    )
+    original_review_path = cast(Path | None, args.original_unitization_review_queue)
+    structural_flags_path = cast(Path | None, args.stage_a_structural_flags)
+    structural_review_audit_path = cast(
+        Path | None, args.stage_a_structural_review_audit
+    )
+    structural_review_run_card_path = cast(Path | None, args.stage_a_review_run_card)
+    structural_review_provider_journal_path = cast(
+        Path | None, args.stage_a_review_provider_journal
+    )
+    structural_review_registry_path = cast(
+        Path | None, args.stage_a_review_model_registry
+    )
+    structural_review_model_key = cast(str | None, args.stage_a_review_model_key)
+    merged_review_path = cast(Path | None, args.unitization_review_queue)
+    adjudications_path = cast(Path | None, args.unitization_review_adjudications)
+    apply_unitization_run_card_path = cast(
+        Path | None, args.apply_unitization_review_run_card
+    )
+    parse_plan_run_card_path = cast(Path | None, args.parse_plan_run_card)
+    model_registry_path = cast(Path | None, args.model_registry)
+    expected_model_registry_sha256 = cast(
+        str | None, args.expected_model_registry_sha256
+    )
+    raw_html_dir = cast(Path | None, args.raw_html_dir)
+    raw_artifacts_manifest_path = cast(Path | None, args.raw_artifacts_manifest)
+    document_root = cast(Path | None, args.document_root)
+    markdown_root = cast(Path | None, args.markdown_root)
+    materialization_card_path = cast(Path | None, args.materialization_run_card)
+    lineage_paths = (
+        packet_input_run_card_path,
+        selection_path,
+        download_manifest_path,
+        parser_manifest_path,
+        parser_run_card_path,
+        clearance_path,
+        raw_prediction_units_path,
+        prediction_units_path,
+        unitization_audit_path,
+        unitization_run_card_path,
+        unitization_provider_journal_path,
+        original_review_path,
+        structural_flags_path,
+        structural_review_audit_path,
+        structural_review_run_card_path,
+        structural_review_provider_journal_path,
+        structural_review_registry_path,
+        merged_review_path,
+        adjudications_path,
+        apply_unitization_run_card_path,
+        parse_plan_run_card_path,
+        model_registry_path,
+        raw_html_dir,
+        raw_artifacts_manifest_path,
+        document_root,
+        markdown_root,
+        materialization_card_path,
+    )
+    if not dry_run and (
+        any(path is None for path in lineage_paths)
+        or structural_review_model_key is None
+        or expected_model_registry_sha256 is None
+    ):
+        raise CommandError(
+            "executed packet building requires --packet-input-run-card, --selection, "
+            "--download-manifest, --parser-manifest, --parser-run-card, "
+            "--disclosure-clearance, all Stage A provenance inputs and run cards, "
+            "--model-registry, --expected-model-registry-sha256, --raw-html-dir, "
+            "--raw-artifacts-manifest, --document-root, --markdown-root, and "
+            "--materialization-run-card"
+        )
+    verified_lineage_paths: tuple[Path, ...] = ()
+    replay: _PacketPlannerReplay | None = None
+    if not dry_run:
+        typed_paths = cast(tuple[Path, ...], lineage_paths)
+        (
+            typed_packet_run_card,
+            typed_selection,
+            typed_manifest,
+            typed_parser_manifest,
+            typed_parser_run_card,
+            typed_clearance,
+            typed_raw_prediction_units,
+            typed_prediction_units,
+            typed_unitization_audit,
+            typed_unitization_run_card,
+            typed_unitization_provider_journal,
+            typed_original_review,
+            typed_structural_flags,
+            typed_structural_review_audit,
+            typed_structural_review_run_card,
+            typed_structural_review_provider_journal,
+            typed_structural_review_registry,
+            typed_merged_review,
+            typed_adjudications,
+            typed_apply_unitization_run_card,
+            typed_parse_plan_run_card,
+            typed_model_registry,
+            typed_raw_html_dir,
+            typed_raw_artifacts_manifest,
+            typed_document_root,
+            typed_markdown_root,
+            typed_materialization_card,
+        ) = typed_paths
+        _require_materializer_artifact(
+            typed_materialization_card,
+            label="materialization lineage run card",
+        )
+        materialization_card_payload = typed_materialization_card.read_bytes()
+        materialization_card_snapshot = _projection_json_object(
+            materialization_card_payload,
+            source=typed_materialization_card,
+        )
+        verified_lineage_paths = _verify_materialized_downstream_lineage(
+            run_card_path=typed_materialization_card,
+            manifest_path=typed_manifest,
+            clearance_path=typed_clearance,
+            document_root=typed_document_root,
+            selection_path=typed_selection,
+        )
+        if typed_materialization_card.read_bytes() != materialization_card_payload:
+            raise CommandError(
+                "materialization lineage run card changed while being verified"
+            )
+        _verify_packet_raw_artifacts_snapshot_binding(
+            raw_html_dir=typed_raw_html_dir,
+            raw_artifacts_manifest_path=typed_raw_artifacts_manifest,
+            screening_snapshot_manifest_path=(
+                _authenticated_materialization_snapshot_manifest_path(
+                    materialization_card_snapshot
+                )
+            ),
+        )
+        resolved_path = (
+            verified_lineage_paths[3] if len(verified_lineage_paths) == 4 else None
+        )
+        replay = _validate_packet_input_run_card(
+            typed_packet_run_card,
+            packet_build_input_path=input_path,
+            selection_path=typed_selection,
+            download_manifest_path=typed_manifest,
+            parser_manifest_path=typed_parser_manifest,
+            clearance_path=typed_clearance,
+            prediction_units_path=typed_prediction_units,
+            model_registry_path=typed_model_registry,
+            raw_html_dir=typed_raw_html_dir,
+            raw_artifacts_manifest_path=typed_raw_artifacts_manifest,
+            document_root=typed_document_root,
+            markdown_root=typed_markdown_root,
+            materialization_run_card_path=typed_materialization_card,
+            resolved_post_recovery_documents_path=resolved_path,
+        )
+        if replay.model_registry_sha256 != _normalize_expected_sha256(
+            cast(str, expected_model_registry_sha256),
+            label="expected model registry digest",
+        ):
+            raise CommandError("packet model registry differs from frozen digest")
+        _verify_parser_packet_authority(
+            parse_plan_run_card_path=typed_parse_plan_run_card,
+            parser_run_card_path=typed_parser_run_card,
+            parser_manifest_path=typed_parser_manifest,
+            parser_records=replay.parser_records,
+            parser_manifest_sha256=replay.parser_manifest_sha256,
+            parser_record_count=replay.parser_record_count,
+            selection_path=typed_selection,
+            selection_records=replay.selection_records,
+            download_manifest_path=typed_manifest,
+            download_records=replay.download_records,
+            clearance_path=typed_clearance,
+            clearance_records=replay.clearance_records,
+            clearance_sha256=replay.clearance_sha256,
+            materialization_run_card_path=typed_materialization_card,
+            document_root=typed_document_root,
+            markdown_root=typed_markdown_root,
+        )
+        _require_materializer_artifact(
+            typed_unitization_audit,
+            label="Stage A unitization audit",
+        )
+        _verify_stage_a_packet_authority(
+            selection_records=replay.selection_records,
+            parser_records=replay.parser_records,
+            raw_prediction_units_path=typed_raw_prediction_units,
+            unitization_audit_path=typed_unitization_audit,
+            unitization_run_card_path=typed_unitization_run_card,
+            unitization_provider_journal_path=typed_unitization_provider_journal,
+            original_review_path=typed_original_review,
+            structural_flags_path=typed_structural_flags,
+            structural_review_audit_path=typed_structural_review_audit,
+            structural_review_run_card_path=typed_structural_review_run_card,
+            structural_review_provider_journal_path=(
+                typed_structural_review_provider_journal
+            ),
+            structural_review_registry_path=typed_structural_review_registry,
+            structural_review_model_key=cast(str, structural_review_model_key),
+            merged_review_path=typed_merged_review,
+            finalized_prediction_unit_records=replay.prediction_unit_records,
+            finalized_prediction_units_path=typed_prediction_units,
+            adjudications_path=typed_adjudications,
+            apply_unitization_run_card_path=typed_apply_unitization_run_card,
+        )
+        records = [dict(record) for record in replay.packet_build_records]
     if dry_run:
         _write_jsonl(
             packets_path,
@@ -26066,23 +28526,1525 @@ def _cmd_acquisition_build_packets(args: argparse.Namespace) -> int:
             audit_path,
             [assembly.audit_bundle for assembly in assemblies],
         )
+    if not dry_run and replay is None:
+        raise AssertionError("executed packet build lacks verified replay")
+    replay_input_sha256 = "" if replay is None else replay.packet_build_input_sha256
     _write_acquisition_completion(
         args,
         stage="build-packets",
-        input_paths=(input_path,),
+        input_paths=(
+            input_path,
+            *(cast(tuple[Path, ...], lineage_paths) if not dry_run else ()),
+            *verified_lineage_paths,
+        ),
         output_paths=(packets_path, case_packets_path, audit_path),
         record_count=len(records),
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
+        extra={
+            "deterministic_parameters": (
+                {} if dry_run else {"ablation": cast(str, args.ablation)}
+            ),
+            "authenticated_materialization_lineage": (
+                []
+                if dry_run
+                else [
+                    dict(record)
+                    for record in cast(
+                        _PacketPlannerReplay,
+                        replay,
+                    ).authenticated_materialization_lineage
+                ]
+            ),
+            "source_commitments": (
+                {}
+                if dry_run
+                else {
+                    "packet_input_run_card": {
+                        "path": cast(
+                            _PacketPlannerReplay,
+                            replay,
+                        ).planner_run_card_path,
+                        "sha256": cast(
+                            _PacketPlannerReplay,
+                            replay,
+                        ).planner_run_card_sha256,
+                    },
+                    "packet_build_input": {
+                        "path": str(input_path.resolve()),
+                        "sha256": replay_input_sha256,
+                    },
+                }
+            ),
+            "expected_model_registry_sha256": (
+                None
+                if dry_run
+                else _normalize_expected_sha256(
+                    cast(str, expected_model_registry_sha256),
+                    label="expected model registry digest",
+                )
+            ),
+            "output_commitments": (
+                {}
+                if dry_run
+                else {
+                    "packets": _materializer_file_commitment(packets_path),
+                    "case_packets": _materializer_file_commitment(case_packets_path),
+                    "packet_audit": _materializer_file_commitment(audit_path),
+                }
+            ),
+        },
     )
     return 0
 
 
+def _packet_materialization_lineage_commitments(
+    *,
+    selection_path: Path,
+    download_manifest_path: Path,
+    clearance_path: Path,
+    document_root: Path,
+    materialization_run_card_path: Path,
+) -> list[dict[str, object]]:
+    """Commit the ordered authenticated inputs used to construct packet text."""
+
+    document_tree = _materializer_tree_commitments(document_root)
+    return [
+        {"name": "selection", **_materializer_file_commitment(selection_path)},
+        {
+            "name": "download_manifest",
+            **_materializer_file_commitment(download_manifest_path),
+        },
+        {
+            "name": "disclosure_clearance",
+            **_materializer_file_commitment(clearance_path),
+        },
+        {
+            "name": "document_root",
+            "path": str(document_root.resolve()),
+            "tree": document_tree,
+            "tree_sha256": _canonical_json_sha256(document_tree),
+        },
+        {
+            "name": "materialization_run_card",
+            **_materializer_file_commitment(materialization_run_card_path),
+        },
+    ]
+
+
+def _packet_card_committed_path(
+    commitments: Mapping[str, object],
+    *,
+    name: str,
+    expected_path: Path | None = None,
+) -> Path:
+    commitment = commitments.get(name)
+    if not isinstance(commitment, Mapping):
+        raise CommandError(f"packet run card lacks {name} commitment")
+    record = cast(Mapping[str, object], commitment)
+    raw_path = record.get("path")
+    expected_sha256 = record.get("sha256")
+    if not isinstance(raw_path, str) or not _valid_prefixed_sha256(expected_sha256):
+        raise CommandError(f"packet run card has invalid {name} commitment")
+    path = Path(raw_path)
+    if expected_path is not None and path.resolve() != expected_path.resolve():
+        raise CommandError(f"packet run card {name} path mismatch")
+    _require_materializer_artifact(path, label=f"packet run card {name}")
+    if _path_sha256(path) != expected_sha256:
+        raise CommandError(f"packet run card {name} commitment mismatch")
+    return path
+
+
+def _packet_card_committed_snapshot(
+    commitments: Mapping[str, object],
+    *,
+    name: str,
+    expected_path: Path | None = None,
+) -> tuple[Path, bytes]:
+    """Return the exact bytes whose run-card commitment was verified."""
+
+    path = _packet_card_committed_path(
+        commitments,
+        name=name,
+        expected_path=expected_path,
+    )
+    record = cast(Mapping[str, object], commitments[name])
+    expected_sha256 = cast(str, record["sha256"])
+    payload = path.read_bytes()
+    if _bytes_sha256(payload) != expected_sha256:
+        raise CommandError(f"packet run card {name} changed while being verified")
+    return path, payload
+
+
+@dataclass(frozen=True, slots=True)
+class _PacketPlannerReplay:
+    packet_build_records: tuple[JsonRecord, ...]
+    packet_build_input_sha256: str
+    selection_records: tuple[JsonRecord, ...]
+    download_records: tuple[JsonRecord, ...]
+    parser_records: tuple[JsonRecord, ...]
+    clearance_records: tuple[JsonRecord, ...]
+    clearance_sha256: str
+    parser_manifest_sha256: str
+    parser_record_count: int
+    prediction_unit_records: tuple[JsonRecord, ...]
+    model_registry: ModelRegistry
+    model_registry_sha256: str
+    planner_run_card_sha256: str = ""
+    planner_run_card_path: str = ""
+    authenticated_materialization_lineage: tuple[JsonRecord, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class _PacketBuildReplay:
+    packet_records: tuple[JsonRecord, ...]
+    packets_sha256: str
+    build_run_card_sha256: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class _StageAReplay:
+    raw_prediction_unit_records: tuple[JsonRecord, ...]
+    unitization_audit_records: tuple[JsonRecord, ...]
+    original_review_records: tuple[JsonRecord, ...]
+    structural_flag_records: tuple[JsonRecord, ...]
+    structural_review_audit_records: tuple[JsonRecord, ...]
+    merged_review_records: tuple[JsonRecord, ...]
+    adjudication_records: tuple[JsonRecord, ...]
+
+
+def _model_registry_from_payload(payload: bytes, *, source: Path) -> ModelRegistry:
+    try:
+        loaded = _loads_json(payload.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise CommandError(f"invalid model registry: {source}") from exc
+    if not isinstance(loaded, Sequence) or isinstance(loaded, (str, bytes)):
+        raise CommandError(f"model registry must contain a JSON array: {source}")
+    records = tuple(
+        _mapping(item, f"model registry item {index}")
+        for index, item in enumerate(cast(Sequence[object], loaded))
+    )
+    try:
+        return ModelRegistry.from_records(records)
+    except ValueError as exc:
+        raise CommandError(str(exc)) from exc
+
+
+def _packet_card_committed_directory(
+    parameters: Mapping[str, object],
+    *,
+    name: str,
+    expected_path: Path | None = None,
+) -> Path:
+    raw_path = parameters.get(name)
+    if not isinstance(raw_path, str) or not raw_path:
+        raise CommandError(f"packet planner parameter {name} is invalid")
+    path = Path(raw_path)
+    try:
+        require_non_symlink_components(path)
+    except CohortDocumentMaterializationError as exc:
+        raise CommandError(str(exc)) from exc
+    if path.is_symlink() or not path.is_dir():
+        raise CommandError(f"packet planner directory {name} is missing or unsafe")
+    if expected_path is not None:
+        try:
+            require_non_symlink_components(expected_path)
+        except CohortDocumentMaterializationError as exc:
+            raise CommandError(str(exc)) from exc
+        if expected_path.is_symlink() or not expected_path.is_dir():
+            raise CommandError(
+                f"packet planner expected directory {name} is missing or unsafe"
+            )
+        if path.resolve() != expected_path.resolve():
+            raise CommandError(f"packet planner directory {name} path mismatch")
+    return path
+
+
+def _replay_packet_planner_run_card(
+    card: Mapping[str, object],
+    *,
+    run_card_sha256: str,
+    run_card_path: Path,
+    packet_build_input_path: Path,
+    selection_path: Path,
+    download_manifest_path: Path,
+    parser_manifest_path: Path,
+    clearance_path: Path,
+    prediction_units_path: Path,
+    model_registry_path: Path,
+    raw_html_dir: Path,
+    raw_artifacts_manifest_path: Path,
+    document_root: Path,
+    markdown_root: Path,
+    resolved_post_recovery_documents_path: Path | None,
+) -> _PacketPlannerReplay:
+    """Re-run packet planning from its exact committed inputs and parameters."""
+
+    parameters = card.get("deterministic_parameters")
+    sources = card.get("replay_source_commitments")
+    outputs = card.get("output_commitments")
+    if not isinstance(parameters, Mapping) or not isinstance(sources, Mapping):
+        raise CommandError("packet planner run card lacks deterministic replay data")
+    if not isinstance(outputs, Mapping):
+        raise CommandError("packet planner run card lacks output commitments")
+    typed_parameters = cast(Mapping[str, object], parameters)
+    typed_sources = cast(Mapping[str, object], sources)
+    typed_outputs = cast(Mapping[str, object], outputs)
+    required_parameter_names = {
+        "generated_at",
+        "search_query",
+        "search_window",
+        "decision_filed_on_or_after",
+        "source_dir",
+        "raw_html_dir",
+        "document_root",
+        "markdown_root",
+    }
+    if set(typed_parameters) != required_parameter_names:
+        raise CommandError("packet planner deterministic parameters are incomplete")
+    required_source_names = {
+        "selection",
+        "download_manifest",
+        "parser_manifest",
+        "disclosure_clearance",
+        "prediction_units",
+        "model_registry",
+        "raw_artifacts_manifest",
+    }
+    if not required_source_names.issubset(typed_sources) or set(typed_sources) - (
+        required_source_names | {"resolved_post_recovery_documents"}
+    ):
+        raise CommandError("packet planner replay source commitments are incomplete")
+    if set(typed_outputs) != {
+        "packet_build_input",
+        "document_manifest",
+        "candidate_manifest",
+        "extracted_texts",
+        "exclusion_ledger",
+    }:
+        raise CommandError("packet planner output commitments are incomplete")
+
+    raw_materialization_lineage = card.get("authenticated_materialization_lineage")
+    if not isinstance(raw_materialization_lineage, Sequence) or isinstance(
+        raw_materialization_lineage, (str, bytes)
+    ):
+        raise CommandError("packet planner run card lacks materialization lineage")
+    materialization_lineage = tuple(
+        dict(_mapping(item, f"materialization lineage item {index}"))
+        for index, item in enumerate(
+            cast(Sequence[object], raw_materialization_lineage)
+        )
+    )
+
+    committed_selection, selection_payload = _packet_card_committed_snapshot(
+        typed_sources, name="selection", expected_path=selection_path
+    )
+    committed_downloads, downloads_payload = _packet_card_committed_snapshot(
+        typed_sources,
+        name="download_manifest",
+        expected_path=download_manifest_path,
+    )
+    _clearance_path, clearance_payload = _packet_card_committed_snapshot(
+        typed_sources,
+        name="disclosure_clearance",
+        expected_path=clearance_path,
+    )
+    parser_manifest, parser_payload = _packet_card_committed_snapshot(
+        typed_sources,
+        name="parser_manifest",
+        expected_path=parser_manifest_path,
+    )
+    prediction_units, prediction_units_payload = _packet_card_committed_snapshot(
+        typed_sources,
+        name="prediction_units",
+        expected_path=prediction_units_path,
+    )
+    model_registry, model_registry_payload = _packet_card_committed_snapshot(
+        typed_sources,
+        name="model_registry",
+        expected_path=model_registry_path,
+    )
+    raw_artifacts_manifest, raw_artifacts_payload = _packet_card_committed_snapshot(
+        typed_sources,
+        name="raw_artifacts_manifest",
+        expected_path=raw_artifacts_manifest_path,
+    )
+    has_resolved_source = "resolved_post_recovery_documents" in typed_sources
+    if has_resolved_source != (resolved_post_recovery_documents_path is not None):
+        raise CommandError("packet planner resolved-document source coverage mismatch")
+    if resolved_post_recovery_documents_path is not None:
+        _packet_card_committed_snapshot(
+            typed_sources,
+            name="resolved_post_recovery_documents",
+            expected_path=resolved_post_recovery_documents_path,
+        )
+
+    def required_string(name: str) -> str:
+        value = typed_parameters.get(name)
+        if not isinstance(value, str) or not value:
+            raise CommandError(f"packet planner parameter {name} is invalid")
+        return value
+
+    generated_at = _parse_datetime(required_string("generated_at"))
+    committed_source_dir = _packet_card_committed_directory(
+        typed_parameters,
+        name="source_dir",
+    )
+    committed_raw_html_dir = _packet_card_committed_directory(
+        typed_parameters,
+        name="raw_html_dir",
+        expected_path=raw_html_dir,
+    )
+    committed_document_root = _packet_card_committed_directory(
+        typed_parameters,
+        name="document_root",
+        expected_path=document_root,
+    )
+    committed_markdown_root = _packet_card_committed_directory(
+        typed_parameters,
+        name="markdown_root",
+        expected_path=markdown_root,
+    )
+    committed_eligible_date = required_string("decision_filed_on_or_after")
+    registry = _model_registry_from_payload(
+        model_registry_payload, source=model_registry
+    )
+    actual_eligible_date = earliest_eligible_decision_date(
+        require_official_registry_entries(registry.entries)
+    )
+    if committed_eligible_date != actual_eligible_date.isoformat():
+        raise CommandError(
+            "packet planner eligibility parameter does not match registry"
+        )
+    selection_records = _projection_jsonl_records(
+        selection_payload, source=committed_selection
+    )
+    parser_records = _projection_jsonl_records(parser_payload, source=parser_manifest)
+    clearance_records = _projection_jsonl_records(
+        clearance_payload, source=clearance_path
+    )
+    prediction_unit_records = _projection_jsonl_records(
+        prediction_units_payload, source=prediction_units
+    )
+    download_records = _projection_jsonl_records(
+        downloads_payload, source=committed_downloads
+    )
+    plan = plan_packet_build_inputs(
+        selection_records=selection_records,
+        download_records=download_records,
+        parser_records=parser_records,
+        prediction_unit_records=prediction_unit_records,
+        raw_html_dir=committed_raw_html_dir,
+        raw_artifact_records=_projection_jsonl_records(
+            raw_artifacts_payload, source=raw_artifacts_manifest
+        ),
+        document_root=committed_document_root,
+        markdown_root=committed_markdown_root,
+        source_dir=committed_source_dir,
+        generated_at=generated_at,
+        search_query=required_string("search_query"),
+        search_window=required_string("search_window"),
+        decision_filed_on_or_after=actual_eligible_date,
+    )
+    expected_payloads = {
+        "packet_build_input": _projection_jsonl_bytes(plan.packet_build_records),
+        "document_manifest": _projection_jsonl_bytes(plan.document_manifest_records),
+        "candidate_manifest": _projection_jsonl_bytes(plan.candidate_manifest_records),
+        "extracted_texts": _projection_jsonl_bytes(plan.extracted_text_records),
+        "exclusion_ledger": _projection_jsonl_bytes(plan.exclusion_ledger_records),
+    }
+    for name, expected_payload in expected_payloads.items():
+        _output_path, output_payload = _packet_card_committed_snapshot(
+            typed_outputs,
+            name=name,
+            expected_path=(
+                packet_build_input_path if name == "packet_build_input" else None
+            ),
+        )
+        if output_payload != expected_payload:
+            raise CommandError(f"packet planner replay mismatch for {name}")
+    packet_build_payload = expected_payloads["packet_build_input"]
+    return _PacketPlannerReplay(
+        packet_build_records=tuple(
+            dict(record) for record in plan.packet_build_records
+        ),
+        packet_build_input_sha256=_bytes_sha256(packet_build_payload),
+        selection_records=tuple(dict(record) for record in selection_records),
+        download_records=tuple(dict(record) for record in download_records),
+        parser_records=tuple(dict(record) for record in parser_records),
+        clearance_records=tuple(dict(record) for record in clearance_records),
+        clearance_sha256=_bytes_sha256(clearance_payload),
+        parser_manifest_sha256=_bytes_sha256(parser_payload),
+        parser_record_count=len(parser_records),
+        prediction_unit_records=tuple(
+            dict(record) for record in prediction_unit_records
+        ),
+        model_registry=registry,
+        model_registry_sha256=_bytes_sha256(model_registry_payload),
+        planner_run_card_sha256=run_card_sha256,
+        planner_run_card_path=str(run_card_path.resolve()),
+        authenticated_materialization_lineage=materialization_lineage,
+    )
+
+
+def _replay_packet_build_run_card(
+    card: Mapping[str, object],
+    *,
+    run_card_sha256: str,
+    packet_build_records: Sequence[Mapping[str, Any]],
+    packets_path: Path,
+) -> _PacketBuildReplay:
+    """Re-run packet assembly and byte-compare every committed output."""
+
+    parameters = card.get("deterministic_parameters")
+    outputs = card.get("output_commitments")
+    if not isinstance(parameters, Mapping):
+        raise CommandError("packet build run card lacks deterministic parameters")
+    typed_parameters = cast(Mapping[str, object], parameters)
+    if set(typed_parameters) != {"ablation"}:
+        raise CommandError("packet build run card lacks deterministic parameters")
+    if not isinstance(outputs, Mapping):
+        raise CommandError("packet build run card lacks exact output commitments")
+    typed_outputs = cast(Mapping[str, object], outputs)
+    if set(typed_outputs) != {
+        "packets",
+        "case_packets",
+        "packet_audit",
+    }:
+        raise CommandError("packet build run card lacks exact output commitments")
+    ablation_value = typed_parameters.get("ablation")
+    if not isinstance(ablation_value, str):
+        raise CommandError("packet build ablation parameter is invalid")
+    try:
+        ablation = PacketAblation(ablation_value)
+    except ValueError as exc:
+        raise CommandError("packet build ablation parameter is invalid") from exc
+    assemblies = tuple(
+        _model_packet_assembly(record, ablation=ablation)
+        for record in packet_build_records
+    )
+    expected_payloads = {
+        "packets": _projection_jsonl_bytes(
+            assembly.model_packet.to_record() for assembly in assemblies
+        ),
+        "case_packets": _projection_jsonl_bytes(
+            assembly.case_packet.to_record() for assembly in assemblies
+        ),
+        "packet_audit": _projection_jsonl_bytes(
+            assembly.audit_bundle for assembly in assemblies
+        ),
+    }
+    for name, expected_payload in expected_payloads.items():
+        _output_path, output_payload = _packet_card_committed_snapshot(
+            typed_outputs,
+            name=name,
+            expected_path=(packets_path if name == "packets" else None),
+        )
+        if output_payload != expected_payload:
+            raise CommandError(f"packet build replay mismatch for {name}")
+    packets_payload = expected_payloads["packets"]
+    return _PacketBuildReplay(
+        packet_records=tuple(
+            dict(assembly.model_packet.to_record()) for assembly in assemblies
+        ),
+        packets_sha256=_bytes_sha256(packets_payload),
+        build_run_card_sha256=run_card_sha256,
+    )
+
+
+def _verify_packet_raw_artifacts_snapshot_binding(
+    *,
+    raw_html_dir: Path,
+    raw_artifacts_manifest_path: Path,
+    screening_snapshot_manifest_path: Path,
+) -> None:
+    """Bind packet docket bytes to the authenticated screening snapshot."""
+
+    snapshot_path = screening_snapshot_manifest_path.parent
+    snapshot_raw_artifacts_path = snapshot_path / "raw-artifacts.jsonl"
+    _require_materializer_artifact(
+        snapshot_raw_artifacts_path,
+        label="screening snapshot raw artifacts",
+    )
+    _require_materializer_artifact(
+        raw_artifacts_manifest_path,
+        label="packet raw-artifact manifest",
+    )
+    expected_records = _owned_raw_records_from_snapshot(snapshot_path)
+    if _read_records(raw_artifacts_manifest_path) != expected_records:
+        raise CommandError(
+            "packet raw-artifact manifest differs from authenticated snapshot"
+        )
+    _packet_card_committed_directory(
+        {"raw_html_dir": str(raw_html_dir)},
+        name="raw_html_dir",
+        expected_path=raw_html_dir,
+    )
+
+
+def _authenticated_materialization_snapshot_manifest_path(
+    run_card: Mapping[str, object],
+) -> Path:
+    """Return the snapshot manifest named by an already-verified materialization."""
+
+    raw_inputs = run_card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise CommandError("materialization run card lacks exact input paths")
+    input_paths = tuple(Path(str(path)) for path in cast(Sequence[object], raw_inputs))
+    if len(input_paths) not in {12, 13}:
+        raise CommandError("materialization run card input paths differ")
+    return input_paths[3]
+
+
+def _normalize_expected_sha256(value: str, *, label: str) -> str:
+    normalized = value if value.startswith("sha256:") else f"sha256:{value}"
+    if not _valid_prefixed_sha256(normalized):
+        raise CommandError(f"{label} must be a SHA-256 digest")
+    return normalized
+
+
+def _provider_journal_stage_snapshot(
+    path: Path,
+    *,
+    stage: str,
+) -> tuple[tuple[JsonRecord, ...], str]:
+    """Capture the immutable logical rows for one provider-backed stage."""
+
+    _require_materializer_artifact(path, label=f"{stage} provider journal")
+    connection: sqlite3.Connection | None = None
+    try:
+        connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA query_only = ON")
+        rows = connection.execute(
+            """SELECT * FROM provider_attempts
+            WHERE stage = ?
+            ORDER BY logical_call_key, attempt_ordinal""",
+            (stage,),
+        ).fetchall()
+    except sqlite3.Error as exc:
+        raise CommandError(f"cannot replay {stage} provider journal: {exc}") from exc
+    finally:
+        if connection is not None:
+            connection.close()
+    records = tuple(dict(row) for row in rows)
+    if not records:
+        raise CommandError(f"{stage} provider journal has no attempts")
+    if any(
+        record.get("status") not in {"settled", "failed", "ambiguous"}
+        for record in records
+    ):
+        raise CommandError(f"{stage} provider journal has non-terminal attempts")
+    return records, _canonical_json_sha256(records)
+
+
+def _validate_provider_journal_stage_commitment(
+    value: object,
+    *,
+    path: Path,
+    stage: str,
+) -> tuple[JsonRecord, ...]:
+    if not isinstance(value, Mapping):
+        raise CommandError(f"{stage} run card lacks provider journal commitment")
+    commitment = cast(Mapping[str, object], value)
+    records, digest = _provider_journal_stage_snapshot(path, stage=stage)
+    expected = {
+        "path": str(path.resolve()),
+        "stage": stage,
+        "record_count": len(records),
+        "records_sha256": digest,
+    }
+    if dict(commitment) != expected:
+        raise CommandError(f"{stage} provider journal commitment mismatch")
+    return records
+
+
+def _verify_parser_packet_authority(
+    *,
+    parse_plan_run_card_path: Path,
+    parser_run_card_path: Path,
+    parser_manifest_path: Path,
+    parser_records: Sequence[Mapping[str, Any]],
+    parser_manifest_sha256: str,
+    parser_record_count: int,
+    selection_path: Path,
+    selection_records: Sequence[Mapping[str, Any]],
+    download_manifest_path: Path,
+    download_records: Sequence[Mapping[str, Any]],
+    clearance_path: Path,
+    clearance_records: Sequence[Mapping[str, Any]],
+    clearance_sha256: str,
+    materialization_run_card_path: Path,
+    document_root: Path,
+    markdown_root: Path,
+) -> None:
+    """Replay parse planning and bind Markdown to materialized source bytes."""
+
+    plan_card, plan_card_payload = _executed_stage_run_card_snapshot(
+        parse_plan_run_card_path,
+        stage="plan-parse-documents",
+        paid=False,
+    )
+    _require_materializer_artifact(
+        parser_run_card_path, label="parse-documents run card"
+    )
+    _require_materializer_artifact(clearance_path, label="parser clearance input")
+    parser_card_payload = parser_run_card_path.read_bytes()
+    parser_card = _projection_json_object(
+        parser_card_payload,
+        source=parser_run_card_path,
+    )
+    _validate_parser_run_card_commitments(
+        parser_card,
+        parser_manifest_path=parser_manifest_path,
+        parser_manifest_sha256=parser_manifest_sha256,
+        clearance_path=clearance_path,
+        clearance_sha256=clearance_sha256,
+        parser_record_count=parser_record_count,
+    )
+    plan_inputs = _stage_card_input_paths(
+        plan_card,
+        stage="plan-parse-documents",
+        expected_count=len(cast(Sequence[object], plan_card["input_paths"])),
+    )
+    expected_leading_inputs = (
+        selection_path,
+        download_manifest_path,
+        clearance_path,
+    )
+    if len(plan_inputs) not in {6, 7} or tuple(
+        path.resolve() for path in plan_inputs[:3]
+    ) != tuple(path.resolve() for path in expected_leading_inputs):
+        raise CommandError("parse planning inputs differ from packet authority")
+    if materialization_run_card_path.resolve() not in {
+        path.resolve() for path in plan_inputs[3:]
+    }:
+        raise CommandError("parse planning lacks materialization authority")
+    source_commitments = plan_card.get("source_commitments")
+    if not isinstance(source_commitments, Mapping):
+        raise CommandError("plan-parse-documents run card lacks source commitments")
+    typed_plan_sources = cast(Mapping[str, object], source_commitments)
+    if set(typed_plan_sources) != {
+        f"input_{index:02d}" for index in range(len(plan_inputs))
+    }:
+        raise CommandError("plan-parse-documents source commitments are incomplete")
+    for index, path in enumerate(plan_inputs):
+        _packet_card_committed_snapshot(
+            typed_plan_sources,
+            name=f"input_{index:02d}",
+            expected_path=path,
+        )
+    plan_outputs = plan_card.get("output_commitments")
+    if not isinstance(plan_outputs, Mapping):
+        raise CommandError("plan-parse-documents run card lacks output commitments")
+    requests_path, requests_payload = _packet_card_committed_snapshot(
+        cast(Mapping[str, object], plan_outputs),
+        name="parse_requests",
+    )
+    parser_sources = parser_card.get("source_commitments")
+    if not isinstance(parser_sources, Mapping):
+        raise CommandError("parse-documents run card lacks source commitments")
+    committed_requests_path, parser_requests_payload = _packet_card_committed_snapshot(
+        cast(Mapping[str, object], parser_sources),
+        name="requests",
+        expected_path=requests_path,
+    )
+    if requests_payload != parser_requests_payload:
+        raise CommandError("parse requests differ from authenticated parse plan")
+    request_records = _projection_jsonl_records(
+        requests_payload,
+        source=committed_requests_path,
+    )
+    if len(request_records) != len(download_records):
+        raise CommandError("parse request coverage differs from materialized documents")
+    requests_by_key = {
+        (
+            _required_str(record, "candidate_id"),
+            _required_str(record, "source_document_id"),
+        ): record
+        for record in request_records
+    }
+    if len(requests_by_key) != len(request_records):
+        raise CommandError("parse requests contain duplicate documents")
+    for download in download_records:
+        key = (
+            _required_str(download, "candidate_id"),
+            _required_str(download, "source_document_id"),
+        )
+        request = requests_by_key.get(key)
+        if request is None:
+            raise CommandError(f"parse request missing materialized document: {key}")
+        expected = _planned_parse_document_request(
+            download,
+            document_root=document_root,
+            markdown_output_root=Path("markdown"),
+        )
+        for name in (
+            "candidate_id",
+            "source_document_id",
+            "input_path",
+            "expected_sha256",
+            "expected_byte_count",
+            "materialization_schema_version",
+        ):
+            if request.get(name) != expected.get(name):
+                raise CommandError(f"parse request materialization mismatch: {key}")
+        markdown_path = Path(_required_str(request, "markdown_output_path"))
+        expected_name = (
+            f"{safe_path_component(key[1], field_name='source_document_id')}.md"
+        )
+        resolved_markdown = (
+            markdown_path
+            if markdown_path.is_absolute()
+            else markdown_root.parent / markdown_path
+        )
+        if (
+            resolved_markdown.resolve().parent.name
+            != safe_path_component(key[0], field_name="candidate_id")
+            or resolved_markdown.name != expected_name
+            or not resolved_markdown.resolve().is_relative_to(markdown_root.resolve())
+        ):
+            raise CommandError(f"parse request Markdown destination mismatch: {key}")
+        verify_parse_request_bytes(request)
+    require_cleared_parse_requests(request_records, clearance_records)
+
+    parser_by_key = {
+        (
+            _required_str(record, "candidate_id"),
+            _required_str(record, "source_document_id"),
+        ): record
+        for record in parser_records
+    }
+    if set(parser_by_key) != set(requests_by_key):
+        raise CommandError("parser manifest coverage differs from parse requests")
+    for key, request in requests_by_key.items():
+        record = parser_by_key[key]
+        if (
+            record.get("status") != "succeeded"
+            or record.get("source_sha256") != request.get("expected_sha256")
+            or record.get("source_byte_count") != request.get("expected_byte_count")
+        ):
+            raise CommandError(f"parser manifest source binding mismatch: {key}")
+    if parse_plan_run_card_path.read_bytes() != plan_card_payload:
+        raise CommandError("parse-plan run card changed while being replayed")
+    if parser_run_card_path.read_bytes() != parser_card_payload:
+        raise CommandError("parser run card changed while being replayed")
+
+
+def _executed_stage_run_card_snapshot(
+    path: Path,
+    *,
+    stage: str,
+    paid: bool,
+) -> tuple[JsonRecord, bytes]:
+    _require_materializer_artifact(path, label=f"{stage} run card")
+    payload = path.read_bytes()
+    card = _projection_json_object(payload, source=path)
+    if (
+        card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or card.get("stage") != stage
+        or card.get("status") != "completed"
+        or card.get("dry_run") is not False
+        or card.get("execute") is not True
+        or card.get("paid_activity_requested") is not paid
+        or card.get("paid_activity_executed") is not paid
+    ):
+        raise CommandError(f"packet authority requires an executed {stage} run card")
+    return card, payload
+
+
+def _stage_card_snapshots(
+    commitments: object,
+    *,
+    names_and_paths: Sequence[tuple[str, Path]],
+    label: str,
+) -> dict[str, tuple[Path, bytes]]:
+    if not isinstance(commitments, Mapping):
+        raise CommandError(f"{label} run card lacks exact commitments")
+    typed = cast(Mapping[str, object], commitments)
+    if set(typed) != {name for name, _path in names_and_paths}:
+        raise CommandError(f"{label} run card commitments are incomplete")
+    snapshots: dict[str, tuple[Path, bytes]] = {}
+    for name, path in names_and_paths:
+        committed_path, payload = _packet_card_committed_snapshot(
+            typed,
+            name=name,
+            expected_path=path,
+        )
+        snapshots[name] = (committed_path, payload)
+    return snapshots
+
+
+def _stage_card_records(
+    commitments: object,
+    *,
+    names_and_paths: Sequence[tuple[str, Path]],
+    label: str,
+) -> dict[str, tuple[JsonRecord, ...]]:
+    records: dict[str, tuple[JsonRecord, ...]] = {}
+    for name, (committed_path, payload) in _stage_card_snapshots(
+        commitments,
+        names_and_paths=names_and_paths,
+        label=label,
+    ).items():
+        records[name] = tuple(
+            _projection_committed_records(payload, source=committed_path)
+        )
+    return records
+
+
+def _stage_card_input_paths(
+    card: Mapping[str, Any],
+    *,
+    stage: str,
+    expected_count: int,
+) -> tuple[Path, ...]:
+    value = card.get("input_paths")
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise CommandError(f"{stage} run card lacks exact input paths")
+    paths = tuple(Path(str(item)) for item in cast(Sequence[object], value))
+    if len(paths) != expected_count:
+        raise CommandError(f"{stage} run card input paths differ")
+    return paths
+
+
+def _provider_settled_by_candidate(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    stage: str,
+) -> dict[str, Mapping[str, Any]]:
+    settled: dict[str, Mapping[str, Any]] = {}
+    for record in records:
+        if record.get("status") != "settled":
+            continue
+        candidate_id = _required_str(record, "candidate_id")
+        if candidate_id in settled:
+            raise CommandError(
+                f"{stage} provider journal has duplicate settled candidate"
+            )
+        if hashlib.sha256(
+            _required_str(record, "prompt_text").encode("utf-8")
+        ).hexdigest() != _required_str(record, "prompt_sha256"):
+            raise CommandError(f"{stage} provider journal prompt hash mismatch")
+        settled[candidate_id] = record
+    if not settled:
+        raise CommandError(f"{stage} provider journal has no settled attempts")
+    return settled
+
+
+def _json_mapping_field(
+    record: Mapping[str, Any], name: str, *, label: str
+) -> JsonRecord:
+    raw = record.get(name)
+    if not isinstance(raw, str):
+        raise CommandError(f"{label} lacks {name}")
+    try:
+        loaded = _loads_json(raw)
+    except ValueError as exc:
+        raise CommandError(f"{label} has invalid {name}") from exc
+    if not isinstance(loaded, Mapping):
+        raise CommandError(f"{label} has invalid {name}")
+    return dict(cast(Mapping[str, Any], loaded))
+
+
+def _verify_unitization_provider_replay(
+    *,
+    provider_records: Sequence[Mapping[str, Any]],
+    raw_records: Sequence[Mapping[str, Any]],
+    audit_records: Sequence[Mapping[str, Any]],
+) -> None:
+    settled = _provider_settled_by_candidate(provider_records, stage="llm-unitize")
+    raw_by_candidate = {
+        _required_str(record, "candidate_id"): record for record in raw_records
+    }
+    audits_by_candidate = {
+        _required_str(record, "candidate_id"): record
+        for record in audit_records
+        if record.get("status") in {"succeeded", "adjudication_pending"}
+    }
+    if set(settled) != set(raw_by_candidate) or set(settled) != set(
+        audits_by_candidate
+    ):
+        raise CommandError("llm-unitize provider journal coverage mismatch")
+    for candidate_id, provider_record in settled.items():
+        audit = audits_by_candidate[candidate_id]
+        raw = raw_by_candidate[candidate_id]
+        if provider_record.get("model_key") != audit.get(
+            "model_key"
+        ) or provider_record.get("model_registry_sha256") != audit.get(
+            "model_registry_sha256"
+        ):
+            raise CommandError("llm-unitize provider identity mismatch")
+        normalized = _json_mapping_field(
+            provider_record,
+            "normalized_response_json",
+            label="llm-unitize provider attempt",
+        )
+        if _bytes_sha256(
+            _required_str(normalized, "raw_output").encode("utf-8")
+        ) != audit.get("raw_output_sha256"):
+            raise CommandError("llm-unitize provider response hash mismatch")
+        reconstruction = _json_mapping_field(
+            provider_record,
+            "reconstructed_result_json",
+            label="llm-unitize provider attempt",
+        )
+        if reconstruction.get("prediction_units") != raw.get("prediction_units"):
+            raise CommandError("llm-unitize provider reconstruction mismatch")
+        if reconstruction.get("review_items") != audit.get("review_items"):
+            raise CommandError("llm-unitize review reconstruction mismatch")
+
+
+def _verify_structural_provider_replay(
+    *,
+    provider_records: Sequence[Mapping[str, Any]],
+    flag_records: Sequence[Mapping[str, Any]],
+    audit_records: Sequence[Mapping[str, Any]],
+) -> None:
+    settled = _provider_settled_by_candidate(
+        provider_records,
+        stage="llm-review-stage-a",
+    )
+    audits_by_candidate = {
+        _required_str(record, "candidate_id"): record for record in audit_records
+    }
+    flags_by_candidate: dict[str, list[JsonRecord]] = {
+        candidate_id: [] for candidate_id in settled
+    }
+    for flag in flag_records:
+        candidate_id = _required_str(flag, "candidate_id")
+        if candidate_id not in flags_by_candidate:
+            raise CommandError("llm-review-stage-a provider coverage mismatch")
+        flags_by_candidate[candidate_id].append(
+            {
+                name: flag.get(name)
+                for name in (
+                    "flag_type",
+                    "affected_unit_ids",
+                    "source_document_ids",
+                    "citation_excerpt",
+                    "explanation",
+                )
+            }
+        )
+    if set(settled) != set(audits_by_candidate):
+        raise CommandError("llm-review-stage-a provider journal coverage mismatch")
+    for candidate_id, provider_record in settled.items():
+        audit = audits_by_candidate[candidate_id]
+        if (
+            provider_record.get("model_key") != audit.get("model_key")
+            or provider_record.get("model_registry_sha256")
+            != audit.get("model_registry_sha256")
+            or provider_record.get("prompt_sha256") != audit.get("prompt_sha256")
+        ):
+            raise CommandError("llm-review-stage-a provider identity mismatch")
+        normalized = _json_mapping_field(
+            provider_record,
+            "normalized_response_json",
+            label="llm-review-stage-a provider attempt",
+        )
+        if _bytes_sha256(
+            _required_str(normalized, "raw_output").encode("utf-8")
+        ) != audit.get("raw_output_sha256"):
+            raise CommandError("llm-review-stage-a provider response hash mismatch")
+        reconstruction = _json_mapping_field(
+            provider_record,
+            "reconstructed_result_json",
+            label="llm-review-stage-a provider attempt",
+        )
+        if reconstruction.get("structural_flags") != flags_by_candidate[candidate_id]:
+            raise CommandError("llm-review-stage-a provider reconstruction mismatch")
+
+
+def _verify_stage_a_packet_authority(
+    *,
+    selection_records: Sequence[Mapping[str, Any]],
+    parser_records: Sequence[Mapping[str, Any]],
+    raw_prediction_units_path: Path,
+    unitization_audit_path: Path,
+    unitization_run_card_path: Path,
+    unitization_provider_journal_path: Path,
+    original_review_path: Path,
+    structural_flags_path: Path,
+    structural_review_audit_path: Path,
+    structural_review_run_card_path: Path,
+    structural_review_provider_journal_path: Path,
+    structural_review_registry_path: Path,
+    structural_review_model_key: str,
+    merged_review_path: Path,
+    finalized_prediction_unit_records: Sequence[Mapping[str, Any]],
+    finalized_prediction_units_path: Path,
+    adjudications_path: Path,
+    apply_unitization_run_card_path: Path,
+) -> _StageAReplay:
+    """Authenticate finalized Stage A units before packet bytes are emitted."""
+
+    unitization_card = _read_json_object(unitization_run_card_path)
+    if (
+        unitization_card.get("lineage_schema_version")
+        == _STAGE_A_UNITIZATION_LINEAGE_SCHEMA_VERSION
+    ):
+        lineage = _verify_stage_a_unitization_run_card(
+            unitization_run_card_path,
+            expected_prediction_units_path=raw_prediction_units_path,
+            expected_review_queue_path=original_review_path,
+            expected_audit_path=unitization_audit_path,
+        )
+        if tuple(lineage.selection_records) != tuple(selection_records):
+            raise CommandError("llm-unitize selection differs from packet selection")
+        if tuple(lineage.parser_records) != tuple(parser_records):
+            raise CommandError(
+                "llm-unitize parser manifest differs from packet parser authority"
+            )
+        if (
+            unitization_provider_journal_path.resolve()
+            != lineage.provider_journal_path.resolve()
+            or structural_review_provider_journal_path.resolve()
+            != lineage.provider_journal_path.resolve()
+        ):
+            raise CommandError("Stage A packet provider journal authority differs")
+        _verify_stage_a_review_run_card(
+            structural_review_run_card_path,
+            lineage=lineage,
+            llm_unitization_run_card_path=unitization_run_card_path,
+            expected_review_queue_path=merged_review_path,
+            expected_structural_flags_path=structural_flags_path,
+            expected_audit_path=structural_review_audit_path,
+            expected_registry_path=structural_review_registry_path,
+            expected_model_key=structural_review_model_key,
+        )
+        provider_caps_path = _stage_a_committed_path(
+            lineage.input_commitments,
+            "provider_cycle_caps",
+        )
+        _verify_unitization_review_run_card(
+            apply_unitization_run_card_path,
+            llm_unitization_run_card_path=unitization_run_card_path,
+            llm_review_stage_a_run_card_path=structural_review_run_card_path,
+            raw_prediction_units_path=raw_prediction_units_path,
+            original_review_queue_path=original_review_path,
+            review_queue_path=merged_review_path,
+            adjudications_path=adjudications_path,
+            provider_cycle_caps_path=provider_caps_path,
+            provider_journal_path=lineage.provider_journal_path,
+            finalized_path=finalized_prediction_units_path,
+        )
+        raw_records = tuple(_read_records(raw_prediction_units_path))
+        audit_records = tuple(_read_records(unitization_audit_path))
+        original_review_records = tuple(_read_records(original_review_path))
+        structural_flag_records = tuple(_read_records(structural_flags_path))
+        structural_audit_records = tuple(_read_records(structural_review_audit_path))
+        merged_review_records = tuple(_read_records(merged_review_path))
+        adjudication_records = tuple(_read_records(adjudications_path))
+        finalized_records = tuple(_read_records(finalized_prediction_units_path))
+        if finalized_records != tuple(finalized_prediction_unit_records):
+            raise CommandError("Stage A finalized units differ from apply output")
+        registry_payload = structural_review_registry_path.read_bytes()
+        structural_review_registry = _model_registry_from_payload(
+            registry_payload,
+            source=structural_review_registry_path,
+        )
+        try:
+            verify_stage_a_readiness_provenance(
+                selection_records=selection_records,
+                raw_prediction_unit_records=raw_records,
+                original_review_records=original_review_records,
+                structural_flag_records=structural_flag_records,
+                structural_review_audit_records=structural_audit_records,
+                merged_review_records=merged_review_records,
+                finalized_prediction_unit_records=finalized_records,
+                adjudication_records=adjudication_records,
+                reviewer_registry_entries=structural_review_registry.entries,
+                reviewer_registry_sha256=_bytes_sha256(registry_payload).removeprefix(
+                    "sha256:"
+                ),
+                reviewer_model_key=structural_review_model_key,
+            )
+        except (ReadinessProvenanceError, UnitizationReviewError) as exc:
+            raise CommandError(str(exc)) from exc
+        return _StageAReplay(
+            raw_prediction_unit_records=raw_records,
+            unitization_audit_records=audit_records,
+            original_review_records=original_review_records,
+            structural_flag_records=structural_flag_records,
+            structural_review_audit_records=structural_audit_records,
+            merged_review_records=merged_review_records,
+            adjudication_records=adjudication_records,
+        )
+
+    try:
+        unitize_card, unitize_card_payload = _executed_stage_run_card_snapshot(
+            unitization_run_card_path,
+            stage="llm-unitize",
+            paid=True,
+        )
+        unitize_input_paths = _stage_card_input_paths(
+            unitize_card,
+            stage="llm-unitize",
+            expected_count=4,
+        )
+        unitize_sources = _stage_card_records(
+            unitize_card.get("source_commitments"),
+            names_and_paths=(
+                ("selection", unitize_input_paths[0]),
+                ("parser_manifest", unitize_input_paths[1]),
+                ("model_registry", unitize_input_paths[2]),
+                ("provider_cycle_caps", unitize_input_paths[3]),
+            ),
+            label="llm-unitize",
+        )
+        if tuple(unitize_sources["selection"]) != tuple(selection_records):
+            raise CommandError("llm-unitize selection differs from packet selection")
+        if tuple(unitize_sources["parser_manifest"]) != tuple(parser_records):
+            raise CommandError(
+                "llm-unitize parser manifest differs from packet parser authority"
+            )
+        unitize_outputs = _stage_card_records(
+            unitize_card.get("output_commitments"),
+            names_and_paths=(
+                ("prediction_units", raw_prediction_units_path),
+                ("unitization_audit", unitization_audit_path),
+                ("original_review_queue", original_review_path),
+            ),
+            label="llm-unitize",
+        )
+        unitize_provider_records = _validate_provider_journal_stage_commitment(
+            unitize_card.get("provider_journal_commitment"),
+            path=unitization_provider_journal_path,
+            stage="llm-unitize",
+        )
+        _verify_unitization_provider_replay(
+            provider_records=unitize_provider_records,
+            raw_records=unitize_outputs["prediction_units"],
+            audit_records=unitize_outputs["unitization_audit"],
+        )
+
+        review_card, review_card_payload = _executed_stage_run_card_snapshot(
+            structural_review_run_card_path,
+            stage="llm-review-stage-a",
+            paid=True,
+        )
+        review_input_paths = _stage_card_input_paths(
+            review_card,
+            stage="llm-review-stage-a",
+            expected_count=6,
+        )
+        review_sources = _stage_card_records(
+            review_card.get("source_commitments"),
+            names_and_paths=(
+                ("selection", review_input_paths[0]),
+                ("parser_manifest", review_input_paths[1]),
+                ("prediction_units", raw_prediction_units_path),
+                ("original_review_queue", original_review_path),
+                ("model_registry", structural_review_registry_path),
+                ("provider_cycle_caps", review_input_paths[5]),
+            ),
+            label="llm-review-stage-a",
+        )
+        if tuple(review_sources["selection"]) != tuple(selection_records):
+            raise CommandError(
+                "llm-review-stage-a selection differs from packet selection"
+            )
+        if tuple(review_sources["parser_manifest"]) != tuple(parser_records):
+            raise CommandError(
+                "llm-review-stage-a parser manifest differs from packet "
+                "parser authority"
+            )
+        if review_sources["prediction_units"] != unitize_outputs["prediction_units"]:
+            raise CommandError("Stage A reviewer raw-unit source mismatch")
+        if (
+            review_sources["original_review_queue"]
+            != unitize_outputs["original_review_queue"]
+        ):
+            raise CommandError("Stage A reviewer queue source mismatch")
+        review_outputs = _stage_card_records(
+            review_card.get("output_commitments"),
+            names_and_paths=(
+                ("structural_flags", structural_flags_path),
+                ("merged_review_queue", merged_review_path),
+                ("structural_review_audit", structural_review_audit_path),
+            ),
+            label="llm-review-stage-a",
+        )
+        review_provider_records = _validate_provider_journal_stage_commitment(
+            review_card.get("provider_journal_commitment"),
+            path=structural_review_provider_journal_path,
+            stage="llm-review-stage-a",
+        )
+        _verify_structural_provider_replay(
+            provider_records=review_provider_records,
+            flag_records=review_outputs["structural_flags"],
+            audit_records=review_outputs["structural_review_audit"],
+        )
+
+        apply_card, apply_card_payload = _executed_stage_run_card_snapshot(
+            apply_unitization_run_card_path,
+            stage="apply-unitization-review",
+            paid=False,
+        )
+        apply_sources = _stage_card_records(
+            apply_card.get("source_commitments"),
+            names_and_paths=(
+                ("prediction_units", raw_prediction_units_path),
+                ("merged_review_queue", merged_review_path),
+                ("adjudications", adjudications_path),
+            ),
+            label="apply-unitization-review",
+        )
+        if apply_sources["prediction_units"] != unitize_outputs["prediction_units"]:
+            raise CommandError("Stage A apply raw-unit source mismatch")
+        if (
+            apply_sources["merged_review_queue"]
+            != review_outputs["merged_review_queue"]
+        ):
+            raise CommandError("Stage A apply review-queue source mismatch")
+        apply_outputs = _stage_card_records(
+            apply_card.get("output_commitments"),
+            names_and_paths=(
+                ("finalized_prediction_units", finalized_prediction_units_path),
+            ),
+            label="apply-unitization-review",
+        )
+        if tuple(apply_outputs["finalized_prediction_units"]) != tuple(
+            finalized_prediction_unit_records
+        ):
+            raise CommandError("Stage A finalized units differ from apply output")
+
+        registry_commitment = cast(
+            Mapping[str, object],
+            cast(Mapping[str, object], review_card["source_commitments"])[
+                "model_registry"
+            ],
+        )
+        registry_payload = structural_review_registry_path.read_bytes()
+        if _bytes_sha256(registry_payload) != registry_commitment.get("sha256"):
+            raise CommandError("Stage A reviewer registry commitment mismatch")
+        structural_review_registry = _model_registry_from_payload(
+            registry_payload,
+            source=structural_review_registry_path,
+        )
+        verify_stage_a_readiness_provenance(
+            selection_records=selection_records,
+            raw_prediction_unit_records=unitize_outputs["prediction_units"],
+            original_review_records=unitize_outputs["original_review_queue"],
+            structural_flag_records=review_outputs["structural_flags"],
+            structural_review_audit_records=review_outputs["structural_review_audit"],
+            merged_review_records=review_outputs["merged_review_queue"],
+            finalized_prediction_unit_records=finalized_prediction_unit_records,
+            adjudication_records=apply_sources["adjudications"],
+            reviewer_registry_entries=structural_review_registry.entries,
+            reviewer_registry_sha256=_bytes_sha256(registry_payload).removeprefix(
+                "sha256:"
+            ),
+            reviewer_model_key=structural_review_model_key,
+        )
+        for path, payload, label in (
+            (unitization_run_card_path, unitize_card_payload, "llm-unitize"),
+            (
+                structural_review_run_card_path,
+                review_card_payload,
+                "llm-review-stage-a",
+            ),
+            (
+                apply_unitization_run_card_path,
+                apply_card_payload,
+                "apply-unitization-review",
+            ),
+        ):
+            if path.read_bytes() != payload:
+                raise CommandError(f"{label} run card changed while being replayed")
+        return _StageAReplay(
+            raw_prediction_unit_records=unitize_outputs["prediction_units"],
+            unitization_audit_records=unitize_outputs["unitization_audit"],
+            original_review_records=unitize_outputs["original_review_queue"],
+            structural_flag_records=review_outputs["structural_flags"],
+            structural_review_audit_records=review_outputs["structural_review_audit"],
+            merged_review_records=review_outputs["merged_review_queue"],
+            adjudication_records=apply_sources["adjudications"],
+        )
+    except (
+        ReadinessProvenanceError,
+        UnitizationReviewError,
+        IndexError,
+        KeyError,
+        TypeError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+
+
+def _validate_packet_input_run_card(
+    run_card_path: Path,
+    *,
+    packet_build_input_path: Path,
+    selection_path: Path,
+    download_manifest_path: Path,
+    parser_manifest_path: Path,
+    clearance_path: Path,
+    prediction_units_path: Path,
+    model_registry_path: Path,
+    raw_html_dir: Path,
+    raw_artifacts_manifest_path: Path,
+    document_root: Path,
+    markdown_root: Path,
+    materialization_run_card_path: Path,
+    resolved_post_recovery_documents_path: Path | None,
+) -> _PacketPlannerReplay:
+    """Require the exact executed packet planner to own the build input bytes."""
+
+    _require_materializer_artifact(run_card_path, label="packet planner run card")
+    card_payload = run_card_path.read_bytes()
+    card = _projection_json_object(card_payload, source=run_card_path)
+    if (
+        card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or card.get("stage") != "plan-packet-inputs"
+        or card.get("status") != "completed"
+        or card.get("dry_run") is not False
+        or card.get("execute") is not True
+        or card.get("paid_activity_requested") is not False
+        or card.get("paid_activity_executed") is not False
+    ):
+        raise CommandError("build-packets requires an executed packet planner run card")
+    commitments = card.get("output_commitments")
+    if not isinstance(commitments, Mapping):
+        raise CommandError("packet planner run card lacks output commitments")
+    _validate_named_path_commitment(
+        cast(Mapping[str, object], commitments),
+        name="packet_build_input",
+        expected_path=packet_build_input_path,
+        expected_sha256=_path_sha256(packet_build_input_path),
+    )
+    expected_lineage = _packet_materialization_lineage_commitments(
+        selection_path=selection_path,
+        download_manifest_path=download_manifest_path,
+        clearance_path=clearance_path,
+        document_root=document_root,
+        materialization_run_card_path=materialization_run_card_path,
+    )
+    if card.get("authenticated_materialization_lineage") != expected_lineage:
+        raise CommandError(
+            "packet planner run card belongs to different materialized inputs"
+        )
+    replay = _replay_packet_planner_run_card(
+        card,
+        run_card_sha256=_bytes_sha256(card_payload),
+        run_card_path=run_card_path,
+        packet_build_input_path=packet_build_input_path,
+        selection_path=selection_path,
+        download_manifest_path=download_manifest_path,
+        parser_manifest_path=parser_manifest_path,
+        clearance_path=clearance_path,
+        prediction_units_path=prediction_units_path,
+        model_registry_path=model_registry_path,
+        raw_html_dir=raw_html_dir,
+        raw_artifacts_manifest_path=raw_artifacts_manifest_path,
+        document_root=document_root,
+        markdown_root=markdown_root,
+        resolved_post_recovery_documents_path=(resolved_post_recovery_documents_path),
+    )
+    if run_card_path.read_bytes() != card_payload:
+        raise CommandError("packet planner run card changed while being replayed")
+    return replay
+
+
+def _validate_packet_build_run_card(
+    run_card_path: Path,
+    *,
+    packet_input_run_card_path: Path,
+    packet_build_input_path: Path,
+    packet_build_records: Sequence[Mapping[str, Any]],
+    packets_path: Path,
+    selection_path: Path,
+    download_manifest_path: Path,
+    clearance_path: Path,
+    document_root: Path,
+    materialization_run_card_path: Path,
+    expected_model_registry_sha256: str,
+    packet_input_run_card_sha256: str | None = None,
+    authenticated_materialization_lineage: Sequence[Mapping[str, Any]] | None = None,
+) -> _PacketBuildReplay:
+    """Replay the exact planner, materialization, input, and packet outputs."""
+
+    _require_materializer_artifact(run_card_path, label="packet build run card")
+    card_payload = run_card_path.read_bytes()
+    card = _projection_json_object(card_payload, source=run_card_path)
+    if (
+        card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or card.get("stage") != "build-packets"
+        or card.get("status") != "completed"
+        or card.get("dry_run") is not False
+        or card.get("execute") is not True
+        or card.get("paid_activity_requested") is not False
+        or card.get("paid_activity_executed") is not False
+    ):
+        raise CommandError("finalization requires an executed packet build run card")
+    expected_lineage = (
+        [dict(record) for record in authenticated_materialization_lineage]
+        if authenticated_materialization_lineage is not None
+        else _packet_materialization_lineage_commitments(
+            selection_path=selection_path,
+            download_manifest_path=download_manifest_path,
+            clearance_path=clearance_path,
+            document_root=document_root,
+            materialization_run_card_path=materialization_run_card_path,
+        )
+    )
+    if card.get("authenticated_materialization_lineage") != expected_lineage:
+        raise CommandError(
+            "packet build run card belongs to different materialized inputs"
+        )
+    if card.get("expected_model_registry_sha256") != _normalize_expected_sha256(
+        expected_model_registry_sha256,
+        label="expected model registry digest",
+    ):
+        raise CommandError("packet build run card has different frozen registry digest")
+    source_commitments = card.get("source_commitments")
+    output_commitments = card.get("output_commitments")
+    if not isinstance(source_commitments, Mapping) or not isinstance(
+        output_commitments, Mapping
+    ):
+        raise CommandError("packet build run card lacks exact commitments")
+    typed_sources = cast(Mapping[str, object], source_commitments)
+    typed_outputs = cast(Mapping[str, object], output_commitments)
+    _validate_named_path_commitment(
+        typed_sources,
+        name="packet_input_run_card",
+        expected_path=packet_input_run_card_path,
+        expected_sha256=(
+            packet_input_run_card_sha256
+            if packet_input_run_card_sha256 is not None
+            else _path_sha256(packet_input_run_card_path)
+        ),
+    )
+    _validate_named_path_commitment(
+        typed_sources,
+        name="packet_build_input",
+        expected_path=packet_build_input_path,
+        expected_sha256=_path_sha256(packet_build_input_path),
+    )
+    _validate_named_path_commitment(
+        typed_outputs,
+        name="packets",
+        expected_path=packets_path,
+        expected_sha256=_path_sha256(packets_path),
+    )
+    replay = _replay_packet_build_run_card(
+        card,
+        run_card_sha256=_bytes_sha256(card_payload),
+        packet_build_records=packet_build_records,
+        packets_path=packets_path,
+    )
+    if run_card_path.read_bytes() != card_payload:
+        raise CommandError("packet build run card changed while being replayed")
+    return replay
+
+
 def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
+    dry_run = _acquisition_dry_run(args)
     selection_path = cast(Path, args.selection)
     parser_manifest_path = cast(Path, args.parser_manifest)
+    parser_run_card_path = cast(Path, args.parser_run_card)
     decision_texts_path = cast(Path, args.decision_texts)
     decision_texts_manifest_path = cast(Path, args.decision_texts_manifest)
     decision_texts_run_card_path = cast(Path, args.decision_texts_run_card)
@@ -26091,18 +30053,26 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     materialization_card_path = cast(Path | None, args.materialization_run_card)
     materialized_document_root = cast(Path | None, args.document_root)
     markdown_root = cast(Path, args.markdown_root)
+    raw_html_dir = cast(Path, args.raw_html_dir)
+    raw_artifacts_manifest_path = cast(Path, args.raw_artifacts_manifest)
     raw_prediction_units_path = cast(Path, args.raw_prediction_units)
     llm_unitization_run_card_path = cast(Path | None, args.llm_unitization_run_card)
-    structural_review_run_card_path = cast(
+    llm_review_stage_a_run_card_path = cast(
         Path | None, args.llm_review_stage_a_run_card
     )
     prediction_units_path = cast(Path, args.prediction_units)
     unitization_audit_path = cast(Path, args.llm_unitization_audit)
+    unitization_run_card_path = cast(Path, args.llm_unitize_run_card)
+    unitization_provider_journal_path = cast(Path, args.llm_unitize_provider_journal)
     original_unitization_review_path = cast(
         Path, args.original_unitization_review_queue
     )
     structural_flags_path = cast(Path, args.stage_a_structural_flags)
     structural_review_audit_path = cast(Path, args.stage_a_structural_review_audit)
+    structural_review_run_card_path = cast(Path, args.stage_a_review_run_card)
+    structural_review_provider_journal_path = cast(
+        Path, args.stage_a_review_provider_journal
+    )
     structural_review_registry_path = cast(Path, args.stage_a_review_model_registry)
     structural_review_model_key = cast(str, args.stage_a_review_model_key)
     provider_caps_path = cast(Path | None, args.provider_cycle_caps)
@@ -26115,6 +30085,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     unitization_review_run_card_path = cast(
         Path | None, args.unitization_review_run_card
     )
+    parse_plan_run_card_path = cast(Path, args.parse_plan_run_card)
     labels_path = cast(Path, args.labels)
     label_audit_path = cast(Path, args.llm_label_audit)
     label_run_card_path = cast(Path | None, args.llm_label_run_card)
@@ -26123,8 +30094,11 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     lawyer_review_path = cast(Path, args.lawyer_review_queue)
     lawyer_review_audit_path = cast(Path, args.lawyer_review_audit)
     packet_build_input_path = cast(Path, args.packet_build_input)
+    packet_input_run_card_path = cast(Path | None, args.packet_input_run_card)
     packets_path = cast(Path, args.packets)
+    packet_build_run_card_path = cast(Path | None, args.packet_build_run_card)
     model_registry_path = cast(Path, args.model_registry)
+    expected_model_registry_sha256 = cast(str, args.expected_model_registry_sha256)
     screened_cases_path = cast(Path, args.screened_cases)
     discovery_summary_path = cast(Path, args.discovery_summary)
     discovery_exclusions_path = cast(Path, args.discovery_exclusions)
@@ -26142,6 +30116,18 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         / "run-cards"
         / f"{_TARGET_COHORT_PREPARATION.stage}.json"
     )
+    if not dry_run and (
+        download_manifest_path is None
+        or materialization_card_path is None
+        or materialized_document_root is None
+        or packet_input_run_card_path is None
+        or packet_build_run_card_path is None
+    ):
+        raise CommandError(
+            "executed finalization requires --download-manifest, "
+            "--materialization-run-card, --document-root, "
+            "--packet-input-run-card, and --packet-build-run-card"
+        )
     exclusion_paths = tuple(cast(list[Path], args.exclusion_source))
     complete_ledger_path = _acquisition_path(
         args,
@@ -26156,6 +30142,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     input_paths = (
         selection_path,
         parser_manifest_path,
+        parser_run_card_path,
         decision_texts_path,
         decision_texts_manifest_path,
         decision_texts_run_card_path,
@@ -26172,18 +30159,24 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             else ()
         ),
         markdown_root,
+        raw_html_dir,
+        raw_artifacts_manifest_path,
         raw_prediction_units_path,
         *((llm_unitization_run_card_path,) if llm_unitization_run_card_path else ()),
         *(
-            (structural_review_run_card_path,)
-            if structural_review_run_card_path
+            (llm_review_stage_a_run_card_path,)
+            if llm_review_stage_a_run_card_path
             else ()
         ),
         prediction_units_path,
         unitization_audit_path,
+        unitization_run_card_path,
+        unitization_provider_journal_path,
         original_unitization_review_path,
         structural_flags_path,
         structural_review_audit_path,
+        structural_review_run_card_path,
+        structural_review_provider_journal_path,
         structural_review_registry_path,
         *((provider_caps_path,) if provider_caps_path else ()),
         *((provider_journal_path,) if provider_journal_path else ()),
@@ -26194,6 +30187,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             if unitization_review_run_card_path
             else ()
         ),
+        parse_plan_run_card_path,
         labels_path,
         label_audit_path,
         *((label_run_card_path,) if label_run_card_path else ()),
@@ -26202,7 +30196,17 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         lawyer_review_path,
         lawyer_review_audit_path,
         packet_build_input_path,
+        *(
+            (packet_input_run_card_path,)
+            if packet_input_run_card_path is not None
+            else ()
+        ),
         packets_path,
+        *(
+            (packet_build_run_card_path,)
+            if packet_build_run_card_path is not None
+            else ()
+        ),
         model_registry_path,
         screened_cases_path,
         discovery_summary_path,
@@ -26222,7 +30226,73 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         document_root=materialized_document_root,
     )
     input_paths = (*input_paths, *materialization_paths[1:])
-    dry_run = _acquisition_dry_run(args)
+    packet_plan_replay: _PacketPlannerReplay | None = None
+    packet_build_replay: _PacketBuildReplay | None = None
+    if not dry_run:
+        typed_packet_input_card = cast(Path, packet_input_run_card_path)
+        typed_packet_build_card = cast(Path, packet_build_run_card_path)
+        typed_download_manifest = cast(Path, download_manifest_path)
+        typed_materialization_card = cast(Path, materialization_card_path)
+        typed_document_root = cast(Path, materialized_document_root)
+        resolved_path = (
+            materialization_paths[3] if len(materialization_paths) == 4 else None
+        )
+        packet_plan_replay = _validate_packet_input_run_card(
+            typed_packet_input_card,
+            packet_build_input_path=packet_build_input_path,
+            selection_path=selection_path,
+            download_manifest_path=typed_download_manifest,
+            parser_manifest_path=parser_manifest_path,
+            clearance_path=disclosure_clearance_path,
+            prediction_units_path=prediction_units_path,
+            model_registry_path=model_registry_path,
+            raw_html_dir=raw_html_dir,
+            raw_artifacts_manifest_path=raw_artifacts_manifest_path,
+            document_root=typed_document_root,
+            markdown_root=markdown_root,
+            materialization_run_card_path=typed_materialization_card,
+            resolved_post_recovery_documents_path=resolved_path,
+        )
+        packet_build_replay = _validate_packet_build_run_card(
+            typed_packet_build_card,
+            packet_input_run_card_path=typed_packet_input_card,
+            packet_build_input_path=packet_build_input_path,
+            packet_build_records=packet_plan_replay.packet_build_records,
+            packets_path=packets_path,
+            selection_path=selection_path,
+            download_manifest_path=typed_download_manifest,
+            clearance_path=disclosure_clearance_path,
+            document_root=typed_document_root,
+            materialization_run_card_path=typed_materialization_card,
+            expected_model_registry_sha256=expected_model_registry_sha256,
+            packet_input_run_card_sha256=(packet_plan_replay.planner_run_card_sha256),
+            authenticated_materialization_lineage=(
+                packet_plan_replay.authenticated_materialization_lineage
+            ),
+        )
+        if packet_plan_replay.model_registry_sha256 != _normalize_expected_sha256(
+            expected_model_registry_sha256,
+            label="expected model registry digest",
+        ):
+            raise CommandError("packet model registry differs from frozen digest")
+        _verify_parser_packet_authority(
+            parse_plan_run_card_path=parse_plan_run_card_path,
+            parser_run_card_path=parser_run_card_path,
+            parser_manifest_path=parser_manifest_path,
+            parser_records=packet_plan_replay.parser_records,
+            parser_manifest_sha256=packet_plan_replay.parser_manifest_sha256,
+            parser_record_count=packet_plan_replay.parser_record_count,
+            selection_path=selection_path,
+            selection_records=packet_plan_replay.selection_records,
+            download_manifest_path=typed_download_manifest,
+            download_records=packet_plan_replay.download_records,
+            clearance_path=disclosure_clearance_path,
+            clearance_records=packet_plan_replay.clearance_records,
+            clearance_sha256=packet_plan_replay.clearance_sha256,
+            materialization_run_card_path=typed_materialization_card,
+            document_root=typed_document_root,
+            markdown_root=markdown_root,
+        )
     target_clean_cases = cast(int, args.target_clean_cases)
     discovery_reconciliation: SnapshotReconciliation | None = None
     verified_preparation: _VerifiedPreparationForFrontier | None = None
@@ -26240,6 +30310,8 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         clean_count = 0
         meets_target = False
     else:
+        if packet_plan_replay is None or packet_build_replay is None:
+            raise AssertionError("executed finalization lacks verified packet replay")
         if llm_unitization_run_card_path is None:
             raise CommandError(
                 "finalize-corpus requires --llm-unitization-run-card with --execute"
@@ -26248,7 +30320,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             raise CommandError(
                 "finalize-corpus requires --unitization-review-run-card with --execute"
             )
-        if structural_review_run_card_path is None:
+        if llm_review_stage_a_run_card_path is None:
             raise CommandError(
                 "finalize-corpus requires --llm-review-stage-a-run-card with --execute"
             )
@@ -26279,7 +30351,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         ):
             raise CommandError("finalize-corpus Stage A unitization authority differs")
         _verify_stage_a_review_run_card(
-            structural_review_run_card_path,
+            llm_review_stage_a_run_card_path,
             lineage=lineage,
             llm_unitization_run_card_path=authenticated_unitization_card,
             expected_review_queue_path=unitization_review_path,
@@ -26291,7 +30363,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         _verify_unitization_review_run_card(
             unitization_review_run_card_path,
             llm_unitization_run_card_path=llm_unitization_run_card_path,
-            llm_review_stage_a_run_card_path=structural_review_run_card_path,
+            llm_review_stage_a_run_card_path=llm_review_stage_a_run_card_path,
             raw_prediction_units_path=raw_prediction_units_path,
             original_review_queue_path=original_unitization_review_path,
             review_queue_path=unitization_review_path,
@@ -26310,7 +30382,7 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             decision_texts_run_card_path=decision_texts_run_card_path,
             finalized_prediction_units_path=prediction_units_path,
             llm_unitization_run_card_path=llm_unitization_run_card_path,
-            llm_review_stage_a_run_card_path=structural_review_run_card_path,
+            llm_review_stage_a_run_card_path=llm_review_stage_a_run_card_path,
             unitization_review_run_card_path=unitization_review_run_card_path,
             model_registry_path=stage_b_judge_registry_path,
             evaluated_model_registry_path=model_registry_path,
@@ -26355,6 +30427,11 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
                     "snapshot_batch_digest",
                 ),
             )
+            _verify_packet_raw_artifacts_snapshot_binding(
+                raw_html_dir=raw_html_dir,
+                raw_artifacts_manifest_path=raw_artifacts_manifest_path,
+                screening_snapshot_manifest_path=screening_snapshot_manifest_path,
+            )
         except (CommandError, SnapshotReconciliationError, ValueError) as exc:
             _write_acquisition_failure(
                 args,
@@ -26365,48 +30442,59 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
                 paid_activity_requested=False,
             )
             raise CommandError(str(exc)) from exc
-        selection_records = _read_records(selection_path)
-        parser_records = _read_records(parser_manifest_path)
-        clearance_records = _read_records(disclosure_clearance_path)
+        selection_records = [
+            dict(record) for record in packet_plan_replay.selection_records
+        ]
+        parser_records = [dict(record) for record in packet_plan_replay.parser_records]
+        clearance_records = [
+            dict(record) for record in packet_plan_replay.clearance_records
+        ]
         try:
             require_cleared_parser_records(parser_records, clearance_records)
         except DisclosureClearanceError as exc:
             raise CommandError(str(exc)) from exc
-        prediction_unit_records = _read_records(prediction_units_path)
-        raw_prediction_unit_records = _read_records(raw_prediction_units_path)
-        unitization_audit_records = _read_records(unitization_audit_path)
-        original_unitization_review_records = _read_records(
-            original_unitization_review_path
+        prediction_unit_records = [
+            dict(record) for record in packet_plan_replay.prediction_unit_records
+        ]
+        stage_a_replay = _verify_stage_a_packet_authority(
+            selection_records=selection_records,
+            parser_records=parser_records,
+            raw_prediction_units_path=raw_prediction_units_path,
+            unitization_audit_path=unitization_audit_path,
+            unitization_run_card_path=unitization_run_card_path,
+            unitization_provider_journal_path=unitization_provider_journal_path,
+            original_review_path=original_unitization_review_path,
+            structural_flags_path=structural_flags_path,
+            structural_review_audit_path=structural_review_audit_path,
+            structural_review_run_card_path=structural_review_run_card_path,
+            structural_review_provider_journal_path=(
+                structural_review_provider_journal_path
+            ),
+            structural_review_registry_path=structural_review_registry_path,
+            structural_review_model_key=structural_review_model_key,
+            merged_review_path=unitization_review_path,
+            finalized_prediction_unit_records=prediction_unit_records,
+            finalized_prediction_units_path=prediction_units_path,
+            adjudications_path=unitization_adjudications_path,
+            apply_unitization_run_card_path=unitization_review_run_card_path,
         )
-        structural_flag_records = _read_records(structural_flags_path)
-        structural_review_audit_records = _read_records(structural_review_audit_path)
-        unitization_review_records = _read_records(unitization_review_path)
-        unitization_adjudication_records = _read_records(unitization_adjudications_path)
-        try:
-            structural_review_registry = load_model_registry(
-                structural_review_registry_path
-            )
-            verify_stage_a_readiness_provenance(
-                selection_records=selection_records,
-                raw_prediction_unit_records=raw_prediction_unit_records,
-                original_review_records=original_unitization_review_records,
-                structural_flag_records=structural_flag_records,
-                structural_review_audit_records=structural_review_audit_records,
-                merged_review_records=unitization_review_records,
-                finalized_prediction_unit_records=prediction_unit_records,
-                adjudication_records=unitization_adjudication_records,
-                reviewer_registry_entries=structural_review_registry.entries,
-                reviewer_registry_sha256=sha256_file(structural_review_registry_path),
-                reviewer_model_key=structural_review_model_key,
-            )
-        except (ReadinessProvenanceError, UnitizationReviewError) as exc:
-            raise CommandError(str(exc)) from exc
+        unitization_audit_records = [
+            dict(record) for record in stage_a_replay.unitization_audit_records
+        ]
+        unitization_review_records = [
+            dict(record) for record in stage_a_replay.merged_review_records
+        ]
+        unitization_adjudication_records = [
+            dict(record) for record in stage_a_replay.adjudication_records
+        ]
         label_records = _read_records(labels_path)
         label_audit_records = _read_records(label_audit_path)
         lawyer_review_records = _read_records(lawyer_review_path)
         lawyer_review_audit_records = _read_records(lawyer_review_audit_path)
-        packet_build_records = _read_records(packet_build_input_path)
-        packet_records = _read_records(packets_path)
+        packet_build_records = [
+            dict(record) for record in packet_plan_replay.packet_build_records
+        ]
+        packet_records = [dict(record) for record in packet_build_replay.packet_records]
         screened_case_records = _read_records(screened_cases_path)
         discovery_exclusion_records = _read_records(discovery_exclusions_path)
         exclusion_groups = tuple(_read_records(path) for path in exclusion_paths)
@@ -26438,8 +30526,9 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
             )
             raise
 
-        registry = load_model_registry(model_registry_path)
-        official_entries = require_official_registry_entries(registry.entries)
+        official_entries = require_official_registry_entries(
+            packet_plan_replay.model_registry.entries
+        )
         try:
             decision_text_artifact = verify_decision_text_artifact(
                 decision_texts_path=decision_texts_path,
@@ -27709,6 +31798,7 @@ def _write_acquisition_completion(
     paid_activity_requested: bool,
     paid_activity_executed: bool,
     extra: Mapping[str, Any] | None = None,
+    resumable_terminal_metadata: bool = False,
 ) -> None:
     _write_acquisition_stage_record(
         args,
@@ -27722,6 +31812,7 @@ def _write_acquisition_completion(
         paid_activity_requested=paid_activity_requested,
         paid_activity_executed=paid_activity_executed,
         extra=extra,
+        resumable_terminal_metadata=resumable_terminal_metadata,
     )
 
 
@@ -27735,6 +31826,7 @@ def _write_acquisition_failure(
     paid_activity_requested: bool,
     paid_activity_executed: bool = False,
     extra: Mapping[str, Any] | None = None,
+    resumable_terminal_metadata: bool = False,
 ) -> None:
     failure_extra: JsonRecord = {"failure_reason": reason}
     if extra is not None:
@@ -27751,6 +31843,7 @@ def _write_acquisition_failure(
         paid_activity_requested=paid_activity_requested,
         paid_activity_executed=paid_activity_executed,
         extra=failure_extra,
+        resumable_terminal_metadata=resumable_terminal_metadata,
     )
 
 
@@ -27767,6 +31860,7 @@ def _write_acquisition_stage_record(
     paid_activity_requested: bool,
     paid_activity_executed: bool,
     extra: Mapping[str, Any] | None,
+    resumable_terminal_metadata: bool,
 ) -> None:
     output_root = _acquisition_output_root(args)
     run_card_path = _acquisition_path(
@@ -27795,25 +31889,30 @@ def _write_acquisition_stage_record(
     }
     if extra is not None:
         run_card.update(extra)
-    _append_jsonl(
-        log_path,
-        [
-            {
-                "schema_version": "legalforecast.acquisition_stage_log.v1",
-                "event": event,
-                "stage": stage,
-                "status": status,
-                "dry_run": dry_run,
-                "run_card_path": str(run_card_path),
-                "record_count": record_count,
-                "paid_activity_requested": paid_activity_requested,
-                "paid_activity_executed": paid_activity_executed,
-            }
-        ],
-    )
-    # The run card is the terminal success marker. Publishing it only after the
-    # durable stage log prevents resume from accepting an unaudited completion.
-    _write_json(run_card_path, run_card)
+    if resumable_terminal_metadata:
+        # The atomic run card is phase one of a resumable terminal publication.
+        # Disclosure-review resume repairs a missing phase-two log entry without
+        # rewriting the surviving marker.
+        _atomic_write_json(run_card_path, run_card)
+    log_records = [
+        {
+            "schema_version": "legalforecast.acquisition_stage_log.v1",
+            "event": event,
+            "stage": stage,
+            "status": status,
+            "dry_run": dry_run,
+            "run_card_path": str(run_card_path),
+            "record_count": record_count,
+            "paid_activity_requested": paid_activity_requested,
+            "paid_activity_executed": paid_activity_executed,
+        }
+    ]
+    if resumable_terminal_metadata:
+        _append_disclosure_review_log(log_path, log_records)
+    else:
+        _append_jsonl(log_path, log_records)
+    if not resumable_terminal_metadata:
+        _write_json(run_card_path, run_card)
     _log_event(stage, event, run_card_path, record_count)
 
 

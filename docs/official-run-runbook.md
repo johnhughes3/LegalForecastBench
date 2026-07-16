@@ -231,16 +231,43 @@ Build packets only after the packet-input plan succeeds:
 uv run legalforecast acquisition build-packets \
   --output-root <assembled-cycle-root> \
   --input <assembled-cycle-root>/packet-build-input.jsonl \
+  --packet-input-run-card <assembled-cycle-root>/run-cards/plan-packet-inputs.json \
+  --selection <selection.jsonl> \
+  --download-manifest <download-manifest.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --parser-run-card <parse-documents-run-card.json> \
+  --disclosure-clearance <disclosure-clearance.jsonl> \
+  --raw-prediction-units <raw-prediction-units.jsonl> \
+  --prediction-units <finalized-prediction-units.jsonl> \
+  --llm-unitization-audit <llm-unitization-audit.jsonl> \
+  --original-unitization-review-queue <original-review-queue.jsonl> \
+  --stage-a-structural-flags <stage-a-structural-flags.jsonl> \
+  --stage-a-structural-review-audit <stage-a-structural-review-audit.jsonl> \
+  --stage-a-review-model-registry <stage-a-review-model-registry.json> \
+  --stage-a-review-model-key <stage-a-review-model-key> \
+  --unitization-review-queue <merged-unitization-review-queue.jsonl> \
+  --unitization-review-adjudications <john-adjudications.jsonl> \
+  --model-registry model_registries/cycle-1-2026-06-30.json \
+  --expected-model-registry-sha256 <sha256-of-frozen-registry> \
+  --raw-html-dir <union-output-root>/union-raw-artifacts \
+  --raw-artifacts-manifest <union-output-root>/union-raw-artifacts.jsonl \
+  --document-root <materialized-document-root> \
+  --markdown-root <parsed-markdown-root> \
+  --materialization-run-card <materialization-run-card.json> \
   --execute --no-resume
 ```
 
 Final corpus reconciliation runs only after both packet stages complete. It consumes the authenticated decision-text JSONL, its manifest and completed builder run card, and the three content files from one canonical complete and saturated screening snapshot plus that snapshot's manifest:
+
+Executed packet-planner cards commit every deterministic parameter and exact source file, and executed packet-builder cards commit the selected ablation and all three outputs. `build-packets` replays planning byte-for-byte, authenticates the raw docket bytes against the materializer's screening snapshot, authenticates the parser manifest and finalized Stage A units against their upstream run cards, and requires the evaluated registry to match the separately frozen SHA-256 supplied by the operator. `finalize-corpus --execute` repeats those authorities and replays both planning and packet assembly before accepting the cards. Never hand-author, rehash, or repair these cards or their committed artifacts.
 
 ```bash
 uv run legalforecast acquisition finalize-corpus \
   <all-other-stage-inputs> \
   --selection <selection.jsonl> \
   --parser-manifest <parser-manifest.jsonl> \
+  --parse-plan-run-card <plan-parser-inputs-run-card.json> \
+  --parser-run-card <parse-documents-run-card.json> \
   --raw-prediction-units <prediction-units.jsonl> \
   --llm-unitization-run-card <llm-unitize-run-card.json> \
   --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
@@ -249,11 +276,15 @@ uv run legalforecast acquisition finalize-corpus \
   --prediction-units <finalized-prediction-units.jsonl> \
   --unitization-review-run-card <apply-unitization-review-run-card.json> \
   --markdown-root <parsed-markdown-root> \
+  --raw-html-dir <union-output-root>/union-raw-artifacts \
+  --raw-artifacts-manifest <union-output-root>/union-raw-artifacts.jsonl \
   --decision-texts <assembled-cycle-root>/decision-texts.jsonl \
   --decision-texts-manifest <assembled-cycle-root>/decision-texts-manifest.json \
   --decision-texts-run-card <assembled-cycle-root>/run-cards/build-decision-texts.json \
   --packet-build-input <assembled-cycle-root>/packet-build-input.jsonl \
   --packets <assembled-cycle-root>/packets.jsonl \
+  --model-registry model_registries/cycle-1-2026-06-30.json \
+  --expected-model-registry-sha256 <sha256-of-frozen-registry> \
   --screened-cases <screening-snapshot>/screened-cases.jsonl \
   --discovery-summary <screening-snapshot>/summary.json \
   --discovery-exclusions <screening-snapshot>/exclusions.jsonl \
@@ -596,18 +627,161 @@ An `is_sealed: null` provider field is unknown metadata, not affirmative evidenc
 
 ### Step 5: Clear Every Free Document And Freeze The Exact Cohort
 
-Complete the authenticated legal-review artifact and its controlled-store receipt, then run the existing clearance gate over the full free manifest. Do not hand-edit any preparation artifact.
+Complete the supported authenticated disclosure-review flow over the full free manifest before projecting the exact cohort.
+The contract and artifact schemas are documented in [Disclosure review bundle v1](schemas/disclosure-review-bundle-v1.md).
+Do not hand-edit a preparation, review, signature, receipt, clearance, or run-card artifact.
 
-```bash
-uv run legalforecast acquisition clear-disclosures \
-  --output-root artifacts/cycle-1/official-acquisition/target-100/free-clearance \
-  --download-manifest artifacts/cycle-1/official-acquisition/target-100/03c-merged-downloads/document-downloads-merged.jsonl \
-  --document-root artifacts/cycle-1/official-acquisition/target-100/documents/free \
-  --reviews <controlled-store-review-export.jsonl> \
-  --review-receipt <controlled-store-review-receipt.json> \
-  --restriction-evidence artifacts/cycle-1/official-acquisition/target-100/06-clearance-inputs/restriction-evidence.jsonl \
-  --execute
+This sequence is local, provider-free, and noncharging.
+Do not run a purchase, parser or labeling-model call, model evaluation, official freeze, or dispatch as part of this gate.
+
+Set paths for the exact completed preparation outputs, a normal acquisition review root, and a separate controlled private store.
+The reviewer-policy digest must come from an independently reviewed external precommitment; do not derive a new digest at invocation time and call it precommitted.
+
+```zsh
+review_requests=artifacts/cycle-1/official-acquisition/target-100/06-clearance-inputs/disclosure-review-requests.jsonl
+download_manifest=artifacts/cycle-1/official-acquisition/target-100/03c-merged-downloads/document-downloads-merged.jsonl
+document_root=artifacts/cycle-1/official-acquisition/target-100/documents/free
+restriction_evidence=artifacts/cycle-1/official-acquisition/target-100/06-clearance-inputs/restriction-evidence.jsonl
+review_root=artifacts/cycle-1/official-acquisition/target-100/disclosure-review
+clearance_root=artifacts/cycle-1/official-acquisition/target-100/free-clearance
+private_review_root=<absolute-controlled-private-review-root>
+reviewer_policy=<externally-reviewed-human-hardware-reviewer-policy.json>
+reviewer_policy_sha256=<externally-precommitted-policy-sha256>
+controlled_store_uri=private-store://<authority>/<cycle-1-review-location>
 ```
+
+First prepare the value-redacted worksheet and the private exact-byte inspection map.
+The private root must not equal, contain, or be contained by the acquisition output root.
+The command writes `private-document-inspection-map.jsonl` only under that private root and deliberately excludes its path and bytes from downstream run-card commitments.
+
+```zsh
+uv run legalforecast acquisition prepare-disclosure-review \
+  --output-root "$review_root" \
+  --review-requests "$review_requests" \
+  --download-manifest "$download_manifest" \
+  --document-root "$document_root" \
+  --restriction-evidence "$restriction_evidence" \
+  --worksheet-output "$review_root/disclosure-review-worksheet.json" \
+  --controlled-private-store-root "$private_review_root" \
+  --execute --resume
+```
+
+Preflight the exact reviewer-policy bytes against the external pin before recording an authenticated bundle:
+
+```zsh
+uv run legalforecast acquisition preflight-disclosure-review-signer \
+  --reviewer-policy "$reviewer_policy" \
+  --expected-reviewer-policy-sha256 "$reviewer_policy_sha256"
+```
+
+Production requires `identity_kind: "human_hardware"` and an `sk-ssh-ed25519@openssh.com` or `sk-ecdsa-sha2-nistp256@openssh.com` public key.
+The CLI has no production override for a software-key service/test identity.
+The hardware-signer prerequisite is tracked in `LegalForecastBench-5qd6.39.7.1`; if it is unresolved or preflight fails, stop and record the blocker rather than substituting an ordinary local SSH or Git key.
+
+Next, use the private interactive recorder; do not hand-author the decision JSONL.
+For every document it displays the exact private inspection path, SHA-256, restriction status, and marker categories, then requires the human to type the full inspected hash and an explicit decision.
+It finishes with an exact batch summary and typed batch confirmation; flagged or non-public documents cannot be cleared.
+
+```zsh
+decisions="$private_review_root/disclosure-review-decisions.jsonl"
+
+uv run legalforecast acquisition record-disclosure-review-decisions \
+  --output-root "$private_review_root/recorder-metadata" \
+  --review-worksheet "$review_root/disclosure-review-worksheet.json" \
+  --private-inspection-map "$private_review_root/private-document-inspection-map.jsonl" \
+  --reviewer-id reviewer:john \
+  --controlled-private-store-root "$private_review_root" \
+  --decisions-output "$decisions" \
+  --execute --resume
+```
+
+The recorder checkpoints each document before continuing and derives the final decisions only from the reloaded checkpoint bytes.
+If the process is interrupted or reports a failed stage, correct the underlying input or filesystem problem and rerun the identical command with `--resume`; do not edit the checkpoint, decision, run-card, or log artifacts.
+A valid failure-history prefix and a partially published terminal run-card/log pair are recovered automatically, while mismatched metadata or decision bytes fail closed.
+
+Set `authenticated_at` to an RFC 3339 time at or after every recorded `reviewed_at`, then build the canonical reviews and signing statement:
+
+```zsh
+authenticated_at=<RFC-3339-authentication-time>
+
+uv run legalforecast acquisition build-disclosure-review-bundle \
+  --output-root "$review_root" \
+  --review-worksheet "$review_root/disclosure-review-worksheet.json" \
+  --decisions "$decisions" \
+  --reviewer-policy "$reviewer_policy" \
+  --expected-reviewer-policy-sha256 "$reviewer_policy_sha256" \
+  --controlled-store-uri "$controlled_store_uri" \
+  --authenticated-at "$authenticated_at" \
+  --reviews-output "$review_root/disclosure-reviews.jsonl" \
+  --signing-statement-output "$review_root/disclosure-review-signing-statement.json" \
+  --execute --resume
+```
+
+Sign the exact statement outside LegalForecastBench with the precommitted human hardware-backed key and fixed SSHSIG namespace.
+Immediately before the hardware touch, display and inspect the exact per-document decision summary embedded in the statement:
+
+```zsh
+uv run legalforecast acquisition preflight-disclosure-review-signer \
+  --reviewer-policy "$reviewer_policy" \
+  --expected-reviewer-policy-sha256 "$reviewer_policy_sha256" \
+  --signing-statement "$review_root/disclosure-review-signing-statement.json"
+```
+
+The displayed candidate/document/status rows and cleared/quarantined counts are part of the signed bytes; stop if any row or count is wrong.
+OpenSSH writes the detached signature as `disclosure-review-signing-statement.json.sig`:
+
+```zsh
+/usr/bin/ssh-keygen -Y sign \
+  -f <hardware-backed-signing-key-or-key-reference> \
+  -n legalforecast-disclosure-review-v1 \
+  "$review_root/disclosure-review-signing-statement.json"
+```
+
+Do not reserialize or edit the statement after signing.
+Seal verifies the signature and the exact request, manifest, restriction, worksheet, review, policy, document-set, identity, provenance, and timestamp commitments before publishing the receipt:
+
+```zsh
+uv run legalforecast acquisition seal-disclosure-review-bundle \
+  --output-root "$review_root" \
+  --review-requests "$review_requests" \
+  --download-manifest "$download_manifest" \
+  --restriction-evidence "$restriction_evidence" \
+  --review-worksheet "$review_root/disclosure-review-worksheet.json" \
+  --reviews "$review_root/disclosure-reviews.jsonl" \
+  --decisions "$decisions" \
+  --signing-statement "$review_root/disclosure-review-signing-statement.json" \
+  --signature "$review_root/disclosure-review-signing-statement.json.sig" \
+  --reviewer-policy "$reviewer_policy" \
+  --expected-reviewer-policy-sha256 "$reviewer_policy_sha256" \
+  --review-receipt-output "$review_root/disclosure-review-receipt.json" \
+  --execute --resume
+```
+
+Finally, run clearance over the same exact inputs and current document bytes.
+The command recomputes the worksheet, requires byte-for-byte equality with the signed worksheet, verifies the receipt again, and fails closed on any drift or incomplete coverage:
+
+```zsh
+uv run legalforecast acquisition clear-disclosures \
+  --output-root "$clearance_root" \
+  --review-requests "$review_requests" \
+  --download-manifest "$download_manifest" \
+  --document-root "$document_root" \
+  --review-worksheet "$review_root/disclosure-review-worksheet.json" \
+  --reviews "$review_root/disclosure-reviews.jsonl" \
+  --review-receipt "$review_root/disclosure-review-receipt.json" \
+  --reviewer-policy "$reviewer_policy" \
+  --expected-reviewer-policy-sha256 "$reviewer_policy_sha256" \
+  --restriction-evidence "$restriction_evidence" \
+  --execute --resume
+```
+
+The producer stages default to deterministic resume, but the runbook spells out `--resume` for audit clarity.
+An identical retry must reuse matching bytes; changed inputs or outputs fail closed rather than overwriting the signed lineage.
+Use `--no-resume` only when an exclusive first publication is intended, never to replace an already frozen artifact.
+
+Clearance success is necessary but does not by itself authorize a downstream command.
+Before projection, recovery, parse, extension, packet planning, or finalization, require that command's current verifier to consume the completed clearance run card and carry its exact signed-review source commitments and reviewer-policy pin.
+If the live downstream contract omits that lineage, stop here and fix the gate; do not pass loose clearance files as a substitute.
 
 Only after clearance succeeds may the exact downstream cohort be projected. This recomputes the cheapest complete frontier after quarantines and writes selection, relevance, restriction, manifest, clearance, budget, and exclusion artifacts containing exactly the chosen cases.
 

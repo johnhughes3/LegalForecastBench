@@ -37,18 +37,13 @@ tool-accounting fixture IDs.
 
 `packet_render_ci/packet-build-input.jsonl` is a synthetic, timestamp-fixed production acquisition input. `expected-packets.jsonl` is the byte-for-byte reviewed output of `legalforecast acquisition build-packets`; `expected-packet-render.json` independently freezes its SHA-256 for `reconstruct_packets --verify-packet-render-dir`. The compared packet contains no runtime timestamp, temporary path, UUID, or platform-dependent field.
 
-Generate a review candidate outside the fixture directory with:
+Verify the production builder against the reviewed golden with:
 
 ```bash
-rm -rf tmp/packet-render-golden-review
-uv run legalforecast acquisition build-packets \
-  --input tests/fixtures/packet_render_ci/packet-build-input.jsonl \
-  --output-root tmp/packet-render-golden-review \
-  --execute
-diff -u \
-  tests/fixtures/packet_render_ci/expected-packets.jsonl \
-  tmp/packet-render-golden-review/packets.jsonl
-sha256sum tmp/packet-render-golden-review/packets.jsonl
+uv run pytest -q \
+  tests/test_packet_render_ci_workflow.py::test_production_packet_builder_matches_reviewed_golden
 ```
+
+The focused test supplies exact authenticated fixture lineage while the target-100 materializer E2E independently exercises full source-chain replay. To retain a changed candidate for review, rerun the focused test with `--basetemp tmp/packet-render-golden-review`; its generated `packet-render/packets.jsonl` remains below that directory even when the golden assertion fails.
 
 An intentional builder change requires reviewing the complete diff, replacing `expected-packets.jsonl`, and updating `packet_sha256` in `expected-packet-render.json` in the same commit. CI only generates an actual packet and compares it with these checked-in expectations; it must never update either golden.

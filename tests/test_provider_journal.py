@@ -180,6 +180,31 @@ def test_journal_recovers_response_received_before_settlement(tmp_path: Path) ->
     assert calls == 1
 
 
+def test_journal_terminalizes_invalid_reconstruction_without_losing_accounting(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-attempts.sqlite3"
+
+    with _journal(path) as journal:
+        journal.run_attempt(1, lambda: {"output_text": "{}"})
+        journal.settle_attempt(
+            1,
+            input_tokens=10,
+            output_tokens=2,
+            actual_cost_usd=0.01,
+            raw_output="{}",
+        )
+        journal.record_reconstruction_failure(ValueError("invalid schema"))
+
+    with sqlite3.connect(path) as connection:
+        [(status, cost, failure_type)] = connection.execute(
+            "SELECT status, actual_cost_usd, failure_type FROM provider_attempts"
+        ).fetchall()
+    assert status == "ambiguous"
+    assert cost == pytest.approx(0.01)
+    assert failure_type == "ValueError"
+
+
 def test_ambiguous_attempt_retains_reservation_and_blocks_cap(tmp_path: Path) -> None:
     path = tmp_path / "provider-attempts.sqlite3"
     with _journal(path, reservation=0.6, cap=1.0) as journal:

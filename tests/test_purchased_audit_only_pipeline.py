@@ -30,11 +30,14 @@ from legalforecast.labeling.provider_journal import (
 from legalforecast.unitization.review import apply_unitization_reviews
 
 JsonRecord = dict[str, Any]
+ROOT = Path(__file__).resolve().parents[1]
+REGISTRY = ROOT / "model_registries/cycle-1-2026-06-30.json"
 
 
 def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
     tmp_path: Path,
     monkeypatch: Any,
+    authenticated_downstream_fixture: Any,
 ) -> None:
     output_root = tmp_path / "acquisition"
     document_root = output_root / "documents"
@@ -106,6 +109,12 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
             for row in downloads
         ],
     )
+    parse_materialization_card = authenticated_downstream_fixture.materialize(
+        manifest=download_manifest,
+        clearance=clearance,
+        document_root=document_root,
+        name="audit-only-parse",
+    )
 
     assert (
         main(
@@ -118,6 +127,8 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
                 str(clearance),
                 "--document-root",
                 str(document_root),
+                "--materialization-run-card",
+                str(parse_materialization_card),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -153,6 +164,8 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
                 str(output_root / "parse-document-requests.jsonl"),
                 "--disclosure-clearance",
                 str(clearance),
+                "--materialization-run-card",
+                str(parse_materialization_card),
                 "--output-root",
                 str(output_root),
                 "--fixture-markdown-dir",
@@ -332,6 +345,23 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
     assert decision_provenance["contains_target_outcome"] is True
     packet_input_path = output_root / "packet-build-input.jsonl"
     _write_jsonl(packet_input_path, [packet_input])
+    packet_materialization_card = authenticated_downstream_fixture.materialize(
+        manifest=download_manifest,
+        clearance=clearance,
+        document_root=document_root,
+        selection=selection_path,
+        name="audit-only-packet",
+    )
+    packet_planner_card = output_root / "run-cards/plan-packet-inputs.json"
+    authenticated_downstream_fixture.write_packet_planner_card(
+        packet_planner_card,
+        packet_input=packet_input_path,
+        selection=selection_path,
+        manifest=download_manifest,
+        clearance=clearance,
+        document_root=document_root,
+        materialization_run_card=packet_materialization_card,
+    )
     assert (
         main(
             [
@@ -339,6 +369,64 @@ def test_paid_audit_only_decision_reaches_stage_b_but_not_model_packet(
                 "build-packets",
                 "--input",
                 str(packet_input_path),
+                "--packet-input-run-card",
+                str(packet_planner_card),
+                "--selection",
+                str(selection_path),
+                "--download-manifest",
+                str(download_manifest),
+                "--parser-manifest",
+                str(selection_path),
+                "--parser-run-card",
+                str(packet_materialization_card),
+                "--parse-plan-run-card",
+                str(packet_materialization_card),
+                "--disclosure-clearance",
+                str(clearance),
+                "--raw-prediction-units",
+                str(selection_path),
+                "--prediction-units",
+                str(selection_path),
+                "--llm-unitization-audit",
+                str(selection_path),
+                "--llm-unitize-run-card",
+                str(selection_path),
+                "--llm-unitize-provider-journal",
+                str(selection_path),
+                "--original-unitization-review-queue",
+                str(selection_path),
+                "--stage-a-structural-flags",
+                str(selection_path),
+                "--stage-a-structural-review-audit",
+                str(selection_path),
+                "--stage-a-review-run-card",
+                str(selection_path),
+                "--stage-a-review-provider-journal",
+                str(selection_path),
+                "--stage-a-review-model-registry",
+                str(REGISTRY),
+                "--stage-a-review-model-key",
+                "fixture:fixture-model",
+                "--unitization-review-queue",
+                str(selection_path),
+                "--unitization-review-adjudications",
+                str(selection_path),
+                "--apply-unitization-review-run-card",
+                str(selection_path),
+                "--model-registry",
+                str(REGISTRY),
+                "--expected-model-registry-sha256",
+                hashlib.sha256(REGISTRY.read_bytes()).hexdigest(),
+                "--raw-html-dir",
+                str(document_root),
+                "--raw-artifacts-manifest",
+                str(selection_path),
+                "--document-root",
+                str(document_root),
+                "--markdown-root",
+                str(document_root),
+                "--materialization-run-card",
+                str(packet_materialization_card),
                 "--output-root",
                 str(output_root),
                 "--execute",

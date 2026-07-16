@@ -272,6 +272,8 @@ def llm_unitize_cases(
                     metadata={"llm_unitizer_model_key": registry_entry.registry_key},
                 )
             )
+            if not any(unit.should_score for unit in result.units):
+                raise LlmPipelineError("LLM unitization produced no scorable units")
             if journal is not None and journal.has_validated_response:
                 journal.commit_reconstruction(
                     {
@@ -284,8 +286,6 @@ def llm_unitize_cases(
             if journal is not None:
                 journal.close()
                 journal = None
-            if not any(unit.should_score for unit in result.units):
-                raise LlmPipelineError("LLM unitization produced no scorable units")
             review_queue = _unitization_review_queue_records(
                 candidate_id=candidate_id,
                 case_id=_required_str(selection, "case_id"),
@@ -323,6 +323,8 @@ def llm_unitize_cases(
             )
         except Exception as exc:
             if journal is not None:
+                if journal.has_validated_response:
+                    journal.record_reconstruction_failure(exc)
                 journal.close()
             failure_record = _failure_audit_record(
                 stage="llm-unitize",

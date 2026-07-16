@@ -3,15 +3,23 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 from legalforecast.cli import main
+from legalforecast.ingestion.disclosure_clearance import (
+    ReviewAuthority,
+    build_clearance_records,
+)
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
     path.write_text("".join(json.dumps(row) + "\n" for row in rows))
 
 
-def test_clearance_cli_and_parse_gate_bind_actual_bytes(tmp_path: Path) -> None:
+def test_parse_gate_binds_clearance_to_actual_bytes(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+) -> None:
     document_root = tmp_path / "documents"
     document_path = document_root / "cand-1" / "doc-1.pdf"
     document_path.parent.mkdir(parents=True)
@@ -23,7 +31,6 @@ def test_clearance_cli_and_parse_gate_bind_actual_bytes(tmp_path: Path) -> None:
     digest = hashlib.sha256(content).hexdigest()
     manifest = tmp_path / "downloads.jsonl"
     reviews = tmp_path / "reviews.jsonl"
-    review_receipt = tmp_path / "review-receipt.json"
     restrictions = tmp_path / "restrictions.jsonl"
     output = tmp_path / "output"
     _write_jsonl(
@@ -57,21 +64,6 @@ def test_clearance_cli_and_parse_gate_bind_actual_bytes(tmp_path: Path) -> None:
             }
         ],
     )
-    review_receipt.write_text(
-        json.dumps(
-            {
-                "schema_version": "legalforecast.disclosure_review_receipt.v1",
-                "review_artifact_sha256": hashlib.sha256(
-                    reviews.read_bytes()
-                ).hexdigest(),
-                "authenticated_reviewer_id": "reviewer:john",
-                "controlled_store_uri": "private-store://cycle1/reviews/batch-001",
-                "authentication_method": "cloudflare_access_oidc",
-                "authenticated_at": "2026-07-12T18:00:00Z",
-            }
-        ),
-        encoding="utf-8",
-    )
     _write_jsonl(
         restrictions,
         [
@@ -83,29 +75,30 @@ def test_clearance_cli_and_parse_gate_bind_actual_bytes(tmp_path: Path) -> None:
             }
         ],
     )
-    assert (
-        main(
-            [
-                "acquisition",
-                "clear-disclosures",
-                "--download-manifest",
-                str(manifest),
-                "--document-root",
-                str(document_root),
-                "--reviews",
-                str(reviews),
-                "--review-receipt",
-                str(review_receipt),
-                "--restriction-evidence",
-                str(restrictions),
-                "--output-root",
-                str(output),
-                "--execute",
-            ]
-        )
-        == 0
+    authority = ReviewAuthority(
+        reviewer_id="reviewer:john",
+        controlled_store_uri="private-store://cycle1/reviews/batch-001",
+        authentication_method="human_hardware_ssh_signature",
+        authenticated_at="2026-07-12T18:00:00Z",
+        review_artifact_sha256=hashlib.sha256(reviews.read_bytes()).hexdigest(),
+        reviewer_policy_sha256="1" * 64,
     )
     clearance = output / "disclosure-clearance.jsonl"
+    records = build_clearance_records(
+        [json.loads(manifest.read_text().strip())],
+        document_root=document_root,
+        reviews=[json.loads(reviews.read_text().strip())],
+        review_authority=authority,
+        restriction_records=[json.loads(restrictions.read_text().strip())],
+    )
+    clearance.parent.mkdir(parents=True)
+    _write_jsonl(clearance, [record.to_record() for record in records])
+    materialization_card = authenticated_downstream_fixture.materialize(
+        manifest=manifest,
+        clearance=clearance,
+        document_root=document_root,
+        name="parse-clearance-byte-binding",
+    )
     assert (
         main(
             [
@@ -117,6 +110,8 @@ def test_clearance_cli_and_parse_gate_bind_actual_bytes(tmp_path: Path) -> None:
                 str(clearance),
                 "--document-root",
                 str(document_root),
+                "--materialization-run-card",
+                str(materialization_card),
                 "--output-root",
                 str(output),
                 "--execute",
@@ -137,6 +132,8 @@ def test_clearance_cli_and_parse_gate_bind_actual_bytes(tmp_path: Path) -> None:
                 str(output / "parse-document-requests.jsonl"),
                 "--disclosure-clearance",
                 str(clearance),
+                "--materialization-run-card",
+                str(materialization_card),
                 "--fixture-markdown-dir",
                 str(fixture_markdown),
                 "--output-root",
@@ -157,6 +154,8 @@ def test_clearance_cli_and_parse_gate_bind_actual_bytes(tmp_path: Path) -> None:
                 str(clearance),
                 "--document-root",
                 str(document_root),
+                "--materialization-run-card",
+                str(materialization_card),
                 "--output-root",
                 str(output),
                 "--execute",

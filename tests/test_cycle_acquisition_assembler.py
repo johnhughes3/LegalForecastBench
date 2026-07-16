@@ -22,6 +22,7 @@ _TEST_CYCLE_HASH = "a" * 64
 
 def test_assemble_cycle_acquisition_rebases_and_reconciles_two_batches(
     tmp_path: Path,
+    authenticated_downstream_fixture: Any,
 ) -> None:
     batch_1 = tmp_path / "batch-001"
     batch_2 = tmp_path / "batch-002"
@@ -125,6 +126,12 @@ def test_assemble_cycle_acquisition_rebases_and_reconciles_two_batches(
         [_clearance(record) for record in manifest],
     )
     for root in (cycle, single_batch):
+        materialization_card = authenticated_downstream_fixture.materialize(
+            manifest=root / "document-downloads-merged.jsonl",
+            clearance=root / "disclosure-clearance.jsonl",
+            document_root=cycle / "documents",
+            name=root.name,
+        )
         assert (
             main(
                 [
@@ -150,6 +157,8 @@ def test_assemble_cycle_acquisition_rebases_and_reconciles_two_batches(
                     str(root / "disclosure-clearance.jsonl"),
                     "--document-root",
                     str(cycle / "documents"),
+                    "--materialization-run-card",
+                    str(materialization_card),
                     "--output-root",
                     str(root),
                     "--execute",

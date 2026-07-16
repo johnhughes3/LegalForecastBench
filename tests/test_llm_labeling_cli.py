@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, cast
 
@@ -29,6 +29,27 @@ from legalforecast.unitization.review import apply_unitization_reviews
 from pytest import MonkeyPatch, raises
 
 JsonRecord = dict[str, Any]
+
+
+def _journaled_fixture_completion(
+    completion: Callable[..., SolverResponse],
+) -> Callable[..., SolverResponse]:
+    """Make a provider stub preserve the production attempt-journal contract."""
+
+    def wrapped(*args: Any, **kwargs: Any) -> SolverResponse:
+        response = completion(*args, **kwargs)
+        journal = kwargs["attempt_handler"]
+        journal.run_attempt(1, lambda: {"fixture": "provider-response"})
+        journal.settle_attempt(
+            1,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            actual_cost_usd=response.estimated_cost,
+            raw_output=response.raw_output,
+        )
+        return response
+
+    return wrapped
 
 
 def _stub_downstream_decision_artifact(
@@ -840,6 +861,90 @@ def test_executed_llm_unitize_requires_authenticated_lineage_before_provider(
     assert "authenticated Stage A lineage requires" in capsys.readouterr().err
 
 
+def test_stage_a_packet_authority_rejects_self_consistent_forged_output(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "acquisition"
+    markdown_root = output_root / "markdown"
+    _write_markdown(markdown_root / "cand-1" / "complaint.md", "Count I: 10(b).")
+    _write_markdown(
+        markdown_root / "cand-1" / "mtd.md",
+        "Defendants move to dismiss Count I under Rule 12(b)(6).",
+    )
+    selection_path = tmp_path / "selection.jsonl"
+    parser_path = tmp_path / "parser.jsonl"
+    registry_path = tmp_path / "registry.json"
+    _write_jsonl(selection_path, [_selection_record()])
+    _write_jsonl(
+        parser_path,
+        [
+            _parser_record("complaint", "complaint.md"),
+            _parser_record("mtd", "mtd.md"),
+        ],
+    )
+    _write_json(registry_path, [_registry_record()])
+    monkeypatch.setattr(
+        llm_pipeline,
+        "complete_live_prompt",
+        _journaled_fixture_completion(_fake_completion),
+    )
+    caps_path = _provider_caps_path(tmp_path)
+    provider_journal_path = output_root / "provider-attempts.sqlite3"
+    lineage_args = _stub_authenticated_stage_a_lineage(
+        monkeypatch,
+        selection_path=selection_path,
+        parser_path=parser_path,
+        markdown_root=markdown_root,
+        registry_path=registry_path,
+        caps_path=caps_path,
+        provider_journal_path=provider_journal_path,
+    )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "llm-unitize",
+                "--selection",
+                str(selection_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--output-root",
+                str(output_root),
+                "--model-registry",
+                str(registry_path),
+                "--model-key",
+                "openai:gpt-test",
+                "--provider-cycle-caps",
+                str(caps_path),
+                *lineage_args,
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    units_path = output_root / "prediction-units.jsonl"
+    forged_units = _read_jsonl(units_path)
+    forged_units[0]["prediction_units"][0]["claim_name"] = "Forged claim"
+    _write_jsonl(units_path, forged_units)
+    unitize_card_path = output_root / "run-cards/llm-unitize.json"
+    unitize_card = json.loads(unitize_card_path.read_text(encoding="utf-8"))
+    unitize_card["output_commitments"]["prediction_units"] = (
+        cli._materializer_file_commitment(units_path)
+    )
+    _write_json(unitize_card_path, unitize_card)
+
+    with raises(CommandError, match="do not reproduce from journal"):
+        cli._verify_stage_a_unitization_run_card(
+            unitize_card_path,
+            expected_prediction_units_path=units_path,
+            expected_review_queue_path=(output_root / "unitization-review-queue.jsonl"),
+            expected_audit_path=output_root / "llm-unitization-audit.jsonl",
+        )
+
+
 def test_acquisition_llm_label_persists_lawyer_review_queue_with_partial_success(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
@@ -1505,7 +1610,11 @@ def test_acquisition_llm_unitize_accepts_singleton_string_list_fields(
         )
         return _settle_fixture_unitization_attempt(response, kwargs)
 
-    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", fake_completion)
+    monkeypatch.setattr(
+        llm_pipeline,
+        "complete_live_prompt",
+        _journaled_fixture_completion(fake_completion),
+    )
 
     assert (
         main(
@@ -1595,7 +1704,11 @@ def test_acquisition_llm_unitize_accepts_top_level_seed_array(
         )
         return _settle_fixture_unitization_attempt(response, kwargs)
 
-    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", fake_completion)
+    monkeypatch.setattr(
+        llm_pipeline,
+        "complete_live_prompt",
+        _journaled_fixture_completion(fake_completion),
+    )
 
     assert (
         main(
@@ -1684,7 +1797,11 @@ def test_acquisition_llm_unitize_rejects_missing_required_unit_fields(
         )
         return _settle_fixture_unitization_attempt(response, kwargs)
 
-    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", incomplete_completion)
+    monkeypatch.setattr(
+        llm_pipeline,
+        "complete_live_prompt",
+        _journaled_fixture_completion(incomplete_completion),
+    )
 
     assert (
         main(
@@ -1779,7 +1896,11 @@ def test_acquisition_llm_unitize_accepts_first_balanced_json_object(
         )
         return _settle_fixture_unitization_attempt(response, kwargs)
 
-    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", fake_completion)
+    monkeypatch.setattr(
+        llm_pipeline,
+        "complete_live_prompt",
+        _journaled_fixture_completion(fake_completion),
+    )
 
     assert (
         main(
@@ -1950,7 +2071,11 @@ def test_acquisition_llm_unitize_failure_audit_keeps_model_accounting(
         )
         return _settle_fixture_unitization_attempt(response, kwargs)
 
-    monkeypatch.setattr(llm_pipeline, "complete_live_prompt", invalid_completion)
+    monkeypatch.setattr(
+        llm_pipeline,
+        "complete_live_prompt",
+        _journaled_fixture_completion(invalid_completion),
+    )
 
     assert (
         main(
