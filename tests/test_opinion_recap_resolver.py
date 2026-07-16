@@ -30,6 +30,7 @@ from legalforecast.ingestion.courtlistener_request_budget import (
     CourtListenerRequestBudgetExhausted,
 )
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+from legalforecast.ingestion.firecrawl_source import FirecrawlRateLimitError
 from legalforecast.ingestion.opinion_recap_firecrawl import (
     OpinionRecapFirecrawlCandidate,
     OpinionRecapFirecrawlResults,
@@ -752,6 +753,19 @@ class _FirecrawlResolverFixture:
         )
 
 
+class _FailingFirecrawlResolverFixture(_FirecrawlResolverFixture):
+    def search(
+        self,
+        *,
+        source_candidate_id: str,
+        source_ordinal: int,
+        query: str,
+        court_id: str,
+    ) -> OpinionRecapFirecrawlResults:
+        del source_candidate_id, source_ordinal, query, court_id
+        raise FirecrawlRateLimitError("fixture Firecrawl rate limit")
+
+
 def test_courtlistener_budget_exhaustion_uses_strict_firecrawl_fallback(
     tmp_path: Path,
 ) -> None:
@@ -853,6 +867,48 @@ def test_nonbudget_courtlistener_failures_never_use_firecrawl_fallback(
         )
 
     assert fallback.calls == []
+
+
+def test_firecrawl_provider_failure_never_terminally_excludes_lead(
+    tmp_path: Path,
+) -> None:
+    source = _source_store(tmp_path, _lead())
+
+    def exhausted(_method: str, _path: str) -> None:
+        raise CourtListenerRequestBudgetExhausted("rolling day exhausted")
+
+    courtlistener = CourtListenerClient(
+        config=CourtListenerConfig(api_token="fixture"),
+        transport=CourtListenerFixtureTransport(()),
+        max_retries=0,
+        before_request=exhausted,
+    )
+
+    with pytest.raises(FirecrawlRateLimitError, match="fixture Firecrawl rate limit"):
+        resolve_opinion_recap_batch(
+            source_store_path=source,
+            source_batch_id="opinion-source",
+            journal_path=tmp_path / "resolver.sqlite3",
+            output_store_path=source,
+            output_batch_id="resolved-opinion-source",
+            case_dev_client=_case_dev(_case_dev_response()),
+            courtlistener_client=courtlistener,
+            firecrawl_resolver=_FailingFirecrawlResolverFixture(),
+        )
+
+    assert read_resolution_outcomes(tmp_path / "resolver.sqlite3") == ()
+    connection = sqlite3.connect(tmp_path / "resolver.sqlite3")
+    try:
+        assert connection.execute(
+            "SELECT provider, state, error_type FROM request_attempts "
+            "ORDER BY attempt_id DESC LIMIT 1"
+        ).fetchone() == (
+            "courtlistener_html_via_firecrawl",
+            "failed",
+            "FirecrawlRateLimitError",
+        )
+    finally:
+        connection.close()
 
 
 def test_prior_candidate_is_deferred_after_free_mapping_and_not_emitted(
