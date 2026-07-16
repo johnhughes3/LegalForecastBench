@@ -1287,6 +1287,24 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_bridge_pacer_gaps_arguments(acquisition_bridge_pacer_gaps)
+    acquisition_rebase_pacer_gap_checkpoints = acquisition_subparsers.add_parser(
+        "rebase-pacer-gap-checkpoints",
+        help=(
+            "Reindex verified PACER-gap checkpoints after provider-free route "
+            "reordering."
+        ),
+        description=(
+            "Prove that screened cases and public routes are byte-identical, "
+            "paid-gap records changed only by cost rank or manifest-derived new "
+            "free complaints, and prior free bytes are unchanged except for a "
+            "false-to-true reuse marker. Then atomically reindex verified bridge "
+            "checkpoints and emit an audit receipt. This command constructs no "
+            "provider client, acknowledges no fee, and performs no purchase."
+        ),
+    )
+    _add_acquisition_rebase_pacer_gap_checkpoints_arguments(
+        acquisition_rebase_pacer_gap_checkpoints
+    )
     acquisition_filter_core = acquisition_subparsers.add_parser(
         "filter-core-documents",
         help="Build missing-core purchase inputs from setup-runner relevance JSONL.",
@@ -1874,6 +1892,85 @@ def _add_acquisition_prepare_target_100_arguments(
 ) -> None:
     _add_acquisition_prepare_target_arguments(parser)
     parser.set_defaults(handler=_cmd_acquisition_prepare_target_100)
+
+
+def _add_acquisition_rebase_pacer_gap_checkpoints_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--previous-screened-cases", type=Path, required=True, help="Prior JSONL."
+    )
+    parser.add_argument(
+        "--current-screened-cases", type=Path, required=True, help="Current JSONL."
+    )
+    parser.add_argument(
+        "--previous-public-selection",
+        type=Path,
+        required=True,
+        help="Prior public-route JSONL.",
+    )
+    parser.add_argument(
+        "--current-public-selection",
+        type=Path,
+        required=True,
+        help="Current public-route JSONL.",
+    )
+    parser.add_argument(
+        "--previous-paid-gaps", type=Path, required=True, help="Prior gap JSONL."
+    )
+    parser.add_argument(
+        "--current-paid-gaps", type=Path, required=True, help="Current gap JSONL."
+    )
+    parser.add_argument(
+        "--previous-free-download-manifest",
+        type=Path,
+        required=True,
+        help="Prior completed free-download JSONL.",
+    )
+    parser.add_argument(
+        "--current-free-download-manifest",
+        type=Path,
+        required=True,
+        help="Current completed free-download JSONL.",
+    )
+    parser.add_argument(
+        "--previous-checkpoint-dir",
+        type=Path,
+        required=True,
+        help="Preserved prior candidate-checkpoint directory.",
+    )
+    parser.add_argument(
+        "--previous-checkpoint-config",
+        type=Path,
+        required=True,
+        help="Prior progress-config JSON bound to the preserved checkpoints.",
+    )
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=Path,
+        help=(
+            "Rebased checkpoint directory; defaults to "
+            "OUTPUT_ROOT/checkpoints/pacer-gap-bridge."
+        ),
+    )
+    parser.add_argument(
+        "--checkpoint-config-output",
+        type=Path,
+        help=(
+            "Rebased progress config; defaults to OUTPUT_ROOT/checkpoints/"
+            "pacer-gap-bridge-progress-config.json."
+        ),
+    )
+    parser.add_argument(
+        "--receipt-output",
+        type=Path,
+        help=(
+            "Deterministic provenance receipt; defaults to OUTPUT_ROOT/run-cards/"
+            "rebase-pacer-gap-checkpoints-receipt.json."
+        ),
+    )
+    parser.set_defaults(handler=_cmd_acquisition_rebase_pacer_gap_checkpoints)
 
 
 def _add_acquisition_prepare_target_cohort_arguments(
@@ -16059,6 +16156,9 @@ _PACER_GAP_LEGACY_PROGRESS_CONFIG_SCHEMA = (
     "legalforecast.pacer_gap_bridge_progress_config.v1"
 )
 _PACER_GAP_PROGRESS_CONFIG_SCHEMA = "legalforecast.pacer_gap_bridge_progress_config.v2"
+_PACER_GAP_REBASE_RECEIPT_SCHEMA = (
+    "legalforecast.pacer_gap_checkpoint_rebase_receipt.v1"
+)
 
 
 def _canonical_json_sha256(value: object) -> str:
@@ -16407,6 +16507,755 @@ def _bridge_progress_config_matches(existing: JsonRecord, current: JsonRecord) -
     }:
         return False
     return {**existing, "schema_version": _PACER_GAP_PROGRESS_CONFIG_SCHEMA} == current
+
+
+def _sha256_path(path: Path) -> str:
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _records_by_candidate_id(
+    records: Sequence[Mapping[str, Any]], *, source: str
+) -> dict[str, Mapping[str, Any]]:
+    indexed: dict[str, Mapping[str, Any]] = {}
+    for record in records:
+        candidate_id = _required_str(record, "candidate_id")
+        if candidate_id in indexed:
+            raise CommandError(f"{source} repeats candidate {candidate_id}")
+        indexed[candidate_id] = record
+    return indexed
+
+
+def _free_manifest_records_by_identity(
+    path: Path,
+) -> dict[tuple[str, str], tuple[JsonRecord, bytes]]:
+    records = _read_records(path)
+    raw_lines = [line for line in path.read_bytes().splitlines() if line.strip()]
+    if len(records) != len(raw_lines):
+        raise CommandError(f"free-download manifest line accounting failed: {path}")
+    indexed: dict[tuple[str, str], tuple[JsonRecord, bytes]] = {}
+    for record, raw_line in zip(records, raw_lines, strict=True):
+        identity = (
+            _required_str(record, "candidate_id"),
+            _required_str(record, "source_document_id"),
+        )
+        if identity in indexed:
+            raise CommandError(
+                "free-download manifest repeats document "
+                f"{identity[0]}/{identity[1]}: {path}"
+            )
+        indexed[identity] = (record, raw_line)
+    return indexed
+
+
+def _validate_free_manifest_growth(
+    previous_path: Path, current_path: Path
+) -> tuple[dict[tuple[str, str], JsonRecord], int]:
+    previous = _free_manifest_records_by_identity(previous_path)
+    current = _free_manifest_records_by_identity(current_path)
+    if not set(previous).issubset(current):
+        raise CommandError("free-download manifest removed prior documents")
+    reuse_transition_count = 0
+    for identity, (previous_record, previous_line) in previous.items():
+        current_record, current_line = current[identity]
+        if previous_line == current_line:
+            continue
+        previous_without_reuse = {
+            key: value
+            for key, value in previous_record.items()
+            if key != "reused_existing"
+        }
+        current_without_reuse = {
+            key: value
+            for key, value in current_record.items()
+            if key != "reused_existing"
+        }
+        if (
+            previous_without_reuse != current_without_reuse
+            or previous_record.get("reused_existing") is not False
+            or current_record.get("reused_existing") is not True
+        ):
+            raise CommandError(
+                "free-download manifest changed prior document "
+                f"{identity[0]}/{identity[1]}"
+            )
+        reuse_transition_count += 1
+    return (
+        {
+            identity: record
+            for identity, (record, _line) in current.items()
+            if identity not in previous
+        },
+        reuse_transition_count,
+    )
+
+
+def _validate_manifest_derived_paid_gap_change(
+    *,
+    candidate_id: str,
+    previous: Mapping[str, Any],
+    current: Mapping[str, Any],
+    added_free_documents: Sequence[Mapping[str, Any]],
+) -> None:
+    """Allow only deterministic public-plan changes caused by new free complaints."""
+
+    previous_documents = _required_record_sequence(previous, "documents")
+    current_documents = _required_record_sequence(current, "documents")
+    previous_documents_by_id = {
+        _required_str(document, "source_document_id"): document
+        for document in previous_documents
+    }
+    current_documents_by_id = {
+        _required_str(document, "source_document_id"): document
+        for document in current_documents
+    }
+    if len(previous_documents_by_id) != len(previous_documents) or len(
+        current_documents_by_id
+    ) != len(current_documents):
+        raise CommandError(f"paid-gap documents repeat for {candidate_id}")
+    if any(
+        current_documents_by_id.get(source_document_id) != document
+        for source_document_id, document in previous_documents_by_id.items()
+    ):
+        raise CommandError(f"paid-gap prior documents drifted for {candidate_id}")
+    added_plan_documents = {
+        source_document_id: document
+        for source_document_id, document in current_documents_by_id.items()
+        if source_document_id not in previous_documents_by_id
+    }
+    added_manifest_by_id = {
+        _required_str(document, "source_document_id"): document
+        for document in added_free_documents
+    }
+    if set(added_plan_documents) != set(added_manifest_by_id):
+        raise CommandError(
+            f"paid-gap document additions are not manifest-derived for {candidate_id}"
+        )
+    shared_document_fields = (
+        "candidate_id",
+        "source_document_id",
+        "docket_entry_number",
+        "document_role",
+        "source_url",
+    )
+    expected_plan_document_keys = {
+        "candidate_id",
+        "contains_target_outcome",
+        "description",
+        "docket_entry_number",
+        "document_role",
+        "is_private",
+        "is_sealed",
+        "model_visible",
+        "redaction_or_seal_status",
+        "restriction_evidence",
+        "source_document_id",
+        "source_url",
+    }
+    for source_document_id, plan_document in added_plan_documents.items():
+        manifest_document = added_manifest_by_id[source_document_id]
+        if (
+            set(plan_document) != expected_plan_document_keys
+            or any(
+                plan_document.get(field_name) != manifest_document.get(field_name)
+                for field_name in shared_document_fields
+            )
+            or plan_document.get("document_role") != "complaint"
+            or plan_document.get("model_visible") is not True
+            or plan_document.get("contains_target_outcome") is not False
+            or plan_document.get("redaction_or_seal_status") != "public"
+            or plan_document.get("restriction_evidence")
+            != ["courtlistener_public_download_record_checked"]
+            or plan_document.get("is_private") not in (None, False)
+            or plan_document.get("is_sealed") not in (None, False)
+            or _optional_str(plan_document, "description") is None
+            or manifest_document.get("free_or_purchased") != "free"
+        ):
+            raise CommandError(
+                f"new free complaint binding is invalid for {candidate_id}/"
+                f"{source_document_id}"
+            )
+
+    previous_reasons = _required_str_tuple(previous, "paid_gap_reasons")
+    current_reasons = _required_str_tuple(current, "paid_gap_reasons")
+    expected_reasons = tuple(
+        reason for reason in previous_reasons if reason != "no_free_operative_complaint"
+    )
+    added_count = len(added_free_documents)
+    if (
+        added_count != 1
+        or previous_reasons.count("no_free_operative_complaint") != 1
+        or current_reasons != expected_reasons
+        or _required_int(current, "free_required_document_count")
+        != _required_int(previous, "free_required_document_count") + added_count
+        or _required_int(current, "missing_required_document_count")
+        != _required_int(previous, "missing_required_document_count") - added_count
+    ):
+        raise CommandError(f"new free complaint counts drifted for {candidate_id}")
+    try:
+        previous_cost = Decimal(_required_str(previous, "projected_paid_cost_usd"))
+        current_cost = Decimal(_required_str(current, "projected_paid_cost_usd"))
+    except InvalidOperation as exc:
+        raise CommandError(
+            f"paid-gap projected cost is invalid for {candidate_id}"
+        ) from exc
+    if current_cost != previous_cost - Decimal("3.05") * added_count:
+        raise CommandError(f"new free complaint cost drifted for {candidate_id}")
+
+    mutable_fields = {
+        "cost_rank",
+        "documents",
+        "free_required_document_count",
+        "missing_required_document_count",
+        "paid_gap_reasons",
+        "projected_paid_cost_usd",
+    }
+    previous_stable = {
+        key: value for key, value in previous.items() if key not in mutable_fields
+    }
+    current_stable = {
+        key: value for key, value in current.items() if key not in mutable_fields
+    }
+    if previous_stable != current_stable:
+        raise CommandError(f"paid-gap non-free fields drifted for {candidate_id}")
+
+
+def _validate_route_cost_ranks(
+    public_records: Sequence[Mapping[str, Any]],
+    paid_records: Sequence[Mapping[str, Any]],
+    *,
+    source: str,
+) -> None:
+    ranked_routes = [*public_records, *paid_records]
+    ranks: list[int] = []
+    for record in ranked_routes:
+        rank = record.get("cost_rank")
+        if type(rank) is not int or rank < 1:
+            raise CommandError(f"{source} has an invalid cost_rank")
+        ranks.append(rank)
+    if sorted(ranks) != list(range(1, len(ranked_routes) + 1)):
+        raise CommandError(f"{source} cost_rank values are not unique and contiguous")
+    for route_name, records in (
+        ("public selection", public_records),
+        ("paid gaps", paid_records),
+    ):
+        route_ranks = [cast(int, record["cost_rank"]) for record in records]
+        if route_ranks != sorted(route_ranks):
+            raise CommandError(f"{source} {route_name} is not in cost_rank order")
+
+
+def _checkpoint_directory_bytes(path: Path) -> dict[str, bytes]:
+    if not path.is_dir() or path.is_symlink():
+        raise CommandError(f"checkpoint directory is not a real directory: {path}")
+    result: dict[str, bytes] = {}
+    for child in path.iterdir():
+        if child.is_symlink() or not child.is_file() or child.suffix != ".json":
+            raise CommandError(f"checkpoint directory has unexpected entry: {child}")
+        result[child.name] = child.read_bytes()
+    return result
+
+
+def _json_bytes(record: Mapping[str, Any]) -> bytes:
+    return (
+        json.dumps(dict(record), indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode("utf-8")
+
+
+def _replace_checkpoint_directory_transactionally(
+    *,
+    checkpoint_dir: Path,
+    checkpoint_config_path: Path,
+    receipt_path: Path,
+    checkpoint_payloads: Mapping[str, bytes],
+    prior_checkpoint_payloads: Mapping[str, bytes],
+    config: Mapping[str, Any],
+    prior_config_bytes: bytes,
+    receipt: Mapping[str, Any],
+) -> None:
+    """Install a rebase as one rollback-safe transaction with config last."""
+
+    checkpoint_dir.parent.mkdir(parents=True, exist_ok=True)
+    desired_config = _json_bytes(config)
+    desired_receipt = _json_bytes(receipt)
+    if checkpoint_dir.exists():
+        existing = _checkpoint_directory_bytes(checkpoint_dir)
+        if existing == dict(checkpoint_payloads):
+            if (
+                checkpoint_config_path.is_file()
+                and checkpoint_config_path.read_bytes() == desired_config
+                and receipt_path.is_file()
+                and receipt_path.read_bytes() == desired_receipt
+            ):
+                return
+        elif existing != dict(prior_checkpoint_payloads):
+            raise CommandError(
+                "checkpoint destination is neither the verified prior nor rebased set"
+            )
+    if checkpoint_config_path.exists() and checkpoint_config_path.read_bytes() not in {
+        prior_config_bytes,
+        desired_config,
+    }:
+        raise CommandError("checkpoint destination config is unrelated")
+
+    stage = Path(
+        tempfile.mkdtemp(prefix=".pacer-gap-rebase-stage.", dir=checkpoint_dir.parent)
+    )
+    backup = checkpoint_dir.parent / f".pacer-gap-rebase-backup.{uuid.uuid4().hex}"
+    config_existed = checkpoint_config_path.exists()
+    old_config = checkpoint_config_path.read_bytes() if config_existed else None
+    receipt_existed = receipt_path.exists()
+    old_receipt = receipt_path.read_bytes() if receipt_existed else None
+    moved_existing = False
+    installed = False
+    try:
+        for filename, payload in checkpoint_payloads.items():
+            destination = stage / filename
+            with destination.open("wb") as handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+        stage_fd = os.open(stage, os.O_RDONLY)
+        try:
+            os.fsync(stage_fd)
+        finally:
+            os.close(stage_fd)
+        if checkpoint_dir.exists():
+            os.replace(checkpoint_dir, backup)
+            moved_existing = True
+        os.replace(stage, checkpoint_dir)
+        installed = True
+        _atomic_write_json(checkpoint_config_path, config)
+        _atomic_write_json(receipt_path, receipt)
+    except Exception:
+        if installed and checkpoint_dir.exists():
+            shutil.rmtree(checkpoint_dir)
+        if moved_existing and backup.exists():
+            os.replace(backup, checkpoint_dir)
+        if old_config is None:
+            checkpoint_config_path.unlink(missing_ok=True)
+        else:
+            checkpoint_config_path.parent.mkdir(parents=True, exist_ok=True)
+            checkpoint_config_path.write_bytes(old_config)
+        if old_receipt is None:
+            receipt_path.unlink(missing_ok=True)
+        else:
+            receipt_path.parent.mkdir(parents=True, exist_ok=True)
+            receipt_path.write_bytes(old_receipt)
+        raise
+    finally:
+        if stage.exists():
+            shutil.rmtree(stage)
+        if backup.exists():
+            shutil.rmtree(backup)
+
+
+def _cmd_acquisition_rebase_pacer_gap_checkpoints(
+    args: argparse.Namespace,
+) -> int:
+    """Reindex durable bridge checkpoints without any provider activity."""
+
+    output_root = _acquisition_output_root(args)
+    previous_screened_path = cast(Path, args.previous_screened_cases)
+    current_screened_path = cast(Path, args.current_screened_cases)
+    previous_public_path = cast(Path, args.previous_public_selection)
+    current_public_path = cast(Path, args.current_public_selection)
+    previous_paid_path = cast(Path, args.previous_paid_gaps)
+    current_paid_path = cast(Path, args.current_paid_gaps)
+    previous_free_path = cast(Path, args.previous_free_download_manifest)
+    current_free_path = cast(Path, args.current_free_download_manifest)
+    previous_checkpoint_dir = cast(Path, args.previous_checkpoint_dir)
+    previous_config_path = cast(Path, args.previous_checkpoint_config)
+    checkpoint_dir = _acquisition_path(
+        args,
+        "checkpoint_dir",
+        output_root / "checkpoints" / "pacer-gap-bridge",
+    )
+    checkpoint_config_path = _acquisition_path(
+        args,
+        "checkpoint_config_output",
+        output_root / "checkpoints" / "pacer-gap-bridge-progress-config.json",
+    )
+    receipt_path = _acquisition_path(
+        args,
+        "receipt_output",
+        output_root / "run-cards/rebase-pacer-gap-checkpoints-receipt.json",
+    )
+    run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards/rebase-pacer-gap-checkpoints.json",
+    )
+    log_path = _acquisition_path(
+        args,
+        "log_output",
+        output_root / "logs/rebase-pacer-gap-checkpoints.jsonl",
+    )
+    input_paths = (
+        previous_screened_path,
+        current_screened_path,
+        previous_public_path,
+        current_public_path,
+        previous_paid_path,
+        current_paid_path,
+        previous_free_path,
+        current_free_path,
+        previous_checkpoint_dir,
+        previous_config_path,
+    )
+    previous_checkpoint_resolved = previous_checkpoint_dir.resolve()
+    checkpoint_dir_resolved = checkpoint_dir.resolve()
+    if (
+        previous_checkpoint_resolved == checkpoint_dir_resolved
+        or previous_checkpoint_resolved in checkpoint_dir_resolved.parents
+        or checkpoint_dir_resolved in previous_checkpoint_resolved.parents
+    ):
+        raise CommandError(
+            "--previous-checkpoint-dir must be a preserved source distinct from "
+            "--checkpoint-dir"
+        )
+    protected_files = {
+        path.resolve() for path in (*input_paths[:-2], previous_config_path)
+    }
+    writable_files = {
+        checkpoint_config_path.resolve(),
+        receipt_path.resolve(),
+        run_card_path.resolve(),
+        log_path.resolve(),
+    }
+    if len(writable_files) != 4 or writable_files & protected_files:
+        raise CommandError("PACER-gap rebase output aliases a protected input/output")
+    for protected in protected_files:
+        if (
+            checkpoint_dir.resolve() == protected
+            or checkpoint_dir.resolve() in protected.parents
+        ):
+            raise CommandError("PACER-gap rebase checkpoint directory aliases an input")
+    for writable in writable_files:
+        if (
+            writable == checkpoint_dir_resolved
+            or checkpoint_dir_resolved in writable.parents
+            or writable == previous_checkpoint_resolved
+            or previous_checkpoint_resolved in writable.parents
+        ):
+            raise CommandError(
+                "PACER-gap rebase file output overlaps a checkpoint directory"
+            )
+    if previous_screened_path.read_bytes() != current_screened_path.read_bytes():
+        raise CommandError("screened cases are not byte-identical")
+    if previous_public_path.read_bytes() != current_public_path.read_bytes():
+        raise CommandError("public selection is not byte-identical")
+
+    previous_screened = _read_records(previous_screened_path)
+    current_screened = _read_records(current_screened_path)
+    previous_public = _read_records(previous_public_path)
+    current_public = _read_records(current_public_path)
+    previous_paid = _read_records(previous_paid_path)
+    current_paid = _read_records(current_paid_path)
+    previous_free = _read_records(previous_free_path)
+    current_free = _read_records(current_free_path)
+    try:
+        validate_public_plan_bridge_inputs(
+            public_selection_records=previous_public,
+            paid_gap_records=previous_paid,
+            free_download_records=previous_free,
+        )
+        validate_public_plan_bridge_inputs(
+            public_selection_records=current_public,
+            paid_gap_records=current_paid,
+            free_download_records=current_free,
+        )
+    except CourtListenerCaseDevBridgeError as exc:
+        raise CommandError(f"PACER-gap rebase input is invalid: {exc}") from exc
+
+    previous_paid_by_id = _records_by_candidate_id(
+        previous_paid, source="previous paid gaps"
+    )
+    current_paid_by_id = _records_by_candidate_id(
+        current_paid, source="current paid gaps"
+    )
+    _validate_route_cost_ranks(
+        previous_public, previous_paid, source="previous public plan"
+    )
+    _validate_route_cost_ranks(
+        current_public, current_paid, source="current public plan"
+    )
+    if set(previous_paid_by_id) != set(current_paid_by_id):
+        raise CommandError("paid-gap candidates were added or removed")
+    added_free_by_identity, reuse_transition_count = _validate_free_manifest_growth(
+        previous_free_path, current_free_path
+    )
+    added_free_by_candidate: dict[str, list[JsonRecord]] = defaultdict(list)
+    for (candidate_id, _source_document_id), record in added_free_by_identity.items():
+        added_free_by_candidate[candidate_id].append(record)
+    for candidate_id, previous_record in previous_paid_by_id.items():
+        previous_without_rank = {
+            key: value for key, value in previous_record.items() if key != "cost_rank"
+        }
+        current_without_rank = {
+            key: value
+            for key, value in current_paid_by_id[candidate_id].items()
+            if key != "cost_rank"
+        }
+        added_for_candidate = added_free_by_candidate.get(candidate_id, [])
+        records_differ = _canonical_json_sha256(
+            previous_without_rank
+        ) != _canonical_json_sha256(current_without_rank)
+        if records_differ:
+            if not added_for_candidate:
+                raise CommandError(f"paid-gap record drifted for {candidate_id}")
+            _validate_manifest_derived_paid_gap_change(
+                candidate_id=candidate_id,
+                previous=previous_record,
+                current=current_paid_by_id[candidate_id],
+                added_free_documents=added_for_candidate,
+            )
+        elif added_for_candidate:
+            raise CommandError(
+                f"new free documents were not reflected in paid gap {candidate_id}"
+            )
+    unknown_added_candidates = set(added_free_by_candidate) - set(previous_paid_by_id)
+    if unknown_added_candidates:
+        raise CommandError(
+            "new free documents do not belong to retained paid-gap candidates: "
+            + ", ".join(sorted(unknown_added_candidates))
+        )
+    routed_ids = {
+        *(_required_str(record, "candidate_id") for record in current_public),
+        *current_paid_by_id,
+    }
+    added_free_ids = set(added_free_by_identity)
+    for candidate_id, source_document_id in added_free_ids:
+        if candidate_id not in routed_ids:
+            raise CommandError(
+                "free-download manifest added an unrouted document "
+                f"{candidate_id}/{source_document_id}"
+            )
+
+    previous_config = _read_json_object(previous_config_path)
+    if previous_config.get("schema_version") not in {
+        _PACER_GAP_LEGACY_PROGRESS_CONFIG_SCHEMA,
+        _PACER_GAP_PROGRESS_CONFIG_SCHEMA,
+    }:
+        raise CommandError("previous checkpoint config schema is unsupported")
+    expected_previous_fields: Mapping[str, object] = {
+        "mode": "public_first",
+        "screened_cases_sha256": _sha256_path(previous_screened_path),
+        "public_selection_sha256": _sha256_path(previous_public_path),
+        "paid_gaps_sha256": _sha256_path(previous_paid_path),
+        "free_download_manifest_sha256": _sha256_path(previous_free_path),
+        "screened_case_count": len(previous_screened),
+        "public_selection_count": len(previous_public),
+        "paid_gap_count": len(previous_paid),
+        "free_lookup_only": True,
+        "pacer_fee_acknowledgment_allowed": False,
+    }
+    for field_name, expected in expected_previous_fields.items():
+        if previous_config.get(field_name) != expected:
+            raise CommandError(f"previous checkpoint config mismatches {field_name}")
+    source_commitments = _required_record_sequence(
+        previous_config, "source_commitments"
+    )
+    commitments_by_id = _records_by_candidate_id(
+        source_commitments, source="previous source commitments"
+    )
+    previous_route_ids = [
+        *(_required_str(record, "candidate_id") for record in previous_public),
+        *(_required_str(record, "candidate_id") for record in previous_paid),
+    ]
+    commitment_ids = [
+        _required_str(commitment, "candidate_id") for commitment in source_commitments
+    ]
+    if commitment_ids != previous_route_ids or set(commitments_by_id) != set(
+        previous_route_ids
+    ):
+        raise CommandError("previous source commitments do not match routed candidates")
+
+    screened_by_id = {
+        _bridge_candidate_id(record): record for record in previous_screened
+    }
+    if len(screened_by_id) != len(previous_screened):
+        raise CommandError("screened cases repeat a candidate identity")
+    missing_screened = set(previous_route_ids) - set(screened_by_id)
+    if missing_screened:
+        raise CommandError(
+            "routed candidates are missing from screened cases: "
+            + ", ".join(sorted(missing_screened))
+        )
+    prior_checkpoint_payloads = _checkpoint_directory_bytes(previous_checkpoint_dir)
+    checkpoint_by_id: dict[str, tuple[str, JsonRecord]] = {}
+    previous_index_by_id = {
+        _required_str(record, "candidate_id"): index
+        for index, record in enumerate(previous_paid)
+    }
+    for filename in prior_checkpoint_payloads:
+        checkpoint = _read_json_object(previous_checkpoint_dir / filename)
+        candidate_id = _required_str(checkpoint, "candidate_id")
+        if candidate_id in checkpoint_by_id or candidate_id not in previous_paid_by_id:
+            raise CommandError(
+                f"previous checkpoints repeat or do not route candidate {candidate_id}"
+            )
+        old_index = previous_index_by_id[candidate_id]
+        expected_path = _bridge_checkpoint_path(
+            previous_checkpoint_dir,
+            input_index=old_index,
+            candidate_id=candidate_id,
+        )
+        if filename != expected_path.name:
+            raise CommandError(f"previous checkpoint filename is invalid: {filename}")
+        candidate_input_sha256 = _canonical_json_sha256(
+            {
+                "screened_case": screened_by_id[candidate_id],
+                "paid_gap": previous_paid_by_id[candidate_id],
+            }
+        )
+        _validate_bridge_checkpoint(
+            checkpoint,
+            input_index=old_index,
+            candidate_id=candidate_id,
+            candidate_input_sha256=candidate_input_sha256,
+        )
+        checkpoint_by_id[candidate_id] = (filename, checkpoint)
+
+    current_route_ids = [
+        *(_required_str(record, "candidate_id") for record in current_public),
+        *(_required_str(record, "candidate_id") for record in current_paid),
+    ]
+    current_config: JsonRecord = {
+        **previous_config,
+        "schema_version": _PACER_GAP_PROGRESS_CONFIG_SCHEMA,
+        "screened_cases_sha256": _sha256_path(current_screened_path),
+        "public_selection_sha256": _sha256_path(current_public_path),
+        "paid_gaps_sha256": _sha256_path(current_paid_path),
+        "free_download_manifest_sha256": _sha256_path(current_free_path),
+        "screened_case_count": len(current_screened),
+        "public_selection_count": len(current_public),
+        "paid_gap_count": len(current_paid),
+        "source_commitments": [
+            commitments_by_id[candidate_id] for candidate_id in current_route_ids
+        ],
+    }
+    current_index_by_id = {
+        _required_str(record, "candidate_id"): index
+        for index, record in enumerate(current_paid)
+    }
+    checkpoint_payloads: dict[str, bytes] = {}
+    bindings: list[JsonRecord] = []
+    terminal_count = 0
+    for candidate_id, (previous_filename, checkpoint) in sorted(
+        checkpoint_by_id.items(), key=lambda item: current_index_by_id[item[0]]
+    ):
+        current_index = current_index_by_id[candidate_id]
+        current_input_sha256 = _canonical_json_sha256(
+            {
+                "screened_case": screened_by_id[candidate_id],
+                "paid_gap": current_paid_by_id[candidate_id],
+            }
+        )
+        previous_input_sha256 = cast(str, checkpoint["candidate_input_sha256"])
+        rebased: JsonRecord = {
+            **checkpoint,
+            "input_index": current_index,
+            "candidate_input_sha256": current_input_sha256,
+        }
+        current_filename = _bridge_checkpoint_path(
+            checkpoint_dir,
+            input_index=current_index,
+            candidate_id=candidate_id,
+        ).name
+        current_payload = _json_bytes(rebased)
+        checkpoint_payloads[current_filename] = current_payload
+        terminal_count += rebased["outcome"] in {"success", "exclusion"}
+        bindings.append(
+            {
+                "candidate_id": candidate_id,
+                "outcome": rebased["outcome"],
+                "resumable_attempt_count": rebased["resumable_attempt_count"],
+                "previous_filename": previous_filename,
+                "previous_sha256": "sha256:"
+                + hashlib.sha256(
+                    prior_checkpoint_payloads[previous_filename]
+                ).hexdigest(),
+                "current_filename": current_filename,
+                "current_sha256": "sha256:"
+                + hashlib.sha256(current_payload).hexdigest(),
+                "previous_candidate_input_sha256": previous_input_sha256,
+                "current_candidate_input_sha256": current_input_sha256,
+                "previous_cost_rank": previous_paid_by_id[candidate_id]["cost_rank"],
+                "current_cost_rank": current_paid_by_id[candidate_id]["cost_rank"],
+            }
+        )
+    artifact_commitments: JsonRecord = {
+        name: {
+            "previous_path": str(previous.resolve()),
+            "previous_sha256": _sha256_path(previous),
+            "current_path": str(current.resolve()),
+            "current_sha256": _sha256_path(current),
+        }
+        for name, previous, current in (
+            ("screened_cases", previous_screened_path, current_screened_path),
+            ("public_selection", previous_public_path, current_public_path),
+            ("paid_gaps", previous_paid_path, current_paid_path),
+            ("free_download_manifest", previous_free_path, current_free_path),
+        )
+    }
+    receipt: JsonRecord = {
+        "schema_version": _PACER_GAP_REBASE_RECEIPT_SCHEMA,
+        "status": "completed",
+        "artifact_commitments": artifact_commitments,
+        "previous_checkpoint_config": {
+            "path": str(previous_config_path.resolve()),
+            "sha256": _sha256_path(previous_config_path),
+        },
+        "current_checkpoint_config": {
+            "path": str(checkpoint_config_path.resolve()),
+            "sha256": "sha256:"
+            + hashlib.sha256(_json_bytes(current_config)).hexdigest(),
+        },
+        "previous_checkpoint_dir": str(previous_checkpoint_dir.resolve()),
+        "current_checkpoint_dir": str(checkpoint_dir.resolve()),
+        "checkpoint_count": len(bindings),
+        "terminal_checkpoint_count": terminal_count,
+        "retryable_checkpoint_count": len(bindings) - terminal_count,
+        "added_free_document_count": len(added_free_ids),
+        "reused_existing_transition_count": reuse_transition_count,
+        "provider_request_count": 0,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "pacer_fee_acknowledgment_allowed": False,
+        "checkpoint_bindings": bindings,
+    }
+    dry_run = _acquisition_dry_run(args)
+    if not dry_run:
+        _replace_checkpoint_directory_transactionally(
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_config_path=checkpoint_config_path,
+            receipt_path=receipt_path,
+            checkpoint_payloads=checkpoint_payloads,
+            prior_checkpoint_payloads=prior_checkpoint_payloads,
+            config=current_config,
+            prior_config_bytes=previous_config_path.read_bytes(),
+            receipt=receipt,
+        )
+    _write_acquisition_completion(
+        args,
+        stage="rebase-pacer-gap-checkpoints",
+        input_paths=input_paths,
+        output_paths=(checkpoint_dir, checkpoint_config_path, receipt_path),
+        record_count=len(bindings),
+        dry_run=dry_run,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            "terminal_checkpoint_count": terminal_count,
+            "retryable_checkpoint_count": len(bindings) - terminal_count,
+            "added_free_document_count": len(added_free_ids),
+            "reused_existing_transition_count": reuse_transition_count,
+            "provider_request_count": 0,
+            "pacer_fee_acknowledgment_allowed": False,
+            "receipt_sha256": "sha256:"
+            + hashlib.sha256(_json_bytes(receipt)).hexdigest(),
+        },
+    )
+    return 0
 
 
 def _bridge_checkpoint_payload_matches_candidate(
