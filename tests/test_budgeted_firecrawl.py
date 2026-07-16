@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from collections import deque
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from pathlib import Path
 from threading import Event, Lock, get_ident
 
@@ -12,6 +13,7 @@ from legalforecast.ingestion.budgeted_firecrawl import (
     FirecrawlArtifactError,
     FirecrawlCircuitOpenError,
     FirecrawlTargetSpec,
+    is_retryable_target_accepted,
     load_successful_firecrawl_pages,
 )
 from legalforecast.ingestion.cycle_acquisition_store import (
@@ -750,6 +752,25 @@ def test_scheduler_resumes_legacy_terminal_202_and_interrupted_authorization(
             failure_message="CourtListener target returned a non-success status",
             failure_transient=False,
             failure_response_sha256="a" * 64,
+        )
+        legacy_record = store.firecrawl_attempt(accepted_attempt.attempt_id)
+        assert is_retryable_target_accepted(legacy_record)
+        assert not is_retryable_target_accepted(
+            replace(legacy_record, failure_transient=True)
+        )
+        assert not is_retryable_target_accepted(
+            replace(
+                legacy_record,
+                failure_code="target_http_status_retryable",
+                failure_transient=False,
+            )
+        )
+        assert is_retryable_target_accepted(
+            replace(
+                legacy_record,
+                failure_code="target_http_status_retryable",
+                failure_transient=True,
+            )
         )
         store.set_firecrawl_target_status(
             "run-001", accepted.target_id, "terminal_error"

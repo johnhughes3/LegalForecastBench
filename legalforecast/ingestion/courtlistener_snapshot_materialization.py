@@ -1023,17 +1023,8 @@ def _validate_transient_firecrawl_attempt(
 def _is_retryable_target_202_attempt(attempt: FirecrawlAttempt) -> bool:
     """Apply the frozen basic-proxy snapshot profile to a generic accepted 202."""
 
-    legacy_retryable = (
-        attempt.failure_code == "target_http_status_invalid"
-        and attempt.failure_transient is False
-    )
-    current_retryable = (
-        attempt.failure_code == "target_http_status_retryable"
-        and attempt.failure_transient is True
-    )
     return (
         is_retryable_target_accepted(attempt)
-        and (legacy_retryable or current_retryable)
         and attempt.reported_credits in {0, 1}
         and attempt.proxy_used == "basic"
     )

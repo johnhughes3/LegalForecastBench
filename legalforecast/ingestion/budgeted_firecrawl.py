@@ -39,9 +39,6 @@ _HTTP_STATUS = re.compile(r"\bHTTP\s+(?P<status>[1-5][0-9]{2})\b", re.IGNORECASE
 TARGET_HTTP_PRESSURE_POLICY_VERSION = "courtlistener-target-http-202-aimd-v1"
 _TARGET_HTTP_202_BASE_COOLDOWN_SECONDS = 5.0
 _TARGET_HTTP_202_MAX_COOLDOWN_SECONDS = 60.0
-_TARGET_HTTP_RETRYABLE_CODES = frozenset(
-    {"target_http_status_invalid", "target_http_status_retryable"}
-)
 
 
 class FirecrawlCircuitOpenError(RuntimeError):
@@ -834,9 +831,17 @@ def _integral_credits(value: float | None) -> int:
 def is_retryable_target_accepted(attempt: FirecrawlAttempt) -> bool:
     """Recognize CourtListener 202 attempts, including legacy terminal records."""
 
+    legacy_retryable = (
+        attempt.failure_code == "target_http_status_invalid"
+        and attempt.failure_transient is False
+    )
+    current_retryable = (
+        attempt.failure_code == "target_http_status_retryable"
+        and attempt.failure_transient is True
+    )
     return (
         attempt.status == "target_error"
-        and attempt.failure_code in _TARGET_HTTP_RETRYABLE_CODES
+        and (legacy_retryable or current_retryable)
         and attempt.provider_http_status == 200
         and attempt.target_http_status == 202
         and attempt.reported_credits is not None

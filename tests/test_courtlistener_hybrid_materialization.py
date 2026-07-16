@@ -146,9 +146,16 @@ def test_hybrid_retryable_target_202_then_success_materializes_exact_lineage(
     assert lineage["firecrawl_run_reported_credits"] == 2
 
 
-def test_hybrid_retryable_target_202_rejects_nonfrozen_proxy_profile(
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("proxy_used", "stealth"), ("reported_credits", 2)],
+)
+def test_hybrid_retryable_target_202_rejects_nonfrozen_source_profile(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    field: str,
+    value: str | int,
 ) -> None:
     discovery_root, cycle_store = _run_hybrid_discovery(
         tmp_path,
@@ -156,23 +163,31 @@ def test_hybrid_retryable_target_202_rejects_nonfrozen_proxy_profile(
         target_accepted_failures=1,
     )
     with sqlite3.connect(cycle_store) as connection:
-        connection.execute(
-            """
-            UPDATE firecrawl_attempts
-            SET proxy_used = 'stealth'
-            WHERE target_http_status = 202
-            """
-        )
+        if field == "proxy_used":
+            connection.execute(
+                "UPDATE firecrawl_attempts SET proxy_used = ? "
+                "WHERE target_http_status = 202",
+                (value,),
+            )
+        else:
+            connection.execute(
+                "UPDATE firecrawl_attempts SET reported_credits = ? "
+                "WHERE target_http_status = 202",
+                (value,),
+            )
 
-    with pytest.raises(
-        ValueError,
-        match="target-error attempts do not reconcile",
-    ):
-        _materialize_hybrid(
-            tmp_path=tmp_path,
-            discovery_root=discovery_root,
-            cycle_store=cycle_store,
+    assert (
+        main(
+            _materialize_command(
+                tmp_path=tmp_path,
+                discovery_root=discovery_root,
+                cycle_store=cycle_store,
+                snapshot_id="hybrid-invalid-profile",
+            )
         )
+        == 2
+    )
+    assert "Firecrawl" in capsys.readouterr().err
 
 
 def test_hybrid_mixed_legacy_and_current_202_retries_materialize(
