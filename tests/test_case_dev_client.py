@@ -20,12 +20,14 @@ from legalforecast.ingestion import (
     CaseDevResponseError,
 )
 from legalforecast.ingestion.case_dev_client import (
+    CaseDevHTTPResponse,
     CaseDevRateLimiter,
     RecordedCaseDevResponse,
     UrlLibCaseDevTransport,
 )
 from legalforecast.ingestion.case_dev_config import (
     CASE_DEV_API_KEY_ENV,
+    CASE_DEV_RATE_LIMIT_PER_MINUTE_ENV,
     CaseDevConfig,
     CaseDevConfigError,
 )
@@ -527,6 +529,26 @@ def test_rate_limit_honors_http_date_retry_after(
     assert sleep_calls == pytest.approx([7.0])
 
 
+@pytest.mark.parametrize(("retry_after", "expected"), [("1", 1.0), ("600", 600.0)])
+def test_rate_limit_honors_retry_after_outside_fallback_bounds(
+    retry_after: str,
+    expected: float,
+) -> None:
+    response = CaseDevHTTPResponse(
+        status_code=429,
+        payload={"error": "slow down"},
+        headers={"Retry-After": retry_after},
+    )
+
+    cooldown = case_dev_client_module._case_dev_rate_limit_cooldown_seconds(
+        response,
+        retry_index=0,
+        jitter=lambda _upper: 0.0,
+    )
+
+    assert cooldown == expected
+
+
 def test_rate_limit_uses_bounded_exponential_shared_cooldown() -> None:
     now = 100.0
     sleep_calls: list[float] = []
@@ -686,13 +708,8 @@ def test_configured_rate_limit_spaces_request_starts(
         ]
     )
     client = CaseDevClient(
-        config=CaseDevConfig(
-            api_key=None,
-            base_url="https://api.case.dev",
-            rate_limit_per_minute=60,
-        ),
+        config=CaseDevConfig.from_env({CASE_DEV_RATE_LIMIT_PER_MINUTE_ENV: "60"}),
         transport=transport,
-        rate_limiter=CaseDevRateLimiter(rate_limit_per_minute=60),
     )
 
     assert client.get_case("case-1").case_id == "case-1"
@@ -704,8 +721,10 @@ def test_configured_rate_limit_spaces_request_starts(
 def test_fixture_transport_bypasses_live_default_rate_limit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    sleep_calls: list[float] = []
-    monkeypatch.setattr(case_dev_client_module.time, "sleep", sleep_calls.append)
+    def unexpected_sleep(seconds: float) -> None:
+        pytest.fail(f"fixture replay unexpectedly slept for {seconds}s")
+
+    monkeypatch.setattr(case_dev_client_module.time, "sleep", unexpected_sleep)
     transport = CaseDevFixtureTransport(
         [
             _recorded_response(
@@ -722,7 +741,6 @@ def test_fixture_transport_bypasses_live_default_rate_limit(
 
     assert client.get_case("case-1").case_id == "case-1"
     assert client.get_case("case-2").case_id == "case-2"
-    assert sleep_calls == []
 
 
 def test_rate_limit_circuit_preempts_worker_waiting_for_start_slot() -> None:
@@ -761,6 +779,31 @@ def test_rate_limit_circuit_preempts_worker_waiting_for_start_slot() -> None:
         assert preempted, "cooldown installation must not wait behind a sleeper"
         with pytest.raises(CaseDevRateLimitError, match="circuit is open"):
             queued_start.result(timeout=5)
+
+
+def test_later_rate_limit_extends_open_circuit_cooldown() -> None:
+    now = 100.0
+    sleep_calls: list[float] = []
+
+    def monotonic() -> float:
+        return now
+
+    def sleep(seconds: float) -> None:
+        nonlocal now
+        sleep_calls.append(seconds)
+        now += seconds
+
+    limiter = CaseDevRateLimiter(
+        rate_limit_per_minute=None,
+        monotonic=monotonic,
+        sleep=sleep,
+    )
+    limiter.defer_for(5.0, open_circuit=True)
+    limiter.defer_for(11.0, open_circuit=True)
+
+    limiter.wait_for_cooldown()
+
+    assert sleep_calls == [11.0]
 
 
 def test_shared_rate_limiter_applies_one_aggregate_cap_across_clients() -> None:

@@ -145,8 +145,6 @@ class CaseDevRateLimiter:
         if not math.isfinite(seconds) or seconds < 0:
             raise ValueError("cooldown seconds must be finite and nonnegative")
         with self._lock:
-            if self._circuit_open:
-                return
             deadline = self._monotonic() + seconds
             if (
                 self._cooldown_until_monotonic is None
@@ -559,6 +557,7 @@ class CaseDevClient:
             effective_limit = (
                 None
                 if isinstance(self.transport, CaseDevFixtureTransport)
+                and self.config.rate_limit_is_default
                 else configured_limit
             )
             self._rate_limiter = CaseDevRateLimiter(
@@ -850,7 +849,7 @@ def _case_dev_rate_limit_cooldown_seconds(
         return fallback
     if not math.isfinite(parsed) or parsed < 0:
         return fallback
-    return min(max(parsed, fallback), _CASE_DEV_MAX_RATE_LIMIT_COOLDOWN_SECONDS)
+    return parsed
 
 
 def _retry_after_seconds(value: str) -> float | None:
