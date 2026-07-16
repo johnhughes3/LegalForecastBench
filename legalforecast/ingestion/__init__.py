@@ -305,6 +305,7 @@ from legalforecast.ingestion.recap_api_discovery import (
     reconstruct_docket_page,
     require_reconstruction_auth,
     resolve_auth_mode,
+    web_entry_from_api,
 )
 from legalforecast.ingestion.recap_client import (
     RecapAuthError,
@@ -581,6 +582,7 @@ __all__ = [
     "verify_case_dev_purchase_journal_initialization",
     "verify_case_dev_purchase_policy",
     "verify_case_dev_purchase_policy_cohort_binding",
+    "web_entry_from_api",
     "write_case_dev_purchase_policy",
     "write_core_document_filter_results",
     "write_missing_core_budget_plan",
