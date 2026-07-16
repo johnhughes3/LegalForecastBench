@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from hashlib import sha256
 
 import pytest
@@ -15,6 +16,7 @@ from legalforecast.ingestion.case_dev_firecrawl import (
     CaseDevFirecrawlBatchError,
     CaseDevFirecrawlCandidate,
     acquire_case_dev_firecrawl_html,
+    screen_case_dev_firecrawl_successes,
 )
 from legalforecast.ingestion.firecrawl_source import (
     FirecrawlPaymentRequiredError,
@@ -454,6 +456,75 @@ def test_bridge_propagates_fatal_case_dev_failure_before_scraping(tmp_path) -> N
     assert source.requests == []
 
 
+def test_screen_recovers_source_bound_bankruptcy_adversary_from_html(tmp_path) -> None:
+    raw_html = _strict_adversary_html(adversary_number="26-01028")
+    (tmp_path / "101.html").write_text(raw_html, encoding="utf-8")
+
+    result = screen_case_dev_firecrawl_successes(
+        successes=(
+            _firecrawl_success(
+                docket_number="26-01028",
+                case_name="Debtor LLC",
+            ),
+        ),
+        raw_html_directory=tmp_path,
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert len(result.screened_cases) == 1
+    assert result.exclusions == ()
+    assert (
+        result.screened_cases[0]["candidate"]["metadata"]["case_type_stratum"]
+        == "bankruptcy_adversary"
+    )
+
+
+def test_screen_does_not_promote_parent_bankruptcy_docket_from_child_adversary(
+    tmp_path,
+) -> None:
+    raw_html = _strict_adversary_html(adversary_number="26-01028")
+    (tmp_path / "101.html").write_text(raw_html, encoding="utf-8")
+
+    result = screen_case_dev_firecrawl_successes(
+        successes=(
+            _firecrawl_success(
+                docket_number="26-50001",
+                case_name="In re Debtor LLC",
+            ),
+        ),
+        raw_html_directory=tmp_path,
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert result.screened_cases == ()
+    assert [item.reason for item in result.exclusions] == ["bankruptcy_court"]
+
+
+def test_screen_does_not_recover_bankruptcy_metadata_with_other_exclusions(
+    tmp_path,
+) -> None:
+    raw_html = _strict_adversary_html(adversary_number="26-01028")
+    (tmp_path / "101.html").write_text(raw_html, encoding="utf-8")
+
+    result = screen_case_dev_firecrawl_successes(
+        successes=(
+            _firecrawl_success(
+                docket_number="26-01028",
+                case_name="Warden, Immigration Detention Facility",
+            ),
+        ),
+        raw_html_directory=tmp_path,
+        decision_filed_on_or_after=date(2026, 6, 30),
+    )
+
+    assert result.screened_cases == ()
+    assert [item.reason for item in result.exclusions] == ["bankruptcy_court"]
+    assert result.exclusions[0].secondary_reasons == (
+        "not_civil_cv_docket",
+        "habeas_or_immigration_detention_posture",
+    )
+
+
 @pytest.mark.parametrize("max_candidates", [0, -1])
 def test_bridge_requires_positive_explicit_candidate_limit(
     tmp_path, max_candidates: int
@@ -476,6 +547,64 @@ def _config() -> CaseDevConfig:
 
 def _docket_html(label: str) -> str:
     return f"<html><div id='docket-entry-table'></div>{label}</html>"
+
+
+def _firecrawl_success(*, docket_number: str, case_name: str) -> dict[str, object]:
+    return {
+        "case_id": "case-a",
+        "source_url": "https://www.courtlistener.com/docket/101/fixture/",
+        "docket_id": "101",
+        "case_metadata": {
+            "case_id": "case-a",
+            "court_id": "nysb",
+            "docket_number": docket_number,
+            "case_name": case_name,
+        },
+    }
+
+
+def _strict_adversary_html(*, adversary_number: str) -> str:
+    return (
+        "<html><head><title>Debtor LLC</title></head><body>"
+        '<div id="docket-entry-table">'
+        + _screening_entry_html(
+            number=1,
+            filed_at="January 2, 2026",
+            text=(
+                f"Adversary case {adversary_number}. Complaint by Trustee "
+                "against Defendant LLC."
+            ),
+            description="Complaint",
+        )
+        + _screening_entry_html(
+            number=5,
+            filed_at="February 2, 2026",
+            text="MOTION to Dismiss adversary complaint under Rule 7012",
+            description="Motion to Dismiss",
+        )
+        + _screening_entry_html(
+            number=16,
+            filed_at="July 2, 2026",
+            text="ORDER granting Motion to Dismiss adversary complaint",
+            description="Order on Motion to Dismiss",
+        )
+        + "</div></body></html>"
+    )
+
+
+def _screening_entry_html(
+    *, number: int, filed_at: str, text: str, description: str
+) -> str:
+    return (
+        f'<div class="row" id="entry-{number}">'
+        f'<div class="col-xs-1">{number}</div>'
+        f'<div class="col-xs-3"><span title="{filed_at}">{filed_at}</span></div>'
+        f'<div class="col-xs-8">{text}'
+        '<div class="recap-documents"><div>Main Document</div>'
+        f"<div>{description}</div>"
+        f'<a href="https://storage.courtlistener.com/{number}.pdf">'
+        "Download PDF</a></div></div></div>"
+    )
 
 
 def _client(

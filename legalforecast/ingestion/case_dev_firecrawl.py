@@ -32,9 +32,11 @@ from legalforecast.ingestion.firecrawl_source import (
     FirecrawlURLValidationError,
 )
 from legalforecast.ingestion.mtd_acquisition_screen import (
+    CaseDevMetadataScreen,
     courtlistener_public_docket_url_from_case_dev,
     screen_case_dev_docket_metadata,
 )
+from legalforecast.ingestion.recap_api_discovery import parse_adversary_case_number
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 from legalforecast.selection.exclusion_ledger import (
     ExclusionLedgerEntry,
@@ -617,6 +619,14 @@ def screen_case_dev_firecrawl_successes(
                 )
             )
             continue
+        original_metadata_screen = metadata_screen
+        metadata_screen = _recover_source_bound_bankruptcy_adversary(
+            metadata_screen=metadata_screen,
+            raw_html=raw_html,
+            source_url=source_url,
+            docket_id=docket_id,
+        )
+        source_bound_adversary_recovered = metadata_screen != original_metadata_screen
         docket = CourtListenerDocket(
             docket_id=docket_id,
             court_id=_manifest_string(normalized_metadata, "court_id"),
@@ -631,6 +641,11 @@ def screen_case_dev_firecrawl_successes(
             metadata_screen=metadata_screen,
             raw_html=raw_html,
             decision_filed_on_or_after=decision_filed_on_or_after,
+            candidate_text_override=(
+                f"{metadata_screen.metadata.searchable_text} Adversary Proceeding"
+                if source_bound_adversary_recovered
+                else None
+            ),
         )
         if screened is not None:
             screened_cases.append(screened)
@@ -646,6 +661,66 @@ def screen_case_dev_firecrawl_successes(
     if not result.reconciled:
         raise RuntimeError("Firecrawl screening outputs do not reconcile to inputs")
     return result
+
+
+def _recover_source_bound_bankruptcy_adversary(
+    *,
+    metadata_screen: CaseDevMetadataScreen,
+    raw_html: str,
+    source_url: str,
+    docket_id: str,
+) -> CaseDevMetadataScreen:
+    """Defer a bare bankruptcy metadata exclusion to exact docket evidence.
+
+    Case.dev can expose a court-local adversary number without an ``ap`` token
+    or party-versus-party caption.  The already-downloaded CourtListener docket
+    may cure only that ambiguity: one numbered, dated initiating entry must name
+    the same adversary number and say who filed the complaint against whom.
+    References to child adversaries on a main bankruptcy docket never match the
+    parent docket number and therefore remain excluded.
+    """
+
+    recoverable_reasons = {"bankruptcy_court", "not_civil_cv_docket"}
+    if "bankruptcy_court" not in metadata_screen.exclusion_reasons or not set(
+        metadata_screen.exclusion_reasons
+    ).issubset(recoverable_reasons):
+        return metadata_screen
+    metadata = metadata_screen.metadata
+    court_id = (metadata.court_id or "").strip().casefold()
+    docket_number = (metadata.docket_number or "").strip().casefold()
+    if not court_id.endswith("b") or not docket_number:
+        return metadata_screen
+    try:
+        page = parse_courtlistener_docket_html(
+            raw_html,
+            source_url=source_url,
+            docket_id=docket_id,
+        )
+    except CourtListenerWebParseError:
+        return metadata_screen
+    match_count = 0
+    for entry in page.entries:
+        adversary_number = parse_adversary_case_number(entry.text)
+        if (
+            entry.entry_number is not None
+            and entry.entry_number.isdecimal()
+            and entry.filed_at is not None
+            and adversary_number is not None
+            and adversary_number.strip().casefold() == docket_number
+            and re.search(r"\bcomplaint\b", entry.text, re.IGNORECASE) is not None
+            and re.search(r"\bagainst\b", entry.text, re.IGNORECASE) is not None
+        ):
+            match_count += 1
+    if match_count != 1:
+        return metadata_screen
+    return CaseDevMetadataScreen(
+        metadata=metadata,
+        exclusion_reasons=tuple(
+            reason
+            for reason in metadata_screen.exclusion_reasons
+            if reason not in recoverable_reasons
+        ),
+    )
 
 
 def case_dev_record_is_restricted(record: Mapping[str, object]) -> bool:
