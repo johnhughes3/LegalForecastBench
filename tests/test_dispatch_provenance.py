@@ -237,6 +237,7 @@ def test_frozen_policy_builds_exact_workflow_concurrency_group(
     }
 
     assert len(groups) == 8
+    assert len({group.casefold() for group in groups}) == 8
     assert _workflow_group(("fixture:model-a",), ("full_packet",)) in groups
 
 
