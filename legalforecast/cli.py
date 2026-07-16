@@ -3847,10 +3847,12 @@ def _add_acquisition_enrich_recap_case_dev_arguments(
         type=int,
         default=1,
         help=(
-            "Concurrent live Case.dev docket lookups; 1-2, default 1. "
-            "CASE_DEV_RATE_LIMIT_PER_MINUTE is one aggregate process-wide "
-            "allowance shared across all workers. Checkpoint writes remain "
-            "serialized. Fixtures require 1."
+            "Concurrent live Case.dev docket lookups; 1-5, default 1. "
+            "CASE_DEV_RATE_LIMIT_PER_MINUTE defaults conservatively to 30 "
+            "and is one aggregate process-wide allowance shared across all "
+            "workers. Provider Retry-After/cooldown and circuit-breaker state "
+            "are also shared. Checkpoint writes remain serialized. Fixtures "
+            "require 1."
         ),
     )
     parser.add_argument("--case-dev-fixture", type=Path)
@@ -12782,8 +12784,8 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
         raise CommandError("--page-size must be between 1 and 100")
     if max_pages <= 0:
         raise CommandError("--max-pages-per-docket must be positive")
-    if workers <= 0 or workers > 2:
-        raise CommandError("--workers must be between 1 and 2")
+    if workers <= 0 or workers > 5:
+        raise CommandError("--workers must be between 1 and 5")
     if live == (fixture_path is not None):
         raise CommandError(
             "choose exactly one of --case-dev-fixture or --live-case-dev"
@@ -13001,12 +13003,8 @@ def _cmd_acquisition_enrich_recap_case_dev(args: argparse.Namespace) -> int:
                 progress_by_index[cast(int, progress["input_index"])] = progress
         else:
             live_config = CaseDevConfig.from_env(require_api_key=True)
-            aggregate_rate_limiter = (
-                None
-                if live_config.rate_limit_per_minute is None
-                else CaseDevRateLimiter(
-                    rate_limit_per_minute=live_config.rate_limit_per_minute
-                )
+            aggregate_rate_limiter = CaseDevRateLimiter(
+                rate_limit_per_minute=live_config.rate_limit_per_minute
             )
             with ThreadPoolExecutor(max_workers=workers) as executor:
                 pending_iter = iter(pending)

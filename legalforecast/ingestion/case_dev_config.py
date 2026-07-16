@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from legalforecast.ingestion.http_config import validate_https_base_url
 
@@ -17,6 +17,7 @@ CASE_DEV_ESTIMATED_COST_PER_REQUEST_USD_ENV = "CASE_DEV_ESTIMATED_COST_PER_REQUE
 
 DEFAULT_CASE_DEV_BASE_URL = "https://api.case.dev"
 DEFAULT_CASE_DEV_TIMEOUT_SECONDS = 30.0
+DEFAULT_CASE_DEV_RATE_LIMIT_PER_MINUTE = 30
 CASE_DEV_ALLOWED_BASE_HOSTS = frozenset({"api.case.dev", "sandbox.case.dev"})
 
 _TRUTHY_VALUES = {"1", "true", "yes", "on"}
@@ -41,6 +42,8 @@ class CaseDevConfig:
 
     ``rate_limit_per_minute`` is an aggregate process allowance. Concurrent
     workers share one limiter rather than each receiving this many requests.
+    ``rate_limit_is_default`` lets offline transports skip only the implicit
+    live-traffic default while preserving an explicit caller limit.
     """
 
     api_key: str | None
@@ -49,6 +52,7 @@ class CaseDevConfig:
     rate_limit_per_minute: int | None = None
     timeout_seconds: float = DEFAULT_CASE_DEV_TIMEOUT_SECONDS
     estimated_cost_per_request_usd: float | None = None
+    rate_limit_is_default: bool = field(default=False, repr=False)
 
     @classmethod
     def from_env(
@@ -63,6 +67,10 @@ class CaseDevConfig:
         api_key = _optional_text(values.get(CASE_DEV_API_KEY_ENV))
         if require_api_key and api_key is None:
             raise CaseDevConfigError(f"{CASE_DEV_API_KEY_ENV} is required")
+        configured_rate_limit = _optional_positive_int(
+            values.get(CASE_DEV_RATE_LIMIT_PER_MINUTE_ENV),
+            CASE_DEV_RATE_LIMIT_PER_MINUTE_ENV,
+        )
 
         return cls(
             api_key=api_key,
@@ -71,10 +79,12 @@ class CaseDevConfig:
                 values.get(CASE_DEV_LIVE_TESTS_ENV),
                 CASE_DEV_LIVE_TESTS_ENV,
             ),
-            rate_limit_per_minute=_optional_positive_int(
-                values.get(CASE_DEV_RATE_LIMIT_PER_MINUTE_ENV),
-                CASE_DEV_RATE_LIMIT_PER_MINUTE_ENV,
+            rate_limit_per_minute=(
+                DEFAULT_CASE_DEV_RATE_LIMIT_PER_MINUTE
+                if configured_rate_limit is None
+                else configured_rate_limit
             ),
+            rate_limit_is_default=configured_rate_limit is None,
             timeout_seconds=_positive_float(
                 values.get(CASE_DEV_TIMEOUT_SECONDS_ENV),
                 CASE_DEV_TIMEOUT_SECONDS_ENV,

@@ -20,12 +20,14 @@ from legalforecast.ingestion import (
     CaseDevResponseError,
 )
 from legalforecast.ingestion.case_dev_client import (
+    CaseDevHTTPResponse,
     CaseDevRateLimiter,
     RecordedCaseDevResponse,
     UrlLibCaseDevTransport,
 )
 from legalforecast.ingestion.case_dev_config import (
     CASE_DEV_API_KEY_ENV,
+    CASE_DEV_RATE_LIMIT_PER_MINUTE_ENV,
     CaseDevConfig,
     CaseDevConfigError,
 )
@@ -46,6 +48,7 @@ def _recorded_response(
     params: dict[str, object] | None = None,
     status_code: int = 200,
     payload: dict[str, object] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> RecordedCaseDevResponse:
     return RecordedCaseDevResponse(
         method=method,
@@ -53,6 +56,24 @@ def _recorded_response(
         params={} if params is None else params,
         status_code=status_code,
         payload={} if payload is None else payload,
+        headers={} if headers is None else headers,
+    )
+
+
+def _instant_rate_limiter() -> CaseDevRateLimiter:
+    now = 0.0
+
+    def monotonic() -> float:
+        return now
+
+    def sleep(seconds: float) -> None:
+        nonlocal now
+        now += seconds
+
+    return CaseDevRateLimiter(
+        rate_limit_per_minute=None,
+        monotonic=monotonic,
+        sleep=sleep,
     )
 
 
@@ -407,12 +428,230 @@ def test_rate_limit_retries_before_success() -> None:
             ),
         ]
     )
-    client = CaseDevClient(config=_config(), transport=transport, max_retries=1)
+    client = CaseDevClient(
+        config=_config(),
+        transport=transport,
+        max_retries=1,
+        rate_limiter=_instant_rate_limiter(),
+        retry_jitter=lambda _upper: 0.0,
+    )
 
     page = client.search_docket_entries("MTD")
 
     assert page.items == ()
     assert client.request_count == 2
+
+
+def test_rate_limit_honors_retry_after_on_shared_governor() -> None:
+    now = 100.0
+    sleep_calls: list[float] = []
+
+    def monotonic() -> float:
+        return now
+
+    def sleep(seconds: float) -> None:
+        nonlocal now
+        sleep_calls.append(seconds)
+        now += seconds
+
+    limiter = CaseDevRateLimiter(
+        rate_limit_per_minute=None,
+        monotonic=monotonic,
+        sleep=sleep,
+    )
+    client = CaseDevClient(
+        config=_config(),
+        transport=CaseDevFixtureTransport(
+            [
+                _recorded_response(
+                    params={"type": "search", "query": "MTD"},
+                    status_code=429,
+                    payload={"error": "slow down"},
+                    headers={"Retry-After": "7"},
+                ),
+                _recorded_response(
+                    params={"type": "search", "query": "MTD"},
+                    payload={"dockets": []},
+                ),
+            ]
+        ),
+        max_retries=1,
+        rate_limiter=limiter,
+        retry_jitter=lambda _upper: 0.0,
+    )
+
+    assert client.search_docket_entries("MTD").items == ()
+    assert sleep_calls == pytest.approx([7.0])
+
+
+def test_rate_limit_honors_http_date_retry_after(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = 100.0
+    sleep_calls: list[float] = []
+
+    def monotonic() -> float:
+        return now
+
+    def sleep(seconds: float) -> None:
+        nonlocal now
+        sleep_calls.append(seconds)
+        now += seconds
+
+    monkeypatch.setattr(case_dev_client_module.time, "time", lambda: 0.0)
+    limiter = CaseDevRateLimiter(
+        rate_limit_per_minute=None,
+        monotonic=monotonic,
+        sleep=sleep,
+    )
+    client = CaseDevClient(
+        config=_config(),
+        transport=CaseDevFixtureTransport(
+            [
+                _recorded_response(
+                    params={"type": "search", "query": "MTD"},
+                    status_code=429,
+                    payload={"error": "slow down"},
+                    headers={"Retry-After": "Thu, 01 Jan 1970 00:00:07 GMT"},
+                ),
+                _recorded_response(
+                    params={"type": "search", "query": "MTD"},
+                    payload={"dockets": []},
+                ),
+            ]
+        ),
+        max_retries=1,
+        rate_limiter=limiter,
+        retry_jitter=lambda _upper: 0.0,
+    )
+
+    assert client.search_docket_entries("MTD").items == ()
+    assert sleep_calls == pytest.approx([7.0])
+
+
+@pytest.mark.parametrize(("retry_after", "expected"), [("1", 1.0), ("600", 600.0)])
+def test_rate_limit_honors_retry_after_outside_fallback_bounds(
+    retry_after: str,
+    expected: float,
+) -> None:
+    response = CaseDevHTTPResponse(
+        status_code=429,
+        payload={"error": "slow down"},
+        headers={"Retry-After": retry_after},
+    )
+
+    cooldown = case_dev_client_module._case_dev_rate_limit_cooldown_seconds(
+        response,
+        retry_index=0,
+        jitter=lambda _upper: 0.0,
+    )
+
+    assert cooldown == expected
+
+
+def test_rate_limit_uses_bounded_exponential_shared_cooldown() -> None:
+    now = 100.0
+    sleep_calls: list[float] = []
+
+    def monotonic() -> float:
+        return now
+
+    def sleep(seconds: float) -> None:
+        nonlocal now
+        sleep_calls.append(seconds)
+        now += seconds
+
+    limiter = CaseDevRateLimiter(
+        rate_limit_per_minute=None,
+        monotonic=monotonic,
+        sleep=sleep,
+    )
+    responses = [
+        _recorded_response(
+            params={"type": "search", "query": "MTD"},
+            status_code=429,
+            payload={"error": "slow down"},
+        ),
+        _recorded_response(
+            params={"type": "search", "query": "MTD"},
+            status_code=429,
+            payload={"error": "still slow"},
+        ),
+        _recorded_response(
+            params={"type": "search", "query": "MTD"},
+            payload={"dockets": []},
+        ),
+    ]
+    client = CaseDevClient(
+        config=_config(),
+        transport=CaseDevFixtureTransport(responses),
+        max_retries=2,
+        rate_limiter=limiter,
+        retry_jitter=lambda _upper: 0.0,
+    )
+
+    assert client.search_docket_entries("MTD").items == ()
+    assert sleep_calls == pytest.approx([5.0, 10.0])
+
+
+def test_terminal_rate_limit_opens_shared_circuit_before_returning() -> None:
+    now = 100.0
+    sleep_calls: list[float] = []
+
+    def monotonic() -> float:
+        return now
+
+    def sleep(seconds: float) -> None:
+        nonlocal now
+        sleep_calls.append(seconds)
+        now += seconds
+
+    limiter = CaseDevRateLimiter(
+        rate_limit_per_minute=None,
+        monotonic=monotonic,
+        sleep=sleep,
+    )
+    limited_transport = CaseDevFixtureTransport(
+        [
+            _recorded_response(
+                params={"type": "search", "query": "MTD"},
+                status_code=429,
+                payload={"error": "slow down"},
+                headers={"Retry-After": "11"},
+            )
+        ]
+    )
+    sibling_transport = CaseDevFixtureTransport(
+        [
+            _recorded_response(
+                params={"type": "search", "query": "sibling"},
+                payload={"dockets": []},
+            )
+        ]
+    )
+    limited = CaseDevClient(
+        config=_config(),
+        transport=limited_transport,
+        max_retries=0,
+        rate_limiter=limiter,
+        retry_jitter=lambda _upper: 0.0,
+    )
+    sibling = CaseDevClient(
+        config=_config(),
+        transport=sibling_transport,
+        max_retries=0,
+        rate_limiter=limiter,
+        retry_jitter=lambda _upper: 0.0,
+    )
+
+    with pytest.raises(CaseDevRateLimitError, match="slow down"):
+        limited.search_docket_entries("MTD")
+    with pytest.raises(CaseDevRateLimitError, match="circuit is open"):
+        sibling.search_docket_entries("sibling")
+
+    assert sleep_calls == pytest.approx([11.0])
+    assert len(limited_transport.requests) == 1
+    assert sibling_transport.requests == []
 
 
 def test_url_timeout_retries_before_success() -> None:
@@ -469,11 +708,7 @@ def test_configured_rate_limit_spaces_request_starts(
         ]
     )
     client = CaseDevClient(
-        config=CaseDevConfig(
-            api_key=None,
-            base_url="https://api.case.dev",
-            rate_limit_per_minute=60,
-        ),
+        config=CaseDevConfig.from_env({CASE_DEV_RATE_LIMIT_PER_MINUTE_ENV: "60"}),
         transport=transport,
     )
 
@@ -481,6 +716,94 @@ def test_configured_rate_limit_spaces_request_starts(
     assert client.get_case("case-2").case_id == "case-2"
 
     assert sleep_calls == pytest.approx([0.75])
+
+
+def test_fixture_transport_bypasses_live_default_rate_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_sleep(seconds: float) -> None:
+        pytest.fail(f"fixture replay unexpectedly slept for {seconds}s")
+
+    monkeypatch.setattr(case_dev_client_module.time, "sleep", unexpected_sleep)
+    transport = CaseDevFixtureTransport(
+        [
+            _recorded_response(
+                params={"type": "lookup", "docketId": "case-1"},
+                payload={"id": "case-1", "caption": "One v. Fixture"},
+            ),
+            _recorded_response(
+                params={"type": "lookup", "docketId": "case-2"},
+                payload={"id": "case-2", "caption": "Two v. Fixture"},
+            ),
+        ]
+    )
+    client = CaseDevClient(config=CaseDevConfig.from_env({}), transport=transport)
+
+    assert client.get_case("case-1").case_id == "case-1"
+    assert client.get_case("case-2").case_id == "case-2"
+
+
+def test_rate_limit_circuit_preempts_worker_waiting_for_start_slot() -> None:
+    now = 100.0
+    sleep_started = threading.Event()
+    release_sleep = threading.Event()
+
+    def monotonic() -> float:
+        return now
+
+    def sleep(_seconds: float) -> None:
+        sleep_started.set()
+        assert release_sleep.wait(timeout=5)
+
+    limiter = CaseDevRateLimiter(
+        rate_limit_per_minute=60,
+        monotonic=monotonic,
+        sleep=sleep,
+    )
+    limiter.acquire()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        queued_start = executor.submit(limiter.acquire)
+        assert sleep_started.wait(timeout=5)
+        breaker_installed = threading.Event()
+
+        def install_breaker() -> None:
+            limiter.defer_for(0.0, open_circuit=True)
+            breaker_installed.set()
+
+        breaker = executor.submit(install_breaker)
+        preempted = breaker_installed.wait(timeout=1)
+        release_sleep.set()
+        breaker.result(timeout=5)
+
+        assert preempted, "cooldown installation must not wait behind a sleeper"
+        with pytest.raises(CaseDevRateLimitError, match="circuit is open"):
+            queued_start.result(timeout=5)
+
+
+def test_later_rate_limit_extends_open_circuit_cooldown() -> None:
+    now = 100.0
+    sleep_calls: list[float] = []
+
+    def monotonic() -> float:
+        return now
+
+    def sleep(seconds: float) -> None:
+        nonlocal now
+        sleep_calls.append(seconds)
+        now += seconds
+
+    limiter = CaseDevRateLimiter(
+        rate_limit_per_minute=None,
+        monotonic=monotonic,
+        sleep=sleep,
+    )
+    limiter.defer_for(5.0, open_circuit=True)
+    limiter.defer_for(11.0, open_circuit=True)
+
+    limiter.wait_for_cooldown()
+
+    assert sleep_calls == [11.0]
 
 
 def test_shared_rate_limiter_applies_one_aggregate_cap_across_clients() -> None:
@@ -518,23 +841,29 @@ def test_shared_rate_limiter_applies_one_aggregate_cap_across_clients() -> None:
             ),
             rate_limiter=limiter,
         )
-        for case_id in ("case-1", "case-2")
+        for case_id in ("case-1", "case-2", "case-3", "case-4", "case-5")
     )
-    barrier = threading.Barrier(3)
+    barrier = threading.Barrier(6)
 
     def get_case(client: CaseDevClient, case_id: str) -> str:
         barrier.wait()
         return client.get_case(case_id).case_id
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         futures = tuple(
             executor.submit(get_case, client, f"case-{index}")
             for index, client in enumerate(clients, start=1)
         )
         barrier.wait()
-        assert {future.result() for future in futures} == {"case-1", "case-2"}
+        assert {future.result() for future in futures} == {
+            "case-1",
+            "case-2",
+            "case-3",
+            "case-4",
+            "case-5",
+        }
 
-    assert sleep_calls == pytest.approx([1.0])
+    assert sleep_calls == pytest.approx([1.0, 1.0, 1.0, 1.0])
 
 
 @pytest.mark.parametrize("invalid_limit", [True, 1.0, float("nan")])
@@ -555,7 +884,13 @@ def test_rate_limit_without_retry_raises() -> None:
             )
         ]
     )
-    client = CaseDevClient(config=_config(), transport=transport, max_retries=0)
+    client = CaseDevClient(
+        config=_config(),
+        transport=transport,
+        max_retries=0,
+        rate_limiter=_instant_rate_limiter(),
+        retry_jitter=lambda _upper: 0.0,
+    )
 
     with pytest.raises(CaseDevRateLimitError, match="slow down"):
         client.search_docket_entries("MTD")

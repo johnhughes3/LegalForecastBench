@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import random
 import re
 import time
 import urllib.error
@@ -11,6 +13,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
+from email.utils import parsedate_to_datetime
 from http.client import HTTPMessage
 from pathlib import Path
 from threading import Lock
@@ -82,41 +85,90 @@ class CaseDevTransport(Protocol):
 
 
 class CaseDevRateLimiter:
-    """Serialize request starts under one aggregate per-process worker cap.
+    """Serialize request starts and provider cooldowns across worker clients.
 
     A concurrent command creates one instance and injects it into every worker
-    client. The lock remains held while waiting so separate clients cannot each
-    consume the full organization-wide ``rate_limit_per_minute`` allowance.
+    client. Request slots are reserved under a lock and rechecked after every
+    lock-free sleep so separate clients cannot each consume the full aggregate
+    ``rate_limit_per_minute`` allowance. Provider cooldowns and a terminal
+    rate-limit circuit are process-wide too and can preempt queued starts.
     """
 
     def __init__(
         self,
         *,
-        rate_limit_per_minute: int,
+        rate_limit_per_minute: int | None,
         monotonic: Callable[[], float] | None = None,
         sleep: Callable[[float], None] | None = None,
     ) -> None:
-        if type(rate_limit_per_minute) is not int or rate_limit_per_minute <= 0:
-            raise ValueError("rate_limit_per_minute must be a positive integer")
+        if rate_limit_per_minute is not None and (
+            type(rate_limit_per_minute) is not int or rate_limit_per_minute <= 0
+        ):
+            raise ValueError("rate_limit_per_minute must be a positive integer or None")
         self.rate_limit_per_minute = rate_limit_per_minute
-        self._interval_seconds = 60.0 / rate_limit_per_minute
+        self._interval_seconds = (
+            0.0 if rate_limit_per_minute is None else 60.0 / rate_limit_per_minute
+        )
         self._monotonic = time.monotonic if monotonic is None else monotonic
         self._sleep = time.sleep if sleep is None else sleep
         self._lock = Lock()
         self._last_request_monotonic: float | None = None
+        self._cooldown_until_monotonic: float | None = None
+        self._circuit_open = False
 
     def acquire(self) -> None:
         """Wait until the next aggregate request-start slot is available."""
 
+        while True:
+            with self._lock:
+                if self._circuit_open:
+                    raise CaseDevRateLimitError(
+                        "shared Case.dev provider rate-limit circuit is open"
+                    )
+                now = self._monotonic()
+                cooldown_remaining = self._cooldown_remaining_locked(now)
+                interval_remaining = 0.0
+                if self._last_request_monotonic is not None:
+                    elapsed = now - self._last_request_monotonic
+                    interval_remaining = self._interval_seconds - elapsed
+                remaining = max(cooldown_remaining, interval_remaining)
+                if remaining <= 0:
+                    self._last_request_monotonic = now
+                    return
+            # Never hold the state lock while sleeping: a 429 from another
+            # in-flight worker must be able to install a cooldown or breaker.
+            self._sleep(remaining)
+
+    def defer_for(self, seconds: float, *, open_circuit: bool = False) -> None:
+        """Defer all worker request starts and optionally open the breaker."""
+
+        if not math.isfinite(seconds) or seconds < 0:
+            raise ValueError("cooldown seconds must be finite and nonnegative")
         with self._lock:
-            now = self._monotonic()
-            if self._last_request_monotonic is not None:
-                elapsed = now - self._last_request_monotonic
-                remaining = self._interval_seconds - elapsed
-                if remaining > 0:
-                    self._sleep(remaining)
-                    now = self._monotonic()
-            self._last_request_monotonic = now
+            deadline = self._monotonic() + seconds
+            if (
+                self._cooldown_until_monotonic is None
+                or deadline > self._cooldown_until_monotonic
+            ):
+                self._cooldown_until_monotonic = deadline
+            if open_circuit:
+                self._circuit_open = True
+
+    def wait_for_cooldown(self) -> None:
+        """Wait out the shared cooldown before returning a terminal failure."""
+
+        while True:
+            with self._lock:
+                remaining = self._cooldown_remaining_locked(self._monotonic())
+                if remaining <= 0:
+                    return
+            self._sleep(remaining)
+
+    def _cooldown_remaining_locked(self, now: float) -> float:
+        deadline = self._cooldown_until_monotonic
+        if deadline is None:
+            return 0.0
+        return deadline - now
 
 
 @dataclass(frozen=True, slots=True)
@@ -395,6 +447,7 @@ class RecordedCaseDevResponse:
     params: Mapping[str, Any]
     status_code: int
     payload: Mapping[str, Any]
+    headers: Mapping[str, str] = field(default_factory=lambda: {})
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> RecordedCaseDevResponse:
@@ -404,6 +457,7 @@ class RecordedCaseDevResponse:
             params=_primitive_mapping(record.get("params", {}), "params"),
             status_code=_required_int(record, "status_code"),
             payload=_mapping(record.get("payload"), "payload"),
+            headers=_string_mapping(record.get("headers", {}), "headers"),
         )
 
 
@@ -462,6 +516,7 @@ class CaseDevFixtureTransport:
         return CaseDevHTTPResponse(
             status_code=response.status_code,
             payload=response.payload,
+            headers=response.headers,
         )
 
 
@@ -474,6 +529,7 @@ class CaseDevClient:
         max_retries: int = 2,
         retry_backoff_seconds: float = 0.0,
         rate_limiter: CaseDevRateLimiter | None = None,
+        retry_jitter: Callable[[float], float] | None = None,
     ) -> None:
         self.config = CaseDevConfig.from_env() if config is None else config
         self.transport = (
@@ -483,6 +539,9 @@ class CaseDevClient:
         )
         self.max_retries = max_retries
         self.retry_backoff_seconds = retry_backoff_seconds
+        self._retry_jitter = (
+            _random_cooldown_jitter if retry_jitter is None else retry_jitter
+        )
         self.request_count = 0
         configured_limit = self.config.rate_limit_per_minute
         if (
@@ -492,15 +551,18 @@ class CaseDevClient:
             raise ValueError(
                 "shared Case.dev rate limiter must match configured aggregate limit"
             )
-        self._rate_limiter = (
-            rate_limiter
-            if rate_limiter is not None
-            else (
+        if rate_limiter is not None:
+            self._rate_limiter = rate_limiter
+        else:
+            effective_limit = (
                 None
-                if configured_limit is None
-                else CaseDevRateLimiter(rate_limit_per_minute=configured_limit)
+                if isinstance(self.transport, CaseDevFixtureTransport)
+                and self.config.rate_limit_is_default
+                else configured_limit
             )
-        )
+            self._rate_limiter = CaseDevRateLimiter(
+                rate_limit_per_minute=effective_limit
+            )
 
     @classmethod
     def live_from_env(cls) -> CaseDevClient:
@@ -652,6 +714,21 @@ class CaseDevClient:
                 return response.payload
 
             error = _error_for_response(response, path)
+            if isinstance(error, CaseDevRateLimitError):
+                terminal = attempt >= self.max_retries
+                cooldown_seconds = _case_dev_rate_limit_cooldown_seconds(
+                    response,
+                    retry_index=attempt,
+                    jitter=self._retry_jitter,
+                )
+                self._rate_limiter.defer_for(
+                    cooldown_seconds,
+                    open_circuit=terminal,
+                )
+                if terminal:
+                    # Make an immediate outer launcher resume safe even though
+                    # the next process receives a fresh in-memory governor.
+                    self._rate_limiter.wait_for_cooldown()
             if (
                 isinstance(error, CaseDevRateLimitError | CaseDevServerError)
                 and attempt < self.max_retries
@@ -688,8 +765,7 @@ class CaseDevClient:
         raise error
 
     def _throttle_if_needed(self) -> None:
-        if self._rate_limiter is not None:
-            self._rate_limiter.acquire()
+        self._rate_limiter.acquire()
 
     def _headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}
@@ -739,6 +815,68 @@ def _synthetic_timeout_response(exc: TimeoutError) -> CaseDevHTTPResponse:
     )
 
 
+_CASE_DEV_INITIAL_RATE_LIMIT_COOLDOWN_SECONDS = 5.0
+_CASE_DEV_MAX_RATE_LIMIT_COOLDOWN_SECONDS = 300.0
+
+
+def _case_dev_rate_limit_cooldown_seconds(
+    response: CaseDevHTTPResponse,
+    *,
+    retry_index: int,
+    jitter: Callable[[float], float],
+) -> float:
+    exponential = min(
+        _CASE_DEV_INITIAL_RATE_LIMIT_COOLDOWN_SECONDS * (2**retry_index),
+        _CASE_DEV_MAX_RATE_LIMIT_COOLDOWN_SECONDS,
+    )
+    jitter_ceiling = min(exponential * 0.2, 5.0)
+    jitter_seconds = jitter(jitter_ceiling)
+    if (
+        not math.isfinite(jitter_seconds)
+        or jitter_seconds < 0
+        or jitter_seconds > jitter_ceiling
+    ):
+        raise ValueError("Case.dev retry jitter must be within its bounded ceiling")
+    fallback = min(
+        exponential + jitter_seconds,
+        _CASE_DEV_MAX_RATE_LIMIT_COOLDOWN_SECONDS,
+    )
+    retry_after = _case_insensitive_header(response.headers, "retry-after")
+    if retry_after is None:
+        return fallback
+    parsed = _retry_after_seconds(retry_after)
+    if parsed is None:
+        return fallback
+    if not math.isfinite(parsed) or parsed < 0:
+        return fallback
+    return parsed
+
+
+def _retry_after_seconds(value: str) -> float | None:
+    try:
+        return float(value)
+    except ValueError:
+        try:
+            parsed = parsedate_to_datetime(value)
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if parsed.tzinfo is None:
+            return None
+        return parsed.timestamp() - time.time()
+
+
+def _random_cooldown_jitter(upper_bound: float) -> float:
+    return random.uniform(0.0, upper_bound)
+
+
+def _case_insensitive_header(headers: Mapping[str, str], name: str) -> str | None:
+    normalized_name = name.lower()
+    for key, value in headers.items():
+        if key.lower() == normalized_name:
+            return value.strip()
+    return None
+
+
 def _json_payload(raw_body: bytes) -> Mapping[str, Any]:
     if not raw_body:
         return {}
@@ -762,6 +900,18 @@ def _primitive_mapping(value: object, label: str) -> Mapping[str, Any]:
             raise CaseDevResponseError(
                 f"{label} must contain string keys and primitive values"
             )
+        result[key] = item
+    return result
+
+
+def _string_mapping(value: object, label: str) -> Mapping[str, str]:
+    if not isinstance(value, Mapping):
+        raise CaseDevResponseError(f"{label} must be an object")
+    mapping = cast(Mapping[object, object], value)
+    result: dict[str, str] = {}
+    for key, item in mapping.items():
+        if not isinstance(key, str) or not isinstance(item, str):
+            raise CaseDevResponseError(f"{label} must contain string keys and values")
         result[key] = item
     return result
 
