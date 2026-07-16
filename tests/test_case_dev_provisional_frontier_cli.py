@@ -16,8 +16,10 @@ from legalforecast.ingestion.budgeted_docket_acquisition import (
 from legalforecast.ingestion.case_dev_provisional_frontier import (
     CASE_DEV_PROVISIONAL_FRONTIER_RUN_SCHEMA,
     CASE_DEV_PROVISIONAL_FRONTIER_SEMANTICS,
+    CASE_DEV_PROVISIONAL_FRONTIER_TERM,
 )
 from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, TermTerminalStatus
 
 
 def test_provisional_frontier_reconciles_success_exclusion_and_pending(
@@ -85,6 +87,18 @@ def test_provisional_frontier_reconciles_success_exclusion_and_pending(
         )
         assert ranked_parent_requires_authenticated_handoff(store, "provisional-rest")
         assert store.candidate_ids("provisional-rest") == ("courtlistener-docket-101",)
+        [persisted_hit] = store.candidate_discovery_hits("provisional-rest")
+        provenance = persisted_hit.payload["case_dev_provisional_frontier_provenance"]
+        assert isinstance(provenance, dict)
+        assert not {"selected", "terminal_exclusions", "pending"} & provenance.keys()
+        assert all(
+            not isinstance(value, (dict, list)) or field == "ranking_key"
+            for field, value in provenance.items()
+        )
+        assert len(json.dumps(provenance, sort_keys=True)) < 4_096
+        assert config["selected"] == run_card["selected"]
+        assert config["terminal_exclusions"] == run_card["terminal_exclusions"]
+        assert config["pending"] == run_card["pending"]
         verified = verify_authenticated_ranked_firecrawl_handoff(
             store=store,
             parent_batch_id="provisional-rest",
@@ -355,6 +369,76 @@ def test_provisional_frontier_rejects_repeated_terminal_success(tmp_path: Path) 
         )
         == 2
     )
+
+
+def test_firecrawl_handoff_rejects_tampered_compact_hit_commitment(
+    tmp_path: Path,
+) -> None:
+    source_store = _source_store(tmp_path)
+    enrichment_root = _completed_enrichment(tmp_path, source_store)
+    progress_path = enrichment_root / "checkpoints/case-dev-recap-progress.jsonl"
+    [success, *_] = _read_jsonl(progress_path)
+    _write_jsonl(progress_path, [success])
+    target_store = _target_store(tmp_path)
+    ranked_path = tmp_path / "ranked.jsonl"
+    run_card_path = tmp_path / "run-card.json"
+    args = _provisional_args(
+        source_store=source_store,
+        enrichment_root=enrichment_root,
+        target_store=target_store,
+        ranked_path=ranked_path,
+        run_card_path=run_card_path,
+        summary_path=tmp_path / "summary.json",
+    )
+    assert main(args) == 0
+
+    forged_run_card = json.loads(run_card_path.read_text())
+    with CycleAcquisitionStore(target_store) as store:
+        source_config = store.batch_config("provisional-rest")
+        [source_hit] = store.candidate_discovery_hits("provisional-rest")
+        payload = dict(source_hit.payload)
+        provenance = dict(payload["case_dev_provisional_frontier_provenance"])
+        provenance["pending_count"] = 9_999
+        payload["case_dev_provisional_frontier_provenance"] = provenance
+        forged_batch_id = "forged-provisional-rest"
+        store.ensure_batch(forged_batch_id, source_config)
+        store.ensure_terms(forged_batch_id, (CASE_DEV_PROVISIONAL_FRONTIER_TERM,))
+        store.commit_search_page(
+            forged_batch_id,
+            CASE_DEV_PROVISIONAL_FRONTIER_TERM,
+            None,
+            (
+                DiscoveryHit(
+                    provider_hit_id=source_hit.provider_hit_id,
+                    candidate_id=source_hit.candidate_id,
+                    payload=payload,
+                ),
+            ),
+            next_cursor=None,
+            terminal_status=TermTerminalStatus.EXHAUSTED,
+        )
+        forged_run_card["batch_id"] = forged_batch_id
+        forged_run_card["target_batch_digest"] = store.batch_digest(forged_batch_id)
+    forged_run_card_path = tmp_path / "forged-run-card.json"
+    forged_run_card_path.write_text(
+        json.dumps(forged_run_card, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    with CycleAcquisitionStore(target_store) as store:
+        with pytest.raises(
+            BudgetedDocketAcquisitionError,
+            match="compact provisional provenance",
+        ):
+            verify_authenticated_ranked_firecrawl_handoff(
+                store=store,
+                parent_batch_id="forged-provisional-rest",
+                ranked_path=ranked_path,
+                selection_run_card_path=forged_run_card_path,
+                expected_selection_run_card_sha256=hashlib.sha256(
+                    forged_run_card_path.read_bytes()
+                ).hexdigest(),
+                max_candidates=1,
+            )
 
 
 def test_provisional_frontier_rejects_rehashed_success_identity_tamper(

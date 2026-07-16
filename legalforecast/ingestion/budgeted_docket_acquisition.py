@@ -20,6 +20,7 @@ from legalforecast.ingestion.case_dev_provisional_frontier import (
     CASE_DEV_PROVISIONAL_FRONTIER_RUN_SCHEMA,
     CASE_DEV_PROVISIONAL_FRONTIER_SEMANTICS,
     CASE_DEV_PROVISIONAL_FRONTIER_TERM,
+    provisional_frontier_hit_provenance,
     ranked_records_for_provisional_frontier,
     verify_case_dev_provisional_frontier,
 )
@@ -56,6 +57,7 @@ from legalforecast.ingestion.recap_api_batch_driver import (
     RecapApiBatchDriverError,
     read_saturated_direct_search_leads,
 )
+from legalforecast.ingestion.recap_api_discovery import RECAP_API_PROVIDER
 
 
 class BudgetedDocketAcquisitionError(ValueError):
@@ -514,6 +516,8 @@ def verify_authenticated_ranked_firecrawl_handoff(
         )
     if provisional:
         _verify_provisional_firecrawl_partition(
+            store=store,
+            parent_batch_id=parent_batch_id,
             run_card=run_card,
             parent_config=parent_config,
             ranked_path=ranked_path,
@@ -523,6 +527,8 @@ def verify_authenticated_ranked_firecrawl_handoff(
 
 def _verify_provisional_firecrawl_partition(
     *,
+    store: CycleAcquisitionStore,
+    parent_batch_id: str,
     run_card: Mapping[str, object],
     parent_config: Mapping[str, object],
     ranked_path: Path,
@@ -581,6 +587,51 @@ def _verify_provisional_firecrawl_partition(
         raise BudgetedDocketAcquisitionError(
             "provisional success/exclusion/pending partition does not reconcile"
         )
+    compact_commitment = frontier.compact_commitment_record()
+    candidate_by_docket = {
+        candidate.docket_id: candidate for candidate in frontier.selected
+    }
+    lead_by_docket = {lead.docket_id: lead for lead in frontier.source.leads}
+    persisted_hits = store.candidate_discovery_hits(parent_batch_id)
+    if len(persisted_hits) != len(candidate_by_docket):
+        raise BudgetedDocketAcquisitionError(
+            "provisional parent lacks exact compact provisional provenance"
+        )
+    for hit in persisted_hits:
+        payload = hit.payload
+        docket_id = payload.get("docket_id")
+        candidate = (
+            candidate_by_docket.get(docket_id) if isinstance(docket_id, str) else None
+        )
+        lead = lead_by_docket.get(docket_id) if isinstance(docket_id, str) else None
+        expected_provenance = (
+            provisional_frontier_hit_provenance(
+                candidate=candidate,
+                compact_commitment=compact_commitment,
+                target_cycle_hash=store.cycle_hash,
+            )
+            if candidate is not None
+            else None
+        )
+        if (
+            candidate is None
+            or lead is None
+            or hit.candidate_id != lead.candidate_id
+            or payload.get("candidate_id") != lead.candidate_id
+            or payload.get("courtlistener_docket_id") != docket_id
+            or payload.get("query_term") != CASE_DEV_PROVISIONAL_FRONTIER_TERM
+            or payload.get("provider") != RECAP_API_PROVIDER
+            or hit.provider_hit_id
+            != (
+                f"{CASE_DEV_PROVISIONAL_FRONTIER_TERM}:"
+                f"{frontier.success_candidate_set_sha256}:{docket_id}"
+            )
+            or payload.get("case_dev_provisional_frontier_provenance")
+            != expected_provenance
+        ):
+            raise BudgetedDocketAcquisitionError(
+                "provisional parent changed compact provisional provenance"
+            )
     ranked_bytes = b"".join(
         json.dumps(record, sort_keys=True).encode() + b"\n"
         for record in ranked_records_for_provisional_frontier(frontier)

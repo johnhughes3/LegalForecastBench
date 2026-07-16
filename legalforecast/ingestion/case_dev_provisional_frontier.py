@@ -119,6 +119,36 @@ class VerifiedCaseDevProvisionalFrontier:
             "selected": selected,
         }
 
+    def compact_commitment_record(self) -> dict[str, object]:
+        """Project constant-size source/progress/partition authentication."""
+
+        source = case_dev_source_authority_commitments(self.source)
+        return {
+            "provisional_frontier": True,
+            "final_cohort_eligible": False,
+            "full_source_terminal": False,
+            "source_batch_id": source["source_batch_id"],
+            "source_batch_digest": source["source_batch_digest"],
+            "source_cycle_hash": source["source_cycle_hash"],
+            "source_query_commitment_sha256": source["source_query_commitment_sha256"],
+            "source_candidate_set_sha256": source["source_candidate_set_sha256"],
+            "source_hit_set_sha256": source["source_hit_set_sha256"],
+            "source_projection_sha256": self.source_projection_sha256,
+            "progress_config_sha256": self.progress_config_sha256,
+            "progress_sha256": self.progress_sha256,
+            "source_candidate_count": self.source_candidate_count,
+            "ranked_candidate_count": len(self.selected),
+            "success_count": len(self.selected),
+            "terminal_exclusion_count": len(self.terminal_exclusions),
+            "pending_count": len(self.pending),
+            "success_candidate_set_sha256": self.success_candidate_set_sha256,
+            "terminal_excluded_candidate_set_sha256": (
+                self.terminal_excluded_candidate_set_sha256
+            ),
+            "pending_candidate_set_sha256": self.pending_candidate_set_sha256,
+            "selected_candidate_set_sha256": self.success_candidate_set_sha256,
+        }
+
 
 @dataclass(frozen=True, slots=True)
 class CaseDevProvisionalFrontierResult:
@@ -410,11 +440,13 @@ def materialize_case_dev_provisional_frontier(
             "provisional frontier progress exceeds authenticated successes"
         )
     lead_by_docket = {lead.docket_id: lead for lead in source.leads}
+    compact_commitment = frontier.compact_commitment_record()
     hits = tuple(
         _provisional_hit(
             candidate,
             lead=lead_by_docket[candidate.docket_id],
             frontier=frontier,
+            compact_commitment=compact_commitment,
             target_cycle_hash=store.cycle_hash,
         )
         for candidate in frontier.selected
@@ -473,6 +505,7 @@ def _provisional_hit(
     *,
     lead: DirectSearchLead,
     frontier: VerifiedCaseDevProvisionalFrontier,
+    compact_commitment: Mapping[str, object],
     target_cycle_hash: str,
 ) -> DiscoveryHit:
     prescreen_reason = prescreen_recap_candidate(
@@ -491,17 +524,13 @@ def _provisional_hit(
         "provider": RECAP_API_PROVIDER,
         "prescreen_exclusion_reason": prescreen_reason,
         "query_term": CASE_DEV_PROVISIONAL_FRONTIER_TERM,
-        "case_dev_provisional_frontier_provenance": {
-            "schema_version": CASE_DEV_PROVISIONAL_FRONTIER_SCHEMA,
-            "rank": candidate.rank,
-            "ranking_key": list(candidate.ranking_key),
-            "ranked_record_sha256": candidate.ranked_record_sha256,
-            "case_dev_returned_courtlistener_url": (
-                candidate.returned_courtlistener_url
-            ),
-            "target_cycle_hash": target_cycle_hash,
-            **frontier.commitment_record(),
-        },
+        "case_dev_provisional_frontier_provenance": (
+            provisional_frontier_hit_provenance(
+                candidate=candidate,
+                compact_commitment=compact_commitment,
+                target_cycle_hash=target_cycle_hash,
+            )
+        ),
     }
     if lead.decision_entry_evidence is not None:
         payload["decision_entry_evidence"] = dict(lead.decision_entry_evidence)
@@ -515,6 +544,26 @@ def _provisional_hit(
         candidate_id=lead.candidate_id,
         payload=payload,
     )
+
+
+def provisional_frontier_hit_provenance(
+    *,
+    candidate: RankedCaseDevCandidate,
+    compact_commitment: Mapping[str, object],
+    target_cycle_hash: str,
+) -> dict[str, object]:
+    """Bind one success to the constant-size authenticated partition projection."""
+
+    return {
+        "schema_version": CASE_DEV_PROVISIONAL_FRONTIER_SCHEMA,
+        "docket_id": candidate.docket_id,
+        "rank": candidate.rank,
+        "ranking_key": list(candidate.ranking_key),
+        "ranked_record_sha256": candidate.ranked_record_sha256,
+        "case_dev_returned_courtlistener_url": candidate.returned_courtlistener_url,
+        "target_cycle_hash": target_cycle_hash,
+        **compact_commitment,
+    }
 
 
 def _progress_is_retryable(record: Mapping[str, object]) -> bool:
