@@ -145,9 +145,17 @@ class FirecrawlTargetHTTPError(FirecrawlResponseError):
         self.target_status_code = target_status_code
         self.reported_credits = reported_credits
         self.proxy_used = proxy_used
+        # CourtListener uses 202 for a request it accepted but has not completed.
+        # It is not a verified artifact and therefore still fails closed, but it
+        # also is not durable evidence that the public target is unavailable.
+        self.transient = target_status_code == 202
         super().__init__(
             "CourtListener target returned a non-success status",
-            failure_code="target_http_status_invalid",
+            failure_code=(
+                "target_http_status_retryable"
+                if self.transient
+                else "target_http_status_invalid"
+            ),
         )
 
 

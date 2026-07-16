@@ -641,6 +641,23 @@ def test_target_http_failure_preserves_target_status_for_caller_policy() -> None
     assert raised.value.reported_credits == 1
     assert raised.value.proxy_used == "basic"
     assert raised.value.failure_code == "target_http_status_invalid"
+    assert raised.value.transient is False
+
+
+def test_target_http_accepted_is_retryable_but_still_fails_closed() -> None:
+    source = FirecrawlCourtListenerHTMLSource(
+        FirecrawlConfig(api_key="test-key"),
+        transport=FirecrawlFixtureTransport([_success_response(status_code=202)]),
+    )
+
+    with pytest.raises(FirecrawlTargetHTTPError) as raised:
+        source.fetch(docket_id="70649963", source_url=_URL)
+
+    assert raised.value.target_status_code == 202
+    assert raised.value.reported_credits == 1
+    assert raised.value.proxy_used == "basic"
+    assert raised.value.failure_code == "target_http_status_retryable"
+    assert raised.value.transient is True
 
 
 @pytest.mark.parametrize(

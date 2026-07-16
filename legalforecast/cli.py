@@ -91,6 +91,7 @@ from legalforecast.ingestion.budgeted_docket_acquisition import (
     verify_authenticated_ranked_firecrawl_handoff,
 )
 from legalforecast.ingestion.budgeted_firecrawl import (
+    TARGET_HTTP_PRESSURE_POLICY_VERSION,
     BudgetedFirecrawlScheduler,
     FirecrawlArtifactError,
     FirecrawlCircuitOpenError,
@@ -4018,15 +4019,27 @@ def _add_acquisition_acquire_ranked_dockets_arguments(
         default=10,
         metavar="1-10",
         help=(
-            "Concurrent live Firecrawl docket requests; default 10. SQLite "
+            "Configured ceiling for concurrent live Firecrawl docket requests; "
+            "default 10. CourtListener HTTP 202 pressure automatically lowers the "
+            "effective window and clean windows recover it additively. SQLite "
             "authorization and artifact commits remain serialized. Fixtures "
             "require 1 when executing."
         ),
     )
     parser.add_argument("--decision-filed-on-or-after", required=True)
     parser.add_argument("--credit-cap", type=int, default=45_000)
-    parser.add_argument("--max-attempts-per-page", type=int, default=3)
-    parser.add_argument("--provider-breaker-threshold", type=int, default=5)
+    parser.add_argument(
+        "--max-attempts-per-page",
+        type=int,
+        default=3,
+        help="Bounded attempts per page, including retryable HTTP 202; default 3.",
+    )
+    parser.add_argument(
+        "--provider-breaker-threshold",
+        type=int,
+        default=5,
+        help="Stop after this many consecutive Firecrawl provider 5xx responses.",
+    )
     parser.add_argument(
         "--proxy",
         choices=("basic", "auto", "enhanced"),
@@ -13469,6 +13482,12 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
         metadata_by_docket[docket_id] = cast(Mapping[str, object], metadata)
     proxy = cast(FirecrawlProxy, args.proxy)
     force_browser = cast(bool, args.force_browser)
+    max_attempts = cast(int, args.max_attempts_per_page)
+    breaker_threshold = cast(int, args.provider_breaker_threshold)
+    if max_attempts <= 0:
+        raise CommandError("--max-attempts-per-page must be positive")
+    if breaker_threshold <= 0:
+        raise CommandError("--provider-breaker-threshold must be positive")
     if _acquisition_dry_run(args):
         summary: JsonRecord = {
             "dry_run": True,
@@ -13539,7 +13558,16 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
         try:
             existing_run_config = store.firecrawl_run_config(run_id)
         except KeyError:
-            run_config["workers"] = workers
+            run_config.update(
+                {
+                    "workers": workers,
+                    "max_attempts_per_page": max_attempts,
+                    "provider_breaker_threshold": breaker_threshold,
+                    "target_http_pressure_policy_version": (
+                        TARGET_HTTP_PRESSURE_POLICY_VERSION
+                    ),
+                }
+            )
         else:
             if "workers" in existing_run_config:
                 run_config["workers"] = workers
@@ -13547,6 +13575,22 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
                 raise CommandError(
                     "legacy Firecrawl runs require --workers 1; use a new --run-id "
                     "to freeze concurrent acquisition"
+                )
+            legacy_scheduler_values = {
+                "max_attempts_per_page": (max_attempts, 3),
+                "provider_breaker_threshold": (breaker_threshold, 5),
+            }
+            for field, (requested, legacy_value) in legacy_scheduler_values.items():
+                if field in existing_run_config:
+                    run_config[field] = requested
+                elif requested != legacy_value:
+                    raise CommandError(
+                        f"legacy Firecrawl run requires --{field.replace('_', '-')} "
+                        f"{legacy_value}"
+                    )
+            if "target_http_pressure_policy_version" in existing_run_config:
+                run_config["target_http_pressure_policy_version"] = (
+                    TARGET_HTTP_PRESSURE_POLICY_VERSION
                 )
         store.ensure_firecrawl_run(
             run_id,
@@ -13562,10 +13606,8 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
                 source=source,
                 run_id=run_id,
                 artifact_dir=raw_dir / "pages",
-                max_attempts=cast(int, args.max_attempts_per_page),
-                provider_5xx_circuit_threshold=cast(
-                    int, args.provider_breaker_threshold
-                ),
+                max_attempts=max_attempts,
+                provider_5xx_circuit_threshold=breaker_threshold,
                 max_workers=workers,
             ),
             limit=cast(int, args.max_candidates),

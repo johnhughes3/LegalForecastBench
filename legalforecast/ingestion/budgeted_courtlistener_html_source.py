@@ -424,9 +424,23 @@ class DurableBudgetedCourtListenerHTMLSource:
     @staticmethod
     def _is_retryable_attempt(attempt: FirecrawlAttempt) -> bool:
         return (
-            attempt.status in {"provider_error", "transport_error"}
-            and attempt.failure_transient is True
-            and attempt.artifact_path is None
+            (
+                attempt.status in {"provider_error", "transport_error"}
+                and attempt.failure_transient is True
+            )
+            or (
+                attempt.status == "target_error"
+                and attempt.failure_code
+                in {"target_http_status_invalid", "target_http_status_retryable"}
+                and attempt.provider_http_status == 200
+                and attempt.target_http_status == 202
+                and attempt.reported_credits is not None
+                and attempt.proxy_used in {"basic", "stealth"}
+                and attempt.failure_response_sha256 is not None
+                and _SHA256.fullmatch(attempt.failure_response_sha256) is not None
+            )
+        ) and (
+            attempt.artifact_path is None
             and attempt.artifact_sha256 is None
             and attempt.artifact_byte_count is None
         )
