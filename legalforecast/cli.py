@@ -17714,11 +17714,13 @@ _PACER_GAP_LEGACY_CHECKPOINT_SCHEMA = (
 )
 _PACER_GAP_CHECKPOINT_SCHEMA = "legalforecast.pacer_gap_bridge_candidate_checkpoint.v2"
 _PACER_GAP_BRIDGE_SEMANTIC_REVISION = (
-    "courtlistener-rest-recap-sequence-semantics-2026-07-16-v3"
+    "courtlistener-rest-recap-storage-host-2026-07-16-v4"
 )
+# Keep known revisions loadable so pre-v4 terminal successes can be replayed.
 _PACER_GAP_COMPATIBLE_SEMANTIC_REVISIONS = frozenset(
     {
         _PACER_GAP_BRIDGE_SEMANTIC_REVISION,
+        "courtlistener-rest-recap-sequence-semantics-2026-07-16-v3",
         "courtlistener-rest-operative-complaint-recovery-2026-07-16-v2",
         "courtlistener-complaint-and-main-description-2026-07-15-v1",
     }
@@ -19226,14 +19228,21 @@ def _bridge_checkpoint_payload_matches_candidate(
 def _bridge_checkpoint_requires_semantic_replay(
     checkpoint: Mapping[str, Any], *, bridge_provider: str
 ) -> bool:
-    """Replay exclusions made terminal by superseded bridge semantics."""
+    """Replay terminal checkpoints made stale by superseded bridge semantics."""
 
     if (
         bridge_provider != "courtlistener_rest"
-        or checkpoint.get("outcome") != "exclusion"
         or checkpoint.get("bridge_semantic_revision")
         == _PACER_GAP_BRIDGE_SEMANTIC_REVISION
     ):
+        return False
+    if checkpoint.get("outcome") == "success":
+        semantic_revision = checkpoint.get("bridge_semantic_revision")
+        return semantic_revision is None or (
+            isinstance(semantic_revision, str)
+            and semantic_revision in _PACER_GAP_COMPATIBLE_SEMANTIC_REVISIONS
+        )
+    if checkpoint.get("outcome") != "exclusion":
         return False
     payload = checkpoint.get("payload")
     if not isinstance(payload, Mapping):
