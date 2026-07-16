@@ -637,8 +637,12 @@ def _artifact_paths(tmp_path: Path) -> dict[FrozenArtifactName, Path]:
                 "batch_002_started_at": "2026-05-12T12:00:00Z",
             },
             "shard_schedule": {
-                "shard_count": 8,
+                "shard_count": 2,
                 "dispatch_unit": "model_key_ablation",
+                "shards": [
+                    {"model_key": "example:model-a", "ablation": ablation}
+                    for ablation in ("full_packet", "metadata_only")
+                ],
             },
             "concurrency_policy": {
                 "mode": "shard_identity",

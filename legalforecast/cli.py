@@ -35447,8 +35447,13 @@ def _run_fixture_e2e(output_dir: Path) -> None:
                 "batch_002_started_at": "2026-05-12T12:00:00Z",
             },
             "shard_schedule": {
-                "shard_count": 8,
+                "shard_count": 4,
                 "dispatch_unit": "model_key_ablation",
+                "shards": [
+                    {"model_key": f"fixture:{model_id}", "ablation": ablation}
+                    for model_id in ("model-a", "model-b")
+                    for ablation in ("full_packet", "metadata_only")
+                ],
             },
             "concurrency_policy": {
                 "mode": "shard_identity",
