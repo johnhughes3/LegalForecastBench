@@ -6,7 +6,6 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-import legalforecast.ingestion.rest_observation_policy_rebind as rebind_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.cycle_acquisition_store import (
@@ -18,6 +17,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 from legalforecast.ingestion.rest_observation_policy_rebind import (
     RestObservationPolicyRebindError,
     RestObservationRebindContract,
+    _read_regular_file,
     load_official_rest_observation_rebind_contract,
     rebind_terminal_rest_observations,
     verify_official_rest_observation_rebind_semantics,
@@ -613,8 +613,7 @@ def test_official_semantic_proof_does_not_require_historical_git_objects(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        rebind_module,
-        "_git_object_available",
+        "legalforecast.ingestion.rest_observation_policy_rebind._git_object_available",
         lambda _repository_root, _revision: False,
     )
 
@@ -626,7 +625,7 @@ def test_official_semantic_proof_does_not_require_historical_git_objects(
 def test_official_semantic_proof_rejects_tampered_packaged_witness(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    original_read = rebind_module._read_regular_file
+    original_read = _read_regular_file
 
     def tamper_old_to_current(path: Path, *, label: str) -> bytes:
         payload = original_read(path, label=label)
@@ -634,7 +633,10 @@ def test_official_semantic_proof_rejects_tampered_packaged_witness(
             return payload + b"# tampered\n"
         return payload
 
-    monkeypatch.setattr(rebind_module, "_read_regular_file", tamper_old_to_current)
+    monkeypatch.setattr(
+        "legalforecast.ingestion.rest_observation_policy_rebind._read_regular_file",
+        tamper_old_to_current,
+    )
 
     with pytest.raises(
         RestObservationPolicyRebindError,
