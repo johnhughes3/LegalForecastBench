@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from decimal import Decimal
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPacerPurchaseStatus,
     CaseDevPurchaseJournal,
     generate_case_dev_purchase_policy,
+    read_case_dev_purchase_snapshot,
     verify_case_dev_purchase_policy,
 )
 from legalforecast.ingestion.missing_core_budget import (
@@ -53,6 +55,59 @@ def test_purchase_client_blocks_without_live_flag_or_acknowledgment() -> None:
     assert transport.requests == []
     assert result.attempts[0].status is CaseDevPacerPurchaseStatus.GUARDRAIL_BLOCKED
     assert result.attempts[0].reason == "acknowledge_pacer_fees_required"
+
+
+def test_purchase_snapshot_is_strictly_read_only(tmp_path: Path) -> None:
+    journal = _journal(tmp_path)
+    policy = journal.policy
+    journal.plan(_budget_plan("case-1", ("doc-1",), dry_run=False))
+    journal.close()
+    reserved_paths = (
+        journal.path,
+        Path(f"{journal.path}.lock"),
+        Path(f"{journal.path}-wal"),
+        Path(f"{journal.path}-shm"),
+        Path(f"{journal.path}-journal"),
+    )
+    before = {
+        path: (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in reserved_paths
+        if path.exists()
+    }
+
+    snapshot = read_case_dev_purchase_snapshot(journal.path, policy=policy)
+
+    after = {
+        path: (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in reserved_paths
+        if path.exists()
+    }
+    assert before == after
+    assert set(before) == set(after)
+    assert snapshot.operations[0]["source_document_id"] == "doc-1"
+    assert len(snapshot.purchase_state_sha256) == 64
+
+
+def test_purchase_snapshot_rejects_semantically_corrupt_material_state(
+    tmp_path: Path,
+) -> None:
+    journal = _journal(tmp_path)
+    policy = journal.policy
+    journal.plan(_budget_plan("case-1", ("doc-1",), dry_run=False))
+    journal.close()
+    with sqlite3.connect(journal.path) as connection:
+        connection.execute("PRAGMA journal_mode=DELETE")
+        connection.execute(
+            """UPDATE purchase_material_state
+            SET authority='unknown_status_attempt'
+            WHERE source_document_id='doc-1'"""
+        )
+
+    with pytest.raises(
+        RuntimeError,
+        match="unknown-status material lacks attempt authority",
+    ):
+        read_case_dev_purchase_snapshot(journal.path, policy=policy)
 
 
 def test_purchase_client_records_capability_blocked_for_docket_level_only() -> None:

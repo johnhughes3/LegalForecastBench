@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import legalforecast.cli as cli
@@ -1241,6 +1242,660 @@ def test_target_100_real_five_stage_courtlistener_fixture_e2e(
     assert purchase_card["paid_activity_executed"] is False
 
 
+def test_immutable_materializer_two_source_cli_is_parse_ready_and_resumable(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    preparation = tmp_path / "preparation"
+    snapshot, cycle_hash, fixture_documents, courtlistener_fixture = (
+        _target_100_fixture(tmp_path / "fixture", case_count=1)
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "prepare-target-cohort",
+                "--output-root",
+                str(preparation),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                cycle_hash,
+                "--target-case-count",
+                "1",
+                "--fixture-documents",
+                str(fixture_documents),
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--use-embedded-entries",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    free_manifest = preparation / "03c-merged-downloads/document-downloads-merged.jsonl"
+    free_restrictions = preparation / "06-clearance-inputs/restriction-evidence.jsonl"
+    free_clearance_root = tmp_path / "free-clearance"
+    free_reviews, free_receipt = _write_authenticated_reviews(
+        tmp_path / "free-review",
+        manifest_path=free_manifest,
+        store_uri="private-store://fixture/materializer-free",
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "clear-disclosures",
+                "--download-manifest",
+                str(free_manifest),
+                "--document-root",
+                str(preparation / "documents/free"),
+                "--reviews",
+                str(free_reviews),
+                "--review-receipt",
+                str(free_receipt),
+                "--restriction-evidence",
+                str(free_restrictions),
+                "--output-root",
+                str(free_clearance_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    projection = tmp_path / "projection"
+    assert (
+        main(
+            [
+                "acquisition",
+                "project-target-cohort",
+                "--output-root",
+                str(projection),
+                "--selection",
+                str(
+                    preparation
+                    / "03-gap-bridge/public-packet-selection-reconciled.jsonl"
+                ),
+                "--case-relevance",
+                str(preparation / "03-gap-bridge/case-relevance.jsonl"),
+                "--download-manifest",
+                str(free_manifest),
+                "--disclosure-clearance",
+                str(free_clearance_root / "disclosure-clearance.jsonl"),
+                "--clearance-run-card",
+                str(free_clearance_root / "run-cards/clear-disclosures.json"),
+                "--restriction-evidence",
+                str(free_restrictions),
+                "--preparation-summary",
+                str(preparation / "target-cohort-preparation-summary.json"),
+                "--preparation-config",
+                str(preparation / "target-cohort-config.json"),
+                "--snapshot-manifest",
+                str(snapshot / "manifest.json"),
+                "--target-case-count",
+                "1",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    selection = projection / "target-cohort-selection.jsonl"
+    budget_plan = projection / "missing-core-budget-plan.json"
+    purchase_policy, cohort_policy, purchase_ledger = _purchase_policies(tmp_path)
+    broker_policy = tmp_path / "broker-policy.json"
+    assert (
+        main(
+            [
+                "acquisition",
+                "generate-recap-fetch-broker-policy",
+                "--purchase-policy",
+                str(purchase_policy),
+                "--cohort-policy",
+                str(cohort_policy),
+                "--budget-plan",
+                str(budget_plan),
+                "--selection",
+                str(selection),
+                "--output",
+                str(broker_policy),
+            ]
+        )
+        == 0
+    )
+    [allowed] = json.loads(broker_policy.read_text())["allowed_documents"]
+    purchase_cl_fixture, purchase_broker_fixture = _purchase_fixtures(
+        tmp_path, [str(allowed["recap_document"])]
+    )
+    assert (
+        main(
+            [
+                "acquisition",
+                "init-purchase-ledger",
+                "--purchase-policy",
+                str(purchase_policy),
+                "--cohort-policy",
+                str(cohort_policy),
+                "--purchase-ledger",
+                str(purchase_ledger),
+                "--output-root",
+                str(tmp_path / "ledger-init"),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    purchase_root = tmp_path / "purchase"
+    assert (
+        main(
+            [
+                "acquisition",
+                "purchase-missing-recap-fetch",
+                "--output-root",
+                str(purchase_root),
+                "--budget-plan",
+                str(budget_plan),
+                "--selection",
+                str(selection),
+                "--purchase-policy",
+                str(purchase_policy),
+                "--cohort-policy",
+                str(cohort_policy),
+                "--purchase-ledger",
+                str(purchase_ledger),
+                "--courtlistener-fixture",
+                str(purchase_cl_fixture),
+                "--purchase-broker-fixture",
+                str(purchase_broker_fixture),
+                "--execute",
+                "--acknowledge-pacer-fees",
+            ]
+        )
+        == 0
+    )
+    purchase_result = purchase_root / "courtlistener-recap-fetch-purchases.json"
+    purchase_attempt = json.loads(purchase_result.read_text())["attempts"][0]
+    purchased_fixture = tmp_path / "purchased-pdfs.json"
+    purchased_fixture.write_text(
+        json.dumps(
+            {purchase_attempt["download_url"]: _fixture_pdf_text("Purchased motion")}
+        )
+    )
+    recovery = tmp_path / "recovery"
+    assert (
+        main(
+            [
+                "acquisition",
+                "recover-purchased",
+                "--purchase-result",
+                str(purchase_result),
+                "--selection",
+                str(selection),
+                "--output-root",
+                str(recovery),
+                "--fixture-documents",
+                str(purchased_fixture),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    purchased_manifest = recovery / "purchased-document-downloads.jsonl"
+    [purchased_row] = _read_jsonl(purchased_manifest)
+    purchased_restrictions = tmp_path / "purchased-restrictions.jsonl"
+    _write_jsonl(
+        purchased_restrictions,
+        [
+            {
+                "candidate_id": purchased_row["candidate_id"],
+                "source_document_id": purchased_row["source_document_id"],
+                "restriction_status": "public",
+                "restriction_evidence": ["courtlistener_recap_fetch_public"],
+                "is_sealed": False,
+                "is_private": False,
+            }
+        ],
+    )
+    purchased_reviews, purchased_receipt = _write_authenticated_reviews(
+        tmp_path / "purchased-review",
+        manifest_path=purchased_manifest,
+        store_uri="private-store://fixture/materializer-purchased",
+    )
+    purchased_clearance_root = tmp_path / "purchased-clearance"
+    assert (
+        main(
+            [
+                "acquisition",
+                "clear-disclosures",
+                "--download-manifest",
+                str(purchased_manifest),
+                "--document-root",
+                str(recovery / "documents/purchased"),
+                "--reviews",
+                str(purchased_reviews),
+                "--review-receipt",
+                str(purchased_receipt),
+                "--restriction-evidence",
+                str(purchased_restrictions),
+                "--output-root",
+                str(purchased_clearance_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    ledger_paths = tuple(
+        path
+        for path in (
+            purchase_ledger,
+            Path(f"{purchase_ledger}.lock"),
+            Path(f"{purchase_ledger}-wal"),
+            Path(f"{purchase_ledger}-shm"),
+            Path(f"{purchase_ledger}-journal"),
+        )
+        if path.exists()
+    )
+    ledger_before = {
+        path: (path.read_bytes(), path.stat().st_mtime_ns) for path in ledger_paths
+    }
+    materialized = tmp_path / "materialized"
+    command = [
+        "acquisition",
+        "materialize-cohort-documents",
+        "--output-root",
+        str(materialized),
+        "--preparation-root",
+        str(preparation),
+        "--preparation-summary",
+        str(preparation / "target-cohort-preparation-summary.json"),
+        "--preparation-config",
+        str(preparation / "target-cohort-config.json"),
+        "--snapshot-manifest",
+        str(snapshot / "manifest.json"),
+        "--target-cohort-root",
+        str(projection),
+        "--free-disclosure-clearance",
+        str(projection / "disclosure-clearance.jsonl"),
+        "--purchased-recovery-root",
+        str(recovery),
+        "--purchased-disclosure-clearance",
+        str(purchased_clearance_root / "disclosure-clearance.jsonl"),
+        "--purchased-clearance-run-card",
+        str(purchased_clearance_root / "run-cards/clear-disclosures.json"),
+        "--purchase-policy",
+        str(purchase_policy),
+        "--cohort-policy",
+        str(cohort_policy),
+        "--purchase-ledger",
+        str(purchase_ledger),
+        "--execute",
+    ]
+    symlink_target = tmp_path / "external-materializer-target"
+    free_row = next(
+        row
+        for row in _read_jsonl(free_manifest)
+        if row["source_document_id"] != purchased_row["source_document_id"]
+    )
+    free_digest = str(free_row["sha256"])
+    external_parent = symlink_target / "sha256" / free_digest[:2]
+    external_parent.mkdir(parents=True)
+    external_temporary = external_parent / (f".{free_digest}.pdf.4321.{('a' * 32)}.tmp")
+    external_payload = b"must remain outside the materializer"
+    external_temporary.write_bytes(external_payload)
+    materialized.mkdir()
+    (materialized / "documents").symlink_to(
+        symlink_target,
+        target_is_directory=True,
+    )
+    assert main(command) == 2
+    assert external_temporary.read_bytes() == external_payload
+    assert (materialized / "documents").is_symlink()
+    (materialized / "documents").unlink()
+    forbidden_source_output = preparation / "forbidden-materializer-output"
+    assert main([*command[:3], str(forbidden_source_output), *command[4:]]) == 2
+    assert not forbidden_source_output.exists()
+    free_manifest_before = free_manifest.read_bytes()
+    assert main([*command, "--run-card-output", str(free_manifest)]) == 2
+    assert free_manifest.read_bytes() == free_manifest_before
+    assert main(command) == 0
+    run_card = materialized / "run-cards/materialize-cohort-documents.json"
+    card_before = run_card.read_bytes()
+    assert main(command) == 0
+    assert run_card.read_bytes() == card_before
+    assert {
+        path: (path.read_bytes(), path.stat().st_mtime_ns) for path in ledger_paths
+    } == ledger_before
+    combined = _read_jsonl(materialized / "document-downloads-merged.jsonl")
+    assert {row["free_or_purchased"] for row in combined} == {"free", "purchased"}
+    crash_destination = materialized / "documents" / str(combined[0]["local_path"])
+    linked_temporary = crash_destination.with_name(
+        f".{crash_destination.name}.4321.post-link.tmp"
+    )
+    os.link(crash_destination, linked_temporary)
+    assert main(command) == 0
+    assert crash_destination.stat().st_nlink == 1
+    assert not linked_temporary.exists()
+    run_card.unlink()
+    crash_destination.unlink()
+    partial_temporary = crash_destination.with_name(
+        f".{crash_destination.name}.4321.pre-link.tmp"
+    )
+    partial_temporary.write_bytes(b"partial")
+    assert main(command) == 0
+    assert crash_destination.is_file()
+    assert not partial_temporary.exists()
+    unexpected_fifo = materialized / "unexpected.fifo"
+    os.mkfifo(unexpected_fifo)
+    assert main(command) == 2
+    unexpected_fifo.unlink()
+    substituted_selection = tmp_path / "substituted-selection.jsonl"
+    substituted_rows = _read_jsonl(selection)
+    substituted_rows[0]["case_name"] = "Substituted v. Cohort"
+    _write_jsonl(substituted_selection, substituted_rows)
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-parse-documents",
+                "--selection",
+                str(substituted_selection),
+                "--download-manifest",
+                str(materialized / "document-downloads-merged.jsonl"),
+                "--disclosure-clearance",
+                str(materialized / "disclosure-clearance.jsonl"),
+                "--document-root",
+                str(materialized / "documents"),
+                "--materialization-run-card",
+                str(run_card),
+                "--output-root",
+                str(tmp_path / "substituted-selection-attack"),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    parse_root = tmp_path / "parse-plan"
+    plan_parse_command = [
+        "acquisition",
+        "plan-parse-documents",
+        "--selection",
+        str(selection),
+        "--download-manifest",
+        str(materialized / "document-downloads-merged.jsonl"),
+        "--disclosure-clearance",
+        str(materialized / "disclosure-clearance.jsonl"),
+        "--document-root",
+        str(materialized / "documents"),
+        "--materialization-run-card",
+        str(run_card),
+        "--output-root",
+        str(parse_root),
+        "--execute",
+    ]
+    assert main(plan_parse_command) == 0
+    canonical_card_bytes = run_card.read_bytes()
+    tampered_card = json.loads(canonical_card_bytes)
+    del tampered_card["source_commitments"]["target_selection"]
+    run_card.write_text(json.dumps(tampered_card), encoding="utf-8")
+    assert main(plan_parse_command) == 2
+    run_card.write_bytes(canonical_card_bytes)
+    tampered_card = json.loads(canonical_card_bytes)
+    tampered_card["source_commitments"]["target_selection"]["sha256"] = (
+        "sha256:" + "0" * 64
+    )
+    run_card.write_text(json.dumps(tampered_card), encoding="utf-8")
+    assert main(plan_parse_command) == 2
+    run_card.write_bytes(canonical_card_bytes)
+    summary_path = materialized / "cohort-document-materialization.json"
+    canonical_summary_bytes = summary_path.read_bytes()
+    tampered_summary = json.loads(canonical_summary_bytes)
+    tampered_summary["next_stage"] = "attacker-controlled"
+    summary_path.write_text(json.dumps(tampered_summary), encoding="utf-8")
+    tampered_card = json.loads(canonical_card_bytes)
+    tampered_card["output_commitments"]["materialization_summary"]["sha256"] = (
+        "sha256:" + hashlib.sha256(summary_path.read_bytes()).hexdigest()
+    )
+    run_card.write_text(json.dumps(tampered_card), encoding="utf-8")
+    assert main(plan_parse_command) == 2
+    summary_path.write_bytes(canonical_summary_bytes)
+    run_card.write_bytes(canonical_card_bytes)
+    assert main(plan_parse_command) == 0
+    parse_requests = _read_jsonl(parse_root / "parse-document-requests.jsonl")
+    assert len(parse_requests) == 3
+    injected_document_fifo = materialized / "documents/injected.fifo"
+    os.mkfifo(injected_document_fifo)
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-parse-documents",
+                "--download-manifest",
+                str(materialized / "document-downloads-merged.jsonl"),
+                "--disclosure-clearance",
+                str(materialized / "disclosure-clearance.jsonl"),
+                "--document-root",
+                str(materialized / "documents"),
+                "--materialization-run-card",
+                str(run_card),
+                "--output-root",
+                str(tmp_path / "fifo-attack"),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    injected_document_fifo.unlink()
+    markdown_fixtures = tmp_path / "markdown-fixtures"
+    markdown_fixtures.mkdir()
+    for request in parse_requests:
+        (markdown_fixtures / f"{request['source_document_id']}.md").write_text(
+            f"Public filing {request['source_document_id']}",
+            encoding="utf-8",
+        )
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "parse-documents",
+                "--selection",
+                str(selection),
+                "--requests",
+                str(parse_root / "parse-document-requests.jsonl"),
+                "--disclosure-clearance",
+                str(materialized / "disclosure-clearance.jsonl"),
+                "--materialization-run-card",
+                str(run_card),
+                "--fixture-markdown-dir",
+                str(markdown_fixtures),
+                "--output-root",
+                str(parse_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    assert len(_read_jsonl(parse_root / "mistral-markdown-conversions.jsonl")) == 3
+    assert (
+        main(
+            [
+                "acquisition",
+                "build-decision-texts",
+                "--selection",
+                str(selection),
+                "--selection-run-card",
+                str(projection / "run-cards/project-target-cohort.json"),
+                "--download-manifest",
+                str(materialized / "document-downloads-merged.jsonl"),
+                "--disclosure-clearance",
+                str(materialized / "disclosure-clearance.jsonl"),
+                "--restriction-evidence",
+                str(materialized / "restriction-evidence.jsonl"),
+                "--parser-manifest",
+                str(parse_root / "mistral-markdown-conversions.jsonl"),
+                "--parser-run-card",
+                str(parse_root / "run-cards/parse-documents.json"),
+                "--markdown-root",
+                str(parse_root / "markdown"),
+                "--output-root",
+                str(tmp_path / "decision-texts-missing-card"),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert "materialized decision texts require" in capsys.readouterr().err
+    dummy_jsonl = tmp_path / "downstream-placeholder.jsonl"
+    dummy_jsonl.write_text("{}\n", encoding="utf-8")
+    dummy_registry = tmp_path / "downstream-registry.json"
+    dummy_registry.write_text("{}\n", encoding="utf-8")
+    raw_html_root = tmp_path / "raw-html"
+    raw_html_root.mkdir()
+    packet_command = [
+        "acquisition",
+        "plan-packet-inputs",
+        "--selection",
+        str(selection),
+        "--download-manifest",
+        str(materialized / "document-downloads-merged.jsonl"),
+        "--parser-manifest",
+        str(parse_root / "mistral-markdown-conversions.jsonl"),
+        "--disclosure-clearance",
+        str(materialized / "disclosure-clearance.jsonl"),
+        "--prediction-units",
+        str(dummy_jsonl),
+        "--model-registry",
+        str(dummy_registry),
+        "--raw-html-dir",
+        str(raw_html_root),
+        "--document-root",
+        str(materialized / "documents"),
+        "--markdown-root",
+        str(parse_root / "markdown"),
+        "--output-root",
+        str(tmp_path / "packet-plan"),
+    ]
+    assert main(packet_command) == 2
+    assert (
+        main(
+            [
+                *packet_command,
+                "--materialization-run-card",
+                str(run_card),
+            ]
+        )
+        == 0
+    )
+    finalize_command = [
+        "acquisition",
+        "finalize-corpus",
+        "--selection",
+        str(selection),
+        "--parser-manifest",
+        str(parse_root / "mistral-markdown-conversions.jsonl"),
+        "--decision-texts",
+        str(dummy_jsonl),
+        "--decision-texts-manifest",
+        str(dummy_registry),
+        "--decision-texts-run-card",
+        str(dummy_registry),
+        "--disclosure-clearance",
+        str(materialized / "disclosure-clearance.jsonl"),
+        "--markdown-root",
+        str(parse_root / "markdown"),
+        "--raw-prediction-units",
+        str(dummy_jsonl),
+        "--prediction-units",
+        str(dummy_jsonl),
+        "--llm-unitization-audit",
+        str(dummy_jsonl),
+        "--original-unitization-review-queue",
+        str(dummy_jsonl),
+        "--stage-a-structural-flags",
+        str(dummy_jsonl),
+        "--stage-a-structural-review-audit",
+        str(dummy_jsonl),
+        "--stage-a-review-model-registry",
+        str(dummy_registry),
+        "--stage-a-review-model-key",
+        "fixture-reviewer",
+        "--unitization-review-queue",
+        str(dummy_jsonl),
+        "--unitization-review-adjudications",
+        str(dummy_jsonl),
+        "--labels",
+        str(dummy_jsonl),
+        "--llm-label-audit",
+        str(dummy_jsonl),
+        "--stage-b-judge-registry",
+        str(dummy_registry),
+        "--labeling-policy",
+        str(dummy_registry),
+        "--lawyer-review-queue",
+        str(dummy_jsonl),
+        "--lawyer-review-audit",
+        str(dummy_jsonl),
+        "--packet-build-input",
+        str(dummy_jsonl),
+        "--packets",
+        str(dummy_jsonl),
+        "--model-registry",
+        str(dummy_registry),
+        "--screened-cases",
+        str(dummy_jsonl),
+        "--discovery-summary",
+        str(dummy_registry),
+        "--discovery-exclusions",
+        str(dummy_jsonl),
+        "--screening-snapshot-manifest",
+        str(dummy_registry),
+        "--screening-cycle-store",
+        str(dummy_registry),
+        "--target-cohort-preparation-root",
+        str(preparation),
+        "--output-root",
+        str(tmp_path / "finalize"),
+    ]
+    assert main(finalize_command) == 2
+    assert (
+        main(
+            [
+                *finalize_command,
+                "--download-manifest",
+                str(materialized / "document-downloads-merged.jsonl"),
+                "--materialization-run-card",
+                str(run_card),
+                "--document-root",
+                str(materialized / "documents"),
+            ]
+        )
+        == 0
+    )
+    combined_path = materialized / "document-downloads-merged.jsonl"
+    combined_before = combined_path.read_bytes()
+    tampered = _read_jsonl(combined_path)
+    tampered[0].pop("materialization_schema_version")
+    _write_jsonl(combined_path, tampered)
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-parse-documents",
+                "--download-manifest",
+                str(combined_path),
+                "--disclosure-clearance",
+                str(materialized / "disclosure-clearance.jsonl"),
+                "--document-root",
+                str(materialized / "documents"),
+                "--output-root",
+                str(tmp_path / "rejected-marker"),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    combined_path.write_bytes(combined_before)
+
+
 def test_target_100_resume_rejects_changed_cost_provider_fixture_and_snapshot(
     tmp_path: Path,
     capsys: CaptureFixture[str],
@@ -1795,6 +2450,49 @@ def _fixture_pdf_text(text: str) -> str:
         f"23 0 obj << /Length {len(body)} >> stream\n{stream}\nendstream endobj",
     ]
     return "%PDF-1.4\n" + "\n".join(objects) + "\n%%EOF"
+
+
+def _write_authenticated_reviews(
+    root: Path,
+    *,
+    manifest_path: Path,
+    store_uri: str,
+) -> tuple[Path, Path]:
+    root.mkdir(parents=True)
+    reviews = root / "reviews.jsonl"
+    _write_jsonl(
+        reviews,
+        [
+            {
+                "candidate_id": row["candidate_id"],
+                "source_document_id": row["source_document_id"],
+                "sha256": row["sha256"],
+                "status": "cleared",
+                "reviewer_id": "reviewer:fixture",
+                "controlled_store_provenance": store_uri,
+                "reviewed_at": "2026-07-15T12:00:00Z",
+            }
+            for row in _read_jsonl(manifest_path)
+        ],
+    )
+    receipt = root / "receipt.json"
+    receipt.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.disclosure_review_receipt.v1",
+                "review_artifact_sha256": hashlib.sha256(
+                    reviews.read_bytes()
+                ).hexdigest(),
+                "authenticated_reviewer_id": "reviewer:fixture",
+                "controlled_store_uri": store_uri,
+                "authentication_method": "cloudflare_access_oidc",
+                "authenticated_at": "2026-07-15T12:00:00Z",
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    return reviews, receipt
 
 
 def _purchase_policies(tmp_path: Path) -> tuple[Path, Path, Path]:
