@@ -26,6 +26,7 @@ import sys
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 REPO = Path(__file__).resolve().parents[1]
 PACKAGE = REPO / "legalforecast"
@@ -110,7 +111,17 @@ def check_b1_5() -> tuple[bool, str]:
     registry_dir = REPO / "model_registries"
     for registry_path in sorted(registry_dir.glob("*.json")):
         entries = json.loads(registry_path.read_text(encoding="utf-8"))
-        for entry in entries:
+        # This directory also contains cycle-scoped policy manifests, such as
+        # provider caps. Only list-shaped files are model registries.
+        if not isinstance(entries, list):
+            continue
+        for index, item in enumerate(cast(list[object], entries)):
+            if not isinstance(item, dict):
+                problems.append(
+                    f"{registry_path.name}: entry {index} is not a model object"
+                )
+                continue
+            entry = cast(dict[str, object], item)
             if entry.get("release_timestamp") is None:
                 model = f"{entry.get('provider')}:{entry.get('model_id')}"
                 problems.append(
@@ -444,7 +455,13 @@ def check_v2_8() -> tuple[bool, str]:
     problems: list[str] = []
     for registry_path in sorted((REPO / "model_registries").glob("*.json")):
         entries = json.loads(registry_path.read_text(encoding="utf-8"))
-        for entry in entries:
+        if not isinstance(entries, list):
+            continue
+        for index, item in enumerate(cast(list[object], entries)):
+            if not isinstance(item, dict):
+                problems.append(f"{registry_path.name}: malformed entry {index}")
+                continue
+            entry = cast(dict[str, object], item)
             if entry.get("release_timestamp") is None:
                 continue
             if not str(entry.get("release_timestamp_source") or "").strip():

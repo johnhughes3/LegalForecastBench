@@ -123,10 +123,12 @@ def test_release_check_validates_required_artifacts(tmp_path: Path) -> None:
         report_dir / "leaderboard.html",
     ):
         path.write_text("ok", encoding="utf-8")
-    (manifests_dir / "cycle_fixture_e2e.freeze.json").write_text(
-        json.dumps(
-            {"artifacts": [{"name": f"artifact-{index}"} for index in range(9)]}
-        ),
+    freeze_path = manifests_dir / "cycle_fixture_e2e.freeze.json"
+    required_artifacts = [
+        {"name": artifact.value} for artifact in module.REQUIRED_FREEZE_ARTIFACTS
+    ]
+    freeze_path.write_text(
+        json.dumps({"artifacts": required_artifacts}),
         encoding="utf-8",
     )
     (dist_dir / "legalforecast_mtd-0.1.0a1-py3-none-any.whl").write_text(
@@ -204,6 +206,20 @@ def test_release_check_validates_required_artifacts(tmp_path: Path) -> None:
     assert hashes_path == tmp_path / "package-artifact-hashes.json"
     assert not (dist_dir / "package-artifact-hashes.json").exists()
     module.validate_artifacts(tmp_path)
+
+    freeze_path.write_text(
+        json.dumps(
+            {
+                "artifacts": [
+                    *required_artifacts[:-1],
+                    {"name": "unexpected_artifact"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="canonical required artifact set"):
+        module._validate_fixture_artifacts(fixture_dir)
 
 
 def test_package_hashes_ignore_stale_legacy_manifest(tmp_path: Path) -> None:
