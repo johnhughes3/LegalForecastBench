@@ -1204,3 +1204,115 @@ def test_cli_rejects_firecrawl_fallback_for_offline_replay(
     )
 
     assert "requires --live" in capsys.readouterr().err
+
+
+def test_cli_rejects_orphaned_firecrawl_fallback_options(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    courtlistener_fixture = tmp_path / "courtlistener.jsonl"
+    courtlistener_fixture.write_text("", encoding="utf-8")
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "resolve-opinion-recap-dockets",
+                "--source-store",
+                str(source),
+                "--source-batch-id",
+                "opinion-source",
+                "--resolver-journal",
+                str(tmp_path / "resolver.sqlite3"),
+                "--cycle-store",
+                str(source),
+                "--batch-id",
+                "resolved-opinion-source",
+                "--courtlistener-only",
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--firecrawl-credit-cap",
+                "100",
+            ]
+        )
+        == 2
+    )
+
+    assert "require --firecrawl-on-budget-exhaustion" in capsys.readouterr().err
+
+
+def test_cli_rejects_orphaned_firecrawl_attempt_override(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = _source_store(tmp_path, _lead())
+    courtlistener_fixture = tmp_path / "courtlistener.jsonl"
+    courtlistener_fixture.write_text("", encoding="utf-8")
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "resolve-opinion-recap-dockets",
+                "--source-store",
+                str(source),
+                "--source-batch-id",
+                "opinion-source",
+                "--resolver-journal",
+                str(tmp_path / "resolver.sqlite3"),
+                "--cycle-store",
+                str(source),
+                "--batch-id",
+                "resolved-opinion-source",
+                "--courtlistener-only",
+                "--courtlistener-fixture",
+                str(courtlistener_fixture),
+                "--firecrawl-max-attempts",
+                "5",
+            ]
+        )
+        == 2
+    )
+
+    assert "require --firecrawl-on-budget-exhaustion" in capsys.readouterr().err
+
+
+def test_cli_rejects_firecrawl_credit_cap_above_cycle_limit(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = _source_store(tmp_path, _lead())
+
+    assert (
+        main(
+            [
+                "batch-002",
+                "resolve-opinion-recap-dockets",
+                "--source-store",
+                str(source),
+                "--source-batch-id",
+                "opinion-source",
+                "--resolver-journal",
+                str(tmp_path / "resolver.sqlite3"),
+                "--cycle-store",
+                str(source),
+                "--batch-id",
+                "resolved-opinion-source",
+                "--courtlistener-only",
+                "--live",
+                "--request-ledger",
+                str(tmp_path / "request-ledger.sqlite3"),
+                "--firecrawl-on-budget-exhaustion",
+                "--firecrawl-credit-cap",
+                "45001",
+                "--firecrawl-run-id",
+                "opinion-fallback",
+                "--firecrawl-artifact-dir",
+                str(tmp_path / "raw"),
+            ]
+        )
+        == 2
+    )
+
+    assert "must be between 1 and 45000" in capsys.readouterr().err
