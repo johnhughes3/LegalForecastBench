@@ -417,7 +417,6 @@ def _scrape_payload(
         "waitFor": 0,
         "blockAds": False,
         "lockdown": False,
-        "redactPII": False,
     }
     if force_browser:
         payload["actions"] = [{"type": "wait", "milliseconds": 1}]

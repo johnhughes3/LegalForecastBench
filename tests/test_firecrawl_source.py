@@ -107,8 +107,8 @@ def test_source_posts_exact_bounded_request_once_and_returns_raw_html() -> None:
         "waitFor": 0,
         "blockAds": False,
         "lockdown": False,
-        "redactPII": False,
     }
+    assert "redactPII" not in request["payload"]
 
 
 def test_scrape_exposes_validated_cost_and_delivery_metadata() -> None:
