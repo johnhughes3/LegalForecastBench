@@ -377,6 +377,29 @@ class ProviderAttemptJournal:
                     "normalized reconstruction requires exactly one validated response"
                 )
 
+    def record_reconstruction_failure(self, error: Exception) -> None:
+        """Terminalize a paid response that failed deterministic reconstruction."""
+
+        with self._connection:
+            cursor = self._connection.execute(
+                """
+                UPDATE provider_attempts
+                SET status = 'ambiguous', failure_type = ?, failure_message = ?,
+                    completed_at = ?
+                WHERE logical_call_key = ? AND status = 'validated_response'
+                """,
+                (
+                    type(error).__name__,
+                    str(error),
+                    _now(),
+                    self.identity.logical_call_key,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise ProviderJournalError(
+                    "reconstruction failure requires exactly one validated response"
+                )
+
     def stage_cost_total(self, stage: str) -> float:
         row = self._connection.execute(
             """

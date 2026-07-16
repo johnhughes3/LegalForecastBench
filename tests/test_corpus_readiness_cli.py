@@ -299,6 +299,14 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
     )
     snapshot_manifest = snapshot_fixture.manifest_path
     _stub_verified_preparation(monkeypatch, snapshot_fixture, target_case_count=1)
+    lineage_args = _finalize_lineage_args(
+        monkeypatch,
+        inputs,
+        selection=inputs / "selection.jsonl",
+        clearance=inputs / "clearance.jsonl",
+        packet_input=inputs / "packet-input.jsonl",
+        packets=inputs / "packets.jsonl",
+    )
 
     assert (
         main(
@@ -370,6 +378,7 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
                 str(snapshot_fixture.cycle_store_path),
                 "--target-cohort-preparation-root",
                 str(snapshot_fixture.target_preparation_root),
+                *lineage_args,
                 "--exclusion-source",
                 str(inputs / "public-exclusions.jsonl"),
                 "--exclusion-source",
@@ -489,6 +498,14 @@ def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(
             threshold_source="Cycle 1 protocol decision, 2026-07-14",
         ),
     )
+    lineage_args = _finalize_lineage_args(
+        monkeypatch,
+        inputs,
+        selection=inputs / "selection.jsonl",
+        clearance=inputs / "clearance.jsonl",
+        packet_input=inputs / "packet-input.jsonl",
+        packets=inputs / "packets.jsonl",
+    )
 
     result = main(
         [
@@ -559,6 +576,7 @@ def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(
             str(snapshot_fixture.cycle_store_path),
             "--target-cohort-preparation-root",
             str(snapshot_fixture.target_preparation_root),
+            *lineage_args,
             "--target-clean-cases",
             "1",
             "--output-root",
@@ -603,6 +621,14 @@ def test_acquisition_finalize_corpus_rejects_summary_not_bound_to_snapshot_manif
         )
         + "\n",
         encoding="utf-8",
+    )
+    lineage_args = _finalize_lineage_args(
+        monkeypatch,
+        inputs,
+        selection=inputs / "screened-cases.jsonl",
+        clearance=inputs / "screened-cases.jsonl",
+        packet_input=inputs / "screened-cases.jsonl",
+        packets=inputs / "screened-cases.jsonl",
     )
 
     result = main(
@@ -674,6 +700,7 @@ def test_acquisition_finalize_corpus_rejects_summary_not_bound_to_snapshot_manif
             str(snapshot_fixture.cycle_store_path),
             "--target-cohort-preparation-root",
             str(snapshot_fixture.target_preparation_root),
+            *lineage_args,
             "--target-clean-cases",
             "0",
             "--output-root",
@@ -691,6 +718,190 @@ def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
         "".join(f"{json.dumps(record, sort_keys=True)}\n" for record in records),
         encoding="utf-8",
     )
+
+
+def _finalize_lineage_args(
+    monkeypatch: pytest.MonkeyPatch,
+    inputs: Path,
+    *,
+    selection: Path,
+    clearance: Path,
+    packet_input: Path,
+    packets: Path,
+) -> list[str]:
+    """Supply exact packet cards while isolating the canonical materializer fixture."""
+
+    download_manifest = inputs / "materialized-downloads.jsonl"
+    if not download_manifest.exists():
+        _write_jsonl(download_manifest, [])
+    document_root = inputs / "materialized-documents"
+    document_root.mkdir(exist_ok=True)
+    raw_artifacts_manifest = inputs / "raw-artifacts.jsonl"
+    if not raw_artifacts_manifest.exists():
+        _write_jsonl(raw_artifacts_manifest, [])
+    materialization_card = inputs / "materialization-run-card.json"
+    materialization_card.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(
+        cli,
+        "_verify_optional_finalize_materialization",
+        lambda **kwargs: (Path(kwargs["materialization_card_path"]),),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_validate_packet_input_run_card",
+        lambda *args, **kwargs: cli._PacketPlannerReplay(
+            packet_build_records=tuple(_read_jsonl(packet_input)),
+            packet_build_input_sha256="sha256:" + sha256_file(packet_input),
+            selection_records=tuple(_read_jsonl(kwargs["selection_path"])),
+            download_records=tuple(_read_jsonl(kwargs["download_manifest_path"])),
+            parser_records=tuple(_read_jsonl(kwargs["parser_manifest_path"])),
+            clearance_records=tuple(_read_jsonl(kwargs["clearance_path"])),
+            clearance_sha256="sha256:" + sha256_file(kwargs["clearance_path"]),
+            parser_manifest_sha256="sha256:"
+            + sha256_file(kwargs["parser_manifest_path"]),
+            parser_record_count=len(_read_jsonl(kwargs["parser_manifest_path"])),
+            prediction_unit_records=tuple(_read_jsonl(kwargs["prediction_units_path"])),
+            model_registry=load_model_registry(kwargs["model_registry_path"]),
+            model_registry_sha256="sha256:"
+            + sha256_file(kwargs["model_registry_path"]),
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_validate_packet_build_run_card",
+        lambda *args, **kwargs: cli._PacketBuildReplay(
+            packet_records=tuple(_read_jsonl(packets)),
+            packets_sha256="sha256:" + sha256_file(packets),
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_parser_packet_authority",
+        lambda **kwargs: None,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_stage_a_packet_authority",
+        lambda **kwargs: cli._StageAReplay(
+            raw_prediction_unit_records=tuple(
+                _read_jsonl(kwargs["raw_prediction_units_path"])
+            ),
+            unitization_audit_records=tuple(
+                _read_jsonl(kwargs["unitization_audit_path"])
+            ),
+            original_review_records=tuple(_read_jsonl(kwargs["original_review_path"])),
+            structural_flag_records=tuple(_read_jsonl(kwargs["structural_flags_path"])),
+            structural_review_audit_records=tuple(
+                _read_jsonl(kwargs["structural_review_audit_path"])
+            ),
+            merged_review_records=tuple(_read_jsonl(kwargs["merged_review_path"])),
+            adjudication_records=tuple(_read_jsonl(kwargs["adjudications_path"])),
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_packet_raw_artifacts_snapshot_binding",
+        lambda **kwargs: None,
+    )
+    lineage = cli._packet_materialization_lineage_commitments(
+        selection_path=selection,
+        download_manifest_path=download_manifest,
+        clearance_path=clearance,
+        document_root=document_root,
+        materialization_run_card_path=materialization_card,
+    )
+    planner_card = inputs / "packet-planner-run-card.json"
+    planner_card.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.acquisition_run_card.v1",
+                "stage": "plan-packet-inputs",
+                "status": "completed",
+                "dry_run": False,
+                "execute": True,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+                "authenticated_materialization_lineage": lineage,
+                "output_commitments": {
+                    "packet_build_input": {
+                        "path": str(packet_input.resolve()),
+                        "sha256": "sha256:" + sha256_file(packet_input),
+                    }
+                },
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    build_card = inputs / "packet-build-run-card.json"
+    build_card.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.acquisition_run_card.v1",
+                "stage": "build-packets",
+                "status": "completed",
+                "dry_run": False,
+                "execute": True,
+                "paid_activity_requested": False,
+                "paid_activity_executed": False,
+                "authenticated_materialization_lineage": lineage,
+                "source_commitments": {
+                    "packet_input_run_card": {
+                        "path": str(planner_card.resolve()),
+                        "sha256": "sha256:" + sha256_file(planner_card),
+                    },
+                    "packet_build_input": {
+                        "path": str(packet_input.resolve()),
+                        "sha256": "sha256:" + sha256_file(packet_input),
+                    },
+                },
+                "output_commitments": {
+                    "packets": {
+                        "path": str(packets.resolve()),
+                        "sha256": "sha256:" + sha256_file(packets),
+                    }
+                },
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    parser_run_card = inputs / "parser-run-card.json"
+    parser_run_card.write_text("{}\n", encoding="utf-8")
+    return [
+        "--download-manifest",
+        str(download_manifest),
+        "--materialization-run-card",
+        str(materialization_card),
+        "--document-root",
+        str(document_root),
+        "--raw-html-dir",
+        str(document_root),
+        "--raw-artifacts-manifest",
+        str(raw_artifacts_manifest),
+        "--packet-input-run-card",
+        str(planner_card),
+        "--packet-build-run-card",
+        str(build_card),
+        "--parser-run-card",
+        str(parser_run_card),
+        "--parse-plan-run-card",
+        str(parser_run_card),
+        "--llm-unitize-run-card",
+        str(parser_run_card),
+        "--llm-unitize-provider-journal",
+        str(parser_run_card),
+        "--stage-a-review-run-card",
+        str(parser_run_card),
+        "--stage-a-review-provider-journal",
+        str(parser_run_card),
+        "--apply-unitization-review-run-card",
+        str(parser_run_card),
+        "--expected-model-registry-sha256",
+        sha256_file(REGISTRY),
+    ]
 
 
 def _read_jsonl(path: Path) -> list[dict[str, object]]:

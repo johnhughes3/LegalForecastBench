@@ -389,7 +389,24 @@ def plan_packet_build_inputs(
     )
     source_root = Path(source_dir).resolve()
     document_root_path = Path(document_root).resolve()
-    markdown_root_path = Path(markdown_root).resolve()
+    lexical_markdown_root = Path(
+        os.path.abspath(os.fspath(Path(markdown_root).expanduser()))
+    )
+    try:
+        _require_non_symlink_path(
+            lexical_markdown_root,
+            label="parser markdown root",
+            allow_missing=True,
+        )
+        markdown_root_path = lexical_markdown_root.resolve(strict=False)
+    except OSError as exc:
+        raise PacketInputPlanningError(
+            f"parser markdown root is unavailable: {lexical_markdown_root}"
+        ) from exc
+    if markdown_root_path.exists() and not markdown_root_path.is_dir():
+        raise PacketInputPlanningError(
+            f"parser markdown root is not a directory: {lexical_markdown_root}"
+        )
     downloads = _index_by_candidate_and_document(download_records)
     parser_by_key = _index_by_candidate_and_document(parser_records)
     try:
@@ -598,11 +615,14 @@ def _plan_candidate(
             and parser_record is not None
             and _optional_str(parser_record, "status") == "succeeded"
         ):
+            verified_markdown_path, markdown_text = _verified_parser_markdown(
+                parser_record,
+                markdown_root=markdown_root,
+            )
             if _required_bool(source_record, "is_mounted_for_model"):
                 document_leakage = _document_leakage_result(
-                    parser_record,
+                    markdown_text,
                     packet_document_id=packet_document_id,
-                    markdown_root=markdown_root,
                     evaluation_timestamp=generated_at,
                 )
                 if document_leakage.findings:
@@ -630,7 +650,8 @@ def _plan_candidate(
             parsed = _parsed_document_record(
                 parser_record,
                 packet_document_id=packet_document_id,
-                markdown_root=markdown_root,
+                markdown_path=verified_markdown_path,
+                markdown=markdown_text,
             )
             parsed_documents.append(parsed)
             extracted_text = parsed.get("extracted_text")
@@ -1128,12 +1149,9 @@ def _parsed_document_record(
     parser_record: Mapping[str, Any],
     *,
     packet_document_id: str,
-    markdown_root: Path,
+    markdown_path: Path,
+    markdown: str,
 ) -> dict[str, Any]:
-    markdown_path = Path(_required_str(parser_record, "markdown_path"))
-    resolved_markdown_path = (
-        markdown_path if markdown_path.is_absolute() else markdown_root / markdown_path
-    )
     extracted = parser_record.get("extracted_text")
     extracted_text = None
     extraction_method = "mistral_markdown"
@@ -1148,7 +1166,8 @@ def _parsed_document_record(
         )
     return {
         "source_document_id": packet_document_id,
-        "markdown_path": str(resolved_markdown_path),
+        "markdown_path": str(markdown_path),
+        "markdown": markdown,
         "extraction_method": extraction_method,
         "quality_flags": list(_str_tuple(parser_record.get("quality_flags"))),
         "extracted_text": extracted_text,
@@ -1267,17 +1286,11 @@ def _docket_entries(
 
 
 def _document_leakage_result(
-    parser_record: Mapping[str, Any],
+    text: str,
     *,
     packet_document_id: str,
-    markdown_root: Path,
     evaluation_timestamp: datetime,
 ) -> OutcomeLeakageFilterResult:
-    markdown_path = Path(_required_str(parser_record, "markdown_path"))
-    resolved_markdown_path = (
-        markdown_path if markdown_path.is_absolute() else markdown_root / markdown_path
-    )
-    text = resolved_markdown_path.read_text(encoding="utf-8")
     return detect_outcome_leakage(
         (
             LeakageSource(
@@ -1289,6 +1302,106 @@ def _document_leakage_result(
         ),
         evaluation_timestamp=evaluation_timestamp,
     )
+
+
+def _verified_parser_markdown(
+    parser_record: Mapping[str, Any],
+    *,
+    markdown_root: Path,
+) -> tuple[Path, str]:
+    """Read one parser artifact through an owned, non-aliased containment path."""
+
+    lexical_root = Path(os.path.abspath(os.fspath(markdown_root.expanduser())))
+    try:
+        _require_non_symlink_path(lexical_root, label="parser markdown root")
+        resolved_root = lexical_root.resolve(strict=True)
+    except OSError as exc:
+        raise PacketInputPlanningError(
+            f"parser markdown root is unavailable: {lexical_root}"
+        ) from exc
+    if not resolved_root.is_dir():
+        raise PacketInputPlanningError(
+            f"parser markdown root is not a directory: {lexical_root}"
+        )
+
+    configured = Path(_required_str(parser_record, "markdown_path")).expanduser()
+    lexical_path = Path(
+        os.path.abspath(
+            os.fspath(
+                configured if configured.is_absolute() else lexical_root / configured
+            )
+        )
+    )
+    try:
+        relative_path = lexical_path.relative_to(lexical_root)
+    except ValueError as exc:
+        raise PacketInputPlanningError(
+            f"parser markdown path escapes markdown root: {lexical_path}"
+        ) from exc
+    try:
+        _require_non_symlink_path(lexical_path, label="parser markdown")
+        metadata = lexical_path.stat(follow_symlinks=False)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise PacketInputPlanningError(
+                f"parser markdown is not a regular file: {lexical_path}"
+            )
+        if metadata.st_nlink != 1:
+            raise PacketInputPlanningError(
+                f"parser markdown must not be hardlinked: {lexical_path}"
+            )
+        resolved_path = lexical_path.resolve(strict=True)
+    except PacketInputPlanningError:
+        raise
+    except OSError as exc:
+        raise PacketInputPlanningError(
+            f"parser markdown is unavailable: {lexical_path}"
+        ) from exc
+    if not resolved_path.is_relative_to(resolved_root) or relative_path == Path("."):
+        raise PacketInputPlanningError(
+            f"parser markdown path escapes markdown root: {lexical_path}"
+        )
+    try:
+        text = lexical_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise PacketInputPlanningError(
+            f"parser markdown is unreadable UTF-8: {lexical_path}"
+        ) from exc
+    if not text.strip():
+        raise PacketInputPlanningError(f"parser markdown is empty: {lexical_path}")
+    extracted_text = parser_record.get("extracted_text")
+    if not isinstance(extracted_text, Mapping):
+        raise PacketInputPlanningError(
+            f"parser markdown lacks extracted-text commitment: {lexical_path}"
+        )
+    expected_text_sha256 = cast(Mapping[str, object], extracted_text).get("text_sha256")
+    if (
+        not isinstance(expected_text_sha256, str)
+        or hashlib.sha256(text.encode("utf-8")).hexdigest() != expected_text_sha256
+    ):
+        raise PacketInputPlanningError(
+            f"parser markdown text commitment mismatch: {lexical_path}"
+        )
+    return resolved_path, text
+
+
+def _require_non_symlink_path(
+    path: Path,
+    *,
+    label: str,
+    allow_missing: bool = False,
+) -> None:
+    current = Path(path.anchor) if path.is_absolute() else Path()
+    parts = path.parts[1:] if path.is_absolute() else path.parts
+    for component in parts:
+        current /= component
+        try:
+            mode = current.lstat().st_mode
+        except FileNotFoundError:
+            if allow_missing:
+                return
+            raise
+        if stat.S_ISLNK(mode):
+            raise PacketInputPlanningError(f"{label} path contains a symlink: {path}")
 
 
 def _document_leakage_exclusion_record(

@@ -19,6 +19,9 @@ from legalforecast.ingestion.disclosure_clearance import (
     ReviewAuthority,
     validate_review_receipt,
 )
+from legalforecast.ingestion.disclosure_review_authority import (
+    DisclosureReviewAuthority,
+)
 from legalforecast.ingestion.recap_fetch_attempt_policy import (
     BOUNDED_FETCH_ATTEMPT_AUTHORITY,
     RECAP_FETCH_ATTEMPT_POLICY_VERSION,
@@ -60,6 +63,7 @@ class AuthenticatedClearanceLineage:
     clearance_artifact_sha256: str
     reviews_artifact_sha256: str
     review_receipt_sha256: str
+    cohort_policy_artifact_sha256: str
     restriction_evidence_artifact_sha256: str
     review_authority_sha256: str
     authority: ReviewAuthority
@@ -74,8 +78,16 @@ def validate_authenticated_clearance_lineage(
     reviews_artifact_bytes: bytes,
     review_receipt_artifact: Mapping[str, object],
     review_receipt_bytes: bytes,
+    review_requests_artifact_bytes: bytes,
+    review_worksheet_artifact: Mapping[str, object],
+    review_worksheet_bytes: bytes,
+    reviewer_policy_bytes: bytes,
+    disclosure_authority: DisclosureReviewAuthority,
+    cohort_policy_artifact_bytes: bytes,
+    download_manifest_artifact_bytes: bytes,
     restriction_records: Sequence[Mapping[str, Any]],
     restriction_artifact_bytes: bytes,
+    allow_test_service_identity: bool = False,
 ) -> AuthenticatedClearanceLineage:
     """Verify the exact executed clearance inputs, authority, and output bytes."""
 
@@ -103,6 +115,16 @@ def validate_authenticated_clearance_lineage(
         raise ResolvedPostRecoveryError(
             "restriction-evidence bytes do not match the parsed records"
         )
+    cohort_policy_artifact = _json_object_from_bytes(
+        cohort_policy_artifact_bytes, "cohort policy"
+    )
+    if (
+        cohort_policy_artifact.get("policy_sha256")
+        != disclosure_authority.identity.cohort_policy_sha256
+    ):
+        raise ResolvedPostRecoveryError(
+            "cohort policy identity differs from disclosure authority"
+        )
     if (
         clearance_run_card.get("schema_version")
         != "legalforecast.acquisition_run_card.v1"
@@ -123,8 +145,13 @@ def validate_authenticated_clearance_lineage(
         clearance_run_card.get("output_commitments"), "clearance output commitments"
     )
     expected_sources = {
+        "cohort_policy": _bytes_sha256(cohort_policy_artifact_bytes),
+        "download_manifest": _bytes_sha256(download_manifest_artifact_bytes),
+        "review_requests": _bytes_sha256(review_requests_artifact_bytes),
+        "review_worksheet": _bytes_sha256(review_worksheet_bytes),
         "reviews": _bytes_sha256(reviews_artifact_bytes),
         "review_receipt": _bytes_sha256(review_receipt_bytes),
+        "reviewer_policy": _bytes_sha256(reviewer_policy_bytes),
         "restriction_evidence": _bytes_sha256(restriction_artifact_bytes),
     }
     for name, expected in expected_sources.items():
@@ -144,7 +171,16 @@ def validate_authenticated_clearance_lineage(
         raise ResolvedPostRecoveryError("clear-disclosures output commitment mismatch")
     try:
         authority = validate_review_receipt(
-            reviews_artifact_bytes, review_receipt_artifact
+            reviews_artifact_bytes,
+            review_receipt_artifact,
+            reviewer_policy_bytes=reviewer_policy_bytes,
+            disclosure_authority=disclosure_authority,
+            worksheet_bytes=review_worksheet_bytes,
+            worksheet=review_worksheet_artifact,
+            review_requests_bytes=review_requests_artifact_bytes,
+            download_manifest_bytes=download_manifest_artifact_bytes,
+            restriction_evidence_bytes=restriction_artifact_bytes,
+            allow_test_service_identity=allow_test_service_identity,
         )
     except DisclosureClearanceError as exc:
         raise ResolvedPostRecoveryError(str(exc)) from exc
@@ -154,39 +190,155 @@ def validate_authenticated_clearance_lineage(
         "authentication_method": authority.authentication_method,
         "authenticated_at": authority.authenticated_at,
         "review_artifact_sha256": "sha256:" + authority.review_artifact_sha256,
+        "reviewer_policy_sha256": "sha256:" + authority.reviewer_policy_sha256,
+        "disclosure_authority_sha256": (
+            "sha256:" + disclosure_authority.authority_sha256
+        ),
+        "cycle_id": disclosure_authority.identity.cycle_id,
+        "cohort_policy_sha256": (
+            "sha256:" + disclosure_authority.identity.cohort_policy_sha256
+        ),
+        "eligibility_anchor": (
+            disclosure_authority.identity.eligibility_anchor.isoformat()
+        ),
+        "ssh_public_key_fingerprint": (disclosure_authority.ssh_public_key_fingerprint),
     }
     if clearance_run_card.get("review_authority") != expected_authority:
         raise ResolvedPostRecoveryError(
             "clear-disclosures review authority does not match its receipt"
         )
-
-    clearance_index = _index(clearance_records, "clearance")
-    restrictions = _group_index(restriction_records, "restriction evidence")
-    if set(clearance_index) != set(restrictions):
-        raise ResolvedPostRecoveryError(
-            "restriction evidence does not exactly cover disclosure clearance"
-        )
-    for key, clearance in clearance_index.items():
-        if (
-            clearance.get("schema_version") != SCHEMA_VERSION
-            or clearance.get("reviewer_id") != authority.reviewer_id
-            or clearance.get("controlled_store_provenance")
-            != authority.controlled_store_uri
-            or not clearance.get("reviewed_at")
-        ):
-            raise ResolvedPostRecoveryError(
-                f"clearance row does not bind authenticated review authority: {key}"
-            )
+    _validate_exact_clearance_projection(
+        clearance_records=clearance_records,
+        reviews_artifact_bytes=reviews_artifact_bytes,
+        worksheet=review_worksheet_artifact,
+        download_manifest_bytes=download_manifest_artifact_bytes,
+        restriction_records=restriction_records,
+    )
 
     return AuthenticatedClearanceLineage(
         clearance_run_card_sha256=_bytes_sha256(clearance_run_card_bytes),
         clearance_artifact_sha256=clearance_sha256,
         reviews_artifact_sha256=expected_sources["reviews"],
         review_receipt_sha256=expected_sources["review_receipt"],
+        cohort_policy_artifact_sha256=expected_sources["cohort_policy"],
         restriction_evidence_artifact_sha256=expected_sources["restriction_evidence"],
         review_authority_sha256=_sha256(expected_authority),
         authority=authority,
     )
+
+
+def _validate_exact_clearance_projection(
+    *,
+    clearance_records: Sequence[Mapping[str, Any]],
+    reviews_artifact_bytes: bytes,
+    worksheet: Mapping[str, object],
+    download_manifest_bytes: bytes,
+    restriction_records: Sequence[Mapping[str, Any]],
+) -> None:
+    """Rebuild every mutable clearance field from signed, hash-bound inputs."""
+
+    reviews = _index(
+        _jsonl_records_from_bytes(reviews_artifact_bytes, "signed reviews"),
+        "signed reviews",
+    )
+    manifest = _index(
+        _jsonl_records_from_bytes(download_manifest_bytes, "download manifest"),
+        "download manifest",
+    )
+    raw_documents = worksheet.get("documents")
+    if not isinstance(raw_documents, list) or not raw_documents:
+        raise ResolvedPostRecoveryError("review worksheet has no document rows")
+    typed_documents = cast(list[object], raw_documents)
+    documents = _index(
+        [
+            dict(cast(Mapping[str, Any], row))
+            for row in typed_documents
+            if isinstance(row, Mapping)
+        ],
+        "review worksheet",
+    )
+    if len(documents) != len(typed_documents):
+        raise ResolvedPostRecoveryError("review worksheet has invalid document rows")
+    clearance = _index(clearance_records, "clearance")
+    restrictions = _group_index(restriction_records, "restriction evidence")
+    keys = set(reviews)
+    if not (
+        keys == set(manifest) == set(documents) == set(clearance) == set(restrictions)
+    ):
+        raise ResolvedPostRecoveryError(
+            "signed review, worksheet, manifest, restrictions, and clearance "
+            "coverage differ"
+        )
+    exact_fields = {
+        "schema_version",
+        "candidate_id",
+        "source_document_id",
+        "local_path",
+        "sha256",
+        "byte_count",
+        "status",
+        "automated_markers",
+        "restriction_status",
+        "restriction_evidence",
+        "reviewer_id",
+        "controlled_store_provenance",
+        "reviewed_at",
+        "free_or_purchased",
+    }
+    for key in sorted(keys):
+        review = reviews[key]
+        document = documents[key]
+        source = manifest[key]
+        row = clearance[key]
+        if set(row) != exact_fields:
+            raise ResolvedPostRecoveryError(
+                f"clearance row has non-canonical fields: {key}"
+            )
+        markers = cast(object, document.get("automated_markers"))
+        evidence = cast(object, document.get("restriction_evidence"))
+        if not isinstance(markers, list) or not all(
+            isinstance(item, str) and item for item in cast(list[object], markers)
+        ):
+            raise ResolvedPostRecoveryError(
+                f"review worksheet has invalid marker categories: {key}"
+            )
+        if not isinstance(evidence, list) or not all(
+            isinstance(item, str) and item for item in cast(list[object], evidence)
+        ):
+            raise ResolvedPostRecoveryError(
+                f"review worksheet lacks exact restriction projection: {key}"
+            )
+        digest = document.get("sha256")
+        byte_count = document.get("byte_count")
+        phase = document.get("free_or_purchased")
+        if (
+            source.get("sha256") != digest
+            or source.get("byte_count") != byte_count
+            or source.get("free_or_purchased") != phase
+        ):
+            raise ResolvedPostRecoveryError(
+                f"download manifest differs from signed worksheet: {key}"
+            )
+        expected: dict[str, object] = {
+            "schema_version": SCHEMA_VERSION,
+            "candidate_id": key[0],
+            "source_document_id": key[1],
+            "local_path": source.get("local_path"),
+            "sha256": digest,
+            "byte_count": byte_count,
+            "status": review.get("status"),
+            "automated_markers": cast(list[object], markers),
+            "restriction_status": document.get("restriction_status"),
+            "restriction_evidence": cast(list[object], evidence),
+            "reviewer_id": review.get("reviewer_id"),
+            "controlled_store_provenance": review.get("controlled_store_provenance"),
+            "reviewed_at": review.get("reviewed_at"),
+            "free_or_purchased": phase,
+        }
+        if row != expected:
+            raise ResolvedPostRecoveryError(
+                f"clearance row differs from authenticated review projection: {key}"
+            )
 
 
 def build_resolved_post_recovery_documents(
@@ -202,8 +354,16 @@ def build_resolved_post_recovery_documents(
     reviews_artifact_bytes: bytes,
     review_receipt_artifact: Mapping[str, object],
     review_receipt_bytes: bytes,
+    review_requests_artifact_bytes: bytes,
+    review_worksheet_artifact: Mapping[str, object],
+    review_worksheet_bytes: bytes,
+    reviewer_policy_bytes: bytes,
+    disclosure_authority: DisclosureReviewAuthority,
+    cohort_policy_artifact_bytes: bytes,
+    download_manifest_artifact_bytes: bytes,
     restriction_records: Sequence[Mapping[str, Any]],
     restriction_artifact_bytes: bytes,
+    allow_test_service_identity: bool = False,
 ) -> tuple[dict[str, object], ...]:
     """Build exact resolved records for every unknown-origin selected document."""
 
@@ -215,8 +375,16 @@ def build_resolved_post_recovery_documents(
         reviews_artifact_bytes=reviews_artifact_bytes,
         review_receipt_artifact=review_receipt_artifact,
         review_receipt_bytes=review_receipt_bytes,
+        review_requests_artifact_bytes=review_requests_artifact_bytes,
+        review_worksheet_artifact=review_worksheet_artifact,
+        review_worksheet_bytes=review_worksheet_bytes,
+        reviewer_policy_bytes=reviewer_policy_bytes,
+        disclosure_authority=disclosure_authority,
+        cohort_policy_artifact_bytes=cohort_policy_artifact_bytes,
+        download_manifest_artifact_bytes=download_manifest_artifact_bytes,
         restriction_records=restriction_records,
         restriction_artifact_bytes=restriction_artifact_bytes,
+        allow_test_service_identity=allow_test_service_identity,
     )
     policy_sha256, attempt_documents = _attempt_documents(attempt_policy_artifact)
     unknown_selection = _unknown_selection(selection_records)
@@ -305,6 +473,9 @@ def build_resolved_post_recovery_documents(
             "clearance_artifact_sha256": (clearance_lineage.clearance_artifact_sha256),
             "reviews_artifact_sha256": clearance_lineage.reviews_artifact_sha256,
             "review_receipt_sha256": clearance_lineage.review_receipt_sha256,
+            "cohort_policy_artifact_sha256": (
+                clearance_lineage.cohort_policy_artifact_sha256
+            ),
             "review_authority_sha256": clearance_lineage.review_authority_sha256,
             "restriction_evidence_artifact_sha256": (
                 clearance_lineage.restriction_evidence_artifact_sha256
@@ -332,8 +503,16 @@ def require_resolved_post_recovery_documents(
     reviews_artifact_bytes: bytes,
     review_receipt_artifact: Mapping[str, object],
     review_receipt_bytes: bytes,
+    review_requests_artifact_bytes: bytes,
+    review_worksheet_artifact: Mapping[str, object],
+    review_worksheet_bytes: bytes,
+    reviewer_policy_bytes: bytes,
+    disclosure_authority: DisclosureReviewAuthority,
+    cohort_policy_artifact_bytes: bytes,
+    download_manifest_artifact_bytes: bytes,
     restriction_records: Sequence[Mapping[str, Any]],
     restriction_artifact_bytes: bytes,
+    allow_test_service_identity: bool = False,
 ) -> None:
     """Require exact resolved coverage whenever selection originated unknown."""
 
@@ -345,8 +524,16 @@ def require_resolved_post_recovery_documents(
         reviews_artifact_bytes=reviews_artifact_bytes,
         review_receipt_artifact=review_receipt_artifact,
         review_receipt_bytes=review_receipt_bytes,
+        review_requests_artifact_bytes=review_requests_artifact_bytes,
+        review_worksheet_artifact=review_worksheet_artifact,
+        review_worksheet_bytes=review_worksheet_bytes,
+        reviewer_policy_bytes=reviewer_policy_bytes,
+        disclosure_authority=disclosure_authority,
+        cohort_policy_artifact_bytes=cohort_policy_artifact_bytes,
+        download_manifest_artifact_bytes=download_manifest_artifact_bytes,
         restriction_records=restriction_records,
         restriction_artifact_bytes=restriction_artifact_bytes,
+        allow_test_service_identity=allow_test_service_identity,
     )
     required = set(_unknown_selection(selection_records))
     download_unknown = {
@@ -391,6 +578,7 @@ def require_resolved_post_recovery_documents(
             "clearance_artifact_sha256": lineage.clearance_artifact_sha256,
             "reviews_artifact_sha256": lineage.reviews_artifact_sha256,
             "review_receipt_sha256": lineage.review_receipt_sha256,
+            "cohort_policy_artifact_sha256": (lineage.cohort_policy_artifact_sha256),
             "review_authority_sha256": lineage.review_authority_sha256,
             "restriction_evidence_artifact_sha256": (
                 lineage.restriction_evidence_artifact_sha256
@@ -882,6 +1070,7 @@ def _validate_resolved_record(
         "clearance_artifact_sha256",
         "reviews_artifact_sha256",
         "review_receipt_sha256",
+        "cohort_policy_artifact_sha256",
         "review_authority_sha256",
         "restriction_evidence_artifact_sha256",
         "restriction_evidence_rows_sha256",

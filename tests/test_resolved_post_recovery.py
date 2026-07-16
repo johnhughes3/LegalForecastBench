@@ -4,19 +4,26 @@ import base64
 import hashlib
 import json
 from copy import deepcopy
+from dataclasses import replace
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import legalforecast.cli as cli
+import legalforecast.ingestion.resolved_post_recovery as resolved_module
 import pytest
 from legalforecast.ingestion.case_dev_purchase import (
     CaseDevPurchaseJournal,
     generate_case_dev_purchase_policy,
+    read_case_dev_purchase_snapshot,
     verify_case_dev_purchase_policy,
 )
 from legalforecast.ingestion.cohort_policy import generate_cohort_policy
 from legalforecast.ingestion.disclosure_clearance import SCHEMA_VERSION
+from legalforecast.ingestion.disclosure_review_authority import (
+    DisclosureReviewAuthorityIdentity,
+)
 from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
     MissingCoreBudgetPlan,
@@ -33,6 +40,10 @@ from legalforecast.ingestion.resolved_post_recovery import (
     require_resolved_post_recovery_operation_bindings,
     require_resolved_post_recovery_parse_requests,
     write_resolved_post_recovery_documents,
+)
+from tests.disclosure_review_fixtures import (
+    service_review_signer,
+    signed_service_review_lineage,
 )
 
 
@@ -132,6 +143,90 @@ def test_receipt_commitment_and_authenticated_authority_tamper_fail() -> None:
         )
 
 
+def test_disclosure_authority_substitution_fails_closed() -> None:
+    inputs = _inputs()
+    substituted = replace(inputs["disclosure_authority"], authority_sha256="c" * 64)
+
+    with pytest.raises(ResolvedPostRecoveryError, match="authority"):
+        build_resolved_post_recovery_documents(
+            **{**inputs, "disclosure_authority": substituted}
+        )
+
+
+def test_rehashed_cohort_policy_substitution_fails_closed() -> None:
+    inputs = _inputs()
+    substituted_bytes = _object_bytes(
+        {"schema_version": "test", "policy_sha256": "c" * 64}
+    )
+    run_card = deepcopy(inputs["clearance_run_card"])
+    run_card["source_commitments"]["cohort_policy"]["sha256"] = hashlib.sha256(
+        substituted_bytes
+    ).hexdigest()
+
+    with pytest.raises(ResolvedPostRecoveryError, match="cohort policy"):
+        build_resolved_post_recovery_documents(
+            **{
+                **inputs,
+                "cohort_policy_artifact_bytes": substituted_bytes,
+                "clearance_run_card": run_card,
+                "clearance_run_card_bytes": _object_bytes(run_card),
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("disclosure_authority_sha256", "sha256:" + "c" * 64),
+        ("cycle_id", "other-cycle"),
+        ("cohort_policy_sha256", "sha256:" + "c" * 64),
+        ("eligibility_anchor", "2026-07-01"),
+        ("ssh_public_key_fingerprint", "SHA256:substituted"),
+    ],
+)
+def test_expanded_run_card_review_authority_tamper_fails_closed(
+    field: str, value: str
+) -> None:
+    inputs = _inputs()
+    run_card = deepcopy(inputs["clearance_run_card"])
+    run_card["review_authority"][field] = value
+
+    with pytest.raises(ResolvedPostRecoveryError, match="review authority"):
+        build_resolved_post_recovery_documents(
+            **{
+                **inputs,
+                "clearance_run_card": run_card,
+                "clearance_run_card_bytes": _object_bytes(run_card),
+            }
+        )
+
+
+def test_rehashed_clearance_status_tamper_fails() -> None:
+    """A mutable run-card hash cannot override the signed review decision."""
+
+    inputs = _inputs()
+    tampered = deepcopy(inputs["clearance_records"])
+    tampered[0]["status"] = "quarantined"
+    clearance_bytes = _jsonl_bytes(tampered)
+    run_card = deepcopy(inputs["clearance_run_card"])
+    run_card["output_commitments"]["disclosure_clearance"]["sha256"] = hashlib.sha256(
+        clearance_bytes
+    ).hexdigest()
+    with pytest.raises(
+        ResolvedPostRecoveryError,
+        match="differs from authenticated review projection",
+    ):
+        build_resolved_post_recovery_documents(
+            **{
+                **inputs,
+                "clearance_records": tampered,
+                "clearance_artifact_bytes": clearance_bytes,
+                "clearance_run_card": run_card,
+                "clearance_run_card_bytes": _object_bytes(run_card),
+            }
+        )
+
+
 def test_fresh_restriction_artifact_and_public_proof_tamper_fail() -> None:
     inputs = _inputs()
     restrictions = deepcopy(inputs["restriction_records"])
@@ -142,7 +237,10 @@ def test_fresh_restriction_artifact_and_public_proof_tamper_fail() -> None:
         restriction_bytes
     ).hexdigest()
 
-    with pytest.raises(ResolvedPostRecoveryError, match="fresh-detail public proof"):
+    with pytest.raises(
+        ResolvedPostRecoveryError,
+        match=r"signed review input lineage mismatch|fresh-detail public proof",
+    ):
         build_resolved_post_recovery_documents(
             **{
                 **inputs,
@@ -345,6 +443,7 @@ def test_recap_fetch_quarantine_recovery_help_names_controlled_inputs(
 
 def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     inputs = _inputs()
     selection_document = inputs["selection_records"][0]["documents"][0]
@@ -370,6 +469,23 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         "reservation_headroom_required": True,
     }
     cohort_artifact = generate_cohort_policy(cohort_decisions)
+    signer = service_review_signer(
+        reviewer_id="reviewer:john",
+        controlled_store_uri="private-store://review/1",
+    )
+    signer["disclosure_authority"] = replace(
+        signer["disclosure_authority"],
+        identity=DisclosureReviewAuthorityIdentity(
+            cycle_id="cycle-1",
+            cohort_policy_sha256=str(cohort_artifact["policy_sha256"]),
+            eligibility_anchor=date(2026, 6, 30),
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "load_main_disclosure_review_authority",
+        lambda *_args, **_kwargs: signer["disclosure_authority"],
+    )
     purchase_artifact = generate_case_dev_purchase_policy(
         {
             "cycle_id": "cycle-1",
@@ -425,11 +541,15 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         "clearance_run_card": tmp_path / "clearance-run-card.json",
         "reviews": tmp_path / "reviews.jsonl",
         "review_receipt": tmp_path / "review-receipt.json",
+        "review_requests": tmp_path / "review-requests.jsonl",
+        "review_worksheet": tmp_path / "review-worksheet.json",
+        "reviewer_policy": tmp_path / "reviewer-policy.json",
         "restriction_evidence": tmp_path / "restrictions.jsonl",
     }
     _write_records(paths["selection"], inputs["selection_records"])
     _write_object(paths["purchase_policy"], purchase_artifact)
     _write_object(paths["cohort_policy"], cohort_artifact)
+    paths["reviewer_policy"].write_bytes(signer["reviewer_policy_bytes"])
     _write_object(paths["budget_plan"], budget_artifact)
     _write_object(paths["attempt_policy"], attempt_artifact)
     available_detail = {
@@ -597,13 +717,89 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         "sha256:"
         + hashlib.sha256(paths["restriction_evidence"].read_bytes()).hexdigest()
     )
-    content_bytes = pdf_content.encode()
-    _retarget_review_inputs(
-        inputs,
-        content_sha256=hashlib.sha256(content_bytes).hexdigest(),
+    content_sha256 = hashlib.sha256(pdf_content.encode()).hexdigest()
+    download_row = _read_records(paths["download_manifest"])[0]
+    review_requests = [
+        {
+            "schema_version": "legalforecast.disclosure_review_request.v1",
+            "candidate_id": download_row["candidate_id"],
+            "source_document_id": download_row["source_document_id"],
+            "sha256": content_sha256,
+            "byte_count": len(pdf_content.encode()),
+            "free_or_purchased": "purchased",
+            "required_human_decision": "cleared_or_quarantined",
+        }
+    ]
+    _write_records(paths["review_requests"], review_requests)
+    review_prepare_root = tmp_path / "review-prepare"
+    private_review_root = tmp_path / "private-review"
+    assert (
+        cli.main(
+            [
+                "acquisition",
+                "prepare-disclosure-review",
+                "--review-requests",
+                str(paths["review_requests"]),
+                "--download-manifest",
+                str(paths["download_manifest"]),
+                "--document-root",
+                str(quarantine_root),
+                "--restriction-evidence",
+                str(paths["restriction_evidence"]),
+                "--reviewer-policy",
+                str(paths["reviewer_policy"]),
+                "--cohort-policy",
+                str(paths["cohort_policy"]),
+                "--worksheet-output",
+                str(paths["review_worksheet"]),
+                "--controlled-private-store-root",
+                str(private_review_root),
+                "--output-root",
+                str(review_prepare_root),
+                "--execute",
+            ]
+        )
+        == 0
     )
-    paths["reviews"].write_bytes(inputs["reviews_artifact_bytes"])
-    paths["review_receipt"].write_bytes(inputs["review_receipt_bytes"])
+    worksheet = json.loads(paths["review_worksheet"].read_text())
+    signed = signed_service_review_lineage(
+        [
+            {
+                "candidate_id": "case-1",
+                "source_document_id": "123",
+                "sha256": content_sha256,
+                "status": "cleared",
+                "reviewer_id": "reviewer:john",
+                "controlled_store_provenance": "private-store://review/1",
+                "reviewed_at": "2026-07-15T00:00:00Z",
+            }
+        ],
+        restriction_evidence_bytes=paths["restriction_evidence"].read_bytes(),
+        download_manifest_bytes=paths["download_manifest"].read_bytes(),
+        review_requests_bytes=paths["review_requests"].read_bytes(),
+        worksheet=worksheet,
+        signer=signer,
+        authenticated_at="2026-07-15T00:00:00Z",
+    )
+    paths["reviews"].write_bytes(signed["reviews_bytes"])
+    paths["review_receipt"].write_bytes(signed["review_receipt_bytes"])
+    assert paths["reviewer_policy"].read_bytes() == signed["reviewer_policy_bytes"]
+    cli_validate = cli.validate_review_receipt
+    resolved_validate = resolved_module.validate_review_receipt
+    monkeypatch.setattr(
+        cli,
+        "validate_review_receipt",
+        lambda *positional, **keywords: cli_validate(
+            *positional, **{**keywords, "allow_test_service_identity": True}
+        ),
+    )
+    monkeypatch.setattr(
+        resolved_module,
+        "validate_review_receipt",
+        lambda *positional, **keywords: resolved_validate(
+            *positional, **{**keywords, "allow_test_service_identity": True}
+        ),
+    )
     clearance_root = tmp_path / "clearance-output"
     assert (
         cli.main(
@@ -612,12 +808,20 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
                 "clear-disclosures",
                 "--download-manifest",
                 str(paths["download_manifest"]),
+                "--review-requests",
+                str(paths["review_requests"]),
                 "--document-root",
                 str(quarantine_root),
+                "--review-worksheet",
+                str(paths["review_worksheet"]),
                 "--reviews",
                 str(paths["reviews"]),
                 "--review-receipt",
                 str(paths["review_receipt"]),
+                "--reviewer-policy",
+                str(paths["reviewer_policy"]),
+                "--cohort-policy",
+                str(paths["cohort_policy"]),
                 "--restriction-evidence",
                 str(paths["restriction_evidence"]),
                 "--output-root",
@@ -689,6 +893,7 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         *[
             value
             for name, path in paths.items()
+            if name not in {"review_requests", "review_worksheet", "reviewer_policy"}
             for value in (f"--{name.replace('_', '-')}", str(path))
         ],
         "--purchase-ledger",
@@ -718,6 +923,68 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         ).hexdigest()
     )
     resolved_path = output_root / "resolved-post-recovery-documents.jsonl"
+    materialization_card = tmp_path / "materialization-run-card.json"
+    materialization_restrictions = tmp_path / "materialization-restrictions.jsonl"
+    materialization_derivations = tmp_path / "materialization-derivations.jsonl"
+    materialization_summary = tmp_path / "materialization-summary.json"
+    _write_records(materialization_restrictions, [])
+    _write_records(materialization_derivations, [])
+    _write_object(materialization_summary, {})
+    _write_object(
+        materialization_card,
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "materialize-cohort-documents",
+            "output_paths": [
+                str(paths["download_manifest"]),
+                str(paths["disclosure_clearance"]),
+                str(materialization_restrictions),
+                str(materialization_derivations),
+                str(materialization_summary),
+                str(quarantine_root),
+            ],
+        },
+    )
+
+    def verify_recovery_materialization(**kwargs: object) -> tuple[Path, ...]:
+        """Keep this recovery test focused on live purchase-state invalidation.
+
+        Canonical materializer replay is covered by the target-100 end-to-end
+        test. This fixture still replays the actual purchase ledger and resolved
+        records so the three downstream commands fail after a later failed
+        broker receipt, which is the invariant under test here.
+        """
+
+        assert kwargs["run_card_path"] == materialization_card
+        assert kwargs["manifest_path"] == paths["download_manifest"]
+        assert kwargs["clearance_path"] == paths["disclosure_clearance"]
+        assert kwargs["document_root"] == quarantine_root
+        assert kwargs["selection_path"] == paths["selection"]
+        snapshot = read_case_dev_purchase_snapshot(
+            ledger_path,
+            policy=purchase_policy,
+        )
+        require_resolved_post_recovery_operation_bindings(
+            purchase_operation_records=snapshot.operations,
+            resolved_records=_read_records(resolved_path),
+        )
+        return (
+            materialization_card,
+            materialization_restrictions,
+            materialization_derivations,
+            resolved_path,
+        )
+
+    monkeypatch.setattr(
+        cli,
+        "_require_consistent_materialization_markers",
+        lambda *_args: True,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_materialized_downstream_lineage",
+        verify_recovery_materialization,
+    )
     lineage_arguments = [
         "--selection",
         str(paths["selection"]),
@@ -737,6 +1004,8 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         str(paths["purchase_policy"]),
         "--purchase-ledger",
         str(ledger_path),
+        "--materialization-run-card",
+        str(materialization_card),
     ]
     downstream_root = tmp_path / "downstream"
     plan_parse_command = [
@@ -907,7 +1176,9 @@ def _inputs() -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "candidate_id": "case-1",
         "source_document_id": "123",
+        "local_path": "case-1/123.pdf",
         "status": "cleared",
+        "automated_markers": [],
         "restriction_status": "public",
         "restriction_evidence": ["fresh_post_recovery_public_detail"],
         "sha256": "5" * 64,
@@ -915,6 +1186,7 @@ def _inputs() -> dict[str, Any]:
         "reviewer_id": "reviewer:john",
         "controlled_store_provenance": "private-store://review/1",
         "reviewed_at": "2026-07-15T00:00:00Z",
+        "free_or_purchased": "purchased",
     }
     reviews = [
         {
@@ -925,18 +1197,9 @@ def _inputs() -> dict[str, Any]:
             "reviewer_id": "reviewer:john",
             "controlled_store_provenance": "private-store://review/1",
             "reviewed_at": "2026-07-15T00:00:00Z",
+            "restriction_evidence": ["fresh_post_recovery_public_detail"],
         }
     ]
-    reviews_bytes = _jsonl_bytes(reviews)
-    review_receipt = {
-        "schema_version": "legalforecast.disclosure_review_receipt.v1",
-        "review_artifact_sha256": hashlib.sha256(reviews_bytes).hexdigest(),
-        "authenticated_reviewer_id": "reviewer:john",
-        "controlled_store_uri": "private-store://review/1",
-        "authentication_method": "cloudflare_access_oidc",
-        "authenticated_at": "2026-07-15T00:00:00Z",
-    }
-    review_receipt_bytes = (json.dumps(review_receipt, sort_keys=True) + "\n").encode()
     restrictions = [
         {
             "schema_version": "legalforecast.post_recovery_restriction_evidence.v1",
@@ -958,6 +1221,22 @@ def _inputs() -> dict[str, Any]:
         }
     ]
     restriction_bytes = _jsonl_bytes(restrictions)
+    signed_lineage = signed_service_review_lineage(
+        reviews,
+        restriction_evidence_bytes=restriction_bytes,
+        authenticated_at="2026-07-15T00:00:00Z",
+    )
+    reviews = signed_lineage["reviews"]
+    reviews_bytes = signed_lineage["reviews_bytes"]
+    review_receipt = signed_lineage["review_receipt"]
+    review_receipt_bytes = signed_lineage["review_receipt_bytes"]
+    disclosure_authority = signed_lineage["disclosure_authority"]
+    cohort_policy_bytes = _object_bytes(
+        {
+            "schema_version": "test",
+            "policy_sha256": disclosure_authority.identity.cohort_policy_sha256,
+        }
+    )
     clearance_bytes = _jsonl_bytes([clearance])
     clearance_run_card = {
         "schema_version": "legalforecast.acquisition_run_card.v1",
@@ -968,9 +1247,32 @@ def _inputs() -> dict[str, Any]:
         "paid_activity_requested": False,
         "paid_activity_executed": False,
         "source_commitments": {
+            "cohort_policy": {
+                "sha256": hashlib.sha256(cohort_policy_bytes).hexdigest()
+            },
+            "download_manifest": {
+                "sha256": hashlib.sha256(
+                    signed_lineage["download_manifest_bytes"]
+                ).hexdigest()
+            },
+            "review_requests": {
+                "sha256": hashlib.sha256(
+                    signed_lineage["review_requests_bytes"]
+                ).hexdigest()
+            },
+            "review_worksheet": {
+                "sha256": hashlib.sha256(
+                    signed_lineage["review_worksheet_bytes"]
+                ).hexdigest()
+            },
             "reviews": {"sha256": hashlib.sha256(reviews_bytes).hexdigest()},
             "review_receipt": {
                 "sha256": hashlib.sha256(review_receipt_bytes).hexdigest()
+            },
+            "reviewer_policy": {
+                "sha256": hashlib.sha256(
+                    signed_lineage["reviewer_policy_bytes"]
+                ).hexdigest()
             },
             "restriction_evidence": {
                 "sha256": hashlib.sha256(restriction_bytes).hexdigest()
@@ -984,10 +1286,26 @@ def _inputs() -> dict[str, Any]:
         "review_authority": {
             "reviewer_id": "reviewer:john",
             "controlled_store_uri": "private-store://review/1",
-            "authentication_method": "cloudflare_access_oidc",
+            "authentication_method": "controlled_store_service_ssh_signature",
             "authenticated_at": "2026-07-15T00:00:00Z",
             "review_artifact_sha256": (
                 "sha256:" + hashlib.sha256(reviews_bytes).hexdigest()
+            ),
+            "reviewer_policy_sha256": (
+                "sha256:" + signed_lineage["reviewer_policy_sha256"]
+            ),
+            "disclosure_authority_sha256": (
+                "sha256:" + disclosure_authority.authority_sha256
+            ),
+            "cycle_id": disclosure_authority.identity.cycle_id,
+            "cohort_policy_sha256": (
+                "sha256:" + disclosure_authority.identity.cohort_policy_sha256
+            ),
+            "eligibility_anchor": (
+                disclosure_authority.identity.eligibility_anchor.isoformat()
+            ),
+            "ssh_public_key_fingerprint": (
+                disclosure_authority.ssh_public_key_fingerprint
             ),
         },
     }
@@ -1006,8 +1324,16 @@ def _inputs() -> dict[str, Any]:
         "reviews_artifact_bytes": reviews_bytes,
         "review_receipt_artifact": review_receipt,
         "review_receipt_bytes": review_receipt_bytes,
+        "review_requests_artifact_bytes": signed_lineage["review_requests_bytes"],
+        "review_worksheet_artifact": signed_lineage["review_worksheet"],
+        "review_worksheet_bytes": signed_lineage["review_worksheet_bytes"],
+        "reviewer_policy_bytes": signed_lineage["reviewer_policy_bytes"],
+        "disclosure_authority": disclosure_authority,
+        "cohort_policy_artifact_bytes": cohort_policy_bytes,
+        "download_manifest_artifact_bytes": signed_lineage["download_manifest_bytes"],
         "restriction_records": restrictions,
         "restriction_artifact_bytes": restriction_bytes,
+        "allow_test_service_identity": True,
     }
 
 
@@ -1019,8 +1345,16 @@ def _external_kwargs(inputs: dict[str, Any]) -> dict[str, Any]:
         "reviews_artifact_bytes",
         "review_receipt_artifact",
         "review_receipt_bytes",
+        "review_requests_artifact_bytes",
+        "review_worksheet_artifact",
+        "review_worksheet_bytes",
+        "reviewer_policy_bytes",
+        "disclosure_authority",
+        "cohort_policy_artifact_bytes",
+        "download_manifest_artifact_bytes",
         "restriction_records",
         "restriction_artifact_bytes",
+        "allow_test_service_identity",
     )
     return {name: inputs[name] for name in names}
 

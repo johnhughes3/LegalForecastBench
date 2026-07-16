@@ -517,15 +517,13 @@ def check_v2_10() -> tuple[bool, str]:
             continue
         body = match.group("body")
         if (
-            all(
-                needle in body
-                for needle in (
-                    "uv run legalforecast acquisition build-packets",
-                    "expected-packets.jsonl",
-                    "expected-packet-render.json",
-                    "--verify-packet-render-dir",
-                )
+            "uv run pytest -q" in body
+            and (
+                "tests/test_packet_render_ci_workflow.py::"
+                "test_production_packet_builder_matches_reviewed_golden"
             )
+            in body
+            and "uv run legalforecast acquisition build-packets" not in body
             and "private_store_export.py" not in body
         ):
             workflow_hits.append(path.name)
@@ -533,11 +531,11 @@ def check_v2_10() -> tuple[bool, str]:
     wired = builder_wired and golden_valid and bool(workflow_hits)
     return wired, (
         "production acquisition builder, independent reviewed golden, and "
-        f"compare-only workflow are wired; {golden_detail}; workflows={workflow_hits}"
+        f"focused golden workflow are wired; {golden_detail}; workflows={workflow_hits}"
         if wired
         else (
             "packet-render verification requires the production acquisition builder, "
-            "an independently frozen matching golden, and a compare-only workflow; "
+            "an independently frozen matching golden, and a focused golden workflow; "
             f"builder={builder_wired}, golden={golden_detail}, "
             f"workflows={workflow_hits or 'none'}"
         )

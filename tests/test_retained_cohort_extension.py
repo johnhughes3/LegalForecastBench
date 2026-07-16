@@ -8,6 +8,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+import legalforecast.cli as cli_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.case_dev_purchase import (
@@ -18,6 +19,9 @@ from legalforecast.ingestion.case_dev_purchase import (
 from legalforecast.ingestion.cohort_policy import generate_cohort_policy
 from legalforecast.ingestion.cycle_acquisition_store import (
     cohort_reason_policy_taxonomy,
+)
+from legalforecast.ingestion.disclosure_review_authority import (
+    disclosure_authority_identity_from_cohort_policy,
 )
 from legalforecast.ingestion.missing_core_budget import (
     CaseMissingCorePurchasePlan,
@@ -31,6 +35,35 @@ from legalforecast.ingestion.retained_cohort_extension import (
     purchase_obligation_snapshot,
 )
 from legalforecast.ingestion.target_cohort_projection import project_target_cohort
+from tests.disclosure_review_fixtures import (
+    service_disclosure_authority_from_policy_bytes,
+    service_review_signer,
+    signed_service_review_lineage,
+)
+
+
+@pytest.fixture(autouse=True)
+def _allow_cryptographic_service_fixture(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = cli_module.validate_authenticated_clearance_lineage
+    monkeypatch.setattr(
+        cli_module,
+        "validate_authenticated_clearance_lineage",
+        lambda *positional, **keywords: original(
+            *positional, **{**keywords, "allow_test_service_identity": True}
+        ),
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "load_main_disclosure_review_authority",
+        lambda cohort, *, reviewer_policy_bytes: (
+            service_disclosure_authority_from_policy_bytes(
+                reviewer_policy_bytes,
+                identity=disclosure_authority_identity_from_cohort_policy(cohort),
+            )
+        ),
+    )
 
 
 def test_extension_preserves_base_prefix_and_selects_only_omitted_frontier() -> None:
@@ -649,18 +682,49 @@ def _cli_fixture(
             for row in _jsonl(inputs["full_pool_artifacts"]["selection.jsonl"])
         )
     )
+    clearance_rows = _jsonl(inputs["full_pool_artifacts"]["disclosure-clearance.jsonl"])
+    review_signer = service_review_signer(
+        reviewer_id="reviewer:john",
+        controlled_store_uri="private-store://cycle-1/free-clearance",
+        identity=disclosure_authority_identity_from_cohort_policy(
+            inputs["cohort_policy_artifact"]
+        ),
+    )
+    signed_lineage = signed_service_review_lineage(
+        [
+            {
+                "candidate_id": row["candidate_id"],
+                "source_document_id": row["source_document_id"],
+                "sha256": row["sha256"],
+                "byte_count": row["byte_count"],
+                "free_or_purchased": row["free_or_purchased"],
+                "restriction_status": row["restriction_status"],
+                "restriction_evidence": row["restriction_evidence"],
+                "automated_markers": row["automated_markers"],
+                "status": row["status"],
+                "reviewer_id": row["reviewer_id"],
+                "controlled_store_provenance": row["controlled_store_provenance"],
+                "reviewed_at": row["reviewed_at"],
+            }
+            for row in clearance_rows
+        ],
+        restriction_evidence_bytes=restriction_path.read_bytes(),
+        download_manifest_bytes=full_paths[
+            "document-downloads-merged.jsonl"
+        ].read_bytes(),
+        signer=review_signer,
+        authenticated_at="2026-07-14T14:00:00Z",
+    )
     reviews = tmp_path / "clearance/reviews.jsonl"
-    reviews.write_bytes(b'{"review":"all-clear"}\n')
-    receipt_record = {
-        "schema_version": "legalforecast.disclosure_review_receipt.v1",
-        "review_artifact_sha256": hashlib.sha256(reviews.read_bytes()).hexdigest(),
-        "authenticated_reviewer_id": "reviewer:john",
-        "controlled_store_uri": "private-store://cycle-1/reviews",
-        "authentication_method": "cloudflare_access_oidc",
-        "authenticated_at": "2026-07-14T14:00:00Z",
-    }
+    reviews.write_bytes(signed_lineage["reviews_bytes"])
     review_receipt = tmp_path / "clearance/review-receipt.json"
-    review_receipt.write_text(json.dumps(receipt_record) + "\n", encoding="utf-8")
+    review_receipt.write_bytes(signed_lineage["review_receipt_bytes"])
+    review_requests = tmp_path / "clearance/review-requests.jsonl"
+    review_requests.write_bytes(signed_lineage["review_requests_bytes"])
+    review_worksheet = tmp_path / "clearance/review-worksheet.json"
+    review_worksheet.write_bytes(signed_lineage["review_worksheet_bytes"])
+    reviewer_policy = tmp_path / "clearance/reviewer-policy.json"
+    reviewer_policy.write_bytes(signed_lineage["reviewer_policy_bytes"])
     clearance_run_card = tmp_path / "clearance/run-card.json"
     clearance_card_record = {
         "schema_version": "legalforecast.acquisition_run_card.v1",
@@ -675,8 +739,12 @@ def _cli_fixture(
                 full_paths["document-downloads-merged.jsonl"]
             ),
             "restriction_evidence": _path_commitment(restriction_path),
+            "review_requests": _path_commitment(review_requests),
+            "review_worksheet": _path_commitment(review_worksheet),
             "reviews": _path_commitment(reviews),
             "review_receipt": _path_commitment(review_receipt),
+            "reviewer_policy": _path_commitment(reviewer_policy),
+            "cohort_policy": _path_commitment(cohort_policy),
         },
         "output_commitments": {
             "disclosure_clearance": _path_commitment(
@@ -684,11 +752,30 @@ def _cli_fixture(
             )
         },
         "review_authority": {
-            "reviewer_id": "reviewer:john",
-            "controlled_store_uri": "private-store://cycle-1/reviews",
-            "authentication_method": "cloudflare_access_oidc",
+            "cycle_id": signed_lineage["disclosure_authority"].identity.cycle_id,
+            "cohort_policy_sha256": (
+                "sha256:"
+                + signed_lineage["disclosure_authority"].identity.cohort_policy_sha256
+            ),
+            "eligibility_anchor": (
+                signed_lineage[
+                    "disclosure_authority"
+                ].identity.eligibility_anchor.isoformat()
+            ),
+            "disclosure_authority_sha256": (
+                "sha256:" + signed_lineage["disclosure_authority"].authority_sha256
+            ),
+            "reviewer_id": signed_lineage["disclosure_authority"].reviewer_id,
+            "controlled_store_uri": "private-store://cycle-1/free-clearance",
+            "authentication_method": "controlled_store_service_ssh_signature",
             "authenticated_at": "2026-07-14T14:00:00Z",
             "review_artifact_sha256": _sha(reviews.read_bytes()),
+            "reviewer_policy_sha256": (
+                "sha256:" + signed_lineage["reviewer_policy_sha256"]
+            ),
+            "ssh_public_key_fingerprint": signed_lineage[
+                "disclosure_authority"
+            ].ssh_public_key_fingerprint,
         },
     }
     clearance_run_card.write_text(
@@ -1286,9 +1373,11 @@ def _clearance(index: int) -> dict[str, Any]:
         "schema_version": "legalforecast.disclosure_clearance.v1",
         "candidate_id": candidate_id,
         "source_document_id": f"{candidate_id}-complaint",
+        "local_path": f"{candidate_id}/complaint.pdf",
         "sha256": "a" * 64,
         "byte_count": 10,
         "status": "cleared",
+        "automated_markers": [],
         "restriction_status": "public",
         "restriction_evidence": ["courtlistener_public_download_record_checked"],
         "reviewer_id": "reviewer:john",

@@ -80,8 +80,11 @@ def test_cycle_1_registry_records_provider_limits_and_current_prices() -> None:
 
 def test_plan_packet_inputs_accepts_cycle_1_registry_and_anchor(
     tmp_path: Path,
+    authenticated_downstream_fixture: Any,
 ) -> None:
     output_root = tmp_path / "acquisition"
+    document_root = output_root / "documents" / "free"
+    document_root.mkdir(parents=True)
     raw_html_dir = tmp_path / "raw-html"
     raw_html_dir.mkdir()
     raw_html_path = raw_html_dir / "cand-1.html"
@@ -137,6 +140,13 @@ def test_plan_packet_inputs_accepts_cycle_1_registry_and_anchor(
         ],
     )
     _write_clearance(downloads_path, clearance_path)
+    materialization_card = authenticated_downstream_fixture.materialize(
+        manifest=downloads_path,
+        clearance=clearance_path,
+        document_root=document_root,
+        selection=selection_path,
+        name="cycle-1-registry",
+    )
     _write_jsonl(
         units_path,
         list(
@@ -180,6 +190,10 @@ def test_plan_packet_inputs_accepts_cycle_1_registry_and_anchor(
                 str(parser_path),
                 "--disclosure-clearance",
                 str(clearance_path),
+                "--materialization-run-card",
+                str(materialization_card),
+                "--document-root",
+                str(document_root),
                 "--prediction-units",
                 str(units_path),
                 "--model-registry",

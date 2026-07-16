@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import cast
@@ -157,6 +158,35 @@ def test_packet_planning_rejects_raw_prediction_units(tmp_path: Path) -> None:
             raw_html_dir=tmp_path,
             document_root=tmp_path,
             markdown_root=tmp_path,
+            source_dir=tmp_path,
+        )
+
+
+@pytest.mark.parametrize("alias_kind", ("root", "parent"))
+def test_packet_planning_rejects_markdown_root_symlink_aliases(
+    tmp_path: Path,
+    alias_kind: str,
+) -> None:
+    real_parent = tmp_path / "real"
+    real_root = real_parent / "markdown"
+    real_root.mkdir(parents=True)
+    if alias_kind == "root":
+        markdown_root = tmp_path / "markdown-alias"
+        markdown_root.symlink_to(real_root, target_is_directory=True)
+    else:
+        alias_parent = tmp_path / "parent-alias"
+        alias_parent.symlink_to(real_parent, target_is_directory=True)
+        markdown_root = alias_parent / "markdown"
+
+    with pytest.raises(PacketInputPlanningError, match="contains a symlink"):
+        plan_packet_build_inputs(
+            selection_records=(),
+            download_records=(),
+            parser_records=(),
+            prediction_unit_records=(),
+            raw_html_dir=tmp_path,
+            document_root=tmp_path,
+            markdown_root=markdown_root,
             source_dir=tmp_path,
         )
 
@@ -367,6 +397,13 @@ def test_any_packet_time_leakage_excludes_candidate_with_one_complete_ledger_ent
         markdown_path.parent.mkdir(parents=True, exist_ok=True)
         markdown_path.write_text(markdown, encoding="utf-8")
 
+    markdown_by_id = {
+        "complaint": (
+            "Press report: the motion to dismiss survives as to the core claim."
+        ),
+        "mtd-memo": "Motion to dismiss memorandum.",
+        "decision": "Decision markdown.",
+    }
     plan = plan_packet_build_inputs(
         selection_records=(
             _packet_selection_record(
@@ -376,7 +413,10 @@ def test_any_packet_time_leakage_excludes_candidate_with_one_complete_ledger_ent
             ),
         ),
         download_records=_packet_download_records(candidate_id),
-        parser_records=_packet_parser_records(candidate_id),
+        parser_records=_packet_parser_records(
+            candidate_id,
+            markdown_by_id=markdown_by_id,
+        ),
         prediction_unit_records=(_prediction_unit_record(candidate_id),),
         raw_html_dir=raw_html_dir,
         document_root=tmp_path / "documents",
@@ -444,7 +484,13 @@ def test_download_restriction_overrides_conflicting_public_selection_metadata(
         },
     )
     parser_records: tuple[dict[str, object], ...] = (
-        *_packet_parser_records(candidate_id),
+        *_packet_parser_records(
+            candidate_id,
+            markdown_by_id={
+                source_document_id: "source markdown"
+                for source_document_id in ("complaint", "mtd-memo", "decision")
+            },
+        ),
         {
             "candidate_id": candidate_id,
             "source_document_id": "sealed",
@@ -488,6 +534,69 @@ def test_download_restriction_overrides_conflicting_public_selection_metadata(
         record["source_document_id"] != f"{candidate_id}-sealed"
         for record in packet_record["parsed_documents"]
     )
+
+
+@pytest.mark.parametrize(
+    "unsafe_kind",
+    ("absolute_escape", "parent_escape", "symlink", "hardlink"),
+)
+def test_packet_planning_rejects_unsafe_parser_markdown_paths(
+    tmp_path: Path,
+    unsafe_kind: str,
+) -> None:
+    candidate_id = "unsafe-markdown"
+    raw_html_dir = tmp_path / "raw-html"
+    raw_html_dir.mkdir()
+    (raw_html_dir / f"{candidate_id}.html").write_text(
+        _packet_input_docket_html(decision_date="July 1, 2026"),
+        encoding="utf-8",
+    )
+    markdown_root = tmp_path / "markdown"
+    candidate_markdown_root = markdown_root / candidate_id
+    candidate_markdown_root.mkdir(parents=True)
+    for source_document_id in ("mtd-memo", "decision"):
+        (candidate_markdown_root / f"{source_document_id}.md").write_text(
+            f"{source_document_id} markdown",
+            encoding="utf-8",
+        )
+    outside = tmp_path / "outside.md"
+    outside.write_text("Outside markdown", encoding="utf-8")
+    if unsafe_kind == "absolute_escape":
+        configured_path = outside
+    elif unsafe_kind == "parent_escape":
+        configured_path = Path("../outside.md")
+    elif unsafe_kind == "symlink":
+        configured_path = candidate_markdown_root / "complaint.md"
+        configured_path.symlink_to(outside)
+    else:
+        configured_path = candidate_markdown_root / "complaint.md"
+        configured_path.hardlink_to(outside)
+
+    parser_records = [dict(record) for record in _packet_parser_records(candidate_id)]
+    parser_records[0]["markdown_path"] = str(configured_path)
+    parser_records[0]["extracted_text"] = {
+        "source_document_id": "complaint",
+        "text_sha256": hashlib.sha256(outside.read_bytes()).hexdigest(),
+        "quality_flags": [],
+    }
+    with pytest.raises(PacketInputPlanningError, match="markdown"):
+        plan_packet_build_inputs(
+            selection_records=(
+                _packet_selection_record(
+                    candidate_id=candidate_id,
+                    case_id="unsafe-case",
+                    decision_date="2026-07-01",
+                ),
+            ),
+            download_records=_packet_download_records(candidate_id),
+            parser_records=parser_records,
+            prediction_unit_records=(_prediction_unit_record(candidate_id),),
+            raw_html_dir=raw_html_dir,
+            document_root=tmp_path / "documents",
+            markdown_root=markdown_root,
+            source_dir=tmp_path,
+            generated_at=datetime(2026, 7, 2, tzinfo=UTC),
+        )
 
 
 def _selection(*, decision_entry_numbers: list[int]) -> dict[str, object]:
@@ -572,7 +681,15 @@ def _packet_download_records(candidate_id: str) -> tuple[dict[str, object], ...]
     )
 
 
-def _packet_parser_records(candidate_id: str) -> tuple[dict[str, object], ...]:
+def _packet_parser_records(
+    candidate_id: str,
+    *,
+    markdown_by_id: dict[str, str] | None = None,
+) -> tuple[dict[str, object], ...]:
+    text_by_id = markdown_by_id or {
+        source_document_id: f"{source_document_id} markdown"
+        for source_document_id in ("complaint", "mtd-memo", "decision")
+    }
     return tuple(
         {
             "candidate_id": candidate_id,
@@ -582,7 +699,9 @@ def _packet_parser_records(candidate_id: str) -> tuple[dict[str, object], ...]:
             "quality_flags": [],
             "extracted_text": {
                 "source_document_id": source_document_id,
-                "text_sha256": f"{source_document_id:0<64}"[:64],
+                "text_sha256": hashlib.sha256(
+                    text_by_id[source_document_id].encode()
+                ).hexdigest(),
                 "quality_flags": [],
             },
         }

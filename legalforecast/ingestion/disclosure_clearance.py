@@ -14,10 +14,13 @@ from legalforecast.extraction.pdf_text import (
     PDFExtractionError,
     extract_pdf_text_with_ocr_fallback,
 )
+from legalforecast.ingestion.disclosure_review_authority import (
+    DisclosureReviewAuthority,
+)
 from legalforecast.ingestion.restricted_material import restricted_material_markers
 
 SCHEMA_VERSION = "legalforecast.disclosure_clearance.v1"
-REVIEW_RECEIPT_SCHEMA_VERSION = "legalforecast.disclosure_review_receipt.v1"
+REVIEW_RECEIPT_SCHEMA_VERSION = "legalforecast.disclosure_review_receipt.v2"
 _CLEAR = "cleared"
 _QUARANTINED = "quarantined"
 _RESTRICTED_STATUSES = frozenset({"private", "restricted", "sealed", "under_seal"})
@@ -114,39 +117,51 @@ class ReviewAuthority:
     authentication_method: str
     authenticated_at: str
     review_artifact_sha256: str
+    reviewer_policy_sha256: str
 
 
 def validate_review_receipt(
-    review_artifact: bytes, receipt: Mapping[str, object]
+    review_artifact: bytes,
+    receipt: Mapping[str, object],
+    *,
+    reviewer_policy_bytes: bytes,
+    disclosure_authority: DisclosureReviewAuthority,
+    worksheet_bytes: bytes,
+    worksheet: Mapping[str, object],
+    review_requests_bytes: bytes,
+    download_manifest_bytes: bytes,
+    restriction_evidence_bytes: bytes,
+    allow_test_service_identity: bool = False,
 ) -> ReviewAuthority:
-    """Verify a controlled-store receipt binds the exact review artifact bytes."""
+    """Verify signed reviewer authority and every exact input-lineage byte stream."""
 
-    if receipt.get("schema_version") != REVIEW_RECEIPT_SCHEMA_VERSION:
-        raise DisclosureClearanceError("unsupported disclosure review receipt schema")
-    committed = _digest(receipt, "review_artifact_sha256")
-    actual = hashlib.sha256(review_artifact).hexdigest()
-    if committed != actual:
-        raise DisclosureClearanceError("review receipt artifact hash mismatch")
-    reviewer_id = _required_str(receipt, "authenticated_reviewer_id")
-    controlled_store_uri = _required_str(receipt, "controlled_store_uri")
-    if not controlled_store_uri.startswith("private-store://"):
-        raise DisclosureClearanceError(
-            "review receipt must originate from the controlled private store"
+    from legalforecast.ingestion.disclosure_review_bundle import (
+        ReviewBundleError,
+        verify_review_receipt,
+    )
+
+    try:
+        verified = verify_review_receipt(
+            review_artifact,
+            receipt,
+            reviewer_policy_bytes=reviewer_policy_bytes,
+            disclosure_authority=disclosure_authority,
+            worksheet_bytes=worksheet_bytes,
+            worksheet=worksheet,
+            review_requests_bytes=review_requests_bytes,
+            download_manifest_bytes=download_manifest_bytes,
+            restriction_evidence_bytes=restriction_evidence_bytes,
+            allow_test_service_identity=allow_test_service_identity,
         )
-    authentication_method = _required_str(receipt, "authentication_method")
-    if authentication_method not in {
-        "cloudflare_access_oidc",
-        "controlled_store_service_identity",
-        "github_verified_signature",
-    }:
-        raise DisclosureClearanceError("unsupported reviewer authentication method")
-    authenticated_at = _required_str(receipt, "authenticated_at")
+    except ReviewBundleError as exc:
+        raise DisclosureClearanceError(str(exc)) from exc
     return ReviewAuthority(
-        reviewer_id=reviewer_id,
-        controlled_store_uri=controlled_store_uri,
-        authentication_method=authentication_method,
-        authenticated_at=authenticated_at,
-        review_artifact_sha256=actual,
+        reviewer_id=verified.reviewer_id,
+        controlled_store_uri=verified.controlled_store_uri,
+        authentication_method=verified.authentication_method,
+        authenticated_at=verified.authenticated_at,
+        review_artifact_sha256=verified.review_artifact_sha256,
+        reviewer_policy_sha256=verified.reviewer_policy_sha256,
     )
 
 

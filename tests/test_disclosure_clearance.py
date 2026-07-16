@@ -12,7 +12,6 @@ from legalforecast.ingestion.disclosure_clearance import (
     require_cleared_documents,
     require_cleared_parse_requests,
     require_cleared_parser_records,
-    validate_review_receipt,
 )
 
 
@@ -54,17 +53,13 @@ def _public_evidence() -> dict[str, object]:
 
 
 def _authority() -> ReviewAuthority:
-    artifact = b"fixture review artifact"
-    return validate_review_receipt(
-        artifact,
-        {
-            "schema_version": "legalforecast.disclosure_review_receipt.v1",
-            "review_artifact_sha256": hashlib.sha256(artifact).hexdigest(),
-            "authenticated_reviewer_id": "reviewer:john",
-            "controlled_store_uri": "private-store://cycle1/reviews/batch-001",
-            "authentication_method": "cloudflare_access_oidc",
-            "authenticated_at": "2026-07-12T18:00:00Z",
-        },
+    return ReviewAuthority(
+        reviewer_id="reviewer:john",
+        controlled_store_uri="private-store://cycle1/reviews/batch-001",
+        authentication_method="human_hardware_ssh_signature",
+        authenticated_at="2026-07-12T18:00:00Z",
+        review_artifact_sha256="0" * 64,
+        reviewer_policy_sha256="1" * 64,
     )
 
 

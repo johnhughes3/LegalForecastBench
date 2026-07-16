@@ -25,6 +25,138 @@ JsonRecord = dict[str, Any]
 _GENERATED_AT = "2026-05-17T12:00:00Z"
 
 
+def _materialized_cli_unit_fixture(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+    *,
+    skip_packet_planner_replay: bool = False,
+) -> tuple[Path, Path]:
+    """Isolate downstream semantics; real lineage is covered by target-100 E2E."""
+
+    document_root = tmp_path / "materialized-documents"
+    document_root.mkdir(exist_ok=True)
+    run_card = tmp_path / "materialization-run-card.json"
+    placeholder_outputs = [
+        tmp_path / "materialized-manifest.jsonl",
+        tmp_path / "materialized-clearance.jsonl",
+        tmp_path / "materialized-restrictions.jsonl",
+        tmp_path / "materialized-derivations.jsonl",
+        tmp_path / "materialization-summary.json",
+    ]
+    for path in placeholder_outputs:
+        path.write_text("\n", encoding="utf-8")
+    _write_json(
+        run_card,
+        {
+            "stage": "materialize-cohort-documents",
+            "output_paths": [
+                *(str(path) for path in placeholder_outputs),
+                str(document_root),
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        cli,
+        "_require_consistent_materialization_markers",
+        lambda *args: True,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_materialized_downstream_lineage",
+        lambda **kwargs: (Path(kwargs["run_card_path"]),),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_packet_raw_artifacts_snapshot_binding",
+        lambda **kwargs: None,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_authenticated_materialization_snapshot_manifest_path",
+        lambda *args, **kwargs: run_card,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_parser_packet_authority",
+        lambda **kwargs: None,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_stage_a_packet_authority",
+        lambda **kwargs: None,
+    )
+    if skip_packet_planner_replay:
+        monkeypatch.setattr(
+            cli,
+            "_validate_packet_input_run_card",
+            lambda *args, **kwargs: cli._PacketPlannerReplay(
+                packet_build_records=tuple(
+                    cli._read_records(kwargs["packet_build_input_path"])
+                ),
+                packet_build_input_sha256=cli._path_sha256(
+                    kwargs["packet_build_input_path"]
+                ),
+                selection_records=tuple(cli._read_records(kwargs["selection_path"])),
+                download_records=tuple(
+                    cli._read_records(kwargs["download_manifest_path"])
+                ),
+                parser_records=tuple(cli._read_records(kwargs["parser_manifest_path"])),
+                clearance_records=tuple(cli._read_records(kwargs["clearance_path"])),
+                clearance_sha256=cli._path_sha256(kwargs["clearance_path"]),
+                parser_manifest_sha256=cli._path_sha256(kwargs["parser_manifest_path"]),
+                parser_record_count=len(
+                    cli._read_records(kwargs["parser_manifest_path"])
+                ),
+                prediction_unit_records=tuple(
+                    cli._read_records(kwargs["prediction_units_path"])
+                ),
+                model_registry=cli.load_model_registry(kwargs["model_registry_path"]),
+                model_registry_sha256=cli._path_sha256(kwargs["model_registry_path"]),
+            ),
+        )
+    return document_root, run_card
+
+
+def _write_packet_planner_card(
+    path: Path,
+    *,
+    packet_input: Path,
+    selection: Path,
+    manifest: Path,
+    clearance: Path,
+    document_root: Path,
+    materialization_run_card: Path,
+) -> None:
+    _write_json(
+        path,
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "plan-packet-inputs",
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            "authenticated_materialization_lineage": (
+                cli._packet_materialization_lineage_commitments(
+                    selection_path=selection,
+                    download_manifest_path=manifest,
+                    clearance_path=clearance,
+                    document_root=document_root,
+                    materialization_run_card_path=materialization_run_card,
+                )
+            ),
+            "output_commitments": {
+                "packet_build_input": {
+                    "path": str(packet_input.resolve()),
+                    "sha256": "sha256:"
+                    + hashlib.sha256(packet_input.read_bytes()).hexdigest(),
+                }
+            },
+        },
+    )
+
+
 def test_fetch_firecrawl_dockets_runs_bounded_offline_bridge(tmp_path: Path) -> None:
     output_root = tmp_path / "acquisition"
     candidates_path = tmp_path / "candidates.jsonl"
@@ -1048,6 +1180,7 @@ def test_recap_fetch_live_receipt_rejection_is_clean_nonpaid_failure(
 
 def test_core_filter_purchase_and_recovery_flow_builds_parser_requests(
     tmp_path: Path,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     output_root = tmp_path / "acquisition"
     case_relevance_path = tmp_path / "case-relevance.jsonl"
@@ -1197,6 +1330,7 @@ def test_core_filter_purchase_and_recovery_flow_builds_parser_requests(
     assert (purchased_document_root / manifest[0]["local_path"]).is_file()
     clearance_path = tmp_path / "purchased-clearance.jsonl"
     _write_clearance(purchased_manifest_path, clearance_path)
+    _, materialization_card = _materialized_cli_unit_fixture(monkeypatch, tmp_path)
 
     assert (
         main(
@@ -1209,6 +1343,8 @@ def test_core_filter_purchase_and_recovery_flow_builds_parser_requests(
                 str(clearance_path),
                 "--document-root",
                 str(purchased_document_root),
+                "--materialization-run-card",
+                str(materialization_card),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -1465,6 +1601,7 @@ def test_download_free_live_public_source_requires_explicit_flag(
 
 def test_plan_parse_documents_derives_parser_requests_from_download_manifest(
     tmp_path: Path,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     output_root = tmp_path / "acquisition"
     manifest_path = tmp_path / "free-document-downloads.jsonl"
@@ -1496,6 +1633,7 @@ def test_plan_parse_documents_derives_parser_requests_from_download_manifest(
     )
     clearance_path = tmp_path / "clearance.jsonl"
     _write_clearance(manifest_path, clearance_path)
+    _, materialization_card = _materialized_cli_unit_fixture(monkeypatch, tmp_path)
 
     assert (
         main(
@@ -1506,6 +1644,8 @@ def test_plan_parse_documents_derives_parser_requests_from_download_manifest(
                 str(manifest_path),
                 "--disclosure-clearance",
                 str(clearance_path),
+                "--materialization-run-card",
+                str(materialization_card),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -1534,7 +1674,10 @@ def test_plan_parse_documents_derives_parser_requests_from_download_manifest(
     ]
 
 
-def test_parse_and_build_packet_acquisition_fixture_flow(tmp_path: Path) -> None:
+def test_parse_and_build_packet_acquisition_fixture_flow(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
     output_root = tmp_path / "acquisition"
     fixture_markdown = tmp_path / "fixture-markdown"
     fixture_markdown.mkdir()
@@ -1585,6 +1728,19 @@ def test_parse_and_build_packet_acquisition_fixture_flow(tmp_path: Path) -> None
             for document_id in ("complaint", "mtd-memo")
         ],
     )
+    document_root, materialization_card = _materialized_cli_unit_fixture(
+        monkeypatch, tmp_path, skip_packet_planner_replay=True
+    )
+    selection = tmp_path / "materialized-selection.jsonl"
+    manifest = tmp_path / "materialized-manifest.jsonl"
+    _write_jsonl(selection, [{"candidate_id": "cand-1"}])
+    _write_jsonl(
+        manifest,
+        [
+            {"candidate_id": "cand-1", "source_document_id": document_id}
+            for document_id in ("complaint", "mtd-memo")
+        ],
+    )
     assert (
         main(
             [
@@ -1594,6 +1750,8 @@ def test_parse_and_build_packet_acquisition_fixture_flow(tmp_path: Path) -> None
                 str(parse_requests),
                 "--disclosure-clearance",
                 str(parse_clearance),
+                "--materialization-run-card",
+                str(materialization_card),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -1636,6 +1794,17 @@ def test_parse_and_build_packet_acquisition_fixture_flow(tmp_path: Path) -> None
             }
         ],
     )
+    planner_card = tmp_path / "packet-planner.json"
+    _write_packet_planner_card(
+        planner_card,
+        packet_input=packet_input,
+        selection=selection,
+        manifest=manifest,
+        clearance=parse_clearance,
+        document_root=document_root,
+        materialization_run_card=materialization_card,
+    )
+    model_registry = _write_model_registry(tmp_path)
 
     assert (
         main(
@@ -1644,6 +1813,64 @@ def test_parse_and_build_packet_acquisition_fixture_flow(tmp_path: Path) -> None
                 "build-packets",
                 "--input",
                 str(packet_input),
+                "--packet-input-run-card",
+                str(planner_card),
+                "--selection",
+                str(selection),
+                "--download-manifest",
+                str(manifest),
+                "--parser-manifest",
+                str(selection),
+                "--parser-run-card",
+                str(output_root / "run-cards/parse-documents.json"),
+                "--parse-plan-run-card",
+                str(output_root / "run-cards/parse-documents.json"),
+                "--disclosure-clearance",
+                str(parse_clearance),
+                "--raw-prediction-units",
+                str(selection),
+                "--prediction-units",
+                str(selection),
+                "--llm-unitization-audit",
+                str(selection),
+                "--llm-unitize-run-card",
+                str(selection),
+                "--llm-unitize-provider-journal",
+                str(selection),
+                "--original-unitization-review-queue",
+                str(selection),
+                "--stage-a-structural-flags",
+                str(selection),
+                "--stage-a-structural-review-audit",
+                str(selection),
+                "--stage-a-review-run-card",
+                str(selection),
+                "--stage-a-review-provider-journal",
+                str(selection),
+                "--stage-a-review-model-registry",
+                str(model_registry),
+                "--stage-a-review-model-key",
+                "fixture:fixture-model",
+                "--unitization-review-queue",
+                str(selection),
+                "--unitization-review-adjudications",
+                str(selection),
+                "--apply-unitization-review-run-card",
+                str(selection),
+                "--model-registry",
+                str(model_registry),
+                "--expected-model-registry-sha256",
+                hashlib.sha256(model_registry.read_bytes()).hexdigest(),
+                "--raw-html-dir",
+                str(document_root),
+                "--raw-artifacts-manifest",
+                str(selection),
+                "--document-root",
+                str(document_root),
+                "--markdown-root",
+                str(document_root),
+                "--materialization-run-card",
+                str(materialization_card),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -1668,6 +1895,7 @@ def test_parse_and_build_packet_acquisition_fixture_flow(tmp_path: Path) -> None
 
 def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     tmp_path: Path,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     candidate_id = "70649963"
     output_root = tmp_path / "acquisition"
@@ -1739,6 +1967,9 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
         units_path,
         [_finalized_prediction_unit_record(candidate_id)],
     )
+    document_root, materialization_card = _materialized_cli_unit_fixture(
+        monkeypatch, tmp_path
+    )
 
     assert (
         main(
@@ -1761,6 +1992,12 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
                 str(raw_html_dir),
                 "--raw-artifacts-manifest",
                 str(raw_artifacts_path),
+                "--document-root",
+                str(document_root),
+                "--markdown-root",
+                str(markdown_root),
+                "--materialization-run-card",
+                str(materialization_card),
                 "--output-root",
                 str(output_root),
                 "--generated-at",
@@ -1818,6 +2055,226 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     assert str(raw_artifacts_path) in run_card["input_paths"]
     assert str(registry_path) in run_card["input_paths"]
 
+    packet_input_path = output_root / "packet-build-input.jsonl"
+    planner_card_path = output_root / "run-cards/plan-packet-inputs.json"
+    original_packet_input = packet_input_path.read_bytes()
+    original_planner_card = planner_card_path.read_bytes()
+    cross_candidate_input = _read_jsonl(packet_input_path)
+    cross_candidate_input[0]["candidate_id"] = "attacker-rehashed"
+    _write_jsonl(packet_input_path, cross_candidate_input)
+    rehashed_planner_card = _read_json(planner_card_path)
+    rehashed_planner_card["output_commitments"]["packet_build_input"]["sha256"] = (
+        cli._path_sha256(packet_input_path)
+    )
+    _write_json(planner_card_path, rehashed_planner_card)
+    with pytest.raises(cli.CommandError, match="packet planner replay mismatch"):
+        cli._validate_packet_input_run_card(
+            planner_card_path,
+            packet_build_input_path=packet_input_path,
+            selection_path=selection_path,
+            download_manifest_path=downloads_path,
+            parser_manifest_path=parser_path,
+            clearance_path=clearance_path,
+            prediction_units_path=units_path,
+            model_registry_path=registry_path,
+            raw_html_dir=raw_html_dir,
+            raw_artifacts_manifest_path=raw_artifacts_path,
+            document_root=document_root,
+            markdown_root=output_root / "markdown",
+            materialization_run_card_path=materialization_card,
+            resolved_post_recovery_documents_path=None,
+        )
+    packet_input_path.write_bytes(original_packet_input)
+    planner_card_path.write_bytes(original_planner_card)
+
+    substituted_units_path = tmp_path / "substituted-units.jsonl"
+    substituted_unit = _prediction_unit()
+    substituted_unit.update(
+        {
+            "unit_id": "attacker-unit",
+            "claim_name": "Substituted claim",
+        }
+    )
+    [substituted_envelope] = apply_unitization_reviews(
+        prediction_unit_records=[
+            {
+                "candidate_id": candidate_id,
+                "case_id": "case-1",
+                "prediction_units": [substituted_unit],
+            }
+        ],
+        review_records=(),
+        adjudication_records=(),
+    )
+    _write_jsonl(substituted_units_path, [substituted_envelope])
+    substituted_root = tmp_path / "substituted-packet-plan"
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-packet-inputs",
+                "--selection",
+                str(selection_path),
+                "--download-manifest",
+                str(downloads_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--disclosure-clearance",
+                str(clearance_path),
+                "--prediction-units",
+                str(substituted_units_path),
+                "--model-registry",
+                str(registry_path),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--raw-artifacts-manifest",
+                str(raw_artifacts_path),
+                "--document-root",
+                str(document_root),
+                "--markdown-root",
+                str(markdown_root),
+                "--materialization-run-card",
+                str(materialization_card),
+                "--output-root",
+                str(substituted_root),
+                "--generated-at",
+                _GENERATED_AT,
+                "--search-window",
+                "2026-04-24..2026-05-18",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    substituted_input_path = substituted_root / "packet-build-input.jsonl"
+    assert (
+        _read_jsonl(substituted_input_path)[0]["prediction_units"][0]["unit_id"]
+        == "attacker-unit"
+    )
+    with pytest.raises(
+        cli.CommandError,
+        match="packet run card prediction_units path mismatch",
+    ):
+        cli._validate_packet_input_run_card(
+            substituted_root / "run-cards/plan-packet-inputs.json",
+            packet_build_input_path=substituted_input_path,
+            selection_path=selection_path,
+            download_manifest_path=downloads_path,
+            parser_manifest_path=parser_path,
+            clearance_path=clearance_path,
+            prediction_units_path=units_path,
+            model_registry_path=registry_path,
+            raw_html_dir=raw_html_dir,
+            raw_artifacts_manifest_path=raw_artifacts_path,
+            document_root=document_root,
+            markdown_root=markdown_root,
+            materialization_run_card_path=materialization_card,
+            resolved_post_recovery_documents_path=None,
+        )
+
+    monkeypatch.setattr(
+        cli,
+        "_verify_packet_raw_artifacts_snapshot_binding",
+        lambda **kwargs: None,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_authenticated_materialization_snapshot_manifest_path",
+        lambda *args, **kwargs: materialization_card,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_parser_packet_authority",
+        lambda **kwargs: None,
+    )
+
+    def verify_stage_a_packet_authority(**kwargs: object) -> None:
+        finalized = cast(list[JsonRecord], kwargs["finalized_prediction_unit_records"])
+        if finalized[0]["prediction_units"][0]["unit_id"] != "count-i-issuer":
+            raise cli.CommandError("substituted Stage A units")
+
+    monkeypatch.setattr(
+        cli,
+        "_verify_stage_a_packet_authority",
+        verify_stage_a_packet_authority,
+    )
+    packet_authority_args = [
+        "--parser-run-card",
+        str(materialization_card),
+        "--parse-plan-run-card",
+        str(materialization_card),
+        "--raw-prediction-units",
+        str(units_path),
+        "--llm-unitization-audit",
+        str(units_path),
+        "--llm-unitize-run-card",
+        str(units_path),
+        "--llm-unitize-provider-journal",
+        str(units_path),
+        "--original-unitization-review-queue",
+        str(units_path),
+        "--stage-a-structural-flags",
+        str(units_path),
+        "--stage-a-structural-review-audit",
+        str(units_path),
+        "--stage-a-review-run-card",
+        str(units_path),
+        "--stage-a-review-provider-journal",
+        str(units_path),
+        "--stage-a-review-model-registry",
+        str(registry_path),
+        "--stage-a-review-model-key",
+        "fixture:fixture-model",
+        "--unitization-review-queue",
+        str(units_path),
+        "--unitization-review-adjudications",
+        str(units_path),
+        "--apply-unitization-review-run-card",
+        str(units_path),
+        "--expected-model-registry-sha256",
+        hashlib.sha256(registry_path.read_bytes()).hexdigest(),
+    ]
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "build-packets",
+                "--input",
+                str(substituted_input_path),
+                "--packet-input-run-card",
+                str(substituted_root / "run-cards/plan-packet-inputs.json"),
+                "--selection",
+                str(selection_path),
+                "--download-manifest",
+                str(downloads_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--disclosure-clearance",
+                str(clearance_path),
+                "--prediction-units",
+                str(substituted_units_path),
+                "--model-registry",
+                str(registry_path),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--raw-artifacts-manifest",
+                str(raw_artifacts_path),
+                "--document-root",
+                str(document_root),
+                "--markdown-root",
+                str(markdown_root),
+                "--materialization-run-card",
+                str(materialization_card),
+                *packet_authority_args,
+                "--output-root",
+                str(substituted_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+
     assert (
         main(
             [
@@ -1825,6 +2282,31 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
                 "build-packets",
                 "--input",
                 str(output_root / "packet-build-input.jsonl"),
+                "--packet-input-run-card",
+                str(output_root / "run-cards/plan-packet-inputs.json"),
+                "--selection",
+                str(selection_path),
+                "--download-manifest",
+                str(downloads_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--disclosure-clearance",
+                str(clearance_path),
+                "--prediction-units",
+                str(units_path),
+                "--model-registry",
+                str(registry_path),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--raw-artifacts-manifest",
+                str(raw_artifacts_path),
+                "--document-root",
+                str(document_root),
+                "--markdown-root",
+                str(output_root / "markdown"),
+                "--materialization-run-card",
+                str(materialization_card),
+                *packet_authority_args,
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -1842,6 +2324,98 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
     assert f"{candidate_id}-decision" in packet["excluded_document_ids"]
     assert packet["prediction_units"][0]["unit_id"] == "count-i-issuer"
     assert "raw_artifact_provenance" not in packet
+
+    original_validator = cli._validate_packet_input_run_card
+    original_packet_input_bytes = packet_input_path.read_bytes()
+
+    def validate_then_swap_input(*args: Any, **kwargs: Any) -> cli._PacketPlannerReplay:
+        replay = original_validator(*args, **kwargs)
+        swapped = _read_jsonl(packet_input_path)
+        swapped[0]["candidate_id"] = "attacker-path-swap"
+        _write_jsonl(packet_input_path, swapped)
+        return replay
+
+    monkeypatch.setattr(
+        cli,
+        "_validate_packet_input_run_card",
+        validate_then_swap_input,
+    )
+    race_output_root = tmp_path / "race-build"
+    assert (
+        main(
+            [
+                "acquisition",
+                "build-packets",
+                "--input",
+                str(packet_input_path),
+                "--packet-input-run-card",
+                str(planner_card_path),
+                "--selection",
+                str(selection_path),
+                "--download-manifest",
+                str(downloads_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--disclosure-clearance",
+                str(clearance_path),
+                "--prediction-units",
+                str(units_path),
+                "--model-registry",
+                str(registry_path),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--raw-artifacts-manifest",
+                str(raw_artifacts_path),
+                "--document-root",
+                str(document_root),
+                "--markdown-root",
+                str(markdown_root),
+                "--materialization-run-card",
+                str(materialization_card),
+                *packet_authority_args,
+                "--output-root",
+                str(race_output_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    assert _read_jsonl(race_output_root / "packets.jsonl")[0]["candidate_id"] == (
+        candidate_id
+    )
+    packet_input_path.write_bytes(original_packet_input_bytes)
+    monkeypatch.setattr(
+        cli,
+        "_validate_packet_input_run_card",
+        original_validator,
+    )
+
+    build_card_path = output_root / "run-cards/build-packets.json"
+    packets_path = output_root / "packets.jsonl"
+    rehashed_packets = _read_jsonl(packets_path)
+    rehashed_packets[0]["candidate_id"] = "attacker-rehashed"
+    _write_jsonl(packets_path, rehashed_packets)
+    rehashed_build_card = _read_json(build_card_path)
+    rehashed_build_card["output_commitments"]["packets"]["sha256"] = cli._path_sha256(
+        packets_path
+    )
+    _write_json(build_card_path, rehashed_build_card)
+    with pytest.raises(cli.CommandError, match="packet build replay mismatch"):
+        cli._validate_packet_build_run_card(
+            build_card_path,
+            packet_input_run_card_path=planner_card_path,
+            packet_build_input_path=packet_input_path,
+            packet_build_records=_read_jsonl(packet_input_path),
+            packets_path=packets_path,
+            selection_path=selection_path,
+            download_manifest_path=downloads_path,
+            clearance_path=clearance_path,
+            document_root=document_root,
+            materialization_run_card_path=materialization_card,
+            expected_model_registry_sha256=hashlib.sha256(
+                registry_path.read_bytes()
+            ).hexdigest(),
+        )
 
     mismatched_raw_artifact = _read_jsonl(raw_artifacts_path)[0]
     mismatched_raw_artifact["candidate_id"] = "different-candidate"
@@ -1867,6 +2441,10 @@ def test_plan_packet_inputs_bridges_acquisition_outputs_to_build_packets(
                 str(raw_html_dir),
                 "--raw-artifacts-manifest",
                 str(raw_artifacts_path),
+                "--document-root",
+                str(document_root),
+                "--materialization-run-card",
+                str(materialization_card),
                 "--output-root",
                 str(output_root),
                 "--generated-at",
@@ -1945,6 +2523,7 @@ def test_plan_packet_inputs_execute_requires_canonical_raw_artifacts_manifest(
 
 def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
     tmp_path: Path,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     output_root = tmp_path / "acquisition"
     raw_html_dir = tmp_path / "raw_html"
@@ -1994,6 +2573,9 @@ def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
         units_path,
         [_finalized_prediction_unit_record()],
     )
+    document_root, materialization_card = _materialized_cli_unit_fixture(
+        monkeypatch, tmp_path
+    )
 
     assert (
         main(
@@ -2016,6 +2598,10 @@ def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
                 str(raw_html_dir),
                 "--raw-artifacts-manifest",
                 str(raw_artifacts_path),
+                "--document-root",
+                str(document_root),
+                "--materialization-run-card",
+                str(materialization_card),
                 "--output-root",
                 str(output_root),
                 "--generated-at",
@@ -2037,6 +2623,35 @@ def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
                 "build-packets",
                 "--input",
                 str(output_root / "packet-build-input.jsonl"),
+                "--packet-input-run-card",
+                str(output_root / "run-cards/plan-packet-inputs.json"),
+                "--selection",
+                str(selection_path),
+                "--download-manifest",
+                str(downloads_path),
+                "--parser-manifest",
+                str(parser_path),
+                "--disclosure-clearance",
+                str(clearance_path),
+                "--prediction-units",
+                str(units_path),
+                "--model-registry",
+                str(registry_path),
+                "--raw-html-dir",
+                str(raw_html_dir),
+                "--raw-artifacts-manifest",
+                str(raw_artifacts_path),
+                "--document-root",
+                str(document_root),
+                "--markdown-root",
+                str(output_root / "markdown"),
+                "--materialization-run-card",
+                str(materialization_card),
+                *_packet_authority_args(
+                    parser_run_card=materialization_card,
+                    stage_a_artifact=units_path,
+                    registry_path=registry_path,
+                ),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -2054,6 +2669,7 @@ def test_plan_packet_inputs_keeps_selected_mtd_memo_with_notice_target(
 
 def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
     tmp_path: Path,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     output_root = tmp_path / "acquisition"
     raw_html_dir = tmp_path / "raw_html"
@@ -2124,6 +2740,9 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
         units_path,
         [_finalized_prediction_unit_record()],
     )
+    document_root, materialization_card = _materialized_cli_unit_fixture(
+        monkeypatch, tmp_path
+    )
 
     assert (
         main(
@@ -2146,6 +2765,10 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
                 str(raw_html_dir),
                 "--raw-artifacts-manifest",
                 str(raw_artifacts_path),
+                "--document-root",
+                str(document_root),
+                "--materialization-run-card",
+                str(materialization_card),
                 "--output-root",
                 str(output_root),
                 "--generated-at",
@@ -2188,6 +2811,7 @@ def test_plan_packet_inputs_excludes_adversarial_leakage_docket_entries(
 def test_build_packets_rejects_mounted_outcome_leakage(
     tmp_path: Path,
     capsys: CaptureFixture[str],
+    monkeypatch: MonkeyPatch,
 ) -> None:
     output_root = tmp_path / "acquisition"
     packet_input = tmp_path / "packet-input.jsonl"
@@ -2227,6 +2851,26 @@ def test_build_packets_rejects_mounted_outcome_leakage(
             }
         ],
     )
+    document_root, materialization_card = _materialized_cli_unit_fixture(
+        monkeypatch, tmp_path, skip_packet_planner_replay=True
+    )
+    selection = tmp_path / "selection.jsonl"
+    manifest = tmp_path / "manifest.jsonl"
+    clearance = tmp_path / "clearance.jsonl"
+    registry_path = _write_model_registry(tmp_path)
+    _write_jsonl(selection, [{"candidate_id": "cand-1"}])
+    _write_jsonl(manifest, [{"candidate_id": "cand-1"}])
+    _write_jsonl(clearance, [{"candidate_id": "cand-1", "status": "cleared"}])
+    planner_card = tmp_path / "packet-planner.json"
+    _write_packet_planner_card(
+        planner_card,
+        packet_input=packet_input,
+        selection=selection,
+        manifest=manifest,
+        clearance=clearance,
+        document_root=document_root,
+        materialization_run_card=materialization_card,
+    )
 
     assert (
         main(
@@ -2235,6 +2879,35 @@ def test_build_packets_rejects_mounted_outcome_leakage(
                 "build-packets",
                 "--input",
                 str(packet_input),
+                "--packet-input-run-card",
+                str(planner_card),
+                "--selection",
+                str(selection),
+                "--download-manifest",
+                str(manifest),
+                "--parser-manifest",
+                str(selection),
+                "--disclosure-clearance",
+                str(clearance),
+                "--prediction-units",
+                str(selection),
+                "--model-registry",
+                str(registry_path),
+                "--raw-html-dir",
+                str(document_root),
+                "--raw-artifacts-manifest",
+                str(selection),
+                "--document-root",
+                str(document_root),
+                "--markdown-root",
+                str(document_root),
+                "--materialization-run-card",
+                str(materialization_card),
+                *_packet_authority_args(
+                    parser_run_card=materialization_card,
+                    stage_a_artifact=selection,
+                    registry_path=registry_path,
+                ),
                 "--output-root",
                 str(output_root),
                 "--execute",
@@ -2245,6 +2918,254 @@ def test_build_packets_rejects_mounted_outcome_leakage(
 
     assert "must not expose target outcomes" in capsys.readouterr().err
     assert not (output_root / "packets.jsonl").exists()
+
+
+def test_packet_planner_card_rejects_cross_materialization_substitution(
+    tmp_path: Path,
+) -> None:
+    selection = tmp_path / "selection.jsonl"
+    alternate_selection = tmp_path / "alternate-selection.jsonl"
+    manifest = tmp_path / "manifest.jsonl"
+    clearance = tmp_path / "clearance.jsonl"
+    materialization_card = tmp_path / "materialization.json"
+    packet_input = tmp_path / "packet-input.jsonl"
+    document_root = tmp_path / "documents"
+    document_root.mkdir()
+    (document_root / "document.pdf").write_bytes(b"%PDF authenticated")
+    _write_jsonl(selection, [{"candidate_id": "case-a"}])
+    _write_jsonl(alternate_selection, [{"candidate_id": "case-b"}])
+    _write_jsonl(manifest, [{"candidate_id": "case-a"}])
+    _write_jsonl(clearance, [{"candidate_id": "case-a", "status": "cleared"}])
+    _write_json(materialization_card, {"stage": "materialize-cohort-documents"})
+    _write_jsonl(packet_input, [{"candidate_id": "case-a"}])
+    planner_card = tmp_path / "packet-planner.json"
+    _write_json(
+        planner_card,
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "plan-packet-inputs",
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            "authenticated_materialization_lineage": (
+                cli._packet_materialization_lineage_commitments(
+                    selection_path=selection,
+                    download_manifest_path=manifest,
+                    clearance_path=clearance,
+                    document_root=document_root,
+                    materialization_run_card_path=materialization_card,
+                )
+            ),
+            "output_commitments": {
+                "packet_build_input": {
+                    "path": str(packet_input.resolve()),
+                    "sha256": "sha256:"
+                    + hashlib.sha256(packet_input.read_bytes()).hexdigest(),
+                }
+            },
+        },
+    )
+
+    with pytest.raises(
+        cli.CommandError,
+        match="lacks deterministic replay data",
+    ):
+        cli._validate_packet_input_run_card(
+            planner_card,
+            packet_build_input_path=packet_input,
+            selection_path=selection,
+            download_manifest_path=manifest,
+            parser_manifest_path=manifest,
+            clearance_path=clearance,
+            prediction_units_path=manifest,
+            model_registry_path=materialization_card,
+            raw_html_dir=document_root,
+            raw_artifacts_manifest_path=manifest,
+            document_root=document_root,
+            markdown_root=document_root,
+            materialization_run_card_path=materialization_card,
+            resolved_post_recovery_documents_path=None,
+        )
+    with pytest.raises(
+        cli.CommandError,
+        match="belongs to different materialized inputs",
+    ):
+        cli._validate_packet_input_run_card(
+            planner_card,
+            packet_build_input_path=packet_input,
+            selection_path=alternate_selection,
+            download_manifest_path=manifest,
+            parser_manifest_path=manifest,
+            clearance_path=clearance,
+            prediction_units_path=manifest,
+            model_registry_path=materialization_card,
+            raw_html_dir=document_root,
+            raw_artifacts_manifest_path=manifest,
+            document_root=document_root,
+            markdown_root=document_root,
+            materialization_run_card_path=materialization_card,
+            resolved_post_recovery_documents_path=None,
+        )
+    hardlinked_planner_card = tmp_path / "hardlinked-packet-planner.json"
+    hardlinked_planner_card.hardlink_to(planner_card)
+    with pytest.raises(cli.CommandError, match="must not be hardlinked"):
+        cli._validate_packet_input_run_card(
+            hardlinked_planner_card,
+            packet_build_input_path=packet_input,
+            selection_path=selection,
+            download_manifest_path=manifest,
+            parser_manifest_path=manifest,
+            clearance_path=clearance,
+            prediction_units_path=manifest,
+            model_registry_path=materialization_card,
+            raw_html_dir=document_root,
+            raw_artifacts_manifest_path=manifest,
+            document_root=document_root,
+            markdown_root=document_root,
+            materialization_run_card_path=materialization_card,
+            resolved_post_recovery_documents_path=None,
+        )
+
+
+def test_packet_build_card_rejects_hand_authored_output_commitments(
+    tmp_path: Path,
+) -> None:
+    selection = tmp_path / "selection.jsonl"
+    manifest = tmp_path / "manifest.jsonl"
+    clearance = tmp_path / "clearance.jsonl"
+    materialization_card = tmp_path / "materialization.json"
+    planner_card = tmp_path / "packet-planner.json"
+    packet_input = tmp_path / "packet-input.jsonl"
+    packets = tmp_path / "packets.jsonl"
+    document_root = tmp_path / "documents"
+    document_root.mkdir()
+    (document_root / "document.pdf").write_bytes(b"%PDF authenticated")
+    for path in (selection, manifest, clearance, packet_input, packets):
+        _write_jsonl(path, [{"candidate_id": "case-a"}])
+    _write_json(materialization_card, {"stage": "materialize-cohort-documents"})
+    lineage = cli._packet_materialization_lineage_commitments(
+        selection_path=selection,
+        download_manifest_path=manifest,
+        clearance_path=clearance,
+        document_root=document_root,
+        materialization_run_card_path=materialization_card,
+    )
+    _write_json(planner_card, {"stage": "plan-packet-inputs"})
+    build_card = tmp_path / "packet-build.json"
+    _write_json(
+        build_card,
+        {
+            "schema_version": "legalforecast.acquisition_run_card.v1",
+            "stage": "build-packets",
+            "status": "completed",
+            "dry_run": False,
+            "execute": True,
+            "paid_activity_requested": False,
+            "paid_activity_executed": False,
+            "authenticated_materialization_lineage": lineage,
+            "expected_model_registry_sha256": "sha256:" + "a" * 64,
+            "source_commitments": {
+                "packet_input_run_card": {
+                    "path": str(planner_card.resolve()),
+                    "sha256": "sha256:"
+                    + hashlib.sha256(planner_card.read_bytes()).hexdigest(),
+                },
+                "packet_build_input": {
+                    "path": str(packet_input.resolve()),
+                    "sha256": "sha256:"
+                    + hashlib.sha256(packet_input.read_bytes()).hexdigest(),
+                },
+            },
+            "output_commitments": {
+                "packets": {
+                    "path": str(packets.resolve()),
+                    "sha256": "sha256:"
+                    + hashlib.sha256(packets.read_bytes()).hexdigest(),
+                }
+            },
+        },
+    )
+    kwargs = {
+        "packet_input_run_card_path": planner_card,
+        "packet_build_input_path": packet_input,
+        "packet_build_records": _read_jsonl(packet_input),
+        "packets_path": packets,
+        "selection_path": selection,
+        "download_manifest_path": manifest,
+        "clearance_path": clearance,
+        "document_root": document_root,
+        "materialization_run_card_path": materialization_card,
+        "expected_model_registry_sha256": "a" * 64,
+    }
+    with pytest.raises(
+        cli.CommandError,
+        match="different frozen registry digest",
+    ):
+        cli._validate_packet_build_run_card(
+            build_card,
+            **{**kwargs, "expected_model_registry_sha256": "b" * 64},
+        )
+    with pytest.raises(
+        cli.CommandError,
+        match="lacks deterministic parameters",
+    ):
+        cli._validate_packet_build_run_card(build_card, **kwargs)
+    hardlinked_build_card = tmp_path / "hardlinked-packet-build.json"
+    hardlinked_build_card.hardlink_to(build_card)
+    with pytest.raises(cli.CommandError, match="must not be hardlinked"):
+        cli._validate_packet_build_run_card(hardlinked_build_card, **kwargs)
+
+
+def test_packet_replay_rejects_parent_symlinks_and_hardlinked_files(
+    tmp_path: Path,
+) -> None:
+    real_root = tmp_path / "real"
+    real_root.mkdir()
+    source = real_root / "source.jsonl"
+    source.write_text("{}\n", encoding="utf-8")
+    alias_root = tmp_path / "alias"
+    alias_root.symlink_to(real_root, target_is_directory=True)
+    alias_source = alias_root / source.name
+    alias_commitments = {
+        "source": {
+            "path": str(alias_source),
+            "sha256": cli._path_sha256(source),
+        }
+    }
+    with pytest.raises(cli.CommandError, match="symlink in trusted root path"):
+        cli._packet_card_committed_path(alias_commitments, name="source")
+
+    hardlink = tmp_path / "hardlinked.jsonl"
+    hardlink.hardlink_to(source)
+    hardlink_commitments = {
+        "source": {
+            "path": str(hardlink),
+            "sha256": cli._path_sha256(hardlink),
+        }
+    }
+    with pytest.raises(cli.CommandError, match="must not be hardlinked"):
+        cli._packet_card_committed_path(hardlink_commitments, name="source")
+    with pytest.raises(cli.CommandError, match="must not be hardlinked"):
+        cli._verify_parser_packet_authority(
+            parse_plan_run_card_path=hardlink,
+            parser_run_card_path=hardlink,
+            parser_manifest_path=source,
+            parser_records=({},),
+            parser_manifest_sha256=cli._path_sha256(source),
+            parser_record_count=1,
+            selection_path=source,
+            selection_records=({},),
+            download_manifest_path=source,
+            download_records=({},),
+            clearance_path=source,
+            clearance_records=({},),
+            clearance_sha256=cli._path_sha256(source),
+            materialization_run_card_path=source,
+            document_root=real_root,
+            markdown_root=real_root,
+        )
 
 
 def test_merge_artifacts_prefers_packet_buildable_inputs(tmp_path: Path) -> None:
@@ -2642,6 +3563,50 @@ def _write_model_registry(
     ]
     _write_json(registry_path, records)
     return registry_path
+
+
+def _packet_authority_args(
+    *,
+    parser_run_card: Path,
+    stage_a_artifact: Path,
+    registry_path: Path,
+) -> list[str]:
+    return [
+        "--parser-run-card",
+        str(parser_run_card),
+        "--parse-plan-run-card",
+        str(parser_run_card),
+        "--raw-prediction-units",
+        str(stage_a_artifact),
+        "--llm-unitization-audit",
+        str(stage_a_artifact),
+        "--llm-unitize-run-card",
+        str(stage_a_artifact),
+        "--llm-unitize-provider-journal",
+        str(stage_a_artifact),
+        "--original-unitization-review-queue",
+        str(stage_a_artifact),
+        "--stage-a-structural-flags",
+        str(stage_a_artifact),
+        "--stage-a-structural-review-audit",
+        str(stage_a_artifact),
+        "--stage-a-review-run-card",
+        str(stage_a_artifact),
+        "--stage-a-review-provider-journal",
+        str(stage_a_artifact),
+        "--stage-a-review-model-registry",
+        str(registry_path),
+        "--stage-a-review-model-key",
+        "fixture:fixture-model",
+        "--unitization-review-queue",
+        str(stage_a_artifact),
+        "--unitization-review-adjudications",
+        str(stage_a_artifact),
+        "--apply-unitization-review-run-card",
+        str(stage_a_artifact),
+        "--expected-model-registry-sha256",
+        hashlib.sha256(registry_path.read_bytes()).hexdigest(),
+    ]
 
 
 def _download_record(

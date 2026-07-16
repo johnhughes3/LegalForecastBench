@@ -1334,7 +1334,10 @@ def test_public_first_bridge_rejects_orphan_checkpoint_before_candidate_attempt(
     assert checkpoint_path.read_bytes() == checkpoint_before
 
 
-def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -> None:
+def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+) -> None:
     output_root = tmp_path / "acquisition"
     common_document_root = output_root / "documents"
     purchase_policy, purchase_ledger, cohort_policy = _purchase_policy(tmp_path)
@@ -1644,6 +1647,12 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
             for row in _read_jsonl(merged_manifest)
         ],
     )
+    materialization_card = authenticated_downstream_fixture.materialize(
+        manifest=merged_manifest,
+        clearance=clearance,
+        document_root=common_document_root,
+        name="pacer-gap-parser",
+    )
     assert (
         main(
             [
@@ -1655,6 +1664,8 @@ def test_fixture_pacer_gap_flow_reaches_merged_parser_manifest(tmp_path: Path) -
                 str(clearance),
                 "--document-root",
                 str(common_document_root),
+                "--materialization-run-card",
+                str(materialization_card),
                 "--output-root",
                 str(output_root),
                 "--execute",

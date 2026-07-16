@@ -6,14 +6,36 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import legalforecast.cli as cli_module
 import pytest
-from legalforecast import cli
 from legalforecast.cli import build_parser, main
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
 from legalforecast.protocol.policy_artifacts import generate_labeling_policy
 from legalforecast.unitization.review import apply_unitization_reviews
 
 JsonRecord = dict[str, Any]
+
+
+@pytest.fixture(autouse=True)
+def _isolate_materialized_decision_semantics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def verify_fixture_materialization(**keywords: Any) -> tuple[Path, ...]:
+        run_card_path = Path(keywords["run_card_path"])
+        clearance_path = Path(keywords["clearance_path"])
+        card = json.loads(run_card_path.read_text(encoding="utf-8"))
+        commitment = card["output_commitments"]["disclosure_clearance"]
+        if commitment["sha256"] != _sha256(clearance_path):
+            raise cli_module.CommandError(
+                "clear-disclosures disclosure_clearance commitment mismatch"
+            )
+        return (run_card_path,)
+
+    monkeypatch.setattr(
+        cli_module,
+        "_verify_materialized_downstream_lineage",
+        verify_fixture_materialization,
+    )
 
 
 @pytest.mark.parametrize(
@@ -60,7 +82,6 @@ def test_build_decision_texts_emits_consumer_compatible_hash_bound_rows(
     output = tmp_path / "output"
 
     assert main(_command(inputs, output)) == 0
-
     records = _read_jsonl(output / "decision-texts.jsonl")
     assert len(records) == 1
     record = records[0]
@@ -79,7 +100,7 @@ def test_build_decision_texts_emits_consumer_compatible_hash_bound_rows(
     )
     assert record["source_sha256"] == inputs["source_sha256"]
     assert record["input_commitments"] == {
-        "clearance_run_card_sha256": _sha256(inputs["clearance_run_card"]),
+        "clearance_run_card_sha256": _sha256(inputs["materialization_run_card"]),
         "disclosure_clearance_sha256": _sha256(inputs["clearance"]),
         "download_manifest_sha256": _sha256(inputs["download_manifest"]),
         "parser_manifest_sha256": _sha256(inputs["parser_manifest"]),
@@ -88,11 +109,8 @@ def test_build_decision_texts_emits_consumer_compatible_hash_bound_rows(
         "selection_sha256": _sha256(inputs["selection"]),
         "selection_run_card_sha256": _sha256(inputs["selection_run_card"]),
     }
-
-    # Downstream consumers construct Stage B text only from verified records.
-    loaded = cli._decision_texts_from_records(records)
+    loaded = cli_module._decision_texts_from_records(records)
     assert loaded["decision"].text == record["text"]
-
     manifest = json.loads(
         (output / "decision-texts-manifest.json").read_text(encoding="utf-8")
     )
@@ -100,13 +118,14 @@ def test_build_decision_texts_emits_consumer_compatible_hash_bound_rows(
     assert manifest["eligibility_anchor"] == "2026-06-30"
     assert manifest["decision_texts_sha256"] == _sha256(output / "decision-texts.jsonl")
     run_card = json.loads(
-        (output / "run-cards" / "build-decision-texts.json").read_text(encoding="utf-8")
+        (output / "run-cards/build-decision-texts.json").read_text(encoding="utf-8")
     )
     assert run_card["decision_texts_manifest_sha256"] == _sha256(
         output / "decision-texts-manifest.json"
     )
     assert run_card["paid_activity_requested"] is False
     assert run_card["paid_activity_executed"] is False
+    assert str(inputs["materialization_run_card"]) in run_card["input_paths"]
 
 
 @pytest.mark.parametrize(
@@ -133,7 +152,7 @@ def test_build_decision_texts_emits_consumer_compatible_hash_bound_rows(
             "clearance_hash_drift",
             "clear-disclosures disclosure_clearance commitment mismatch",
         ),
-        ("clearance_coverage", "document key coverage mismatch"),
+        ("clearance_coverage", "manifest and clearance coverage differ"),
         ("selection_coverage", "selection and acquired document candidates differ"),
         ("duplicate_document_id", "decision document_id is not globally unique"),
     ],
@@ -331,8 +350,8 @@ def _command(inputs: dict[str, Any], output: Path) -> list[str]:
         str(inputs["download_manifest"]),
         "--disclosure-clearance",
         str(inputs["clearance"]),
-        "--clearance-run-card",
-        str(inputs["clearance_run_card"]),
+        "--materialization-run-card",
+        str(inputs["materialization_run_card"]),
         "--restriction-evidence",
         str(inputs["restriction_evidence"]),
         "--parser-manifest",
@@ -357,6 +376,7 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
     clearance_run_card = tmp_path / "clear-disclosures.json"
     selection_run_card = tmp_path / "project-target-cohort.json"
     parser_run_card = tmp_path / "parse-documents.json"
+    materialization_run_card = tmp_path / "materialize-cohort-documents.json"
     parse_requests = tmp_path / "parse-document-requests.jsonl"
     markdown = "# Decision\n\nThe motion is granted.\n"
     decision_document: JsonRecord = {
@@ -392,6 +412,9 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
             "sha256": source_sha256,
             "byte_count": byte_count,
             "free_or_purchased": "free",
+            "materialization_schema_version": (
+                "legalforecast.cohort_document_materialization.v1"
+            ),
         }
     ]
     clearance_rows: list[JsonRecord] = [
@@ -409,6 +432,9 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
             "controlled_store_provenance": "private-store://cycle-1/reviews",
             "reviewed_at": "2026-07-15T12:00:00Z",
             "free_or_purchased": "free",
+            "materialization_schema_version": (
+                "legalforecast.cohort_document_materialization.v1"
+            ),
         }
     ]
     restriction_rows: list[JsonRecord] = [
@@ -571,6 +597,32 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
     _write_jsonl(download_manifest, manifest_rows)
     _write_jsonl(clearance, clearance_rows)
     _write_jsonl(restriction_evidence, restriction_rows)
+    materialization_run_card.write_text(
+        json.dumps(
+            {
+                "output_paths": [
+                    str(download_manifest),
+                    str(clearance),
+                    str(restriction_evidence),
+                    str(tmp_path / "materialization-derivations.jsonl"),
+                    str(tmp_path / "cohort-document-materialization.json"),
+                    str(tmp_path / "documents"),
+                ],
+                "output_commitments": {
+                    "disclosure_clearance": {
+                        "sha256": (
+                            "sha256:" + "d" * 64
+                            if mutation == "clearance_hash_drift"
+                            else _sha256(clearance)
+                        )
+                    }
+                },
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     _write_jsonl(parser_manifest, parser_rows)
     _write_jsonl(
         parse_requests,
@@ -721,6 +773,7 @@ def _write_inputs(tmp_path: Path, *, mutation: str | None = None) -> dict[str, A
         "restriction_evidence": restriction_evidence,
         "parser_manifest": parser_manifest,
         "parser_run_card": parser_run_card,
+        "materialization_run_card": materialization_run_card,
         "markdown_root": markdown_root,
         "source_sha256": source_sha256,
     }
