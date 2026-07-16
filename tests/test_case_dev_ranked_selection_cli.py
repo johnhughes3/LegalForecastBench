@@ -178,6 +178,92 @@ def test_select_case_dev_ranked_accepts_authenticated_unrestricted_recap_source(
     )
 
 
+def test_select_case_dev_ranked_authenticates_terminal_pagination_exclusion(
+    tmp_path: Path,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    enrichment_root = _run_terminal_exclusion_enrichment(
+        tmp_path,
+        source_store=source_store,
+    )
+    [failure] = _read_jsonl(
+        enrichment_root / "checkpoints" / "case-dev-recap-failures.jsonl"
+    )
+    assert failure["reason"] == "case_dev_pagination_exhaustion_unproven"
+
+    target_store = _target_store(tmp_path)
+    selection_card = tmp_path / "selection-run-card.json"
+    assert (
+        main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=selection_card,
+                summary=tmp_path / "selection-summary.json",
+            )
+        )
+        == 0
+    )
+
+    frozen = json.loads(selection_card.read_text())
+    assert frozen["ranked_candidate_count"] == 1
+    assert frozen["source_candidate_count"] == 2
+    assert frozen["terminal_exclusion_count"] == 1
+    assert frozen["terminal_exclusion_reason_counts"] == {
+        "case_dev_pagination_exhaustion_unproven": 1
+    }
+    assert len(frozen["terminal_exclusion_output_sha256"]) == 64
+    assert len(frozen["terminal_excluded_candidate_set_sha256"]) == 64
+    assert frozen["selected"][0]["docket_id"] == "102"
+    with CycleAcquisitionStore(target_store) as store:
+        assert store.candidate_ids("ranked-rest") == ("courtlistener-docket-102",)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "forged_value"),
+    [("docket_id", "999"), ("reason", [])],
+)
+def test_select_case_dev_ranked_rejects_rehashed_terminal_exclusion_tamper(
+    tmp_path: Path,
+    field_name: str,
+    forged_value: object,
+) -> None:
+    source_store = _opinion_source_store(tmp_path)
+    enrichment_root = _run_terminal_exclusion_enrichment(
+        tmp_path,
+        source_store=source_store,
+    )
+    failures_path = enrichment_root / "checkpoints" / "case-dev-recap-failures.jsonl"
+    [forged] = _read_jsonl(failures_path)
+    forged[field_name] = forged_value
+    _write_jsonl(failures_path, [forged])
+    enrichment_run_card = enrichment_root / "run-cards" / "enrich-recap-case-dev.json"
+    run_card = json.loads(enrichment_run_card.read_text())
+    run_card["failures_output_sha256"] = hashlib.sha256(
+        failures_path.read_bytes()
+    ).hexdigest()
+    enrichment_run_card.write_text(json.dumps(run_card, sort_keys=True) + "\n")
+    target_store = _target_store(tmp_path)
+
+    assert (
+        main(
+            _selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=tmp_path / "selection-run-card.json",
+                summary=tmp_path / "selection-summary.json",
+                expected_enrichment_run_card_sha256=hashlib.sha256(
+                    enrichment_run_card.read_bytes()
+                ).hexdigest(),
+            )
+        )
+        == 2
+    )
+    _assert_no_target_rows(target_store)
+
+
 def test_select_case_dev_ranked_rejects_source_type_substitution(
     tmp_path: Path,
 ) -> None:
@@ -810,6 +896,8 @@ def _selection_args(
         str(enrichment_root / "checkpoints" / "case-dev-recap-source-projection.jsonl"),
         "--ranked",
         str(enrichment_root / "checkpoints" / "case-dev-recap-ranked.jsonl"),
+        "--failures",
+        str(enrichment_root / "checkpoints" / "case-dev-recap-failures.jsonl"),
         "--enrichment-run-card",
         str(enrichment_run_card),
         "--expected-enrichment-run-card-sha256",
@@ -848,6 +936,8 @@ def _subset_selection_args(
         str(enrichment_root / "checkpoints" / "case-dev-recap-source-projection.jsonl"),
         "--ranked",
         str(enrichment_root / "checkpoints" / "case-dev-recap-ranked.jsonl"),
+        "--failures",
+        str(enrichment_root / "checkpoints" / "case-dev-recap-failures.jsonl"),
         "--enrichment-run-card",
         str(enrichment_run_card),
         "--expected-enrichment-run-card-sha256",
@@ -895,6 +985,45 @@ def _run_enrichment(
     ]
     _write_jsonl(fixture, responses)
     output_root = tmp_path / "enrichment"
+    assert (
+        main(
+            [
+                "acquisition",
+                "enrich-recap-case-dev",
+                "--output-root",
+                str(output_root),
+                "--source-store",
+                str(source_store),
+                "--source-batch-id",
+                "opinion-source",
+                "--case-dev-fixture",
+                str(fixture),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    return output_root
+
+
+def _run_terminal_exclusion_enrichment(
+    tmp_path: Path,
+    *,
+    source_store: Path,
+) -> Path:
+    fixture = tmp_path / "case-dev-with-terminal-exclusion.jsonl"
+    full_page = [
+        _entry(f"entry-{number}", number, f"Entry {number}", f"doc-{number}")
+        for number in range(1, 101)
+    ]
+    _write_jsonl(
+        fixture,
+        [
+            _case_dev_response("101", entries=full_page),
+            _case_dev_response("102", entries=[]),
+        ],
+    )
+    output_root = tmp_path / "enrichment-with-terminal-exclusion"
     assert (
         main(
             [
