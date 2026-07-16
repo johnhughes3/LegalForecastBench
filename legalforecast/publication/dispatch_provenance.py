@@ -38,6 +38,8 @@ def build_dispatch_provenance(
     current_workflow_run_id: str,
     current_workflow_run_attempt: int,
     requested_model_keys: Sequence[str],
+    requested_ablations: Sequence[str] = (),
+    shard_only: bool = False,
     supersedes_report_uri: str | None = None,
 ) -> JsonRecord:
     """Build fail-closed dispatch provenance for one original or amended freeze."""
@@ -105,9 +107,51 @@ def build_dispatch_provenance(
         )
         prior_keys = registry_key_set
 
+    current_registry_keys = tuple(
+        sorted(registry_keys_by_freeze[current.bundle_sha256])
+    )
+    execution_policy = _load_execution_policy(
+        current.record,
+        root=root,
+        expected_cycle_id=_required_str(current.record, "cycle_id"),
+    )
+    declared_shards = (
+        _declared_shards(execution_policy, expected_model_keys=current_registry_keys)
+        if execution_policy is not None
+        else None
+    )
     requested = tuple(sorted(_unique_model_keys(requested_model_keys)))
+    requested_ablation_values = tuple(
+        sorted(_unique_strings(requested_ablations, "ablation"))
+    )
     current_introduced = introduced_keys_by_freeze[current.bundle_sha256]
-    if requested != current_introduced:
+    requested_shard: tuple[str, str] | None = None
+    if shard_only:
+        if declared_shards is None:
+            raise DispatchProvenanceError(
+                "shard-only dispatch requires a frozen execution-policy schedule"
+            )
+        requested_pairs = tuple(
+            (model_key, ablation)
+            for model_key in requested
+            for ablation in requested_ablation_values
+        )
+        if len(requested_pairs) != 1:
+            raise DispatchProvenanceError(
+                "shard-only dispatch must request exactly one model-key/ablation pair"
+            )
+        requested_shard = requested_pairs[0]
+        if requested_shard not in declared_shards:
+            raise DispatchProvenanceError(
+                "requested shard is not declared by the frozen execution policy: "
+                f"{_shard_record(requested_shard)}"
+            )
+        if requested_shard[0] not in current_introduced:
+            raise DispatchProvenanceError(
+                "requested shard model was not introduced by the current freeze: "
+                f"{requested_shard[0]}"
+            )
+    elif requested != current_introduced:
         raise DispatchProvenanceError(
             "requested model keys must exactly equal models introduced by the "
             f"current freeze: expected {list(current_introduced)}, got "
@@ -118,6 +162,8 @@ def build_dispatch_provenance(
         _validated_dispatch_record(
             dispatch,
             introduced_keys_by_freeze=introduced_keys_by_freeze,
+            declared_shards=declared_shards if shard_only else None,
+            require_shard=shard_only,
         )
         for dispatch in prior_dispatches
     ]
@@ -128,16 +174,24 @@ def build_dispatch_provenance(
                 "workflow_run_attempt": current_workflow_run_attempt,
                 "freeze_bundle_sha256": current.bundle_sha256,
                 "model_keys": list(requested),
+                **(
+                    {"ablations": list(requested_ablation_values)}
+                    if shard_only
+                    else {}
+                ),
             },
             introduced_keys_by_freeze=introduced_keys_by_freeze,
+            declared_shards=declared_shards if shard_only else None,
+            require_shard=shard_only,
         )
     )
-    _require_dispatch_coverage(
-        dispatch_records,
-        expected_model_keys=tuple(
-            sorted(registry_keys_by_freeze[current.bundle_sha256])
-        ),
-    )
+    if shard_only:
+        _require_unique_dispatch_shards(dispatch_records)
+    else:
+        _require_dispatch_coverage(
+            dispatch_records,
+            expected_model_keys=current_registry_keys,
+        )
 
     is_amendment = len(chain) > 1
     if is_amendment and not supersedes_report_uri:
@@ -159,6 +213,28 @@ def build_dispatch_provenance(
             "supersedes_report_uri": supersedes_report_uri if is_amendment else None,
         },
     }
+    if shard_only:
+        assert requested_shard is not None
+        assert declared_shards is not None
+        assert execution_policy is not None
+        dispatched_shards = _dispatch_shards(dispatch_records)
+        record.update(
+            {
+                "dispatch_mode": "shard_only",
+                "shard_schedule": [
+                    _shard_record(shard) for shard in declared_shards
+                ],
+                "requested_shard": _shard_record(requested_shard),
+                "remaining_shards": [
+                    _shard_record(shard)
+                    for shard in declared_shards
+                    if shard not in dispatched_shards
+                ],
+                "concurrency_policy": dict(
+                    cast(Mapping[str, Any], execution_policy["concurrency_policy"])
+                ),
+            }
+        )
     _validate_provenance_record(
         record,
         expected_cycle_id=cast(str, record["cycle_id"]),
@@ -233,6 +309,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--workflow-run-id", required=True)
     parser.add_argument("--workflow-run-attempt", type=int, required=True)
     parser.add_argument("--requested-model-key", action="append", default=[])
+    parser.add_argument("--requested-ablation", action="append", default=[])
+    parser.add_argument("--shard-only", action="store_true")
     parser.add_argument("--supersedes-report-uri")
     parser.add_argument("--output", type=Path, required=True)
     return parser
@@ -255,6 +333,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         current_workflow_run_id=cast(str, args.workflow_run_id),
         current_workflow_run_attempt=cast(int, args.workflow_run_attempt),
         requested_model_keys=cast(Sequence[str], args.requested_model_key),
+        requested_ablations=cast(Sequence[str], args.requested_ablation),
+        shard_only=cast(bool, args.shard_only),
         supersedes_report_uri=cast(str | None, args.supersedes_report_uri),
     )
     output_path = write_dispatch_provenance(cast(Path, args.output), record)
@@ -331,6 +411,85 @@ def _registry_sha256(record: Mapping[str, Any]) -> str:
     return _required_sha256(_required_mapping(record, "model_registry"), "sha256")
 
 
+def _load_execution_policy(
+    record: Mapping[str, Any],
+    *,
+    root: Path,
+    expected_cycle_id: str,
+) -> Mapping[str, Any] | None:
+    artifacts = record.get("artifacts")
+    if artifacts is None:
+        return None
+    if not isinstance(artifacts, list):
+        raise DispatchProvenanceError("freeze artifacts must be a JSON array")
+    matches: list[Mapping[str, Any]] = []
+    for raw_artifact in cast(list[object], artifacts):
+        if not isinstance(raw_artifact, Mapping):
+            continue
+        artifact = cast(Mapping[str, Any], raw_artifact)
+        if artifact.get("name") == "execution_policy":
+            matches.append(artifact)
+    if len(matches) != 1:
+        raise DispatchProvenanceError(
+            "freeze must contain exactly one execution_policy artifact"
+        )
+    artifact = matches[0]
+    raw_path = _required_str(artifact, "path")
+    path = Path(raw_path)
+    if not path.is_absolute():
+        path = root / path
+    expected_sha256 = _required_sha256(artifact, "sha256")
+    try:
+        payload = path.read_bytes()
+        raw: object = json.loads(payload)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise DispatchProvenanceError(
+            f"could not load frozen execution policy: {path}"
+        ) from exc
+    if hashlib.sha256(payload).hexdigest() != expected_sha256:
+        raise DispatchProvenanceError(f"execution policy hash mismatch: {path}")
+    if not isinstance(raw, Mapping):
+        raise DispatchProvenanceError("execution policy must be a JSON object")
+    from legalforecast.protocol.policy_artifacts import (
+        PolicyArtifactError,
+        execution_policy_content,
+        verify_execution_policy,
+    )
+
+    try:
+        verify_execution_policy(
+            cast(Mapping[str, Any], raw),
+            expected_cycle_id=expected_cycle_id,
+        )
+        return execution_policy_content(cast(Mapping[str, Any], raw))
+    except PolicyArtifactError as exc:
+        raise DispatchProvenanceError(f"invalid execution policy: {exc}") from exc
+
+
+def _declared_shards(
+    execution_policy: Mapping[str, Any],
+    *,
+    expected_model_keys: Sequence[str],
+) -> tuple[tuple[str, str], ...]:
+    schedule = _required_mapping(execution_policy, "shard_schedule")
+    shards = _mapping_sequence(schedule, "shards")
+    pairs = tuple(
+        (
+            _required_str(shard, "model_key"),
+            _required_str(shard, "ablation"),
+        )
+        for shard in shards
+    )
+    if len(set(pairs)) != len(pairs):
+        raise DispatchProvenanceError("frozen shard schedule contains duplicates")
+    scheduled_models = {model_key for model_key, _ in pairs}
+    if scheduled_models != set(expected_model_keys):
+        raise DispatchProvenanceError(
+            "frozen shard schedule model set does not match the current registry"
+        )
+    return tuple(sorted(pairs))
+
+
 def _load_registry_keys(path: Path, *, expected_sha256: str) -> tuple[str, ...]:
     try:
         payload = path.read_bytes()
@@ -357,6 +516,8 @@ def _validated_dispatch_record(
     raw: Mapping[str, Any],
     *,
     introduced_keys_by_freeze: Mapping[str, Sequence[str]],
+    declared_shards: Sequence[tuple[str, str]] | None = None,
+    require_shard: bool = False,
 ) -> JsonRecord:
     workflow_run_id = _required_str(raw, "workflow_run_id")
     workflow_run_attempt = _required_int(raw, "workflow_run_attempt", minimum=1)
@@ -365,7 +526,7 @@ def _validated_dispatch_record(
         raise DispatchProvenanceError(
             f"dispatch references freeze outside the chain: {freeze_sha}"
         )
-    model_keys = tuple(sorted(_string_sequence(raw, "model_keys")))
+    model_keys = tuple(sorted(_model_key_sequence(raw, "model_keys")))
     if not model_keys:
         raise DispatchProvenanceError("dispatch model_keys must not be empty")
     allowed = set(introduced_keys_by_freeze[freeze_sha])
@@ -374,12 +535,55 @@ def _validated_dispatch_record(
         raise DispatchProvenanceError(
             f"dispatch contains models not introduced by its freeze: {invalid}"
         )
-    return {
+    record: JsonRecord = {
         "workflow_run_id": workflow_run_id,
         "workflow_run_attempt": workflow_run_attempt,
         "freeze_bundle_sha256": freeze_sha,
         "model_keys": list(model_keys),
     }
+    if require_shard:
+        ablations = tuple(sorted(_string_sequence(raw, "ablations")))
+        pairs = tuple(
+            (model_key, ablation)
+            for model_key in model_keys
+            for ablation in ablations
+        )
+        if len(pairs) != 1:
+            raise DispatchProvenanceError(
+                "shard dispatch record must contain exactly one model-key/ablation pair"
+            )
+        if declared_shards is None or pairs[0] not in declared_shards:
+            raise DispatchProvenanceError(
+                "dispatch record shard is not declared by the frozen execution policy"
+            )
+        record["ablations"] = list(ablations)
+    return record
+
+
+def _dispatch_shards(
+    dispatches: Sequence[Mapping[str, Any]],
+) -> set[tuple[str, str]]:
+    return {
+        (model_key, ablation)
+        for dispatch in dispatches
+        for model_key in _model_key_sequence(dispatch, "model_keys")
+        for ablation in _string_sequence(dispatch, "ablations")
+    }
+
+
+def _require_unique_dispatch_shards(
+    dispatches: Sequence[Mapping[str, Any]],
+) -> None:
+    pairs = [
+        (model_key, ablation)
+        for dispatch in dispatches
+        for model_key in _model_key_sequence(dispatch, "model_keys")
+        for ablation in _string_sequence(dispatch, "ablations")
+    ]
+    if len(pairs) != len(set(pairs)):
+        raise DispatchProvenanceError(
+            "dispatch provenance contains a duplicate frozen shard"
+        )
 
 
 def _require_dispatch_coverage(
@@ -390,7 +594,7 @@ def _require_dispatch_coverage(
     covered = {
         model_key
         for dispatch in dispatches
-        for model_key in _string_sequence(dispatch, "model_keys")
+        for model_key in _model_key_sequence(dispatch, "model_keys")
     }
     missing = sorted(set(expected_model_keys) - covered)
     if missing:
@@ -429,7 +633,7 @@ def _validate_provenance_record(
             raise DispatchProvenanceError("freeze_chain cycle_id mismatch")
         _required_str(node, "freeze_timestamp")
         introduced_by_sha[sha] = tuple(
-            sorted(_string_sequence(node, "introduced_model_keys"))
+            sorted(_model_key_sequence(node, "introduced_model_keys"))
         )
         chain_hashes.append(sha)
         prior_sha = sha
@@ -457,17 +661,76 @@ def _validate_provenance_record(
         )
 
     dispatches = _mapping_sequence(record, "dispatches")
+    dispatch_mode = record.get("dispatch_mode")
+    if dispatch_mode not in (None, "shard_only"):
+        raise DispatchProvenanceError("unsupported dispatch_mode")
+    shard_mode = dispatch_mode == "shard_only"
+    declared_shards = (
+        tuple(
+            (_required_str(shard, "model_key"), _required_str(shard, "ablation"))
+            for shard in _mapping_sequence(record, "shard_schedule")
+        )
+        if shard_mode
+        else None
+    )
     validated_dispatches = [
         _validated_dispatch_record(
             dispatch,
             introduced_keys_by_freeze=introduced_by_sha,
+            declared_shards=declared_shards,
+            require_shard=shard_mode,
         )
         for dispatch in dispatches
     ]
-    _require_dispatch_coverage(
-        validated_dispatches,
-        expected_model_keys=tuple(sorted(expected)),
-    )
+    if shard_mode:
+        assert declared_shards is not None
+        if len(set(declared_shards)) != len(declared_shards):
+            raise DispatchProvenanceError("shard_schedule contains duplicates")
+        if {model_key for model_key, _ in declared_shards} != expected:
+            raise DispatchProvenanceError(
+                "shard_schedule does not match expected registry model set"
+            )
+        _require_unique_dispatch_shards(validated_dispatches)
+        requested = _required_mapping(record, "requested_shard")
+        requested_pair = (
+            _required_str(requested, "model_key"),
+            _required_str(requested, "ablation"),
+        )
+        current_dispatch_shards = _dispatch_shards(validated_dispatches[-1:])
+        if current_dispatch_shards != {requested_pair}:
+            raise DispatchProvenanceError(
+                "requested_shard must match the current dispatch"
+            )
+        remaining_sequence = tuple(
+            (_required_str(shard, "model_key"), _required_str(shard, "ablation"))
+            for shard in _mapping_sequence(record, "remaining_shards")
+        )
+        remaining = set(remaining_sequence)
+        if len(remaining) != len(remaining_sequence):
+            raise DispatchProvenanceError("remaining_shards contains duplicates")
+        dispatched = _dispatch_shards(validated_dispatches)
+        if remaining & dispatched or remaining | dispatched != set(declared_shards):
+            raise DispatchProvenanceError(
+                "remaining_shards does not complement dispatched frozen shards"
+            )
+        concurrency = _required_mapping(record, "concurrency_policy")
+        if _required_str(concurrency, "mode") != "shard_identity":
+            raise DispatchProvenanceError(
+                "shard-only dispatch requires shard_identity concurrency policy"
+            )
+        if _string_sequence(concurrency, "identity_fields") != (
+            "cycle_id",
+            "model_key",
+            "ablation",
+        ):
+            raise DispatchProvenanceError(
+                "shard-only concurrency identity must use cycle_id/model_key/ablation"
+            )
+    else:
+        _require_dispatch_coverage(
+            validated_dispatches,
+            expected_model_keys=tuple(sorted(expected)),
+        )
 
     publication = _required_mapping(record, "publication")
     mode = _required_str(publication, "mode")
@@ -521,6 +784,24 @@ def _unique_model_keys(values: Sequence[str]) -> tuple[str, ...]:
     return tuple(keys)
 
 
+def _unique_strings(values: Sequence[str], name: str) -> tuple[str, ...]:
+    strings: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if not value.strip():
+            raise DispatchProvenanceError(f"{name}s must be non-empty strings")
+        normalized = value.strip()
+        if normalized in seen:
+            raise DispatchProvenanceError(f"duplicate {name}: {normalized}")
+        seen.add(normalized)
+        strings.append(normalized)
+    return tuple(strings)
+
+
+def _shard_record(shard: tuple[str, str]) -> JsonRecord:
+    return {"model_key": shard[0], "ablation": shard[1]}
+
+
 def _required_mapping(
     record: Mapping[str, Any],
     field_name: str,
@@ -562,7 +843,14 @@ def _string_sequence(
                 f"{field_name}[{index}] must be a non-empty string"
             )
         strings.append(item)
-    return _unique_model_keys(strings)
+    return _unique_strings(strings, field_name)
+
+
+def _model_key_sequence(
+    record: Mapping[str, Any],
+    field_name: str,
+) -> tuple[str, ...]:
+    return _unique_model_keys(_string_sequence(record, field_name))
 
 
 def _required_str(record: Mapping[str, Any], field_name: str) -> str:

@@ -26,6 +26,7 @@ LABEL_AUDIT_STRATA = (
     "unanimous_deny",
     "partial",
 )
+OFFICIAL_SHARD_ABLATIONS = ("full_packet", "metadata_only")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
@@ -272,21 +273,71 @@ def _validated_execution_policy(raw: Mapping[str, Any]) -> dict[str, Any]:
         raise PolicyArtifactError("cohort policy was not published before Batch 002")
 
     shards = _object(policy.get("shard_schedule"), "shard_schedule")
-    _exact_keys(shards, {"shard_count", "dispatch_unit"}, "shard_schedule")
-    if shards.get("shard_count") != 8:
-        raise PolicyArtifactError("shard_schedule.shard_count must equal 8")
+    _exact_keys(
+        shards,
+        {"shard_count", "dispatch_unit", "shards"},
+        "shard_schedule",
+    )
+    _positive_int(shards.get("shard_count"), "shard_schedule.shard_count")
     if shards.get("dispatch_unit") != "model_key_ablation":
         raise PolicyArtifactError(
             "shard_schedule.dispatch_unit must be model_key_ablation"
         )
+    shard_records = _object_list(shards.get("shards"), "shard_schedule.shards")
+    normalized_shards: list[dict[str, str]] = []
+    for index, shard in enumerate(shard_records):
+        name = f"shard_schedule.shards[{index}]"
+        _exact_keys(shard, {"model_key", "ablation"}, name)
+        model_key = _text(shard.get("model_key"), f"{name}.model_key")
+        if ":" not in model_key:
+            raise PolicyArtifactError(f"{name}.model_key must be provider:model_id")
+        ablation = _text(shard.get("ablation"), f"{name}.ablation")
+        if ablation not in OFFICIAL_SHARD_ABLATIONS:
+            raise PolicyArtifactError(
+                f"{name}.ablation must be one of {list(OFFICIAL_SHARD_ABLATIONS)}"
+            )
+        normalized_shards.append({"model_key": model_key, "ablation": ablation})
+    unique_shards = {
+        (shard["model_key"], shard["ablation"]) for shard in normalized_shards
+    }
+    if len(unique_shards) != len(normalized_shards):
+        raise PolicyArtifactError("shard_schedule.shards contains duplicates")
+    if len(normalized_shards) != shards["shard_count"]:
+        raise PolicyArtifactError(
+            "shard_schedule.shard_count must equal the number of declared shards"
+        )
+    models = {model_key for model_key, _ in unique_shards}
+    expected_shards = {
+        (model_key, ablation)
+        for model_key in models
+        for ablation in OFFICIAL_SHARD_ABLATIONS
+    }
+    if unique_shards != expected_shards:
+        raise PolicyArtifactError(
+            "shard_schedule.shards must declare both required ablations for every model"
+        )
+    cast(dict[str, Any], shards)["shards"] = sorted(
+        normalized_shards,
+        key=lambda shard: (shard["model_key"], shard["ablation"]),
+    )
 
     concurrency = _object(policy.get("concurrency_policy"), "concurrency_policy")
     _exact_keys(concurrency, {"mode", "identity_fields"}, "concurrency_policy")
     if concurrency.get("mode") not in {"shard_identity", "queue_max", "orchestrator"}:
         raise PolicyArtifactError("unsupported concurrency_policy.mode")
-    _string_list(
+    identity_fields = _string_list(
         concurrency.get("identity_fields"), "concurrency_policy.identity_fields"
     )
+    required_identity_fields = {
+        "shard_identity": ("cycle_id", "model_key", "ablation"),
+        "queue_max": ("cycle_id",),
+        "orchestrator": ("cycle_id", "workflow_run_id"),
+    }[cast(str, concurrency["mode"])]
+    if identity_fields != required_identity_fields:
+        raise PolicyArtifactError(
+            "concurrency_policy.identity_fields must match the selected mode: "
+            f"expected {list(required_identity_fields)}"
+        )
 
     receipts = _object(policy.get("receipt_policy"), "receipt_policy")
     _exact_keys(
@@ -466,6 +517,15 @@ def _object(value: Any, name: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise PolicyArtifactError(f"{name} must be an object")
     return cast(Mapping[str, Any], value)
+
+
+def _object_list(value: Any, name: str) -> tuple[Mapping[str, Any], ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise PolicyArtifactError(f"{name} must be an object list")
+    return tuple(
+        _object(item, f"{name}[{index}]")
+        for index, item in enumerate(cast(Sequence[Any], value))
+    )
 
 
 def _text(value: Any, name: str) -> str:

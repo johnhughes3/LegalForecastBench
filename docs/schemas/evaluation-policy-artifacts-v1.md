@@ -57,9 +57,9 @@ The execution policy is generated at freeze. Its `policy` object contains exactl
 
 `lifecycle` contains exactly `labeling_policy_published_at`, `production_labeling_started_at`, `cohort_policy_published_at`, and `batch_002_started_at`, all timezone-aware ISO-8601 timestamps. Each policy timestamp must be no later than the activity it constrains. `labeling_policy_published_at` must equal the timestamp inside the frozen labeling policy.
 
-`shard_schedule` contains exactly `shard_count`, fixed to `8`, and `dispatch_unit`, fixed to `model_key_ablation` (one dispatch per model-key/ablation pair).
+`shard_schedule` contains exactly positive `shard_count`; `dispatch_unit`, fixed to `model_key_ablation`; and `shards`, the exact unique `{model_key, ablation}` pairs. Every model must declare both `full_packet` and `metadata_only`. The policy writer sorts the pairs canonically, rejects duplicates or undeclared ablations, and requires `shard_count` to equal the declared-pair count. Cycle 1's four-model schedule therefore contains eight shards; smaller synthetic registries use proportionately smaller complete schedules.
 
-`concurrency_policy` contains exactly `mode` (`shard_identity`, `queue_max`, or `orchestrator`) and `identity_fields`, a list of non-empty field names committed for that mode.
+`concurrency_policy` contains exactly `mode` (`shard_identity`, `queue_max`, or `orchestrator`) and `identity_fields`. The identity is fixed by mode: `shard_identity` uses `cycle_id`, `model_key`, and `ablation`; `queue_max` uses `cycle_id`; and `orchestrator` uses `cycle_id` and `workflow_run_id`. Dispatch code reads this frozen choice instead of inventing a workflow-local policy.
 
 `receipt_policy` contains exactly `write_once_per_attempt` (required `true`), `identity_fields` (the non-empty receipt identity field list), and `result_commitment_required` (required `true`).
 

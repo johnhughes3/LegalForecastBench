@@ -261,6 +261,11 @@ def _execution_decisions() -> dict[str, object]:
         "shard_schedule": {
             "shard_count": 8,
             "dispatch_unit": "model_key_ablation",
+            "shards": [
+                {"model_key": f"fixture:model-{model}", "ablation": ablation}
+                for model in ("a", "b", "c", "d")
+                for ablation in ("full_packet", "metadata_only")
+            ],
         },
         "concurrency_policy": {
             "mode": "shard_identity",
