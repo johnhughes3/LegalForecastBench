@@ -16,6 +16,13 @@ from legalforecast.ingestion.budgeted_firecrawl import (
     BudgetedFirecrawlScheduler,
     FirecrawlTargetSpec,
 )
+from legalforecast.ingestion.case_dev_provisional_frontier import (
+    CASE_DEV_PROVISIONAL_FRONTIER_RUN_SCHEMA,
+    CASE_DEV_PROVISIONAL_FRONTIER_SEMANTICS,
+    CASE_DEV_PROVISIONAL_FRONTIER_TERM,
+    ranked_records_for_provisional_frontier,
+    verify_case_dev_provisional_frontier,
+)
 from legalforecast.ingestion.case_dev_ranked_selection import (
     CASE_DEV_RANKED_SELECTION_RUN_SCHEMA,
     CASE_DEV_RANKED_SUBSET_SELECTION_RUN_SCHEMA,
@@ -44,6 +51,10 @@ from legalforecast.ingestion.firecrawl_docket_pagination import (
 )
 from legalforecast.ingestion.mtd_acquisition_screen import (
     courtlistener_public_docket_url_from_case_dev,
+)
+from legalforecast.ingestion.recap_api_batch_driver import (
+    RecapApiBatchDriverError,
+    read_saturated_direct_search_leads,
 )
 
 
@@ -74,7 +85,33 @@ _AUTHENTICATED_HANDOFF_COMMITMENTS = (
     "selected_candidate_set_sha256",
 )
 _AUTHENTICATED_SELECTION_SEMANTICS = frozenset(
-    {"exact_case_dev_ranked_prefix", "exact_case_dev_ranked_subset"}
+    {
+        "exact_case_dev_ranked_prefix",
+        "exact_case_dev_ranked_subset",
+        CASE_DEV_PROVISIONAL_FRONTIER_SEMANTICS,
+    }
+)
+_PROVISIONAL_HANDOFF_COMMITMENTS = (
+    "source_batch_id",
+    "source_batch_digest",
+    "source_cycle_hash",
+    "source_schema_version",
+    "source_search_type",
+    "source_available_only",
+    "source_query_expression",
+    "source_query_terms",
+    "source_search_window_start",
+    "source_search_window_end",
+    "source_query_commitment_sha256",
+    "source_candidate_set_sha256",
+    "source_hit_set_sha256",
+    "source_projection_sha256",
+    "progress_config_sha256",
+    "progress_sha256",
+    "success_candidate_set_sha256",
+    "terminal_excluded_candidate_set_sha256",
+    "pending_candidate_set_sha256",
+    "selected_candidate_set_sha256",
 )
 
 
@@ -184,9 +221,15 @@ def verify_authenticated_ranked_firecrawl_handoff(
     if schema == CASE_DEV_RANKED_SELECTION_RUN_SCHEMA:
         selection_semantics = "exact_case_dev_ranked_prefix"
         transfer_term = _RANKED_PREFIX_TERM
+        provisional = False
     elif schema == CASE_DEV_RANKED_SUBSET_SELECTION_RUN_SCHEMA:
         selection_semantics = "exact_case_dev_ranked_subset"
         transfer_term = _RANKED_SUBSET_TERM
+        provisional = False
+    elif schema == CASE_DEV_PROVISIONAL_FRONTIER_RUN_SCHEMA:
+        selection_semantics = CASE_DEV_PROVISIONAL_FRONTIER_SEMANTICS
+        transfer_term = CASE_DEV_PROVISIONAL_FRONTIER_TERM
+        provisional = True
     else:
         raise BudgetedDocketAcquisitionError(
             "ranked-selection run card uses an unsupported schema"
@@ -243,7 +286,7 @@ def verify_authenticated_ranked_firecrawl_handoff(
         raise BudgetedDocketAcquisitionError(
             "ranked-selection source query commitment does not reconcile"
         )
-    for field in (
+    required_hash_fields = (
         "source_batch_digest",
         "source_cycle_hash",
         "source_query_commitment_sha256",
@@ -251,9 +294,20 @@ def verify_authenticated_ranked_firecrawl_handoff(
         "source_hit_set_sha256",
         "source_projection_sha256",
         "ranked_output_sha256",
-        "enrichment_run_card_sha256",
         "selected_candidate_set_sha256",
-    ):
+        *(
+            (
+                "progress_config_sha256",
+                "progress_sha256",
+                "success_candidate_set_sha256",
+                "terminal_excluded_candidate_set_sha256",
+                "pending_candidate_set_sha256",
+            )
+            if provisional
+            else ("enrichment_run_card_sha256",)
+        ),
+    )
+    for field in required_hash_fields:
         value = run_card.get(field)
         if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
             raise BudgetedDocketAcquisitionError(
@@ -264,6 +318,15 @@ def verify_authenticated_ranked_firecrawl_handoff(
         or run_card.get("provider_activity_executed") is not False
         or run_card.get("paid_activity_requested") is not False
         or run_card.get("paid_activity_executed") is not False
+        or (
+            provisional
+            and (
+                run_card.get("pacer_fee_acknowledgment_allowed") is not False
+                or run_card.get("provisional_frontier") is not True
+                or run_card.get("final_cohort_eligible") is not False
+                or run_card.get("full_source_terminal") is not False
+            )
+        )
         or run_card.get("batch_id") != parent_batch_id
         or run_card.get("target_cycle_hash") != store.cycle_hash
         or run_card.get("ranked_output_sha256")
@@ -288,7 +351,11 @@ def verify_authenticated_ranked_firecrawl_handoff(
         or parent_progress.terminal_status != TermTerminalStatus.EXHAUSTED
         or any(
             field not in run_card or parent_config.get(field) != run_card.get(field)
-            for field in _AUTHENTICATED_HANDOFF_COMMITMENTS
+            for field in (
+                _PROVISIONAL_HANDOFF_COMMITMENTS
+                if provisional
+                else _AUTHENTICATED_HANDOFF_COMMITMENTS
+            )
         )
     ):
         raise BudgetedDocketAcquisitionError(
@@ -408,9 +475,9 @@ def verify_authenticated_ranked_firecrawl_handoff(
             raise BudgetedDocketAcquisitionError(
                 "authenticated prefix is not the exact ranked prefix"
             )
-    elif run_card.get("selected_docket_ids") != [
-        cast(str, item["docket_id"]) for item in selected_objects
-    ]:
+    elif selection_semantics == "exact_case_dev_ranked_subset" and run_card.get(
+        "selected_docket_ids"
+    ) != [cast(str, item["docket_id"]) for item in selected_objects]:
         raise BudgetedDocketAcquisitionError(
             "authenticated subset docket list does not reconcile"
         )
@@ -427,7 +494,94 @@ def verify_authenticated_ranked_firecrawl_handoff(
         raise BudgetedDocketAcquisitionError(
             "ranked-selection parent candidates do not exactly reconcile"
         )
+    if provisional:
+        _verify_provisional_firecrawl_partition(
+            run_card=run_card,
+            parent_config=parent_config,
+            ranked_path=ranked_path,
+        )
     return tuple(selected_records)
+
+
+def _verify_provisional_firecrawl_partition(
+    *,
+    run_card: Mapping[str, object],
+    parent_config: Mapping[str, object],
+    ranked_path: Path,
+) -> None:
+    """Re-derive the provisional source partition before Firecrawl authorization."""
+
+    if (
+        parent_config.get("provisional_frontier") is not True
+        or parent_config.get("final_cohort_eligible") is not False
+        or parent_config.get("full_source_terminal") is not False
+    ):
+        raise BudgetedDocketAcquisitionError(
+            "provisional parent batch lacks fail-closed cohort flags"
+        )
+    required_paths: dict[str, Path] = {}
+    for field in (
+        "source_store_path",
+        "source_projection_path",
+        "progress_config_path",
+        "progress_path",
+    ):
+        value = run_card.get(field)
+        if not isinstance(value, str) or not value or value != value.strip():
+            raise BudgetedDocketAcquisitionError(
+                f"provisional run card has invalid {field}"
+            )
+        required_paths[field] = Path(value)
+    source_batch_id = run_card.get("source_batch_id")
+    progress_sha256 = run_card.get("progress_sha256")
+    if not isinstance(source_batch_id, str) or not isinstance(progress_sha256, str):
+        raise BudgetedDocketAcquisitionError(
+            "provisional run card lacks source/progress identity"
+        )
+    try:
+        source = read_saturated_direct_search_leads(
+            required_paths["source_store_path"],
+            source_batch_id=source_batch_id,
+        )
+        frontier = verify_case_dev_provisional_frontier(
+            source=source,
+            source_store_path=required_paths["source_store_path"],
+            source_projection_path=required_paths["source_projection_path"],
+            progress_config_path=required_paths["progress_config_path"],
+            progress_path=required_paths["progress_path"],
+            expected_progress_sha256=progress_sha256,
+        )
+    except (OSError, RecapApiBatchDriverError, ValueError) as exc:
+        raise BudgetedDocketAcquisitionError(
+            f"provisional source partition cannot be authenticated: {exc}"
+        ) from exc
+    commitments = frontier.commitment_record()
+    if any(
+        run_card.get(field) != value or parent_config.get(field) != value
+        for field, value in commitments.items()
+    ):
+        raise BudgetedDocketAcquisitionError(
+            "provisional success/exclusion/pending partition does not reconcile"
+        )
+    ranked_bytes = b"".join(
+        json.dumps(record, sort_keys=True).encode() + b"\n"
+        for record in ranked_records_for_provisional_frontier(frontier)
+    )
+    if (
+        ranked_path.read_bytes() != ranked_bytes
+        or run_card.get("ranked_output_sha256")
+        != hashlib.sha256(ranked_bytes).hexdigest()
+        or run_card.get("success_count") != len(frontier.selected)
+        or run_card.get("terminal_exclusion_count") != len(frontier.terminal_exclusions)
+        or run_card.get("pending_count") != len(frontier.pending)
+        or len(frontier.selected)
+        + len(frontier.terminal_exclusions)
+        + len(frontier.pending)
+        != frontier.source_candidate_count
+    ):
+        raise BudgetedDocketAcquisitionError(
+            "provisional ranked bytes or partition counts do not reconcile"
+        )
 
 
 def _canonical_record_sha256(value: object) -> str:
