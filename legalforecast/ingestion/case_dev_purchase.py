@@ -665,8 +665,8 @@ def _acquire_existing_purchase_ledger_lock(path: Path) -> int:
         raise CaseDevPurchaseLedgerError(
             "read-only purchase audit requires the existing canonical lock file"
         ) from exc
-    lock_stat = os.fstat(lock_fd)
     try:
+        lock_stat = os.fstat(lock_fd)
         path_stat = lock_path.lstat()
     except OSError as exc:
         os.close(lock_fd)

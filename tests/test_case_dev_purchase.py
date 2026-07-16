@@ -12,6 +12,7 @@ from legalforecast.ingestion import (
     MissingCoreBudgetPlan,
     PurchaseBudgetExceededError,
 )
+from legalforecast.ingestion import case_dev_purchase as purchase_module
 from legalforecast.ingestion.case_dev_client import RecordedCaseDevResponse
 from legalforecast.ingestion.case_dev_config import CaseDevConfig
 from legalforecast.ingestion.case_dev_purchase import (
@@ -86,6 +87,40 @@ def test_purchase_snapshot_is_strictly_read_only(tmp_path: Path) -> None:
     assert set(before) == set(after)
     assert snapshot.operations[0]["source_document_id"] == "doc-1"
     assert len(snapshot.purchase_state_sha256) == 64
+
+
+def test_purchase_snapshot_closes_lock_when_descriptor_inspection_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    journal = _journal(tmp_path)
+    policy = journal.policy
+    journal.close()
+    original_fstat = purchase_module.os.fstat
+    original_close = purchase_module.os.close
+    inspected_descriptors: list[int] = []
+    closed_descriptors: list[int] = []
+
+    def fail_first_fstat(descriptor: int) -> object:
+        inspected_descriptors.append(descriptor)
+        if len(inspected_descriptors) == 1:
+            raise OSError("injected descriptor inspection failure")
+        return original_fstat(descriptor)
+
+    def record_close(descriptor: int) -> None:
+        closed_descriptors.append(descriptor)
+        original_close(descriptor)
+
+    monkeypatch.setattr(purchase_module.os, "fstat", fail_first_fstat)
+    monkeypatch.setattr(purchase_module.os, "close", record_close)
+
+    with pytest.raises(
+        RuntimeError,
+        match="purchase ledger lock path changed while opening read-only",
+    ):
+        read_case_dev_purchase_snapshot(journal.path, policy=policy)
+
+    assert closed_descriptors == inspected_descriptors
 
 
 def test_purchase_snapshot_rejects_semantically_corrupt_material_state(
