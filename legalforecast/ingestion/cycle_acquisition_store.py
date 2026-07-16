@@ -15,7 +15,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from types import TracebackType
+from types import MappingProxyType, TracebackType
 from typing import Any, Self, cast
 
 from legalforecast.ingestion.discovery_scheduler import (
@@ -213,6 +213,15 @@ class PublishedSnapshot:
     path: Path
     manifest: Mapping[str, Any]
     created_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedCompleteSnapshot:
+    """One store-registered snapshot and its authenticated immutable payloads."""
+
+    path: Path
+    manifest: Mapping[str, Any]
+    payloads: Mapping[str, bytes]
 
 
 @dataclass(frozen=True, slots=True)
@@ -2048,9 +2057,35 @@ class CycleAcquisitionStore:
     ) -> tuple[Path, Mapping[str, Any]] | None:
         """Return an exact committed snapshot for safe resume, or fail closed.
 
+        Callers that will consume snapshot file content after this method returns
+        must use :meth:`existing_complete_snapshot_evidence` instead.  This
+        compatibility wrapper intentionally returns only identity metadata.
+        """
+
+        evidence = self.existing_complete_snapshot_evidence(
+            destination,
+            snapshot_id=snapshot_id,
+            batch_id=batch_id,
+        )
+        if evidence is None:
+            return None
+        return evidence.path, evidence.manifest
+
+    def existing_complete_snapshot_evidence(
+        self,
+        destination: str | Path,
+        *,
+        snapshot_id: str,
+        batch_id: str,
+    ) -> VerifiedCompleteSnapshot | None:
+        """Return exact buffered bytes for one authenticated resume snapshot.
+
         A filesystem-only directory is never treated as resumable. A committed
         row is reusable only when its immutable database manifest, requested
-        identity, on-disk manifest, and all file commitments agree exactly.
+        identity, on-disk manifest, and all file commitments agree exactly.  The
+        manifest and committed files are each read once, verified through a
+        private materialization, and returned as immutable byte buffers so a
+        later filesystem mutation cannot change what the caller publishes.
         """
 
         if _SAFE_SNAPSHOT_ID.fullmatch(snapshot_id) is None:
@@ -2083,7 +2118,7 @@ class CycleAcquisitionStore:
         committed_path = Path(str(row_by_id["path"]))
         if committed_path.resolve() != target:
             raise SnapshotVerificationError("snapshot committed path mismatch")
-        if not target.is_dir():
+        if target.is_symlink() or not target.is_dir():
             raise SnapshotVerificationError(
                 f"committed snapshot directory is missing: {target}"
             )
@@ -2102,17 +2137,53 @@ class CycleAcquisitionStore:
             raise SnapshotVerificationError("stored snapshot manifest batch mismatch")
         if stored_manifest.get("created_at") != row_by_id["created_at"]:
             raise SnapshotVerificationError("stored snapshot creation time mismatch")
-        disk_manifest = verify_snapshot(
-            target,
-            expected_cycle_hash=self.cycle_hash,
-            expected_batch_digest=self.batch_digest(batch_id),
-            require_complete=True,
-        )
+        try:
+            manifest_path = target / "manifest.json"
+            if not stat.S_ISREG(manifest_path.lstat().st_mode):
+                raise SnapshotVerificationError(
+                    "committed snapshot manifest is not a regular file"
+                )
+            manifest_payload = manifest_path.read_bytes()
+            payloads: dict[str, bytes] = {}
+            for filename in _SNAPSHOT_FILES:
+                payload_path = target / filename
+                if not stat.S_ISREG(payload_path.lstat().st_mode):
+                    raise SnapshotVerificationError(
+                        f"committed snapshot file is not regular: {filename}"
+                    )
+                payloads[filename] = payload_path.read_bytes()
+        except OSError as error:
+            raise SnapshotVerificationError(
+                f"cannot buffer committed snapshot: {error}"
+            ) from error
+        try:
+            with tempfile.TemporaryDirectory(
+                prefix="legalforecast-resume-snapshot-"
+            ) as temporary_root:
+                private_snapshot = Path(temporary_root) / "snapshot"
+                private_snapshot.mkdir()
+                (private_snapshot / "manifest.json").write_bytes(manifest_payload)
+                for filename, payload in payloads.items():
+                    (private_snapshot / filename).write_bytes(payload)
+                disk_manifest = verify_snapshot(
+                    private_snapshot,
+                    expected_cycle_hash=self.cycle_hash,
+                    expected_batch_digest=self.batch_digest(batch_id),
+                    require_complete=True,
+                )
+        except OSError as error:
+            raise SnapshotVerificationError(
+                f"cannot verify buffered committed snapshot: {error}"
+            ) from error
         if disk_manifest != stored_manifest:
             raise SnapshotVerificationError(
                 "on-disk snapshot manifest does not match committed store manifest"
             )
-        return target, stored_manifest
+        return VerifiedCompleteSnapshot(
+            path=target,
+            manifest=MappingProxyType(stored_manifest),
+            payloads=MappingProxyType(payloads),
+        )
 
     def _raise_for_snapshot_collision(
         self,

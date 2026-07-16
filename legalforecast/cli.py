@@ -273,6 +273,7 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStoreError,
     FirecrawlAttempt,
     SnapshotVerificationError,
+    VerifiedCompleteSnapshot,
     cohort_reason_policy_taxonomy,
     verify_snapshot,
 )
@@ -17957,7 +17958,7 @@ def _cmd_acquisition_promote_terminal_subset(args: argparse.Namespace) -> int:
         )
         success_records = [dict(record) for record in bundle.promoted_success_records]
         _validate_firecrawl_success_commitments(success_records)
-        existing_snapshot: tuple[Path, Mapping[str, Any]] | None
+        existing_snapshot: VerifiedCompleteSnapshot | None
         with CycleAcquisitionStore(cycle_store_path) as store:
             if store.cycle_hash != cast(str, args.expected_target_cycle_hash):
                 raise CycleAcquisitionStoreError("target cycle hash mismatch")
@@ -17977,7 +17978,7 @@ def _cmd_acquisition_promote_terminal_subset(args: argparse.Namespace) -> int:
                 raise CycleAcquisitionStoreError(
                     "existing exact-subset batch candidate set changed"
                 )
-            existing_snapshot = store.existing_complete_snapshot(
+            existing_snapshot = store.existing_complete_snapshot_evidence(
                 snapshot_root,
                 snapshot_id=snapshot_id,
                 batch_id=batch_id,
@@ -18033,9 +18034,10 @@ def _cmd_acquisition_promote_terminal_subset(args: argparse.Namespace) -> int:
             if not cast(bool, args.resume):
                 raise FileExistsError(
                     "complete terminal promotion snapshot already exists and "
-                    f"--no-resume forbids reuse: {existing_snapshot[0]}"
+                    f"--no-resume forbids reuse: {existing_snapshot.path}"
                 )
-            snapshot_path, snapshot_manifest = existing_snapshot
+            snapshot_path = existing_snapshot.path
+            snapshot_manifest = existing_snapshot.manifest
             expected_stage_commitments = {
                 "terminal_subset_promotion": dict(bundle.commitment)
             }
@@ -18054,15 +18056,24 @@ def _cmd_acquisition_promote_terminal_subset(args: argparse.Namespace) -> int:
                 raise CycleAcquisitionStoreError(
                     "existing terminal promotion snapshot contains provisional lineage"
                 )
-            screened_cases = _read_records(snapshot_path / "screened-cases.jsonl")
-            all_exclusions = _read_records(snapshot_path / "exclusions.jsonl")
+            screened_cases = _read_jsonl_payload(
+                existing_snapshot.payloads["screened-cases.jsonl"],
+                label="existing terminal promotion screened cases",
+            )
+            all_exclusions = _read_jsonl_payload(
+                existing_snapshot.payloads["exclusions.jsonl"],
+                label="existing terminal promotion exclusions",
+            )
             resumed_ids = {_screened_case_dev_id(record) for record in screened_cases}
             if resumed_ids != expected_ids or all_exclusions:
                 raise CycleAcquisitionStoreError(
                     "existing terminal promotion snapshot is not the exact "
                     "accepted subset"
                 )
-            snapshot_summary = _read_json_object(snapshot_path / "summary.json")
+            snapshot_summary = _read_json_object_payload(
+                existing_snapshot.payloads["summary.json"],
+                label="existing terminal promotion summary",
+            )
             if snapshot_summary.get("reconciliation_complete") is not True:
                 raise CycleAcquisitionStoreError(
                     "existing terminal promotion snapshot is not reconciled"
@@ -34841,6 +34852,33 @@ def _read_json_object(path: Path) -> JsonRecord:
     loaded = _loads_json(path.read_text(encoding="utf-8"))
     if not isinstance(loaded, Mapping):
         raise ValueError(f"{path} must contain a JSON object")
+    return dict(cast(Mapping[str, Any], loaded))
+
+
+def _read_jsonl_payload(payload: bytes, *, label: str) -> list[JsonRecord]:
+    records: list[JsonRecord] = []
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeError as error:
+        raise ValueError(f"{label} must be UTF-8 JSONL") from error
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        if not line.strip():
+            continue
+        loaded = _loads_json(line)
+        if not isinstance(loaded, Mapping):
+            raise ValueError(f"{label}:{line_number} must contain a JSON object")
+        records.append(dict(cast(Mapping[str, Any], loaded)))
+    return records
+
+
+def _read_json_object_payload(payload: bytes, *, label: str) -> JsonRecord:
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeError as error:
+        raise ValueError(f"{label} must be UTF-8 JSON") from error
+    loaded = _loads_json(text)
+    if not isinstance(loaded, Mapping):
+        raise ValueError(f"{label} must contain a JSON object")
     return dict(cast(Mapping[str, Any], loaded))
 
 
