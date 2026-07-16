@@ -89,19 +89,26 @@ def test_rebase_pacer_gap_checkpoints_reorders_atomically_and_is_idempotent(
         ),
         key=lambda record: cast(int, record["input_index"]),
     )
-    assert [record["candidate_id"] for record in checkpoints] == ["cl-456", "cl-123"]
-    assert all(record["outcome"] == "exclusion" for record in checkpoints)
+    assert [record["candidate_id"] for record in checkpoints] == ["cl-456"]
+    assert checkpoints[0]["outcome"] == "success"
+    assert checkpoints[0]["payload"]["selection_record"]["cost_rank"] == 1
     assert all(record["resumable_attempt_count"] == 2 for record in checkpoints)
     receipt = _read_json(fixture["receipt"])
-    assert receipt["checkpoint_count"] == 2
-    assert receipt["terminal_checkpoint_count"] == 2
+    assert receipt["previous_checkpoint_count"] == 2
+    assert receipt["checkpoint_count"] == 1
+    assert receipt["invalidated_checkpoint_count"] == 1
+    assert receipt["terminal_checkpoint_count"] == 1
     assert receipt["added_free_document_count"] == 1
     assert receipt["provider_request_count"] == 0
     assert receipt["paid_activity_executed"] is False
     assert {binding["candidate_id"] for binding in receipt["checkpoint_bindings"]} == {
-        "cl-123",
-        "cl-456",
+        "cl-456"
     }
+    assert receipt["invalidated_checkpoints"][0]["candidate_id"] == "cl-123"
+    assert (
+        receipt["invalidated_checkpoints"][0]["reason"]
+        == "paid_gap_materially_changed_by_new_free_document"
+    )
     assert all(
         binding["previous_candidate_input_sha256"]
         != binding["current_candidate_input_sha256"]
@@ -114,7 +121,116 @@ def test_rebase_pacer_gap_checkpoints_reorders_atomically_and_is_idempotent(
             binding["current_cost_rank"],
         )
         for binding in receipt["checkpoint_bindings"]
-    } == {("cl-123", 1, 2), ("cl-456", 2, 1)}
+    } == {("cl-456", 2, 1)}
+
+
+def test_rebase_pacer_gap_checkpoints_invalidates_materially_changed_success(
+    tmp_path: Path,
+) -> None:
+    fixture = _pacer_gap_rebase_fixture(tmp_path)
+    previous_paid = _read_jsonl(fixture["previous_paid"])
+    changed_gap = next(
+        record for record in previous_paid if record["candidate_id"] == "cl-123"
+    )
+    checkpoint_path = next(
+        path
+        for path in fixture["previous_checkpoint_dir"].glob("*.json")
+        if _read_json(path)["candidate_id"] == "cl-123"
+    )
+    checkpoint = _read_json(checkpoint_path)
+    checkpoint["outcome"] = "success"
+    checkpoint["payload"] = _pacer_gap_success_payload(changed_gap, index=0)
+    _write_json(checkpoint_path, checkpoint)
+    _write_json(
+        fixture["destination_checkpoint_dir"] / checkpoint_path.name, checkpoint
+    )
+
+    assert main(fixture["command"]) == 0
+    receipt = _read_json(fixture["receipt"])
+    assert receipt["invalidated_checkpoint_count"] == 1
+    assert receipt["invalidated_checkpoints"][0]["candidate_id"] == "cl-123"
+    assert receipt["invalidated_checkpoints"][0]["previous_outcome"] == "success"
+    assert not any(
+        _read_json(path)["candidate_id"] == "cl-123"
+        for path in fixture["destination_checkpoint_dir"].glob("*.json")
+    )
+
+
+def test_rebase_pacer_gap_checkpoints_rejects_stale_rank_in_success_payload(
+    tmp_path: Path,
+) -> None:
+    fixture = _pacer_gap_rebase_fixture(tmp_path)
+    checkpoint_path = next(
+        path
+        for path in fixture["previous_checkpoint_dir"].glob("*.json")
+        if _read_json(path)["candidate_id"] == "cl-456"
+    )
+    checkpoint = _read_json(checkpoint_path)
+    checkpoint["payload"]["selection_record"]["cost_rank"] = 999
+    _write_json(checkpoint_path, checkpoint)
+
+    assert main(fixture["command"]) == 2
+    assert not fixture["receipt"].exists()
+
+
+def test_rebase_pacer_gap_checkpoints_rejects_hardlinked_log_without_mutation(
+    tmp_path: Path,
+) -> None:
+    fixture = _pacer_gap_rebase_fixture(tmp_path)
+    protected_paths = (
+        fixture["previous_screened"],
+        fixture["current_screened"],
+        fixture["previous_public"],
+        fixture["current_public"],
+        fixture["previous_paid"],
+        fixture["current_paid"],
+        fixture["previous_free"],
+        fixture["current_free"],
+    )
+    protected_before = {path: path.read_bytes() for path in protected_paths}
+    checkpoints_before = {
+        path.name: path.read_bytes()
+        for path in fixture["destination_checkpoint_dir"].glob("*.json")
+    }
+    config_before = fixture["destination_config"].read_bytes()
+    log_path = tmp_path / "output/logs/rebase-pacer-gap-checkpoints.jsonl"
+    log_path.parent.mkdir(parents=True)
+    log_path.hardlink_to(fixture["previous_paid"])
+
+    assert main(fixture["command"]) == 2
+    assert {path: path.read_bytes() for path in protected_paths} == protected_before
+    assert {
+        path.name: path.read_bytes()
+        for path in fixture["destination_checkpoint_dir"].glob("*.json")
+    } == checkpoints_before
+    assert fixture["destination_config"].read_bytes() == config_before
+    assert not fixture["receipt"].exists()
+
+
+def test_rebase_pacer_gap_checkpoints_rejects_symlink_parent_without_mutation(
+    tmp_path: Path,
+) -> None:
+    fixture = _pacer_gap_rebase_fixture(tmp_path)
+    checkpoints_before = {
+        path.name: path.read_bytes()
+        for path in fixture["destination_checkpoint_dir"].glob("*.json")
+    }
+    real_parent = tmp_path / "real-receipts"
+    real_parent.mkdir()
+    symlink_parent = tmp_path / "receipt-link"
+    symlink_parent.symlink_to(real_parent, target_is_directory=True)
+    command = [
+        *fixture["command"],
+        "--receipt-output",
+        str(symlink_parent / "receipt.json"),
+    ]
+
+    assert main(command) == 2
+    assert not (real_parent / "receipt.json").exists()
+    assert {
+        path.name: path.read_bytes()
+        for path in fixture["destination_checkpoint_dir"].glob("*.json")
+    } == checkpoints_before
 
 
 @pytest.mark.parametrize("mutation", ["drift", "remove", "add", "duplicate"])
@@ -165,7 +281,9 @@ def test_rebase_pacer_gap_checkpoints_rejects_duplicate_free_documents(
     assert not fixture["receipt"].exists()
 
 
-@pytest.mark.parametrize("forgery", ["private", "restriction", "extra"])
+@pytest.mark.parametrize(
+    "forgery", ["private", "restriction", "extra", "manifest_provider"]
+)
 def test_rebase_pacer_gap_checkpoints_rejects_forged_new_complaint_document(
     tmp_path: Path,
     forgery: str,
@@ -184,9 +302,18 @@ def test_rebase_pacer_gap_checkpoints_rejects_forged_new_complaint_document(
         complaint["is_private"] = True
     elif forgery == "restriction":
         complaint["restriction_evidence"] = ["unverified"]
-    else:
+    elif forgery == "extra":
         complaint["unexpected"] = "field"
     _write_jsonl(fixture["current_paid"], current_paid)
+    if forgery == "manifest_provider":
+        current_free = _read_jsonl(fixture["current_free"])
+        added = next(
+            record
+            for record in current_free
+            if record["source_document_id"] == "cl-123-entry-1-complaint"
+        )
+        added["source_provider"] = "untrusted"
+        _write_jsonl(fixture["current_free"], current_free)
 
     assert main(fixture["command"]) == 2
     assert not fixture["receipt"].exists()
@@ -231,6 +358,38 @@ def test_rebase_pacer_gap_checkpoints_rolls_back_failed_config_commit(
     }
     assert fixture["destination_config"].read_bytes() == original_config
     assert not fixture["receipt"].exists()
+
+
+def test_rebase_pacer_gap_checkpoints_rolls_back_failed_receipt_commit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _pacer_gap_rebase_fixture(tmp_path)
+    original_checkpoints = {
+        path.name: path.read_bytes()
+        for path in fixture["destination_checkpoint_dir"].glob("*.json")
+    }
+    original_config = fixture["destination_config"].read_bytes()
+    fixture["receipt"].parent.mkdir(parents=True)
+    fixture["receipt"].write_bytes(b'{"preexisting": true}\n')
+    original_receipt = fixture["receipt"].read_bytes()
+    atomic_write = cli._atomic_write_json
+
+    def fail_receipt(path: Path, payload: dict[str, object]) -> None:
+        if path == fixture["receipt"]:
+            raise OSError("simulated receipt commit failure")
+        atomic_write(path, payload)
+
+    monkeypatch.setattr(cli, "_atomic_write_json", fail_receipt)
+    with pytest.raises(OSError, match="simulated receipt commit failure"):
+        main(fixture["command"])
+
+    assert original_checkpoints == {
+        path.name: path.read_bytes()
+        for path in fixture["destination_checkpoint_dir"].glob("*.json")
+    }
+    assert fixture["destination_config"].read_bytes() == original_config
+    assert fixture["receipt"].read_bytes() == original_receipt
 
 
 def test_live_courtlistener_bridge_reserves_every_physical_attempt(
@@ -1552,6 +1711,61 @@ def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
     )
 
 
+def _pacer_gap_success_payload(
+    gap: dict[str, object], *, index: int
+) -> dict[str, object]:
+    candidate_id = cast(str, gap["candidate_id"])
+    resolved_document = {
+        "availability_status": "unavailable",
+        "candidate_id": candidate_id,
+        "contains_target_outcome": False,
+        "docket_entry_number": 1,
+        "document_role": "complaint",
+        "is_private": None,
+        "is_sealed": None,
+        "model_visible": True,
+        "redaction_or_seal_status": "unknown",
+        "requires_paid_recovery": True,
+        "resolved_from_paid_gap": True,
+        "restriction_evidence": [
+            "courtlistener_rest_docket_exact_match",
+            "courtlistener_rest_docket_entry_exact_match",
+            "courtlistener_rest_recap_document_exact_match",
+            "courtlistener_rest_recap_document_is_sealed_unknown",
+        ],
+        "source_document_id": f"{candidate_id}-resolved-complaint",
+        "source_url_or_reference": (
+            f"https://www.courtlistener.com/api/rest/v4/recap-documents/{index + 100}/"
+        ),
+    }
+    return {
+        "selection_record": {
+            **gap,
+            "case_id": candidate_id,
+            "selected": True,
+            "exclusion_reasons": [],
+            "paid_recovery_required": True,
+            "paid_gap_reasons": [],
+            "resolved_paid_gap_reasons": gap["paid_gap_reasons"],
+            "planning_status": "identity_resolved_paid_recovery_required",
+            "identity_resolution_status": "resolved",
+            "document_recovery_status": "paid_recovery_required",
+            "identity_resolution": {
+                "courtlistener_candidate_id": candidate_id,
+                "courtlistener_docket_id": candidate_id,
+                "matched_by": "fixture",
+            },
+            "documents": [*cast(list[object], gap["documents"]), resolved_document],
+        },
+        "case_relevance_record": {
+            "candidate_id": candidate_id,
+            "courtlistener_docket_id": candidate_id,
+            "documents": [resolved_document],
+        },
+        "free_download_requests": [],
+    }
+
+
 def _pacer_gap_rebase_fixture(tmp_path: Path) -> dict[str, Any]:
     previous = tmp_path / "previous"
     current = tmp_path / "current"
@@ -1686,6 +1900,7 @@ def _pacer_gap_rebase_fixture(tmp_path: Path) -> dict[str, Any]:
     }
     for index, gap in enumerate(paid):
         candidate_id = cast(str, gap["candidate_id"])
+        success_payload = _pacer_gap_success_payload(gap, index=index)
         checkpoint = {
             "schema_version": "legalforecast.pacer_gap_bridge_candidate_checkpoint.v2",
             "bridge_semantic_revision": cli._PACER_GAP_BRIDGE_SEMANTIC_REVISION,
@@ -1694,16 +1909,20 @@ def _pacer_gap_rebase_fixture(tmp_path: Path) -> dict[str, Any]:
             "candidate_input_sha256": cli._canonical_json_sha256(
                 {"screened_case": screened_by_id[candidate_id], "paid_gap": gap}
             ),
-            "outcome": "exclusion",
+            "outcome": "success" if candidate_id == "cl-456" else "exclusion",
             "resumable_attempt_count": 2,
             "cumulative_courtlistener_request_count": 3,
-            "payload": {
-                "exclusion_record": bridge_module.case_dev_bridge_exclusion_record(
-                    screened_by_id[candidate_id],
-                    reason="operative_complaint_not_found",
-                    detail="fixture terminal exclusion",
-                )
-            },
+            "payload": (
+                success_payload
+                if candidate_id == "cl-456"
+                else {
+                    "exclusion_record": bridge_module.case_dev_bridge_exclusion_record(
+                        screened_by_id[candidate_id],
+                        reason="operative_complaint_not_found",
+                        detail="fixture terminal exclusion",
+                    )
+                }
+            ),
         }
         _write_json(
             cli._bridge_checkpoint_path(
@@ -1754,6 +1973,7 @@ def _pacer_gap_rebase_fixture(tmp_path: Path) -> dict[str, Any]:
     return {
         **paths,
         "command": command,
+        "previous_checkpoint_dir": previous_checkpoint_dir,
         "destination_checkpoint_dir": destination_checkpoint_dir,
         "destination_config": destination_config,
         "receipt": receipt,
