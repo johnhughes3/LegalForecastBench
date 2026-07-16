@@ -491,6 +491,10 @@ from legalforecast.ingestion.resolved_post_recovery import (
     validate_authenticated_clearance_lineage,
     write_resolved_post_recovery_documents,
 )
+from legalforecast.ingestion.rest_observation_policy_rebind import (
+    RestObservationPolicyRebindError,
+    rebind_terminal_rest_observations,
+)
 from legalforecast.ingestion.retained_cohort_extension import (
     BASE_CASE_COUNT,
     BASE_PROJECTION_ARTIFACT_NAMES,
@@ -924,6 +928,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Cycle 1 batch-002 decision-first RECAP REST v4 acquisition driver "
             "(discover / seed-direct-search / rebind-direct-search / "
+            "rebind-terminal-rest-observations / "
             "seed-novel-direct-search / select-case-dev-ranked / observe / "
             "seed-batch-001-leads / snapshot)."
         ),
@@ -1010,6 +1015,24 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_batch_002_direct_rebind_arguments(batch_002_direct_rebind)
+    batch_002_terminal_rest_rebind = batch_002_subparsers.add_parser(
+        "rebind-terminal-rest-observations",
+        help=(
+            "Rebind the authenticated 100 terminal opinion-prefix REST outcomes "
+            "across the one authorized no-op screening-policy delta."
+        ),
+        description=(
+            "Provider-free, fail-closed one-time migration from cycle 43f750... "
+            "to cycle 33f7ef.... The command authenticates the old complete "
+            "saturated opinions snapshot, exact 506-case selection, exact 100 "
+            "novel terminal outcomes, old/current screening policies, and the "
+            "candidate_text_override=None semantic proof before writing current-"
+            "cycle observations, a complete saturated snapshot, and a hash-bound "
+            "run card. It performs no network, provider, PACER, RECAP Fetch, "
+            "purchase, fee acknowledgment, freeze, dispatch, or evaluation action."
+        ),
+    )
+    _add_batch_002_terminal_rest_rebind_arguments(batch_002_terminal_rest_rebind)
     batch_002_novel_direct_seed = batch_002_subparsers.add_parser(
         "seed-novel-direct-search",
         help=(
@@ -3411,6 +3434,70 @@ def _add_batch_002_direct_rebind_arguments(parser: argparse.ArgumentParser) -> N
     )
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_batch_002_direct_rebind)
+
+
+def _add_batch_002_terminal_rest_rebind_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--source-store",
+        type=Path,
+        required=True,
+        help=(
+            "Old-policy cycle store that registered the authenticated complete "
+            "opinions-prefix snapshot."
+        ),
+    )
+    parser.add_argument(
+        "--source-snapshot",
+        type=Path,
+        required=True,
+        help=(
+            "Exact complete saturated old-policy opinions-prefix snapshot; its "
+            "manifest must match the built-in 827268... commitment."
+        ),
+    )
+    parser.add_argument(
+        "--selection-run-card",
+        type=Path,
+        required=True,
+        help=(
+            "Exact provider-free top-506 selection card; both its file hash and "
+            "selected-set commitment are pinned by the command."
+        ),
+    )
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help=(
+            "Current-policy target store containing the already-seeded identical "
+            "506-candidate batch and exactly the pinned 100 unresolved candidates."
+        ),
+    )
+    parser.add_argument(
+        "--batch-id",
+        required=True,
+        help="Exact current-policy target batch identifier.",
+    )
+    parser.add_argument(
+        "--snapshot-output-root",
+        type=Path,
+        required=True,
+        help="Destination parent for the new immutable complete snapshot.",
+    )
+    parser.add_argument(
+        "--snapshot-id",
+        required=True,
+        help="New immutable snapshot identifier.",
+    )
+    parser.add_argument(
+        "--run-card-output",
+        type=Path,
+        required=True,
+        help="New hash-bound provider-free rebind run-card path.",
+    )
+    parser.set_defaults(handler=_cmd_batch_002_terminal_rest_rebind)
 
 
 def _add_batch_002_novel_direct_seed_arguments(
@@ -14751,6 +14838,39 @@ def _cmd_batch_002_direct_rebind(args: argparse.Namespace) -> int:
     if summary_output is not None:
         _write_json(summary_output, record)
     print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cmd_batch_002_terminal_rest_rebind(args: argparse.Namespace) -> int:
+    try:
+        result = rebind_terminal_rest_observations(
+            source_store_path=cast(Path, args.source_store),
+            source_snapshot_path=cast(Path, args.source_snapshot),
+            selection_run_card_path=cast(Path, args.selection_run_card),
+            target_store_path=cast(Path, args.cycle_store),
+            target_batch_id=cast(str, args.batch_id),
+            snapshot_output_root=cast(Path, args.snapshot_output_root),
+            snapshot_id=cast(str, args.snapshot_id),
+            run_card_path=cast(Path, args.run_card_output),
+        )
+    except RestObservationPolicyRebindError as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "rebound_count": result.rebound_count,
+                "accepted_count": result.accepted_count,
+                "excluded_count": result.excluded_count,
+                "snapshot_path": str(result.snapshot_path),
+                "snapshot_manifest_sha256": result.snapshot_manifest_sha256,
+                "run_card_path": str(result.run_card_path),
+                "run_card_sha256": result.run_card_sha256,
+                "provider_activity_executed": False,
+                "paid_activity_executed": False,
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 

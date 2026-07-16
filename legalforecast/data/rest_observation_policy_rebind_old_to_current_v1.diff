@@ -1,0 +1,46 @@
+diff --git a/legalforecast/ingestion/courtlistener_acquisition.py b/legalforecast/ingestion/courtlistener_acquisition.py
+index b59c992..41cf46a 100644
+--- a/legalforecast/ingestion/courtlistener_acquisition.py
++++ b/legalforecast/ingestion/courtlistener_acquisition.py
+@@ -813,6 +813,7 @@ def screen_courtlistener_docket_html(
+     metadata_screen: CaseDevMetadataScreen,
+     raw_html: str,
+     decision_filed_on_or_after: date,
++    candidate_text_override: str | None = None,
+ ) -> tuple[Mapping[str, Any] | None, ExclusionLedgerEntry | None]:
+     """Strictly screen one already-fetched public CourtListener docket page.
+ 
+@@ -850,6 +851,7 @@ def screen_courtlistener_docket_html(
+         metadata_screen=metadata_screen,
+         page=parsed,
+         decision_filed_on_or_after=decision_filed_on_or_after,
++        candidate_text_override=candidate_text_override,
+     )
+ 
+ 
+@@ -860,6 +862,7 @@ def screen_courtlistener_docket_page(
+     page: CourtListenerWebDocketPage,
+     decision_filed_on_or_after: date,
+     decision_filed_on_or_before: date | None = None,
++    candidate_text_override: str | None = None,
+ ) -> tuple[Mapping[str, Any] | None, ExclusionLedgerEntry | None]:
+     """Apply canonical linkage and leakage gates to one reconstructed docket.
+ 
+@@ -878,14 +881,15 @@ def screen_courtlistener_docket_page(
+         )
+     source_url = _public_docket_url(docket)
+     parsed = page
++    candidate_text = candidate_text_override or _candidate_text(docket)
+ 
+     unanchored = screen_courtlistener_docket_for_mtd_decision(
+         parsed,
+-        candidate_text=_candidate_text(docket),
++        candidate_text=candidate_text,
+     )
+     anchored = screen_courtlistener_docket_for_mtd_decision(
+         parsed,
+-        candidate_text=_candidate_text(docket),
++        candidate_text=candidate_text,
+         decision_filed_on_or_after=decision_filed_on_or_after,
+         decision_filed_on_or_before=decision_filed_on_or_before,
+     )
