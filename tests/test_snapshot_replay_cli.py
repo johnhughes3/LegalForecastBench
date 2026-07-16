@@ -169,6 +169,58 @@ def test_replay_screening_snapshots_is_provider_free_and_globally_plannable(
     )
 
 
+def test_replay_screening_snapshots_rejects_provisional_source_laundering(
+    tmp_path: Path,
+) -> None:
+    source_store = tmp_path / "source.sqlite3"
+    source = _source_snapshot(
+        tmp_path,
+        store_path=source_store,
+        policy=_cycle_policy(extra={"fixture_generation": "provisional"}),
+        batch_id="provisional-source",
+        successes=("101",),
+        provisional=True,
+    )
+    source_cycle_hash = str(verify_snapshot(source)["cycle_hash"])
+    assembly_root = tmp_path / "source-assembly"
+    assert (
+        main(
+            [
+                "acquisition",
+                "assemble-cycle-acquisition",
+                "--output-root",
+                str(assembly_root),
+                "--expected-cycle-hash",
+                source_cycle_hash,
+                "--batch-root",
+                str(source),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    assembly = assembly_root / "run-cards/assemble-cycle-acquisition.json"
+    target_store = tmp_path / "target.sqlite3"
+    with CycleAcquisitionStore(target_store) as store:
+        target_cycle_hash = store.ensure_cycle(_cycle_policy())
+
+    assert (
+        main(
+            _replay_command(
+                output_root=tmp_path / "replay",
+                target_store=target_store,
+                target_cycle_hash=target_cycle_hash,
+                source_cycle_hash=source_cycle_hash,
+                assembly_run_card=assembly,
+                snapshot_id="must-not-exist",
+                expected_assembly_sha256=sha256_file(assembly),
+            )
+        )
+        == 2
+    )
+    assert not (tmp_path / "replay/snapshots/must-not-exist").exists()
+
+
 def test_replay_screening_snapshots_combines_cross_cycle_supplemental_snapshots(
     tmp_path: Path,
 ) -> None:
@@ -610,9 +662,8 @@ def test_replay_screening_snapshots_accepts_strictly_appended_docket_refresh(
 
 
 @pytest.mark.parametrize("mutated_source", ("older", "newer"))
-def test_replay_refresh_rechecks_raw_commitments_before_reconciliation(
+def test_replay_refresh_uses_authenticated_buffers_after_source_mutation(
     tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
     mutated_source: str,
 ) -> None:
@@ -686,9 +737,14 @@ def test_replay_refresh_rechecks_raw_commitments_before_reconciliation(
                 snapshot_id="toctou-replay",
             )
         )
-        == 2
+        == 0
     )
-    assert "raw artifact" in capsys.readouterr().err
+    verify_snapshot(
+        tmp_path / "replay/snapshots/toctou-replay",
+        expected_cycle_hash=target_cycle_hash,
+        require_complete=True,
+        require_saturated=True,
+    )
 
 
 def test_replay_rechecks_screen_run_card_after_atomic_parse_and_hash(
@@ -2233,6 +2289,7 @@ def _source_snapshot(
     court_id: str = "nysd",
     docket_number: str | None = None,
     pacer_case_id: str | None = None,
+    provisional: bool = False,
 ) -> Path:
     batch_root = tmp_path / batch_id
     raw_dir = batch_root / "raw-docket-html"
@@ -2248,20 +2305,19 @@ def _source_snapshot(
         )
         raw_path = raw_dir / f"{docket_id}.html"
         raw_path.write_text(raw_html, encoding="utf-8")
-        success_records.append(
-            _success_record(
-                docket_id,
-                raw_html,
-                case_id=case_id,
-                retrieved_at=retrieved_at,
-                raw_html_path=raw_html_path,
-                case_name=case_name,
-                source_slug=source_slug,
-                court_id=court_id,
-                docket_number=docket_number,
-                pacer_case_id=pacer_case_id,
-            )
+        record = _success_record(
+            docket_id,
+            raw_html,
+            case_id=case_id,
+            retrieved_at=retrieved_at,
+            raw_html_path=raw_html_path,
+            case_name=case_name,
+            source_slug=source_slug,
+            court_id=court_id,
+            docket_number=docket_number,
+            pacer_case_id=pacer_case_id,
         )
+        success_records.append(record)
         hits.append(
             DiscoveryHit(
                 provider_hit_id=f"success-{docket_id}",
@@ -2292,9 +2348,39 @@ def _source_snapshot(
     exclusions_path = batch_root / "firecrawl-docket-exclusions.jsonl"
     _write_jsonl(successes_path, success_records)
     _write_jsonl(exclusions_path, exclusion_records)
+    batch_config: dict[str, object] = {"fixture_batch": batch_id}
+    if provisional:
+        source_count = len(success_records) + len(exclusion_records) + 1
+        batch_config.update(
+            {
+                "provisional_frontier": True,
+                "final_cohort_eligible": False,
+                "full_source_terminal": False,
+                "source_candidate_count": source_count,
+                "source_candidate_set_sha256": "1" * 64,
+                "source_projection_sha256": "2" * 64,
+                "progress_config_sha256": "3" * 64,
+                "progress_sha256": "4" * 64,
+                "success_count": len(success_records),
+                "terminal_exclusion_count": len(exclusion_records),
+                "pending_count": 1,
+                "success_candidate_set_sha256": "5" * 64,
+                "terminal_excluded_candidate_set_sha256": "6" * 64,
+                "pending_candidate_set_sha256": "7" * 64,
+            }
+        )
+        from legalforecast.ingestion.budgeted_docket_acquisition import (
+            provisional_lineage_flags,
+        )
+
+        lineage = provisional_lineage_flags(batch_config)
+        success_records = [{**record, **lineage} for record in success_records]
+        exclusion_records = [{**record, **lineage} for record in exclusion_records]
+        _write_jsonl(successes_path, success_records)
+        _write_jsonl(exclusions_path, exclusion_records)
     with CycleAcquisitionStore(store_path) as store:
         store.ensure_cycle(policy)
-        store.ensure_batch(batch_id, {"fixture_batch": batch_id})
+        store.ensure_batch(batch_id, batch_config)
         store.ensure_terms(batch_id, ("fixture",))
         store.commit_search_page(
             batch_id,

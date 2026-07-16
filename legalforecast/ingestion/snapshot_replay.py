@@ -8,10 +8,12 @@ import os
 import re
 import stat
 import sys
+import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, cast
 
 from legalforecast.ingestion.courtlistener_web import (
@@ -31,6 +33,14 @@ _ASSEMBLY_RUN_CARD = Path("run-cards/assemble-cycle-acquisition.json")
 _FIRECRAWL_SCREEN_INPUT_COMMITMENT_SCHEMA = (
     "legalforecast.firecrawl_screen_input_commitment.v1"
 )
+_SNAPSHOT_PAYLOAD_FILES = (
+    "screened-cases.jsonl",
+    "exclusions.jsonl",
+    "summary.json",
+    "candidates.jsonl",
+    "observations.jsonl",
+    "raw-artifacts.jsonl",
+)
 
 
 class SnapshotReplayError(ValueError):
@@ -47,6 +57,7 @@ class ReplaySuccess:
     raw_path: Path
     raw_sha256: str
     raw_byte_count: int
+    raw_bytes: bytes
     source_snapshot_id: str
     source_manifest_sha256: str
 
@@ -81,6 +92,149 @@ class SupplementalReplaySource:
     screen_run_card: Path
     expected_screen_run_card_sha256: str
     bundle_root: Path
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedSupplementalReplaySourceEvidence:
+    """One externally hash-bound portable snapshot and all screen inputs."""
+
+    snapshot: Path
+    manifest: Mapping[str, Any]
+    manifest_bytes: bytes
+    snapshot_file_payloads: Mapping[str, bytes]
+    manifest_sha256: str
+    screen_run_card: Path
+    screen_run_card_record: Mapping[str, Any]
+    screen_run_card_sha256: str
+    success_records: tuple[Mapping[str, Any], ...]
+    exclusion_records: tuple[Mapping[str, Any], ...]
+    screened_records: tuple[Mapping[str, Any], ...]
+    successes: tuple[ReplaySuccess, ...]
+    screen_input_commitment: Mapping[str, object]
+
+
+def verify_supplemental_replay_source_evidence(
+    source: SupplementalReplaySource,
+    *,
+    expected_manifest_sha256: str,
+) -> VerifiedSupplementalReplaySourceEvidence:
+    """Verify one portable snapshot without combining or replaying its outcomes."""
+
+    _require_sha256(expected_manifest_sha256, "source snapshot manifest SHA-256")
+    _require_sha256(source.expected_cycle_hash, "supplemental source cycle hash")
+    _require_sha256(
+        source.expected_screen_run_card_sha256,
+        "supplemental screen run-card SHA-256",
+    )
+    snapshot = _verified_supplemental_snapshot_path(source)
+    screen_run_card = _verified_supplemental_screen_run_card(source)
+    manifest_bytes, snapshot_file_payloads = _read_snapshot_payloads(snapshot)
+    manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+    if manifest_sha256 != expected_manifest_sha256:
+        raise SnapshotReplayError("source snapshot manifest SHA-256 mismatch")
+    run_card, run_card_sha256 = _read_hashed_json_object(
+        screen_run_card, label="source screen run card"
+    )
+    if run_card_sha256 != source.expected_screen_run_card_sha256:
+        raise SnapshotReplayError("supplemental screen run-card SHA-256 mismatch")
+    if run_card.get("stage") != "screen-firecrawl-dockets":
+        raise SnapshotReplayError("source screen run card has the wrong stage")
+    input_paths = _absolute_run_card_paths(run_card.get("input_paths"), "input_paths")
+    output_paths = _absolute_run_card_paths(
+        run_card.get("output_paths"), "output_paths"
+    )
+    relocated = _relocated_source_paths(
+        snapshot=snapshot,
+        screen_run_card=screen_run_card,
+        input_paths=input_paths,
+        output_paths=output_paths,
+        supplemental=source,
+    )
+    manifest = _verify_buffered_snapshot(
+        manifest_bytes=manifest_bytes,
+        file_payloads=snapshot_file_payloads,
+        expected_cycle_hash=source.expected_cycle_hash,
+        raw_artifact_relocation=relocated.raw_artifact_relocation,
+    )
+    if len(relocated.input_paths) < 4:
+        raise SnapshotReplayError("source screen run card has incomplete inputs")
+    successes_path = _safe_regular_file(
+        relocated.input_paths[1], label="source successes JSONL"
+    )
+    exclusions_path = _safe_regular_file(
+        relocated.input_paths[2], label="source fetch exclusions JSONL"
+    )
+    raw_dir = _safe_directory(relocated.input_paths[3], label="source raw HTML")
+    success_records = tuple(_read_jsonl(successes_path, label="source successes JSONL"))
+    exclusion_records = tuple(
+        _read_jsonl(exclusions_path, label="source fetch exclusions JSONL")
+    )
+    _verify_screen_input_commitment(
+        manifest=manifest,
+        successes=success_records,
+        exclusions=exclusion_records,
+        snapshot=snapshot,
+    )
+    stage_commitments = manifest.get("stage_commitments")
+    if not isinstance(stage_commitments, Mapping):
+        raise SnapshotReplayError("source snapshot lacks stage commitments")
+    typed_stage_commitments = cast(Mapping[str, object], stage_commitments)
+    screen_inputs = typed_stage_commitments.get("firecrawl_screen_inputs")
+    if not isinstance(screen_inputs, Mapping):
+        raise SnapshotReplayError(
+            "source snapshot lacks firecrawl_screen_inputs commitment"
+        )
+    snapshot_id = _required_text(manifest, "snapshot_id")
+    successes: list[ReplaySuccess] = []
+    outcome_ids: set[str] = set()
+    for record in success_records:
+        success = _verified_success(
+            record,
+            raw_dir=raw_dir,
+            source_snapshot_id=snapshot_id,
+            source_manifest_sha256=manifest_sha256,
+        )
+        if success.candidate_id in outcome_ids:
+            raise SnapshotReplayError(
+                f"duplicate source outcome for {success.candidate_id}"
+            )
+        outcome_ids.add(success.candidate_id)
+        successes.append(success)
+    for record in exclusion_records:
+        candidate_id = _required_text(record, "case_id")
+        if candidate_id in outcome_ids:
+            raise SnapshotReplayError(f"duplicate source outcome for {candidate_id}")
+        outcome_ids.add(candidate_id)
+    snapshot_candidate_ids = {
+        _required_text(row, "candidate_id")
+        for row in _read_jsonl_payload(
+            snapshot_file_payloads["candidates.jsonl"],
+            label="source snapshot candidates",
+        )
+    }
+    if outcome_ids != snapshot_candidate_ids:
+        raise SnapshotReplayError(
+            "source screen inputs do not reconcile with snapshot candidates"
+        )
+    screened_records = _read_jsonl_payload(
+        snapshot_file_payloads["screened-cases.jsonl"],
+        label="source screened cases",
+    )
+    return VerifiedSupplementalReplaySourceEvidence(
+        snapshot=snapshot,
+        manifest=MappingProxyType(dict(manifest)),
+        manifest_bytes=manifest_bytes,
+        snapshot_file_payloads=MappingProxyType(dict(snapshot_file_payloads)),
+        manifest_sha256=manifest_sha256,
+        screen_run_card=screen_run_card,
+        screen_run_card_record=dict(run_card),
+        screen_run_card_sha256=run_card_sha256,
+        success_records=success_records,
+        exclusion_records=exclusion_records,
+        screened_records=screened_records,
+        successes=tuple(successes),
+        screen_input_commitment=dict(cast(Mapping[str, object], screen_inputs)),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,7 +367,7 @@ def collect_snapshot_replay_bundle(
         snapshot,
         expected_cycle_hash,
         supplemental,
-        manifest_path,
+        _manifest_path,
         manifest_sha256,
     ) in prepared_sources:
         screen_run_card = (
@@ -251,21 +405,34 @@ def collect_snapshot_replay_bundle(
             supplemental=supplemental,
         )
         try:
-            manifest = verify_snapshot(
-                snapshot,
+            manifest_bytes, snapshot_file_payloads = _read_snapshot_payloads(snapshot)
+            if hashlib.sha256(manifest_bytes).hexdigest() != manifest_sha256:
+                raise SnapshotReplayError(
+                    f"source snapshot manifest changed before verification: {snapshot}"
+                )
+            manifest = _verify_buffered_snapshot(
+                manifest_bytes=manifest_bytes,
+                file_payloads=snapshot_file_payloads,
                 expected_cycle_hash=expected_cycle_hash,
-                require_complete=True,
-                require_saturated=True,
                 raw_artifact_relocation=relocated_paths.raw_artifact_relocation,
             )
-        except SnapshotVerificationError as exc:
+        except (SnapshotReplayError, SnapshotVerificationError) as exc:
             message = str(exc)
             if "cycle hash mismatch" in message:
                 message = "source snapshot cycle hash mismatch"
             raise SnapshotReplayError(f"{snapshot}: {message}") from exc
-        if _sha256_file(manifest_path) != manifest_sha256:
+        if any(
+            field in manifest
+            for field in (
+                "provisional_frontier",
+                "final_cohort_eligible",
+                "full_source_terminal",
+            )
+        ):
             raise SnapshotReplayError(
-                f"source snapshot manifest changed during verification: {snapshot}"
+                "generic snapshot replay rejects provisional sources; use the "
+                "terminal exact-subset promotion command with authenticated "
+                f"terminal selection evidence: {snapshot}"
             )
         if len(input_paths) < 4:
             raise SnapshotReplayError(
@@ -1007,26 +1174,26 @@ def _verified_success(
         raw_path=raw_path,
         raw_sha256=actual_sha256,
         raw_byte_count=expected_bytes,
+        raw_bytes=raw_bytes,
         source_snapshot_id=source_snapshot_id,
         source_manifest_sha256=source_manifest_sha256,
     )
 
 
 def read_verified_replay_raw(success: ReplaySuccess) -> bytes:
-    """Read one replay artifact and recheck it immediately before publication."""
+    """Return the immutable raw buffer authenticated during source verification."""
 
-    raw_path = _safe_regular_file(success.raw_path, label="source raw HTML")
-    raw_bytes = raw_path.read_bytes()
-    actual_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+    actual_sha256 = hashlib.sha256(success.raw_bytes).hexdigest()
     if actual_sha256 != success.raw_sha256:
         raise SnapshotReplayError(
-            f"raw artifact sha256 changed for candidate {success.candidate_id}"
+            f"buffered raw artifact sha256 changed for candidate {success.candidate_id}"
         )
-    if len(raw_bytes) != success.raw_byte_count:
+    if len(success.raw_bytes) != success.raw_byte_count:
         raise SnapshotReplayError(
-            f"raw artifact byte_count changed for candidate {success.candidate_id}"
+            "buffered raw artifact byte_count changed for candidate "
+            f"{success.candidate_id}"
         )
-    return raw_bytes
+    return success.raw_bytes
 
 
 def firecrawl_screen_input_commitments(
@@ -1098,6 +1265,94 @@ def _verify_screen_input_commitment(
             f"source screen input commitment mismatch: {snapshot}"
         )
     return None
+
+
+def _read_snapshot_payloads(snapshot: Path) -> tuple[bytes, Mapping[str, bytes]]:
+    """Read each committed snapshot payload exactly once into immutable bytes."""
+
+    manifest_path = _safe_regular_file(
+        snapshot / "manifest.json", label="source snapshot manifest"
+    )
+    try:
+        manifest_bytes = manifest_path.read_bytes()
+        file_payloads = {
+            filename: _safe_regular_file(
+                snapshot / filename,
+                label=f"source snapshot {filename}",
+            ).read_bytes()
+            for filename in _SNAPSHOT_PAYLOAD_FILES
+        }
+    except OSError as exc:
+        raise SnapshotReplayError(
+            f"cannot buffer source snapshot payloads: {snapshot}: {exc}"
+        ) from exc
+    return manifest_bytes, MappingProxyType(file_payloads)
+
+
+def _verify_buffered_snapshot(
+    *,
+    manifest_bytes: bytes,
+    file_payloads: Mapping[str, bytes],
+    expected_cycle_hash: str,
+    raw_artifact_relocation: tuple[Path, Path] | None,
+) -> Mapping[str, Any]:
+    """Verify one private materialization of the exact buffered snapshot bytes."""
+
+    try:
+        parsed: object = json.loads(manifest_bytes)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise SnapshotReplayError("source snapshot manifest is invalid JSON") from exc
+    if not isinstance(parsed, dict):
+        raise SnapshotReplayError("source snapshot manifest must be a JSON object")
+    exact_manifest = cast(dict[str, Any], parsed)
+    if set(file_payloads) != set(_SNAPSHOT_PAYLOAD_FILES):
+        raise SnapshotReplayError("source snapshot payload set is incomplete")
+    try:
+        with tempfile.TemporaryDirectory(
+            prefix="legalforecast-buffered-snapshot-"
+        ) as temporary_root:
+            private_snapshot = Path(temporary_root) / "snapshot"
+            private_snapshot.mkdir()
+            (private_snapshot / "manifest.json").write_bytes(manifest_bytes)
+            for filename, payload in file_payloads.items():
+                (private_snapshot / filename).write_bytes(payload)
+            verified_manifest = verify_snapshot(
+                private_snapshot,
+                expected_cycle_hash=expected_cycle_hash,
+                require_complete=True,
+                require_saturated=True,
+                raw_artifact_relocation=raw_artifact_relocation,
+            )
+    except SnapshotVerificationError as exc:
+        raise SnapshotReplayError(str(exc)) from exc
+    if dict(verified_manifest) != exact_manifest:
+        raise SnapshotReplayError(
+            "private snapshot verification changed the authenticated manifest"
+        )
+    return exact_manifest
+
+
+def _read_jsonl_payload(payload: bytes, *, label: str) -> tuple[dict[str, Any], ...]:
+    """Parse one already-buffered JSONL payload without touching the filesystem."""
+
+    records: list[dict[str, Any]] = []
+    try:
+        lines = payload.decode("utf-8").splitlines()
+    except UnicodeError as exc:
+        raise SnapshotReplayError(f"cannot decode {label}") from exc
+    for line_number, line in enumerate(lines, start=1):
+        if not line.strip():
+            continue
+        try:
+            parsed: object = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise SnapshotReplayError(
+                f"invalid {label} JSON at line {line_number}"
+            ) from exc
+        if not isinstance(parsed, dict):
+            raise SnapshotReplayError(f"{label} line {line_number} is not an object")
+        records.append(cast(dict[str, Any], parsed))
+    return tuple(records)
 
 
 def _safe_regular_file(path: Path, *, label: str) -> Path:

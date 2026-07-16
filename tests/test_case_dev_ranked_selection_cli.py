@@ -7,8 +7,12 @@ from datetime import date
 from pathlib import Path
 from typing import cast
 
+import legalforecast.cli as legalforecast_cli
+import legalforecast.ingestion.snapshot_replay as snapshot_replay_module
 import pytest
-from legalforecast.cli import _cycle_acquisition_policy, main
+from legalforecast.ingestion.budgeted_docket_acquisition import (
+    provisional_lineage_flags,
+)
 from legalforecast.ingestion.case_dev_ranked_selection import (
     CASE_DEV_RANKED_SELECTION_RUN_SCHEMA,
     CASE_DEV_RANKED_SUBSET_SELECTION_RUN_SCHEMA,
@@ -16,7 +20,11 @@ from legalforecast.ingestion.case_dev_ranked_selection import (
     _source_bound_bankruptcy_adversary_entry_evidence,
     project_case_dev_opinion_source,
 )
-from legalforecast.ingestion.cycle_acquisition_store import CycleAcquisitionStore
+from legalforecast.ingestion.cycle_acquisition_store import (
+    CycleAcquisitionStore,
+    verify_snapshot,
+)
+from legalforecast.ingestion.discovery_scheduler import DiscoveryHit, TermTerminalStatus
 from legalforecast.ingestion.recap_api_batch_driver import (
     DirectSearchHitProvenance,
     DirectSearchLead,
@@ -81,7 +89,7 @@ def test_select_case_dev_ranked_materializes_exact_top_n_rest_batch(
     summary = tmp_path / "selection-summary.json"
 
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -119,7 +127,7 @@ def test_select_case_dev_ranked_materializes_exact_top_n_rest_batch(
 
     # The target batch is replay-safe and the frozen run card is stable.
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -135,6 +143,374 @@ def test_select_case_dev_ranked_materializes_exact_top_n_rest_batch(
     assert resumed["leads_seeded"] == 0
 
 
+def test_promote_terminal_firecrawl_subset_is_exact_and_nonprovisional(
+    tmp_path: Path,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+
+    assert legalforecast_cli.main(_promotion_args(fixture)) == 0
+
+    snapshot = cast(Path, fixture["output_root"]) / "snapshots/terminal-promoted"
+    manifest = verify_snapshot(
+        snapshot,
+        expected_cycle_hash=cast(str, fixture["target_cycle_hash"]),
+        require_complete=True,
+        require_saturated=True,
+    )
+    assert (
+        not {
+            "provisional_frontier",
+            "final_cohort_eligible",
+            "full_source_terminal",
+        }
+        & manifest.keys()
+    )
+    commitment = manifest["stage_commitments"]["terminal_subset_promotion"]
+    assert commitment["selected_candidate_count"] == 5
+    assert commitment["final_cohort_eligible"] is True
+    assert commitment["full_source_terminal"] is True
+    assert commitment["provider_activity_requested"] is False
+    assert commitment["provider_activity_executed"] is False
+    accepted = _read_jsonl(snapshot / "screened-cases.jsonl")
+    assert {record["candidate_id"] for record in accepted} == {
+        f"courtlistener-docket-{docket_id}"
+        for docket_id in ("102", "103", "104", "105", "106")
+    }
+    run_card = json.loads(
+        (
+            cast(Path, fixture["output_root"])
+            / "run-cards/promote-terminal-firecrawl-subset.json"
+        ).read_text()
+    )
+    assert run_card["provider_activity_requested"] is False
+    assert run_card["provider_activity_executed"] is False
+    assert run_card["paid_activity_requested"] is False
+    assert run_card["paid_activity_executed"] is False
+
+    assert legalforecast_cli.main(_promotion_args(fixture)) == 0
+    resumed_summary = json.loads(
+        (
+            cast(Path, fixture["output_root"])
+            / "terminal-subset-promotion-summary.json"
+        ).read_text()
+    )
+    assert resumed_summary["resumed_existing_snapshot"] is True
+    assert resumed_summary["accepted_case_count"] == 5
+
+
+def test_promote_terminal_firecrawl_subset_dry_run_writes_only_completion_metadata(
+    tmp_path: Path,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+    args = _promotion_args(fixture)
+    args.remove("--execute")
+
+    assert legalforecast_cli.main(args) == 0
+
+    output_root = cast(Path, fixture["output_root"])
+    summary = json.loads(
+        (output_root / "terminal-subset-promotion-summary.json").read_text()
+    )
+    run_card = json.loads(
+        (output_root / "run-cards/promote-terminal-firecrawl-subset.json").read_text()
+    )
+    assert summary["dry_run"] is True
+    assert summary["reconciled"] is False
+    assert summary["provider_activity_executed"] is False
+    assert run_card["status"] == "completed"
+    assert run_card["dry_run"] is True
+    assert run_card["provider_activity_executed"] is False
+    assert not (output_root / "snapshots").exists()
+    assert not (output_root / "raw-docket-html").exists()
+
+
+def test_promote_terminal_firecrawl_subset_rejects_rewritten_selection_card(
+    tmp_path: Path,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+    selection_card = cast(Path, fixture["selection_card"])
+    rewritten = json.loads(selection_card.read_text())
+    rewritten["selected_docket_ids"] = ["101"]
+    selection_card.write_text(json.dumps(rewritten, sort_keys=True) + "\n")
+    fixture["selection_card_sha256"] = hashlib.sha256(
+        selection_card.read_bytes()
+    ).hexdigest()
+
+    assert legalforecast_cli.main(_promotion_args(fixture)) == 2
+    assert not (cast(Path, fixture["output_root"]) / "snapshots").exists()
+
+
+@pytest.mark.parametrize("mutation", ["manifest", "screen-input", "raw"])
+def test_promote_terminal_firecrawl_subset_rejects_source_commitment_drift(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+    if mutation == "manifest":
+        manifest_path = cast(Path, fixture["source_snapshot"]) / "manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest["created_at"] = "2026-07-16T00:00:00Z"
+        manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+    elif mutation == "screen-input":
+        successes = cast(Path, fixture["source_successes"])
+        records = _read_jsonl(successes)
+        records[0]["retrieved_at"] = "2026-07-15T00:00:00+00:00"
+        _write_jsonl(successes, records)
+    else:
+        raw = cast(Path, fixture["source_raw"])
+        raw.write_text(raw.read_text() + "<!-- changed -->")
+
+    assert legalforecast_cli.main(_promotion_args(fixture)) == 2
+    assert not (cast(Path, fixture["output_root"]) / "snapshots").exists()
+
+
+def test_promote_terminal_firecrawl_subset_rejects_source_accepted_set_drift(
+    tmp_path: Path,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path, source_docket_id="101")
+
+    assert legalforecast_cli.main(_promotion_args(fixture)) == 2
+    assert not (cast(Path, fixture["output_root"]) / "snapshots").exists()
+
+
+def test_promote_terminal_firecrawl_subset_rejects_contradictory_success_count(
+    tmp_path: Path,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path, provisional_success_count=4)
+
+    assert legalforecast_cli.main(_promotion_args(fixture)) == 2
+    assert not (cast(Path, fixture["output_root"]) / "snapshots").exists()
+
+
+def test_promote_terminal_firecrawl_subset_publishes_buffered_raw_after_source_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+    source_raw = cast(Path, fixture["source_raw"])
+    original_raw = source_raw.read_bytes()
+    original_verify = legalforecast_cli.verify_terminal_subset_promotion_source
+
+    def mutate_after_verification(*args: object, **kwargs: object) -> object:
+        bundle = original_verify(*args, **kwargs)
+        source_raw.write_bytes(b"mutated after authenticated source verification")
+        return bundle
+
+    monkeypatch.setattr(
+        legalforecast_cli,
+        "verify_terminal_subset_promotion_source",
+        mutate_after_verification,
+    )
+
+    assert legalforecast_cli.main(_promotion_args(fixture)) == 0
+    output_raw = (
+        cast(Path, fixture["output_root"]) / "raw-docket-html/102.html"
+    ).read_bytes()
+    assert output_raw == original_raw
+
+
+def test_promote_terminal_firecrawl_subset_uses_exact_pinned_manifest_markers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+    manifest_path = cast(Path, fixture["source_snapshot"]) / "manifest.json"
+    pinned_manifest = json.loads(manifest_path.read_text())
+    pinned_manifest.update(
+        {
+            "provisional_frontier": False,
+            "final_cohort_eligible": True,
+            "full_source_terminal": True,
+        }
+    )
+    manifest_path.write_text(json.dumps(pinned_manifest, sort_keys=True) + "\n")
+    fixture["source_snapshot_manifest_sha256"] = hashlib.sha256(
+        manifest_path.read_bytes()
+    ).hexdigest()
+    real_verify_snapshot = snapshot_replay_module.verify_snapshot
+
+    def verify_different_manifest(path: str | Path, **kwargs: object) -> object:
+        private_manifest_path = Path(path) / "manifest.json"
+        exact_bytes = private_manifest_path.read_bytes()
+        different = json.loads(exact_bytes)
+        different.update(
+            {
+                "provisional_frontier": True,
+                "final_cohort_eligible": False,
+                "full_source_terminal": False,
+            }
+        )
+        private_manifest_path.write_text(json.dumps(different, sort_keys=True) + "\n")
+        try:
+            return real_verify_snapshot(path, **kwargs)
+        finally:
+            private_manifest_path.write_bytes(exact_bytes)
+
+    monkeypatch.setattr(
+        snapshot_replay_module,
+        "verify_snapshot",
+        verify_different_manifest,
+    )
+
+    assert legalforecast_cli.main(_promotion_args(fixture)) == 2
+    assert not (cast(Path, fixture["output_root"]) / "snapshots").exists()
+
+
+def test_promote_terminal_firecrawl_subset_rejects_outputs_inside_source_bundle(
+    tmp_path: Path,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+    fixture["output_root"] = cast(Path, fixture["source_bundle_root"]) / "bad-output"
+
+    assert legalforecast_cli.main(_promotion_args(fixture)) == 2
+    assert not cast(Path, fixture["output_root"]).exists()
+
+
+@pytest.mark.parametrize(
+    ("flag", "tree", "name"),
+    [
+        ("--screened-cases-output", "snapshot", "screened-cases.jsonl"),
+        ("--exclusions-output", "snapshot", "exclusions.jsonl"),
+        ("--summary-output", "snapshot", "summary.json"),
+        ("--run-card-output", "snapshot", "run-card.json"),
+        ("--log-output", "snapshot", "log.jsonl"),
+        ("--screened-cases-output", "raw", "screened-cases.jsonl"),
+        ("--exclusions-output", "raw", "exclusions.jsonl"),
+        ("--summary-output", "raw", "summary.json"),
+        ("--run-card-output", "raw", "run-card.json"),
+        ("--log-output", "raw", "log.jsonl"),
+    ],
+)
+def test_promote_terminal_firecrawl_subset_rejects_writable_files_in_output_trees(
+    tmp_path: Path,
+    flag: str,
+    tree: str,
+    name: str,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+    output_root = cast(Path, fixture["output_root"])
+    tree_path = (
+        output_root / "snapshots/terminal-promoted"
+        if tree == "snapshot"
+        else output_root / "raw-docket-html"
+    )
+    args = [*_promotion_args(fixture), flag, str(tree_path / name)]
+
+    assert legalforecast_cli.main(args) == 2
+    assert not (output_root / "snapshots").exists()
+    assert not (output_root / "raw-docket-html").exists()
+
+
+def test_promote_terminal_firecrawl_subset_rejects_cycle_store_sidecar_in_raw_tree(
+    tmp_path: Path,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+    output_root = cast(Path, fixture["output_root"])
+    raw_html_dir = output_root / "raw-docket-html"
+    raw_html_dir.mkdir(parents=True)
+    lock_target = raw_html_dir / "cycle-store.lock"
+    lock_target.write_text("immutable snapshot-adjacent evidence")
+    cycle_store_lock = Path(f"{fixture['target_store']}.lock")
+    cycle_store_lock.unlink(missing_ok=True)
+    cycle_store_lock.symlink_to(lock_target)
+
+    assert legalforecast_cli.main(_promotion_args(fixture)) == 2
+    assert lock_target.read_text() == "immutable snapshot-adjacent evidence"
+    assert not (output_root / "snapshots").exists()
+
+
+def test_promote_terminal_firecrawl_subset_resume_cannot_overwrite_output_trees(
+    tmp_path: Path,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+    assert legalforecast_cli.main(_promotion_args(fixture)) == 0
+    output_root = cast(Path, fixture["output_root"])
+    snapshot = output_root / "snapshots/terminal-promoted"
+    snapshot_summary = snapshot / "summary.json"
+    original_summary = snapshot_summary.read_bytes()
+    raw_html_dir = output_root / "raw-docket-html"
+    original_raw_files = {
+        path: path.read_bytes() for path in raw_html_dir.iterdir() if path.is_file()
+    }
+
+    for flag, path in (
+        ("--summary-output", snapshot_summary),
+        ("--screened-cases-output", raw_html_dir / "screened-cases.jsonl"),
+    ):
+        assert legalforecast_cli.main([*_promotion_args(fixture), flag, str(path)]) == 2
+        assert snapshot_summary.read_bytes() == original_summary
+        assert {
+            raw_path: raw_path.read_bytes()
+            for raw_path in raw_html_dir.iterdir()
+            if raw_path.is_file()
+        } == original_raw_files
+        verify_snapshot(
+            snapshot,
+            expected_cycle_hash=cast(str, fixture["target_cycle_hash"]),
+            require_complete=True,
+            require_saturated=True,
+        )
+
+
+def test_promote_terminal_firecrawl_subset_resume_publishes_verified_snapshot_buffers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+    assert legalforecast_cli.main(_promotion_args(fixture)) == 0
+    output_root = cast(Path, fixture["output_root"])
+    snapshot = output_root / "snapshots/terminal-promoted"
+    expected_screened = json.loads(
+        "["
+        + ",".join((snapshot / "screened-cases.jsonl").read_text().splitlines())
+        + "]"
+    )
+    original_resume = CycleAcquisitionStore.existing_complete_snapshot_evidence
+
+    def mutate_after_verification(
+        store: CycleAcquisitionStore,
+        *args: object,
+        **kwargs: object,
+    ) -> object:
+        evidence = original_resume(store, *args, **kwargs)
+        if evidence is not None:
+            (evidence.path / "screened-cases.jsonl").write_text(
+                '{"candidate_id":"tampered-candidate"}\n'
+            )
+            (evidence.path / "exclusions.jsonl").write_text(
+                '{"case_id":"tampered-candidate"}\n'
+            )
+            (evidence.path / "summary.json").write_text(
+                '{"reconciliation_complete":false}\n'
+            )
+        return evidence
+
+    monkeypatch.setattr(
+        CycleAcquisitionStore,
+        "existing_complete_snapshot_evidence",
+        mutate_after_verification,
+    )
+
+    assert legalforecast_cli.main(_promotion_args(fixture)) == 0
+    published_screened = [
+        json.loads(line)
+        for line in (output_root / "terminal-promoted-screened-cases.jsonl")
+        .read_text()
+        .splitlines()
+        if line.strip()
+    ]
+    assert published_screened == expected_screened
+    assert (
+        output_root / "terminal-promoted-screening-exclusions.jsonl"
+    ).read_text() == ""
+    assert (
+        json.loads(
+            (output_root / "terminal-subset-promotion-summary.json").read_text()
+        )["reconciled"]
+        is True
+    )
+
+
 def test_select_case_dev_ranked_accepts_authenticated_unrestricted_recap_source(
     tmp_path: Path,
 ) -> None:
@@ -144,7 +520,7 @@ def test_select_case_dev_ranked_accepts_authenticated_unrestricted_recap_source(
     run_card = tmp_path / "selection-run-card.json"
 
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -194,7 +570,7 @@ def test_select_case_dev_ranked_authenticates_terminal_pagination_exclusion(
     target_store = _target_store(tmp_path)
     selection_card = tmp_path / "selection-run-card.json"
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -247,7 +623,7 @@ def test_select_case_dev_ranked_rejects_rehashed_terminal_exclusion_tamper(
     target_store = _target_store(tmp_path)
 
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -284,7 +660,7 @@ def test_select_case_dev_ranked_rejects_source_type_substitution(
     target_store = _target_store(tmp_path)
 
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=opinion_source,
                 enrichment_root=enrichment_root,
@@ -320,7 +696,7 @@ def test_select_case_dev_ranked_subset_materializes_exact_noncontiguous_dockets(
         docket_ids=("103", "102"),
     )
 
-    assert main(args) == 0
+    assert legalforecast_cli.main(args) == 0
 
     frozen = json.loads(run_card.read_text())
     assert frozen["schema_version"] == CASE_DEV_RANKED_SUBSET_SELECTION_RUN_SCHEMA
@@ -339,7 +715,7 @@ def test_select_case_dev_ranked_subset_materializes_exact_noncontiguous_dockets(
         assert config["selection_semantics"] == "exact_case_dev_ranked_subset"
         assert config["selected_candidate_count"] == 2
 
-    assert main(args) == 0
+    assert legalforecast_cli.main(args) == 0
     assert json.loads(summary.read_text())["already_seeded"] is True
 
 
@@ -364,7 +740,7 @@ def test_select_case_dev_ranked_subset_rejects_invalid_exact_set_before_write(
     target_store = _target_store(tmp_path)
 
     assert (
-        main(
+        legalforecast_cli.main(
             _subset_selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -410,7 +786,7 @@ def test_select_case_dev_ranked_rejects_ranked_tamper_before_target_write(
     target_store = _target_store(tmp_path)
 
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -443,7 +819,7 @@ def test_select_case_dev_ranked_rejects_legacy_ranking_policy(
     target_store = _target_store(tmp_path)
 
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -492,7 +868,7 @@ def test_select_case_dev_ranked_rejects_forged_rank_and_recomputed_run_card(
     target_store = _target_store(tmp_path)
 
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -529,7 +905,7 @@ def test_select_case_dev_ranked_rejects_forged_run_card_semantics(
     target_store = _target_store(tmp_path)
 
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -572,7 +948,7 @@ def test_select_case_dev_ranked_rejects_source_metadata_forgery(
     target_store = _target_store(tmp_path)
 
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -595,7 +971,7 @@ def test_select_case_dev_ranked_rejects_existing_card_before_target_mutation(
     first_target = _target_store(tmp_path, name="first-target.sqlite3")
     run_card = tmp_path / "selection-run-card.json"
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -612,7 +988,7 @@ def test_select_case_dev_ranked_rejects_existing_card_before_target_mutation(
     fresh_target = _target_store(tmp_path, name="fresh-target.sqlite3")
 
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -648,7 +1024,7 @@ def test_select_case_dev_ranked_rejects_completed_enrichment_with_failure(
     )
     enrichment_root = tmp_path / "enrichment-with-failure"
     assert (
-        main(
+        legalforecast_cli.main(
             [
                 "acquisition",
                 "enrich-recap-case-dev",
@@ -668,7 +1044,7 @@ def test_select_case_dev_ranked_rejects_completed_enrichment_with_failure(
     target_store = _target_store(tmp_path)
 
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -727,7 +1103,7 @@ def test_select_case_dev_ranked_rejects_output_aliases_before_target_mutation(
     }
 
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -756,7 +1132,7 @@ def test_select_case_dev_ranked_rejects_hardlinked_output_before_target_mutation
     target_store = _target_store(tmp_path)
 
     assert (
-        main(
+        legalforecast_cli.main(
             _selection_args(
                 source_store=source_store,
                 enrichment_root=enrichment_root,
@@ -786,7 +1162,7 @@ def test_select_case_dev_ranked_replays_terminal_page_commitment(
         run_card=run_card,
         summary=summary,
     )
-    assert main(args) == 0
+    assert legalforecast_cli.main(args) == 0
     with sqlite3.connect(target_store) as connection:
         connection.execute(
             "UPDATE search_pages SET response_hash = ? WHERE batch_id = ?",
@@ -794,7 +1170,7 @@ def test_select_case_dev_ranked_replays_terminal_page_commitment(
         )
         connection.commit()
 
-    assert main(args) == 2
+    assert legalforecast_cli.main(args) == 2
 
 
 def test_select_case_dev_ranked_rejects_wrong_terminal_materialization(
@@ -812,7 +1188,7 @@ def test_select_case_dev_ranked_rejects_wrong_terminal_materialization(
         run_card=run_card,
         summary=summary,
     )
-    assert main(args) == 0
+    assert legalforecast_cli.main(args) == 0
     with sqlite3.connect(target_store) as connection:
         connection.execute(
             "INSERT INTO candidates(candidate_id, first_batch_id, discovered_at) "
@@ -826,7 +1202,7 @@ def test_select_case_dev_ranked_rejects_wrong_terminal_materialization(
         )
         connection.commit()
 
-    assert main(args) == 2
+    assert legalforecast_cli.main(args) == 2
 
 
 def test_project_case_dev_opinion_source_rejects_malformed_docket_id() -> None:
@@ -961,6 +1337,7 @@ def _run_enrichment(
     *,
     source_store: Path,
     docket_ids: tuple[str, ...] = ("101", "102"),
+    eligible_docket_ids: tuple[str, ...] = ("102",),
 ) -> Path:
     fixture = tmp_path / "case-dev.jsonl"
     responses = [
@@ -977,7 +1354,7 @@ def _run_enrichment(
                         "doc-10",
                     ),
                 ]
-                if docket_id == "102"
+                if docket_id in eligible_docket_ids
                 else []
             ),
         )
@@ -986,7 +1363,7 @@ def _run_enrichment(
     _write_jsonl(fixture, responses)
     output_root = tmp_path / "enrichment"
     assert (
-        main(
+        legalforecast_cli.main(
             [
                 "acquisition",
                 "enrich-recap-case-dev",
@@ -1025,7 +1402,7 @@ def _run_terminal_exclusion_enrichment(
     )
     output_root = tmp_path / "enrichment-with-terminal-exclusion"
     assert (
-        main(
+        legalforecast_cli.main(
             [
                 "acquisition",
                 "enrich-recap-case-dev",
@@ -1052,10 +1429,11 @@ def _opinion_source_store(
     docket_ids: tuple[str, ...] = ("101", "102"),
     search_type: str = "o",
     name: str = "source.sqlite3",
+    cycle_policy: dict[str, object] | None = None,
 ) -> Path:
     path = tmp_path / name
     with CycleAcquisitionStore(path) as store:
-        store.ensure_cycle(_cycle_policy())
+        store.ensure_cycle(cycle_policy or _cycle_policy())
         term = '"motion to dismiss"'
         config: dict[str, object] = {
             "schema_version": (
@@ -1101,7 +1479,9 @@ def _opinion_source_store(
 def _target_store(tmp_path: Path, *, name: str = "target.sqlite3") -> Path:
     path = tmp_path / name
     with CycleAcquisitionStore(path) as store:
-        store.ensure_cycle(_cycle_acquisition_policy(anchor=_anchor()))
+        store.ensure_cycle(
+            legalforecast_cli._cycle_acquisition_policy(anchor=_anchor())
+        )
     return path
 
 
@@ -1176,6 +1556,283 @@ def _entry(
             }
         ],
     }
+
+
+def _terminal_promotion_fixture(
+    tmp_path: Path,
+    *,
+    source_docket_id: str | None = None,
+    provisional_success_count: int | None = None,
+) -> dict[str, object]:
+    selected_docket_ids = ("102", "103", "104", "105", "106")
+    terminal_source_docket_ids = ("101", *selected_docket_ids)
+    source_success_docket_ids = (
+        selected_docket_ids if source_docket_id is None else (source_docket_id,)
+    )
+    bundle_root = tmp_path / "source-bundle"
+    bundle_root.mkdir()
+    source_policy = legalforecast_cli._cycle_acquisition_policy(anchor=_anchor())
+    source_policy["fixture_generation"] = "provisional-source"
+    source_store = _opinion_source_store(
+        bundle_root,
+        cycle_policy=source_policy,
+        docket_ids=terminal_source_docket_ids,
+    )
+    enrichment_root = _run_enrichment(
+        bundle_root,
+        source_store=source_store,
+        docket_ids=terminal_source_docket_ids,
+        eligible_docket_ids=selected_docket_ids,
+    )
+    target_store = _target_store(tmp_path)
+    selection_card = tmp_path / "selection-run-card.json"
+    assert (
+        legalforecast_cli.main(
+            _subset_selection_args(
+                source_store=source_store,
+                enrichment_root=enrichment_root,
+                target_store=target_store,
+                run_card=selection_card,
+                summary=tmp_path / "selection-summary.json",
+                docket_ids=selected_docket_ids,
+            )
+        )
+        == 0
+    )
+    selection = json.loads(selection_card.read_text())
+    source_root = bundle_root / "provisional-source"
+    source_raw_dir = source_root / "raw-docket-html"
+    source_raw_dir.mkdir(parents=True)
+    raw_by_docket = {
+        docket_id: _promotion_docket_html(docket_id)
+        for docket_id in source_success_docket_ids
+    }
+    raw_paths = {
+        docket_id: source_raw_dir / f"{docket_id}.html"
+        for docket_id in source_success_docket_ids
+    }
+    for docket_id, raw_path in raw_paths.items():
+        raw_path.write_text(raw_by_docket[docket_id])
+    success_count = (
+        len(source_success_docket_ids)
+        if provisional_success_count is None
+        else provisional_success_count
+    )
+    provisional_config: dict[str, object] = {
+        "stage": "authenticated_case_dev_provisional_frontier",
+        "provisional_frontier": True,
+        "final_cohort_eligible": False,
+        "full_source_terminal": False,
+        "source_candidate_count": selection["source_candidate_count"],
+        "source_candidate_set_sha256": selection["source_candidate_set_sha256"],
+        "source_projection_sha256": selection["source_projection_sha256"],
+        "progress_config_sha256": "a" * 64,
+        "progress_sha256": "b" * 64,
+        "success_count": success_count,
+        "terminal_exclusion_count": 0,
+        "pending_count": (selection["source_candidate_count"] - success_count),
+        "success_candidate_set_sha256": "c" * 64,
+        "terminal_excluded_candidate_set_sha256": "d" * 64,
+        "pending_candidate_set_sha256": "e" * 64,
+    }
+    with CycleAcquisitionStore(source_store) as store:
+        store.ensure_batch("provisional-batch", provisional_config)
+        store.ensure_terms("provisional-batch", ("provisional",))
+        store.commit_search_page(
+            "provisional-batch",
+            "provisional",
+            None,
+            tuple(
+                DiscoveryHit(
+                    provider_hit_id=f"provisional-{docket_id}",
+                    candidate_id=f"courtlistener-docket-{docket_id}",
+                    payload={"case_id": f"courtlistener-docket-{docket_id}"},
+                )
+                for docket_id in source_success_docket_ids
+            ),
+            next_cursor=None,
+            terminal_status=TermTerminalStatus.EXHAUSTED,
+        )
+        source_cycle_hash = store.cycle_hash
+    lineage = provisional_lineage_flags(provisional_config)
+    source_successes = source_root / "firecrawl-docket-successes.jsonl"
+    _write_jsonl(
+        source_successes,
+        [
+            {
+                "case_id": f"courtlistener-docket-{docket_id}",
+                "candidate_id": f"courtlistener-docket-{docket_id}",
+                "source_url": (
+                    f"https://www.courtlistener.com/docket/{docket_id}/fixture/"
+                ),
+                "docket_id": docket_id,
+                "raw_html_path": str(raw_paths[docket_id]),
+                "raw_html_sha256": (
+                    "sha256:"
+                    + hashlib.sha256(raw_by_docket[docket_id].encode()).hexdigest()
+                ),
+                "raw_html_bytes": len(raw_by_docket[docket_id].encode()),
+                "retrieved_at": "2026-07-15T12:00:00+00:00",
+                "pagination_complete_for_anchor_window": True,
+                "page_count": 1,
+                "case_metadata": {
+                    "case_id": f"courtlistener-docket-{docket_id}",
+                    "court_id": "dcd",
+                    "docket_number": f"1:25-cv-{int(docket_id):05d}",
+                    "case_name": f"Example {docket_id} v. Example",
+                    "source_url": (
+                        f"https://www.courtlistener.com/docket/{docket_id}/fixture/"
+                    ),
+                },
+                **lineage,
+            }
+            for docket_id in source_success_docket_ids
+        ],
+    )
+    source_exclusions = source_root / "firecrawl-docket-exclusions.jsonl"
+    _write_jsonl(source_exclusions, [])
+    screen_root = source_root / "screen"
+    assert (
+        legalforecast_cli.main(
+            [
+                "acquisition",
+                "screen-firecrawl-dockets",
+                "--output-root",
+                str(screen_root),
+                "--cycle-store",
+                str(source_store),
+                "--batch-id",
+                "provisional-batch",
+                "--successes",
+                str(source_successes),
+                "--fetch-exclusions",
+                str(source_exclusions),
+                "--raw-html-dir",
+                str(source_raw_dir),
+                "--decision-filed-on-or-after",
+                "2026-06-30",
+                "--snapshot-id",
+                "provisional-screened",
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    source_snapshot = screen_root / "snapshots/provisional-screened"
+    source_screen_card = screen_root / "run-cards/screen-firecrawl-dockets.json"
+    with CycleAcquisitionStore(target_store) as store:
+        target_cycle_hash = store.cycle_hash
+    return {
+        "source_store": source_store,
+        "source_batch_id": "opinion-source",
+        "source_projection": (
+            enrichment_root / "checkpoints/case-dev-recap-source-projection.jsonl"
+        ),
+        "ranked": enrichment_root / "checkpoints/case-dev-recap-ranked.jsonl",
+        "failures": enrichment_root / "checkpoints/case-dev-recap-failures.jsonl",
+        "enrichment_run_card": (
+            enrichment_root / "run-cards/enrich-recap-case-dev.json"
+        ),
+        "selection_card": selection_card,
+        "selection_card_sha256": hashlib.sha256(
+            selection_card.read_bytes()
+        ).hexdigest(),
+        "target_store": target_store,
+        "target_cycle_hash": target_cycle_hash,
+        "source_cycle_hash": source_cycle_hash,
+        "source_bundle_root": bundle_root,
+        "source_snapshot": source_snapshot,
+        "source_snapshot_manifest_sha256": hashlib.sha256(
+            (source_snapshot / "manifest.json").read_bytes()
+        ).hexdigest(),
+        "source_screen_card": source_screen_card,
+        "source_screen_card_sha256": hashlib.sha256(
+            source_screen_card.read_bytes()
+        ).hexdigest(),
+        "source_successes": source_successes,
+        "source_raw": raw_paths[source_success_docket_ids[0]],
+        "output_root": tmp_path / "promotion-output",
+    }
+
+
+def _promotion_args(fixture: dict[str, object]) -> list[str]:
+    return [
+        "acquisition",
+        "promote-terminal-firecrawl-subset",
+        "--output-root",
+        str(fixture["output_root"]),
+        "--source-store",
+        str(fixture["source_store"]),
+        "--source-batch-id",
+        str(fixture["source_batch_id"]),
+        "--source-projection",
+        str(fixture["source_projection"]),
+        "--ranked",
+        str(fixture["ranked"]),
+        "--failures",
+        str(fixture["failures"]),
+        "--enrichment-run-card",
+        str(fixture["enrichment_run_card"]),
+        "--expected-enrichment-run-card-sha256",
+        hashlib.sha256(
+            cast(Path, fixture["enrichment_run_card"]).read_bytes()
+        ).hexdigest(),
+        "--selection-run-card",
+        str(fixture["selection_card"]),
+        "--expected-selection-run-card-sha256",
+        str(fixture["selection_card_sha256"]),
+        "--cycle-store",
+        str(fixture["target_store"]),
+        "--batch-id",
+        "ranked-subset-rest",
+        "--expected-target-cycle-hash",
+        str(fixture["target_cycle_hash"]),
+        "--source-snapshot",
+        str(fixture["source_snapshot"]),
+        "--expected-source-snapshot-manifest-sha256",
+        str(fixture["source_snapshot_manifest_sha256"]),
+        "--source-screen-run-card",
+        str(fixture["source_screen_card"]),
+        "--expected-source-screen-run-card-sha256",
+        str(fixture["source_screen_card_sha256"]),
+        "--source-bundle-root",
+        str(fixture["source_bundle_root"]),
+        "--expected-source-cycle-hash",
+        str(fixture["source_cycle_hash"]),
+        "--decision-filed-on-or-after",
+        "2026-06-30",
+        "--snapshot-id",
+        "terminal-promoted",
+        "--execute",
+    ]
+
+
+def _promotion_docket_html(docket_id: str) -> str:
+    def entry(number: int, filed_at: str, text: str, description: str) -> str:
+        return (
+            f'<div class="row" id="entry-{number}">'
+            f'<div class="col-xs-1">{number}</div>'
+            f'<div class="col-xs-3"><span title="{filed_at}">{filed_at}</span></div>'
+            f'<div class="col-xs-8">{text}'
+            '<div class="recap-documents"><div>Main Document</div>'
+            f"<div>{description}</div>"
+            f'<a href="https://storage.courtlistener.com/{docket_id}-{number}.pdf">'
+            "Download PDF</a></div></div></div>"
+        )
+
+    return (
+        f"<html><head><title>Example {docket_id} v. Example</title></head><body>"
+        '<div id="docket-entry-table">'
+        + entry(1, "January 2, 2026", "COMPLAINT filed", "Complaint")
+        + entry(5, "February 2, 2026", "MOTION to Dismiss", "Motion to Dismiss")
+        + entry(
+            16,
+            "July 14, 2026",
+            "ORDER granting Motion to Dismiss",
+            "Order on Motion to Dismiss",
+        )
+        + "</div></body></html>"
+    )
 
 
 def _read_jsonl(path: Path) -> list[dict[str, object]]:
