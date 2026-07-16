@@ -1,6 +1,6 @@
 # Dual-Track Launch Roadmap: LegalForecast-MTD Cycle 1 and Community Harness Comparisons
 
-Status: implementation-ready; planning PR open
+Status: implementation-ready; strategic speed-and-audience amendment incorporated; planning PR open
 
 Date: 2026-07-16
 
@@ -24,13 +24,17 @@ The live Beads database remains the operational source of truth when its state d
 
 ## 1. Executive decision
 
-Run two product tracks in parallel, with a third integration and issue-convergence lane that protects their shared boundaries.
+Run two product tracks in parallel, with an integration and issue-convergence lane plus a deliberately small distribution lane that gives each result an audience.
 
 Track O is the official LegalForecast-MTD benchmark.
 
 Track C is the non-official Community Harness Comparisons program, beginning with Harvey LAB tasks executed through Claude Code and Codex.
 
 Track I owns architecture boundaries, release and CI integration, evidence review, and the terminal disposition of the existing GitHub backlog.
+
+Track D owns publication, audience positioning, the LegalQuants engagement loop, and the methods preprint.
+
+The `D-*` prefix is used because `P-*` already names planning/governance packages in this roadmap; it implements the reviewer's proposed publication track without creating ambiguous work-package codes.
 
 Do not turn the repository into a multi-package monorepo before either launch.
 
@@ -56,13 +60,29 @@ The Beads graph currently contradicts the exact-100 launch policy because `5qd6.
 
 Resolve that contradiction as an explicit P0 governance task before changing dependency edges.
 
-For community comparisons, build one canonical solve-to-score pipeline:
+For community comparisons, use two deliberately different launch tiers.
+
+Tier 0 is a trusted-operator, one-task preliminary experiment that can run within days.
+
+It preserves the pinned CLI's native agent loop, system prompt policy, context management, and native local tools inside a disposable outer boundary; it does not replace those tools with an MCP shim.
+
+Tier 0 freezes the task, arms, model/settings, evaluator, run order, caps, claims, and solver/evaluator separation before spend; publishes only allowlisted, scanned artifacts; and carries the permanent label `Preliminary — one task pair, operator-run, not independently reproducible`.
+
+Tier 0 may progress issue #196, but it does not close contributor-intake issue #49 and is not contributor-safe.
+
+Tier 1 is the full reproducible contributor path.
+
+It retains hostile-input validation, receipts, resume identity, cancellation, trusted score verification, clean rebuilds, submission safety, and contributor documentation.
+
+For Tier 1 and later pilots, build one canonical solve-to-score pipeline:
 
 `pinned task bytes -> harness execution -> canonical deliverable -> pinned LAB evaluator -> canonical score artifact -> validated community package -> comparison site`.
 
 Every harness arm must use the same canonical task materializer and score artifact.
 
-The first Claude Code and Codex runs are allowed to prove plumbing independently, but they must not be described as causal harness comparisons unless task, model, evaluator, judge, prompt projection, and repeat policy are matched.
+The first Claude Code and Codex runs are allowed to prove plumbing independently, but they must not be described as matched harness comparisons unless solver-visible task content/materialization, served model/provider route/settings, evaluator/judge/scoring revision, project-imposed outer containment, temporal block, resource/stopping rules, and repeat/order-assignment policy are matched.
+
+Harness-intrinsic system prompts, context management, agent loops, and tool APIs are part of the treatment and are therefore excluded from this nuisance-variable match.
 
 Claude Code with an Anthropic subscription and Codex with an OpenAI subscription differ in both harness and model family.
 
@@ -76,13 +96,29 @@ Never infer that a consumer subscription is transferable API entitlement.
 
 Never copy a CLI's durable auth state, account database, token cache, or full home directory into a task workspace or tool container.
 
-Keep provider calls on the host and bounded task tools inside the network-disabled runtime from GitHub issue #41.
+The primary scientific profiles are `claude-code-clean-native` and `codex-cli-clean-native`: contain around the harness so its native tools remain part of the treatment.
+
+The whole provider process runs inside a disposable, resource-bounded workspace with isolated HOME/XDG/session state, no repository or ordinary home mount, read-only solver input, a narrow writable output root, evaluator-private bytes absent, and provider-only egress where the installed product contract permits it.
+
+Provider web/browser tools that would bypass the declared boundary are disabled and disclosed.
+
+Do not use Claude Code `--bare` for this arm: the locally installed 2.1.211 binary describes it as a minimal mode that changes the harness being measured.
+
+Keep the GitHub issue #41 network-disabled MCP tool runtime as a separately named `*-mcp-mediated` secondary arm and contributor-security mechanism.
+
+It is useful for decomposing planner versus toolset effects, but it is not the definition of the native Claude Code or Codex harness and does not block Tier 0.
 
 Use at most four active implementation worktrees at peak, including the already-running acquisition lane.
 
 Create at most three new durable worktrees: official eval readiness, community harnesses, and integration/quality.
 
-Start with eight implementation agents plus a coordinator at peak, and use short-lived read-only reviewers outside the write ownership map.
+Staff each ready worktree with up to four primary Codex agents: one integrator and three disjoint owners, for up to 16 primaries plus the coordinator across four lanes when the critical-path queue supports that load.
+
+Each primary may delegate bounded research, fixture, test, or review work, but delegation does not replace clear Bead ownership or file reservations.
+
+Use Agent Mail in every shared worktree, one thread per Bead, exact file/directory reservations, and one writer for shared integration surfaces.
+
+Never claim an `off-critical-path` or `contributor-intake` task while a ready `critical-path-official` or `critical-path-tier0` task exists in the same lane unless the coordinator records why the critical task cannot progress; coordinator-named parallel enablers such as the nonblocking Codex feasibility probe are the only exception.
 
 Land small, ordered PR checkpoints and refresh worktrees from merged `main` between checkpoints.
 
@@ -113,6 +149,20 @@ The official report is descriptive and uses only claims permitted by the frozen 
 No acquisition-time observation of model outputs influences cohort selection, labels, exclusions, or packet contents.
 
 ### 2.2 Outcome C1: first real Harvey LAB community harness run
+
+A preliminary Tier-0 paired smoke is published first from a trusted local operator path.
+
+The primary Claude arm preserves Claude Code's native tools and agent loop inside an outer containment boundary; a nonblocking Codex Tier-0 fast-follow applies the same principle and targets publication within two days of the Claude result.
+
+The native Harvey LAB arm receives byte-identical solver-visible inputs and uses the exact same served model/provider/settings where that can be proven.
+
+If exact model parity is unavailable, the rows are labeled preliminary system bundles and no harness-effect estimate is claimed.
+
+The pinned evaluator runs only after each solver stops and its deliverable is sealed; evaluator-private material is never mounted into the solver boundary.
+
+Score, selected/solved/evaluated coverage, solve and evaluation usage, cost basis, tokens, wall-clock, attempts, and failures are co-equal headline outputs.
+
+Tier 0 is explicitly not the contributor-owned acceptance described below.
 
 At least one pinned Harvey LAB task is solved through a real non-fixture Claude Code adapter.
 
@@ -150,6 +200,20 @@ Stale `in_progress` records and overlapping official-run epics are reconciled ag
 
 The final audit leaves no open issue whose owner, dependency, acceptance evidence, or intended milestone is unknown.
 
+### 2.5 Outcome D1: results reach the intended audiences
+
+Cycle 1 has a human-facing report and leaderboard designed for a skimming practitioner or research reader, with the full audit trail one click deeper.
+
+The Tier-0 harness smoke has a short, precise writeup that says what matched, what did not, and what score, cost, tokens, and elapsed time were observed.
+
+John has an approved draft for Jamie and LegalQuants, an explicit invitation to comment before the stratified-pilot task/arm selection is finalized and before any stratified-pilot score is observed, and a bounded feedback window that cannot indefinitely block execution.
+
+The repository README functions as a landing page rather than only an operator manual.
+
+A 6–10 page methods preprint is drafted from `docs/METHODS.md`, then populated from audited results; SSRN submission remains a separate John authorship/publication decision and arXiv is optional.
+
+Official and community pages remain visibly separate and never imply Harvey AI or LegalQuants affiliation.
+
 ## 3. Non-goals and fixed boundaries
 
 This plan does not authorize model evaluation during ongoing acquisition.
@@ -179,6 +243,10 @@ This plan does not weaken exact-model or provider-family disclosure language for
 This plan does not let community work block the official first run.
 
 This plan does not let official corpus availability block Harvey LAB adapter development, which can use pinned LAB tasks and synthetic LegalForecast fixtures.
+
+This plan does not contact Jamie, LegalQuants, or any other external party without John's explicit send approval.
+
+This plan does not call the Tier-0 path contributor-safe, independently reproducible, or sufficient to close issue #49.
 
 ## 4. Current-state evidence
 
@@ -234,7 +302,9 @@ Each live run must record the observed executable version and hash.
 
 `5qd6.73.34` is the active July 13-16 Case.dev enrichment chain from the 3,244-candidate source.
 
-`5qd6.73.37` is the active provisional Firecrawl screening path for completed authenticated enrichments.
+During the amendment, `5qd6.73.37` closed after PR #202 merged and an immutable 911-row checkpoint reconciled 905 authenticated successes, one authorized terminal exclusion, and 2,338 pending from the 3,244-source universe; its artifacts remain explicitly provisional and final-cohort-ineligible.
+
+`5qd6.73.37.1` is the active Firecrawl 5xx recovery/resume child, while `5qd6.73.34.1` separately owns bounded CourtListener HTTP 202 handling.
 
 `yr43.67` is the active replay lane for 22 previously excluded operative complaints after the CourtListener REST fix.
 
@@ -295,6 +365,8 @@ The `br` command requested by the generic Beads workflow skill is not installed 
 The repo-local instructions make live `bd` authoritative, so this plan uses `bd` rather than initializing or installing a competing tracker.
 
 At planning time the live database contained 661 Beads: 578 closed and 83 nonclosed.
+
+After the initial conversion, concurrent acquisition work, and this 23-record strategic amendment, the validation snapshot contains 792 records: 584 closed and 208 nonclosed.
 
 The passive `.beads/issues.jsonl` contained only 389 records and had not been refreshed since July 8.
 
@@ -470,6 +542,10 @@ SubmissionManifest references every applicable hash above.
 
 `ComparisonAnalysisArtifact` owns coverage, failure tables, aggregates, paired differences, uncertainty, sensitivity, and allowed claim category.
 
+Usage, cost, and timing remain authoritative in execution and evaluation receipts rather than being duplicated into the score artifact.
+
+The public comparison view dereferences those receipts and presents score, coverage, tokens, cost, wall-clock, attempts, and failures as peer fields.
+
 ### 7.3 Materialization
 
 One host-owned task materializer creates the execution input tree for every adapter.
@@ -542,7 +618,17 @@ Do not invent equal criterion weighting unless the pinned evaluator defines it.
 
 `evaluation_comparability_key` requires identical solver-visible task commitments, evaluator/rubric/judge/scoring semantics, and permits different harness/model configurations to appear as labeled system bundles.
 
-`matched_harness_key` additionally requires exact served-model identity, provider route, settings, context/tool policy, prompt projection, evaluator, judge, temporal block, and other prespecified nuisance variables while allowing only the harness treatment to differ.
+`matched_harness_key` additionally requires exact solver-visible task bytes/materialization commitment, served-model identity, provider route, model settings, evaluator, judge, scoring revision, temporal block, project-imposed outer filesystem/network containment, execution-order/repeat assignment, and every prespecified exogenous nuisance variable.
+
+Its resource/stopping identity includes wall-clock, spend, token, context, and attempt/retry caps or policies.
+
+If a product-specific resource policy cannot be matched, the result is a disclosed resource-policy/system-bundle comparison rather than an isolated harness comparison.
+
+It deliberately allows harness-intrinsic system prompts, context management, agent loops, tool APIs, tool implementations, and inner sandbox behavior to differ when those frozen differences are the treatment being studied.
+
+The comparison artifact records those treatment differences explicitly.
+
+A secondary MCP-mediated arm receives a distinct adapter/tool-policy identity and may isolate planner-versus-toolset mechanisms; it is never silently pooled with the native arm.
 
 An unresolved served-model identity prevents `matched_harness_key` but does not prevent a clearly labeled system-bundle row.
 
@@ -562,9 +648,41 @@ Every published score is reachable through a validated content hash from the run
 
 Use paired task-level harness reporting only when two configurations share a `matched_harness_key`.
 
+That key is necessary, not sufficient, for a generalized causal claim.
+
+Tier 0 may report only the observed matched paired difference for its pinned task and run; `estimated harness effect`, `performs better`, general superiority, or population-average language waits for the prespecified multi-task/repeat pilot and supported uncertainty.
+
 Use `evaluation_comparability_key` to display clearly labeled system-bundle rows that share the evaluation semantics but differ in harness/model configuration.
 
 Report coverage and failures alongside scores.
+
+Every public per-arm headline table places these fields at the same level:
+
+- selected, solved, evaluated, and jointly comparable task counts;
+
+- task score and criterion coverage;
+
+- solve, evaluation, and total input/output/cache/reasoning tokens where the providers expose them;
+
+- solve, evaluation, and total cost with currency, pricing-basis category, pricing snapshot/hash/date, and provider-reported versus estimated status;
+
+- solver elapsed time, evaluator elapsed time, per-task end-to-end time, full experiment wall-clock, queue time, attempts, and retries; and
+
+- terminal completion or failure classification.
+
+Unavailable usage is null with a reason, never silently zero.
+
+Subscription execution whose incremental price cannot be allocated is `subscription_unallocable`, never `$0`.
+
+Summed task time is distinct from actual wall-clock when work is parallel.
+
+Cost ratios are reported only when currencies and accounting bases are compatible.
+
+Do not create a default composite score-per-dollar ranking; expose the tradeoff frontier and let readers see the dimensions.
+
+For repeats, report paired task differences and mean/median plus dispersion or intervals only when the sample size supports them.
+
+For a one-task pair, report the observed value without invented variance and report attempt/repeat counts separately.
 
 Do not drop failed tasks from one arm while retaining them in another without making the denominator difference explicit.
 
@@ -600,6 +718,8 @@ Support `explicit_api_key` for reproducible published baselines where the provid
 
 Support `local_cli_subscription` for contributor-owned local CLI runs only when provider-supported and explicitly selected.
 
+Support `clean_native` as the primary harness treatment and `mcp_mediated` as a distinct secondary tool-policy treatment.
+
 Reject implicit fallback between profiles.
 
 Record the selected profile category in public provenance.
@@ -608,13 +728,29 @@ Do not record token source, account ID, email, organization ID, credential filen
 
 ### 8.2 Claude Code profile
 
-Probe the exact Claude Code version and required noninteractive flags before a run.
+Probe the exact Claude Code version, executable/distribution hash, structured output, model resolution, permission behavior, native tool inventory, stock networked capabilities, and required noninteractive flags before a run.
 
-Use structured output, no session persistence, an exact requested model, a bounded timeout, a maximum-dollar budget where supported, and a pinned tool/MCP policy.
+The locally observed planning version is 2.1.211; issue #196's earlier 2.1.210 observation must be reconciled and the chosen binary/hash pinned before spend.
 
-Isolate project settings, user settings, hooks, plugins, skills, and unrelated MCP servers.
+The primary `claude-code-clean-native` arm preserves the clean-install native agent loop, system-prompt policy, context management, and enumerated local tools inside the outer boundary.
 
-Use an explicit minimal configuration root rather than the user's full configuration directory.
+Its capability record explicitly inventories Read, Write/Edit, Glob/Grep, Bash, native Task/subagent functionality when present, the LAB task's required-tool matrix, and every stock capability deliberately disabled.
+
+It configures no task MCP server and does not replace native tools with the issue #41 bridge.
+
+Use structured output, no session persistence, an exact requested model, a bounded external process-group timeout, a maximum-dollar budget where supported, a frozen effort setting, and a frozen native-tool policy.
+
+Do not use `--bare` in the primary arm because the installed CLI defines it as minimal mode and therefore changes the harness treatment.
+
+Isolate project settings, user settings, hooks, plugins, skills, slash-command sources, browser integration, and unrelated MCP servers without changing the native agent loop or local tool implementations.
+
+Use an explicit ephemeral configuration root rather than the user's full configuration directory.
+
+Disable provider-side web/browser capabilities when they can bypass the declared network or task boundary, and record that deviation from ordinary defaults.
+
+Call the result `out of the box` only when every stock capability relevant to the LAB policy is retained or the LAB task policy itself forbids the disabled capability; otherwise use the more precise `clean-install native` description.
+
+A later `stock-networked` exploratory profile may retain allowed stock networked capabilities behind a separately reviewed egress and contamination policy, but it cannot block Tier 0 or be pooled silently with `clean_native`.
 
 If local subscription auth cannot be projected without copying durable token state or exposing the full home directory, fail closed and require the explicit API-key profile.
 
@@ -622,13 +758,19 @@ Record the requested model and resolved model identity when Claude exposes it.
 
 Do not call a subscription-backed run a portable published baseline.
 
+If the native permission mode needed for autonomous execution is not compatible with the verified outer boundary, fail closed or label the narrower profile; do not silently fall back to an MCP-mediated arm under the native name.
+
 ### 8.3 Codex CLI profile
 
 Probe the exact Codex version and required noninteractive flags before a run.
 
-Use JSONL output, ephemeral mode, explicit model selection, user-config and rule suppression, explicit working directory, and the narrowest sandbox compatible with the adapter architecture.
+The primary `codex-cli-clean-native` arm preserves Codex's clean-install native agent loop, system instructions, context management, enumerated shell/filesystem/search/edit tools, native delegation when present, and native sandbox behavior inside the same class of outer disposable boundary.
 
-Do not expose the repository, full home directory, Codex configuration tree, or auth files to the task tool container.
+Use JSONL output, ephemeral mode, explicit model selection, user-config and rule suppression, explicit working directory, and the narrowest native sandbox compatible with the pinned task.
+
+Do not substitute a foreign MCP tool loop for the primary arm.
+
+Do not expose the repository, full home directory, Codex configuration tree, or auth files to the whole-process native boundary.
 
 If local subscription auth cannot be used without copying durable auth state into a run workspace, fail closed and require an approved explicit credential path.
 
@@ -636,25 +778,43 @@ Record requested and resolved model identity where the CLI exposes them.
 
 Treat Codex CLI as distinct from the OpenAI Responses API adapter in issue #43.
 
+Keep a later `codex-cli-mcp-mediated` arm only if it answers a useful planner-versus-toolset question; it depends on issue #41 and never blocks the first native Codex result.
+
 ### 8.4 Host and container split
 
-The provider CLI process runs on the host with only the minimal environment and configuration projection needed for provider access.
+The primary native profile contains around the whole harness.
 
-The task tool process runs in the issue #41 network-disabled container runtime.
+Place the provider CLI and its native local tools in a disposable, non-root, resource-bounded OS/container sandbox with a read-only root, isolated HOME/XDG/tmp, no session persistence, no host repository or ordinary home mount, no SSH/Docker/cloud-metadata surface, read-only solver input, an initially empty writable output root, and scratch space.
 
-The container receives no provider credential, credential path, host home, repository root, Docker socket, SSH agent, cloud metadata access, or unrelated environment variable.
+Only the exact hash-verified solver-visible task projection enters that boundary.
 
-The host mediates versioned JSONL tool requests and responses.
+The LAB checkout, rubric, answer keys, evaluator prompt/code/configuration, judge material, and any hidden reference are absent.
 
-Every tool request binds task ID, run ID, request sequence, policy hash, arguments, input hashes, output limits, and timeout.
+Limit egress to the provider endpoints required by the pinned CLI where this can be verified; deny general direct DNS/network and provider web/browser tools.
 
-Every response binds request hash, result status, output hashes, truncation status, resource use, and sanitized error classification.
+Seal and hash the output after the solver exits, then invoke the evaluator in a separate boundary with the sealed deliverable read-only and evaluator-private material read-only.
+
+For the trusted-input Tier-0 run, any unavoidable credential projection stays inside the disposable execution boundary; the capability probe records whether native child tools can inherit or read it, and the plan never claims parent-process-only exposure without a passing child-environment/read canary.
+
+Raw streams remain private and public artifacts are built from an allowlist and scanned for exact secrets, secret shapes, account identifiers, credential paths, host paths, and grader canaries.
+
+Tier 0 does not claim that this boundary is safe for hostile contributor tasks.
+
+The secondary `mcp_mediated` profile retains the original host/provider plus network-disabled issue #41 tool-container design.
+
+For that profile, the host mediates versioned JSONL tool requests and responses; every request and response remains receipt-bound as specified by issue #41.
+
+Rows from the two profiles have different adapter/tool-policy identities.
 
 ### 8.5 Fail-closed policy
 
-No live tool-capable LAB task runs until the hardened issue #41 runtime and negative controls pass.
+No contributor-supplied task or contributor-grade accepted result runs until the selected native outer boundary or secondary issue #41 mediated boundary and its applicable negative controls pass.
 
-A credential-only no-tool handshake may run earlier to prove CLI invocation and redaction, but it is private, non-comparative, and cannot satisfy #49.
+The trusted-operator Tier-0 task may run earlier because it uses pinned public LAB inputs, a physically separate evaluator, a disposable native boundary, a prespecified cap, and allowlist-only publication.
+
+It cannot satisfy #49 or any contributor-safety claim.
+
+A credential-only no-tool handshake may also run earlier to prove CLI invocation and redaction, but it is private, non-comparative, and cannot satisfy #49.
 
 Missing runtime, unsupported capability, interface drift, unknown auth state, unsafe path, unpinned image, or failed negative control stops the run before provider spend where possible.
 
@@ -740,6 +900,20 @@ John confirms label-judge composition and the precise exact-model/provider-famil
 
 John performs the remaining citation check under `5qd6.36`.
 
+John freezes the Cycle 1 model-universe and registry cut no later than 2026-07-20 unless a recorded pre-output decision changes the date.
+
+New models outside that frozen universe normally move to Cycle 2; they do not silently change the Cycle 1 projection.
+
+Every Monday until dispatch, and again within 24 hours before dispatch, the official lane records `eligibility_anchor`, `model_universe_frozen_at`, `registry_cut_at`, any served-model alias/version evidence, `anchor_to_dispatch_days`, and `registry_cut_to_dispatch_days`.
+
+A newly released model outside the universe is a market-freshness event, not automatic invalidation.
+
+Drift in a served alias or model inside the frozen universe is a validity event and requires an explicit continue, replace/reproject-before-output, or defer decision.
+
+Matching a returned alias or model string cannot detect a silent weight roll behind the same name.
+
+The run card and report disclose that residual risk and never describe a provider-served revision as immutable unless the provider exposes a verifiable immutable revision identifier.
+
 John authorizes and operates official freeze and dispatch under `5qd6.41`.
 
 ## 10. Official evaluation policy
@@ -786,6 +960,8 @@ Smoke failure produces an operator-readable recovery path and preserves evidence
 
 The freeze binds exact case IDs, packet hashes, label hashes, model registry, execution policy, shard schedule, budget policy, publication policy, and required receipt schema.
 
+The pre-dispatch audit confirms that the frozen model universe is still the universe actually served and that the June 30 eligibility anchor remains authoritative for every selected case.
+
 Every dispatch matches one declared shard.
 
 Every shard is below the workflow matrix limit.
@@ -801,6 +977,14 @@ Fan-in selects exactly one accepted receipt per shard and rejects ambiguous reru
 Official aggregate verifies all expected and no extra cells.
 
 Publication begins only after audit and provenance verification succeed.
+
+The official report shows micro-Brier with confidence intervals, calibration, refusal/invalid rates, realized outcome prevalence, and any genuinely frozen pre-run historical or human reference that exists.
+
+Cycle 1 currently makes no skill-over-baseline claim.
+
+If no valid pre-run empirical base-rate corpus exists, show the predeclared constant `p=0.5` reference (Brier 0.25) only as an unranked uninformed reference and say explicitly that no empirical predictive baseline or Brier skill score is available.
+
+A same-sample constant based on observed prevalence may appear only as a post-hoc oracle reference, never as a prospective forecast baseline.
 
 ## 11. Workstream dependency overview
 
@@ -823,23 +1007,34 @@ Official eval engineering -----> official smoke --------------------> downstream
                                                                         v
                                                               official publication
 
-Closed 054 platform -----> score/deliverable contracts -----> shared CLI adapter runtime
+Pinned LAB + provider terms -----> Claude native proof -----> Claude Tier-0 paired smoke
+             |                           |                              |
+             |                           |                              v
+             |                           |                   preliminary writeup
+             |                           |
+             +--------------------> Codex native proof -----> Codex Tier-0 fast-follow
+             |                                                          |
+             |                                                          v
+             |                                                reviewed result addendum
+             |
+Closed 054 platform -----> score/deliverable contracts -----> contributor-grade native runtime
             |                         |                                  |
             |                         +---------> publication metrics     +--> Claude Code
             |                                                            +--> Codex CLI
-            +-----> #41 runtime -----> real tool boundary                 +--> LAB bridge
+            +-----> #41 runtime -----> optional mediated-tool arm         +--> LAB bridge
                                                                             |
                                                                             v
-                                                               one-task smoke and pilot
-                                                                            |
-                                                                            v
-                                                               community package/site
+                                                               trusted package/site + pilot
+
+Audience/claims calendar -----> report and writeup shells -----> result pages/README/preprint
+             |
+             +-----> John-approved LegalQuants engagement -----> bounded pilot-input window
 
 Issue inventory ---------------------> mapping/reconciliation ----------> terminal audit
 Architecture ADR --------------------> import/CI guardrails ------------> post-launch split decision
 ```
 
-The graph deliberately allows official evaluation engineering, community contract work, #41 runtime work, and issue mapping to start while live corpus acquisition continues.
+The graph deliberately allows official evaluation engineering, Tier-0 native characterization, community contract work, #41 secondary-profile work, audience work, and issue mapping to start while live corpus acquisition continues.
 
 ## 12. Worktree and agent topology
 
@@ -853,7 +1048,11 @@ Do not create a replacement worktree solely to conform to this plan.
 
 Agent A0 is the sole live-store writer and operator.
 
-Agent A1 is a read-only verifier and targeted code helper who does not mutate the live store.
+Agent A1 owns Case.dev/Firecrawl code and tests but does not mutate live cycle state.
+
+Agent A2 owns CourtListener/complaint recovery code and copied-artifact analysis but does not mutate live cycle state.
+
+Agent A3 owns disclosure/projection/downstream fixture work and independent evidence checks but does not mutate live cycle state.
 
 Maximum simultaneous writers to a cycle store: one.
 
@@ -869,13 +1068,15 @@ Purpose: implement the shard protocol, spend ledger, provider isolation, freeze 
 
 Create one durable worktree from current merged `main`.
 
+Agent O0 is the integrator and the sole writer for `.github/workflows/run-benchmark.yaml` and overlapping root-CLI surfaces.
+
 Agent O1 owns shard schedule, dispatch provenance, finalizer receipts, and fan-in.
 
-Agent O2 owns provider spend, attempt ledger, and isolation work.
+Agent O2 owns provider spend, attempt ledger, and accounting tests.
 
-Agent O3 may own focused tests, workflow validation, and independent review when file ownership does not overlap.
+Agent O3 owns provider isolation, runbook conformance, workflow validation, and independent review when file ownership does not overlap.
 
-The integrator alone edits shared workflow files during a checkpoint.
+O0 alone integrates shared workflow files during a checkpoint.
 
 Workflow changes land in isolated PRs and use `secure-gate-elevate` for push.
 
@@ -887,25 +1088,33 @@ Purpose: build the canonical score path, shared local CLI runtime, LAB bridge, C
 
 Create one durable worktree from current merged `main`.
 
-Agent C0 is the integrator and owns `spec.py`, `runner.py`, `community.py`, root CLI integration, migrations, and conflict resolution.
+Agent C0 is the integrator and sole writer for `spec.py`, `runner.py`, shared adapter registry/CLI surfaces, migrations, and conflict resolution.
 
-Agent C1 owns the Claude Code adapter and its offline fake.
+Agent C1 owns Claude Code native-containment characterization, the Claude adapter module, and its tests.
 
-Agent C2 characterizes Codex and owns its offline fake before the adapter wave, then moves the implementation to a temporary Codex worktree when W3 is parked.
+Agent C2 owns Codex native-sandbox characterization, the Codex adapter module, and its tests.
 
-The shared foundation lands first from W2.
+Agent C3 owns the pinned Harvey LAB projection/evaluator seam, Tier-0 operator path, task/output fixtures, and independent measurement checks.
 
-During the adapter wave W2 carries the Claude PR, while the parked W3 slot is recreated from merged main for an independent Codex PR.
+The Tier-0 path lands first from W2 while C0/C1/C3 work on disjoint reserved files; the contributor-grade foundation continues behind it.
 
-This keeps Claude as the deterministic first-acceptance dependency while allowing Codex to proceed concurrently without a fifth worktree.
+Keep Claude and Codex in W2 while exact file reservations prove their modules do not collide.
+
+If shared-file or review evidence shows that one branch/PR would serialize the adapters, park W3 and recreate that counted slot from merged `main` for an independent Codex PR.
+
+Do not create the extra worktree by default merely because there are two adapters.
 
 Before the shared interfaces freeze, C1 and C2 work only on capability probes, manifest drafts, fakes, and characterization tests.
 
 After the foundation PR merges and the worktree refreshes, C1 and C2 implement adapters in parallel against the frozen interfaces.
 
-The existing #41 worktree counts as W2 until its branch lands; do not create an additional W2 while that implementation worktree remains active.
+W2 is reserved for the native Tier-0 critical path and cannot be occupied by the secondary issue #41 work.
 
-After #41 lands, refresh or replace that worktree from merged `main` and continue the measurement/LAB/adapter sequence there.
+Checkpoint and park the existing #41 branch unless it can land without delaying C-T0a; a preserved but inactive worktree does not count as an active implementation slot.
+
+If #41 must stay active for a bounded landing pass, count it explicitly as temporary W2-M, limit it to two agents, and keep W3 implementation inactive so the total remains four active implementation worktrees.
+
+After #41 lands, refresh that worktree from merged `main` before it takes any later mediated-profile assignment.
 
 ### 12.4 Worktree W3: integration, quality, and issue convergence
 
@@ -913,9 +1122,13 @@ Purpose: own the boundary ADR, CI path coverage, release checks, documentation, 
 
 Create this worktree only after the retained plan PR lands, or use the coordinator worktree if the change set stays documentation-only.
 
-Agent I0 owns architecture and issue mapping.
+Agent D0 owns the Cycle 1 report/leaderboard shell and official result presentation.
 
-Agent I1 owns CI, release, and end-to-end quality when capacity justifies a second agent.
+Agent D1 owns the harness writeup, README landing page, and preprint draft.
+
+Agent D2 owns audience/claims governance, the Jamie/LegalQuants draft, issue mapping, and Beads evidence; D2 never sends externally.
+
+Agent D3 owns CI/quality integration, community workflow files, and cross-worktree fresh-eyes review.
 
 This lane never rewrites active acquisition history or closes a Bead solely because a comment claims success.
 
@@ -923,21 +1136,19 @@ It verifies code, tests, artifacts, PR state, and acceptance evidence first.
 
 ### 12.5 Recommended headcount
 
-Initial peak: eight implementation agents plus one coordinator.
+Target four primary Codex agents in every worktree whose critical-path queue can use them efficiently, plus one cross-lane coordinator.
 
-W0 receives two agents.
+The maximum planned peak is therefore 16 primary agents plus the coordinator across four implementation worktrees; during a temporary two-agent W2-M landing pass, W3 stays inactive and the practical peak is lower.
 
-W1 receives two agents initially and a third during workflow integration or review.
+This is a capacity ceiling, not a utilization target: do not assign agents to long-tail work merely to fill seats.
 
-W2 receives three agents.
+Each primary owns a Bead and a disjoint file or operational surface.
 
-W3 receives one agent initially and a second during final acceptance.
+Each primary may delegate bounded read-only research, fixture analysis, test generation, or fresh-eyes review to subagents.
 
-Short-lived read-only reviewers may inspect any lane without owning files.
+Delegated work returns to the owning primary for integration, verification, and the Bead evidence trail.
 
-When a lane is blocked on credentials or a merge, reassign its agents to ready tasks rather than create more worktrees.
-
-W1's third role and W3's second role are burst assignments filled by reassigning one of the eight implementation slots, not additions that raise the peak to ten.
+When a lane is blocked on a merge or human credential decision, move its primaries to another lane's ready critical tasks or review queue rather than create a fifth worktree.
 
 ### 12.6 Why this topology
 
@@ -951,9 +1162,11 @@ Keep issue convergence and CI in one lane because both require repo-wide visibil
 
 The topology limits the main collision zones to explicit integrators.
 
+Four primaries per lane improve throughput only because Agent Mail reservations and single-writer surfaces make ownership explicit.
+
 ### 12.7 Phase-specific worktree slots
 
-Foundation wave slots are W0 acquisition, W1 official integration, W2 existing #41/community foundation, and W3 planning/issues.
+Foundation wave slots are W0 acquisition, W1 official integration, W2 Tier-0/community foundation, and W3 audience/integration/issues.
 
 Each shared worktree has one checked-out integration branch and one active PR at a time.
 
@@ -961,13 +1174,33 @@ Multiple agents may contribute disjoint commits to that PR under the integrator'
 
 Separate concurrent PRs require a separate worktree counted against the four-slot ceiling or an explicit Aviator stack.
 
-During the adapter wave, finish or park W3 and repurpose that freed slot as a temporary Codex worktree while W2 carries Claude.
+During the adapter wave, keep both adapters in W2 while reservations remain disjoint; only then, if measured collision pressure warrants it, finish or park W3 and repurpose that freed slot as a temporary Codex worktree while W2 carries Claude.
 
 Claude and Codex therefore receive independent, concurrent PRs without exceeding four active implementation worktrees.
 
 W1 similarly combines disjoint shard/provenance work into one integration checkpoint unless a freed worktree slot is deliberately assigned to a separate PR.
 
 No task may create an uncounted fifth implementation worktree merely because its files are disjoint.
+
+### 12.8 Agent Mail and lane scheduling contract
+
+Register all four primaries under the worktree's absolute Agent Mail `human_key`.
+
+Use one Agent Mail thread per Bead and put the live Bead ID in the subject.
+
+At lane start and after every merge, the integrator posts the file-ownership map and the ready critical-path queue.
+
+Reserve exact files or narrow directories before editing.
+
+Shared surfaces such as `legalforecast/cli.py`, `legalforecast/multiharness/spec.py`, shared runner/registry files, `pyproject.toml`, and workflow YAML have exactly one writer at a time.
+
+Agents stage commits by exact filename and never use another agent's uncommitted changes as a reason to reset, stash, or discard work.
+
+A reviewer from another lane supplies fresh-eyes review for code/protocol/security checkpoints.
+
+Use `bd ready --label critical-path-official` or `bd ready --label critical-path-tier0` first.
+
+While either same-lane critical queue is nonempty, use `bd ready --exclude-label off-critical-path,contributor-intake` for ordinary work and claim only coordinator-named parallel enablers outside those labels.
 
 ## 13. Version-control and PR protocol
 
@@ -1001,7 +1234,9 @@ For the next independent checkpoint, create a fresh branch or fresh worktree fro
 
 For an intentional stack, run `av sync` or `av restack` and verify `av tree` before resuming.
 
-Rerun targeted characterization tests after refresh before adding new behavior.
+Rerun targeted characterization tests after refresh before adding new behavior when the merged checkpoint changes code, generated artifacts, commands, schemas, protocols, security boundaries, or an interface the next task consumes.
+
+For docs-only or test-only checkpoints that change no runtime interface, record the merge SHA and green applicable checks, refresh from merged `main`, and skip redundant post-refresh characterization with an explicit `not applicable` note.
 
 Never pull, rebase, or swap code under a live acquisition or paid-operation process.
 
@@ -1030,6 +1265,8 @@ In particular, protocol foundations must not close #41, release preparation must
 ### 13.4 Review protocol
 
 Each PR receives a fresh-eyes review by an agent who did not author the dominant code.
+
+Pure wording, planning, and fixture-test PRs may use one focused review and repository-required checks; they do not require the full security review or post-refresh runtime characterization unless they change an executable contract.
 
 Security-sensitive runtime, auth, workflow, purchase, and publication changes receive a second focused review.
 
@@ -1073,21 +1310,31 @@ O9 may be evidence-only if the operator run needs no code change.
 
 ### 14.3 Community checkpoints
 
-PR C0: pinned LAB run/evaluator feasibility, Claude/Codex tool-mediation feasibility, and provider-mode preflight evidence.
+PR C0a: pinned LAB run/evaluator feasibility, Claude native outer-containment feasibility, provider/publication-mode preflight evidence, and the issue #196 amendment.
+
+PR C0b: Codex native-sandbox/outer-containment characterization; parallel and explicitly nonblocking for C-T0a/C-T0b.
+
+PR C-T0a: narrow one-task solver/private projection, native capability evidence, frozen paired Tier-0 specification, and operator dry run.
+
+PR C-T0b: independently reviewed preliminary paired machine/audit artifact package; this may be data-only when the operator path needs no code correction, while D1 solely owns the public narrative and README refresh.
+
+PR C-T0c: separately frozen and independently reviewed Codex Tier-0 follow-on package, reusing the task/evaluator seam without blocking C-T0b.
 
 PR C1: canonical task materializer, deliverable, evaluation, and score contracts with backward-compatible readers.
 
 PR C2: community summary, submission, aggregate, and report propagation of real metrics.
 
-PR C3: hardened issue #41 runtime, receipt/resume binding, and negative controls.
+PR C3N: contributor-grade whole-process native containment and hostile E2E for clean-native profiles.
+
+PR C3M: separately identified issue #41 mediated runtime, receipt/resume binding, and negative controls; secondary-profile checkpoint that never gates C6a/C6b/C7/C9.
 
 PR C4: real Harvey LAB run/evaluate bridge against a pinned upstream revision.
 
 PR C5: shared local CLI adapter runtime, capability identity, auth profiles, redaction, and offline fakes.
 
-PR C6a: Claude Code adapter module and conformance suite in W2.
+PR C6a: native-contained Claude Code adapter module and conformance suite in W2.
 
-PR C6b: Codex CLI adapter module and conformance suite in the temporarily repurposed W3 slot.
+PR C6b: native-contained Codex CLI adapter module and conformance suite in W2 or, only when measured overlap warrants it, the temporarily repurposed W3 slot.
 
 PR C7: Claude-first live one-task execution and result package.
 
@@ -1103,7 +1350,17 @@ PR C12: contributor documentation and submission policy based on the accepted pa
 
 PR C13: post-launch CLI extraction and optional entry point after the two live adapters prove the seam.
 
-### 14.4 Issue-convergence checkpoints
+### 14.4 Distribution checkpoints
+
+PR D0: audience/claims calendar, README landing-page structure, harness-writeup template, and Cycle 1 report shell built from fixtures.
+
+PR D1: preliminary Tier-0 writeup and README result link within 24 hours of validated publication.
+
+PR D2: audited Cycle 1 report/leaderboard and README result link within 24 hours of official publication.
+
+PR D3: methods preprint source/package after the official report; SSRN submission remains a separate John-operated approval.
+
+### 14.5 Issue-convergence checkpoints
 
 PR I1: current issue-to-Bead-to-code evidence map and stale issue closures that require documentation changes.
 
@@ -1119,13 +1376,25 @@ PR I5: final acceptance audit and roadmap closure update.
 
 P0 lands first because it establishes the graph and ownership map.
 
+Immediately after P0, Tier-0 provider/publication terms, pinned LAB/evaluator characterization, native containment characterization, audience/claims work, and official source/eval tasks start in parallel.
+
 P1 may land while acquisition continues, but it must not alter an active process underneath a running checkpoint.
 
 O1 and O4 are parallel agent assignments inside the one W1 checkpoint branch, not two additional worktrees.
 
-C1, C3, and the #48 upstream probe are assignments inside W2 or its existing #41 worktree, sequenced by the W2 integrator where they touch shared files.
+C-T0a is the first W2 implementation delivery after the narrow C0a evidence/governance checkpoint; C0b Codex characterization proceeds independently.
 
-W0 acquisition, W1 official eval, W2 community/#41, and W3 issue/quality remain the four concurrent worktree lanes.
+It depends only on provider/publication terms, the pinned LAB/evaluator seam, the native Claude containment/capability proof, and the narrow physical solver/private split required for the one task.
+
+It does not depend on C1 through C6, hostile contributor-package intake, or issue #41.
+
+C-T0b follows the capped paired run and independent artifact/claim review.
+
+C1, C3N, and the broader #48 bridge are later native-path assignments inside W2, sequenced by the W2 integrator where they touch shared files.
+
+C3M stays in the separately counted temporary W2-M only for a bounded landing pass; when W2-M is active, W3 implementation is inactive so W0 acquisition, W1 official eval, W2 native community, and W2-M mediated work remain the four concurrent implementation lanes.
+
+Otherwise the steady-state lanes are W0 acquisition, W1 official eval, W2 native community, and W3 audience/issue/quality.
 
 C1 depends on C0 and F-02 current-artifact characterization so its contracts reflect observed LAB and CLI seams.
 
@@ -1133,15 +1402,17 @@ C2 depends on the C1 score contract.
 
 C4 depends on the C1 deliverable/evaluation contract; its upstream characterization is completed in C0 rather than hidden inside implementation.
 
-C5 depends on the C1 core request/result identity and coordinates with C3's tool protocol.
+C5 depends on the C1 core request/result identity and the profile-neutral native runtime slice; any mediated binding coordinates separately with C3M and cannot back-block clean-native activation.
 
 C6a and C6b depend on C5 and proceed concurrently in separate counted worktrees after shared interfaces freeze.
 
-C7 depends on C2, C3, C4, and C6a; it produces the first real row and does not wait for Codex.
+C7 depends on C2, C3N, C4, and C6a; it produces the first contributor-grade row and does not wait for C3M or Codex.
+
+C7 is renamed the Tier-1 contributor-grade Claude smoke and supersedes the preliminary Tier-0 evidence without erasing it.
 
 C8 depends on C7 plus trusted validation/publication gates; it is the first #49 acceptance and does not wait for Codex.
 
-C9 depends on C2, C3, C4, and C6b; it may proceed alongside C7/C8.
+C9 depends on C2, C3N, C4, and C6b; it may proceed alongside C7/C8 and does not wait for C3M.
 
 C10 depends on the live feasibility evidence required to define matched arms and freezes the pilot before further comparative scores.
 
@@ -1163,7 +1434,13 @@ O9 depends on O7, O8, and all remaining canonical `5qd6.41` blockers.
 
 I3 waits for the active acquisition checkpoint because #67 and #97 touch acquisition internals.
 
-C9 waits until C8 because it is organization work, not launch-critical capability.
+C9 may proceed alongside the Claude Tier-1 path once shared native interfaces freeze; it never delays Claude-first acceptance.
+
+Distribution D0 starts immediately after P0.
+
+D1 depends on the reviewed Tier-0 result, D2 on the official audited aggregate, and the preprint can be drafted with placeholders before either result exists.
+
+No external LegalQuants response is required to keep engineering moving; the pilot freeze waits only for a predeclared input-window closure state, which may be feedback received, no response, or John declining to send.
 
 ## 16. Detailed work packages
 
@@ -1174,6 +1451,10 @@ Each package includes a purpose, owner lane, dependencies, deliverables, tests, 
 Existing Beads are reused where named.
 
 New Beads are successors or reconciliation tasks, not duplicate historical work.
+
+The 140 package ledger is an obligation inventory, not permission to run 140 items at once.
+
+Execution WIP follows the two labeled critical paths first; contributor-intake work follows Tier 0; `off-critical-path` work remains parked until the applicable launch or an explicit coordinator exception.
 
 ### P-01: Publish the retained dual-track roadmap
 
@@ -1859,6 +2140,28 @@ Acceptance: smoke evidence satisfies the canonical rehearsal obligations mapped 
 
 Acceptance: no unresolved P0 defect remains in the official path.
 
+### O-25A: Revalidate the eligibility anchor and served-model registry
+
+Existing Bead: `5qd6.96`.
+
+Lane: W1 and John.
+
+Priority: P0 within 24 hours before dispatch.
+
+Dependencies: O-05A and the frozen official registry.
+
+Purpose: prevent schedule delay or served-alias drift from silently invalidating the official design.
+
+Deliverables: current registry/source hashes, served alias/version evidence, inclusive June 30 anchor confirmation for every selected case, `model_universe_frozen_at`, `registry_cut_at`, intended `dispatch_at`, `anchor_to_dispatch_days`, and `registry_cut_to_dispatch_days`.
+
+Tests: registry/freeze equality, served-model probe or authoritative evidence, selected-case anchor audit, and no-output-before-reprojection assertion.
+
+Acceptance: the Bead cannot close more than 24 hours before dispatch; any in-universe drift produces an explicit John continue, replace/reproject-before-output, or defer decision.
+
+Acceptance: a newly released model outside the frozen universe affects market-freshness disclosure but never enters Cycle 1 silently.
+
+Acceptance: the evidence records the residual possibility of an undetectable weight roll behind an unchanged alias/model string and avoids an unsupported immutable-revision claim.
+
 ### O-26: Freeze and dispatch official Cycle 1
 
 Existing Bead: `5qd6.41`.
@@ -1867,21 +2170,23 @@ Lane: John with W0 and W1 support.
 
 Priority: P0 at launch gate.
 
-Dependencies: O-18, O-25, `5qd6.36`, and every remaining live blocker on `5qd6.41`.
+Dependencies: O-18, O-25, O-25A, `5qd6.36`, and every remaining live blocker on `5qd6.41`.
 
 Purpose: execute the first official benchmark without output-informed intervention.
 
 Deliverables: immutable freeze, eight declared dispatches or the frozen schedule, successful receipts, accepted-attempt map if needed, and fan-in verification.
 
-Tests: pre-dispatch freeze verification, live run monitoring, receipt completeness, cap reconciliation, and verify-only fan-in before aggregate.
+Tests: pre-dispatch freeze verification rejects O-25A evidence older than 24 hours, live run monitoring, receipt completeness, cap reconciliation, and verify-only fan-in before aggregate.
 
 Acceptance: every frozen cell is present exactly once under an accepted receipt.
 
 Acceptance: no unplanned model, case, ablation, or retry enters the run.
 
+Acceptance: dispatch cannot start with O-25A evidence older than 24 hours; if the intended dispatch slips beyond that window, O-25A is reopened or regenerated and reverified.
+
 ### O-27: Audit, aggregate, and publish official Cycle 1
 
-Existing Beads: `5qd6.41` and `5qd6.40`.
+Existing Bead: `5qd6.41`; `5qd6.40` is a separately parked post-cycle diagnostics/publication enhancement and does not block the first report.
 
 Lane: W1, W3, and John.
 
@@ -1889,13 +2194,15 @@ Priority: P0.
 
 Dependencies: O-26.
 
-Purpose: turn verified cells into a defensible descriptive official result.
+Purpose: turn verified cells into the canonical audited data artifacts, aggregate, and run card that the separate D-02 human-facing report renders.
 
-Deliverables: official aggregate, confidence intervals, calibration outputs, run card, methods disclosures, audit evidence, static artifacts, and publication record.
+Deliverables: official aggregate, confidence intervals, calibration outputs, refusal/invalid rates, realized outcome prevalence, any valid frozen pre-run baseline or human reference, the unranked constant-0.5 reference when no empirical baseline exists, run card, methods disclosures, audit evidence, canonical machine-readable artifacts, and publication handoff record.
 
 Tests: exact Cartesian aggregate, extra/missing cell rejection, reconstruction from hashes, publication guardrails, static render, and independent result audit.
 
 Acceptance: the report makes only claims supported by the Cycle 1 baseline and audit design.
+
+Acceptance: if no valid frozen historical baseline corpus exists, the report says `no empirical predictive baseline and no Brier skill claim for Cycle 1`; a same-sample prevalence constant is labeled post-hoc oracle context, never a forecast baseline.
 
 Acceptance: `ur6` and overlapping legacy run records can be evidence-closed or linked to this run.
 
@@ -2017,13 +2324,31 @@ Tests: null versus zero, incompatible metric definitions, receipt mismatch, suit
 
 Acceptance: a score cannot be published without a validated chain to task, deliverable, evaluator, and run identities.
 
+### F-05A: Define efficiency and accounting observations
+
+Lane: W2 with W3 audience review.
+
+Priority: P0 before contract freeze.
+
+Dependencies: F-02A, F-04A, and F-05.
+
+Purpose: make cost, tokens, wall-clock, attempts, completion, and coverage co-equal public comparison dimensions without duplicating them into the score artifact.
+
+Deliverables: typed solve/evaluation/total usage fields; provider-reported, price-sheet-estimated, and subscription-unallocable cost bases; currency and pricing snapshot identity; solver/evaluator/task/experiment timing; queue and retry accounting; coverage joins; and public display rules.
+
+Tests: unavailable usage, provider report versus estimate, subscription-unallocable cost, cached-token double counting, reasoning-token availability, retry inclusion, parallel summed-time versus wall-clock, currency/basis mismatch, incompatible cost ratio, and one-task variance suppression.
+
+Acceptance: unknown values are null with reasons, subscription is never reported as zero cost, and the public view can render score, coverage, cost, tokens, time, attempts, and failures as peer columns from authoritative receipts.
+
+Acceptance: no default score-per-dollar composite or cross-currency ratio is created.
+
 ### F-06: Extend run summaries with artifact references
 
 Lane: W2 integrator.
 
 Priority: P0.
 
-Dependencies: R-06, F-04, F-04A, and F-05.
+Dependencies: R-06, F-04, F-04A, F-05, and F-05A.
 
 Purpose: connect run specification, execution receipt, deliverable, evaluation receipt, and scoring through content hashes.
 
@@ -2039,7 +2364,7 @@ Lane: W2 integrator.
 
 Priority: P0.
 
-Dependencies: F-05 and F-06.
+Dependencies: F-05, F-05A, and F-06.
 
 Purpose: make validated metrics visible in shards, submissions, aggregates, and static reports.
 
@@ -2047,7 +2372,7 @@ Deliverables: package schema updates, validator rules, aggregate metric tables, 
 
 Tests: full package E2E, incompatible group refusal, partial coverage, failure denominator, and legacy fixture handling.
 
-Acceptance: the public report displays task-level and aggregate metrics with exact compatibility labels.
+Acceptance: the public report displays task-level and aggregate scores, selected/solved/evaluated coverage, usage, cost basis, tokens, wall-clock, attempts, and failures with exact compatibility labels.
 
 Acceptance: the report never combines incompatible suites or evaluator revisions.
 
@@ -2057,7 +2382,7 @@ Lane: W2 with W3 review.
 
 Priority: P1.
 
-Dependencies: F-05 and F-07.
+Dependencies: F-05, F-05A, and F-07.
 
 Purpose: separate one-task plumbing evidence from interpretable pilot conclusions.
 
@@ -2121,7 +2446,7 @@ Acceptance: adapter example changes cannot merge without community validation.
 
 Acceptance: workflow-file push uses the secure-gate reviewed path.
 
-### R-00A: Prove Claude Code tool-mediation feasibility
+### R-00A: Prove Claude Code native outer-containment feasibility
 
 Lane: W2 Agent C1 with security review.
 
@@ -2129,17 +2454,17 @@ Priority: P0 and no-spend.
 
 Dependencies: E-01 and the pinned/probed Claude distribution.
 
-Purpose: determine whether the characteristic Claude Code harness can run LAB tasks while every required task operation is mediated by the versioned bridge.
+Purpose: determine whether the characteristic Claude Code harness can run LAB tasks with its native loop and local tools preserved inside a whole-process outer boundary.
 
-Deliverables: proof that native filesystem/shell/web tools are disabled or bounded; only the approved bridge is available; hooks, plugins, skills, settings, and unrelated MCP servers are absent; deliverables remain producible; and authentication remains outside model-visible tools.
+Deliverables: exact 2.1.210-versus-installed-2.1.211 pin decision; executable/help/hash evidence; proof that native filesystem/shell tools remain available inside the disposable workspace; proof that hooks, plugins, skills, settings, browser/web bypasses, and unrelated MCP servers are absent; deliverable production; auth/publication risk record; and the outer-boundary gap list.
 
-Tests: real local no-provider-call configuration probe, fake MCP/tool round trip, attempted built-in tool use, ambient settings canaries, and deliverable write probe.
+Tests: real local no-provider-call configuration probe, native read/write/shell probes inside the disposable workspace, denied host/private paths, denied ambient settings and web/browser surfaces, output write, process cleanup, and capability identity.
 
-Acceptance: the result records whether the profile remains representative enough to call `Claude Code`, with a narrower claim or explicit alternative if not.
+Acceptance: the result records whether the profile preserves enough stock behavior to call `claude-code-clean-native`, with every deliberate deviation disclosed.
 
-Acceptance: failure chooses outer containment, a restricted/no-tool profile, or API execution explicitly rather than weakening the boundary.
+Acceptance: failure stops the native claim or chooses a narrower explicit profile; it never silently substitutes the MCP-mediated arm.
 
-### R-00B: Prove Codex CLI tool-mediation feasibility
+### R-00B: Prove Codex CLI native-sandbox and outer-containment feasibility
 
 Lane: W2 Agent C2 with security review.
 
@@ -2147,15 +2472,33 @@ Priority: P0 and no-spend.
 
 Dependencies: E-01 and the pinned/probed Codex distribution.
 
-Purpose: determine whether the characteristic Codex CLI harness can run LAB tasks while every required task operation is mediated by the versioned bridge.
+Purpose: determine whether the characteristic Codex CLI harness can run LAB tasks with its native loop, shell/filesystem tools, and sandbox preserved inside an outer disposable boundary.
 
-Deliverables: proof that native filesystem/shell/web tools are disabled or bounded; only the approved bridge is available; rules, skills, config, and unrelated MCP servers are absent; deliverables remain producible; and authentication remains outside model-visible tools.
+Deliverables: executable/help/hash evidence; proof that native tools and the selected Codex sandbox remain the harness treatment; proof that ambient rules, skills, config, web/MCP bypasses, repo/home/auth files are absent; deliverable production; auth/publication risk record; and the outer-boundary gap list.
 
-Tests: real local no-provider-call configuration probe, fake bridge round trip, attempted native tool use, ambient config canaries, and deliverable write probe.
+Tests: real local no-provider-call configuration probe, native read/write/shell probes inside the disposable workspace, denied host/private paths, ambient config canaries, output write, process cleanup, and capability identity.
 
-Acceptance: the result records whether the profile remains representative enough to call `Codex CLI`, with a narrower claim or explicit alternative if not.
+Acceptance: the result records whether the profile preserves enough stock behavior to call `codex-cli-clean-native`, with every deliberate deviation disclosed.
 
-Acceptance: failure chooses outer containment, a restricted/no-tool profile, or API execution explicitly rather than weakening the boundary.
+Acceptance: failure stops the native claim or chooses a narrower explicit profile; it never silently substitutes the MCP-mediated arm.
+
+### R-00C: Build the contributor-grade native whole-process boundary
+
+Lane: W2 integrator with security review.
+
+Priority: P1 after Tier 0 and P0 for contributor intake.
+
+Dependencies: R-00A, R-00B, R-05, R-10, and the narrow Tier-0 observations.
+
+Purpose: turn the one-task trusted-operator containment proof into a reusable native-harness boundary safe enough for accepted contributor workflows.
+
+Deliverables: non-root disposable sandbox launcher, read-only root/input, output/scratch mounts, resource limits, provider-only egress policy, web/browser denial, isolated HOME/XDG/session state, credential projection policy, output sealing, process cleanup, and separate evaluator launch.
+
+Tests: host home/repo/auth/socket/cloud-metadata denial, general-network denial, evaluator-private denial, native tool success inside scope, output sealing, timeout descendants, malicious public input, and public allowlist scan.
+
+Acceptance: native tools remain the harness treatment while the whole process cannot reach undeclared host or evaluator surfaces.
+
+Acceptance: unsupported provider endpoint or credential behavior fails closed and records the narrower reproducibility claim.
 
 ### R-01: Finish the hardened host-owned tool runtime
 
@@ -2165,7 +2508,7 @@ Existing Bead: `2dnr`.
 
 Lane: W2 or its existing dedicated branch, one owner at a time.
 
-Priority: P0.
+Priority: P1 as a secondary mediated-profile path; active implementation may continue independently.
 
 Dependencies: the already-landed versioned tool protocol.
 
@@ -2175,7 +2518,7 @@ Deliverables: backend abstraction, digest-pinned image enforcement, network-disa
 
 Tests: missing backend, mutable tag, network attempt, home read, socket access, root escalation, resource exhaustion, timeout, nonzero exit, and orphan process/container cleanup.
 
-Acceptance: adapters declaring live tools cannot run without this boundary.
+Acceptance: adapters declaring the `mcp_mediated` tool profile cannot run without this boundary.
 
 Acceptance: the runtime never silently falls back to host tool execution.
 
@@ -2185,7 +2528,7 @@ Existing GitHub issue: #41.
 
 Lane: W2.
 
-Priority: P0.
+Priority: P1 for the secondary mediated contributor path.
 
 Dependencies: R-01.
 
@@ -2203,7 +2546,7 @@ Acceptance: receipt contents are safe for community package validation.
 
 Lane: W2.
 
-Priority: P0.
+Priority: P1 after Tier 0 and P0 when Tier-1 contributor activation begins.
 
 Dependencies: current command adapter characterization.
 
@@ -2221,7 +2564,7 @@ Acceptance: the run summary distinguishes timeout, cancellation, cleanup failure
 
 Lane: W2 with security review.
 
-Priority: P0.
+Priority: P1 after Tier 0 and P0 when Tier-1 contributor activation begins.
 
 Dependencies: F-02A.
 
@@ -2239,7 +2582,7 @@ Acceptance: a run never switches profile because one credential source happens t
 
 Lane: W2.
 
-Priority: P0.
+Priority: P1 after Tier 0 and P0 when Tier-1 contributor activation begins.
 
 Dependencies: R-04.
 
@@ -2257,7 +2600,7 @@ Acceptance: adapter identity changes when any behavior-affecting allowed configu
 
 Lane: W2 integrator.
 
-Priority: P0.
+Priority: P1 after Tier 0 and P0 when Tier-1 contributor activation begins.
 
 Dependencies: R-03, R-04, R-05, and F-02A.
 
@@ -2275,7 +2618,7 @@ Acceptance: the service does not inherit the repository cwd implicitly.
 
 Lane: W2.
 
-Priority: P0.
+Priority: P1 after Tier 0 and P0 when Tier-1 contributor activation begins.
 
 Dependencies: R-06.
 
@@ -2293,7 +2636,7 @@ Acceptance: live run provenance contains the probe result hash.
 
 Lane: W2 with security review.
 
-Priority: P0.
+Priority: P1 after Tier 0 and P0 when Tier-1 contributor activation begins.
 
 Dependencies: R-06.
 
@@ -2307,11 +2650,11 @@ Acceptance: public packages are allowlist-built rather than denylist-cleaned cop
 
 Acceptance: raw transcripts never enter public artifacts by default.
 
-### R-09: Add hostile runtime canaries
+### R-09: Add hostile MCP-mediated runtime canaries
 
 Lane: W2 plus W3 review.
 
-Priority: P0.
+Priority: P1 for the secondary mediated contributor path.
 
 Dependencies: R-01, R-02, R-05, and R-08.
 
@@ -2325,11 +2668,27 @@ Acceptance: all canary attempts fail and no canary value appears in stdout, stde
 
 Acceptance: the negative-control job cleans up every container and process.
 
+### R-09A: Add hostile native whole-process E2E
+
+Lane: W2 plus W3 review.
+
+Priority: P1 after Tier 0 and P0 for contributor intake.
+
+Dependencies: R-00C, R-08, R-10, and I-06B.
+
+Purpose: prove the contributor-grade `clean_native` boundary without substituting the issue #41 tool runtime.
+
+Deliverables: native Claude and Codex boundary fixtures, solver/evaluator canaries, malicious public inputs, provider-egress controls, output sealing evidence, and sanitized denial receipts.
+
+Tests: native in-scope tool success plus host, credential, network, socket, metadata, evaluator-private, persistence, and process-escape failures.
+
+Acceptance: the native profile is eligible for Tier-1 contributor intake only after every applicable canary and clean-package scan passes.
+
 ### R-10: Separate solver inputs from evaluator-private material
 
 Lane: W2.
 
-Priority: P0.
+Priority: P1 after Tier 0 and P0 when Tier-1 contributor activation begins; E-00B owns the deliberately narrow Tier-0 split.
 
 Dependencies: F-03 and F-04.
 
@@ -2339,7 +2698,7 @@ Deliverables: public solver-input manifest, private evaluator-input manifest, di
 
 Tests: hidden rubric canary, reference-answer canary, symlink escape, evaluator-root mount refusal, and public package scan.
 
-Acceptance: the provider solver process and tool container can access only the solver-input root.
+Acceptance: the clean-native provider CLI and its native tool descendants can access only the solver-input/output/scratch roots declared for that whole-process boundary; the mediated provider host and issue #41 tool container obey their separately declared roots.
 
 Acceptance: the evaluator receives the validated deliverable plus evaluator-private materials only after solve completion.
 
@@ -2589,7 +2948,7 @@ Tests: fake success, malformed stream, timeout, cancellation, nonzero exit, part
 
 Acceptance: the offline adapter core passes without Docker, provider credentials, a live LAB checkout, or a real Claude invocation.
 
-### A-04: Implement Claude Code headless adapter
+### A-04: Implement the native-contained Claude Code headless adapter
 
 Existing GitHub issue: #196.
 
@@ -2597,17 +2956,17 @@ Lane: W2 Agent C1.
 
 Priority: P0.
 
-Dependencies: A-04A, R-00A, R-01 through R-10, H-03 through H-05, and A-11.
+Dependencies: A-04A, R-00A, R-00C, R-03 through R-08, R-09A, R-10, H-03 through H-05, and A-11.
 
-Purpose: run the characteristic Claude Code harness over LAB tasks without granting unrestricted host tools.
+Purpose: run the characteristic Claude Code harness over LAB tasks with its native loop and local tools preserved inside the contributor-grade whole-process boundary.
 
-Deliverables: manifest, headless command builder, MCP/tool bridge, event normalizer, deliverable discovery, result summary, and docs.
+Deliverables: `claude-code-clean-native` manifest, headless command builder, frozen native-tool policy, outer-boundary launcher integration, event normalizer, deliverable discovery, result summary, and docs.
 
-Tests: fake end-to-end, no-tool handshake, live tool negative control, timeout, model mismatch, auth unavailable, built-in tool denial, resume, and public redaction.
+Tests: fake end-to-end, no-tool handshake, native in-scope tool success, out-of-scope host/web/private-root denial, timeout, model mismatch, auth unavailable, output sealing, resume, and public redaction.
 
 Acceptance: adapter identity is distinct from Claude Agent SDK.
 
-Acceptance: every task tool call traverses the receipt-bound runtime.
+Acceptance: native tool calls remain inside the declared outer workspace and no task MCP server replaces them.
 
 Acceptance: published issue #196 baseline uses explicit API-key auth unless its acceptance criteria are amended.
 
@@ -2659,23 +3018,23 @@ Tests: fake success, malformed JSONL, timeout, cancellation, nonzero exit, parti
 
 Acceptance: the offline adapter core passes without Docker, provider credentials, a live LAB checkout, or a real Codex invocation.
 
-### A-07: Implement Codex CLI adapter
+### A-07: Implement the native-contained Codex CLI adapter
 
 Lane: W2 Agent C2.
 
 Priority: P0.
 
-Dependencies: A-07A, R-00B, R-01 through R-10, H-03 through H-05, and A-12.
+Dependencies: A-07A, R-00B, R-00C, R-03 through R-08, R-09A, R-10, H-03 through H-05, and A-12.
 
-Purpose: run Codex as a distinct community harness over LAB tasks.
+Purpose: run Codex as a distinct community harness over LAB tasks with its native loop, tools, and sandbox preserved inside the contributor-grade outer boundary.
 
-Deliverables: manifest, ephemeral command builder, tool bridge, event normalizer, deliverable discovery, result summary, and docs.
+Deliverables: `codex-cli-clean-native` manifest, ephemeral command builder, frozen native sandbox/tool policy, outer-boundary launcher integration, event normalizer, deliverable discovery, result summary, and docs.
 
 Tests: fake end-to-end, no-tool handshake, live tool negative control, timeout, model mismatch, auth unavailable, config suppression, resume, and public redaction.
 
 Acceptance: adapter identity is distinct from OpenAI Responses API.
 
-Acceptance: every task tool call traverses the receipt-bound runtime.
+Acceptance: native tool calls remain inside the declared outer workspace and no task MCP server replaces them.
 
 ### A-08: Register adapters without central CLI branching
 
@@ -2699,7 +3058,7 @@ Lane: W2 with security and policy review.
 
 Priority: P1.
 
-Dependencies: E-01 and R-04 through R-09.
+Dependencies: E-01, R-04, R-05, and R-08.
 
 Purpose: implement the generic contributor-owned local CLI subscription profile without presenting those runs as portable API baselines.
 
@@ -2717,7 +3076,7 @@ Lane: W2.
 
 Priority: P1.
 
-Dependencies: E-01 and R-04 through R-09.
+Dependencies: E-01, R-04, R-05, and R-08.
 
 Purpose: implement the generic explicit API-key profile used by reproducible published baselines.
 
@@ -2725,9 +3084,9 @@ Deliverables: allowlisted credential environment, key presence check without val
 
 Tests: missing key, wrong key variable, extra secret, redaction, cap refusal, and package validation.
 
-Acceptance: only the host provider process receives the explicit credential.
+Acceptance: the exact credential projection boundary and any inheritance into native descendants are canary-tested and recorded; a profile that exposes credentials more broadly than its threat model permits fails closed rather than claiming parent-only isolation.
 
-Acceptance: no credential reaches the task tool container or public package.
+Acceptance: no credential reaches any public package; the MCP-mediated profile keeps it out of the issue #41 tool container, while clean-native eligibility follows the separately verified whole-process threat model.
 
 ### A-11: Bind auth profiles to Claude Code
 
@@ -2763,6 +3122,22 @@ Tests: ChatGPT sign-in category, explicit API key, missing auth, forbidden fallb
 
 Acceptance: Codex runs record only the auth category and never package or copy `auth.json`, keyring contents, access tokens, or personal configuration.
 
+### A-13: Add optional MCP-mediated decomposition profiles
+
+Lane: W2 after the native Tier-1 path.
+
+Priority: P2 post-launch unless the pilot prespecifies a planner-versus-toolset question.
+
+Dependencies: R-01, R-02, R-09, the applicable offline adapter core, and the applicable auth binding.
+
+Purpose: retain the issue #41 tool-mediated design as a scientifically separate arm rather than redefining the native Claude Code or Codex treatment.
+
+Deliverables: `claude-code-mcp-mediated` and, only if useful, `codex-cli-mcp-mediated` manifests; strict bridge configuration; distinct capability/tool-policy identity; and comparison guidance.
+
+Tests: native tool fallback denial, receipt-bound tool calls, network-disabled tool container, identity separation from clean-native rows, and package labels.
+
+Acceptance: the mediated row can decompose planner versus toolset effects but never substitutes for or is pooled with a clean-native row.
+
 ### E-01: Verify provider terms and supported automation modes
 
 Lane: W3.
@@ -2771,17 +3146,107 @@ Priority: P0 before a contributed subscription row.
 
 Dependencies: P-01 and current official provider documentation.
 
-Purpose: distinguish supported local CLI subscription use from API entitlement and unsupported automation.
+Purpose: distinguish supported local CLI subscription use from API entitlement and unsupported automation, including whether benchmark results generated under each profile may be published.
 
-Deliverables: dated source links, permitted profile matrix, unresolved policy questions, and contributor attestation language.
+Deliverables: dated primary-source links, permitted profile matrix, publication-rights matrix, unresolved policy questions, and contributor attestation language.
 
 Tests: documentation review by a second agent and capability check against the installed binaries.
 
-Acceptance: the plan records that OpenAI officially supports ChatGPT sign-in for local Codex subscription access and separately recommends API-key auth for programmatic CI workflows.
+Acceptance: the record states whether and how current OpenAI primary sources support ChatGPT sign-in for local Codex execution and API-key auth for programmatic workflows; changed, conditional, or ambiguous terms narrow or block that profile rather than being forced into a favorable conclusion.
 
-Acceptance: the plan records that Anthropic officially includes Claude Code in eligible Claude subscriptions and separately binds the automation to the Claude Code CLI contract.
+Acceptance: the record states whether and how current Anthropic primary sources include Claude Code in eligible subscriptions and permit the intended automation/publication surface; changed, conditional, or ambiguous terms narrow or block that profile.
 
 Acceptance: no provider statement is generalized beyond its documented product surface.
+
+Acceptance: the record separately states whether operator-run and contributor-run benchmark scores, cost/usage summaries, and configuration metadata may be published from API-key and subscription-tier execution; ambiguity stops publication under that profile.
+
+### E-00A: Govern the native-tools Tier-0 experiment
+
+Existing GitHub issue: #196.
+
+Lane: W2 with W3 methods/audience review.
+
+Priority: P0 critical path.
+
+Dependencies: E-01 only.
+
+Purpose: amend issue #196 into Phase A preliminary native paired smoke and Phase B reproducible contributor acceptance, and freeze the intended scientific treatment and forbidden claims before Tier-0 implementation or spend while the native-feasibility and LAB-characterization probes run in parallel.
+
+Deliverables: accepted issue amendment; `claude-code-clean-native` primary and `claude-code-mcp-mediated` secondary identities; CLI/LAB pin rules and decision deadline pending the parallel probes; Tier-0 threat model; publication permissions; exact minimal credibility gates; target date; and forbidden claims.
+
+Tests: independent methods/security review and a compatibility-key preview that treats native harness prompt/loop/tool differences as the treatment rather than a nuisance mismatch.
+
+Acceptance: no issue text or plan still defines MCP substitution as the primary Claude Code arm.
+
+Acceptance: the permanent public label is `Preliminary — one task pair, operator-run, not independently reproducible`, and #49 remains unsatisfied.
+
+### E-00B: Build and freeze the narrow Tier-0 paired path
+
+Lane: W2 Agents C1 and C3 under the integrator's file map.
+
+Priority: P0 critical path.
+
+Dependencies: E-00A and the pinned LAB evaluator seam.
+
+Purpose: stage only the one pinned LAB task's solver-visible bytes, prove evaluator-private exclusion, preserve native Claude tools in the disposable outer boundary, and freeze the paid-run specification.
+
+Deliverables: hash-bound read-only input projection, empty output/scratch roots, solver/private inventory and canaries, safe output locator, native Claude command/capability record, native LAB command, separate evaluator invocation, exact model/settings/order/caps/timeout/claims, public artifact allowlist, arm-opaque evaluator IDs and evaluation-order policy, and provider-free dry run.
+
+Tests: byte identity across arms, no LAB checkout/rubric/answer/evaluator mount in the solver boundary, output sealing, host/private-path denial, web/browser denial, secret/path/grader canary scan, evaluator-after-solver ordering, arm-label absence from judge input, identical evaluator context, deterministic randomized evaluation order, and dry-run failure retention.
+
+Acceptance: the specification is committed before the first paid solver or judge call and no output-selective retry path exists.
+
+### E-00C: Execute, review, and publish the preliminary paired smoke
+
+Lane: W2 operator with independent W3 review.
+
+Priority: P0 critical path.
+
+Dependencies: E-00B and explicit bounded-spend approval.
+
+Purpose: answer Jamie's immediate question quickly without representing the result as contributor-grade or general evidence.
+
+Deliverables: all solver attempts, sealed deliverables, separately issued evaluator results, arm-opaque evaluation map, score/coverage, solve/evaluation tokens and cost basis, solver/evaluator/experiment wall-clock, completion/failure status, exact configuration/hashes, private raw streams, public allowlisted package, redaction scan, and issue #196 evidence.
+
+Tests: frozen order/cap adherence, exact task bytes, exact model parity check, sealed-before-evaluate proof, evaluator blindness to harness labels where feasible, prespecified evaluation order, no credential/account/path/transcript/grader leakage, independent arithmetic/claim review, and permanent artifact hashes.
+
+Acceptance: exact parity permits only the observed matched paired difference for this pinned task/run; any model/provider/settings/resource-policy mismatch forces system-bundle language, and output features that defeat arm blinding are disclosed.
+
+Acceptance: the result does not close #49, and the later Tier-1 path supersedes rather than erases it.
+
+### E-00D: Freeze the nonblocking Codex Tier-0 addendum
+
+Lane: W2 Agent C2 with C3 evaluator review.
+
+Priority: P0 parallel critical path that cannot delay E-00B/E-00C.
+
+Dependencies: E-00B's provider-free solver/private split and R-00B; it does not wait for E-00C or the Claude result.
+
+Purpose: reuse the pinned task projection and evaluator seam to answer the separate near-term Codex-native question without making Claude wait for Codex feasibility.
+
+Deliverables: pinned Codex binary/hash and clean-install native capability inventory; exact Codex and native-thin-LAB arms where model parity is feasible; model/provider/settings/resource/stopping/order/evaluator addendum; arm-opaque evaluation plan; budget; claims; and provider-free dry run.
+
+Tests: native tool success, ambient-config/private-root/network denials, byte identity, evaluator-private exclusion, model-parity decision, child-credential exposure canary, deterministic order, cap simulation, and no paid call before the addendum commit.
+
+Acceptance: the addendum is frozen before Codex or paired-native spend, discloses every clean-install deviation, and creates no blocker edge to E-00C.
+
+### E-00E: Execute, review, and publish the Codex Tier-0 follow-on
+
+Lane: W2 Agent C2 as operator with independent W3 review.
+
+Priority: P0 immediately after E-00D, target within two days of the Claude Tier-0 result.
+
+Dependencies: E-00D and explicit bounded-spend approval.
+
+Purpose: produce the first scored Codex-native configuration promptly while keeping it scientifically and operationally separate from the Claude-first Jamie result.
+
+Deliverables: all Codex and applicable paired-native attempts; sealed deliverables; arm-opaque evaluator receipts; score/coverage; cost basis, tokens, solver/evaluator/experiment wall-clock, attempts/failures; exact hashes/configuration; reviewed allowlisted public package; and README/writeup addendum evidence.
+
+Tests: frozen-spec/order/cap adherence, exact task bytes, parity/key computation, sealed-before-evaluate proof, evaluator blindness where feasible, secret/account/path/grader scan, arithmetic/claim review, and permanent artifact hashes.
+
+Acceptance: every public surface carries `Preliminary — one task pair, operator-run, not independently reproducible`; a matching key permits only the observed paired difference for this task/run, mismatch forces system-bundle language, and no generalized Claude-versus-Codex or harness-superiority claim is made.
+
+Acceptance: E-00E may inform the later common Tier-1 interfaces, but it neither closes #49 nor delays the Claude Tier-0 terminal.
 
 ### E-02: Run private no-tool credential handshakes
 
@@ -2801,7 +3266,7 @@ Acceptance: no task or evaluator score is produced.
 
 Acceptance: a successful handshake is explicitly not counted as #49 or a comparative result.
 
-### E-03: Freeze the one-task smoke design
+### E-03: Freeze the Tier-1 contributor-grade one-task smoke design
 
 Lane: W2 with W3 review.
 
@@ -2809,7 +3274,7 @@ Priority: P0.
 
 Dependencies: H-08, F-08, and E-01.
 
-Purpose: prevent execution convenience from changing the task or claims after results appear.
+Purpose: incorporate Tier-0 observations while preventing execution convenience from changing the contributor-grade task or claims after results appear.
 
 Deliverables: exact task, arms, model identities, auth profiles, evaluator/judge, tool policy, execution order, budget, timeout, and smoke-only claim language.
 
@@ -2819,7 +3284,7 @@ Acceptance: the artifact is committed before the first paid solver or evaluator 
 
 Acceptance: unmatched arms are labeled system-bundle plumbing results.
 
-### E-04: Run Claude Code one-task smoke
+### E-04: Run the Tier-1 contributor-grade Claude Code one-task smoke
 
 Existing GitHub issue: #196.
 
@@ -2827,9 +3292,9 @@ Lane: W2 with explicit operator approval.
 
 Priority: P0 after safety gates.
 
-Dependencies: R-01 through R-10, H-01 through H-06, A-04, A-11, and E-03.
+Dependencies: R-00C, R-03 through R-08, R-09A, R-10, H-01 through H-06, A-04, A-11, E-00C, and E-03.
 
-Purpose: prove the first real external LAB harness path end to end.
+Purpose: prove the reproducible native-contained external LAB harness path end to end after the preliminary observation.
 
 Deliverables: execution receipt, canonical deliverable, trusted score artifact, private logs, public summary, cost report, and validation report.
 
@@ -2855,13 +3320,13 @@ Tests: live graph cycle check and #49 acceptance revalidation.
 
 Acceptance: the default graph remains Claude-first; fallback requires an explicit recorded decision rather than silently accepting whichever result appears first.
 
-### E-05: Run Codex one-task smoke
+### E-05: Run the Tier-1 contributor-grade Codex one-task smoke
 
 Lane: W2 with explicit operator approval.
 
 Priority: P0 after safety gates.
 
-Dependencies: R-01 through R-10, H-01 through H-06, A-07, A-12, and E-03.
+Dependencies: R-00C, R-03 through R-08, R-09A, R-10, H-01 through H-06, A-07, A-12, and E-03.
 
 Purpose: prove the same community pipeline with the second locally installed harness.
 
@@ -2873,23 +3338,23 @@ Acceptance: the run is real, non-fixture, bounded, and uses the pinned task and 
 
 Acceptance: the row is named as a Codex-plus-model system configuration.
 
-### E-06: Run matched native LAB smoke
+### E-06: Produce a matched native-LAB observation and compatibility proof
 
 Existing GitHub issues: #48 and #49.
 
 Lane: W2 with explicit operator approval.
 
-Priority: P0 for a harness-effect claim.
+Priority: P1 for a matched-pair observation; it cannot by itself support a generalized harness-effect claim.
 
 Dependencies: H-07, E-03, and compatible model/auth access.
 
-Purpose: create the thin native arm for the first paired external-harness comparison.
+Purpose: create the thin native arm and prove compatibility for a paired external-harness observation.
 
 Deliverables: native execution receipt, deliverable, trusted score, cost report, and compatibility proof.
 
 Tests: byte-identical solver input, exact model match, common evaluator, and compatibility-key equality.
 
-Acceptance: if exact model parity cannot be established, the native row is published separately and no harness-effect claim is made.
+Acceptance: exact compatibility permits only the observed paired difference for the pinned task/run; if parity cannot be established, the native row is published separately as a system bundle, and generalized effect language always waits for E-08/E-09 pilot evidence.
 
 ### E-07: Satisfy first real community acceptance
 
@@ -2919,13 +3384,13 @@ Priority: P1.
 
 Dependencies: successful E-04 through E-06 plumbing and F-08.
 
-Purpose: move from one-task smoke to interpretable comparison without post-score task selection.
+Purpose: move from the separate one-task Tier-0 smoke to an interpretable comparison without post-pilot-score task selection.
 
 Deliverables: task strata, exact task IDs, selection hash, arms, exact model matching rules, randomized order, repeat count, failure policy, coverage floor, uncertainty method, budget, and stopping rule.
 
 Tests: deterministic selection, balance diagnostics, order-generation golden, and budget simulation.
 
-Acceptance: the pilot design is committed before pilot scores are inspected.
+Acceptance: the pilot task/arm selection and design are committed before any stratified-pilot score is observed; any Tier-0-informed change is disclosed with the proposed shard, feedback, accepted/rejected rationale, and final frozen-spec diff.
 
 Acceptance: any unmatched Claude-versus-Codex analysis is labeled system-bundle comparison.
 
@@ -2998,6 +3463,134 @@ Deliverables: public task projection, licensing/disclosure record, loader, expec
 Tests: leakage audit, namespace isolation, official promotion denial, task hash reproducibility, and package validation.
 
 Acceptance: this work does not block the Harvey LAB pilot or official Cycle 1.
+
+### D-00: Freeze the audience, claims, and publication calendar
+
+Lane: W3 Agent D2.
+
+Priority: P0 and immediately ready after PLAN-MR.
+
+Dependencies: P-01.
+
+Purpose: make audience and time-to-result first-class launch constraints without allowing communications to weaken methods.
+
+Deliverables: practitioner, AI-research, LegalQuants, and contributor audiences; canonical calls to action/URLs; preliminary, reproducible, and official claim tiers; required evidence and forbidden language for each tier; non-affiliation text; owners; publication approvals; and the dated calendar in section 21.
+
+Tests: fresh-eyes audience/methods review and consistency checks across README, report templates, issue #196, and the roadmap.
+
+Acceptance: every public surface names its evidence tier and cannot silently upgrade a preliminary or system-bundle result.
+
+### D-01: Build the human-facing Cycle 1 report shell
+
+Lane: W3 Agent D0.
+
+Priority: P0 in parallel with acquisition.
+
+Dependencies: D-00.
+
+Purpose: build the page that practitioners and researchers will actually read before official results exist.
+
+Deliverables: fixture-backed static report/leaderboard with headline micro-Brier and intervals, calibration, refusal/invalid rates, realized prevalence and allowed baseline context, accounting, one-paragraph contamination story, limitations, and METHODS/reproduce/audit links.
+
+Tests: fixture arithmetic, official/community visual separation, static render, responsive layout, accessibility, link integrity, and publication guardrails.
+
+Acceptance: audit detail is one click deeper and the first screen is interpretable to a skimming reader.
+
+### D-02: Populate, audit, and publish the Cycle 1 report
+
+Lane: W3 Agent D0 with independent methods/arithmetic review.
+
+Priority: P0 after the official aggregate.
+
+Dependencies: D-01 and O-27.
+
+Purpose: render and publish the human-facing official result promptly from O-27's canonical audited artifacts rather than creating a second aggregate owner.
+
+Deliverables: populated report, permanent URL and artifact hash, claims/arithmetic audit, publication record, and README link refresh within 24 hours.
+
+Tests: reconstruction from official hashes, aggregate/report equality, baseline-language guard, static render, link check, and independent sign-off.
+
+Acceptance: the page states whether a valid frozen empirical baseline exists and never claims Brier skill when it does not.
+
+### D-03: Publish the preliminary harness-comparison writeup
+
+Lane: W3 Agent D1 with W2 evidence review.
+
+Priority: P0 critical path for audience value.
+
+Dependencies: D-00 and E-00C.
+
+Purpose: answer the timely Claude-Code-versus-thin-LAB question in an honest, useful, short form.
+
+Deliverables: template prepared before results; exact task/model/harness/native-tool/evaluator/judge/auth settings; what matched and did not; score and coverage; solve/evaluation cost, tokens, time, attempts, and failures; artifact links; limitations; and README link refresh.
+
+Tests: comparison values reconstruct from receipts, every unmatched variable is disclosed, no one-task variance/significance language appears, secret/path scan passes, and independent claim review passes.
+
+Acceptance: every surface says `Preliminary — one task pair, operator-run, not independently reproducible` and reports at most the observed paired difference for this pinned task/run when the corrected matched key passes; generalized `harness effect`, `performs better`, or superiority language waits for the prespecified pilot and supported uncertainty.
+
+### D-04A: Draft the LegalQuants engagement loop
+
+Lane: W3 Agent D2.
+
+Priority: P0.
+
+Dependencies: D-00.
+
+Purpose: turn LegalQuants from a passive audience into a potential pilot-design participant without implying partnership or surrendering preregistration control.
+
+Deliverables: immediate draft reply to Jamie explaining that the intended primary arm preserves native Claude Code tools pending feasibility; invitation to comment before stratified-pilot task/arm selection is finalized and before any stratified-pilot score; preliminary-result follow-up draft; non-affiliation language; and a predeclared feedback-window close date.
+
+Tests: methods/non-affiliation review and confirmation that no unpublished confidential artifact or unsupported result appears.
+
+Acceptance: this task drafts only and performs no external send.
+
+### D-04B: Approve/send or decline the LegalQuants messages
+
+Lane: John.
+
+Priority: P0 human checkpoint.
+
+Dependencies: D-04A; the result follow-up additionally waits for D-03.
+
+Purpose: preserve human authority for external communications while preventing an external response from blocking the pilot indefinitely.
+
+Deliverables: John approval/send or explicit decline, permalink if sent, feedback record, and window closure as feedback received, no response, or declined send.
+
+Tests: verify the sent text and permalink against the approved draft without collecting private account information.
+
+Acceptance: pilot design may consume feedback only before stratified-pilot selection/freeze and scores, waits for the declared window state rather than for a response to exist, and archives the proposed shard, feedback, accepted/rejected rationale, final frozen specification, and any change informed by the separate Tier-0 result.
+
+### D-05: Draft and package the methods preprint
+
+Lane: W3 Agent D1 with methods review.
+
+Priority: P1; drafting begins immediately.
+
+Dependencies: draft depends on D-00; final package depends only on D-02.
+
+Purpose: convert the strong `docs/METHODS.md` foundation and audited results into a research artifact legible to legal and AI-research audiences.
+
+Deliverables: 6–10 page manuscript covering design, contamination resistance, Cycle 1 methods/results, limitations, and reproducibility; citation audit; SSRN package; optional arXiv package; and a separately labeled harness-comparison appendix only if validated evidence is ready without delaying the MTD paper.
+
+Tests: source-to-claim citation audit, table reconstruction, leakage/publication guardrails, render check, and independent methods review.
+
+Acceptance: SSRN submission requires a separate John authorship/publication approval; arXiv never blocks SSRN or the report.
+
+### D-06: Turn README into the landing page
+
+Lane: W3 Agent D1.
+
+Priority: P0.
+
+Dependencies: D-00.
+
+Purpose: make the repository's first screen communicate the benchmark, current status/result, contamination claim, official/community distinction, and next action before contributor mechanics.
+
+Deliverables: concise first screen, current-result/status component, official versus community explanation, METHODS/audit/reproduce links, and update hooks owned by D-02/D-03.
+
+Tests: link check, render/readability review, stale-result fixture, non-affiliation wording, and contributor path discoverability.
+
+Acceptance: no permanent `coming soon` claim remains after a result publishes, and each result link updates within 24 hours.
 
 ### I-01: Inventory every open GitHub issue
 
@@ -3421,6 +4014,12 @@ Acceptance: rows with unresolved model identity do not silently composite with s
 
 ### 17.1 Test layers
 
+Layer 0 is the trusted-operator Tier-0 paired smoke.
+
+It uses one pinned public task, hash-verified solver-visible bytes, physical solver/evaluator separation, native whole-process outer containment, sealed output before evaluation, frozen caps/order/claims, and allowlist-only scanned publication.
+
+Layer 0 is not hostile-contributor validation and cannot satisfy #49.
+
 Layer 1 is pure schema and policy validation.
 
 It covers versioned records, required fields, hashes, compatibility keys, state transitions, and error classification.
@@ -3464,7 +4063,8 @@ It covers frozen packets, shards, receipts, accepted attempts, exact aggregate, 
 | Trusted score verification | Required | Required | N/A | N/A | Required |
 | Auth profile selection | Required | Required with fake | Required with canary | Required | Required |
 | CLI capability drift | Required with fake | Required | N/A | Required | Required |
-| Tool containment | Protocol required | Fake tool required | Required | Optional no-spend | Required for tool task |
+| Native whole-process containment | Policy required | Fake boundary required | Required for contributor grade | Required no-spend | Tier 0 narrow / Tier 1 full |
+| MCP-mediated secondary arm | Protocol required | Fake tool required | Required only for mediated profile | Optional no-spend | Not required for clean-native arm |
 | Timeout cleanup | Required | Required | Required | Optional | Required |
 | Resume identity | Required | Required | Required | N/A | Required |
 | Redaction | Required | Required | Required across private/public trees | Required | Required |
@@ -3521,6 +4121,8 @@ Prioritize branch coverage on fail-closed validators and state machines.
 Use property or fuzz testing for contributor-controlled identifiers, JSON size/depth, path normalization, selection determinism, and receipt mutation.
 
 Use explicit negative controls rather than relying on line coverage for security claims.
+
+Mutation testing and recurring binary-drift sweeps are post-launch improvements unless a concrete defect makes one critical; they never displace a ready Tier-0 or official task.
 
 ### 17.6 Real-service test policy
 
@@ -3622,7 +4224,45 @@ No real-service test runs on an untrusted pull request.
 
 - [ ] Fan-in verifies before aggregation.
 
-### 18.6 Gate C-A: community measurement foundation
+### 18.6 Gate C-T0: preliminary native paired smoke
+
+- [ ] Issue #196 has a recorded Phase A preliminary / Phase B reproducible amendment.
+
+- [ ] Provider automation and result-publication terms are recorded for the selected auth profile.
+
+- [ ] The LAB revision/evaluator seam and exact Claude Code binary/hash are pinned.
+
+- [ ] The primary Claude arm preserves native local tools and configures no task MCP server.
+
+- [ ] Byte-identical solver-visible inputs are physically separate from evaluator-private bytes.
+
+- [ ] Task, arms, model/settings, evaluator/judge, order, caps, timeout, retry, metrics, and claims are frozen before spend.
+
+- [ ] The solver runs inside the narrow disposable outer boundary; output is sealed before separate evaluation.
+
+- [ ] Public artifacts are allowlist-built and independently scanned for credentials, account/path data, private transcripts, and grader canaries.
+
+- [ ] Score, coverage, tokens, cost basis, wall-clock, attempts, and failures are published together.
+
+- [ ] Every surface says `Preliminary — one task pair, operator-run, not independently reproducible`; #49 remains open.
+
+Claude Tier-0 completion does not wait for the Codex fast-follow.
+
+### 18.6A Gate C-T0C: nonblocking Codex Tier-0 follow-on
+
+- [ ] The pinned Codex binary preserves its clean-install native loop and enumerated local tools inside the verified narrow outer boundary.
+
+- [ ] A Codex-specific model/resource/order/evaluator addendum was committed before any Codex or paired-native spend.
+
+- [ ] The addendum reuses the exact pinned solver-visible task projection and evaluator seam without changing the Claude Tier-0 artifacts.
+
+- [ ] Output seals before arm-opaque separate evaluation, and all attempts/failures remain visible.
+
+- [ ] The reviewed package reports score, coverage, cost basis, tokens, wall-clock, attempts, failures, and exact compatibility-key result.
+
+- [ ] Every surface says `Preliminary — one task pair, operator-run, not independently reproducible`; #49 remains open and no generalized Claude-versus-Codex claim appears.
+
+### 18.7 Gate C-A: community measurement foundation
 
 - [ ] Solver input and evaluator-private input are separate.
 
@@ -3636,9 +4276,11 @@ No real-service test runs on an untrusted pull request.
 
 - [ ] Contributor artifacts are treated as hostile data.
 
-### 18.7 Gate C-B: runtime and auth
+### 18.8 Gate C-B: contributor-grade runtime and auth
 
-- [ ] The issue #41 runtime enforces the claimed boundary.
+- [ ] The native whole-process boundary enforces the clean-native claim.
+
+- [ ] The issue #41 runtime separately enforces any accepted MCP-mediated profile.
 
 - [ ] Process groups and containers are fully cleaned up.
 
@@ -3652,7 +4294,7 @@ No real-service test runs on an untrusted pull request.
 
 - [ ] `max_parallelism` reflects actual scheduling.
 
-### 18.8 Gate C-C: LAB bridge and adapters
+### 18.9 Gate C-C: LAB bridge and adapters
 
 - [ ] The LAB upstream revision, license, and CLI are pinned.
 
@@ -3660,13 +4302,13 @@ No real-service test runs on an untrusted pull request.
 
 - [ ] External deliverables can be evaluated without rerunning solvers.
 
-- [ ] Native LAB, Claude Code, and Codex fake E2Es pass.
+- [ ] Native LAB, clean-native Claude Code, and clean-native Codex fake E2Es pass.
 
 - [ ] Claude Code and Codex real binary no-spend probes pass.
 
 - [ ] Adapter identities remain distinct from SDK/API adapters.
 
-### 18.9 Gate C-D1: first real community acceptance
+### 18.10 Gate C-D1: first contributor-grade community acceptance
 
 - [ ] The one-task smoke design is committed before spend.
 
@@ -3682,7 +4324,9 @@ No real-service test runs on an untrusted pull request.
 
 The first #49 acceptance does not wait for Codex or a matched native arm because #49 requires one real adapter.
 
-### 18.10 Gate C-D2: dual-adapter and comparison readiness
+Tier-0 evidence cannot satisfy this gate.
+
+### 18.11 Gate C-D2: dual-adapter and comparison readiness
 
 - [ ] The Codex real run succeeds and passes trusted regrade.
 
@@ -3690,15 +4334,17 @@ The first #49 acceptance does not wait for Codex or a matched native arm because
 
 - [ ] The dual-adapter aggregate and site rebuild from a clean checkout.
 
-### 18.11 Gate C-D3: matched native-LAB comparison
+### 18.12 Gate C-D3: matched native-LAB comparison
 
-- [ ] A matched native arm uses the exact same committed solver-visible content, served model identity, provider route, settings, prompt/tool policy, evaluator, judge, and temporal block.
+- [ ] A matched native arm uses the exact same committed solver-visible content, served model identity, provider route, model settings, evaluator, judge, temporal block, outer boundary class, run order, and repeat policy.
+
+- [ ] Harness-intrinsic system prompt, context management, loop, tool API, and tool implementation differences are frozen and disclosed as the treatment; they are not incorrectly required to be identical.
 
 - [ ] A versioned layout adapter may change filesystem layout only when its mapping proves no semantic material was added or removed.
 
 - [ ] The prespecified pilot identifies which rows are matched harness comparisons and which are harness-plus-model system bundles.
 
-- [ ] A `matched_harness_key` exists before any harness-effect claim.
+- [ ] A `matched_harness_key` exists before reporting a matched paired observation; generalized effect language additionally waits for the prespecified multi-task/repeat pilot and supported uncertainty.
 
 - [ ] Unresolved served-model identity or any mismatched nuisance variable forces system-bundle language.
 
@@ -3709,7 +4355,7 @@ The first #49 acceptance does not wait for Codex or a matched native arm because
 | #6 | Legal Quants methods feedback | Split after Cycle 1 into implemented, obsolete, and focused successors | Does not block first run unless a frozen-methods requirement is truly missing |
 | #10 | Community umbrella | Update child map; close only after #49 | Blocks declaration of community launch complete |
 | #37 | Workload identity for official providers | P0 gate decision; implement now or explicitly defer with threat-model evidence | May block official dispatch, never acquisition |
-| #41 | Host-owned tool runtime | Complete under `2dnr` | Blocks real tool-using LAB tasks |
+| #41 | Host-owned MCP-mediated tool runtime | Complete under `2dnr` as a secondary profile and hostile-contributor mechanism | Does not block the native Tier-0 arm; blocks any accepted mediated profile |
 | #42 | PyPI trusted publishing | Complete before package release | Does not block source-checkout pilot |
 | #43 | OpenAI Responses adapter | Reactivate after C8/C-D1 proves the adapter seam | Does not satisfy Codex CLI |
 | #44 | Claude Agent SDK adapter | Reactivate after C8/C-D1 proves the adapter seam | Does not satisfy Claude Code |
@@ -3722,7 +4368,7 @@ The first #49 acceptance does not wait for Codex or a matched native arm because
 | #67 | Acquisition error audit/name cleanup | Defer until acquisition checkpoint, then narrow PR | Must not collide with live acquisition |
 | #97 | Motion-target helper drift | Defer until acquisition checkpoint, then narrow PR | Benchmark-integrity cleanup, not immediate live blocker |
 | #108 | Stale batch-002 execution recipe | Evidence-close or narrow residual | Do not rerun obsolete recipe |
-| #196 | Claude Code headless LAB | Implement API-key published baseline plus separate local-subscription profile | First preferred real community adapter |
+| #196 | Claude Code headless LAB | Amend into Phase A preliminary clean-native paired smoke plus Phase B contributor-grade native adapter; keep MCP-mediated as a distinct secondary arm | Tier 0 is the first result; Phase B is the preferred #49 path |
 
 The new roadmap issue is the cross-track portfolio record; a separate focused Codex CLI Harvey LAB issue is created at roadmap publication so Codex does not remain an indefinite unowned roadmap bullet.
 
@@ -3752,6 +4398,16 @@ Every new task has a self-contained purpose, deliverables, tests, and acceptance
 
 Every graph mutation includes a cycle check, targeted dependency inspection, and ready-queue inspection.
 
+Two labels identify the launch-critical queues: `critical-path-official` and `critical-path-tier0`.
+
+`contributor-intake` marks the full reproducible path that follows Tier 0.
+
+`off-critical-path` and `post-launch` mark parked work.
+
+Every executor queries its critical label first and excludes both `off-critical-path` and `contributor-intake` from the ordinary queue while same-lane critical work is ready.
+
+An agent may claim off-critical-path work while critical work is ready in the same lane only when the coordinator records the blocking reason on the critical Bead.
+
 ### 20.2 Portfolio hierarchy
 
 Create these top-level records:
@@ -3761,8 +4417,10 @@ Create these top-level records:
 | PORT | top-level epic | P0 | Govern both launch tracks and the issue-convergence program; link the roadmap issue |
 | PLAN-MR | merge/refresh checkpoint task under PORT | P0 | Land this plan, both roadmap issues, the initial graph, review evidence, and worktree refresh |
 | PLAN-VALIDATE | task under PORT | P0 | Validate the initial live graph and refresh the passive export |
+| PORT-CRITICAL | task under PORT | P0 | Enforce critical-path labels, WIP rule, dated escalation, and post-launch tracker pruning |
 | COMM | epic under PORT | P0 | Successor community-comparison program, related to closed 054 |
 | ISSUES | epic under PORT | P1 | GitHub issue and stale-tracker convergence |
+| DIST | epic under PORT | P0 | Publication, audience, LegalQuants engagement, README, and methods preprint |
 
 Relate PORT to existing official epic 5qd6, closed community predecessor 054, active runtime owner 2dnr, and background branch-cleanup record gww5.
 
@@ -3779,6 +4437,14 @@ Live materialization on 2026-07-16:
 | PORT | `dm0g` |
 | PLAN-MR / PLAN-VALIDATE | `dm0g.2` / `dm0g.3` |
 | COMM / ISSUES | `dm0g.4` / `dm0g.5` |
+| PORT-CRITICAL / DIST | `dm0g.6` / `dm0g.7` |
+| Efficiency / native boundary / native E2E | `dm0g.4.1.16` / `dm0g.4.2.15` / `dm0g.4.2.16` |
+| Optional mediated profiles | `dm0g.4.4.15` |
+| Claude Tier-0 critical path | `dm0g.4.5.12` through `dm0g.4.5.16` |
+| Codex Tier-0 fast-follow | `dm0g.4.5.17` and `dm0g.4.5.18` |
+| Distribution children | `dm0g.7.1` through `dm0g.7.8` |
+| Post-launch tracker pruning | `dm0g.5.15` |
+| Official pre-dispatch registry/anchor recheck | `5qd6.96` |
 | Community foundation | `dm0g.4.1.*` |
 | Runtime | `dm0g.4.2.*` |
 | LAB bridge | `dm0g.4.3.*` |
@@ -3791,6 +4457,14 @@ Live materialization on 2026-07-16:
 Use live `bd show` or `bd list --parent` for the exact title-to-ID mapping; the live database remains authoritative after this snapshot.
 
 The initial conversion created 105 records: 92 in the `dm0g` portfolio namespace and 13 under existing official parents.
+
+The strategic amendment adds only bounded Tier-0, native-boundary, efficiency, scheduling, and distribution records; it labels or re-prioritizes the existing long tail instead of cloning it.
+
+Live materialization of the amendment added 23 records: one scheduler, one distribution epic and eight distribution children, five Claude Tier-0 tasks, two Codex Tier-0 tasks, efficiency/native-boundary/native-E2E/optional-mediated tasks, one tracker-pruning task, and one official pre-dispatch registry/anchor task.
+
+The post-amendment validation snapshot contains 792 live records: 584 closed and 208 nonclosed.
+
+Those counts are descriptive only and will drift as concurrent agents work; live `bd` remains authoritative.
 
 Validation task `dm0g.3` closed after proving zero cycles, unchanged dependency state for the three active acquisition executors, singular `2dnr` runtime ownership, launch-readiness edges for `5qd6.39.11`, `.39.6`, and `.39.10`, and a refreshed passive export of 766 records.
 
@@ -3811,10 +4485,13 @@ Validation task `dm0g.3` closed after proving zero cycles, unchanged dependency 
 | O-W1-CP2 | merge/refresh checkpoint task under 5qd6 | O-W1-CP1, 5qd6.26 | Second protocol checkpoint merged and refreshed |
 | O-W1-CP3 | merge/refresh checkpoint task under 5qd6 | O-W1-CP2, 5qd6.27 | Fan-in checkpoint merged and refreshed |
 | O-W1-SMOKE-GATE | merge/refresh integration checkpoint task under 5qd6 | O-W1-CP3, 5qd6.28, 5qd6.29, 5qd6.32, 5qd6.33, 5qd6.34 | All official engineering inputs integrated from current main and smoke-ready |
+| O-ANCHOR-REVALIDATE | task under 5qd6 | 5qd6.36; directly blocks 5qd6.41 | Within-24-hour served-model/registry/anchor evidence and explicit drift decision |
 
 The source-scope inventory begins with the 15 live nonclosed children observed on 2026-07-16: .1, .5, .6, .7, .8, .9, .10, .23, .24, .25, .28, .32, .33, .34, and .37.
 
 That list is a starting snapshot, not a hard-coded universe.
+
+The strategic audit also observed in-progress grandchildren `.73.34.1` and `.73.37.1`; because a parent-child link is not a blocking edge, O-SOURCE-SCOPE must decide whether each is terminal evidence required by O-RECONCILE and add its exact edge only if required.
 
 Do not add new blockers directly to .73.34, .73.37, or yr43.67.
 
@@ -3843,10 +4520,11 @@ Create P0 epic COMM-F under COMM.
 | F-DELIVERABLE | F-SEPARATION, L-UPSTREAM | Add canonical validated deliverables and layout mapping |
 | F-EVALUATION | F-DELIVERABLE, L-UPSTREAM | Add EvaluationSpec and EvaluationReceipt |
 | F-SCORE | F-EVALUATION, F-CHAR | Add deterministic MetricDefinition and ScoreArtifact |
-| F-MR1 | F-IMPORT, F-RUN-CONTRACT, F-MATERIALIZER, F-SEPARATION, F-DELIVERABLE, F-EVALUATION, F-SCORE | Land contract foundation and refresh W2 |
+| F-EFFICIENCY | F-RUN-CONTRACT, F-EVALUATION, F-SCORE | Define authoritative usage/cost/time/coverage joins and public peer-column semantics |
+| F-MR1 | F-IMPORT, F-RUN-CONTRACT, F-MATERIALIZER, F-SEPARATION, F-DELIVERABLE, F-EVALUATION, F-SCORE, F-EFFICIENCY | Land contract foundation and refresh W2 |
 | F-SUMMARY | F-MR1, R-MR | Extend run summaries with execution/deliverable/evaluation/score references |
-| F-PUBLISH | F-SUMMARY | Propagate real metrics through package, aggregate, and site |
-| F-COMPARE | F-MR1, F-PUBLISH | Add repeat, coverage, failure estimand, compatibility, and claim policies |
+| F-PUBLISH | F-SUMMARY, F-EFFICIENCY | Propagate score, coverage, usage, cost basis, tokens, time, attempts, and failures through package, aggregate, and site |
+| F-COMPARE | F-MR1, F-PUBLISH, F-EFFICIENCY | Add repeat, coverage, efficiency, failure estimand, compatibility, and claim policies |
 | I-56B | F-MR1 | Harden redirects, archives, LFS pointers, decompression, parsers, and hostile submission ingress |
 | I-WORKFLOW | F-MR1 | Cover adapter examples, both adapter namespaces, full-SHA pins, and actual workflow path filters |
 | F-MR2 | F-PUBLISH, F-COMPARE, I-WORKFLOW, I-56B | Land measurement/publication behavior and refresh |
@@ -3863,9 +4541,9 @@ Runtime records:
 
 | Handle | Depends on | Purpose |
 | --- | --- | --- |
-| PROVIDER-TERMS | PLAN-MR | Verify supported automation/auth modes before provider-specific implementation or spend |
-| R-CLAUDE-FEAS | PROVIDER-TERMS | No-spend proof that Claude tools/config/hooks/plugins can be bounded while retaining a representative harness |
-| R-CODEX-FEAS | PROVIDER-TERMS | Equivalent no-spend proof for Codex CLI |
+| PROVIDER-TERMS | PLAN-MR | Verify supported automation/auth modes and result-publication rights before provider-specific implementation, spend, or publication |
+| R-CLAUDE-FEAS | PROVIDER-TERMS | No-spend proof that native Claude tools and loop work inside a disposable outer boundary without ambient config/web/private access |
+| R-CODEX-FEAS | PROVIDER-TERMS | Equivalent native-sandbox/outer-boundary proof for Codex CLI |
 | R-PROCESS | PLAN-MR | Process-group cancellation and descendant cleanup |
 | R-AUTH | F-RUN-CONTRACT | Generic auth schema, provenance category, and no-fallback rules |
 | R-ENV | R-AUTH | Minimal host environment and credential projection |
@@ -3875,12 +4553,16 @@ Runtime records:
 | R-MR | R-CAPABILITY, R-REDACT | Land the shared local runtime and refresh |
 | R-PARALLELISM | R-SERVICE | Enforce requested-versus-actual scheduling truth and fail closed on divergence |
 | R-HOSTILE-E2E | R-MR, 2dnr, F-SEPARATION, I-56B | Full hostile runtime plus solver/grader canary E2E beyond 2dnr unit canaries |
+| R-NATIVE-BOUNDARY | R-CLAUDE-FEAS, R-CODEX-FEAS, R-ENV, F-SEPARATION, Tier-0 observations | Contributor-grade whole-process native containment with provider-only egress and separate evaluation |
+| R-NATIVE-E2E | R-NATIVE-BOUNDARY, R-REDACT, F-SEPARATION, I-56B | Hostile native whole-process and solver/evaluator canary E2E |
 | AUTH-API | PROVIDER-TERMS, R-AUTH, R-ENV | Explicit API-key published profile |
-| AUTH-SUBSCRIPTION | PROVIDER-TERMS, R-HOSTILE-E2E, relevant adapter checkpoint | Contributor-owned local subscription profile; P1 and nonblocking for API baseline |
+| AUTH-SUBSCRIPTION | PROVIDER-TERMS, R-NATIVE-E2E, relevant adapter checkpoint | Contributor-owned local subscription profile; P1 and nonblocking for Tier 0 |
 
 R-MR also depends on R-PARALLELISM.
 
-Do not create new receipt, resume-binding, or issue-41 unit/negative-canary owners.
+Do not create new receipt, resume-binding, or issue-41 unit/negative-canary owners for the mediated profile.
+
+The clean-native outer boundary is a different whole-process responsibility and therefore has its own bounded records rather than overloading `2dnr`.
 
 Expand 2dnr acceptance or decompose it only with its current owner if more granularity is needed.
 
@@ -3895,7 +4577,7 @@ LAB records:
 | L-VERIFY | L-EVALUATOR, F-PUBLISH | Verify authorized evaluator receipts and deterministically recompute normalization |
 | L-MR | L-PROJECTION, L-OUTPUT, L-EVALUATOR, L-VERIFY | Land the pinned LAB bridge and refresh |
 | L-NATIVE | L-EVALUATOR | Implement native LAB comparison arm; P1 and not a blocker of first acceptance |
-| X-SPEC | F-MR2, L-UPSTREAM, L-PROJECTION, PROVIDER-TERMS | Freeze the exact issue-196 task, inputs, criteria, caps, hashes, and claims before spend |
+| X-SPEC | F-MR2, F-EFFICIENCY, L-UPSTREAM, L-PROJECTION, PROVIDER-TERMS, T0-PUBLISH | Freeze the Tier-1 issue-196 task, inputs, criteria, caps, hashes, efficiency fields, and claims after learning from Tier 0 |
 
 A fresh stochastic judge invocation creates a new measurement receipt and repeat index; it is never verification of a previous score.
 
@@ -3914,31 +4596,52 @@ Create P0 epic COMM-ADAPTERS under COMM.
 | A-CODEX-OFFLINE | A-MANIFEST, A-CODEX-PROBE, F-MR1, R-SERVICE, I-CODEX-ISSUE | Offline Codex core and conformance |
 | AUTH-CLAUDE | A-CLAUDE-OFFLINE, AUTH-API | Bind approved auth profiles to Claude |
 | AUTH-CODEX | A-CODEX-OFFLINE, AUTH-API | Bind approved auth profiles to Codex |
-| A-CLAUDE-LIVE | A-CLAUDE-OFFLINE, AUTH-CLAUDE, R-MR, 2dnr, L-MR | Real contained Claude adapter |
-| A-CODEX-LIVE | A-CODEX-OFFLINE, AUTH-CODEX, R-MR, 2dnr, L-MR | Real contained Codex adapter |
+| A-CLAUDE-LIVE | A-CLAUDE-OFFLINE, AUTH-CLAUDE, R-MR, R-NATIVE-BOUNDARY, R-NATIVE-E2E, L-MR | Real `claude-code-clean-native` adapter |
+| A-CODEX-LIVE | A-CODEX-OFFLINE, AUTH-CODEX, R-MR, R-NATIVE-BOUNDARY, R-NATIVE-E2E, L-MR | Real `codex-cli-clean-native` adapter |
+| A-MEDIATED | 2dnr, R-HOSTILE-E2E, applicable offline/auth tasks | P2 optional MCP-mediated decomposition profiles with distinct identities |
 | A-REGISTRY | A-MANIFEST, F-MR1 | Generic registry/entry-point integration without concrete adapter branching |
 | A-CLAUDE-MR | A-CLAUDE-LIVE, A-REGISTRY | Claude PR merged, fresh review complete, W2 refreshed |
 | A-CODEX-MR | A-CODEX-LIVE, A-REGISTRY | Codex PR merged, fresh review complete, temporary Codex worktree refreshed |
 
 The fake/probe tasks are intentionally ready early.
 
-Offline cores proceed after neutral contracts exist; live activation waits for the real tool boundary and LAB bridge.
+Offline cores proceed after neutral contracts exist; clean-native live activation waits for the whole-process native boundary and LAB bridge.
 
-W2 carries Claude while the parked W3 slot is recreated for Codex, keeping the active worktree count at four.
+The issue #41 mediated boundary is required only for A-MEDIATED.
+
+W2 carries both adapters while exact reservations remain disjoint; only measured collision pressure justifies parking W3 and recreating that counted slot for an independent Codex PR.
 
 ### 20.7 First acceptance and later pilot
 
 Create P0 epic COMM-ACCEPT and P1 epic COMM-PILOT under COMM.
 
+Tier-0 critical path records under COMM-ACCEPT:
+
+| Handle | Depends on | Purpose |
+| --- | --- | --- |
+| T0-GOV | PROVIDER-TERMS | Amend #196 and freeze intended clean-native primary/mediated secondary identities, publication rights, threat model, claims, and date while feasibility/pin probes run in parallel |
+| T0-SPLIT | L-UPSTREAM, R-CLAUDE-FEAS | Build the narrow one-task solver-visible projection, evaluator-private inventory/canaries, safe output locator, and separate evaluator invocation |
+| T0-SPEC | T0-GOV, T0-SPLIT, installed Claude capability evidence | Commit the exact paired task/model/settings/tools/order/caps/retry/evaluator/metrics/claims before spend |
+| T0-RUN | T0-SPEC | Run clean-native Claude plus native thin LAB where feasible, preserve all attempts, seal outputs, and evaluate separately |
+| T0-PUBLISH | T0-RUN | Independently review/redact, archive the preliminary package, update #196, and unblock the public writeup |
+| T0C-SPEC | T0-SPLIT, R-CODEX-FEAS | Freeze the nonblocking Codex/native-LAB addendum, capability inventory, matched resource policy, evaluation order, budget, and claims before spend |
+| T0C-PUBLISH | T0C-SPEC | Execute, independently review, and publish the Codex Tier-0 follow-on without blocking T0-PUBLISH |
+
+All seven records carry `critical-path-tier0` and `tier-0`; the Codex pair also carries `codex-tier0` and has no dependency path into T0-PUBLISH.
+
+T0-PUBLISH blocks the later Tier-1 X-SPEC so the reusable factory incorporates observed upstream/CLI behavior.
+
+No Tier-0 record blocks or satisfies X-PACKAGE/X-MR or issue #49.
+
 | Handle | Depends on | Purpose |
 | --- | --- | --- |
 | X-CLAUDE-HANDSHAKE | A-CLAUDE-MR, R-MR | Private no-tool credential/redaction handshake |
 | X-CODEX-HANDSHAKE | A-CODEX-MR, R-MR | Private no-tool credential/redaction handshake |
-| X-SECURITY-E2E | F-MR2, L-MR, R-HOSTILE-E2E | Shared package-to-site, clean rebuild, and hostile foundation acceptance |
+| X-SECURITY-E2E | F-MR2, L-MR, R-NATIVE-E2E | Shared clean-native package-to-site, clean rebuild, and hostile foundation acceptance |
 | X-CLAUDE-E2E | X-SECURITY-E2E, A-CLAUDE-MR | Claude fake-binary package-to-site acceptance |
 | X-CODEX-E2E | X-SECURITY-E2E, A-CODEX-MR | Codex fake-binary package-to-site acceptance |
-| X-CLAUDE | X-SPEC, X-CLAUDE-HANDSHAKE, X-CLAUDE-E2E | Paid Claude issue-196 smoke with stop-after-one cap |
-| X-CODEX | X-SPEC, X-CODEX-HANDSHAKE, X-CODEX-E2E | Paid Codex smoke with stop-after-one cap |
+| X-CLAUDE | X-SPEC, X-CLAUDE-HANDSHAKE, X-CLAUDE-E2E | Tier-1 contributor-grade clean-native Claude smoke with stop-after-one cap |
+| X-CODEX | X-SPEC, X-CODEX-HANDSHAKE, X-CODEX-E2E | Tier-1 contributor-grade clean-native Codex smoke with stop-after-one cap |
 | X-PACKAGE | X-CLAUDE, L-VERIFY | Package, verify, validate, and rebuild the first real #49 submission |
 | X-MR | X-PACKAGE | First accepted community row PR merged and W2 refreshed |
 | X-DUAL | X-MR, X-CODEX | Dual-adapter enablement gate |
@@ -3955,7 +4658,26 @@ If Claude becomes externally blocked after all supported in-scope paths are exha
 
 Matched native comparison does not block #49.
 
-### 20.8 Issue convergence
+### 20.8 Distribution and engagement
+
+Create P0 epic DIST under PORT.
+
+| Handle | Depends on | Purpose |
+| --- | --- | --- |
+| D-CALENDAR | PLAN-MR | Freeze audiences, evidence/claim tiers, forbidden language, owners, URLs, approvals, and dates |
+| D-OFFICIAL-SHELL | D-CALENDAR | Build the fixture-backed Cycle 1 human report/leaderboard now |
+| D-OFFICIAL-PUBLISH | D-OFFICIAL-SHELL, 5qd6.41 | Populate, independently audit, publish, and update README within 24 hours |
+| D-HARNESS-WRITEUP | D-CALENDAR, T0-PUBLISH | Publish the preliminary Claude paired writeup with score/coverage/cost/tokens/time/attempts/failures and permanent label; append T0C-PUBLISH when ready without delaying Claude |
+| D-LQ-DRAFT | D-CALENDAR | Draft the immediate Jamie response, intended native-tools design pending feasibility, pilot co-design invitation, and result follow-up; no external send |
+| D-LQ-JOHN | D-LQ-DRAFT; result follow-up also waits for D-HARNESS-WRITEUP | John approves/sends or declines and closes the bounded feedback window |
+| D-PREPRINT | draft: D-CALENDAR; final: D-OFFICIAL-PUBLISH | Draft 6–10 page methods paper now; final SSRN package after audited official results; include a labeled harness appendix only if ready without delay; John controls submission |
+| D-README | D-CALENDAR | Make README the landing page and require result-link refresh within 24 hours |
+
+PILOT-FREEZE depends on D-LQ-JOHN's feedback-window closure state, not on LegalQuants sending a response.
+
+Distribution work never blocks the underlying Tier-0 run or official dispatch; it blocks only its own publication products and the pre-score pilot-input window.
+
+### 20.9 Issue convergence
 
 Create P1 epic ISSUES under PORT, with the following children:
 
@@ -3977,7 +4699,7 @@ Create P1 epic ISSUES under PORT, with the following children:
 
 Use external refs such as gh-37 and gh-41 in titles/descriptions so GitHub issue numbers are never confused with Beads 5qd6.37 and 5qd6.41.
 
-### 20.9 Merge and refresh checkpoint contract
+### 20.10 Merge and refresh checkpoint contract
 
 Every merge-and-refresh checkpoint node requires all of the following evidence:
 
@@ -3993,13 +4715,17 @@ Every merge-and-refresh checkpoint node requires all of the following evidence:
 
 - Workflow validation with the repository target or actionlint covering both .yml and .yaml when workflows change.
 
-- Owning worktree stopped, refreshed or recreated from merged origin/main, and targeted characterization tests rerun after refresh.
+- Owning worktree stopped and refreshed or recreated from merged origin/main.
+
+- Targeted post-refresh characterization rerun when the checkpoint changes code, generated artifacts, commands, schemas, protocols, security boundaries, or downstream-consumed interfaces.
+
+- Docs-only and test-only checkpoints record `not applicable` instead of running redundant post-refresh characterization when they change no executable interface.
 
 Downstream implementation depends on the checkpoint node, not merely on code that exists on an unmerged branch.
 
 No shared worktree carries two concurrent PR branches.
 
-### 20.10 Work-package-to-Bead disposition ledger
+### 20.11 Work-package-to-Bead disposition ledger
 
 Every detailed package in section 16 has exactly one operational disposition below.
 
@@ -4041,8 +4767,9 @@ Multiple packages map to one Bead only where one is the contract/policy facet of
 | O-23 | existing 5qd6.28 | spend/attempt ledger | O-W1-SMOKE-GATE |
 | O-24 | existing 5qd6.32, .33, and .34 | isolation/caps/runbook | O-W1-SMOKE-GATE |
 | O-25 | existing 5qd6.35 | live smoke | existing gate |
+| O-25A | new 5qd6.96 | within-24-hour registry/anchor revalidation | John-operated dispatch gate |
 | O-26 | existing 5qd6.41 | official dispatch | John-operated gate |
-| O-27 | existing 5qd6.41 and .40 | audit/aggregate/publish | canonical run |
+| O-27 | existing 5qd6.41; 5qd6.40 is post-launch follow-up | audit/aggregate/publish | canonical run |
 | F-01 | new F-ARCH | ADR amendment | F-MR1 |
 | F-01A | new F-IMPORT | early import budget | F-MR1 |
 | F-02 | new F-CHAR | current behavior characterization | F-MR1 |
@@ -4051,22 +4778,25 @@ Multiple packages map to one Bead only where one is the contract/policy facet of
 | F-04 | new F-DELIVERABLE | deliverable contract | F-MR1 |
 | F-04A | new F-EVALUATION | evaluation spec/receipt | F-MR1 |
 | F-05 | new F-SCORE | metric/score artifact | F-MR1 |
+| F-05A | new F-EFFICIENCY | authoritative cost/token/time/coverage joins | F-MR1/F-MR2 |
 | F-06 | new F-SUMMARY | summary references | F-MR2 |
 | F-07 | new F-PUBLISH | package/aggregate/site | F-MR2 |
 | F-08 | new F-COMPARE | comparisons/estimands | F-MR2 |
 | F-09 | F-IMPORT enforcement plus F-ARCH policy | import boundary | F-MR1 |
 | F-10 | I-WORKFLOW, shared safely with Q-08 | CI examples/path coverage | isolated workflow PR and F-MR2 |
-| R-00A | new R-CLAUDE-FEAS | no-spend feasibility | C0 evidence |
-| R-00B | new R-CODEX-FEAS | no-spend feasibility | C0 evidence |
-| R-01 | existing 2dnr | issue-41 runtime | existing owner |
-| R-02 | existing 2dnr | receipt/resume binding | existing owner |
+| R-00A | R-CLAUDE-FEAS, amended to native outer-containment | no-spend native feasibility | C0/Tier-0 evidence |
+| R-00B | R-CODEX-FEAS, amended to native sandbox/outer-containment | no-spend native feasibility | nonblocking C0b/Tier-0 Codex evidence |
+| R-00C | new R-NATIVE-BOUNDARY | contributor-grade whole-process native boundary | C3N |
+| R-01 | existing 2dnr | secondary issue-41 MCP-mediated runtime | existing owner / C3M |
+| R-02 | existing 2dnr | receipt/resume binding | existing owner / C3M |
 | R-03 | new R-PROCESS | process cleanup | R-MR |
 | R-04 | new R-AUTH | generic auth schema | R-MR |
 | R-05 | new R-ENV | minimal environment | R-MR |
 | R-06 | new R-SERVICE | shared execution service | R-MR |
 | R-07 | new R-CAPABILITY | probes/framing | R-MR |
 | R-08 | new R-REDACT | central redaction | R-MR |
-| R-09 | existing 2dnr; full cross-boundary E2E is R-HOSTILE-E2E under Q-06 | runtime canaries | existing owner and runtime acceptance |
+| R-09 | existing 2dnr; full mediated E2E is R-HOSTILE-E2E under Q-06 | MCP-mediated runtime canaries | existing owner / C3M mediated acceptance |
+| R-09A | new R-NATIVE-E2E | hostile whole-process native boundary E2E | C3N/Tier-1 gate |
 | R-10 | new F-SEPARATION | generic trust-domain policy | F-MR1 |
 | H-01 | L-UPSTREAM | pinned LAB source | L-MR |
 | H-02 | L-UPSTREAM | command characterization | L-MR |
@@ -4081,29 +4811,43 @@ Multiple packages map to one Bead only where one is the contract/policy facet of
 | A-02 | new A-CLAUDE-FAKE | fake executable | A-CLAUDE-MR |
 | A-03 | new A-CLAUDE-PROBE | real binary probe | A-CLAUDE-MR |
 | A-04A | new A-CLAUDE-OFFLINE | offline core | A-CLAUDE-MR |
-| A-04 | new A-CLAUDE-LIVE | live contained adapter | A-CLAUDE-MR |
+| A-04 | A-CLAUDE-LIVE amended to clean-native | live native-contained adapter | A-CLAUDE-MR |
 | A-05 | new A-CODEX-FAKE | fake executable | A-CODEX-MR |
 | A-06 | new A-CODEX-PROBE | real binary probe | A-CODEX-MR |
 | A-07A | new A-CODEX-OFFLINE | offline core | A-CODEX-MR |
-| A-07 | new A-CODEX-LIVE | live contained adapter | A-CODEX-MR |
+| A-07 | A-CODEX-LIVE amended to clean-native | live native-contained adapter | A-CODEX-MR |
 | A-08 | new A-REGISTRY | generic registry/entry points before concrete adapters | both adapter checkpoints |
 | A-09 | new AUTH-SUBSCRIPTION | contributor auth profile | contributor docs |
 | A-10 | new AUTH-API | published auth profile | adapter checkpoints |
 | A-11 | new AUTH-CLAUDE | Claude binding | A-CLAUDE-MR |
 | A-12 | new AUTH-CODEX | Codex binding | A-CODEX-MR |
-| E-01 | new PROVIDER-TERMS | policy decision | C0 evidence |
+| A-13 | new A-MEDIATED | optional post-launch mediated decomposition profiles | post-launch PR |
+| E-01 | PROVIDER-TERMS expanded to result-publication rights | policy decision | C0 evidence |
+| E-00A | new T0-GOV | issue amendment/native-treatment governance | C0/Tier-0 |
+| E-00B | new T0-SPLIT plus T0-SPEC | narrow paired path and frozen prespecification | C-T0a |
+| E-00C | new T0-RUN plus T0-PUBLISH | paid paired smoke and reviewed preliminary package | C-T0b |
+| E-00D | new T0C-SPEC | nonblocking Codex Tier-0 addendum and dry run | C-T0c |
+| E-00E | new T0C-PUBLISH | reviewed paid Codex Tier-0 follow-on package | C-T0c |
 | E-02 | new X-CLAUDE-HANDSHAKE and X-CODEX-HANDSHAKE | per-provider handshakes | live smoke |
 | E-03 | new X-SPEC | prespecification | live smoke |
 | E-03A | create only on a proven external Claude blocker | conditional governance | not created initially |
 | E-04 | new X-CLAUDE | first paid smoke | X-MR |
 | E-05 | new X-CODEX | parallel paid smoke | X-DUAL |
-| E-06 | new X-NATIVE | matched claim only if compatible | pilot decision |
+| E-06 | new X-NATIVE | matched-pair observation only if compatible | pilot decision |
 | E-07 | new X-PACKAGE plus X-MR | #49 acceptance | X-MR |
 | E-08 | new PILOT-FREEZE | prespecification | pilot |
 | E-09 | new PILOT-RUN | execution/results | pilot result PR |
 | E-10 | new DOCS-CONTRIBUTOR | contributor instructions | docs PR |
 | E-11 | new POLICY-SUBMISSION | submission governance | policy PR |
 | E-12 | new LEGALFORECAST-PUBLIC | later public suite | post-launch PR |
+| D-00 | new D-CALENDAR | audience/claim/publication calendar | D0 |
+| D-01 | new D-OFFICIAL-SHELL | fixture-backed official report shell | D0 |
+| D-02 | new D-OFFICIAL-PUBLISH | audited official report publication | D2 |
+| D-03 | new D-HARNESS-WRITEUP | preliminary paired writeup | D1 |
+| D-04A | new D-LQ-DRAFT | draft LegalQuants engagement; no send | D0 |
+| D-04B | new D-LQ-JOHN | John send/decline and bounded feedback window | human checkpoint |
+| D-05 | new D-PREPRINT | methods preprint source/package | D3 |
+| D-06 | new D-README | repository landing page | D0 and result refreshes |
 | I-01 | new I-MAP, same Bead as P-04 | terminal map | PLAN-MR |
 | I-02 | new I-10 | GitHub issue 10 | X-MR |
 | I-03 | new I-108 | GitHub issue 108 | acquisition checkpoint |
@@ -4121,16 +4865,16 @@ Multiple packages map to one Bead only where one is the contract/policy facet of
 | Q-02 | acceptance on each implementation task | focused tests | every PR |
 | Q-03 | acceptance on every merge node | full suite | every PR |
 | Q-04 | existing 5qd6.39.6 plus new X-SECURITY-E2E, X-CLAUDE-E2E, and X-CODEX-E2E | split official/community deterministic E2E | corresponding gates |
-| Q-05 | A-CLAUDE-PROBE and A-CODEX-PROBE | opt-in drift probes | adapter PRs |
-| Q-06 | new R-HOSTILE-E2E plus L-EVALUATOR hostile fixtures | hostile runtime/evaluator | runtime/LAB gates |
+| Q-05 | initial A-CLAUDE-PROBE/A-CODEX-PROBE remain launch work; recurring sweeps are `post-launch` | capability evidence then maintenance | adapter PRs/post-launch |
+| Q-06 | R-NATIVE-E2E for clean-native plus R-HOSTILE-E2E/L-EVALUATOR for mediated/evaluator paths | profile-specific hostile runtime/evaluator | contributor/LAB gates |
 | Q-07 | I-56B and X-SECURITY-E2E | adversarial package validation | F-MR2/X |
-| Q-08 | new I-WORKFLOW | protected workflow audit | workflow PR |
-| Q-09 | new R-PARALLELISM plus PLAN-VALIDATE checkpoint truth | requested/actual scheduling and graph | R-MR and every checkpoint |
+| Q-08 | I-WORKFLOW, `contributor-intake`; do not displace Tier 0 | protected workflow audit | workflow PR before external intake/protected use |
+| Q-09 | R-PARALLELISM, `contributor-intake`; PLAN-VALIDATE retains checkpoint truth | requested/actual scheduling and graph | pilot/runtime checkpoint |
 | Q-10 | acceptance on every merge node | fresh-eyes review | every PR |
 | Q-11 | X-SECURITY-E2E and X-PACKAGE | clean-checkout rebuild | X-MR |
 | Q-12 | ExecutionReceipt/EvaluationReceipt tasks and live runs | reproducibility receipts | corresponding gates |
 
-### 20.11 Exact official edge migration
+### 20.12 Exact official edge migration
 
 Do not perform this cutover until PLAN-MR is merged, O-DECIDE records launch_case_count=100, O-SOURCE-SCOPE is complete, and the replacement nodes exist.
 
@@ -4143,6 +4887,7 @@ First add replacement dependencies, using bd syntax where the blocked issue is t
     5qd6.39.10 blocks 5qd6.39
     O-W1-SMOKE-GATE blocks 5qd6.35
     I-37 blocks 5qd6.35
+    O-ANCHOR-REVALIDATE blocks 5qd6.41
 
 After each addition, require an empty cycle output and inspect both the purchase and production blocker sets.
 
@@ -4155,7 +4900,7 @@ Only after replacement edges exist:
 
 The acquisition umbrella and reserve work remain related and active; they simply cease to gate the exact-100 production pass.
 
-### 20.12 Validation sequence
+### 20.13 Validation sequence
 
 After each creation or mutation batch run live checks equivalent to:
 
@@ -4184,104 +4929,124 @@ Final assertions:
 
 - 2dnr remains the sole issue-41 runtime owner.
 
+- Tier-0 reaches T0-PUBLISH without a transitive dependency on 2dnr, F-MR1/F-MR2, hostile contributor ingress, or X-PACKAGE.
+
+- Codex T0C-PUBLISH depends on the shared narrow split and Codex feasibility but has no dependency path into or through Claude T0-PUBLISH.
+
+- A-CLAUDE-LIVE and A-CODEX-LIVE use R-NATIVE-BOUNDARY/R-NATIVE-E2E rather than silently requiring the MCP-mediated tool profile.
+
+- `bd ready --label critical-path-official` and `bd ready --label critical-path-tier0` expose the next actionable non-epic work when their prerequisites close; ordinary work excludes both `off-critical-path` and `contributor-intake` while either same-lane queue is ready.
+
+- Every parked task carries `off-critical-path` or `post-launch`, and ordinary executor queries exclude both `off-critical-path` and `contributor-intake` while same-lane critical work is ready.
+
+- DIST has no blocking edge into the underlying official dispatch or Tier-0 execution; only the pilot input window and publication products consume its relevant evidence.
+
 After live validation, refresh the passive export through bd export and record its count.
 
 The export is a passive snapshot, not a substitute for subsequent live checks.
 ## 21. Execution waves
 
-### Wave 0: plan and graph
+Dates are target and escalation controls, never permission to waive evidence, security, budget, freeze, or publication gates.
 
-Land P0.
+If a target misses, update the live Bead with the blocker, revised forecast, and claim/relevance consequence while continuing any safe critical-path work.
 
-Create and validate the successor Beads graph.
+### Wave 0: amended plan, graph, and claims calendar — target 2026-07-17
+
+Land P0 with this strategic review and amendment.
+
+Create/validate the new Tier-0, native-boundary, efficiency, critical-scheduler, and distribution Beads.
+
+Label the two critical paths, park the long tail, assign four primary agents per ready worktree, and publish the Agent Mail ownership maps.
 
 Record the exact-100 recommendation and John decision task.
 
-Assign owners and worktrees.
-
-### Wave 1: four parallel starts
+### Wave 1: four parallel starts — 2026-07-17 through 2026-07-18
 
 W0 continues live acquisition and complaint recovery.
 
 W1 starts shard-protocol and spend/isolation engineering.
 
-W2 starts community artifact contracts and coordinates with active #41 work.
+W2 pins LAB/evaluator behavior, verifies provider/publication terms, amends #196, proves native Claude containment, and freezes Tier-0 governance.
 
-W3 starts the boundary ADR and issue/evidence map.
+W3 freezes the audience/claims calendar, starts the official report shell/README/preprint, and prepares the Jamie draft for John's send decision.
 
-No paid community call occurs.
+Target by 2026-07-18: #196 amendment, native-tools decision, provider/publication-terms record, claims calendar, and first Jamie send/decline decision.
 
-### Wave 2: foundation checkpoints
+No paid community task runs before the Tier-0 specification is committed.
 
-Land official shard/provenance foundation.
+### Wave 2: Tier-0 paired result — target 2026-07-21, hard escalation 2026-07-23
 
-Land community task/deliverable/score foundation.
+W2 stages the one pinned solver-visible task, proves the solver/private split, freezes task/model/settings/order/caps/evaluator/claims, and completes a provider-free dry run.
 
-Land or integrate issue #41 runtime foundation.
+Run the clean-native Claude Code arm and native thin LAB arm with exact model parity where available.
 
-Land issue map and exact-100 decision.
+Seal each output before separate evaluation, retain every attempt/failure, and independently scan/review the public package.
 
-Refresh W1, W2, and W3 from merged `main`.
+W3 publishes the short preliminary writeup and refreshes README within 24 hours.
 
-### Wave 3: parallel adapter and official readiness work
+If exact parity is unavailable, publish system-bundle plumbing rows rather than a harness delta.
 
-W1 completes receipts, fan-in, provider accounting, and workflow smoke preparation.
+In parallel, Agent C2 completes the Codex feasibility probe and freezes its own addendum without taking Agents C0/C1/C3 off the Claude result.
 
-W2 integrator completes LAB bridge and shared CLI runtime.
+Target the reviewed Codex Tier-0 follow-on by 2026-07-23, with hard escalation on 2026-07-25; it reuses the task/evaluator seam, runs its own paired native arm where parity is feasible, and never delays the Claude publication.
 
-W2 Claude and Codex agents implement their adapters in parallel after interfaces freeze.
+### Wave 3: model cut and parallel foundations — target 2026-07-20 through 2026-07-31
 
-W0 completes target reconciliation and begins first-100 downstream work as soon as its gates permit.
+Freeze the Cycle 1 model universe and registry cut by 2026-07-20; later models normally move to Cycle 2.
 
-W3 completes CI hardening and non-colliding issue work.
+Land official shard/provenance foundation and continue receipts, fan-in, accounting, and workflow-smoke preparation.
 
-### Wave 4: fixture and hostile E2E
+Land community task/run/deliverable/evaluation/score/efficiency contracts, native whole-process boundary, pinned LAB bridge, and shared CLI runtime.
+
+Use the Claude and available Codex Tier-0 observations to freeze the Tier-1 one-task specification without waiting past the Codex escalation date.
+
+Target the full Claude native-adapter/reproducibility checkpoint by 2026-07-31.
+
+### Wave 4: contributor-grade E2E and first trusted row — target 2026-08-07
 
 Run official exact-100 provider-free downstream rehearsal.
 
-Run community fake Claude and fake Codex package-to-site E2E.
+Run community fake Claude/Codex package-to-site E2E, hostile native-boundary canaries, evaluator leakage tests, adversarial package tests, and clean-checkout rebuilds.
 
-Run Docker/Podman hostile canaries and solver/grader leakage tests.
+Finish the Tier-1 Claude smoke and trusted/rebuildable #49 row by 2026-08-07 if all gates pass.
 
-Run clean-checkout rebuilds.
+Codex proceeds in parallel after the shared interfaces freeze but cannot delay Claude-first acceptance.
 
-Fix all P0 defects and refresh branches after merges.
+The issue #41 mediated profile continues independently and never blocks clean-native acceptance.
 
-### Wave 5: bounded live smokes
+### Wave 5: official exact-100 freeze and dispatch — target 2026-08-13
 
-Run private no-tool CLI handshakes.
+Target source reconciliation/projection by 2026-07-24, exact-100 downstream packet readiness by 2026-08-07, and the official one-provider workflow smoke by 2026-08-11.
 
-Run official one-provider workflow smoke.
+When every immutable gate passes, John freezes and dispatches official Cycle 1 immediately, with 2026-08-13 as the target rather than a wait-until date.
 
-Run the prespecified Claude Code one-task LAB smoke.
+Recheck the frozen registry/served aliases and eligibility anchor within 24 hours before dispatch.
 
-Run the prespecified Codex one-task LAB smoke.
+Target audited official publication by 2026-08-17 and refresh README within 24 hours.
 
-Run a matched native LAB arm only where exact model parity is established.
+### Wave 6: pilot and engagement — target 2026-08-12 through 2026-08-21
 
-Regrade, validate, aggregate, rebuild, and inspect.
+Close the LegalQuants pilot-input window by 2026-08-12 using feedback received, no response, or John-declined-send evidence.
 
-### Wave 6: first launches
+Freeze the stratified pilot before any stratified-pilot score is observed, then execute only the prespecified arms/order/repeats/caps.
 
-When exact-100 corpus and official gates pass, John freezes and dispatches official Cycle 1.
+Target pilot publication by 2026-08-21 with score, coverage, cost, tokens, time, attempts, failures, and uncertainty where supported.
 
-When community acceptance gates pass, submit and merge the first real community results package.
+### Wave 7: methods publication and backlog convergence
 
-The two launches do not wait for one another.
+Complete a preprint draft within seven days of the official report and an SSRN submission package within fourteen days; John separately approves submission.
 
-### Wave 7: pilots and backlog convergence
+Continue the at-least-150 official reserve extension without changing the frozen 100.
 
-Freeze and execute the stratified community pilot.
+Complete deferred acquisition cleanup, mediated decomposition only if useful, release/future-adapter work, and the final issue/Beads audit.
 
-Continue the at-least-150 official reserve extension.
+Run a tracker-pruning pass after the two launches so stale planning mass does not obscure the ready queue.
 
-Complete deferred acquisition cleanup after live checkpoint.
+### Wave 8: relevance reapproval and architecture reassessment — 2026-08-27
 
-Route later adapters and release work.
+If Cycle 1 has not dispatched by 2026-08-27, require an explicit John schedule/relevance decision: continue the still-valid frozen universe, reanchor/reproject before any output, or defer the cycle.
 
-Run the final issue and Beads audit.
-
-### Wave 8: architecture reassessment
+Do not silently add a newer model or change the cohort.
 
 Measure dependency, install, release, and ownership pressure after both launches.
 
@@ -4333,11 +5098,11 @@ Likelihood: high.
 
 Impact: misleading public claims.
 
-Signal: a row has provider output but no canonical deliverable, evaluator, trusted score, or compatibility key.
+Signal: a row has provider output but no sealed deliverable/evaluator evidence, or a Tier-0 row lacks its permanent preliminary/operator-run label.
 
-Mitigation: measurement contracts and launch gates precede adapters.
+Mitigation: Gate C-T0 enforces the narrow credibility invariants and label before the preliminary row; the full measurement contracts and contributor launch gates still precede #49 acceptance.
 
-Contingency: label the artifact private plumbing evidence and exclude it from comparison tables.
+Contingency: label the artifact private plumbing evidence and exclude it from comparison tables until the missing Tier-0 or Tier-1 evidence exists.
 
 ### RISK-05: `sandbox.plan.json` is mistaken for containment
 
@@ -4345,9 +5110,9 @@ Likelihood: high under schedule pressure.
 
 Impact: host credential or filesystem exposure.
 
-Signal: real tool task runs before R-01/R-09 pass.
+Signal: a row claims native containment without the whole-process boundary, or claims MCP mediation without R-01/R-09.
 
-Mitigation: fail closed and make #41 a blocking edge.
+Mitigation: fail closed by profile: clean-native uses the outer whole-process boundary; MCP-mediated uses #41. Tier 0 uses its explicitly narrower trusted-input boundary and label.
 
 Contingency: treat the run as a security incident if canaries or credentials were exposed; rotate as needed and do not publish.
 
@@ -4479,7 +5244,7 @@ Impact: integration delay and lost context.
 
 Signal: multiple branches edit `cli.py`, `spec.py`, `runner.py`, or workflows concurrently.
 
-Mitigation: four-lane ceiling including acquisition and explicit integrator ownership.
+Mitigation: four-lane ceiling including acquisition, four-primary role maps, Agent Mail reservations, and explicit integrator/single-writer ownership.
 
 Contingency: pause dependent edits, land foundation, refresh, and reassign agents to disjoint files.
 
@@ -4531,9 +5296,57 @@ Mitigation: I-01/I-12 evidence matrix and independent review.
 
 Contingency: reopen or create a focused successor with exact residual acceptance.
 
+### RISK-21: another team publishes the obvious Claude-Code-versus-LAB result first
+
+Likelihood: high because headless Claude Code is locally available and the experiment is easy to describe.
+
+Impact: major loss of timeliness, LegalQuants attention, and differentiated public traction.
+
+Signal: the Tier-0 target slips past 2026-07-23 while noncritical contributor infrastructure remains in progress.
+
+Mitigation: the seven-record `critical-path-tier0` with a five-record Claude path and two-record nonblocking Codex fast-follow, no dependency on #41/full contracts, a frozen one-task cap, and the ready-queue WIP rule.
+
+Contingency: publish the verified preliminary plumbing result and methods/specification promptly even if exact model parity fails, using system-bundle language and no harness delta.
+
+### RISK-22: anchor decay or model-registry staleness erodes official relevance
+
+Likelihood: medium and increasing with delay.
+
+Impact: served-model drift can invalidate the frozen design; unrelated frontier releases can make the result less timely even when it remains valid.
+
+Signal: model-universe cut misses 2026-07-20, a frozen served alias/version changes, a major frontier model releases, official dispatch misses 2026-08-13, or more than six weeks elapse from this plan.
+
+Mitigation: frozen July 20 registry cut, weekly Monday audit, within-24-hour pre-dispatch recheck, recorded anchor/registry-to-dispatch intervals, and no silent model additions.
+
+Contingency: John explicitly chooses to continue the still-valid frozen universe, replace/reanchor and reproject before any output, or defer; on 2026-08-27 a recorded relevance/schedule decision is mandatory if not dispatched.
+
+### RISK-23: process and tracker mass consume the launch schedule
+
+Likelihood: high with hundreds of live records and a rich ready queue.
+
+Impact: satisfying long-tail work starves the two result-producing paths.
+
+Signal: an agent claims `off-critical-path` while same-lane critical work is ready; checkpoint evidence exceeds the risk of the change; or ready work cannot be distinguished from parked work.
+
+Mitigation: critical labels, P0/P1 separation, `--exclude-label off-critical-path,contributor-intake` while same-lane critical work is ready, light docs/test checkpoint rules, one active PR per worktree, and daily integrator queue posts.
+
+Contingency: coordinator stops new long-tail claims, reassigns primaries to the critical queue, collapses redundant checkpoint work, and runs the post-launch tracker-pruning pass.
+
+### RISK-24: containment removes the harness feature the experiment intends to measure
+
+Likelihood: high under the earlier MCP-first design.
+
+Impact: the published row answers a different and less interesting question than Jamie asked.
+
+Signal: the primary arm disables native local tools, uses Claude `--bare`, or routes task operations through the issue #41 MCP shim.
+
+Mitigation: `clean_native` is the primary identity, the corrected matched key permits harness-intrinsic tools/loop/prompt differences as treatment, and native-tool success is a preflight assertion.
+
+Contingency: relabel the run `mcp_mediated`, exclude it from the primary comparison, and rerun the native arm under a verified outer boundary.
+
 ## 23. Decision log
 
-### D-01: first official cohort size
+### DEC-01: first official cohort size
 
 Recommended default: freeze an exact 100 from the clean available pool as soon as the target reconciliation gate passes; continue acquisition toward at least 150 as reserve.
 
@@ -4543,7 +5356,7 @@ Deadline: before graph rewiring and before packet exposure.
 
 Reason: it meets the stated first-run objective and removes avoidable wall-clock dependency while preserving reserve quality.
 
-### D-02: monorepo now or later
+### DEC-02: monorepo now or later
 
 Decision: later, only if measured triggers are met.
 
@@ -4551,31 +5364,31 @@ Owner: architecture lane, approved by John if a split is proposed.
 
 Reason: current internal boundaries are sufficient for launch and a migration would collide with active work.
 
-### D-03: community published auth profile
+### DEC-03: community published auth profile
 
-Decision: preserve explicit API key for the #196 published baseline; add a distinct contributor-owned local CLI subscription category.
+Decision: preserve explicit API key as the portable baseline profile, but let the Tier-0 operator use a provider-supported local CLI subscription profile only if the terms/publication review permits it and the row labels the cost/auth basis accurately.
 
 Owner: community/security lane.
 
-Reason: current official product guidance supports local subscription use while programmatic CI has a clearer API-key path; these are different provenance classes.
+Reason: current product guidance treats subscription and API execution as different provenance/cost classes; publication rights and automation support must be verified rather than inferred.
 
-### D-04: first community harness
+### DEC-04: first community harness
 
-Decision: Claude Code first, Codex in parallel once the shared runtime freezes.
+Decision: clean-native Claude Code first through the narrow Tier-0 path; Codex characterization starts in parallel, a separately frozen operator-run Codex Tier-0 result fast-follows without blocking Claude, and the reusable contributor adapter proceeds once shared native interfaces freeze.
 
 Owner: community lane.
 
 Reason: #196 already has a detailed acceptance contract and Claude Code was the direct community request, while shared foundations make Codex cheap to add concurrently.
 
-### D-05: causal comparison language
+### DEC-05: causal comparison language
 
-Decision: require exact compatibility key, including exact model, before saying `harness effect`.
+Decision: require the exact compatibility key, including exact model and resource/stopping policy, before reporting a matched paired observation; generalized `harness effect`, `performs better`, or superiority language additionally requires the prespecified multi-task/repeat pilot and supported uncertainty.
 
 Owner: methods/review lane.
 
 Reason: Claude Code versus Codex changes both harness and model family under ordinary local subscriptions.
 
-### D-06: score trust
+### DEC-06: score trust
 
 Decision: trusted regrade from canonical deliverable is the default.
 
@@ -4585,7 +5398,7 @@ Fallback: a policy-defined trusted evaluator receipt only when licensing or grad
 
 Reason: self-consistent contributor hashes do not establish score correctness.
 
-### D-07: issue #37 dispatch status
+### DEC-07: issue #37 dispatch status
 
 Decision: pending explicit review.
 
@@ -4594,6 +5407,32 @@ Owner: John and official security lane.
 Deadline: before official smoke uses the final credential design.
 
 Reason: acquisition can continue independently, but dispatch must not silently waive a known credential-hardening issue.
+
+### DEC-08: native tools versus MCP mediation
+
+Decision: contain around the harness for the primary arm; preserve native tools, prompt/loop, context management, and native sandbox as the treatment.
+
+Owner: community/methods lane.
+
+Decision detail: issue #41 MCP mediation remains a separately named secondary arm and security mechanism, never the primary Claude Code or Codex identity.
+
+Reason: substituting a foreign tool loop would answer a different question from whether the clean-install native agent loop and enumerated local tools change LAB performance; literal `out of the box` wording is reserved for a profile that satisfies section 8's stock-capability rule.
+
+### DEC-09: economics and time in public comparisons
+
+Decision: score, coverage, cost basis, tokens, wall-clock, attempts, and failures are peer headline fields; authoritative accounting stays in execution/evaluation receipts rather than being copied into ScoreArtifact.
+
+Owner: measurement and audience lanes.
+
+Reason: the practical efficiency tradeoff is central to law-firm and research readers, while one authoritative receipt layer prevents accounting drift.
+
+### DEC-10: publication and schedule discipline
+
+Decision: run a small distribution lane now and use the exact dates in section 21 as escalation targets, never gate waivers.
+
+Owner: coordinator and W3.
+
+Reason: a credible unpublished result creates little traction, and delay can erode relevance even when the frozen design remains logically valid.
 
 ## 24. Definitions of done
 
@@ -4621,6 +5460,20 @@ A contributor-authored score with matching self-hashes is not done.
 
 A one-task smoke is not evidence of general harness superiority.
 
+### 24.2A Claude Tier-0 preliminary result done
+
+Tier 0 is done only when issue #196's amendment and the frozen paired specification predate spend; solver-visible bytes are identical across arms; evaluator-private material is physically absent from the solver boundary; clean-native Claude preserves native tools; output is sealed before separate evaluation; every attempt/failure is retained; score, coverage, cost basis, tokens, time, and configuration are reported; and independent artifact/claim scans pass.
+
+Every Tier-0 public surface carries the exact label `Preliminary — one task pair, operator-run, not independently reproducible`; attempt/repeat counts are reported separately, and the result is not contributor-safe.
+
+Tier 0 does not close #49 or prove general harness superiority.
+
+### 24.2B Codex Tier-0 fast-follow done
+
+The Codex fast-follow is done only when its own addendum predates spend; the pinned clean-install native Codex capability inventory and boundary probes pass; solver-visible bytes and evaluator separation reuse the frozen seam; all attempts and failures remain visible; output seals before arm-opaque evaluation; score, coverage, cost basis, tokens, wall-clock, and exact compatibility result are independently reviewed; and the Claude result was not delayed.
+
+It carries the same permanent preliminary label, supports at most the observed paired difference for its pinned task/run, and does not close #49 or establish a Claude-versus-Codex ranking.
+
 ### 24.3 Claude and Codex enablement done
 
 Claude Code enablement is done when the fake and real adapter paths, capability probes, auth profiles, runtime containment, deliverable, trusted score, resume, redaction, and contributor documentation pass.
@@ -4639,19 +5492,21 @@ Leaving intentionally deferred issues open with exact milestone and reactivation
 
 ### 24.5 Plan completion done
 
-This plan is complete when it has survived four review rounds, the accepted revisions are integrated, the GitHub roadmap issue exists, the Beads graph is created with dependencies, the live graph is cycle-free, initial parallel ready work exists, and the planning PR is opened.
+This plan is complete when it has survived five review rounds, the accepted revisions are integrated, the GitHub roadmap issue exists, the Beads graph is created with dependencies and critical-path labels, the live graph is cycle-free, initial parallel ready work exists, and the planning PR is opened.
 
 ### 24.6 Planning review record
 
 Round 1, failure premortem and security review: added fail-closed cohort gates, hostile-input boundaries, explicit auth categories, spend separation, credential-store prohibitions, and causal-claim limits.
 
-Round 2, architecture review: added the real LAB evaluator feasibility gate, Claude/Codex tool-mediation probes, the task/run/execution/deliverable/evaluation/score/analysis artifact graph, distinct identity keys, model-universe eligibility authority, and corrected dependency direction.
+Round 2, architecture review: added the real LAB evaluator feasibility gate, the then-proposed Claude/Codex tool-mediation probes, the task/run/execution/deliverable/evaluation/score/analysis artifact graph, distinct identity keys, model-universe eligibility authority, and corrected dependency direction; Round 5 deliberately superseded tool mediation as the primary treatment.
 
 Round 3, live GitHub issue review: covered all 17 open issues at the planning snapshot, split issue 56's narrow residual from broader ingress hardening, preserved issue 196's pinned/API baseline, created separate Codex ownership, made Claude the deterministic issue 49 path, and added exact reactivation/closure evidence.
 
 Round 4, live Beads conversion review: replaced the unsafe six-lane assumption with a 15-child source-universe reconciliation, retained singular owners 5qd6 and 2dnr, made exact-100 cutover make-before-break, converted PR checkpoints into graph nodes, removed the generic quality epic, and produced the one-to-one disposition ledger.
 
-All four reviews were read against the revised plan; accepted changes are represented in sections 9, 12 through 16, 19, and 20.
+Round 5, strategic speed/audience review: added the clean-native Claude Tier-0 path and nonblocking Codex fast-follow, corrected the matched-harness treatment and one-task claim definitions, separated native whole-process containment from issue #41 MCP mediation, labeled both result-producing paths and parked the long tail, increased per-worktree primary-agent capacity under Agent Mail, date-boxed the launches, elevated efficiency metrics, and added the distribution/LegalQuants/preprint lane.
+
+All five reviews were read against the revised plan; accepted changes are represented throughout sections 1, 2, 7, 8, 10 through 23, and 26.
 
 ## 25. Source and evidence references
 
@@ -4668,6 +5523,8 @@ Repository-local evidence:
 - `docs/plans/2026-07-12-cycle1-eval-readiness.md`
 
 - `docs/plans/2026-07-12-cycle1-cohort-runbook.md`
+
+- `docs/plans/2026-07-16-dual-track-roadmap-review.md`
 
 - `legalforecast/multiharness/command_adapter.py`
 
@@ -4695,24 +5552,26 @@ Official product references reviewed during planning:
 
 Planning-time local observations must be re-probed before execution.
 
+Local planning probes on 2026-07-16 observed Claude Code 2.1.211 and Codex CLI 0.144.5; these observations are not execution pins.
+
 ## 26. Immediate next actions after plan approval
 
-1. Create the roadmap GitHub issue from this plan and record its number here.
+1. Add this strategic amendment and its review document to planning PR #205; rerun the document/graph checks and merge when green.
 
-2. Create the focused Codex CLI Harvey LAB issue and link it from the roadmap.
+2. Record a superseding roadmap amendment on issues #196, #203, and #204: native tools are primary, MCP mediation is secondary, and Tier 0 is separate from contributor acceptance.
 
-3. Create the top-level and child Beads with all cohort-specific descriptions parameterized by immutable `launch_case_count`, default 100; do not cut over active official edges yet.
+3. Create the Claude and Codex Tier-0, native-boundary/E2E, efficiency, critical-scheduler, and distribution Beads; apply critical/contributor/post-launch labels and validate zero cycles.
 
-4. Validate the live graph, refresh the passive export, and commit the retained planning artifact.
+4. Close PLAN-MR only after PR #205 merges and the planning worktree refreshes from merged `main`.
 
-5. Open and merge the planning PR before creating the three new durable worktrees or closing the PLAN-MR checkpoint.
+5. Register up to four primaries in each ready worktree through Agent Mail, post the file-ownership maps, and start W0/W1/W2/W3 critical tasks concurrently.
 
-6. Record John's exact-100 decision as immutable `launch_case_count=100`, complete the source-universe classification, and perform the make-before-break official graph migration.
+6. By 2026-07-18, finish provider/publication terms, #196 amendment, LAB/evaluator pin, native Claude feasibility, Tier-0 governance, claims calendar, and the first Jamie send/decline decision.
 
-7. Assign W1 to the already-ready official eval Beads.
+7. Target the reviewed Claude Tier-0 paired package by 2026-07-21 and its preliminary writeup/README refresh within 24 hours; target the nonblocking Codex Tier-0 follow-on by 2026-07-23, escalating on 2026-07-25.
 
-8. Land the community measurement interfaces before parallel Claude and Codex adapter implementation.
+8. Record John's exact-100 decision as immutable `launch_case_count=100`, complete source-universe classification, perform only the approved make-before-break official graph migration, and keep W1 on the parallel official-eval critical path.
 
-9. Keep the current acquisition agent running uninterrupted throughout those steps.
+9. Keep the current acquisition agent and live store uninterrupted; no labels or planning changes authorize a mid-stage refresh or second writer.
 
-10. Report readiness from live `bd`, GitHub, workflow, and artifact state at each checkpoint.
+10. Report readiness from live `bd`, GitHub, workflow, artifact, registry, and publication state at every checkpoint and date escalation.
