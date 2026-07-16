@@ -223,6 +223,9 @@ def llm_unitize_cases(
                 markdown_root=Path(markdown_root),
             )
             prompt = _unitization_prompt(selection, documents)
+            prompt_sha256 = (
+                "sha256:" + hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+            )
             journal = _provider_attempt_journal(
                 path=provider_journal_path,
                 stage="llm-unitize",
@@ -299,6 +302,7 @@ def llm_unitize_cases(
                     "case_id": _required_str(selection, "case_id"),
                     "model_key": registry_entry.registry_key,
                     "model_registry_sha256": model_registry_sha256 or "unrecorded",
+                    "provider_prompt_sha256": prompt_sha256,
                     "human_verified": _unitization_human_verified(result),
                     "unit_count": len(result.units),
                     "scorable_unit_count": sum(
@@ -329,6 +333,38 @@ def llm_unitize_cases(
             if not continue_on_error:
                 raise
     return LlmBatchResult(records=tuple(records), audit_records=tuple(audit_records))
+
+
+def stage_a_unitization_prompt_records(
+    *,
+    selection_records: Iterable[Mapping[str, Any]],
+    parser_records: Iterable[Mapping[str, Any]],
+    markdown_root: str | Path,
+) -> tuple[JsonRecord, ...]:
+    """Reconstruct exact Stage A prompts from authenticated parser inputs."""
+
+    parser_by_key = _parser_records_by_candidate_and_document(parser_records)
+    prompts: list[JsonRecord] = []
+    for selection in selection_records:
+        candidate_id = _required_str(selection, "candidate_id")
+        prompt = _unitization_prompt(
+            selection,
+            _predecision_documents(
+                selection,
+                parser_by_key=parser_by_key,
+                markdown_root=Path(markdown_root),
+            ),
+        )
+        prompts.append(
+            {
+                "candidate_id": candidate_id,
+                "case_id": _required_str(selection, "case_id"),
+                "prompt": prompt,
+                "prompt_sha256": "sha256:"
+                + hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+            }
+        )
+    return tuple(prompts)
 
 
 def llm_review_stage_a_units(

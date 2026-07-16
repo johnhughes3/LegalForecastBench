@@ -161,14 +161,22 @@ def test_finalized_chain_verifies_candidate_exclusion_adjudication() -> None:
         verify_finalized_prediction_units([broken], raw, adjudications, queue)
 
 
-def test_apply_unitization_review_cli_writes_finalized_artifact(tmp_path: Path) -> None:
+def test_apply_unitization_review_cli_writes_finalized_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     raw_path = tmp_path / "raw.jsonl"
     queue_path = tmp_path / "queue.jsonl"
     adjudications_path = tmp_path / "adjudications.jsonl"
     output_root = tmp_path / "out"
+    unitization_run_card = tmp_path / "llm-unitize.json"
     _write_jsonl(raw_path, [_candidate("cand", [_unit("a")])])
     _write_jsonl(queue_path, [_review("cand", "a")])
     _write_jsonl(adjudications_path, [_adjudication("cand", "ACCEPT", ["a"])])
+    unitization_run_card.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "legalforecast.cli._verify_stage_a_unitization_run_card",
+        lambda *args, **kwargs: None,
+    )
 
     assert (
         main(
@@ -177,6 +185,8 @@ def test_apply_unitization_review_cli_writes_finalized_artifact(tmp_path: Path) 
                 "apply-unitization-review",
                 "--prediction-units",
                 str(raw_path),
+                "--llm-unitization-run-card",
+                str(unitization_run_card),
                 "--unitization-review-queue",
                 str(queue_path),
                 "--adjudications",

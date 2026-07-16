@@ -61,6 +61,44 @@ infisical-agent-sandbox run \
 
 The sentinel-`op` and child-environment tests in `tests/test_mistral_markdown_parser.py` enforce the subprocess boundary, but they do not authorize injecting a broad acquisition secret set into the parent process.
 
+Unitize Stage A only from that exact authenticated materialization and pinned live-parser lineage. Use one explicit provider journal for the cycle; creating a fresh output-root-local journal is refused because it would reset the cycle reservation ledger:
+
+```bash
+uv run legalforecast acquisition llm-unitize \
+  --output-root <assembled-cycle-root> \
+  --selection <selection.jsonl> \
+  --selection-run-card <project-or-extend-target-cohort-run-card.json> \
+  --download-manifest <materialized-download-manifest.jsonl> \
+  --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
+  --materialization-run-card <materialize-cohort-documents-run-card.json> \
+  --document-root <materialized-document-root> \
+  --parse-requests <parse-document-requests.jsonl> \
+  --parser-manifest <parser-manifest.jsonl> \
+  --parser-run-card <parse-documents-run-card.json> \
+  --markdown-root <parsed-markdown-root> \
+  --model-registry <frozen-stage-a-registry.json> \
+  --model-key <provider:model-id> \
+  --provider-cycle-caps <provider-cycle-caps.json> \
+  --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --execute --no-resume
+```
+
+Before any provider call, the command replays the target selection, immutable materializer, parse requests, pinned live-Mistral card, parser manifest, and complete Markdown tree. It rejects provider caps whose `cycle_id` differs from the authenticated cohort. The completed run card commits the exact registry entry, caps artifact, prompts, settled provider attempts, reconstructed units, raw outputs, audit, and review queue. A partial `--continue-on-error` run remains resumable but is explicitly marked incomplete and is inadmissible downstream.
+
+After structural review, apply adjudications only through the authenticated unitizer card:
+
+```bash
+uv run legalforecast acquisition apply-unitization-review \
+  --output-root <assembled-cycle-root> \
+  --prediction-units <prediction-units.jsonl> \
+  --llm-unitization-run-card <llm-unitize-run-card.json> \
+  --unitization-review-queue <verified-merged-review-queue.jsonl> \
+  --adjudications <unitization-adjudications.jsonl> \
+  --execute --no-resume
+```
+
+The apply card propagates the unitizer-card hash and commits the exact raw units, merged queue, adjudications, and finalized units. Neither this command nor finalization accepts a rehashed, hand-authored, cross-cohort, cross-model, or prompt-substituted Stage A artifact.
+
 Build the Stage B disposition-text artifact only from the exact selected cohort, authenticated download manifest, authenticated disclosure-clearance run card, restriction evidence, and pinned Mistral parser output used by the cycle:
 
 ```bash
@@ -175,7 +213,10 @@ uv run legalforecast acquisition finalize-corpus \
   <all-other-stage-inputs> \
   --selection <selection.jsonl> \
   --parser-manifest <parser-manifest.jsonl> \
+  --raw-prediction-units <prediction-units.jsonl> \
+  --llm-unitization-run-card <llm-unitize-run-card.json> \
   --prediction-units <finalized-prediction-units.jsonl> \
+  --unitization-review-run-card <apply-unitization-review-run-card.json> \
   --markdown-root <parsed-markdown-root> \
   --decision-texts <assembled-cycle-root>/decision-texts.jsonl \
   --decision-texts-manifest <assembled-cycle-root>/decision-texts-manifest.json \

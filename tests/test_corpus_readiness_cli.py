@@ -37,6 +37,7 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
     output_root = tmp_path / "out"
     markdown_root = tmp_path / "markdown"
     inputs.mkdir()
+    stage_a_run_card_args = _stub_stage_a_run_card_chain(monkeypatch, inputs)
     markdown_root.mkdir()
     (markdown_root / "decision-1.md").write_text(
         "The Court rules. Count I is dismissed.",
@@ -322,6 +323,7 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
                 str(inputs / "units.jsonl"),
                 "--raw-prediction-units",
                 str(inputs / "raw-units.jsonl"),
+                *stage_a_run_card_args,
                 "--llm-unitization-audit",
                 str(inputs / "unitization-audit.jsonl"),
                 "--original-unitization-review-queue",
@@ -430,6 +432,7 @@ def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(
 ) -> None:
     inputs = tmp_path / "inputs"
     inputs.mkdir()
+    stage_a_run_card_args = _stub_stage_a_run_card_chain(monkeypatch, inputs)
     _write_jsonl(
         inputs / "screened-cases.jsonl",
         [
@@ -509,6 +512,7 @@ def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(
             str(inputs / "units.jsonl"),
             "--raw-prediction-units",
             str(inputs / "raw-units.jsonl"),
+            *stage_a_run_card_args,
             "--llm-unitization-audit",
             str(inputs / "unitization-audit.jsonl"),
             "--original-unitization-review-queue",
@@ -574,6 +578,7 @@ def test_acquisition_finalize_corpus_rejects_summary_not_bound_to_snapshot_manif
 ) -> None:
     inputs = tmp_path / "inputs"
     inputs.mkdir()
+    stage_a_run_card_args = _stub_stage_a_run_card_chain(monkeypatch, inputs)
     _write_jsonl(inputs / "screened-cases.jsonl", [])
     _write_jsonl(inputs / "discovery-exclusions.jsonl", [])
     snapshot_fixture = _write_snapshot_manifest(
@@ -620,6 +625,7 @@ def test_acquisition_finalize_corpus_rejects_summary_not_bound_to_snapshot_manif
             str(tmp_path),
             "--raw-prediction-units",
             str(inputs / "screened-cases.jsonl"),
+            *stage_a_run_card_args,
             "--prediction-units",
             str(inputs / "screened-cases.jsonl"),
             "--llm-unitization-audit",
@@ -834,3 +840,28 @@ def _stub_verified_preparation(
             success_run_card_path=success_run_card,
         ),
     )
+
+
+def _stub_stage_a_run_card_chain(
+    monkeypatch: pytest.MonkeyPatch, inputs: Path
+) -> list[str]:
+    unitization_card = inputs / "llm-unitize-run-card.json"
+    review_card = inputs / "apply-unitization-review-run-card.json"
+    unitization_card.write_text("{}\n", encoding="utf-8")
+    review_card.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(
+        cli,
+        "_verify_stage_a_unitization_run_card",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_verify_unitization_review_run_card",
+        lambda *args, **kwargs: None,
+    )
+    return [
+        "--llm-unitization-run-card",
+        str(unitization_card),
+        "--unitization-review-run-card",
+        str(review_card),
+    ]
