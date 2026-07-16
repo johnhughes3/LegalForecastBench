@@ -15,6 +15,7 @@ from legalforecast.protocol.manifest import hash_payload
 from legalforecast.protocol.policy_artifacts import OFFICIAL_SHARD_ABLATIONS
 
 DISPATCH_PROVENANCE_SCHEMA_VERSION = "legalforecast.dispatch_provenance.v1"
+SHARD_CONCURRENCY_GROUP_PREFIX = "run-benchmark"
 JsonRecord = dict[str, Any]
 
 
@@ -29,6 +30,36 @@ class _FreezeRecord:
     bundle_sha256: str
 
 
+def build_shard_concurrency_group(
+    *,
+    execution_policy_artifact: Mapping[str, Any],
+    workflow_ref: str,
+    model_key: str,
+    ablation: str,
+) -> str:
+    """Build the exact GitHub group authorized by a frozen execution policy."""
+
+    from legalforecast.protocol.policy_artifacts import (
+        PolicyArtifactError,
+        execution_policy_content,
+        verify_execution_policy,
+    )
+
+    try:
+        verify_execution_policy(execution_policy_artifact)
+        policy = execution_policy_content(execution_policy_artifact)
+    except PolicyArtifactError as exc:
+        raise DispatchProvenanceError(f"invalid execution policy: {exc}") from exc
+    declared_shards = _declared_shards_from_policy(policy)
+    return _shard_concurrency_group_from_policy(
+        cycle_id=_required_str(policy, "cycle_id"),
+        concurrency_policy=_required_mapping(policy, "concurrency_policy"),
+        declared_shards=declared_shards,
+        workflow_ref=workflow_ref,
+        requested_shard=(model_key, ablation),
+    )
+
+
 def build_dispatch_provenance(
     *,
     current_freeze_bundle_path: str | Path,
@@ -38,6 +69,8 @@ def build_dispatch_provenance(
     prior_dispatches: Sequence[Mapping[str, Any]],
     current_workflow_run_id: str,
     current_workflow_run_attempt: int,
+    current_workflow_ref: str | None = None,
+    current_concurrency_group: str | None = None,
     requested_model_keys: Sequence[str],
     requested_ablations: Sequence[str] = (),
     shard_only: bool = False,
@@ -152,6 +185,25 @@ def build_dispatch_provenance(
                 "requested shard model was not introduced by the current freeze: "
                 f"{requested_shard[0]}"
             )
+        if current_workflow_ref is None or current_concurrency_group is None:
+            raise DispatchProvenanceError(
+                "shard-only dispatch requires its workflow ref and concurrency group"
+            )
+        assert execution_policy is not None
+        expected_concurrency_group = _shard_concurrency_group_from_policy(
+            cycle_id=_required_str(execution_policy, "cycle_id"),
+            concurrency_policy=_required_mapping(
+                execution_policy, "concurrency_policy"
+            ),
+            declared_shards=declared_shards,
+            workflow_ref=current_workflow_ref,
+            requested_shard=requested_shard,
+        )
+        if current_concurrency_group != expected_concurrency_group:
+            raise DispatchProvenanceError(
+                "workflow concurrency group does not match the frozen shard identity: "
+                f"expected {expected_concurrency_group}"
+            )
     elif requested != current_introduced:
         raise DispatchProvenanceError(
             "requested model keys must exactly equal models introduced by the "
@@ -222,6 +274,9 @@ def build_dispatch_provenance(
                 "dispatch_mode": "shard_only",
                 "shard_schedule": [_shard_record(shard) for shard in declared_shards],
                 "requested_shard": _shard_record(requested_shard),
+                "execution_policy_sha256": hash_payload(execution_policy),
+                "workflow_ref": current_workflow_ref,
+                "concurrency_group": current_concurrency_group,
                 "remaining_shards": [
                     _shard_record(shard)
                     for shard in declared_shards
@@ -305,6 +360,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--workflow-run-id", required=True)
     parser.add_argument("--workflow-run-attempt", type=int, required=True)
+    parser.add_argument("--workflow-ref")
+    parser.add_argument("--concurrency-group")
     parser.add_argument("--requested-model-key", action="append", default=[])
     parser.add_argument("--requested-ablation", action="append", default=[])
     parser.add_argument("--shard-only", action="store_true")
@@ -329,6 +386,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         prior_dispatches=prior_dispatches,
         current_workflow_run_id=cast(str, args.workflow_run_id),
         current_workflow_run_attempt=cast(int, args.workflow_run_attempt),
+        current_workflow_ref=cast(str | None, args.workflow_ref),
+        current_concurrency_group=cast(str | None, args.concurrency_group),
         requested_model_keys=cast(Sequence[str], args.requested_model_key),
         requested_ablations=cast(Sequence[str], args.requested_ablation),
         shard_only=cast(bool, args.shard_only),
@@ -468,6 +527,18 @@ def _declared_shards(
     *,
     expected_model_keys: Sequence[str],
 ) -> tuple[tuple[str, str], ...]:
+    pairs = _declared_shards_from_policy(execution_policy)
+    scheduled_models = {model_key for model_key, _ in pairs}
+    if scheduled_models != set(expected_model_keys):
+        raise DispatchProvenanceError(
+            "frozen shard schedule model set does not match the current registry"
+        )
+    return pairs
+
+
+def _declared_shards_from_policy(
+    execution_policy: Mapping[str, Any],
+) -> tuple[tuple[str, str], ...]:
     schedule = _required_mapping(execution_policy, "shard_schedule")
     shards = _mapping_sequence(schedule, "shards")
     pairs = tuple(
@@ -479,12 +550,42 @@ def _declared_shards(
     )
     if len(set(pairs)) != len(pairs):
         raise DispatchProvenanceError("frozen shard schedule contains duplicates")
-    scheduled_models = {model_key for model_key, _ in pairs}
-    if scheduled_models != set(expected_model_keys):
-        raise DispatchProvenanceError(
-            "frozen shard schedule model set does not match the current registry"
-        )
     return tuple(sorted(pairs))
+
+
+def _shard_concurrency_group_from_policy(
+    *,
+    cycle_id: str,
+    concurrency_policy: Mapping[str, Any],
+    declared_shards: Sequence[tuple[str, str]],
+    workflow_ref: str,
+    requested_shard: tuple[str, str],
+) -> str:
+    if _required_str(concurrency_policy, "mode") != "shard_identity":
+        raise DispatchProvenanceError(
+            "shard-only dispatch requires shard_identity concurrency policy"
+        )
+    if _string_sequence(concurrency_policy, "identity_fields") != (
+        "cycle_id",
+        "model_key",
+        "ablation",
+    ):
+        raise DispatchProvenanceError(
+            "shard-only concurrency identity must use cycle_id/model_key/ablation"
+        )
+    canonical_cycle_id = _canonical_nonempty_string(cycle_id, "cycle_id")
+    canonical_ref = _canonical_nonempty_string(workflow_ref, "workflow_ref")
+    canonical_model_key = _unique_model_keys((requested_shard[0],))[0]
+    canonical_ablation = _unique_strings((requested_shard[1],), "ablation")[0]
+    canonical_shard = (canonical_model_key, canonical_ablation)
+    if canonical_shard not in declared_shards:
+        raise DispatchProvenanceError(
+            "concurrency shard is not declared by the frozen execution policy"
+        )
+    return (
+        f"{SHARD_CONCURRENCY_GROUP_PREFIX}-{canonical_cycle_id}-{canonical_ref}-"
+        f"{canonical_model_key}-{canonical_ablation}"
+    )
 
 
 def _load_registry_keys(path: Path, *, expected_sha256: str) -> tuple[str, ...]:
@@ -727,6 +828,19 @@ def _validate_provenance_record(
             raise DispatchProvenanceError(
                 "shard-only concurrency identity must use cycle_id/model_key/ablation"
             )
+        _required_sha256(record, "execution_policy_sha256")
+        workflow_ref = _required_str(record, "workflow_ref")
+        expected_concurrency_group = _shard_concurrency_group_from_policy(
+            cycle_id=_required_str(record, "cycle_id"),
+            concurrency_policy=concurrency,
+            declared_shards=declared_shards,
+            workflow_ref=workflow_ref,
+            requested_shard=requested_pair,
+        )
+        if _required_str(record, "concurrency_group") != expected_concurrency_group:
+            raise DispatchProvenanceError(
+                "concurrency_group does not match the frozen shard identity"
+            )
     else:
         _require_dispatch_coverage(
             validated_dispatches,
@@ -777,7 +891,12 @@ def _unique_model_keys(values: Sequence[str]) -> tuple[str, ...]:
             raise DispatchProvenanceError(
                 "model keys must be non-empty provider:model_id strings"
             )
-        key = value.strip()
+        if value != value.strip():
+            raise DispatchProvenanceError(
+                "model keys must use their exact canonical spelling without "
+                "surrounding whitespace"
+            )
+        key = value
         if key in seen:
             raise DispatchProvenanceError(f"duplicate model key: {key}")
         seen.add(key)
@@ -791,12 +910,24 @@ def _unique_strings(values: Sequence[str], name: str) -> tuple[str, ...]:
     for value in values:
         if not value.strip():
             raise DispatchProvenanceError(f"{name}s must be non-empty strings")
-        normalized = value.strip()
+        if value != value.strip():
+            raise DispatchProvenanceError(
+                f"{name}s must not contain surrounding whitespace"
+            )
+        normalized = value
         if normalized in seen:
             raise DispatchProvenanceError(f"duplicate {name}: {normalized}")
         seen.add(normalized)
         strings.append(normalized)
     return tuple(strings)
+
+
+def _canonical_nonempty_string(value: str, name: str) -> str:
+    if not value.strip():
+        raise DispatchProvenanceError(f"{name} must be a non-empty string")
+    if value != value.strip():
+        raise DispatchProvenanceError(f"{name} must not contain surrounding whitespace")
+    return value
 
 
 def _shard_record(shard: tuple[str, str]) -> JsonRecord:

@@ -323,16 +323,15 @@ def _validated_execution_policy(raw: Mapping[str, Any]) -> dict[str, Any]:
 
     concurrency = _object(policy.get("concurrency_policy"), "concurrency_policy")
     _exact_keys(concurrency, {"mode", "identity_fields"}, "concurrency_policy")
-    if concurrency.get("mode") not in {"shard_identity", "queue_max", "orchestrator"}:
-        raise PolicyArtifactError("unsupported concurrency_policy.mode")
+    if concurrency.get("mode") != "shard_identity":
+        raise PolicyArtifactError(
+            "concurrency_policy.mode must be shard_identity for the official "
+            "shard dispatcher"
+        )
     identity_fields = _string_list(
         concurrency.get("identity_fields"), "concurrency_policy.identity_fields"
     )
-    required_identity_fields = {
-        "shard_identity": ("cycle_id", "model_key", "ablation"),
-        "queue_max": ("cycle_id",),
-        "orchestrator": ("cycle_id", "workflow_run_id"),
-    }[cast(str, concurrency["mode"])]
+    required_identity_fields = ("cycle_id", "model_key", "ablation")
     if identity_fields != required_identity_fields:
         raise PolicyArtifactError(
             "concurrency_policy.identity_fields must match the selected mode: "

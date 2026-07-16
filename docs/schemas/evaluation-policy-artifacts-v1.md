@@ -59,7 +59,7 @@ The execution policy is generated at freeze. Its `policy` object contains exactl
 
 `shard_schedule` contains exactly positive `shard_count`; `dispatch_unit`, fixed to `model_key_ablation`; and `shards`, the exact unique `{model_key, ablation}` pairs. Every model must declare both `full_packet` and `metadata_only`. The policy writer sorts the pairs canonically, rejects duplicates or undeclared ablations, and requires `shard_count` to equal the declared-pair count. Cycle 1's four-model schedule therefore contains eight shards; smaller synthetic registries use proportionately smaller complete schedules.
 
-`concurrency_policy` contains exactly `mode` (`shard_identity`, `queue_max`, or `orchestrator`) and `identity_fields`. The identity is fixed by mode: `shard_identity` uses `cycle_id`, `model_key`, and `ablation`; `queue_max` uses `cycle_id`; and `orchestrator` uses `cycle_id` and `workflow_run_id`. Dispatch code reads this frozen choice instead of inventing a workflow-local policy.
+`concurrency_policy` contains exactly `mode` and `identity_fields`. The retained Cycle 1 choice is `shard_identity`, with identity fields `cycle_id`, `model_key`, and `ablation`; the policy generator rejects the unimplemented `queue_max` and `orchestrator` alternatives so a valid freeze cannot silently select behavior the official workflow does not enforce. Dispatch provenance reconstructs the actual GitHub concurrency group from this frozen choice and rejects a mismatch before provider work.
 
 `receipt_policy` contains exactly `write_once_per_attempt` (required `true`), `identity_fields` (the non-empty receipt identity field list), and `result_commitment_required` (required `true`).
 

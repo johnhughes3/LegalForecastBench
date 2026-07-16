@@ -87,6 +87,26 @@ def test_dispatch_choices_must_match_frozen_execution_policy() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("mode", "identity_fields"),
+    (
+        ("queue_max", ["cycle_id"]),
+        ("orchestrator", ["cycle_id", "workflow_run_id"]),
+    ),
+)
+def test_execution_policy_rejects_unimplemented_concurrency_modes(
+    mode: str,
+    identity_fields: list[str],
+) -> None:
+    decisions = _execution_decisions()
+    concurrency = cast(dict[str, object], decisions["concurrency_policy"])
+    concurrency["mode"] = mode
+    concurrency["identity_fields"] = identity_fields
+
+    with pytest.raises(PolicyArtifactError, match="must be shard_identity"):
+        generate_execution_policy(decisions)
+
+
 def test_policy_generator_and_verifier_clis_round_trip(tmp_path: Path) -> None:
     labeling_path = tmp_path / "labeling-policy.json"
     assert (
