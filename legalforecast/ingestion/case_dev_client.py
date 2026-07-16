@@ -88,9 +88,10 @@ class CaseDevRateLimiter:
     """Serialize request starts and provider cooldowns across worker clients.
 
     A concurrent command creates one instance and injects it into every worker
-    client. The lock remains held while waiting so separate clients cannot each
-    consume the full organization-wide ``rate_limit_per_minute`` allowance.
-    Provider cooldowns and a terminal rate-limit circuit are process-wide too.
+    client. Request slots are reserved under a lock and rechecked after every
+    lock-free sleep so separate clients cannot each consume the full aggregate
+    ``rate_limit_per_minute`` allowance. Provider cooldowns and a terminal
+    rate-limit circuit are process-wide too and can preempt queued starts.
     """
 
     def __init__(
@@ -118,20 +119,25 @@ class CaseDevRateLimiter:
     def acquire(self) -> None:
         """Wait until the next aggregate request-start slot is available."""
 
-        with self._lock:
-            self._wait_for_cooldown_locked()
-            if self._circuit_open:
-                raise CaseDevRateLimitError(
-                    "shared Case.dev provider rate-limit circuit is open"
-                )
-            now = self._monotonic()
-            if self._last_request_monotonic is not None:
-                elapsed = now - self._last_request_monotonic
-                remaining = self._interval_seconds - elapsed
-                if remaining > 0:
-                    self._sleep(remaining)
-                    now = self._monotonic()
-            self._last_request_monotonic = now
+        while True:
+            with self._lock:
+                if self._circuit_open:
+                    raise CaseDevRateLimitError(
+                        "shared Case.dev provider rate-limit circuit is open"
+                    )
+                now = self._monotonic()
+                cooldown_remaining = self._cooldown_remaining_locked(now)
+                interval_remaining = 0.0
+                if self._last_request_monotonic is not None:
+                    elapsed = now - self._last_request_monotonic
+                    interval_remaining = self._interval_seconds - elapsed
+                remaining = max(cooldown_remaining, interval_remaining)
+                if remaining <= 0:
+                    self._last_request_monotonic = now
+                    return
+            # Never hold the state lock while sleeping: a 429 from another
+            # in-flight worker must be able to install a cooldown or breaker.
+            self._sleep(remaining)
 
     def defer_for(self, seconds: float, *, open_circuit: bool = False) -> None:
         """Defer all worker request starts and optionally open the breaker."""
@@ -153,16 +159,18 @@ class CaseDevRateLimiter:
     def wait_for_cooldown(self) -> None:
         """Wait out the shared cooldown before returning a terminal failure."""
 
-        with self._lock:
-            self._wait_for_cooldown_locked()
+        while True:
+            with self._lock:
+                remaining = self._cooldown_remaining_locked(self._monotonic())
+                if remaining <= 0:
+                    return
+            self._sleep(remaining)
 
-    def _wait_for_cooldown_locked(self) -> None:
+    def _cooldown_remaining_locked(self, now: float) -> float:
         deadline = self._cooldown_until_monotonic
         if deadline is None:
-            return
-        remaining = deadline - self._monotonic()
-        if remaining > 0:
-            self._sleep(remaining)
+            return 0.0
+        return deadline - now
 
 
 @dataclass(frozen=True, slots=True)
@@ -545,11 +553,17 @@ class CaseDevClient:
             raise ValueError(
                 "shared Case.dev rate limiter must match configured aggregate limit"
             )
-        self._rate_limiter = (
-            rate_limiter
-            if rate_limiter is not None
-            else CaseDevRateLimiter(rate_limit_per_minute=configured_limit)
-        )
+        if rate_limiter is not None:
+            self._rate_limiter = rate_limiter
+        else:
+            effective_limit = (
+                None
+                if isinstance(self.transport, CaseDevFixtureTransport)
+                else configured_limit
+            )
+            self._rate_limiter = CaseDevRateLimiter(
+                rate_limit_per_minute=effective_limit
+            )
 
     @classmethod
     def live_from_env(cls) -> CaseDevClient:

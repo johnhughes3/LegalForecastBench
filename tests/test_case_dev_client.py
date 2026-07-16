@@ -58,6 +58,23 @@ def _recorded_response(
     )
 
 
+def _instant_rate_limiter() -> CaseDevRateLimiter:
+    now = 0.0
+
+    def monotonic() -> float:
+        return now
+
+    def sleep(seconds: float) -> None:
+        nonlocal now
+        now += seconds
+
+    return CaseDevRateLimiter(
+        rate_limit_per_minute=None,
+        monotonic=monotonic,
+        sleep=sleep,
+    )
+
+
 class _FakeURLResponse:
     def __init__(
         self,
@@ -413,11 +430,7 @@ def test_rate_limit_retries_before_success() -> None:
         config=_config(),
         transport=transport,
         max_retries=1,
-        rate_limiter=CaseDevRateLimiter(
-            rate_limit_per_minute=None,
-            monotonic=lambda: 0.0,
-            sleep=lambda _seconds: None,
-        ),
+        rate_limiter=_instant_rate_limiter(),
         retry_jitter=lambda _upper: 0.0,
     )
 
@@ -679,12 +692,75 @@ def test_configured_rate_limit_spaces_request_starts(
             rate_limit_per_minute=60,
         ),
         transport=transport,
+        rate_limiter=CaseDevRateLimiter(rate_limit_per_minute=60),
     )
 
     assert client.get_case("case-1").case_id == "case-1"
     assert client.get_case("case-2").case_id == "case-2"
 
     assert sleep_calls == pytest.approx([0.75])
+
+
+def test_fixture_transport_bypasses_live_default_rate_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(case_dev_client_module.time, "sleep", sleep_calls.append)
+    transport = CaseDevFixtureTransport(
+        [
+            _recorded_response(
+                params={"type": "lookup", "docketId": "case-1"},
+                payload={"id": "case-1", "caption": "One v. Fixture"},
+            ),
+            _recorded_response(
+                params={"type": "lookup", "docketId": "case-2"},
+                payload={"id": "case-2", "caption": "Two v. Fixture"},
+            ),
+        ]
+    )
+    client = CaseDevClient(config=CaseDevConfig.from_env({}), transport=transport)
+
+    assert client.get_case("case-1").case_id == "case-1"
+    assert client.get_case("case-2").case_id == "case-2"
+    assert sleep_calls == []
+
+
+def test_rate_limit_circuit_preempts_worker_waiting_for_start_slot() -> None:
+    now = 100.0
+    sleep_started = threading.Event()
+    release_sleep = threading.Event()
+
+    def monotonic() -> float:
+        return now
+
+    def sleep(_seconds: float) -> None:
+        sleep_started.set()
+        assert release_sleep.wait(timeout=5)
+
+    limiter = CaseDevRateLimiter(
+        rate_limit_per_minute=60,
+        monotonic=monotonic,
+        sleep=sleep,
+    )
+    limiter.acquire()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        queued_start = executor.submit(limiter.acquire)
+        assert sleep_started.wait(timeout=5)
+        breaker_installed = threading.Event()
+
+        def install_breaker() -> None:
+            limiter.defer_for(0.0, open_circuit=True)
+            breaker_installed.set()
+
+        breaker = executor.submit(install_breaker)
+        preempted = breaker_installed.wait(timeout=1)
+        release_sleep.set()
+        breaker.result(timeout=5)
+
+        assert preempted, "cooldown installation must not wait behind a sleeper"
+        with pytest.raises(CaseDevRateLimitError, match="circuit is open"):
+            queued_start.result(timeout=5)
 
 
 def test_shared_rate_limiter_applies_one_aggregate_cap_across_clients() -> None:
@@ -769,11 +845,7 @@ def test_rate_limit_without_retry_raises() -> None:
         config=_config(),
         transport=transport,
         max_retries=0,
-        rate_limiter=CaseDevRateLimiter(
-            rate_limit_per_minute=None,
-            monotonic=lambda: 0.0,
-            sleep=lambda _seconds: None,
-        ),
+        rate_limiter=_instant_rate_limiter(),
         retry_jitter=lambda _upper: 0.0,
     )
 
