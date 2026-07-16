@@ -115,6 +115,36 @@ def test_hybrid_transient_firecrawl_retry_materializes_exact_attempt_lineage(
     assert lineage["firecrawl_run_reported_credits"] == 1
 
 
+def test_hybrid_retryable_target_202_then_success_materializes_exact_lineage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discovery_root, cycle_store = _run_hybrid_discovery(
+        tmp_path,
+        monkeypatch,
+        target_accepted_failures=1,
+    )
+
+    with CycleAcquisitionStore(cycle_store) as store:
+        attempts = store.firecrawl_attempts("hybrid-batch-courtlistener-docket-html-v1")
+    assert [attempt.status for attempt in attempts] == ["target_error", "succeeded"]
+    assert attempts[0].failure_code == "target_http_status_retryable"
+    assert attempts[0].failure_transient is True
+    assert attempts[0].provider_http_status == 200
+    assert attempts[0].target_http_status == 202
+
+    snapshot = _materialize_hybrid(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    manifest = verify_snapshot(snapshot, require_complete=True, require_saturated=True)
+    lineage = manifest["stage_commitments"]["courtlistener_discovery_inputs"]
+    assert lineage["accepted_case_count"] == 1
+    assert lineage["firecrawl_run_reserved_credits"] == 2
+    assert lineage["firecrawl_run_reported_credits"] == 2
+
+
 def test_hybrid_exhausted_provider_retries_materialize_as_terminal_exclusion(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -151,6 +181,43 @@ def test_hybrid_exhausted_provider_retries_materialize_as_terminal_exclusion(
     assert lineage["firecrawl_source_receipt_count"] == 0
     assert lineage["firecrawl_run_reserved_credits"] == 3
     assert lineage["firecrawl_run_reported_credits"] == 0
+
+
+def test_hybrid_exhausted_target_202_retries_materialize_as_provider_exhausted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discovery_root, cycle_store = _run_hybrid_discovery(
+        tmp_path,
+        monkeypatch,
+        target_accepted_failures=3,
+    )
+
+    [exclusion] = _read_jsonl(
+        discovery_root / "courtlistener-discovery-exclusions.jsonl"
+    )
+    assert exclusion["candidate_id"] == _DOCKET_ID
+    assert exclusion["stage"] == "retrieval"
+    assert exclusion["reason"] == "courtlistener_docket_html_provider_exhausted"
+    with CycleAcquisitionStore(cycle_store) as store:
+        attempts = store.firecrawl_attempts("hybrid-batch-courtlistener-docket-html-v1")
+    assert [attempt.attempt_number for attempt in attempts] == [1, 2, 3]
+    assert {attempt.status for attempt in attempts} == {"target_error"}
+    assert {attempt.failure_code for attempt in attempts} == {
+        "target_http_status_retryable"
+    }
+
+    snapshot = _materialize_hybrid(
+        tmp_path=tmp_path,
+        discovery_root=discovery_root,
+        cycle_store=cycle_store,
+    )
+    manifest = verify_snapshot(snapshot, require_complete=True, require_saturated=True)
+    lineage = manifest["stage_commitments"]["courtlistener_discovery_inputs"]
+    assert lineage["accepted_case_count"] == 0
+    assert lineage["excluded_case_count"] == 1
+    assert lineage["firecrawl_run_reserved_credits"] == 3
+    assert lineage["firecrawl_run_reported_credits"] == 3
 
 
 @pytest.mark.parametrize("failure_kind", ["target_404", "target_410", "abandoned"])
@@ -388,7 +455,10 @@ def _run_hybrid_discovery(
     *,
     reported_credits: int = 1,
     transient_failures: int = 0,
+    target_accepted_failures: int = 0,
 ) -> tuple[Path, Path]:
+    if transient_failures and target_accepted_failures:
+        raise ValueError("fixture may inject only one failure kind")
     output_root = tmp_path / "discovery"
     cycle_store = tmp_path / "cycle.sqlite3"
     fixture_path = tmp_path / "courtlistener.jsonl"
@@ -451,6 +521,25 @@ def _run_hybrid_discovery(
             },
         },
     )
+    accepted_response = FirecrawlHTTPResponse(
+        status_code=200,
+        payload={
+            "success": True,
+            "data": {
+                "rawHtml": "<html><body>Accepted</body></html>",
+                "metadata": {
+                    "statusCode": 202,
+                    "proxyUsed": "basic",
+                    "cacheState": "miss",
+                    "creditsUsed": reported_credits,
+                    "sourceURL": _DOCKET_URL,
+                },
+            },
+        },
+    )
+    responses = [accepted_response] * target_accepted_failures
+    if target_accepted_failures < 3:
+        responses.append(success_response)
     firecrawl_source = FirecrawlCourtListenerHTMLSource(
         FirecrawlConfig(api_key="fixture-key", proxy="basic"),
         transport=(
@@ -459,7 +548,7 @@ def _run_hybrid_discovery(
                 transient_failures=transient_failures,
             )
             if transient_failures
-            else FirecrawlFixtureTransport([success_response])
+            else FirecrawlFixtureTransport(responses)
         ),
     )
     monkeypatch.setenv("COURTLISTENER_API_TOKEN", "fixture-token")

@@ -534,7 +534,6 @@ def _validate_discovery_activity(
     if (
         sum(attempt_counts.values()) != run_reserved
         or attempt_counts.get("succeeded", 0) != successful_count
-        or attempt_counts.get("target_error", 0) != provider_unavailable_count
         or attempt_counts.get("interrupted", 0) != abandoned_count
     ):
         raise CourtListenerSnapshotMaterializationError(
@@ -577,6 +576,17 @@ def _validate_discovery_activity(
         raise CourtListenerSnapshotMaterializationError(
             "Firecrawl durable attempt audit counts do not reconcile"
         )
+    retryable_target_202_count = sum(
+        _is_retryable_target_202_attempt(attempt) for attempt in attempts_by_id.values()
+    )
+    if (
+        attempt_counts.get("target_error", 0)
+        != provider_unavailable_count + retryable_target_202_count
+    ):
+        raise CourtListenerSnapshotMaterializationError(
+            "Firecrawl target-error attempts do not reconcile with permanent and "
+            "retryable outcomes"
+        )
 
     successful_attempts: dict[int, FirecrawlAttempt] = {}
     terminal_unsuccessful_attempts: dict[str, FirecrawlAttempt] = {}
@@ -611,7 +621,9 @@ def _validate_discovery_activity(
             )
             successful_attempts[final_attempt.attempt_id] = final_attempt
             continue
-        if final_attempt.status in {"provider_error", "transport_error"}:
+        if final_attempt.status in {"provider_error", "transport_error"} or (
+            _is_retryable_target_202_attempt(final_attempt)
+        ):
             candidate_id = _validate_exhausted_firecrawl_attempt(
                 final_attempt,
                 expected_run_id=run_id,
@@ -847,6 +859,7 @@ def _excluded_ids(
                 expected_reason = (
                     "courtlistener_docket_html_provider_exhausted"
                     if terminal_attempt.status in {"provider_error", "transport_error"}
+                    or _is_retryable_target_202_attempt(terminal_attempt)
                     else "courtlistener_docket_html_unavailable"
                 )
                 if reason != expected_reason:
@@ -955,25 +968,31 @@ def _validate_transient_firecrawl_attempt(
         or attempt.request_url
         != f"https://www.courtlistener.com/docket/{candidate_id}/"
         or attempt.reserved_credits != 1
-        or attempt.status not in {"provider_error", "transport_error"}
-        or attempt.failure_transient is not True
-        or attempt.failure_code
-        not in {
+        or not isinstance(attempt.failure_message, str)
+        or not attempt.failure_message.strip()
+        or attempt.artifact_path is not None
+        or attempt.artifact_sha256 is not None
+        or attempt.artifact_byte_count is not None
+    ):
+        raise CourtListenerSnapshotMaterializationError(
+            f"Firecrawl transient attempt lineage is invalid for {candidate_id}"
+        )
+    provider_transient = (
+        attempt.status in {"provider_error", "transport_error"}
+        and attempt.failure_transient is True
+        and attempt.failure_code
+        in {
             "firecrawl_error",
             "provider_auth_error",
             "provider_payment_required",
             "provider_rate_limit",
             "provider_server_error",
         }
-        or not isinstance(attempt.failure_message, str)
-        or not attempt.failure_message.strip()
-        or attempt.reported_credits is not None
-        or attempt.proxy_used is not None
-        or attempt.target_http_status is not None
-        or attempt.artifact_path is not None
-        or attempt.artifact_sha256 is not None
-        or attempt.artifact_byte_count is not None
-    ):
+        and attempt.reported_credits is None
+        and attempt.proxy_used is None
+        and attempt.target_http_status is None
+    )
+    if not provider_transient and not _is_retryable_target_202_attempt(attempt):
         raise CourtListenerSnapshotMaterializationError(
             f"Firecrawl transient attempt lineage is invalid for {candidate_id}"
         )
@@ -996,6 +1015,27 @@ def _validate_transient_firecrawl_attempt(
         raise CourtListenerSnapshotMaterializationError(
             f"Firecrawl transient attempt timestamps are invalid for {candidate_id}"
         )
+
+
+def _is_retryable_target_202_attempt(attempt: FirecrawlAttempt) -> bool:
+    legacy_retryable = (
+        attempt.failure_code == "target_http_status_invalid"
+        and attempt.failure_transient is False
+    )
+    current_retryable = (
+        attempt.failure_code == "target_http_status_retryable"
+        and attempt.failure_transient is True
+    )
+    return (
+        attempt.status == "target_error"
+        and (legacy_retryable or current_retryable)
+        and attempt.provider_http_status == 200
+        and attempt.target_http_status == 202
+        and attempt.reported_credits in {0, 1}
+        and attempt.proxy_used == "basic"
+        and isinstance(attempt.failure_response_sha256, str)
+        and _SHA256.fullmatch(attempt.failure_response_sha256) is not None
+    )
 
 
 def _validate_exhausted_firecrawl_attempt(
