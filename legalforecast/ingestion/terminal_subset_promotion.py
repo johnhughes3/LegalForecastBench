@@ -165,6 +165,10 @@ def verify_terminal_subset_promotion_source(
             )
         _require_record_lineage(record, lineage)
         outcomes[candidate_id] = dict(record)
+    if lineage.get("success_count") != len(outcomes):
+        raise TerminalSubsetPromotionError(
+            "source provisional success count does not match verified snapshot outcomes"
+        )
 
     accepted_ids = {
         _required_text(row, "candidate_id") for row in evidence.screened_records

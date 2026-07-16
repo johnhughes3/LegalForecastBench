@@ -662,9 +662,8 @@ def test_replay_screening_snapshots_accepts_strictly_appended_docket_refresh(
 
 
 @pytest.mark.parametrize("mutated_source", ("older", "newer"))
-def test_replay_refresh_rechecks_raw_commitments_before_reconciliation(
+def test_replay_refresh_uses_authenticated_buffers_after_source_mutation(
     tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
     mutated_source: str,
 ) -> None:
@@ -738,9 +737,14 @@ def test_replay_refresh_rechecks_raw_commitments_before_reconciliation(
                 snapshot_id="toctou-replay",
             )
         )
-        == 2
+        == 0
     )
-    assert "raw artifact" in capsys.readouterr().err
+    verify_snapshot(
+        tmp_path / "replay/snapshots/toctou-replay",
+        expected_cycle_hash=target_cycle_hash,
+        require_complete=True,
+        require_saturated=True,
+    )
 
 
 def test_replay_rechecks_screen_run_card_after_atomic_parse_and_hash(

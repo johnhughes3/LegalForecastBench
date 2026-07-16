@@ -17983,12 +17983,19 @@ def _cmd_acquisition_promote_terminal_subset(args: argparse.Namespace) -> int:
                 batch_id=batch_id,
             )
 
-        source_raw_dir = bundle.successes[0].raw_path.parent
-        strict_result = screen_case_dev_firecrawl_successes(
-            successes=success_records,
-            raw_html_directory=source_raw_dir,
-            decision_filed_on_or_after=anchor,
-        )
+        with tempfile.TemporaryDirectory(
+            prefix="legalforecast-terminal-promotion-"
+        ) as private_raw_root:
+            private_raw_dir = Path(private_raw_root)
+            for success in bundle.successes:
+                (private_raw_dir / f"{success.docket_id}.html").write_bytes(
+                    read_verified_promotion_raw(success)
+                )
+            strict_result = screen_case_dev_firecrawl_successes(
+                successes=success_records,
+                raw_html_directory=private_raw_dir,
+                decision_filed_on_or_after=anchor,
+            )
         accepted_ids = {
             _screened_case_dev_id(record) for record in strict_result.screened_cases
         }
@@ -32255,6 +32262,10 @@ def _validate_terminal_promotion_paths(
             output_root / "logs/promote-terminal-firecrawl-subset.jsonl",
         ),
     )
+    cycle_store_sidecars = tuple(
+        Path(f"{cycle_store_path}{suffix}")
+        for suffix in (".lock", "-wal", "-shm", "-journal")
+    )
     _validate_ranked_handoff_paths(
         protected_paths=tuple(protected_paths),
         writable_paths=writable_files,
@@ -32283,7 +32294,7 @@ def _validate_terminal_promotion_paths(
                     "terminal promotion output would contain immutable source "
                     f"evidence: {protected}"
                 )
-    for writable_file in writable_files:
+    for writable_file in (*writable_files, *cycle_store_sidecars):
         writable = writable_file.resolve()
         for tree in writable_trees:
             if (

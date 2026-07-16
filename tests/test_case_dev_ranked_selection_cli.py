@@ -7,6 +7,8 @@ from datetime import date
 from pathlib import Path
 from typing import cast
 
+import legalforecast.cli as legalforecast_cli
+import legalforecast.ingestion.snapshot_replay as snapshot_replay_module
 import pytest
 from legalforecast.cli import _cycle_acquisition_policy, main
 from legalforecast.ingestion.budgeted_docket_acquisition import (
@@ -272,6 +274,89 @@ def test_promote_terminal_firecrawl_subset_rejects_source_accepted_set_drift(
     assert not (cast(Path, fixture["output_root"]) / "snapshots").exists()
 
 
+def test_promote_terminal_firecrawl_subset_rejects_contradictory_success_count(
+    tmp_path: Path,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path, provisional_success_count=4)
+
+    assert main(_promotion_args(fixture)) == 2
+    assert not (cast(Path, fixture["output_root"]) / "snapshots").exists()
+
+
+def test_promote_terminal_firecrawl_subset_publishes_buffered_raw_after_source_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+    source_raw = cast(Path, fixture["source_raw"])
+    original_raw = source_raw.read_bytes()
+    original_verify = legalforecast_cli.verify_terminal_subset_promotion_source
+
+    def mutate_after_verification(*args: object, **kwargs: object) -> object:
+        bundle = original_verify(*args, **kwargs)
+        source_raw.write_bytes(b"mutated after authenticated source verification")
+        return bundle
+
+    monkeypatch.setattr(
+        legalforecast_cli,
+        "verify_terminal_subset_promotion_source",
+        mutate_after_verification,
+    )
+
+    assert main(_promotion_args(fixture)) == 0
+    output_raw = (
+        cast(Path, fixture["output_root"]) / "raw-docket-html/102.html"
+    ).read_bytes()
+    assert output_raw == original_raw
+
+
+def test_promote_terminal_firecrawl_subset_uses_exact_pinned_manifest_markers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+    manifest_path = cast(Path, fixture["source_snapshot"]) / "manifest.json"
+    pinned_manifest = json.loads(manifest_path.read_text())
+    pinned_manifest.update(
+        {
+            "provisional_frontier": False,
+            "final_cohort_eligible": True,
+            "full_source_terminal": True,
+        }
+    )
+    manifest_path.write_text(json.dumps(pinned_manifest, sort_keys=True) + "\n")
+    fixture["source_snapshot_manifest_sha256"] = hashlib.sha256(
+        manifest_path.read_bytes()
+    ).hexdigest()
+    real_verify_snapshot = snapshot_replay_module.verify_snapshot
+
+    def verify_different_manifest(path: str | Path, **kwargs: object) -> object:
+        private_manifest_path = Path(path) / "manifest.json"
+        exact_bytes = private_manifest_path.read_bytes()
+        different = json.loads(exact_bytes)
+        different.update(
+            {
+                "provisional_frontier": True,
+                "final_cohort_eligible": False,
+                "full_source_terminal": False,
+            }
+        )
+        private_manifest_path.write_text(json.dumps(different, sort_keys=True) + "\n")
+        try:
+            return real_verify_snapshot(path, **kwargs)
+        finally:
+            private_manifest_path.write_bytes(exact_bytes)
+
+    monkeypatch.setattr(
+        snapshot_replay_module,
+        "verify_snapshot",
+        verify_different_manifest,
+    )
+
+    assert main(_promotion_args(fixture)) == 2
+    assert not (cast(Path, fixture["output_root"]) / "snapshots").exists()
+
+
 def test_promote_terminal_firecrawl_subset_rejects_outputs_inside_source_bundle(
     tmp_path: Path,
 ) -> None:
@@ -317,7 +402,25 @@ def test_promote_terminal_firecrawl_subset_rejects_writable_files_in_output_tree
     assert not (output_root / "raw-docket-html").exists()
 
 
-def test_promote_terminal_firecrawl_subset_resume_cannot_overwrite_snapshot_summary(
+def test_promote_terminal_firecrawl_subset_rejects_cycle_store_sidecar_in_raw_tree(
+    tmp_path: Path,
+) -> None:
+    fixture = _terminal_promotion_fixture(tmp_path)
+    output_root = cast(Path, fixture["output_root"])
+    raw_html_dir = output_root / "raw-docket-html"
+    raw_html_dir.mkdir(parents=True)
+    lock_target = raw_html_dir / "cycle-store.lock"
+    lock_target.write_text("immutable snapshot-adjacent evidence")
+    cycle_store_lock = Path(f"{fixture['target_store']}.lock")
+    cycle_store_lock.unlink(missing_ok=True)
+    cycle_store_lock.symlink_to(lock_target)
+
+    assert main(_promotion_args(fixture)) == 2
+    assert lock_target.read_text() == "immutable snapshot-adjacent evidence"
+    assert not (output_root / "snapshots").exists()
+
+
+def test_promote_terminal_firecrawl_subset_resume_cannot_overwrite_output_trees(
     tmp_path: Path,
 ) -> None:
     fixture = _terminal_promotion_fixture(tmp_path)
@@ -326,20 +429,28 @@ def test_promote_terminal_firecrawl_subset_resume_cannot_overwrite_snapshot_summ
     snapshot = output_root / "snapshots/terminal-promoted"
     snapshot_summary = snapshot / "summary.json"
     original_summary = snapshot_summary.read_bytes()
-    args = [
-        *_promotion_args(fixture),
-        "--summary-output",
-        str(snapshot_summary),
-    ]
+    raw_html_dir = output_root / "raw-docket-html"
+    original_raw_files = {
+        path: path.read_bytes() for path in raw_html_dir.iterdir() if path.is_file()
+    }
 
-    assert main(args) == 2
-    assert snapshot_summary.read_bytes() == original_summary
-    verify_snapshot(
-        snapshot,
-        expected_cycle_hash=cast(str, fixture["target_cycle_hash"]),
-        require_complete=True,
-        require_saturated=True,
-    )
+    for flag, path in (
+        ("--summary-output", snapshot_summary),
+        ("--screened-cases-output", raw_html_dir / "screened-cases.jsonl"),
+    ):
+        assert main([*_promotion_args(fixture), flag, str(path)]) == 2
+        assert snapshot_summary.read_bytes() == original_summary
+        assert {
+            raw_path: raw_path.read_bytes()
+            for raw_path in raw_html_dir.iterdir()
+            if raw_path.is_file()
+        } == original_raw_files
+        verify_snapshot(
+            snapshot,
+            expected_cycle_hash=cast(str, fixture["target_cycle_hash"]),
+            require_complete=True,
+            require_saturated=True,
+        )
 
 
 def test_select_case_dev_ranked_accepts_authenticated_unrestricted_recap_source(
@@ -1391,6 +1502,7 @@ def _terminal_promotion_fixture(
     tmp_path: Path,
     *,
     source_docket_id: str | None = None,
+    provisional_success_count: int | None = None,
 ) -> dict[str, object]:
     selected_docket_ids = ("102", "103", "104", "105", "106")
     terminal_source_docket_ids = ("101", *selected_docket_ids)
@@ -1441,6 +1553,11 @@ def _terminal_promotion_fixture(
     }
     for docket_id, raw_path in raw_paths.items():
         raw_path.write_text(raw_by_docket[docket_id])
+    success_count = (
+        len(source_success_docket_ids)
+        if provisional_success_count is None
+        else provisional_success_count
+    )
     provisional_config: dict[str, object] = {
         "stage": "authenticated_case_dev_provisional_frontier",
         "provisional_frontier": True,
@@ -1451,11 +1568,9 @@ def _terminal_promotion_fixture(
         "source_projection_sha256": selection["source_projection_sha256"],
         "progress_config_sha256": "a" * 64,
         "progress_sha256": "b" * 64,
-        "success_count": len(source_success_docket_ids),
+        "success_count": success_count,
         "terminal_exclusion_count": 0,
-        "pending_count": (
-            selection["source_candidate_count"] - len(source_success_docket_ids)
-        ),
+        "pending_count": (selection["source_candidate_count"] - success_count),
         "success_candidate_set_sha256": "c" * 64,
         "terminal_excluded_candidate_set_sha256": "d" * 64,
         "pending_candidate_set_sha256": "e" * 64,
