@@ -929,7 +929,7 @@ def test_bridge_resumes_known_prior_revision_without_refetch_and_rejects_tamper(
     [request] = _read_jsonl(requests_path)
     assert request["source_document_id"] == "9005"
     assert request["source_url"] == (
-        "https://www.courtlistener.com/recap/newly-free-motion.pdf"
+        "https://storage.courtlistener.com/recap/newly-free-motion.pdf"
     )
     [selection] = _read_jsonl(output_root / "public-packet-selection-reconciled.jsonl")
     assert selection["planning_status"] == "free_recovery_required"
@@ -2361,9 +2361,11 @@ def test_courtlistener_rest_bridge_recovers_gap_that_became_public() -> None:
             ],
             "source_document_id": "9005",
             "source_provider": "courtlistener",
-            "source_url": ("https://www.courtlistener.com/recap/newly-free-motion.pdf"),
+            "source_url": (
+                "https://storage.courtlistener.com/recap/newly-free-motion.pdf"
+            ),
             "source_url_or_reference": (
-                "https://www.courtlistener.com/recap/newly-free-motion.pdf"
+                "https://storage.courtlistener.com/recap/newly-free-motion.pdf"
             ),
         }
     ]
@@ -2380,7 +2382,9 @@ def test_courtlistener_rest_bridge_recovers_gap_that_became_public() -> None:
             "file_extension": "pdf",
             "source_document_id": "9005",
             "source_provider": "courtlistener",
-            "source_url": ("https://www.courtlistener.com/recap/newly-free-motion.pdf"),
+            "source_url": (
+                "https://storage.courtlistener.com/recap/newly-free-motion.pdf"
+            ),
         }
     ]
 

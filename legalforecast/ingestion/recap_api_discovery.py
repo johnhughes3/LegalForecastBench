@@ -812,14 +812,27 @@ def _optional_document_string(
 
 
 def public_recap_download_url(value: str) -> str | None:
-    """Normalize one v4 storage path and enforce the HTTPS download allowlist."""
+    """Normalize one v4 storage path and enforce the HTTPS download allowlist.
+
+    CourtListener v4 returns ``filepath_local`` as a relative ``recap/...``
+    storage key.  Resolve that key against the public storage host: resolving
+    it against the website host produces a bot-protected URL that returns 403
+    even though the same public object is available from storage.
+    """
 
     if "\\" in value or any(
         character.isspace() or ord(character) < 32 for character in value
     ):
         return None
     try:
-        url = urllib.parse.urljoin("https://www.courtlistener.com/", value)
+        supplied = urllib.parse.urlparse(value)
+        relative_storage_key = not supplied.scheme and not supplied.netloc
+        base_url = (
+            "https://storage.courtlistener.com/"
+            if relative_storage_key
+            else "https://www.courtlistener.com/"
+        )
+        url = urllib.parse.urljoin(base_url, value)
         parsed = urllib.parse.urlparse(url)
         hostname = parsed.hostname
         port = parsed.port
@@ -851,6 +864,8 @@ def public_recap_download_url(value: str) -> str | None:
     if any(segment in {".", ".."} for segment in path.split("/")):
         return None
     if not path.lower().endswith(".pdf"):
+        return None
+    if relative_storage_key and not path.startswith("/recap/"):
         return None
     if hostname == "www.courtlistener.com" and not path.startswith("/recap/"):
         return None
