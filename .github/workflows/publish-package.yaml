@@ -65,7 +65,7 @@ jobs:
           skip-existing: true
 
       - name: Publish GitHub release metadata
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b
         with:
           prerelease: ${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'alpha') }}
           files: |
