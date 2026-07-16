@@ -7,9 +7,16 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
     FirecrawlBudgetExceededError,
 )
-from legalforecast.ingestion.firecrawl_source import FirecrawlScrapeResult
+from legalforecast.ingestion.firecrawl_source import (
+    FirecrawlConfig,
+    FirecrawlFixtureTransport,
+    FirecrawlHTTPResponse,
+    FirecrawlScrapeResult,
+    FirecrawlURLValidationError,
+)
 from legalforecast.ingestion.opinion_recap_firecrawl import (
     BudgetedOpinionRecapFirecrawlResolver,
+    OpinionRecapFirecrawlPageSource,
     OpinionRecapFirecrawlSearchError,
     build_opinion_recap_search_url,
     canonicalize_opinion_recap_search_url,
@@ -60,6 +67,38 @@ def test_opinion_search_url_is_exact_court_scoped_and_canonical() -> None:
         "https://www.courtlistener.com/?type=r&q=%22Bullock+v.+Phh%22&"
         "court=dcd&order_by=score+desc"
     )
+
+
+def test_opinion_page_source_rejects_nonsearch_url_before_transport() -> None:
+    url = build_opinion_recap_search_url(query='"Bullock v. Phh"', court_id="dcd")
+    transport = FirecrawlFixtureTransport(
+        [
+            FirecrawlHTTPResponse(
+                status_code=200,
+                payload={
+                    "success": True,
+                    "data": {
+                        "rawHtml": _html(),
+                        "metadata": {
+                            "statusCode": 200,
+                            "proxyUsed": "basic",
+                            "creditsUsed": 1,
+                            "sourceURL": url,
+                        },
+                    },
+                },
+            )
+        ]
+    )
+    source = OpinionRecapFirecrawlPageSource(
+        FirecrawlConfig(api_key="fixture"), transport=transport
+    )
+
+    assert source.scrape_url(source_url=url).resolved_url == url
+    with pytest.raises(FirecrawlURLValidationError, match="allowlisted"):
+        source.scrape_url(source_url="https://www.courtlistener.com/docket/1/test/")
+
+    assert len(transport.requests) == 1
 
 
 @pytest.mark.parametrize(
