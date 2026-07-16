@@ -1,0 +1,656 @@
+{
+  "allowed_policy_delta": {
+    "new_sha256": "261ab270306634cdaf18520ed7bc5e39282ce4dac923c8bb2e307ebda8445394",
+    "old_sha256": "c13f9ede1a2f62b90282ca9e8f6a5d55dd3646c273c4c25abf75c609769010df",
+    "source_key": "courtlistener_acquisition"
+  },
+  "novel_candidate_count": 100,
+  "novel_candidate_ids_sha256": "a13fa1814d06495e14d6e909f18b01daf7a55ad049b5ac2a5aa33bd9defd1d79",
+  "novel_outcomes": [
+    {
+      "candidate_id": "courtlistener-docket-26323270",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "fea7e40b36f6a9ec43f77a2875bac6ffe342a8ffeee0c94251d9be794f4a55b6",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-5117886",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "9c88b5596ce9d57cfc84441a4e7d49653985ab4ec9c83216cf6342c797641fa5",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-59677903",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "5caec35edb1d613e3b942979387729713130d6f951910562b802f9ea7af968e1",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-59789240",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "eaad28a9df8d921ea01bef8dc1d6f735bb75329c96d11542ea1bc496cff88ff7",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-61612172",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "ee5da8639e491612b5e019b57552ff2e963e4a2bf51fe73509b49c2554d73732",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-63122178",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "d62a9b9922ec0f089ec2da761985a504dc2c9b1cefece9a9d5ed49476119a7f2",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-63152646",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "3ca12cbb7d7d321e7c8922ce0c91ceae40d6e7ea731fa8d50d0e3a85d4d461f1",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-63305790",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "4e0c210ad734cea116a5eae67d04d4a31ab718e04778cffc69c163212d025583",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-63596345",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "9da0fd5bfcc4262fbd73385408784f7a2e905d5578c2d21142249b3d8cadc09d",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-64881647",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "6abdb4471577e0509da24526a857b1791a96e0088c462bc333414c1054397ecd",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-65761218",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "b856ebf342d2d716de51f03a56d48501d9f5b66d264e2622e8c215ae04f1bf3b",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-66710564",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "1e75e2d70fc4d18307b0bcb96ca9a92892cb5ea11a6994acbaedbc47899700d6",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-66750760",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "3a10077358520a985d0813259aa24d8097cfe2c7fdb55aa380f0ab1cc3cb40fa",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-67660252",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "248ad24e21ba35df1d81c9c00bf756db0df8639a0ed9970ffc95b93bf17c38b4",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-67670792",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "6d0a370ad39fdcf3bb75aaad59b155843fdb38f020e80398596ca32177a3de1a",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-67698172",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "ead246a8f8e50441a5a12059f6d60389f81d5836035b6611e16c221a05462a6c",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-67711613",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "bc49a8bdc3050105716d5306f3a02221dce01ab76f9d3d3d22227dc873acac1d",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-67838526",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "8687d6c79af2e17f5bc888fec1e5f6b5442ed41efb80399605863f0fae286db0",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-67869529",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "59473fad6daff79ac8d95145ce6708cf2567eee170393560f447ba76571be59d",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-67915867",
+      "reason_code": "invalid_civil_case_metadata",
+      "source_observation_sha256": "e076bb7b46863ebd28d79ba7d08b81c75528fbae8a33bc3e14223b1727e991f9",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-67932833",
+      "reason_code": "invalid_civil_case_metadata",
+      "source_observation_sha256": "2cf4a6f7f3026319af0a4c8eb2179de46840536206f0430697c51669c17a3c06",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-68063948",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "3023f83b2cd7bc3e7c505d32a31c46e24965aa9fb512a0404158cdf8064d9a69",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-68279759",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "266a4e6433cac1efe6426090e2a6d4afd33765ee063a62e67a630b159200f8f0",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-68320100",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "43f2c979a80fa3ba83f74a7f10747fffa0ecad28b29a86ca3d89991a6795ebb2",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-68389243",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "63aa389cf69a86c875c41ec9de7e2aff5587c0e79b1ad353e699de3435b0f200",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-68450349",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "06b2ae5e42ebe2e2c545b08699b8d9e8f6e57385395d647ff28bb280bf1a6663",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-68514855",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "95b885cd2509d797669e4b9c303445272d3a1e83cdbbd943e3b9fe79c68bfbb4",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-68552381",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "b6c8c3ae3b4d04438178e7d5aadc5ffeaf7211d43576f761fa9e0d8583fd85db",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-68838614",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "49f2aaf42a70201630f19a3d6f74226763367fe71c2b649a2da2ea33efa6fecc",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-68931382",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "f02da070b986a3ec6de2796116a5323d25e344dfa4b5b852b837dc30d7d71f5f",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69037782",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "5fda36dd73e10f61ec35d3843fbd671a22705145162177678bed3e89c765aad7",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69048276",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "2e06223b807361bb6e8bca6a27f978760cadfce062052c8b8f24a872ae495ca2",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69061316",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "893f78ba3733b608eb100f47d4a9b56f39b7c36a3a3704d7dd4c876b8e2578a5",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69068811",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "23f51dec08b96b960ac36c57b059784a28d2ca1a1d46df1c4554b4b092358722",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69157328",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "4a05038f1408042c40c0605717966ad51269421966769a139a0cc7bb2b3fb5e2",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69239420",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "687fbb1868791a3298913f5712b39d4d7286223360f79d67a8d300af0b54dd31",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69342848",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "1a773d9b83090e500cff8d99d02e534fc8b2064a5045d109b4cdfad6cb0ed1e7",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69483123",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "467b09b5836ccd299f9dcd579abcf5a65620571b8c1ef80b26cb07885abad96f",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69567092",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "4f8d868a4f088260d7386806658d729525bbd1d88d05c19c5b760a5f231293d5",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69618350",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "0210e7df463bef9cf1d569ff8e14f66ffd49c351011200803b66220b60980865",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69691342",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "b67efd14627753969f11de201393ef9630c54c6811af8b02da44959253c2192a",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69786118",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "5d0ea0b1bd823ede3953dec4f4566b104f5dee17a4093648caa8961b6aeb1517",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69895238",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "42489c624984ff7d902003ae4575406ebef7a83660cd75dea1cbb3953ba8b39d",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69921348",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "cb1be599c30bad9738443b8fd2427b977611b333d41460907a85f0951afe6fc0",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69945834",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "1d0cce432fc9d32a59e2235d7cc1e754bb79e6fe927d538763d8829cbbfb697a",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69950504",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "e52485f81bb17060ee227a156be861b4984d2ea8b4ad6e217d3714d943cecff5",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-69978363",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "5adbfe050f3432f2413c78c96bf22a500a3fe36bb82a0ce6b1f8e3bbe4784cfe",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-70029052",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "e4ec4f8c1b3e09a96a7f6f07cb3c837b049f5f175352e3d449285a580a1067af",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-70277163",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "96776f678c34ad4d6e03d0ebbf55abfff7984ab21f8f67e3b02d04927dea072b",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-70413608",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "2a987eb772de2cf781747c456cb6fc733fe1d2e2e638adf19e4c2fcb8b4b90c2",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-70498335",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "c09801d983ff5158b1a6070b1b0c4b5cabb774e17f493a645eea7845cd168a04",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-70523730",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "8626f7f02d7a452f370cc6119a16c6fd004539be206d84e5d79b97f7bcceb7f0",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-70615660",
+      "reason_code": "oversized_docket_soft_skip",
+      "source_observation_sha256": "80e2c8a66e9789701b8f377606cdc8e50f6cae6deb90b253e378886e5fa9135e",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-70827842",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "bd6df06b197783d2e3f7a6ceaacabce1acbf83871cfb96d7b0c5c9209bbe0419",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-70829975",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "332e4b06bed0e2f8b4f33c11ad456eb0bede4ec91910b8beaed1f5f7f0ed728c",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-70902109",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "3fc6bc4156c8e3e42a8231d0c0392afc2936dcd87236b5d60e92d6e9b491d30c",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-70920847",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "5ea5d56eed05d575d0a57b2025cd81423e09c75633a22cb8f0718a2c44649d34",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71309000",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "f04346aeef73aade960be82892115a883d8bac3b99447e0cd42003fabe84ce76",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71318722",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "f6c382345c90a8af31a2000b9a08517ec8482663b5c085e252d98aa6b3c27ca2",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71503992",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "bea053c9aa492082157f1f59f165d03d5d4d72364cebef7fb3e7111ff672d100",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71736924",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "ac3ebe6d68192e2001cea3b7d6013f5856d800225b6580a4e617cfd5a0f529ee",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71747046",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "ebbb08afb4b7478b19bae228c86eb00e9c457eb9217015fa4a4412e10306d3ff",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71774082",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "e8b12a6db80192e18a5ee0f9089849b84ccf821afca5c2626d8631676681b110",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71843630",
+      "reason_code": "strict_clean_screen_passed",
+      "source_observation_sha256": "ac2c9555740a640536c13a3006d7ebed49c8a4f22fd1100c95150068534a1174",
+      "state": "accepted"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71844018",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "34ccf862a2d2a7ef81fd8085300dd87b1bd0d82040ab135badb683f6a4b819c9",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71871682",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "c5b4564d1422a7be57478e99013efad2128dc712692a05dc871fbaeb72565610",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71872359",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "d890f358a93f2b6e45308f0723a9d94619474d5af21729c6b763a834f3bf022f",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71889872",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "b91198490bbda68803061c35fc344e737da62ee90f9c52a4cf9cb38b6f99b81f",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71896835",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "4bad1236c24ea0ebec2a675c12f2d1f2ba2ccede426db2f96acb61489646f269",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71931484",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "dc1b9f335fbfdad83cec8c555410fe513c0098c5a07b76489abf16bf0a299fcd",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71976625",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "b70c466e5ddce27fe8dde3a26a906f00a0c2a0a50dd181cc80e25643e7cbcc4f",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71978872",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "05c9a82c100df55cd0e4f1a39ed0fd12ede141f337d361acf4712f6de2c5f6a3",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-71991171",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "a2c84018c9305790184d51dfd0fcfd08bd4a0a71ff376730962c3c496417a279",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72012024",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "cf23dce6a19f37960dbdb6bac98482cb0688790c84f99742bd66cd20a57e8c61",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72025913",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "75856c86002324fed4af10fb4ee9681d55fb8518892134629ab2c258e4d991e4",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72042961",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "756a3ed764dd09cfcfe01d576ca80fcdee9c807877658f1cddf9b9af1c2db753",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72058521",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "f2288277977b5d7b07077d988decbfaa492416dcc23ece73cd62902d78bd61cd",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72076104",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "fa7b350ad4c5d7f559a3531ca8941393d2a19b9f8ee81fee22db73883ed43c98",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72135307",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "4c778ec7f0eab68c0ac37f06f129857f92df2c010ce6cbcc9f7d1f7051aee0df",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72151769",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "83317cf73d3ad41004cd13c234a8c33ea3b5bcf2e2c5fc162f255ca83f8c42bc",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72160403",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "d4735ab77ab2962ed3e6991079e03d7b4c7c77397bb62cd659bfda05853ec04a",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72164215",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "e33e2a7fed142d163ca0c5936bdd6e8d416378799b1b564fbda2c19b5f1b936c",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72248915",
+      "reason_code": "habeas_or_immigration_detention_posture",
+      "source_observation_sha256": "e58993bf2b4219ddbe065e9d0b72d3d19266c41a794c90221e3ca524533a8467",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72306518",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "9183bfb3e4b02c183d21ad07c70cb23fe94a1835ad2cbd67c5460bca01e9e565",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72306980",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "25813945e7981ad7e3f934c8bc33f9d22df43d4c864f579c00d6bdd41c815989",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72355644",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "e3d8115cda638d01e23092c762b220d8393208d04d17e3422c5cc60e4f820427",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72379619",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "3b5cc0a5488e96624d40ed2c9b7ded83e04a538e9814ff4155f478549e6e81f5",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72381321",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "d3d93286d538a5cabe252ee6f812405791ed0ac1ecebe9143f2ff03623ee1646",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72389107",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "2bfd6ee8bf022e442cdc2e4a13cced1c54ab30a373dc713c4a2ce053d9231bb0",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-72841952",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "30bb510ca7a7c08574be370cbd452e84e669d74b21d20141ea7a7ed00cdbb808",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-73137297",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "45de1c02bb4c108bf345ac4c4c19646cabda542b30340df6cbcf882414793ae1",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-73205856",
+      "reason_code": "strict_clean_screen_failed",
+      "source_observation_sha256": "296067c9bf4990a05907d3c4a113057d3cde618525e13416321278fc71db8c34",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-73235706",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "bad40dad2111d3803d60818e79c8fd14f49094007abcb67d815c5f04e8a1a61e",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-73360083",
+      "reason_code": "decision_before_release_anchor",
+      "source_observation_sha256": "b8e0d837bafbbf41a9d4631591e80da1856e9aae8753391a8b52345a2f3844ad",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-73525904",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "49184c1fe0939f5d0bd069acde42ff470335d6a7c181a4f1b44e6873d9db264b",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-73529352",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "9ecbfe74c5d986ba013b63cec527fe6bf0553bb6ebeec7010ff88009df001ea0",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-73555467",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "3777f623d2ac5c4728b58cedc058d91b6c4015c928e850bb3871ee49a1a49b8a",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-73563467",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "e04a4970cd396abd2225d0f57c52f5aa2afed74217108230e8258624082a2251",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-73594017",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "a4eb677a706a3c27155a96de65ea3d9cd9364f551e397566b342d04cb5abd2d4",
+      "state": "excluded"
+    },
+    {
+      "candidate_id": "courtlistener-docket-73594781",
+      "reason_code": "procedural_or_standing_order",
+      "source_observation_sha256": "a93f3788616bacd9602d65f0a5ee8a0a0ae59dee580bfebf0c692febb725b909",
+      "state": "excluded"
+    }
+  ],
+  "novel_outcomes_sha256": "75b0098277ca91dedb84b8fd19e9a2b3774e3a844cdf14a4caf55f0056a0eea3",
+  "schema_version": "legalforecast.rest_observation_policy_rebind_contract.v1",
+  "selected_candidate_count": 506,
+  "selected_candidate_set_sha256": "f2d20b979710e7e78027dea6a85c09359399fb116d970a4f21a882fc1887bedb",
+  "selection_run_card_sha256": "ca81b3b0d88a912c7f4c2ff6451679ae83036b9e0abafe4087483894bd87e9dd",
+  "semantic_noop_proof": {
+    "commit": "6ffbbdbc915a8a8bda7a40b474e656fd6425e6cf",
+    "commit_screening_diff_sha256": "1ab475701964cde764508815c91e36b61b83ad2e1bb2e68e8f45a5afcfc12707",
+    "excluded_evidence_markers": [
+      "source_bound_bankruptcy_adversary",
+      "bankruptcy_adversary"
+    ],
+    "old_to_current_diff_shape": "candidate_text_override_optional_default_none",
+    "old_to_current_diff_sha256": "dc192db63ed3cb011b46497f506361232f70e9b10e00d760f55a60855be52d40",
+    "rest_observation_mode": "candidate_text_override_none",
+    "source_code_commit": "126a18b5849f83c0ba2d87f3fd424ca99e7faf14",
+    "screening_source_path": "legalforecast/ingestion/courtlistener_acquisition.py",
+    "target_code_commit": "e0d71779324ce8a0b8cdf09a6f2416fe97135d38"
+  },
+  "source_batch_id": "cycle1-opinions-eligibility-v2-novel100-prefix-20260715-v1",
+  "source_cycle_hash": "43f7501f60d1ebce697ce38bba0ab378afe64b27530f87d8d49c91b4a8cda351",
+  "source_policy": {
+    "eligibility_anchor": "2026-06-30",
+    "schema_version": "legalforecast.cycle_acquisition_policy.v1",
+    "screening_source_sha256": {
+      "contamination_filters": "e1437bf64633071c06fa28bee618e8cc17e2a41ca929e9e3a1e8164e4048bde9",
+      "courtlistener_acquisition": "c13f9ede1a2f62b90282ca9e8f6a5d55dd3646c273c4c25abf75c609769010df",
+      "motion_linkage": "a44d1bb198801cc99d3057d148527e31d6cd5ef6dbdfc0c13271f2cc97f8cfe2",
+      "mtd_acquisition_screen": "72084326faa7f76afc6075556fd8ba6738df83189ce178100cb1a0eb50630e7e",
+      "restricted_material": "f36a0cf5b5db5e3d6d997d46095cccfde89be9a9213db6b26576a116ed16758d"
+    }
+  },
+  "source_snapshot_manifest_sha256": "8272689426926946fa3e32102e8f0caa2e8188d84e7889e129011fd86206b492",
+  "target_cycle_hash": "33f7ef4dc46651c152b149761616166509e5e1b3d26d3e08d860a689071a8f70",
+  "target_policy": {
+    "eligibility_anchor": "2026-06-30",
+    "schema_version": "legalforecast.cycle_acquisition_policy.v1",
+    "screening_source_sha256": {
+      "contamination_filters": "e1437bf64633071c06fa28bee618e8cc17e2a41ca929e9e3a1e8164e4048bde9",
+      "courtlistener_acquisition": "261ab270306634cdaf18520ed7bc5e39282ce4dac923c8bb2e307ebda8445394",
+      "motion_linkage": "a44d1bb198801cc99d3057d148527e31d6cd5ef6dbdfc0c13271f2cc97f8cfe2",
+      "mtd_acquisition_screen": "72084326faa7f76afc6075556fd8ba6738df83189ce178100cb1a0eb50630e7e",
+      "restricted_material": "f36a0cf5b5db5e3d6d997d46095cccfde89be9a9213db6b26576a116ed16758d"
+    }
+  }
+}
