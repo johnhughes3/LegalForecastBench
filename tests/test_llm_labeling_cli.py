@@ -8,6 +8,7 @@ from typing import Any, cast
 
 import legalforecast.labeling.llm_pipeline as llm_pipeline
 import pytest
+from legalforecast import cli
 from legalforecast.cli import (
     CommandError,
     _require_complete_registry_panel,
@@ -23,6 +24,53 @@ from legalforecast.unitization.review import apply_unitization_reviews
 from pytest import MonkeyPatch, raises
 
 JsonRecord = dict[str, Any]
+
+
+def _stub_downstream_decision_artifact(
+    monkeypatch: MonkeyPatch,
+    decision_texts_path: Path,
+    *,
+    replace_after_verification: bool = False,
+) -> list[str]:
+    monkeypatch.setattr(cli, "require_finalized_envelopes", lambda records: records)
+    authenticated_records = tuple(_read_jsonl(decision_texts_path))
+
+    class _Artifact:
+        records = authenticated_records
+
+        def verify_stage_b_audit_commitments(self, records: object) -> None:
+            del records
+
+    def verify(**kwargs: object) -> _Artifact:
+        del kwargs
+        if replace_after_verification:
+            _write_jsonl(
+                decision_texts_path,
+                [
+                    {
+                        "document_id": "decision",
+                        "entered_date": "2026-05-18",
+                        "text": "The authenticated decision was replaced.",
+                    }
+                ],
+            )
+        return _Artifact()
+
+    monkeypatch.setattr(cli, "verify_decision_text_artifact", verify)
+    return [
+        "--selection",
+        str(decision_texts_path),
+        "--parser-manifest",
+        str(decision_texts_path),
+        "--prediction-units",
+        str(decision_texts_path),
+        "--decision-texts-manifest",
+        str(decision_texts_path),
+        "--decision-texts-run-card",
+        str(decision_texts_path),
+        "--markdown-root",
+        str(decision_texts_path.parent),
+    ]
 
 
 def _provider_caps_path(root: Path) -> Path:
@@ -555,13 +603,19 @@ def test_llm_label_rejects_unauthenticated_decision_text_before_provider_call(
     assert not (output_root / "labels.jsonl").exists()
 
 
-def test_acquisition_apply_lawyer_review_merges_checked_in_adjudication(
+def test_acquisition_apply_lawyer_review_uses_verified_bytes_after_source_replacement(
     tmp_path: Path,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     output_root = tmp_path / "acquisition"
     labels_path = tmp_path / "labels.jsonl"
     adjudications_path = tmp_path / "adjudications.jsonl"
     decision_texts_path = _write_decision_texts(tmp_path / "decision-texts.jsonl")
+    decision_artifact_args = _stub_downstream_decision_artifact(
+        monkeypatch,
+        decision_texts_path,
+        replace_after_verification=True,
+    )
     llm_label_audit_path = tmp_path / "llm-label-audit.jsonl"
     auto_label = _label_record(
         "unit-auto",
@@ -610,6 +664,7 @@ def test_acquisition_apply_lawyer_review_merges_checked_in_adjudication(
                 str(adjudications_path),
                 "--decision-texts",
                 str(decision_texts_path),
+                *decision_artifact_args,
                 "--llm-label-audit",
                 str(llm_label_audit_path),
                 "--output-root",
@@ -723,11 +778,15 @@ def test_apply_adjudicated_reviews_rejects_uncited_document() -> None:
 
 def test_acquisition_apply_lawyer_review_fails_without_audited_auto_label(
     tmp_path: Path,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     output_root = tmp_path / "acquisition"
     labels_path = tmp_path / "labels.jsonl"
     adjudications_path = tmp_path / "adjudications.jsonl"
     decision_texts_path = _write_decision_texts(tmp_path / "decision-texts.jsonl")
+    decision_artifact_args = _stub_downstream_decision_artifact(
+        monkeypatch, decision_texts_path
+    )
     llm_label_audit_path = tmp_path / "llm-label-audit.jsonl"
     auto_label = _label_record(
         "unit-auto",
@@ -766,6 +825,7 @@ def test_acquisition_apply_lawyer_review_fails_without_audited_auto_label(
                 str(adjudications_path),
                 "--decision-texts",
                 str(decision_texts_path),
+                *decision_artifact_args,
                 "--llm-label-audit",
                 str(llm_label_audit_path),
                 "--output-root",
@@ -781,11 +841,15 @@ def test_acquisition_apply_lawyer_review_fails_without_audited_auto_label(
 
 def test_acquisition_apply_lawyer_review_fails_closed_on_audit_error(
     tmp_path: Path,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     output_root = tmp_path / "acquisition"
     labels_path = tmp_path / "labels.jsonl"
     adjudications_path = tmp_path / "adjudications.jsonl"
     decision_texts_path = _write_decision_texts(tmp_path / "decision-texts.jsonl")
+    decision_artifact_args = _stub_downstream_decision_artifact(
+        monkeypatch, decision_texts_path
+    )
     llm_label_audit_path = tmp_path / "llm-label-audit.jsonl"
     auto_label = _label_record(
         "unit-auto",
@@ -834,6 +898,7 @@ def test_acquisition_apply_lawyer_review_fails_closed_on_audit_error(
                 str(adjudications_path),
                 "--decision-texts",
                 str(decision_texts_path),
+                *decision_artifact_args,
                 "--llm-label-audit",
                 str(llm_label_audit_path),
                 "--human-blind-disagreement-rate",

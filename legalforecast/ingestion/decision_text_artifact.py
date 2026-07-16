@@ -43,6 +43,59 @@ class VerifiedDecisionTextArtifact:
 
         return _canonical_sha256(record)
 
+    def stage_b_commitments(self) -> Mapping[str, Mapping[str, str]]:
+        """Return the exact per-candidate commitments emitted by Stage B."""
+
+        commitments: dict[str, Mapping[str, str]] = {}
+        for record in self.records:
+            candidate_id = _required_str(record, "candidate_id")
+            text = _required_str(record, "text")
+            text_sha256 = hashlib.sha256(text.encode("utf-8")).hexdigest()
+            commitments[candidate_id] = {
+                "decision_texts_sha256": self.decision_texts_sha256,
+                "decision_texts_manifest_sha256": self.manifest_sha256,
+                "decision_texts_run_card_sha256": self.run_card_sha256,
+                "decision_text_record_sha256": self.record_commitment(record),
+                "decision_text_sha256": "sha256:" + text_sha256,
+                "decision_text_case_id": _required_str(record, "case_id"),
+                "finalized_prediction_units_sha256": (
+                    self.finalized_prediction_units_sha256
+                ),
+                "finalized_unit_envelope_sha256": (
+                    self.finalized_unit_envelope_sha256s[candidate_id]
+                ),
+            }
+        return commitments
+
+    def verify_stage_b_audit_commitments(
+        self, audit_records: Sequence[Mapping[str, Any]]
+    ) -> None:
+        """Require every Stage B audit row to bind this exact artifact."""
+
+        expected = self.stage_b_commitments()
+        actual: dict[str, Mapping[str, Any]] = {}
+        for record in audit_records:
+            if record.get("stage") != "llm-label":
+                continue
+            candidate_id = _required_str(record, "candidate_id")
+            if candidate_id in actual:
+                raise DecisionTextArtifactError(
+                    f"duplicate Stage B label audit candidate: {candidate_id}"
+                )
+            actual[candidate_id] = _mapping(
+                record.get("decision_text_commitment"),
+                f"Stage B decision_text_commitment for {candidate_id}",
+            )
+        if set(actual) != set(expected):
+            raise DecisionTextArtifactError(
+                "Stage B decision-text commitment coverage mismatch"
+            )
+        for candidate_id, commitment in actual.items():
+            if dict(commitment) != dict(expected[candidate_id]):
+                raise DecisionTextArtifactError(
+                    f"Stage B decision-text commitment mismatch: {candidate_id}"
+                )
+
 
 def verify_decision_text_artifact(
     *,

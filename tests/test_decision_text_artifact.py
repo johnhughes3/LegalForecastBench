@@ -2,15 +2,55 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import pytest
 from legalforecast import cli
-from legalforecast.cli import main
+from legalforecast.cli import build_parser, main
 from legalforecast.ingestion.mistral_markdown_parser import EXPECTED_PARSER_REVISION
+from legalforecast.protocol.policy_artifacts import generate_labeling_policy
+from legalforecast.unitization.review import apply_unitization_reviews
 
 JsonRecord = dict[str, Any]
+
+
+@pytest.mark.parametrize(
+    "command",
+    ("plan-label-audit", "apply-lawyer-review", "finalize-corpus"),
+)
+def test_downstream_commands_require_authenticated_decision_text_bundle(
+    command: str,
+) -> None:
+    parser = build_parser()
+    acquisition = next(
+        action
+        for action in parser._actions
+        if getattr(action, "dest", None) == "command"
+    ).choices["acquisition"]
+    subcommands = next(
+        action
+        for action in acquisition._actions
+        if getattr(action, "dest", None) == "acquisition_command"
+    ).choices
+    option_actions = {
+        option: action
+        for action in subcommands[command]._actions
+        for option in action.option_strings
+    }
+
+    for option in (
+        "--decision-texts",
+        "--decision-texts-manifest",
+        "--decision-texts-run-card",
+        "--selection",
+        "--parser-manifest",
+        "--prediction-units",
+        "--markdown-root",
+    ):
+        assert option in option_actions
+        assert option_actions[option].required is True
 
 
 def test_build_decision_texts_emits_consumer_compatible_hash_bound_rows(
@@ -49,8 +89,8 @@ def test_build_decision_texts_emits_consumer_compatible_hash_bound_rows(
         "selection_run_card_sha256": _sha256(inputs["selection_run_card"]),
     }
 
-    # Existing consumers intentionally ignore the additional provenance fields.
-    loaded = cli._load_decision_texts(output / "decision-texts.jsonl")
+    # Downstream consumers construct Stage B text only from verified records.
+    loaded = cli._decision_texts_from_records(records)
     assert loaded["decision"].text == record["text"]
 
     manifest = json.loads(
@@ -176,6 +216,105 @@ def test_build_decision_texts_rejects_absolute_markdown_outside_trusted_root(
 
     assert main(_command(inputs, tmp_path / "output")) == 2
     assert "markdown path escapes markdown root" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("missing_commitment", "decision_text_commitment"),
+        ("tampered_decision_text", "decision text artifact hash mismatch"),
+    ],
+)
+def test_plan_label_audit_rejects_legacy_or_tampered_decision_text_input(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    mutation: str,
+    message: str,
+) -> None:
+    inputs = _write_inputs(tmp_path)
+    decision_root = tmp_path / "decision-artifact"
+    assert main(_command(inputs, decision_root)) == 0
+    finalized_units = apply_unitization_reviews(
+        prediction_unit_records=[
+            {
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+                "prediction_units": [{"unit_id": "unit-1", "should_score": True}],
+            }
+        ],
+        review_records=(),
+        adjudication_records=(),
+    )
+    units_path = tmp_path / "finalized-units.jsonl"
+    _write_jsonl(units_path, list(finalized_units))
+    audit_path = tmp_path / "label-audit.jsonl"
+    _write_jsonl(
+        audit_path,
+        [
+            {
+                "stage": "llm-label",
+                "status": "succeeded",
+                "candidate_id": "cand-1",
+                "case_id": "case-1",
+            }
+        ],
+    )
+    if mutation == "tampered_decision_text":
+        (decision_root / "decision-texts.jsonl").write_text(
+            '{"candidate_id":"cand-1","text":"forged"}\n',
+            encoding="utf-8",
+        )
+    policy_path = tmp_path / "labeling-policy.json"
+    policy_path.write_text(
+        json.dumps(
+            generate_labeling_policy(
+                cycle_id="cycle-1",
+                judge_registry_path=Path(
+                    "model_registries/cycle-1-stage-b-judges-2026-07-12.json"
+                ),
+                published_at=datetime(2026, 7, 15, tzinfo=UTC),
+                threshold_source="Cycle 1 labeling protocol fixture.",
+            ),
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    queue_path = tmp_path / "queue.jsonl"
+    queue_path.write_text("", encoding="utf-8")
+
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-label-audit",
+                "--output-root",
+                str(tmp_path / "audit-output"),
+                "--llm-label-audit",
+                str(audit_path),
+                "--selection",
+                str(inputs["selection"]),
+                "--parser-manifest",
+                str(inputs["parser_manifest"]),
+                "--prediction-units",
+                str(units_path),
+                "--decision-texts",
+                str(decision_root / "decision-texts.jsonl"),
+                "--decision-texts-manifest",
+                str(decision_root / "decision-texts-manifest.json"),
+                "--decision-texts-run-card",
+                str(decision_root / "run-cards" / "build-decision-texts.json"),
+                "--markdown-root",
+                str(inputs["markdown_root"]),
+                "--labeling-policy",
+                str(policy_path),
+                "--lawyer-review-queue",
+                str(queue_path),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert message in capsys.readouterr().err
 
 
 def _command(inputs: dict[str, Any], output: Path) -> list[str]:

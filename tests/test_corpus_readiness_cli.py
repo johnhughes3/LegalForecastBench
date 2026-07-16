@@ -42,6 +42,22 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
         "The Court rules. Count I is dismissed.",
         encoding="utf-8",
     )
+
+    class _Artifact:
+        records = (
+            {
+                "candidate_id": "cand-1",
+                "document_id": "decision-1",
+                "text": "The Court rules. Count I is dismissed.",
+            },
+        )
+
+        def verify_stage_b_audit_commitments(self, records: object) -> None:
+            del records
+
+    monkeypatch.setattr(
+        cli, "verify_decision_text_artifact", lambda **kwargs: _Artifact()
+    )
     _write_jsonl(
         inputs / "selection.jsonl",
         [
@@ -292,6 +308,12 @@ def test_acquisition_finalize_corpus_writes_complete_ledger_and_readiness(
                 str(inputs / "selection.jsonl"),
                 "--parser-manifest",
                 str(inputs / "parser.jsonl"),
+                "--decision-texts",
+                str(inputs / "selection.jsonl"),
+                "--decision-texts-manifest",
+                str(inputs / "selection.jsonl"),
+                "--decision-texts-run-card",
+                str(inputs / "selection.jsonl"),
                 "--disclosure-clearance",
                 str(inputs / "clearance.jsonl"),
                 "--markdown-root",
@@ -473,6 +495,12 @@ def test_acquisition_finalize_corpus_rejects_unreconciled_screened_candidate(
             str(inputs / "selection.jsonl"),
             "--parser-manifest",
             str(inputs / "parser.jsonl"),
+            "--decision-texts",
+            str(inputs / "selection.jsonl"),
+            "--decision-texts-manifest",
+            str(inputs / "selection.jsonl"),
+            "--decision-texts-run-card",
+            str(inputs / "selection.jsonl"),
             "--disclosure-clearance",
             str(inputs / "clearance.jsonl"),
             "--markdown-root",
@@ -579,6 +607,12 @@ def test_acquisition_finalize_corpus_rejects_summary_not_bound_to_snapshot_manif
             "--selection",
             str(inputs / "screened-cases.jsonl"),
             "--parser-manifest",
+            str(inputs / "screened-cases.jsonl"),
+            "--decision-texts",
+            str(inputs / "screened-cases.jsonl"),
+            "--decision-texts-manifest",
+            str(inputs / "screened-cases.jsonl"),
+            "--decision-texts-run-card",
             str(inputs / "screened-cases.jsonl"),
             "--disclosure-clearance",
             str(inputs / "screened-cases.jsonl"),

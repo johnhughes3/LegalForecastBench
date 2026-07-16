@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from legalforecast import cli
 from legalforecast.cli import main
 from legalforecast.labeling import llm_pipeline
 from legalforecast.labeling.cycle_label_audit import (
@@ -220,6 +221,7 @@ def test_cycle_plan_rejects_empty_auto_label_population() -> None:
 
 def test_plan_label_audit_cli_writes_frozen_plan_and_blind_queue(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     candidate = "cand-grant"
     inputs = tmp_path / "inputs"
@@ -235,6 +237,23 @@ def test_plan_label_audit_cli_writes_frozen_plan_and_blind_queue(
         json.dumps(_policy(), sort_keys=True), encoding="utf-8"
     )
     _write_jsonl(inputs / "queue.jsonl", [])
+    monkeypatch.setattr(cli, "require_finalized_envelopes", lambda records: records)
+
+    class _Artifact:
+        records = (
+            {
+                "candidate_id": candidate,
+                "document_id": f"decision-{candidate}",
+                "text": "The order resolves it.",
+            },
+        )
+
+        def verify_stage_b_audit_commitments(self, records: object) -> None:
+            del records
+
+    monkeypatch.setattr(
+        cli, "verify_decision_text_artifact", lambda **kwargs: _Artifact()
+    )
     output = tmp_path / "output"
 
     assert (
@@ -250,8 +269,16 @@ def test_plan_label_audit_cli_writes_frozen_plan_and_blind_queue(
                 str(inputs / "selection.jsonl"),
                 "--prediction-units",
                 str(inputs / "units.jsonl"),
+                "--parser-manifest",
+                str(inputs / "selection.jsonl"),
                 "--decision-texts",
                 str(inputs / "decisions.jsonl"),
+                "--decision-texts-manifest",
+                str(inputs / "policy.json"),
+                "--decision-texts-run-card",
+                str(inputs / "policy.json"),
+                "--markdown-root",
+                str(inputs),
                 "--labeling-policy",
                 str(inputs / "policy.json"),
                 "--lawyer-review-queue",

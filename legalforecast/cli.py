@@ -5087,6 +5087,10 @@ def _add_acquisition_apply_lawyer_review_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
     _add_acquisition_common_arguments(parser)
+    parser.add_argument("--selection", type=Path, required=True)
+    parser.add_argument("--parser-manifest", type=Path, required=True)
+    parser.add_argument("--prediction-units", type=Path, required=True)
+    parser.add_argument("--markdown-root", type=Path, required=True)
     parser.add_argument(
         "--labels",
         type=Path,
@@ -5109,6 +5113,8 @@ def _add_acquisition_apply_lawyer_review_arguments(
             "citation excerpts are validated verbatim against these."
         ),
     )
+    parser.add_argument("--decision-texts-manifest", type=Path, required=True)
+    parser.add_argument("--decision-texts-run-card", type=Path, required=True)
     parser.add_argument(
         "--llm-label-audit",
         type=Path,
@@ -5158,6 +5164,10 @@ def _add_acquisition_plan_label_audit_arguments(
     parser.add_argument("--selection", type=Path, required=True)
     parser.add_argument("--prediction-units", type=Path, required=True)
     parser.add_argument("--decision-texts", type=Path, required=True)
+    parser.add_argument("--decision-texts-manifest", type=Path, required=True)
+    parser.add_argument("--decision-texts-run-card", type=Path, required=True)
+    parser.add_argument("--parser-manifest", type=Path, required=True)
+    parser.add_argument("--markdown-root", type=Path, required=True)
     parser.add_argument("--labeling-policy", type=Path, required=True)
     parser.add_argument(
         "--lawyer-review-queue",
@@ -5310,6 +5320,9 @@ def _add_acquisition_finalize_corpus_arguments(
     _add_acquisition_common_arguments(parser)
     parser.add_argument("--selection", type=Path, required=True)
     parser.add_argument("--parser-manifest", type=Path, required=True)
+    parser.add_argument("--decision-texts", type=Path, required=True)
+    parser.add_argument("--decision-texts-manifest", type=Path, required=True)
+    parser.add_argument("--decision-texts-run-card", type=Path, required=True)
     parser.add_argument("--disclosure-clearance", type=Path, required=True)
     parser.add_argument(
         "--markdown-root",
@@ -19828,9 +19841,15 @@ def _cmd_acquisition_apply_unitization_review(args: argparse.Namespace) -> int:
 
 def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
+    selection_path = cast(Path, args.selection)
+    parser_manifest_path = cast(Path, args.parser_manifest)
+    prediction_units_path = cast(Path, args.prediction_units)
+    markdown_root = cast(Path, args.markdown_root)
     labels_path = cast(Path, args.labels)
     adjudications_path = cast(Path, args.adjudications)
     decision_texts_path = cast(Path, args.decision_texts)
+    decision_texts_manifest_path = cast(Path, args.decision_texts_manifest)
+    decision_texts_run_card_path = cast(Path, args.decision_texts_run_card)
     llm_label_audit_path = cast(Path, args.llm_label_audit)
     cycle_label_audit_plan_path = cast(Path | None, args.cycle_label_audit_plan)
     labeling_policy_path = cast(Path | None, args.labeling_policy)
@@ -19867,11 +19886,31 @@ def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
         llm_label_audit_records = _read_records(llm_label_audit_path)
         if not llm_label_audit_records:
             raise CommandError("llm-label audit must include at least one record")
+        try:
+            decision_text_artifact = verify_decision_text_artifact(
+                decision_texts_path=decision_texts_path,
+                manifest_path=decision_texts_manifest_path,
+                run_card_path=decision_texts_run_card_path,
+                selections=_read_records(selection_path),
+                selection_path=selection_path,
+                parser_records=_read_records(parser_manifest_path),
+                parser_manifest_path=parser_manifest_path,
+                finalized_unit_records=require_finalized_envelopes(
+                    _read_records(prediction_units_path)
+                ),
+                finalized_units_path=prediction_units_path,
+                markdown_root=markdown_root,
+            )
+            decision_text_artifact.verify_stage_b_audit_commitments(
+                llm_label_audit_records
+            )
+        except (DecisionTextArtifactError, UnitizationReviewError) as exc:
+            raise CommandError(str(exc)) from exc
         adjudication_records = _read_records(adjudications_path)
         result = apply_adjudicated_reviews(
             label_records=_read_records(labels_path),
             adjudication_records=adjudication_records,
-            decision_texts=_load_decision_texts(decision_texts_path),
+            decision_texts=_decision_texts_from_records(decision_text_artifact.records),
             label_audit_records=(
                 ()
                 if cycle_label_audit_plan_path is not None
@@ -19909,9 +19948,15 @@ def _cmd_acquisition_apply_lawyer_review(args: argparse.Namespace) -> int:
         args,
         stage="apply-lawyer-review",
         input_paths=(
+            selection_path,
+            parser_manifest_path,
+            prediction_units_path,
+            markdown_root,
             labels_path,
             adjudications_path,
             decision_texts_path,
+            decision_texts_manifest_path,
+            decision_texts_run_card_path,
             llm_label_audit_path,
             *((cycle_label_audit_plan_path,) if cycle_label_audit_plan_path else ()),
             *((labeling_policy_path,) if labeling_policy_path else ()),
@@ -19931,6 +19976,10 @@ def _cmd_acquisition_plan_label_audit(args: argparse.Namespace) -> int:
     selection_path = cast(Path, args.selection)
     prediction_units_path = cast(Path, args.prediction_units)
     decision_texts_path = cast(Path, args.decision_texts)
+    decision_texts_manifest_path = cast(Path, args.decision_texts_manifest)
+    decision_texts_run_card_path = cast(Path, args.decision_texts_run_card)
+    parser_manifest_path = cast(Path, args.parser_manifest)
+    markdown_root = cast(Path, args.markdown_root)
     policy_path = cast(Path, args.labeling_policy)
     existing_queue_path = cast(Path, args.lawyer_review_queue)
     plan_path = _acquisition_path(
@@ -19979,14 +20028,37 @@ def _cmd_acquisition_plan_label_audit(args: argparse.Namespace) -> int:
         record_count = 0
     else:
         try:
+            selection_records = _read_records(selection_path)
+            prediction_unit_records = _read_records(prediction_units_path)
+            decision_text_artifact = verify_decision_text_artifact(
+                decision_texts_path=decision_texts_path,
+                manifest_path=decision_texts_manifest_path,
+                run_card_path=decision_texts_run_card_path,
+                selections=selection_records,
+                selection_path=selection_path,
+                parser_records=_read_records(parser_manifest_path),
+                parser_manifest_path=parser_manifest_path,
+                finalized_unit_records=require_finalized_envelopes(
+                    prediction_unit_records
+                ),
+                finalized_units_path=prediction_units_path,
+                markdown_root=markdown_root,
+            )
+            label_audit_records = _read_records(llm_audit_path)
+            decision_text_artifact.verify_stage_b_audit_commitments(label_audit_records)
             plan, planned_audits, audit_queue = plan_cycle_label_audit(
-                label_audit_records=_read_records(llm_audit_path),
-                selection_records=_read_records(selection_path),
-                finalized_prediction_unit_records=_read_records(prediction_units_path),
-                decision_text_records=_read_records(decision_texts_path),
+                label_audit_records=label_audit_records,
+                selection_records=selection_records,
+                finalized_prediction_unit_records=prediction_unit_records,
+                decision_text_records=decision_text_artifact.records,
                 policy_record=_read_json_object(policy_path),
             )
-        except (CycleLabelAuditError, KeyError) as exc:
+        except (
+            CycleLabelAuditError,
+            DecisionTextArtifactError,
+            UnitizationReviewError,
+            KeyError,
+        ) as exc:
             raise CommandError(str(exc)) from exc
         existing_queue = _read_records(existing_queue_path)
         queue_by_review_id: dict[str, Mapping[str, Any]] = {}
@@ -20041,6 +20113,10 @@ def _cmd_acquisition_plan_label_audit(args: argparse.Namespace) -> int:
             selection_path,
             prediction_units_path,
             decision_texts_path,
+            decision_texts_manifest_path,
+            decision_texts_run_card_path,
+            parser_manifest_path,
+            markdown_root,
             policy_path,
             existing_queue_path,
         ),
@@ -20332,6 +20408,9 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     output_root = _acquisition_output_root(args)
     selection_path = cast(Path, args.selection)
     parser_manifest_path = cast(Path, args.parser_manifest)
+    decision_texts_path = cast(Path, args.decision_texts)
+    decision_texts_manifest_path = cast(Path, args.decision_texts_manifest)
+    decision_texts_run_card_path = cast(Path, args.decision_texts_run_card)
     disclosure_clearance_path = cast(Path, args.disclosure_clearance)
     markdown_root = cast(Path, args.markdown_root)
     raw_prediction_units_path = cast(Path, args.raw_prediction_units)
@@ -20389,6 +20468,9 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
     input_paths = (
         selection_path,
         parser_manifest_path,
+        decision_texts_path,
+        decision_texts_manifest_path,
+        decision_texts_run_card_path,
         disclosure_clearance_path,
         markdown_root,
         raw_prediction_units_path,
@@ -20559,13 +20641,31 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
 
         registry = load_model_registry(model_registry_path)
         official_entries = require_official_registry_entries(registry.entries)
-        decision_texts = _load_readiness_decision_texts(
-            selection_records=selection_records,
-            parser_records=parser_records,
-            prediction_unit_records=prediction_unit_records,
-            label_records=label_records,
-            markdown_root=markdown_root,
-        )
+        try:
+            decision_text_artifact = verify_decision_text_artifact(
+                decision_texts_path=decision_texts_path,
+                manifest_path=decision_texts_manifest_path,
+                run_card_path=decision_texts_run_card_path,
+                selections=selection_records,
+                selection_path=selection_path,
+                parser_records=parser_records,
+                parser_manifest_path=parser_manifest_path,
+                finalized_unit_records=require_finalized_envelopes(
+                    prediction_unit_records
+                ),
+                finalized_units_path=prediction_units_path,
+                markdown_root=markdown_root,
+            )
+            decision_text_artifact.verify_stage_b_audit_commitments(label_audit_records)
+        except (DecisionTextArtifactError, UnitizationReviewError) as exc:
+            raise CommandError(str(exc)) from exc
+        decision_texts = {
+            (
+                _required_str(record, "candidate_id"),
+                _required_str(record, "document_id"),
+            ): _required_str(record, "text")
+            for record in decision_text_artifact.records
+        }
         try:
             stage_b_judge_registry = load_model_registry(stage_b_judge_registry_path)
             verify_labeling_policy(
@@ -20839,101 +20939,6 @@ def _validate_acquisition_discovery_reconciliation(
         raise CommandError(
             "unreconciled screened candidates: " + ", ".join(unreconciled)
         )
-
-
-def _load_readiness_decision_texts(
-    *,
-    selection_records: Sequence[Mapping[str, Any]],
-    parser_records: Sequence[Mapping[str, Any]],
-    prediction_unit_records: Sequence[Mapping[str, Any]],
-    label_records: Sequence[Mapping[str, Any]],
-    markdown_root: Path,
-) -> dict[tuple[str, str], str]:
-    selections = {
-        _required_str(record, "candidate_id"): record for record in selection_records
-    }
-    parser_by_key = {
-        (
-            _required_str(record, "candidate_id"),
-            _required_str(record, "source_document_id"),
-        ): record
-        for record in parser_records
-    }
-    candidate_by_unit: dict[str, str] = {}
-    for record in prediction_unit_records:
-        candidate_id = _required_str(record, "candidate_id")
-        units = (
-            _required_record_sequence(record, "prediction_units")
-            if "prediction_units" in record
-            else (record,)
-        )
-        for unit in units:
-            unit_id = _required_str(unit, "unit_id")
-            if unit_id in candidate_by_unit:
-                raise CommandError(f"duplicate prediction unit: {unit_id}")
-            candidate_by_unit[unit_id] = candidate_id
-
-    root = markdown_root.expanduser().resolve()
-    decision_texts: dict[tuple[str, str], str] = {}
-    for label in label_records:
-        unit_id = _required_str(label, "unit_id")
-        try:
-            candidate_id = candidate_by_unit[unit_id]
-            selection = selections[candidate_id]
-        except KeyError as exc:
-            raise CommandError(
-                f"label unit is not joined to a selected candidate: {unit_id}"
-            ) from exc
-        document_id = _required_str(label, "first_written_disposition_id")
-        documents = {
-            _required_str(document, "source_document_id"): document
-            for document in _required_record_sequence(selection, "documents")
-        }
-        try:
-            document = documents[document_id]
-        except KeyError as exc:
-            raise CommandError(
-                "locked first disposition is absent from selection: "
-                f"{candidate_id}/{document_id}"
-            ) from exc
-        role = _required_str(document, "document_role")
-        if not _optional_bool(
-            document,
-            "contains_target_outcome",
-            default=role in {DocumentRole.DECISION.value, DocumentRole.ORDER.value},
-        ):
-            raise CommandError(
-                "locked first disposition is not marked as target-outcome material: "
-                f"{candidate_id}/{document_id}"
-            )
-        parser_record = parser_by_key.get((candidate_id, document_id))
-        if parser_record is None or parser_record.get("status") != "succeeded":
-            continue
-        markdown_path = Path(_required_str(parser_record, "markdown_path"))
-        resolved = (
-            markdown_path.expanduser().resolve()
-            if markdown_path.is_absolute()
-            else (root / markdown_path).resolve()
-        )
-        try:
-            resolved.relative_to(root)
-        except ValueError as exc:
-            raise CommandError(
-                f"parser Markdown escapes --markdown-root: {resolved}"
-            ) from exc
-        if not resolved.is_file():
-            raise CommandError(f"parser Markdown is missing: {resolved}")
-        text = resolved.read_text(encoding="utf-8")
-        if not text.strip():
-            raise CommandError(f"parser Markdown is empty: {resolved}")
-        key = (candidate_id, document_id)
-        existing = decision_texts.get(key)
-        if existing is not None and existing != text:
-            raise CommandError(
-                f"conflicting parser Markdown for {candidate_id}/{document_id}"
-            )
-        decision_texts[key] = text
-    return decision_texts
 
 
 def _registry_entry_for_key(
@@ -23473,9 +23478,11 @@ def _stage_b_input(record: Mapping[str, Any]) -> StageBLabelingInput:
     )
 
 
-def _load_decision_texts(path: Path) -> dict[str, StageBDecisionText]:
+def _decision_texts_from_records(
+    records: Sequence[Mapping[str, Any]],
+) -> dict[str, StageBDecisionText]:
     decision_texts: dict[str, StageBDecisionText] = {}
-    for record in _read_records(path):
+    for record in records:
         decision_text = _stage_b_decision(record)
         if decision_text.document_id in decision_texts:
             raise CommandError(
