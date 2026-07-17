@@ -318,26 +318,51 @@ Executed packet-planner cards commit every deterministic parameter and exact sou
 
 ```bash
 uv run legalforecast acquisition finalize-corpus \
-  <all-other-stage-inputs> \
+  --output-root <assembled-cycle-root> \
   --selection <selection.jsonl> \
   --parser-manifest <parser-manifest.jsonl> \
   --parse-plan-run-card <plan-parse-documents-run-card.json> \
   --parser-run-card <parse-documents-run-card.json> \
-  --raw-prediction-units <prediction-units.jsonl> \
+  --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
+  --download-manifest <materialized-download-manifest.jsonl> \
+  --materialization-run-card <materialize-cohort-documents-run-card.json> \
+  --document-root <materialized-document-root> \
+  --raw-prediction-units <raw-prediction-units.jsonl> \
   --llm-unitization-run-card <llm-unitize-run-card.json> \
   --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
   --provider-cycle-caps <provider-cycle-caps.json> \
   --provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
   --prediction-units <finalized-prediction-units.jsonl> \
-  --unitization-review-run-card <apply-unitization-review-run-card.json> \
+  --llm-unitization-audit <llm-unitization-audit.jsonl> \
+  --llm-unitize-run-card <llm-unitize-run-card.json> \
+  --llm-unitize-provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --original-unitization-review-queue <original-review-queue.jsonl> \
+  --stage-a-structural-flags <stage-a-structural-flags.jsonl> \
+  --stage-a-structural-review-audit <stage-a-structural-review-audit.jsonl> \
+  --stage-a-review-run-card <llm-review-stage-a-run-card.json> \
+  --stage-a-review-provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
+  --stage-a-review-model-registry <stage-a-review-model-registry.json> \
+  --stage-a-review-model-key <stage-a-review-model-key> \
+  --unitization-review-queue <merged-unitization-review-queue.jsonl> \
+  --unitization-review-adjudications <john-adjudications.jsonl> \
+  --apply-unitization-review-run-card <apply-unitization-review-run-card.json> \
   --markdown-root <parsed-markdown-root> \
   --raw-html-dir <union-output-root>/union-raw-artifacts \
   --raw-artifacts-manifest <union-output-root>/union-raw-artifacts.jsonl \
   --decision-texts <assembled-cycle-root>/decision-texts.jsonl \
   --decision-texts-manifest <assembled-cycle-root>/decision-texts-manifest.json \
   --decision-texts-run-card <assembled-cycle-root>/run-cards/build-decision-texts.json \
+  --labels <labels.jsonl> \
+  --llm-label-audit <llm-label-audit-cycle-planned.jsonl> \
+  --llm-label-run-card <llm-label-run-card.json> \
+  --stage-b-judge-registry model_registries/cycle-1-stage-b-judges-2026-07-12.json \
+  --labeling-policy <precommitted-labeling-policy.json> \
+  --lawyer-review-queue <lawyer-review-queue.jsonl> \
+  --lawyer-review-audit <lawyer-review-audit.jsonl> \
   --packet-build-input <assembled-cycle-root>/packet-build-input.jsonl \
+  --packet-input-run-card <assembled-cycle-root>/run-cards/plan-packet-inputs.json \
   --packets <assembled-cycle-root>/packets.jsonl \
+  --packet-build-run-card <assembled-cycle-root>/run-cards/build-packets.json \
   --model-registry model_registries/cycle-1-2026-06-30.json \
   --expected-model-registry-sha256 <sha256-of-frozen-registry> \
   --screened-cases <screening-snapshot>/screened-cases.jsonl \
@@ -1097,7 +1122,18 @@ If fewer than 100 post-clearance cases fit the unchanged cap, acquire more candi
 
 ### Step 6: Generate Allowlist, Initialize Ledger, Then Purchase
 
-Paid acquisition remains a separate, operator-visible stage. First freeze the cohort and purchase-policy artifacts required by the CLI, then generate the signed RECAP Fetch broker allowlist from the exact post-clearance outputs:
+Paid acquisition remains a separate, operator-visible stage. First freeze the cohort and purchase-policy artifacts required by the CLI. Unknown-status RECAP documents additionally require one immutable attempt policy derived from the exact executable plan and selection; it grants only bounded spend authority and never parser or packet eligibility:
+
+```bash
+uv run legalforecast acquisition generate-recap-fetch-attempt-policy \
+  --purchase-policy <verified-purchase-policy.json> \
+  --cohort-policy <frozen-cohort-policy.json> \
+  --budget-plan artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/missing-core-budget-plan.json \
+  --selection artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/target-cohort-selection.jsonl \
+  --output artifacts/cycle-1/official-acquisition/target-150-frontier/recap-fetch-attempt-policy-v1.json
+```
+
+Generate the signed RECAP Fetch broker allowlist from those exact post-clearance outputs and the attempt authority:
 
 ```bash
 uv run legalforecast acquisition generate-recap-fetch-broker-policy \
@@ -1105,6 +1141,7 @@ uv run legalforecast acquisition generate-recap-fetch-broker-policy \
   --cohort-policy <frozen-cohort-policy.json> \
   --budget-plan artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/missing-core-budget-plan.json \
   --selection artifacts/cycle-1/official-acquisition/target-150-frontier/launch-100/target-cohort-selection.jsonl \
+  --attempt-policy artifacts/cycle-1/official-acquisition/target-150-frontier/recap-fetch-attempt-policy-v1.json \
   --output artifacts/cycle-1/official-acquisition/target-150-frontier/courtlistener-recap-fetch-policy-v1.json
 ```
 
@@ -1133,6 +1170,7 @@ uv run legalforecast acquisition purchase-missing-recap-fetch \
   --purchase-policy <verified-purchase-policy.json> \
   --cohort-policy <frozen-cohort-policy.json> \
   --purchase-ledger <absolute-canonical-purchase-ledger-path> \
+  --attempt-policy artifacts/cycle-1/official-acquisition/target-150-frontier/recap-fetch-attempt-policy-v1.json \
   --request-ledger artifacts/cycle-1/official-acquisition/courtlistener-requests.sqlite3 \
   --live-purchase --acknowledge-pacer-fees \
   --execute --resume
