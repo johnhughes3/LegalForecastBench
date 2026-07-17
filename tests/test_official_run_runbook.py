@@ -14,6 +14,83 @@ from legalforecast.cli import main
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _documented_command_block(runbook: str, command: str) -> str:
+    marker = f"uv run legalforecast acquisition {command}"
+    blocks = runbook.split(marker)
+    assert len(blocks) > 1, f"{command} is not documented"
+    return blocks[1].split("```", maxsplit=1)[0]
+
+
+def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+
+    required_options = {
+        "materialize-cohort-documents": (
+            "--target-cohort-root",
+            "--free-disclosure-clearance",
+            "--purchased-recovery-root",
+            "--purchased-disclosure-clearance",
+            "--purchased-clearance-run-card",
+            "--purchase-policy",
+            "--cohort-policy",
+            "--purchase-ledger",
+        ),
+        "plan-parse-documents": (
+            "--materialization-run-card",
+            "--document-root",
+            "--requests-output",
+        ),
+        "parse-documents": (
+            "--selection",
+            "--materialization-run-card",
+            "--purchase-policy",
+            "--purchase-ledger",
+        ),
+        "llm-label": (
+            "--llm-unitization-run-card",
+            "--llm-review-stage-a-run-card",
+            "--unitization-review-run-card",
+        ),
+        "build-packets": (
+            "--llm-unitize-run-card",
+            "--llm-unitize-provider-journal",
+            "--stage-a-review-run-card",
+            "--stage-a-review-provider-journal",
+            "--apply-unitization-review-run-card",
+            "--parse-plan-run-card",
+        ),
+    }
+    for command, options in required_options.items():
+        command_block = _documented_command_block(runbook, command)
+        for option in options:
+            assert option in command_block, f"{command} is missing {option}"
+
+    assert "--llm-label-run-card" not in _documented_command_block(runbook, "llm-label")
+
+
+def test_release_dates_match_frozen_two_judge_stage_b_registry() -> None:
+    release_dates = (ROOT / "MODEL_RELEASE_DATES.md").read_text(encoding="utf-8")
+    stage_b_registry = json.loads(
+        (
+            ROOT / "model_registries" / "cycle-1-stage-b-judges-2026-07-12.json"
+        ).read_text(encoding="utf-8")
+    )
+    stage_b_section = release_dates.split(
+        "## Cycle 1 Label-Generation Models", maxsplit=1
+    )[1]
+
+    assert "exactly the two voting entries" in stage_b_section
+    assert "Claude Haiku" not in stage_b_section
+    assert {
+        f"{entry['provider']}:{entry['model_id']}" for entry in stage_b_registry
+    } == {
+        "google:gemini-3.5-flash",
+        "openai:gpt-5.4-mini-2026-03-17",
+    }
+    for entry in stage_b_registry:
+        assert f"`{entry['model_id']}`" in stage_b_section
+
+
 def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
     reproduce = (ROOT / "docs" / "reproduce-or-audit.md").read_text(encoding="utf-8")

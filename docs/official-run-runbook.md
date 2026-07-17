@@ -46,6 +46,45 @@ infisical-agent-sandbox run \
   -- zsh -lc 'for n in MISTRAL_API_KEY; do [[ -n ${(P)n:-} ]] && print -- "$n=present" || print -- "$n=missing"; done'
 ```
 
+Materialize the exact authenticated free and purchased document sets before parsing. The materializer verifies both disclosure-clearance lineages and the canonical purchase ledger, then emits one immutable manifest, clearance, and document root without modifying either source:
+
+```bash
+uv run legalforecast acquisition materialize-cohort-documents \
+  --output-root <assembled-cycle-root> \
+  --preparation-root <successful-target-cohort-preparation-root> \
+  --preparation-summary <target-cohort-preparation-summary.json> \
+  --preparation-config <target-cohort-preparation-config.json> \
+  --snapshot-manifest <screening-snapshot-manifest.json> \
+  --target-cohort-root <project-or-extend-target-cohort-root> \
+  --free-disclosure-clearance <free-disclosure-clearance.jsonl> \
+  --purchased-recovery-root <recover-purchased-root> \
+  --purchased-disclosure-clearance <purchased-disclosure-clearance.jsonl> \
+  --purchased-clearance-run-card <purchased-clear-disclosures-run-card.json> \
+  --purchase-policy <purchase-policy.json> \
+  --cohort-policy <cohort-policy.json> \
+  --purchase-ledger <canonical-purchase-ledger.sqlite3> \
+  --resolved-post-recovery-documents <resolved-post-recovery-documents.jsonl> \
+  --execute --no-resume
+```
+
+Plan parse requests from those materialized bytes and preserve the completed plan card for packet construction and final reconciliation:
+
+```bash
+uv run legalforecast acquisition plan-parse-documents \
+  --output-root <assembled-cycle-root> \
+  --selection <selection.jsonl> \
+  --download-manifest <materialized-download-manifest.jsonl> \
+  --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
+  --resolved-post-recovery-documents <resolved-post-recovery-documents.jsonl> \
+  --materialization-run-card <materialize-cohort-documents-run-card.json> \
+  --purchase-policy <purchase-policy.json> \
+  --purchase-ledger <canonical-purchase-ledger.sqlite3> \
+  --document-root <materialized-document-root> \
+  --requests-output <parse-document-requests.jsonl> \
+  --markdown-output-root <parsed-markdown-root> \
+  --execute --no-resume
+```
+
 Run the live parse against the clean pinned checkout explicitly; the default parser checkout may be on a different revision and will correctly fail closed:
 
 ```bash
@@ -53,8 +92,13 @@ infisical-agent-sandbox run \
   --path /agents/sandbox/legalforecastbench/parser \
   -- uv run legalforecast acquisition parse-documents \
   --output-root <assembled-cycle-root> \
+  --selection <selection.jsonl> \
   --requests <parse-document-requests.jsonl> \
-  --disclosure-clearance <disclosure-clearance.jsonl> \
+  --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
+  --resolved-post-recovery-documents <resolved-post-recovery-documents.jsonl> \
+  --materialization-run-card <materialize-cohort-documents-run-card.json> \
+  --purchase-policy <purchase-policy.json> \
+  --purchase-ledger <canonical-purchase-ledger.sqlite3> \
   --parser-root /work/Development/.worktrees/parser/fix/env-only-api-keys \
   --execute --resume
 ```
@@ -129,9 +173,9 @@ uv run legalforecast acquisition build-decision-texts \
   --output-root <assembled-cycle-root> \
   --selection <selection.jsonl> \
   --selection-run-card <project-or-extend-target-cohort-run-card.json> \
-  --download-manifest <download-manifest.jsonl> \
-  --disclosure-clearance <disclosure-clearance.jsonl> \
-  --clearance-run-card <clear-disclosures-run-card.json> \
+  --download-manifest <materialized-download-manifest.jsonl> \
+  --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
+  --materialization-run-card <materialize-cohort-documents-run-card.json> \
   --restriction-evidence <restriction-evidence.jsonl> \
   --parser-manifest <parser-manifest.jsonl> \
   --parser-run-card <parse-documents-run-card.json> \
@@ -158,7 +202,6 @@ uv run legalforecast acquisition llm-label \
   --llm-unitization-run-card <llm-unitize-run-card.json> \
   --llm-review-stage-a-run-card <llm-review-stage-a-run-card.json> \
   --unitization-review-run-card <apply-unitization-review-run-card.json> \
-  --llm-label-run-card <llm-label-run-card.json> \
   --model-registry <frozen-stage-b-judge-registry.json> \
   --evaluated-model-registry <frozen-evaluated-model-registry.json> \
   --model-key <provider:model-id> \
@@ -213,9 +256,13 @@ Plan official packet inputs only from the canonical discovery snapshot's committ
 uv run legalforecast acquisition plan-packet-inputs \
   --output-root <assembled-cycle-root> \
   --selection <selection.jsonl> \
-  --download-manifest <download-manifest.jsonl> \
+  --download-manifest <materialized-download-manifest.jsonl> \
   --parser-manifest <parser-manifest.jsonl> \
-  --disclosure-clearance <disclosure-clearance.jsonl> \
+  --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
+  --resolved-post-recovery-documents <resolved-post-recovery-documents.jsonl> \
+  --materialization-run-card <materialize-cohort-documents-run-card.json> \
+  --purchase-policy <purchase-policy.json> \
+  --purchase-ledger <canonical-purchase-ledger.sqlite3> \
   --prediction-units <finalized-prediction-units.jsonl> \
   --model-registry model_registries/cycle-1-2026-06-30.json \
   --raw-html-dir <union-output-root>/union-raw-artifacts \
@@ -233,20 +280,26 @@ uv run legalforecast acquisition build-packets \
   --input <assembled-cycle-root>/packet-build-input.jsonl \
   --packet-input-run-card <assembled-cycle-root>/run-cards/plan-packet-inputs.json \
   --selection <selection.jsonl> \
-  --download-manifest <download-manifest.jsonl> \
+  --download-manifest <materialized-download-manifest.jsonl> \
   --parser-manifest <parser-manifest.jsonl> \
   --parser-run-card <parse-documents-run-card.json> \
-  --disclosure-clearance <disclosure-clearance.jsonl> \
+  --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
   --raw-prediction-units <raw-prediction-units.jsonl> \
   --prediction-units <finalized-prediction-units.jsonl> \
   --llm-unitization-audit <llm-unitization-audit.jsonl> \
+  --llm-unitize-run-card <llm-unitize-run-card.json> \
+  --llm-unitize-provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
   --original-unitization-review-queue <original-review-queue.jsonl> \
   --stage-a-structural-flags <stage-a-structural-flags.jsonl> \
   --stage-a-structural-review-audit <stage-a-structural-review-audit.jsonl> \
+  --stage-a-review-run-card <llm-review-stage-a-run-card.json> \
+  --stage-a-review-provider-journal <cycle-private-root>/provider-attempts.sqlite3 \
   --stage-a-review-model-registry <stage-a-review-model-registry.json> \
   --stage-a-review-model-key <stage-a-review-model-key> \
   --unitization-review-queue <merged-unitization-review-queue.jsonl> \
   --unitization-review-adjudications <john-adjudications.jsonl> \
+  --apply-unitization-review-run-card <apply-unitization-review-run-card.json> \
+  --parse-plan-run-card <plan-parse-documents-run-card.json> \
   --model-registry model_registries/cycle-1-2026-06-30.json \
   --expected-model-registry-sha256 <sha256-of-frozen-registry> \
   --raw-html-dir <union-output-root>/union-raw-artifacts \
@@ -266,7 +319,7 @@ uv run legalforecast acquisition finalize-corpus \
   <all-other-stage-inputs> \
   --selection <selection.jsonl> \
   --parser-manifest <parser-manifest.jsonl> \
-  --parse-plan-run-card <plan-parser-inputs-run-card.json> \
+  --parse-plan-run-card <plan-parse-documents-run-card.json> \
   --parser-run-card <parse-documents-run-card.json> \
   --raw-prediction-units <prediction-units.jsonl> \
   --llm-unitization-run-card <llm-unitize-run-card.json> \
