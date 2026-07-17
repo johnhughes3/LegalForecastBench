@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import importlib.util
 import json
+import re
 from functools import cache
 from pathlib import Path
 from types import ModuleType
 from typing import Any, cast
 
 import pytest
-from legalforecast.cli import main
+from legalforecast.cli import build_parser, main
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -29,6 +31,103 @@ def test_fan_in_audit_example_preserves_canonical_s3_receipt_identity() -> None:
     assert "--receipt-root s3://$LFB_RESULTS_BUCKET" in runbook
     assert "--receipt-root tmp/result-store" not in runbook
     assert "local fixture stores are appropriate for unit tests" in runbook
+
+
+def _documented_acquisition_commands(runbook: str) -> list[tuple[str, str]]:
+    commands: list[tuple[str, str]] = []
+    for fenced_block in re.findall(r"```[^\n]*\n(.*?)```", runbook, flags=re.DOTALL):
+        lines = fenced_block.splitlines()
+        line_index = 0
+        while line_index < len(lines):
+            match = re.search(
+                r"\buv run legalforecast acquisition ([a-z0-9-]+)",
+                lines[line_index],
+            )
+            if match is None:
+                line_index += 1
+                continue
+            invocation = [lines[line_index]]
+            while invocation[-1].rstrip().endswith("\\"):
+                line_index += 1
+                assert line_index < len(lines), "unterminated acquisition command"
+                invocation.append(lines[line_index])
+            commands.append((match.group(1), "\n".join(invocation)))
+            line_index += 1
+    return commands
+
+
+def test_documented_command_extraction_keeps_invocations_separate() -> None:
+    runbook = """```zsh
+if uv run legalforecast acquisition example --first one \\
+  --second two; then
+  uv run legalforecast acquisition example --third three
+fi
+```"""
+
+    assert _documented_acquisition_commands(runbook) == [
+        (
+            "example",
+            "if uv run legalforecast acquisition example --first one \\\n"
+            "  --second two; then",
+        ),
+        (
+            "example",
+            "  uv run legalforecast acquisition example --third three",
+        ),
+    ]
+
+
+def _subcommand_parser(
+    parser: argparse.ArgumentParser,
+    command: str,
+) -> argparse.ArgumentParser:
+    subparsers = next(
+        action
+        for action in parser._actions
+        if isinstance(action, argparse._SubParsersAction)
+    )
+    return subparsers.choices[command]
+
+
+def _long_options(parser: argparse.ArgumentParser) -> set[str]:
+    return {
+        option
+        for action in parser._actions
+        for option in action.option_strings
+        if option.startswith("--")
+    }
+
+
+def _required_long_options(parser: argparse.ArgumentParser) -> set[str]:
+    return {
+        option
+        for action in parser._actions
+        if action.required
+        for option in action.option_strings
+        if option.startswith("--")
+    }
+
+
+def test_every_documented_acquisition_command_matches_current_cli_help(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    acquisition_parser = _subcommand_parser(build_parser(), "acquisition")
+
+    for command, command_block in _documented_acquisition_commands(runbook):
+        command_parser = _subcommand_parser(acquisition_parser, command)
+        documented_options = set(re.findall(r"--[a-z0-9][a-z0-9-]*", command_block))
+
+        with pytest.raises(SystemExit) as exc:
+            main(["acquisition", command, "--help"])
+        assert exc.value.code == 0
+        help_text = capsys.readouterr().out
+
+        assert documented_options <= _long_options(command_parser)
+        assert documented_options <= set(re.findall(r"--[a-z0-9][a-z0-9-]*", help_text))
+        assert _required_long_options(command_parser) <= documented_options, (
+            f"{command} example omits a required current CLI option"
+        )
 
 
 def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
@@ -73,6 +172,28 @@ def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
             "--stage-a-review-provider-journal",
             "--apply-unitization-review-run-card",
             "--parse-plan-run-card",
+        ),
+        "finalize-corpus": (
+            "--output-root",
+            "--disclosure-clearance",
+            "--download-manifest",
+            "--materialization-run-card",
+            "--document-root",
+            "--llm-unitization-audit",
+            "--llm-unitize-run-card",
+            "--llm-unitize-provider-journal",
+            "--stage-a-review-run-card",
+            "--stage-a-review-provider-journal",
+            "--apply-unitization-review-run-card",
+            "--labels",
+            "--llm-label-audit",
+            "--llm-label-run-card",
+            "--stage-b-judge-registry",
+            "--labeling-policy",
+            "--lawyer-review-queue",
+            "--lawyer-review-audit",
+            "--packet-input-run-card",
+            "--packet-build-run-card",
         ),
     }
     for command, options in required_options.items():
@@ -245,6 +366,33 @@ def test_disclosure_review_runbook_uses_main_pinned_authority_contract() -> None
         for command_block in command_blocks:
             for option in options:
                 assert option in command_block, f"{command} is missing {option}"
+
+
+def test_paid_recap_fetch_runbook_freezes_and_consumes_attempt_authority() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    section = runbook.split(
+        "### Step 6: Generate Allowlist, Initialize Ledger, Then Purchase",
+        maxsplit=1,
+    )[1].split("### Expected Volumes", maxsplit=1)[0]
+
+    ordered_commands = (
+        "generate-recap-fetch-attempt-policy",
+        "generate-recap-fetch-broker-policy",
+        "init-purchase-ledger",
+        "purchase-missing-recap-fetch",
+    )
+    command_markers = [
+        f"uv run legalforecast acquisition {command}" for command in ordered_commands
+    ]
+    assert [section.index(marker) for marker in command_markers] == sorted(
+        section.index(marker) for marker in command_markers
+    )
+    assert "--attempt-policy" in _documented_command_block(
+        section, "generate-recap-fetch-broker-policy"
+    )
+    assert "--attempt-policy" in _documented_command_block(
+        section, "purchase-missing-recap-fetch"
+    )
 
 
 def test_documented_aggregate_command_accepts_downloaded_workflow_tree(

@@ -39,7 +39,7 @@ class ToolRequest:
         _require_identifier(self.operation, "operation")
         for index, path in enumerate(self.input_paths):
             validate_safe_relative_path(path, f"input_paths[{index}]")
-        _validate_json_value(dict(self.arguments), "arguments")
+        _validate_json_value(self.arguments, "arguments")
 
     def to_record(self) -> dict[str, Any]:
         return {
@@ -96,7 +96,7 @@ class ToolResponse:
             )
         if self.error_code is not None:
             _require_identifier(self.error_code, "error_code")
-        _validate_json_value(dict(self.output), "output")
+        _validate_json_value(self.output, "output")
 
     def to_record(self) -> dict[str, Any]:
         record: dict[str, Any] = {
@@ -164,10 +164,55 @@ def _require_identifier(value: str, field_name: str) -> None:
         )
 
 
-def _validate_json_value(value: Any, field_name: str) -> None:
+def _validate_json_value(value: Mapping[str, Any], field_name: str) -> None:
+    _validate_string_mapping_keys(value, field_name)
     try:
-        json.dumps(value, allow_nan=False)
+        json.dumps(dict(value), allow_nan=False)
     except (TypeError, ValueError) as exc:
         raise MultiHarnessValidationError(
             f"{field_name} must be JSON-compatible"
         ) from exc
+
+
+def _validate_string_mapping_keys(
+    value: Any,
+    field_name: str,
+    active_container_ids: set[int] | None = None,
+) -> None:
+    active_ids: set[int] = (
+        active_container_ids if active_container_ids is not None else set()
+    )
+    if isinstance(value, Mapping):
+        mapping = cast(Mapping[object, Any], value)
+        container_id = id(mapping)
+        if container_id in active_ids:
+            return
+        active_ids.add(container_id)
+        try:
+            for key, nested_value in mapping.items():
+                if not isinstance(key, str):
+                    raise MultiHarnessValidationError(
+                        f"{field_name} mapping key {key!r} must be a string"
+                    )
+                _validate_string_mapping_keys(
+                    nested_value,
+                    f"{field_name}.{key}",
+                    active_ids,
+                )
+        finally:
+            active_ids.remove(container_id)
+    elif isinstance(value, list | tuple):
+        sequence = cast(list[Any] | tuple[Any, ...], value)
+        container_id = id(sequence)
+        if container_id in active_ids:
+            return
+        active_ids.add(container_id)
+        try:
+            for index, nested_value in enumerate(sequence):
+                _validate_string_mapping_keys(
+                    nested_value,
+                    f"{field_name}[{index}]",
+                    active_ids,
+                )
+        finally:
+            active_ids.remove(container_id)
