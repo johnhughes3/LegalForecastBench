@@ -19436,6 +19436,72 @@ def _require_provisional_lineage_on_records(
             )
 
 
+_REPLAY_TARGET_SNAPSHOT_FILES = (
+    "screened-cases.jsonl",
+    "exclusions.jsonl",
+    "summary.json",
+    "candidates.jsonl",
+    "observations.jsonl",
+    "raw-artifacts.jsonl",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class _AuthenticatedReplayTargetView:
+    manifest: JsonRecord
+    manifest_payload: bytes
+    payloads: Mapping[str, bytes]
+
+
+def _authenticated_replay_target_view(
+    snapshot_path: Path,
+    *,
+    verified_manifest: Mapping[str, Any],
+) -> _AuthenticatedReplayTargetView:
+    """Read and authenticate one immutable target snapshot byte view."""
+
+    manifest_payload = (snapshot_path / "manifest.json").read_bytes()
+    manifest = _read_json_object_payload(
+        manifest_payload,
+        label="target replay snapshot manifest",
+    )
+    if manifest != dict(verified_manifest):
+        raise SnapshotReplayError(
+            "target replay snapshot manifest changed after verification"
+        )
+    files_value = manifest.get("files")
+    if not isinstance(files_value, Mapping):
+        raise SnapshotReplayError("target replay snapshot lacks file commitments")
+    files = cast(Mapping[str, object], files_value)
+    if set(files) != set(_REPLAY_TARGET_SNAPSHOT_FILES):
+        raise SnapshotReplayError(
+            "target replay snapshot file commitments are incomplete"
+        )
+    payloads: dict[str, bytes] = {}
+    for filename in _REPLAY_TARGET_SNAPSHOT_FILES:
+        commitment_value = files[filename]
+        if not isinstance(commitment_value, Mapping):
+            raise SnapshotReplayError(
+                f"target replay snapshot has malformed {filename} commitment"
+            )
+        commitment = cast(Mapping[str, object], commitment_value)
+        payload = (snapshot_path / filename).read_bytes()
+        if (
+            commitment.get("sha256") != hashlib.sha256(payload).hexdigest()
+            or commitment.get("byte_count") != len(payload)
+            or commitment.get("row_count") != payload.count(b"\n")
+        ):
+            raise SnapshotReplayError(
+                "target replay snapshot file commitment mismatch: " + filename
+            )
+        payloads[filename] = payload
+    return _AuthenticatedReplayTargetView(
+        manifest=manifest,
+        manifest_payload=manifest_payload,
+        payloads=payloads,
+    )
+
+
 def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int:
     """Re-screen cryptographically bound snapshots without provider activity."""
 
@@ -19743,27 +19809,38 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
                 snapshot_manifest,
                 require_current=True,
             )
-        target_manifest_payload = (snapshot_path / "manifest.json").read_bytes()
-        if _read_json_object_payload(
-            target_manifest_payload,
-            label="target replay snapshot manifest",
-        ) != dict(snapshot_manifest):
-            raise SnapshotReplayError(
-                "target replay snapshot manifest changed after verification"
-            )
-        target_manifest_sha256 = hashlib.sha256(target_manifest_payload).hexdigest()
+        target_view = _authenticated_replay_target_view(
+            snapshot_path,
+            verified_manifest=snapshot_manifest,
+        )
+        target_manifest_sha256 = hashlib.sha256(
+            target_view.manifest_payload
+        ).hexdigest()
         migration_receipt = firecrawl_screening_migration_receipt(
             bundle=bundle,
-            target_manifest=snapshot_manifest,
+            target_manifest=target_view.manifest,
             target_manifest_sha256=target_manifest_sha256,
             target_implementation=screening_implementation,
         )
         _write_json(migration_receipt_path, migration_receipt)
-        screened_cases = _read_records(snapshot_path / "screened-cases.jsonl")
-        all_exclusions = _read_records(snapshot_path / "exclusions.jsonl")
-        snapshot_summary = _read_json_object(snapshot_path / "summary.json")
-        _write_jsonl(screened_cases_path, screened_cases)
-        _write_jsonl(exclusions_path, all_exclusions)
+        screened_cases_payload = target_view.payloads["screened-cases.jsonl"]
+        exclusions_payload = target_view.payloads["exclusions.jsonl"]
+        screened_cases = _read_jsonl_payload(
+            screened_cases_payload,
+            label="target replay screened cases",
+        )
+        all_exclusions = _read_jsonl_payload(
+            exclusions_payload,
+            label="target replay exclusions",
+        )
+        snapshot_summary = _read_json_object_payload(
+            target_view.payloads["summary.json"],
+            label="target replay snapshot summary",
+        )
+        screened_cases_path.parent.mkdir(parents=True, exist_ok=True)
+        screened_cases_path.write_bytes(screened_cases_payload)
+        exclusions_path.parent.mkdir(parents=True, exist_ok=True)
+        exclusions_path.write_bytes(exclusions_payload)
         summary = {
             "schema_version": "legalforecast.snapshot_replay_summary.v1",
             "dry_run": False,

@@ -109,6 +109,16 @@ def test_replay_screening_snapshots_is_provider_free_and_globally_plannable(
         snapshot_id=snapshot_id,
         expected_assembly_sha256=sha256_file(assembly_run_card),
     )
+    screened_output = tmp_path / "custom-screened" / "screened.jsonl"
+    exclusions_output = tmp_path / "custom-exclusions" / "exclusions.jsonl"
+    command.extend(
+        (
+            "--screened-cases-output",
+            str(screened_output),
+            "--exclusions-output",
+            str(exclusions_output),
+        )
+    )
 
     def reject_provider_client(*args: object, **kwargs: object) -> None:
         raise AssertionError("provider client construction is forbidden during replay")
@@ -160,6 +170,12 @@ def test_replay_screening_snapshots_is_provider_free_and_globally_plannable(
     assert {
         row["candidate_id"] for row in _read_jsonl(snapshot / "screened-cases.jsonl")
     } == {"case-dev-101", "case-dev-103"}
+    assert (
+        screened_output.read_bytes() == (snapshot / "screened-cases.jsonl").read_bytes()
+    )
+    assert (
+        exclusions_output.read_bytes() == (snapshot / "exclusions.jsonl").read_bytes()
+    )
     [excluded] = _read_jsonl(snapshot / "exclusions.jsonl")
     assert excluded["candidate_id"] == "case-dev-102"
     assert excluded["primary_exclusion_reason"] == "decision_before_release_anchor"
@@ -210,6 +226,79 @@ def test_replay_screening_snapshots_is_provider_free_and_globally_plannable(
         ]
         == 2
     )
+
+
+def test_replay_rejects_target_payload_mutation_after_snapshot_verification(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _source_snapshot(
+        tmp_path,
+        store_path=tmp_path / "source.sqlite3",
+        policy=_cycle_policy(extra={"fixture_generation": "old"}),
+        batch_id="source",
+        successes=("151",),
+    )
+    source_cycle_hash = str(verify_snapshot(source)["cycle_hash"])
+    assembly_root = tmp_path / "source-assembly"
+    assert (
+        main(
+            [
+                "acquisition",
+                "assemble-cycle-acquisition",
+                "--output-root",
+                str(assembly_root),
+                "--expected-cycle-hash",
+                source_cycle_hash,
+                "--batch-root",
+                str(source),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    target_store = tmp_path / "target.sqlite3"
+    with CycleAcquisitionStore(target_store) as store:
+        target_cycle_hash = store.ensure_cycle(_cycle_policy())
+    output_root = tmp_path / "replay"
+    snapshot_id = "mutation-target"
+    original_verify_snapshot = cli_module.verify_snapshot
+    mutated = False
+
+    def mutate_after_target_verification(
+        snapshot_path: str | Path, *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
+        nonlocal mutated
+        manifest = dict(original_verify_snapshot(snapshot_path, *args, **kwargs))
+        path = Path(snapshot_path)
+        if path.name == snapshot_id and not mutated:
+            screened_cases = path / "screened-cases.jsonl"
+            screened_cases.write_bytes(screened_cases.read_bytes() + b"\n")
+            mutated = True
+        return manifest
+
+    monkeypatch.setattr(cli_module, "verify_snapshot", mutate_after_target_verification)
+
+    assert (
+        main(
+            _replay_command(
+                output_root=output_root,
+                target_store=target_store,
+                target_cycle_hash=target_cycle_hash,
+                source_cycle_hash=source_cycle_hash,
+                assembly_run_card=(
+                    assembly_root / "run-cards/assemble-cycle-acquisition.json"
+                ),
+                snapshot_id=snapshot_id,
+            )
+        )
+        == 2
+    )
+    assert mutated is True
+    assert "target replay snapshot file commitment mismatch" in capsys.readouterr().err
+    assert not (output_root / "firecrawl-screening-migration-receipt.json").exists()
+    assert not (output_root / "replay-screened-cases.jsonl").exists()
 
 
 def test_replay_screening_snapshots_rejects_provisional_source_laundering(

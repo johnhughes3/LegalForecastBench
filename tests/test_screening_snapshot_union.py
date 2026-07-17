@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -45,6 +46,58 @@ def test_union_help_documents_raw_observation_policy(capsys: Any) -> None:
     assert "unique active proof" in output
     assert "source-local raw bytes" in output
     assert "earliest UTC capture is the packet input" in output
+
+
+def test_regular_file_reader_sets_close_on_exec(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "payload.json"
+    path.write_bytes(b"{}")
+    original_open = os.open
+    observed_flags: list[int] = []
+
+    def recording_open(open_path: Path, flags: int) -> int:
+        observed_flags.append(flags)
+        return original_open(open_path, flags)
+
+    monkeypatch.setattr(union_module.os, "open", recording_open)
+
+    assert union_module._read_regular_file(path, "fixture") == b"{}"
+    assert observed_flags
+    close_on_exec = getattr(os, "O_CLOEXEC", 0)
+    if close_on_exec:
+        assert observed_flags[0] & close_on_exec
+
+
+def test_union_rejects_source_without_stage_commitments(tmp_path: Path) -> None:
+    first = _snapshot(
+        tmp_path / "first",
+        batch_id="first",
+        observations=[],
+    )
+    second = _snapshot(
+        tmp_path / "second",
+        batch_id="second",
+        observations=[],
+    )
+    manifest_path = first / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest.pop("stage_commitments")
+    manifest_path.write_text(json.dumps(manifest))
+
+    with pytest.raises(
+        ScreeningSnapshotUnionError,
+        match="lacks affirmative stage commitments",
+    ):
+        load_screening_snapshot_union(
+            (first, second),
+            expected_manifest_sha256=(
+                _manifest_sha256(first),
+                _manifest_sha256(second),
+            ),
+            expected_cycle_hash=_cycle_hash(tmp_path / "first"),
+        )
 
 
 def test_union_preserves_updated_raw_observations_for_identical_terminal_evidence(
@@ -1498,6 +1551,13 @@ def _snapshot(
             snapshot_id=f"{batch_id}-complete",
             batch_id=batch_id,
             complete=True,
+            stage_commitments={
+                "courtlistener_rest_screen_inputs": {
+                    "schema_version": (
+                        "legalforecast.courtlistener_rest_screen_inputs.v1"
+                    )
+                }
+            },
         )
 
 

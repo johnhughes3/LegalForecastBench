@@ -145,6 +145,27 @@ def test_direct_rest_snapshot_has_zero_firecrawl_sources() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "manifest",
+    (
+        {},
+        {"stage_commitments": None},
+        {"stage_commitments": {}},
+    ),
+)
+def test_snapshot_without_affirmative_stage_commitments_fails_closed(
+    manifest: Mapping[str, object],
+) -> None:
+    with pytest.raises(
+        FirecrawlScreeningIdentityError,
+        match="lacks affirmative stage commitments",
+    ):
+        snapshot_firecrawl_screening_source_count(
+            manifest,
+            require_current=True,
+        )
+
+
 def test_direct_firecrawl_snapshot_requires_current_implementation() -> None:
     with pytest.raises(
         FirecrawlScreeningIdentityError,

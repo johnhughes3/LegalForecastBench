@@ -2443,6 +2443,13 @@ def _create_old_replay_snapshot(
             snapshot_id="old-replay",
             batch_id="old-replay",
             complete=True,
+            stage_commitments={
+                "courtlistener_rest_screen_inputs": {
+                    "schema_version": (
+                        "legalforecast.courtlistener_rest_screen_inputs.v1"
+                    )
+                }
+            },
         )
 
 
@@ -2519,6 +2526,13 @@ def _complete_snapshot(
             snapshot_id=snapshot_id,
             batch_id=batch_id,
             complete=True,
+            stage_commitments={
+                "courtlistener_rest_screen_inputs": {
+                    "schema_version": (
+                        "legalforecast.courtlistener_rest_screen_inputs.v1"
+                    )
+                }
+            },
         )
     return snapshot_path, cycle_hash
 

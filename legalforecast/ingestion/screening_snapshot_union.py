@@ -937,12 +937,17 @@ def _json_object_payload(payload: bytes, label: str) -> dict[str, Any]:
 
 
 def _read_regular_file(path: Path, label: str) -> bytes:
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
     try:
         descriptor = os.open(path, flags)
     except OSError as error:
+        detail = (
+            f"errno {error.errno}: {error.strerror}"
+            if error.errno is not None
+            else str(error)
+        )
         raise ScreeningSnapshotUnionError(
-            f"{label} is not a regular file: {path}"
+            f"{label} is not a regular file: {path} ({detail})"
         ) from error
     try:
         if not stat.S_ISREG(os.fstat(descriptor).st_mode):

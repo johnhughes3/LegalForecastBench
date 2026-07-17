@@ -262,10 +262,16 @@ def snapshot_firecrawl_screening_source_count(
 
     stage_commitments = manifest.get("stage_commitments")
     if stage_commitments is None:
-        return 0
+        raise FirecrawlScreeningIdentityError(
+            "snapshot lacks affirmative stage commitments"
+        )
     if not isinstance(stage_commitments, Mapping):
         raise FirecrawlScreeningIdentityError(
             "snapshot stage commitments must be an object"
+        )
+    if not stage_commitments:
+        raise FirecrawlScreeningIdentityError(
+            "snapshot lacks affirmative stage commitments"
         )
     return _stage_firecrawl_screening_source_count(
         cast(Mapping[str, object], stage_commitments),

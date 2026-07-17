@@ -470,6 +470,34 @@ def test_screen_firecrawl_dockets_emits_direct_public_planner_input(
 
     manifest_path.write_bytes(original_manifest_bytes)
     manifest = _read_json(manifest_path)
+    manifest.pop("stage_commitments")
+    manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    missing_stage_planner_root = tmp_path / "missing-stage-planner"
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-public-downloads",
+                "--snapshot",
+                str(cycle_state.snapshot),
+                "--expected-cycle-hash",
+                cycle_state.cycle_hash,
+                "--target-clean-cases",
+                "1",
+                "--output-root",
+                str(missing_stage_planner_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert "lacks affirmative stage commitments" in capsys.readouterr().err
+    assert not (missing_stage_planner_root / "public-packet-selection.jsonl").exists()
+
+    manifest_path.write_bytes(original_manifest_bytes)
+    manifest = _read_json(manifest_path)
     manifest["stage_commitments"] = {
         "screening_snapshot_union_inputs": {
             "schema_version": "legalforecast.screening_snapshot_union_inputs.v1"
