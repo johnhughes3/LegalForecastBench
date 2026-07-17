@@ -11,7 +11,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Self, cast
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from legalforecast._json_io import (
     read_json_object,
@@ -1315,6 +1315,30 @@ def _validate_immutable_url(value: str) -> None:
         raise MultiHarnessValidationError(
             "source_url must pin a 40- or 64-character lowercase commit SHA"
         )
+    decoded_artifact_parts: list[str] = []
+    for encoded_part in suffix[2:]:
+        decoded_part = _decode_url_path_segment(encoded_part)
+        if "/" in decoded_part or "\\" in decoded_part:
+            raise MultiHarnessValidationError(
+                "source_url artifact path must not contain percent-encoded separators"
+            )
+        decoded_artifact_parts.append(decoded_part)
+    validate_safe_relative_path(
+        "/".join(decoded_artifact_parts),
+        "source_url artifact path",
+    )
+
+
+def _decode_url_path_segment(value: str) -> str:
+    decoded = value
+    for _ in range(4):
+        next_value = unquote(decoded)
+        if next_value == decoded:
+            return decoded
+        decoded = next_value
+    raise MultiHarnessValidationError(
+        "source_url artifact path must not use excessive percent encoding"
+    )
 
 
 def _validate_public_artifact_path(path: str) -> None:
