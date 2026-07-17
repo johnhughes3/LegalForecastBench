@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -175,6 +176,43 @@ def test_timeout_mode_can_be_cancelled_without_credentials_or_network(
         "thread.started",
         "turn.started",
     ]
+
+
+@pytest.mark.parametrize(
+    ("cancellation_signal", "returncode"),
+    [(signal.SIGINT, 130), (signal.SIGTERM, 143)],
+)
+def test_cancellation_mode_emits_deterministic_structured_failure(
+    tmp_path: Path,
+    cancellation_signal: signal.Signals,
+    returncode: int,
+) -> None:
+    command, env = _exec_command(tmp_path, mode="cancellation")
+    command[-1] = "solve fixture"
+    process = subprocess.Popen(
+        command,
+        cwd=tmp_path,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    assert process.stdout is not None
+    prefix = [process.stdout.readline(), process.stdout.readline()]
+    os.kill(process.pid, cancellation_signal)
+    remainder, stderr = process.communicate(timeout=2)
+
+    assert process.returncode == returncode
+    assert stderr == ""
+    events = [json.loads(line) for line in [*prefix, *remainder.splitlines()]]
+    assert [event["type"] for event in events] == [
+        "thread.started",
+        "turn.started",
+        "error",
+        "turn.failed",
+    ]
+    assert events[-1]["error"]["message"] == "execution cancelled"
 
 
 def test_unknown_mode_and_unsupported_invocation_fail_closed(tmp_path: Path) -> None:
