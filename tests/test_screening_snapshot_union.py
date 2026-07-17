@@ -421,6 +421,71 @@ def test_union_rejects_cross_source_raw_owner_substitution(tmp_path: Path) -> No
         )
 
 
+def test_union_rejects_uncommitted_raw_path_before_reading_referenced_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first_id = "courtlistener-docket-61568804"
+    second_id = "courtlistener-docket-61568805"
+    first = _snapshot(
+        tmp_path / "first",
+        batch_id="baseline",
+        observations=[
+            (
+                first_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {"candidate_id": first_id, "reason": "no_mtd_reference"},
+                b"<html><body>docket 61568804</body></html>",
+            )
+        ],
+    )
+    second = _snapshot(
+        tmp_path / "second",
+        batch_id="terminal-firecrawl",
+        observations=[
+            (
+                second_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {"candidate_id": second_id, "reason": "no_mtd_reference"},
+                b"<html><body>docket 61568805</body></html>",
+            )
+        ],
+    )
+    sentinel = (tmp_path / "must-not-be-read.html").resolve()
+    sentinel.write_bytes(b"<html><body>uncommitted local file</body></html>")
+    [raw_record] = _jsonl(first / "raw-artifacts.jsonl")
+    raw_record["path"] = str(sentinel)
+    # Deliberately do not update manifest.json: the metadata is unauthenticated.
+    (first / "raw-artifacts.jsonl").write_text(json.dumps(raw_record) + "\n")
+
+    original_read_bytes = Path.read_bytes
+    referenced_file_reads: list[Path] = []
+
+    def guarded_read_bytes(path: Path) -> bytes:
+        if path.resolve() == sentinel:
+            referenced_file_reads.append(path)
+            raise AssertionError("unauthenticated raw path was read")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", guarded_read_bytes)
+
+    with pytest.raises(
+        SnapshotVerificationError,
+        match=r"snapshot file commitment mismatch: raw-artifacts\.jsonl",
+    ):
+        load_screening_snapshot_union(
+            (first, second),
+            expected_manifest_sha256=(
+                _manifest_sha256(first),
+                _manifest_sha256(second),
+            ),
+            expected_cycle_hash=_cycle_hash(tmp_path / "first"),
+        )
+    assert referenced_file_reads == []
+
+
 def _snapshot(
     root: Path,
     *,
