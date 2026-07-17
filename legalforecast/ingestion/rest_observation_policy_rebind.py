@@ -21,6 +21,7 @@ from legalforecast.ingestion.courtlistener_acquisition import (
     screen_courtlistener_docket_page,
 )
 from legalforecast.ingestion.cycle_acquisition_store import (
+    CandidateObservation,
     CycleAcquisitionStore,
     CycleAcquisitionStoreError,
     SnapshotVerificationError,
@@ -58,7 +59,9 @@ class _SourceStoreEvidence:
     cycle_hash: str
     cycle_policy: Mapping[str, object]
     batch_digest: str
+    batch_config: Mapping[str, object]
     candidate_ids: frozenset[str]
+    discovery_payloads: Mapping[str, tuple[Mapping[str, object], ...]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -249,6 +252,296 @@ class RestObservationPolicyRebindResult:
     paid_activity_executed: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class AuthenticatedTerminalRestSource:
+    """Complete terminal REST source authenticated without provider access."""
+
+    snapshot_path: Path
+    snapshot_manifest: Mapping[str, object]
+    snapshot_manifest_sha256: str
+    payloads: Mapping[str, bytes]
+    cycle_hash: str
+    cycle_policy: Mapping[str, object]
+    batch_id: str
+    batch_digest: str
+    batch_config: Mapping[str, object]
+    candidate_ids: frozenset[str]
+    observations: Mapping[str, Mapping[str, object]]
+    raw_candidate_ids: frozenset[str]
+    discovery_payloads: Mapping[str, tuple[Mapping[str, object], ...]]
+
+
+@dataclass(frozen=True, slots=True)
+class TerminalRestRebindOutcome:
+    """One precommitted target outcome for the shared rebind publisher."""
+
+    candidate_id: str
+    action: str
+    state: str
+    reason_code: str
+    evidence: Mapping[str, object]
+    observed_at: str
+
+    def projection(self) -> Mapping[str, object]:
+        """Return the canonical observation fields committed by a plan."""
+
+        if self.action not in {"preserve_current", "write"}:
+            raise RestObservationPolicyRebindError(
+                f"unsupported terminal REST rebind action: {self.action}"
+            )
+        if self.state not in {"accepted", "excluded"}:
+            raise RestObservationPolicyRebindError(
+                f"unsupported terminal REST rebind state: {self.state}"
+            )
+        if not self.candidate_id or not self.reason_code or not self.observed_at:
+            raise RestObservationPolicyRebindError(
+                "terminal REST rebind outcome is incomplete"
+            )
+        return MappingProxyType(
+            {
+                "candidate_id": self.candidate_id,
+                "state": self.state,
+                "reason_code": self.reason_code,
+                "evidence": dict(self.evidence),
+                "observed_at": self.observed_at,
+            }
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class PublishedTerminalRestRebind:
+    """Authenticated current-cycle snapshot emitted by the shared publisher."""
+
+    snapshot_path: Path
+    snapshot_manifest_sha256: str
+    written_count: int
+    preserved_count: int
+
+
+def canonical_rebind_sha256(value: object) -> str:
+    """Return the shared canonical JSON commitment for rebind plans."""
+
+    return _canonical_sha256(value)
+
+
+def write_new_rebind_json(path: str | Path, value: Mapping[str, object]) -> str:
+    """Publish one immutable canonical JSON rebind artifact."""
+
+    return _atomic_write_json(Path(path).resolve(), value)
+
+
+def load_pinned_rebind_json(
+    path: str | Path,
+    *,
+    expected_sha256: str,
+    label: str,
+) -> Mapping[str, object]:
+    """Load a regular JSON artifact only after its external SHA-256 pin matches."""
+
+    _require_sha256(expected_sha256, f"{label} SHA-256")
+    payload = _read_regular_file(Path(path).resolve(), label=label)
+    if hashlib.sha256(payload).hexdigest() != expected_sha256:
+        raise RestObservationPolicyRebindError(f"{label} SHA-256 mismatch")
+    return MappingProxyType(_parse_json_object(payload, label=label))
+
+
+def publish_authenticated_terminal_rest_rebind(
+    *,
+    target_store_path: str | Path,
+    target_batch_id: str,
+    expected_target_cycle_hash: str,
+    expected_target_cycle_policy: Mapping[str, object],
+    expected_candidate_ids: frozenset[str],
+    outcomes: Sequence[TerminalRestRebindOutcome],
+    snapshot_output_root: str | Path,
+    snapshot_id: str,
+    stage_commitments: Mapping[str, object],
+) -> PublishedTerminalRestRebind:
+    """Publish exact planned outcomes without network, provider, or paid paths."""
+
+    indexed = {outcome.candidate_id: outcome for outcome in outcomes}
+    if len(indexed) != len(outcomes) or set(indexed) != set(expected_candidate_ids):
+        raise RestObservationPolicyRebindError(
+            "terminal REST rebind outcomes do not match the exact candidate set"
+        )
+    snapshot_root = Path(snapshot_output_root).resolve()
+    written_count = sum(outcome.action == "write" for outcome in outcomes)
+    try:
+        with CycleAcquisitionStore(target_store_path) as target_store:
+            if target_store.cycle_hash != expected_target_cycle_hash:
+                raise RestObservationPolicyRebindError(
+                    "target store cycle hash mismatch"
+                )
+            if dict(target_store.cycle_policy) != dict(expected_target_cycle_policy):
+                raise RestObservationPolicyRebindError("target store policy mismatch")
+            if set(target_store.candidate_ids(target_batch_id)) != set(
+                expected_candidate_ids
+            ):
+                raise RestObservationPolicyRebindError(
+                    "target batch candidate set does not match expected set"
+                )
+            for candidate_id in sorted(indexed):
+                outcome = indexed[candidate_id]
+                projection = outcome.projection()
+                current = target_store.current_observation(candidate_id)
+                batch_terminal = target_store.batch_terminal_observation(
+                    target_batch_id, candidate_id
+                )
+                if outcome.action == "preserve_current":
+                    if (
+                        current is None
+                        or _observation_projection(current) != projection
+                    ):
+                        raise RestObservationPolicyRebindError(
+                            f"target preserved outcome drift for {candidate_id}"
+                        )
+                    continue
+                if batch_terminal is not None:
+                    if (
+                        _observation_projection(batch_terminal) != projection
+                        or current is None
+                        or current.observation_id != batch_terminal.observation_id
+                    ):
+                        raise RestObservationPolicyRebindError(
+                            f"target written outcome drift for {candidate_id}"
+                        )
+                    continue
+                if current is not None:
+                    raise RestObservationPolicyRebindError(
+                        f"target gained an unplanned outcome for {candidate_id}"
+                    )
+                target_store.record_observation(
+                    candidate_id,
+                    batch_id=target_batch_id,
+                    state=outcome.state,
+                    reason_code=outcome.reason_code,
+                    evidence=outcome.evidence,
+                    observed_at=outcome.observed_at,
+                    audit_immutable_skip=False,
+                )
+                written = target_store.current_observation(candidate_id)
+                if written is None or _observation_projection(written) != projection:
+                    raise RestObservationPolicyRebindError(
+                        f"target write did not reproduce plan for {candidate_id}"
+                    )
+            if not target_store.snapshot_is_saturated(target_batch_id):
+                raise RestObservationPolicyRebindError(
+                    "target rebind batch is not complete and saturated"
+                )
+            existing = target_store.existing_complete_snapshot_evidence(
+                snapshot_root,
+                snapshot_id=snapshot_id,
+                batch_id=target_batch_id,
+            )
+            if existing is None:
+                snapshot_path = target_store.export_snapshot(
+                    snapshot_root,
+                    snapshot_id=snapshot_id,
+                    batch_id=target_batch_id,
+                    complete=True,
+                    stage_commitments=stage_commitments,
+                )
+            else:
+                if existing.manifest.get("stage_commitments") != dict(
+                    stage_commitments
+                ):
+                    raise RestObservationPolicyRebindError(
+                        "existing rebind snapshot stage commitments drifted"
+                    )
+                snapshot_path = existing.path
+    except RestObservationPolicyRebindError:
+        raise
+    except (CycleAcquisitionStoreError, KeyError, OSError, ValueError) as exc:
+        raise RestObservationPolicyRebindError(
+            f"cannot publish terminal REST rebind: {exc}"
+        ) from exc
+    manifest_sha256 = hashlib.sha256(
+        _read_regular_file(snapshot_path / "manifest.json", label="rebind manifest")
+    ).hexdigest()
+    return PublishedTerminalRestRebind(
+        snapshot_path=snapshot_path,
+        snapshot_manifest_sha256=manifest_sha256,
+        written_count=written_count,
+        preserved_count=len(outcomes) - written_count,
+    )
+
+
+def authenticate_terminal_rest_source(
+    *,
+    source_store_path: str | Path,
+    source_snapshot_path: str | Path,
+    expected_snapshot_manifest_sha256: str,
+    expected_cycle_hash: str,
+    expected_cycle_policy: Mapping[str, object] | None,
+    expected_batch_id: str,
+    expected_candidate_ids: frozenset[str] | None = None,
+) -> AuthenticatedTerminalRestSource:
+    """Authenticate one complete REST snapshot and its read-only source store."""
+
+    source_snapshot = Path(source_snapshot_path).resolve()
+    source_payloads, source_manifest, source_manifest_sha256 = _buffer_snapshot(
+        source_snapshot,
+        expected_manifest_sha256=expected_snapshot_manifest_sha256,
+    )
+    source_evidence = _read_source_store_evidence(
+        source_store_path,
+        batch_id=expected_batch_id,
+        snapshot_path=source_snapshot,
+        snapshot_manifest=source_manifest,
+    )
+    if source_evidence.cycle_hash != expected_cycle_hash:
+        raise RestObservationPolicyRebindError("source store cycle hash mismatch")
+    if expected_cycle_policy is not None and dict(source_evidence.cycle_policy) != dict(
+        expected_cycle_policy
+    ):
+        raise RestObservationPolicyRebindError("source store policy mismatch")
+    if (
+        expected_candidate_ids is not None
+        and source_evidence.candidate_ids != expected_candidate_ids
+    ):
+        raise RestObservationPolicyRebindError(
+            "source store candidate set does not match expected set"
+        )
+    _verify_buffered_snapshot(
+        source_payloads,
+        source_manifest,
+        expected_cycle_hash=expected_cycle_hash,
+        expected_batch_digest=source_evidence.batch_digest,
+    )
+    if source_manifest.get("batch_id") != expected_batch_id:
+        raise RestObservationPolicyRebindError("source snapshot batch ID mismatch")
+    source_candidate_ids = frozenset(
+        _candidate_ids_from_payload(source_payloads["candidates.jsonl"])
+    )
+    if source_candidate_ids != source_evidence.candidate_ids:
+        raise RestObservationPolicyRebindError(
+            "source snapshot candidate set does not match source store"
+        )
+    source_observations = _terminal_observations(
+        source_payloads["observations.jsonl"], set(source_candidate_ids)
+    )
+    raw_candidate_ids = frozenset(
+        _candidate_ids_from_payload(
+            source_payloads["raw-artifacts.jsonl"], allow_empty=True
+        )
+    )
+    return AuthenticatedTerminalRestSource(
+        snapshot_path=source_snapshot,
+        snapshot_manifest=source_manifest,
+        snapshot_manifest_sha256=source_manifest_sha256,
+        payloads=source_payloads,
+        cycle_hash=source_evidence.cycle_hash,
+        cycle_policy=source_evidence.cycle_policy,
+        batch_id=expected_batch_id,
+        batch_digest=source_evidence.batch_digest,
+        batch_config=MappingProxyType(dict(source_evidence.batch_config)),
+        candidate_ids=source_candidate_ids,
+        observations=MappingProxyType(source_observations),
+        raw_candidate_ids=raw_candidate_ids,
+        discovery_payloads=source_evidence.discovery_payloads,
+    )
+
+
 def load_official_rest_observation_rebind_contract() -> RestObservationRebindContract:
     """Load the repository-pinned exact 100-outcome authorization."""
 
@@ -295,12 +588,7 @@ def rebind_terminal_rest_observations(
     if verify_git_semantics:
         _verify_git_noop_semantics(active_contract)
 
-    source_snapshot = Path(source_snapshot_path).resolve()
     selection_path = Path(selection_run_card_path).resolve()
-    source_payloads, source_manifest, source_manifest_sha256 = _buffer_snapshot(
-        source_snapshot,
-        expected_manifest_sha256=active_contract.source_snapshot_manifest_sha256,
-    )
     selection_payload = _read_regular_file(selection_path, label="selection run card")
     if hashlib.sha256(selection_payload).hexdigest() != (
         active_contract.selection_run_card_sha256
@@ -308,46 +596,19 @@ def rebind_terminal_rest_observations(
         raise RestObservationPolicyRebindError("selection run-card SHA-256 mismatch")
     selection = _parse_json_object(selection_payload, label="selection run card")
     selected_ids = _selected_candidate_ids(selection, active_contract)
-
-    source_evidence = _read_source_store_evidence(
-        source_store_path,
-        batch_id=active_contract.source_batch_id,
-        snapshot_path=source_snapshot,
-        snapshot_manifest=source_manifest,
-    )
-    if source_evidence.cycle_hash != active_contract.source_cycle_hash:
-        raise RestObservationPolicyRebindError("source store cycle hash mismatch")
-    if dict(source_evidence.cycle_policy) != dict(active_contract.source_policy):
-        raise RestObservationPolicyRebindError("source store policy mismatch")
-    if source_evidence.candidate_ids != frozenset(selected_ids):
-        raise RestObservationPolicyRebindError(
-            "source store candidate set does not match selected set"
-        )
-
-    _verify_buffered_snapshot(
-        source_payloads,
-        source_manifest,
+    source = authenticate_terminal_rest_source(
+        source_store_path=source_store_path,
+        source_snapshot_path=source_snapshot_path,
+        expected_snapshot_manifest_sha256=(
+            active_contract.source_snapshot_manifest_sha256
+        ),
         expected_cycle_hash=active_contract.source_cycle_hash,
-        expected_batch_digest=source_evidence.batch_digest,
+        expected_cycle_policy=active_contract.source_policy,
+        expected_batch_id=active_contract.source_batch_id,
+        expected_candidate_ids=frozenset(selected_ids),
     )
-    if source_manifest.get("batch_id") != active_contract.source_batch_id:
-        raise RestObservationPolicyRebindError("source snapshot batch ID mismatch")
-
-    source_candidate_ids = _candidate_ids_from_payload(
-        source_payloads["candidates.jsonl"]
-    )
-    if source_candidate_ids != set(selected_ids):
-        raise RestObservationPolicyRebindError(
-            "source snapshot candidate set does not match selected set"
-        )
-    source_observations = _terminal_observations(
-        source_payloads["observations.jsonl"], source_candidate_ids
-    )
-    pinned = _authenticate_pinned_outcomes(active_contract, source_observations)
-    raw_candidate_ids = _candidate_ids_from_payload(
-        source_payloads["raw-artifacts.jsonl"], allow_empty=True
-    )
-    if raw_candidate_ids.intersection(pinned):
+    pinned = _authenticate_pinned_outcomes(active_contract, source.observations)
+    if source.raw_candidate_ids.intersection(pinned):
         raise RestObservationPolicyRebindError(
             "pinned REST outcomes unexpectedly depend on raw artifacts"
         )
@@ -421,7 +682,7 @@ def rebind_terminal_rest_observations(
                 "stage": "rebind-terminal-rest-observations",
                 "source_cycle_hash": active_contract.source_cycle_hash,
                 "target_cycle_hash": active_contract.target_cycle_hash,
-                "source_snapshot_manifest_sha256": source_manifest_sha256,
+                "source_snapshot_manifest_sha256": (source.snapshot_manifest_sha256),
                 "selection_run_card_sha256": (
                     active_contract.selection_run_card_sha256
                 ),
@@ -478,8 +739,8 @@ def rebind_terminal_rest_observations(
         "schema_version": _RUN_CARD_SCHEMA,
         "stage": "rebind-terminal-rest-observations",
         "source_store_path": str(Path(source_store_path).resolve()),
-        "source_snapshot_path": str(source_snapshot),
-        "source_snapshot_manifest_sha256": source_manifest_sha256,
+        "source_snapshot_path": str(source.snapshot_path),
+        "source_snapshot_manifest_sha256": source.snapshot_manifest_sha256,
         "selection_run_card_path": str(selection_path),
         "selection_run_card_sha256": active_contract.selection_run_card_sha256,
         "selected_candidate_set_sha256": (
@@ -902,7 +1163,7 @@ def _read_source_store_evidence(
 
             batch_row = connection.execute(
                 """
-                SELECT cycle_hash, config_digest
+                SELECT cycle_hash, config_json, config_digest
                 FROM batches
                 WHERE batch_id = ?
                 """,
@@ -916,6 +1177,10 @@ def _read_source_store_evidence(
                 raise RestObservationPolicyRebindError(
                     "source batch cycle hash does not match source store"
                 )
+            batch_config = _parse_json_object(
+                str(batch_row["config_json"]).encode(),
+                label="source store batch config",
+            )
 
             candidate_ids = frozenset(
                 str(row["candidate_id"])
@@ -928,6 +1193,24 @@ def _read_source_store_evidence(
                     (batch_id,),
                 )
             )
+            discovery_payload_lists: dict[str, list[Mapping[str, object]]] = {}
+            for row in connection.execute(
+                """
+                SELECT candidate_id, payload_json
+                FROM discovery_hits
+                WHERE batch_id = ?
+                ORDER BY candidate_id, term, provider_hit_id
+                """,
+                (batch_id,),
+            ):
+                candidate_id = str(row["candidate_id"])
+                payload = _parse_json_object(
+                    str(row["payload_json"]).encode(),
+                    label="source discovery payload",
+                )
+                discovery_payload_lists.setdefault(candidate_id, []).append(
+                    MappingProxyType(payload)
+                )
 
             snapshot_id = _required_text(snapshot_manifest, "snapshot_id")
             snapshot_row = connection.execute(
@@ -968,7 +1251,14 @@ def _read_source_store_evidence(
         cycle_hash=cycle_hash,
         cycle_policy=MappingProxyType(cycle_policy),
         batch_digest=str(batch_row["config_digest"]),
+        batch_config=MappingProxyType(batch_config),
         candidate_ids=candidate_ids,
+        discovery_payloads=MappingProxyType(
+            {
+                candidate_id: tuple(payloads)
+                for candidate_id, payloads in discovery_payload_lists.items()
+            }
+        ),
     )
 
 
@@ -1151,6 +1441,20 @@ def _candidate_ids_from_payload(
             "snapshot candidate payload contains duplicate IDs"
         )
     return candidate_ids
+
+
+def _observation_projection(
+    candidate: CandidateObservation,
+) -> Mapping[str, object]:
+    return MappingProxyType(
+        {
+            "candidate_id": candidate.candidate_id,
+            "state": candidate.state,
+            "reason_code": candidate.reason_code,
+            "evidence": dict(candidate.evidence),
+            "observed_at": candidate.observed_at,
+        }
+    )
 
 
 def _read_jsonl(payload: bytes, *, label: str) -> tuple[dict[str, object], ...]:

@@ -71,6 +71,7 @@
         "criminal_posture",
         "habeas_or_immigration_detention_posture",
         "oversized_docket_soft_skip",
+        "policy_rebind_evidence_insufficient",
         "strict_clean_screen_failed"
       ],
       "transient_reason_codes": [

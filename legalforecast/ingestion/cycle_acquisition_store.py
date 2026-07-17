@@ -86,6 +86,11 @@ _REASON_POLICIES: dict[str, tuple[frozenset[str], str, int]] = {
         "refreshable",
         10,
     ),
+    "policy_rebind_evidence_insufficient": (
+        frozenset({"excluded"}),
+        "refreshable",
+        10,
+    ),
     "strict_clean_screen_passed": (frozenset({"accepted"}), "accepted", 20),
     "required_documents_complete": (frozenset({"accepted"}), "accepted", 20),
     "newly_free": (frozenset({"newly_free"}), "newly_free", 30),

@@ -333,6 +333,11 @@ from legalforecast.ingestion.docket_sync import (
     DocketRetrievalPipeline,
     NormalizedDocketEntry,
 )
+from legalforecast.ingestion.exact310_rest_rebind import (
+    Exact310RestRebindError,
+    execute_exact310_terminal_rest_rebind,
+    plan_exact310_terminal_rest_rebind,
+)
 from legalforecast.ingestion.firecrawl_docket_recovery import (
     RANKED_FIRECRAWL_COMBINED_CREDIT_CEILING,
     RANKED_FIRECRAWL_PARTITION_SCHEMA,
@@ -1049,6 +1054,33 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_batch_002_terminal_rest_rebind_arguments(batch_002_terminal_rest_rebind)
+    batch_002_exact310_plan = batch_002_subparsers.add_parser(
+        "plan-exact310-rest-rebind",
+        help=("Freeze exact source/current outcomes for the 310-docket REST lane."),
+        description=(
+            "Provider-free planning pass for the exact 310-docket terminal REST "
+            "source. It verifies the externally pinned complete source snapshot, "
+            "fixed transfer receipt and candidate set, current-cycle target, and "
+            "all terminal observations; re-proves accepted strict-screen evidence "
+            "where sufficient and otherwise plans a fail-closed exclusion. No "
+            "network, provider, PACER, fee acknowledgment, purchase, evaluation, "
+            "freeze, or dispatch is available."
+        ),
+    )
+    _add_batch_002_exact310_plan_arguments(batch_002_exact310_plan)
+    batch_002_exact310_rebind = batch_002_subparsers.add_parser(
+        "rebind-exact310-rest-observations",
+        help="Execute the externally pinned exact310 provider-free rebind plan.",
+        description=(
+            "Re-authenticate and execute an exact310 contract only when its "
+            "externally supplied SHA-256 matches. Current-cycle terminal outcomes "
+            "are preserved, valid strict-screen evidence is re-proved, unsupported "
+            "evidence fails closed, and a complete saturated snapshot plus run "
+            "card is emitted. No network, provider, PACER, fee acknowledgment, "
+            "purchase, evaluation, freeze, or dispatch is available."
+        ),
+    )
+    _add_batch_002_exact310_rebind_arguments(batch_002_exact310_rebind)
     batch_002_novel_direct_seed = batch_002_subparsers.add_parser(
         "seed-novel-direct-search",
         help=(
@@ -3614,6 +3646,75 @@ def _add_batch_002_novel_direct_seed_arguments(
     )
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_batch_002_novel_direct_seed)
+
+
+def _add_batch_002_exact310_common_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--source-store",
+        type=Path,
+        required=True,
+        help="Read-only exact 8410bac terminal REST cycle store.",
+    )
+    parser.add_argument(
+        "--source-snapshot",
+        type=Path,
+        required=True,
+        help="Store-registered complete saturated exact310 source snapshot.",
+    )
+    parser.add_argument(
+        "--expected-source-snapshot-manifest-sha256",
+        required=True,
+        help="External lowercase SHA-256 of source snapshot manifest.json.",
+    )
+    parser.add_argument(
+        "--transfer-receipt",
+        type=Path,
+        required=True,
+        help="Exact provider-free direct-search transfer receipt.",
+    )
+    parser.add_argument(
+        "--cycle-store",
+        type=Path,
+        required=True,
+        help="Fresh current-policy store seeded with the identical 310 candidates.",
+    )
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument(
+        "--expected-target-cycle-hash",
+        required=True,
+        help="External lowercase SHA-256 of the current target cycle policy.",
+    )
+
+
+def _add_batch_002_exact310_plan_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_batch_002_exact310_common_arguments(parser)
+    parser.add_argument(
+        "--contract-output",
+        type=Path,
+        required=True,
+        help="New immutable exact310 plan; its printed SHA-256 must be pinned.",
+    )
+    parser.set_defaults(handler=_cmd_batch_002_exact310_plan)
+
+
+def _add_batch_002_exact310_rebind_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_batch_002_exact310_common_arguments(parser)
+    parser.add_argument("--contract", type=Path, required=True)
+    parser.add_argument(
+        "--expected-contract-sha256",
+        required=True,
+        help="Externally pinned lowercase SHA-256 printed by the planning pass.",
+    )
+    parser.add_argument("--snapshot-output-root", type=Path, required=True)
+    parser.add_argument("--snapshot-id", required=True)
+    parser.add_argument("--run-card-output", type=Path, required=True)
+    parser.set_defaults(handler=_cmd_batch_002_exact310_rebind)
 
 
 def _add_batch_002_ranked_selection_common_arguments(
@@ -15385,6 +15486,80 @@ def _cmd_batch_002_novel_direct_seed(args: argparse.Namespace) -> int:
     if summary_output is not None:
         _write_json(summary_output, record)
     print(json.dumps(record, sort_keys=True))
+    return 0
+
+
+def _cmd_batch_002_exact310_plan(args: argparse.Namespace) -> int:
+    try:
+        result = plan_exact310_terminal_rest_rebind(
+            source_store_path=cast(Path, args.source_store),
+            source_snapshot_path=cast(Path, args.source_snapshot),
+            expected_source_snapshot_manifest_sha256=cast(
+                str, args.expected_source_snapshot_manifest_sha256
+            ),
+            transfer_receipt_path=cast(Path, args.transfer_receipt),
+            target_store_path=cast(Path, args.cycle_store),
+            target_batch_id=cast(str, args.batch_id),
+            expected_target_cycle_hash=cast(str, args.expected_target_cycle_hash),
+            contract_output_path=cast(Path, args.contract_output),
+        )
+    except (Exact310RestRebindError, RestObservationPolicyRebindError) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "contract_path": str(result.contract_path),
+                "contract_sha256": result.contract_sha256,
+                "preserve_current_count": result.preserve_current_count,
+                "reproved_current_count": result.reproved_current_count,
+                "reproved_exclusion_count": result.reproved_exclusion_count,
+                "fail_closed_count": result.fail_closed_count,
+                "provider_activity_executed": False,
+                "paid_activity_executed": False,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _cmd_batch_002_exact310_rebind(args: argparse.Namespace) -> int:
+    try:
+        result = execute_exact310_terminal_rest_rebind(
+            source_store_path=cast(Path, args.source_store),
+            source_snapshot_path=cast(Path, args.source_snapshot),
+            expected_source_snapshot_manifest_sha256=cast(
+                str, args.expected_source_snapshot_manifest_sha256
+            ),
+            transfer_receipt_path=cast(Path, args.transfer_receipt),
+            target_store_path=cast(Path, args.cycle_store),
+            target_batch_id=cast(str, args.batch_id),
+            expected_target_cycle_hash=cast(str, args.expected_target_cycle_hash),
+            contract_path=cast(Path, args.contract),
+            expected_contract_sha256=cast(str, args.expected_contract_sha256),
+            snapshot_output_root=cast(Path, args.snapshot_output_root),
+            snapshot_id=cast(str, args.snapshot_id),
+            run_card_path=cast(Path, args.run_card_output),
+        )
+    except (Exact310RestRebindError, RestObservationPolicyRebindError) as exc:
+        raise CommandError(str(exc)) from exc
+    print(
+        json.dumps(
+            {
+                "snapshot_path": str(result.snapshot_path),
+                "snapshot_manifest_sha256": result.snapshot_manifest_sha256,
+                "run_card_path": str(result.run_card_path),
+                "run_card_sha256": result.run_card_sha256,
+                "preserve_current_count": result.preserve_current_count,
+                "reproved_current_count": result.reproved_current_count,
+                "reproved_exclusion_count": result.reproved_exclusion_count,
+                "fail_closed_count": result.fail_closed_count,
+                "provider_activity_executed": False,
+                "paid_activity_executed": False,
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 
