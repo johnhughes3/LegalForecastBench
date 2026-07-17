@@ -5408,11 +5408,15 @@ Reason: self-consistent contributor hashes do not establish score correctness.
 
 ### DEC-07: issue #37 dispatch status
 
-Decision: pending explicit review.
+Decision: implementation required for the selected OpenAI smoke.
 
 Owner: John and official security lane.
 
-Deadline: before official smoke uses the final credential design.
+Gate: `LegalForecastBench-5qd6.100` implements fail-closed OpenAI GitHub workload identity, and independent workflow-integrity gate `LegalForecastBench-5qd6.101` pins third-party actions before `LegalForecastBench-5qd6.35` may run.
+
+Residual: GitHub issue #37 remains open; Anthropic and Gemini require provider-specific blocking decisions before either provider is admitted to official dispatch.
+
+Evidence: `docs/security/official-provider-identity-decision.md`.
 
 Reason: acquisition can continue independently, but dispatch must not silently waive a known credential-hardening issue.
 

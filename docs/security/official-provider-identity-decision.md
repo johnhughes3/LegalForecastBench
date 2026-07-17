@@ -30,13 +30,19 @@ At the decision commit, this W3 worktree matches `origin/main` and `.github/work
 
 The current custom transport in `legalforecast/evals/live_model_solver.py` reads the same environment variables and sends them directly in provider authorization headers.
 
-The repository treats those values as opaque API keys: it records no provider-enforced expiry, rotation deadline, allowed-model scope, source restriction, or hard spending cap for the credential itself.
+The repository treats those values as opaque API keys: it records no provider-enforced expiry, rotation deadline, allowed-model scope, or source restriction for the credential itself.
+
+Hard monthly exposure caps do exist for the exact Cycle 1 provider accounts. `model_registries/cycle-1-provider-caps-2026-07-12.json`, `LegalForecastBench-yr43.22`, and `LegalForecastBench-yr43.7` record John-verified limits of USD 215 for OpenAI and USD 200 each for Anthropic and Gemini.
+
+Those caps limit economic exposure. They do not prevent credential replay, bind a request to the protected GitHub job, shorten credential lifetime, or establish that the bearer credential has model-request-only scope.
 
 `LegalForecastBench-5qd6.32` records a verified but not yet published W1 checkpoint for `.github/workflows/official-provider-cell.yaml` that narrows each job to one protected provider environment and a step-scoped generic `PROVIDER_API_KEY`.
 
 That provider isolation is necessary but does not bound credential replay outside the job if the provider credential is long-lived and copied.
 
-`docs/security/model-provider-budget-caps.md` does not exist, and the repository therefore contains no accepted evidence that a static model-provider key has a provider-enforced hard cap sufficient to satisfy the development threat model.
+The GitHub API shows that `legalforecastbench-official-eval` is restricted to `main`, but administrators can bypass the environment and it has no required reviewer. The provider-specific environments introduced by `LegalForecastBench-5qd6.32` remain unpublished and unvalidated.
+
+`docs/security/model-provider-budget-caps.md` does not exist, so the broader development threat model does not yet accept the model-provider credentials as a fully documented bounded authority. The implementation-required decision does not depend on pretending the verified account caps are absent: spend limits and workload identity address different risks.
 
 The provider documentation now gives a materially narrower path: OpenAI and Anthropic document direct GitHub Actions federation to short-lived service-account tokens, and Google Cloud documents workload identity federation for deployment pipelines.
 
@@ -48,7 +54,7 @@ Those controls reduce accidental cross-provider exposure, but they do not preven
 
 Workload identity binds the credential exchange to the protected GitHub workflow identity and returns a short-lived token, so compromise is constrained by both claim matching and token lifetime.
 
-The remaining implementation risk is moderate and bounded: approximately four agent-hours for the explicit auth mode, token exchange, workflow integration, provenance redaction, and network-free tests, plus John-controlled provider-side identity-provider and service-account setup during `LegalForecastBench-5qd6.35`.
+The remaining implementation is one focused security slice, estimated at one to two agent-days for the explicit auth mode, token exchange, workflow integration, provenance redaction, network-free tests, and review, plus John-controlled provider-side identity-provider and service-account setup during `LegalForecastBench-5qd6.35`.
 
 ## Provider disposition
 
@@ -62,9 +68,11 @@ If the smoke operator proposes a provider other than OpenAI, that proposal chang
 
 ## OpenAI implementation contract
 
-The provider-side trust rule must pin issuer, audience, repository, ref, workflow_ref, and environment rather than accepting a repository-wide subject.
+The provider-side trust rule must pin issuer, audience, repository, ref, caller `workflow_ref`, and environment rather than accepting a repository-wide subject.
 
-The exact production mapping is GitHub issuer `https://token.actions.githubusercontent.com`, the configured OpenAI audience, repository `johnhughes3/LegalForecastBench`, ref `refs/heads/main`, the exact reusable-workflow `workflow_ref` at a reviewed immutable revision, and the protected official provider environment.
+The exact production mapping is GitHub issuer `https://token.actions.githubusercontent.com`, the configured OpenAI audience, repository `johnhughes3/LegalForecastBench`, ref `refs/heads/main`, caller `workflow_ref` `johnhughes3/LegalForecastBench/.github/workflows/run-benchmark.yaml@refs/heads/main`, and environment `legalforecastbench-official-eval-openai`.
+
+GitHub identifies the called reusable workflow separately as `job_workflow_ref`. The provider mapping must pin `job_workflow_ref` to `johnhughes3/LegalForecastBench/.github/workflows/official-provider-cell.yaml@refs/heads/main`, and the first protected token inspection must record `job_workflow_sha` as non-secret audit evidence without recording the JWT. If live OpenAI configuration rejects that documented claim, `LegalForecastBench-5qd6.100` remains blocked pending resolution. `LegalForecastBench-5qd6.101` supplies a separate full-SHA action boundary; it does not substitute for binding token issuance to the called workflow.
 
 The workflow requests `id-token: write`, obtains a GitHub subject token only inside the selected protected provider job, and exchanges it for an OpenAI access token using non-secret identity-provider and service-account identifiers.
 
