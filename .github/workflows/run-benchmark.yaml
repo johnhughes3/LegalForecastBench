@@ -157,7 +157,6 @@ jobs:
       artifact_retention_days: ${{ steps.validate.outputs.artifact_retention_days }}
       case_count: ${{ steps.matrix.outputs.case_count }}
       frozen_manifest_sha256: ${{ steps.freeze_labels.outputs.frozen_manifest_sha256 }}
-      execution_policy_path: ${{ steps.dispatch.outputs.execution_policy_path }}
       execution_policy_sha256: ${{ steps.dispatch.outputs.execution_policy_sha256 }}
       freeze_bundle_path: ${{ steps.validate.outputs.freeze_bundle_path }}
       labels_sha256: ${{ steps.freeze_labels.outputs.labels_sha256 }}
@@ -658,6 +657,7 @@ jobs:
           python - <<'PY'
           import json
           import os
+          from pathlib import Path
 
           with open(os.environ["FREEZE_COMMITMENT_PATH"], encoding="utf-8") as handle:
               freeze = json.load(handle)
@@ -670,8 +670,10 @@ jobs:
           ]
           if len(paths) != 1:
               raise SystemExit("freeze must declare exactly one execution_policy artifact")
+          source = Path(paths[0])
+          target = Path("/tmp/lfb-execution-policy.json")
+          target.write_bytes(source.read_bytes())
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"execution_policy_path={paths[0]}\n")
               output.write(
                   f"execution_policy_sha256={provenance['execution_policy_sha256']}\n"
               )
@@ -937,6 +939,7 @@ jobs:
             /tmp/lfb-run-inputs-frozen.json
             /tmp/lfb-labels.jsonl
             /tmp/lfb-model-registry.json
+            /tmp/lfb-execution-policy.json
           if-no-files-found: error
           overwrite: true
           retention-days: ${{ fromJSON(steps.validate.outputs.artifact_retention_days) }}
@@ -969,6 +972,13 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ needs.build-matrix.outputs.release_sha }}
+
+      - name: Download frozen dispatch inputs
+        if: ${{ !inputs.dry_run }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: official-dispatch-provenance-${{ github.run_id }}
+          path: /tmp/lfb-run-case-inputs
 
       - name: Dry-run matrix row
         if: ${{ inputs.dry_run }}
@@ -1073,7 +1083,7 @@ jobs:
           CYCLE_ID: ${{ inputs.cycle_id }}
           EXPECTED_PACKET_OBJECT_KEY: ${{ matrix.packet_object_key }}
           EXPECTED_PACKET_SHA256: ${{ matrix.packet_sha256 }}
-          EXECUTION_POLICY_PATH: ${{ needs.build-matrix.outputs.execution_policy_path }}
+          EXECUTION_POLICY_PATH: /tmp/lfb-run-case-inputs/lfb-execution-policy.json
           EXECUTION_POLICY_SHA256: ${{ needs.build-matrix.outputs.execution_policy_sha256 }}
           GEMINI_API_KEY: ${{ (startsWith(matrix.model_key, 'google:') || startsWith(matrix.model_key, 'gemini:')) && secrets.GEMINI_API_KEY || '' }}
           LFB_ANTHROPIC_BEDROCK_MODEL_ID: ${{ vars.LFB_ANTHROPIC_BEDROCK_MODEL_ID }}
