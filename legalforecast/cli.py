@@ -494,7 +494,9 @@ from legalforecast.ingestion.recap_fetch_broker_policy import (
 )
 from legalforecast.ingestion.recap_fetch_quarantine_recovery import (
     RecapFetchQuarantineRecoveryError,
+    build_recap_fetch_disclosure_review_requests,
     recover_recap_fetch_quarantine_documents,
+    write_recap_fetch_disclosure_review_requests,
     write_recap_fetch_quarantine_manifest,
     write_recap_fetch_restriction_evidence,
 )
@@ -5261,6 +5263,14 @@ def _add_acquisition_recover_recap_fetch_quarantine_arguments(
         type=Path,
         help="Immutable URL-free fresh CourtListener public-status evidence JSONL.",
     )
+    parser.add_argument(
+        "--review-requests-output",
+        type=Path,
+        help=(
+            "Immutable exact-coverage disclosure review requests derived from "
+            "the quarantine manifest and fresh restriction evidence."
+        ),
+    )
     parser.add_argument("--document-output-root", type=Path)
     parser.add_argument(
         "--courtlistener-fixture",
@@ -5507,8 +5517,9 @@ def _add_acquisition_materialize_cohort_documents_arguments(
         type=Path,
         required=True,
         help=(
-            "Executed recover-purchased root containing its manifest, recovery "
-            "audit, documents/purchased, and completed run card."
+            "Executed recover-purchased or recover-recap-fetch-quarantine root "
+            "containing an authenticated manifest, document tree, and completed "
+            "run card."
         ),
     )
     parser.add_argument(
@@ -22923,11 +22934,18 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
             recovery_root=recovery_root,
             selection_path=projection["selection_path"],
             selected_document_keys=projection["selected_document_keys"],
+            purchase_policy_path=purchase_policy_path,
+            cohort_policy_path=cohort_policy_path,
+            ledger_path=ledger_path,
         )
         purchased_clearance_lineage = _verify_materializer_clearance_lineage(
             manifest_path=cast(Path, recovery["manifest_path"]),
             clearance_path=purchased_clearance_path,
             run_card_path=purchased_clearance_card_path,
+        )
+        _verify_materializer_recovery_clearance_binding(
+            recovery=recovery,
+            clearance_lineage=purchased_clearance_lineage,
         )
         purchase_policy_artifact = _read_json_object(purchase_policy_path)
         cohort_policy_artifact = _read_json_object(cohort_policy_path)
@@ -23093,18 +23111,7 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
             cast(Path, projection["free_manifest_path"])
         ),
         "free_disclosure_clearance": _materializer_file_commitment(free_clearance_path),
-        "purchased_recovery_run_card": _materializer_file_commitment(
-            cast(Path, recovery["run_card_path"])
-        ),
-        "purchase_result": _materializer_file_commitment(
-            cast(Path, recovery["purchase_result_path"])
-        ),
-        "purchased_recovery_manifest": _materializer_file_commitment(
-            cast(Path, recovery["recovery_path"])
-        ),
-        "purchased_download_manifest": _materializer_file_commitment(
-            cast(Path, recovery["manifest_path"])
-        ),
+        **_materializer_recovery_source_commitments(recovery),
         "purchased_disclosure_clearance": _materializer_file_commitment(
             purchased_clearance_path
         ),
@@ -23573,6 +23580,48 @@ def _verify_materializer_recovery(
     recovery_root: Path,
     selection_path: object,
     selected_document_keys: object,
+    purchase_policy_path: Path | None = None,
+    cohort_policy_path: Path | None = None,
+    ledger_path: Path | None = None,
+) -> dict[str, object]:
+    legacy_card = recovery_root / "run-cards/recover-purchased.json"
+    quarantine_card = recovery_root / "run-cards/recover-recap-fetch-quarantine.json"
+    present = tuple(path for path in (legacy_card, quarantine_card) if path.exists())
+    if len(present) != 1:
+        raise CommandError(
+            "purchased recovery root must contain exactly one supported completed "
+            "recovery run card"
+        )
+    if present[0] == quarantine_card:
+        if (
+            purchase_policy_path is None
+            or cohort_policy_path is None
+            or ledger_path is None
+        ):
+            raise CommandError(
+                "quarantine recovery verification requires current purchase lineage"
+            )
+        return _verify_materializer_quarantine_recovery(
+            recovery_root=recovery_root,
+            run_card_path=quarantine_card,
+            selection_path=selection_path,
+            selected_document_keys=selected_document_keys,
+            purchase_policy_path=purchase_policy_path,
+            cohort_policy_path=cohort_policy_path,
+            ledger_path=ledger_path,
+        )
+    return _verify_materializer_legacy_recovery(
+        recovery_root=recovery_root,
+        selection_path=selection_path,
+        selected_document_keys=selected_document_keys,
+    )
+
+
+def _verify_materializer_legacy_recovery(
+    *,
+    recovery_root: Path,
+    selection_path: object,
+    selected_document_keys: object,
 ) -> dict[str, object]:
     if not isinstance(selection_path, Path) or not isinstance(
         selected_document_keys, set
@@ -23705,6 +23754,7 @@ def _verify_materializer_recovery(
     ):
         raise CommandError("recover-purchased run card output paths differ")
     return {
+        "recovery_stage": "recover-purchased",
         "manifest_path": manifest_path,
         "manifest_records": manifest_records,
         "recovery_path": recovery_path,
@@ -23712,6 +23762,223 @@ def _verify_materializer_recovery(
         "run_card_path": run_card_path,
         "purchase_result_path": purchase_result_path,
     }
+
+
+def _verify_materializer_quarantine_recovery(
+    *,
+    recovery_root: Path,
+    run_card_path: Path,
+    selection_path: object,
+    selected_document_keys: object,
+    purchase_policy_path: Path,
+    cohort_policy_path: Path,
+    ledger_path: Path,
+) -> dict[str, object]:
+    if not isinstance(selection_path, Path) or not isinstance(
+        selected_document_keys, set
+    ):
+        raise CommandError("internal target projection verification failed")
+    _require_materializer_artifact(run_card_path, label="quarantine recovery run card")
+    run_card = _read_json_object(run_card_path)
+    if (
+        run_card.get("schema_version") != "legalforecast.acquisition_run_card.v1"
+        or run_card.get("stage") != "recover-recap-fetch-quarantine"
+        or run_card.get("status") != "completed"
+        or run_card.get("dry_run") is not False
+        or run_card.get("execute") is not True
+        or run_card.get("paid_activity_requested") is not False
+        or run_card.get("paid_activity_executed") is not False
+    ):
+        raise CommandError("invalid completed quarantine recovery run card")
+    raw_inputs = run_card.get("input_paths")
+    if not isinstance(raw_inputs, Sequence) or isinstance(raw_inputs, (str, bytes)):
+        raise CommandError("quarantine recovery run card lacks exact inputs")
+    recovery_inputs = tuple(
+        Path(str(path)) for path in cast(Sequence[object], raw_inputs)
+    )
+    if len(recovery_inputs) not in {6, 8}:
+        raise CommandError("quarantine recovery run card input paths differ")
+    expected_inputs = (
+        selection_path,
+        purchase_policy_path,
+        cohort_policy_path,
+        recovery_inputs[3],
+        ledger_path,
+        recovery_inputs[5],
+    )
+    if tuple(path.resolve() for path in recovery_inputs[:6]) != tuple(
+        path.resolve() for path in expected_inputs
+    ):
+        raise CommandError("quarantine recovery lineage differs from target inputs")
+    source_commitments = run_card.get("source_commitments")
+    output_commitments = run_card.get("output_commitments")
+    if not isinstance(source_commitments, Mapping) or not isinstance(
+        output_commitments, Mapping
+    ):
+        raise CommandError("quarantine recovery run card lacks exact commitments")
+    typed_output_commitments = cast(Mapping[str, object], output_commitments)
+    source_paths = {
+        "selection": selection_path,
+        "purchase_policy": purchase_policy_path,
+        "cohort_policy": cohort_policy_path,
+        "budget_plan": recovery_inputs[3],
+        "attempt_policy": recovery_inputs[5],
+    }
+    for name, path in source_paths.items():
+        _validate_named_path_commitment(
+            cast(Mapping[str, object], source_commitments),
+            name=name,
+            expected_path=path,
+            expected_sha256=_path_sha256(path),
+        )
+    manifest_path = _materializer_committed_path(
+        typed_output_commitments,
+        "quarantine_download_manifest",
+    )
+    restriction_path = _materializer_committed_path(
+        typed_output_commitments,
+        "fresh_restriction_evidence",
+    )
+    review_requests_path = _materializer_committed_path(
+        typed_output_commitments,
+        "disclosure_review_requests",
+    )
+    raw_outputs = run_card.get("output_paths")
+    if not isinstance(raw_outputs, Sequence) or isinstance(raw_outputs, (str, bytes)):
+        raise CommandError("quarantine recovery run card lacks outputs")
+    output_paths = tuple(
+        Path(str(path)) for path in cast(Sequence[object], raw_outputs)
+    )
+    if len(output_paths) != 5:
+        raise CommandError("quarantine recovery run card output paths differ")
+    document_roots = tuple(
+        path for path in output_paths if path.exists() and path.is_dir()
+    )
+    if len(document_roots) != 1:
+        raise CommandError("quarantine recovery document root is missing or ambiguous")
+    document_root = document_roots[0]
+    expected_outputs = {
+        manifest_path.resolve(),
+        restriction_path.resolve(),
+        review_requests_path.resolve(),
+        document_root.resolve(),
+        ledger_path.resolve(),
+    }
+    if {path.resolve() for path in output_paths} != expected_outputs:
+        raise CommandError("quarantine recovery run card output paths differ")
+    if typed_output_commitments.get("document_tree") != _materializer_tree_commitments(
+        document_root
+    ):
+        raise CommandError("quarantine recovery document-tree commitment mismatch")
+    state_sha256 = typed_output_commitments.get("purchase_state_sha256")
+    if (
+        not isinstance(state_sha256, str)
+        or len(state_sha256) != 64
+        or any(character not in "0123456789abcdef" for character in state_sha256)
+    ):
+        raise CommandError("quarantine recovery lacks purchase-state commitment")
+    manifest_records = _read_records(manifest_path)
+    restriction_records = _read_records(restriction_path)
+    review_requests = _read_records(review_requests_path)
+    reproduced_requests = build_recap_fetch_disclosure_review_requests(
+        manifest_records, restriction_records
+    )
+    if review_requests != list(reproduced_requests):
+        raise CommandError("quarantine disclosure-review requests do not reproduce")
+    manifest_index = _materializer_record_index(
+        manifest_records, label="quarantine recovery manifest"
+    )
+    if run_card.get("record_count") != len(manifest_index):
+        raise CommandError("quarantine recovery record count differs")
+    for key, record in manifest_index.items():
+        if key not in cast(set[tuple[str, str]], selected_document_keys):
+            raise CommandError(
+                "quarantine recovery document is outside target selection"
+            )
+        if (
+            record.get("recovery_origin") != "unknown_status_attempt"
+            or record.get("free_or_purchased") != "purchased"
+            or record.get("parser_eligible") is not False
+            or record.get("packet_eligible") is not False
+            or "source_url" in record
+        ):
+            raise CommandError(f"invalid quarantine recovery record: {key}")
+    return {
+        "recovery_stage": "recover-recap-fetch-quarantine",
+        "manifest_path": manifest_path,
+        "manifest_records": manifest_records,
+        "recovery_path": restriction_path,
+        "document_root": document_root,
+        "run_card_path": run_card_path,
+        "restriction_path": restriction_path,
+        "review_requests_path": review_requests_path,
+        "attempt_policy_path": recovery_inputs[5],
+    }
+
+
+def _materializer_recovery_source_commitments(
+    recovery: Mapping[str, object],
+) -> dict[str, object]:
+    commitments: dict[str, object] = {
+        "purchased_recovery_run_card": _materializer_file_commitment(
+            cast(Path, recovery["run_card_path"])
+        ),
+        "purchased_download_manifest": _materializer_file_commitment(
+            cast(Path, recovery["manifest_path"])
+        ),
+    }
+    stage = recovery.get("recovery_stage")
+    if stage == "recover-purchased":
+        commitments["purchased_recovery_manifest"] = _materializer_file_commitment(
+            cast(Path, recovery["recovery_path"])
+        )
+        commitments["purchase_result"] = _materializer_file_commitment(
+            cast(Path, recovery["purchase_result_path"])
+        )
+    elif stage == "recover-recap-fetch-quarantine":
+        commitments["purchased_recovery_restriction_evidence"] = (
+            _materializer_file_commitment(cast(Path, recovery["restriction_path"]))
+        )
+        commitments["purchased_recovery_review_requests"] = (
+            _materializer_file_commitment(cast(Path, recovery["review_requests_path"]))
+        )
+        commitments["purchased_recovery_attempt_policy"] = (
+            _materializer_file_commitment(cast(Path, recovery["attempt_policy_path"]))
+        )
+    else:
+        raise CommandError("unsupported materializer recovery stage")
+    return commitments
+
+
+def _verify_materializer_recovery_clearance_binding(
+    *,
+    recovery: Mapping[str, object],
+    clearance_lineage: Mapping[str, object],
+) -> None:
+    """Require quarantine clearance to consume the recovery-produced inputs."""
+
+    if recovery.get("recovery_stage") == "recover-purchased":
+        return
+    if recovery.get("recovery_stage") != "recover-recap-fetch-quarantine":
+        raise CommandError("unsupported materializer recovery stage")
+    recovery_requests = recovery.get("review_requests_path")
+    clearance_requests = clearance_lineage.get("requests_path")
+    recovery_restrictions = recovery.get("restriction_path")
+    clearance_restrictions = clearance_lineage.get("restriction_path")
+    if not isinstance(recovery_requests, Path) or not isinstance(
+        clearance_requests, Path
+    ):
+        raise CommandError("quarantine clearance lacks review-request lineage")
+    if recovery_requests.resolve() != clearance_requests.resolve():
+        raise CommandError("quarantine clearance committed different review requests")
+    if not isinstance(recovery_restrictions, Path) or not isinstance(
+        clearance_restrictions, Path
+    ):
+        raise CommandError("quarantine clearance lacks restriction-evidence lineage")
+    if recovery_restrictions.resolve() != clearance_restrictions.resolve():
+        raise CommandError(
+            "quarantine clearance committed different restriction evidence"
+        )
 
 
 def _verify_materializer_clearance_lineage(
@@ -23864,16 +24131,44 @@ def _verify_materializer_purchase_operations(
         operation = operation_index.get(key)
         if operation is None:
             raise CommandError(f"purchase ledger lacks recovered document: {key}")
-        if operation.get("status") != "confirmed":
-            raise CommandError(f"purchase ledger document is not confirmed: {key}")
         operation_key = operation.get("operation_key")
         if not isinstance(operation_key, str) or not operation_key:
             raise CommandError(
                 f"purchase ledger lacks broker operation identity: {key}"
             )
+        evidence = operation.get("material_evidence")
+        if record.get("recovery_origin") == "unknown_status_attempt":
+            if "source_url" in record:
+                raise CommandError(
+                    f"unknown-origin recovery must remain URL-free: {key}"
+                )
+            if (
+                operation.get("material_authority") != "unknown_status_attempt"
+                or operation.get("material_state") != "cleared_public"
+                or not isinstance(operation.get("resolved_document_sha256"), str)
+                or record.get("purchase_operation_key") != operation_key
+                or record.get("attempt_policy_sha256")
+                != operation.get("attempt_policy_sha256")
+                or not isinstance(evidence, Mapping)
+            ):
+                raise CommandError(
+                    f"unknown-origin recovery lacks exact operation lineage: {key}"
+                )
+            material = cast(Mapping[str, object], evidence)
+            if (
+                material.get("content_sha256") != _required_str(record, "sha256")
+                or material.get("byte_count") != _required_int(record, "byte_count")
+                or material.get("provider_detail_sha256")
+                != record.get("fresh_recap_detail_sha256")
+            ):
+                raise CommandError(
+                    f"unknown-origin recovery content lineage differs: {key}"
+                )
+            continue
+        if operation.get("status") != "confirmed":
+            raise CommandError(f"purchase ledger document is not confirmed: {key}")
         source_url = _required_str(record, "source_url")
         recorded_urls = _materializer_operation_download_urls(operation, key=key)
-        evidence = operation.get("material_evidence")
         url_hash_matches = False
         if isinstance(evidence, Mapping):
             material = cast(Mapping[str, object], evidence)
@@ -24151,11 +24446,18 @@ def _verify_materialized_downstream_lineage(
             recovery_root=recovery_root,
             selection_path=projection["selection_path"],
             selected_document_keys=projection["selected_document_keys"],
+            purchase_policy_path=purchase_policy_path,
+            cohort_policy_path=cohort_policy_path,
+            ledger_path=ledger_path,
         )
         purchased_lineage = _verify_materializer_clearance_lineage(
             manifest_path=cast(Path, recovery["manifest_path"]),
             clearance_path=purchased_clearance_path,
             run_card_path=purchased_clearance_card_path,
+        )
+        _verify_materializer_recovery_clearance_binding(
+            recovery=recovery,
+            clearance_lineage=purchased_lineage,
         )
         purchase_policy = verify_case_dev_purchase_policy(
             _read_json_object(purchase_policy_path)
@@ -24313,18 +24615,7 @@ def _verify_materialized_downstream_lineage(
             cast(Path, projection["free_manifest_path"])
         ),
         "free_disclosure_clearance": _materializer_file_commitment(free_clearance_path),
-        "purchased_recovery_run_card": _materializer_file_commitment(
-            cast(Path, recovery["run_card_path"])
-        ),
-        "purchase_result": _materializer_file_commitment(
-            cast(Path, recovery["purchase_result_path"])
-        ),
-        "purchased_recovery_manifest": _materializer_file_commitment(
-            cast(Path, recovery["recovery_path"])
-        ),
-        "purchased_download_manifest": _materializer_file_commitment(
-            cast(Path, recovery["manifest_path"])
-        ),
+        **_materializer_recovery_source_commitments(recovery),
         "purchased_disclosure_clearance": _materializer_file_commitment(
             purchased_clearance_path
         ),
@@ -25530,6 +25821,11 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
         "restriction_evidence_output",
         output_root / "post-recovery-restriction-evidence.jsonl",
     )
+    review_requests_path = _acquisition_path(
+        args,
+        "review_requests_output",
+        output_root / "disclosure-review-requests.jsonl",
+    )
     document_root = _acquisition_path(
         args,
         "document_output_root",
@@ -25571,6 +25867,7 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
             selection_records=selection_records,
         )
         attempt_policy_sha256 = _required_str(attempt_policy_artifact, "policy_sha256")
+        purchase_state_sha256: str | None = None
         if dry_run:
             records: Sequence[Mapping[str, Any]] = (
                 {
@@ -25582,6 +25879,7 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
             )
             _write_jsonl(manifest_path, records)
             _write_jsonl(restriction_path, [])
+            _write_jsonl(review_requests_path, [])
         else:
             if live:
                 if courtlistener_fixture is not None or document_fixture is not None:
@@ -25634,6 +25932,13 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                 write_recap_fetch_restriction_evidence(
                     restriction_path, restriction_records
                 )
+                review_requests = build_recap_fetch_disclosure_review_requests(
+                    records, restriction_records
+                )
+                write_recap_fetch_disclosure_review_requests(
+                    review_requests_path, review_requests
+                )
+                purchase_state_sha256 = journal.purchase_state_sha256()
     except (
         CaseDevPurchaseLedgerError,
         CaseDevPurchasePolicyError,
@@ -25651,7 +25956,13 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
             args,
             stage="recover-recap-fetch-quarantine",
             input_paths=input_paths,
-            output_paths=(manifest_path, restriction_path, ledger_path),
+            output_paths=(
+                manifest_path,
+                restriction_path,
+                review_requests_path,
+                document_root,
+                ledger_path,
+            ),
             reason=str(exc),
             paid_activity_requested=False,
             paid_activity_executed=False,
@@ -25661,12 +25972,33 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
         args,
         stage="recover-recap-fetch-quarantine",
         input_paths=input_paths,
-        output_paths=(manifest_path, restriction_path, ledger_path),
+        output_paths=(
+            manifest_path,
+            restriction_path,
+            review_requests_path,
+            document_root,
+            ledger_path,
+        ),
         record_count=len(records),
         dry_run=dry_run,
         paid_activity_requested=False,
         paid_activity_executed=False,
         extra={
+            "source_commitments": (
+                {}
+                if dry_run
+                else {
+                    "selection": _materializer_file_commitment(selection_path),
+                    "purchase_policy": _materializer_file_commitment(
+                        purchase_policy_path
+                    ),
+                    "cohort_policy": _materializer_file_commitment(cohort_policy_path),
+                    "budget_plan": _materializer_file_commitment(budget_plan_path),
+                    "attempt_policy": _materializer_file_commitment(
+                        attempt_policy_path
+                    ),
+                }
+            ),
             "output_commitments": (
                 {}
                 if dry_run
@@ -25679,8 +26011,14 @@ def _cmd_acquisition_recover_recap_fetch_quarantine(
                         "path": str(restriction_path.resolve()),
                         "sha256": _path_sha256(restriction_path),
                     },
+                    "disclosure_review_requests": {
+                        "path": str(review_requests_path.resolve()),
+                        "sha256": _path_sha256(review_requests_path),
+                    },
+                    "document_tree": _materializer_tree_commitments(document_root),
+                    "purchase_state_sha256": purchase_state_sha256,
                 }
-            )
+            ),
         },
     )
     return 0

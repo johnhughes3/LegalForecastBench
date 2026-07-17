@@ -37,6 +37,7 @@ from legalforecast.path_safety import safe_path_component
 
 SCHEMA_VERSION = "legalforecast.recap_fetch_quarantine_recovery.v1"
 RESTRICTION_SCHEMA_VERSION = "legalforecast.post_recovery_restriction_evidence.v1"
+REVIEW_REQUEST_SCHEMA_VERSION = "legalforecast.disclosure_review_request.v1"
 UNKNOWN_RECOVERY_ORIGIN = "unknown_status_attempt"
 _RETRYABLE = frozenset({429, 500, 502, 503, 504})
 _FRESH_PUBLIC_EVIDENCE = (
@@ -203,6 +204,104 @@ def write_recap_fetch_restriction_evidence(
     """Publish immutable URL-free fresh-detail public restriction evidence."""
 
     write_recap_fetch_quarantine_manifest(path, records)
+
+
+def build_recap_fetch_disclosure_review_requests(
+    manifest_records: Sequence[Mapping[str, Any]],
+    restriction_records: Sequence[Mapping[str, Any]],
+) -> tuple[Mapping[str, Any], ...]:
+    """Derive the exact human-review queue from immutable recovery outputs."""
+
+    manifests = _index_by_document_key(manifest_records, label="quarantine manifest")
+    restrictions = _index_by_document_key(
+        restriction_records, label="post-recovery restriction evidence"
+    )
+    if set(manifests) != set(restrictions):
+        raise RecapFetchQuarantineRecoveryError(
+            "review-request coverage differs from quarantine recovery outputs"
+        )
+    requests: list[Mapping[str, Any]] = []
+    for key in sorted(manifests):
+        manifest = manifests[key]
+        restriction = restrictions[key]
+        sha256 = manifest.get("sha256")
+        byte_count = manifest.get("byte_count")
+        if (
+            manifest.get("schema_version") != SCHEMA_VERSION
+            or manifest.get("free_or_purchased") != "purchased"
+            or manifest.get("recovery_origin") != UNKNOWN_RECOVERY_ORIGIN
+            or not isinstance(sha256, str)
+            or len(sha256) != 64
+            or any(character not in "0123456789abcdef" for character in sha256)
+            or type(byte_count) is not int
+            or byte_count < 1
+        ):
+            raise RecapFetchQuarantineRecoveryError(
+                f"invalid quarantine manifest record: {key[0]}/{key[1]}"
+            )
+        evidence = restriction.get("restriction_evidence")
+        if (
+            restriction.get("schema_version") != RESTRICTION_SCHEMA_VERSION
+            or restriction.get("restriction_status") != "public"
+            or restriction.get("redaction_or_seal_status") != "public"
+            or restriction.get("is_sealed") is not False
+            or restriction.get("is_private") not in {False, None}
+            or not isinstance(evidence, Sequence)
+            or isinstance(evidence, (str, bytes))
+            or not evidence
+            or not all(
+                isinstance(item, str) and item
+                for item in cast(Sequence[object], evidence)
+            )
+        ):
+            raise RecapFetchQuarantineRecoveryError(
+                f"invalid post-recovery restriction evidence: {key[0]}/{key[1]}"
+            )
+        requests.append(
+            {
+                "schema_version": REVIEW_REQUEST_SCHEMA_VERSION,
+                "candidate_id": key[0],
+                "source_document_id": key[1],
+                "sha256": sha256,
+                "byte_count": byte_count,
+                "free_or_purchased": "purchased",
+                "restriction_status": "public",
+                "restriction_evidence": list(cast(Sequence[str], evidence)),
+                "required_human_decision": "cleared_or_quarantined",
+            }
+        )
+    return tuple(requests)
+
+
+def write_recap_fetch_disclosure_review_requests(
+    path: Path, records: Sequence[Mapping[str, Any]]
+) -> None:
+    """Publish the immutable, exact-coverage human-review request artifact."""
+
+    write_recap_fetch_quarantine_manifest(path, records)
+
+
+def _index_by_document_key(
+    records: Sequence[Mapping[str, Any]], *, label: str
+) -> dict[tuple[str, str], Mapping[str, Any]]:
+    indexed: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for record in records:
+        candidate_id = record.get("candidate_id")
+        document_id = record.get("source_document_id")
+        if (
+            not isinstance(candidate_id, str)
+            or not candidate_id
+            or not isinstance(document_id, str)
+            or not document_id
+        ):
+            raise RecapFetchQuarantineRecoveryError(f"{label} has an invalid key")
+        key = (candidate_id, document_id)
+        if key in indexed:
+            raise RecapFetchQuarantineRecoveryError(
+                f"duplicate {label} identity: {candidate_id}/{document_id}"
+            )
+        indexed[key] = record
+    return indexed
 
 
 def _validate_operation(
