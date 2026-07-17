@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -10,8 +11,10 @@ import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.budgeted_docket_acquisition import (
     BudgetedDocketAcquisitionError,
+    authenticated_handoff_parent_batch_id,
     materialize_selected_slice_batch,
     ranked_docket_targets,
+    verify_authenticated_acquisition_slice,
     verify_authenticated_ranked_firecrawl_handoff,
 )
 from legalforecast.ingestion.cycle_acquisition_store import (
@@ -459,6 +462,21 @@ def test_seal_ranked_firecrawl_cli_projects_exact_unresolved_without_source_writ
     source_raw_root = tmp_path / "source-raw"
     source_raw_root.mkdir()
     with CycleAcquisitionStore(store_path) as store:
+        ranked_records = verify_authenticated_ranked_firecrawl_handoff(
+            store=store,
+            parent_batch_id="ranked-parent",
+            ranked_path=ranked_path,
+            selection_run_card_path=selection_card,
+            expected_selection_run_card_sha256=selection_card_sha256,
+            max_candidates=1,
+        )
+        materialize_selected_slice_batch(
+            store=store,
+            parent_batch_id="ranked-parent",
+            selected_batch_id="ranked-firecrawl",
+            records=ranked_records,
+            limit=1,
+        )
         run_config = {
             "purpose": "ranked-complete-docket-acquisition",
             "decision_anchor": "2026-06-30",
@@ -476,7 +494,7 @@ def test_seal_ranked_firecrawl_cli_projects_exact_unresolved_without_source_writ
         }
         run_digest = store.ensure_firecrawl_run(
             "exhausted-run",
-            batch_id="ranked-parent",
+            batch_id="ranked-firecrawl",
             config=run_config,
             credit_cap=5,
             reserved_credits_per_attempt=5,
@@ -614,6 +632,188 @@ def test_seal_immutable_publication_does_not_clobber_concurrent_output(
 
     assert destination.read_bytes() == b"concurrent publisher\n"
     assert list(tmp_path.glob(".sealed.jsonl.*.tmp")) == []
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    (
+        "schema_substitution",
+        "self_parent",
+        "parent_digest",
+        "selection_count",
+        "selection_hash",
+        "extra_config_field",
+    ),
+)
+def test_seal_slice_parent_authority_rejects_config_corruption(
+    tmp_path: Path,
+    corruption: str,
+) -> None:
+    store_path, ranked_path, card, card_sha256 = _selected_slice_handoff(tmp_path)
+    with sqlite3.connect(store_path) as connection:
+        config = json.loads(
+            connection.execute(
+                "SELECT config_json FROM batches WHERE batch_id = ?",
+                ("ranked-firecrawl",),
+            ).fetchone()[0]
+        )
+        if corruption == "schema_substitution":
+            config["schema_version"] = "legalforecast.selected_acquisition_slice.v2"
+        elif corruption == "self_parent":
+            config["parent_batch_id"] = "ranked-firecrawl"
+        elif corruption == "parent_digest":
+            config["parent_batch_digest"] = "0" * 64
+        elif corruption == "selection_count":
+            config["selection_count"] = 2
+        elif corruption == "selection_hash":
+            config["selection_hash"] = "0" * 64
+        else:
+            config["unexpected"] = True
+        connection.execute(
+            "UPDATE batches SET config_json = ? WHERE batch_id = ?",
+            (
+                json.dumps(config, sort_keys=True, separators=(",", ":")),
+                "ranked-firecrawl",
+            ),
+        )
+        connection.commit()
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+    with CycleAcquisitionStore(store_path) as store:
+        with pytest.raises(BudgetedDocketAcquisitionError):
+            parent_batch_id = authenticated_handoff_parent_batch_id(
+                store,
+                "ranked-firecrawl",
+            )
+            records = verify_authenticated_ranked_firecrawl_handoff(
+                store=store,
+                parent_batch_id=parent_batch_id,
+                ranked_path=ranked_path,
+                selection_run_card_path=card,
+                expected_selection_run_card_sha256=card_sha256,
+                max_candidates=1,
+            )
+            verify_authenticated_acquisition_slice(
+                store=store,
+                acquisition_batch_id="ranked-firecrawl",
+                authenticated_parent_batch_id=parent_batch_id,
+                records=records,
+            )
+    assert not (tmp_path / "sealed").exists()
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    (
+        "non_exhausted",
+        "wrong_term",
+        "reordered_payload",
+        "substituted_payload",
+        "provider_hit_id",
+        "candidate_membership",
+        "hidden_duplicate_term",
+    ),
+)
+def test_seal_slice_parent_authority_rejects_transcript_corruption(
+    tmp_path: Path,
+    corruption: str,
+) -> None:
+    store_path, ranked_path, card, card_sha256 = _selected_slice_handoff(tmp_path)
+    with sqlite3.connect(store_path) as connection:
+        if corruption == "non_exhausted":
+            connection.execute(
+                "UPDATE term_progress SET terminal_status = NULL WHERE batch_id = ?",
+                ("ranked-firecrawl",),
+            )
+        elif corruption == "wrong_term":
+            connection.execute(
+                "UPDATE discovery_hits SET term = 'wrong-term' WHERE batch_id = ?",
+                ("ranked-firecrawl",),
+            )
+            connection.execute(
+                "UPDATE term_progress SET term = 'wrong-term' WHERE batch_id = ?",
+                ("ranked-firecrawl",),
+            )
+        elif corruption in {"reordered_payload", "substituted_payload"}:
+            payload = json.loads(
+                connection.execute(
+                    "SELECT payload_json FROM discovery_hits WHERE batch_id = ?",
+                    ("ranked-firecrawl",),
+                ).fetchone()[0]
+            )
+            if corruption == "reordered_payload":
+                payload["cost_rank"] = 99
+            else:
+                payload["courtlistener_url"] = (
+                    "https://www.courtlistener.com/docket/999/substituted/"
+                )
+            connection.execute(
+                "UPDATE discovery_hits SET payload_json = ? WHERE batch_id = ?",
+                (
+                    json.dumps(payload, sort_keys=True, separators=(",", ":")),
+                    "ranked-firecrawl",
+                ),
+            )
+        elif corruption == "provider_hit_id":
+            connection.execute(
+                "UPDATE discovery_hits SET provider_hit_id = 'selected-999' "
+                "WHERE batch_id = ?",
+                ("ranked-firecrawl",),
+            )
+        elif corruption == "candidate_membership":
+            connection.execute(
+                "UPDATE discovery_hits SET candidate_id = 'courtlistener-docket-999' "
+                "WHERE batch_id = ?",
+                ("ranked-firecrawl",),
+            )
+        else:
+            connection.execute(
+                "INSERT INTO term_progress "
+                "SELECT batch_id, 'hidden-term', ordinal + 1, cursor, hit_count, "
+                "terminal_status, updated_at FROM term_progress "
+                "WHERE batch_id = ? AND term = 'selected-ranked-slice'",
+                ("ranked-firecrawl",),
+            )
+            connection.execute(
+                "INSERT INTO discovery_hits "
+                "SELECT batch_id, 'hidden-term', 'hidden-' || provider_hit_id, "
+                "candidate_id, payload_json, request_cursor_key, discovered_at "
+                "FROM discovery_hits WHERE batch_id = ? "
+                "AND term = 'selected-ranked-slice'",
+                ("ranked-firecrawl",),
+            )
+            connection.execute(
+                "INSERT INTO search_pages "
+                "SELECT batch_id, 'hidden-term', request_cursor_key, "
+                "request_cursor, next_cursor, terminal_status, response_hash, "
+                "committed_at FROM search_pages WHERE batch_id = ? "
+                "AND term = 'selected-ranked-slice'",
+                ("ranked-firecrawl",),
+            )
+        connection.commit()
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+    with CycleAcquisitionStore(store_path) as store:
+        parent_batch_id = authenticated_handoff_parent_batch_id(
+            store,
+            "ranked-firecrawl",
+        )
+        records = verify_authenticated_ranked_firecrawl_handoff(
+            store=store,
+            parent_batch_id=parent_batch_id,
+            ranked_path=ranked_path,
+            selection_run_card_path=card,
+            expected_selection_run_card_sha256=card_sha256,
+            max_candidates=1,
+        )
+        with pytest.raises(BudgetedDocketAcquisitionError):
+            verify_authenticated_acquisition_slice(
+                store=store,
+                acquisition_batch_id="ranked-firecrawl",
+                authenticated_parent_batch_id=parent_batch_id,
+                records=records,
+            )
+    assert not (tmp_path / "sealed").exists()
 
 
 def test_ranked_budgeted_cli_requires_sequential_resume_for_legacy_run(
@@ -766,6 +966,27 @@ def test_ranked_budgeted_cli_requires_sequential_resume_for_legacy_run(
         )
         == 2
     )
+
+
+def _selected_slice_handoff(tmp_path: Path) -> tuple[Path, Path, Path, str]:
+    store_path, ranked_path, card, card_sha256 = _authenticated_type_r_handoff(tmp_path)
+    with CycleAcquisitionStore(store_path) as store:
+        records = verify_authenticated_ranked_firecrawl_handoff(
+            store=store,
+            parent_batch_id="ranked-parent",
+            ranked_path=ranked_path,
+            selection_run_card_path=card,
+            expected_selection_run_card_sha256=card_sha256,
+            max_candidates=1,
+        )
+        materialize_selected_slice_batch(
+            store=store,
+            parent_batch_id="ranked-parent",
+            selected_batch_id="ranked-firecrawl",
+            records=records,
+            limit=1,
+        )
+    return store_path, ranked_path, card, card_sha256
 
 
 def _authenticated_type_r_handoff(

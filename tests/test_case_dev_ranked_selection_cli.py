@@ -12,6 +12,7 @@ import legalforecast.ingestion.snapshot_replay as snapshot_replay_module
 import pytest
 from legalforecast.ingestion.budgeted_docket_acquisition import (
     BudgetedDocketAcquisitionError,
+    materialize_selected_slice_batch,
     provisional_lineage_flags,
     ranked_docket_targets,
     verify_authenticated_ranked_firecrawl_handoff,
@@ -898,6 +899,20 @@ def test_sealed_unresolved_manifest_authorizes_only_fresh_unresolved_subset(
             max_candidates=2,
         )
         targets = ranked_docket_targets(selected_records, limit=2)
+        materialize_selected_slice_batch(
+            store=store,
+            parent_batch_id="ranked-subset-rest",
+            selected_batch_id="ranked-subset-firecrawl",
+            records=selected_records,
+            limit=2,
+        )
+        materialize_selected_slice_batch(
+            store=store,
+            parent_batch_id="ranked-subset-rest",
+            selected_batch_id="ranked-subset-firecrawl-alias",
+            records=selected_records,
+            limit=2,
+        )
         config = {
             "purpose": "ranked-complete-docket-acquisition",
             "decision_anchor": "2026-06-30",
@@ -915,7 +930,7 @@ def test_sealed_unresolved_manifest_authorizes_only_fresh_unresolved_subset(
         }
         run_digest = store.ensure_firecrawl_run(
             "budget-exhausted",
-            batch_id="ranked-subset-rest",
+            batch_id="ranked-subset-firecrawl",
             config=config,
             credit_cap=10,
             reserved_credits_per_attempt=5,
@@ -1007,6 +1022,41 @@ def test_sealed_unresolved_manifest_authorizes_only_fresh_unresolved_subset(
     assert legalforecast_cli.main(seal_args) == 0
     unresolved_manifest = seal_root / "firecrawl-unresolved-partition.jsonl"
     seal_card = seal_root / "run-cards" / "seal-ranked-firecrawl-run.json"
+
+    mismatched_seal_card = tmp_path / "mismatched-source-batch-seal-card.json"
+    mismatched_card_value = json.loads(seal_card.read_text())
+    mismatched_card_value["source_batch_id"] = "ranked-subset-firecrawl-alias"
+    mismatched_seal_card.write_text(
+        json.dumps(mismatched_card_value, sort_keys=True) + "\n"
+    )
+    mismatched_target = _target_store(
+        tmp_path,
+        name="mismatched-source-batch-target.sqlite3",
+    )
+    mismatched_args = _subset_selection_args(
+        source_store=source_store,
+        enrichment_root=enrichment_root,
+        target_store=mismatched_target,
+        run_card=tmp_path / "mismatched-source-batch-card.json",
+        summary=tmp_path / "mismatched-source-batch-summary.json",
+        docket_ids=(),
+    )
+    mismatched_args.extend(
+        (
+            "--sealed-unresolved-manifest",
+            str(unresolved_manifest),
+            "--expected-sealed-unresolved-manifest-sha256",
+            hashlib.sha256(unresolved_manifest.read_bytes()).hexdigest(),
+            "--recovery-seal-run-card",
+            str(mismatched_seal_card),
+            "--expected-recovery-seal-run-card-sha256",
+            hashlib.sha256(mismatched_seal_card.read_bytes()).hexdigest(),
+            "--recovery-source-cycle-store",
+            str(firecrawl_store),
+        )
+    )
+    assert legalforecast_cli.main(mismatched_args) == 2
+    _assert_no_target_rows(mismatched_target)
 
     zero_seal_root = tmp_path / "zero-authority-seal"
     zero_seal_args = list(seal_args)

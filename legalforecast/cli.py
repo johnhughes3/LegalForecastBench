@@ -84,10 +84,12 @@ from legalforecast.ingestion.budgeted_courtlistener_html_source import (
 from legalforecast.ingestion.budgeted_docket_acquisition import (
     BudgetedDocketAcquisitionError,
     acquire_ranked_dockets,
+    authenticated_handoff_parent_batch_id,
     materialize_selected_slice_batch,
     provisional_lineage_flags,
     ranked_parent_requires_authenticated_handoff,
     render_complete_docket_html,
+    verify_authenticated_acquisition_slice,
     verify_authenticated_ranked_firecrawl_handoff,
 )
 from legalforecast.ingestion.budgeted_firecrawl import (
@@ -14200,16 +14202,33 @@ def _cmd_acquisition_seal_ranked_dockets(args: argparse.Namespace) -> int:
                 raise RankedFirecrawlRecoveryError(
                     "source Firecrawl run lacks a valid selected batch"
                 )
+            authenticated_parent_batch_id = authenticated_handoff_parent_batch_id(
+                store,
+                source_batch_id,
+            )
             records = list(
                 verify_authenticated_ranked_firecrawl_handoff(
                     store=store,
-                    parent_batch_id=source_batch_id,
+                    parent_batch_id=authenticated_parent_batch_id,
                     ranked_path=ranked_path,
                     selection_run_card_path=selection_card_path,
                     expected_selection_run_card_sha256=selection_card_sha256,
                     max_candidates=max_candidates,
                 )
             )
+            verify_authenticated_acquisition_slice(
+                store=store,
+                acquisition_batch_id=source_batch_id,
+                authenticated_parent_batch_id=authenticated_parent_batch_id,
+                records=records,
+            )
+            source_batch_digest = store.batch_digest(source_batch_id)
+            source_parent_batch_digest = store.batch_digest(
+                authenticated_parent_batch_id
+            )
+            source_slice_config = store.batch_config(source_batch_id)
+            source_selection_count = source_slice_config.get("selection_count")
+            source_selection_hash = source_slice_config.get("selection_hash")
             if len(records) != max_candidates:
                 raise RankedFirecrawlRecoveryError(
                     "authenticated ranked selection does not contain exactly "
@@ -14297,6 +14316,11 @@ def _cmd_acquisition_seal_ranked_dockets(args: argparse.Namespace) -> int:
         "dry_run": _acquisition_dry_run(args),
         "source_cycle_hash": sealed.source_cycle_hash,
         "source_batch_id": sealed.source_batch_id,
+        "source_batch_digest": source_batch_digest,
+        "source_parent_batch_id": authenticated_parent_batch_id,
+        "source_parent_batch_digest": source_parent_batch_digest,
+        "source_selection_count": source_selection_count,
+        "source_selection_hash": source_selection_hash,
         "source_run_id": sealed.run_id,
         "source_run_config_sha256": sealed.source_run_config_sha256,
         "source_credit_cap": sealed.source_credit_cap,
@@ -14369,6 +14393,11 @@ def _cmd_acquisition_seal_ranked_dockets(args: argparse.Namespace) -> int:
         "source_cycle_store": str(source_store.resolve()),
         "source_cycle_hash": sealed.source_cycle_hash,
         "source_batch_id": sealed.source_batch_id,
+        "source_batch_digest": source_batch_digest,
+        "source_parent_batch_id": authenticated_parent_batch_id,
+        "source_parent_batch_digest": source_parent_batch_digest,
+        "source_selection_count": source_selection_count,
+        "source_selection_hash": source_selection_hash,
         "source_run_id": sealed.run_id,
         "source_run_config_sha256": sealed.source_run_config_sha256,
         "source_credit_cap": sealed.source_credit_cap,
@@ -15508,15 +15537,25 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
             with CycleAcquisitionStore(
                 cast(Path, recovery_source_store), read_only=True
             ) as recovery_store:
+                authenticated_parent_batch_id = authenticated_handoff_parent_batch_id(
+                    recovery_store,
+                    source_firecrawl_batch,
+                )
                 original_records = list(
                     verify_authenticated_ranked_firecrawl_handoff(
                         store=recovery_store,
-                        parent_batch_id=source_firecrawl_batch,
+                        parent_batch_id=authenticated_parent_batch_id,
                         ranked_path=ranked_path,
                         selection_run_card_path=Path(original_selection_card_value),
                         expected_selection_run_card_sha256=(original_selection_sha256),
                         max_candidates=source_candidate_count,
                     )
+                )
+                verify_authenticated_acquisition_slice(
+                    store=recovery_store,
+                    acquisition_batch_id=source_firecrawl_batch,
+                    authenticated_parent_batch_id=authenticated_parent_batch_id,
+                    records=original_records,
                 )
                 verified_recovery = verify_recovery_partition(
                     store=recovery_store,
