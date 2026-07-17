@@ -15,6 +15,12 @@ from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStoreError,
     cohort_reason_policy_taxonomy,
 )
+from legalforecast.ingestion.recap_api_batch_driver import (
+    DIRECT_SEARCH_CYCLE_REBIND_PROVENANCE_SCHEMA,
+    DIRECT_SEARCH_CYCLE_REBIND_TERM,
+    DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA,
+    DIRECT_SEARCH_TRANSFER_TERM,
+)
 from legalforecast.ingestion.rest_observation_policy_rebind import (
     AuthenticatedTerminalRestSource,
     PublishedTerminalRestRebind,
@@ -101,6 +107,20 @@ class _Target:
     batch_config: Mapping[str, object]
     candidate_ids: frozenset[str]
     current: Mapping[str, CandidateObservation]
+
+
+@dataclass(frozen=True, slots=True)
+class _TargetSetupAuthority:
+    """Exact provider-free carrier authority proven by the pinned summary."""
+
+    config: Mapping[str, object]
+    term: str
+    provenance_schema: str
+    source_batch_id: str
+    source_batch_digest: str
+    source_candidate_set_sha256: str
+    source_cycle_hash: str | None
+    target_cycle_hash: str | None
 
 
 def plan_exact310_terminal_rest_rebind(
@@ -302,7 +322,10 @@ def _build_contract(
             "exact310 compatibility source unexpectedly contains raw artifacts"
         )
     _validate_source_batch_config(source.batch_config, receipt, source_spec)
-    recomputed_candidate_set_sha256 = _recompute_source_candidate_set_sha256(
+    (
+        recomputed_candidate_set_sha256,
+        current_projection_candidate_set_sha256,
+    ) = _recompute_source_candidate_set_sha256(
         source.discovery_payloads,
         receipt=receipt,
         spec=source_spec,
@@ -310,19 +333,24 @@ def _build_contract(
     target_seed_summary = load_pinned_rebind_json(
         target_seed_summary_path,
         expected_sha256=expected_target_seed_summary_sha256,
-        label="exact310 target seed summary",
+        label="exact310 target setup summary",
     )
-    expected_target_config = _validate_target_seed_summary(
+    target_setup = _validate_target_seed_summary(
         target_seed_summary,
         target_batch_id=target_batch_id,
         source_spec=source_spec,
+        receipt=receipt,
+        expected_target_cycle_hash=expected_target_cycle_hash,
+        expected_current_projection_candidate_set_sha256=(
+            current_projection_candidate_set_sha256
+        ),
     )
     target = _target(
         target_store_path,
         target_batch_id=target_batch_id,
         expected_cycle_hash=expected_target_cycle_hash,
         candidate_ids=source.candidate_ids,
-        expected_batch_config=expected_target_config,
+        setup=target_setup,
     )
     outcomes = _derive_outcomes(source, target, pinned_actions=pinned_actions)
     rows = [
@@ -556,7 +584,7 @@ def _target(
     target_batch_id: str,
     expected_cycle_hash: str,
     candidate_ids: frozenset[str],
-    expected_batch_config: Mapping[str, object],
+    setup: _TargetSetupAuthority,
 ) -> _Target:
     try:
         with CycleAcquisitionStore(store_path, read_only=True) as store:
@@ -566,20 +594,53 @@ def _target(
                 raise Exact310RestRebindError("target candidate set mismatch")
             if any(
                 store.candidate_discovery_term(target_batch_id, candidate_id)
-                != "courtlistener-direct-search-transfer-v1"
+                != setup.term
                 for candidate_id in candidate_ids
             ):
                 raise Exact310RestRebindError(
-                    "target candidates do not come from the pinned seed term"
+                    "target candidates do not come from the pinned setup term"
                 )
             batch_config = store.batch_config(target_batch_id)
-            if dict(batch_config) != dict(expected_batch_config):
+            if dict(batch_config) != dict(setup.config):
                 raise Exact310RestRebindError(
-                    "target batch config does not match pinned seed authority"
+                    "target batch config does not match pinned setup authority"
                 )
             batch_digest = store.batch_digest(target_batch_id)
             if canonical_rebind_sha256(batch_config) != batch_digest:
                 raise Exact310RestRebindError("target batch config digest mismatch")
+            progress = store.term_progress(target_batch_id, setup.term)
+            if (
+                progress.terminal_status != "exhausted"
+                or progress.cursor is not None
+                or progress.hit_count != len(candidate_ids)
+            ):
+                raise Exact310RestRebindError(
+                    "target setup carrier is not exactly exhausted"
+                )
+            hits = store.candidate_discovery_hits(target_batch_id)
+            if len(hits) != len(candidate_ids):
+                raise Exact310RestRebindError(
+                    "target setup discovery-hit count mismatch"
+                )
+            target_projection_records = [
+                _validate_target_setup_hit(
+                    hit.payload,
+                    hit.candidate_id,
+                    hit.provider_hit_id,
+                    setup,
+                )
+                for hit in hits
+            ]
+            target_projection_records.sort(
+                key=lambda row: int(cast(str, row["docket_id"]))
+            )
+            if (
+                canonical_rebind_sha256(target_projection_records)
+                != setup.source_candidate_set_sha256
+            ):
+                raise Exact310RestRebindError(
+                    "target setup candidate projection commitment mismatch"
+                )
             current = {
                 candidate_id: observation
                 for candidate_id in sorted(candidate_ids)
@@ -623,8 +684,30 @@ def _validate_target_seed_summary(
     *,
     target_batch_id: str,
     source_spec: Exact310SourceSpec,
-) -> Mapping[str, object]:
-    """Authenticate the exact provider-free seed-direct-search target authority."""
+    receipt: Mapping[str, object],
+    expected_target_cycle_hash: str,
+    expected_current_projection_candidate_set_sha256: str,
+) -> _TargetSetupAuthority:
+    """Authenticate one exact provider-free target-setup summary."""
+
+    schema = summary.get("schema_version")
+    if schema == "legalforecast.direct_search_cycle_rebind_result.v1":
+        return _validate_target_cycle_rebind_summary(
+            summary,
+            target_batch_id=target_batch_id,
+            source_spec=source_spec,
+            receipt=receipt,
+            expected_target_cycle_hash=expected_target_cycle_hash,
+            expected_current_projection_candidate_set_sha256=(
+                expected_current_projection_candidate_set_sha256
+            ),
+        )
+    if schema != "legalforecast.direct_search_seed_result.v1":
+        raise Exact310RestRebindError("target setup summary schema mismatch")
+    if expected_target_cycle_hash != source_spec.cycle_hash:
+        raise Exact310RestRebindError(
+            "cross-cycle target requires a rebind-direct-search summary"
+        )
 
     required = {
         "schema_version",
@@ -659,7 +742,13 @@ def _validate_target_seed_summary(
             character not in "0123456789abcdef" for character in digest
         ):
             raise Exact310RestRebindError(f"{label} is not a lowercase SHA-256")
-    return MappingProxyType(
+    if (
+        source_batch_id != _text(receipt, "source_batch_id")
+        or source_batch_digest != _text(receipt, "source_batch_digest")
+        or source_candidate_set_sha256 != source_spec.candidate_set_sha256
+    ):
+        raise Exact310RestRebindError("target seed summary source lineage mismatch")
+    config = MappingProxyType(
         {
             "auth_mode": "authenticated",
             "decision_window_end": "2026-07-15",
@@ -681,6 +770,229 @@ def _validate_target_seed_summary(
             "top_k_per_term": source_spec.candidate_count,
         }
     )
+    return _TargetSetupAuthority(
+        config=config,
+        term=DIRECT_SEARCH_TRANSFER_TERM,
+        provenance_schema=DIRECT_SEARCH_TRANSFER_PROVENANCE_SCHEMA,
+        source_batch_id=source_batch_id,
+        source_batch_digest=source_batch_digest,
+        source_candidate_set_sha256=source_candidate_set_sha256,
+        source_cycle_hash=None,
+        target_cycle_hash=None,
+    )
+
+
+def _validate_target_cycle_rebind_summary(
+    summary: Mapping[str, object],
+    *,
+    target_batch_id: str,
+    source_spec: Exact310SourceSpec,
+    receipt: Mapping[str, object],
+    expected_target_cycle_hash: str,
+    expected_current_projection_candidate_set_sha256: str,
+) -> _TargetSetupAuthority:
+    required = {
+        "schema_version",
+        "batch_id",
+        "term",
+        "source_batch_id",
+        "source_batch_digest",
+        "source_cycle_hash",
+        "target_cycle_hash",
+        "source_candidate_set_sha256",
+        "leads_selected",
+        "leads_seeded",
+        "already_seeded",
+        "provider_activity_requested",
+        "provider_activity_executed",
+        "paid_activity_requested",
+        "paid_activity_executed",
+    }
+    if set(summary) != required:
+        raise Exact310RestRebindError("target rebind summary field set is not exact")
+    if (
+        summary.get("batch_id") != target_batch_id
+        or summary.get("term") != DIRECT_SEARCH_CYCLE_REBIND_TERM
+        or summary.get("leads_selected") != source_spec.candidate_count
+        or summary.get("leads_seeded") != source_spec.candidate_count
+        or summary.get("already_seeded") is not False
+        or any(
+            summary.get(key) is not False
+            for key in (
+                "provider_activity_requested",
+                "provider_activity_executed",
+                "paid_activity_requested",
+                "paid_activity_executed",
+            )
+        )
+    ):
+        raise Exact310RestRebindError("target rebind summary identity mismatch")
+    source_batch_id = _text(summary, "source_batch_id")
+    source_batch_digest = _lower_sha256(summary, "source_batch_digest")
+    source_candidate_set_sha256 = _lower_sha256(summary, "source_candidate_set_sha256")
+    source_cycle_hash = _lower_sha256(summary, "source_cycle_hash")
+    target_cycle_hash = _lower_sha256(summary, "target_cycle_hash")
+    if source_cycle_hash != source_spec.cycle_hash:
+        raise Exact310RestRebindError("target rebind source cycle hash mismatch")
+    if target_cycle_hash != expected_target_cycle_hash:
+        raise Exact310RestRebindError("target cycle hash mismatch")
+    if source_cycle_hash == target_cycle_hash:
+        raise Exact310RestRebindError("target rebind cycle hashes are not distinct")
+    if source_candidate_set_sha256 != expected_current_projection_candidate_set_sha256:
+        raise Exact310RestRebindError(
+            "target rebind current projection commitment mismatch"
+        )
+    if source_batch_id != _text(
+        receipt, "source_batch_id"
+    ) or source_batch_digest != _text(receipt, "source_batch_digest"):
+        raise Exact310RestRebindError("target rebind summary lineage mismatch")
+    config = MappingProxyType(
+        {
+            "auth_mode": "authenticated",
+            "cross_cycle_rebind": True,
+            "decision_window_end": "2026-07-15",
+            "decision_window_start": "2026-07-11",
+            "discovery_mode": DIRECT_SEARCH_CYCLE_REBIND_PROVENANCE_SCHEMA,
+            "order_by": "entry_date_filed desc",
+            "page_size": 100,
+            "paid_activity_executed": False,
+            "paid_activity_requested": False,
+            "provider": "courtlistener-recap-rest-v4",
+            "provider_activity_executed": False,
+            "provider_activity_requested": False,
+            "query_field": "description",
+            "query_term_order_is_frozen": True,
+            "query_terms": [DIRECT_SEARCH_CYCLE_REBIND_TERM],
+            "schema_version": "legalforecast.recap_api_discovery_batch.v1",
+            "search_type": "rd",
+            "source_batch_digest": source_batch_digest,
+            "source_batch_id": source_batch_id,
+            "source_candidate_count": source_spec.candidate_count,
+            "source_candidate_set_sha256": source_candidate_set_sha256,
+            "source_cycle_hash": source_cycle_hash,
+            "source_search_type": None,
+            "target_cycle_hash": target_cycle_hash,
+            "top_k_per_term": source_spec.candidate_count,
+        }
+    )
+    return _TargetSetupAuthority(
+        config=config,
+        term=DIRECT_SEARCH_CYCLE_REBIND_TERM,
+        provenance_schema=DIRECT_SEARCH_CYCLE_REBIND_PROVENANCE_SCHEMA,
+        source_batch_id=source_batch_id,
+        source_batch_digest=source_batch_digest,
+        source_candidate_set_sha256=source_candidate_set_sha256,
+        source_cycle_hash=source_cycle_hash,
+        target_cycle_hash=target_cycle_hash,
+    )
+
+
+def _validate_target_setup_hit(
+    payload: Mapping[str, object],
+    candidate_id: str,
+    provider_hit_id: str,
+    setup: _TargetSetupAuthority,
+) -> Mapping[str, object]:
+    if not candidate_id.startswith("courtlistener-docket-"):
+        raise Exact310RestRebindError(
+            f"target setup candidate identity mismatch for {candidate_id}"
+        )
+    docket_id = candidate_id.removeprefix("courtlistener-docket-")
+    if (
+        not docket_id
+        or provider_hit_id != f"{setup.term}:{setup.source_batch_digest}:{docket_id}"
+        or payload.get("candidate_id") != candidate_id
+        or payload.get("docket_id") != docket_id
+        or payload.get("courtlistener_docket_id") != docket_id
+        or payload.get("provider") != "courtlistener-recap-rest-v4"
+        or payload.get("query_term") != setup.term
+    ):
+        raise Exact310RestRebindError(
+            f"target setup payload identity mismatch for {candidate_id}"
+        )
+    provenance = _mapping(payload, "direct_search_provenance")
+    expected: dict[str, object] = {
+        "schema_version": setup.provenance_schema,
+        "source_batch_id": setup.source_batch_id,
+        "source_batch_digest": setup.source_batch_digest,
+        "source_candidate_set_sha256": setup.source_candidate_set_sha256,
+    }
+    if setup.source_cycle_hash is not None:
+        expected["source_cycle_hash"] = setup.source_cycle_hash
+    if setup.target_cycle_hash is not None:
+        expected["target_cycle_hash"] = setup.target_cycle_hash
+    expected_fields = {
+        *expected,
+        "source_provider_hit_id",
+        "source_query_term",
+        "source_payload_sha256",
+        "source_hits",
+    }
+    if set(provenance) != expected_fields:
+        raise Exact310RestRebindError(
+            f"target setup provenance field mismatch for {candidate_id}"
+        )
+    if any(provenance.get(key) != value for key, value in expected.items()):
+        raise Exact310RestRebindError(
+            f"target setup provenance mismatch for {candidate_id}"
+        )
+    raw_source_hits = provenance.get("source_hits")
+    if not isinstance(raw_source_hits, list) or not raw_source_hits:
+        raise Exact310RestRebindError(
+            f"target setup provenance has no source hits for {candidate_id}"
+        )
+    source_hits = [
+        _validated_source_hit(hit, candidate_id=candidate_id)
+        for hit in cast(list[object], raw_source_hits)
+    ]
+    if source_hits != sorted(
+        source_hits,
+        key=lambda hit: (
+            cast(str, hit["query_term"]),
+            cast(str, hit["provider_hit_id"]),
+            cast(str, hit["payload_sha256"]),
+        ),
+    ) or len({canonical_rebind_sha256(hit) for hit in source_hits}) != len(source_hits):
+        raise Exact310RestRebindError(
+            f"target setup source hits are not unique and sorted for {candidate_id}"
+        )
+    primary = {
+        "provider_hit_id": _text(provenance, "source_provider_hit_id"),
+        "query_term": _text(provenance, "source_query_term"),
+        "payload_sha256": _lower_sha256(provenance, "source_payload_sha256"),
+    }
+    if primary not in source_hits:
+        raise Exact310RestRebindError(
+            f"target setup primary source hit is not committed for {candidate_id}"
+        )
+    return MappingProxyType(
+        {
+            "docket_id": docket_id,
+            "court_id": _optional_text(payload.get("court_id"), "court_id"),
+            "docket_number": _optional_text(
+                payload.get("docket_number"), "docket_number"
+            ),
+            "case_name": _optional_text(payload.get("case_name"), "case_name"),
+            "decision_entry_evidence": _optional_mapping(
+                payload.get("decision_entry_evidence"),
+                "decision_entry_evidence",
+            ),
+            "opinion_resolution_evidence": _optional_mapping(
+                payload.get("opinion_resolution_evidence"),
+                "opinion_resolution_evidence",
+            ),
+            "source_hits": source_hits,
+        }
+    )
+
+
+def _lower_sha256(value: Mapping[str, object], key: str) -> str:
+    digest = _text(value, key)
+    if len(digest) != 64 or any(
+        character not in "0123456789abcdef" for character in digest
+    ):
+        raise Exact310RestRebindError(f"{key} is not a lowercase SHA-256")
+    return digest
 
 
 def _validate_source_batch_config(
@@ -718,8 +1030,8 @@ def _recompute_source_candidate_set_sha256(
     *,
     receipt: Mapping[str, object],
     spec: Exact310SourceSpec,
-) -> str:
-    """Rebuild the direct-search lead commitment from authenticated payloads."""
+) -> tuple[str, str]:
+    """Rebuild historical and current lead commitments from source payloads."""
 
     if len(discovery_payloads) != spec.candidate_count:
         raise Exact310RestRebindError(
@@ -729,6 +1041,7 @@ def _recompute_source_candidate_set_sha256(
     source_batch_digest = _text(receipt, "source_batch_digest")
     transfer_term = _text(receipt, "term")
     records: list[Mapping[str, object]] = []
+    current_projection_records: list[Mapping[str, object]] = []
     numeric_docket_ids: set[int] = set()
     for candidate_id, candidate_payloads in discovery_payloads.items():
         if len(candidate_payloads) != 1:
@@ -809,28 +1122,37 @@ def _recompute_source_candidate_set_sha256(
             raise Exact310RestRebindError(
                 f"source discovery primary hit is not committed for {candidate_id}"
             )
-        records.append(
+        historical_record: Mapping[str, object] = {
+            "docket_id": docket_id,
+            "court_id": _optional_text(payload.get("court_id"), "court_id"),
+            "docket_number": _optional_text(
+                payload.get("docket_number"), "docket_number"
+            ),
+            "case_name": _optional_text(payload.get("case_name"), "case_name"),
+            "decision_entry_evidence": _optional_mapping(
+                payload.get("decision_entry_evidence"),
+                "decision_entry_evidence",
+            ),
+            "source_hits": source_hits,
+        }
+        records.append(historical_record)
+        current_projection_records.append(
             {
-                "docket_id": docket_id,
-                "court_id": _optional_text(payload.get("court_id"), "court_id"),
-                "docket_number": _optional_text(
-                    payload.get("docket_number"), "docket_number"
+                **historical_record,
+                "opinion_resolution_evidence": _optional_mapping(
+                    payload.get("opinion_resolution_evidence"),
+                    "opinion_resolution_evidence",
                 ),
-                "case_name": _optional_text(payload.get("case_name"), "case_name"),
-                "decision_entry_evidence": _optional_mapping(
-                    payload.get("decision_entry_evidence"),
-                    "decision_entry_evidence",
-                ),
-                "source_hits": source_hits,
             }
         )
     records.sort(key=lambda row: int(cast(str, row["docket_id"])))
+    current_projection_records.sort(key=lambda row: int(cast(str, row["docket_id"])))
     recomputed = canonical_rebind_sha256(records)
     if recomputed != spec.candidate_set_sha256:
         raise Exact310RestRebindError(
             "source discovery payload candidate-set commitment mismatch"
         )
-    return recomputed
+    return recomputed, canonical_rebind_sha256(current_projection_records)
 
 
 def _validated_source_hit(

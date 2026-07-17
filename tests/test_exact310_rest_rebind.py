@@ -26,6 +26,10 @@ from legalforecast.ingestion.exact310_rest_rebind import (
     execute_exact310_terminal_rest_rebind,
     plan_exact310_terminal_rest_rebind,
 )
+from legalforecast.ingestion.recap_api_batch_driver import (
+    DirectSearchSeedSource,
+    read_saturated_direct_search_leads,
+)
 from legalforecast.ingestion.rest_observation_policy_rebind import (
     RestObservationPolicyRebindError,
 )
@@ -186,26 +190,28 @@ def _sha(path: Path) -> str:
 def _transfer_payloads(
     candidates: tuple[str, ...],
     *,
-    source_batch_id: str,
-    source_batch_digest: str,
+    source: DirectSearchSeedSource,
     transfer_term: str,
 ) -> tuple[str, Mapping[str, Mapping[str, object]]]:
     lead_rows: list[dict[str, object]] = []
     partial_payloads: dict[str, dict[str, object]] = {}
+    leads_by_docket = {lead.docket_id: lead for lead in source.leads}
     for candidate in candidates:
         docket_id = candidate.rsplit("-", 1)[-1]
+        source_lead = leads_by_docket[docket_id]
         source_hit = {
-            "provider_hit_id": f"source-hit-{docket_id}",
-            "query_term": "motion to dismiss",
-            "payload_sha256": hashlib.sha256(candidate.encode()).hexdigest(),
+            "provider_hit_id": source_lead.source_provider_hit_id,
+            "query_term": source_lead.source_query_term,
+            "payload_sha256": source_lead.source_payload_sha256,
         }
+        source_hits = [hit.to_record() for hit in source_lead.source_hits]
         lead: dict[str, object] = {
             "docket_id": docket_id,
-            "court_id": "nysd",
-            "docket_number": f"1:26-cv-{docket_id}",
-            "case_name": f"Fixture {docket_id} v. Example",
-            "decision_entry_evidence": None,
-            "source_hits": [source_hit],
+            "court_id": source_lead.court_id,
+            "docket_number": source_lead.docket_number,
+            "case_name": source_lead.case_name,
+            "decision_entry_evidence": source_lead.decision_entry_evidence,
+            "source_hits": source_hits,
         }
         lead_rows.append(lead)
         partial_payloads[candidate] = {
@@ -222,14 +228,18 @@ def _transfer_payloads(
                 "schema_version": (
                     "legalforecast.courtlistener_direct_search_transfer.v1"
                 ),
-                "source_batch_id": source_batch_id,
-                "source_batch_digest": source_batch_digest,
+                "source_batch_id": source.source_batch_id,
+                "source_batch_digest": source.source_batch_digest,
                 "source_provider_hit_id": source_hit["provider_hit_id"],
                 "source_query_term": source_hit["query_term"],
                 "source_payload_sha256": source_hit["payload_sha256"],
-                "source_hits": [source_hit],
+                "source_hits": source_hits,
             },
         }
+        if source_lead.opinion_resolution_evidence is not None:
+            partial_payloads[candidate]["opinion_resolution_evidence"] = dict(
+                source_lead.opinion_resolution_evidence
+            )
     lead_rows.sort(key=lambda row: int(str(row["docket_id"])))
     candidate_set_sha256 = hashlib.sha256(
         json.dumps(lead_rows, sort_keys=True, separators=(",", ":")).encode()
@@ -248,12 +258,44 @@ def _fixture(tmp_path: Path) -> Fixture:
     source_path = tmp_path / "source.sqlite3"
     target_path = tmp_path / "target.sqlite3"
     source_lineage_id = "direct-search-source"
-    source_lineage_digest = "d" * 64
     transfer_term = "courtlistener-direct-search-transfer-v1"
+    source_term = "motion to dismiss"
+    source_lineage_payloads = {
+        str(number): {
+            "docket_id": str(number),
+            "court_id": "nysd",
+            "docket_number": f"1:26-cv-{number}",
+            "case_name": f"Fixture {number} v. Example",
+            "opinion_resolution_evidence": {
+                "schema_version": "fixture.opinion_resolution.v1",
+                "source_opinion_id": number,
+            },
+        }
+        for number in (1, 2, 3, 4)
+    }
+    with CycleAcquisitionStore(source_path) as source:
+        source_cycle = source.ensure_cycle(_policy("a"))
+        _batch(
+            source,
+            source_lineage_id,
+            tuple(source_lineage_payloads),
+            config={
+                "provider": "courtlistener",
+                "query_terms": [source_term],
+                "search_window_start": "2026-07-11",
+                "search_window_end": "2026-07-15",
+            },
+            payloads=source_lineage_payloads,
+            term=source_term,
+        )
+        source_lineage_digest = source.batch_digest(source_lineage_id)
+    direct_source = read_saturated_direct_search_leads(
+        source_path,
+        source_batch_id=source_lineage_id,
+    )
     candidate_set_sha256, source_payloads = _transfer_payloads(
         candidates,
-        source_batch_id=source_lineage_id,
-        source_batch_digest=source_lineage_digest,
+        source=direct_source,
         transfer_term=transfer_term,
     )
     source_config = {
@@ -276,7 +318,7 @@ def _fixture(tmp_path: Path) -> Fixture:
         "top_k_per_term": 4,
     }
     with CycleAcquisitionStore(source_path) as source:
-        source_cycle = source.ensure_cycle(_policy("a"))
+        assert source.ensure_cycle(_policy("a")) == source_cycle
         _batch(
             source,
             source_batch,
@@ -327,8 +369,35 @@ def _fixture(tmp_path: Path) -> Fixture:
             batch_id=source_batch,
             complete=True,
         )
+    target_seed_summary = tmp_path / "target-rebind-summary.json"
+    assert (
+        main(
+            [
+                "batch-002",
+                "rebind-direct-search",
+                "--source-store",
+                str(source_path),
+                "--source-batch-id",
+                source_lineage_id,
+                "--cycle-store",
+                str(target_path),
+                "--batch-id",
+                target_batch,
+                "--eligibility-anchor",
+                "2026-06-30",
+                "--summary-output",
+                str(target_seed_summary),
+            ]
+        )
+        == 0
+    )
+    target_summary = json.loads(target_seed_summary.read_text(encoding="utf-8"))
+    assert target_summary["schema_version"] == (
+        "legalforecast.direct_search_cycle_rebind_result.v1"
+    )
+    assert target_summary["source_candidate_set_sha256"] != candidate_set_sha256
     with CycleAcquisitionStore(target_path) as target:
-        target_cycle = target.ensure_cycle(_policy("b"))
+        target_cycle = target.cycle_hash
         _batch(target, "prior", (candidates[0],))
         _record(
             target,
@@ -337,17 +406,6 @@ def _fixture(tmp_path: Path) -> Fixture:
             "excluded",
             "decision_before_release_anchor",
             {"decision_date": "2026-06-29"},
-        )
-        target_config = {
-            **source_config,
-            "source_search_type": "rd",
-        }
-        _batch(
-            target,
-            target_batch,
-            candidates,
-            config=target_config,
-            term=transfer_term,
         )
     receipt = tmp_path / "receipt.json"
     receipt.write_text(
@@ -361,24 +419,6 @@ def _fixture(tmp_path: Path) -> Fixture:
                 "source_batch_id": source_lineage_id,
                 "source_candidate_set_sha256": candidate_set_sha256,
                 "term": transfer_term,
-            },
-            sort_keys=True,
-        )
-        + "\n"
-    )
-    target_seed_summary = tmp_path / "target-seed-summary.json"
-    target_seed_summary.write_text(
-        json.dumps(
-            {
-                "schema_version": "legalforecast.direct_search_seed_result.v1",
-                "batch_id": target_batch,
-                "term": transfer_term,
-                "source_batch_id": source_lineage_id,
-                "source_batch_digest": source_lineage_digest,
-                "source_candidate_set_sha256": candidate_set_sha256,
-                "leads_selected": 4,
-                "leads_seeded": 4,
-                "already_seeded": False,
             },
             sort_keys=True,
         )
@@ -527,8 +567,10 @@ def test_exact310_rebind_rejects_contract_tamper(tmp_path: Path) -> None:
 def test_exact310_plan_rejects_target_candidate_gap(tmp_path: Path) -> None:
     fixture = _fixture(tmp_path)
     wrong = tmp_path / "wrong.sqlite3"
+    with CycleAcquisitionStore(fixture.target_store, read_only=True) as seeded:
+        target_policy = dict(seeded.cycle_policy)
     with CycleAcquisitionStore(wrong) as store:
-        cycle = store.ensure_cycle(_policy("b"))
+        cycle = store.ensure_cycle(target_policy)
         _batch(store, fixture.target_batch_id, fixture.candidates[:2])
     with pytest.raises(Exact310RestRebindError, match="candidate set"):
         plan_exact310_terminal_rest_rebind(
@@ -549,14 +591,16 @@ def test_exact310_plan_rejects_target_candidate_gap(tmp_path: Path) -> None:
 def test_exact310_plan_rejects_arbitrary_target_batch_config(tmp_path: Path) -> None:
     fixture = _fixture(tmp_path)
     wrong = tmp_path / "wrong-config.sqlite3"
+    with CycleAcquisitionStore(fixture.target_store, read_only=True) as seeded:
+        target_policy = dict(seeded.cycle_policy)
     with CycleAcquisitionStore(wrong) as store:
-        cycle = store.ensure_cycle(_policy("b"))
+        cycle = store.ensure_cycle(target_policy)
         _batch(
             store,
             fixture.target_batch_id,
             fixture.candidates,
             config={"arbitrary": "same candidates, wrong authority"},
-            term="courtlistener-direct-search-transfer-v1",
+            term="courtlistener-direct-search-cycle-rebind-v1",
         )
     with pytest.raises(Exact310RestRebindError, match="target batch config"):
         plan_exact310_terminal_rest_rebind(
@@ -572,6 +616,149 @@ def test_exact310_plan_rejects_arbitrary_target_batch_config(tmp_path: Path) -> 
             contract_output_path=tmp_path / "refused-config.json",
             source_spec=fixture.spec,
         )
+
+
+def test_exact310_plan_rejects_cross_cycle_legacy_seed_summary(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    receipt = json.loads(fixture.receipt.read_text(encoding="utf-8"))
+    legacy = tmp_path / "legacy-seed-summary.json"
+    legacy.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.direct_search_seed_result.v1",
+                "batch_id": fixture.target_batch_id,
+                "term": "courtlistener-direct-search-transfer-v1",
+                "source_batch_id": receipt["source_batch_id"],
+                "source_batch_digest": receipt["source_batch_digest"],
+                "source_candidate_set_sha256": (fixture.spec.candidate_set_sha256),
+                "leads_selected": fixture.spec.candidate_count,
+                "leads_seeded": fixture.spec.candidate_count,
+                "already_seeded": False,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        Exact310RestRebindError,
+        match="cross-cycle target requires a rebind-direct-search summary",
+    ):
+        plan_exact310_terminal_rest_rebind(
+            source_store_path=fixture.source_store,
+            source_snapshot_path=fixture.source_snapshot,
+            expected_source_snapshot_manifest_sha256=(fixture.source_manifest_sha256),
+            transfer_receipt_path=fixture.receipt,
+            target_seed_summary_path=legacy,
+            expected_target_seed_summary_sha256=_sha(legacy),
+            target_store_path=fixture.target_store,
+            target_batch_id=fixture.target_batch_id,
+            expected_target_cycle_hash=fixture.target_cycle_hash,
+            contract_output_path=tmp_path / "refused-legacy.json",
+            source_spec=fixture.spec,
+        )
+
+
+def test_exact310_plan_rejects_target_rebind_summary_paid_flag(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    summary = json.loads(fixture.target_seed_summary.read_text(encoding="utf-8"))
+    summary["paid_activity_executed"] = True
+    tampered = tmp_path / "paid-summary.json"
+    tampered.write_text(json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(Exact310RestRebindError, match="summary identity mismatch"):
+        plan_exact310_terminal_rest_rebind(
+            source_store_path=fixture.source_store,
+            source_snapshot_path=fixture.source_snapshot,
+            expected_source_snapshot_manifest_sha256=(fixture.source_manifest_sha256),
+            transfer_receipt_path=fixture.receipt,
+            target_seed_summary_path=tampered,
+            expected_target_seed_summary_sha256=_sha(tampered),
+            target_store_path=fixture.target_store,
+            target_batch_id=fixture.target_batch_id,
+            expected_target_cycle_hash=fixture.target_cycle_hash,
+            contract_output_path=tmp_path / "refused-paid.json",
+            source_spec=fixture.spec,
+        )
+
+
+def test_exact310_plan_rejects_target_rebind_projection_commitment_tamper(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    summary = json.loads(fixture.target_seed_summary.read_text(encoding="utf-8"))
+    summary["source_candidate_set_sha256"] = "f" * 64
+    tampered = tmp_path / "projection-summary.json"
+    tampered.write_text(json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(
+        Exact310RestRebindError,
+        match="current projection commitment mismatch",
+    ):
+        plan_exact310_terminal_rest_rebind(
+            source_store_path=fixture.source_store,
+            source_snapshot_path=fixture.source_snapshot,
+            expected_source_snapshot_manifest_sha256=(fixture.source_manifest_sha256),
+            transfer_receipt_path=fixture.receipt,
+            target_seed_summary_path=tampered,
+            expected_target_seed_summary_sha256=_sha(tampered),
+            target_store_path=fixture.target_store,
+            target_batch_id=fixture.target_batch_id,
+            expected_target_cycle_hash=fixture.target_cycle_hash,
+            contract_output_path=tmp_path / "refused-projection.json",
+            source_spec=fixture.spec,
+        )
+
+
+def test_exact310_plan_rejects_target_rebind_provenance_tamper(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    with sqlite3.connect(fixture.target_store) as connection:
+        row = connection.execute(
+            "SELECT rowid, payload_json FROM discovery_hits "
+            "WHERE batch_id = ? ORDER BY rowid LIMIT 1",
+            (fixture.target_batch_id,),
+        ).fetchone()
+        assert row is not None
+        payload = json.loads(str(row[1]))
+        payload["direct_search_provenance"]["target_cycle_hash"] = "f" * 64
+        connection.execute(
+            "UPDATE discovery_hits SET payload_json = ? WHERE rowid = ?",
+            (json.dumps(payload, sort_keys=True, separators=(",", ":")), row[0]),
+        )
+        connection.commit()
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    with pytest.raises(Exact310RestRebindError, match="provenance mismatch"):
+        _plan(tmp_path, fixture)
+
+
+def test_exact310_plan_rejects_target_rebind_projection_payload_tamper(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    with sqlite3.connect(fixture.target_store) as connection:
+        row = connection.execute(
+            "SELECT rowid, payload_json FROM discovery_hits "
+            "WHERE batch_id = ? ORDER BY rowid LIMIT 1",
+            (fixture.target_batch_id,),
+        ).fetchone()
+        assert row is not None
+        payload = json.loads(str(row[1]))
+        payload["case_name"] = "Substituted v. Target"
+        connection.execute(
+            "UPDATE discovery_hits SET payload_json = ? WHERE rowid = ?",
+            (json.dumps(payload, sort_keys=True, separators=(",", ":")), row[0]),
+        )
+        connection.commit()
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    with pytest.raises(
+        Exact310RestRebindError,
+        match="candidate projection commitment mismatch",
+    ):
+        _plan(tmp_path, fixture)
 
 
 def test_exact310_authentication_holds_source_lock(
@@ -656,24 +843,37 @@ def test_exact310_plan_rejects_target_cycle_mismatch(tmp_path: Path) -> None:
 def test_exact310_reproof_uses_target_cycle_anchor(tmp_path: Path) -> None:
     fixture = _fixture(tmp_path)
     later_target = tmp_path / "later-target.sqlite3"
-    with CycleAcquisitionStore(fixture.target_store, read_only=True) as seeded:
-        target_config = seeded.batch_config(fixture.target_batch_id)
-    with CycleAcquisitionStore(later_target) as target:
-        target_cycle = target.ensure_cycle(_policy("b", anchor="2026-07-16"))
-        _batch(
-            target,
-            fixture.target_batch_id,
-            fixture.candidates,
-            config=target_config,
-            term="courtlistener-direct-search-transfer-v1",
+    later_summary = tmp_path / "later-rebind-summary.json"
+    assert (
+        main(
+            [
+                "batch-002",
+                "rebind-direct-search",
+                "--source-store",
+                str(fixture.source_store),
+                "--source-batch-id",
+                "direct-search-source",
+                "--cycle-store",
+                str(later_target),
+                "--batch-id",
+                fixture.target_batch_id,
+                "--eligibility-anchor",
+                "2026-07-16",
+                "--summary-output",
+                str(later_summary),
+            ]
         )
+        == 0
+    )
+    with CycleAcquisitionStore(later_target, read_only=True) as target:
+        target_cycle = target.cycle_hash
     result = plan_exact310_terminal_rest_rebind(
         source_store_path=fixture.source_store,
         source_snapshot_path=fixture.source_snapshot,
         expected_source_snapshot_manifest_sha256=fixture.source_manifest_sha256,
         transfer_receipt_path=fixture.receipt,
-        target_seed_summary_path=fixture.target_seed_summary,
-        expected_target_seed_summary_sha256=(fixture.target_seed_summary_sha256),
+        target_seed_summary_path=later_summary,
+        expected_target_seed_summary_sha256=_sha(later_summary),
         target_store_path=later_target,
         target_batch_id=fixture.target_batch_id,
         expected_target_cycle_hash=target_cycle,
@@ -801,3 +1001,5 @@ def test_exact310_cli_help_is_explicitly_provider_free(
     help_text = " ".join(capsys.readouterr().out.split())
     assert "No network, provider, PACER" in help_text
     assert "fee acknowledgment" in help_text
+    assert "rebind-direct-search setup summary" in help_text
+    assert "legacy seed- direct-search summary" in help_text

@@ -872,17 +872,20 @@ This REST path supersedes the Case.dev-ranking and Firecrawl-docket steps below 
 
 ### Exact-310 Terminal REST Policy Rebind
 
-The supported target setup is provider-free `seed-direct-search`, not a hand-built SQLite batch. Start from a current-cycle union-store copy or new current-cycle store and transfer the identical saturated 310-docket broad-search source into a fresh target batch:
+The supported target setup is provider-free `rebind-direct-search`, not a hand-built SQLite batch. The exact source belongs to the old screening cycle, so `seed-direct-search` correctly rejects it as cross-cycle. Start from a current-cycle union-store copy or new current-cycle store and transfer the identical saturated 310-docket broad-search source into a fresh target batch while committing both cycle hashes:
 
 ```bash
-uv run legalforecast batch-002 seed-direct-search \
+uv run legalforecast batch-002 rebind-direct-search \
   --source-store <saturated-broad-search-store> \
   --source-batch-id cycle1-courtlistener-20260711-to-20260715-broad-hybrid-v2 \
   --cycle-store <current-cycle-union-store> \
   --batch-id <current-cycle-exact310-rebind-batch> \
+  --eligibility-anchor 2026-06-30 \
   --page-size 100 \
-  --summary-output <current-cycle-exact310-seed-summary.json>
+  --summary-output <current-cycle-exact310-setup-summary.json>
 ```
+
+The setup summary is externally hash-pinned. Its `legalforecast.direct_search_cycle_rebind_result.v1` identity, zero provider/paid-activity flags, source and target cycle hashes, source batch identity, current source-projection commitment, exact target config, exhausted carrier term, and every candidate's rebind provenance are authenticated by both exact310 passes. The current projection commitment may differ from the historical transfer receipt's candidate-set commitment when the projection schema has been strengthened; the exact310 commands bind both commitments to their distinct roles rather than treating them as interchangeable.
 
 After the old 8410bac REST batch is terminal, writer-free, WAL-clean, and published as a complete saturated snapshot, freeze a provider-free rebind contract. The command authenticates the exact old cycle, batch config, 310-candidate commitment, transfer receipt, snapshot, and every terminal observation against the current target cycle. Existing current-cycle outcomes are preserved; authenticated source exclusions retain their exact reason and evidence with rebind provenance; accepted strict-screen evidence is re-proved under the shared current validator; an old accepted row that cannot be re-proved fails closed.
 
@@ -892,8 +895,8 @@ uv run legalforecast batch-002 plan-exact310-rest-rebind \
   --source-snapshot <old-exact310-complete-snapshot> \
   --expected-source-snapshot-manifest-sha256 <pinned-old-manifest-sha256> \
   --transfer-receipt <old-direct-search-transfer-summary.json> \
-  --target-seed-summary <current-cycle-exact310-seed-summary.json> \
-  --expected-target-seed-summary-sha256 <pinned-target-seed-summary-sha256> \
+  --target-seed-summary <current-cycle-exact310-setup-summary.json> \
+  --expected-target-seed-summary-sha256 <pinned-target-setup-summary-sha256> \
   --cycle-store <current-cycle-union-store> \
   --batch-id <current-cycle-exact310-rebind-batch> \
   --expected-target-cycle-hash <current-cycle-hash> \
@@ -908,8 +911,8 @@ uv run legalforecast batch-002 rebind-exact310-rest-observations \
   --source-snapshot <old-exact310-complete-snapshot> \
   --expected-source-snapshot-manifest-sha256 <pinned-old-manifest-sha256> \
   --transfer-receipt <old-direct-search-transfer-summary.json> \
-  --target-seed-summary <current-cycle-exact310-seed-summary.json> \
-  --expected-target-seed-summary-sha256 <pinned-target-seed-summary-sha256> \
+  --target-seed-summary <current-cycle-exact310-setup-summary.json> \
+  --expected-target-seed-summary-sha256 <pinned-target-setup-summary-sha256> \
   --cycle-store <current-cycle-union-store> \
   --batch-id <current-cycle-exact310-rebind-batch> \
   --expected-target-cycle-hash <current-cycle-hash> \
