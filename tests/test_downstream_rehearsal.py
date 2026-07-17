@@ -477,6 +477,7 @@ def test_exact_100_public_fixture_chain_reaches_fixture_only_finalization(
         ("sidecar", "fixture stage output is missing or unsafe"),
         ("run-card", "invalid fixture artifact sidecar"),
         ("run-card-delete", "fixture rehearsal stage card is missing"),
+        ("run-card-count", "invalid fixture stage card"),
         ("response-fixture", "invalid fixture stage card"),
     ),
 )
@@ -518,6 +519,11 @@ def test_explicit_rehearsal_stage_authenticates_prior_stage_without_rewriting(
         stage_card_path.write_bytes(stage_card_path.read_bytes() + b"\n")
     elif mutation == "run-card-delete":
         stage_card_path.unlink()
+    elif mutation == "run-card-count":
+        stage_card = json.loads(stage_card_path.read_text(encoding="utf-8"))
+        stage_card["record_count"] = int(stage_card["record_count"]) + 1
+        _write_json(stage_card_path, stage_card)
+        _recommit_fixture_artifact_sidecar(stage_card_path)
     else:
         fixture["responses"].write_bytes(fixture["responses"].read_bytes() + b"\n")
     published_bytes = {
@@ -837,6 +843,212 @@ def test_fixture_finalizer_authenticates_final_summary_sidecar(
         == 2
     )
     assert expected_message in capsys.readouterr().err
+
+
+def test_fixture_finalizer_rejects_recommitted_stage_card_count(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 0
+    rehearsal_root = fixture["output_root"]
+    stage_card_path = rehearsal_root / "run-cards/rehearsal-build-packets.json"
+    stage_card = json.loads(stage_card_path.read_text(encoding="utf-8"))
+    stage_card["record_count"] = int(stage_card["record_count"]) + 1
+    _write_json(stage_card_path, stage_card)
+    _recommit_fixture_stage_card_authority(
+        rehearsal_root,
+        stage="rehearsal-build-packets",
+    )
+
+    assert (
+        cli_module.main(
+            _finalize_rehearsal_command(
+                fixture,
+                target_count=1,
+                output_root=tmp_path / "recommitted-count-finalize",
+            )
+        )
+        == 2
+    )
+    assert "invalid fixture stage card" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("mutation", ("omit", "substitute"))
+def test_fixture_finalizer_requires_exact_stage_primary_paths(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    mutation: str,
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 0
+    rehearsal_root = fixture["output_root"]
+    stage = "rehearsal-build-packets"
+    stage_card_path = rehearsal_root / "run-cards" / f"{stage}.json"
+    stage_card = json.loads(stage_card_path.read_text(encoding="utf-8"))
+    artifact_path = rehearsal_root / "rehearsal-packet-audit.jsonl"
+    sidecar_path = Path(str(artifact_path) + ".fixture-artifact.json")
+    del stage_card["output_commitments"][str(artifact_path.resolve())]
+    del stage_card["output_commitments"][str(sidecar_path.resolve())]
+
+    summary_path = rehearsal_root / "rehearsal-final-summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    del summary["output_commitments"][str(artifact_path.resolve())]
+    del summary["output_commitments"][str(sidecar_path.resolve())]
+    if mutation == "substitute":
+        substitute_path = rehearsal_root / "rehearsal-packet-audit-substitute.jsonl"
+        substitute_path.write_bytes(artifact_path.read_bytes())
+        substitute_sidecar_path = Path(str(substitute_path) + ".fixture-artifact.json")
+        substitute_sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+        substitute_sidecar["artifact_path"] = str(substitute_path.resolve())
+        _write_json(substitute_sidecar_path, substitute_sidecar)
+        stage_card["output_commitments"][str(substitute_path.resolve())] = _sha256_path(
+            substitute_path
+        )
+        stage_card["output_commitments"][str(substitute_sidecar_path.resolve())] = (
+            _sha256_path(substitute_sidecar_path)
+        )
+        summary["output_commitments"][str(substitute_path.resolve())] = _sha256_path(
+            substitute_path
+        )
+        summary["output_commitments"][str(substitute_sidecar_path.resolve())] = (
+            _sha256_path(substitute_sidecar_path)
+        )
+    _write_json(stage_card_path, stage_card)
+    stage_card_sidecar_path = _recommit_fixture_artifact_sidecar(stage_card_path)
+    summary["output_commitments"][str(stage_card_path.resolve())] = _sha256_path(
+        stage_card_path
+    )
+    summary["output_commitments"][str(stage_card_sidecar_path.resolve())] = (
+        _sha256_path(stage_card_sidecar_path)
+    )
+    _write_json(summary_path, summary)
+    _recommit_fixture_summary_authority(rehearsal_root)
+
+    assert (
+        cli_module.main(
+            _finalize_rehearsal_command(
+                fixture,
+                target_count=1,
+                output_root=tmp_path / f"{mutation}-stage-path-finalize",
+            )
+        )
+        == 2
+    )
+    assert "fixture stage output paths differ" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("option", "substitute_key", "expected_message"),
+    (
+        (
+            "--prediction-units",
+            "raw-units",
+            "prediction units path differs",
+        ),
+        (
+            "--selection",
+            "download-manifest",
+            "invalid fixture-only downstream rehearsal authority",
+        ),
+    ),
+)
+def test_fixture_finalizer_rejects_no_tamper_role_substitution(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    option: str,
+    substitute_key: str,
+    expected_message: str,
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 0
+    rehearsal_root = fixture["output_root"]
+    substitutes = {
+        "raw-units": rehearsal_root / "rehearsal-raw-prediction-units.jsonl",
+        "download-manifest": fixture["manifest"],
+    }
+    command = _finalize_rehearsal_command(
+        fixture,
+        target_count=1,
+        output_root=tmp_path / f"{substitute_key}-substitution-finalize",
+    )
+    command[command.index(option) + 1] = str(substitutes[substitute_key])
+
+    assert cli_module.main(command) == 2
+    assert expected_message in capsys.readouterr().err
+
+
+def test_fixture_finalizer_requires_canonical_stage_card_paths(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 0
+    rehearsal_root = fixture["output_root"]
+    original_card_path = rehearsal_root / "run-cards/rehearsal-build-packets.json"
+    original_sidecar_path = Path(str(original_card_path) + ".fixture-artifact.json")
+    substitute_root = rehearsal_root / "alternate-run-cards"
+    substitute_root.mkdir()
+    substitute_card_path = substitute_root / original_card_path.name
+    substitute_card_path.write_bytes(original_card_path.read_bytes())
+    substitute_sidecar_path = Path(str(substitute_card_path) + ".fixture-artifact.json")
+    substitute_sidecar = json.loads(original_sidecar_path.read_text(encoding="utf-8"))
+    substitute_sidecar["artifact_path"] = str(substitute_card_path.resolve())
+    _write_json(substitute_sidecar_path, substitute_sidecar)
+
+    summary_path = rehearsal_root / "rehearsal-final-summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    summary["stage_cards"][-1] = str(substitute_card_path.resolve())
+    del summary["output_commitments"][str(original_card_path.resolve())]
+    del summary["output_commitments"][str(original_sidecar_path.resolve())]
+    summary["output_commitments"][str(substitute_card_path.resolve())] = _sha256_path(
+        substitute_card_path
+    )
+    summary["output_commitments"][str(substitute_sidecar_path.resolve())] = (
+        _sha256_path(substitute_sidecar_path)
+    )
+    _write_json(summary_path, summary)
+    _recommit_fixture_summary_authority(rehearsal_root)
+
+    assert (
+        cli_module.main(
+            _finalize_rehearsal_command(
+                fixture,
+                target_count=1,
+                output_root=tmp_path / "stage-card-substitution-finalize",
+            )
+        )
+        == 2
+    )
+    assert "stage-card sequence differs" in capsys.readouterr().err
 
 
 def test_fixture_finalizer_rejects_duplicate_recommitted_packet(
@@ -2434,6 +2646,9 @@ def _recommit_fixture_stage_output(
 
     stage_card_path = rehearsal_root / "run-cards" / f"{stage}.json"
     stage_card = json.loads(stage_card_path.read_text())
+    stage_card["record_count"] = (
+        len(_read_jsonl(artifact_path)) if artifact_path.suffix == ".jsonl" else 1
+    )
     stage_card["output_commitments"][str(artifact_path.resolve())] = _sha256_path(
         artifact_path
     )
@@ -2498,6 +2713,25 @@ def _recommit_fixture_summary_authority(rehearsal_root: Path) -> None:
     run_card["summary_sha256"] = _sha256_path(summary_path)
     run_card["summary_sidecar_sha256"] = _sha256_path(summary_sidecar_path)
     _write_json(run_card_path, run_card)
+
+
+def _recommit_fixture_stage_card_authority(
+    rehearsal_root: Path,
+    *,
+    stage: str,
+) -> None:
+    stage_card_path = rehearsal_root / "run-cards" / f"{stage}.json"
+    stage_card_sidecar_path = _recommit_fixture_artifact_sidecar(stage_card_path)
+    summary_path = rehearsal_root / "rehearsal-final-summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    summary["output_commitments"][str(stage_card_path.resolve())] = _sha256_path(
+        stage_card_path
+    )
+    summary["output_commitments"][str(stage_card_sidecar_path.resolve())] = (
+        _sha256_path(stage_card_sidecar_path)
+    )
+    _write_json(summary_path, summary)
+    _recommit_fixture_summary_authority(rehearsal_root)
 
 
 def _recommit_fixture_artifact_sidecar(artifact_path: Path) -> Path:

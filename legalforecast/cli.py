@@ -28594,6 +28594,7 @@ def _verify_fixture_rehearsal_stage_card(
     stage: str,
     input_commitments: Mapping[str, JsonRecord],
     prior_stage_card_path: Path | None,
+    expected_record_count: int,
     expected_primary_paths: Sequence[Path] | None = None,
 ) -> JsonRecord:
     if stage_card_path.is_symlink() or not stage_card_path.is_file():
@@ -28613,6 +28614,7 @@ def _verify_fixture_rehearsal_stage_card(
         or stage_card.get("stage") != stage
         or stage_card.get("status") != "completed"
         or stage_card.get("execute") is not True
+        or stage_card.get("record_count") != expected_record_count
         or stage_card.get("prior_stage") != prior_stage
         or stage_card.get("prior_stage_card_sha256") != prior_stage_sha256
         or _required_record(stage_card, "input_commitments") != input_commitments
@@ -28665,6 +28667,7 @@ def _complete_fixture_rehearsal_stage(
     prior_stage: str | None,
     fixture_traces: Sequence[Mapping[str, Any]] = (),
     expected_prior_stage_card_sha256: str | None = None,
+    expected_prior_stage_record_count: int | None = None,
 ) -> int:
     observed = {
         str(path.resolve()): _fixture_rehearsal_input_commitment(path)
@@ -28683,6 +28686,10 @@ def _complete_fixture_rehearsal_stage(
     )
     if prior_card_path is not None:
         assert prior_stage is not None
+        if expected_prior_stage_record_count is None:
+            raise CommandError(
+                f"fixture rehearsal prior stage record count is required: {prior_stage}"
+            )
         if prior_card_path.is_symlink() or not prior_card_path.is_file():
             raise CommandError(
                 f"fixture rehearsal prior stage card is missing: {prior_stage}"
@@ -28707,6 +28714,7 @@ def _complete_fixture_rehearsal_stage(
             stage=prior_stage,
             input_commitments=input_commitments,
             prior_stage_card_path=prior_prior_card_path,
+            expected_record_count=expected_prior_stage_record_count,
         )
     else:
         prior_card_sha256 = None
@@ -28962,6 +28970,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             stage=decision_stage,
             input_commitments=input_commitments,
             prior_stage_card_path=None,
+            expected_record_count=target_count,
             expected_primary_paths=decision_primary_paths,
         )
         verified_stage_card_sha256[decision_stage] = _path_sha256(
@@ -29068,6 +29077,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             stage=unitize_stage,
             input_commitments=input_commitments,
             prior_stage_card_path=decision_stage_card_path,
+            expected_record_count=_fixture_rehearsal_record_count(raw_units_path),
             expected_primary_paths=(
                 raw_units_path.resolve(),
                 unit_audit_path.resolve(),
@@ -29078,7 +29088,6 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             unitize_stage_card_path
         )
         raw_prediction_units = tuple(_read_records(raw_units_path))
-        unitization_audit = tuple(_read_records(unit_audit_path))
         original_review_queue = tuple(_read_records(original_review_path))
         unitization_traces = tuple(
             _required_record_sequence(unitize_card, "fixture_traces")
@@ -29126,6 +29135,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             expected_prior_stage_card_sha256=verified_stage_card_sha256.get(
                 decision_stage
             ),
+            expected_prior_stage_record_count=len(decision_records),
         )
     if target_stage == "stage-a-unitize":
         return 0
@@ -29141,6 +29151,9 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             stage=review_stage,
             input_commitments=input_commitments,
             prior_stage_card_path=unitize_stage_card_path,
+            expected_record_count=_fixture_rehearsal_record_count(
+                structural_flags_path
+            ),
             expected_primary_paths=(
                 structural_flags_path.resolve(),
                 structural_audit_path.resolve(),
@@ -29148,8 +29161,6 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             ),
         )
         verified_stage_card_sha256[review_stage] = _path_sha256(review_stage_card_path)
-        structural_flags = tuple(_read_records(structural_flags_path))
-        structural_review_audit = tuple(_read_records(structural_audit_path))
         merged_review_queue = tuple(_read_records(merged_review_path))
         review_traces = tuple(_required_record_sequence(review_card, "fixture_traces"))
     else:
@@ -29195,6 +29206,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             expected_prior_stage_card_sha256=verified_stage_card_sha256.get(
                 unitize_stage
             ),
+            expected_prior_stage_record_count=len(raw_prediction_units),
         )
     if target_stage == "stage-a-review":
         return 0
@@ -29208,6 +29220,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             stage=apply_a_stage,
             input_commitments=input_commitments,
             prior_stage_card_path=review_stage_card_path,
+            expected_record_count=_fixture_rehearsal_record_count(finalized_units_path),
             expected_primary_paths=(finalized_units_path.resolve(),),
         )
         verified_stage_card_sha256[apply_a_stage] = _path_sha256(
@@ -29237,6 +29250,9 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             prior_stage=review_stage,
             expected_prior_stage_card_sha256=verified_stage_card_sha256.get(
                 review_stage
+            ),
+            expected_prior_stage_record_count=_fixture_rehearsal_record_count(
+                structural_flags_path
             ),
         )
     if target_stage == "stage-a-apply":
@@ -29278,6 +29294,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             stage=label_stage,
             input_commitments=input_commitments,
             prior_stage_card_path=apply_a_stage_card_path,
+            expected_record_count=_fixture_rehearsal_record_count(labels_path),
             expected_primary_paths=(
                 labels_path.resolve(),
                 label_audit_path.resolve(),
@@ -29338,6 +29355,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             expected_prior_stage_card_sha256=verified_stage_card_sha256.get(
                 apply_a_stage
             ),
+            expected_prior_stage_record_count=len(finalized_units),
         )
     if target_stage == "stage-b-label":
         return 0
@@ -29351,12 +29369,12 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             stage=apply_b_stage,
             input_commitments=input_commitments,
             prior_stage_card_path=label_stage_card_path,
+            expected_record_count=_fixture_rehearsal_record_count(labels_path),
             expected_primary_paths=(label_apply_path.resolve(),),
         )
         verified_stage_card_sha256[apply_b_stage] = _path_sha256(
             apply_b_stage_card_path
         )
-        label_apply_audit = tuple(_read_records(label_apply_path))
     else:
         try:
             apply_fixture_label_review(review_records=lawyer_review_queue)
@@ -29388,6 +29406,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             expected_prior_stage_card_sha256=verified_stage_card_sha256.get(
                 label_stage
             ),
+            expected_prior_stage_record_count=len(label_records),
         )
     if target_stage == "stage-b-apply":
         return 0
@@ -29403,6 +29422,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             stage=packet_plan_stage,
             input_commitments=input_commitments,
             prior_stage_card_path=apply_b_stage_card_path,
+            expected_record_count=_fixture_rehearsal_record_count(packet_input_path),
             expected_primary_paths=(packet_input_path.resolve(),),
         )
         verified_stage_card_sha256[packet_plan_stage] = _path_sha256(
@@ -29447,6 +29467,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             expected_prior_stage_card_sha256=verified_stage_card_sha256.get(
                 apply_b_stage
             ),
+            expected_prior_stage_record_count=len(label_records),
         )
     if target_stage == "packet-plan":
         return 0
@@ -29510,6 +29531,7 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
         expected_prior_stage_card_sha256=verified_stage_card_sha256.get(
             packet_plan_stage
         ),
+        expected_prior_stage_record_count=len(packet_build_records),
     )
     summary_path = output_root / "rehearsal-final-summary.json"
     unit_count = sum(
@@ -29624,6 +29646,29 @@ def _cmd_acquisition_finalize_rehearsal(args: argparse.Namespace) -> int:
     target_count = cast(int, args.target_case_count)
     if target_count <= 0:
         raise CommandError("--target-case-count must be positive")
+    rehearsal_root = summary_path.resolve().parent
+    canonical_role_paths = {
+        "rehearsal run card": rehearsal_root / "run-cards/rehearse-downstream.json",
+        "prediction units": (
+            rehearsal_root / "rehearsal-finalized-prediction-units.jsonl"
+        ),
+        "decision texts": rehearsal_root / "rehearsal-decision-texts.jsonl",
+        "labels": rehearsal_root / "rehearsal-labels.jsonl",
+        "packets": rehearsal_root / "rehearsal-packets.jsonl",
+    }
+    supplied_role_paths = {
+        "rehearsal run card": run_card_path,
+        "prediction units": units_path,
+        "decision texts": decisions_path,
+        "labels": labels_path,
+        "packets": packets_path,
+    }
+    for role, expected_path in canonical_role_paths.items():
+        if supplied_role_paths[role].resolve() != expected_path.resolve():
+            raise CommandError(
+                f"fixture rehearsal finalization {role} path differs: "
+                f"{supplied_role_paths[role]}"
+            )
     input_paths = (
         summary_path,
         summary_sidecar_path,
@@ -29660,6 +29705,15 @@ def _cmd_acquisition_finalize_rehearsal(args: argparse.Namespace) -> int:
             str(Path(str(path)).resolve())
             for path in cast(Sequence[object], raw_run_card_outputs)
         }
+    raw_run_card_inputs = run_card.get("input_paths")
+    run_card_inputs: tuple[str, ...] = ()
+    if isinstance(raw_run_card_inputs, Sequence) and not isinstance(
+        raw_run_card_inputs, (str, bytes)
+    ):
+        run_card_inputs = tuple(
+            str(Path(str(path)).resolve())
+            for path in cast(Sequence[object], raw_run_card_inputs)
+        )
     if (
         summary.get("schema_version") != "legalforecast.downstream_rehearsal.v1"
         or summary.get("stage") != "rehearse-downstream"
@@ -29679,6 +29733,8 @@ def _cmd_acquisition_finalize_rehearsal(args: argparse.Namespace) -> int:
         or run_card.get("summary_sidecar_sha256") != _path_sha256(summary_sidecar_path)
         or str(summary_path.resolve()) not in run_card_outputs
         or str(summary_sidecar_path.resolve()) not in run_card_outputs
+        or not run_card_inputs
+        or run_card_inputs[0] != str(selection_path.resolve())
     ):
         raise CommandError("invalid fixture-only downstream rehearsal authority")
     _verify_fixture_rehearsal_artifact(
@@ -29725,6 +29781,84 @@ def _cmd_acquisition_finalize_rehearsal(args: argparse.Namespace) -> int:
         "rehearsal-plan-packet-inputs",
         "rehearsal-build-packets",
     )
+    expected_stage_primary_paths = {
+        "rehearsal-build-decision-texts": (
+            rehearsal_root / "rehearsal-decision-texts.jsonl",
+            rehearsal_root / "rehearsal-decision-texts-manifest.json",
+            rehearsal_root / "rehearsal-decision-texts-run-card.json",
+        ),
+        "rehearsal-stage-a-unitize": (
+            rehearsal_root / "rehearsal-raw-prediction-units.jsonl",
+            rehearsal_root / "rehearsal-llm-unitize-audit.jsonl",
+            rehearsal_root / "rehearsal-unitization-review-queue.jsonl",
+        ),
+        "rehearsal-stage-a-review": (
+            rehearsal_root / "rehearsal-stage-a-structural-flags.jsonl",
+            rehearsal_root / "rehearsal-stage-a-review-audit.jsonl",
+            rehearsal_root / "rehearsal-unitization-review-final.jsonl",
+        ),
+        "rehearsal-stage-a-apply": (
+            rehearsal_root / "rehearsal-finalized-prediction-units.jsonl",
+        ),
+        "rehearsal-stage-b-label": (
+            rehearsal_root / "rehearsal-labels.jsonl",
+            rehearsal_root / "rehearsal-llm-label-audit.jsonl",
+            rehearsal_root / "rehearsal-lawyer-review-queue.jsonl",
+        ),
+        "rehearsal-stage-b-apply": (
+            rehearsal_root / "rehearsal-label-apply-audit.jsonl",
+        ),
+        "rehearsal-plan-packet-inputs": (
+            rehearsal_root / "rehearsal-packet-build-input.jsonl",
+        ),
+        "rehearsal-build-packets": (
+            rehearsal_root / "rehearsal-packets.jsonl",
+            rehearsal_root / "rehearsal-case-packets.jsonl",
+            rehearsal_root / "rehearsal-packet-audit.jsonl",
+        ),
+    }
+
+    def committed_record_count(path: Path, *, stage: str) -> int:
+        if path.is_symlink() or not path.is_file():
+            raise CommandError(
+                f"fixture stage output is missing or unsafe: {stage}: {path}"
+            )
+        return _fixture_rehearsal_record_count(path)
+
+    expected_stage_record_counts = {
+        "rehearsal-build-decision-texts": committed_record_count(
+            rehearsal_root / "rehearsal-decision-texts.jsonl",
+            stage="rehearsal-build-decision-texts",
+        ),
+        "rehearsal-stage-a-unitize": committed_record_count(
+            rehearsal_root / "rehearsal-raw-prediction-units.jsonl",
+            stage="rehearsal-stage-a-unitize",
+        ),
+        "rehearsal-stage-a-review": committed_record_count(
+            rehearsal_root / "rehearsal-stage-a-structural-flags.jsonl",
+            stage="rehearsal-stage-a-review",
+        ),
+        "rehearsal-stage-a-apply": committed_record_count(
+            rehearsal_root / "rehearsal-finalized-prediction-units.jsonl",
+            stage="rehearsal-stage-a-apply",
+        ),
+        "rehearsal-stage-b-label": committed_record_count(
+            rehearsal_root / "rehearsal-labels.jsonl",
+            stage="rehearsal-stage-b-label",
+        ),
+        "rehearsal-stage-b-apply": committed_record_count(
+            rehearsal_root / "rehearsal-labels.jsonl",
+            stage="rehearsal-stage-b-apply",
+        ),
+        "rehearsal-plan-packet-inputs": committed_record_count(
+            rehearsal_root / "rehearsal-packet-build-input.jsonl",
+            stage="rehearsal-plan-packet-inputs",
+        ),
+        "rehearsal-build-packets": committed_record_count(
+            rehearsal_root / "rehearsal-packets.jsonl",
+            stage="rehearsal-build-packets",
+        ),
+    }
     raw_stage_cards = summary.get("stage_cards")
     if not isinstance(raw_stage_cards, Sequence) or isinstance(
         raw_stage_cards, (str, bytes)
@@ -29733,7 +29867,12 @@ def _cmd_acquisition_finalize_rehearsal(args: argparse.Namespace) -> int:
     stage_card_paths = tuple(
         Path(str(value)) for value in cast(Sequence[object], raw_stage_cards)
     )
-    if tuple(path.stem for path in stage_card_paths) != expected_stage_names:
+    canonical_stage_card_paths = tuple(
+        rehearsal_root / "run-cards" / f"{stage}.json" for stage in expected_stage_names
+    )
+    if tuple(path.resolve() for path in stage_card_paths) != tuple(
+        path.resolve() for path in canonical_stage_card_paths
+    ):
         raise CommandError("fixture rehearsal stage-card sequence differs")
     prior_card: Path | None = None
     for expected_stage, stage_card_path in zip(
@@ -29744,6 +29883,8 @@ def _cmd_acquisition_finalize_rehearsal(args: argparse.Namespace) -> int:
             stage=expected_stage,
             input_commitments=cast(Mapping[str, JsonRecord], input_commitments),
             prior_stage_card_path=prior_card,
+            expected_record_count=expected_stage_record_counts[expected_stage],
+            expected_primary_paths=expected_stage_primary_paths[expected_stage],
         )
         stage_outputs = _required_record(stage_card, "output_commitments")
         for raw_path, digest in stage_outputs.items():
@@ -29752,6 +29893,17 @@ def _cmd_acquisition_finalize_rehearsal(args: argparse.Namespace) -> int:
                     f"fixture stage output is absent from final summary: {raw_path}"
                 )
         prior_card = stage_card_path
+
+    decision_manifest = _read_json_object(
+        rehearsal_root / "rehearsal-decision-texts-manifest.json"
+    )
+    decision_input_commitments = _required_record(
+        decision_manifest, "input_commitments"
+    )
+    if decision_input_commitments.get("selection_sha256") != _path_sha256(
+        selection_path
+    ):
+        raise CommandError("fixture rehearsal selection role commitment changed")
 
     selections = tuple(_read_records(selection_path))
     units = tuple(_read_records(units_path))
