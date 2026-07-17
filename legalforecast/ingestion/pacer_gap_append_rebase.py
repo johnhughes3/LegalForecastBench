@@ -108,6 +108,10 @@ def verify_append_only_snapshot_union(
 
     current_union = _union_commitment(current_manifest, "current snapshot")
     direct_sources = _union_sources(current_union, "current snapshot")
+    correction_candidate_ids, correction_source_hashes = _union_correction_pins(
+        current_union,
+        "current snapshot",
+    )
     direct_paths = tuple(
         _manifest_parent(source, label="current union source")
         for source in direct_sources
@@ -123,14 +127,23 @@ def verify_append_only_snapshot_union(
             direct_paths,
             expected_manifest_sha256=direct_hashes,
             expected_cycle_hash=current_cycle,
+            expected_terminal_correction_candidate_id=correction_candidate_ids,
+            expected_terminal_correction_source_manifest_sha256=(
+                correction_source_hashes
+            ),
         )
     except ScreeningSnapshotUnionError as exc:
         raise AppendOnlyPacerGapRebaseError(
             f"current snapshot union inputs are invalid: {exc}"
         ) from exc
-    if _canonical_json(reconstructed.stage_commitment) != _canonical_json(
-        current_union
-    ):
+    reconstructed_commitment = _commitment_for_schema(
+        reconstructed.stage_commitment,
+        schema_version=_required_text(
+            current_union.get("schema_version"),
+            "current snapshot union schema version",
+        ),
+    )
+    if _canonical_json(reconstructed_commitment) != _canonical_json(current_union):
         raise AppendOnlyPacerGapRebaseError(
             "current snapshot union commitment does not reconstruct exactly"
         )
@@ -312,10 +325,10 @@ def _union_commitment(manifest: Mapping[str, Any], label: str) -> Mapping[str, A
 def _union_sources(
     commitment: Mapping[str, Any], label: str
 ) -> tuple[Mapping[str, Any], ...]:
-    if (
-        commitment.get("schema_version")
-        != "legalforecast.screening_snapshot_union_inputs.v1"
-    ):
+    if commitment.get("schema_version") not in {
+        "legalforecast.screening_snapshot_union_inputs.v1",
+        "legalforecast.screening_snapshot_union_inputs.v2",
+    }:
         raise AppendOnlyPacerGapRebaseError(f"{label} union schema is unsupported")
     sources = commitment.get("sources")
     if not isinstance(sources, list):
@@ -333,6 +346,89 @@ def _union_sources(
     if commitment.get("source_count") != len(records):
         raise AppendOnlyPacerGapRebaseError(f"{label} union source count mismatches")
     return tuple(records)
+
+
+def _union_correction_pins(
+    commitment: Mapping[str, Any], label: str
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    if (
+        commitment.get("schema_version")
+        == "legalforecast.screening_snapshot_union_inputs.v1"
+    ):
+        return (), ()
+    if commitment.get("longitudinal_correction_policy") != (
+        "explicit_candidate_source_manifest_unique_active_v1"
+    ):
+        raise AppendOnlyPacerGapRebaseError(
+            f"{label} union correction policy is unsupported"
+        )
+    corrections_value = commitment.get("longitudinal_corrections")
+    if not isinstance(corrections_value, list):
+        raise AppendOnlyPacerGapRebaseError(f"{label} union corrections are invalid")
+    corrections = cast(list[object], corrections_value)
+    if commitment.get("longitudinal_correction_count") != len(corrections):
+        raise AppendOnlyPacerGapRebaseError(
+            f"{label} union correction count mismatches"
+        )
+    pins: dict[str, str] = {}
+    for correction in corrections:
+        if not isinstance(correction, Mapping):
+            raise AppendOnlyPacerGapRebaseError(
+                f"{label} union correction is not an object"
+            )
+        typed_correction = cast(Mapping[str, Any], correction)
+        candidate_id = _required_text(
+            typed_correction.get("candidate_id"),
+            f"{label} union correction candidate ID",
+        )
+        source_hash = _required_sha256(
+            typed_correction.get("canonical_source_manifest_sha256"),
+            f"{label} union correction source manifest SHA-256",
+        )
+        if candidate_id in pins:
+            raise AppendOnlyPacerGapRebaseError(
+                f"{label} union corrections repeat candidate {candidate_id}"
+            )
+        pins[candidate_id] = source_hash
+    ordered = tuple(sorted(pins.items()))
+    return (
+        tuple(candidate_id for candidate_id, _source_hash in ordered),
+        tuple(source_hash for _candidate_id, source_hash in ordered),
+    )
+
+
+def _commitment_for_schema(
+    reconstructed: Mapping[str, Any], *, schema_version: str
+) -> Mapping[str, Any]:
+    if schema_version == "legalforecast.screening_snapshot_union_inputs.v2":
+        return reconstructed
+    if schema_version != "legalforecast.screening_snapshot_union_inputs.v1":
+        raise AppendOnlyPacerGapRebaseError(
+            "current snapshot union schema is unsupported"
+        )
+    legacy = dict(reconstructed)
+    sources_value = legacy.get("sources")
+    if not isinstance(sources_value, list):
+        raise AppendOnlyPacerGapRebaseError("reconstructed union sources are invalid")
+    legacy["schema_version"] = schema_version
+    legacy_sources: list[dict[str, Any]] = []
+    for source_value in cast(list[object], sources_value):
+        if not isinstance(source_value, Mapping):
+            raise AppendOnlyPacerGapRebaseError(
+                "reconstructed union source is not an object"
+            )
+        source = cast(Mapping[str, Any], source_value)
+        legacy_sources.append(
+            {key: value for key, value in source.items() if key != "stage_commitments"}
+        )
+    legacy["sources"] = legacy_sources
+    legacy["canonical_raw_selection_policy"] = (
+        "excluded_earliest_authenticated_utc_sha_v1"
+    )
+    legacy.pop("longitudinal_correction_policy", None)
+    legacy.pop("longitudinal_correction_count", None)
+    legacy.pop("longitudinal_corrections", None)
+    return legacy
 
 
 def _manifest_parent(source: Mapping[str, Any], *, label: str) -> Path:
@@ -503,6 +599,12 @@ def _required_sha256(value: object, label: str) -> str:
     if not isinstance(value, str) or _SHA256_RE.fullmatch(value) is None:
         raise AppendOnlyPacerGapRebaseError(f"{label} is invalid")
     return value
+
+
+def _required_text(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise AppendOnlyPacerGapRebaseError(f"{label} is invalid")
+    return value.strip()
 
 
 def _canonical_json(value: object) -> bytes:

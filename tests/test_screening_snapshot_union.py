@@ -329,12 +329,7 @@ def test_union_promotes_only_explicit_unique_active_correction_and_binds_its_raw
             )
         ],
     )
-    corrected_evidence = {
-        "candidate_id": candidate_id,
-        "first_written_mtd_disposition_date": "2026-06-30",
-        "selected_entries": [{"entry_number": 12}],
-        "motion_linkage": {"target_motion_entry_numbers": [8]},
-    }
+    corrected_evidence = _strict_screen_evidence(candidate_id)
     corrected = _snapshot(
         tmp_path / "corrected",
         batch_id="current-policy-rescreen",
@@ -401,12 +396,156 @@ def test_union_promotes_only_explicit_unique_active_correction_and_binds_its_raw
     )
 
 
+@pytest.mark.parametrize(
+    "malformed_field",
+    ("disposition_date", "selected_entries", "motion_linkage"),
+)
+def test_union_rejects_malformed_active_correction_evidence(
+    tmp_path: Path,
+    malformed_field: str,
+) -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    stale = _snapshot(
+        tmp_path / f"stale-{malformed_field}",
+        batch_id="baseline",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {"candidate_id": candidate_id, "reason": "procedural"},
+                b"<html><body>same docket</body></html>",
+            )
+        ],
+    )
+    corrected_evidence = _strict_screen_evidence(candidate_id)
+    if malformed_field == "disposition_date":
+        corrected_evidence["first_written_mtd_disposition_date"] = "not-a-date"
+    elif malformed_field == "selected_entries":
+        corrected_evidence["selected_entries"] = [12]
+    else:
+        corrected_evidence["motion_linkage"] = {}
+    corrected = _snapshot(
+        tmp_path / f"corrected-{malformed_field}",
+        batch_id="rescreen",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                corrected_evidence,
+                b"<html><body>same docket</body></html>",
+            )
+        ],
+    )
+
+    with pytest.raises(
+        ScreeningSnapshotUnionError,
+        match="active correction lacks an independently qualifying strict screen",
+    ):
+        load_screening_snapshot_union(
+            (stale, corrected),
+            expected_manifest_sha256=(
+                _manifest_sha256(stale),
+                _manifest_sha256(corrected),
+            ),
+            expected_cycle_hash=_cycle_hash(tmp_path / f"stale-{malformed_field}"),
+            expected_terminal_correction_candidate_id=(candidate_id,),
+            expected_terminal_correction_source_manifest_sha256=(
+                _manifest_sha256(corrected),
+            ),
+        )
+
+
+def test_union_authenticates_newly_free_correction_from_prior_strict_screen(
+    tmp_path: Path,
+) -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    stale = _snapshot(
+        tmp_path / "stale-newly-free",
+        batch_id="baseline",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {"candidate_id": candidate_id, "reason": "procedural"},
+                b"<html><body>same docket</body></html>",
+            )
+        ],
+    )
+    newly_free = _snapshot(
+        tmp_path / "newly-free",
+        batch_id="availability-refresh",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                _strict_screen_evidence(candidate_id),
+                b"<html><body>same docket</body></html>",
+            ),
+            (
+                candidate_id,
+                "newly_free",
+                "required_documents_newly_free",
+                {"candidate_id": candidate_id, "document_id": "44"},
+                b"<html><body>same docket</body></html>",
+            ),
+        ],
+    )
+
+    union = load_screening_snapshot_union(
+        (stale, newly_free),
+        expected_manifest_sha256=(
+            _manifest_sha256(stale),
+            _manifest_sha256(newly_free),
+        ),
+        expected_cycle_hash=_cycle_hash(tmp_path / "stale-newly-free"),
+        expected_terminal_correction_candidate_id=(candidate_id,),
+        expected_terminal_correction_source_manifest_sha256=(
+            _manifest_sha256(newly_free),
+        ),
+    )
+
+    [candidate] = union.candidates
+    assert candidate.state == "newly_free"
+    assert candidate.reason_code == "required_documents_newly_free"
+
+
 def test_union_command_archives_and_resumes_authenticated_terminal_correction(
     tmp_path: Path,
 ) -> None:
     candidate_id = "courtlistener-docket-73330395"
     stale_root = tmp_path / "stale"
     corrected_root = tmp_path / "corrected"
+    selected_entries = [
+        _embedded_entry(
+            1,
+            "COMPLAINT filed by Plaintiff.",
+            "Complaint",
+            "https://storage.courtlistener.com/complaint.pdf",
+            role="other",
+            pacer_only=False,
+        ),
+        _embedded_entry(
+            5,
+            "MOTION to Dismiss filed by Defendant.",
+            "Motion to Dismiss",
+            "https://ecf.nysd.uscourts.gov/doc1/12345",
+            role="mtd_notice",
+            pacer_only=True,
+        ),
+        _embedded_entry(
+            12,
+            "ORDER on Motion to Dismiss.",
+            "Order on Motion to Dismiss",
+            "https://storage.courtlistener.com/decision.pdf",
+            role="decision",
+            pacer_only=False,
+        ),
+    ]
+    docket_html = _raw_docket_html(selected_entries)
     stale = _snapshot(
         stale_root,
         batch_id="baseline",
@@ -416,7 +555,7 @@ def test_union_command_archives_and_resumes_authenticated_terminal_correction(
                 "excluded",
                 "strict_clean_screen_failed",
                 {"candidate_id": candidate_id, "reason": "procedural"},
-                b"<html><body>stale screen</body></html>",
+                docket_html,
             )
         ],
     )
@@ -428,12 +567,11 @@ def test_union_command_archives_and_resumes_authenticated_terminal_correction(
                 candidate_id,
                 "accepted",
                 "strict_clean_screen_passed",
-                {
-                    "candidate_id": candidate_id,
-                    "first_written_mtd_disposition_date": "2026-06-30",
-                    "selected_entries": [{"entry_number": 12}],
-                },
-                b"<html><body>accepted source raw</body></html>",
+                _strict_screen_evidence(
+                    candidate_id,
+                    selected_entries=selected_entries,
+                ),
+                docket_html,
             )
         ],
     )
@@ -476,11 +614,16 @@ def test_union_command_archives_and_resumes_authenticated_terminal_correction(
     archived = _jsonl(output_root / "union-terminal-observations.jsonl")
     assert len(archived) == 2
     assert sum(row["canonical_terminal_observation"] for row in archived) == 1
+    raw_bindings = [row["raw_artifacts"][0] for row in archived]
+    assert {binding["retrieved_at"] for binding in raw_bindings} == {
+        "2026-07-16T12:00:00Z"
+    }
+    assert {binding["source_retrieved_at"] for binding in raw_bindings} == {
+        "2026-07-16T12:00:00Z",
+        "2026-07-16T13:00:00Z",
+    }
     [packet_raw] = _jsonl(output_root / "union-raw-artifacts.jsonl")
-    assert (
-        packet_raw["sha256"]
-        == hashlib.sha256(b"<html><body>accepted source raw</body></html>").hexdigest()
-    )
+    assert packet_raw["sha256"] == hashlib.sha256(docket_html).hexdigest()
     cli_module._verify_packet_raw_artifacts_snapshot_binding(
         raw_html_dir=output_root / "union-raw-artifacts",
         raw_artifacts_manifest_path=output_root / "union-raw-artifacts.jsonl",
@@ -493,13 +636,35 @@ def test_union_command_archives_and_resumes_authenticated_terminal_correction(
     )
     assert raw_directory is None
     assert raw_paths is not None
-    assert raw_paths["73330395"].read_bytes() == (
-        b"<html><body>accepted source raw</body></html>"
-    )
+    assert raw_paths["73330395"].read_bytes() == docket_html
 
     (output_root / "union-terminal-observations.jsonl").write_text("")
     assert cli_module.main(command) == 0
     assert _jsonl(output_root / "union-terminal-observations.jsonl") == archived
+
+    assert (
+        cli_module.main(
+            [
+                "acquisition",
+                "plan-public-downloads",
+                "--output-root",
+                str(tmp_path / "public-plan"),
+                "--snapshot",
+                str(snapshot),
+                "--expected-cycle-hash",
+                _cycle_hash(stale_root),
+                "--raw-html-dir",
+                str(output_root / "union-raw-artifacts"),
+                "--use-embedded-entries",
+                "--target-clean-cases",
+                "1",
+                "--cost-per-missing-document-usd",
+                "0.10",
+                "--execute",
+            ]
+        )
+        == 0
+    )
 
     shutil.rmtree(stale_root / "snapshots")
     shutil.rmtree(corrected_root / "snapshots")
@@ -512,7 +677,25 @@ def test_union_command_archives_and_resumes_authenticated_terminal_correction(
     assert cli_module._owned_raw_records_from_snapshot(snapshot) == [packet_raw]
 
     manifest_path = snapshot / "manifest.json"
-    manifest = json.loads(manifest_path.read_text())
+    original_manifest = manifest_path.read_text()
+    manifest = json.loads(original_manifest)
+    correction = manifest["stage_commitments"]["screening_snapshot_union_inputs"][
+        "longitudinal_corrections"
+    ][0]
+    forged_source_hash = "f" * 64
+    authoritative_source_hash = correction["canonical_source_manifest_sha256"]
+    correction["canonical_source_manifest_sha256"] = forged_source_hash
+    authoritative_observation = next(
+        observation
+        for observation in correction["observations"]
+        if observation["source_manifest_sha256"] == authoritative_source_hash
+    )
+    authoritative_observation["source_manifest_sha256"] = forged_source_hash
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(CycleAcquisitionStoreError, match="unauthenticated authority"):
+        cli_module._owned_raw_records_from_snapshot(snapshot)
+
+    manifest = json.loads(original_manifest)
     correction = manifest["stage_commitments"]["screening_snapshot_union_inputs"][
         "longitudinal_corrections"
     ][0]
@@ -656,11 +839,7 @@ def test_union_rejects_multiple_distinct_active_proofs_even_when_one_is_pinned(
                 candidate_id,
                 "accepted",
                 "strict_clean_screen_passed",
-                {
-                    "candidate_id": candidate_id,
-                    "first_written_mtd_disposition_date": "2026-06-30",
-                    "selected_entries": [{"entry_number": 12}],
-                },
+                _strict_screen_evidence(candidate_id),
                 b"<html><body>first active proof</body></html>",
             )
         ],
@@ -726,11 +905,7 @@ def test_union_rejects_active_correction_without_source_bound_raw(
                 candidate_id,
                 "accepted",
                 "strict_clean_screen_passed",
-                {
-                    "candidate_id": candidate_id,
-                    "first_written_mtd_disposition_date": "2026-06-30",
-                    "selected_entries": [{"entry_number": 12}],
-                },
+                _strict_screen_evidence(candidate_id),
                 b"<html><body>second</body></html>",
             )
         ],
@@ -759,11 +934,7 @@ def test_union_rejects_source_raw_drift_within_unique_active_proof(
     tmp_path: Path,
 ) -> None:
     candidate_id = "courtlistener-docket-73330395"
-    active_evidence = {
-        "candidate_id": candidate_id,
-        "first_written_mtd_disposition_date": "2026-06-30",
-        "selected_entries": [{"entry_number": 12}],
-    }
+    active_evidence = _strict_screen_evidence(candidate_id)
     first_active = _snapshot(
         tmp_path / "first-active",
         batch_id="first-active",
@@ -1024,7 +1195,16 @@ def _snapshot(
                     candidate_id=candidate_id,
                     payload={"candidate_id": candidate_id},
                 )
-                for candidate_id, _state, _reason, _evidence, _content in observations
+                for candidate_id in dict.fromkeys(
+                    candidate_id
+                    for (
+                        candidate_id,
+                        _state,
+                        _reason,
+                        _evidence,
+                        _content,
+                    ) in observations
+                )
             ),
             next_cursor=None,
             terminal_status=TermTerminalStatus.EXHAUSTED,
@@ -1058,6 +1238,142 @@ def _snapshot(
             batch_id=batch_id,
             complete=True,
         )
+
+
+def _embedded_entry(
+    number: int,
+    text: str,
+    description: str,
+    href: str,
+    *,
+    role: str,
+    pacer_only: bool,
+) -> dict[str, object]:
+    return {
+        "row_id": f"entry-{number}",
+        "entry_number": str(number),
+        "filed_at": "2026-06-30",
+        "text": text,
+        "role": role,
+        "restriction_markers": [],
+        "documents": [
+            {
+                "kind": "Main Document",
+                "description": description,
+                "href": href,
+                "action_label": "Buy on PACER" if pacer_only else "Download PDF",
+                "pacer_only": pacer_only,
+                "freely_available": not pacer_only,
+                "restriction_markers": [],
+            }
+        ],
+    }
+
+
+def _strict_screen_evidence(
+    candidate_id: str,
+    *,
+    selected_entries: list[dict[str, object]] | None = None,
+) -> dict[str, Any]:
+    docket_id = candidate_id.removeprefix("courtlistener-docket-")
+    entries = selected_entries or [
+        _embedded_entry(
+            5,
+            "MOTION to Dismiss filed by Defendant.",
+            "Motion to Dismiss",
+            "https://ecf.nysd.uscourts.gov/doc1/12345",
+            role="mtd_notice",
+            pacer_only=True,
+        ),
+        _embedded_entry(
+            12,
+            "ORDER on Motion to Dismiss.",
+            "Order on Motion to Dismiss",
+            "https://storage.courtlistener.com/decision.pdf",
+            role="decision",
+            pacer_only=False,
+        ),
+    ]
+    return {
+        "candidate_id": candidate_id,
+        "candidate": {
+            "docket_id": docket_id,
+            "candidate_key": docket_id,
+            "metadata": {
+                "case_id": docket_id,
+                "case_name": "Fixture v. Example",
+                "court": "nysd",
+                "docket_number": "1:26-cv-00001",
+            },
+            "url": f"https://www.courtlistener.com/docket/{docket_id}/fixture/",
+        },
+        "ai": {
+            "target_motion_entry_numbers": ["5"],
+            "decision_entry_numbers": ["12"],
+        },
+        "first_written_mtd_disposition_date": "2026-06-30",
+        "eligibility_anchor_date": "2026-06-30",
+        "selected_entries": entries,
+        "mtd_decision_screen": {
+            "status": "accepted_strict_civil_mtd_decision",
+            "exclusion_reasons": [],
+            "actual_mtd_decision_entry_count": 1,
+            "decision_entries": [
+                {
+                    "row_id": "entry-12",
+                    "entry_number": "12",
+                    "filed_at": "2026-06-30",
+                    "actual_mtd_decision": True,
+                    "exclusion_reasons": [],
+                }
+            ],
+        },
+        "motion_linkage": {
+            "candidate_id": docket_id,
+            "case_id": docket_id,
+            "is_clean": True,
+            "links": [
+                {
+                    "candidate_id": docket_id,
+                    "case_id": docket_id,
+                    "motion_entry_ids": ["entry-5"],
+                    "disposition_entry_ids": ["entry-12"],
+                    "linkage_basis": ["fixture"],
+                }
+            ],
+            "exclusion_entries": [],
+        },
+    }
+
+
+def _raw_docket_html(entries: list[dict[str, object]]) -> bytes:
+    rows: list[str] = []
+    for entry in entries:
+        [document] = entry["documents"]  # type: ignore[misc]
+        rows.append(
+            '<div class="row" id="{row_id}">'
+            '<div class="col-xs-1">{entry_number}</div>'
+            '<div class="col-xs-3"><span title="{filed_at}">{filed_at}</span>'
+            "</div>"
+            '<div class="col-xs-8">{text}'
+            '<div class="recap-documents"><div>{kind}</div>'
+            "<div>{description}</div>"
+            '<a href="{href}">{action_label}</a>'
+            "</div></div></div>".format(
+                row_id=entry["row_id"],
+                entry_number=entry["entry_number"],
+                filed_at=entry["filed_at"],
+                text=entry["text"],
+                kind=document["kind"],
+                description=document["description"],
+                href=document["href"],
+                action_label=document["action_label"],
+            )
+        )
+    return (
+        "<html><head><title>Fixture docket</title></head><body>"
+        '<div id="docket-entry-table">' + "".join(rows) + "</div></body></html>"
+    ).encode()
 
 
 def _manifest_sha256(snapshot: Path) -> str:

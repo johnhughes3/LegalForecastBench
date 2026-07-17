@@ -18016,6 +18016,33 @@ def _snapshot_longitudinal_active_raw_mapping(
         raise CycleAcquisitionStoreError(
             "longitudinal correction count does not match its evidence"
         )
+    sources_value = union_inputs.get("sources")
+    if not isinstance(sources_value, list):
+        raise CycleAcquisitionStoreError(
+            "screening snapshot union lacks authenticated sources"
+        )
+    authenticated_sources: set[str] = set()
+    for source_index, source_value in enumerate(
+        cast(list[object], sources_value), start=1
+    ):
+        if not isinstance(source_value, Mapping):
+            raise CycleAcquisitionStoreError(
+                f"screening snapshot union source row {source_index} is not an object"
+            )
+        source = cast(Mapping[str, object], source_value)
+        source_hash = _required_str(source, "manifest_sha256")
+        if (
+            re.fullmatch(r"[0-9a-f]{64}", source_hash) is None
+            or source_hash in authenticated_sources
+        ):
+            raise CycleAcquisitionStoreError(
+                f"screening snapshot union source row {source_index} is invalid"
+            )
+        authenticated_sources.add(source_hash)
+    if union_inputs.get("source_count") != len(authenticated_sources):
+        raise CycleAcquisitionStoreError(
+            "screening snapshot union source count does not match its evidence"
+        )
     canonical_candidates = {
         _required_str(record, "candidate_id"): record for record in candidate_records
     }
@@ -18045,6 +18072,10 @@ def _snapshot_longitudinal_active_raw_mapping(
         authoritative_manifest = _required_str(
             correction, "canonical_source_manifest_sha256"
         )
+        if authoritative_manifest not in authenticated_sources:
+            raise CycleAcquisitionStoreError(
+                f"longitudinal correction row {index} has unauthenticated authority"
+            )
         observations_value = correction.get("observations")
         if not isinstance(observations_value, list):
             raise CycleAcquisitionStoreError(
@@ -18074,6 +18105,10 @@ def _snapshot_longitudinal_active_raw_mapping(
             if re.fullmatch(r"[0-9a-f]{64}", source_hash) is None:
                 raise CycleAcquisitionStoreError(
                     f"longitudinal correction row {index} has invalid source hash"
+                )
+            if source_hash not in authenticated_sources:
+                raise CycleAcquisitionStoreError(
+                    f"longitudinal correction row {index} references an unknown source"
                 )
             if source_hash in source_hashes:
                 raise CycleAcquisitionStoreError(
@@ -18137,6 +18172,10 @@ def _snapshot_longitudinal_active_raw_mapping(
                     _required_str(raw, "sha256"),
                     raw_byte_count,
                     _required_str(raw, "retrieved_at"),
+                )
+                _canonical_raw_retrieved_at(
+                    _required_str(raw, "source_retrieved_at"),
+                    candidate_id=candidate_id,
                 )
                 if raw_commitment not in archived_commitments:
                     raise CycleAcquisitionStoreError(

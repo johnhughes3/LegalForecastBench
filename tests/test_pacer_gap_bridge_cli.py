@@ -9,6 +9,7 @@ from typing import Any, cast
 
 import legalforecast.cli as cli
 import legalforecast.ingestion.courtlistener_case_dev_bridge as bridge_module
+import legalforecast.ingestion.pacer_gap_append_rebase as rebase_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.case_dev_purchase import generate_case_dev_purchase_policy
@@ -149,6 +150,13 @@ def test_rebase_pacer_gap_checkpoints_append_only_union_schedules_only_addition(
         path.name: path.read_bytes()
         for path in fixture["previous_checkpoint_dir"].glob("*.json")
     }
+    current_manifest = _read_json(fixture["current_snapshot"] / "manifest.json")
+    assert (
+        current_manifest["stage_commitments"]["screening_snapshot_union_inputs"][
+            "schema_version"
+        ]
+        == "legalforecast.screening_snapshot_union_inputs.v2"
+    )
 
     assert main(fixture["command"]) == 0
 
@@ -183,6 +191,35 @@ def test_rebase_pacer_gap_checkpoints_append_only_union_schedules_only_addition(
         "cl-793",
         "cl-794",
     ]
+
+
+def test_rebase_pacer_gap_checkpoints_preserves_v1_union_compatibility(
+    tmp_path: Path,
+) -> None:
+    fixture = _append_only_pacer_gap_rebase_fixture(tmp_path)
+    manifest_path = fixture["current_snapshot"] / "manifest.json"
+    manifest = _read_json(manifest_path)
+    stage_commitments = cast(dict[str, object], manifest["stage_commitments"])
+    current_union = cast(
+        dict[str, object], stage_commitments["screening_snapshot_union_inputs"]
+    )
+    stage_commitments["screening_snapshot_union_inputs"] = dict(
+        rebase_module._commitment_for_schema(
+            current_union,
+            schema_version="legalforecast.screening_snapshot_union_inputs.v1",
+        )
+    )
+    manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n"
+    )
+    expected_hash_index = (
+        fixture["command"].index("--expected-current-snapshot-manifest-sha256") + 1
+    )
+    fixture["command"][expected_hash_index] = hashlib.sha256(
+        manifest_path.read_bytes()
+    ).hexdigest()
+
+    assert main(fixture["command"]) == 0
 
 
 def test_rebase_pacer_gap_checkpoints_append_only_authenticates_unrouted_additions(

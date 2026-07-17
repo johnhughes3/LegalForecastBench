@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import Any, cast
 
 from legalforecast.ingestion.cycle_acquisition_store import verify_snapshot
+from legalforecast.ingestion.strict_screen_evidence import (
+    StrictScreenEvidenceError,
+    validate_strict_screen_evidence,
+)
 
 
 class ScreeningSnapshotUnionError(ValueError):
@@ -45,6 +49,7 @@ class _SourceTerminalObservation:
     source_snapshot_id: str
     source_batch_id: str
     raw_artifacts: tuple[UnionRawArtifact, ...]
+    strict_screen_history: tuple[Mapping[str, Any], ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +113,7 @@ def load_screening_snapshot_union(
         _read_regular_file(snapshot / "candidates.jsonl", "source candidates")
         _preflight_raw_paths(snapshot / "raw-artifacts.jsonl")
         source_candidates = _candidate_records(snapshot / "candidates.jsonl")
+        strict_screen_history = _strict_screen_history(snapshot / "observations.jsonl")
         source_raw = _raw_records(snapshot / "raw-artifacts.jsonl")
         source_candidate_ids = {
             candidate.candidate_id for candidate in source_candidates
@@ -190,12 +196,16 @@ def load_screening_snapshot_union(
                             ),
                         )
                     ),
+                    strict_screen_history=strict_screen_history.get(
+                        candidate.candidate_id, ()
+                    ),
                 )
             )
     candidate_by_id, active_raw_overrides, longitudinal_corrections = (
         _reconcile_terminal_observations(
             observations_by_candidate,
             correction_pins=correction_pins,
+            archived_raw_by_commitment=raw_by_commitment,
         )
     )
     raw_artifacts = tuple(raw_by_commitment[key] for key in sorted(raw_by_commitment))
@@ -282,6 +292,7 @@ def _reconcile_terminal_observations(
     observations_by_candidate: Mapping[str, Sequence[_SourceTerminalObservation]],
     *,
     correction_pins: Mapping[str, str],
+    archived_raw_by_commitment: Mapping[tuple[str, str, int], UnionRawArtifact],
 ) -> tuple[
     dict[str, UnionCandidate],
     dict[str, UnionRawArtifact],
@@ -355,7 +366,7 @@ def _reconcile_terminal_observations(
                     "terminal correction cannot select an exclusion over a unique "
                     f"active proof: {candidate_id}"
                 )
-            _validate_active_correction(canonical.candidate)
+            _validate_active_correction(canonical)
             active_raw_sets = {
                 _raw_commitment_set(item.raw_artifacts) for item in active_observations
             }
@@ -364,7 +375,10 @@ def _reconcile_terminal_observations(
                     "active correction lacks exactly one source-bound raw artifact: "
                     f"{candidate_id}"
                 )
-            active_raw_overrides[candidate_id] = canonical.raw_artifacts[0]
+            active_raw_overrides[candidate_id] = _archived_raw_artifact(
+                canonical.raw_artifacts[0],
+                archived_raw_by_commitment=archived_raw_by_commitment,
+            )
         candidates[candidate_id] = canonical.candidate
         corrections.append(
             {
@@ -379,6 +393,7 @@ def _reconcile_terminal_observations(
                         canonical=(
                             item.source_manifest_sha256 == authoritative_manifest
                         ),
+                        archived_raw_by_commitment=archived_raw_by_commitment,
                     )
                     for item in sorted(
                         observations,
@@ -406,7 +421,8 @@ def _raw_commitment_set(
     return frozenset((artifact.sha256, artifact.byte_count) for artifact in artifacts)
 
 
-def _validate_active_correction(candidate: UnionCandidate) -> None:
+def _validate_active_correction(observation: _SourceTerminalObservation) -> None:
+    candidate = observation.candidate
     allowed = (
         candidate.state == "accepted"
         and candidate.reason_code == "strict_clean_screen_passed"
@@ -414,29 +430,36 @@ def _validate_active_correction(candidate: UnionCandidate) -> None:
         candidate.state == "newly_free"
         and candidate.reason_code in {"newly_free", "required_documents_newly_free"}
     )
-    evidence = candidate.evidence
-    selected_entries = evidence.get("selected_entries")
-    typed_selected_entries = (
-        cast(list[object], selected_entries)
-        if isinstance(selected_entries, list)
-        else []
-    )
-    motion_linkage = evidence.get("motion_linkage")
-    if (
-        not allowed
-        or not isinstance(evidence.get("first_written_mtd_disposition_date"), str)
-        or not (bool(typed_selected_entries) or isinstance(motion_linkage, Mapping))
-    ):
+    if not allowed:
         raise ScreeningSnapshotUnionError(
             "active correction lacks an independently qualifying strict screen: "
             f"{candidate.candidate_id}"
         )
+    evidence_records = (
+        (candidate.evidence,)
+        if candidate.state == "accepted"
+        else observation.strict_screen_history
+    )
+    errors: list[str] = []
+    for evidence in evidence_records:
+        try:
+            validate_strict_screen_evidence(evidence)
+        except StrictScreenEvidenceError as error:
+            errors.append(str(error))
+        else:
+            return
+    detail = errors[-1] if errors else "no prior strict-screen evidence"
+    raise ScreeningSnapshotUnionError(
+        "active correction lacks an independently qualifying strict screen: "
+        f"{candidate.candidate_id}: {detail}"
+    )
 
 
 def _source_observation_record(
     observation: _SourceTerminalObservation,
     *,
     canonical: bool,
+    archived_raw_by_commitment: Mapping[tuple[str, str, int], UnionRawArtifact],
 ) -> Mapping[str, Any]:
     candidate = observation.candidate
     return {
@@ -453,13 +476,36 @@ def _source_observation_record(
         ).hexdigest(),
         "raw_artifacts": [
             {
-                "sha256": artifact.sha256,
-                "byte_count": artifact.byte_count,
-                "retrieved_at": artifact.retrieved_at,
+                "sha256": archived.sha256,
+                "byte_count": archived.byte_count,
+                "retrieved_at": archived.retrieved_at,
+                "source_retrieved_at": artifact.retrieved_at,
             }
             for artifact in observation.raw_artifacts
+            for archived in (
+                _archived_raw_artifact(
+                    artifact,
+                    archived_raw_by_commitment=archived_raw_by_commitment,
+                ),
+            )
         ],
     }
+
+
+def _archived_raw_artifact(
+    artifact: UnionRawArtifact,
+    *,
+    archived_raw_by_commitment: Mapping[tuple[str, str, int], UnionRawArtifact],
+) -> UnionRawArtifact:
+    try:
+        return archived_raw_by_commitment[
+            (artifact.candidate_id, artifact.sha256, artifact.byte_count)
+        ]
+    except KeyError as error:
+        raise ScreeningSnapshotUnionError(
+            "source raw observation is absent from the authenticated archive: "
+            f"{artifact.candidate_id}"
+        ) from error
 
 
 def _candidate_records(path: Path) -> tuple[UnionCandidate, ...]:
@@ -493,6 +539,29 @@ def _candidate_records(path: Path) -> tuple[UnionCandidate, ...]:
             )
         )
     return tuple(candidates)
+
+
+def _strict_screen_history(
+    path: Path,
+) -> Mapping[str, tuple[Mapping[str, Any], ...]]:
+    history: dict[str, list[Mapping[str, Any]]] = {}
+    for row_number, record in enumerate(_jsonl(path), start=1):
+        if (
+            record.get("state") != "accepted"
+            or record.get("reason_code") != "strict_clean_screen_passed"
+        ):
+            continue
+        candidate_id = _string(
+            record.get("candidate_id"),
+            f"observation row {row_number} candidate_id",
+        )
+        evidence = record.get("evidence")
+        if not isinstance(evidence, Mapping):
+            raise ScreeningSnapshotUnionError(
+                f"strict-screen observation for {candidate_id} lacks evidence"
+            )
+        history.setdefault(candidate_id, []).append(cast(Mapping[str, Any], evidence))
+    return {candidate_id: tuple(records) for candidate_id, records in history.items()}
 
 
 def _raw_records(path: Path) -> tuple[UnionRawArtifact, ...]:
