@@ -11,7 +11,11 @@ class StrictScreenEvidenceError(ValueError):
     """Raised when purported strict-screen evidence is not production-shaped."""
 
 
-def validate_strict_screen_evidence(evidence: Mapping[str, Any]) -> None:
+def validate_strict_screen_evidence(
+    evidence: Mapping[str, Any],
+    *,
+    expected_candidate_id: str | None = None,
+) -> None:
     """Validate one accepted record emitted by the production strict screen.
 
     The union stage calls this same validator before allowing an authenticated
@@ -26,6 +30,21 @@ def validate_strict_screen_evidence(evidence: Mapping[str, Any]) -> None:
     metadata = _mapping(candidate.get("metadata"), "candidate.metadata")
     for field in ("case_id", "case_name", "court", "docket_number"):
         _text(metadata.get(field), f"candidate.metadata.{field}")
+    if expected_candidate_id is not None:
+        evidence_candidate_id = _text(evidence.get("candidate_id"), "candidate_id")
+        if evidence_candidate_id != expected_candidate_id:
+            raise StrictScreenEvidenceError(
+                "strict-screen evidence belongs to a different candidate"
+            )
+        expected_docket_id = expected_candidate_id.removeprefix("courtlistener-docket-")
+        if docket_id != expected_docket_id:
+            raise StrictScreenEvidenceError(
+                "strict-screen docket ID does not match its candidate"
+            )
+        if metadata.get("case_id") != expected_candidate_id:
+            raise StrictScreenEvidenceError(
+                "strict-screen case ID does not match its candidate"
+            )
 
     ai = _mapping(evidence.get("ai"), "ai")
     target_numbers = _text_sequence(
@@ -167,7 +186,13 @@ def validate_strict_screen_evidence(evidence: Mapping[str, Any]) -> None:
             "mtd_decision_screen.decision_entries must be a non-empty list"
         )
     screen_decisions = cast(list[object], screen_decisions_value)
-    if screen.get("actual_mtd_decision_entry_count") != len(screen_decisions):
+    decision_count = screen.get("actual_mtd_decision_entry_count")
+    if (
+        not isinstance(decision_count, int)
+        or isinstance(decision_count, bool)
+        or decision_count < 1
+        or decision_count != len(screen_decisions)
+    ):
         raise StrictScreenEvidenceError("MTD decision screen count does not match")
     screened_decision_numbers: set[str] = set()
     for index, value in enumerate(screen_decisions, start=1):

@@ -22,6 +22,10 @@ from legalforecast.ingestion.screening_snapshot_union import (
     ScreeningSnapshotUnionError,
     load_screening_snapshot_union,
 )
+from legalforecast.ingestion.strict_screen_evidence import (
+    StrictScreenEvidenceError,
+    validate_strict_screen_evidence,
+)
 
 _CYCLE_POLICY = {"eligibility_anchor": "2026-06-30", "fixture": True}
 
@@ -398,7 +402,12 @@ def test_union_promotes_only_explicit_unique_active_correction_and_binds_its_raw
 
 @pytest.mark.parametrize(
     "malformed_field",
-    ("disposition_date", "selected_entries", "motion_linkage"),
+    (
+        "disposition_date",
+        "selected_entries",
+        "motion_linkage",
+        "decision_count",
+    ),
 )
 def test_union_rejects_malformed_active_correction_evidence(
     tmp_path: Path,
@@ -423,8 +432,12 @@ def test_union_rejects_malformed_active_correction_evidence(
         corrected_evidence["first_written_mtd_disposition_date"] = "not-a-date"
     elif malformed_field == "selected_entries":
         corrected_evidence["selected_entries"] = [12]
-    else:
+    elif malformed_field == "motion_linkage":
         corrected_evidence["motion_linkage"] = {}
+    else:
+        corrected_evidence["mtd_decision_screen"]["actual_mtd_decision_entry_count"] = (
+            True
+        )
     corrected = _snapshot(
         tmp_path / f"corrected-{malformed_field}",
         batch_id="rescreen",
@@ -454,6 +467,89 @@ def test_union_rejects_malformed_active_correction_evidence(
             expected_terminal_correction_source_manifest_sha256=(
                 _manifest_sha256(corrected),
             ),
+        )
+
+
+@pytest.mark.parametrize("terminal_state", ("accepted", "newly_free"))
+def test_union_rejects_cross_candidate_strict_screen_substitution(
+    tmp_path: Path,
+    terminal_state: str,
+) -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    other_candidate_id = "courtlistener-docket-73330396"
+    stale = _snapshot(
+        tmp_path / f"stale-cross-candidate-{terminal_state}",
+        batch_id="baseline",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {"candidate_id": candidate_id, "reason": "procedural"},
+                b"<html><body>same docket</body></html>",
+            )
+        ],
+    )
+    substituted_evidence = _strict_screen_evidence(other_candidate_id)
+    # The store already binds this top-level field. The union must also bind the
+    # internally self-consistent embedded docket identity to the outer owner.
+    substituted_evidence["candidate_id"] = candidate_id
+    source_observations = [
+        (
+            candidate_id,
+            "accepted",
+            "strict_clean_screen_passed",
+            substituted_evidence,
+            b"<html><body>same docket</body></html>",
+        )
+    ]
+    if terminal_state == "newly_free":
+        source_observations.append(
+            (
+                candidate_id,
+                "newly_free",
+                "required_documents_newly_free",
+                {"candidate_id": candidate_id, "document_id": "44"},
+                b"<html><body>same docket</body></html>",
+            )
+        )
+    substituted = _snapshot(
+        tmp_path / f"cross-candidate-{terminal_state}",
+        batch_id="rescreen",
+        observations=source_observations,
+    )
+
+    with pytest.raises(
+        ScreeningSnapshotUnionError,
+        match="strict-screen docket ID does not match its candidate",
+    ):
+        load_screening_snapshot_union(
+            (stale, substituted),
+            expected_manifest_sha256=(
+                _manifest_sha256(stale),
+                _manifest_sha256(substituted),
+            ),
+            expected_cycle_hash=_cycle_hash(
+                tmp_path / f"stale-cross-candidate-{terminal_state}"
+            ),
+            expected_terminal_correction_candidate_id=(candidate_id,),
+            expected_terminal_correction_source_manifest_sha256=(
+                _manifest_sha256(substituted),
+            ),
+        )
+
+
+def test_strict_screen_validator_rejects_outer_candidate_substitution() -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    evidence = _strict_screen_evidence("courtlistener-docket-73330396")
+
+    with pytest.raises(
+        StrictScreenEvidenceError,
+        match="strict-screen evidence belongs to a different candidate",
+    ):
+        validate_strict_screen_evidence(
+            evidence,
+            expected_candidate_id=candidate_id,
         )
 
 
@@ -1300,7 +1396,7 @@ def _strict_screen_evidence(
             "docket_id": docket_id,
             "candidate_key": docket_id,
             "metadata": {
-                "case_id": docket_id,
+                "case_id": candidate_id,
                 "case_name": "Fixture v. Example",
                 "court": "nysd",
                 "docket_number": "1:26-cv-00001",
@@ -1330,12 +1426,12 @@ def _strict_screen_evidence(
         },
         "motion_linkage": {
             "candidate_id": docket_id,
-            "case_id": docket_id,
+            "case_id": candidate_id,
             "is_clean": True,
             "links": [
                 {
                     "candidate_id": docket_id,
-                    "case_id": docket_id,
+                    "case_id": candidate_id,
                     "motion_entry_ids": ["entry-5"],
                     "disposition_entry_ids": ["entry-12"],
                     "linkage_basis": ["fixture"],
