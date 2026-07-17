@@ -334,6 +334,9 @@ def test_union_promotes_only_explicit_unique_active_correction_and_binds_its_raw
         ],
     )
     corrected_evidence = _strict_screen_evidence(candidate_id)
+    # CourtListener REST strict screens can retain the numeric docket identity
+    # in metadata.case_id while the owning store candidate is provider-qualified.
+    corrected_evidence["candidate"]["metadata"]["case_id"] = "73330395"
     corrected = _snapshot(
         tmp_path / "corrected",
         batch_id="current-policy-rescreen",
@@ -546,6 +549,21 @@ def test_strict_screen_validator_rejects_outer_candidate_substitution() -> None:
     with pytest.raises(
         StrictScreenEvidenceError,
         match="strict-screen evidence belongs to a different candidate",
+    ):
+        validate_strict_screen_evidence(
+            evidence,
+            expected_candidate_id=candidate_id,
+        )
+
+
+def test_strict_screen_validator_rejects_cross_case_linkage() -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    evidence = _strict_screen_evidence(candidate_id)
+    evidence["motion_linkage"]["links"][0]["case_id"] = "courtlistener-docket-73330396"
+
+    with pytest.raises(
+        StrictScreenEvidenceError,
+        match="motion_linkage link case ID does not match its candidate",
     ):
         validate_strict_screen_evidence(
             evidence,
