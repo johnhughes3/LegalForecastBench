@@ -469,7 +469,7 @@ uv run legalforecast acquisition discover-firecrawl-recap-decisions \
   --eligibility-anchor 2026-06-30 \
   --search-window-start 2026-06-30 \
   --search-window-end 2026-07-14 \
-  --credit-cap 45000 \
+  --credit-cap <approved-cycle-firecrawl-credit-cap> \
   --live-firecrawl \
   --dockets-output artifacts/cycle-1/official-acquisition/decision-search/decision-dockets.jsonl \
   --execute --resume
@@ -575,7 +575,7 @@ uv run legalforecast acquisition acquire-ranked-firecrawl-dockets \
   --max-pages-per-docket 100 \
   --workers 10 \
   --decision-filed-on-or-after 2026-06-30 \
-  --credit-cap 45000 \
+  --credit-cap <approved-cycle-firecrawl-credit-cap> \
   --live-firecrawl \
   --raw-html-dir artifacts/cycle-1/official-acquisition/docket-acquisition/raw-docket-html \
   --successes-output artifacts/cycle-1/official-acquisition/docket-acquisition/docket-successes.jsonl \
@@ -585,7 +585,171 @@ uv run legalforecast acquisition acquire-ranked-firecrawl-dockets \
 
 For authenticated source-bound input, `--max-candidates` must exactly equal the selector's committed prefix/subset count. The command verifies the external selector-card digest, the full ranked-file digest, every selected ranked-record digest, the source schema/type commitments, the saturated parent transfer, and the exact selected/omitted reconciliation before any Firecrawl request. Source-bound ranked JSONL without this run card is rejected.
 
-Strict-screen the committed CourtListener docket bytes and publish the immutable complete snapshot:
+Use only the cycle cap John approved before execution. The seal below does not infer all prior Firecrawl authority from this run's store; the operator must supply the separately receipted total.
+
+If this immutable run actually exhausts its Firecrawl authorization before every selected docket becomes terminal, do not raise its cap and do not start a second run in the same store. Wait for the writer to exit and the WAL to checkpoint, pin the run's exact `cycle_hash`, `config_digest`, and `credit_cap` from its durable summary, then seal it provider-free:
+
+```bash
+uv run legalforecast acquisition seal-ranked-firecrawl-run \
+  --output-root artifacts/cycle-1/official-acquisition/docket-acquisition-seal \
+  --source-cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --run-id batch-002-ranked-dockets-primary \
+  --ranked artifacts/cycle-1/official-acquisition/case-dev-enrichment/ranked-dockets.jsonl \
+  --ranked-selection-run-card artifacts/cycle-1/official-acquisition/case-dev-enrichment/ranked-selection-run-card.json \
+  --expected-ranked-selection-run-card-sha256 <pinned-ranked-selection-run-card-sha256> \
+  --max-candidates 100 \
+  --max-pages-per-docket 100 \
+  --decision-filed-on-or-after 2026-06-30 \
+  --expected-cycle-hash <pinned-source-cycle-hash> \
+  --expected-run-config-sha256 <pinned-source-run-config-digest> \
+  --expected-credit-cap <pinned-source-credit-cap> \
+  --expected-total-prior-authorized-firecrawl-credits <pinned-total-prior-authorized-firecrawl-credits> \
+  --authorized-fresh-recovery-credit-cap 0 \
+  --execute --no-resume
+```
+
+The seal holds the source store's existing exclusive lock in SQLite read-only/query-only mode, rejects a live writer, nonempty WAL, outstanding authorization, nonexhausted budget, source/config/cap drift, malformed target ordinals, contradictory attempts, or changed raw page bytes. It emits normal successes and exclusions only for proven terminal dockets, plus exact terminal and unresolved manifests whose union conserves every selected target. Provider-global, interrupted, missing, in-progress, and retryable pages remain unresolved; they are never converted into candidate exclusions. Pin the raw seal-card plus both partition-manifest SHA-256 values out of band. A fresh cap of `0` is an explicit record that no continuation has been authorized; it does not block provider-free terminal screening.
+
+If `terminal_count` is zero, do not materialize or screen an empty terminal partition; skip directly to the approval-gated unresolved path. If `unresolved_count` is zero, skip the recovery store and union and use the terminal screen as the complete result.
+
+Initialize two distinct stores under the identical frozen cycle policy: one screening-only store for the terminal partition and one recovery store for the unresolved partition. Neither path may alias the exhausted source store. Verify that both emitted identity artifacts report the seal's pinned source cycle hash before continuing:
+
+```bash
+uv run legalforecast acquisition init-cycle \
+  --output-root artifacts/cycle-1/official-acquisition/terminal \
+  --cycle-store artifacts/cycle-1/official-acquisition/terminal/cycle-acquisition.sqlite3 \
+  --identity-output artifacts/cycle-1/official-acquisition/terminal/cycle-identity.json \
+  --eligibility-anchor 2026-06-30 \
+  --execute --no-resume
+
+uv run legalforecast acquisition init-cycle \
+  --output-root artifacts/cycle-1/official-acquisition/recovery \
+  --cycle-store artifacts/cycle-1/official-acquisition/recovery/cycle-acquisition.sqlite3 \
+  --identity-output artifacts/cycle-1/official-acquisition/recovery/cycle-identity.json \
+  --eligibility-anchor 2026-06-30 \
+  --execute --no-resume
+```
+
+Authenticate the exact terminal manifest into the screening-only store. This selector card deliberately cannot authorize Firecrawl: `verify_authenticated_ranked_firecrawl_handoff` rejects its terminal recovery authority, so a terminal docket cannot be charged again:
+
+```bash
+uv run legalforecast batch-002 select-case-dev-ranked-subset \
+  --source-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --source-batch-id <saturated-o-or-r-source-batch-id> \
+  --source-projection artifacts/cycle-1/official-acquisition/case-dev-enrichment/checkpoints/case-dev-recap-source-projection.jsonl \
+  --ranked artifacts/cycle-1/official-acquisition/case-dev-enrichment/ranked-dockets.jsonl \
+  --failures artifacts/cycle-1/official-acquisition/case-dev-enrichment/enrichment-failures.jsonl \
+  --enrichment-run-card artifacts/cycle-1/official-acquisition/case-dev-enrichment/run-cards/enrich-recap-case-dev.json \
+  --expected-enrichment-run-card-sha256 <pinned-enrichment-run-card-sha256> \
+  --sealed-terminal-manifest artifacts/cycle-1/official-acquisition/docket-acquisition-seal/firecrawl-terminal-partition.jsonl \
+  --expected-sealed-terminal-manifest-sha256 <pinned-terminal-manifest-sha256> \
+  --recovery-seal-run-card artifacts/cycle-1/official-acquisition/docket-acquisition-seal/run-cards/seal-ranked-firecrawl-run.json \
+  --expected-recovery-seal-run-card-sha256 <pinned-seal-run-card-sha256> \
+  --recovery-source-cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --cycle-store artifacts/cycle-1/official-acquisition/terminal/cycle-acquisition.sqlite3 \
+  --batch-id batch-002-ranked-dockets-terminal \
+  --eligibility-anchor 2026-06-30 \
+  --run-card-output artifacts/cycle-1/official-acquisition/terminal/terminal-selection-run-card.json
+```
+
+Do not continue unresolved acquisition without John's explicit approval of a fresh cap. After approval, rerun the provider-free seal into a new immutable `docket-acquisition-seal-authorized` output root, changing only `--authorized-fresh-recovery-credit-cap` from `0` to `<approved-fresh-recovery-credit-cap>`. The validator requires the externally pinned prior total plus that amount to remain strictly below 50,000. Pin the new seal card and both manifests; never modify or reuse the zero-authority card as acquisition authority.
+
+Authenticate only the exact unresolved manifest from that newly authorized seal into the recovery store. The source and target stores must be different files, and the target cycle hash must equal the seal's source cycle hash:
+
+```bash
+uv run legalforecast batch-002 select-case-dev-ranked-subset \
+  --source-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --source-batch-id <saturated-o-or-r-source-batch-id> \
+  --source-projection artifacts/cycle-1/official-acquisition/case-dev-enrichment/checkpoints/case-dev-recap-source-projection.jsonl \
+  --ranked artifacts/cycle-1/official-acquisition/case-dev-enrichment/ranked-dockets.jsonl \
+  --failures artifacts/cycle-1/official-acquisition/case-dev-enrichment/enrichment-failures.jsonl \
+  --enrichment-run-card artifacts/cycle-1/official-acquisition/case-dev-enrichment/run-cards/enrich-recap-case-dev.json \
+  --expected-enrichment-run-card-sha256 <pinned-enrichment-run-card-sha256> \
+  --sealed-unresolved-manifest artifacts/cycle-1/official-acquisition/docket-acquisition-seal-authorized/firecrawl-unresolved-partition.jsonl \
+  --expected-sealed-unresolved-manifest-sha256 <pinned-unresolved-manifest-sha256> \
+  --recovery-seal-run-card artifacts/cycle-1/official-acquisition/docket-acquisition-seal-authorized/run-cards/seal-ranked-firecrawl-run.json \
+  --expected-recovery-seal-run-card-sha256 <pinned-seal-run-card-sha256> \
+  --recovery-source-cycle-store artifacts/cycle-1/official-acquisition/cycle-acquisition.sqlite3 \
+  --cycle-store artifacts/cycle-1/official-acquisition/recovery/cycle-acquisition.sqlite3 \
+  --batch-id batch-002-ranked-dockets-unresolved \
+  --eligibility-anchor 2026-06-30 \
+  --run-card-output artifacts/cycle-1/official-acquisition/recovery/unresolved-selection-run-card.json
+```
+
+The unresolved selector replays the original ranked selection and source ledger under the source lock, then transfers only the exact unresolved docket IDs in canonical rank order. Its fresh-store batch config and run card bind both external hashes, the source target/attempt commitments, the exhausted cap, the separately authorized recovery cap, and `terminal_dockets_reauthorized: 0`. Passing the terminal manifest, changing either partition, reusing the exhausted source store as the target, or attempting to select a terminal docket fails before any target-batch write. Pin the new unresolved selector card's raw SHA-256 out of band, then acquire exactly its committed count under the cap sealed into that card:
+
+```bash
+uv run legalforecast acquisition acquire-ranked-firecrawl-dockets \
+  --output-root artifacts/cycle-1/official-acquisition/recovery/docket-acquisition \
+  --cycle-store artifacts/cycle-1/official-acquisition/recovery/cycle-acquisition.sqlite3 \
+  --parent-batch-id batch-002-ranked-dockets-unresolved \
+  --selected-batch-id batch-002-ranked-dockets-unresolved-acquired \
+  --run-id batch-002-ranked-dockets-recovery \
+  --ranked artifacts/cycle-1/official-acquisition/case-dev-enrichment/ranked-dockets.jsonl \
+  --ranked-selection-run-card artifacts/cycle-1/official-acquisition/recovery/unresolved-selection-run-card.json \
+  --expected-ranked-selection-run-card-sha256 <pinned-unresolved-selection-run-card-sha256> \
+  --max-candidates <sealed-unresolved-count> \
+  --max-pages-per-docket 100 \
+  --workers 10 \
+  --decision-filed-on-or-after 2026-06-30 \
+  --credit-cap <approved-fresh-recovery-credit-cap> \
+  --live-firecrawl \
+  --raw-html-dir artifacts/cycle-1/official-acquisition/recovery/docket-acquisition/raw-docket-html \
+  --successes-output artifacts/cycle-1/official-acquisition/recovery/docket-acquisition/docket-successes.jsonl \
+  --exclusions-output artifacts/cycle-1/official-acquisition/recovery/docket-acquisition/docket-fetch-exclusions.jsonl \
+  --execute --resume
+```
+
+The acquisition verifier requires `--credit-cap` to equal the sealed fresh-recovery authorization and `--max-candidates` to equal the complete unresolved selection. The sum of all prior and recovery Firecrawl authority must remain strictly below the cycle ceiling.
+
+Strict-screen the terminal projection from the seal and the separately acquired unresolved projection in their respective stores:
+
+```bash
+uv run legalforecast acquisition screen-firecrawl-dockets \
+  --output-root artifacts/cycle-1/official-acquisition/terminal/screening \
+  --cycle-store artifacts/cycle-1/official-acquisition/terminal/cycle-acquisition.sqlite3 \
+  --batch-id batch-002-ranked-dockets-terminal \
+  --successes artifacts/cycle-1/official-acquisition/docket-acquisition-seal/firecrawl-docket-successes.jsonl \
+  --fetch-exclusions artifacts/cycle-1/official-acquisition/docket-acquisition-seal/firecrawl-docket-exclusions.jsonl \
+  --raw-html-dir artifacts/cycle-1/official-acquisition/docket-acquisition-seal/raw-docket-html \
+  --decision-filed-on-or-after 2026-06-30 \
+  --snapshot-root artifacts/cycle-1/official-acquisition/terminal/snapshots \
+  --snapshot-id batch-002-ranked-dockets-terminal-screened \
+  --execute --no-resume
+
+uv run legalforecast acquisition screen-firecrawl-dockets \
+  --output-root artifacts/cycle-1/official-acquisition/recovery/screening \
+  --cycle-store artifacts/cycle-1/official-acquisition/recovery/cycle-acquisition.sqlite3 \
+  --batch-id batch-002-ranked-dockets-unresolved-acquired \
+  --successes artifacts/cycle-1/official-acquisition/recovery/docket-acquisition/docket-successes.jsonl \
+  --fetch-exclusions artifacts/cycle-1/official-acquisition/recovery/docket-acquisition/docket-fetch-exclusions.jsonl \
+  --raw-html-dir artifacts/cycle-1/official-acquisition/recovery/docket-acquisition/raw-docket-html \
+  --decision-filed-on-or-after 2026-06-30 \
+  --snapshot-root artifacts/cycle-1/official-acquisition/recovery/snapshots \
+  --snapshot-id batch-002-ranked-dockets-unresolved-screened \
+  --execute --no-resume
+```
+
+Require both screening snapshots to report complete reconciliation, `complete: true`, and `saturated: true`. Pin each raw `manifest.json` SHA-256 out of band, then publish the only complete post-recovery acquisition authority as their manifest-authenticated same-cycle union:
+
+```bash
+uv run legalforecast acquisition union-screening-snapshots \
+  --output-root artifacts/cycle-1/official-acquisition/recovery/union \
+  --cycle-store artifacts/cycle-1/official-acquisition/recovery/cycle-acquisition.sqlite3 \
+  --batch-id batch-002-ranked-dockets-complete-union \
+  --expected-cycle-hash <pinned-source-cycle-hash> \
+  --source-snapshot artifacts/cycle-1/official-acquisition/terminal/snapshots/batch-002-ranked-dockets-terminal-screened \
+  --expected-source-snapshot-manifest-sha256 <pinned-terminal-snapshot-manifest-sha256> \
+  --source-snapshot artifacts/cycle-1/official-acquisition/recovery/snapshots/batch-002-ranked-dockets-unresolved-screened \
+  --expected-source-snapshot-manifest-sha256 <pinned-unresolved-snapshot-manifest-sha256> \
+  --snapshot-root artifacts/cycle-1/official-acquisition/snapshots \
+  --snapshot-id batch-002-ranked-dockets-complete \
+  --execute --no-resume
+```
+
+Do not rank or prepare from either partition snapshot. Only the verified union is the complete recovery snapshot.
+
+If the primary Firecrawl acquisition completed without exhausting its immutable cap, skip the recovery sequence and strict-screen its committed CourtListener docket bytes directly:
 
 ```bash
 uv run legalforecast acquisition screen-firecrawl-dockets \

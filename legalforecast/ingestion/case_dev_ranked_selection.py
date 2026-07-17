@@ -156,6 +156,7 @@ class CaseDevRankedTargetPlan:
     target_batch_config: Mapping[str, object]
     target_batch_digest: str
     selection: VerifiedCaseDevRankedSelection
+    recovery_authority: Mapping[str, object] | None = None
 
     def run_card_record(self) -> dict[str, object]:
         """Return the complete commitment required before target writes."""
@@ -166,6 +167,7 @@ class CaseDevRankedTargetPlan:
             target_batch_digest=self.target_batch_digest,
             leads_selected=len(self.selection.selected),
             selection=self.selection,
+            recovery_authority=self.recovery_authority,
         )
 
 
@@ -180,9 +182,10 @@ class CaseDevRankedSeedResult:
     leads_seeded: int
     already_seeded: bool
     selection: VerifiedCaseDevRankedSelection
+    recovery_authority: Mapping[str, object] | None = None
 
     def to_record(self) -> dict[str, object]:
-        return {
+        record: dict[str, object] = {
             "schema_version": _selection_run_schema(self.selection),
             "provider_activity_requested": False,
             "provider_activity_executed": False,
@@ -196,6 +199,9 @@ class CaseDevRankedSeedResult:
             "already_seeded": self.already_seeded,
             **self.selection.commitment_record(),
         }
+        if self.recovery_authority is not None:
+            record["recovery_authority"] = dict(self.recovery_authority)
+        return record
 
     def run_card_record(self) -> dict[str, object]:
         """Return a replay-stable commitment independent of resume state."""
@@ -206,6 +212,7 @@ class CaseDevRankedSeedResult:
             target_batch_digest=self.target_batch_digest,
             leads_selected=self.leads_selected,
             selection=self.selection,
+            recovery_authority=self.recovery_authority,
         )
 
 
@@ -513,6 +520,7 @@ def build_case_dev_ranked_target_plan(
     target_cycle_hash: str,
     selection: VerifiedCaseDevRankedSelection,
     page_size: int = 100,
+    recovery_authority: Mapping[str, object] | None = None,
 ) -> CaseDevRankedTargetPlan:
     """Build the exact target commitment without mutating its cycle store."""
 
@@ -574,12 +582,19 @@ def build_case_dev_ranked_target_plan(
             "paid_activity_executed": False,
         }
     )
+    if recovery_authority is not None:
+        if not recovery_authority:
+            raise RecapApiBatchDriverError("recovery authority must not be empty")
+        config["ranked_recovery_authority"] = dict(recovery_authority)
     return CaseDevRankedTargetPlan(
         batch_id=batch_id,
         target_cycle_hash=target_cycle_hash,
         target_batch_config=config,
         target_batch_digest=_canonical_json_sha256(config),
         selection=selection,
+        recovery_authority=(
+            None if recovery_authority is None else dict(recovery_authority)
+        ),
     )
 
 
@@ -673,6 +688,7 @@ def seed_case_dev_ranked_selection(
         ),
         already_seeded=already_seeded,
         selection=selection,
+        recovery_authority=plan.recovery_authority,
     )
 
 
@@ -701,8 +717,9 @@ def _ranked_selection_run_card_record(
     target_batch_digest: str,
     leads_selected: int,
     selection: VerifiedCaseDevRankedSelection,
+    recovery_authority: Mapping[str, object] | None,
 ) -> dict[str, object]:
-    return {
+    record: dict[str, object] = {
         "schema_version": _selection_run_schema(selection),
         "provider_activity_requested": False,
         "provider_activity_executed": False,
@@ -714,6 +731,9 @@ def _ranked_selection_run_card_record(
         "leads_selected": leads_selected,
         **selection.commitment_record(),
     }
+    if recovery_authority is not None:
+        record["recovery_authority"] = dict(recovery_authority)
+    return record
 
 
 def _ranked_candidate_hit(

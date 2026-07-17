@@ -389,6 +389,65 @@ def test_firecrawl_credit_cap_is_aggregate_across_runs(tmp_path: Path) -> None:
         assert store.firecrawl_run_summary("docket-run")["reserved_credits"] == 10
 
 
+def test_read_only_store_holds_existing_lock_and_mutates_no_store_files(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "cycle.sqlite3"
+    with _store(tmp_path) as store:
+        expected_cycle_hash = store.cycle_hash
+        with pytest.raises(StoreLockedError):
+            CycleAcquisitionStore(path, read_only=True)
+
+    namespace = tuple(
+        candidate
+        for candidate in tmp_path.iterdir()
+        if candidate.name.startswith("cycle.sqlite3")
+    )
+    before = {
+        candidate.name: (
+            candidate.read_bytes(),
+            candidate.stat().st_mtime_ns,
+            candidate.stat().st_size,
+        )
+        for candidate in namespace
+    }
+
+    with CycleAcquisitionStore(path, read_only=True) as store:
+        assert store.cycle_hash == expected_cycle_hash
+        assert store.read_only is True
+
+    after_namespace = tuple(
+        candidate
+        for candidate in tmp_path.iterdir()
+        if candidate.name.startswith("cycle.sqlite3")
+    )
+    after = {
+        candidate.name: (
+            candidate.read_bytes(),
+            candidate.stat().st_mtime_ns,
+            candidate.stat().st_size,
+        )
+        for candidate in after_namespace
+    }
+    assert after == before
+
+
+def test_read_only_store_rejects_hardlinked_database_and_lock(tmp_path: Path) -> None:
+    path = tmp_path / "cycle.sqlite3"
+    with _store(tmp_path):
+        pass
+    alias = tmp_path / "cycle-alias.sqlite3"
+    alias_lock = Path(f"{alias}.lock")
+    alias.hardlink_to(path)
+    alias_lock.hardlink_to(Path(f"{path}.lock"))
+
+    with pytest.raises(
+        CycleAcquisitionStoreError,
+        match="singly linked regular file",
+    ):
+        CycleAcquisitionStore(alias, read_only=True)
+
+
 def test_firecrawl_artifact_is_atomic_immutable_and_attempt_bound(
     tmp_path: Path,
 ) -> None:

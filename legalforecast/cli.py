@@ -330,6 +330,18 @@ from legalforecast.ingestion.docket_sync import (
     DocketRetrievalPipeline,
     NormalizedDocketEntry,
 )
+from legalforecast.ingestion.firecrawl_docket_recovery import (
+    RANKED_FIRECRAWL_COMBINED_CREDIT_CEILING,
+    RANKED_FIRECRAWL_PARTITION_SCHEMA,
+    RANKED_FIRECRAWL_SEAL_SCHEMA,
+    RankedFirecrawlRecoveryError,
+    build_sealed_ranked_firecrawl_artifacts,
+    canonical_recovery_commitment,
+    read_pinned_regular_file,
+    seal_ranked_firecrawl_run,
+    validate_fresh_recovery_credit_authority,
+    verify_recovery_partition,
+)
 from legalforecast.ingestion.firecrawl_recap_decision_discovery import (
     DECISION_FIRST_RECAP_MAX_AUTHORIZED_CREDITS,
     DECISION_FIRST_RECAP_MAX_PAGES_PER_TERM,
@@ -1192,6 +1204,22 @@ def build_parser() -> argparse.ArgumentParser:
     _add_acquisition_acquire_ranked_dockets_arguments(
         acquisition_acquire_ranked_dockets
     )
+    acquisition_seal_ranked_dockets = acquisition_subparsers.add_parser(
+        "seal-ranked-firecrawl-run",
+        help=(
+            "Seal a budget-exhausted ranked Firecrawl ledger into exact terminal "
+            "and unresolved partitions without provider activity."
+        ),
+        description=(
+            "Open the completed source store under its existing exclusive lock in "
+            "true read-only mode, reauthenticate the ranked selection, verify "
+            "actual budget exhaustion and every attempt/artifact commitment, then "
+            "project normal success/exclusion outputs plus exact terminal and "
+            "unresolved recovery manifests. This command performs no provider, "
+            "PACER, purchase, fee-acknowledgment, or source-store mutation."
+        ),
+    )
+    _add_acquisition_seal_ranked_dockets_arguments(acquisition_seal_ranked_dockets)
     acquisition_discover_courtlistener = acquisition_subparsers.add_parser(
         "discover-courtlistener",
         help=(
@@ -3655,13 +3683,42 @@ def _add_batch_002_ranked_subset_selection_arguments(
     parser: argparse.ArgumentParser,
 ) -> None:
     _add_batch_002_ranked_selection_common_arguments(parser)
-    parser.add_argument(
+    authority = parser.add_mutually_exclusive_group(required=True)
+    authority.add_argument(
         "--docket-id",
         action="append",
-        required=True,
         help=(
             "Exact CourtListener docket ID to select; repeat for each docket. "
             "Duplicates and IDs absent from the authenticated ranking fail closed."
+        ),
+    )
+    authority.add_argument(
+        "--sealed-unresolved-manifest",
+        type=Path,
+        help=(
+            "Externally pinned unresolved-only manifest from "
+            "acquisition seal-ranked-firecrawl-run. Terminal dockets can never "
+            "be reauthorized through this path."
+        ),
+    )
+    authority.add_argument(
+        "--sealed-terminal-manifest",
+        type=Path,
+        help=(
+            "Externally pinned terminal manifest from the seal. This creates a "
+            "screening-only batch; Firecrawl reacquisition is forbidden."
+        ),
+    )
+    parser.add_argument("--expected-sealed-unresolved-manifest-sha256")
+    parser.add_argument("--expected-sealed-terminal-manifest-sha256")
+    parser.add_argument("--recovery-seal-run-card", type=Path)
+    parser.add_argument("--expected-recovery-seal-run-card-sha256")
+    parser.add_argument(
+        "--recovery-source-cycle-store",
+        type=Path,
+        help=(
+            "Immutable budget-exhausted Firecrawl source store. It must differ "
+            "from --cycle-store and is opened under its lock in read-only mode."
         ),
     )
     parser.set_defaults(handler=_cmd_batch_002_ranked_selection)
@@ -4263,6 +4320,58 @@ def _add_acquisition_acquire_ranked_dockets_arguments(
     parser.add_argument("--exclusions-output", type=Path)
     parser.add_argument("--summary-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_acquire_ranked_dockets)
+
+
+def _add_acquisition_seal_ranked_dockets_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument(
+        "--source-cycle-store",
+        type=Path,
+        required=True,
+        help="Existing immutable source ledger; opened read-only under its lock.",
+    )
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--ranked", type=Path, required=True)
+    parser.add_argument("--ranked-selection-run-card", type=Path, required=True)
+    parser.add_argument(
+        "--expected-ranked-selection-run-card-sha256",
+        required=True,
+        help="External lowercase SHA-256 of the ranked-selection run card bytes.",
+    )
+    parser.add_argument("--max-candidates", type=int, required=True)
+    parser.add_argument("--max-pages-per-docket", type=int, default=1000)
+    parser.add_argument("--decision-filed-on-or-after", required=True)
+    parser.add_argument("--expected-cycle-hash", required=True)
+    parser.add_argument("--expected-run-config-sha256", required=True)
+    parser.add_argument("--expected-credit-cap", type=int, required=True)
+    parser.add_argument(
+        "--expected-total-prior-authorized-firecrawl-credits",
+        type=int,
+        required=True,
+        help=(
+            "Externally pinned total Firecrawl credits authorized before this "
+            "recovery, including the source run and any separately receipted use."
+        ),
+    )
+    parser.add_argument(
+        "--authorized-fresh-recovery-credit-cap",
+        type=int,
+        required=True,
+        help=(
+            "Separately authorized cap for the fresh unresolved-store run; 0 "
+            "records that no continuation is authorized. The externally pinned "
+            "prior total plus this cap must remain strictly below 50,000 credits."
+        ),
+    )
+    parser.add_argument("--raw-html-dir", type=Path)
+    parser.add_argument("--successes-output", type=Path)
+    parser.add_argument("--exclusions-output", type=Path)
+    parser.add_argument("--terminal-manifest-output", type=Path)
+    parser.add_argument("--unresolved-manifest-output", type=Path)
+    parser.add_argument("--summary-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_seal_ranked_dockets)
 
 
 def _add_acquisition_plan_public_downloads_arguments(
@@ -13755,6 +13864,23 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
                     cast(str, args.parent_batch_id),
                 )
                 provisional_flags = provisional_lineage_flags(parent_config)
+                recovery_authority = parent_config.get("ranked_recovery_authority")
+                typed_recovery_authority = (
+                    cast(Mapping[str, object], recovery_authority)
+                    if isinstance(recovery_authority, Mapping)
+                    else None
+                )
+                if typed_recovery_authority is not None and (
+                    typed_recovery_authority.get("partition") == "unresolved"
+                    and typed_recovery_authority.get(
+                        "authorized_fresh_recovery_credit_cap"
+                    )
+                    != credit_cap
+                ):
+                    raise BudgetedDocketAcquisitionError(
+                        "--credit-cap must exactly equal the sealed fresh-recovery "
+                        "authorization"
+                    )
         except (
             BudgetedDocketAcquisitionError,
             CycleAcquisitionStoreError,
@@ -13993,6 +14119,294 @@ def _cmd_acquisition_acquire_ranked_dockets(args: argparse.Namespace) -> int:
         ),
         extra=summary,
     )
+    return 0
+
+
+def _cmd_acquisition_seal_ranked_dockets(args: argparse.Namespace) -> int:
+    """Seal one exhausted Firecrawl ledger without touching providers or source."""
+
+    # Do not create any output directory until every source-overlap gate passes.
+    output_root = cast(Path, args.output_root)
+    source_store = cast(Path, args.source_cycle_store)
+    ranked_path = cast(Path, args.ranked)
+    selection_card_path = cast(Path, args.ranked_selection_run_card)
+    selection_card_sha256 = cast(str, args.expected_ranked_selection_run_card_sha256)
+    run_id = cast(str, args.run_id)
+    max_candidates = cast(int, args.max_candidates)
+    max_pages = cast(int, args.max_pages_per_docket)
+    fresh_recovery_cap = cast(int, args.authorized_fresh_recovery_credit_cap)
+    total_prior_authorized_credits = cast(
+        int, args.expected_total_prior_authorized_firecrawl_credits
+    )
+    anchor = _iso_date_argument(
+        cast(str, args.decision_filed_on_or_after),
+        "--decision-filed-on-or-after",
+    )
+    raw_dir = _acquisition_path(args, "raw_html_dir", output_root / "raw-docket-html")
+    successes_path = _acquisition_path(
+        args, "successes_output", output_root / "firecrawl-docket-successes.jsonl"
+    )
+    exclusions_path = _acquisition_path(
+        args, "exclusions_output", output_root / "firecrawl-docket-exclusions.jsonl"
+    )
+    terminal_path = _acquisition_path(
+        args,
+        "terminal_manifest_output",
+        output_root / "firecrawl-terminal-partition.jsonl",
+    )
+    unresolved_path = _acquisition_path(
+        args,
+        "unresolved_manifest_output",
+        output_root / "firecrawl-unresolved-partition.jsonl",
+    )
+    summary_path = _acquisition_path(
+        args, "summary_output", output_root / "firecrawl-docket-seal-summary.json"
+    )
+    run_card_path = _acquisition_path(
+        args,
+        "run_card_output",
+        output_root / "run-cards" / "seal-ranked-firecrawl-run.json",
+    )
+    log_path = _acquisition_path(
+        args,
+        "log_output",
+        output_root / "logs" / "seal-ranked-firecrawl-run.jsonl",
+    )
+    output_paths = (
+        successes_path,
+        exclusions_path,
+        terminal_path,
+        unresolved_path,
+        summary_path,
+        run_card_path,
+    )
+    validation_writable_paths = (*output_paths, log_path)
+    _validate_ranked_handoff_paths(
+        protected_paths=(source_store, ranked_path, selection_card_path),
+        writable_paths=validation_writable_paths,
+        sqlite_paths=(source_store,),
+        context="ranked Firecrawl seal",
+    )
+    if max_candidates <= 0:
+        raise CommandError("--max-candidates must be positive")
+    if not source_store.is_file():
+        raise CommandError("--source-cycle-store must be an existing store")
+
+    try:
+        with CycleAcquisitionStore(source_store, read_only=True) as store:
+            source_summary = dict(store.firecrawl_run_summary(run_id))
+            source_batch_id = source_summary.get("batch_id")
+            if not isinstance(source_batch_id, str) or not source_batch_id:
+                raise RankedFirecrawlRecoveryError(
+                    "source Firecrawl run lacks a valid selected batch"
+                )
+            records = list(
+                verify_authenticated_ranked_firecrawl_handoff(
+                    store=store,
+                    parent_batch_id=source_batch_id,
+                    ranked_path=ranked_path,
+                    selection_run_card_path=selection_card_path,
+                    expected_selection_run_card_sha256=selection_card_sha256,
+                    max_candidates=max_candidates,
+                )
+            )
+            if len(records) != max_candidates:
+                raise RankedFirecrawlRecoveryError(
+                    "authenticated ranked selection does not contain exactly "
+                    "--max-candidates records"
+                )
+            sealed = seal_ranked_firecrawl_run(
+                store=store,
+                run_id=run_id,
+                records=records,
+                expected_cycle_hash=cast(str, args.expected_cycle_hash),
+                expected_run_config_sha256=cast(str, args.expected_run_config_sha256),
+                expected_credit_cap=cast(int, args.expected_credit_cap),
+                max_pages_per_docket=max_pages,
+                decision_anchor=anchor,
+            )
+            source_config = store.firecrawl_run_config(run_id)
+            source_raw_root_value = source_config.get("raw_artifact_root")
+            if not isinstance(source_raw_root_value, str):
+                raise RankedFirecrawlRecoveryError(
+                    "source Firecrawl run lacks a raw artifact root"
+                )
+            source_raw_root = Path(source_raw_root_value)
+            _reject_recovery_artifact_overlap(
+                source_raw_root=source_raw_root,
+                writable_paths=(raw_dir, *validation_writable_paths),
+            )
+            lineage_flags = provisional_lineage_flags(
+                store.batch_config(source_batch_id)
+            )
+            artifacts = build_sealed_ranked_firecrawl_artifacts(
+                sealed=sealed,
+                records=records,
+                raw_html_dir=raw_dir,
+                lineage_flags=lineage_flags,
+            )
+            reserved_per_attempt = sealed.credit_summary.get(
+                "reserved_credits_per_attempt"
+            )
+            if type(reserved_per_attempt) is not int:
+                raise RankedFirecrawlRecoveryError(
+                    "source run lacks valid Firecrawl reservation authority"
+                )
+            validate_fresh_recovery_credit_authority(
+                source_credit_cap=sealed.source_credit_cap,
+                total_prior_authorized_credits=total_prior_authorized_credits,
+                fresh_recovery_credit_cap=fresh_recovery_cap,
+                reserved_credits_per_attempt=reserved_per_attempt,
+            )
+    except (
+        BudgetedDocketAcquisitionError,
+        CycleAcquisitionStoreError,
+        RankedFirecrawlRecoveryError,
+        KeyError,
+        OSError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise CommandError(str(exc)) from exc
+
+    selection_card_bytes = read_pinned_regular_file(
+        selection_card_path,
+        expected_sha256=selection_card_sha256,
+        label="ranked-selection run card",
+    )
+    try:
+        selection_card_value = json.loads(selection_card_bytes)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise CommandError("ranked-selection run card is not valid JSON") from exc
+    if not isinstance(selection_card_value, Mapping):
+        raise CommandError("ranked-selection run card must be an object")
+    selection_card = cast(Mapping[str, object], selection_card_value)
+    successes_bytes = _jsonl_bytes(artifacts.successes)
+    exclusions_bytes = _jsonl_bytes(artifacts.exclusions)
+    terminal_bytes = _jsonl_bytes(artifacts.terminal_manifest)
+    unresolved_bytes = _jsonl_bytes(artifacts.unresolved_manifest)
+    terminal_set_sha256 = canonical_recovery_commitment(
+        [record["candidate_id"] for record in artifacts.terminal_manifest]
+    )
+    unresolved_set_sha256 = canonical_recovery_commitment(
+        [record["candidate_id"] for record in artifacts.unresolved_manifest]
+    )
+    summary: JsonRecord = {
+        "schema_version": RANKED_FIRECRAWL_SEAL_SCHEMA,
+        "partition_schema_version": RANKED_FIRECRAWL_PARTITION_SCHEMA,
+        "dry_run": _acquisition_dry_run(args),
+        "source_cycle_hash": sealed.source_cycle_hash,
+        "source_batch_id": sealed.source_batch_id,
+        "source_run_id": sealed.run_id,
+        "source_run_config_sha256": sealed.source_run_config_sha256,
+        "source_credit_cap": sealed.source_credit_cap,
+        "total_prior_authorized_firecrawl_credits": (total_prior_authorized_credits),
+        "authorized_fresh_recovery_credit_cap": fresh_recovery_cap,
+        "combined_firecrawl_credit_ceiling": (RANKED_FIRECRAWL_COMBINED_CREDIT_CEILING),
+        "source_ledger_as_of": sealed.source_ledger_as_of,
+        "source_candidate_count": sealed.source_candidate_count,
+        "success_count": len(artifacts.successes),
+        "exclusion_count": len(artifacts.exclusions),
+        "terminal_count": len(artifacts.terminal_manifest),
+        "unresolved_count": len(artifacts.unresolved_manifest),
+        "terminal_candidate_set_sha256": terminal_set_sha256,
+        "unresolved_candidate_set_sha256": unresolved_set_sha256,
+        "target_commitment_sha256": sealed.target_commitment_sha256,
+        "attempt_commitment_sha256": sealed.attempt_commitment_sha256,
+        "recovery_required": bool(artifacts.unresolved_manifest),
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        **dict(sealed.credit_summary),
+        **lineage_flags,
+    }
+    if _acquisition_dry_run(args):
+        _write_acquisition_completion(
+            args,
+            stage="seal-ranked-firecrawl-run",
+            input_paths=(source_store, ranked_path, selection_card_path),
+            output_paths=output_paths[:-1],
+            record_count=len(artifacts.terminal_manifest),
+            dry_run=True,
+            paid_activity_requested=False,
+            paid_activity_executed=False,
+            extra=summary,
+        )
+        print(json.dumps(summary, sort_keys=True))
+        return 0
+
+    output_commitments: JsonRecord = {
+        "successes": _sealed_output_commitment(
+            successes_path, successes_bytes, len(artifacts.successes)
+        ),
+        "exclusions": _sealed_output_commitment(
+            exclusions_path, exclusions_bytes, len(artifacts.exclusions)
+        ),
+        "terminal_manifest": _sealed_output_commitment(
+            terminal_path, terminal_bytes, len(artifacts.terminal_manifest)
+        ),
+        "unresolved_manifest": _sealed_output_commitment(
+            unresolved_path, unresolved_bytes, len(artifacts.unresolved_manifest)
+        ),
+    }
+    summary.update({"dry_run": False, "outputs": dict(output_commitments)})
+    summary_bytes = _json_bytes(summary)
+    output_commitments["summary"] = _sealed_output_commitment(
+        summary_path, summary_bytes, 1
+    )
+    run_card: JsonRecord = {
+        "schema_version": RANKED_FIRECRAWL_SEAL_SCHEMA,
+        "stage": "seal-ranked-firecrawl-run",
+        "status": "completed",
+        "execute": True,
+        "dry_run": False,
+        "sealed_at": sealed.source_ledger_as_of,
+        "provider_activity_requested": False,
+        "provider_activity_executed": False,
+        "paid_activity_requested": False,
+        "paid_activity_executed": False,
+        "source_cycle_store": str(source_store.resolve()),
+        "source_cycle_hash": sealed.source_cycle_hash,
+        "source_batch_id": sealed.source_batch_id,
+        "source_run_id": sealed.run_id,
+        "source_run_config_sha256": sealed.source_run_config_sha256,
+        "source_credit_cap": sealed.source_credit_cap,
+        "total_prior_authorized_firecrawl_credits": (total_prior_authorized_credits),
+        "authorized_fresh_recovery_credit_cap": fresh_recovery_cap,
+        "combined_firecrawl_credit_ceiling": (RANKED_FIRECRAWL_COMBINED_CREDIT_CEILING),
+        "source_candidate_count": sealed.source_candidate_count,
+        "ranked_path": str(ranked_path.resolve()),
+        "ranked_sha256": hashlib.sha256(ranked_path.read_bytes()).hexdigest(),
+        "ranked_selection_run_card_path": str(selection_card_path.resolve()),
+        "ranked_selection_run_card_sha256": selection_card_sha256,
+        "ranking_authority": selection_card,
+        "raw_html_dir": str(raw_dir.resolve()),
+        "decision_filed_on_or_after": anchor.isoformat(),
+        "max_pages_per_docket": max_pages,
+        "target_commitment_sha256": sealed.target_commitment_sha256,
+        "attempt_commitment_sha256": sealed.attempt_commitment_sha256,
+        "terminal_candidate_set_sha256": terminal_set_sha256,
+        "unresolved_candidate_set_sha256": unresolved_set_sha256,
+        "terminal_count": len(artifacts.terminal_manifest),
+        "unresolved_count": len(artifacts.unresolved_manifest),
+        "outputs": output_commitments,
+        **lineage_flags,
+    }
+    resume = cast(bool, args.resume)
+    for docket_id, payload in artifacts.raw_html_by_docket.items():
+        _write_immutable_bytes(raw_dir / f"{docket_id}.html", payload, resume=resume)
+    for path, payload in (
+        (successes_path, successes_bytes),
+        (exclusions_path, exclusions_bytes),
+        (terminal_path, terminal_bytes),
+        (unresolved_path, unresolved_bytes),
+        (summary_path, summary_bytes),
+    ):
+        _write_immutable_bytes(path, payload, resume=resume)
+    # The authenticated run card is intentionally the final artifact published.
+    _write_immutable_bytes(run_card_path, _json_bytes(run_card), resume=resume)
+    print(json.dumps(summary, sort_keys=True))
     return 0
 
 
@@ -14936,6 +15350,92 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
         Sequence[str] | None,
         getattr(args, "docket_id", None),
     )
+    unresolved_manifest = cast(
+        Path | None,
+        getattr(args, "sealed_unresolved_manifest", None),
+    )
+    terminal_manifest = cast(
+        Path | None,
+        getattr(args, "sealed_terminal_manifest", None),
+    )
+    expected_unresolved_sha256 = cast(
+        str | None,
+        getattr(args, "expected_sealed_unresolved_manifest_sha256", None),
+    )
+    expected_terminal_sha256 = cast(
+        str | None,
+        getattr(args, "expected_sealed_terminal_manifest_sha256", None),
+    )
+    recovery_seal_card = cast(
+        Path | None,
+        getattr(args, "recovery_seal_run_card", None),
+    )
+    expected_recovery_seal_sha256 = cast(
+        str | None,
+        getattr(args, "expected_recovery_seal_run_card_sha256", None),
+    )
+    recovery_source_store = cast(
+        Path | None,
+        getattr(args, "recovery_source_cycle_store", None),
+    )
+    recovery_partition = (
+        "unresolved"
+        if unresolved_manifest is not None
+        else ("terminal" if terminal_manifest is not None else None)
+    )
+    partition_manifest = unresolved_manifest or terminal_manifest
+    expected_partition_sha256 = (
+        expected_unresolved_sha256
+        if recovery_partition == "unresolved"
+        else expected_terminal_sha256
+    )
+    recovery_values = (
+        partition_manifest,
+        expected_partition_sha256,
+        recovery_seal_card,
+        expected_recovery_seal_sha256,
+        recovery_source_store,
+    )
+    recovery_mode = recovery_partition is not None
+    if recovery_mode != all(value is not None for value in recovery_values):
+        raise CommandError(
+            "the sealed partition manifest, its matching expected SHA-256, "
+            "--recovery-seal-run-card, its expected SHA-256, and "
+            "--recovery-source-cycle-store are required together"
+        )
+    if unresolved_manifest is None and expected_unresolved_sha256 is not None:
+        raise CommandError(
+            "--expected-sealed-unresolved-manifest-sha256 requires its manifest"
+        )
+    if terminal_manifest is None and expected_terminal_sha256 is not None:
+        raise CommandError(
+            "--expected-sealed-terminal-manifest-sha256 requires its manifest"
+        )
+    if recovery_mode and top_n is not None:
+        raise CommandError(
+            "sealed recovery authority is only valid for subset selection"
+        )
+    if recovery_mode and (
+        cast(Path, recovery_source_store).resolve(strict=False)
+        == cycle_store.resolve(strict=False)
+    ):
+        raise CommandError(
+            "recovery --cycle-store must be a fresh store distinct from the "
+            "budget-exhausted source store"
+        )
+    if recovery_mode:
+        try:
+            if cast(Path, recovery_source_store).samefile(cycle_store):
+                raise CommandError(
+                    "recovery --cycle-store hard-links the budget-exhausted "
+                    "source store; a fresh same-policy store is required"
+                )
+        except FileNotFoundError:
+            # The target store's required-existence gate below reports absence;
+            # without both files, there is no inode alias to compare here.
+            pass
+        except OSError as exc:
+            raise CommandError(f"cannot verify recovery store identity: {exc}") from exc
     page_size = cast(int, args.page_size)
     run_card_output = cast(Path, args.run_card_output)
     summary_output = cast(Path | None, args.summary_output)
@@ -14947,12 +15447,25 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
             terminal_exclusion_path,
             enrichment_run_card,
             cycle_store,
+            *(
+                (
+                    cast(Path, partition_manifest),
+                    cast(Path, recovery_seal_card),
+                    cast(Path, recovery_source_store),
+                )
+                if recovery_mode
+                else ()
+            ),
         ),
         writable_paths=(
             run_card_output,
             *((summary_output,) if summary_output is not None else ()),
         ),
-        sqlite_paths=(source_store, cycle_store),
+        sqlite_paths=(
+            source_store,
+            cycle_store,
+            *((cast(Path, recovery_source_store),) if recovery_mode else ()),
+        ),
         context="ranked Case.dev selection",
     )
     if not cycle_store.is_file():
@@ -14964,6 +15477,72 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
             source_store,
             source_batch_id=source_batch_id,
         )
+        recovery_authority: Mapping[str, object] | None = None
+        if recovery_mode:
+            seal_card_bytes = cast(Path, recovery_seal_card).read_bytes()
+            if (
+                hashlib.sha256(seal_card_bytes).hexdigest()
+                != expected_recovery_seal_sha256
+            ):
+                raise RankedFirecrawlRecoveryError(
+                    "recovery seal run card SHA-256 does not match"
+                )
+            seal_card = _read_json_object(cast(Path, recovery_seal_card))
+            original_selection_card_value = seal_card.get(
+                "ranked_selection_run_card_path"
+            )
+            original_selection_sha256 = seal_card.get(
+                "ranked_selection_run_card_sha256"
+            )
+            source_firecrawl_batch = seal_card.get("source_batch_id")
+            source_candidate_count = seal_card.get("source_candidate_count")
+            if (
+                not isinstance(original_selection_card_value, str)
+                or not isinstance(original_selection_sha256, str)
+                or not isinstance(source_firecrawl_batch, str)
+                or type(source_candidate_count) is not int
+            ):
+                raise RankedFirecrawlRecoveryError(
+                    "recovery seal lacks original ranked-selection authority"
+                )
+            with CycleAcquisitionStore(
+                cast(Path, recovery_source_store), read_only=True
+            ) as recovery_store:
+                original_records = list(
+                    verify_authenticated_ranked_firecrawl_handoff(
+                        store=recovery_store,
+                        parent_batch_id=source_firecrawl_batch,
+                        ranked_path=ranked_path,
+                        selection_run_card_path=Path(original_selection_card_value),
+                        expected_selection_run_card_sha256=(original_selection_sha256),
+                        max_candidates=source_candidate_count,
+                    )
+                )
+                verified_recovery = verify_recovery_partition(
+                    store=recovery_store,
+                    records=original_records,
+                    ranked_path=ranked_path,
+                    seal_run_card_path=cast(Path, recovery_seal_card),
+                    expected_seal_run_card_sha256=cast(
+                        str, expected_recovery_seal_sha256
+                    ),
+                    partition_manifest_path=cast(Path, partition_manifest),
+                    expected_partition_manifest_sha256=cast(
+                        str, expected_partition_sha256
+                    ),
+                    partition=recovery_partition,
+                )
+            if (
+                recovery_partition == "unresolved"
+                and verified_recovery.authority.get("firecrawl_reacquisition_allowed")
+                is not True
+            ):
+                raise RankedFirecrawlRecoveryError(
+                    "zero-cap unresolved recovery is not authorized for "
+                    "subset materialization"
+                )
+            selected_docket_ids = verified_recovery.docket_ids
+            recovery_authority = verified_recovery.authority
         selection = verify_case_dev_ranked_selection(
             source=source,
             source_store_path=source_store,
@@ -14981,11 +15560,19 @@ def _cmd_batch_002_ranked_selection(args: argparse.Namespace) -> int:
                 anchor=anchor,
             )
             target_cycle_hash = store.cycle_hash
+        if (
+            recovery_authority is not None
+            and recovery_authority.get("source_cycle_hash") != target_cycle_hash
+        ):
+            raise RankedFirecrawlRecoveryError(
+                "fresh recovery store does not use the sealed source cycle policy"
+            )
         plan = build_case_dev_ranked_target_plan(
             batch_id=batch_id,
             target_cycle_hash=target_cycle_hash,
             selection=selection,
             page_size=page_size,
+            recovery_authority=recovery_authority,
         )
         frozen_run_card = plan.run_card_record()
         if run_card_output.exists():
@@ -35531,6 +36118,75 @@ def _jsonl_bytes(records: Iterable[Mapping[str, Any]]) -> bytes:
         f"{json.dumps(dict(record), sort_keys=True, allow_nan=False)}\n"
         for record in records
     ).encode()
+
+
+def _sealed_output_commitment(
+    path: Path,
+    payload: bytes,
+    record_count: int,
+) -> JsonRecord:
+    return {
+        "path": str(path.resolve()),
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "bytes": len(payload),
+        "record_count": record_count,
+    }
+
+
+def _write_immutable_bytes(path: Path, payload: bytes, *, resume: bool) -> None:
+    if path.is_symlink():
+        raise CommandError(f"immutable output is a symlink: {path}")
+    if path.exists():
+        metadata = path.stat()
+        if not path.is_file() or metadata.st_nlink != 1:
+            raise CommandError(f"immutable output is not a singly linked file: {path}")
+        if path.read_bytes() == payload and resume:
+            return
+        disposition = "differs" if resume else "already exists"
+        raise CommandError(f"immutable output {disposition}: {path}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            os.link(temporary, path, follow_symlinks=False)
+        except FileExistsError:
+            raise CommandError(
+                f"immutable output appeared concurrently: {path}"
+            ) from None
+        temporary.unlink()
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _reject_recovery_artifact_overlap(
+    *,
+    source_raw_root: Path,
+    writable_paths: Sequence[Path],
+) -> None:
+    source = source_raw_root.resolve(strict=False)
+    for path in writable_paths:
+        output = path.resolve(strict=False)
+        if (
+            output == source
+            or output.is_relative_to(source)
+            or source.is_relative_to(output)
+        ):
+            raise RankedFirecrawlRecoveryError(
+                "recovery writable path overlaps the immutable source artifact "
+                f"root: {path}"
+            )
 
 
 def _write_jsonl(path: Path, records: Iterable[Mapping[str, Any]]) -> None:
