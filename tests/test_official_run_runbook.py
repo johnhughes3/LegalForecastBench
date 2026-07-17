@@ -494,6 +494,7 @@ def test_publication_docs_match_current_cli_and_workflow_contract() -> None:
         "legalforecast acquisition init-purchase-ledger",
         "legalforecast acquisition purchase-missing-recap-fetch",
         "legalforecast batch-002 seed-direct-search",
+        "legalforecast batch-002 rebind-direct-search",
         "legalforecast batch-002 observe",
         "legalforecast batch-002 snapshot",
     ):

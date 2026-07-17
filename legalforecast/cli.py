@@ -3747,12 +3747,16 @@ def _add_batch_002_exact310_common_arguments(
         "--target-seed-summary",
         type=Path,
         required=True,
-        help="Initial seed-direct-search summary for the exact target batch.",
+        help=(
+            "Externally pinned rebind-direct-search setup summary for the exact "
+            "cross-cycle target batch. A legacy seed-direct-search summary is "
+            "accepted only when source and target cycle hashes are identical."
+        ),
     )
     parser.add_argument(
         "--expected-target-seed-summary-sha256",
         required=True,
-        help="External lowercase SHA-256 of the target seed summary.",
+        help="External lowercase SHA-256 of the target setup summary.",
     )
     parser.add_argument(
         "--cycle-store",
