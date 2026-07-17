@@ -115,7 +115,7 @@ The public report includes the fields exported in `public/scores.json`: run coun
 
 ## 6. Cycle 1 results
 
-**Evidence tier after population:** Official LegalForecast-MTD Cycle 1 result.
+**Publication status after audited population:** Official LegalForecast-MTD Cycle 1 result.
 
 No result is available in this draft. Population is permitted only from the canonical audited public aggregate produced by the official publication gate. The package manifest binds each row below to a source path, source field, and reconstruction check. Independent arithmetic and claims review must pass after population.
 
@@ -124,7 +124,7 @@ No result is available in this draft. Population is permitted only from the cano
 | Frozen cohort and scored units | Pending audited Cycle 1 aggregate | Report exact clean-motion, prediction-unit, cluster, model, ablation, and repeat counts. |
 | Headline micro-Brier by evaluated model | Pending audited Cycle 1 aggregate | Lower is better; reproduce from public unit scores before ranking language. |
 | Clustered uncertainty and rank tiers | Pending audited Cycle 1 aggregate | Report intervals, adjustment, and any small-cluster suppression exactly. |
-| Full-packet versus metadata-only delta | Pending audited Cycle 1 aggregate | Describe only the observed paired contrast for the frozen conditions. |
+| Full-packet versus metadata-only delta | Pending audited Cycle 1 aggregate | Describe only the observed paired contrast for the frozen conditions; if the audited artifact index contains no ablation-delta artifact, report that no paired full-packet/metadata-only rows were available. |
 | Calibration and log loss | Pending audited Cycle 1 aggregate | Report alongside the primary metric without selecting bins after review. |
 | Refusal, invalid-output, and coverage rates | Pending audited Cycle 1 aggregate | Keep failed or defaulted required units in the declared denominator. |
 | Realized prevalence | Pending audited Cycle 1 aggregate | Provide outcome context without treating prevalence as model skill. |
@@ -132,9 +132,9 @@ No result is available in this draft. Population is permitted only from the cano
 | Public run, request, token, latency, and cost accounting | Pending audited Cycle 1 aggregate | Reconstruct only the public fields in `public/scores.json`, preserve missing dimensions, and disclose cost/auth basis. |
 | Public artifact and release hashes | Pending audited Cycle 1 aggregate | Bind the manuscript to the audited immutable publication. |
 
-The final narrative will be populated after the table reconstructs from `public/unit-scores.jsonl`, `public/report/leaderboard.json`, the aggregate run card, calibration output, `public/variance/repeat-sampling.json`, accounting fields in `public/scores.json`, and `public/artifact-index.json`. The narrative will identify the best observed evaluated-model row only if the frozen rank and uncertainty contract supports that description. It will not convert a within-cycle result into a claim about absolute legal intelligence or a different model version.
+The final narrative will be populated after the table reconstructs from `public/unit-scores.jsonl`, `public/report/leaderboard.json`, the aggregate run card, calibration output, `public/variance/repeat-sampling.json`, accounting fields in `public/scores.json`, and `public/artifact-index.json`, plus `public/ablation-deltas.json` when that optional artifact is indexed. The narrative will identify the best observed evaluated-model row only if the frozen rank and uncertainty contract supports that description. It will not convert a within-cycle result into a claim about absolute legal intelligence or a different model version.
 
-No Community Harness Comparison appears in this manuscript. Harvey LAB uses a different task, evaluator, and score meaning. If a later validated comparison is useful, it must appear in a separately labeled appendix with its exact preliminary or reproducible-community tier. Placement in an official methods paper cannot promote community evidence to an official LegalForecast-MTD result.
+No Community Harness Comparison appears in this manuscript. Harvey LAB uses a different task, evaluator, and score meaning. If a later validated comparison is useful, it must appear in a separately labeled appendix with its exact preliminary or reproducible-community status and limitations. Placement in an official methods paper cannot promote community evidence to an official LegalForecast-MTD result.
 
 ## 7. Limitations
 
@@ -196,7 +196,7 @@ The benchmark is also distinct from long-form legal work-product evaluations suc
 
 Cycle 1 uses public-record litigation material and may retain restricted copies for controlled processing. Public-record status does not eliminate privacy risk. Publication guardrails scan public paths for secret-looking content, private operational material, locked labels, raw provider outputs, restricted source bytes, and private withdrawal detail. The human-facing report is generated only from the aggregate's public directory.
 
-The benchmark can affect perceptions of models, providers, courts, litigants, and legal work. Claims are therefore tiered. A preliminary one-task community result, a contributor-grade reproducible community result, and an official LegalForecast-MTD result have different evidence and language rules. No surface can silently upgrade one tier into another. Official Brier scores and community rubric scores remain separate products.
+The benchmark can affect perceptions of models, providers, courts, litigants, and legal work. Claims are therefore governed by their publication status and supporting evidence. A preliminary one-task community result, a contributor-grade reproducible community result, and an official LegalForecast-MTD result have different evidence and language rules. No surface can silently upgrade one status into another. Official Brier scores and community rubric scores remain separate products.
 
 Model rationales may reproduce sensitive allegations from filings. They are retained for controlled analysis and are not automatically published merely because a numerical score is public. The official public bundle favors aggregate and unit-score evidence needed for verification while excluding raw text that is unnecessary for that purpose.
 

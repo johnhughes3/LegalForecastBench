@@ -103,8 +103,8 @@ def test_package_manifest_freezes_result_bindings_and_submission_boundary() -> N
     assert manifest["remaining_manuscript_input"] == [
         "audited_official_cycle_1_public_aggregate"
     ]
+    assert "evidence_tier_after_population" not in manifest
     assert manifest["community_appendix_included"] is False
-    assert manifest["evidence_tier_after_population"] == OFFICIAL_LABEL
 
     slots = cast(list[dict[str, str]], manifest["result_slots"])
     assert len(slots) >= 8
@@ -127,6 +127,16 @@ def test_package_manifest_freezes_result_bindings_and_submission_boundary() -> N
 
     uncertainty = slots_by_id["clustered_uncertainty"]
     assert uncertainty["source_path"] == "public/variance/repeat-sampling.json"
+
+    ablation = slots_by_id["ablation_delta"]
+    assert cast(bool, ablation["required"]) is False
+    assert ablation["population_condition"] == (
+        "public/ablation-deltas.json is listed in public/artifact-index.json"
+    )
+    assert ablation["absence_display"] == (
+        "Not available - no paired full_packet and metadata_only rows in "
+        "audited aggregate"
+    )
 
     accounting = slots_by_id["accounting"]
     assert accounting["source_path"] == "public/scores.json"

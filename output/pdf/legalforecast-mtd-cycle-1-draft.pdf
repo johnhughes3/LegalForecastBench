@@ -619,7 +619,7 @@ endstream
 endobj
 33 0 obj
 <<
-/Length 7497
+/Length 7510
 >>
 stream
 1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
@@ -739,7 +739,7 @@ Q
 q
 1 0 0 1 57.84 94.64 cm
 q
-BT 1 0 0 1 0 2.95 Tm 12.2 TL /F4 9.25 Tf .090196 .12549 .2 rg (Evidence tier after population:) Tj /F3 9.25 Tf ( Official LegalForecast-MTD Cycle 1 result.) Tj T* ET
+BT 1 0 0 1 0 2.95 Tm 12.2 TL /F4 9.25 Tf .090196 .12549 .2 rg (Publication status after audited population:) Tj /F3 9.25 Tf ( Official LegalForecast-MTD Cycle 1 result.) Tj T* ET
 Q
 Q
 q
@@ -754,7 +754,7 @@ endstream
 endobj
 34 0 obj
 <<
-/Length 9842
+/Length 9615
 >>
 stream
 1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
@@ -780,28 +780,28 @@ q
 1 0 0 1 57.84 716.34 cm
 Q
 q
-1 0 0 1 57.84 425.94 cm
+1 0 0 1 57.84 398.34 cm
 q
 .909804 .941176 .968627 rg
-n 0 290.4 508.32 -17.2 re f*
+n 0 318 508.32 -17.2 re f*
 .062745 .141176 .243137 rg
 BT /F2 10 Tf 12 TL ET
 q
-1 0 0 1 4 277.2 cm
+1 0 0 1 4 304.8 cm
 q
 .2 .254902 .333333 rg
 BT 1 0 0 1 0 1.8 Tm /F1 7.4 Tf 9.2 TL (Result element) Tj T* ET
 Q
 Q
 q
-1 0 0 1 173.44 277.2 cm
+1 0 0 1 173.44 304.8 cm
 q
 .2 .254902 .333333 rg
 BT 1 0 0 1 0 1.8 Tm /F1 7.4 Tf 9.2 TL (Cycle 1 value) Tj T* ET
 Q
 Q
 q
-1 0 0 1 342.88 277.2 cm
+1 0 0 1 342.88 304.8 cm
 q
 .2 .254902 .333333 rg
 BT 1 0 0 1 0 1.8 Tm /F1 7.4 Tf 9.2 TL (Required interpretation) Tj T* ET
@@ -810,77 +810,77 @@ Q
 0 0 0 rg
 BT /F1 10 Tf 12 TL ET
 q
-1 0 0 1 4 260 cm
+1 0 0 1 4 287.6 cm
 q
 .2 .254902 .333333 rg
 BT 1 0 0 1 0 1.8 Tm /F1 7.4 Tf 9.2 TL (Frozen cohort and scored units) Tj T* ET
 Q
 Q
 q
-1 0 0 1 173.44 260 cm
+1 0 0 1 173.44 287.6 cm
 q
 .2 .254902 .333333 rg
 BT 1 0 0 1 0 1.8 Tm /F1 7.4 Tf 9.2 TL (Pending audited Cycle 1 aggregate) Tj T* ET
 Q
 Q
 q
-1 0 0 1 342.88 250.8 cm
+1 0 0 1 342.88 278.4 cm
 q
 .2 .254902 .333333 rg
 BT 1 0 0 1 0 11 Tm /F1 7.4 Tf 9.2 TL (Report exact clean-motion, prediction-unit,) Tj T* (cluster, model, ablation, and repeat counts.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 4 233.6 cm
+1 0 0 1 4 261.2 cm
 q
 .2 .254902 .333333 rg
 BT 1 0 0 1 0 1.8 Tm /F1 7.4 Tf 9.2 TL (Headline micro-Brier by evaluated model) Tj T* ET
 Q
 Q
 q
-1 0 0 1 173.44 233.6 cm
+1 0 0 1 173.44 261.2 cm
 q
 .2 .254902 .333333 rg
 BT 1 0 0 1 0 1.8 Tm /F1 7.4 Tf 9.2 TL (Pending audited Cycle 1 aggregate) Tj T* ET
 Q
 Q
 q
-1 0 0 1 342.88 224.4 cm
+1 0 0 1 342.88 252 cm
 q
 .2 .254902 .333333 rg
 BT 1 0 0 1 0 11 Tm /F1 7.4 Tf 9.2 TL -0.0854 Tw (Lower is better; reproduce from public unit scores) Tj T* 0 Tw (before ranking language.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 4 207.2 cm
+1 0 0 1 4 234.8 cm
 q
 .2 .254902 .333333 rg
 BT 1 0 0 1 0 1.8 Tm /F1 7.4 Tf 9.2 TL (Clustered uncertainty and rank tiers) Tj T* ET
 Q
 Q
 q
-1 0 0 1 173.44 207.2 cm
+1 0 0 1 173.44 234.8 cm
 q
 .2 .254902 .333333 rg
 BT 1 0 0 1 0 1.8 Tm /F1 7.4 Tf 9.2 TL (Pending audited Cycle 1 aggregate) Tj T* ET
 Q
 Q
 q
-1 0 0 1 342.88 198 cm
+1 0 0 1 342.88 225.6 cm
 q
 .2 .254902 .333333 rg
 BT 1 0 0 1 0 11 Tm /F1 7.4 Tf 9.2 TL (Report intervals, adjustment, and any) Tj T* (small-cluster suppression exactly.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 4 180.8 cm
+1 0 0 1 4 208.4 cm
 q
 .2 .254902 .333333 rg
 BT 1 0 0 1 0 1.8 Tm /F1 7.4 Tf 9.2 TL (Full-packet versus metadata-only delta) Tj T* ET
 Q
 Q
 q
-1 0 0 1 173.44 180.8 cm
+1 0 0 1 173.44 208.4 cm
 q
 .2 .254902 .333333 rg
 BT 1 0 0 1 0 1.8 Tm /F1 7.4 Tf 9.2 TL (Pending audited Cycle 1 aggregate) Tj T* ET
@@ -890,7 +890,7 @@ q
 1 0 0 1 342.88 171.6 cm
 q
 .2 .254902 .333333 rg
-BT 1 0 0 1 0 11 Tm /F1 7.4 Tf 9.2 TL (Describe only the observed paired contrast for) Tj T* (the frozen conditions.) Tj T* ET
+BT 1 0 0 1 0 38.6 Tm /F1 7.4 Tf 9.2 TL (Describe only the observed paired contrast for) Tj T* (the frozen conditions; if the audited artifact index) Tj T* (contains no ablation-delta artifact, report that no) Tj T* (paired full-packet/metadata-only rows were) Tj T* (available.) Tj T* ET
 Q
 Q
 q
@@ -1023,74 +1023,67 @@ q
 1 j
 .580392 .639216 .721569 RG
 .35 w
-n 0 290.4 m 508.32 290.4 l S
+n 0 318 m 508.32 318 l S
 n 0 0 m 508.32 0 l S
-n 0 0 m 0 290.4 l S
-n 508.32 0 m 508.32 290.4 l S
-n 0 273.2 m 508.32 273.2 l S
-n 0 246.8 m 508.32 246.8 l S
-n 0 220.4 m 508.32 220.4 l S
-n 0 194 m 508.32 194 l S
+n 0 0 m 0 318 l S
+n 508.32 0 m 508.32 318 l S
+n 0 300.8 m 508.32 300.8 l S
+n 0 274.4 m 508.32 274.4 l S
+n 0 248 m 508.32 248 l S
+n 0 221.6 m 508.32 221.6 l S
 n 0 167.6 m 508.32 167.6 l S
 n 0 141.2 m 508.32 141.2 l S
 n 0 114.8 m 508.32 114.8 l S
 n 0 88.4 m 508.32 88.4 l S
 n 0 62 m 508.32 62 l S
 n 0 26.4 m 508.32 26.4 l S
-n 169.44 0 m 169.44 290.4 l S
-n 338.88 0 m 338.88 290.4 l S
+n 169.44 0 m 169.44 318 l S
+n 338.88 0 m 338.88 318 l S
 Q
 Q
 Q
 q
-1 0 0 1 57.84 418.94 cm
+1 0 0 1 57.84 391.34 cm
 Q
 q
-1 0 0 1 57.84 339.74 cm
+1 0 0 1 57.84 312.14 cm
 q
-BT 1 0 0 1 0 63.95 Tm 12.2 TL /F3 9.25 Tf .090196 .12549 .2 rg (The final narrative will be populated after the table reconstructs from ) Tj /F5 9.25 Tf (public/unit-scores.jsonl) Tj /F3 9.25 Tf (,) Tj T* /F5 9.25 Tf (public/report/leaderboard.json) Tj /F3 9.25 Tf (, the aggregate run card, calibration output,) Tj T* /F5 9.25 Tf (public/variance/repeat-sampling.json) Tj /F3 9.25 Tf (, accounting fields in ) Tj /F5 9.25 Tf (public/scores.json) Tj /F3 9.25 Tf (, and) Tj T* /F5 9.25 Tf (public/artifact-index.json) Tj /F3 9.25 Tf (. The narrative will identify the best observed evaluated-model row only if the frozen rank and) Tj T* (uncertainty contract supports that description. It will not convert a within-cycle result into a claim about absolute legal intelligence or) Tj T* (a different model version.) Tj T* ET
+BT 1 0 0 1 0 63.95 Tm 12.2 TL /F3 9.25 Tf .090196 .12549 .2 rg (The final narrative will be populated after the table reconstructs from ) Tj /F5 9.25 Tf (public/unit-scores.jsonl) Tj /F3 9.25 Tf (,) Tj T* /F5 9.25 Tf (public/report/leaderboard.json) Tj /F3 9.25 Tf (, the aggregate run card, calibration output,) Tj T* /F5 9.25 Tf (public/variance/repeat-sampling.json) Tj /F3 9.25 Tf (, accounting fields in ) Tj /F5 9.25 Tf (public/scores.json) Tj /F3 9.25 Tf (, and) Tj T* /F5 9.25 Tf (public/artifact-index.json) Tj /F3 9.25 Tf (, plus ) Tj /F5 9.25 Tf (public/ablation-deltas.json) Tj /F3 9.25 Tf ( when that optional artifact is indexed. The) Tj T* (narrative will identify the best observed evaluated-model row only if the frozen rank and uncertainty contract supports that) Tj T* (description. It will not convert a within-cycle result into a claim about absolute legal intelligence or a different model version.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 284.94 cm
+1 0 0 1 57.84 257.34 cm
 q
 .090196 .12549 .2 rg
-BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (No Community Harness Comparison appears in this manuscript. Harvey LAB uses a different task, evaluator, and score meaning. If a) Tj T* (later validated comparison is useful, it must appear in a separately labeled appendix with its exact preliminary or) Tj T* (reproducible-community tier. Placement in an official methods paper cannot promote community evidence to an official) Tj T* (LegalForecast-MTD result.) Tj T* ET
+BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (No Community Harness Comparison appears in this manuscript. Harvey LAB uses a different task, evaluator, and score meaning. If a) Tj T* (later validated comparison is useful, it must appear in a separately labeled appendix with its exact preliminary or) Tj T* (reproducible-community status and limitations. Placement in an official methods paper cannot promote community evidence to an) Tj T* (official LegalForecast-MTD result.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 258.44 cm
+1 0 0 1 57.84 230.84 cm
 q
 .062745 .141176 .243137 rg
 BT 1 0 0 1 0 2.5 Tm /F2 13 Tf 15.5 TL (7. Limitations) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 203.64 cm
+1 0 0 1 57.84 176.04 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (Cycle 1 is a finite sample of federal motion-to-dismiss matters selected under a specific eligibility window and document-availability) Tj T* (regime. The case mix may differ by district, subject matter, party type, representation, motion practice, and pleading complexity.) Tj T* (Within-cycle pairing improves comparison on the shared cohort but does not make that cohort representative of all federal civil) Tj T* (litigation.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 148.84 cm
+1 0 0 1 57.84 121.24 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (The prediction unit is legally meaningful but not independent within a case. Claims may share facts, defendants, and legal theories.) Tj T* (Related proceedings can share even more structure. Clustered resampling addresses declared dependence at the MDL-family,) Tj T* (related-case-family, or case level, but estimates may remain unstable when the number of independent clusters is small. The) Tj T* (small-cluster guard makes that limitation visible rather than manufacturing precision.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 106.24 cm
+1 0 0 1 57.84 78.64 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 27.35 Tm /F3 9.25 Tf 12.2 TL (Packet completeness varies. Some dockets expose every expected brief through public sources, while others have unavailable or) Tj T* (restricted documents. The benchmark records missing optional sections, but missingness may correlate with court, party resources, or) Tj T* (case type. The score therefore reflects both model behavior and the information surface produced by the acquisition policy.) Tj T* ET
-Q
-Q
-q
-1 0 0 1 57.84 63.64 cm
-q
-.090196 .12549 .2 rg
-BT 1 0 0 1 0 27.35 Tm /F3 9.25 Tf 12.2 TL (Contamination controls reduce direct outcome leakage and retrospective selection, but they cannot establish that a hosted model has) Tj T* (never encountered the case, a related filing, or commentary during training or serving. Provider systems can also change behind a) Tj T* (stable product name. Model registry metadata and execution dates improve provenance without eliminating that uncertainty.) Tj T* ET
 Q
 Q
  
@@ -1098,7 +1091,7 @@ endstream
 endobj
 35 0 obj
 <<
-/Length 7331
+/Length 7274
 >>
 stream
 1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
@@ -1114,113 +1107,106 @@ BT /F2 44 Tf 52.8 TL ET
 BT 1 0 0 1 -235.884 -33.69771 Tm (PRE-RESULTS DRAFT) Tj T* ET
 Q
 q
-1 0 0 1 57.84 688.24 cm
+1 0 0 1 57.84 700.44 cm
 q
 .090196 .12549 .2 rg
-BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (The binary target does not capture partial dismissal, leave to amend, reasoning quality, litigation value, settlement leverage, later) Tj T* (procedural success, or normative legal correctness. A low Brier score would show calibrated prediction of the frozen target, not good) Tj T* (lawyering or desirable adjudication. Rationales are collected for transparency and error analysis; unless a separate rubric is) Tj T* (prespecified, they are not the headline score.) Tj T* ET
+BT 1 0 0 1 0 27.35 Tm /F3 9.25 Tf 12.2 TL (Contamination controls reduce direct outcome leakage and retrospective selection, but they cannot establish that a hosted model has) Tj T* (never encountered the case, a related filing, or commentary during training or serving. Provider systems can also change behind a) Tj T* (stable product name. Model registry metadata and execution dates improve provenance without eliminating that uncertainty.) Tj T* ET
 Q
 Q
 q
 1 0 0 1 57.84 645.64 cm
 q
 .090196 .12549 .2 rg
-BT 1 0 0 1 0 27.35 Tm /F3 9.25 Tf 12.2 TL -0.050775 Tw (No human forecasts were collected in Cycle 1. The paper cannot say whether a model outperforms lawyers, judges, litigants, or expert) Tj T* 0 Tw (forecasters. Statistical baselines are also conditional on a valid historical corpus and feature freeze. If that evidence is absent, the) Tj T* (constant-0.5 row supplies orientation, not an empirical competitor or proof of skill.) Tj T* ET
+BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (The binary target does not capture partial dismissal, leave to amend, reasoning quality, litigation value, settlement leverage, later) Tj T* (procedural success, or normative legal correctness. A low Brier score would show calibrated prediction of the frozen target, not good) Tj T* (lawyering or desirable adjudication. Rationales are collected for transparency and error analysis; unless a separate rubric is) Tj T* (prespecified, they are not the headline score.) Tj T* ET
 Q
 Q
 q
 1 0 0 1 57.84 603.04 cm
 q
 .090196 .12549 .2 rg
+BT 1 0 0 1 0 27.35 Tm /F3 9.25 Tf 12.2 TL -0.050775 Tw (No human forecasts were collected in Cycle 1. The paper cannot say whether a model outperforms lawyers, judges, litigants, or expert) Tj T* 0 Tw (forecasters. Statistical baselines are also conditional on a valid historical corpus and feature freeze. If that evidence is absent, the) Tj T* (constant-0.5 row supplies orientation, not an empirical competitor or proof of skill.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 57.84 560.44 cm
+q
+.090196 .12549 .2 rg
 BT 1 0 0 1 0 27.35 Tm /F3 9.25 Tf 12.2 TL (Multiple model, ablation, and sensitivity views create opportunities for selective emphasis. The publication contract mitigates this by) Tj T* (freezing the headline metric, model universe, analysis family, rank procedure, baseline treatment, and required disclosures. Readers) Tj T* (should still treat secondary analyses as descriptive unless their uncertainty and multiplicity treatment support a stronger inference.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 548.24 cm
+1 0 0 1 57.84 505.64 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (Finally, public reproducibility is intentionally incomplete. The repository can publish code, hashes, synthetic fixtures, score) Tj T* (arithmetic, aggregate artifacts, run metadata, and lawful source handles. It cannot necessarily redistribute every court filing, provider) Tj T* (response, locked label, withdrawal reason, or private audit record. The distinction between public reproduction and controlled audit is) Tj T* (a constraint, not a claim of fully open data.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 521.74 cm
+1 0 0 1 57.84 479.14 cm
 q
 .062745 .141176 .243137 rg
 BT 1 0 0 1 0 2.5 Tm /F2 13 Tf 15.5 TL (8. Reproducibility and audit) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 466.94 cm
+1 0 0 1 57.84 424.34 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (The release uses two verification depths. Public reproduction checks that a published result follows from the public aggregate.) Tj T* (Controlled audit checks that the public aggregate follows from the frozen source, label, execution, and receipt evidence. The) Tj T* (repository methods, labeling, run, and audit contracts define this split [R12]. It makes useful verification possible without publishing) Tj T* (credentials, restricted records, or outcome labels before the benchmark gate.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 445.94 cm
+1 0 0 1 57.84 403.34 cm
 q
 .113725 .305882 .447059 rg
 BT 1 0 0 1 0 2.4 Tm /F2 10.6 Tf 13 TL (8.1 Public arithmetic reproduction) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 378.94 cm
+1 0 0 1 57.84 336.34 cm
 q
 BT 1 0 0 1 0 51.75 Tm -0.017133 Tw 12.2 TL /F3 9.25 Tf .090196 .12549 .2 rg (The public bundle includes unit-level Brier rows, leaderboard summaries, calibration and variance outputs, cycle-power diagnostics, a) Tj T* 0 Tw (run card, and artifact manifests. A reproducer must recompute every public unit loss from ) Tj /F5 9.25 Tf (probability_fully_dismissed) Tj /F3 9.25 Tf  T* -0.088792 Tw (and ) Tj /F5 9.25 Tf (outcome) Tj /F3 9.25 Tf (, reject any row whose supplied ) Tj /F5 9.25 Tf (brier) Tj /F3 9.25 Tf ( value drifts from that calculation, average only the recomputed losses, compare) Tj T* 0 Tw (the result with the leaderboard, verify artifact SHA-256 values, and inspect the expected and observed matrix counts. The repository) Tj (') Tj (s) Tj T* (synthetic end-to-end fixture exercises the same score and report interfaces without provider credentials or private case records.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 336.34 cm
+1 0 0 1 57.84 293.74 cm
 q
 BT 1 0 0 1 0 27.35 Tm 12.2 TL /F3 9.25 Tf .090196 .12549 .2 rg (The manuscript) Tj (') Tj (s result table has the same discipline. ) Tj /F5 9.25 Tf (package-manifest.json) Tj /F3 9.25 Tf ( names the canonical aggregate path and source) Tj T* (field for every slot. Population must be mechanical. Reviewers compare every manuscript number, ordering statement, interval, and) Tj T* (baseline sentence with the public artifacts. A mismatch blocks the final package.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 315.34 cm
+1 0 0 1 57.84 272.74 cm
 q
 .113725 .305882 .447059 rg
 BT 1 0 0 1 0 2.4 Tm /F2 10.6 Tf 13 TL (8.2 Controlled source and label audit) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 260.54 cm
+1 0 0 1 57.84 217.94 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (A controlled auditor verifies that the release SHA and freeze commitment predate live outputs; that the manifest, labels, registry,) Tj T* (packet hashes, scorer, prompt, budget, and publication policy match the commitment; and that accepted outputs form the expected) Tj T* (case-by-ablation-by-model-by-repeat product exactly once. The auditor checks packet-source hashes and the target-disposition) Tj T* (exclusions, then recomputes the aggregate from accepted artifacts and locked labels.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 205.74 cm
+1 0 0 1 57.84 163.14 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (Raw provider responses, restricted source-document bytes, private withdrawal reasons, credentials, and private debug outputs stay) Tj T* (outside the public site. Source handles and hashes can make lawful reconstruction possible without purporting to license third-party) Tj T* (material. The Apache-2.0 repository license applies to repository code, not automatically to court documents, provider outputs, or) Tj T* (third-party datasets.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 184.74 cm
+1 0 0 1 57.84 142.14 cm
 q
 .113725 .305882 .447059 rg
 BT 1 0 0 1 0 2.4 Tm /F2 10.6 Tf 13 TL (8.3 Corrections and durable identity) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 142.14 cm
+1 0 0 1 57.84 99.54 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 27.35 Tm /F3 9.25 Tf 12.2 TL (The public artifact index binds the final manuscript to the released files. A correction produces a new, superseding aggregate and) Tj T* (publication record. The prior bundle remains identifiable. This avoids silent changes to numbers already cited by readers and permits) Tj T* (a correction note to state which freeze, artifact, or analysis changed.) Tj T* ET
-Q
-Q
-q
-1 0 0 1 57.84 121.14 cm
-q
-.113725 .305882 .447059 rg
-BT 1 0 0 1 0 2.4 Tm /F2 10.6 Tf 13 TL (8.4 Publication boundary) Tj T* ET
-Q
-Q
-q
-1 0 0 1 57.84 78.54 cm
-q
-.090196 .12549 .2 rg
-BT 1 0 0 1 0 27.35 Tm /F3 9.25 Tf 12.2 TL (Repository source, a rendered draft, and a complete SSRN upload folder are not submission authority. John J. Hughes III separately) Tj T* (approves authorship, destination, final text, and submission. arXiv is optional and never blocks the official report or SSRN package.) Tj T* (The required non-affiliation statement is:) Tj T* ET
 Q
 Q
  
@@ -1228,7 +1214,7 @@ endstream
 endobj
 36 0 obj
 <<
-/Length 6287
+/Length 6888
 >>
 stream
 1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
@@ -1244,7 +1230,21 @@ BT /F2 44 Tf 52.8 TL ET
 BT 1 0 0 1 -235.884 -33.69771 Tm (PRE-RESULTS DRAFT) Tj T* ET
 Q
 q
-1 0 0 1 57.84 715.04 cm
+1 0 0 1 57.84 724.04 cm
+q
+.113725 .305882 .447059 rg
+BT 1 0 0 1 0 2.4 Tm /F2 10.6 Tf 13 TL (8.4 Publication boundary) Tj T* ET
+Q
+Q
+q
+1 0 0 1 57.84 681.44 cm
+q
+.090196 .12549 .2 rg
+BT 1 0 0 1 0 27.35 Tm /F3 9.25 Tf 12.2 TL (Repository source, a rendered draft, and a complete SSRN upload folder are not submission authority. John J. Hughes III separately) Tj T* (approves authorship, destination, final text, and submission. arXiv is optional and never blocks the official report or SSRN package.) Tj T* (The required non-affiliation statement is:) Tj T* ET
+Q
+Q
+q
+1 0 0 1 57.84 653.94 cm
 q
 .960784 .619608 .043137 RG
 .8 w
@@ -1257,75 +1257,75 @@ BT 1 0 0 1 0 13.5 Tm /F1 8.5 Tf 11 TL (LegalForecastBench is an independent proj
 Q
 Q
 q
-1 0 0 1 57.84 670.44 cm
+1 0 0 1 57.84 609.34 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 27.35 Tm /F3 9.25 Tf 12.2 TL (The final package must pass source-to-claim citation review, result-table reconstruction, leakage and publication scans, deterministic) Tj T* (rendering, visual inspection, and independent methods review. After those checks, the only manuscript input allowed to remain) Tj T* (pending is the audited official Cycle 1 public aggregate.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 643.94 cm
+1 0 0 1 57.84 582.84 cm
 q
 .062745 .141176 .243137 rg
 BT 1 0 0 1 0 2.5 Tm /F2 13 Tf 15.5 TL (9. Related work) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 576.94 cm
+1 0 0 1 57.84 515.84 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 51.75 Tm /F3 9.25 Tf 12.2 TL (Early and contemporary legal prediction studies differ in target, jurisdiction, input timing, and unit. Katz, Bommarito, and Blackman) Tj T* (used structured information available before decision to model Supreme Court votes and outcomes [R2]. Aletras and colleagues and) Tj T* -0.084281 Tw (Chalkidis and colleagues studied European Court of Human Rights judgments, using court-authored text to predict violation outcomes) Tj T* 0 Tw ([R3] [R4]. CAIL2018 framed charges, statutes, and prison terms from fact descriptions in Chinese criminal cases [R5].) Tj T* (Swiss-Judgment-Prediction introduced a multilingual, diachronic corpus of Swiss Federal Supreme Court cases [R6].) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 509.94 cm
+1 0 0 1 57.84 448.84 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 51.75 Tm /F3 9.25 Tf 12.2 TL (CLC-UKET studies UK Employment Tribunal outcomes, legal annotations, and human predictions [R7]. Its task and data differ from) Tj T* (federal motion practice, but its use of a professional outcome-prediction frame and a human reference makes it a close legal analogue.) Tj T* -0.090206 Tw (Medvedeva and McBride argue that legal judgment-prediction research should use data appropriate to the real prediction task, identify) Tj T* 0 Tw (end users, and report in an application-centered way [R1]. LegalForecast-MTD adopts those concerns through its pre-decision packet) Tj T* (boundary, narrow intended use, and explicit limitations.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 455.14 cm
+1 0 0 1 57.84 394.04 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL -0.063469 Tw (ForecastBench evaluates probabilistic forecasts on questions that are unresolved when forecasts are submitted and reports Brier scores) Tj T* 0 Tw ([R8]. LegalForecast-MTD does not reuse ForecastBench questions or claim equivalence between world-event forecasting and) Tj T* (litigation. It borrows the high-level design lesson that post-cutoff outcomes and proper scoring reduce some) Tj T* (benchmark-contamination and threshold-selection problems.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 388.14 cm
+1 0 0 1 57.84 327.04 cm
 q
 BT 1 0 0 1 0 51.75 Tm 12.2 TL /F3 9.25 Tf .090196 .12549 .2 rg (The benchmark is also distinct from long-form legal work-product evaluations such as Harvey LAB [R10]. A rubric score for a) Tj T* (drafted deliverable and a Brier score for an outcome probability answer different questions. They must not be combined in one) Tj T* (leaderboard or described as an overall winner. Commercial motion-level prediction products provide additional context that) Tj T* (metadata-only legal forecasting is operationally pursued [R11], but marketing materials do not validate this benchmark) Tj (') Tj (s methods or) Tj T* (results.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 361.64 cm
+1 0 0 1 57.84 300.54 cm
 q
 .062745 .141176 .243137 rg
 BT 1 0 0 1 0 2.5 Tm /F2 13 Tf 15.5 TL (10. Ethics, governance, and disclosures) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 306.84 cm
+1 0 0 1 57.84 245.74 cm
 q
 BT 1 0 0 1 0 39.55 Tm 12.2 TL /F3 9.25 Tf .090196 .12549 .2 rg (Cycle 1 uses public-record litigation material and may retain restricted copies for controlled processing. Public-record status does not) Tj T* (eliminate privacy risk. Publication guardrails scan public paths for secret-looking content, private operational material, locked labels,) Tj T* (raw provider outputs, restricted source bytes, and private withdrawal detail. The human-facing report is generated only from the) Tj T* (aggregate) Tj (') Tj (s public directory.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 252.04 cm
+1 0 0 1 57.84 190.94 cm
 q
 .090196 .12549 .2 rg
-BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (The benchmark can affect perceptions of models, providers, courts, litigants, and legal work. Claims are therefore tiered. A) Tj T* (preliminary one-task community result, a contributor-grade reproducible community result, and an official LegalForecast-MTD result) Tj T* -0.066105 Tw (have different evidence and language rules. No surface can silently upgrade one tier into another. Official Brier scores and community) Tj T* 0 Tw (rubric scores remain separate products.) Tj T* ET
+BT 1 0 0 1 0 39.55 Tm /F3 9.25 Tf 12.2 TL (The benchmark can affect perceptions of models, providers, courts, litigants, and legal work. Claims are therefore governed by their) Tj T* (publication status and supporting evidence. A preliminary one-task community result, a contributor-grade reproducible community) Tj T* (result, and an official LegalForecast-MTD result have different evidence and language rules. No surface can silently upgrade one) Tj T* (status into another. Official Brier scores and community rubric scores remain separate products.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 209.44 cm
+1 0 0 1 57.84 148.34 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 27.35 Tm /F3 9.25 Tf 12.2 TL (Model rationales may reproduce sensitive allegations from filings. They are retained for controlled analysis and are not automatically) Tj T* (published merely because a numerical score is public. The official public bundle favors aggregate and unit-score evidence needed for) Tj T* (verification while excluding raw text that is unnecessary for that purpose.) Tj T* ET
 Q
 Q
 q
-1 0 0 1 57.84 166.84 cm
+1 0 0 1 57.84 105.74 cm
 q
 .090196 .12549 .2 rg
 BT 1 0 0 1 0 27.35 Tm /F3 9.25 Tf 12.2 TL (LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and LegalQuants are not sponsors, partners, or endorsers of) Tj T* (this work. Any credit for public feedback or upstream software is ordinary attribution, not evidence of review, approval, or affiliation.) Tj T* (The author will disclose any additional funding or competing interest before submission.) Tj T* ET
@@ -1502,10 +1502,10 @@ xref
 0000013017 00000 n 
 0000020425 00000 n 
 0000028100 00000 n 
-0000035649 00000 n 
-0000045543 00000 n 
-0000052926 00000 n 
-0000059265 00000 n 
+0000035662 00000 n 
+0000045329 00000 n 
+0000052655 00000 n 
+0000059595 00000 n 
 trailer
 <<
 /ID 
@@ -1517,5 +1517,5 @@ trailer
 /Size 38
 >>
 startxref
-64307
+64637
 %%EOF

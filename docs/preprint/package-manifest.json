@@ -9,7 +9,6 @@
   "remaining_manuscript_input": [
     "audited_official_cycle_1_public_aggregate"
   ],
-  "evidence_tier_after_population": "Official LegalForecast-MTD Cycle 1 result",
   "community_appendix_included": false,
   "submission_authorized": false,
   "submission_authority": "John J. Hughes III",
@@ -42,9 +41,12 @@
     {
       "id": "ablation_delta",
       "draft_display": "Pending audited Cycle 1 aggregate",
+      "required": false,
+      "population_condition": "public/ablation-deltas.json is listed in public/artifact-index.json",
+      "absence_display": "Not available - no paired full_packet and metadata_only rows in audited aggregate",
       "source_path": "public/ablation-deltas.json",
       "source_field": "full_packet minus metadata_only paired micro-Brier results",
-      "verification": "join exact model and unit identities and reproduce the paired contrast"
+      "verification": "when the artifact is indexed, join exact model and unit identities and reproduce the paired contrast; otherwise verify that the aggregate contains no paired full_packet and metadata_only rows"
     },
     {
       "id": "calibration_log_loss",
