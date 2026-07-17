@@ -39,10 +39,20 @@ class UnionRawArtifact:
 
 
 @dataclass(frozen=True, slots=True)
+class _SourceTerminalObservation:
+    candidate: UnionCandidate
+    source_manifest_sha256: str
+    source_snapshot_id: str
+    source_batch_id: str
+    raw_artifacts: tuple[UnionRawArtifact, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class ScreeningSnapshotUnion:
     candidates: tuple[UnionCandidate, ...]
     raw_artifacts: tuple[UnionRawArtifact, ...]
     canonical_raw_artifacts: tuple[UnionRawArtifact, ...]
+    longitudinal_observations: tuple[Mapping[str, Any], ...]
     stage_commitment: Mapping[str, Any]
 
 
@@ -51,6 +61,8 @@ def load_screening_snapshot_union(
     *,
     expected_manifest_sha256: Sequence[str],
     expected_cycle_hash: str,
+    expected_terminal_correction_candidate_id: Sequence[str] = (),
+    expected_terminal_correction_source_manifest_sha256: Sequence[str] = (),
 ) -> ScreeningSnapshotUnion:
     """Verify and normalize at least two same-cycle saturated snapshots."""
 
@@ -66,9 +78,11 @@ def load_screening_snapshot_union(
         raise ScreeningSnapshotUnionError(
             "each source snapshot requires one ordered expected manifest SHA-256"
         )
-    candidate_by_id: dict[str, UnionCandidate] = {}
-    candidate_commitments: dict[str, str] = {}
-    raw_sets_by_candidate: dict[str, set[tuple[str, int]]] = {}
+    correction_pins = _terminal_correction_pins(
+        expected_terminal_correction_candidate_id,
+        expected_terminal_correction_source_manifest_sha256,
+    )
+    observations_by_candidate: dict[str, list[_SourceTerminalObservation]] = {}
     raw_by_commitment: dict[tuple[str, str, int], UnionRawArtifact] = {}
     source_commitments: list[dict[str, object]] = []
     seen_manifest_sha256: set[str] = set()
@@ -141,12 +155,13 @@ def load_screening_snapshot_union(
                 "snapshot_id": manifest["snapshot_id"],
                 "batch_id": manifest["batch_id"],
                 "batch_digest": batch_digest,
+                "stage_commitments": manifest.get("stage_commitments", {}),
             }
         )
-        source_raw_sets: dict[str, set[tuple[str, int]]] = {}
+        source_raw_by_candidate: dict[str, list[UnionRawArtifact]] = {}
         for artifact in source_raw:
-            source_raw_sets.setdefault(artifact.candidate_id, set()).add(
-                (artifact.sha256, artifact.byte_count)
+            source_raw_by_candidate.setdefault(artifact.candidate_id, []).append(
+                artifact
             )
             key = (artifact.candidate_id, artifact.sha256, artifact.byte_count)
             prior_artifact = raw_by_commitment.get(key)
@@ -155,48 +170,49 @@ def load_screening_snapshot_union(
             ):
                 raw_by_commitment[key] = artifact
         for candidate in source_candidates:
-            commitment = _canonical_json(
-                {
-                    "state": candidate.state,
-                    "reason_code": candidate.reason_code,
-                    "evidence": candidate.evidence,
-                }
+            observations_by_candidate.setdefault(candidate.candidate_id, []).append(
+                _SourceTerminalObservation(
+                    candidate=candidate,
+                    source_manifest_sha256=manifest_sha256,
+                    source_snapshot_id=_string(
+                        manifest.get("snapshot_id"), "source snapshot ID"
+                    ),
+                    source_batch_id=_string(
+                        manifest.get("batch_id"), "source batch ID"
+                    ),
+                    raw_artifacts=tuple(
+                        sorted(
+                            source_raw_by_candidate.get(candidate.candidate_id, ()),
+                            key=lambda artifact: (
+                                artifact.sha256,
+                                artifact.byte_count,
+                                artifact.retrieved_at,
+                            ),
+                        )
+                    ),
+                )
             )
-            prior = candidate_commitments.get(candidate.candidate_id)
-            if prior is not None and prior != commitment:
-                raise ScreeningSnapshotUnionError(
-                    "duplicate candidate has non-identical terminal evidence: "
-                    f"{candidate.candidate_id}"
-                )
-            raw_set = source_raw_sets.get(candidate.candidate_id, set())
-            prior_raw_set = raw_sets_by_candidate.get(candidate.candidate_id)
-            if (
-                prior_raw_set is not None
-                and candidate.state != "excluded"
-                and prior_raw_set != raw_set
-            ):
-                raise ScreeningSnapshotUnionError(
-                    "active candidate has non-identical raw-artifact commitments: "
-                    f"{candidate.candidate_id}"
-                )
-            candidate_commitments[candidate.candidate_id] = commitment
-            candidate_by_id.setdefault(candidate.candidate_id, candidate)
-            raw_sets_by_candidate.setdefault(candidate.candidate_id, raw_set)
+    candidate_by_id, active_raw_overrides, longitudinal_corrections = (
+        _reconcile_terminal_observations(
+            observations_by_candidate,
+            correction_pins=correction_pins,
+        )
+    )
     raw_artifacts = tuple(raw_by_commitment[key] for key in sorted(raw_by_commitment))
     canonical_raw_artifacts = _canonical_raw_observations(
-        raw_artifacts, candidates=candidate_by_id
+        raw_artifacts,
+        candidates=candidate_by_id,
+        active_raw_overrides=active_raw_overrides,
     )
     stage_commitment = {
-        "schema_version": "legalforecast.screening_snapshot_union_inputs.v1",
+        "schema_version": "legalforecast.screening_snapshot_union_inputs.v2",
         "expected_cycle_hash": expected_cycle_hash,
         "source_count": len(source_commitments),
         "sources": source_commitments,
         "candidate_count": len(candidate_by_id),
         "raw_artifact_count": len(raw_by_commitment),
         "canonical_raw_artifact_count": len(canonical_raw_artifacts),
-        "canonical_raw_selection_policy": (
-            "excluded_earliest_authenticated_utc_sha_v1"
-        ),
+        "canonical_raw_selection_policy": "terminal_authority_bound_raw_v2",
         "canonical_raw_artifacts": [
             {
                 "candidate_id": artifact.candidate_id,
@@ -206,6 +222,11 @@ def load_screening_snapshot_union(
             }
             for artifact in canonical_raw_artifacts
         ],
+        "longitudinal_correction_policy": (
+            "explicit_candidate_source_manifest_unique_active_v1"
+        ),
+        "longitudinal_correction_count": len(longitudinal_corrections),
+        "longitudinal_corrections": list(longitudinal_corrections),
     }
     if provisional_union:
         stage_commitment.update(
@@ -219,8 +240,226 @@ def load_screening_snapshot_union(
         candidates=tuple(candidate_by_id[key] for key in sorted(candidate_by_id)),
         raw_artifacts=raw_artifacts,
         canonical_raw_artifacts=canonical_raw_artifacts,
+        longitudinal_observations=tuple(
+            observation
+            for correction in longitudinal_corrections
+            for observation in cast(list[Mapping[str, Any]], correction["observations"])
+        ),
         stage_commitment=stage_commitment,
     )
+
+
+def _terminal_correction_pins(
+    candidate_ids: Sequence[str], source_manifest_sha256: Sequence[str]
+) -> Mapping[str, str]:
+    if len(candidate_ids) != len(source_manifest_sha256):
+        raise ScreeningSnapshotUnionError(
+            "terminal correction candidate and source-manifest pins must be paired"
+        )
+    pins: dict[str, str] = {}
+    for candidate_id, manifest_sha256 in zip(
+        candidate_ids, source_manifest_sha256, strict=True
+    ):
+        normalized_candidate_id = _string(
+            candidate_id, "terminal correction candidate ID"
+        )
+        normalized_manifest_sha256 = _string(
+            manifest_sha256, "terminal correction source manifest SHA-256"
+        )
+        if re.fullmatch(r"[0-9a-f]{64}", normalized_manifest_sha256) is None:
+            raise ScreeningSnapshotUnionError(
+                "terminal correction source manifest SHA-256 must be lowercase hex"
+            )
+        if normalized_candidate_id in pins:
+            raise ScreeningSnapshotUnionError(
+                f"duplicate terminal correction pin: {normalized_candidate_id}"
+            )
+        pins[normalized_candidate_id] = normalized_manifest_sha256
+    return pins
+
+
+def _reconcile_terminal_observations(
+    observations_by_candidate: Mapping[str, Sequence[_SourceTerminalObservation]],
+    *,
+    correction_pins: Mapping[str, str],
+) -> tuple[
+    dict[str, UnionCandidate],
+    dict[str, UnionRawArtifact],
+    tuple[Mapping[str, Any], ...],
+]:
+    conflicts = {
+        candidate_id
+        for candidate_id, observations in observations_by_candidate.items()
+        if len({_terminal_commitment(item.candidate) for item in observations}) > 1
+    }
+    missing_pins = conflicts - set(correction_pins)
+    if missing_pins:
+        raise ScreeningSnapshotUnionError(
+            "terminal evidence conflict requires an explicit authenticated "
+            "correction source: " + ", ".join(sorted(missing_pins))
+        )
+    if set(correction_pins) != conflicts:
+        raise ScreeningSnapshotUnionError(
+            "terminal correction pins do not exactly match terminal conflicts"
+        )
+
+    candidates: dict[str, UnionCandidate] = {}
+    active_raw_overrides: dict[str, UnionRawArtifact] = {}
+    corrections: list[Mapping[str, Any]] = []
+    for candidate_id in sorted(observations_by_candidate):
+        observations = tuple(observations_by_candidate[candidate_id])
+        commitment_groups: dict[str, list[_SourceTerminalObservation]] = {}
+        for observation in observations:
+            commitment_groups.setdefault(
+                _terminal_commitment(observation.candidate), []
+            ).append(observation)
+        if len(commitment_groups) == 1:
+            canonical = min(observations, key=lambda item: item.source_manifest_sha256)
+            candidates[candidate_id] = canonical.candidate
+            if canonical.candidate.state != "excluded":
+                raw_commitment_sets = {
+                    _raw_commitment_set(item.raw_artifacts) for item in observations
+                }
+                if len(raw_commitment_sets) != 1:
+                    raise ScreeningSnapshotUnionError(
+                        "active candidate has non-identical raw-artifact commitments: "
+                        f"{candidate_id}"
+                    )
+            continue
+
+        authoritative_manifest = correction_pins[candidate_id]
+        authoritative = [
+            item
+            for item in observations
+            if item.source_manifest_sha256 == authoritative_manifest
+        ]
+        if len(authoritative) != 1:
+            raise ScreeningSnapshotUnionError(
+                "terminal correction source does not uniquely own candidate: "
+                f"{candidate_id}"
+            )
+        canonical = authoritative[0]
+        active_groups = {
+            commitment: tuple(items)
+            for commitment, items in commitment_groups.items()
+            if items[0].candidate.state in {"accepted", "newly_free"}
+        }
+        if len(active_groups) > 1:
+            raise ScreeningSnapshotUnionError(
+                "multiple non-identical active terminal proofs: " + candidate_id
+            )
+        if active_groups:
+            active_commitment, active_observations = next(iter(active_groups.items()))
+            if _terminal_commitment(canonical.candidate) != active_commitment:
+                raise ScreeningSnapshotUnionError(
+                    "terminal correction cannot select an exclusion over a unique "
+                    f"active proof: {candidate_id}"
+                )
+            _validate_active_correction(canonical.candidate)
+            active_raw_sets = {
+                _raw_commitment_set(item.raw_artifacts) for item in active_observations
+            }
+            if len(active_raw_sets) != 1 or len(canonical.raw_artifacts) != 1:
+                raise ScreeningSnapshotUnionError(
+                    "active correction lacks exactly one source-bound raw artifact: "
+                    f"{candidate_id}"
+                )
+            active_raw_overrides[candidate_id] = canonical.raw_artifacts[0]
+        candidates[candidate_id] = canonical.candidate
+        corrections.append(
+            {
+                "candidate_id": candidate_id,
+                "canonical_source_manifest_sha256": authoritative_manifest,
+                "canonical_terminal_sha256": hashlib.sha256(
+                    _terminal_commitment(canonical.candidate).encode()
+                ).hexdigest(),
+                "observations": [
+                    _source_observation_record(
+                        item,
+                        canonical=(
+                            item.source_manifest_sha256 == authoritative_manifest
+                        ),
+                    )
+                    for item in sorted(
+                        observations,
+                        key=lambda item: item.source_manifest_sha256,
+                    )
+                ],
+            }
+        )
+    return candidates, active_raw_overrides, tuple(corrections)
+
+
+def _terminal_commitment(candidate: UnionCandidate) -> str:
+    return _canonical_json(
+        {
+            "state": candidate.state,
+            "reason_code": candidate.reason_code,
+            "evidence": candidate.evidence,
+        }
+    )
+
+
+def _raw_commitment_set(
+    artifacts: Sequence[UnionRawArtifact],
+) -> frozenset[tuple[str, int]]:
+    return frozenset((artifact.sha256, artifact.byte_count) for artifact in artifacts)
+
+
+def _validate_active_correction(candidate: UnionCandidate) -> None:
+    allowed = (
+        candidate.state == "accepted"
+        and candidate.reason_code == "strict_clean_screen_passed"
+    ) or (
+        candidate.state == "newly_free"
+        and candidate.reason_code in {"newly_free", "required_documents_newly_free"}
+    )
+    evidence = candidate.evidence
+    selected_entries = evidence.get("selected_entries")
+    typed_selected_entries = (
+        cast(list[object], selected_entries)
+        if isinstance(selected_entries, list)
+        else []
+    )
+    motion_linkage = evidence.get("motion_linkage")
+    if (
+        not allowed
+        or not isinstance(evidence.get("first_written_mtd_disposition_date"), str)
+        or not (bool(typed_selected_entries) or isinstance(motion_linkage, Mapping))
+    ):
+        raise ScreeningSnapshotUnionError(
+            "active correction lacks an independently qualifying strict screen: "
+            f"{candidate.candidate_id}"
+        )
+
+
+def _source_observation_record(
+    observation: _SourceTerminalObservation,
+    *,
+    canonical: bool,
+) -> Mapping[str, Any]:
+    candidate = observation.candidate
+    return {
+        "candidate_id": candidate.candidate_id,
+        "source_manifest_sha256": observation.source_manifest_sha256,
+        "source_snapshot_id": observation.source_snapshot_id,
+        "source_batch_id": observation.source_batch_id,
+        "canonical_terminal_observation": canonical,
+        "state": candidate.state,
+        "reason_code": candidate.reason_code,
+        "evidence": dict(candidate.evidence),
+        "terminal_sha256": hashlib.sha256(
+            _terminal_commitment(candidate).encode()
+        ).hexdigest(),
+        "raw_artifacts": [
+            {
+                "sha256": artifact.sha256,
+                "byte_count": artifact.byte_count,
+                "retrieved_at": artifact.retrieved_at,
+            }
+            for artifact in observation.raw_artifacts
+        ],
+    }
 
 
 def _candidate_records(path: Path) -> tuple[UnionCandidate, ...]:
@@ -334,6 +573,7 @@ def _canonical_raw_observations(
     artifacts: Sequence[UnionRawArtifact],
     *,
     candidates: Mapping[str, UnionCandidate],
+    active_raw_overrides: Mapping[str, UnionRawArtifact],
 ) -> tuple[UnionRawArtifact, ...]:
     by_candidate: dict[str, list[UnionRawArtifact]] = {}
     for artifact in artifacts:
@@ -355,11 +595,25 @@ def _canonical_raw_observations(
                     "distinct raw observations have an ambiguous equal retrieval "
                     f"timestamp for {candidate_id}"
                 )
-        if len(versions) > 1 and candidate.state != "excluded":
-            raise ScreeningSnapshotUnionError(
-                "active candidate has non-identical raw-artifact commitments: "
-                f"{candidate_id}"
-            )
+        if candidate.state != "excluded":
+            override = active_raw_overrides.get(candidate_id)
+            if override is not None:
+                if not any(
+                    artifact.sha256 == override.sha256
+                    and artifact.byte_count == override.byte_count
+                    for artifact in versions
+                ):
+                    raise ScreeningSnapshotUnionError(
+                        "active correction raw artifact is absent from archive: "
+                        f"{candidate_id}"
+                    )
+                canonical.append(override)
+                continue
+            if len(versions) > 1:
+                raise ScreeningSnapshotUnionError(
+                    "active candidate has non-identical raw-artifact commitments: "
+                    f"{candidate_id}"
+                )
         canonical.append(versions[0])
     return tuple(canonical)
 

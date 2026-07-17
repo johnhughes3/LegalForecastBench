@@ -797,6 +797,8 @@ uv run legalforecast acquisition union-screening-snapshots \
   --expected-source-snapshot-manifest-sha256 <pinned-terminal-snapshot-manifest-sha256> \
   --source-snapshot artifacts/cycle-1/official-acquisition/recovery/snapshots/batch-002-ranked-dockets-unresolved-screened \
   --expected-source-snapshot-manifest-sha256 <pinned-unresolved-snapshot-manifest-sha256> \
+  --expected-terminal-correction-candidate-id <exact-conflicting-candidate-id> \
+  --expected-terminal-correction-source-manifest-sha256 <pinned-authoritative-source-manifest-sha256> \
   --snapshot-root artifacts/cycle-1/official-acquisition/snapshots \
   --snapshot-id batch-002-ranked-dockets-complete \
   --execute --no-resume
@@ -804,7 +806,11 @@ uv run legalforecast acquisition union-screening-snapshots \
 
 Do not rank or prepare from either partition snapshot. Only the verified union is the complete recovery snapshot.
 
-The union compares duplicate candidates by their canonical terminal screening state, reason code, and complete evidence object. Differing manifest-authenticated docket HTML is permitted only for candidates that remain identically excluded: all versions are archived under `<candidate-id>/<sha256>.html`, `union-raw-observations.jsonl` commits the complete archive, and the authenticated canonical-selection mapping projects the earliest unambiguous UTC capture into the one-row-per-candidate `union-raw-artifacts.jsonl` consumed downstream. Accepted or newly-free duplicates must have identical raw commitments. Any terminal-evidence conflict, active-state raw drift, ambiguous or invalid retrieval timestamp, raw content drift against its commitment, or candidate/path ownership mismatch stops the union. Do not delete an older observation or hand-select one to force a merge.
+The union compares duplicate candidates by terminal state, reason code, and the complete evidence object. Identical duplicates need no correction. Every non-identical conflict requires one paired `--expected-terminal-correction-candidate-id` and `--expected-terminal-correction-source-manifest-sha256`; the candidate pins must exactly equal the detected conflict set, and the source hash must be one of the already pinned source manifests that actually owns that candidate. Source order, observation time, and retrieval time confer no authority.
+
+`union-terminal-observations.jsonl` archives every source observation for each correction, including its source manifest, full evidence, terminal hash, source-local raw commitments, and canonical marker. The same rows are embedded in the authenticated union stage commitment so the correction proof survives source cleanup. If any accepted or newly-free proof exists, it must be the unique terminal commitment of that class and must be chosen; an exclusion cannot suppress it. The packet-facing raw row must come only from the authoritative active source, and every identical active duplicate must bind the same raw commitment. Multiple non-identical active proofs, missing active raw, source-raw drift, extra or missing correction pins, or an existing store state absent from the authenticated correction archive stop the union.
+
+All manifest-authenticated raw versions remain archived under `<candidate-id>/<sha256>.html` and in `union-raw-observations.jsonl`. For an excluded canonical candidate, the earliest unambiguous UTC capture remains its packet projection. `union-raw-artifacts.jsonl` contains exactly one authenticated canonical row per candidate and is the `--raw-html-dir` union-root projection consumed downstream. Ambiguous or invalid retrieval timestamps, raw content drift, or candidate/path ownership mismatch fail closed. Do not delete an older observation or hand-select one to force a merge.
 
 If the primary Firecrawl acquisition completed without exhausting its immutable cap, skip the recovery sequence and strict-screen its committed CourtListener docket bytes directly:
 

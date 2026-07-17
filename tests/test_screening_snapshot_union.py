@@ -32,11 +32,11 @@ def test_union_help_documents_raw_observation_policy(capsys: Any) -> None:
     assert exc_info.value.code == 0
 
     output = capsys.readouterr().out
-    assert "excluded duplicates" in output
-    assert "distinct authenticated raw docket observations" in output
-    assert "UTC capture is the canonical packet input" in output
-    assert "Accepted/newly-free duplicates" in output
-    assert "require identical raw bytes" in output
+    assert "candidate/source-manifest correction pin" in output
+    assert "never infer authority from order or time" in output
+    assert "unique active proof" in output
+    assert "source-local raw bytes" in output
+    assert "earliest UTC capture is the packet input" in output
 
 
 def test_union_preserves_updated_raw_observations_for_identical_terminal_evidence(
@@ -297,7 +297,7 @@ def test_union_rejects_updated_raw_observations_with_conflicting_terminal_eviden
 
     with pytest.raises(
         ScreeningSnapshotUnionError,
-        match="non-identical terminal evidence",
+        match="terminal evidence conflict requires an explicit authenticated",
     ):
         load_screening_snapshot_union(
             (first, second),
@@ -306,6 +306,520 @@ def test_union_rejects_updated_raw_observations_with_conflicting_terminal_eviden
                 _manifest_sha256(second),
             ),
             expected_cycle_hash=_cycle_hash(tmp_path / "first"),
+        )
+
+
+def test_union_promotes_only_explicit_unique_active_correction_and_binds_its_raw(
+    tmp_path: Path,
+) -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    stale = _snapshot(
+        tmp_path / "stale",
+        batch_id="baseline",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {
+                    "candidate_id": candidate_id,
+                    "reason": "procedural_or_standing_order",
+                },
+                b"<html><body>stale screen over docket with entry 12</body></html>",
+            )
+        ],
+    )
+    corrected_evidence = {
+        "candidate_id": candidate_id,
+        "first_written_mtd_disposition_date": "2026-06-30",
+        "selected_entries": [{"entry_number": 12}],
+        "motion_linkage": {"target_motion_entry_numbers": [8]},
+    }
+    corrected = _snapshot(
+        tmp_path / "corrected",
+        batch_id="current-policy-rescreen",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                corrected_evidence,
+                b"<html><body>corrected screen over docket with entry 12</body></html>",
+            )
+        ],
+    )
+    correction_hash = _manifest_sha256(corrected)
+    kwargs = {
+        "expected_terminal_correction_candidate_id": (candidate_id,),
+        "expected_terminal_correction_source_manifest_sha256": (correction_hash,),
+    }
+
+    union = load_screening_snapshot_union(
+        (stale, corrected),
+        expected_manifest_sha256=(
+            _manifest_sha256(stale),
+            correction_hash,
+        ),
+        expected_cycle_hash=_cycle_hash(tmp_path / "stale"),
+        **kwargs,
+    )
+
+    [candidate] = union.candidates
+    assert candidate.state == "accepted"
+    assert candidate.reason_code == "strict_clean_screen_passed"
+    assert candidate.evidence == corrected_evidence
+    assert len(union.raw_artifacts) == 2
+    [canonical] = union.canonical_raw_artifacts
+    assert canonical.content == (
+        b"<html><body>corrected screen over docket with entry 12</body></html>"
+    )
+    correction = union.stage_commitment["longitudinal_corrections"][0]
+    assert correction["candidate_id"] == candidate_id
+    assert correction["canonical_source_manifest_sha256"] == correction_hash
+    assert {row["state"] for row in correction["observations"]} == {
+        "accepted",
+        "excluded",
+    }
+
+    reversed_union = load_screening_snapshot_union(
+        (corrected, stale),
+        expected_manifest_sha256=(
+            correction_hash,
+            _manifest_sha256(stale),
+        ),
+        expected_cycle_hash=_cycle_hash(tmp_path / "stale"),
+        **kwargs,
+    )
+    assert reversed_union.candidates == union.candidates
+    assert (
+        reversed_union.canonical_raw_artifacts[0].sha256
+        == union.canonical_raw_artifacts[0].sha256
+    )
+    assert (
+        reversed_union.stage_commitment["longitudinal_corrections"]
+        == union.stage_commitment["longitudinal_corrections"]
+    )
+
+
+def test_union_command_archives_and_resumes_authenticated_terminal_correction(
+    tmp_path: Path,
+) -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    stale_root = tmp_path / "stale"
+    corrected_root = tmp_path / "corrected"
+    stale = _snapshot(
+        stale_root,
+        batch_id="baseline",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {"candidate_id": candidate_id, "reason": "procedural"},
+                b"<html><body>stale screen</body></html>",
+            )
+        ],
+    )
+    corrected = _snapshot(
+        corrected_root,
+        batch_id="rescreen",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                {
+                    "candidate_id": candidate_id,
+                    "first_written_mtd_disposition_date": "2026-06-30",
+                    "selected_entries": [{"entry_number": 12}],
+                },
+                b"<html><body>accepted source raw</body></html>",
+            )
+        ],
+    )
+    output_root = tmp_path / "union-output"
+    snapshot_root = tmp_path / "union-snapshots"
+    command = [
+        "acquisition",
+        "union-screening-snapshots",
+        "--output-root",
+        str(output_root),
+        "--cycle-store",
+        str(stale_root / "cycle.sqlite3"),
+        "--batch-id",
+        "longitudinal-union",
+        "--expected-cycle-hash",
+        _cycle_hash(stale_root),
+        "--source-snapshot",
+        str(stale),
+        "--expected-source-snapshot-manifest-sha256",
+        _manifest_sha256(stale),
+        "--source-snapshot",
+        str(corrected),
+        "--expected-source-snapshot-manifest-sha256",
+        _manifest_sha256(corrected),
+        "--expected-terminal-correction-candidate-id",
+        candidate_id,
+        "--expected-terminal-correction-source-manifest-sha256",
+        _manifest_sha256(corrected),
+        "--snapshot-root",
+        str(snapshot_root),
+        "--snapshot-id",
+        "complete-union",
+        "--execute",
+    ]
+
+    assert cli_module.main(command) == 0
+    snapshot = snapshot_root / "complete-union"
+    [screened] = _jsonl(snapshot / "screened-cases.jsonl")
+    assert screened["candidate_id"] == candidate_id
+    archived = _jsonl(output_root / "union-terminal-observations.jsonl")
+    assert len(archived) == 2
+    assert sum(row["canonical_terminal_observation"] for row in archived) == 1
+    [packet_raw] = _jsonl(output_root / "union-raw-artifacts.jsonl")
+    assert (
+        packet_raw["sha256"]
+        == hashlib.sha256(b"<html><body>accepted source raw</body></html>").hexdigest()
+    )
+    cli_module._verify_packet_raw_artifacts_snapshot_binding(
+        raw_html_dir=output_root / "union-raw-artifacts",
+        raw_artifacts_manifest_path=output_root / "union-raw-artifacts.jsonl",
+        screening_snapshot_manifest_path=snapshot / "manifest.json",
+    )
+    raw_directory, raw_paths = cli_module._verified_snapshot_raw_html_sources(
+        snapshot,
+        requested=output_root / "union-raw-artifacts",
+        use_embedded_entries=True,
+    )
+    assert raw_directory is None
+    assert raw_paths is not None
+    assert raw_paths["73330395"].read_bytes() == (
+        b"<html><body>accepted source raw</body></html>"
+    )
+
+    (output_root / "union-terminal-observations.jsonl").write_text("")
+    assert cli_module.main(command) == 0
+    assert _jsonl(output_root / "union-terminal-observations.jsonl") == archived
+
+    shutil.rmtree(stale_root / "snapshots")
+    shutil.rmtree(corrected_root / "snapshots")
+    verify_snapshot(
+        snapshot,
+        expected_cycle_hash=_cycle_hash(stale_root),
+        require_complete=True,
+        require_saturated=True,
+    )
+    assert cli_module._owned_raw_records_from_snapshot(snapshot) == [packet_raw]
+
+    manifest_path = snapshot / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    correction = manifest["stage_commitments"]["screening_snapshot_union_inputs"][
+        "longitudinal_corrections"
+    ][0]
+    correction["observations"][0]["terminal_sha256"] = "0" * 64
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(CycleAcquisitionStoreError, match="terminal hash drift"):
+        cli_module._owned_raw_records_from_snapshot(snapshot)
+
+
+def test_union_preserves_excluded_evidence_drift_under_explicit_source_authority(
+    tmp_path: Path,
+) -> None:
+    candidate_id = "courtlistener-docket-69879510"
+    failed_fetch = _snapshot(
+        tmp_path / "failed-fetch",
+        batch_id="baseline",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {
+                    "candidate_id": candidate_id,
+                    "reason": "fetch_failed",
+                    "page_1_acquired": False,
+                },
+                b"<html><body>partial fetch</body></html>",
+            )
+        ],
+    )
+    substantive_evidence = {
+        "candidate_id": candidate_id,
+        "reason": "not_civil_cv_docket",
+        "primary_exclusion_reason": "not_civil_cv_docket",
+    }
+    substantive = _snapshot(
+        tmp_path / "substantive",
+        batch_id="current-policy-rescreen",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                substantive_evidence,
+                b"<html><body>substantive screen</body></html>",
+            )
+        ],
+    )
+
+    union = load_screening_snapshot_union(
+        (failed_fetch, substantive),
+        expected_manifest_sha256=(
+            _manifest_sha256(failed_fetch),
+            _manifest_sha256(substantive),
+        ),
+        expected_cycle_hash=_cycle_hash(tmp_path / "failed-fetch"),
+        expected_terminal_correction_candidate_id=(candidate_id,),
+        expected_terminal_correction_source_manifest_sha256=(
+            _manifest_sha256(substantive),
+        ),
+    )
+
+    [candidate] = union.candidates
+    assert candidate.state == "excluded"
+    assert candidate.evidence == substantive_evidence
+    [correction] = union.stage_commitment["longitudinal_corrections"]
+    assert {row["evidence"]["reason"] for row in correction["observations"]} == {
+        "fetch_failed",
+        "not_civil_cv_docket",
+    }
+
+
+def test_union_rejects_unpinned_or_extra_longitudinal_corrections(
+    tmp_path: Path,
+) -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    first = _snapshot(
+        tmp_path / "first",
+        batch_id="baseline",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {"candidate_id": candidate_id, "reason": "procedural"},
+                b"<html><body>first</body></html>",
+            )
+        ],
+    )
+    second = _snapshot(
+        tmp_path / "second",
+        batch_id="rescreen",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {"candidate_id": candidate_id, "reason": "no_disposition"},
+                b"<html><body>second</body></html>",
+            )
+        ],
+    )
+    common = {
+        "source_snapshots": (first, second),
+        "expected_manifest_sha256": (
+            _manifest_sha256(first),
+            _manifest_sha256(second),
+        ),
+        "expected_cycle_hash": _cycle_hash(tmp_path / "first"),
+    }
+
+    with pytest.raises(
+        ScreeningSnapshotUnionError,
+        match="requires an explicit authenticated correction source",
+    ):
+        load_screening_snapshot_union(**common)
+
+    with pytest.raises(
+        ScreeningSnapshotUnionError,
+        match="correction pins do not exactly match terminal conflicts",
+    ):
+        load_screening_snapshot_union(
+            **common,
+            expected_terminal_correction_candidate_id=(candidate_id, "extra"),
+            expected_terminal_correction_source_manifest_sha256=(
+                _manifest_sha256(second),
+                _manifest_sha256(first),
+            ),
+        )
+
+
+def test_union_rejects_multiple_distinct_active_proofs_even_when_one_is_pinned(
+    tmp_path: Path,
+) -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    first = _snapshot(
+        tmp_path / "first",
+        batch_id="first-screen",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                {
+                    "candidate_id": candidate_id,
+                    "first_written_mtd_disposition_date": "2026-06-30",
+                    "selected_entries": [{"entry_number": 12}],
+                },
+                b"<html><body>first active proof</body></html>",
+            )
+        ],
+    )
+    second = _snapshot(
+        tmp_path / "second",
+        batch_id="second-screen",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                {
+                    "candidate_id": candidate_id,
+                    "first_written_mtd_disposition_date": "2026-07-01",
+                    "selected_entries": [{"entry_number": 13}],
+                },
+                b"<html><body>second active proof</body></html>",
+            )
+        ],
+    )
+
+    with pytest.raises(
+        ScreeningSnapshotUnionError,
+        match="multiple non-identical active terminal proofs",
+    ):
+        load_screening_snapshot_union(
+            (first, second),
+            expected_manifest_sha256=(
+                _manifest_sha256(first),
+                _manifest_sha256(second),
+            ),
+            expected_cycle_hash=_cycle_hash(tmp_path / "first"),
+            expected_terminal_correction_candidate_id=(candidate_id,),
+            expected_terminal_correction_source_manifest_sha256=(
+                _manifest_sha256(second),
+            ),
+        )
+
+
+def test_union_rejects_active_correction_without_source_bound_raw(
+    tmp_path: Path,
+) -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    first = _snapshot(
+        tmp_path / "first",
+        batch_id="baseline",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {"candidate_id": candidate_id, "reason": "procedural"},
+                b"<html><body>first</body></html>",
+            )
+        ],
+    )
+    second = _snapshot(
+        tmp_path / "second",
+        batch_id="rescreen",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                {
+                    "candidate_id": candidate_id,
+                    "first_written_mtd_disposition_date": "2026-06-30",
+                    "selected_entries": [{"entry_number": 12}],
+                },
+                b"<html><body>second</body></html>",
+            )
+        ],
+    )
+    _rewrite_snapshot_jsonl(second, "raw-artifacts.jsonl", [])
+
+    with pytest.raises(
+        ScreeningSnapshotUnionError,
+        match="active correction lacks exactly one source-bound raw artifact",
+    ):
+        load_screening_snapshot_union(
+            (first, second),
+            expected_manifest_sha256=(
+                _manifest_sha256(first),
+                _manifest_sha256(second),
+            ),
+            expected_cycle_hash=_cycle_hash(tmp_path / "first"),
+            expected_terminal_correction_candidate_id=(candidate_id,),
+            expected_terminal_correction_source_manifest_sha256=(
+                _manifest_sha256(second),
+            ),
+        )
+
+
+def test_union_rejects_source_raw_drift_within_unique_active_proof(
+    tmp_path: Path,
+) -> None:
+    candidate_id = "courtlistener-docket-73330395"
+    active_evidence = {
+        "candidate_id": candidate_id,
+        "first_written_mtd_disposition_date": "2026-06-30",
+        "selected_entries": [{"entry_number": 12}],
+    }
+    first_active = _snapshot(
+        tmp_path / "first-active",
+        batch_id="first-active",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                active_evidence,
+                b"<html><body>active raw version one</body></html>",
+            )
+        ],
+    )
+    second_active = _snapshot(
+        tmp_path / "second-active",
+        batch_id="second-active",
+        observations=[
+            (
+                candidate_id,
+                "accepted",
+                "strict_clean_screen_passed",
+                active_evidence,
+                b"<html><body>active raw version two</body></html>",
+            )
+        ],
+    )
+    excluded = _snapshot(
+        tmp_path / "excluded",
+        batch_id="baseline",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {"candidate_id": candidate_id, "reason": "procedural"},
+                b"<html><body>excluded raw</body></html>",
+            )
+        ],
+    )
+
+    with pytest.raises(
+        ScreeningSnapshotUnionError,
+        match="active correction lacks exactly one source-bound raw artifact",
+    ):
+        load_screening_snapshot_union(
+            (first_active, second_active, excluded),
+            expected_manifest_sha256=(
+                _manifest_sha256(first_active),
+                _manifest_sha256(second_active),
+                _manifest_sha256(excluded),
+            ),
+            expected_cycle_hash=_cycle_hash(tmp_path / "first-active"),
+            expected_terminal_correction_candidate_id=(candidate_id,),
+            expected_terminal_correction_source_manifest_sha256=(
+                _manifest_sha256(first_active),
+            ),
         )
 
 
