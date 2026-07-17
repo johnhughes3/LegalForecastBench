@@ -23,6 +23,14 @@ def _documented_command_block(runbook: str, command: str) -> str:
     return remainder.split("```", maxsplit=1)[0]
 
 
+def test_fan_in_audit_example_preserves_canonical_s3_receipt_identity() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+
+    assert "--receipt-root s3://$LFB_RESULTS_BUCKET" in runbook
+    assert "--receipt-root tmp/result-store" not in runbook
+    assert "local fixture stores are appropriate for unit tests" in runbook
+
+
 def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
 

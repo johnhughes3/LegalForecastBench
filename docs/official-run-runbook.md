@@ -382,7 +382,7 @@ Provision the protected GitHub environment `legalforecastbench-official-eval`, p
 
 ## Dispatch Sequence
 
-Dispatch `Run Benchmark` from `main` with the frozen `cycle_id`, `run_input_manifest_uri`, `labels_uri`, `model_registry_uri`, and exactly one declared model-key/ablation shard. Set `shard_only: true` and keep `resume_existing_results: true`.
+Dispatch `Run Benchmark` from `main` with the frozen `cycle_id`, `run_input_manifest_uri`, `labels_uri`, `model_registry_uri`, and exactly one declared shard through the `model_keys` and `ablations` inputs. Set `shard_only: true` and keep `resume_existing_results: true`.
 
 1. Run each declared shard with `dry_run: true` and an explicit spend cap. This validates the frozen schedule, hashes, model eligibility, projected cost, and exact shard identity without provider calls.
 2. Run the bounded smoke under its dedicated smoke freeze and prefix. Complete it with `Fan In Official Shards` in `verify_only: true` mode; verification-only may accept the smoke cycle because its entry point has no canonical publication code path.
@@ -406,7 +406,7 @@ The publishing entry point synchronizes only the verified public directory to:
 s3://$LFB_RESULTS_BUCKET/reports/<cycle_id>/multi-ablation/
 ```
 
-For a credential-free local verification over fixture receipts and a local result store, use the nonpublishing entry point:
+For a local audit with read authority to the durable result bucket, use the nonpublishing entry point. Strict receipt verification intentionally requires the canonical S3 object identities; local fixture stores are appropriate for unit tests, not a full official verification rehearsal.
 
 ```bash
 uv run python -m legalforecast.publication.shard_fan_in \
@@ -414,12 +414,14 @@ uv run python -m legalforecast.publication.shard_fan_in \
   --freeze-bundle manifests/<cycle_id>.freeze.json \
   --amendment-bundle manifests/<cycle_id>.ancestor.freeze.json \
   --run-input-manifest manifests/<cycle_id>.run-inputs.json \
-  --receipt-root tmp/result-store \
+  --receipt-root s3://$LFB_RESULTS_BUCKET \
   --output-dir tmp/fan-in-verification/<cycle_id> \
   --accepted-attempt-map manifests/<cycle_id>.accepted-attempts.json
 ```
 
 Omit `--amendment-bundle` for an unamended root freeze and repeat it for every required ancestor of an amended freeze. Omit `--accepted-attempt-map` when every declared shard has exactly one receipt. Verification-only writes only `fan-in-report.json` to the requested output directory; its temporary materialized union, private debug output, and aggregate bundle are destroyed after aggregate validation. The report records the complete accepted map when present, every accepted receipt, the discovered inventory hash, frozen artifact hashes, derived counts, verified union commitment, and aggregate completeness facts.
+
+When the frozen execution policy requires a training baseline corpus, pass its exact bytes with `--baseline-training-examples <frozen-corpus.json>`; fan-in accepts the override only when its SHA-256 matches the freeze. Leave the option absent for an `allow_no_baselines: true` cycle whose required baselines artifact is metadata rather than a training corpus.
 
 ## Add Models To A Frozen Cycle
 
