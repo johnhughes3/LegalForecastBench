@@ -29,8 +29,10 @@ legalforecast = "legalforecast.cli:main"
 [dependency-groups]
 dev = [
   "interrogate>=1.7.0",
+  "pypdf>=6.14.2",
   "pyright>=1.1.409",
   "pytest>=8.4",
+  "reportlab>=5.0.0",
   "ruff>=0.15.12",
 ]
 

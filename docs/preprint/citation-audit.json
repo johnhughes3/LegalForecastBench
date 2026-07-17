@@ -1,0 +1,115 @@
+{
+  "schema_version": "legalforecast-preprint-citation-audit-v1",
+  "manuscript": "docs/preprint/legalforecast-mtd-cycle-1.md",
+  "checked_on": "2026-07-17",
+  "entries": [
+    {
+      "reference_id": "R1",
+      "citation_author": "Masha Medvedeva and Pauline McBride",
+      "citation_title": "Legal Judgment Prediction: If You Are Going to Do It, Do It Right",
+      "source": "https://aclanthology.org/2023.nllp-1.9/",
+      "supports": "the need to distinguish realistic legal prediction from retrospective classification and to identify end users",
+      "claim_scope": "direct",
+      "checked_on": "2026-07-17"
+    },
+    {
+      "reference_id": "R2",
+      "citation_author": "Daniel Martin Katz, Michael J. Bommarito II, and Josh Blackman",
+      "citation_title": "A General Approach for Predicting the Behavior of the Supreme Court of the United States",
+      "source": "https://doi.org/10.1371/journal.pone.0174698",
+      "supports": "context that prior work modeled Supreme Court votes and outcomes from information available before decision",
+      "claim_scope": "context_only",
+      "checked_on": "2026-07-17"
+    },
+    {
+      "reference_id": "R3",
+      "citation_author": "Nikolaos Aletras, Dimitrios Tsarapatsanis, Daniel Preoțiuc-Pietro, and Vasileios Lampos",
+      "citation_title": "Predicting Judicial Decisions of the European Court of Human Rights: A Natural Language Processing Perspective",
+      "source": "https://doi.org/10.7717/peerj-cs.93",
+      "supports": "context for ECtHR outcome classification from court-authored textual content",
+      "claim_scope": "context_only",
+      "checked_on": "2026-07-17"
+    },
+    {
+      "reference_id": "R4",
+      "citation_author": "Ilias Chalkidis, Ion Androutsopoulos, and Nikolaos Aletras",
+      "citation_title": "Neural Legal Judgment Prediction in English",
+      "source": "https://aclanthology.org/P19-1424/",
+      "supports": "context for English neural legal judgment prediction using ECtHR case text",
+      "claim_scope": "context_only",
+      "checked_on": "2026-07-17"
+    },
+    {
+      "reference_id": "R5",
+      "citation_author": "Haoxi Zhong et al.",
+      "citation_title": "Overview of CAIL2018: Legal Judgment Prediction Competition",
+      "source": "https://arxiv.org/abs/1810.05851",
+      "supports": "context for the CAIL2018 fact-description prediction subtasks",
+      "claim_scope": "context_only",
+      "checked_on": "2026-07-17"
+    },
+    {
+      "reference_id": "R6",
+      "citation_author": "Joel Niklaus, Ilias Chalkidis, and Matthias Stürmer",
+      "citation_title": "Swiss-Judgment-Prediction: A Multilingual Legal Judgment Prediction Benchmark",
+      "source": "https://aclanthology.org/2021.nllp-1.3/",
+      "supports": "context for a multilingual and diachronic Swiss legal judgment-prediction corpus",
+      "claim_scope": "context_only",
+      "checked_on": "2026-07-17"
+    },
+    {
+      "reference_id": "R7",
+      "citation_author": "Huiyuan Xie, Felix Steffek, José De Faria, Christopher Carter, and James Rutherford",
+      "citation_title": "The CLC-UKET Dataset: Benchmarking Case Outcome Prediction for the UK Employment Tribunal",
+      "source": "https://aclanthology.org/2024.nllp-1.7/",
+      "supports": "context for UK Employment Tribunal outcome prediction and a collected human-prediction reference",
+      "claim_scope": "context_only",
+      "checked_on": "2026-07-17"
+    },
+    {
+      "reference_id": "R8",
+      "citation_author": "Ezra Karger et al.",
+      "citation_title": "ForecastBench: A Dynamic Benchmark of AI Forecasting Capabilities",
+      "source": "https://proceedings.iclr.cc/paper_files/paper/2025/hash/ea74e45a229dac70b5b63b28d8934db6-Abstract-Conference.html",
+      "supports": "the design analogy of post-cutoff unresolved questions and Brier-scored probabilistic forecasts",
+      "claim_scope": "design_analogy",
+      "checked_on": "2026-07-17"
+    },
+    {
+      "reference_id": "R9",
+      "citation_author": "Glenn W. Brier",
+      "citation_title": "Verification of Forecasts Expressed in Terms of Probability",
+      "source": "https://journals.ametsoc.org/view/journals/mwre/78/1/1520-0493_1950_078_0001_vofeit_2_0_co_2.xml",
+      "supports": "the probability-forecast verification score identified as Brier loss",
+      "claim_scope": "direct",
+      "checked_on": "2026-07-17"
+    },
+    {
+      "reference_id": "R10",
+      "citation_author": "Harvey",
+      "citation_title": "Legal Agent Benchmark",
+      "source": "https://github.com/harveyai/harvey-labs",
+      "supports": "context for a separately scored legal work-product benchmark family",
+      "claim_scope": "context_only",
+      "checked_on": "2026-07-17"
+    },
+    {
+      "reference_id": "R11",
+      "citation_author": "Pre/Dicta",
+      "citation_title": "Litigation Predictions",
+      "source": "https://www.pre-dicta.com/",
+      "supports": "context that commercial motion-level litigation prediction is marketed",
+      "claim_scope": "context_only",
+      "checked_on": "2026-07-17"
+    },
+    {
+      "reference_id": "R12",
+      "citation_author": "LegalForecastBench",
+      "citation_title": "Methods, Labeling Protocol, Official Run Runbook, and Reproduce or Audit",
+      "source": "https://github.com/johnhughes3/LegalForecastBench",
+      "supports": "the repository-local methods, labeling, execution, publication, and audit contracts described in the manuscript",
+      "claim_scope": "direct",
+      "checked_on": "2026-07-17"
+    }
+  ]
+}

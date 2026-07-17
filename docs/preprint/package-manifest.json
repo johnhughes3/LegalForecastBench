@@ -1,0 +1,100 @@
+{
+  "schema_version": "legalforecast-methods-preprint-package-v1",
+  "title": "LegalForecast-MTD Cycle 1",
+  "author": "John J. Hughes III",
+  "status": "draft_waiting_on_audited_results",
+  "source": "docs/preprint/legalforecast-mtd-cycle-1.md",
+  "rendered_draft": "output/pdf/legalforecast-mtd-cycle-1-draft.pdf",
+  "citation_audit": "docs/preprint/citation-audit.json",
+  "remaining_manuscript_input": [
+    "audited_official_cycle_1_public_aggregate"
+  ],
+  "evidence_tier_after_population": "Official LegalForecast-MTD Cycle 1 result",
+  "community_appendix_included": false,
+  "submission_authorized": false,
+  "submission_authority": "John J. Hughes III",
+  "submission_destinations": {
+    "ssrn": "separate_author_approval_required",
+    "arxiv": "optional_and_never_blocking"
+  },
+  "result_slots": [
+    {
+      "id": "cohort_counts",
+      "draft_display": "Pending audited Cycle 1 aggregate",
+      "source_path": "public/run-cards/aggregate-run-card.json",
+      "source_field": "cohort, matrix, and independence-cluster counts",
+      "verification": "compare the run card with the frozen manifest and accepted matrix"
+    },
+    {
+      "id": "micro_brier",
+      "draft_display": "Pending audited Cycle 1 aggregate",
+      "source_path": "public/unit-scores.jsonl",
+      "source_field": "probability_fully_dismissed, outcome, and brier for each public unit row",
+      "verification": "recompute each loss as (probability_fully_dismissed - outcome)^2, reject any brier mismatch, then average the recomputed losses by analysis cell"
+    },
+    {
+      "id": "clustered_uncertainty",
+      "draft_display": "Pending audited Cycle 1 aggregate",
+      "source_path": "public/variance/repeat-sampling.json",
+      "source_field": "paired intervals, win probabilities, rank tiers, and cluster warning",
+      "verification": "reconstruct from public unit rows using the frozen coarsest-cluster rule"
+    },
+    {
+      "id": "ablation_delta",
+      "draft_display": "Pending audited Cycle 1 aggregate",
+      "source_path": "public/ablation-deltas.json",
+      "source_field": "full_packet minus metadata_only paired micro-Brier results",
+      "verification": "join exact model and unit identities and reproduce the paired contrast"
+    },
+    {
+      "id": "calibration_log_loss",
+      "draft_display": "Pending audited Cycle 1 aggregate",
+      "source_path": "public/scores.json",
+      "source_field": "calibration and log-loss summaries",
+      "verification": "recompute from public probabilities and outcomes without changing frozen bins"
+    },
+    {
+      "id": "coverage_failures",
+      "draft_display": "Pending audited Cycle 1 aggregate",
+      "source_path": "public/report/leaderboard.json",
+      "source_field": "coverage, refusal, invalid-output, and required-unit-default rates",
+      "verification": "compare denominators with the expected prediction-unit matrix"
+    },
+    {
+      "id": "outcome_prevalence",
+      "draft_display": "Pending audited Cycle 1 aggregate",
+      "source_path": "public/scores.json",
+      "source_field": "realized binary outcome prevalence",
+      "verification": "recompute from the public scored-unit outcome field"
+    },
+    {
+      "id": "baseline_context",
+      "draft_display": "Pending audited Cycle 1 aggregate",
+      "source_path": "public/run-cards/aggregate-run-card.json",
+      "source_field": "baseline corpus, model, training-period, and no-baseline disclosures",
+      "verification": "verify baseline rows and any skill language against the frozen baseline status"
+    },
+    {
+      "id": "accounting",
+      "draft_display": "Pending audited Cycle 1 aggregate",
+      "source_path": "public/scores.json",
+      "source_field": "run_count, request_count, prompt_tokens, completion_tokens, total_tokens, mean_latency_ms, p95_latency_ms, total_estimated_cost, cost_per_case, and cost_per_prediction_unit",
+      "verification": "recompute totals and derived rates from accepted public accounting fields, preserve missing dimensions, and verify the disclosed auth and pricing basis"
+    },
+    {
+      "id": "artifact_identity",
+      "draft_display": "Pending audited Cycle 1 aggregate",
+      "source_path": "public/artifact-index.json",
+      "source_field": "release and public artifact SHA-256 values",
+      "verification": "hash every indexed artifact and bind the manuscript to the audited release"
+    }
+  ],
+  "required_final_checks": [
+    "source_to_claim_citation_audit",
+    "result_table_reconstruction",
+    "leakage_and_publication_guardrails",
+    "deterministic_six_to_ten_page_render",
+    "visual_render_inspection",
+    "independent_methods_and_claims_review"
+  ]
+}
