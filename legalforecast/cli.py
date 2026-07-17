@@ -338,7 +338,7 @@ from legalforecast.ingestion.docket_sync import (
 from legalforecast.ingestion.downstream_rehearsal import (
     REHEARSAL_PROVENANCE,
     DownstreamRehearsalError,
-    load_deterministic_response_fixtures,
+    load_deterministic_response_fixture_bundle,
     rehearsal_provenance,
     run_fixture_stage_a,
     run_fixture_stage_b,
@@ -1753,6 +1753,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     _add_acquisition_rehearse_downstream_arguments(acquisition_rehearsal)
+    acquisition_rehearsal_finalize = acquisition_subparsers.add_parser(
+        "finalize-rehearsal-corpus",
+        help=(
+            "Finalize only a fixture rehearsal corpus; output cannot authorize "
+            "official readiness, freeze, evaluation, or dispatch."
+        ),
+    )
+    _add_acquisition_finalize_rehearsal_arguments(acquisition_rehearsal_finalize)
     acquisition_decision_texts = acquisition_subparsers.add_parser(
         "build-decision-texts",
         help=(
@@ -5963,6 +5971,22 @@ def _add_acquisition_rehearse_downstream_arguments(
         help="Deterministic UTC packet timestamp for the fixture-only rehearsal.",
     )
     parser.set_defaults(handler=_cmd_acquisition_rehearse_downstream)
+
+
+def _add_acquisition_finalize_rehearsal_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--rehearsal-summary", type=Path, required=True)
+    parser.add_argument("--rehearsal-run-card", type=Path, required=True)
+    parser.add_argument("--selection", type=Path, required=True)
+    parser.add_argument("--prediction-units", type=Path, required=True)
+    parser.add_argument("--decision-texts", type=Path, required=True)
+    parser.add_argument("--labels", type=Path, required=True)
+    parser.add_argument("--packets", type=Path, required=True)
+    parser.add_argument("--target-case-count", type=int, default=100)
+    parser.add_argument("--corpus-output", type=Path)
+    parser.set_defaults(handler=_cmd_acquisition_finalize_rehearsal)
 
 
 def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> None:
@@ -28476,19 +28500,20 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
         raise CommandError("rehearsal selection contains a pre-anchor decision")
     selection_card = _read_json_object(selection_card_path)
     selection_outputs = selection_card.get("output_commitments")
+    selection_output_sha256 = (
+        cast(Mapping[object, object], selection_outputs).get(
+            str(selection_path.resolve())
+        )
+        if isinstance(selection_outputs, Mapping)
+        else None
+    )
     if (
         selection_card.get("stage") != "project-target-cohort"
         or selection_card.get("status") != "completed"
         or selection_card.get("execute") is not True
         or selection_card.get("record_count") != target_count
         or not isinstance(selection_outputs, Mapping)
-        or _path_sha256(selection_path)
-        not in {
-            str(value)
-            if not isinstance(value, Mapping)
-            else str(cast(Mapping[str, object], value).get("sha256"))
-            for value in cast(Mapping[object, object], selection_outputs).values()
-        }
+        or selection_output_sha256 != _path_sha256(selection_path)
     ):
         raise CommandError("invalid exact target-cohort selection run card")
 
@@ -28587,7 +28612,10 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             markdown_root=markdown_root.resolve(),
             input_commitments=commitments,
         )
-        fixtures = load_deterministic_response_fixtures(response_fixture_path)
+        fixture_bundle = load_deterministic_response_fixture_bundle(
+            response_fixture_path
+        )
+        fixtures = fixture_bundle.fixtures
         unitizer_entry, unitizer_sha = _registry_entry_for_key(
             cast(Path, args.unitizer_model_registry),
             cast(str, args.unitizer_model_key),
@@ -28746,24 +28774,27 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
     )
     _write_jsonl(packet_audit_path, (item.audit_bundle for item in assemblies))
     decision_ids = {
-        _required_str(record, "candidate_id")
-        + "-"
-        + _required_str(record, "document_id")
+        _required_str(record, "candidate_id"): (
+            _required_str(record, "candidate_id")
+            + "-"
+            + _required_str(record, "document_id")
+        )
         for record in decision_records
     }
     for assembly in assemblies:
         packet = assembly.model_packet.to_record()
-        if decision_ids.isdisjoint(
-            cast(Sequence[str], packet.get("excluded_document_ids", []))
-        ):
+        candidate_id = _required_str(packet, "candidate_id")
+        expected_decision_id = decision_ids[candidate_id]
+        excluded_ids = set(cast(Sequence[str], packet.get("excluded_document_ids", [])))
+        if expected_decision_id not in excluded_ids:
             raise CommandError(
                 "rehearsal packet failed to record outcome-material exclusion"
             )
         mounted = {
-            _required_str(document, "source_document_id")
+            candidate_id + "-" + _required_str(document, "source_document_id")
             for document in _required_record_sequence(packet, "documents")
         }
-        if mounted.intersection(decision_ids):
+        if expected_decision_id in mounted:
             raise CommandError("outcome-bearing decision entered a model packet")
 
     output_paths = (
@@ -28791,10 +28822,14 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
         len(_required_record_sequence(row, "prediction_units"))
         for row in stage_a.finalized_prediction_units
     )
+    try:
+        fixture_bundle.require_unchanged()
+    except DownstreamRehearsalError as exc:
+        raise CommandError(str(exc)) from exc
     _write_json(
         summary_path,
         {
-            **rehearsal_provenance(response_fixture_path=response_fixture_path),
+            **rehearsal_provenance(response_fixtures=fixture_bundle),
             "stage": "rehearse-downstream",
             "status": "completed_fixture_only",
             "target_case_count": target_count,
@@ -28837,6 +28872,178 @@ def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
             "provider_journal_created": False,
             "provider_billing_usd": "0.00",
             "summary_sha256": _path_sha256(summary_path),
+        },
+    )
+    return 0
+
+
+def _cmd_acquisition_finalize_rehearsal(args: argparse.Namespace) -> int:
+    """Finalize fixture evidence without creating official corpus authority."""
+
+    if _acquisition_dry_run(args):
+        raise CommandError(
+            "finalize-rehearsal-corpus is provider-free and requires --execute"
+        )
+    output_root = _acquisition_output_root(args)
+    summary_path = cast(Path, args.rehearsal_summary)
+    run_card_path = cast(Path, args.rehearsal_run_card)
+    selection_path = cast(Path, args.selection)
+    units_path = cast(Path, args.prediction_units)
+    decisions_path = cast(Path, args.decision_texts)
+    labels_path = cast(Path, args.labels)
+    packets_path = cast(Path, args.packets)
+    target_count = cast(int, args.target_case_count)
+    if target_count <= 0:
+        raise CommandError("--target-case-count must be positive")
+    input_paths = (
+        summary_path,
+        run_card_path,
+        selection_path,
+        units_path,
+        decisions_path,
+        labels_path,
+        packets_path,
+    )
+    for path in input_paths:
+        if path.is_symlink() or not path.is_file():
+            raise CommandError(
+                f"fixture rehearsal finalization input is not a regular file: {path}"
+            )
+    summary = _read_json_object(summary_path)
+    run_card = _read_json_object(run_card_path)
+    expected_fixture_authority = {
+        "provenance_class": "fixture_only",
+        "official_eligible": False,
+        "authorizes_freeze": False,
+        "authorizes_evaluation": False,
+        "authorizes_dispatch": False,
+    }
+    if (
+        summary.get("schema_version") != "legalforecast.downstream_rehearsal.v1"
+        or summary.get("stage") != "rehearse-downstream"
+        or summary.get("status") != "completed_fixture_only"
+        or any(
+            summary.get(key) != value
+            for key, value in expected_fixture_authority.items()
+        )
+        or run_card.get("stage") != "rehearse-downstream"
+        or run_card.get("status") != "completed"
+        or run_card.get("execute") is not True
+        or any(
+            run_card.get(key) != value
+            for key, value in expected_fixture_authority.items()
+        )
+        or run_card.get("summary_sha256") != _path_sha256(summary_path)
+    ):
+        raise CommandError("invalid fixture-only downstream rehearsal authority")
+    output_commitments = _required_record(summary, "output_commitments")
+    for path in (units_path, decisions_path, labels_path, packets_path):
+        if output_commitments.get(str(path.resolve())) != _path_sha256(path):
+            raise CommandError(f"fixture rehearsal output commitment changed: {path}")
+    input_commitments = _required_record(summary, "input_commitments")
+    if input_commitments.get(str(selection_path.resolve())) != _path_sha256(
+        selection_path
+    ):
+        raise CommandError("fixture rehearsal selection commitment changed")
+
+    selections = tuple(_read_records(selection_path))
+    units = tuple(_read_records(units_path))
+    decisions = tuple(_read_records(decisions_path))
+    labels = tuple(_read_records(labels_path))
+    packets = tuple(_read_records(packets_path))
+
+    def candidate_ids(records: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
+        return tuple(_required_str(record, "candidate_id") for record in records)
+
+    selection_ids = candidate_ids(selections)
+    exact_candidate_set = set(selection_ids)
+    unit_owner = {
+        _required_str(unit, "unit_id"): _required_str(record, "candidate_id")
+        for record in units
+        for unit in _required_record_sequence(record, "prediction_units")
+    }
+    labeled_unit_ids = {_required_str(record, "unit_id") for record in labels}
+    if (
+        len(selection_ids) != target_count
+        or len(exact_candidate_set) != target_count
+        or set(candidate_ids(units)) != exact_candidate_set
+        or set(candidate_ids(decisions)) != exact_candidate_set
+        or set(candidate_ids(packets)) != exact_candidate_set
+        or labeled_unit_ids != set(unit_owner)
+        or {unit_owner[unit_id] for unit_id in labeled_unit_ids} != exact_candidate_set
+    ):
+        raise CommandError("fixture rehearsal corpus candidate coverage is not exact")
+    if (
+        summary.get("target_case_count") != target_count
+        or summary.get("selected_case_count") != target_count
+        or summary.get("finalized_case_count") != target_count
+        or summary.get("decision_text_count") != target_count
+        or summary.get("packet_case_count") != target_count
+        or summary.get("pending_stage_a_review_count") != 0
+        or summary.get("pending_stage_b_review_count") != 0
+        or summary.get("provider_journal_created") is not False
+        or summary.get("provider_billing_usd") != "0.00"
+        or summary.get("packet_outcome_material_excluded") is not True
+    ):
+        raise CommandError("fixture rehearsal final count reconciliation failed")
+    decision_ids = {
+        _required_str(record, "candidate_id"): (
+            _required_str(record, "candidate_id")
+            + "-"
+            + _required_str(record, "document_id")
+        )
+        for record in decisions
+    }
+    for packet in packets:
+        candidate_id = _required_str(packet, "candidate_id")
+        expected_decision_id = decision_ids[candidate_id]
+        mounted = {
+            candidate_id + "-" + _required_str(document, "source_document_id")
+            for document in _required_record_sequence(packet, "documents")
+        }
+        excluded = set(cast(Sequence[str], packet.get("excluded_document_ids", [])))
+        if expected_decision_id in mounted or expected_decision_id not in excluded:
+            raise CommandError(
+                "fixture rehearsal finalization found outcome material in a packet"
+            )
+
+    corpus_path = _acquisition_path(
+        args,
+        "corpus_output",
+        output_root / "fixture-rehearsal-corpus.json",
+    )
+    corpus = {
+        **REHEARSAL_PROVENANCE,
+        "schema_version": "legalforecast.fixture_rehearsal_corpus.v1",
+        "stage": "finalize-rehearsal-corpus",
+        "status": "completed_fixture_only",
+        "target_case_count": target_count,
+        "clean_case_count": target_count,
+        "candidate_ids": list(selection_ids),
+        "pending_stage_a_review_count": 0,
+        "pending_stage_b_review_count": 0,
+        "provider_journal_created": False,
+        "provider_billing_usd": "0.00",
+        "packet_outcome_material_excluded": True,
+        "input_commitments": {
+            str(path.resolve()): _path_sha256(path) for path in input_paths
+        },
+    }
+    _write_json(corpus_path, corpus)
+    _write_acquisition_completion(
+        args,
+        stage="finalize-rehearsal-corpus",
+        input_paths=input_paths,
+        output_paths=(corpus_path,),
+        record_count=target_count,
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            **REHEARSAL_PROVENANCE,
+            "corpus_sha256": _path_sha256(corpus_path),
+            "provider_journal_created": False,
+            "provider_billing_usd": "0.00",
         },
     )
     return 0
@@ -34040,6 +34247,10 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         / "run-cards"
         / f"{_TARGET_COHORT_PREPARATION.stage}.json"
     )
+    _reject_fixture_only_official_finalization(
+        decision_texts_manifest_path,
+        decision_texts_run_card_path,
+    )
     if not dry_run and (
         download_manifest_path is None
         or materialization_card_path is None
@@ -34608,6 +34819,24 @@ def _cmd_acquisition_finalize_corpus(args: argparse.Namespace) -> int:
         },
     )
     return 0
+
+
+def _reject_fixture_only_official_finalization(*paths: Path) -> None:
+    """Keep rehearsal artifacts outside the production finalization surface."""
+
+    for path in paths:
+        if path.is_symlink() or not path.is_file():
+            continue
+        artifact = _read_json_object(path)
+        schema_version = str(artifact.get("schema_version") or "")
+        if (
+            artifact.get("provenance_class") == "fixture_only"
+            or artifact.get("official_eligible") is False
+            or schema_version.startswith("legalforecast.fixture_")
+        ):
+            raise CommandError(
+                "official finalize-corpus rejects fixture-only rehearsal provenance"
+            )
 
 
 def _readiness_exclusion_records(

@@ -152,6 +152,24 @@ The command authenticates the exact target-selection hash, combined materializat
 It then constructs fixture-only decision texts, unitizes, structurally reviews, applies an empty Stage A queue, labels, applies an empty Stage B merits queue, plans and builds packets, proves the outcome-bearing decision document is excluded from every model packet, and reconciles the exact target count.
 If either review queue is nonempty, stop and correct the deterministic fixture or file the corresponding John-review bead; the rehearsal never self-adjudicates.
 Success is `rehearsal-final-summary.json` with all counts equal to the requested cohort, zero pending reviews, `provider_journal_created=false`, `provider_billing_usd="0.00"`, and `packet_outcome_material_excluded=true`.
+Finalize that evidence only through the separate fixture authority:
+
+```bash
+uv run legalforecast acquisition finalize-rehearsal-corpus \
+  --output-root <fixture-rehearsal-finalization-root> \
+  --rehearsal-summary <fixture-rehearsal-root/rehearsal-final-summary.json> \
+  --rehearsal-run-card <fixture-rehearsal-root/run-cards/rehearse-downstream.json> \
+  --selection <projected-exact-cohort-selection.jsonl> \
+  --prediction-units <fixture-rehearsal-root/rehearsal-finalized-prediction-units.jsonl> \
+  --decision-texts <fixture-rehearsal-root/rehearsal-decision-texts.jsonl> \
+  --labels <fixture-rehearsal-root/rehearsal-labels.jsonl> \
+  --packets <fixture-rehearsal-root/rehearsal-packets.jsonl> \
+  --target-case-count 100 \
+  --corpus-output <fixture-rehearsal-finalization-root/fixture-rehearsal-corpus.json> \
+  --execute --no-resume
+```
+
+The finalizer re-authenticates every exact-cohort output commitment, candidate and unit coverage, zero-review counts, zero billing, and packet exclusion of decision material before emitting `legalforecast.fixture_rehearsal_corpus.v1` with `official_eligible=false`.
 This success is test evidence only: production `build-decision-texts`, readiness, `finalize-corpus`, freeze, evaluation, and dispatch continue to reject every rehearsal artifact.
 
 Unitize Stage A only from that exact authenticated materialization and pinned live-parser lineage. Use one explicit provider journal for the cycle; creating a fresh output-root-local journal is refused because it would reset the cycle reservation ledger:

@@ -222,6 +222,22 @@ def test_runbook_documents_isolated_provider_free_exact_cohort_rehearsal() -> No
     ):
         assert required_claim in rehearsal_section
     assert "--acknowledge-pacer-fees" not in block
+    finalization_block = _documented_command_block(runbook, "finalize-rehearsal-corpus")
+    for option in (
+        "--rehearsal-summary",
+        "--rehearsal-run-card",
+        "--selection",
+        "--prediction-units",
+        "--decision-texts",
+        "--labels",
+        "--packets",
+        "--target-case-count",
+        "--corpus-output",
+        "--execute",
+    ):
+        assert option in finalization_block
+    assert "legalforecast.fixture_rehearsal_corpus.v1" in rehearsal_section
+    assert "--acknowledge-pacer-fees" not in finalization_block
 
 
 def test_runbook_closes_unknown_status_purchase_to_materialization_chain() -> None:

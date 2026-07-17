@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import urllib.parse
 import urllib.request
 from collections.abc import Iterable, Mapping, Sequence
@@ -21,6 +22,10 @@ from legalforecast.evals.live_model_solver import LiveModelTransport
 from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.ingestion.decision_text_artifact import (
     VerifiedDecisionTextArtifact,
+)
+from legalforecast.ingestion.disclosure_review_bundle import (
+    ReviewBundleError,
+    read_unique_regular_file,
 )
 from legalforecast.labeling.llm_pipeline import (
     LlmBatchResult,
@@ -163,6 +168,30 @@ class FixtureStageBResult:
     traces: tuple[DeterministicFixtureTrace, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class LoadedDeterministicResponseFixtures:
+    """Exact response-fixture bytes and parsed records consumed from them."""
+
+    path: Path
+    fixtures: tuple[DeterministicModelResponseFixture, ...]
+    sha256: str
+    byte_count: int
+
+    def require_unchanged(self) -> None:
+        """Reject mutation or path substitution after the fixtures were loaded."""
+
+        try:
+            payload = read_unique_regular_file(self.path)
+        except (OSError, ReviewBundleError) as exc:
+            raise DownstreamRehearsalError(
+                f"cannot reread response fixture: {self.path}"
+            ) from exc
+        if len(payload) != self.byte_count or _bytes_sha256(payload) != self.sha256:
+            raise DownstreamRehearsalError(
+                "deterministic response fixture changed after it was loaded"
+            )
+
+
 class DeterministicModelFixtureTransport(LiveModelTransport):
     """FIFO provider adapter that can only return authenticated local fixtures."""
 
@@ -265,14 +294,18 @@ def load_deterministic_response_fixtures(
 ) -> tuple[DeterministicModelResponseFixture, ...]:
     """Load one immutable JSONL fixture file with exact identity coverage."""
 
-    source = Path(path)
+    return load_deterministic_response_fixture_bundle(path).fixtures
+
+
+def load_deterministic_response_fixture_bundle(
+    path: str | Path,
+) -> LoadedDeterministicResponseFixtures:
+    """Load fixtures and retain the exact whole-file commitment consumed."""
+
+    source = Path(os.path.abspath(os.fspath(path)))
     try:
-        if source.is_symlink() or not source.is_file():
-            raise DownstreamRehearsalError(
-                f"response fixture is not a regular file: {source}"
-            )
-        payload = source.read_bytes()
-    except OSError as exc:
+        payload = read_unique_regular_file(source)
+    except (OSError, ReviewBundleError) as exc:
         raise DownstreamRehearsalError(
             f"cannot read response fixture: {source}"
         ) from exc
@@ -331,7 +364,12 @@ def load_deterministic_response_fixtures(
         records.append(fixture)
     if not records:
         raise DownstreamRehearsalError("response fixture file is empty")
-    return tuple(records)
+    return LoadedDeterministicResponseFixtures(
+        path=source,
+        fixtures=tuple(records),
+        sha256=_bytes_sha256(payload),
+        byte_count=len(payload),
+    )
 
 
 def select_response_fixtures(
@@ -383,16 +421,17 @@ def fixture_provider_environ() -> Mapping[str, str]:
     }
 
 
-def rehearsal_provenance(*, response_fixture_path: Path) -> JsonRecord:
+def rehearsal_provenance(
+    *, response_fixtures: LoadedDeterministicResponseFixtures
+) -> JsonRecord:
     """Return explicit non-production provenance bound to fixture bytes."""
 
-    payload = response_fixture_path.read_bytes()
     return {
         **REHEARSAL_PROVENANCE,
         "response_fixture": {
-            "path": str(response_fixture_path.resolve()),
-            "sha256": "sha256:" + hashlib.sha256(payload).hexdigest(),
-            "byte_count": len(payload),
+            "path": str(response_fixtures.path),
+            "sha256": response_fixtures.sha256,
+            "byte_count": response_fixtures.byte_count,
         },
         "provider_journal_created": False,
         "provider_billing_usd": "0.00",
@@ -697,3 +736,7 @@ def _require_prefixed_sha256(value: str, field_name: str) -> None:
         raise DownstreamRehearsalError(
             f"response fixture {field_name} must be a sha256: digest"
         ) from exc
+
+
+def _bytes_sha256(payload: bytes) -> str:
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
