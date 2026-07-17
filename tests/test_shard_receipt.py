@@ -8,14 +8,6 @@ from types import SimpleNamespace
 import legalforecast.publication.shard_receipt as shard_receipt_module
 import pytest
 from legalforecast.protocol.manifest import hash_payload
-from legalforecast.publication.shard_receipt import (
-    ReceiptAlreadyExistsError,
-    ShardReceiptError,
-    build_shard_receipt,
-    receipt_key,
-    verify_committed_objects,
-    write_receipt_once,
-)
 
 _S3_OBJECTS: dict[tuple[str, str], bytes] = {}
 _REAL_READ_EXACT_OBJECT = shard_receipt_module._read_exact_object
@@ -39,7 +31,7 @@ def test_finalize_shard_builds_exact_mixed_origin_receipt(tmp_path: Path) -> Non
         _completion(tmp_path, case_id="case-2", repeat_count=1, origin="resumed"),
     )
 
-    receipt = build_shard_receipt(
+    receipt = shard_receipt_module.build_shard_receipt(
         provenance=_provenance(),
         manifest=_manifest(),
         completions=completions,
@@ -54,7 +46,7 @@ def test_finalize_shard_builds_exact_mixed_origin_receipt(tmp_path: Path) -> Non
     assert receipt["workflow_run_attempt"] == 1
     assert receipt["receipt_key"].endswith("/1001/1.json")
     assert len(receipt["result_commitment_sha256"]) == 64
-    verify_committed_objects(receipt)
+    shard_receipt_module.verify_committed_objects(receipt)
 
 
 @pytest.mark.parametrize("mutation", ("missing", "failed", "extra"))
@@ -72,8 +64,8 @@ def test_finalize_shard_rejects_incomplete_or_nonexact_cells(
         completions.append(
             _completion(tmp_path, case_id="case-3", repeat_count=1, origin="fresh")
         )
-    with pytest.raises(ShardReceiptError):
-        build_shard_receipt(
+    with pytest.raises(shard_receipt_module.ShardReceiptError):
+        shard_receipt_module.build_shard_receipt(
             provenance=_provenance(),
             manifest=_manifest(),
             completions=completions,
@@ -89,8 +81,8 @@ def test_finalize_shard_rejects_missing_frozen_repeat_case(tmp_path: Path) -> No
     provenance["repeat_policy"] = repeat_policy
     provenance["repeat_policy_sha256"] = hash_payload(repeat_policy)
 
-    with pytest.raises(ShardReceiptError, match="case-missing"):
-        build_shard_receipt(
+    with pytest.raises(shard_receipt_module.ShardReceiptError, match="case-missing"):
+        shard_receipt_module.build_shard_receipt(
             provenance=provenance,
             manifest=_manifest(),
             completions=(
@@ -106,7 +98,7 @@ def test_finalize_shard_rejects_missing_frozen_repeat_case(tmp_path: Path) -> No
 def test_rerun_receipt_adopts_prior_cells_and_uses_current_attempt(
     tmp_path: Path,
 ) -> None:
-    receipt = build_shard_receipt(
+    receipt = shard_receipt_module.build_shard_receipt(
         provenance=_provenance(),
         manifest=_manifest(),
         completions=(
@@ -144,7 +136,7 @@ def test_rerun_receipt_adopts_prior_cells_and_uses_current_attempt(
 def test_rerun_receipt_selects_highest_valid_duplicate_attempt(
     tmp_path: Path,
 ) -> None:
-    receipt = build_shard_receipt(
+    receipt = shard_receipt_module.build_shard_receipt(
         provenance=_provenance(),
         manifest=_manifest(),
         completions=(
@@ -186,8 +178,10 @@ def test_rerun_receipt_selects_highest_valid_duplicate_attempt(
 def test_rerun_receipt_rejects_conflicting_highest_attempt_duplicates(
     tmp_path: Path,
 ) -> None:
-    with pytest.raises(ShardReceiptError, match="ambiguous completion cells"):
-        build_shard_receipt(
+    with pytest.raises(
+        shard_receipt_module.ShardReceiptError, match="ambiguous completion cells"
+    ):
+        shard_receipt_module.build_shard_receipt(
             provenance=_provenance(),
             manifest=_manifest(),
             completions=(
@@ -222,8 +216,10 @@ def test_rerun_receipt_rejects_conflicting_highest_attempt_duplicates(
 
 
 def test_rerun_receipt_rejects_future_completion(tmp_path: Path) -> None:
-    with pytest.raises(ShardReceiptError, match="future workflow attempt"):
-        build_shard_receipt(
+    with pytest.raises(
+        shard_receipt_module.ShardReceiptError, match="future workflow attempt"
+    ):
+        shard_receipt_module.build_shard_receipt(
             provenance=_provenance(),
             manifest=_manifest(),
             completions=(
@@ -263,8 +259,8 @@ def test_completion_rejects_frozen_identity_mismatch(
     completion = _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh")
     completion[field] = value
 
-    with pytest.raises(ShardReceiptError, match=message):
-        build_shard_receipt(
+    with pytest.raises(shard_receipt_module.ShardReceiptError, match=message):
+        shard_receipt_module.build_shard_receipt(
             provenance=_provenance(),
             manifest=_manifest(),
             completions=(
@@ -285,7 +281,7 @@ def test_completion_rejects_frozen_identity_mismatch(
 def test_receipt_write_is_exclusive_but_new_attempt_has_new_key(
     tmp_path: Path,
 ) -> None:
-    receipt = build_shard_receipt(
+    receipt = shard_receipt_module.build_shard_receipt(
         provenance=_provenance(),
         manifest=_manifest(),
         completions=(
@@ -297,19 +293,23 @@ def test_receipt_write_is_exclusive_but_new_attempt_has_new_key(
         model_registry_sha256="8" * 64,
     )
 
-    first_path = write_receipt_once(str(tmp_path / "receipts"), receipt)
+    first_path = shard_receipt_module.write_receipt_once(
+        str(tmp_path / "receipts"), receipt
+    )
     assert Path(first_path).is_file()
-    with pytest.raises(ReceiptAlreadyExistsError):
-        write_receipt_once(str(tmp_path / "receipts"), receipt)
+    with pytest.raises(shard_receipt_module.ReceiptAlreadyExistsError):
+        shard_receipt_module.write_receipt_once(str(tmp_path / "receipts"), receipt)
 
     attempt_two = dict(receipt)
     attempt_two["workflow_run_attempt"] = 2
-    attempt_two["receipt_key"] = receipt_key(attempt_two)
+    attempt_two["receipt_key"] = shard_receipt_module.receipt_key(attempt_two)
     attempt_two_without_hash = dict(attempt_two)
     attempt_two_without_hash.pop("receipt_sha256")
     attempt_two["receipt_sha256"] = hash_payload(attempt_two_without_hash)
     assert attempt_two["receipt_key"] != receipt["receipt_key"]
-    assert Path(write_receipt_once(str(tmp_path / "receipts"), attempt_two)).is_file()
+    assert Path(
+        shard_receipt_module.write_receipt_once(str(tmp_path / "receipts"), attempt_two)
+    ).is_file()
 
 
 def test_exact_version_verification_rejects_content_drift(tmp_path: Path) -> None:
@@ -317,7 +317,7 @@ def test_exact_version_verification_rejects_content_drift(tmp_path: Path) -> Non
         _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
         _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
     )
-    receipt = build_shard_receipt(
+    receipt = shard_receipt_module.build_shard_receipt(
         provenance=_provenance(),
         manifest=_manifest(),
         completions=completions,
@@ -329,12 +329,14 @@ def test_exact_version_verification_rejects_content_drift(tmp_path: Path) -> Non
     identity = (str(commitment["uri"]), str(commitment["version_id"]))
     _S3_OBJECTS[identity] = b"drift"
 
-    with pytest.raises(ShardReceiptError, match="commitment mismatch"):
-        verify_committed_objects(receipt)
+    with pytest.raises(
+        shard_receipt_module.ShardReceiptError, match="commitment mismatch"
+    ):
+        shard_receipt_module.verify_committed_objects(receipt)
 
 
 def test_receipt_write_rejects_tampered_receipt_content(tmp_path: Path) -> None:
-    receipt = build_shard_receipt(
+    receipt = shard_receipt_module.build_shard_receipt(
         provenance=_provenance(),
         manifest=_manifest(),
         completions=(
@@ -347,8 +349,8 @@ def test_receipt_write_rejects_tampered_receipt_content(tmp_path: Path) -> None:
     )
     receipt["labels_sha256"] = "0" * 64
 
-    with pytest.raises(ShardReceiptError, match="receipt_sha256"):
-        write_receipt_once(str(tmp_path / "receipts"), receipt)
+    with pytest.raises(shard_receipt_module.ShardReceiptError, match="receipt_sha256"):
+        shard_receipt_module.write_receipt_once(str(tmp_path / "receipts"), receipt)
 
 
 def test_completion_rejects_null_s3_version(tmp_path: Path) -> None:
@@ -358,8 +360,8 @@ def test_completion_rejects_null_s3_version(tmp_path: Path) -> None:
         {"objects": sorted(completion["objects"], key=lambda value: value["name"])}
     )
 
-    with pytest.raises(ShardReceiptError, match="VersionId"):
-        build_shard_receipt(
+    with pytest.raises(shard_receipt_module.ShardReceiptError, match="VersionId"):
+        shard_receipt_module.build_shard_receipt(
             provenance=_provenance(),
             manifest=_manifest(),
             completions=(
@@ -403,7 +405,7 @@ def test_exact_s3_reader_pins_recorded_version(
 def test_s3_receipt_writer_uses_atomic_if_none_match(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    receipt = build_shard_receipt(
+    receipt = shard_receipt_module.build_shard_receipt(
         provenance=_provenance(),
         manifest=_manifest(),
         completions=(
@@ -422,7 +424,7 @@ def test_s3_receipt_writer_uses_atomic_if_none_match(
 
     monkeypatch.setattr(shard_receipt_module.subprocess, "run", fake_run)
 
-    destination = write_receipt_once("s3://results", receipt)
+    destination = shard_receipt_module.write_receipt_once("s3://results", receipt)
 
     assert destination.startswith("s3://results/shard-receipts/")
     assert commands[0][commands[0].index("--if-none-match") + 1] == "*"

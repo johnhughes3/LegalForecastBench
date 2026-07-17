@@ -152,6 +152,51 @@ def test_finalize_shard_requires_every_matrix_cell_and_writes_once() -> None:
     )
 
 
+def test_run_case_uses_transported_frozen_execution_policy() -> None:
+    stable_policy_path = "/tmp/lfb-run-case-inputs/lfb-execution-policy.json"
+
+    assert "execution_policy_path: ${{ steps.dispatch.outputs" not in BUILD_MATRIX_JOB
+    assert 'output.write(f"execution_policy_path=' not in BUILD_MATRIX_JOB
+    freeze_open = BUILD_MATRIX_JOB.index(
+        'with open(os.environ["FREEZE_COMMITMENT_PATH"], encoding="utf-8")'
+    )
+    transport_policy = BUILD_MATRIX_JOB[
+        BUILD_MATRIX_JOB.rindex(
+            "python - <<'PY'", 0, freeze_open
+        ) : BUILD_MATRIX_JOB.index("- name: Build matrix JSON")
+    ]
+    assert "from pathlib import Path" in transport_policy
+    assert 'target = Path("/tmp/lfb-execution-policy.json")' in transport_policy
+    assert "target.write_bytes(source.read_bytes())" in transport_policy
+    assert (
+        "/tmp/lfb-execution-policy.json"
+        in BUILD_MATRIX_JOB[
+            BUILD_MATRIX_JOB.index("- name: Upload dispatch provenance") :
+        ]
+    )
+
+    checkout = RUN_CASE_JOB.index("- name: Checkout trusted release")
+    download = RUN_CASE_JOB.index("- name: Download frozen dispatch inputs")
+    evaluate = RUN_CASE_JOB.index("- name: Run isolated case evaluation")
+    assert checkout < download < evaluate
+    assert "if: ${{ !inputs.dry_run }}" in RUN_CASE_JOB[download:evaluate]
+    assert (
+        "name: official-dispatch-provenance-${{ github.run_id }}"
+        in RUN_CASE_JOB[download:evaluate]
+    )
+    assert "path: /tmp/lfb-run-case-inputs" in RUN_CASE_JOB[download:evaluate]
+    assert f"EXECUTION_POLICY_PATH: {stable_policy_path}" in RUN_CASE_JOB
+    assert (
+        "EXECUTION_POLICY_SHA256: "
+        "${{ needs.build-matrix.outputs.execution_policy_sha256 }}" in RUN_CASE_JOB
+    )
+    assert (
+        '--expected-execution-policy-sha256 "${EXECUTION_POLICY_SHA256}"'
+        in RUN_CASE_JOB
+    )
+    assert "needs.build-matrix.outputs.execution_policy_path" not in RUN_CASE_JOB
+
+
 def test_declared_shards_have_distinct_concurrency_groups() -> None:
     group_match = re.search(r"(?m)^  group: (?P<expression>.+)$", WORKFLOW)
     assert group_match is not None
