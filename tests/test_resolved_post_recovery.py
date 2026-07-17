@@ -436,6 +436,7 @@ def test_recap_fetch_quarantine_recovery_help_names_controlled_inputs(
         "--live-courtlistener-recovery",
         "--manifest-output",
         "--restriction-evidence-output",
+        "--review-requests-output",
         "--document-output-root",
     ):
         assert flag in help_text
@@ -684,6 +685,8 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         str(paths["download_manifest"]),
         "--restriction-evidence-output",
         str(paths["restriction_evidence"]),
+        "--review-requests-output",
+        str(paths["review_requests"]),
         "--document-output-root",
         str(quarantine_root),
         "--output-root",
@@ -717,20 +720,62 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         "sha256:"
         + hashlib.sha256(paths["restriction_evidence"].read_bytes()).hexdigest()
     )
+    assert commitments["disclosure_review_requests"]["sha256"] == (
+        "sha256:" + hashlib.sha256(paths["review_requests"].read_bytes()).hexdigest()
+    )
+    assert commitments["document_tree"] == {
+        "case-1/123.pdf": "sha256:"
+        + hashlib.sha256((quarantine_root / "case-1/123.pdf").read_bytes()).hexdigest()
+    }
+    verified_recovery = cli._verify_materializer_recovery(
+        recovery_root=tmp_path / "recovery-output",
+        selection_path=paths["selection"],
+        selected_document_keys={("case-1", "123")},
+        purchase_policy_path=paths["purchase_policy"],
+        cohort_policy_path=paths["cohort_policy"],
+        ledger_path=ledger_path,
+    )
+    assert verified_recovery["manifest_path"] == paths["download_manifest"]
+    assert verified_recovery["document_root"] == quarantine_root
+    review_request_bytes = paths["review_requests"].read_bytes()
+    paths["review_requests"].write_bytes(review_request_bytes + b"{}\n")
+    with pytest.raises(cli.CommandError, match="commitment changed"):
+        cli._verify_materializer_recovery(
+            recovery_root=tmp_path / "recovery-output",
+            selection_path=paths["selection"],
+            selected_document_keys={("case-1", "123")},
+            purchase_policy_path=paths["purchase_policy"],
+            cohort_policy_path=paths["cohort_policy"],
+            ledger_path=ledger_path,
+        )
+    paths["review_requests"].write_bytes(review_request_bytes)
+    quarantined_document = quarantine_root / "case-1/123.pdf"
+    quarantined_bytes = quarantined_document.read_bytes()
+    quarantined_document.unlink()
+    with pytest.raises(cli.CommandError, match="document-tree commitment mismatch"):
+        cli._verify_materializer_recovery(
+            recovery_root=tmp_path / "recovery-output",
+            selection_path=paths["selection"],
+            selected_document_keys={("case-1", "123")},
+            purchase_policy_path=paths["purchase_policy"],
+            cohort_policy_path=paths["cohort_policy"],
+            ledger_path=ledger_path,
+        )
+    quarantined_document.write_bytes(quarantined_bytes)
     content_sha256 = hashlib.sha256(pdf_content.encode()).hexdigest()
     download_row = _read_records(paths["download_manifest"])[0]
-    review_requests = [
-        {
-            "schema_version": "legalforecast.disclosure_review_request.v1",
-            "candidate_id": download_row["candidate_id"],
-            "source_document_id": download_row["source_document_id"],
-            "sha256": content_sha256,
-            "byte_count": len(pdf_content.encode()),
-            "free_or_purchased": "purchased",
-            "required_human_decision": "cleared_or_quarantined",
-        }
-    ]
-    _write_records(paths["review_requests"], review_requests)
+    [review_request] = _read_records(paths["review_requests"])
+    assert review_request == {
+        "schema_version": "legalforecast.disclosure_review_request.v1",
+        "candidate_id": download_row["candidate_id"],
+        "source_document_id": download_row["source_document_id"],
+        "sha256": content_sha256,
+        "byte_count": len(pdf_content.encode()),
+        "free_or_purchased": "purchased",
+        "restriction_status": "public",
+        "restriction_evidence": restrictions[0]["restriction_evidence"],
+        "required_human_decision": "cleared_or_quarantined",
+    }
     review_prepare_root = tmp_path / "review-prepare"
     private_review_root = tmp_path / "private-review"
     assert (
@@ -911,6 +956,10 @@ def test_resolve_post_recovery_cli_publishes_and_journals_authenticated_lineage(
         assert evidence is not None
         assert evidence["material_state"].value == "cleared_public"
         assert evidence["resolved_document_sha256"] == resolved[0]["record_sha256"]
+        cli._verify_materializer_purchase_operations(
+            journal.operation_records(),
+            purchased_manifest=_read_records(paths["download_manifest"]),
+        )
     run_card = json.loads(
         (output_root / "run-cards/resolve-post-recovery-documents.json").read_text()
     )
