@@ -240,3 +240,17 @@ def test_committed_pdf_matches_renderer_and_page_contract(tmp_path: Path) -> Non
 
     assert PDF.read_bytes() == rendered.read_bytes()
     assert 6 <= len(PdfReader(PDF).pages) <= 10
+
+
+def test_committed_pdf_uses_binary_git_attributes() -> None:
+    relative_pdf = PDF.relative_to(ROOT).as_posix()
+    result = subprocess.run(
+        ["git", "check-attr", "text", "diff", "--", relative_pdf],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert f"{relative_pdf}: text: unset" in result.stdout
+    assert f"{relative_pdf}: diff: unset" in result.stdout
