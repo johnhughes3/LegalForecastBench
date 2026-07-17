@@ -41,6 +41,7 @@ _RECEIPT_FIELDS = {
     "attempt_policy_sha256",
     "receipt_policy_sha256",
     "frozen_manifest_sha256",
+    "run_input_manifest_sha256",
     "labels_sha256",
     "model_registry_sha256",
     "expected_cell_count",
@@ -123,7 +124,7 @@ def build_shard_receipt(
     provenance: Mapping[str, Any],
     manifest: Mapping[str, Any],
     completions: Sequence[Mapping[str, Any]],
-    frozen_manifest_sha256: str,
+    run_input_manifest_sha256: str,
     labels_sha256: str,
     model_registry_sha256: str,
     current_workflow_run_id: str | None = None,
@@ -142,10 +143,8 @@ def build_shard_receipt(
     frozen_inputs = _mapping(
         provenance.get("frozen_result_inputs"), "frozen_result_inputs"
     )
+    frozen_manifest_sha256 = _required_sha256(frozen_inputs, "frozen_manifest_sha256")
     supplied_inputs = {
-        "frozen_manifest_sha256": _require_sha256(
-            frozen_manifest_sha256, "frozen_manifest_sha256"
-        ),
         "labels_sha256": _require_sha256(labels_sha256, "labels_sha256"),
         "model_registry_sha256": _require_sha256(
             model_registry_sha256, "model_registry_sha256"
@@ -269,6 +268,10 @@ def build_shard_receipt(
         "repeat_policy_sha256": repeat_policy_sha256,
         "attempt_policy_sha256": _required_sha256(provenance, "attempt_policy_sha256"),
         "receipt_policy_sha256": _required_sha256(provenance, "receipt_policy_sha256"),
+        "frozen_manifest_sha256": frozen_manifest_sha256,
+        "run_input_manifest_sha256": _require_sha256(
+            run_input_manifest_sha256, "run_input_manifest_sha256"
+        ),
         **supplied_inputs,
         "expected_cell_count": len(expected),
         "cells": sorted_completions,
@@ -755,7 +758,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         provenance=_load_json(cast(Path, args.dispatch_provenance)),
         manifest=_load_json(manifest_path),
         completions=_load_completions(cast(Path, args.completions_root)),
-        frozen_manifest_sha256=_sha256_file(manifest_path),
+        run_input_manifest_sha256=_sha256_file(manifest_path),
         labels_sha256=_sha256_file(cast(Path, args.labels)),
         model_registry_sha256=_sha256_file(cast(Path, args.model_registry)),
         current_workflow_run_id=cast(str, args.workflow_run_id),

@@ -35,7 +35,7 @@ def test_finalize_shard_builds_exact_mixed_origin_receipt(tmp_path: Path) -> Non
         provenance=_provenance(),
         manifest=_manifest(),
         completions=completions,
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
     )
@@ -44,6 +44,8 @@ def test_finalize_shard_builds_exact_mixed_origin_receipt(tmp_path: Path) -> Non
     assert [cell["origin"] for cell in receipt["cells"]] == ["fresh", "resumed"]
     assert receipt["workflow_run_id"] == "1001"
     assert receipt["workflow_run_attempt"] == 1
+    assert receipt["frozen_manifest_sha256"] == "6" * 64
+    assert receipt["run_input_manifest_sha256"] == "5" * 64
     assert receipt["receipt_key"].endswith("/1001/1.json")
     assert len(receipt["result_commitment_sha256"]) == 64
     shard_receipt_module.verify_committed_objects(receipt)
@@ -69,7 +71,7 @@ def test_finalize_shard_rejects_incomplete_or_nonexact_cells(
             provenance=_provenance(),
             manifest=_manifest(),
             completions=completions,
-            frozen_manifest_sha256="6" * 64,
+            run_input_manifest_sha256="5" * 64,
             labels_sha256="7" * 64,
             model_registry_sha256="8" * 64,
         )
@@ -89,7 +91,7 @@ def test_finalize_shard_rejects_missing_frozen_repeat_case(tmp_path: Path) -> No
                 _completion(tmp_path, case_id="case-1", repeat_count=1, origin="fresh"),
                 _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
             ),
-            frozen_manifest_sha256="6" * 64,
+            run_input_manifest_sha256="5" * 64,
             labels_sha256="7" * 64,
             model_registry_sha256="8" * 64,
         )
@@ -117,7 +119,7 @@ def test_rerun_receipt_adopts_prior_cells_and_uses_current_attempt(
                 workflow_run_attempt=2,
             ),
         ),
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
         current_workflow_run_id="1001",
@@ -162,7 +164,7 @@ def test_rerun_receipt_selects_highest_valid_duplicate_attempt(
                 workflow_run_attempt=1,
             ),
         ),
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
         current_workflow_run_id="1001",
@@ -207,7 +209,7 @@ def test_rerun_receipt_rejects_conflicting_highest_attempt_duplicates(
                     workflow_run_attempt=2,
                 ),
             ),
-            frozen_manifest_sha256="6" * 64,
+            run_input_manifest_sha256="5" * 64,
             labels_sha256="7" * 64,
             model_registry_sha256="8" * 64,
             current_workflow_run_id="1001",
@@ -238,7 +240,7 @@ def test_rerun_receipt_rejects_future_completion(tmp_path: Path) -> None:
                     workflow_run_attempt=2,
                 ),
             ),
-            frozen_manifest_sha256="6" * 64,
+            run_input_manifest_sha256="5" * 64,
             labels_sha256="7" * 64,
             model_registry_sha256="8" * 64,
             current_workflow_run_id="1001",
@@ -272,7 +274,7 @@ def test_completion_rejects_frozen_identity_mismatch(
                     origin="fresh",
                 ),
             ),
-            frozen_manifest_sha256="6" * 64,
+            run_input_manifest_sha256="5" * 64,
             labels_sha256="7" * 64,
             model_registry_sha256="8" * 64,
         )
@@ -288,7 +290,7 @@ def test_receipt_write_is_exclusive_but_new_attempt_has_new_key(
             _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
             _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
         ),
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
     )
@@ -321,7 +323,7 @@ def test_exact_version_verification_rejects_content_drift(tmp_path: Path) -> Non
         provenance=_provenance(),
         manifest=_manifest(),
         completions=completions,
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
     )
@@ -343,7 +345,7 @@ def test_receipt_write_rejects_tampered_receipt_content(tmp_path: Path) -> None:
             _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
             _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
         ),
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
     )
@@ -361,7 +363,7 @@ def test_strict_receipt_verifier_reconstructs_frozen_cells(tmp_path: Path) -> No
             _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
             _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
         ),
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
     )
@@ -401,7 +403,7 @@ def test_strict_receipt_verifier_rejects_rehashed_invalid_receipt(
             _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
             _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
         ),
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
     )
@@ -443,7 +445,7 @@ def test_strict_receipt_verifier_rejects_uri_reused_at_another_version(
             _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
             _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
         ),
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
     )
@@ -496,7 +498,7 @@ def test_completion_rejects_null_s3_version(tmp_path: Path) -> None:
                     origin="fresh",
                 ),
             ),
-            frozen_manifest_sha256="6" * 64,
+            run_input_manifest_sha256="5" * 64,
             labels_sha256="7" * 64,
             model_registry_sha256="8" * 64,
         )
@@ -535,7 +537,7 @@ def test_s3_receipt_writer_uses_atomic_if_none_match(
             _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
             _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
         ),
-        frozen_manifest_sha256="6" * 64,
+        run_input_manifest_sha256="5" * 64,
         labels_sha256="7" * 64,
         model_registry_sha256="8" * 64,
     )
@@ -601,6 +603,7 @@ def _receipt_identity() -> dict[str, str]:
         "attempt_policy_sha256": "3" * 64,
         "receipt_policy_sha256": "4" * 64,
         "frozen_manifest_sha256": "6" * 64,
+        "run_input_manifest_sha256": "5" * 64,
         "labels_sha256": "7" * 64,
         "model_registry_sha256": "8" * 64,
     }
