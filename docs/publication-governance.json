@@ -1,19 +1,10 @@
 {
   "schema_version": 1,
   "effective_date": "2026-07-16",
-  "source_plan": "docs/plans/2026-07-16-dual-track-launch-roadmap.md",
   "repository_url": "https://github.com/johnhughes3/LegalForecastBench",
-  "external_consistency_refs": {
-    "github_issue_196": "https://github.com/johnhughes3/LegalForecastBench/issues/196",
-    "github_issue_203": "https://github.com/johnhughes3/LegalForecastBench/issues/203",
-    "github_issue_204": "https://github.com/johnhughes3/LegalForecastBench/issues/204",
-    "planning_pr_205": "https://github.com/johnhughes3/LegalForecastBench/pull/205"
-  },
   "rules": {
-    "dates_are_escalation_triggers_not_gate_waivers": true,
     "official_and_community_surfaces_are_separate": true,
     "cross_suite_overall_winner_forbidden": true,
-    "external_send_requires_john_approval": true,
     "no_paid_community_run_before_tier0_specification": true,
     "preliminary_results_do_not_close_issue_49": true,
     "scores_from_different_suites_are_not_ranked": true
@@ -24,59 +15,7 @@
       "Harvey LAB",
       "LegalQuants"
     ],
-    "required_text": "LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and LegalQuants are not sponsors, partners, or endorsers of this work.",
-    "credit_rule": "Credit Harvey LAB by repository, pinned revision, and license. Credit LegalQuants or Jamie Tso only for public feedback that they supplied; do not imply review, approval, sponsorship, or partnership."
-  },
-  "owners": {
-    "D0": "Cycle 1 report and leaderboard shell, then official result presentation",
-    "D1": "Harness writeup, README landing page, and methods preprint draft",
-    "D2": "Audience and claims governance, LegalQuants drafts, issue mapping, and Beads evidence; never sends externally",
-    "D3": "CI and quality integration plus independent cross-worktree review",
-    "John": "Final external communication, release, authorship, and submission decisions"
-  },
-  "approvals": {
-    "john-external-send": "John explicitly approves the exact message before any external send",
-    "john-preprint-submission": "John separately approves authorship and SSRN or arXiv submission",
-    "official-publication": "LegalForecastBench-5qd6.41 is complete, independent artifact and claims audit passes, protected publication succeeds, and John approves release",
-    "tier0-publication": "The frozen Tier-0 specification predates spend, the reviewed machine package passes independent privacy and claims scans, and John approves release",
-    "tier1-community-publication": "Contributor-grade acceptance, trusted score verification, package validation, clean rebuild, independent review, and John release approval all pass"
-  },
-  "audiences": {
-    "practitioners": {
-      "display_name": "Practitioners",
-      "priority_surfaces": [
-        "official-cycle-1-report",
-        "official-cycle-1-leaderboard",
-        "tier0-claude-writeup"
-      ],
-      "call_to_action": "Read the human report first, compare score, coverage, cost, tokens, and time, then open the methods and audit evidence before using a result to choose a workflow or model."
-    },
-    "ai-researchers": {
-      "display_name": "AI researchers",
-      "priority_surfaces": [
-        "methods-preprint",
-        "official-cycle-1-report",
-        "community-comparison-site"
-      ],
-      "call_to_action": "Inspect the contamination boundary, frozen treatment identities, compatibility key, evaluator separation, uncertainty, and immutable evidence; propose a preregistered replication or extension."
-    },
-    "legalquants": {
-      "display_name": "LegalQuants",
-      "priority_surfaces": [
-        "tier0-claude-writeup",
-        "tier0-codex-addendum",
-        "official-cycle-1-report"
-      ],
-      "call_to_action": "Review the preliminary result and offer pilot-design input before the declared input window closes and before any stratified-pilot score is observed."
-    },
-    "contributors": {
-      "display_name": "Contributors",
-      "priority_surfaces": [
-        "readme-community-contributor",
-        "community-comparison-site"
-      ],
-      "call_to_action": "Reproduce the pinned fixture path, follow the contributor-grade submission contract, validate the package locally, and submit an evidence-linked pull request."
-    }
+    "required_text": "LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and LegalQuants are not sponsors, partners, or endorsers of this work."
   },
   "evidence_tiers": {
     "preliminary": {
@@ -152,8 +91,6 @@
       "canonical_path": "results/official/cycle-1/README.md",
       "canonical_url": "https://github.com/johnhughes3/LegalForecastBench/blob/main/results/official/cycle-1/README.md",
       "evidence_tier": "official",
-      "owner": "D0",
-      "approval": "official-publication",
       "required_disclosures": [
         "Official tier label",
         "Exact-100 cohort and Cycle 1 identity",
@@ -167,8 +104,6 @@
       "canonical_path": "results/official/cycle-1/leaderboard.md",
       "canonical_url": "https://github.com/johnhughes3/LegalForecastBench/blob/main/results/official/cycle-1/leaderboard.md",
       "evidence_tier": "official",
-      "owner": "D0",
-      "approval": "official-publication",
       "required_disclosures": [
         "Official tier label",
         "Metric direction and clustered uncertainty",
@@ -182,15 +117,13 @@
       "canonical_path": "results/community/harvey-lab/claude-code-tier0.md",
       "canonical_url": "https://github.com/johnhughes3/LegalForecastBench/blob/main/results/community/harvey-lab/claude-code-tier0.md",
       "evidence_tier": "preliminary",
-      "owner": "D1",
-      "approval": "tier0-publication",
       "required_disclosures": [
         "Exact preliminary label",
         "Matched-key result or system-bundle mismatch",
         "Task and arm identities, score, coverage, cost, tokens, wall-clock, attempts, retries, failures, and evaluator limits",
         "Issue 49 remains open and the result is not contributor-safe"
       ],
-      "call_to_action": "Inspect the pinned specification and machine evidence, then suggest a preregistered pilot improvement before the input window closes."
+      "call_to_action": "Inspect the pinned specification and machine evidence before interpreting the observed result."
     },
     {
       "id": "tier0-codex-addendum",
@@ -198,8 +131,6 @@
       "canonical_path": "results/community/harvey-lab/codex-tier0.md",
       "canonical_url": "https://github.com/johnhughes3/LegalForecastBench/blob/main/results/community/harvey-lab/codex-tier0.md",
       "evidence_tier": "preliminary",
-      "owner": "D1",
-      "approval": "tier0-publication",
       "required_disclosures": [
         "Exact preliminary label",
         "Separate Codex addendum and treatment identity",
@@ -214,8 +145,6 @@
       "canonical_path": "community/site/index.html",
       "canonical_url": "https://github.com/johnhughes3/LegalForecastBench/blob/main/community/site/index.html",
       "evidence_tier": "reproducible",
-      "owner": "D1",
-      "approval": "tier1-community-publication",
       "required_disclosures": [
         "Reproducible community tier label",
         "Non-official identity",
@@ -229,8 +158,6 @@
       "canonical_path": "README.md#official-benchmark-results",
       "canonical_url": "https://github.com/johnhughes3/LegalForecastBench/blob/main/README.md#official-benchmark-results",
       "evidence_tier": "official",
-      "owner": "D1",
-      "approval": "official-publication",
       "required_disclosures": [
         "Official tier label next to the result link",
         "Cycle identity, headline metric, and report link"
@@ -243,8 +170,6 @@
       "canonical_path": "README.md#preliminary-community-result",
       "canonical_url": "https://github.com/johnhughes3/LegalForecastBench/blob/main/README.md#preliminary-community-result",
       "evidence_tier": "preliminary",
-      "owner": "D1",
-      "approval": "tier0-publication",
       "required_disclosures": [
         "Exact preliminary label next to the result link",
         "One-task scope and non-official identity"
@@ -257,8 +182,6 @@
       "canonical_path": "README.md#reproducible-community-comparisons",
       "canonical_url": "https://github.com/johnhughes3/LegalForecastBench/blob/main/README.md#reproducible-community-comparisons",
       "evidence_tier": "reproducible",
-      "owner": "D1",
-      "approval": "tier1-community-publication",
       "required_disclosures": [
         "Reproducible community tier label",
         "Non-official identity and contributor documentation link"
@@ -271,176 +194,12 @@
       "canonical_path": "docs/preprint/legalforecast-mtd-cycle-1.md",
       "canonical_url": "https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/preprint/legalforecast-mtd-cycle-1.md",
       "evidence_tier": "official",
-      "owner": "D1",
-      "approval": "john-preprint-submission",
       "required_disclosures": [
         "Official tier label for Cycle 1 evidence",
         "Methods, contamination limits, uncertainty, audit references, and limitations",
         "Independent tier labels for any community appendix result"
       ],
       "call_to_action": "Review the methods and immutable artifacts; cite the released version and disclose whether any community appendix is preliminary or reproducible."
-    }
-  ],
-  "controlled_communications": [
-    {
-      "id": "legalquants-plan-draft",
-      "owner": "D2",
-      "approval": "john-external-send",
-      "external_send_authorized": false,
-      "required_boundary": "Describe the intended native-tools design as pending feasibility, make no unpublished result claim, invite input before pilot selection freezes and before pilot scores exist, and include the non-affiliation text."
-    },
-    {
-      "id": "legalquants-result-follow-up",
-      "owner": "D2",
-      "approval": "john-external-send",
-      "external_send_authorized": false,
-      "required_boundary": "Link only a validated publication, reproduce its exact evidence-tier label, state the one-task scope, and invite pilot input before the declared window closes."
-    },
-    {
-      "id": "ssrn-or-arxiv-submission",
-      "owner": "John",
-      "approval": "john-preprint-submission",
-      "external_send_authorized": false,
-      "required_boundary": "Repository drafting does not authorize submission; John separately approves authorship, destination, final text, and release."
-    }
-  ],
-  "calendar": [
-    {
-      "id": "claims-governance-freeze",
-      "target_date": "2026-07-18",
-      "escalation_date": null,
-      "miss_action": "Record the blocker and revised forecast on the live Bead before any public-surface work proceeds.",
-      "gate_waiver": false
-    },
-    {
-      "id": "legalquants-first-send-decision",
-      "target_date": "2026-07-18",
-      "escalation_date": null,
-      "miss_action": "Record whether John approved a send, declined to send, or deferred the decision; do not send without approval and do not let the decision block engineering.",
-      "gate_waiver": false
-    },
-    {
-      "id": "model-universe-cut",
-      "target_date": "2026-07-20",
-      "escalation_date": null,
-      "miss_action": "Move later model candidates to Cycle 2 unless John records a new schedule decision before freeze.",
-      "gate_waiver": false
-    },
-    {
-      "id": "claude-tier0-package",
-      "target_date": "2026-07-21",
-      "escalation_date": "2026-07-23",
-      "miss_action": "Escalate the exact blocker and publish only verified plumbing evidence with the preliminary label if a matched result is unavailable.",
-      "gate_waiver": false
-    },
-    {
-      "id": "claude-tier0-writeup",
-      "target_date": "2026-07-22",
-      "relative_deadline": "Within 24 hours after the validated Tier-0 publication; 2026-07-22 is the projection from the package target.",
-      "escalation_date": null,
-      "miss_action": "Record why the writeup or README link missed the required 24-hour post-validation window and assign a new owner/date.",
-      "gate_waiver": false
-    },
-    {
-      "id": "codex-tier0-follow-on",
-      "target_date": "2026-07-23",
-      "escalation_date": "2026-07-25",
-      "miss_action": "Record the blocker and continue the Claude publication and Tier-1 freeze without waiting for Codex.",
-      "gate_waiver": false
-    },
-    {
-      "id": "official-source-reconciliation",
-      "target_date": "2026-07-24",
-      "escalation_date": null,
-      "miss_action": "Update the live official critical Bead with the source shortfall, revised forecast, and impact on exact-100 readiness.",
-      "gate_waiver": false
-    },
-    {
-      "id": "claude-contributor-checkpoint",
-      "target_date": "2026-07-31",
-      "escalation_date": null,
-      "miss_action": "Escalate the failing contributor-grade gate and keep Tier 0 explicitly preliminary.",
-      "gate_waiver": false
-    },
-    {
-      "id": "tier1-first-trusted-row",
-      "target_date": "2026-08-07",
-      "escalation_date": null,
-      "miss_action": "Record the failed acceptance gate; do not close issue 49 or relabel Tier-0 evidence.",
-      "gate_waiver": false
-    },
-    {
-      "id": "official-packet-readiness",
-      "target_date": "2026-08-07",
-      "escalation_date": null,
-      "miss_action": "Record the immutable-gate shortfall and revised smoke forecast without changing the frozen cohort rule.",
-      "gate_waiver": false
-    },
-    {
-      "id": "official-smoke",
-      "target_date": "2026-08-11",
-      "escalation_date": null,
-      "miss_action": "Record the exact smoke failure and required corrective action; do not dispatch the official matrix.",
-      "gate_waiver": false
-    },
-    {
-      "id": "legalquants-input-window-close",
-      "target_date": "2026-08-12",
-      "escalation_date": null,
-      "miss_action": "Close the window as feedback received, no response, or John-declined-send; do not leave the pilot indefinitely blocked.",
-      "gate_waiver": false
-    },
-    {
-      "id": "official-dispatch",
-      "target_date": "2026-08-13",
-      "escalation_date": null,
-      "miss_action": "Record the blocking immutable gate and revised schedule; do not alter the cohort, registry, or approval requirements.",
-      "gate_waiver": false
-    },
-    {
-      "id": "official-publication",
-      "target_date": "2026-08-17",
-      "escalation_date": null,
-      "miss_action": "Record the audit or publication blocker and keep all result surfaces private or clearly unreleased.",
-      "gate_waiver": false
-    },
-    {
-      "id": "official-readme-refresh",
-      "target_date": "2026-08-18",
-      "relative_deadline": "Within 24 hours after audited official publication; 2026-08-18 is the projection from the publication target.",
-      "escalation_date": null,
-      "miss_action": "Record why the README missed the 24-hour result-link window and assign an immediate corrective owner.",
-      "gate_waiver": false
-    },
-    {
-      "id": "pilot-publication",
-      "target_date": "2026-08-21",
-      "escalation_date": null,
-      "miss_action": "Record the prespecified pilot gate or execution failure; do not generalize from Tier 0 instead.",
-      "gate_waiver": false
-    },
-    {
-      "id": "preprint-draft",
-      "target_date": "2026-08-24",
-      "relative_deadline": "Within seven days after the audited official report; 2026-08-24 is the projection from the publication target.",
-      "escalation_date": null,
-      "miss_action": "Record the drafting blocker; retain audited result links and do not substitute unreviewed claims.",
-      "gate_waiver": false
-    },
-    {
-      "id": "cycle-relevance-reapproval",
-      "target_date": "2026-08-27",
-      "escalation_date": null,
-      "miss_action": "John must explicitly continue the valid frozen universe, reanchor and reproject before output, or defer Cycle 1.",
-      "gate_waiver": false
-    },
-    {
-      "id": "ssrn-package",
-      "target_date": "2026-08-31",
-      "relative_deadline": "Within fourteen days after the audited official report; 2026-08-31 is the projection from the publication target.",
-      "escalation_date": null,
-      "miss_action": "Record the packaging blocker; repository completion still does not authorize submission without John's separate approval.",
-      "gate_waiver": false
     }
   ]
 }

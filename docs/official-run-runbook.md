@@ -99,7 +99,7 @@ infisical-agent-sandbox run \
   --materialization-run-card <materialize-cohort-documents-run-card.json> \
   --purchase-policy <purchase-policy.json> \
   --purchase-ledger <canonical-purchase-ledger.sqlite3> \
-  --parser-root /work/Development/.worktrees/parser/fix/env-only-api-keys \
+  --parser-root <pinned-parser-checkout> \
   --execute --resume
 ```
 
@@ -469,7 +469,7 @@ Re-render the site from that complete union bundle and publish it to the same cy
 
 ## Staged-Rollout Rehearsal Drill
 
-Extend the ue7.32 fixture rehearsal with this sequence before the real amendment dispatch:
+Extend the staged-rollout fixture rehearsal with this sequence before the real amendment dispatch:
 
 1. Freeze and run fixture model A, aggregate it, and save SHA-256 checksums for every file in A's per-case artifact directory.
 2. Create an amendment freeze whose registry adds fixture model B, then dispatch only B with the original dispatch in `prior_dispatches_json`.
@@ -477,7 +477,7 @@ Extend the ue7.32 fixture rehearsal with this sequence before the real amendment
 4. Recompute A's per-case artifact checksums and require an exact match with the pre-amendment checksum set. Any added, removed, or changed A artifact fails the drill as evidence of possible silent re-sampling.
 5. Confirm the amended run card lists both dispatches, both freezes in order, A mapped to the original freeze, B mapped to the amendment freeze, and publication mode `additive_supersession`.
 
-The automated rehearsal in `tests/test_official_run_runbook.py` performs the same two-generation aggregation and byte-identity assertion. The live ue7.32 log must still record the workflow run IDs, S3 union location, aggregate artifact, and checksum result for operator sign-off.
+The automated rehearsal in `tests/test_official_run_runbook.py` performs the same two-generation aggregation and byte-identity assertion. The operator evidence record must still include the workflow run IDs, S3 union location, aggregate artifact, and checksum result for sign-off.
 
 ## Render And Review The Site
 
@@ -965,7 +965,7 @@ uv run legalforecast acquisition preflight-disclosure-review-signer \
 
 Production requires `identity_kind: "human_hardware"` and an `sk-ssh-ed25519@openssh.com` or `sk-ecdsa-sha2-nistp256@openssh.com` public key.
 The CLI has no production override for a software-key service/test identity.
-The hardware-signer prerequisite is tracked in `LegalForecastBench-5qd6.39.7.1`; if it is unresolved or preflight fails, stop and record the blocker rather than substituting an ordinary local SSH or Git key.
+A hardware-backed signer must be configured before production review; if it is unavailable or preflight fails, stop and record the blocker rather than substituting an ordinary local SSH or Git key.
 
 Next, use the private interactive recorder; do not hand-author the decision JSONL.
 For every document it displays the exact private inspection path, SHA-256, restriction status, and marker categories, then requires the human to type the full inspected hash and an explicit decision.

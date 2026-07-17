@@ -19,8 +19,8 @@ The only accepted production public-key types are `sk-ssh-ed25519@openssh.com` a
 An ordinary software SSH key cannot be represented as a human reviewer identity.
 Software-key service identities exist only for direct test fixtures behind an internal opt-in that the CLI does not expose; they are not a production alternative.
 
-The production hardware signer is tracked by `LegalForecastBench-5qd6.39.7.1`.
-If preflight or signing reports that no hardware-backed signer is configured, stop this stage and update that bead rather than substituting a local key or weakening the policy.
+Production requires a configured hardware-backed signer.
+If preflight or signing reports that no hardware-backed signer is configured, stop this stage and resolve the prerequisite rather than substituting a local key or weakening the policy.
 
 ## Exact inputs
 
