@@ -1,6 +1,30 @@
 # LegalForecast-MTD
 
-LegalForecast-MTD is a contamination-controlled benchmark of frontier models on a high-value legal task: predicting how federal judges will rule on motions to dismiss, from the same written record the judge sees. Each benchmark version is anchored to a set of model deployment dates and uses only cases decided on or after the UTC calendar date of the latest first documented external deployment among the evaluated models; for models whose served weights are frozen at that deployment, the ruling is outside the model's training record. The prediction unit is a claim-defendant pair (i.e., whether the judge granted or denied a motion to dismiss a specific claim as to a specific defendant or group of similarly situated defendants). The headline metric is micro-Brier with confidence intervals clustered at the coarsest declared independence level.
+LegalForecast-MTD tests whether frontier models can forecast federal motion-to-dismiss rulings from the judge's written record. It reports claim-defendant micro-Brier scores with clustered intervals.
+
+Eligible decisions follow the models' latest first external deployment; known outcome leakage is excluded, and official models run without web access. This reduces a defined leakage path; it does not prove zero contamination or frozen served weights.
+
+<!-- result-publication-state: pre-publication -->
+
+**Current status — 2026-07-17:** No official or community benchmark score is published yet. Official Cycle 1 and non-official Community Harness Comparisons remain in preparation. After validation, publication owners replace this line and add canonical links within 24 hours.
+
+## Start Here
+
+[Read the methods](docs/METHODS.md) · [Reproduce or audit](docs/reproduce-or-audit.md) · [Check publication rules](docs/publication-governance.md) · [Track execution in issue #203](https://github.com/johnhughes3/LegalForecastBench/issues/203)
+
+## Official Benchmark Results
+
+**No official result is claimed by this README revision.** Its reserved label is **Official LegalForecast-MTD Cycle 1 result**. Publication adds the audited report, leaderboard, and evidence; official and community scores are never ranked together.
+
+## Preliminary Community Result
+
+**No validated result is linked yet.** Its reserved label is **Preliminary — one task pair, operator-run, not independently reproducible**. This non-official tier does not close issue #49.
+
+## Reproducible Community Comparisons
+
+**No row is accepted yet.** Its reserved label is **Reproducible community result — contributor-grade, non-official**. Contributor path: [adapter spec](docs/multiharness-adapter-spec.md) · [submission guide](docs/community-submissions.md).
+
+LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and LegalQuants are not sponsors, partners, or endorsers of this work.
 
 ## Why This Exists
 
@@ -73,7 +97,7 @@ Default checks must not require live credentials. The release check runs locked 
 
 Tags matching `v*` run the package-publish workflow. That workflow reruns the release check, publishes the built wheel/sdist from `tmp/release-check/dist` to PyPI with trusted publishing, and attaches the wheel, sdist, and package hash file to the GitHub release. Publishing is tag-only; the workflow cannot be dispatched manually from an arbitrary branch.
 
-## Community Multi-Harness
+## Community Multi-Harness Contributor Details
 
 The repo includes a separate non-official community multi-harness layer for comparing LegalForecastBench fixture/subset tasks, Harvey LAB tasks, and contributor adapters without weakening official benchmark boundaries.
 
@@ -156,4 +180,4 @@ Apache License 2.0. See [LICENSE](LICENSE).
 
 ## Citation
 
-Citation metadata is in [CITATION.cff](CITATION.cff). There is no preprint or published benchmark cycle yet.
+Citation metadata is in [CITATION.cff](CITATION.cff). Before citing a result, follow the dated status and canonical evidence links at the top of this README; this revision claims no released benchmark result.
