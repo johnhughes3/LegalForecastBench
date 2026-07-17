@@ -196,6 +196,34 @@ def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
     assert "--llm-label-run-card" not in _documented_command_block(runbook, "llm-label")
 
 
+def test_runbook_documents_isolated_provider_free_exact_cohort_rehearsal() -> None:
+    runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
+    block = _documented_command_block(runbook, "rehearse-downstream")
+    for option in (
+        "--selection-run-card",
+        "--materialization-run-card",
+        "--parse-plan-run-card",
+        "--parse-requests",
+        "--parser-run-card",
+        "--response-fixtures",
+        "--target-case-count",
+        "--evaluated-model-registry",
+    ):
+        assert option in block
+    rehearsal_section = runbook.split(
+        "### Provider-free exact-cohort downstream rehearsal", maxsplit=1
+    )[1].split("Unitize Stage A only", maxsplit=1)[0]
+    for required_claim in (
+        "official_eligible=false",
+        "provider_journal_created=false",
+        'provider_billing_usd="0.00"',
+        "cannot freeze, evaluate, or dispatch",
+        "never self-adjudicates",
+    ):
+        assert required_claim in rehearsal_section
+    assert "--acknowledge-pacer-fees" not in block
+
+
 def test_runbook_closes_unknown_status_purchase_to_materialization_chain() -> None:
     runbook = (ROOT / "docs" / "official-run-runbook.md").read_text(encoding="utf-8")
     commands = _documented_acquisition_commands(runbook)

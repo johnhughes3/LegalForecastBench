@@ -283,7 +283,9 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 from legalforecast.ingestion.decision_text_artifact import (
     CYCLE_1_ELIGIBILITY_ANCHOR,
     DecisionTextArtifactError,
+    VerifiedDecisionTextArtifact,
     build_decision_text_records,
+    build_fixture_rehearsal_decision_text_records,
     verify_decision_text_artifact,
 )
 from legalforecast.ingestion.decision_text_artifact import (
@@ -332,6 +334,14 @@ from legalforecast.ingestion.docket_markdown import ControlledDocketMarkdownArti
 from legalforecast.ingestion.docket_sync import (
     DocketRetrievalPipeline,
     NormalizedDocketEntry,
+)
+from legalforecast.ingestion.downstream_rehearsal import (
+    REHEARSAL_PROVENANCE,
+    DownstreamRehearsalError,
+    load_deterministic_response_fixtures,
+    rehearsal_provenance,
+    run_fixture_stage_a,
+    run_fixture_stage_b,
 )
 from legalforecast.ingestion.exact310_rest_rebind import (
     Exact310RestRebindError,
@@ -1734,6 +1744,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Convert acquired documents to Markdown parser artifacts.",
     )
     _add_acquisition_parse_documents_arguments(acquisition_parse)
+    acquisition_rehearsal = acquisition_subparsers.add_parser(
+        "rehearse-downstream",
+        help=(
+            "Run the exact-cohort downstream chain with authenticated local "
+            "fixtures; output is never official, freezeable, evaluable, or "
+            "dispatchable."
+        ),
+    )
+    _add_acquisition_rehearse_downstream_arguments(acquisition_rehearsal)
     acquisition_decision_texts = acquisition_subparsers.add_parser(
         "build-decision-texts",
         help=(
@@ -5910,6 +5929,40 @@ def _add_acquisition_build_decision_texts_arguments(
     parser.add_argument("--decision-texts-output", type=Path)
     parser.add_argument("--decision-texts-manifest-output", type=Path)
     parser.set_defaults(handler=_cmd_acquisition_build_decision_texts)
+
+
+def _add_acquisition_rehearse_downstream_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    _add_acquisition_common_arguments(parser)
+    parser.add_argument("--selection", type=Path, required=True)
+    parser.add_argument("--selection-run-card", type=Path, required=True)
+    parser.add_argument("--download-manifest", type=Path, required=True)
+    parser.add_argument("--disclosure-clearance", type=Path, required=True)
+    parser.add_argument("--restriction-evidence", type=Path, required=True)
+    parser.add_argument("--materialization-run-card", type=Path, required=True)
+    parser.add_argument("--parse-plan-run-card", type=Path, required=True)
+    parser.add_argument("--parse-requests", type=Path, required=True)
+    parser.add_argument("--parser-manifest", type=Path, required=True)
+    parser.add_argument("--parser-run-card", type=Path, required=True)
+    parser.add_argument("--document-root", type=Path, required=True)
+    parser.add_argument("--markdown-root", type=Path, required=True)
+    parser.add_argument("--raw-html-dir", type=Path, required=True)
+    parser.add_argument("--unitizer-model-registry", type=Path, required=True)
+    parser.add_argument("--unitizer-model-key", required=True)
+    parser.add_argument("--reviewer-model-registry", type=Path, required=True)
+    parser.add_argument("--reviewer-model-key", required=True)
+    parser.add_argument("--judge-model-registry", type=Path, required=True)
+    parser.add_argument("--judge-model-key", action="append", required=True)
+    parser.add_argument("--evaluated-model-registry", type=Path, required=True)
+    parser.add_argument("--response-fixtures", type=Path, required=True)
+    parser.add_argument("--target-case-count", type=int, default=100)
+    parser.add_argument(
+        "--generated-at",
+        default="2026-07-17T00:00:00Z",
+        help="Deterministic UTC packet timestamp for the fixture-only rehearsal.",
+    )
+    parser.set_defaults(handler=_cmd_acquisition_rehearse_downstream)
 
 
 def _add_acquisition_llm_unitize_arguments(parser: argparse.ArgumentParser) -> None:
@@ -28353,6 +28406,437 @@ def _cmd_acquisition_parse_documents(args: argparse.Namespace) -> int:
                 "fixture_markdown": fixture_markdown_dir is not None,
             },
             "purchase_state_sha256": purchase_state_sha256,
+        },
+    )
+    return 0
+
+
+def _cmd_acquisition_rehearse_downstream(args: argparse.Namespace) -> int:
+    """Exercise the downstream chain without creating production authority."""
+
+    if _acquisition_dry_run(args):
+        raise CommandError(
+            "rehearse-downstream is already provider-free and requires --execute"
+        )
+    output_root = _acquisition_output_root(args)
+    selection_path = cast(Path, args.selection)
+    selection_card_path = cast(Path, args.selection_run_card)
+    manifest_path = cast(Path, args.download_manifest)
+    clearance_path = cast(Path, args.disclosure_clearance)
+    restriction_path = cast(Path, args.restriction_evidence)
+    materialization_card_path = cast(Path, args.materialization_run_card)
+    parse_plan_card_path = cast(Path, args.parse_plan_run_card)
+    parse_requests_path = cast(Path, args.parse_requests)
+    parser_manifest_path = cast(Path, args.parser_manifest)
+    parser_card_path = cast(Path, args.parser_run_card)
+    document_root = cast(Path, args.document_root)
+    markdown_root = cast(Path, args.markdown_root)
+    raw_html_dir = cast(Path, args.raw_html_dir)
+    response_fixture_path = cast(Path, args.response_fixtures)
+    target_count = cast(int, args.target_case_count)
+    if target_count <= 0:
+        raise CommandError("--target-case-count must be positive")
+    input_paths = (
+        selection_path,
+        selection_card_path,
+        manifest_path,
+        clearance_path,
+        restriction_path,
+        materialization_card_path,
+        parse_plan_card_path,
+        parse_requests_path,
+        parser_manifest_path,
+        parser_card_path,
+        document_root,
+        markdown_root,
+        raw_html_dir,
+        cast(Path, args.unitizer_model_registry),
+        cast(Path, args.reviewer_model_registry),
+        cast(Path, args.judge_model_registry),
+        cast(Path, args.evaluated_model_registry),
+        response_fixture_path,
+    )
+    for path in input_paths:
+        if path.is_symlink() or not path.exists():
+            raise CommandError(f"rehearsal input is missing or a symlink: {path}")
+
+    selections = tuple(_read_records(selection_path))
+    candidate_ids = tuple(_required_str(row, "candidate_id") for row in selections)
+    if len(candidate_ids) != target_count or len(set(candidate_ids)) != target_count:
+        raise CommandError(
+            "rehearsal selection must contain exactly the unique target-case count"
+        )
+    if any(record.get("selected") is not True for record in selections):
+        raise CommandError("rehearsal selection contains an unselected row")
+    if any(
+        date.fromisoformat(_required_str(record, "decision_date"))
+        < CYCLE_1_ELIGIBILITY_ANCHOR
+        for record in selections
+    ):
+        raise CommandError("rehearsal selection contains a pre-anchor decision")
+    selection_card = _read_json_object(selection_card_path)
+    selection_outputs = selection_card.get("output_commitments")
+    if (
+        selection_card.get("stage") != "project-target-cohort"
+        or selection_card.get("status") != "completed"
+        or selection_card.get("execute") is not True
+        or selection_card.get("record_count") != target_count
+        or not isinstance(selection_outputs, Mapping)
+        or _path_sha256(selection_path)
+        not in {
+            str(value)
+            if not isinstance(value, Mapping)
+            else str(cast(Mapping[str, object], value).get("sha256"))
+            for value in cast(Mapping[object, object], selection_outputs).values()
+        }
+    ):
+        raise CommandError("invalid exact target-cohort selection run card")
+
+    downloads = tuple(_read_records(manifest_path))
+    clearances = tuple(_read_records(clearance_path))
+    restrictions = tuple(_read_records(restriction_path))
+    parser_records = tuple(_read_records(parser_manifest_path))
+    parse_requests = tuple(_read_records(parse_requests_path))
+    try:
+        _verify_materialized_downstream_lineage(
+            run_card_path=materialization_card_path,
+            manifest_path=manifest_path,
+            clearance_path=clearance_path,
+            document_root=document_root,
+            selection_path=selection_path,
+        )
+    except (CommandError, OSError) as exc:
+        raise CommandError(str(exc)) from exc
+    parse_plan_card = _read_json_object(parse_plan_card_path)
+    parse_plan_outputs = _required_record(parse_plan_card, "output_commitments")
+    parse_request_commitment = _required_record(parse_plan_outputs, "parse_requests")
+    if (
+        parse_plan_card.get("stage") != "plan-parse-documents"
+        or parse_plan_card.get("status") != "completed"
+        or parse_plan_card.get("execute") is not True
+        or parse_request_commitment.get("sha256") != _path_sha256(parse_requests_path)
+    ):
+        raise CommandError("invalid completed plan-parse-documents run card")
+    parser_card = _read_json_object(parser_card_path)
+    parser_execution = _required_record(parser_card, "parser_execution")
+    if (
+        parser_card.get("stage") != "parse-documents"
+        or parser_card.get("status") != "completed"
+        or parser_card.get("execute") is not True
+        or parser_execution.get("mode") != "fixture_markdown"
+        or parser_execution.get("engine") != "fixture_markdown"
+        or parser_execution.get("fixture_markdown") is not True
+    ):
+        raise CommandError(
+            "rehearse-downstream requires an executed fixture-Markdown parser card"
+        )
+    parser_sources = _required_record(parser_card, "source_commitments")
+    parser_outputs = _required_record(parser_card, "output_commitments")
+    if _required_record(parser_sources, "requests").get("sha256") != _path_sha256(
+        parse_requests_path
+    ) or _required_record(parser_outputs, "parser_manifest").get(
+        "sha256"
+    ) != _path_sha256(parser_manifest_path):
+        raise CommandError("fixture parser card hash commitments changed")
+    request_index = {
+        (
+            _required_str(row, "candidate_id"),
+            _required_str(row, "source_document_id"),
+        ): row
+        for row in parse_requests
+    }
+    parser_index = {
+        (
+            _required_str(row, "candidate_id"),
+            _required_str(row, "source_document_id"),
+        ): row
+        for row in parser_records
+    }
+    if set(request_index) != set(parser_index):
+        raise CommandError(
+            "parse request and parser candidate/document coverage differs"
+        )
+    for key, parser_record in parser_index.items():
+        request = request_index[key]
+        if _required_str(request, "expected_sha256").removeprefix(
+            "sha256:"
+        ) != _required_str(parser_record, "source_sha256").removeprefix(
+            "sha256:"
+        ) or _required_int(request, "expected_byte_count") != _required_int(
+            parser_record, "source_byte_count"
+        ):
+            raise CommandError(f"fixture parser source commitment changed: {key}")
+
+    commitments = {
+        "selection_sha256": _path_sha256(selection_path),
+        "selection_run_card_sha256": _path_sha256(selection_card_path),
+        "download_manifest_sha256": _path_sha256(manifest_path),
+        "disclosure_clearance_sha256": _path_sha256(clearance_path),
+        "clearance_run_card_sha256": _path_sha256(materialization_card_path),
+        "restriction_evidence_sha256": _path_sha256(restriction_path),
+        "parser_manifest_sha256": _path_sha256(parser_manifest_path),
+        "parser_run_card_sha256": _path_sha256(parser_card_path),
+    }
+    try:
+        decision_records = build_fixture_rehearsal_decision_text_records(
+            selections=selections,
+            download_manifest=downloads,
+            clearance_records=clearances,
+            restriction_records=restrictions,
+            parser_records=parser_records,
+            markdown_root=markdown_root.resolve(),
+            input_commitments=commitments,
+        )
+        fixtures = load_deterministic_response_fixtures(response_fixture_path)
+        unitizer_entry, unitizer_sha = _registry_entry_for_key(
+            cast(Path, args.unitizer_model_registry),
+            cast(str, args.unitizer_model_key),
+        )
+        reviewer_entry, reviewer_sha = _registry_entry_for_key(
+            cast(Path, args.reviewer_model_registry),
+            cast(str, args.reviewer_model_key),
+        )
+        stage_a = run_fixture_stage_a(
+            selection_records=selections,
+            parser_records=parser_records,
+            markdown_root=markdown_root,
+            unitizer_entry=unitizer_entry,
+            unitizer_registry_sha256=unitizer_sha,
+            reviewer_entry=reviewer_entry,
+            reviewer_registry_sha256=reviewer_sha,
+            fixtures=fixtures,
+        )
+    except (DecisionTextArtifactError, DownstreamRehearsalError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+
+    raw_units_path = output_root / "rehearsal-raw-prediction-units.jsonl"
+    unit_audit_path = output_root / "rehearsal-llm-unitize-audit.jsonl"
+    original_review_path = output_root / "rehearsal-unitization-review-queue.jsonl"
+    structural_flags_path = output_root / "rehearsal-stage-a-structural-flags.jsonl"
+    structural_audit_path = output_root / "rehearsal-stage-a-review-audit.jsonl"
+    merged_review_path = output_root / "rehearsal-unitization-review-final.jsonl"
+    finalized_units_path = output_root / "rehearsal-finalized-prediction-units.jsonl"
+    _write_jsonl(raw_units_path, stage_a.raw_prediction_units)
+    _write_jsonl(unit_audit_path, stage_a.unitization_audit)
+    _write_jsonl(original_review_path, stage_a.original_review_queue)
+    _write_jsonl(structural_flags_path, stage_a.structural_flags)
+    _write_jsonl(structural_audit_path, stage_a.structural_review_audit)
+    _write_jsonl(merged_review_path, stage_a.merged_review_queue)
+    _write_jsonl(finalized_units_path, stage_a.finalized_prediction_units)
+
+    decision_texts_path = output_root / "rehearsal-decision-texts.jsonl"
+    decision_manifest_path = output_root / "rehearsal-decision-texts-manifest.json"
+    decision_card_path = output_root / "run-cards/rehearsal-build-decision-texts.json"
+    _write_jsonl(decision_texts_path, decision_records)
+    decision_manifest = {
+        **REHEARSAL_PROVENANCE,
+        "schema_version": "legalforecast.fixture_decision_text_manifest.v1",
+        "record_count": len(decision_records),
+        "decision_texts_sha256": _path_sha256(decision_texts_path),
+        "candidate_ids_sha256": "sha256:"
+        + hashlib.sha256(
+            json.dumps(candidate_ids, separators=(",", ":")).encode("utf-8")
+        ).hexdigest(),
+        "input_commitments": commitments,
+        "outcome_material_model_visible": False,
+    }
+    _write_json(decision_manifest_path, decision_manifest)
+    _write_json(
+        decision_card_path,
+        {
+            **REHEARSAL_PROVENANCE,
+            "schema_version": "legalforecast.fixture_acquisition_run_card.v1",
+            "stage": "rehearsal-build-decision-texts",
+            "status": "completed",
+            "execute": True,
+            "record_count": len(decision_records),
+            "decision_texts_sha256": _path_sha256(decision_texts_path),
+            "decision_texts_manifest_sha256": _path_sha256(decision_manifest_path),
+            "input_commitments": commitments,
+            "provider_call_executed": False,
+        },
+    )
+    decision_artifact = VerifiedDecisionTextArtifact(
+        records=decision_records,
+        decision_texts_sha256=_path_sha256(decision_texts_path),
+        manifest_sha256=_path_sha256(decision_manifest_path),
+        run_card_sha256=_path_sha256(decision_card_path),
+        finalized_prediction_units_sha256=_path_sha256(finalized_units_path),
+        finalized_unit_envelope_sha256s={
+            _required_str(row, "candidate_id"): "sha256:" + canonical_sha256(row)
+            for row in stage_a.finalized_prediction_units
+        },
+        input_commitments=commitments,
+    )
+
+    judge_keys = tuple(cast(list[str], args.judge_model_key))
+    _require_explicit_unique_model_keys(judge_keys)
+    judge_entries, judge_sha = _registry_entries_for_keys(
+        cast(Path, args.judge_model_registry), judge_keys
+    )
+    _require_complete_registry_panel(
+        judge_entries, model_registry_path=cast(Path, args.judge_model_registry)
+    )
+    _require_exact_model_disjoint_judges(
+        judge_entries,
+        evaluated_model_registry_path=cast(Path, args.evaluated_model_registry),
+    )
+    try:
+        stage_b = run_fixture_stage_b(
+            selection_records=selections,
+            finalized_prediction_units=stage_a.finalized_prediction_units,
+            decision_text_artifact=decision_artifact,
+            judge_entries=judge_entries,
+            judge_registry_sha256=judge_sha,
+            fixtures=fixtures,
+        )
+        decision_artifact.verify_stage_b_audit_commitments(stage_b.labeling_audit)
+    except (DecisionTextArtifactError, DownstreamRehearsalError, ValueError) as exc:
+        raise CommandError(str(exc)) from exc
+
+    labels_path = output_root / "rehearsal-labels.jsonl"
+    label_audit_path = output_root / "rehearsal-llm-label-audit.jsonl"
+    lawyer_queue_path = output_root / "rehearsal-lawyer-review-queue.jsonl"
+    label_apply_path = output_root / "rehearsal-label-apply-audit.jsonl"
+    _write_jsonl(labels_path, stage_b.labels)
+    _write_jsonl(label_audit_path, stage_b.labeling_audit)
+    _write_jsonl(lawyer_queue_path, stage_b.lawyer_review_queue)
+    _write_jsonl(
+        label_apply_path,
+        [
+            {
+                **REHEARSAL_PROVENANCE,
+                "stage": "rehearsal-apply-lawyer-review",
+                "status": "completed_no_pending_reviews",
+                "label_count": len(stage_b.labels),
+                "provider_call_executed": False,
+            }
+        ],
+    )
+
+    plan = plan_packet_build_inputs(
+        selection_records=selections,
+        download_records=downloads,
+        parser_records=parser_records,
+        prediction_unit_records=stage_a.finalized_prediction_units,
+        raw_html_dir=raw_html_dir,
+        document_root=document_root,
+        markdown_root=markdown_root,
+        source_dir=output_root,
+        generated_at=_parse_datetime(cast(str, args.generated_at)),
+        decision_filed_on_or_after=CYCLE_1_ELIGIBILITY_ANCHOR,
+    )
+    if plan.case_count != target_count or plan.exclusion_ledger_records:
+        raise CommandError(
+            "fixture packet planning did not preserve the exact clean cohort"
+        )
+    packet_input_path = output_root / "rehearsal-packet-build-input.jsonl"
+    packet_path = output_root / "rehearsal-packets.jsonl"
+    case_packet_path = output_root / "rehearsal-case-packets.jsonl"
+    packet_audit_path = output_root / "rehearsal-packet-audit.jsonl"
+    _write_jsonl(packet_input_path, plan.packet_build_records)
+    assemblies = tuple(
+        _model_packet_assembly(record, ablation=PacketAblation.FULL_PACKET)
+        for record in plan.packet_build_records
+    )
+    _write_jsonl(packet_path, (item.model_packet.to_record() for item in assemblies))
+    _write_jsonl(
+        case_packet_path,
+        (item.case_packet.to_record() for item in assemblies),
+    )
+    _write_jsonl(packet_audit_path, (item.audit_bundle for item in assemblies))
+    decision_ids = {
+        _required_str(record, "candidate_id")
+        + "-"
+        + _required_str(record, "document_id")
+        for record in decision_records
+    }
+    for assembly in assemblies:
+        packet = assembly.model_packet.to_record()
+        if decision_ids.isdisjoint(
+            cast(Sequence[str], packet.get("excluded_document_ids", []))
+        ):
+            raise CommandError(
+                "rehearsal packet failed to record outcome-material exclusion"
+            )
+        mounted = {
+            _required_str(document, "source_document_id")
+            for document in _required_record_sequence(packet, "documents")
+        }
+        if mounted.intersection(decision_ids):
+            raise CommandError("outcome-bearing decision entered a model packet")
+
+    output_paths = (
+        raw_units_path,
+        unit_audit_path,
+        original_review_path,
+        structural_flags_path,
+        structural_audit_path,
+        merged_review_path,
+        finalized_units_path,
+        decision_texts_path,
+        decision_manifest_path,
+        decision_card_path,
+        labels_path,
+        label_audit_path,
+        lawyer_queue_path,
+        label_apply_path,
+        packet_input_path,
+        packet_path,
+        case_packet_path,
+        packet_audit_path,
+    )
+    summary_path = output_root / "rehearsal-final-summary.json"
+    unit_count = sum(
+        len(_required_record_sequence(row, "prediction_units"))
+        for row in stage_a.finalized_prediction_units
+    )
+    _write_json(
+        summary_path,
+        {
+            **rehearsal_provenance(response_fixture_path=response_fixture_path),
+            "stage": "rehearse-downstream",
+            "status": "completed_fixture_only",
+            "target_case_count": target_count,
+            "selected_case_count": len(selections),
+            "finalized_case_count": len(stage_a.finalized_prediction_units),
+            "decision_text_count": len(decision_records),
+            "packet_case_count": len(assemblies),
+            "prediction_unit_count": unit_count,
+            "label_count": len(stage_b.labels),
+            "pending_stage_a_review_count": len(stage_a.merged_review_queue),
+            "pending_stage_b_review_count": len(stage_b.lawyer_review_queue),
+            "provider_fixture_call_count": len(stage_a.traces) + len(stage_b.traces),
+            "provider_journal_created": False,
+            "provider_billing_usd": "0.00",
+            "packet_outcome_material_excluded": True,
+            "input_commitments": {
+                str(path.resolve()): _path_sha256(path)
+                for path in input_paths
+                if path.is_file()
+            },
+            "output_commitments": {
+                str(path.resolve()): _path_sha256(path) for path in output_paths
+            },
+            "fixture_traces": [
+                trace.to_record() for trace in (*stage_a.traces, *stage_b.traces)
+            ],
+        },
+    )
+    _write_acquisition_completion(
+        args,
+        stage="rehearse-downstream",
+        input_paths=input_paths,
+        output_paths=(*output_paths, summary_path),
+        record_count=target_count,
+        dry_run=False,
+        paid_activity_requested=False,
+        paid_activity_executed=False,
+        extra={
+            **REHEARSAL_PROVENANCE,
+            "provider_journal_created": False,
+            "provider_billing_usd": "0.00",
+            "summary_sha256": _path_sha256(summary_path),
         },
     )
     return 0

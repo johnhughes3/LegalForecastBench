@@ -105,6 +105,55 @@ infisical-agent-sandbox run \
 
 The sentinel-`op` and child-environment tests in `tests/test_mistral_markdown_parser.py` enforce the subprocess boundary, but they do not authorize injecting a broad acquisition secret set into the parent process.
 
+### Provider-free exact-cohort downstream rehearsal
+
+Before spending on the live parser or labeling models, the supported rehearsal command can replay an exact 100- or 150-case cohort from an authenticated `project-target-cohort` selection, canonical combined materialization, completed fixture-Markdown parse, and prompt-bound deterministic response fixture.
+It calls no network transport, reads no provider key, creates no provider journal, acknowledges no fee, and cannot freeze, evaluate, or dispatch anything.
+Its decision-text manifest, model audits, packet outputs, final summary, and run card all retain `fixture_only` provenance with `official_eligible=false` and explicit false freeze/evaluation/dispatch authority.
+
+The response fixture is newline-delimited `legalforecast.deterministic_model_response_fixture.v1` JSON.
+Each row names the exact stage, candidate, and frozen model key; commits the exact prompt SHA-256; carries one raw JSON response validated by the same Stage A, structural-review, or Stage B schema used live; and records the served frozen model version.
+Any missing, extra, duplicate, prompt-drifted, model-drifted, ambiguous, or review-routed response fails closed.
+Do not rewrite fixture parser fields to claim Mistral execution and do not copy rehearsal outputs into the official artifact names.
+
+After running `plan-parse-documents` and `parse-documents --fixture-markdown-dir <fixture-markdown-root>` over the canonical materialized inputs, run:
+
+```bash
+uv run legalforecast acquisition rehearse-downstream \
+  --output-root <fixture-rehearsal-root> \
+  --selection <projected-exact-cohort-selection.jsonl> \
+  --selection-run-card <project-target-cohort-run-card.json> \
+  --download-manifest <materialized-download-manifest.jsonl> \
+  --disclosure-clearance <materialized-disclosure-clearance.jsonl> \
+  --restriction-evidence <materialized-restriction-evidence.jsonl> \
+  --materialization-run-card <materialize-cohort-documents-run-card.json> \
+  --parse-plan-run-card <plan-parse-documents-run-card.json> \
+  --parse-requests <parse-document-requests.jsonl> \
+  --parser-manifest <fixture-parser-manifest.jsonl> \
+  --parser-run-card <fixture-parse-documents-run-card.json> \
+  --document-root <materialized-document-root> \
+  --markdown-root <fixture-parsed-markdown-root> \
+  --raw-html-dir <authenticated-raw-docket-html-root> \
+  --unitizer-model-registry <frozen-stage-a-registry.json> \
+  --unitizer-model-key <provider:model-id> \
+  --reviewer-model-registry <frozen-stage-a-reviewer-registry.json> \
+  --reviewer-model-key <provider:model-id> \
+  --judge-model-registry <frozen-stage-b-judge-registry.json> \
+  --judge-model-key <provider:model-id> \
+  --evaluated-model-registry <frozen-evaluated-model-registry.json> \
+  --response-fixtures <prompt-bound-deterministic-responses.jsonl> \
+  --target-case-count 100 \
+  --generated-at 2026-07-17T00:00:00Z \
+  --execute --no-resume
+```
+
+Repeat `--judge-model-key` for every entry in the dedicated judge registry.
+The command authenticates the exact target-selection hash, combined materialization binding, parse-request/parser hash chain, fixture parser mode, release anchor, candidate/document coverage, and raw source hashes before model-schema validation.
+It then constructs fixture-only decision texts, unitizes, structurally reviews, applies an empty Stage A queue, labels, applies an empty Stage B merits queue, plans and builds packets, proves the outcome-bearing decision document is excluded from every model packet, and reconciles the exact target count.
+If either review queue is nonempty, stop and correct the deterministic fixture or file the corresponding John-review bead; the rehearsal never self-adjudicates.
+Success is `rehearsal-final-summary.json` with all counts equal to the requested cohort, zero pending reviews, `provider_journal_created=false`, `provider_billing_usd="0.00"`, and `packet_outcome_material_excluded=true`.
+This success is test evidence only: production `build-decision-texts`, readiness, `finalize-corpus`, freeze, evaluation, and dispatch continue to reject every rehearsal artifact.
+
 Unitize Stage A only from that exact authenticated materialization and pinned live-parser lineage. Use one explicit provider journal for the cycle; creating a fresh output-root-local journal is refused because it would reset the cycle reservation ledger:
 
 ```bash

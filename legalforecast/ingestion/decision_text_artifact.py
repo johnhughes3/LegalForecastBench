@@ -254,6 +254,61 @@ def build_decision_text_records(
 ) -> tuple[JsonRecord, ...]:
     """Return one strictly reconciled first-disposition text row per candidate."""
 
+    return _build_decision_text_records(
+        selections=selections,
+        download_manifest=download_manifest,
+        clearance_records=clearance_records,
+        restriction_records=restriction_records,
+        parser_records=parser_records,
+        markdown_root=markdown_root,
+        input_commitments=input_commitments,
+        parser_provenance="live_mistral",
+    )
+
+
+def build_fixture_rehearsal_decision_text_records(
+    *,
+    selections: Sequence[Mapping[str, Any]],
+    download_manifest: Sequence[Mapping[str, Any]],
+    clearance_records: Sequence[Mapping[str, Any]],
+    restriction_records: Sequence[Mapping[str, Any]],
+    parser_records: Sequence[Mapping[str, Any]],
+    markdown_root: Path,
+    input_commitments: Mapping[str, str],
+) -> tuple[JsonRecord, ...]:
+    """Build decision text only from explicit fixture-Markdown provenance.
+
+    The returned rows are intentionally ineligible for
+    :func:`verify_decision_text_artifact` and therefore cannot enter an official
+    labeling, readiness, freeze, evaluation, or dispatch path.
+    """
+
+    return _build_decision_text_records(
+        selections=selections,
+        download_manifest=download_manifest,
+        clearance_records=clearance_records,
+        restriction_records=restriction_records,
+        parser_records=parser_records,
+        markdown_root=markdown_root,
+        input_commitments=input_commitments,
+        parser_provenance="fixture_markdown",
+    )
+
+
+def _build_decision_text_records(
+    *,
+    selections: Sequence[Mapping[str, Any]],
+    download_manifest: Sequence[Mapping[str, Any]],
+    clearance_records: Sequence[Mapping[str, Any]],
+    restriction_records: Sequence[Mapping[str, Any]],
+    parser_records: Sequence[Mapping[str, Any]],
+    markdown_root: Path,
+    input_commitments: Mapping[str, str],
+    parser_provenance: str,
+) -> tuple[JsonRecord, ...]:
+    if parser_provenance not in {"live_mistral", "fixture_markdown"}:
+        raise DecisionTextArtifactError("unsupported parser provenance")
+
     selection_index = _selection_index(selections)
     manifest_index = _document_index(download_manifest, label="download manifest")
     clearance_index = _document_index(clearance_records, label="clearance")
@@ -309,6 +364,7 @@ def build_decision_text_records(
             clearance=clearance,
             restriction=restriction,
             parser=parser,
+            parser_provenance=parser_provenance,
         )
         text, text_sha256 = _read_parser_markdown(parser, markdown_root=root, key=key)
         entered_date = _decision_date(selection, candidate_id=candidate_id)
@@ -334,7 +390,16 @@ def build_decision_text_records(
                 "text_sha256": text_sha256,
                 "markdown_sha256": text_sha256,
                 "extraction_method": _required_str(extracted_text, "extraction_method"),
-                "parser_revision": _required_str(parser_config, "parser_revision"),
+                "parser_revision": (
+                    _required_str(parser_config, "parser_revision")
+                    if parser_provenance == "live_mistral"
+                    else "fixture_markdown"
+                ),
+                **(
+                    {"parser_provenance": "fixture_markdown"}
+                    if parser_provenance == "fixture_markdown"
+                    else {}
+                ),
                 "clearance": {
                     "status": "cleared",
                     "restriction_status": _required_str(
@@ -832,6 +897,7 @@ def _validate_document_binding(
     clearance: Mapping[str, Any],
     restriction: Mapping[str, Any],
     parser: Mapping[str, Any],
+    parser_provenance: str,
 ) -> None:
     if clearance.get("schema_version") != "legalforecast.disclosure_clearance.v1":
         raise DecisionTextArtifactError(f"unsupported clearance schema: {key}")
@@ -876,18 +942,30 @@ def _validate_document_binding(
             f"decision parser record has quality flags: {key}"
         )
     parser_config = _mapping(parser.get("parser_config"), "parser_config")
-    if (
-        parser_config.get("engine") != "mistral"
-        or parser_config.get("parser_revision") != EXPECTED_PARSER_REVISION
-        or parser_config.get("expected_parser_revision") != EXPECTED_PARSER_REVISION
-    ):
-        raise DecisionTextArtifactError(
-            f"parser revision is not the pinned Mistral revision: {key}"
-        )
+    if parser_provenance == "live_mistral":
+        if (
+            parser_config.get("engine") != "mistral"
+            or parser_config.get("parser_revision") != EXPECTED_PARSER_REVISION
+            or parser_config.get("expected_parser_revision") != EXPECTED_PARSER_REVISION
+            or parser_config.get("fixture_markdown") is True
+        ):
+            raise DecisionTextArtifactError(
+                f"parser revision is not the pinned Mistral revision: {key}"
+            )
+        expected_extraction_method = "mistral_parser_markdown"
+    else:
+        if parser_config.get("engine") != "fixture_markdown" or set(parser_config) != {
+            "engine",
+            "fixture_markdown_dir",
+        }:
+            raise DecisionTextArtifactError(
+                f"parser record is not explicit fixture Markdown: {key}"
+            )
+        expected_extraction_method = "fixture_markdown"
     extracted_text = _mapping(parser.get("extracted_text"), "extracted_text")
     if extracted_text.get("source_document_id") != key[1]:
         raise DecisionTextArtifactError(f"extracted text identity mismatch: {key}")
-    if extracted_text.get("extraction_method") != "mistral_parser_markdown":
+    if extracted_text.get("extraction_method") != expected_extraction_method:
         raise DecisionTextArtifactError(f"unexpected extraction method: {key}")
     _required_sha256(extracted_text, "text_sha256")
 
