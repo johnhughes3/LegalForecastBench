@@ -85,6 +85,12 @@ def load_screening_snapshot_union(
             raise ScreeningSnapshotUnionError(
                 f"source snapshot manifest SHA-256 mismatch: {manifest_path}"
             )
+        manifest = verify_snapshot(
+            snapshot,
+            expected_cycle_hash=expected_cycle_hash,
+            require_complete=True,
+            require_saturated=True,
+        )
         _read_regular_file(snapshot / "candidates.jsonl", "source candidates")
         _preflight_raw_paths(snapshot / "raw-artifacts.jsonl")
         source_candidates = _candidate_records(snapshot / "candidates.jsonl")
@@ -99,12 +105,6 @@ def load_screening_snapshot_union(
                 "source snapshot raw artifacts lack source-local candidate owners: "
                 + ", ".join(orphan_ids)
             )
-        manifest = verify_snapshot(
-            snapshot,
-            expected_cycle_hash=expected_cycle_hash,
-            require_complete=True,
-            require_saturated=True,
-        )
         marker_present = any(
             field in manifest
             for field in (

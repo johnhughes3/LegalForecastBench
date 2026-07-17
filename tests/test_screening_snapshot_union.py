@@ -8,10 +8,10 @@ from typing import Any
 
 import legalforecast.cli as cli_module
 import pytest
-from legalforecast.cli import main
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
     CycleAcquisitionStoreError,
+    SnapshotVerificationError,
     verify_snapshot,
 )
 from legalforecast.ingestion.discovery_scheduler import (
@@ -28,7 +28,7 @@ _CYCLE_POLICY = {"eligibility_anchor": "2026-06-30", "fixture": True}
 
 def test_union_help_documents_raw_observation_policy(capsys: Any) -> None:
     with pytest.raises(SystemExit) as exc_info:
-        main(["acquisition", "union-screening-snapshots", "--help"])
+        cli_module.main(["acquisition", "union-screening-snapshots", "--help"])
     assert exc_info.value.code == 0
 
     output = capsys.readouterr().out
@@ -166,7 +166,7 @@ def test_union_archives_excluded_versions_but_projects_earliest_for_packets(
         "--execute",
     ]
 
-    assert main(command) == 0
+    assert cli_module.main(command) == 0
     union_snapshot = snapshot_root / "complete-union"
     assert len(_jsonl(union_snapshot / "raw-artifacts.jsonl")) == 2
     canonical_records = _jsonl(output_root / "union-raw-artifacts.jsonl")
@@ -183,7 +183,7 @@ def test_union_archives_excluded_versions_but_projects_earliest_for_packets(
 
     (output_root / "union-raw-artifacts.jsonl").unlink()
     (output_root / "union-raw-observations.jsonl").write_text("")
-    assert main(command) == 0
+    assert cli_module.main(command) == 0
     assert _jsonl(output_root / "union-raw-artifacts.jsonl") == canonical_records
     assert _jsonl(output_root / "union-raw-observations.jsonl") == observation_records
 
@@ -408,8 +408,8 @@ def test_union_rejects_cross_source_raw_owner_substitution(tmp_path: Path) -> No
     _rewrite_snapshot_jsonl(first, "raw-artifacts.jsonl", [raw_record])
 
     with pytest.raises(
-        ScreeningSnapshotUnionError,
-        match=r"lack source-local candidate owners.*61568805",
+        SnapshotVerificationError,
+        match=r"raw-artifacts\.jsonl references unknown candidate_id.*61568805",
     ):
         load_screening_snapshot_union(
             (first, second),
