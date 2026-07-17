@@ -2837,6 +2837,13 @@ def _target_100_fixture(
             snapshot_id=f"target-100-{case_count}",
             batch_id="batch-002",
             complete=True,
+            stage_commitments={
+                "courtlistener_rest_screen_inputs": {
+                    "schema_version": (
+                        "legalforecast.courtlistener_rest_screen_inputs.v1"
+                    )
+                }
+            },
         )
         cycle_hash = store.cycle_hash
 

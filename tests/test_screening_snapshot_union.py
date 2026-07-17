@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 from pathlib import Path
 from typing import Any
 
 import legalforecast.cli as cli_module
+import legalforecast.ingestion.screening_snapshot_union as union_module
 import pytest
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
@@ -17,6 +19,9 @@ from legalforecast.ingestion.cycle_acquisition_store import (
 from legalforecast.ingestion.discovery_scheduler import (
     DiscoveryHit,
     TermTerminalStatus,
+)
+from legalforecast.ingestion.firecrawl_screening_identity import (
+    firecrawl_screening_implementation,
 )
 from legalforecast.ingestion.screening_snapshot_union import (
     ScreeningSnapshotUnionError,
@@ -41,6 +46,58 @@ def test_union_help_documents_raw_observation_policy(capsys: Any) -> None:
     assert "unique active proof" in output
     assert "source-local raw bytes" in output
     assert "earliest UTC capture is the packet input" in output
+
+
+def test_regular_file_reader_sets_close_on_exec(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "payload.json"
+    path.write_bytes(b"{}")
+    original_open = os.open
+    observed_flags: list[int] = []
+
+    def recording_open(open_path: Path, flags: int) -> int:
+        observed_flags.append(flags)
+        return original_open(open_path, flags)
+
+    monkeypatch.setattr(union_module.os, "open", recording_open)
+
+    assert union_module._read_regular_file(path, "fixture") == b"{}"
+    assert observed_flags
+    close_on_exec = getattr(os, "O_CLOEXEC", 0)
+    if close_on_exec:
+        assert observed_flags[0] & close_on_exec
+
+
+def test_union_rejects_source_without_stage_commitments(tmp_path: Path) -> None:
+    first = _snapshot(
+        tmp_path / "first",
+        batch_id="first",
+        observations=[],
+    )
+    second = _snapshot(
+        tmp_path / "second",
+        batch_id="second",
+        observations=[],
+    )
+    manifest_path = first / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest.pop("stage_commitments")
+    manifest_path.write_text(json.dumps(manifest))
+
+    with pytest.raises(
+        ScreeningSnapshotUnionError,
+        match="lacks affirmative stage commitments",
+    ):
+        load_screening_snapshot_union(
+            (first, second),
+            expected_manifest_sha256=(
+                _manifest_sha256(first),
+                _manifest_sha256(second),
+            ),
+            expected_cycle_hash=_cycle_hash(tmp_path / "first"),
+        )
 
 
 def test_union_preserves_updated_raw_observations_for_identical_terminal_evidence(
@@ -128,6 +185,7 @@ def test_union_archives_excluded_versions_but_projects_earliest_for_packets(
             )
         ],
     )
+    _set_firecrawl_screening_implementation(first)
     second = _snapshot(
         second_root,
         batch_id="terminal-firecrawl",
@@ -207,6 +265,21 @@ def test_union_archives_excluded_versions_but_projects_earliest_for_packets(
 
     manifest_path = union_snapshot / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
+    assert manifest["stage_commitments"]["firecrawl_screening_implementation"] == (
+        firecrawl_screening_implementation()
+    )
+    assert (
+        manifest["stage_commitments"]["screening_snapshot_union_inputs"][
+            "firecrawl_screening_source_count"
+        ]
+        == 1
+    )
+    assert (
+        json.loads((output_root / "screening-snapshot-union-summary.json").read_text())[
+            "firecrawl_screening_source_count"
+        ]
+        == 1
+    )
     mapping = manifest["stage_commitments"]["screening_snapshot_union_inputs"][
         "canonical_raw_artifacts"
     ]
@@ -1285,6 +1358,133 @@ def test_union_rejects_uncommitted_raw_path_before_reading_referenced_file(
     assert referenced_file_reads == []
 
 
+def test_union_consumes_pinned_manifest_buffer_when_path_is_replaced(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate_id = "courtlistener-docket-61568804"
+    first = _snapshot(
+        tmp_path / "first",
+        batch_id="baseline",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {"candidate_id": candidate_id, "reason": "no_mtd_reference"},
+                b"<html><body>baseline docket</body></html>",
+            )
+        ],
+    )
+    second = _snapshot(
+        tmp_path / "second",
+        batch_id="terminal-firecrawl",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {"candidate_id": candidate_id, "reason": "no_mtd_reference"},
+                b"<html><body>terminal docket</body></html>",
+            )
+        ],
+    )
+    first_manifest_sha256 = _manifest_sha256(first)
+    first_manifest_path = first / "manifest.json"
+    replacement = json.loads(first_manifest_path.read_text())
+    replacement["batch_id"] = "replacement-must-not-propagate"
+    replacement_payload = json.dumps(replacement).encode()
+    original_read = union_module._read_regular_file
+    replaced = False
+
+    def replace_after_buffer(path: Path, label: str) -> bytes:
+        nonlocal replaced
+        payload = original_read(path, label)
+        if path == first_manifest_path and not replaced:
+            first_manifest_path.write_bytes(replacement_payload)
+            replaced = True
+        return payload
+
+    monkeypatch.setattr(union_module, "_read_regular_file", replace_after_buffer)
+
+    union = load_screening_snapshot_union(
+        (first, second),
+        expected_manifest_sha256=(
+            first_manifest_sha256,
+            _manifest_sha256(second),
+        ),
+        expected_cycle_hash=_cycle_hash(tmp_path / "first"),
+    )
+
+    assert replaced is True
+    assert union.stage_commitment["sources"][0]["batch_id"] == "baseline"
+
+
+def test_union_consumes_authenticated_payload_buffer_when_path_mutates(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate_id = "courtlistener-docket-61568804"
+    first = _snapshot(
+        tmp_path / "first",
+        batch_id="baseline",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {"candidate_id": candidate_id, "reason": "no_mtd_reference"},
+                b"<html><body>baseline docket</body></html>",
+            )
+        ],
+    )
+    second = _snapshot(
+        tmp_path / "second",
+        batch_id="terminal-firecrawl",
+        observations=[
+            (
+                candidate_id,
+                "excluded",
+                "strict_clean_screen_failed",
+                {"candidate_id": candidate_id, "reason": "no_mtd_reference"},
+                b"<html><body>terminal docket</body></html>",
+            )
+        ],
+    )
+    candidates_path = first / "candidates.jsonl"
+    [replacement] = _jsonl(candidates_path)
+    replacement["reason_code"] = "tampered_after_authentication"
+    replacement["evidence"] = {
+        "candidate_id": candidate_id,
+        "reason": "tampered_after_authentication",
+    }
+    replacement_payload = (json.dumps(replacement) + "\n").encode()
+    original_read = union_module._read_regular_file
+    mutated = False
+
+    def mutate_after_buffer(path: Path, label: str) -> bytes:
+        nonlocal mutated
+        payload = original_read(path, label)
+        if path == candidates_path and not mutated:
+            candidates_path.write_bytes(replacement_payload)
+            mutated = True
+        return payload
+
+    monkeypatch.setattr(union_module, "_read_regular_file", mutate_after_buffer)
+
+    union = load_screening_snapshot_union(
+        (first, second),
+        expected_manifest_sha256=(
+            _manifest_sha256(first),
+            _manifest_sha256(second),
+        ),
+        expected_cycle_hash=_cycle_hash(tmp_path / "first"),
+    )
+
+    assert mutated is True
+    assert union.candidates[0].reason_code == "strict_clean_screen_failed"
+
+
 def _snapshot(
     root: Path,
     *,
@@ -1351,6 +1551,13 @@ def _snapshot(
             snapshot_id=f"{batch_id}-complete",
             batch_id=batch_id,
             complete=True,
+            stage_commitments={
+                "courtlistener_rest_screen_inputs": {
+                    "schema_version": (
+                        "legalforecast.courtlistener_rest_screen_inputs.v1"
+                    )
+                }
+            },
         )
 
 
@@ -1492,6 +1699,21 @@ def _raw_docket_html(entries: list[dict[str, object]]) -> bytes:
 
 def _manifest_sha256(snapshot: Path) -> str:
     return hashlib.sha256((snapshot / "manifest.json").read_bytes()).hexdigest()
+
+
+def _set_firecrawl_screening_implementation(snapshot: Path) -> None:
+    manifest_path = snapshot / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    stage_commitments = manifest.setdefault("stage_commitments", {})
+    stage_commitments["firecrawl_screen_inputs"] = {
+        "schema_version": "legalforecast.firecrawl_screen_input_commitment.v1"
+    }
+    stage_commitments["firecrawl_screening_implementation"] = (
+        firecrawl_screening_implementation()
+    )
+    manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True, separators=(",", ":"))
+    )
 
 
 def _cycle_hash(root: Path) -> str:

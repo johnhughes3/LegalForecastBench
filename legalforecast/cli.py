@@ -390,6 +390,13 @@ from legalforecast.ingestion.firecrawl_recap_discovery import (
     parse_recap_search_html,
     parse_recap_search_url,
 )
+from legalforecast.ingestion.firecrawl_screening_identity import (
+    FirecrawlScreeningIdentityError,
+    firecrawl_screening_implementation,
+    require_snapshot_firecrawl_screening_implementation,
+    snapshot_firecrawl_screening_source_count,
+    validate_firecrawl_screening_implementation,
+)
 from legalforecast.ingestion.firecrawl_source import (
     FirecrawlConfig,
     FirecrawlCourtListenerHTMLSource,
@@ -559,6 +566,7 @@ from legalforecast.ingestion.snapshot_replay import (
     SupplementalReplaySource,
     collect_snapshot_replay_bundle,
     firecrawl_screen_input_commitments,
+    firecrawl_screening_migration_receipt,
     read_verified_replay_raw,
     source_replay_commitment,
 )
@@ -4772,7 +4780,9 @@ def _add_acquisition_replay_screening_arguments(
         required=True,
         help=(
             "Prior assemble-cycle-acquisition run card recursively expanded into "
-            "verified screening snapshots; downstream-only roots are ignored."
+            "verified screening snapshots; downstream-only roots are ignored. An "
+            "assembly with no snapshots is valid only when at least one fully "
+            "hash-bound --source-snapshot is supplied."
         ),
     )
     parser.add_argument(
@@ -4871,6 +4881,14 @@ def _add_acquisition_replay_screening_arguments(
     parser.add_argument("--screened-cases-output", type=Path)
     parser.add_argument("--exclusions-output", type=Path)
     parser.add_argument("--summary-output", type=Path)
+    parser.add_argument(
+        "--migration-receipt-output",
+        type=Path,
+        help=(
+            "Provider-free old/new implementation and outcome comparison receipt; "
+            "defaults under --output-root."
+        ),
+    )
     parser.set_defaults(handler=_cmd_acquisition_replay_screening_snapshots)
 
 
@@ -7850,7 +7868,11 @@ def _cmd_acquisition_prepare_target(
             require_complete=True,
             require_saturated=True,
         )
-    except SnapshotVerificationError as exc:
+        snapshot_firecrawl_screening_source_count(
+            cast(Mapping[str, object], snapshot_manifest),
+            require_current=True,
+        )
+    except (SnapshotVerificationError, FirecrawlScreeningIdentityError) as exc:
         _write_target_100_attempt_failure(
             args,
             profile=profile,
@@ -16202,6 +16224,13 @@ def _cmd_batch_002_snapshot(args: argparse.Namespace) -> int:
                 snapshot_id=snapshot_id,
                 batch_id=batch_id,
                 complete=True,
+                stage_commitments={
+                    "courtlistener_rest_screen_inputs": {
+                        "schema_version": (
+                            "legalforecast.courtlistener_rest_screen_inputs.v1"
+                        )
+                    }
+                },
             )
         manifest = verify_snapshot(
             snapshot_path,
@@ -16210,9 +16239,21 @@ def _cmd_batch_002_snapshot(args: argparse.Namespace) -> int:
             require_complete=True,
             require_saturated=True,
         )
+        if (
+            snapshot_firecrawl_screening_source_count(
+                manifest,
+                require_current=True,
+            )
+            != 0
+        ):
+            raise FirecrawlScreeningIdentityError(
+                "CourtListener REST snapshot unexpectedly contains Firecrawl "
+                "screening sources"
+            )
     except (
         CycleAcquisitionStoreError,
         FileExistsError,
+        FirecrawlScreeningIdentityError,
         KeyError,
         OSError,
         SnapshotVerificationError,
@@ -17855,9 +17896,22 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
             if union.stage_commitment.get("provisional_frontier") is True
             else {}
         )
+        firecrawl_source_count = cast(
+            int, union.stage_commitment["firecrawl_screening_source_count"]
+        )
+        union_implementation_commitments: JsonRecord = (
+            {
+                "firecrawl_screening_implementation": (
+                    firecrawl_screening_implementation()
+                )
+            }
+            if firecrawl_source_count > 0
+            else {}
+        )
         batch_config = {
             "stage": "provider-free-screening-snapshot-union",
             "source_commitment": dict(union.stage_commitment),
+            **union_implementation_commitments,
             **union_provisional_flags,
         }
         with CycleAcquisitionStore(cycle_store_path) as store:
@@ -17895,6 +17949,7 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                 )
                 expected_commitments = {
                     "screening_snapshot_union_inputs": dict(union.stage_commitment),
+                    **union_implementation_commitments,
                     "owned_raw_artifacts": owned_raw_commitment,
                     "owned_raw_observations": owned_raw_observations_commitment,
                     "owned_terminal_observations": (terminal_observations_commitment),
@@ -17911,6 +17966,16 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                     require_complete=True,
                     require_saturated=True,
                 )
+                if (
+                    snapshot_firecrawl_screening_source_count(
+                        cast(Mapping[str, object], manifest),
+                        require_current=True,
+                    )
+                    != firecrawl_source_count
+                ):
+                    raise CycleAcquisitionStoreError(
+                        "existing union snapshot Firecrawl source count changed"
+                    )
                 resumed = True
             else:
                 term = "provider-free-screening-snapshot-union"
@@ -17994,6 +18059,7 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                 )
                 expected_commitments = {
                     "screening_snapshot_union_inputs": dict(union.stage_commitment),
+                    **union_implementation_commitments,
                     "owned_raw_artifacts": owned_raw_commitment,
                     "owned_raw_observations": owned_raw_observations_commitment,
                     "owned_terminal_observations": (terminal_observations_commitment),
@@ -18035,12 +18101,23 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                     require_complete=True,
                     require_saturated=True,
                 )
+                if (
+                    snapshot_firecrawl_screening_source_count(
+                        cast(Mapping[str, object], manifest),
+                        require_current=True,
+                    )
+                    != firecrawl_source_count
+                ):
+                    raise CycleAcquisitionStoreError(
+                        "union snapshot Firecrawl source count changed"
+                    )
                 resumed = False
         snapshot_summary = _read_json_object(snapshot_path / "summary.json")
         summary = {
             "schema_version": "legalforecast.screening_snapshot_union_summary.v1",
             "dry_run": False,
             "source_count": len(source_snapshots),
+            "firecrawl_screening_source_count": firecrawl_source_count,
             "candidate_count": len(union.candidates),
             "accepted_case_count": snapshot_summary["accepted_count"],
             "excluded_case_count": snapshot_summary["excluded_count"],
@@ -18640,7 +18717,11 @@ def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:
             require_complete=True,
             require_saturated=True,
         )
-    except SnapshotVerificationError as exc:
+        snapshot_firecrawl_screening_source_count(
+            cast(Mapping[str, object], snapshot_manifest),
+            require_current=True,
+        )
+    except (SnapshotVerificationError, FirecrawlScreeningIdentityError) as exc:
         _write_acquisition_failure(
             args,
             stage="plan-public-downloads",
@@ -19064,6 +19145,9 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
             )
         snapshot_stage_commitments: JsonRecord = {
             "firecrawl_screen_inputs": input_commitments,
+            "firecrawl_screening_implementation": (
+                firecrawl_screening_implementation()
+            ),
         }
         if provisional_flags:
             snapshot_stage_commitments["provisional_lineage"] = provisional_flags
@@ -19134,6 +19218,10 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
                 raise CycleAcquisitionStoreError(
                     "existing screening snapshot changed provisional lineage"
                 )
+            require_snapshot_firecrawl_screening_implementation(
+                snapshot_manifest,
+                require_current=True,
+            )
         except (CycleAcquisitionStoreError, KeyError, OSError, ValueError) as exc:
             _write_acquisition_failure(
                 args,
@@ -19262,6 +19350,10 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
                     record=exclusion,
                 )
 
+            validate_firecrawl_screening_implementation(
+                snapshot_stage_commitments["firecrawl_screening_implementation"],
+                require_current=True,
+            )
             snapshot_path = store.export_snapshot(
                 snapshot_root,
                 snapshot_id=snapshot_id,
@@ -19276,6 +19368,10 @@ def _cmd_acquisition_screen_firecrawl(args: argparse.Namespace) -> int:
                 expected_cycle_hash=cycle_hash,
                 expected_batch_digest=batch_digest,
                 require_complete=True,
+            )
+            require_snapshot_firecrawl_screening_implementation(
+                snapshot_manifest,
+                require_current=True,
             )
     except (
         CycleAcquisitionStoreError,
@@ -19359,6 +19455,72 @@ def _require_provisional_lineage_on_records(
             )
 
 
+_REPLAY_TARGET_SNAPSHOT_FILES = (
+    "screened-cases.jsonl",
+    "exclusions.jsonl",
+    "summary.json",
+    "candidates.jsonl",
+    "observations.jsonl",
+    "raw-artifacts.jsonl",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class _AuthenticatedReplayTargetView:
+    manifest: JsonRecord
+    manifest_payload: bytes
+    payloads: Mapping[str, bytes]
+
+
+def _authenticated_replay_target_view(
+    snapshot_path: Path,
+    *,
+    verified_manifest: Mapping[str, Any],
+) -> _AuthenticatedReplayTargetView:
+    """Read and authenticate one immutable target snapshot byte view."""
+
+    manifest_payload = (snapshot_path / "manifest.json").read_bytes()
+    manifest = _read_json_object_payload(
+        manifest_payload,
+        label="target replay snapshot manifest",
+    )
+    if manifest != dict(verified_manifest):
+        raise SnapshotReplayError(
+            "target replay snapshot manifest changed after verification"
+        )
+    files_value = manifest.get("files")
+    if not isinstance(files_value, Mapping):
+        raise SnapshotReplayError("target replay snapshot lacks file commitments")
+    files = cast(Mapping[str, object], files_value)
+    if set(files) != set(_REPLAY_TARGET_SNAPSHOT_FILES):
+        raise SnapshotReplayError(
+            "target replay snapshot file commitments are incomplete"
+        )
+    payloads: dict[str, bytes] = {}
+    for filename in _REPLAY_TARGET_SNAPSHOT_FILES:
+        commitment_value = files[filename]
+        if not isinstance(commitment_value, Mapping):
+            raise SnapshotReplayError(
+                f"target replay snapshot has malformed {filename} commitment"
+            )
+        commitment = cast(Mapping[str, object], commitment_value)
+        payload = (snapshot_path / filename).read_bytes()
+        if (
+            commitment.get("sha256") != hashlib.sha256(payload).hexdigest()
+            or commitment.get("byte_count") != len(payload)
+            or commitment.get("row_count") != payload.count(b"\n")
+        ):
+            raise SnapshotReplayError(
+                "target replay snapshot file commitment mismatch: " + filename
+            )
+        payloads[filename] = payload
+    return _AuthenticatedReplayTargetView(
+        manifest=manifest,
+        manifest_payload=manifest_payload,
+        payloads=payloads,
+    )
+
+
 def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int:
     """Re-screen cryptographically bound snapshots without provider activity."""
 
@@ -19402,6 +19564,11 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
         "summary_output",
         output_root / "replay-screening-summary.json",
     )
+    migration_receipt_path = _acquisition_path(
+        args,
+        "migration_receipt_output",
+        output_root / "firecrawl-screening-migration-receipt.json",
+    )
     anchor = _iso_date_argument(
         cast(str, args.decision_filed_on_or_after),
         "--decision-filed-on-or-after",
@@ -19424,6 +19591,7 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
         screened_cases_path,
         exclusions_path,
         summary_path,
+        migration_receipt_path,
         raw_html_dir,
         snapshot_path,
     )
@@ -19433,6 +19601,7 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
         screened_cases_path=screened_cases_path,
         exclusions_path=exclusions_path,
         summary_path=summary_path,
+        migration_receipt_path=migration_receipt_path,
         raw_html_dir=raw_html_dir,
         cycle_store_path=cycle_store_path,
     )
@@ -19493,6 +19662,7 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
         screened_cases_path=screened_cases_path,
         exclusions_path=exclusions_path,
         summary_path=summary_path,
+        migration_receipt_path=migration_receipt_path,
         raw_html_dir=raw_html_dir,
         cycle_store_path=cycle_store_path,
         source_bundle=bundle,
@@ -19504,6 +19674,7 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
             dict(exclusion.record) for exclusion in bundle.exclusions
         ]
         _validate_firecrawl_success_commitments(success_records)
+        screening_implementation = firecrawl_screening_implementation()
         with CycleAcquisitionStore(cycle_store_path) as store:
             if store.cycle_hash != expected_target_cycle_hash:
                 raise CycleAcquisitionStoreError(
@@ -19631,12 +19802,20 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
                 )
             for exclusion in fetch_exclusion_records:
                 _record_fetch_exclusion(store, batch_id=batch_id, record=exclusion)
+            validate_firecrawl_screening_implementation(
+                screening_implementation,
+                require_current=True,
+            )
+            snapshot_stage_commitments = {
+                "source_bound_replay": commitment,
+                "firecrawl_screening_implementation": screening_implementation,
+            }
             snapshot_path = store.export_snapshot(
                 snapshot_root,
                 snapshot_id=snapshot_id,
                 batch_id=batch_id,
                 complete=True,
-                stage_commitments={"source_bound_replay": commitment},
+                stage_commitments=snapshot_stage_commitments,
             )
             snapshot_manifest = verify_snapshot(
                 snapshot_path,
@@ -19645,11 +19824,42 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
                 require_complete=True,
                 require_saturated=True,
             )
-        screened_cases = _read_records(snapshot_path / "screened-cases.jsonl")
-        all_exclusions = _read_records(snapshot_path / "exclusions.jsonl")
-        snapshot_summary = _read_json_object(snapshot_path / "summary.json")
-        _write_jsonl(screened_cases_path, screened_cases)
-        _write_jsonl(exclusions_path, all_exclusions)
+            require_snapshot_firecrawl_screening_implementation(
+                snapshot_manifest,
+                require_current=True,
+            )
+        target_view = _authenticated_replay_target_view(
+            snapshot_path,
+            verified_manifest=snapshot_manifest,
+        )
+        target_manifest_sha256 = hashlib.sha256(
+            target_view.manifest_payload
+        ).hexdigest()
+        migration_receipt = firecrawl_screening_migration_receipt(
+            bundle=bundle,
+            target_manifest=target_view.manifest,
+            target_manifest_sha256=target_manifest_sha256,
+            target_implementation=screening_implementation,
+        )
+        _write_json(migration_receipt_path, migration_receipt)
+        screened_cases_payload = target_view.payloads["screened-cases.jsonl"]
+        exclusions_payload = target_view.payloads["exclusions.jsonl"]
+        screened_cases = _read_jsonl_payload(
+            screened_cases_payload,
+            label="target replay screened cases",
+        )
+        all_exclusions = _read_jsonl_payload(
+            exclusions_payload,
+            label="target replay exclusions",
+        )
+        snapshot_summary = _read_json_object_payload(
+            target_view.payloads["summary.json"],
+            label="target replay snapshot summary",
+        )
+        screened_cases_path.parent.mkdir(parents=True, exist_ok=True)
+        screened_cases_path.write_bytes(screened_cases_payload)
+        exclusions_path.parent.mkdir(parents=True, exist_ok=True)
+        exclusions_path.write_bytes(exclusions_payload)
         summary = {
             "schema_version": "legalforecast.snapshot_replay_summary.v1",
             "dry_run": False,
@@ -19666,6 +19876,8 @@ def _cmd_acquisition_replay_screening_snapshots(args: argparse.Namespace) -> int
             "batch_digest": snapshot_manifest["batch_digest"],
             "snapshot_complete": snapshot_manifest["complete"],
             "snapshot_saturated": snapshot_manifest["saturated"],
+            "migration_receipt": str(migration_receipt_path),
+            "migration_byte_equivalent": migration_receipt["byte_equivalent"],
             **provider_flags,
         }
         _write_json(summary_path, summary)
@@ -19839,6 +20051,7 @@ def _cmd_acquisition_promote_terminal_subset(args: argparse.Namespace) -> int:
         )
         success_records = [dict(record) for record in bundle.promoted_success_records]
         _validate_firecrawl_success_commitments(success_records)
+        screening_implementation = firecrawl_screening_implementation()
         existing_snapshot: VerifiedCompleteSnapshot | None
         with CycleAcquisitionStore(cycle_store_path) as store:
             if store.cycle_hash != cast(str, args.expected_target_cycle_hash):
@@ -19920,12 +20133,17 @@ def _cmd_acquisition_promote_terminal_subset(args: argparse.Namespace) -> int:
             snapshot_path = existing_snapshot.path
             snapshot_manifest = existing_snapshot.manifest
             expected_stage_commitments = {
-                "terminal_subset_promotion": dict(bundle.commitment)
+                "terminal_subset_promotion": dict(bundle.commitment),
+                "firecrawl_screening_implementation": screening_implementation,
             }
             if snapshot_manifest.get("stage_commitments") != expected_stage_commitments:
                 raise CycleAcquisitionStoreError(
                     "existing terminal promotion snapshot changed its source binding"
                 )
+            require_snapshot_firecrawl_screening_implementation(
+                snapshot_manifest,
+                require_current=True,
+            )
             if any(
                 field in snapshot_manifest
                 for field in (
@@ -20023,13 +20241,18 @@ def _cmd_acquisition_promote_terminal_subset(args: argparse.Namespace) -> int:
                     evidence=evidence,
                     metadata_repair_evidence=rescreen_metadata[candidate_id],
                 )
+            validate_firecrawl_screening_implementation(
+                screening_implementation,
+                require_current=True,
+            )
             snapshot_path = store.export_snapshot(
                 snapshot_root,
                 snapshot_id=snapshot_id,
                 batch_id=batch_id,
                 complete=True,
                 stage_commitments={
-                    "terminal_subset_promotion": dict(bundle.commitment)
+                    "terminal_subset_promotion": dict(bundle.commitment),
+                    "firecrawl_screening_implementation": screening_implementation,
                 },
             )
             snapshot_manifest = verify_snapshot(
@@ -20038,6 +20261,10 @@ def _cmd_acquisition_promote_terminal_subset(args: argparse.Namespace) -> int:
                 expected_batch_digest=plan.target_batch_digest,
                 require_complete=True,
                 require_saturated=True,
+            )
+            require_snapshot_firecrawl_screening_implementation(
+                snapshot_manifest,
+                require_current=True,
             )
         screened_cases = _read_records(snapshot_path / "screened-cases.jsonl")
         all_exclusions = _read_records(snapshot_path / "exclusions.jsonl")
@@ -36499,6 +36726,7 @@ def _validate_replay_output_paths(
     screened_cases_path: Path,
     exclusions_path: Path,
     summary_path: Path,
+    migration_receipt_path: Path,
     raw_html_dir: Path,
     cycle_store_path: Path,
     source_bundle: SnapshotReplayBundle | None = None,
@@ -36509,6 +36737,7 @@ def _validate_replay_output_paths(
         "--screened-cases-output": screened_cases_path,
         "--exclusions-output": exclusions_path,
         "--summary-output": summary_path,
+        "--migration-receipt-output": migration_receipt_path,
         "replayed raw HTML directory": raw_html_dir,
         "--run-card-output": _acquisition_path(
             args,
@@ -36550,6 +36779,12 @@ def _validate_replay_output_paths(
         ("--screened-cases-output", screened_cases_path, False, "screened"),
         ("--exclusions-output", exclusions_path, False, "exclusions"),
         ("--summary-output", summary_path, False, "summary"),
+        (
+            "--migration-receipt-output",
+            migration_receipt_path,
+            False,
+            "migration-receipt",
+        ),
         ("replayed raw HTML directory", raw_html_dir, True, "raw-html"),
         ("target snapshot", snapshot_path, True, "snapshot"),
         ("target snapshot staging root", snapshot_path.parent, True, "snapshot"),

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import legalforecast.cli as cli_module
+import legalforecast.ingestion.snapshot_replay as snapshot_replay_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.courtlistener_web import (
@@ -24,13 +25,19 @@ from legalforecast.ingestion.discovery_scheduler import (
     DiscoveryHit,
     TermTerminalStatus,
 )
+from legalforecast.ingestion.firecrawl_screening_identity import (
+    require_snapshot_firecrawl_screening_implementation,
+)
 from legalforecast.ingestion.snapshot_replay import (
+    AUDITED_LEGACY_32057DE_FIRECRAWL_BUNDLE_BINDING,
     ReplaySourceSnapshot,
     SnapshotReplayBundle,
     SnapshotReplayError,
     _AssemblyExpansion,
+    _authenticate_replay_source_implementation_authorities,
     _expand_assembly_closure,
     _read_hashed_json_object,
+    _source_manifest_screen_card_pairs_sha256,
     _verified_success,
     _verify_entry_transport_enrichment,
     _verify_screen_input_commitment,
@@ -44,6 +51,7 @@ ANCHOR = "2026-06-30"
 
 def test_replay_screening_snapshots_is_provider_free_and_globally_plannable(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     source_store = tmp_path / "source.sqlite3"
     source_policy = _cycle_policy(extra={"fixture_generation": "old"})
@@ -101,6 +109,27 @@ def test_replay_screening_snapshots_is_provider_free_and_globally_plannable(
         snapshot_id=snapshot_id,
         expected_assembly_sha256=sha256_file(assembly_run_card),
     )
+    screened_output = tmp_path / "custom-screened" / "screened.jsonl"
+    exclusions_output = tmp_path / "custom-exclusions" / "exclusions.jsonl"
+    command.extend(
+        (
+            "--screened-cases-output",
+            str(screened_output),
+            "--exclusions-output",
+            str(exclusions_output),
+        )
+    )
+
+    def reject_provider_client(*args: object, **kwargs: object) -> None:
+        raise AssertionError("provider client construction is forbidden during replay")
+
+    for client_name in (
+        "CaseDevClient",
+        "CourtListenerClient",
+        "CourtListenerRecapFetchClient",
+        "FirecrawlCourtListenerHTMLSource",
+    ):
+        monkeypatch.setattr(cli_module, client_name, reject_provider_client)
 
     assert main(command) == 0
 
@@ -109,6 +138,14 @@ def test_replay_screening_snapshots_is_provider_free_and_globally_plannable(
         snapshot,
         expected_cycle_hash=target_cycle_hash,
         require_saturated=True,
+    )
+    require_snapshot_firecrawl_screening_implementation(
+        manifest,
+        require_current=True,
+    )
+    require_snapshot_firecrawl_screening_implementation(
+        verify_snapshot(first),
+        require_current=True,
     )
     assert (
         manifest["stage_commitments"]["source_bound_replay"]["source_candidate_count"]
@@ -133,6 +170,12 @@ def test_replay_screening_snapshots_is_provider_free_and_globally_plannable(
     assert {
         row["candidate_id"] for row in _read_jsonl(snapshot / "screened-cases.jsonl")
     } == {"case-dev-101", "case-dev-103"}
+    assert (
+        screened_output.read_bytes() == (snapshot / "screened-cases.jsonl").read_bytes()
+    )
+    assert (
+        exclusions_output.read_bytes() == (snapshot / "exclusions.jsonl").read_bytes()
+    )
     [excluded] = _read_jsonl(snapshot / "exclusions.jsonl")
     assert excluded["candidate_id"] == "case-dev-102"
     assert excluded["primary_exclusion_reason"] == "decision_before_release_anchor"
@@ -141,6 +184,22 @@ def test_replay_screening_snapshots_is_provider_free_and_globally_plannable(
     assert run_card["provider_activity_executed"] is False
     assert run_card["paid_activity_requested"] is False
     assert run_card["paid_activity_executed"] is False
+    migration_receipt = _read_json(
+        output_root / "firecrawl-screening-migration-receipt.json"
+    )
+    assert migration_receipt["source_snapshot_count"] == 2
+    assert migration_receipt["source_success_count"] == 2
+    assert migration_receipt["source_fetch_exclusion_count"] == 1
+    assert migration_receipt["comparison_mode"] == ("explicit_multi_source_difference")
+    assert migration_receipt["provider_activity_executed"] is False
+    assert migration_receipt["paid_activity_executed"] is False
+    assert migration_receipt["legacy_source_count"] == 0
+    assert migration_receipt["committed_source_count"] == 2
+    assert "historical_implementation" not in migration_receipt
+    assert {
+        source["implementation_authority"]["authority_type"]
+        for source in migration_receipt["source_snapshots"]
+    } == {"committed_firecrawl_screening_implementation"}
 
     public_plan = tmp_path / "public-plan"
     assert (
@@ -167,6 +226,79 @@ def test_replay_screening_snapshots_is_provider_free_and_globally_plannable(
         ]
         == 2
     )
+
+
+def test_replay_rejects_target_payload_mutation_after_snapshot_verification(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _source_snapshot(
+        tmp_path,
+        store_path=tmp_path / "source.sqlite3",
+        policy=_cycle_policy(extra={"fixture_generation": "old"}),
+        batch_id="source",
+        successes=("151",),
+    )
+    source_cycle_hash = str(verify_snapshot(source)["cycle_hash"])
+    assembly_root = tmp_path / "source-assembly"
+    assert (
+        main(
+            [
+                "acquisition",
+                "assemble-cycle-acquisition",
+                "--output-root",
+                str(assembly_root),
+                "--expected-cycle-hash",
+                source_cycle_hash,
+                "--batch-root",
+                str(source),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    target_store = tmp_path / "target.sqlite3"
+    with CycleAcquisitionStore(target_store) as store:
+        target_cycle_hash = store.ensure_cycle(_cycle_policy())
+    output_root = tmp_path / "replay"
+    snapshot_id = "mutation-target"
+    original_verify_snapshot = cli_module.verify_snapshot
+    mutated = False
+
+    def mutate_after_target_verification(
+        snapshot_path: str | Path, *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
+        nonlocal mutated
+        manifest = dict(original_verify_snapshot(snapshot_path, *args, **kwargs))
+        path = Path(snapshot_path)
+        if path.name == snapshot_id and not mutated:
+            screened_cases = path / "screened-cases.jsonl"
+            screened_cases.write_bytes(screened_cases.read_bytes() + b"\n")
+            mutated = True
+        return manifest
+
+    monkeypatch.setattr(cli_module, "verify_snapshot", mutate_after_target_verification)
+
+    assert (
+        main(
+            _replay_command(
+                output_root=output_root,
+                target_store=target_store,
+                target_cycle_hash=target_cycle_hash,
+                source_cycle_hash=source_cycle_hash,
+                assembly_run_card=(
+                    assembly_root / "run-cards/assemble-cycle-acquisition.json"
+                ),
+                snapshot_id=snapshot_id,
+            )
+        )
+        == 2
+    )
+    assert mutated is True
+    assert "target replay snapshot file commitment mismatch" in capsys.readouterr().err
+    assert not (output_root / "firecrawl-screening-migration-receipt.json").exists()
+    assert not (output_root / "replay-screened-cases.jsonl").exists()
 
 
 def test_replay_screening_snapshots_rejects_provisional_source_laundering(
@@ -336,6 +468,124 @@ def test_replay_screening_snapshots_combines_cross_cycle_supplemental_snapshots(
         str(verify_snapshot(first_supplemental)["cycle_hash"]),
         str(verify_snapshot(second_supplemental)["cycle_hash"]),
     }
+
+
+def test_replay_screening_snapshots_accepts_hash_bound_supplement_only(
+    tmp_path: Path,
+) -> None:
+    empty_root = tmp_path / "empty-source-root"
+    empty_root.mkdir()
+    source_policy = _cycle_policy(extra={"fixture_generation": "legacy"})
+    supplemental_root = tmp_path / "legacy-bundle"
+    supplemental = _source_snapshot(
+        supplemental_root,
+        store_path=supplemental_root / "cycle.sqlite3",
+        policy=source_policy,
+        batch_id="legacy-source",
+        successes=("154",),
+    )
+    source_cycle_hash = str(verify_snapshot(supplemental)["cycle_hash"])
+    assembly_root = tmp_path / "empty-assembly"
+    assert (
+        main(
+            [
+                "acquisition",
+                "assemble-cycle-acquisition",
+                "--output-root",
+                str(assembly_root),
+                "--expected-cycle-hash",
+                source_cycle_hash,
+                "--batch-root",
+                str(empty_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    assembly_run_card = assembly_root / "run-cards/assemble-cycle-acquisition.json"
+    target_store = tmp_path / "target.sqlite3"
+    with CycleAcquisitionStore(target_store) as store:
+        target_cycle_hash = store.ensure_cycle(_cycle_policy())
+    command = _replay_command(
+        output_root=tmp_path / "replay",
+        target_store=target_store,
+        target_cycle_hash=target_cycle_hash,
+        source_cycle_hash=source_cycle_hash,
+        assembly_run_card=assembly_run_card,
+        snapshot_id="supplement-only-replay",
+        supplemental_snapshots=(supplemental,),
+    )
+    screen_run_card = (
+        supplemental.parent.parent / "run-cards/screen-firecrawl-dockets.json"
+    )
+    command.extend(
+        (
+            "--source-snapshot",
+            str(supplemental),
+            "--expected-source-snapshot-cycle-hash",
+            source_cycle_hash,
+            "--source-snapshot-screen-run-card",
+            str(screen_run_card),
+            "--expected-source-snapshot-screen-run-card-sha256",
+            sha256_file(screen_run_card),
+            "--source-snapshot-bundle-root",
+            str(supplemental_root),
+        )
+    )
+
+    assert main(command) == 0
+    receipt = _read_json(tmp_path / "replay/firecrawl-screening-migration-receipt.json")
+    assert receipt["source_snapshot_count"] == 1
+    assert receipt["comparison_mode"] == "single_source_exact_bytes"
+    assert receipt["byte_equivalent"] is True
+    assert receipt["provider_activity_executed"] is False
+    assert receipt["paid_activity_executed"] is False
+
+
+def test_replay_screening_snapshots_rejects_empty_assembly_without_supplement(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    empty_root = tmp_path / "empty-source-root"
+    empty_root.mkdir()
+    source_policy = _cycle_policy(extra={"fixture_generation": "legacy"})
+    source_store = tmp_path / "source.sqlite3"
+    with CycleAcquisitionStore(source_store) as store:
+        source_cycle_hash = store.ensure_cycle(source_policy)
+    assembly_root = tmp_path / "empty-assembly"
+    assert (
+        main(
+            [
+                "acquisition",
+                "assemble-cycle-acquisition",
+                "--output-root",
+                str(assembly_root),
+                "--expected-cycle-hash",
+                source_cycle_hash,
+                "--batch-root",
+                str(empty_root),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+    target_store = tmp_path / "target.sqlite3"
+    with CycleAcquisitionStore(target_store) as store:
+        target_cycle_hash = store.ensure_cycle(_cycle_policy())
+    command = _replay_command(
+        output_root=tmp_path / "replay",
+        target_store=target_store,
+        target_cycle_hash=target_cycle_hash,
+        source_cycle_hash=source_cycle_hash,
+        assembly_run_card=(assembly_root / "run-cards/assemble-cycle-acquisition.json"),
+        snapshot_id="must-not-exist",
+    )
+
+    assert main(command) == 2
+    assert "no screening snapshots and no supplemental snapshot" in (
+        capsys.readouterr().err
+    )
+    assert not (tmp_path / "replay/snapshots/must-not-exist").exists()
 
 
 @pytest.mark.parametrize("hash_count", (0, 2))
@@ -1139,6 +1389,7 @@ def test_replay_screening_snapshots_rejects_nonmonotonic_docket_refresh(
 def test_replay_screening_snapshots_binds_legacy_screen_inputs(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     source = _source_snapshot(
         tmp_path,
@@ -1154,6 +1405,9 @@ def test_replay_screening_snapshots_binds_legacy_screen_inputs(
         json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8"
     )
     source_cycle_hash = str(manifest["cycle_hash"])
+    source_manifest_sha256 = sha256_file(manifest_path)
+    screen_run_card = source.parent.parent / "run-cards/screen-firecrawl-dockets.json"
+    screen_run_card_sha256 = sha256_file(screen_run_card)
     assembly_root = tmp_path / "source-assembly"
     assert (
         main(
@@ -1184,6 +1438,29 @@ def test_replay_screening_snapshots_binds_legacy_screen_inputs(
     )
 
     assert main(command) == 2
+    assert (
+        "lacks authenticated Firecrawl screening implementation authority"
+        in capsys.readouterr().err
+    )
+    assert not (tmp_path / "replay/snapshots/legacy-replay").exists()
+
+    monkeypatch.setattr(
+        snapshot_replay_module,
+        "AUDITED_LEGACY_32057DE_FIRECRAWL_SOURCE_BINDINGS",
+        {source_manifest_sha256: "f" * 64},
+    )
+    assert main(command) == 2
+    assert (
+        "audited legacy source screen run-card SHA-256 mismatch"
+        in capsys.readouterr().err
+    )
+    monkeypatch.setattr(
+        snapshot_replay_module,
+        "AUDITED_LEGACY_32057DE_FIRECRAWL_SOURCE_BINDINGS",
+        {source_manifest_sha256: screen_run_card_sha256},
+    )
+
+    assert main(command) == 2
     error = capsys.readouterr().err
     match = re.search(r"computed ([0-9a-f]{64})", error)
     assert match is not None
@@ -1202,6 +1479,177 @@ def test_replay_screening_snapshots_binds_legacy_screen_inputs(
     ]["source_bound_replay"]
     assert commitment["legacy_screen_input_count"] == 1
     assert commitment["legacy_screen_inputs_sha256"] == match.group(1)
+    migrated_manifest = _read_json(
+        tmp_path / "replay/snapshots/legacy-replay/manifest.json"
+    )
+    require_snapshot_firecrawl_screening_implementation(
+        migrated_manifest,
+        require_current=True,
+    )
+    receipt = _read_json(tmp_path / "replay/firecrawl-screening-migration-receipt.json")
+    assert receipt["historical_implementation"]["git_commit"] == (
+        "32057de5942f434697df97b8365ff3f5a176ae47"
+    )
+    assert receipt["historical_implementation"]["manifest_sha256"] == (
+        "3e1628b1bbeb3d2af682baaa12815a4c631a64a0ca95eadf2d70e9fa9da419c9"
+    )
+    assert receipt["source_snapshot_count"] == 1
+    assert receipt["source_success_count"] == 1
+    assert receipt["source_fetch_exclusion_count"] == 0
+    assert receipt["legacy_source_count"] == 1
+    assert receipt["committed_source_count"] == 0
+    assert receipt["source_snapshots"][0]["implementation_authority"] == {
+        "authority_type": "audited_legacy_32057de",
+        "git_commit": "32057de5942f434697df97b8365ff3f5a176ae47",
+        "implementation_manifest_sha256": (
+            "3e1628b1bbeb3d2af682baaa12815a4c631a64a0ca95eadf2d70e9fa9da419c9"
+        ),
+        "screen_run_card_sha256": screen_run_card_sha256,
+        "source_snapshot_manifest_sha256": source_manifest_sha256,
+    }
+    assert receipt["comparison_mode"] == "single_source_exact_bytes"
+    assert receipt["file_byte_equivalence"] == {
+        "exclusions.jsonl": True,
+        "screened-cases.jsonl": True,
+    }
+    assert receipt["byte_equivalent"] is True
+    assert receipt["provider_activity_executed"] is False
+    assert receipt["paid_activity_executed"] is False
+
+
+def test_closed_legacy_bundle_authority_is_indivisible(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sources = _unbound_replay_sources(tmp_path)
+    binding = _synthetic_legacy_bundle_binding(sources)
+    monkeypatch.setattr(
+        snapshot_replay_module,
+        "AUDITED_LEGACY_32057DE_FIRECRAWL_BUNDLE_BINDING",
+        binding,
+    )
+
+    authenticated = _authenticate_synthetic_legacy_bundle(sources)
+
+    assert len(authenticated) == 2
+    assert {
+        source.implementation_authority["authority_type"] for source in authenticated
+    } == {"audited_legacy_32057de_bundle"}
+    assert all(
+        source.implementation_authority["bundle_binding"] == binding
+        for source in authenticated
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ("assembly", "closure", "aggregate", "source_count", "screen_card"),
+)
+def test_closed_legacy_bundle_authority_rejects_any_binding_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    sources = _unbound_replay_sources(tmp_path)
+    binding = _synthetic_legacy_bundle_binding(sources)
+    if mutation == "source_count":
+        binding["source_snapshot_count"] = 3
+    monkeypatch.setattr(
+        snapshot_replay_module,
+        "AUDITED_LEGACY_32057DE_FIRECRAWL_BUNDLE_BINDING",
+        binding,
+    )
+    if mutation == "screen_card":
+        first, second = sources
+        sources = (
+            ReplaySourceSnapshot(
+                path=first.path,
+                manifest=first.manifest,
+                manifest_sha256=first.manifest_sha256,
+                screen_run_card=first.screen_run_card,
+                screen_run_card_sha256="e" * 64,
+                implementation_authority={},
+                input_paths=first.input_paths,
+                bundle_root=first.bundle_root,
+            ),
+            second,
+        )
+    kwargs: dict[str, Any] = {}
+    if mutation == "assembly":
+        kwargs["source_assembly_sha256"] = "0" * 64
+    elif mutation == "closure":
+        kwargs["source_closure_sha256"] = "0" * 64
+    elif mutation == "aggregate":
+        kwargs["legacy_screen_inputs_sha256"] = "0" * 64
+
+    with pytest.raises(
+        SnapshotReplayError,
+        match="lacks authenticated Firecrawl screening implementation authority",
+    ):
+        _authenticate_synthetic_legacy_bundle(sources, **kwargs)
+
+
+def _unbound_replay_sources(tmp_path: Path) -> tuple[ReplaySourceSnapshot, ...]:
+    return tuple(
+        ReplaySourceSnapshot(
+            path=tmp_path / f"source-{index}",
+            manifest={"snapshot_id": f"source-{index}"},
+            manifest_sha256=manifest_character * 64,
+            screen_run_card=tmp_path / f"screen-{index}.json",
+            screen_run_card_sha256=card_character * 64,
+            implementation_authority={},
+            input_paths=(),
+            bundle_root=None,
+        )
+        for index, (manifest_character, card_character) in enumerate(
+            (("a", "c"), ("b", "d")), start=1
+        )
+    )
+
+
+def _synthetic_legacy_bundle_binding(
+    sources: tuple[ReplaySourceSnapshot, ...],
+) -> dict[str, object]:
+    binding = dict(AUDITED_LEGACY_32057DE_FIRECRAWL_BUNDLE_BINDING)
+    binding.update(
+        {
+            "source_assembly_sha256": "1" * 64,
+            "source_closure_sha256": "2" * 64,
+            "source_assembly_run_card_count": 1,
+            "source_snapshot_count": 2,
+            "source_candidate_count": 2,
+            "source_success_count": 2,
+            "source_fetch_exclusion_count": 0,
+            "legacy_screen_input_count": 2,
+            "legacy_screen_inputs_sha256": "3" * 64,
+            "refresh_supersession_count": 0,
+            "source_manifest_screen_card_pairs_sha256": (
+                _source_manifest_screen_card_pairs_sha256(sources)
+            ),
+        }
+    )
+    return binding
+
+
+def _authenticate_synthetic_legacy_bundle(
+    sources: tuple[ReplaySourceSnapshot, ...],
+    *,
+    source_assembly_sha256: str = "1" * 64,
+    source_closure_sha256: str = "2" * 64,
+    legacy_screen_inputs_sha256: str = "3" * 64,
+) -> tuple[ReplaySourceSnapshot, ...]:
+    return _authenticate_replay_source_implementation_authorities(
+        sources,
+        source_assembly_sha256=source_assembly_sha256,
+        source_closure_sha256=source_closure_sha256,
+        source_assembly_run_card_count=1,
+        source_candidate_count=2,
+        source_success_count=2,
+        source_fetch_exclusion_count=0,
+        legacy_screen_input_count=2,
+        legacy_screen_inputs_sha256=legacy_screen_inputs_sha256,
+        refresh_supersession_count=0,
+    )
 
 
 def test_source_closure_rejects_mutated_nested_assembly_card(
@@ -1685,6 +2133,7 @@ def test_replay_screening_snapshots_rejects_docket_identity_collision(
         "--screened-cases-output",
         "--exclusions-output",
         "--summary-output",
+        "--migration-receipt-output",
         "--run-card-output",
         "--log-output",
     ),
@@ -2156,6 +2605,10 @@ def test_source_replay_commitment_is_independent_of_source_argument_order(
             manifest_sha256=digest_character * 64,
             screen_run_card=tmp_path / snapshot_id / "screen.json",
             screen_run_card_sha256=digest_character * 64,
+            implementation_authority={
+                "authority_type": ("committed_firecrawl_screening_implementation"),
+                "implementation": {},
+            },
             input_paths=(),
             bundle_root=None,
         )

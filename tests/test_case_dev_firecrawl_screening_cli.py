@@ -334,6 +334,7 @@ def test_metadata_repair_proof_mismatch_remains_reconciled_parse_exclusion(
 def test_screen_firecrawl_dockets_emits_direct_public_planner_input(
     tmp_path: Path,
     cycle_state: _CycleState,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     output_root = tmp_path / "screening"
     raw_html_dir = tmp_path / "html"
@@ -436,6 +437,97 @@ def test_screen_firecrawl_dockets_emits_direct_public_planner_input(
     [selection] = _read_jsonl(planner_root / "public-packet-selection.jsonl")
     assert selection["candidate_id"] == "123"
     assert selection["case_id"] == "case-dev-123"
+
+    manifest_path = cycle_state.snapshot / "manifest.json"
+    original_manifest_bytes = manifest_path.read_bytes()
+    manifest = _read_json(manifest_path)
+    stage_commitments = cast(dict[str, object], manifest["stage_commitments"])
+    stage_commitments.pop("firecrawl_screening_implementation")
+    manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    legacy_planner_root = tmp_path / "legacy-planner"
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-public-downloads",
+                "--snapshot",
+                str(cycle_state.snapshot),
+                "--expected-cycle-hash",
+                cycle_state.cycle_hash,
+                "--target-clean-cases",
+                "1",
+                "--output-root",
+                str(legacy_planner_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert "lacks firecrawl_screening_implementation" in capsys.readouterr().err
+    assert not (legacy_planner_root / "public-packet-selection.jsonl").exists()
+
+    manifest_path.write_bytes(original_manifest_bytes)
+    manifest = _read_json(manifest_path)
+    manifest.pop("stage_commitments")
+    manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    missing_stage_planner_root = tmp_path / "missing-stage-planner"
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-public-downloads",
+                "--snapshot",
+                str(cycle_state.snapshot),
+                "--expected-cycle-hash",
+                cycle_state.cycle_hash,
+                "--target-clean-cases",
+                "1",
+                "--output-root",
+                str(missing_stage_planner_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert "lacks affirmative stage commitments" in capsys.readouterr().err
+    assert not (missing_stage_planner_root / "public-packet-selection.jsonl").exists()
+
+    manifest_path.write_bytes(original_manifest_bytes)
+    manifest = _read_json(manifest_path)
+    manifest["stage_commitments"] = {
+        "screening_snapshot_union_inputs": {
+            "schema_version": "legalforecast.screening_snapshot_union_inputs.v1"
+        }
+    }
+    manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    legacy_union_planner_root = tmp_path / "legacy-union-planner"
+    assert (
+        main(
+            [
+                "acquisition",
+                "plan-public-downloads",
+                "--snapshot",
+                str(cycle_state.snapshot),
+                "--expected-cycle-hash",
+                cycle_state.cycle_hash,
+                "--target-clean-cases",
+                "1",
+                "--output-root",
+                str(legacy_union_planner_root),
+                "--execute",
+            ]
+        )
+        == 2
+    )
+    assert "union schema is not identity-aware v2" in capsys.readouterr().err
+    assert not (legacy_union_planner_root / "public-packet-selection.jsonl").exists()
+    manifest_path.write_bytes(original_manifest_bytes)
 
     screened_before_dry_run = (
         output_root / "firecrawl-screened-cases.jsonl"
