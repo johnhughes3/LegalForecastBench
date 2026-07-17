@@ -571,6 +571,58 @@ uv run legalforecast batch-002 snapshot \
 
 This REST path supersedes the Case.dev-ranking and Firecrawl-docket steps below whenever it is available. Retain those steps only as bounded compatibility fallbacks for genuine REST-unavailable dockets.
 
+### Exact-310 Terminal REST Policy Rebind
+
+The supported target setup is provider-free `seed-direct-search`, not a hand-built SQLite batch. Start from a current-cycle union-store copy or new current-cycle store and transfer the identical saturated 310-docket broad-search source into a fresh target batch:
+
+```bash
+uv run legalforecast batch-002 seed-direct-search \
+  --source-store <saturated-broad-search-store> \
+  --source-batch-id cycle1-courtlistener-20260711-to-20260715-broad-hybrid-v2 \
+  --cycle-store <current-cycle-union-store> \
+  --batch-id <current-cycle-exact310-rebind-batch> \
+  --page-size 100 \
+  --summary-output <current-cycle-exact310-seed-summary.json>
+```
+
+After the old 8410bac REST batch is terminal, writer-free, WAL-clean, and published as a complete saturated snapshot, freeze a provider-free rebind contract. The command authenticates the exact old cycle, batch config, 310-candidate commitment, transfer receipt, snapshot, and every terminal observation against the current target cycle. Existing current-cycle outcomes are preserved; authenticated source exclusions retain their exact reason and evidence with rebind provenance; accepted strict-screen evidence is re-proved under the shared current validator; an old accepted row that cannot be re-proved fails closed.
+
+```bash
+uv run legalforecast batch-002 plan-exact310-rest-rebind \
+  --source-store <old-8410bac-rest-store> \
+  --source-snapshot <old-exact310-complete-snapshot> \
+  --expected-source-snapshot-manifest-sha256 <pinned-old-manifest-sha256> \
+  --transfer-receipt <old-direct-search-transfer-summary.json> \
+  --target-seed-summary <current-cycle-exact310-seed-summary.json> \
+  --expected-target-seed-summary-sha256 <pinned-target-seed-summary-sha256> \
+  --cycle-store <current-cycle-union-store> \
+  --batch-id <current-cycle-exact310-rebind-batch> \
+  --expected-target-cycle-hash <current-cycle-hash> \
+  --contract-output <exact310-rebind-contract.json>
+```
+
+Pin the printed contract SHA-256 externally before execution, then re-authenticate and publish:
+
+```bash
+uv run legalforecast batch-002 rebind-exact310-rest-observations \
+  --source-store <old-8410bac-rest-store> \
+  --source-snapshot <old-exact310-complete-snapshot> \
+  --expected-source-snapshot-manifest-sha256 <pinned-old-manifest-sha256> \
+  --transfer-receipt <old-direct-search-transfer-summary.json> \
+  --target-seed-summary <current-cycle-exact310-seed-summary.json> \
+  --expected-target-seed-summary-sha256 <pinned-target-seed-summary-sha256> \
+  --cycle-store <current-cycle-union-store> \
+  --batch-id <current-cycle-exact310-rebind-batch> \
+  --expected-target-cycle-hash <current-cycle-hash> \
+  --contract <exact310-rebind-contract.json> \
+  --expected-contract-sha256 <externally-pinned-contract-sha256> \
+  --snapshot-output-root <current-cycle-snapshots> \
+  --snapshot-id <current-cycle-exact310-complete> \
+  --run-card-output <exact310-rebind-run-card.json>
+```
+
+Neither command exposes network, provider, PACER, RECAP Fetch, fee acknowledgment, purchase, evaluation, freeze, or dispatch flags.
+
 ### Step 2: Enrich And Rank With Free Case.dev Lookup
 
 Use Case.dev only for noncharging docket lookup and `includeEntries` enrichment. The authenticated source mode accepts either a saturated CourtListener opinion search (`search_type=o`) or a saturated unrestricted RECAP search (`search_type=r`) whose frozen config records `available_only=omitted`. It projects only the exact positive numeric docket identities committed by that source; it never sends `live: true`, acknowledges PACER fees, or supplies purchase authority:
