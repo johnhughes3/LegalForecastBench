@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from html import escape
@@ -67,6 +67,8 @@ class BudgetedDocketAcquisitionError(ValueError):
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _RANKED_PREFIX_TERM = "case-dev-ranked-opinion-transfer-v1"
 _RANKED_SUBSET_TERM = "case-dev-ranked-opinion-subset-transfer-v1"
+_SELECTED_ACQUISITION_SLICE_SCHEMA = "legalforecast.selected_acquisition_slice.v1"
+_SELECTED_ACQUISITION_SLICE_TERM = "selected-ranked-slice"
 _AUTHENTICATED_HANDOFF_COMMITMENTS = (
     "source_batch_id",
     "source_batch_digest",
@@ -198,6 +200,142 @@ def ranked_parent_requires_authenticated_handoff(
     ) in _AUTHENTICATED_SELECTION_SEMANTICS or any(
         field in parent_config for field in _AUTHENTICATED_HANDOFF_COMMITMENTS
     )
+
+
+def authenticated_handoff_parent_batch_id(
+    store: CycleAcquisitionStore,
+    acquisition_batch_id: str,
+) -> str:
+    """Resolve an acquired slice to its immutable authenticated parent."""
+
+    config = store.batch_config(acquisition_batch_id)
+    if config.get("schema_version") != _SELECTED_ACQUISITION_SLICE_SCHEMA:
+        raise BudgetedDocketAcquisitionError(
+            "Firecrawl run batch is not a selected acquisition slice"
+        )
+    parent_batch_id = config.get("parent_batch_id")
+    parent_batch_digest = config.get("parent_batch_digest")
+    selection_count = config.get("selection_count")
+    selection_hash = config.get("selection_hash")
+    if (
+        not isinstance(parent_batch_id, str)
+        or not parent_batch_id
+        or parent_batch_id == acquisition_batch_id
+        or not isinstance(parent_batch_digest, str)
+        or _SHA256.fullmatch(parent_batch_digest) is None
+        or type(selection_count) is not int
+        or selection_count <= 0
+        or not isinstance(selection_hash, str)
+        or _SHA256.fullmatch(selection_hash) is None
+        or config.get("parent_discovery_saturation_claimed") is not False
+    ):
+        raise BudgetedDocketAcquisitionError(
+            "selected acquisition slice has invalid parent authority"
+        )
+    try:
+        actual_parent_digest = store.batch_digest(parent_batch_id)
+    except KeyError as exc:
+        raise BudgetedDocketAcquisitionError(
+            "selected acquisition slice parent batch is missing"
+        ) from exc
+    if parent_batch_digest != actual_parent_digest:
+        raise BudgetedDocketAcquisitionError(
+            "selected acquisition slice parent digest does not reconcile"
+        )
+    return parent_batch_id
+
+
+def verify_authenticated_acquisition_slice(
+    *,
+    store: CycleAcquisitionStore,
+    acquisition_batch_id: str,
+    authenticated_parent_batch_id: str,
+    records: Sequence[Mapping[str, Any]],
+) -> None:
+    """Bind one Firecrawl run slice to exact parent-authenticated records."""
+
+    config = store.batch_config(acquisition_batch_id)
+    targets = ranked_docket_targets(records, limit=len(records))
+    selection_payload = [
+        {
+            "candidate_id": target.candidate_id,
+            "courtlistener_url": target.docket_url,
+            "cost_rank": target.rank,
+        }
+        for target in targets
+    ]
+    selection_hash = _canonical_record_sha256(selection_payload)
+    expected_config = {
+        "schema_version": _SELECTED_ACQUISITION_SLICE_SCHEMA,
+        "parent_batch_id": authenticated_parent_batch_id,
+        "parent_batch_digest": store.batch_digest(authenticated_parent_batch_id),
+        "selection_hash": selection_hash,
+        "selection_count": len(targets),
+        "parent_discovery_saturation_claimed": False,
+        **provisional_lineage_flags(store.batch_config(authenticated_parent_batch_id)),
+    }
+    if config != expected_config:
+        raise BudgetedDocketAcquisitionError(
+            "selected acquisition slice parent authority changed"
+        )
+    try:
+        progress = store.term_progress(
+            acquisition_batch_id,
+            _SELECTED_ACQUISITION_SLICE_TERM,
+        )
+        stored_hits = store.candidate_discovery_hits(acquisition_batch_id)
+    except KeyError as exc:
+        raise BudgetedDocketAcquisitionError(
+            "selected acquisition slice is incomplete"
+        ) from exc
+    stored_payloads: list[Mapping[str, object]] = []
+    expected_transcript_hits: list[Mapping[str, object]] = []
+    for hit in stored_hits:
+        payload = hit.payload
+        if (
+            set(payload) != {"candidate_id", "courtlistener_url", "cost_rank"}
+            or payload.get("candidate_id") != hit.candidate_id
+            or hit.provider_hit_id
+            != f"selected-{hit.candidate_id.removeprefix('courtlistener-docket-')}"
+            or not isinstance(payload.get("courtlistener_url"), str)
+            or type(payload.get("cost_rank")) is not int
+        ):
+            raise BudgetedDocketAcquisitionError(
+                "selected acquisition slice has invalid candidate payload"
+            )
+        stored_payloads.append(payload)
+        expected_transcript_hits.append(
+            {
+                "provider_hit_id": hit.provider_hit_id,
+                "candidate_id": hit.candidate_id,
+                "payload": payload,
+            }
+        )
+    stored_payloads.sort(key=lambda item: cast(int, item["cost_rank"]))
+    expected_transcript_hits.sort(key=lambda item: cast(str, item["provider_hit_id"]))
+    expected_transcript = (
+        {
+            "schema_version": ("legalforecast.courtlistener_search_page_transcript.v1"),
+            "term": _SELECTED_ACQUISITION_SLICE_TERM,
+            "request_cursor": None,
+            "next_cursor": None,
+            "terminal_status": TermTerminalStatus.EXHAUSTED.value,
+            "hits": expected_transcript_hits,
+        },
+    )
+    expected_candidate_ids = tuple(sorted(target.candidate_id for target in targets))
+    if (
+        len(targets) != len(records)
+        or progress.cursor is not None
+        or progress.terminal_status != TermTerminalStatus.EXHAUSTED
+        or progress.hit_count != len(targets)
+        or tuple(stored_payloads) != tuple(selection_payload)
+        or store.candidate_ids(acquisition_batch_id) != expected_candidate_ids
+        or store.search_page_transcript(acquisition_batch_id) != expected_transcript
+    ):
+        raise BudgetedDocketAcquisitionError(
+            "selected acquisition slice does not match authenticated records"
+        )
 
 
 def verify_authenticated_ranked_firecrawl_handoff(

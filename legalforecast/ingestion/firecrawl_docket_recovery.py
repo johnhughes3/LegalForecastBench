@@ -17,8 +17,10 @@ from urllib.parse import parse_qs, urlsplit
 from legalforecast.ingestion.budgeted_docket_acquisition import (
     DocketAcquisitionFailure,
     RankedDocketTarget,
+    authenticated_handoff_parent_batch_id,
     ranked_docket_targets,
     render_complete_docket_html,
+    verify_authenticated_acquisition_slice,
 )
 from legalforecast.ingestion.budgeted_firecrawl import (
     FirecrawlArtifactError,
@@ -374,8 +376,28 @@ def verify_recovery_partition(
         max_pages_per_docket=max_pages,
         decision_anchor=anchor,
     )
+    authenticated_parent_batch_id = authenticated_handoff_parent_batch_id(
+        store,
+        sealed.source_batch_id,
+    )
+    verify_authenticated_acquisition_slice(
+        store=store,
+        acquisition_batch_id=sealed.source_batch_id,
+        authenticated_parent_batch_id=authenticated_parent_batch_id,
+        records=records,
+    )
+    source_batch_config = store.batch_config(sealed.source_batch_id)
     if (
-        card.get("target_commitment_sha256") != sealed.target_commitment_sha256
+        card.get("source_batch_id") != sealed.source_batch_id
+        or card.get("source_batch_digest") != store.batch_digest(sealed.source_batch_id)
+        or card.get("source_parent_batch_id") != authenticated_parent_batch_id
+        or card.get("source_parent_batch_digest")
+        != store.batch_digest(authenticated_parent_batch_id)
+        or card.get("source_selection_count")
+        != source_batch_config.get("selection_count")
+        or card.get("source_selection_hash")
+        != source_batch_config.get("selection_hash")
+        or card.get("target_commitment_sha256") != sealed.target_commitment_sha256
         or card.get("attempt_commitment_sha256") != sealed.attempt_commitment_sha256
     ):
         raise RankedFirecrawlRecoveryError(
