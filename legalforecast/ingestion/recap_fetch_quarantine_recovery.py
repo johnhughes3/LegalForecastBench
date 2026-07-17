@@ -234,7 +234,7 @@ def build_recap_fetch_disclosure_review_requests(
             or len(sha256) != 64
             or any(character not in "0123456789abcdef" for character in sha256)
             or type(byte_count) is not int
-            or byte_count < 0
+            or byte_count < 1
         ):
             raise RecapFetchQuarantineRecoveryError(
                 f"invalid quarantine manifest record: {key[0]}/{key[1]}"

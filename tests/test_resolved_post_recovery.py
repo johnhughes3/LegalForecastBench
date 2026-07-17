@@ -47,6 +47,80 @@ from tests.disclosure_review_fixtures import (
 )
 
 
+def test_quarantine_review_requests_reject_empty_documents() -> None:
+    manifest = {
+        "schema_version": "legalforecast.recap_fetch_quarantine_recovery.v1",
+        "candidate_id": "case-1",
+        "source_document_id": "123",
+        "sha256": "a" * 64,
+        "byte_count": 0,
+        "free_or_purchased": "purchased",
+        "recovery_origin": "unknown_status_attempt",
+    }
+    restriction = {
+        "schema_version": "legalforecast.post_recovery_restriction_evidence.v1",
+        "candidate_id": "case-1",
+        "source_document_id": "123",
+        "restriction_status": "public",
+        "redaction_or_seal_status": "public",
+        "is_sealed": False,
+        "is_private": False,
+        "restriction_evidence": ["fresh-public-detail"],
+    }
+
+    with pytest.raises(
+        cli.RecapFetchQuarantineRecoveryError,
+        match="invalid quarantine manifest record",
+    ):
+        cli.build_recap_fetch_disclosure_review_requests([manifest], [restriction])
+
+
+def test_quarantine_materializer_binds_clearance_to_recovery_sources(
+    tmp_path: Path,
+) -> None:
+    review_requests = tmp_path / "recovery-review-requests.jsonl"
+    restriction_evidence = tmp_path / "recovery-restriction-evidence.jsonl"
+    alternate_requests = tmp_path / "alternate-review-requests.jsonl"
+    alternate_restrictions = tmp_path / "alternate-restriction-evidence.jsonl"
+    for path in (
+        review_requests,
+        restriction_evidence,
+        alternate_requests,
+        alternate_restrictions,
+    ):
+        path.write_text("{}\n", encoding="utf-8")
+    recovery = {
+        "recovery_stage": "recover-recap-fetch-quarantine",
+        "review_requests_path": review_requests,
+        "restriction_path": restriction_evidence,
+    }
+    matching_clearance = {
+        "requests_path": review_requests,
+        "restriction_path": restriction_evidence,
+    }
+
+    cli._verify_materializer_recovery_clearance_binding(
+        recovery=recovery,
+        clearance_lineage=matching_clearance,
+    )
+    with pytest.raises(cli.CommandError, match="different review requests"):
+        cli._verify_materializer_recovery_clearance_binding(
+            recovery=recovery,
+            clearance_lineage={
+                **matching_clearance,
+                "requests_path": alternate_requests,
+            },
+        )
+    with pytest.raises(cli.CommandError, match="different restriction evidence"):
+        cli._verify_materializer_recovery_clearance_binding(
+            recovery=recovery,
+            clearance_lineage={
+                **matching_clearance,
+                "restriction_path": alternate_restrictions,
+            },
+        )
+
+
 def test_build_and_require_exact_unknown_origin_lineage() -> None:
     inputs = _inputs()
     records = build_resolved_post_recovery_documents(**inputs)

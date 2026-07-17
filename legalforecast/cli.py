@@ -22943,6 +22943,10 @@ def _cmd_acquisition_materialize_cohort_documents(args: argparse.Namespace) -> i
             clearance_path=purchased_clearance_path,
             run_card_path=purchased_clearance_card_path,
         )
+        _verify_materializer_recovery_clearance_binding(
+            recovery=recovery,
+            clearance_lineage=purchased_clearance_lineage,
+        )
         purchase_policy_artifact = _read_json_object(purchase_policy_path)
         cohort_policy_artifact = _read_json_object(cohort_policy_path)
         purchase_policy = verify_case_dev_purchase_policy(purchase_policy_artifact)
@@ -23946,6 +23950,37 @@ def _materializer_recovery_source_commitments(
     return commitments
 
 
+def _verify_materializer_recovery_clearance_binding(
+    *,
+    recovery: Mapping[str, object],
+    clearance_lineage: Mapping[str, object],
+) -> None:
+    """Require quarantine clearance to consume the recovery-produced inputs."""
+
+    if recovery.get("recovery_stage") == "recover-purchased":
+        return
+    if recovery.get("recovery_stage") != "recover-recap-fetch-quarantine":
+        raise CommandError("unsupported materializer recovery stage")
+    recovery_requests = recovery.get("review_requests_path")
+    clearance_requests = clearance_lineage.get("requests_path")
+    recovery_restrictions = recovery.get("restriction_path")
+    clearance_restrictions = clearance_lineage.get("restriction_path")
+    if not isinstance(recovery_requests, Path) or not isinstance(
+        clearance_requests, Path
+    ):
+        raise CommandError("quarantine clearance lacks review-request lineage")
+    if recovery_requests.resolve() != clearance_requests.resolve():
+        raise CommandError("quarantine clearance committed different review requests")
+    if not isinstance(recovery_restrictions, Path) or not isinstance(
+        clearance_restrictions, Path
+    ):
+        raise CommandError("quarantine clearance lacks restriction-evidence lineage")
+    if recovery_restrictions.resolve() != clearance_restrictions.resolve():
+        raise CommandError(
+            "quarantine clearance committed different restriction evidence"
+        )
+
+
 def _verify_materializer_clearance_lineage(
     *,
     manifest_path: Path,
@@ -24419,6 +24454,10 @@ def _verify_materialized_downstream_lineage(
             manifest_path=cast(Path, recovery["manifest_path"]),
             clearance_path=purchased_clearance_path,
             run_card_path=purchased_clearance_card_path,
+        )
+        _verify_materializer_recovery_clearance_binding(
+            recovery=recovery,
+            clearance_lineage=purchased_lineage,
         )
         purchase_policy = verify_case_dev_purchase_policy(
             _read_json_object(purchase_policy_path)
