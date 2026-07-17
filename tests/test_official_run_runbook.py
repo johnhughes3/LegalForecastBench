@@ -18,7 +18,9 @@ def _documented_command_block(runbook: str, command: str) -> str:
     marker = f"uv run legalforecast acquisition {command}"
     blocks = runbook.split(marker)
     assert len(blocks) > 1, f"{command} is not documented"
-    return blocks[1].split("```", maxsplit=1)[0]
+    remainder = blocks[1]
+    assert "```" in remainder, f"{command} command block is not closed"
+    return remainder.split("```", maxsplit=1)[0]
 
 
 def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
@@ -50,6 +52,11 @@ def test_downstream_runbook_preserves_materialization_and_lineage() -> None:
             "--llm-unitization-run-card",
             "--llm-review-stage-a-run-card",
             "--unitization-review-run-card",
+        ),
+        "plan-packet-inputs": (
+            "--materialization-run-card",
+            "--document-root",
+            "--markdown-root",
         ),
         "build-packets": (
             "--llm-unitize-run-card",

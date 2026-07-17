@@ -166,7 +166,7 @@ uv run legalforecast acquisition apply-unitization-review \
 
 The apply card propagates the unitizer and structural-review cards plus the exact caps and journal authority, and commits the raw units, authenticated merged queue, adjudications, and replayed finalized units. Neither this command nor finalization accepts a rehashed, hand-authored, cross-cohort, cross-model, prompt-substituted, or independently regenerated Stage A artifact.
 
-Build the Stage B disposition-text artifact only from the exact selected cohort, authenticated download manifest, authenticated disclosure-clearance run card, restriction evidence, and pinned Mistral parser output used by the cycle:
+Build the Stage B disposition-text artifact only from the exact selected cohort, authenticated materialization lineage run card, restriction evidence, and pinned Mistral parser output used by the cycle:
 
 ```bash
 uv run legalforecast acquisition build-decision-texts \
@@ -267,6 +267,8 @@ uv run legalforecast acquisition plan-packet-inputs \
   --model-registry model_registries/cycle-1-2026-06-30.json \
   --raw-html-dir <union-output-root>/union-raw-artifacts \
   --raw-artifacts-manifest <union-output-root>/union-raw-artifacts.jsonl \
+  --document-root <materialized-document-root> \
+  --markdown-root <parsed-markdown-root> \
   --execute --no-resume
 ```
 
@@ -306,7 +308,7 @@ uv run legalforecast acquisition build-packets \
   --raw-artifacts-manifest <union-output-root>/union-raw-artifacts.jsonl \
   --document-root <materialized-document-root> \
   --markdown-root <parsed-markdown-root> \
-  --materialization-run-card <materialization-run-card.json> \
+  --materialization-run-card <materialize-cohort-documents-run-card.json> \
   --execute --no-resume
 ```
 
