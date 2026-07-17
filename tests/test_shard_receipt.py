@@ -433,6 +433,49 @@ def test_strict_receipt_verifier_rejects_rehashed_invalid_receipt(
         )
 
 
+def test_strict_receipt_verifier_rejects_uri_reused_at_another_version(
+    tmp_path: Path,
+) -> None:
+    receipt = shard_receipt_module.build_shard_receipt(
+        provenance=_provenance(),
+        manifest=_manifest(),
+        completions=(
+            _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
+            _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
+        ),
+        frozen_manifest_sha256="6" * 64,
+        labels_sha256="7" * 64,
+        model_registry_sha256="8" * 64,
+    )
+    first, second = receipt["cells"]
+    second["run_id"] = first["run_id"]
+    for first_object, second_object in zip(
+        first["objects"], second["objects"], strict=True
+    ):
+        second_object["uri"] = first_object["uri"]
+    second["result_commitment_sha256"] = hash_payload({"objects": second["objects"]})
+    receipt["result_commitment_sha256"] = hash_payload(
+        {
+            "objects": sorted(
+                [*first["objects"], *second["objects"]],
+                key=lambda value: (value["name"], value["uri"]),
+            )
+        }
+    )
+    receipt_without_hash = dict(receipt)
+    receipt_without_hash.pop("receipt_sha256")
+    receipt["receipt_sha256"] = hash_payload(receipt_without_hash)
+
+    with pytest.raises(shard_receipt_module.ShardReceiptError, match="URI is reused"):
+        shard_receipt_module.verify_shard_receipt(
+            receipt,
+            manifest=_manifest(),
+            repeat_policy={"case_ids": ["case-1"], "count": 3},
+            expected_identity=_receipt_identity(),
+            expected_shard=("fixture:model-a", "full_packet"),
+        )
+
+
 def test_completion_rejects_null_s3_version(tmp_path: Path) -> None:
     completion = _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh")
     completion["objects"][0]["version_id"] = "null"

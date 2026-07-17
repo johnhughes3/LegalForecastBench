@@ -197,6 +197,7 @@ def build_shard_receipt(
     candidates_by_case: dict[str, list[JsonRecord]] = {}
     object_records: list[JsonRecord] = []
     object_identities: set[tuple[str, str]] = set()
+    object_uris: set[str] = set()
     for raw_completion in completions:
         completion = _validate_completion(
             raw_completion,
@@ -238,13 +239,17 @@ def build_shard_receipt(
             else "adopted_prior_attempt"
         )
         for object_record in cast(list[JsonRecord], completion["objects"]):
+            uri = cast(str, object_record["uri"])
             identity = (
-                cast(str, object_record["uri"]),
+                uri,
                 cast(str, object_record["version_id"]),
             )
             if identity in object_identities:
                 raise ShardReceiptError("result object version is reused across cells")
+            if uri in object_uris:
+                raise ShardReceiptError("result object URI is reused across cells")
             object_identities.add(identity)
+            object_uris.add(uri)
             object_records.append(object_record)
     sorted_completions = [observed_by_case[key] for key in sorted(observed_by_case)]
     receipt: JsonRecord = {
@@ -354,6 +359,7 @@ def verify_shard_receipt(
     verified_by_case: dict[str, JsonRecord] = {}
     object_records: list[JsonRecord] = []
     object_identities: set[tuple[str, str]] = set()
+    object_uris: set[str] = set()
     workflow_run_id = _required_str(record, "workflow_run_id")
     workflow_run_attempt = _positive_int(record, "workflow_run_attempt")
     cycle_id = _required_str(record, "cycle_id")
@@ -406,13 +412,17 @@ def verify_shard_receipt(
         validated["receipt_adoption_state"] = adoption_state
         verified_by_case[case_id] = validated
         for object_record in cast(list[JsonRecord], validated["objects"]):
+            uri = cast(str, object_record["uri"])
             identity = (
-                cast(str, object_record["uri"]),
+                uri,
                 cast(str, object_record["version_id"]),
             )
             if identity in object_identities:
                 raise ShardReceiptError("result object version is reused across cells")
+            if uri in object_uris:
+                raise ShardReceiptError("result object URI is reused across cells")
             object_identities.add(identity)
+            object_uris.add(uri)
             object_records.append(object_record)
 
     missing = sorted(set(expected_by_case) - set(verified_by_case))
@@ -437,6 +447,7 @@ def verify_committed_objects(receipt: Mapping[str, Any]) -> None:
     if not isinstance(cells, list):
         raise ShardReceiptError("receipt cells must be an array")
     seen: set[tuple[str, str]] = set()
+    seen_uris: set[str] = set()
     for raw_cell in cast(list[object], cells):
         cell = _mapping(raw_cell, "receipt cell")
         objects = cell.get("objects")
@@ -450,7 +461,10 @@ def verify_committed_objects(receipt: Mapping[str, Any]) -> None:
             )
             if identity in seen:
                 raise ShardReceiptError("result object version is reused across cells")
+            if identity[0] in seen_uris:
+                raise ShardReceiptError("result object URI is reused across cells")
             seen.add(identity)
+            seen_uris.add(identity[0])
             payload = _read_exact_object(commitment)
             if len(payload) != _positive_int(commitment, "size_bytes", minimum=0):
                 raise ShardReceiptError("result object size commitment mismatch")
