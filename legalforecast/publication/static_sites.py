@@ -12,6 +12,8 @@ from typing import Any, cast
 
 from legalforecast._json_io import read_json_object, write_json_object
 from legalforecast.multiharness.spec import ArtifactRecord
+from legalforecast.publication.official_report_site import build_official_report_page
+from legalforecast.publication.official_report_validation import load_official_bundle
 from legalforecast.publication.publication_guardrails import (
     PublicationGuardrailConfig,
     enforce_publication_guardrails,
@@ -19,6 +21,7 @@ from legalforecast.publication.publication_guardrails import (
 
 OFFICIAL_RESULTS_SITE_SCHEMA_VERSION = "legalforecast.official_results_site.v1"
 COMMUNITY_RESULTS_SITE_SCHEMA_VERSION = "legalforecast.community_results_site.v1"
+CONFORMANCE_SELF_REPORTED_LABEL = "Conformance (self-reported)"
 _CSS = """
 :root {
   color-scheme: light;
@@ -27,13 +30,19 @@ _CSS = """
   --line: #d8dde3;
   --panel: #f6f8fa;
   --accent: #0f766e;
+  --accent-soft: #e7f5f2;
+  --baseline: #735c0f;
+  --baseline-soft: #fff8c5;
+}
+* {
+  box-sizing: border-box;
 }
 body {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Avenir Next", Avenir, "Segoe UI", ui-sans-serif, sans-serif;
   margin: 0;
   color: var(--ink);
   background: white;
+  line-height: 1.55;
 }
 main {
   max-width: 1120px;
@@ -41,11 +50,41 @@ main {
   padding: 32px 24px 48px;
 }
 h1, h2, h3 {
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua",
+    Palatino, Georgia, serif;
   letter-spacing: 0;
+  line-height: 1.2;
+}
+a {
+  color: #075f57;
+}
+a:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #2dd4bf;
+  outline-offset: 3px;
+}
+.skip-link {
+  background: white;
+  left: 12px;
+  padding: 8px 12px;
+  position: absolute;
+  top: -80px;
+  z-index: 10;
+}
+.skip-link:focus {
+  top: 12px;
+}
+.eyebrow {
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .lede {
   color: var(--muted);
   max-width: 780px;
+  font-size: 1.08rem;
 }
 .notice {
   border-left: 4px solid var(--accent);
@@ -53,10 +92,23 @@ h1, h2, h3 {
   padding: 12px 16px;
   margin: 20px 0;
 }
+.official-notice {
+  background: var(--accent-soft);
+}
+.baseline-notice {
+  border-left-color: var(--baseline);
+  background: var(--baseline-soft);
+}
+.report-nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  list-style: none;
+  padding: 0;
+}
 table {
   border-collapse: collapse;
   width: 100%;
-  margin: 16px 0 28px;
 }
 th, td {
   border: 1px solid var(--line);
@@ -66,6 +118,24 @@ th, td {
 }
 th {
   background: var(--panel);
+}
+.table-scroll {
+  margin: 16px 0 28px;
+  overflow-x: auto;
+}
+.table-scroll:focus-visible {
+  outline: 3px solid #2dd4bf;
+  outline-offset: 3px;
+}
+.table-hint {
+  color: var(--muted);
+  display: none;
+  font-size: 0.9rem;
+}
+caption {
+  font-weight: 700;
+  padding: 0 0 8px;
+  text-align: left;
 }
 .grid {
   display: grid;
@@ -77,6 +147,48 @@ th {
   border-radius: 6px;
   padding: 12px;
   background: white;
+}
+.metric {
+  font-size: 1.45rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+  margin: 4px 0;
+}
+.tier-badge {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: #075f57;
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 750;
+  padding: 2px 8px;
+}
+.muted {
+  color: var(--muted);
+}
+.audit-panel {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin: 24px 0;
+  padding: 12px 16px;
+}
+@media (max-width: 720px) {
+  main {
+    padding: 24px 16px 40px;
+  }
+  .report-nav ul {
+    display: block;
+  }
+  .report-nav li {
+    margin: 8px 0;
+  }
+  th, td {
+    min-width: 120px;
+  }
+  .table-hint {
+    display: block;
+  }
 }
 """.strip()
 
@@ -98,30 +210,23 @@ def render_official_results_site(
     """Render an official-only static site from official aggregate artifacts."""
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    rows = _official_rows(official_artifacts_dir)
-    artifact_links = _artifact_links(official_artifacts_dir, href_base=output_dir)
-    body = [
-        "<main>",
-        "<h1>LegalForecastBench Official Results</h1>",
-        (
-            "<p class='lede'>Official benchmark results are produced only by the "
-            "protected LegalForecastBench evaluation workflow and official "
-            "aggregation artifacts.</p>"
-        ),
-        "<section><h2>Score Table</h2>",
-        _official_table(rows),
-        "</section>",
-        "<section><h2>Methodology and Run Cards</h2>",
-        (
-            "<p>Use the linked run cards and methodology artifacts to inspect the "
-            + "frozen cycle, model registry, scoring configuration, and release "
-            + "bundle.</p>"
-        ),
-        _link_list(artifact_links),
-        "</section>",
-        "</main>",
-    ]
-    _write_site(output_dir, "\n".join(body), OFFICIAL_RESULTS_SITE_SCHEMA_VERSION)
+    bundle = load_official_bundle(official_artifacts_dir)
+    artifact_links = _artifact_links(
+        official_artifacts_dir,
+        href_base=output_dir,
+        allowed_paths=bundle.artifact_paths,
+    )
+    page = build_official_report_page(
+        official_artifacts_dir=official_artifacts_dir,
+        artifact_links=artifact_links,
+        bundle=bundle,
+    )
+    _write_site(
+        output_dir,
+        page.body,
+        OFFICIAL_RESULTS_SITE_SCHEMA_VERSION,
+        title=f"{page.title} | LegalForecastBench",
+    )
     return _site_result(output_dir)
 
 
@@ -154,17 +259,29 @@ def render_community_results_site(
         "</section>",
         "</main>",
     ]
-    _write_site(output_dir, "\n".join(body), COMMUNITY_RESULTS_SITE_SCHEMA_VERSION)
+    _write_site(
+        output_dir,
+        "\n".join(body),
+        COMMUNITY_RESULTS_SITE_SCHEMA_VERSION,
+        title="Community Harness Comparisons | LegalForecastBench",
+    )
     return _site_result(output_dir)
 
 
-def _write_site(output_dir: Path, body: str, schema_version: str) -> None:
+def _write_site(
+    output_dir: Path,
+    body: str,
+    schema_version: str,
+    *,
+    title: str,
+) -> None:
     assets_dir = output_dir / "assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
     (assets_dir / "site.css").write_text(_CSS + "\n", encoding="utf-8")
     (output_dir / "index.html").write_text(
-        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        f"<title>{html.escape(title)}</title>"
         "<link rel='stylesheet' href='assets/site.css'>"
         "</head><body>"
         f"{body}"
@@ -193,51 +310,19 @@ def _site_result(output_dir: Path) -> StaticSiteResult:
     )
 
 
-def _official_rows(root: Path) -> tuple[Mapping[str, Any], ...]:
-    for relative_path in (
-        Path("report/leaderboard.json"),
-        Path("leaderboard.json"),
-        Path("scores.json"),
-        Path("score-summary.json"),
-    ):
-        path = root / relative_path
-        if not path.is_file():
-            continue
-        record = _read_json(path, relative_path.as_posix())
-        rows = record.get(
-            "rows",
-            record.get("summaries", record.get("scores", ())),
-        )
-        parsed = _mapping_rows(rows)
-        if parsed:
-            return parsed
-    return ()
-
-
-def _official_table(rows: Sequence[Mapping[str, Any]]) -> str:
-    if not rows:
-        return "<p>No official score rows were found in the supplied artifacts.</p>"
-    table_rows: list[str] = []
-    for row in rows:
-        model = _first_str(row, ("model_id", "model_key", "solver_id"))
-        score = _first_value(row, ("micro_brier", "score", "mean_score"))
-        table_rows.append(
-            f"<tr><td>{html.escape(model)}</td><td>{html.escape(str(score))}</td></tr>"
-        )
-    return (
-        "<table><thead><tr><th>Model</th><th>Primary score</th></tr></thead>"
-        f"<tbody>{''.join(table_rows)}</tbody></table>"
-    )
-
-
 def _community_cards(rows: Sequence[Mapping[str, Any]]) -> str:
     adapters = sorted({_first_str(row, ("adapter_id",)) for row in rows})
     models = sorted({_first_str(row, ("model_key",)) for row in rows})
-    conformance = sorted({_first_str(row, ("conformance_status",)) for row in rows})
+    conformance = sorted(
+        {
+            _self_reported_conformance_status(_first_str(row, ("conformance_status",)))
+            for row in rows
+        }
+    )
     cards = (
         ("Adapters", ", ".join(adapters) or "none"),
         ("Models", ", ".join(models) or "none"),
-        ("Conformance", ", ".join(conformance) or "unknown"),
+        (CONFORMANCE_SELF_REPORTED_LABEL, ", ".join(conformance) or "unknown"),
     )
     return (
         "<section><h2>Adapter and Conformance Cards</h2><div class='grid'>"
@@ -250,6 +335,13 @@ def _community_cards(rows: Sequence[Mapping[str, Any]]) -> str:
         )
         + "</div></section>"
     )
+
+
+def _self_reported_conformance_status(status: str) -> str:
+    normalized = status.strip() or "unknown"
+    if "self-reported" in normalized.lower():
+        return normalized
+    return f"{normalized} (self-reported)"
 
 
 def _community_sections(rows: Sequence[Mapping[str, Any]]) -> str:
@@ -274,6 +366,9 @@ def _community_sections(rows: Sequence[Mapping[str, Any]]) -> str:
                 or _first_str(row, ("scoring_mode",)) != scoring_mode
             ):
                 continue
+            conformance_status = _self_reported_conformance_status(
+                _first_str(row, ("conformance_status",))
+            )
             section_rows.append(
                 "<tr>"
                 f"<td>{html.escape(_first_str(row, ('row_id',)))}</td>"
@@ -282,6 +377,7 @@ def _community_sections(rows: Sequence[Mapping[str, Any]]) -> str:
                 f"<td>{html.escape(_first_str(row, ('adapter_id',)))}</td>"
                 f"<td>{html.escape(str(row.get('task_count', '')))}</td>"
                 f"<td>{html.escape(str(row.get('coverage_percentage', '')))}%</td>"
+                f"<td>{html.escape(conformance_status)}</td>"
                 "</tr>"
             )
         sections.append(
@@ -290,7 +386,8 @@ def _community_sections(rows: Sequence[Mapping[str, Any]]) -> str:
             "<p>Coverage matrices and shard/composite views are grouped within "
             "this compatible family and scoring mode.</p>"
             "<table><thead><tr><th>Row</th><th>Type</th><th>Model</th>"
-            "<th>Adapter</th><th>Tasks</th><th>Coverage</th></tr></thead>"
+            "<th>Adapter</th><th>Tasks</th><th>Coverage</th>"
+            f"<th>{html.escape(CONFORMANCE_SELF_REPORTED_LABEL)}</th></tr></thead>"
             f"<tbody>{''.join(section_rows)}</tbody></table>"
             "</section>"
         )
@@ -311,12 +408,20 @@ def _mapping_rows(value: object) -> tuple[Mapping[str, Any], ...]:
     return tuple(records)
 
 
-def _artifact_links(root: Path, *, href_base: Path) -> tuple[tuple[str, str], ...]:
+def _artifact_links(
+    root: Path,
+    *,
+    href_base: Path,
+    allowed_paths: Sequence[str] | None = None,
+) -> tuple[tuple[str, str], ...]:
     links: list[tuple[str, str]] = []
+    allowed = set(allowed_paths) if allowed_paths is not None else None
     for path in sorted(root.rglob("*")):
         if not path.is_file():
             continue
         relative = path.relative_to(root).as_posix()
+        if allowed is not None and relative not in allowed:
+            continue
         if any(part.startswith(".") for part in relative.split("/")):
             continue
         href = os.path.relpath(path, start=href_base).replace(os.sep, "/")
@@ -375,14 +480,6 @@ def _first_str(record: Mapping[str, Any], keys: Sequence[str]) -> str:
         if isinstance(value, str) and value.strip():
             return value
     return "unknown"
-
-
-def _first_value(record: Mapping[str, Any], keys: Sequence[str]) -> object:
-    for key in keys:
-        value = record.get(key)
-        if value is not None:
-            return value
-    return ""
 
 
 def _file_sha256(path: Path) -> str:

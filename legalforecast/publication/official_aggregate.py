@@ -8,7 +8,7 @@ import json
 import math
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -322,9 +322,13 @@ def aggregate_official_results(
     )
     inference = _official_bootstrap_inference(summaries)
     accounting_rows = summarize_accounting_leaderboard(accounting_records)
+    report_accounting_rows = _accounting_rows_for_report(
+        accounting_rows,
+        include_ablation_in_model_id=multi_ablation_bundle,
+    )
     report = build_benchmark_leaderboard_report(
         summaries,
-        accounting_rows=accounting_rows,
+        accounting_rows=report_accounting_rows,
         inference=inference,
         repeat_variance_rows=_repeat_variance_summary_rows(repeat_variance_report),
         title=config.title,
@@ -521,6 +525,26 @@ def _accounting_rows_by_model(
             )
         rows_by_model[model_id] = row
     return rows_by_model
+
+
+def _accounting_rows_for_report(
+    accounting_rows: Sequence[AccountingLeaderboardRow],
+    *,
+    include_ablation_in_model_id: bool,
+) -> tuple[AccountingLeaderboardRow, ...]:
+    if not include_ablation_in_model_id:
+        return tuple(accounting_rows)
+    return tuple(
+        replace(
+            row,
+            model_id=_display_model_id(
+                row.model_id,
+                _ablation_label(row.run_label),
+                include_ablation=True,
+            ),
+        )
+        for row in accounting_rows
+    )
 
 
 def _accounting_totals_by_model(
