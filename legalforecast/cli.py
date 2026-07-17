@@ -35279,7 +35279,13 @@ def _reject_fixture_only_official_finalization(*paths: Path) -> None:
     for path in paths:
         if path.is_symlink() or not path.is_file():
             continue
-        artifact = _read_json_object(path)
+        try:
+            artifact = _read_json_object(path)
+        except (OSError, UnicodeError, ValueError):
+            # This is an early, fixture-specific rejection guard. Canonical
+            # finalization performs the authoritative format and lineage checks;
+            # let it report malformed or legacy-shaped inputs in stage order.
+            continue
         schema_version = str(artifact.get("schema_version") or "")
         if (
             artifact.get("provenance_class") == "fixture_only"
