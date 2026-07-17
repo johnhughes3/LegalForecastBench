@@ -47,7 +47,12 @@ def test_official_workflows_share_one_configure_aws_credentials_pin() -> None:
     pins = re.findall(action_pin_pattern, WORKFLOW)
     pins.extend(re.findall(action_pin_pattern, RUN_BENCHMARK_WORKFLOW))
 
-    assert len(pins) == 4
+    assert WORKFLOW.count("uses: aws-actions/configure-aws-credentials@") == 1
+    assert (
+        RUN_BENCHMARK_WORKFLOW.count("uses: aws-actions/configure-aws-credentials@")
+        == 4
+    )
+    assert len(pins) == 5
     assert len(set(pins)) == 1
 
 

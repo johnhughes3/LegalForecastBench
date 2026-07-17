@@ -10,9 +10,11 @@ from legalforecast.cli import main
 from legalforecast.protocol.freeze import cli_freeze
 from legalforecast.protocol.policy_artifacts import (
     PolicyArtifactError,
+    execution_repeat_policy_sha256,
     generate_execution_policy,
     generate_labeling_policy,
     require_dispatch_policy_match,
+    require_repeat_case_coverage,
     verify_execution_policy,
     verify_labeling_policy,
     write_labeling_policy,
@@ -73,6 +75,62 @@ def test_execution_policy_round_trip_and_rejects_late_precommitment() -> None:
     lifecycle["labeling_policy_published_at"] = "2026-07-13T01:00:00Z"
     with pytest.raises(PolicyArtifactError, match="before labeling"):
         generate_execution_policy(late)
+
+
+def test_repeat_policy_count_is_independent_of_selected_case_count() -> None:
+    decisions = _execution_decisions()
+    repeat_policy = cast(dict[str, object], decisions["repeat_policy"])
+    repeat_policy["count"] = 3
+
+    artifact = generate_execution_policy(decisions)
+
+    assert verify_execution_policy(artifact) == artifact["policy_sha256"]
+
+
+@pytest.mark.parametrize("count", (0, -1, True))
+def test_repeat_policy_rejects_nonpositive_or_boolean_count(count: object) -> None:
+    decisions = _execution_decisions()
+    repeat_policy = cast(dict[str, object], decisions["repeat_policy"])
+    repeat_policy["count"] = count
+
+    with pytest.raises(PolicyArtifactError, match=r"repeat_policy\.count"):
+        generate_execution_policy(decisions)
+
+
+def test_repeat_policy_identity_is_order_independent() -> None:
+    first = generate_execution_policy(_execution_decisions())
+    reversed_decisions = _execution_decisions()
+    repeat_policy = cast(dict[str, object], reversed_decisions["repeat_policy"])
+    repeat_policy["case_ids"] = ["case-2", "case-1"]
+    second = generate_execution_policy(reversed_decisions)
+
+    assert execution_repeat_policy_sha256(first) == execution_repeat_policy_sha256(
+        second
+    )
+
+
+def test_repeat_preflight_rejects_case_missing_from_requested_ablation() -> None:
+    packets = [
+        {"case_id": "case-1", "ablation": "full_packet"},
+        {"case_id": "case-1", "ablation": "metadata_only"},
+        {"case_id": "case-2", "ablation": "full_packet"},
+    ]
+
+    with pytest.raises(PolicyArtifactError, match=r"case-2.*metadata_only"):
+        require_repeat_case_coverage(
+            packets,
+            repeat_case_ids=("case-1", "case-2"),
+            requested_ablations=("full_packet", "metadata_only"),
+        )
+
+
+def test_receipt_policy_requires_run_and_attempt_identity() -> None:
+    decisions = _execution_decisions()
+    receipt_policy = cast(dict[str, object], decisions["receipt_policy"])
+    receipt_policy["identity_fields"] = ["workflow_run_id"]
+
+    with pytest.raises(PolicyArtifactError, match="immutable attempt"):
+        generate_execution_policy(decisions)
 
 
 def test_dispatch_choices_must_match_frozen_execution_policy() -> None:

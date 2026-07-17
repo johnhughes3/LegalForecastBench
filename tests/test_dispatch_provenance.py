@@ -295,6 +295,74 @@ def test_shard_dispatch_rejects_group_not_authorized_by_frozen_policy(
         )
 
 
+def test_shard_dispatch_rejects_repeat_inputs_that_differ_from_frozen_policy(
+    tmp_path: Path,
+) -> None:
+    bundle_path, _ = _write_sharded_bundle(tmp_path)
+
+    with pytest.raises(
+        DispatchProvenanceError, match="repeat count does not match frozen"
+    ):
+        build_dispatch_provenance(
+            current_freeze_bundle_path=bundle_path,
+            candidate_freeze_bundle_paths=(bundle_path,),
+            root_path=tmp_path,
+            current_model_registry_path=tmp_path / "root-registry.json",
+            prior_dispatches=(),
+            current_workflow_run_id="1001",
+            current_workflow_run_attempt=1,
+            current_workflow_ref="refs/heads/main",
+            current_concurrency_group=_workflow_group(
+                ("fixture:model-a",), ("full_packet",)
+            ),
+            requested_model_keys=("fixture:model-a",),
+            requested_ablations=("full_packet",),
+            requested_repeat_count=3,
+            requested_repeat_case_ids=("case-1", "case-2"),
+            shard_only=True,
+        )
+
+
+def test_shard_dispatch_binds_repeat_and_attempt_policy_identities(
+    tmp_path: Path,
+) -> None:
+    bundle_path, _ = _write_sharded_bundle(tmp_path)
+
+    record = build_dispatch_provenance(
+        current_freeze_bundle_path=bundle_path,
+        candidate_freeze_bundle_paths=(bundle_path,),
+        root_path=tmp_path,
+        current_model_registry_path=tmp_path / "root-registry.json",
+        prior_dispatches=(),
+        current_workflow_run_id="1001",
+        current_workflow_run_attempt=1,
+        current_workflow_ref="refs/heads/main",
+        current_concurrency_group=_workflow_group(
+            ("fixture:model-a",), ("full_packet",)
+        ),
+        requested_model_keys=("fixture:model-a",),
+        requested_ablations=("full_packet",),
+        requested_repeat_count=2,
+        requested_repeat_case_ids=("case-2", "case-1"),
+        shard_only=True,
+    )
+
+    assert record["repeat_policy"] == {
+        "case_ids": ["case-1", "case-2"],
+        "count": 2,
+    }
+    assert len(str(record["repeat_policy_sha256"])) == 64
+    assert len(str(record["attempt_policy_sha256"])) == 64
+    assert len(str(record["receipt_policy_sha256"])) == 64
+    assert record["frozen_result_inputs"] == {
+        "frozen_manifest_sha256": "e" * 64,
+        "labels_sha256": "f" * 64,
+        "model_registry_sha256": hashlib.sha256(
+            (tmp_path / "root-registry.json").read_bytes()
+        ).hexdigest(),
+    }
+
+
 @pytest.mark.parametrize(
     ("model_keys", "ablations", "message"),
     (
@@ -497,6 +565,10 @@ def _write_bundle(
             "path": registry_path.name,
             "sha256": hashlib.sha256(registry_bytes).hexdigest(),
         },
+        "frozen_artifacts": {
+            "manifest_sha256": "e" * 64,
+            "labels_sha256": "f" * 64,
+        },
     }
     if amends_bundle_sha256 is not None:
         record["amends_bundle_sha256"] = amends_bundle_sha256
@@ -572,6 +644,10 @@ def _write_sharded_bundle(tmp_path: Path) -> tuple[Path, str]:
         "model_registry": {
             "path": registry_path.name,
             "sha256": hashlib.sha256(registry_bytes).hexdigest(),
+        },
+        "frozen_artifacts": {
+            "manifest_sha256": "e" * 64,
+            "labels_sha256": "f" * 64,
         },
         "artifacts": [
             {

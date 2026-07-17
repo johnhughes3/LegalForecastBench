@@ -9,7 +9,10 @@ BUILD_MATRIX_JOB = WORKFLOW[
     WORKFLOW.index("  build-matrix:") : WORKFLOW.index("  run-case:")
 ]
 RUN_CASE_JOB = WORKFLOW[
-    WORKFLOW.index("  run-case:") : WORKFLOW.index("  aggregate-results:")
+    WORKFLOW.index("  run-case:") : WORKFLOW.index("  finalize-shard:")
+]
+FINALIZE_SHARD_JOB = WORKFLOW[
+    WORKFLOW.index("  finalize-shard:") : WORKFLOW.index("  aggregate-results:")
 ]
 AGGREGATE_RESULTS_JOB = WORKFLOW[WORKFLOW.index("  aggregate-results:") :]
 
@@ -69,6 +72,9 @@ def test_official_eval_matrix_workflow_builds_bounded_case_matrix() -> None:
     assert "ABLATIONS: ${{ inputs.ablations }}" in WORKFLOW
     assert "requested_ablations = [" in WORKFLOW
     assert "requested_ablation_set = set(requested_ablations)" in WORKFLOW
+    repeat_coverage_check = BUILD_MATRIX_JOB.index("require_repeat_case_coverage(")
+    assert repeat_coverage_check < BUILD_MATRIX_JOB.index("for packet in packets:")
+    assert "requested_ablations=requested_ablations" in BUILD_MATRIX_JOB
     assert "duplicate packet row for ablation" in WORKFLOW
     assert "model_keys missing from registry" in WORKFLOW
     assert "run-input manifest produced an empty matrix" in WORKFLOW
@@ -93,6 +99,12 @@ def test_shard_only_dispatch_gates_aggregation_and_records_provenance() -> None:
     assert "SHARD_ONLY: ${{ inputs.shard_only }}" in BUILD_MATRIX_JOB
     assert "ABLATIONS: ${{ inputs.ablations }}" in BUILD_MATRIX_JOB
     assert 'ablation_args+=(--requested-ablation "${ablation}")' in BUILD_MATRIX_JOB
+    assert (
+        'repeat_case_args+=(--requested-repeat-case-id "${case_id}")'
+        in BUILD_MATRIX_JOB
+    )
+    assert '--requested-repeat-count "${REPEAT_COUNT}"' in BUILD_MATRIX_JOB
+    assert '"${repeat_case_args[@]}"' in BUILD_MATRIX_JOB
     assert 'key="${raw_key}"' in provenance_step
     assert 'ablation="${raw_ablation}"' in provenance_step
     assert 'key="${raw_key//[[:space:]]/}"' not in provenance_step
@@ -104,6 +116,27 @@ def test_shard_only_dispatch_gates_aggregation_and_records_provenance() -> None:
         "if: ${{ !inputs.dry_run && !inputs.shard_only && "
         "needs.run-case.result == 'success' }}" in AGGREGATE_RESULTS_JOB
     )
+
+
+def test_finalize_shard_requires_every_matrix_cell_and_writes_once() -> None:
+    assert "- build-matrix\n      - run-case" in FINALIZE_SHARD_JOB
+    assert (
+        "!inputs.dry_run && inputs.shard_only && "
+        "needs.build-matrix.result == 'success' && "
+        "needs.run-case.result == 'success'" in FINALIZE_SHARD_JOB
+    )
+    assert "always()" not in FINALIZE_SHARD_JOB
+    assert "environment: legalforecastbench-official-eval-fan-in" in FINALIZE_SHARD_JOB
+    assert "LFB_GITHUB_FAN_IN_ROLE_ARN" in FINALIZE_SHARD_JOB
+    assert "ANTHROPIC_API_KEY" not in FINALIZE_SHARD_JOB
+    assert "OPENAI_API_KEY" not in FINALIZE_SHARD_JOB
+    assert "pattern: official-eval-*" in FINALIZE_SHARD_JOB
+    assert "legalforecast.publication.shard_receipt" in FINALIZE_SHARD_JOB
+    assert '--workflow-run-id "${GITHUB_RUN_ID}"' in FINALIZE_SHARD_JOB
+    assert '--workflow-run-attempt "${GITHUB_RUN_ATTEMPT}"' in FINALIZE_SHARD_JOB
+    assert '--receipt-root "s3://${LFB_RESULTS_BUCKET}"' in FINALIZE_SHARD_JOB
+    assert "if-no-files-found: error" in RUN_CASE_JOB
+    assert "if: ${{ !inputs.dry_run && success() }}" in RUN_CASE_JOB
     provenance_source = (
         ROOT / "legalforecast" / "publication" / "dispatch_provenance.py"
     ).read_text(encoding="utf-8")
@@ -345,7 +378,7 @@ def test_official_eval_matrix_workflow_preflights_live_provider_credentials() ->
 
 
 def test_official_eval_matrix_workflow_uses_oidc_only_in_protected_jobs() -> None:
-    assert WORKFLOW.count("id-token: write") == 3
+    assert WORKFLOW.count("id-token: write") == 4
     assert "LFB_GITHUB_PACKET_READ_ROLE_ARN: ${{ vars." in WORKFLOW
     assert "secrets.LFB_GITHUB_PACKET_READ_ROLE_ARN" not in WORKFLOW
     configure_aws_pins = re.findall(
@@ -355,7 +388,7 @@ def test_official_eval_matrix_workflow_uses_oidc_only_in_protected_jobs() -> Non
     assert (
         len(configure_aws_pins)
         == WORKFLOW.count("uses: aws-actions/configure-aws-credentials@")
-        == 3
+        == 4
     )
     assert len(set(configure_aws_pins)) == 1
     assert "role-session-name: lfb-official-matrix-${{ github.run_id }}" in WORKFLOW
@@ -364,6 +397,10 @@ def test_official_eval_matrix_workflow_uses_oidc_only_in_protected_jobs() -> Non
         "strategy.job-index }}" in WORKFLOW
     )
     assert "role-session-name: lfb-official-aggregate-${{ github.run_id }}" in WORKFLOW
+    assert (
+        "role-session-name: lfb-finalize-shard-${{ github.run_id }}-${{ "
+        "github.run_attempt }}" in WORKFLOW
+    )
 
 
 def test_official_eval_matrix_workflow_invokes_isolated_runner_once_per_row() -> None:
