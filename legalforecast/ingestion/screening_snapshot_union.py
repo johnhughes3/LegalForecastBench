@@ -443,7 +443,10 @@ def _validate_active_correction(observation: _SourceTerminalObservation) -> None
     errors: list[str] = []
     for evidence in evidence_records:
         try:
-            validate_strict_screen_evidence(evidence)
+            validate_strict_screen_evidence(
+                evidence,
+                expected_candidate_id=candidate.candidate_id,
+            )
         except StrictScreenEvidenceError as error:
             errors.append(str(error))
         else:

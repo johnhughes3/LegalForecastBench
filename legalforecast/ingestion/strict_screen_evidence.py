@@ -11,7 +11,11 @@ class StrictScreenEvidenceError(ValueError):
     """Raised when purported strict-screen evidence is not production-shaped."""
 
 
-def validate_strict_screen_evidence(evidence: Mapping[str, Any]) -> None:
+def validate_strict_screen_evidence(
+    evidence: Mapping[str, Any],
+    *,
+    expected_candidate_id: str | None = None,
+) -> None:
     """Validate one accepted record emitted by the production strict screen.
 
     The union stage calls this same validator before allowing an authenticated
@@ -24,8 +28,30 @@ def validate_strict_screen_evidence(evidence: Mapping[str, Any]) -> None:
     if _text(candidate.get("candidate_key"), "candidate.candidate_key") != docket_id:
         raise StrictScreenEvidenceError("candidate key does not match docket ID")
     metadata = _mapping(candidate.get("metadata"), "candidate.metadata")
-    for field in ("case_id", "case_name", "court", "docket_number"):
+    metadata_case_id = _text(
+        metadata.get("case_id"),
+        "candidate.metadata.case_id",
+    )
+    for field in ("case_name", "court", "docket_number"):
         _text(metadata.get(field), f"candidate.metadata.{field}")
+    if expected_candidate_id is not None:
+        evidence_candidate_id = _text(evidence.get("candidate_id"), "candidate_id")
+        if evidence_candidate_id != expected_candidate_id:
+            raise StrictScreenEvidenceError(
+                "strict-screen evidence belongs to a different candidate"
+            )
+        expected_docket_id = expected_candidate_id.removeprefix("courtlistener-docket-")
+        if docket_id != expected_docket_id:
+            raise StrictScreenEvidenceError(
+                "strict-screen docket ID does not match its candidate"
+            )
+        if metadata_case_id not in {
+            expected_candidate_id,
+            expected_docket_id,
+        }:
+            raise StrictScreenEvidenceError(
+                "strict-screen case ID does not match its candidate"
+            )
 
     ai = _mapping(evidence.get("ai"), "ai")
     target_numbers = _text_sequence(
@@ -167,7 +193,13 @@ def validate_strict_screen_evidence(evidence: Mapping[str, Any]) -> None:
             "mtd_decision_screen.decision_entries must be a non-empty list"
         )
     screen_decisions = cast(list[object], screen_decisions_value)
-    if screen.get("actual_mtd_decision_entry_count") != len(screen_decisions):
+    decision_count = screen.get("actual_mtd_decision_entry_count")
+    if (
+        not isinstance(decision_count, int)
+        or isinstance(decision_count, bool)
+        or decision_count < 1
+        or decision_count != len(screen_decisions)
+    ):
         raise StrictScreenEvidenceError("MTD decision screen count does not match")
     screened_decision_numbers: set[str] = set()
     for index, value in enumerate(screen_decisions, start=1):
@@ -188,6 +220,17 @@ def validate_strict_screen_evidence(evidence: Mapping[str, Any]) -> None:
         )
 
     linkage = _mapping(evidence.get("motion_linkage"), "motion_linkage")
+    if _text(linkage.get("candidate_id"), "motion_linkage.candidate_id") != docket_id:
+        raise StrictScreenEvidenceError(
+            "motion_linkage candidate ID does not match its docket"
+        )
+    allowed_case_ids = {docket_id, metadata_case_id}
+    if expected_candidate_id is not None:
+        allowed_case_ids.add(expected_candidate_id)
+    if _text(linkage.get("case_id"), "motion_linkage.case_id") not in allowed_case_ids:
+        raise StrictScreenEvidenceError(
+            "motion_linkage case ID does not match its candidate"
+        )
     if linkage.get("is_clean") is not True:
         raise StrictScreenEvidenceError("motion_linkage is not clean")
     if _object_list(
@@ -202,6 +245,26 @@ def validate_strict_screen_evidence(evidence: Mapping[str, Any]) -> None:
     linked_motion_ids: set[str] = set()
     linked_decision_ids: set[str] = set()
     for index, link in enumerate(links, start=1):
+        if (
+            _text(
+                link.get("candidate_id"),
+                f"motion_linkage.links[{index}].candidate_id",
+            )
+            != docket_id
+        ):
+            raise StrictScreenEvidenceError(
+                "motion_linkage link candidate ID does not match its docket"
+            )
+        if (
+            _text(
+                link.get("case_id"),
+                f"motion_linkage.links[{index}].case_id",
+            )
+            not in allowed_case_ids
+        ):
+            raise StrictScreenEvidenceError(
+                "motion_linkage link case ID does not match its candidate"
+            )
         linked_motion_ids.update(
             _text_sequence(
                 link.get("motion_entry_ids"),
