@@ -169,7 +169,11 @@ def source_manifest_sha256(source_sha256: Mapping[str, str]) -> str:
     if set(source_sha256) == set(FIRECRAWL_SCREENING_SOURCE_PATHS):
         ordered_paths = FIRECRAWL_SCREENING_SOURCE_PATHS
     elif set(source_sha256) == set(LEGACY_32057DE_SOURCE_SHA256):
-        ordered_paths = tuple(LEGACY_32057DE_SOURCE_SHA256)
+        ordered_paths = tuple(
+            path
+            for path in FIRECRAWL_SCREENING_SOURCE_PATHS
+            if path in LEGACY_32057DE_SOURCE_SHA256
+        )
     else:
         ordered_paths = tuple(source_sha256)
     payload = b"".join(
