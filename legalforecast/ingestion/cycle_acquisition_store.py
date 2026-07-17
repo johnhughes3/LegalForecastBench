@@ -210,6 +210,16 @@ class RawArtifact:
 
 
 @dataclass(frozen=True, slots=True)
+class StoredDiscoveryHit:
+    """One raw provider hit together with its frozen discovery term."""
+
+    term: str
+    provider_hit_id: str
+    candidate_id: str
+    payload: Mapping[str, object]
+
+
+@dataclass(frozen=True, slots=True)
 class PublishedSnapshot:
     """One immutable complete snapshot recorded by the cycle store."""
 
@@ -1414,6 +1424,36 @@ class CycleAcquisitionStore:
                 )
             hits.append(
                 DiscoveryHit(
+                    provider_hit_id=str(row["provider_hit_id"]),
+                    candidate_id=str(row["candidate_id"]),
+                    payload=cast(dict[str, object], parsed_payload),
+                )
+            )
+        return tuple(hits)
+
+    def batch_discovery_hits(self, batch_id: str) -> tuple[StoredDiscoveryHit, ...]:
+        """Return every raw provider hit in one batch without deduplication."""
+
+        self.batch_digest(batch_id)
+        rows = self._connection.execute(
+            """
+            SELECT term, provider_hit_id, candidate_id, payload_json
+            FROM discovery_hits
+            WHERE batch_id = ?
+            ORDER BY term, provider_hit_id
+            """,
+            (batch_id,),
+        )
+        hits: list[StoredDiscoveryHit] = []
+        for row in rows:
+            parsed_payload = cast(object, json.loads(row["payload_json"]))
+            if not isinstance(parsed_payload, dict):
+                raise CycleAcquisitionStoreError(
+                    f"provider payload is not an object for {row['provider_hit_id']}"
+                )
+            hits.append(
+                StoredDiscoveryHit(
+                    term=str(row["term"]),
                     provider_hit_id=str(row["provider_hit_id"]),
                     candidate_id=str(row["candidate_id"]),
                     payload=cast(dict[str, object], parsed_payload),

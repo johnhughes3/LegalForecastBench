@@ -617,10 +617,14 @@ def _target(
                 raise Exact310RestRebindError(
                     "target setup carrier is not exactly exhausted"
                 )
-            hits = store.candidate_discovery_hits(target_batch_id)
-            if len(hits) != len(candidate_ids):
+            hits = store.batch_discovery_hits(target_batch_id)
+            if (
+                len(hits) != len(candidate_ids)
+                or any(hit.term != setup.term for hit in hits)
+                or {hit.candidate_id for hit in hits} != set(candidate_ids)
+            ):
                 raise Exact310RestRebindError(
-                    "target setup discovery-hit count mismatch"
+                    "target setup raw discovery-hit set mismatch"
                 )
             target_projection_records = [
                 _validate_target_setup_hit(
@@ -967,25 +971,23 @@ def _validate_target_setup_hit(
         raise Exact310RestRebindError(
             f"target setup primary source hit is not committed for {candidate_id}"
         )
-    return MappingProxyType(
-        {
-            "docket_id": docket_id,
-            "court_id": _optional_text(payload.get("court_id"), "court_id"),
-            "docket_number": _optional_text(
-                payload.get("docket_number"), "docket_number"
-            ),
-            "case_name": _optional_text(payload.get("case_name"), "case_name"),
-            "decision_entry_evidence": _optional_mapping(
-                payload.get("decision_entry_evidence"),
-                "decision_entry_evidence",
-            ),
-            "opinion_resolution_evidence": _optional_mapping(
-                payload.get("opinion_resolution_evidence"),
-                "opinion_resolution_evidence",
-            ),
-            "source_hits": source_hits,
-        }
-    )
+    projection: dict[str, object] = {
+        "docket_id": docket_id,
+        "court_id": _optional_text(payload.get("court_id"), "court_id"),
+        "docket_number": _optional_text(payload.get("docket_number"), "docket_number"),
+        "case_name": _optional_text(payload.get("case_name"), "case_name"),
+        "decision_entry_evidence": _optional_mapping(
+            payload.get("decision_entry_evidence"),
+            "decision_entry_evidence",
+        ),
+        "source_hits": source_hits,
+    }
+    if setup.source_cycle_hash is not None:
+        projection["opinion_resolution_evidence"] = _optional_mapping(
+            payload.get("opinion_resolution_evidence"),
+            "opinion_resolution_evidence",
+        )
+    return MappingProxyType(projection)
 
 
 def _lower_sha256(value: Mapping[str, object], key: str) -> str:

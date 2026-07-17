@@ -6,7 +6,7 @@ import sqlite3
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import legalforecast.ingestion.rest_observation_policy_rebind as rebind_module
 import pytest
@@ -760,6 +760,138 @@ def test_exact310_plan_rejects_target_rebind_projection_payload_tamper(
         match="candidate projection commitment mismatch",
     ):
         _plan(tmp_path, fixture)
+
+
+def test_exact310_plan_rejects_injected_second_target_discovery_hit(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    with sqlite3.connect(fixture.target_store) as connection:
+        row = connection.execute(
+            "SELECT candidate_id, payload_json, request_cursor_key, discovered_at "
+            "FROM discovery_hits WHERE batch_id = ? ORDER BY rowid LIMIT 1",
+            (fixture.target_batch_id,),
+        ).fetchone()
+        assert row is not None
+        connection.execute(
+            "INSERT INTO discovery_hits("
+            "batch_id, term, provider_hit_id, candidate_id, payload_json, "
+            "request_cursor_key, discovered_at"
+            ") VALUES(?, ?, ?, ?, ?, ?, ?)",
+            (
+                fixture.target_batch_id,
+                "injected-second-term",
+                "injected-second-provider-hit",
+                *row,
+            ),
+        )
+        connection.commit()
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    with pytest.raises(
+        Exact310RestRebindError,
+        match="target setup raw discovery-hit set mismatch",
+    ):
+        _plan(tmp_path, fixture)
+
+
+def test_exact310_plan_accepts_same_cycle_legacy_seed_commitment_shape(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    receipt = json.loads(fixture.receipt.read_text(encoding="utf-8"))
+    term = "courtlistener-direct-search-transfer-v1"
+    legacy_batch = "same-cycle-legacy-target"
+    legacy_store = tmp_path / "same-cycle-legacy.sqlite3"
+    with CycleAcquisitionStore(fixture.target_store, read_only=True) as current:
+        current_hits = current.candidate_discovery_hits(fixture.target_batch_id)
+    payloads: dict[str, Mapping[str, object]] = {}
+    for hit in current_hits:
+        payload = cast(dict[str, object], json.loads(json.dumps(hit.payload)))
+        payload["query_term"] = term
+        provenance = cast(dict[str, object], payload["direct_search_provenance"])
+        provenance["schema_version"] = (
+            "legalforecast.courtlistener_direct_search_transfer.v1"
+        )
+        provenance["source_candidate_set_sha256"] = fixture.spec.candidate_set_sha256
+        provenance.pop("source_cycle_hash")
+        provenance.pop("target_cycle_hash")
+        payloads[hit.candidate_id] = payload
+    config = {
+        "auth_mode": "authenticated",
+        "decision_window_end": "2026-07-15",
+        "decision_window_start": "2026-07-11",
+        "discovery_mode": "legalforecast.courtlistener_direct_search_transfer.v1",
+        "order_by": "entry_date_filed desc",
+        "page_size": 100,
+        "provider": "courtlistener-recap-rest-v4",
+        "query_field": "description",
+        "query_term_order_is_frozen": True,
+        "query_terms": [term],
+        "schema_version": "legalforecast.recap_api_discovery_batch.v1",
+        "search_type": "rd",
+        "source_batch_digest": receipt["source_batch_digest"],
+        "source_batch_id": receipt["source_batch_id"],
+        "source_candidate_count": fixture.spec.candidate_count,
+        "source_candidate_set_sha256": fixture.spec.candidate_set_sha256,
+        "source_search_type": "rd",
+        "top_k_per_term": fixture.spec.candidate_count,
+    }
+    with CycleAcquisitionStore(legacy_store) as target:
+        target_cycle = target.ensure_cycle(_policy("a"))
+        target.ensure_batch(legacy_batch, config)
+        target.ensure_terms(legacy_batch, (term,))
+        target.commit_search_page(
+            legacy_batch,
+            term,
+            None,
+            tuple(
+                DiscoveryHit(
+                    provider_hit_id=(
+                        f"{term}:{receipt['source_batch_digest']}:"
+                        f"{candidate.rsplit('-', 1)[-1]}"
+                    ),
+                    candidate_id=candidate,
+                    payload=payloads[candidate],
+                )
+                for candidate in fixture.candidates
+            ),
+            next_cursor=None,
+            terminal_status=TermTerminalStatus.EXHAUSTED,
+        )
+    assert target_cycle == fixture.spec.cycle_hash
+    summary = tmp_path / "same-cycle-legacy-summary.json"
+    summary.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.direct_search_seed_result.v1",
+                "batch_id": legacy_batch,
+                "term": term,
+                "source_batch_id": receipt["source_batch_id"],
+                "source_batch_digest": receipt["source_batch_digest"],
+                "source_candidate_set_sha256": fixture.spec.candidate_set_sha256,
+                "leads_selected": fixture.spec.candidate_count,
+                "leads_seeded": fixture.spec.candidate_count,
+                "already_seeded": False,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    result = plan_exact310_terminal_rest_rebind(
+        source_store_path=fixture.source_store,
+        source_snapshot_path=fixture.source_snapshot,
+        expected_source_snapshot_manifest_sha256=fixture.source_manifest_sha256,
+        transfer_receipt_path=fixture.receipt,
+        target_seed_summary_path=summary,
+        expected_target_seed_summary_sha256=_sha(summary),
+        target_store_path=legacy_store,
+        target_batch_id=legacy_batch,
+        expected_target_cycle_hash=target_cycle,
+        contract_output_path=tmp_path / "same-cycle-legacy-contract.json",
+        source_spec=fixture.spec,
+    )
+    assert result.reproved_current_count == 1
 
 
 def test_exact310_authentication_holds_source_lock(
