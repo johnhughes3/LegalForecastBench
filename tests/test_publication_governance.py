@@ -1,20 +1,24 @@
-"""Contract tests for audience, claims, and publication governance."""
+"""Contract tests for public claims and publication governance."""
 
 from __future__ import annotations
 
 import json
-from datetime import date
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 GOVERNANCE_PATH = ROOT / "docs" / "publication-governance.json"
 GOVERNANCE_DOC_PATH = ROOT / "docs" / "publication-governance.md"
-ROADMAP_PATH = ROOT / "docs" / "plans" / "2026-07-16-dual-track-launch-roadmap.md"
 DOCS_INDEX_PATH = ROOT / "docs" / "README.md"
 
 PRELIMINARY_LABEL = (
     "Preliminary — one task pair, operator-run, not independently reproducible"
+)
+REPRODUCIBLE_LABEL = "Reproducible community result — contributor-grade, non-official"
+OFFICIAL_LABEL = "Official LegalForecast-MTD Cycle 1 result"
+NON_AFFILIATION = (
+    "LegalForecastBench is an independent project. Harvey AI, Harvey LAB, and "
+    "LegalQuants are not sponsors, partners, or endorsers of this work."
 )
 
 
@@ -22,31 +26,45 @@ def _governance() -> dict[str, Any]:
     return json.loads(GOVERNANCE_PATH.read_text(encoding="utf-8"))
 
 
-def test_governance_contract_covers_required_scope() -> None:
+def test_governance_contract_contains_only_public_fields() -> None:
     governance = _governance()
 
+    assert set(governance) == {
+        "effective_date",
+        "evidence_tiers",
+        "non_affiliation",
+        "public_surfaces",
+        "repository_url",
+        "rules",
+        "schema_version",
+    }
     assert governance["schema_version"] == 1
     assert governance["effective_date"] == "2026-07-16"
-    assert set(governance["audiences"]) == {
-        "ai-researchers",
-        "contributors",
-        "legalquants",
-        "practitioners",
-    }
     assert set(governance["evidence_tiers"]) == {
         "official",
         "preliminary",
         "reproducible",
     }
-
-    rules = governance["rules"]
-    assert rules["dates_are_escalation_triggers_not_gate_waivers"] is True
-    assert rules["official_and_community_surfaces_are_separate"] is True
-    assert rules["cross_suite_overall_winner_forbidden"] is True
-    assert rules["external_send_requires_john_approval"] is True
-    assert rules["no_paid_community_run_before_tier0_specification"] is True
+    assert governance["evidence_tiers"]["preliminary"]["required_label"] == (
+        PRELIMINARY_LABEL
+    )
+    assert governance["evidence_tiers"]["reproducible"]["required_label"] == (
+        REPRODUCIBLE_LABEL
+    )
+    assert governance["evidence_tiers"]["official"]["required_label"] == (
+        OFFICIAL_LABEL
+    )
+    assert set(governance["rules"]) == {
+        "cross_suite_overall_winner_forbidden",
+        "no_paid_community_run_before_tier0_specification",
+        "official_and_community_surfaces_are_separate",
+        "preliminary_results_do_not_close_issue_49",
+        "scores_from_different_suites_are_not_ranked",
+    }
+    assert all(governance["rules"].values())
 
     non_affiliation = governance["non_affiliation"]
+    assert set(non_affiliation) == {"named_organizations", "required_text"}
     assert set(non_affiliation["named_organizations"]) == {
         "Harvey AI",
         "Harvey LAB",
@@ -54,13 +72,12 @@ def test_governance_contract_covers_required_scope() -> None:
     }
     for organization in non_affiliation["named_organizations"]:
         assert organization in non_affiliation["required_text"]
+    assert non_affiliation["required_text"] == NON_AFFILIATION
 
 
-def test_every_planned_public_surface_has_a_tier_owner_and_approval() -> None:
+def test_every_public_surface_has_a_tier_and_canonical_destination() -> None:
     governance = _governance()
     tiers = set(governance["evidence_tiers"])
-    owners = set(governance["owners"])
-    approvals = set(governance["approvals"])
     expected_surfaces = {
         "community-comparison-site",
         "methods-preprint",
@@ -79,9 +96,16 @@ def test_every_planned_public_surface_has_a_tier_owner_and_approval() -> None:
     assert len({surface["canonical_url"] for surface in surfaces}) == len(surfaces)
 
     for surface in surfaces:
+        assert set(surface) == {
+            "call_to_action",
+            "canonical_path",
+            "canonical_url",
+            "evidence_tier",
+            "id",
+            "required_disclosures",
+            "track",
+        }
         assert surface["evidence_tier"] in tiers
-        assert surface["owner"] in owners
-        assert surface["approval"] in approvals
         assert surface["canonical_path"]
         assert surface["canonical_url"] == (
             "https://github.com/johnhughes3/LegalForecastBench/blob/main/"
@@ -101,29 +125,12 @@ def test_every_planned_public_surface_has_a_tier_owner_and_approval() -> None:
         if surface["evidence_tier"] == "preliminary":
             assert surface["track"] == "community"
 
-    for audience in governance["audiences"].values():
-        assert set(audience["priority_surfaces"]).issubset(expected_surfaces)
 
-
-def test_controlled_communications_remain_unsent_without_john() -> None:
-    governance = _governance()
-    owners = set(governance["owners"])
-    approvals = set(governance["approvals"])
-
-    for communication in governance["controlled_communications"]:
-        assert communication["owner"] in owners
-        assert communication["approval"] in approvals
-        assert communication["external_send_authorized"] is False
-        assert communication["required_boundary"]
-
-
-def test_preliminary_claim_boundary_matches_roadmap() -> None:
+def test_preliminary_claim_boundary_is_fail_closed() -> None:
     governance = _governance()
     preliminary = governance["evidence_tiers"]["preliminary"]
-    roadmap = ROADMAP_PATH.read_text(encoding="utf-8")
 
     assert preliminary["required_label"] == PRELIMINARY_LABEL
-    assert PRELIMINARY_LABEL in roadmap
     assert {
         "contributor-safe",
         "estimated harness effect",
@@ -132,55 +139,29 @@ def test_preliminary_claim_boundary_matches_roadmap() -> None:
         "performs better",
         "population-average",
     }.issubset(preliminary["forbidden_claims"])
-    assert governance["external_consistency_refs"]["github_issue_196"] == (
-        "https://github.com/johnhughes3/LegalForecastBench/issues/196"
-    )
 
 
-def test_calendar_preserves_targets_escalations_and_gate_integrity() -> None:
-    governance = _governance()
-    calendar = {entry["id"]: entry for entry in governance["calendar"]}
-
-    assert calendar["claude-tier0-package"]["target_date"] == "2026-07-21"
-    assert calendar["claude-tier0-package"]["escalation_date"] == "2026-07-23"
-    assert calendar["codex-tier0-follow-on"]["target_date"] == "2026-07-23"
-    assert calendar["codex-tier0-follow-on"]["escalation_date"] == "2026-07-25"
-    assert calendar["claims-governance-freeze"]["target_date"] == "2026-07-18"
-    assert calendar["legalquants-first-send-decision"]["target_date"] == ("2026-07-18")
-    assert calendar["tier1-first-trusted-row"]["target_date"] == "2026-08-07"
-    assert calendar["official-dispatch"]["target_date"] == "2026-08-13"
-    assert calendar["official-publication"]["target_date"] == "2026-08-17"
-    assert calendar["legalquants-input-window-close"]["target_date"] == ("2026-08-12")
-    assert calendar["pilot-publication"]["target_date"] == "2026-08-21"
-
-    for entry in calendar.values():
-        date.fromisoformat(entry["target_date"])
-        if entry["escalation_date"] is not None:
-            date.fromisoformat(entry["escalation_date"])
-        assert entry["miss_action"]
-        assert entry["gate_waiver"] is False
-
-    hard_escalations = {
-        entry["id"]: entry["escalation_date"]
-        for entry in calendar.values()
-        if entry["escalation_date"] is not None
-    }
-    assert hard_escalations == {
-        "claude-tier0-package": "2026-07-23",
-        "codex-tier0-follow-on": "2026-07-25",
-    }
-
-
-def test_human_policy_and_docs_index_are_bound_to_the_contract() -> None:
-    governance = _governance()
+def test_human_policy_and_docs_index_are_bound_to_the_public_contract() -> None:
     policy = GOVERNANCE_DOC_PATH.read_text(encoding="utf-8")
     docs_index = DOCS_INDEX_PATH.read_text(encoding="utf-8")
 
     assert "publication-governance.json" in policy
     assert PRELIMINARY_LABEL in policy
-    assert governance["non_affiliation"]["required_text"] in policy
-    for tier in governance["evidence_tiers"].values():
-        assert tier["required_label"] in policy
-    for audience in governance["audiences"].values():
-        assert audience["display_name"] in policy
-    assert "[Publication governance](publication-governance.md)" in docs_index
+    assert REPRODUCIBLE_LABEL in policy
+    assert OFFICIAL_LABEL in policy
+    assert NON_AFFILIATION in policy
+
+    for internal_marker in (
+        "## Audiences and calls to action",
+        "## Calendar",
+        "## Controlled communications",
+        "## Owners and approvals",
+        "5qd6",
+    ):
+        assert internal_marker not in policy
+
+    assert (
+        "[Publication governance](publication-governance.md): public evidence "
+        "tiers, forbidden claims, canonical result destinations, track-separation "
+        "rules, and non-affiliation language."
+    ) in docs_index
