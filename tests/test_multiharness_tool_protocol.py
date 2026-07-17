@@ -52,6 +52,31 @@ def test_tool_protocol_accepts_non_dict_mapping_implementations() -> None:
     }
 
 
+def test_tool_protocol_snapshots_caller_owned_payloads_recursively() -> None:
+    request_options: dict[str, Any] = {"encoding": "utf-8"}
+    request_arguments: dict[str, Any] = {"options": request_options}
+    response_row: dict[str, Any] = {"text": "fixture"}
+    response_output: dict[str, Any] = {"rows": [response_row]}
+    request = ToolRequest(
+        request_id="tool-1",
+        operation="read_text",
+        arguments=request_arguments,
+    )
+    response = ToolResponse(
+        request_id="tool-1",
+        status="succeeded",
+        output=response_output,
+    )
+
+    request_arguments["late"] = {1: "lossy key"}
+    request_options["encoding"] = "latin-1"
+    response_output["late"] = {2: "lossy key"}
+    response_row["text"] = "mutated"
+
+    assert request.to_record()["arguments"] == {"options": {"encoding": "utf-8"}}
+    assert response.to_record()["output"] == {"rows": [{"text": "fixture"}]}
+
+
 @pytest.mark.parametrize(
     "data",
     (
