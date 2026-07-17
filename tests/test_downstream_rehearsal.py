@@ -5,14 +5,13 @@ import importlib.util
 import json
 import sys
 import urllib.request
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import Any, NoReturn, cast
 
 import legalforecast.cli as cli_module
 import pytest
-from legalforecast.cli import main
 from legalforecast.evals.model_registry import load_model_registry
 from legalforecast.ingestion.decision_text_artifact import (
     DecisionTextArtifactError,
@@ -31,6 +30,7 @@ from legalforecast.ingestion.downstream_rehearsal import (
     select_response_fixtures,
 )
 from legalforecast.labeling.llm_pipeline import (
+    LlmPipelineError,
     llm_unitize_cases,
     stage_a_structural_review_prompt_records,
     stage_a_unitization_prompt_records,
@@ -49,6 +49,16 @@ REHEARSAL_STAGE_COMMANDS = (
     "rehearsal-stage-b-apply",
     "rehearsal-plan-packet-inputs",
     "rehearsal-build-packets",
+)
+REHEARSAL_STAGE_PRIMARY_ARTIFACTS = (
+    "rehearsal-decision-texts.jsonl",
+    "rehearsal-raw-prediction-units.jsonl",
+    "rehearsal-stage-a-structural-flags.jsonl",
+    "rehearsal-finalized-prediction-units.jsonl",
+    "rehearsal-labels.jsonl",
+    "rehearsal-label-apply-audit.jsonl",
+    "rehearsal-packet-build-input.jsonl",
+    "rehearsal-packets.jsonl",
 )
 
 
@@ -200,6 +210,41 @@ def test_deterministic_response_fixture_requires_exact_coverage(
         )
 
 
+def test_deterministic_response_fixture_selector_rejects_duplicate_identity(
+    tmp_path: Path,
+) -> None:
+    fixture_path = tmp_path / "responses.jsonl"
+    fixture_path.write_text(
+        json.dumps(
+            {
+                "schema_version": RESPONSE_FIXTURE_SCHEMA_VERSION,
+                "stage": "llm-label",
+                "candidate_id": "cand-1",
+                "model_key": "openai:judge",
+                "prompt_sha256": _sha256_text("prompt"),
+                "raw_output": json.dumps({"unit_findings": []}),
+                "served_model_version": "judge-v1",
+                "input_tokens": 0,
+                "output_tokens": 0,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    [fixture] = load_deterministic_response_fixtures(fixture_path)
+
+    with pytest.raises(
+        DownstreamRehearsalError,
+        match="duplicate deterministic response fixture identity",
+    ):
+        select_response_fixtures(
+            (fixture, fixture),
+            stage="llm-label",
+            candidate_ids=("cand-1",),
+            model_keys=("openai:judge",),
+        )
+
+
 def test_deterministic_response_fixture_rejects_symlink(tmp_path: Path) -> None:
     target = tmp_path / "responses-target.jsonl"
     target.write_text("{}\n", encoding="utf-8")
@@ -238,10 +283,10 @@ def test_exact_100_provider_free_downstream_rehearsal(
     output_root = fixture["output_root"]
     command = _rehearsal_command(fixture, target_count=100)
 
-    assert main(command) == 0
+    assert cli_module.main(command) == 0
     final_root = tmp_path / "rehearsal-finalized"
     assert (
-        main(
+        cli_module.main(
             _finalize_rehearsal_command(
                 fixture,
                 target_count=100,
@@ -292,7 +337,8 @@ def test_exact_100_provider_free_downstream_rehearsal(
     assert len(packets) == 100
     assert all(
         not {
-            document["source_document_id"] for document in packet["documents"]
+            f"{packet['candidate_id']}-{document['source_document_id']}"
+            for document in packet["documents"]
         }.intersection(
             {f"cand-{index:03d}-decision-{index:03d}" for index in range(100)}
         )
@@ -339,13 +385,25 @@ def test_exact_100_public_fixture_chain_reaches_fixture_only_finalization(
     monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
     fixture = _write_canonical_exact_100_chain(tmp_path, monkeypatch=monkeypatch)
 
+    published_bytes: dict[Path, bytes] = {}
     for command_name in REHEARSAL_STAGE_COMMANDS:
         command = _rehearsal_command(fixture, target_count=100)
         command[1] = command_name
-        assert main(command) == 0
+        assert cli_module.main(command) == 0
+        assert all(
+            path.read_bytes() == content for path, content in published_bytes.items()
+        )
+        stage_card = fixture["output_root"] / "run-cards" / f"{command_name}.json"
+        stage_card_payload = json.loads(stage_card.read_text(encoding="utf-8"))
+        newly_published = (
+            stage_card,
+            Path(str(stage_card) + ".fixture-artifact.json"),
+            *(Path(path) for path in stage_card_payload["output_commitments"]),
+        )
+        published_bytes.update({path: path.read_bytes() for path in newly_published})
     final_root = tmp_path / "canonical-finalized-rehearsal"
     assert (
-        main(
+        cli_module.main(
             _finalize_rehearsal_command(
                 fixture,
                 target_count=100,
@@ -411,6 +469,77 @@ def test_exact_100_public_fixture_chain_reaches_fixture_only_finalization(
     assert corpus["provider_billing_usd"] == "0.00"
 
 
+@pytest.mark.parametrize("prior_stage_index", range(len(REHEARSAL_STAGE_COMMANDS) - 1))
+@pytest.mark.parametrize(
+    ("mutation", "expected_message"),
+    (
+        ("primary", "fixture stage output commitment changed"),
+        ("sidecar", "fixture stage output is missing or unsafe"),
+        ("run-card", "invalid fixture artifact sidecar"),
+        ("run-card-delete", "fixture rehearsal stage card is missing"),
+        ("response-fixture", "invalid fixture stage card"),
+    ),
+)
+def test_explicit_rehearsal_stage_authenticates_prior_stage_without_rewriting(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    prior_stage_index: int,
+    mutation: str,
+    expected_message: str,
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    for command_name in REHEARSAL_STAGE_COMMANDS[: prior_stage_index + 1]:
+        command = _rehearsal_command(fixture, target_count=1)
+        command[1] = command_name
+        assert cli_module.main(command) == 0
+    prior_stage = REHEARSAL_STAGE_COMMANDS[prior_stage_index]
+    primary_path = (
+        fixture["output_root"] / REHEARSAL_STAGE_PRIMARY_ARTIFACTS[prior_stage_index]
+    )
+    sidecar_path = Path(str(primary_path) + ".fixture-artifact.json")
+    stage_card_path = fixture["output_root"] / "run-cards" / f"{prior_stage}.json"
+    published_paths = tuple(
+        path
+        for stage_name in REHEARSAL_STAGE_COMMANDS[: prior_stage_index + 1]
+        for path in _published_fixture_stage_paths(fixture["output_root"], stage_name)
+    )
+    if mutation == "primary":
+        primary_path.write_bytes(primary_path.read_bytes() + b"\n")
+    elif mutation == "sidecar":
+        sidecar_path.unlink()
+    elif mutation == "run-card":
+        stage_card_path.write_bytes(stage_card_path.read_bytes() + b"\n")
+    elif mutation == "run-card-delete":
+        stage_card_path.unlink()
+    else:
+        fixture["responses"].write_bytes(fixture["responses"].read_bytes() + b"\n")
+    published_bytes = {
+        path: path.read_bytes()
+        for path in published_paths
+        if path.exists() and not path.is_symlink()
+    }
+
+    next_command = _rehearsal_command(fixture, target_count=1)
+    next_command[1] = REHEARSAL_STAGE_COMMANDS[prior_stage_index + 1]
+    assert cli_module.main(next_command) == 2
+
+    assert expected_message in capsys.readouterr().err
+    assert all(
+        path.read_bytes() == content for path, content in published_bytes.items()
+    )
+    assert not (
+        fixture["output_root"]
+        / REHEARSAL_STAGE_PRIMARY_ARTIFACTS[prior_stage_index + 1]
+    ).exists()
+
+
 @pytest.mark.parametrize(
     ("pending_stage", "expected_message"),
     [
@@ -450,7 +579,7 @@ def test_rehearsal_refuses_to_self_adjudicate_pending_review_queues(
     pending["raw_output"] = json.dumps(raw_output, sort_keys=True)
     _write_jsonl(fixture["responses"], responses)
 
-    assert main(_rehearsal_command(fixture, target_count=1)) == 2
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 2
 
     assert expected_message in capsys.readouterr().err
     assert not (fixture["output_root"] / "rehearsal-final-summary.json").exists()
@@ -478,7 +607,7 @@ def test_rehearsal_rejects_selection_digest_under_wrong_output_path(
     )
     _write_json(fixture["selection_card"], selection_card)
 
-    assert main(_rehearsal_command(fixture, target_count=1)) == 2
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 2
 
     assert "invalid exact target-cohort selection run card" in capsys.readouterr().err
     assert not (fixture["output_root"] / "rehearsal-final-summary.json").exists()
@@ -505,7 +634,7 @@ def test_rehearsal_rejects_response_fixture_mutation_after_consumption(
 
     monkeypatch.setattr(cli_module, "run_fixture_stage_b", mutate_after_stage_b)
 
-    assert main(_rehearsal_command(fixture, target_count=1)) == 2
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 2
 
     assert "changed during stage execution" in capsys.readouterr().err
     assert not (fixture["output_root"] / "rehearsal-final-summary.json").exists()
@@ -538,9 +667,40 @@ def test_rehearsal_rejects_file_or_directory_input_mutation_during_stage(
 
     monkeypatch.setattr(cli_module, "run_fixture_stage_b", mutate_input_after_stage_b)
 
-    assert main(_rehearsal_command(fixture, target_count=1)) == 2
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 2
     assert "changed during stage execution" in capsys.readouterr().err
     assert not (fixture["output_root"] / "rehearsal-final-summary.json").exists()
+
+
+def test_stage_b_prompt_builder_rejects_duplicate_candidate_inputs(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 0
+    selections = tuple(_read_jsonl(fixture["selection"]))
+    units = tuple(
+        _read_jsonl(
+            fixture["output_root"] / "rehearsal-finalized-prediction-units.jsonl"
+        )
+    )
+    selections = (*selections, *selections)
+
+    with pytest.raises(
+        LlmPipelineError,
+        match="Stage B prompt candidate coverage differs across inputs",
+    ):
+        stage_b_labeling_prompt_records(
+            selection_records=selections,
+            prediction_unit_records=units,
+            decision_text_artifact=_published_fixture_decision_artifact(fixture),
+        )
 
 
 def test_fixture_finalizer_rejects_decision_mounted_even_when_listed_excluded(
@@ -555,7 +715,7 @@ def test_fixture_finalizer_rejects_decision_mounted_even_when_listed_excluded(
         count=1,
         authenticated_downstream_fixture=authenticated_downstream_fixture,
     )
-    assert main(_rehearsal_command(fixture, target_count=1)) == 0
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 0
     rehearsal_root = fixture["output_root"]
     packets_path = rehearsal_root / "rehearsal-packets.jsonl"
     [packet] = _read_jsonl(packets_path)
@@ -571,7 +731,7 @@ def test_fixture_finalizer_rejects_decision_mounted_even_when_listed_excluded(
     )
 
     assert (
-        main(
+        cli_module.main(
             _finalize_rehearsal_command(
                 fixture,
                 target_count=1,
@@ -615,12 +775,12 @@ def test_fixture_finalizer_rehashes_every_committed_stage_output(
         count=1,
         authenticated_downstream_fixture=authenticated_downstream_fixture,
     )
-    assert main(_rehearsal_command(fixture, target_count=1)) == 0
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 0
     artifact = fixture["output_root"] / relative_path
     artifact.write_bytes(artifact.read_bytes() + b"\n")
 
     assert (
-        main(
+        cli_module.main(
             _finalize_rehearsal_command(
                 fixture,
                 target_count=1,
@@ -630,6 +790,130 @@ def test_fixture_finalizer_rehashes_every_committed_stage_output(
         == 2
     )
     assert "output commitment changed" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_message"),
+    (
+        ("delete", "finalization input is not a regular file"),
+        ("symlink", "finalization input is not a regular file"),
+        ("tamper", "invalid fixture-only downstream rehearsal authority"),
+    ),
+)
+def test_fixture_finalizer_authenticates_final_summary_sidecar(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    mutation: str,
+    expected_message: str,
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 0
+    summary_path = fixture["output_root"] / "rehearsal-final-summary.json"
+    sidecar_path = Path(str(summary_path) + ".fixture-artifact.json")
+    if mutation == "delete":
+        sidecar_path.unlink()
+    elif mutation == "symlink":
+        backup = tmp_path / "summary-sidecar-backup.json"
+        sidecar_path.rename(backup)
+        sidecar_path.symlink_to(backup)
+    else:
+        sidecar_path.write_bytes(sidecar_path.read_bytes() + b"\n")
+
+    assert (
+        cli_module.main(
+            _finalize_rehearsal_command(
+                fixture,
+                target_count=1,
+                output_root=tmp_path / f"summary-sidecar-{mutation}",
+            )
+        )
+        == 2
+    )
+    assert expected_message in capsys.readouterr().err
+
+
+def test_fixture_finalizer_rejects_duplicate_recommitted_packet(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 0
+    packets_path = fixture["output_root"] / "rehearsal-packets.jsonl"
+    [packet] = _read_jsonl(packets_path)
+    _write_jsonl(packets_path, [packet, packet])
+    _recommit_fixture_stage_output(
+        fixture["output_root"],
+        artifact_path=packets_path,
+        stage="rehearsal-build-packets",
+    )
+
+    assert (
+        cli_module.main(
+            _finalize_rehearsal_command(
+                fixture,
+                target_count=1,
+                output_root=tmp_path / "duplicate-packet-finalize",
+            )
+        )
+        == 2
+    )
+    assert "contains duplicate records" in capsys.readouterr().err
+
+
+def test_fixture_finalizer_rechecks_commitments_after_semantic_validation(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 0
+    packets_path = fixture["output_root"] / "rehearsal-packets.jsonl"
+    original_read_records = cli_module._read_records
+    mutated = False
+
+    def mutate_after_authenticated_hash(path: Path) -> list[JsonRecord]:
+        nonlocal mutated
+        records = original_read_records(path)
+        if path.resolve() == packets_path.resolve() and not mutated:
+            mutated = True
+            path.write_bytes(path.read_bytes() + b"\n")
+        return records
+
+    monkeypatch.setattr(cli_module, "_read_records", mutate_after_authenticated_hash)
+    final_root = tmp_path / "toctou-finalize"
+
+    assert (
+        cli_module.main(
+            _finalize_rehearsal_command(
+                fixture,
+                target_count=1,
+                output_root=final_root,
+            )
+        )
+        == 2
+    )
+    assert "output commitment changed" in capsys.readouterr().err
+    assert not (final_root / "fixture-rehearsal-corpus.json").exists()
 
 
 @pytest.mark.parametrize("field", ("artifact_byte_count", "record_count"))
@@ -646,7 +930,7 @@ def test_fixture_finalizer_rejects_false_sidecar_counts_after_recommitment(
         count=1,
         authenticated_downstream_fixture=authenticated_downstream_fixture,
     )
-    assert main(_rehearsal_command(fixture, target_count=1)) == 0
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 0
     rehearsal_root = fixture["output_root"]
     artifact = rehearsal_root / "rehearsal-packet-audit.jsonl"
     sidecar_path = Path(str(artifact) + ".fixture-artifact.json")
@@ -660,7 +944,7 @@ def test_fixture_finalizer_rejects_false_sidecar_counts_after_recommitment(
     )
 
     assert (
-        main(
+        cli_module.main(
             _finalize_rehearsal_command(
                 fixture,
                 target_count=1,
@@ -686,7 +970,7 @@ def test_fixture_finalizer_rejects_missing_or_symlinked_committed_output(
         count=1,
         authenticated_downstream_fixture=authenticated_downstream_fixture,
     )
-    assert main(_rehearsal_command(fixture, target_count=1)) == 0
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 0
     artifact = fixture["output_root"] / "rehearsal-packet-audit.jsonl"
     backup = tmp_path / "packet-audit-backup.jsonl"
     artifact.rename(backup)
@@ -694,7 +978,7 @@ def test_fixture_finalizer_rejects_missing_or_symlinked_committed_output(
         artifact.symlink_to(backup)
 
     assert (
-        main(
+        cli_module.main(
             _finalize_rehearsal_command(
                 fixture,
                 target_count=1,
@@ -718,9 +1002,14 @@ def test_official_finalize_corpus_rejects_rehearsal_provenance(
         count=1,
         authenticated_downstream_fixture=authenticated_downstream_fixture,
     )
-    assert main(_rehearsal_command(fixture, target_count=1)) == 0
+    assert cli_module.main(_rehearsal_command(fixture, target_count=1)) == 0
 
-    assert main(_official_finalize_rejection_command(fixture, tmp_path=tmp_path)) == 2
+    assert (
+        cli_module.main(
+            _official_finalize_rejection_command(fixture, tmp_path=tmp_path)
+        )
+        == 2
+    )
 
     assert (
         "official finalize-corpus rejects fixture-only rehearsal provenance"
@@ -913,7 +1202,7 @@ def _write_canonical_exact_100_chain(
         helpers._target_100_fixture(tmp_path / "canonical-fixture", case_count=100)
     )
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "prepare-target-cohort",
@@ -949,7 +1238,7 @@ def _write_canonical_exact_100_chain(
     )
     free_clearance_root = tmp_path / "canonical-free-clearance"
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "clear-disclosures",
@@ -980,7 +1269,7 @@ def _write_canonical_exact_100_chain(
     )
     projection = tmp_path / "canonical-projection"
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "project-target-cohort",
@@ -1045,7 +1334,7 @@ def _write_canonical_exact_100_chain(
     )
     purchase_policy = purchase_policy_root / "purchase-policy-cli.json"
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "generate-purchase-policy",
@@ -1061,7 +1350,7 @@ def _write_canonical_exact_100_chain(
     )
     broker_policy = tmp_path / "canonical-recap-fetch-broker-policy.json"
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "generate-recap-fetch-broker-policy",
@@ -1090,7 +1379,7 @@ def _write_canonical_exact_100_chain(
     )
     ledger_root = tmp_path / "canonical-ledger-init"
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "init-purchase-ledger",
@@ -1118,7 +1407,7 @@ def _write_canonical_exact_100_chain(
     )
     purchase_root = tmp_path / "canonical-offline-purchase"
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "purchase-missing-recap-fetch",
@@ -1160,7 +1449,7 @@ def _write_canonical_exact_100_chain(
     )
     recovery = tmp_path / "canonical-recovery"
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "recover-purchased",
@@ -1202,7 +1491,7 @@ def _write_canonical_exact_100_chain(
     )
     purchased_clearance_root = tmp_path / "canonical-purchased-clearance"
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "clear-disclosures",
@@ -1233,7 +1522,7 @@ def _write_canonical_exact_100_chain(
     )
     materialized = tmp_path / "canonical-materialized"
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "materialize-cohort-documents",
@@ -1271,7 +1560,7 @@ def _write_canonical_exact_100_chain(
     parse_root = tmp_path / "canonical-parse"
     materialization_card = materialized / "run-cards/materialize-cohort-documents.json"
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "plan-parse-documents",
@@ -1308,7 +1597,7 @@ def _write_canonical_exact_100_chain(
                 text = "Defendant moves to dismiss Count I."
             (fixture_markdown / f"{document_id}.md").write_text(text, encoding="utf-8")
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "parse-documents",
@@ -1542,7 +1831,7 @@ def _write_exact_cohort_fixture(
         },
     )
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "plan-parse-documents",
@@ -1564,7 +1853,7 @@ def _write_exact_cohort_fixture(
         == 0
     )
     assert (
-        main(
+        cli_module.main(
             [
                 "acquisition",
                 "parse-documents",
@@ -2091,6 +2380,43 @@ def _response_row(
     }
 
 
+def _published_fixture_stage_paths(
+    rehearsal_root: Path, stage: str
+) -> tuple[Path, ...]:
+    stage_card_path = rehearsal_root / "run-cards" / f"{stage}.json"
+    stage_card = json.loads(stage_card_path.read_text(encoding="utf-8"))
+    return (
+        stage_card_path,
+        Path(str(stage_card_path) + ".fixture-artifact.json"),
+        *(Path(path) for path in stage_card["output_commitments"]),
+    )
+
+
+def _published_fixture_decision_artifact(
+    fixture: Mapping[str, Path],
+) -> VerifiedDecisionTextArtifact:
+    output_root = fixture["output_root"]
+    decisions_path = output_root / "rehearsal-decision-texts.jsonl"
+    manifest_path = output_root / "rehearsal-decision-texts-manifest.json"
+    run_card_path = output_root / "rehearsal-decision-texts-run-card.json"
+    finalized_path = output_root / "rehearsal-finalized-prediction-units.jsonl"
+    decisions = tuple(_read_jsonl(decisions_path))
+    finalized = tuple(_read_jsonl(finalized_path))
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return VerifiedDecisionTextArtifact(
+        records=decisions,
+        decision_texts_sha256=_sha256_path(decisions_path),
+        manifest_sha256=_sha256_path(manifest_path),
+        run_card_sha256=_sha256_path(run_card_path),
+        finalized_prediction_units_sha256=_sha256_path(finalized_path),
+        finalized_unit_envelope_sha256s={
+            str(row["candidate_id"]): "sha256:" + canonical_sha256(row)
+            for row in finalized
+        },
+        input_commitments=cast(JsonRecord, manifest["input_commitments"]),
+    )
+
+
 def _recommit_fixture_stage_output(
     rehearsal_root: Path,
     *,
@@ -2101,6 +2427,9 @@ def _recommit_fixture_stage_output(
     sidecar = json.loads(sidecar_path.read_text())
     sidecar["artifact_sha256"] = _sha256_path(artifact_path)
     sidecar["artifact_byte_count"] = artifact_path.stat().st_size
+    sidecar["record_count"] = (
+        len(_read_jsonl(artifact_path)) if artifact_path.suffix == ".jsonl" else 1
+    )
     _write_json(sidecar_path, sidecar)
 
     stage_card_path = rehearsal_root / "run-cards" / f"{stage}.json"
@@ -2112,6 +2441,7 @@ def _recommit_fixture_stage_output(
         sidecar_path
     )
     _write_json(stage_card_path, stage_card)
+    stage_card_sidecar_path = _recommit_fixture_artifact_sidecar(stage_card_path)
 
     summary_path = rehearsal_root / "rehearsal-final-summary.json"
     summary = json.loads(summary_path.read_text())
@@ -2124,11 +2454,11 @@ def _recommit_fixture_stage_output(
     summary["output_commitments"][str(stage_card_path.resolve())] = _sha256_path(
         stage_card_path
     )
+    summary["output_commitments"][str(stage_card_sidecar_path.resolve())] = (
+        _sha256_path(stage_card_sidecar_path)
+    )
     _write_json(summary_path, summary)
-    run_card_path = rehearsal_root / "run-cards/rehearse-downstream.json"
-    run_card = json.loads(run_card_path.read_text())
-    run_card["summary_sha256"] = _sha256_path(summary_path)
-    _write_json(run_card_path, run_card)
+    _recommit_fixture_summary_authority(rehearsal_root)
 
 
 def _recommit_fixture_metadata_output(
@@ -2143,6 +2473,7 @@ def _recommit_fixture_metadata_output(
         metadata_path
     )
     _write_json(stage_card_path, stage_card)
+    stage_card_sidecar_path = _recommit_fixture_artifact_sidecar(stage_card_path)
 
     summary_path = rehearsal_root / "rehearsal-final-summary.json"
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
@@ -2152,11 +2483,31 @@ def _recommit_fixture_metadata_output(
     summary["output_commitments"][str(stage_card_path.resolve())] = _sha256_path(
         stage_card_path
     )
+    summary["output_commitments"][str(stage_card_sidecar_path.resolve())] = (
+        _sha256_path(stage_card_sidecar_path)
+    )
     _write_json(summary_path, summary)
+    _recommit_fixture_summary_authority(rehearsal_root)
+
+
+def _recommit_fixture_summary_authority(rehearsal_root: Path) -> None:
+    summary_path = rehearsal_root / "rehearsal-final-summary.json"
+    summary_sidecar_path = _recommit_fixture_artifact_sidecar(summary_path)
     run_card_path = rehearsal_root / "run-cards/rehearse-downstream.json"
     run_card = json.loads(run_card_path.read_text(encoding="utf-8"))
     run_card["summary_sha256"] = _sha256_path(summary_path)
+    run_card["summary_sidecar_sha256"] = _sha256_path(summary_sidecar_path)
     _write_json(run_card_path, run_card)
+
+
+def _recommit_fixture_artifact_sidecar(artifact_path: Path) -> Path:
+    sidecar_path = Path(str(artifact_path) + ".fixture-artifact.json")
+    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    sidecar["artifact_sha256"] = _sha256_path(artifact_path)
+    sidecar["artifact_byte_count"] = artifact_path.stat().st_size
+    sidecar["record_count"] = 1
+    _write_json(sidecar_path, sidecar)
+    return sidecar_path
 
 
 def _docket_html(index: int) -> str:

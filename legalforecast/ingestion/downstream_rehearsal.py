@@ -407,7 +407,16 @@ def select_response_fixtures(
         raise DownstreamRehearsalError(
             "response-fixture model identities must be non-empty and unique"
         )
-    indexed = {fixture.key: fixture for fixture in fixtures if fixture.stage == stage}
+    indexed: dict[tuple[str, str, str], DeterministicModelResponseFixture] = {}
+    for fixture in fixtures:
+        if fixture.stage != stage:
+            continue
+        if fixture.key in indexed:
+            raise DownstreamRehearsalError(
+                "duplicate deterministic response fixture identity: "
+                + "/".join(fixture.key)
+            )
+        indexed[fixture.key] = fixture
     expected = {
         (stage, candidate_id, model_key)
         for candidate_id in candidate_ids

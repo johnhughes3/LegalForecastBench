@@ -1017,9 +1017,25 @@ def stage_b_labeling_prompt_records(
     """Reconstruct exact Stage B prompts from finalized fixture or live inputs."""
 
     selections = tuple(selection_records)
+    selection_candidate_ids = tuple(
+        _required_str(selection, "candidate_id") for selection in selections
+    )
     finalized_records = require_finalized_envelopes(prediction_unit_records)
+    finalized_candidate_ids = tuple(
+        _required_str(record, "candidate_id") for record in finalized_records
+    )
     units_by_candidate = _prediction_units_by_candidate(finalized_records)
     decisions_by_candidate = _verified_stage_b_decisions(decision_text_artifact)
+    expected_candidates = set(decisions_by_candidate)
+    if (
+        len(selection_candidate_ids) != len(set(selection_candidate_ids))
+        or len(finalized_candidate_ids) != len(set(finalized_candidate_ids))
+        or set(selection_candidate_ids) != expected_candidates
+        or set(finalized_candidate_ids) != expected_candidates
+    ):
+        raise LlmPipelineError(
+            "Stage B prompt candidate coverage differs across inputs"
+        )
     output: list[JsonRecord] = []
     for selection in selections:
         candidate_id = _required_str(selection, "candidate_id")
