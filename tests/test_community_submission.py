@@ -121,7 +121,10 @@ def test_artifact_hash_mismatch_is_rejected(tmp_path: Path) -> None:
         validate_submission_file(output_dir / "submission.json")
 
 
-def test_mirrored_artifact_requires_designated_hf_commit_url() -> None:
+@pytest.mark.parametrize("commit_length", (40, 64))
+def test_mirrored_artifact_requires_designated_hf_commit_url(
+    commit_length: int,
+) -> None:
     artifact = CommunityArtifactReference(
         artifact_id="large-public-output",
         path="large-public-output.jsonl",
@@ -130,11 +133,50 @@ def test_mirrored_artifact_requires_designated_hf_commit_url() -> None:
         source_url=(
             "https://huggingface.co/datasets/johnhughes3/"
             "legalforecastbench-community-artifacts/resolve/"
-            f"{'a' * 40}/large-public-output.jsonl"
+            f"{'a' * commit_length}/nested/large-public-output.jsonl"
         ),
     )
 
     assert artifact.source_url is not None
+
+
+@pytest.mark.parametrize(
+    "artifact_path",
+    (
+        "../output.jsonl",
+        "./output.jsonl",
+        ".hidden/output.jsonl",
+        "nested//output.jsonl",
+        "nested/",
+        "%2e%2e/output.jsonl",
+        "nested/%2E/output.jsonl",
+        "nested%2foutput.jsonl",
+        "nested%5Coutput.jsonl",
+        "%252e%252e/output.jsonl",
+        "nested%252foutput.jsonl",
+        "nested%255Coutput.jsonl",
+    ),
+)
+def test_mirrored_artifact_rejects_unsafe_resolved_path(
+    artifact_path: str,
+) -> None:
+    source_url = (
+        "https://huggingface.co/datasets/johnhughes3/"
+        "legalforecastbench-community-artifacts/resolve/"
+        f"{'a' * 40}/{artifact_path}"
+    )
+
+    with pytest.raises(
+        MultiHarnessValidationError,
+        match="source_url artifact path",
+    ):
+        CommunityArtifactReference(
+            artifact_id="large-public-output",
+            path="large-public-output.jsonl",
+            sha256=SHA1,
+            media_type="application/jsonl",
+            source_url=source_url,
+        )
 
 
 @pytest.mark.parametrize(
