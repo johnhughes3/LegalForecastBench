@@ -33,6 +33,18 @@ FIRECRAWL_SCREENING_DIRECT_STAGE_KEYS: Final = frozenset(
     }
 )
 SCREENING_SNAPSHOT_UNION_STAGE_KEY: Final = "screening_snapshot_union_inputs"
+SOURCE_NEUTRAL_DIRECT_STAGE_KEYS: Final = frozenset(
+    {
+        "courtlistener_discovery_inputs",
+        "courtlistener_rest_screen_inputs",
+    }
+)
+SOURCE_NEUTRAL_NAMED_STAGES: Final = frozenset(
+    {
+        "exact310-terminal-rest-policy-rebind",
+        "rebind-terminal-rest-observations",
+    }
+)
 
 # Ordered exactly as the audited 18-file compatibility set.  The strict-proof
 # validator and recursive union loader are load-bearing admission code, and the
@@ -287,9 +299,10 @@ def _stage_firecrawl_screening_source_count(
     label: str,
 ) -> int:
     direct_keys = FIRECRAWL_SCREENING_DIRECT_STAGE_KEYS.intersection(stage_commitments)
+    union_present = SCREENING_SNAPSHOT_UNION_STAGE_KEY in stage_commitments
     union_value = stage_commitments.get(SCREENING_SNAPSHOT_UNION_STAGE_KEY)
     implementation = stage_commitments.get(FIRECRAWL_SCREENING_IMPLEMENTATION_STAGE_KEY)
-    if union_value is not None:
+    if union_present:
         if direct_keys:
             raise FirecrawlScreeningIdentityError(
                 f"{label} mixes direct Firecrawl and union stage commitments"
@@ -375,5 +388,27 @@ def _stage_firecrawl_screening_source_count(
     if implementation is not None:
         raise FirecrawlScreeningIdentityError(
             f"{label} has an orphan Firecrawl implementation commitment"
+        )
+    source_neutral_keys = SOURCE_NEUTRAL_DIRECT_STAGE_KEYS.intersection(
+        stage_commitments
+    )
+    for source_neutral_key in source_neutral_keys:
+        if not isinstance(stage_commitments[source_neutral_key], Mapping):
+            raise FirecrawlScreeningIdentityError(
+                f"{label} source-neutral commitment must be an object: "
+                f"{source_neutral_key}"
+            )
+    named_stage = stage_commitments.get("stage")
+    recognized_named_stage = (
+        isinstance(named_stage, str) and named_stage in SOURCE_NEUTRAL_NAMED_STAGES
+    )
+    source_neutral_form_count = len(source_neutral_keys) + int(recognized_named_stage)
+    if source_neutral_form_count == 0:
+        raise FirecrawlScreeningIdentityError(
+            f"{label} lacks recognized source-neutral lineage"
+        )
+    if source_neutral_form_count != 1:
+        raise FirecrawlScreeningIdentityError(
+            f"{label} has ambiguous source-neutral lineage"
         )
     return 0

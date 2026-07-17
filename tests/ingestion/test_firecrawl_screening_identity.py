@@ -145,6 +145,21 @@ def test_direct_rest_snapshot_has_zero_firecrawl_sources() -> None:
     )
 
 
+def test_named_rest_rebind_snapshot_has_zero_firecrawl_sources() -> None:
+    assert (
+        snapshot_firecrawl_screening_source_count(
+            {
+                "stage_commitments": {
+                    "stage": "rebind-terminal-rest-observations",
+                    "source_snapshot_manifest_sha256": "a" * 64,
+                }
+            },
+            require_current=True,
+        )
+        == 0
+    )
+
+
 @pytest.mark.parametrize(
     "manifest",
     (
@@ -162,6 +177,28 @@ def test_snapshot_without_affirmative_stage_commitments_fails_closed(
     ):
         snapshot_firecrawl_screening_source_count(
             manifest,
+            require_current=True,
+        )
+
+
+def test_unrecognized_source_neutral_stage_fails_closed() -> None:
+    with pytest.raises(
+        FirecrawlScreeningIdentityError,
+        match="lacks recognized source-neutral lineage",
+    ):
+        snapshot_firecrawl_screening_source_count(
+            {"stage_commitments": {"unrecognized_stage": {}}},
+            require_current=True,
+        )
+
+
+def test_null_union_commitment_fails_closed() -> None:
+    with pytest.raises(
+        FirecrawlScreeningIdentityError,
+        match="union commitment must be an object",
+    ):
+        snapshot_firecrawl_screening_source_count(
+            {"stage_commitments": {"screening_snapshot_union_inputs": None}},
             require_current=True,
         )
 
