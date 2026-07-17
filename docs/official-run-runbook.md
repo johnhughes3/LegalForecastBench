@@ -749,6 +749,8 @@ uv run legalforecast acquisition union-screening-snapshots \
 
 Do not rank or prepare from either partition snapshot. Only the verified union is the complete recovery snapshot.
 
+The union compares duplicate candidates by their canonical terminal screening state, reason code, and complete evidence object. Differing manifest-authenticated docket HTML is permitted only for candidates that remain identically excluded: all versions are archived under `<candidate-id>/<sha256>.html`, `union-raw-observations.jsonl` commits the complete archive, and the authenticated canonical-selection mapping projects the earliest unambiguous UTC capture into the one-row-per-candidate `union-raw-artifacts.jsonl` consumed downstream. Accepted or newly-free duplicates must have identical raw commitments. Any terminal-evidence conflict, active-state raw drift, ambiguous or invalid retrieval timestamp, raw content drift against its commitment, or candidate/path ownership mismatch stops the union. Do not delete an older observation or hand-select one to force a merge.
+
 If the primary Firecrawl acquisition completed without exhausting its immutable cap, skip the recovery sequence and strict-screen its committed CourtListener docket bytes directly:
 
 ```bash
