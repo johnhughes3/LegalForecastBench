@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import difflib
+import fcntl
 import hashlib
 import inspect
 import json
@@ -11,7 +12,8 @@ import sqlite3
 import stat
 import subprocess
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Generator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import MappingProxyType
@@ -475,8 +477,82 @@ def authenticate_terminal_rest_source(
     expected_cycle_policy: Mapping[str, object] | None,
     expected_batch_id: str,
     expected_candidate_ids: frozenset[str] | None = None,
+    require_wal_clean: bool = False,
 ) -> AuthenticatedTerminalRestSource:
     """Authenticate one complete REST snapshot and its read-only source store."""
+
+    try:
+        lock_context = (
+            CycleAcquisitionStore(source_store_path, read_only=True)
+            if require_wal_clean
+            else _locked_source_store_allowing_wal(source_store_path)
+        )
+        with lock_context:
+            return _authenticate_terminal_rest_source_locked(
+                source_store_path=source_store_path,
+                source_snapshot_path=source_snapshot_path,
+                expected_snapshot_manifest_sha256=(expected_snapshot_manifest_sha256),
+                expected_cycle_hash=expected_cycle_hash,
+                expected_cycle_policy=expected_cycle_policy,
+                expected_batch_id=expected_batch_id,
+                expected_candidate_ids=expected_candidate_ids,
+            )
+    except RestObservationPolicyRebindError:
+        raise
+    except (CycleAcquisitionStoreError, OSError) as exc:
+        raise RestObservationPolicyRebindError(
+            f"source store is not writer-free and WAL-clean: {exc}"
+        ) from exc
+
+
+@contextmanager
+def _locked_source_store_allowing_wal(
+    store_path: str | Path,
+) -> Generator[None]:
+    """Hold the canonical store lock while legacy WAL-backed evidence is read."""
+
+    source = Path(store_path).resolve()
+    lock_path = Path(f"{source}.lock")
+    try:
+        if not stat.S_ISREG(source.lstat().st_mode):
+            raise RestObservationPolicyRebindError(
+                f"source store is not a regular file: {source}"
+            )
+        if not stat.S_ISREG(lock_path.lstat().st_mode):
+            raise RestObservationPolicyRebindError(
+                f"source store lock is not a regular file: {lock_path}"
+            )
+        lock_fd = os.open(lock_path, os.O_RDONLY)
+    except RestObservationPolicyRebindError:
+        raise
+    except OSError as exc:
+        raise RestObservationPolicyRebindError(
+            f"cannot open source store lock: {exc}"
+        ) from exc
+    try:
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise RestObservationPolicyRebindError(
+                f"source store is already locked: {source}"
+            ) from exc
+        yield
+    finally:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        os.close(lock_fd)
+
+
+def _authenticate_terminal_rest_source_locked(
+    *,
+    source_store_path: str | Path,
+    source_snapshot_path: str | Path,
+    expected_snapshot_manifest_sha256: str,
+    expected_cycle_hash: str,
+    expected_cycle_policy: Mapping[str, object] | None,
+    expected_batch_id: str,
+    expected_candidate_ids: frozenset[str] | None,
+) -> AuthenticatedTerminalRestSource:
+    """Authenticate while the caller holds the source store's exclusive lock."""
 
     source_snapshot = Path(source_snapshot_path).resolve()
     source_payloads, source_manifest, source_manifest_sha256 = _buffer_snapshot(
@@ -1144,6 +1220,7 @@ def _read_source_store_evidence(
         )
         connection.row_factory = sqlite3.Row
         try:
+            connection.execute("BEGIN")
             cycle_row = connection.execute(
                 """
                 SELECT policy_json, policy_hash
@@ -1181,6 +1258,10 @@ def _read_source_store_evidence(
                 str(batch_row["config_json"]).encode(),
                 label="source store batch config",
             )
+            if _canonical_sha256(batch_config) != str(batch_row["config_digest"]):
+                raise RestObservationPolicyRebindError(
+                    "source store batch config digest mismatch"
+                )
 
             candidate_ids = frozenset(
                 str(row["candidate_id"])

@@ -98,6 +98,7 @@ class _Target:
     cycle_policy: Mapping[str, object]
     batch_id: str
     batch_digest: str
+    batch_config: Mapping[str, object]
     candidate_ids: frozenset[str]
     current: Mapping[str, CandidateObservation]
 
@@ -108,6 +109,8 @@ def plan_exact310_terminal_rest_rebind(
     source_snapshot_path: str | Path,
     expected_source_snapshot_manifest_sha256: str,
     transfer_receipt_path: str | Path,
+    target_seed_summary_path: str | Path,
+    expected_target_seed_summary_sha256: str,
     target_store_path: str | Path,
     target_batch_id: str,
     expected_target_cycle_hash: str,
@@ -123,6 +126,8 @@ def plan_exact310_terminal_rest_rebind(
             expected_source_snapshot_manifest_sha256
         ),
         transfer_receipt_path=transfer_receipt_path,
+        target_seed_summary_path=target_seed_summary_path,
+        expected_target_seed_summary_sha256=(expected_target_seed_summary_sha256),
         target_store_path=target_store_path,
         target_batch_id=target_batch_id,
         expected_target_cycle_hash=expected_target_cycle_hash,
@@ -147,6 +152,8 @@ def execute_exact310_terminal_rest_rebind(
     source_snapshot_path: str | Path,
     expected_source_snapshot_manifest_sha256: str,
     transfer_receipt_path: str | Path,
+    target_seed_summary_path: str | Path,
+    expected_target_seed_summary_sha256: str,
     target_store_path: str | Path,
     target_batch_id: str,
     expected_target_cycle_hash: str,
@@ -176,6 +183,8 @@ def execute_exact310_terminal_rest_rebind(
             expected_source_snapshot_manifest_sha256
         ),
         transfer_receipt_path=transfer_receipt_path,
+        target_seed_summary_path=target_seed_summary_path,
+        expected_target_seed_summary_sha256=(expected_target_seed_summary_sha256),
         target_store_path=target_store_path,
         target_batch_id=target_batch_id,
         expected_target_cycle_hash=expected_target_cycle_hash,
@@ -197,9 +206,11 @@ def execute_exact310_terminal_rest_rebind(
         "source_snapshot_manifest_sha256": (expected_source_snapshot_manifest_sha256),
         "source_candidate_set_sha256": source_spec.candidate_set_sha256,
         "transfer_receipt_sha256": source_spec.transfer_receipt_sha256,
+        "target_seed_summary_sha256": expected_target_seed_summary_sha256,
         "source_observations_sha256": contract["source_observations_sha256"],
         "target_cycle_hash": expected_target_cycle_hash,
         "target_batch_id": target_batch_id,
+        "target_batch_digest": contract["target_batch_digest"],
         "target_outcomes_sha256": contract["target_outcomes_sha256"],
         **{f"{key}_count": value for key, value in _action_counts(outcomes).items()},
         "provider_activity_requested": False,
@@ -231,6 +242,8 @@ def execute_exact310_terminal_rest_rebind(
         source_store_path=Path(source_store_path).resolve(),
         source_snapshot_path=Path(source_snapshot_path).resolve(),
         transfer_receipt_path=Path(transfer_receipt_path).resolve(),
+        target_seed_summary_path=Path(target_seed_summary_path).resolve(),
+        target_seed_summary_sha256=expected_target_seed_summary_sha256,
         target_store_path=Path(target_store_path).resolve(),
         target_batch_id=target_batch_id,
         counts=counts,
@@ -254,19 +267,14 @@ def _build_contract(
     source_snapshot_path: str | Path,
     expected_source_snapshot_manifest_sha256: str,
     transfer_receipt_path: str | Path,
+    target_seed_summary_path: str | Path,
+    expected_target_seed_summary_sha256: str,
     target_store_path: str | Path,
     target_batch_id: str,
     expected_target_cycle_hash: str,
     source_spec: Exact310SourceSpec,
     pinned_actions: Mapping[str, str] | None = None,
 ) -> tuple[Mapping[str, object], tuple[TerminalRestRebindOutcome, ...]]:
-    try:
-        with CycleAcquisitionStore(source_store_path, read_only=True):
-            pass
-    except (CycleAcquisitionStoreError, OSError) as exc:
-        raise Exact310RestRebindError(
-            f"source store is not writer-free and WAL-clean: {exc}"
-        ) from exc
     receipt = load_pinned_rebind_json(
         transfer_receipt_path,
         expected_sha256=source_spec.transfer_receipt_sha256,
@@ -283,6 +291,7 @@ def _build_contract(
             expected_cycle_hash=source_spec.cycle_hash,
             expected_cycle_policy=None,
             expected_batch_id=source_spec.batch_id,
+            require_wal_clean=True,
         )
     except RestObservationPolicyRebindError as exc:
         raise Exact310RestRebindError(str(exc)) from exc
@@ -298,11 +307,22 @@ def _build_contract(
         receipt=receipt,
         spec=source_spec,
     )
+    target_seed_summary = load_pinned_rebind_json(
+        target_seed_summary_path,
+        expected_sha256=expected_target_seed_summary_sha256,
+        label="exact310 target seed summary",
+    )
+    expected_target_config = _validate_target_seed_summary(
+        target_seed_summary,
+        target_batch_id=target_batch_id,
+        source_spec=source_spec,
+    )
     target = _target(
         target_store_path,
         target_batch_id=target_batch_id,
         expected_cycle_hash=expected_target_cycle_hash,
         candidate_ids=source.candidate_ids,
+        expected_batch_config=expected_target_config,
     )
     outcomes = _derive_outcomes(source, target, pinned_actions=pinned_actions)
     rows = [
@@ -335,6 +355,8 @@ def _build_contract(
         "target_cycle_policy": dict(target.cycle_policy),
         "target_batch_id": target.batch_id,
         "target_batch_digest": target.batch_digest,
+        "target_batch_config": dict(target.batch_config),
+        "target_seed_summary_sha256": expected_target_seed_summary_sha256,
         "target_outcomes_sha256": canonical_rebind_sha256(rows),
         "outcomes": rows,
         "provider_activity_requested": False,
@@ -534,6 +556,7 @@ def _target(
     target_batch_id: str,
     expected_cycle_hash: str,
     candidate_ids: frozenset[str],
+    expected_batch_config: Mapping[str, object],
 ) -> _Target:
     try:
         with CycleAcquisitionStore(store_path, read_only=True) as store:
@@ -541,6 +564,22 @@ def _target(
                 raise Exact310RestRebindError("target cycle hash mismatch")
             if set(store.candidate_ids(target_batch_id)) != set(candidate_ids):
                 raise Exact310RestRebindError("target candidate set mismatch")
+            if any(
+                store.candidate_discovery_term(target_batch_id, candidate_id)
+                != "courtlistener-direct-search-transfer-v1"
+                for candidate_id in candidate_ids
+            ):
+                raise Exact310RestRebindError(
+                    "target candidates do not come from the pinned seed term"
+                )
+            batch_config = store.batch_config(target_batch_id)
+            if dict(batch_config) != dict(expected_batch_config):
+                raise Exact310RestRebindError(
+                    "target batch config does not match pinned seed authority"
+                )
+            batch_digest = store.batch_digest(target_batch_id)
+            if canonical_rebind_sha256(batch_config) != batch_digest:
+                raise Exact310RestRebindError("target batch config digest mismatch")
             current = {
                 candidate_id: observation
                 for candidate_id in sorted(candidate_ids)
@@ -554,7 +593,8 @@ def _target(
                 cycle_hash=store.cycle_hash,
                 cycle_policy=MappingProxyType(dict(store.cycle_policy)),
                 batch_id=target_batch_id,
-                batch_digest=store.batch_digest(target_batch_id),
+                batch_digest=batch_digest,
+                batch_config=MappingProxyType(dict(batch_config)),
                 candidate_ids=candidate_ids,
                 current=MappingProxyType(current),
             )
@@ -576,6 +616,71 @@ def _validate_receipt(receipt: Mapping[str, object], spec: Exact310SourceSpec) -
         raise Exact310RestRebindError("transfer receipt source identity mismatch")
     for key in ("source_batch_id", "source_batch_digest", "term"):
         _text(receipt, key)
+
+
+def _validate_target_seed_summary(
+    summary: Mapping[str, object],
+    *,
+    target_batch_id: str,
+    source_spec: Exact310SourceSpec,
+) -> Mapping[str, object]:
+    """Authenticate the exact provider-free seed-direct-search target authority."""
+
+    required = {
+        "schema_version",
+        "batch_id",
+        "term",
+        "source_batch_id",
+        "source_batch_digest",
+        "source_candidate_set_sha256",
+        "leads_selected",
+        "leads_seeded",
+        "already_seeded",
+    }
+    if set(summary) != required:
+        raise Exact310RestRebindError("target seed summary field set is not exact")
+    if (
+        summary.get("schema_version") != "legalforecast.direct_search_seed_result.v1"
+        or summary.get("batch_id") != target_batch_id
+        or summary.get("term") != "courtlistener-direct-search-transfer-v1"
+        or summary.get("leads_selected") != source_spec.candidate_count
+        or summary.get("leads_seeded") != source_spec.candidate_count
+        or summary.get("already_seeded") is not False
+    ):
+        raise Exact310RestRebindError("target seed summary identity mismatch")
+    source_batch_id = _text(summary, "source_batch_id")
+    source_batch_digest = _text(summary, "source_batch_digest")
+    source_candidate_set_sha256 = _text(summary, "source_candidate_set_sha256")
+    for label, digest in (
+        ("target seed source batch digest", source_batch_digest),
+        ("target seed source candidate-set digest", source_candidate_set_sha256),
+    ):
+        if len(digest) != 64 or any(
+            character not in "0123456789abcdef" for character in digest
+        ):
+            raise Exact310RestRebindError(f"{label} is not a lowercase SHA-256")
+    return MappingProxyType(
+        {
+            "auth_mode": "authenticated",
+            "decision_window_end": "2026-07-15",
+            "decision_window_start": "2026-07-11",
+            "discovery_mode": ("legalforecast.courtlistener_direct_search_transfer.v1"),
+            "order_by": "entry_date_filed desc",
+            "page_size": 100,
+            "provider": "courtlistener-recap-rest-v4",
+            "query_field": "description",
+            "query_term_order_is_frozen": True,
+            "query_terms": ["courtlistener-direct-search-transfer-v1"],
+            "schema_version": "legalforecast.recap_api_discovery_batch.v1",
+            "search_type": "rd",
+            "source_batch_digest": source_batch_digest,
+            "source_batch_id": source_batch_id,
+            "source_candidate_count": source_spec.candidate_count,
+            "source_candidate_set_sha256": source_candidate_set_sha256,
+            "source_search_type": "rd",
+            "top_k_per_term": source_spec.candidate_count,
+        }
+    )
 
 
 def _validate_source_batch_config(
@@ -840,6 +945,8 @@ def _run_card(
     source_store_path: Path,
     source_snapshot_path: Path,
     transfer_receipt_path: Path,
+    target_seed_summary_path: Path,
+    target_seed_summary_sha256: str,
     target_store_path: Path,
     target_batch_id: str,
     counts: Mapping[str, int],
@@ -852,6 +959,8 @@ def _run_card(
         "source_store_path": str(source_store_path),
         "source_snapshot_path": str(source_snapshot_path),
         "transfer_receipt_path": str(transfer_receipt_path),
+        "target_seed_summary_path": str(target_seed_summary_path),
+        "target_seed_summary_sha256": target_seed_summary_sha256,
         "target_store_path": str(target_store_path),
         "target_batch_id": target_batch_id,
         "snapshot_path": str(published.snapshot_path),

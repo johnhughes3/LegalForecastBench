@@ -3675,6 +3675,17 @@ def _add_batch_002_exact310_common_arguments(
         help="Exact provider-free direct-search transfer receipt.",
     )
     parser.add_argument(
+        "--target-seed-summary",
+        type=Path,
+        required=True,
+        help="Initial seed-direct-search summary for the exact target batch.",
+    )
+    parser.add_argument(
+        "--expected-target-seed-summary-sha256",
+        required=True,
+        help="External lowercase SHA-256 of the target seed summary.",
+    )
+    parser.add_argument(
         "--cycle-store",
         type=Path,
         required=True,
@@ -15498,6 +15509,10 @@ def _cmd_batch_002_exact310_plan(args: argparse.Namespace) -> int:
                 str, args.expected_source_snapshot_manifest_sha256
             ),
             transfer_receipt_path=cast(Path, args.transfer_receipt),
+            target_seed_summary_path=cast(Path, args.target_seed_summary),
+            expected_target_seed_summary_sha256=cast(
+                str, args.expected_target_seed_summary_sha256
+            ),
             target_store_path=cast(Path, args.cycle_store),
             target_batch_id=cast(str, args.batch_id),
             expected_target_cycle_hash=cast(str, args.expected_target_cycle_hash),
@@ -15532,6 +15547,10 @@ def _cmd_batch_002_exact310_rebind(args: argparse.Namespace) -> int:
                 str, args.expected_source_snapshot_manifest_sha256
             ),
             transfer_receipt_path=cast(Path, args.transfer_receipt),
+            target_seed_summary_path=cast(Path, args.target_seed_summary),
+            expected_target_seed_summary_sha256=cast(
+                str, args.expected_target_seed_summary_sha256
+            ),
             target_store_path=cast(Path, args.cycle_store),
             target_batch_id=cast(str, args.batch_id),
             expected_target_cycle_hash=cast(str, args.expected_target_cycle_hash),

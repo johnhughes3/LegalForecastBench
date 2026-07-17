@@ -593,6 +593,8 @@ uv run legalforecast batch-002 plan-exact310-rest-rebind \
   --source-snapshot <old-exact310-complete-snapshot> \
   --expected-source-snapshot-manifest-sha256 <pinned-old-manifest-sha256> \
   --transfer-receipt <old-direct-search-transfer-summary.json> \
+  --target-seed-summary <current-cycle-exact310-seed-summary.json> \
+  --expected-target-seed-summary-sha256 <pinned-target-seed-summary-sha256> \
   --cycle-store <current-cycle-union-store> \
   --batch-id <current-cycle-exact310-rebind-batch> \
   --expected-target-cycle-hash <current-cycle-hash> \
@@ -607,6 +609,8 @@ uv run legalforecast batch-002 rebind-exact310-rest-observations \
   --source-snapshot <old-exact310-complete-snapshot> \
   --expected-source-snapshot-manifest-sha256 <pinned-old-manifest-sha256> \
   --transfer-receipt <old-direct-search-transfer-summary.json> \
+  --target-seed-summary <current-cycle-exact310-seed-summary.json> \
+  --expected-target-seed-summary-sha256 <pinned-target-seed-summary-sha256> \
   --cycle-store <current-cycle-union-store> \
   --batch-id <current-cycle-exact310-rebind-batch> \
   --expected-target-cycle-hash <current-cycle-hash> \

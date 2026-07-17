@@ -8,11 +8,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import legalforecast.ingestion.rest_observation_policy_rebind as rebind_module
 import pytest
 from legalforecast.cli import main
 from legalforecast.ingestion.cycle_acquisition_store import (
     CycleAcquisitionStore,
     DiscoveryHit,
+    StoreLockedError,
     TermTerminalStatus,
     verify_snapshot,
 )
@@ -38,6 +40,8 @@ class Fixture:
     target_store: Path
     target_cycle_hash: str
     target_batch_id: str
+    target_seed_summary: Path
+    target_seed_summary_sha256: str
     receipt: Path
     spec: Exact310SourceSpec
 
@@ -66,12 +70,13 @@ def _batch(
     *,
     config: Mapping[str, object] | None = None,
     payloads: Mapping[str, Mapping[str, object]] | None = None,
+    term: str = "fixture",
 ) -> None:
     store.ensure_batch(batch_id, config or {"batch_id": batch_id})
-    store.ensure_terms(batch_id, ("fixture",))
+    store.ensure_terms(batch_id, (term,))
     store.commit_search_page(
         batch_id,
-        "fixture",
+        term,
         None,
         tuple(
             DiscoveryHit(
@@ -278,6 +283,7 @@ def _fixture(tmp_path: Path) -> Fixture:
             candidates,
             config=source_config,
             payloads=source_payloads,
+            term=transfer_term,
         )
         _record(
             source,
@@ -332,7 +338,17 @@ def _fixture(tmp_path: Path) -> Fixture:
             "decision_before_release_anchor",
             {"decision_date": "2026-06-29"},
         )
-        _batch(target, target_batch, candidates)
+        target_config = {
+            **source_config,
+            "source_search_type": "rd",
+        }
+        _batch(
+            target,
+            target_batch,
+            candidates,
+            config=target_config,
+            term=transfer_term,
+        )
     receipt = tmp_path / "receipt.json"
     receipt.write_text(
         json.dumps(
@@ -350,6 +366,24 @@ def _fixture(tmp_path: Path) -> Fixture:
         )
         + "\n"
     )
+    target_seed_summary = tmp_path / "target-seed-summary.json"
+    target_seed_summary.write_text(
+        json.dumps(
+            {
+                "schema_version": "legalforecast.direct_search_seed_result.v1",
+                "batch_id": target_batch,
+                "term": transfer_term,
+                "source_batch_id": source_lineage_id,
+                "source_batch_digest": source_lineage_digest,
+                "source_candidate_set_sha256": candidate_set_sha256,
+                "leads_selected": 4,
+                "leads_seeded": 4,
+                "already_seeded": False,
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
     return Fixture(
         candidates=candidates,
         source_store=source_path,
@@ -358,6 +392,8 @@ def _fixture(tmp_path: Path) -> Fixture:
         target_store=target_path,
         target_cycle_hash=target_cycle,
         target_batch_id=target_batch,
+        target_seed_summary=target_seed_summary,
+        target_seed_summary_sha256=_sha(target_seed_summary),
         receipt=receipt,
         spec=Exact310SourceSpec(
             cycle_hash=source_cycle,
@@ -375,6 +411,8 @@ def _plan(tmp_path: Path, fixture: Fixture) -> Exact310PlanResult:
         source_snapshot_path=fixture.source_snapshot,
         expected_source_snapshot_manifest_sha256=fixture.source_manifest_sha256,
         transfer_receipt_path=fixture.receipt,
+        target_seed_summary_path=fixture.target_seed_summary,
+        expected_target_seed_summary_sha256=(fixture.target_seed_summary_sha256),
         target_store_path=fixture.target_store,
         target_batch_id=fixture.target_batch_id,
         expected_target_cycle_hash=fixture.target_cycle_hash,
@@ -397,6 +435,8 @@ def test_exact310_rebind_preserves_reproves_and_fails_closed(tmp_path: Path) -> 
         source_snapshot_path=fixture.source_snapshot,
         expected_source_snapshot_manifest_sha256=fixture.source_manifest_sha256,
         transfer_receipt_path=fixture.receipt,
+        target_seed_summary_path=fixture.target_seed_summary,
+        expected_target_seed_summary_sha256=(fixture.target_seed_summary_sha256),
         target_store_path=fixture.target_store,
         target_batch_id=fixture.target_batch_id,
         expected_target_cycle_hash=fixture.target_cycle_hash,
@@ -443,6 +483,8 @@ def test_exact310_rebind_preserves_reproves_and_fails_closed(tmp_path: Path) -> 
         source_snapshot_path=fixture.source_snapshot,
         expected_source_snapshot_manifest_sha256=fixture.source_manifest_sha256,
         transfer_receipt_path=fixture.receipt,
+        target_seed_summary_path=fixture.target_seed_summary,
+        expected_target_seed_summary_sha256=(fixture.target_seed_summary_sha256),
         target_store_path=fixture.target_store,
         target_batch_id=fixture.target_batch_id,
         expected_target_cycle_hash=fixture.target_cycle_hash,
@@ -468,6 +510,8 @@ def test_exact310_rebind_rejects_contract_tamper(tmp_path: Path) -> None:
             source_snapshot_path=fixture.source_snapshot,
             expected_source_snapshot_manifest_sha256=(fixture.source_manifest_sha256),
             transfer_receipt_path=fixture.receipt,
+            target_seed_summary_path=fixture.target_seed_summary,
+            expected_target_seed_summary_sha256=(fixture.target_seed_summary_sha256),
             target_store_path=fixture.target_store,
             target_batch_id=fixture.target_batch_id,
             expected_target_cycle_hash=fixture.target_cycle_hash,
@@ -492,12 +536,78 @@ def test_exact310_plan_rejects_target_candidate_gap(tmp_path: Path) -> None:
             source_snapshot_path=fixture.source_snapshot,
             expected_source_snapshot_manifest_sha256=(fixture.source_manifest_sha256),
             transfer_receipt_path=fixture.receipt,
+            target_seed_summary_path=fixture.target_seed_summary,
+            expected_target_seed_summary_sha256=(fixture.target_seed_summary_sha256),
             target_store_path=wrong,
             target_batch_id=fixture.target_batch_id,
             expected_target_cycle_hash=cycle,
             contract_output_path=tmp_path / "refused.json",
             source_spec=fixture.spec,
         )
+
+
+def test_exact310_plan_rejects_arbitrary_target_batch_config(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    wrong = tmp_path / "wrong-config.sqlite3"
+    with CycleAcquisitionStore(wrong) as store:
+        cycle = store.ensure_cycle(_policy("b"))
+        _batch(
+            store,
+            fixture.target_batch_id,
+            fixture.candidates,
+            config={"arbitrary": "same candidates, wrong authority"},
+            term="courtlistener-direct-search-transfer-v1",
+        )
+    with pytest.raises(Exact310RestRebindError, match="target batch config"):
+        plan_exact310_terminal_rest_rebind(
+            source_store_path=fixture.source_store,
+            source_snapshot_path=fixture.source_snapshot,
+            expected_source_snapshot_manifest_sha256=(fixture.source_manifest_sha256),
+            transfer_receipt_path=fixture.receipt,
+            target_seed_summary_path=fixture.target_seed_summary,
+            expected_target_seed_summary_sha256=(fixture.target_seed_summary_sha256),
+            target_store_path=wrong,
+            target_batch_id=fixture.target_batch_id,
+            expected_target_cycle_hash=cycle,
+            contract_output_path=tmp_path / "refused-config.json",
+            source_spec=fixture.spec,
+        )
+
+
+def test_exact310_authentication_holds_source_lock(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(tmp_path)
+    original = vars(rebind_module)["_read_source_store_evidence"]
+    lock_observed = False
+
+    def guarded_read(
+        store_path: str | Path,
+        *,
+        batch_id: str,
+        snapshot_path: Path,
+        snapshot_manifest: Mapping[str, object],
+    ) -> object:
+        nonlocal lock_observed
+        with pytest.raises(StoreLockedError):
+            with CycleAcquisitionStore(fixture.source_store):
+                pass
+        lock_observed = True
+        return original(
+            store_path,
+            batch_id=batch_id,
+            snapshot_path=snapshot_path,
+            snapshot_manifest=snapshot_manifest,
+        )
+
+    monkeypatch.setattr(
+        rebind_module,
+        "_read_source_store_evidence",
+        guarded_read,
+    )
+    _plan(tmp_path, fixture)
+    assert lock_observed is True
 
 
 def test_exact310_plan_rejects_source_cycle_mismatch(tmp_path: Path) -> None:
@@ -515,6 +625,8 @@ def test_exact310_plan_rejects_source_cycle_mismatch(tmp_path: Path) -> None:
             source_snapshot_path=fixture.source_snapshot,
             expected_source_snapshot_manifest_sha256=(fixture.source_manifest_sha256),
             transfer_receipt_path=fixture.receipt,
+            target_seed_summary_path=fixture.target_seed_summary,
+            expected_target_seed_summary_sha256=(fixture.target_seed_summary_sha256),
             target_store_path=fixture.target_store,
             target_batch_id=fixture.target_batch_id,
             expected_target_cycle_hash=fixture.target_cycle_hash,
@@ -531,6 +643,8 @@ def test_exact310_plan_rejects_target_cycle_mismatch(tmp_path: Path) -> None:
             source_snapshot_path=fixture.source_snapshot,
             expected_source_snapshot_manifest_sha256=(fixture.source_manifest_sha256),
             transfer_receipt_path=fixture.receipt,
+            target_seed_summary_path=fixture.target_seed_summary,
+            expected_target_seed_summary_sha256=(fixture.target_seed_summary_sha256),
             target_store_path=fixture.target_store,
             target_batch_id=fixture.target_batch_id,
             expected_target_cycle_hash="f" * 64,
@@ -542,14 +656,24 @@ def test_exact310_plan_rejects_target_cycle_mismatch(tmp_path: Path) -> None:
 def test_exact310_reproof_uses_target_cycle_anchor(tmp_path: Path) -> None:
     fixture = _fixture(tmp_path)
     later_target = tmp_path / "later-target.sqlite3"
+    with CycleAcquisitionStore(fixture.target_store, read_only=True) as seeded:
+        target_config = seeded.batch_config(fixture.target_batch_id)
     with CycleAcquisitionStore(later_target) as target:
         target_cycle = target.ensure_cycle(_policy("b", anchor="2026-07-16"))
-        _batch(target, fixture.target_batch_id, fixture.candidates)
+        _batch(
+            target,
+            fixture.target_batch_id,
+            fixture.candidates,
+            config=target_config,
+            term="courtlistener-direct-search-transfer-v1",
+        )
     result = plan_exact310_terminal_rest_rebind(
         source_store_path=fixture.source_store,
         source_snapshot_path=fixture.source_snapshot,
         expected_source_snapshot_manifest_sha256=fixture.source_manifest_sha256,
         transfer_receipt_path=fixture.receipt,
+        target_seed_summary_path=fixture.target_seed_summary,
+        expected_target_seed_summary_sha256=(fixture.target_seed_summary_sha256),
         target_store_path=later_target,
         target_batch_id=fixture.target_batch_id,
         expected_target_cycle_hash=target_cycle,
@@ -611,6 +735,8 @@ def test_exact310_plan_rejects_same_size_source_substitution(tmp_path: Path) -> 
             source_snapshot_path=snapshot,
             expected_source_snapshot_manifest_sha256=_sha(snapshot / "manifest.json"),
             transfer_receipt_path=fixture.receipt,
+            target_seed_summary_path=fixture.target_seed_summary,
+            expected_target_seed_summary_sha256=(fixture.target_seed_summary_sha256),
             target_store_path=fixture.target_store,
             target_batch_id=fixture.target_batch_id,
             expected_target_cycle_hash=fixture.target_cycle_hash,
@@ -651,6 +777,8 @@ def test_exact310_plan_rejects_discovery_payload_substitution(tmp_path: Path) ->
             source_snapshot_path=fixture.source_snapshot,
             expected_source_snapshot_manifest_sha256=(fixture.source_manifest_sha256),
             transfer_receipt_path=fixture.receipt,
+            target_seed_summary_path=fixture.target_seed_summary,
+            expected_target_seed_summary_sha256=(fixture.target_seed_summary_sha256),
             target_store_path=fixture.target_store,
             target_batch_id=fixture.target_batch_id,
             expected_target_cycle_hash=fixture.target_cycle_hash,
