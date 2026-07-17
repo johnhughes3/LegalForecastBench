@@ -23,6 +23,7 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from itertools import pairwise
 from pathlib import Path
 from typing import Any, cast
 
@@ -520,6 +521,7 @@ from legalforecast.ingestion.retained_cohort_extension import (
 )
 from legalforecast.ingestion.screening_snapshot_union import (
     ScreeningSnapshotUnionError,
+    UnionRawArtifact,
     load_screening_snapshot_union,
 )
 from legalforecast.ingestion.snapshot_quarantine import (
@@ -1251,6 +1253,14 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Publish one provider-free saturated union of two or more "
             "same-cycle screening snapshots."
+        ),
+        description=(
+            "Provider-free union of manifest-pinned same-cycle snapshots. "
+            "Duplicate candidates require identical terminal screening evidence; "
+            "excluded duplicates may retain distinct authenticated raw docket "
+            "observations while their earliest UTC capture is the canonical packet "
+            "input. Accepted/newly-free duplicates require identical raw bytes. "
+            "Conflicting evidence or raw-path ownership fails closed."
         ),
     )
     _add_acquisition_union_screening_snapshots_arguments(
@@ -17395,12 +17405,14 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
     snapshot_path = snapshot_root / snapshot_id
     owned_raw_dir = output_root / "union-raw-artifacts"
     owned_raw_manifest_path = output_root / "union-raw-artifacts.jsonl"
+    owned_raw_observations_path = output_root / "union-raw-observations.jsonl"
     summary_path = output_root / "screening-snapshot-union-summary.json"
     input_paths = (cycle_store_path, *source_snapshots)
     output_paths = (
         snapshot_path,
         owned_raw_dir,
         owned_raw_manifest_path,
+        owned_raw_observations_path,
         summary_path,
     )
     if _acquisition_dry_run(args):
@@ -17458,12 +17470,22 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                     raise CycleAcquisitionStoreError(
                         "complete union snapshot exists and --no-resume forbids reuse"
                     )
-                owned_raw_records = _owned_raw_records_from_snapshot(existing[0])
+                owned_raw_records = _owned_raw_records_from_snapshot(
+                    existing[0], canonical_artifacts=union.canonical_raw_artifacts
+                )
+                owned_raw_observations = _all_owned_raw_records_from_snapshot(
+                    existing[0]
+                )
                 _write_jsonl(owned_raw_manifest_path, owned_raw_records)
+                _write_jsonl(owned_raw_observations_path, owned_raw_observations)
                 owned_raw_commitment = _file_commitment(owned_raw_manifest_path)
+                owned_raw_observations_commitment = _file_commitment(
+                    owned_raw_observations_path
+                )
                 expected_commitments = {
                     "screening_snapshot_union_inputs": dict(union.stage_commitment),
                     "owned_raw_artifacts": owned_raw_commitment,
+                    "owned_raw_observations": owned_raw_observations_commitment,
                 }
                 if existing[1].get("stage_commitments") != expected_commitments:
                     raise CycleAcquisitionStoreError(
@@ -17497,6 +17519,11 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                     terminal_status=TermTerminalStatus.EXHAUSTED,
                 )
                 owned_raw_records: list[JsonRecord] = []
+                owned_raw_observations: list[JsonRecord] = []
+                canonical_raw_commitments = {
+                    (artifact.candidate_id, artifact.sha256, artifact.byte_count)
+                    for artifact in union.canonical_raw_artifacts
+                }
                 for artifact in union.raw_artifacts:
                     destination = (
                         owned_raw_dir
@@ -17520,20 +17547,36 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                             artifact.content,
                             validator=_validate_raw_docket_bytes,
                         )
-                    owned_raw_records.append(
-                        {
-                            "candidate_id": committed.candidate_id,
-                            "path": str(committed.path),
-                            "sha256": committed.sha256,
-                            "byte_count": committed.byte_count,
-                            "retrieved_at": committed.retrieved_at,
-                        }
-                    )
+                    if committed.retrieved_at != artifact.retrieved_at:
+                        raise CycleAcquisitionStoreError(
+                            "cycle store raw observation timestamp conflicts with "
+                            "the authenticated union source for "
+                            f"{artifact.candidate_id}: {artifact.sha256}"
+                        )
+                    raw_record: JsonRecord = {
+                        "candidate_id": committed.candidate_id,
+                        "path": str(committed.path),
+                        "sha256": committed.sha256,
+                        "byte_count": committed.byte_count,
+                        "retrieved_at": committed.retrieved_at,
+                    }
+                    owned_raw_observations.append(raw_record)
+                    if (
+                        committed.candidate_id,
+                        committed.sha256,
+                        committed.byte_count,
+                    ) in canonical_raw_commitments:
+                        owned_raw_records.append(raw_record)
                 _write_jsonl(owned_raw_manifest_path, owned_raw_records)
+                _write_jsonl(owned_raw_observations_path, owned_raw_observations)
                 owned_raw_commitment = _file_commitment(owned_raw_manifest_path)
+                owned_raw_observations_commitment = _file_commitment(
+                    owned_raw_observations_path
+                )
                 expected_commitments = {
                     "screening_snapshot_union_inputs": dict(union.stage_commitment),
                     "owned_raw_artifacts": owned_raw_commitment,
+                    "owned_raw_observations": owned_raw_observations_commitment,
                 }
                 for candidate in union.candidates:
                     _record_identical_or_new_observation(
@@ -17579,7 +17622,8 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
             "provider_access_requested": False,
             "paid_activity_requested": False,
             "output_commitments": {
-                "owned_raw_artifacts": _file_commitment(owned_raw_manifest_path)
+                "owned_raw_artifacts": _file_commitment(owned_raw_manifest_path),
+                "owned_raw_observations": _file_commitment(owned_raw_observations_path),
             },
             **union_provisional_flags,
         }
@@ -17592,6 +17636,7 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
                 snapshot_path,
                 owned_raw_dir,
                 owned_raw_manifest_path,
+                owned_raw_observations_path,
                 summary_path,
             ),
             record_count=cast(int, snapshot_summary["accepted_count"]),
@@ -17622,8 +17667,43 @@ def _cmd_acquisition_union_screening_snapshots(args: argparse.Namespace) -> int:
     return 0
 
 
-def _owned_raw_records_from_snapshot(snapshot_path: Path) -> list[JsonRecord]:
-    """Regenerate the auxiliary owned-raw manifest from immutable snapshot rows."""
+def _owned_raw_records_from_snapshot(
+    snapshot_path: Path,
+    *,
+    canonical_artifacts: Sequence[UnionRawArtifact] | None = None,
+) -> list[JsonRecord]:
+    """Regenerate the canonical packet projection from archived snapshot rows."""
+
+    all_records = _all_owned_raw_records_from_snapshot(snapshot_path)
+    canonical_commitments = (
+        {
+            (artifact.candidate_id, artifact.sha256, artifact.byte_count)
+            for artifact in canonical_artifacts
+        }
+        if canonical_artifacts is not None
+        else _snapshot_canonical_raw_commitments(
+            snapshot_path, archived_records=all_records
+        )
+    )
+    if canonical_commitments is None:
+        return all_records
+    records: list[JsonRecord] = []
+    for normalized in all_records:
+        if (
+            normalized["candidate_id"],
+            normalized["sha256"],
+            normalized["byte_count"],
+        ) in canonical_commitments:
+            records.append(normalized)
+    if len(records) != len(canonical_commitments):
+        raise CycleAcquisitionStoreError(
+            "snapshot does not contain the committed canonical raw projection"
+        )
+    return records
+
+
+def _all_owned_raw_records_from_snapshot(snapshot_path: Path) -> list[JsonRecord]:
+    """Regenerate every archived union raw-observation manifest row."""
 
     records: list[JsonRecord] = []
     for record in _read_records(snapshot_path / "raw-artifacts.jsonl"):
@@ -17642,6 +17722,148 @@ def _owned_raw_records_from_snapshot(snapshot_path: Path) -> list[JsonRecord]:
             }
         )
     return records
+
+
+def _snapshot_canonical_raw_commitments(
+    snapshot_path: Path,
+    *,
+    archived_records: Sequence[Mapping[str, object]],
+) -> set[tuple[str, str, int]] | None:
+    manifest = _read_json_object(snapshot_path / "manifest.json")
+    stage_commitments = manifest.get("stage_commitments")
+    if not isinstance(stage_commitments, Mapping):
+        return None
+    union_inputs = cast(Mapping[str, object], stage_commitments).get(
+        "screening_snapshot_union_inputs"
+    )
+    if not isinstance(union_inputs, Mapping):
+        return None
+    typed_union_inputs = cast(Mapping[str, object], union_inputs)
+    if typed_union_inputs.get("canonical_raw_selection_policy") != (
+        "excluded_earliest_authenticated_utc_sha_v1"
+    ):
+        raise CycleAcquisitionStoreError(
+            "screening snapshot union lacks the supported canonical raw policy"
+        )
+    raw_mapping = typed_union_inputs.get("canonical_raw_artifacts")
+    if not isinstance(raw_mapping, list):
+        raise CycleAcquisitionStoreError(
+            "screening snapshot union lacks its canonical raw mapping"
+        )
+    commitments: set[tuple[str, str, int]] = set()
+    candidate_ids: set[str] = set()
+    provided_mapping: dict[str, tuple[str, int, str]] = {}
+    for index, value in enumerate(cast(list[object], raw_mapping), start=1):
+        if not isinstance(value, Mapping):
+            raise CycleAcquisitionStoreError(
+                f"canonical raw mapping row {index} is not an object"
+            )
+        record = cast(Mapping[str, object], value)
+        byte_count = record.get("byte_count")
+        if not isinstance(byte_count, int) or isinstance(byte_count, bool):
+            raise CycleAcquisitionStoreError(
+                f"canonical raw mapping row {index} has an invalid byte count"
+            )
+        candidate_id = _required_str(record, "candidate_id")
+        if candidate_id in candidate_ids:
+            raise CycleAcquisitionStoreError(
+                f"canonical raw mapping row {index} duplicates candidate {candidate_id}"
+            )
+        candidate_ids.add(candidate_id)
+        retrieved_at = _required_str(record, "retrieved_at")
+        _canonical_raw_retrieved_at(retrieved_at, candidate_id=candidate_id)
+        commitment = (
+            candidate_id,
+            _required_str(record, "sha256"),
+            byte_count,
+        )
+        if commitment in commitments:
+            raise CycleAcquisitionStoreError(
+                f"canonical raw mapping row {index} is duplicated"
+            )
+        commitments.add(commitment)
+        provided_mapping[candidate_id] = (
+            commitment[1],
+            commitment[2],
+            retrieved_at,
+        )
+    expected_count = typed_union_inputs.get("canonical_raw_artifact_count")
+    if expected_count != len(commitments):
+        raise CycleAcquisitionStoreError(
+            "canonical raw mapping count does not match its union commitment"
+        )
+    candidates = {
+        _required_str(record, "candidate_id"): _required_str(record, "state")
+        for record in _read_records(snapshot_path / "candidates.jsonl")
+    }
+    archived_by_candidate: dict[str, list[Mapping[str, object]]] = defaultdict(list)
+    for record in archived_records:
+        archived_by_candidate[_required_str(record, "candidate_id")].append(record)
+    expected_mapping: dict[str, tuple[str, int, str]] = {}
+    for candidate_id, versions in archived_by_candidate.items():
+        state = candidates.get(candidate_id)
+        if state is None:
+            raise CycleAcquisitionStoreError(
+                f"archived raw observation lacks candidate state: {candidate_id}"
+            )
+        ordered = sorted(
+            versions,
+            key=lambda record: (
+                _canonical_raw_retrieved_at(
+                    _required_str(record, "retrieved_at"),
+                    candidate_id=candidate_id,
+                ),
+                _required_str(record, "sha256"),
+            ),
+        )
+        for earlier, later in pairwise(ordered):
+            if _canonical_raw_retrieved_at(
+                _required_str(earlier, "retrieved_at"), candidate_id=candidate_id
+            ) == _canonical_raw_retrieved_at(
+                _required_str(later, "retrieved_at"), candidate_id=candidate_id
+            ):
+                raise CycleAcquisitionStoreError(
+                    "archived raw observations have an ambiguous equal retrieval "
+                    f"timestamp for {candidate_id}"
+                )
+        if len(ordered) > 1 and state != "excluded":
+            raise CycleAcquisitionStoreError(
+                "active candidate has multiple archived raw observations: "
+                f"{candidate_id}"
+            )
+        canonical = ordered[0]
+        canonical_byte_count = canonical.get("byte_count")
+        if not isinstance(canonical_byte_count, int) or isinstance(
+            canonical_byte_count, bool
+        ):
+            raise CycleAcquisitionStoreError(
+                f"archived raw observation byte count is invalid for {candidate_id}"
+            )
+        expected_mapping[candidate_id] = (
+            _required_str(canonical, "sha256"),
+            canonical_byte_count,
+            _required_str(canonical, "retrieved_at"),
+        )
+    if provided_mapping != expected_mapping:
+        raise CycleAcquisitionStoreError(
+            "canonical raw mapping is missing, extra, or does not select the earliest "
+            "authenticated observation"
+        )
+    return commitments
+
+
+def _canonical_raw_retrieved_at(value: str, *, candidate_id: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise CycleAcquisitionStoreError(
+            f"raw artifact retrieved_at is invalid for {candidate_id}"
+        ) from error
+    if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+        raise CycleAcquisitionStoreError(
+            f"raw artifact retrieved_at must be UTC for {candidate_id}"
+        )
+    return parsed.astimezone(UTC)
 
 
 def _cmd_acquisition_plan_public_downloads(args: argparse.Namespace) -> int:

@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import stat
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from itertools import pairwise
 from pathlib import Path
 from typing import Any, cast
 
@@ -39,6 +42,7 @@ class UnionRawArtifact:
 class ScreeningSnapshotUnion:
     candidates: tuple[UnionCandidate, ...]
     raw_artifacts: tuple[UnionRawArtifact, ...]
+    canonical_raw_artifacts: tuple[UnionRawArtifact, ...]
     stage_commitment: Mapping[str, Any]
 
 
@@ -83,6 +87,18 @@ def load_screening_snapshot_union(
             )
         _read_regular_file(snapshot / "candidates.jsonl", "source candidates")
         _preflight_raw_paths(snapshot / "raw-artifacts.jsonl")
+        source_candidates = _candidate_records(snapshot / "candidates.jsonl")
+        source_raw = _raw_records(snapshot / "raw-artifacts.jsonl")
+        source_candidate_ids = {
+            candidate.candidate_id for candidate in source_candidates
+        }
+        source_raw_candidate_ids = {artifact.candidate_id for artifact in source_raw}
+        if not source_raw_candidate_ids <= source_candidate_ids:
+            orphan_ids = sorted(source_raw_candidate_ids - source_candidate_ids)
+            raise ScreeningSnapshotUnionError(
+                "source snapshot raw artifacts lack source-local candidate owners: "
+                + ", ".join(orphan_ids)
+            )
         manifest = verify_snapshot(
             snapshot,
             expected_cycle_hash=expected_cycle_hash,
@@ -127,15 +143,17 @@ def load_screening_snapshot_union(
                 "batch_digest": batch_digest,
             }
         )
-        source_candidates = _candidate_records(snapshot / "candidates.jsonl")
-        source_raw = _raw_records(snapshot / "raw-artifacts.jsonl")
         source_raw_sets: dict[str, set[tuple[str, int]]] = {}
         for artifact in source_raw:
             source_raw_sets.setdefault(artifact.candidate_id, set()).add(
                 (artifact.sha256, artifact.byte_count)
             )
             key = (artifact.candidate_id, artifact.sha256, artifact.byte_count)
-            raw_by_commitment.setdefault(key, artifact)
+            prior_artifact = raw_by_commitment.get(key)
+            if prior_artifact is None or _retrieved_at(artifact) < _retrieved_at(
+                prior_artifact
+            ):
+                raw_by_commitment[key] = artifact
         for candidate in source_candidates:
             commitment = _canonical_json(
                 {
@@ -152,20 +170,42 @@ def load_screening_snapshot_union(
                 )
             raw_set = source_raw_sets.get(candidate.candidate_id, set())
             prior_raw_set = raw_sets_by_candidate.get(candidate.candidate_id)
-            if prior_raw_set is not None and prior_raw_set != raw_set:
+            if (
+                prior_raw_set is not None
+                and candidate.state != "excluded"
+                and prior_raw_set != raw_set
+            ):
                 raise ScreeningSnapshotUnionError(
-                    "duplicate candidate has non-identical raw-artifact commitments: "
+                    "active candidate has non-identical raw-artifact commitments: "
                     f"{candidate.candidate_id}"
                 )
             candidate_commitments[candidate.candidate_id] = commitment
             candidate_by_id.setdefault(candidate.candidate_id, candidate)
             raw_sets_by_candidate.setdefault(candidate.candidate_id, raw_set)
+    raw_artifacts = tuple(raw_by_commitment[key] for key in sorted(raw_by_commitment))
+    canonical_raw_artifacts = _canonical_raw_observations(
+        raw_artifacts, candidates=candidate_by_id
+    )
     stage_commitment = {
         "schema_version": "legalforecast.screening_snapshot_union_inputs.v1",
         "expected_cycle_hash": expected_cycle_hash,
         "source_count": len(source_commitments),
         "sources": source_commitments,
         "candidate_count": len(candidate_by_id),
+        "raw_artifact_count": len(raw_by_commitment),
+        "canonical_raw_artifact_count": len(canonical_raw_artifacts),
+        "canonical_raw_selection_policy": (
+            "excluded_earliest_authenticated_utc_sha_v1"
+        ),
+        "canonical_raw_artifacts": [
+            {
+                "candidate_id": artifact.candidate_id,
+                "sha256": artifact.sha256,
+                "byte_count": artifact.byte_count,
+                "retrieved_at": artifact.retrieved_at,
+            }
+            for artifact in canonical_raw_artifacts
+        ],
     }
     if provisional_union:
         stage_commitment.update(
@@ -177,9 +217,8 @@ def load_screening_snapshot_union(
         )
     return ScreeningSnapshotUnion(
         candidates=tuple(candidate_by_id[key] for key in sorted(candidate_by_id)),
-        raw_artifacts=tuple(
-            raw_by_commitment[key] for key in sorted(raw_by_commitment)
-        ),
+        raw_artifacts=raw_artifacts,
+        canonical_raw_artifacts=canonical_raw_artifacts,
         stage_commitment=stage_commitment,
     )
 
@@ -248,6 +287,11 @@ def _raw_records(path: Path) -> tuple[UnionRawArtifact, ...]:
             raise ScreeningSnapshotUnionError(
                 f"raw artifact commitment mismatch for {candidate_id}"
             )
+        _validate_raw_artifact_ownership(
+            candidate_id=candidate_id,
+            raw_path=raw_path,
+            sha256=digest,
+        )
         artifacts.append(
             UnionRawArtifact(
                 candidate_id=candidate_id,
@@ -262,6 +306,76 @@ def _raw_records(path: Path) -> tuple[UnionRawArtifact, ...]:
             )
         )
     return tuple(artifacts)
+
+
+def _validate_raw_artifact_ownership(
+    *, candidate_id: str, raw_path: Path, sha256: str
+) -> None:
+    """Bind direct and union-owned docket HTML paths to their candidate."""
+
+    direct_stems = {candidate_id}
+    namespaced = re.fullmatch(
+        r"courtlistener-docket-(?P<docket_id>[0-9]+)", candidate_id
+    )
+    if namespaced is not None:
+        direct_stems.add(namespaced.group("docket_id"))
+    direct_layout = raw_path.suffix == ".html" and raw_path.stem in direct_stems
+    union_layout = (
+        raw_path.name == f"{sha256}.html" and raw_path.parent.name == candidate_id
+    )
+    if not direct_layout and not union_layout:
+        raise ScreeningSnapshotUnionError(
+            "raw artifact candidate/path ownership mismatch for "
+            f"{candidate_id}: {raw_path}"
+        )
+
+
+def _canonical_raw_observations(
+    artifacts: Sequence[UnionRawArtifact],
+    *,
+    candidates: Mapping[str, UnionCandidate],
+) -> tuple[UnionRawArtifact, ...]:
+    by_candidate: dict[str, list[UnionRawArtifact]] = {}
+    for artifact in artifacts:
+        by_candidate.setdefault(artifact.candidate_id, []).append(artifact)
+    canonical: list[UnionRawArtifact] = []
+    for candidate_id in sorted(by_candidate):
+        versions = sorted(
+            by_candidate[candidate_id],
+            key=lambda artifact: (_retrieved_at(artifact), artifact.sha256),
+        )
+        candidate = candidates.get(candidate_id)
+        if candidate is None:
+            raise ScreeningSnapshotUnionError(
+                f"raw artifact has no terminal candidate owner: {candidate_id}"
+            )
+        for earlier, later in pairwise(versions):
+            if _retrieved_at(earlier) == _retrieved_at(later):
+                raise ScreeningSnapshotUnionError(
+                    "distinct raw observations have an ambiguous equal retrieval "
+                    f"timestamp for {candidate_id}"
+                )
+        if len(versions) > 1 and candidate.state != "excluded":
+            raise ScreeningSnapshotUnionError(
+                "active candidate has non-identical raw-artifact commitments: "
+                f"{candidate_id}"
+            )
+        canonical.append(versions[0])
+    return tuple(canonical)
+
+
+def _retrieved_at(artifact: UnionRawArtifact) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(artifact.retrieved_at.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise ScreeningSnapshotUnionError(
+            f"raw artifact retrieved_at is invalid for {artifact.candidate_id}"
+        ) from error
+    if parsed.tzinfo is None or parsed.utcoffset() != UTC.utcoffset(parsed):
+        raise ScreeningSnapshotUnionError(
+            f"raw artifact retrieved_at must be UTC for {artifact.candidate_id}"
+        )
+    return parsed
 
 
 def _jsonl(path: Path) -> list[Mapping[str, Any]]:
