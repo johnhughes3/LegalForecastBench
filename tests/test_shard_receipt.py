@@ -353,6 +353,86 @@ def test_receipt_write_rejects_tampered_receipt_content(tmp_path: Path) -> None:
         shard_receipt_module.write_receipt_once(str(tmp_path / "receipts"), receipt)
 
 
+def test_strict_receipt_verifier_reconstructs_frozen_cells(tmp_path: Path) -> None:
+    receipt = shard_receipt_module.build_shard_receipt(
+        provenance=_provenance(),
+        manifest=_manifest(),
+        completions=(
+            _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
+            _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
+        ),
+        frozen_manifest_sha256="6" * 64,
+        labels_sha256="7" * 64,
+        model_registry_sha256="8" * 64,
+    )
+
+    verified = shard_receipt_module.verify_shard_receipt(
+        receipt,
+        manifest=_manifest(),
+        repeat_policy={"case_ids": ["case-1"], "count": 3},
+        expected_identity=_receipt_identity(),
+        expected_shard=("fixture:model-a", "full_packet"),
+        actual_receipt_key=str(receipt["receipt_key"]),
+    )
+
+    assert verified == receipt
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    (
+        ("unknown_top_level", "receipt fields mismatch"),
+        ("wrong_key", "actual receipt key"),
+        ("wrong_frozen_identity", "labels_sha256 does not match"),
+        ("wrong_expected_count", "expected_cell_count"),
+        ("wrong_global_commitment", "result commitment"),
+        ("wrong_adoption_state", "receipt_adoption_state"),
+    ),
+)
+def test_strict_receipt_verifier_rejects_rehashed_invalid_receipt(
+    tmp_path: Path,
+    mutation: str,
+    message: str,
+) -> None:
+    receipt = shard_receipt_module.build_shard_receipt(
+        provenance=_provenance(),
+        manifest=_manifest(),
+        completions=(
+            _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh"),
+            _completion(tmp_path, case_id="case-2", repeat_count=1, origin="fresh"),
+        ),
+        frozen_manifest_sha256="6" * 64,
+        labels_sha256="7" * 64,
+        model_registry_sha256="8" * 64,
+    )
+    actual_key = str(receipt["receipt_key"])
+    if mutation == "unknown_top_level":
+        receipt["unexpected"] = True
+    elif mutation == "wrong_key":
+        actual_key = "shard-receipts/cycle-1/not-the-receipt.json"
+    elif mutation == "wrong_frozen_identity":
+        receipt["labels_sha256"] = "0" * 64
+    elif mutation == "wrong_expected_count":
+        receipt["expected_cell_count"] = 1
+    elif mutation == "wrong_global_commitment":
+        receipt["result_commitment_sha256"] = "0" * 64
+    elif mutation == "wrong_adoption_state":
+        receipt["cells"][0]["receipt_adoption_state"] = "adopted_prior_attempt"
+    receipt_without_hash = dict(receipt)
+    receipt_without_hash.pop("receipt_sha256")
+    receipt["receipt_sha256"] = hash_payload(receipt_without_hash)
+
+    with pytest.raises(shard_receipt_module.ShardReceiptError, match=message):
+        shard_receipt_module.verify_shard_receipt(
+            receipt,
+            manifest=_manifest(),
+            repeat_policy={"case_ids": ["case-1"], "count": 3},
+            expected_identity=_receipt_identity(),
+            expected_shard=("fixture:model-a", "full_packet"),
+            actual_receipt_key=actual_key,
+        )
+
+
 def test_completion_rejects_null_s3_version(tmp_path: Path) -> None:
     completion = _completion(tmp_path, case_id="case-1", repeat_count=3, origin="fresh")
     completion["objects"][0]["version_id"] = "null"
@@ -466,6 +546,20 @@ def _provenance() -> dict[str, object]:
             "ablation": "full_packet",
         },
         "dispatches": [{"workflow_run_id": "1001", "workflow_run_attempt": 1}],
+    }
+
+
+def _receipt_identity() -> dict[str, str]:
+    return {
+        "freeze_bundle_sha256": "1" * 64,
+        "execution_policy_sha256": "2" * 64,
+        "execution_policy_artifact_sha256": "9" * 64,
+        "repeat_policy_sha256": hash_payload({"case_ids": ["case-1"], "count": 3}),
+        "attempt_policy_sha256": "3" * 64,
+        "receipt_policy_sha256": "4" * 64,
+        "frozen_manifest_sha256": "6" * 64,
+        "labels_sha256": "7" * 64,
+        "model_registry_sha256": "8" * 64,
     }
 
 
