@@ -65,6 +65,10 @@ The execution policy is generated at freeze. Its `policy` object contains exactl
 
 The shard receipt binds those identity fields to the current fan-in workflow attempt. On GitHub's re-run-failed-jobs path, a receipt may adopt a verified successful cell from an earlier attempt in the same workflow run. Each receipt cell therefore preserves `producer_workflow_run_attempt` and records `receipt_adoption_state` as either `current_attempt` or `adopted_prior_attempt`; the producer attempt must be positive and no later than the receipt attempt. When more than one artifact exists for a cell, fan-in selects the highest valid producer attempt and rejects conflicting artifacts tied at that attempt.
 
+The receipt keeps two distinct manifest commitments. `frozen_manifest_sha256` is the cycle/candidate manifest hash from the freeze bundle and is part of the cadence lineage. `run_input_manifest_sha256` hashes the exact labels-bound run-input manifest whose `model_packets` reconstruct the receipt's expected cells. Conflating these artifacts would either make real shard finalization fail or leave the executed cell matrix uncommitted.
+
+When reruns produce multiple immutable receipts for a shard, selection is governed by the standalone [accepted-attempt map](accepted-attempt-map-v1.md). That artifact is linked to, but does not mutate, the parent freeze.
+
 `attempt_policy` contains exactly `reservation_ledger_sha256` (the lowercase SHA-256 commitment) and `max_billable_attempts` (a positive integer).
 
 `repeat_policy` contains exactly `case_ids` (unique non-empty identifiers, sorted canonically) and `count` (the independent positive number of provider calls for each selected case). The number of selected cases and the per-case repeat count are intentionally independent: N selected cases at count M represent N x M calls, while every unselected case runs once. Before fan-out, every frozen repeat case must have a packet in every requested ablation; a missing case-ablation pair fails closed instead of silently reducing the precommitted repeat sample.

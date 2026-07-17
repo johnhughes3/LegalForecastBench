@@ -1,6 +1,6 @@
 # Official Run Runbook
 
-This is the operator checklist for `.github/workflows/run-benchmark.yaml` on the current `main` branch. The workflow builds the matrix, runs isolated provider cells, resumes complete matching cells from the durable S3 result store, aggregates successful artifacts, and publishes the public aggregate to S3.
+This is the operator checklist for `.github/workflows/run-benchmark.yaml` and the provider-free `.github/workflows/fan-in-publish.yaml` on the current `main` branch. Shard dispatches run isolated provider cells and finalize one immutable receipt per workflow attempt. Fan-in selects accepted receipts, reads only their exact committed S3 versions, derives cadence counts from frozen artifacts, delegates Cartesian completeness to `official_aggregate`, and publishes only the verified public directory.
 
 ## Acquisition Downstream Preflight
 
@@ -382,42 +382,44 @@ Provision the protected GitHub environment `legalforecastbench-official-eval`, p
 
 ## Dispatch Sequence
 
-Dispatch `Run Benchmark` from `main` with the frozen `cycle_id`, `run_input_manifest_uri`, `labels_uri`, `model_registry_uri`, `model_keys`, and intended comma-separated `ablations`. Keep `resume_existing_results: true`.
+Dispatch `Run Benchmark` from `main` with the frozen `cycle_id`, `run_input_manifest_uri`, `labels_uri`, `model_registry_uri`, and exactly one declared model-key/ablation shard. Set `shard_only: true` and keep `resume_existing_results: true`.
 
-1. Run with `dry_run: true`, the full intended matrix, and an explicit spend cap. This validates inputs, hashes, model eligibility, projected cost, and matrix coverage without provider calls.
-2. Run a bounded live smoke by using a temporary frozen manifest containing the intended smoke cases. Do not edit a manifest after freezing it; create and commit a new freeze commitment for changed bytes.
-3. Run the full live matrix only after the dry run and smoke pass.
-4. For transient cell failures, use GitHub's re-run-failed-jobs action. A full redispatch is also safe: complete matching durable cells are reused and are not sent to the provider again.
+1. Run each declared shard with `dry_run: true` and an explicit spend cap. This validates the frozen schedule, hashes, model eligibility, projected cost, and exact shard identity without provider calls.
+2. Run the bounded smoke under its dedicated smoke freeze and prefix. Complete it with `Fan In Official Shards` in `verify_only: true` mode; verification-only may accept the smoke cycle because its entry point has no canonical publication code path.
+3. Dispatch every official shard only after the dry run and smoke pass. The frozen execution policy declares the exact shard schedule.
+4. For transient cell failures, use GitHub's re-run-failed-jobs action. The finalizer writes a new immutable per-attempt receipt and may adopt verified successful cells from an earlier attempt in the same workflow run.
+5. Do not use the legacy non-shard aggregate path for an official sharded cycle. Cross-run fan-in is a separate provider-free workflow and must not rerun the matrix.
 
 The resume identity includes the case, ablation, packet hash, solver/model identity, registry content, and repeat count. Current results bind to the canonical per-model registry-entry hash, so an unchanged model can resume across a registry amendment. Pre-amendment durable metrics that lack that field instead validate against the exact whole-registry hash recorded by their freeze in the provenance chain; supply that historical registry when recovering those cells. An unknown or mismatched registry hash fails closed rather than re-evaluating and overwriting durable outputs. Failed cells do not become canonical score rows. Preserve failed logs for audit.
 
 ## Aggregation
 
-On a successful live matrix, the workflow downloads all per-case artifacts, independently re-verifies the frozen manifest and labels hashes, runs the same official aggregation implementation exposed by the local CLI, uploads the aggregate artifact, and synchronizes the public directory to:
+After every declared shard has a receipt, dispatch `Fan In Official Shards` at the exact 40-character trusted release SHA and provide one accepted shard's `source_dispatch_run_id`. The workflow downloads that run's immutable `official-dispatch-provenance-<run_id>` artifact and uses its exact frozen run-input manifest, labels, and model registry bytes. Strict receipt and freeze verification proves their hashes and requires the source run to match at least one accepted receipt. Fan-in auto-selects singleton shards and refuses any multi-receipt shard until a committed [accepted-attempt map](schemas/accepted-attempt-map-v1.md) selects exactly one receipt for each ambiguity. It verifies that the current union contains no uncommitted or stale object, fetches each accepted object by its exact S3 `VersionId`, verifies its size and SHA-256, and materializes only those bytes for `official_aggregate`.
+
+For an amended freeze, keep every ancestor `*.freeze.json` bundle committed under `manifests/`. Fan-in supplies those committed bundles as the verification chain before it accepts the current amended bundle.
+
+Leave `clean_motion_count` and `prediction_unit_count` empty unless using them as assertions. Fan-in derives the authoritative counts from the frozen included manifest, finalized units, and run-input case set; a supplied mismatch fails closed. Publishing additionally requires a non-smoke identifier with frozen `cycle_series: official`, stable receipt and current union-VersionId inventories from verification through the canonical write, an empty canonical destination prefix, and any accepted-attempt map to match a tracked `manifests/` file in the release checkout.
+
+The publishing entry point synchronizes only the verified public directory to:
 
 ```text
 s3://$LFB_RESULTS_BUCKET/reports/<cycle_id>/multi-ablation/
 ```
 
-For a local audit or recovery aggregation, use:
+For a credential-free local verification over fixture receipts and a local result store, use the nonpublishing entry point:
 
 ```bash
-uv run legalforecast publish aggregate \
-  --per-case-dir tmp/official-downloads/<cycle_id> \
+uv run python -m legalforecast.publication.shard_fan_in \
+  --verify-only \
+  --freeze-bundle manifests/<cycle_id>.freeze.json \
+  --amendment-bundle manifests/<cycle_id>.ancestor.freeze.json \
   --run-input-manifest manifests/<cycle_id>.run-inputs.json \
-  --model-registry manifests/<cycle_id>.model-registry.json \
-  --labels private/labels/<cycle_id>.labels.jsonl \
-  --output-dir tmp/official-aggregate/<cycle_id> \
-  --cycle-id <cycle_id> \
-  --cycle-series <pilot|rapid|official|annual_aggregate> \
-  --clean-motion-count <count> \
-  --prediction-unit-count <count> \
-  --model-key provider:model-a \
-  --model-key provider:model-b \
-  --allow-no-baselines
+  --receipt-root tmp/result-store \
+  --output-dir tmp/fan-in-verification/<cycle_id> \
+  --accepted-attempt-map manifests/<cycle_id>.accepted-attempts.json
 ```
 
-Replace `--allow-no-baselines` with `--baseline-training-examples <frozen-corpus.jsonl>` once a compatible historical baseline corpus exists. Omit `--ablation` for the headline multi-ablation aggregation so the `full_packet` and `metadata_only` companion check remains active.
+Omit `--amendment-bundle` for an unamended root freeze and repeat it for every required ancestor of an amended freeze. Omit `--accepted-attempt-map` when every declared shard has exactly one receipt. Verification-only writes only `fan-in-report.json` to the requested output directory; its temporary materialized union, private debug output, and aggregate bundle are destroyed after aggregate validation. The report records the complete accepted map when present, every accepted receipt, the discovered inventory hash, frozen artifact hashes, derived counts, verified union commitment, and aggregate completeness facts.
 
 ## Add Models To A Frozen Cycle
 

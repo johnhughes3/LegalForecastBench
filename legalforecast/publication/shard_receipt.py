@@ -469,14 +469,23 @@ def verify_committed_objects(receipt: Mapping[str, Any]) -> None:
             seen.add(identity)
             seen_uris.add(identity[0])
             payload = _read_exact_object(commitment)
-            if len(payload) != _positive_int(commitment, "size_bytes", minimum=0):
-                raise ShardReceiptError("result object size commitment mismatch")
-            if hashlib.sha256(payload).hexdigest() != _required_sha256(
-                commitment, "sha256"
-            ):
-                raise ShardReceiptError("result object content commitment mismatch")
-            if _required_str(commitment, "name") == "metrics":
-                _verify_metrics_identity(payload, cell)
+            verify_committed_payload(commitment, cell=cell, payload=payload)
+
+
+def verify_committed_payload(
+    commitment: Mapping[str, Any],
+    *,
+    cell: Mapping[str, Any],
+    payload: bytes,
+) -> None:
+    """Verify bytes fetched by exact object version against one receipt cell."""
+
+    if len(payload) != _positive_int(commitment, "size_bytes", minimum=0):
+        raise ShardReceiptError("result object size commitment mismatch")
+    if hashlib.sha256(payload).hexdigest() != _required_sha256(commitment, "sha256"):
+        raise ShardReceiptError("result object content commitment mismatch")
+    if _required_str(commitment, "name") == "metrics":
+        _verify_metrics_identity(payload, cell)
 
 
 def write_receipt_once(root: str, receipt: Mapping[str, Any]) -> str:
