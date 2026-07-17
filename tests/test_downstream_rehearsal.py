@@ -632,6 +632,46 @@ def test_fixture_finalizer_rehashes_every_committed_stage_output(
     assert "output commitment changed" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize("field", ("artifact_byte_count", "record_count"))
+def test_fixture_finalizer_rejects_false_sidecar_counts_after_recommitment(
+    tmp_path: Path,
+    authenticated_downstream_fixture: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    field: str,
+) -> None:
+    monkeypatch.setattr(urllib.request, "urlopen", _reject_network)
+    fixture = _write_exact_cohort_fixture(
+        tmp_path,
+        count=1,
+        authenticated_downstream_fixture=authenticated_downstream_fixture,
+    )
+    assert main(_rehearsal_command(fixture, target_count=1)) == 0
+    rehearsal_root = fixture["output_root"]
+    artifact = rehearsal_root / "rehearsal-packet-audit.jsonl"
+    sidecar_path = Path(str(artifact) + ".fixture-artifact.json")
+    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    sidecar[field] = int(sidecar[field]) + 1
+    _write_json(sidecar_path, sidecar)
+    _recommit_fixture_metadata_output(
+        rehearsal_root,
+        metadata_path=sidecar_path,
+        stage="rehearsal-build-packets",
+    )
+
+    assert (
+        main(
+            _finalize_rehearsal_command(
+                fixture,
+                target_count=1,
+                output_root=tmp_path / f"false-{field}-finalize",
+            )
+        )
+        == 2
+    )
+    assert "invalid fixture artifact sidecar" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("mutation", ("delete", "symlink"))
 def test_fixture_finalizer_rejects_missing_or_symlinked_committed_output(
     tmp_path: Path,
@@ -978,8 +1018,46 @@ def _write_canonical_exact_100_chain(
     budget_plan = projection / "missing-core-budget-plan.json"
     purchase_policy_root = tmp_path / "canonical-purchase-policy"
     purchase_policy_root.mkdir()
-    purchase_policy, cohort_policy, purchase_ledger = helpers._purchase_policies(
-        purchase_policy_root
+    _, cohort_policy, purchase_ledger = helpers._purchase_policies(purchase_policy_root)
+    cohort = json.loads(cohort_policy.read_text(encoding="utf-8"))
+    purchase_decisions = purchase_policy_root / "purchase-policy-decisions.json"
+    _write_json(
+        purchase_decisions,
+        {
+            "cycle_id": "cycle-1",
+            "cohort_policy_sha256": cohort["policy_sha256"],
+            "canonical_ledger_path": str(purchase_ledger.resolve()),
+            "hard_cap_usd": "2250.00",
+            "opening_committed_spend_usd": "0.00",
+            "opening_case_committed_spend_usd": {},
+            "max_per_case_usd": "73.20",
+            "per_document_reservation_usd": "3.05",
+            "fee_schedule": {
+                "source_citation": (
+                    "https://www.courtlistener.com/help/coverage/recap/"
+                ),
+                "verified_at_utc": "2026-07-14T00:00:00Z",
+                "includes_pacer_fees": True,
+                "includes_service_fees": True,
+                "includes_rounding": True,
+            },
+        },
+    )
+    purchase_policy = purchase_policy_root / "purchase-policy-cli.json"
+    assert (
+        main(
+            [
+                "acquisition",
+                "generate-purchase-policy",
+                "--decisions",
+                str(purchase_decisions),
+                "--output",
+                str(purchase_policy),
+                "--cohort-policy",
+                str(cohort_policy),
+            ]
+        )
+        == 0
     )
     broker_policy = tmp_path / "canonical-recap-fetch-broker-policy.json"
     assert (
@@ -2049,6 +2127,34 @@ def _recommit_fixture_stage_output(
     _write_json(summary_path, summary)
     run_card_path = rehearsal_root / "run-cards/rehearse-downstream.json"
     run_card = json.loads(run_card_path.read_text())
+    run_card["summary_sha256"] = _sha256_path(summary_path)
+    _write_json(run_card_path, run_card)
+
+
+def _recommit_fixture_metadata_output(
+    rehearsal_root: Path,
+    *,
+    metadata_path: Path,
+    stage: str,
+) -> None:
+    stage_card_path = rehearsal_root / "run-cards" / f"{stage}.json"
+    stage_card = json.loads(stage_card_path.read_text(encoding="utf-8"))
+    stage_card["output_commitments"][str(metadata_path.resolve())] = _sha256_path(
+        metadata_path
+    )
+    _write_json(stage_card_path, stage_card)
+
+    summary_path = rehearsal_root / "rehearsal-final-summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    summary["output_commitments"][str(metadata_path.resolve())] = _sha256_path(
+        metadata_path
+    )
+    summary["output_commitments"][str(stage_card_path.resolve())] = _sha256_path(
+        stage_card_path
+    )
+    _write_json(summary_path, summary)
+    run_card_path = rehearsal_root / "run-cards/rehearse-downstream.json"
+    run_card = json.loads(run_card_path.read_text(encoding="utf-8"))
     run_card["summary_sha256"] = _sha256_path(summary_path)
     _write_json(run_card_path, run_card)
 

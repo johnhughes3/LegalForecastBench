@@ -29302,9 +29302,10 @@ def _cmd_acquisition_finalize_rehearsal(args: argparse.Namespace) -> int:
             raise CommandError(
                 f"fixture rehearsal input commitment changed: {raw_path}"
             )
-    selection_commitment = cast(
-        Mapping[str, object], input_commitments.get(str(selection_path.resolve()))
-    )
+    raw_selection_commitment = input_commitments.get(str(selection_path.resolve()))
+    if not isinstance(raw_selection_commitment, Mapping):
+        raise CommandError("fixture rehearsal selection commitment is missing")
+    selection_commitment = cast(Mapping[str, object], raw_selection_commitment)
     if selection_commitment.get("sha256") != _path_sha256(selection_path):
         raise CommandError("fixture rehearsal selection commitment changed")
 
@@ -29371,12 +29372,24 @@ def _cmd_acquisition_finalize_rehearsal(args: argparse.Namespace) -> int:
             )
         for artifact_path in primary_paths:
             sidecar = _read_json_object(sidecars[artifact_path])
+            if artifact_path.suffix == ".jsonl":
+                actual_record_count = len(_read_records(artifact_path))
+            elif artifact_path.suffix == ".json":
+                _read_json_object(artifact_path)
+                actual_record_count = 1
+            else:
+                raise CommandError(
+                    f"unsupported fixture artifact type: {artifact_path}"
+                )
             if (
                 sidecar.get("schema_version")
                 != "legalforecast.fixture_artifact_manifest.v1"
                 or sidecar.get("stage") != expected_stage
                 or sidecar.get("artifact_path") != str(artifact_path.resolve())
                 or sidecar.get("artifact_sha256") != _path_sha256(artifact_path)
+                or sidecar.get("artifact_byte_count")
+                != artifact_path.stat(follow_symlinks=False).st_size
+                or sidecar.get("record_count") != actual_record_count
                 or any(
                     sidecar.get(key) != value
                     for key, value in expected_fixture_authority.items()
